@@ -289,17 +289,6 @@ async fn openrouter_key_is_trimmed_for_validation_and_catalog_probe() {
 }
 
 #[test]
-fn factory_backend() {
-    assert!(create_backend_inference_provider(
-        None,
-        None,
-        None,
-        &ProviderRuntimeOptions::default()
-    )
-    .is_ok());
-}
-
-#[test]
 fn skips_sentry_report_for_transient_upstream_statuses() {
     // Transient statuses — 429 rate-limit, 408 client timeout, and 502/503/504
     // gateway-layer failures — are retried by reliable.rs. The aggregate

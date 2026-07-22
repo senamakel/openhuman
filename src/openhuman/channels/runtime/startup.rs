@@ -47,12 +47,10 @@ use tokio::sync::mpsc;
 /// `chat_provider` routing and unconditionally build a cloud chain, so
 /// Telegram (and other channels) never honored a user's local-Ollama /
 /// BYOK selection. `resolve_chat_workload` inspects the resolved chat
-/// workload string and chooses between preserving the legacy
-/// `create_intelligent_routing_provider` chain (Cloud) and dispatching
-/// to the unified workload factory (Workload).
+/// workload string and chooses between the managed-cloud selection (Cloud)
+/// and dispatching to the unified workload factory (Workload).
 pub(super) enum ChatWorkloadResolution {
-    /// Preserve the existing cloud chain (`ReliableProvider` +
-    /// `IntelligentRoutingProvider`) and `config.default_model`.
+    /// Preserve the managed-cloud selection and `config.default_model`.
     Cloud,
     /// Build the channel provider via `create_chat_provider("chat", config)`.
     Workload {

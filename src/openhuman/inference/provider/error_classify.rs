@@ -3,8 +3,7 @@
 //! Extracted from `reliable.rs` (issue #4249, Workstream 02.2) so the
 //! transient-vs-permanent classifiers, Retry-After parsing, and failure
 //! formatting have a home independent of the `ReliableProvider` retry
-//! wrapper. These free functions carry no state — `ReliableProvider` still
-//! uses them directly, and external callers that run their own retry loop over a
+//! wrapper. These free functions carry no state; callers that run their own retry loop over a
 //! provider call (`tinyagents::model`, `memory_tree::score::extract::llm`,
 //! `agent::triage::evaluator`) classify failures against the same source of
 //! truth through this module.

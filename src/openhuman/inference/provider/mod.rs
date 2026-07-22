@@ -23,9 +23,7 @@ pub mod openhuman_backend;
 /// Crate-native managed OpenHuman backend as a host `ChatModel` (issue #4727).
 pub mod openhuman_backend_model;
 pub mod ops;
-pub mod reliable;
 pub mod resolved_route;
-pub mod router;
 pub mod schemas;
 pub mod temperature;
 pub mod thread_context;

@@ -35,7 +35,6 @@ use openhuman_core::openhuman::inference::provider::compatible::{
 use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string,
 };
-use openhuman_core::openhuman::inference::provider::reliable::ReliableProvider;
 use openhuman_core::openhuman::inference::provider::traits::{
     StreamChunk, StreamError, StreamOptions, StreamResult,
 };
@@ -389,128 +388,7 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
             .is_some_and(|auth| auth.contains("sk-legacy-direct"))));
 }
 
-#[tokio::test]
-async fn reliable_provider_covers_chat_tools_streaming_and_context_bail_edges() {
-    let _env = env_lock();
-    let calls = Arc::new(AtomicUsize::new(0));
-    let provider = ReliableProvider::new(
-        vec![(
-            "primary".to_string(),
-            Box::new(Round22Provider {
-                calls: Arc::clone(&calls),
-                mode: Round22Mode::FailsThenSucceeds,
-            }) as Box<dyn Provider>,
-        )],
-        1,
-        50,
-    );
-    let response = provider
-        .chat(
-            ChatRequest {
-                messages: &[ChatMessage::user("retry me")],
-                tools: None,
-                stream: None,
-                max_tokens: None,
-            },
-            "retry-model",
-            0.2,
-        )
-        .await
-        .expect("chat retry");
-    assert_eq!(response.text.as_deref(), Some("chat recovered"));
-    assert_eq!(calls.load(Ordering::SeqCst), 2);
-
-    let tool_provider = ReliableProvider::new(
-        vec![(
-            "tools".to_string(),
-            Box::new(Round22Provider {
-                calls: Arc::new(AtomicUsize::new(0)),
-                mode: Round22Mode::ToolsOk,
-            }) as Box<dyn Provider>,
-        )],
-        0,
-        50,
-    );
-    let tools = tool_provider
-        .chat_with_tools(&[ChatMessage::user("tool")], &[], "tool-model", 0.0)
-        .await
-        .expect("tools");
-    assert!(tools.has_tool_calls());
-    assert_eq!(tools.tool_calls[0].name, "round22_tool");
-
-    let context_provider = ReliableProvider::new(
-        vec![(
-            "context".to_string(),
-            Box::new(Round22Provider {
-                calls: Arc::new(AtomicUsize::new(0)),
-                mode: Round22Mode::ContextExceeded,
-            }) as Box<dyn Provider>,
-        )],
-        2,
-        50,
-    );
-    let context_err = context_provider
-        .chat_with_history(&[ChatMessage::user("too long")], "tiny-context", 0.0)
-        .await
-        .expect_err("context is non-retryable bail");
-    assert!(context_err
-        .to_string()
-        .contains("Request exceeds model context window"));
-
-    let disabled_stream = tool_provider
-        .stream_chat_with_system(
-            None,
-            "disabled",
-            "stream-model",
-            0.0,
-            StreamOptions::new(false),
-        )
-        .collect::<Vec<_>>()
-        .await;
-    assert!(matches!(
-        &disabled_stream[0],
-        Err(StreamError::Provider(message)) if message == "Streaming disabled"
-    ));
-
-    let streaming = ReliableProvider::new(
-        vec![
-            (
-                "bad-stream".to_string(),
-                Box::new(Round22Provider {
-                    calls: Arc::new(AtomicUsize::new(0)),
-                    mode: Round22Mode::StreamNonRetryable,
-                }) as Box<dyn Provider>,
-            ),
-            (
-                "good-stream".to_string(),
-                Box::new(Round22Provider {
-                    calls: Arc::new(AtomicUsize::new(0)),
-                    mode: Round22Mode::StreamOk,
-                }) as Box<dyn Provider>,
-            ),
-        ],
-        0,
-        50,
-    );
-    let chunks = streaming
-        .stream_chat_with_system(
-            None,
-            "stream",
-            "stream-model",
-            0.0,
-            StreamOptions::new(true),
-        )
-        .collect::<Vec<_>>()
-        .await;
-    assert!(chunks
-        .iter()
-        .any(|chunk| chunk.as_ref().is_ok_and(|c| c.delta == "stream ok")));
-    assert!(chunks
-        .iter()
-        .any(|chunk| chunk.as_ref().is_ok_and(|c| c.is_final)));
-}
-
-#[tokio::test]
+ #[tokio::test]
 async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_fake_bins() {
     let _env = env_lock();
     let (base, _state) = serve_mock().await;

@@ -35,8 +35,7 @@ use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
 };
 use openhuman_core::openhuman::inference::provider::{
-    create_resilient_provider, create_routed_provider, list_configured_models, ChatMessage,
-    ChatRequest, Provider, ProviderDelta,
+    list_configured_models, ChatMessage, ChatRequest, Provider, ProviderDelta,
 };
 use openhuman_core::openhuman::tools::ToolSpec;
 
@@ -583,22 +582,6 @@ async fn factory_leftovers_cover_routes_byok_fail_closed_local_and_cloud_edges()
     ));
     assert!(byok_err.to_string().contains("BYOK_INCOMPLETE"));
 
-    let _fallback = create_resilient_provider(
-        Some(&format!("{base}/custom/v1")),
-        config.api_url.as_deref(),
-        Some("sk-direct"),
-        &config.reliability,
-    )
-    .expect("resilient custom provider");
-    let _routed = create_routed_provider(
-        None,
-        config.api_url.as_deref(),
-        None,
-        &config.reliability,
-        &config.model_routes,
-        "reasoning-v1",
-    )
-    .expect("routed provider without routes");
 }
 
 #[tokio::test]

@@ -1,9 +1,7 @@
-use serde_json::json;
-use std::collections::HashSet;
-
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;
 use crate::openhuman::profiles::{AgentProfile, DEFAULT_PROFILE_ID};
+use serde_json::json;
 
 use super::types::SessionCacheFingerprint;
 
@@ -109,19 +107,6 @@ pub(super) fn build_session_agent(
 
     agent_result
         .map(|mut agent| {
-            if let Some(allowed_tools) = profile
-                .allowed_tools
-                .as_ref()
-                .filter(|tools| !tools.is_empty())
-            {
-                agent.set_visible_tool_names(
-                    allowed_tools
-                        .iter()
-                        .map(|tool| tool.trim().to_string())
-                        .filter(|tool| !tool.is_empty())
-                        .collect::<HashSet<_>>(),
-                );
-            }
             agent.set_event_context(
                 json!({"client_id": client_id, "thread_id": thread_id}).to_string(),
                 "web_channel",

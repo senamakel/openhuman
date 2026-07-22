@@ -274,6 +274,35 @@ async fn build_session_agent_carries_active_profile_id_when_profile_present() {
 }
 
 #[tokio::test]
+async fn profile_allowed_tools_restrict_shared_session_builder() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = "alice".to_string();
+    profile.built_in = false;
+    profile.allowed_tools = Some(vec!["file_read".to_string()]);
+
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        None,
+        None,
+        None,
+        false,
+        Some(&profile),
+    )
+    .expect("build profile-scoped session");
+
+    assert_eq!(
+        agent.visible_tool_names_for_test(),
+        &["file_read".to_string()].into_iter().collect(),
+        "every profile-aware caller must inherit the same tool restriction"
+    );
+}
+
+#[tokio::test]
 async fn dedicated_memory_profile_scopes_tree_and_transcript_storage() {
     use crate::openhuman::agent::harness::session::types::Agent;
 

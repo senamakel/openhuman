@@ -115,6 +115,38 @@ async fn existing_profile_agent_build_failure_does_not_fall_back_profile_less() 
     assert!(error.to_string().contains("removed-agent-definition"));
 }
 
+#[tokio::test]
+async fn attributed_cron_build_retains_profile_gates() {
+    crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins()
+        .expect("init built-in agent definitions");
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = "alice".into();
+    profile.built_in = false;
+    profile.allowed_tools = Some(vec!["file_read".into()]);
+    profile.memory_sources = Some(vec!["slack:#eng".into()]);
+    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+        .upsert(profile)
+        .expect("seed profile");
+
+    let mut job = test_job("");
+    job.job_type = JobType::Agent;
+    job.profile_id = Some("alice".into());
+    let built = build_agent_for_cron_job(&config, &job).expect("build attributed cron agent");
+
+    assert_eq!(
+        built.agent.visible_tool_names_for_test(),
+        &["file_read".to_string()].into_iter().collect()
+    );
+    assert_eq!(
+        built.profile.and_then(|profile| profile.memory_sources),
+        Some(vec!["slack:#eng".to_string()]),
+        "the run wrapper must retain the resolved profile for memory scoping"
+    );
+}
+
 #[test]
 fn agent_failure_copy_mentions_retry_reporting_and_discord() {
     assert!(AGENT_JOB_USER_FAILURE_MESSAGE.contains("Something went wrong. Please try again."));
@@ -921,8 +953,8 @@ async fn cron_agent_job_uses_agent_definition_tool_scope() {
     job.name = Some("morning_briefing".into());
     job.agent_id = Some("morning_briefing".into());
 
-    let agent = build_agent_for_cron_job(&config, &job).expect("build cron agent");
-    let visible = agent.visible_tool_names_for_test();
+    let built = build_agent_for_cron_job(&config, &job).expect("build cron agent");
+    let visible = built.agent.visible_tool_names_for_test();
 
     assert!(
         !visible.is_empty(),

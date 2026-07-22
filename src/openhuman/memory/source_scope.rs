@@ -10,8 +10,8 @@
 //! Semantics:
 //! - `None` scope (outside any [`with_source_scope`], or `with_source_scope(None, …)`)
 //!   means **unrestricted** — every source tree is visible. This is the default
-//!   for cron, sub-agents, the CLI, and any profile that left `memory_sources`
-//!   unset.
+//!   for profile-less cron, sub-agents, the CLI, and any profile that left
+//!   `memory_sources` unset.
 //! - `Some(set)` restricts recall to source trees whose `scope` string is in the
 //!   set. An empty set surfaces nothing (the profile selected no sources).
 //!

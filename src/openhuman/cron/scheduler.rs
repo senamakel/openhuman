@@ -911,7 +911,7 @@ async fn run_agent_job(config: &Config, job: &CronJob) -> (bool, String, Option<
                 "[cron] building isolated agent for scheduled job"
             );
             match build_agent_for_cron_job(&effective, job) {
-                Ok(mut agent) => {
+                Ok(BuiltCronAgent { mut agent, profile }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
@@ -927,9 +927,12 @@ async fn run_agent_job(config: &Config, job: &CronJob) -> (bool, String, Option<
                             source:
                                 crate::openhuman::agent::turn_origin::TrustedAutomationSource::Cron,
                         };
-                    let turn = crate::openhuman::agent::turn_origin::with_origin(
-                        origin,
-                        agent.run_single(&prefixed_prompt),
+                    let turn = crate::openhuman::memory::source_scope::with_source_scope(
+                        profile.and_then(|profile| profile.memory_sources),
+                        crate::openhuman::agent::turn_origin::with_origin(
+                            origin,
+                            agent.run_single(&prefixed_prompt),
+                        ),
                     );
                     // Morning briefing only: install a 24h task-recency window
                     // so Composio task-fetch tools (Linear/ClickUp/Notion/Asana)
@@ -1047,7 +1050,12 @@ fn resolve_cron_profile(
     }
 }
 
-fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Agent> {
+struct BuiltCronAgent {
+    agent: Agent,
+    profile: Option<crate::openhuman::profiles::AgentProfile>,
+}
+
+fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<BuiltCronAgent> {
     // 2b — profile attribution. When the job names a profile that still exists,
     // build the run under it via the SAME profile-aware session path the task
     // dispatcher uses (`from_config_for_agent_with_profile`), so the run inherits
@@ -1061,7 +1069,7 @@ fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Ag
             .agent_id
             .clone()
             .unwrap_or_else(|| profile.agent_id.clone());
-        return Agent::from_config_for_agent_with_profile(
+        let agent = Agent::from_config_for_agent_with_profile(
             config,
             &agent_id,
             None,
@@ -1083,6 +1091,10 @@ fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Ag
                 profile.id,
                 agent_id
             )
+        })?;
+        return Ok(BuiltCronAgent {
+            agent,
+            profile: Some(profile),
         });
     }
 
@@ -1094,7 +1106,10 @@ fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Ag
                     agent_id = %agent_id,
                     "[cron] built scheduled job agent from definition"
                 );
-                Ok(agent)
+                Ok(BuiltCronAgent {
+                    agent,
+                    profile: None,
+                })
             }
             Err(e) => {
                 tracing::warn!(
@@ -1103,11 +1118,17 @@ fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Ag
                     error = %e,
                     "[cron] failed to build agent from definition; falling back to generic agent"
                 );
-                Agent::from_config(config)
+                Agent::from_config(config).map(|agent| BuiltCronAgent {
+                    agent,
+                    profile: None,
+                })
             }
         }
     } else {
-        Agent::from_config(config)
+        Agent::from_config(config).map(|agent| BuiltCronAgent {
+            agent,
+            profile: None,
+        })
     }
 }
 

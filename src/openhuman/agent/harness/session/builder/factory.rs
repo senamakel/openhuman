@@ -1001,6 +1001,35 @@ impl Agent {
             }
         }
 
+        // Profile tool selection is a restriction on the resolved agent
+        // definition, never a replacement for it. Apply it here at the shared
+        // session-builder seam so web chat, cron, tasks, and delegated profile
+        // runs all enforce the same callable surface. The web wrapper used to
+        // replace this set after construction, which both missed background
+        // runs and could broaden a named agent definition.
+        if let Some(allowed_tools) = profile
+            .and_then(|profile| profile.allowed_tools.as_ref())
+            .filter(|tools| !tools.is_empty())
+        {
+            let profile_visible: std::collections::HashSet<&str> = allowed_tools
+                .iter()
+                .map(|tool| tool.trim())
+                .filter(|tool| !tool.is_empty())
+                .collect();
+            if visible.is_empty() {
+                visible = profile_visible.into_iter().map(str::to_string).collect();
+            } else {
+                visible.retain(|tool| profile_visible.contains(tool.as_str()));
+                // Empty is the Agent's historical "all tools" sentinel. A
+                // disjoint profile/definition intersection must instead stay
+                // non-empty with an unregistered name so it advertises and
+                // permits zero tools rather than accidentally broadening.
+                if visible.is_empty() {
+                    visible.insert("__profile_no_tools__".to_string());
+                }
+            }
+        }
+
         // Phase 4 (#566): add the MemoryAccessSection bias instruction only
         // when at least one retrieval tool is actually loaded AND survives
         // filtering. We require both because:

@@ -239,7 +239,7 @@ impl Tool for ShellTool {
         match args.get("timeout_secs").and_then(|v| v.as_u64()) {
             // `0` (or absent) means "no deadline".
             None | Some(0) => ToolTimeout::Unbounded,
-            Some(secs) => ToolTimeout::Secs(secs),
+            Some(secs) => ToolTimeout::Millis(secs.saturating_mul(1_000)),
         }
     }
 
@@ -1292,7 +1292,7 @@ mod tests {
         // An explicit in-range request is enforced verbatim.
         assert_eq!(
             tool.timeout_policy(&json!({"command": "make", "timeout_secs": 1800})),
-            ToolTimeout::Secs(1800)
+            ToolTimeout::Millis(1_800_000)
         );
         assert_eq!(
             tool.explicit_timeout(Some(1800)),

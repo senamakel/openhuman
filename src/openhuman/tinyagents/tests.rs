@@ -12,6 +12,11 @@ use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider,
 use crate::openhuman::tools::{Tool, ToolResult};
 
 #[test]
+fn run_policy_installs_shared_tool_timeout_settings() {
+    assert!(run_policy_for(10, false).tool_timeouts.is_some());
+}
+
+#[test]
 fn crate_native_turn_source_does_not_retain_host_provider() {
     let source = TurnModelSource::new_crate_native(
         "chat",

@@ -133,7 +133,7 @@ pipeline over results. Pass a `session_id` to continue a prior cell's bindings; 
             crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS,
         )
         .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
-        ToolTimeout::Secs(secs)
+        ToolTimeout::Millis(secs.saturating_mul(1_000))
     }
 
     fn display_label(&self, _args: &Value) -> Option<String> {
@@ -206,16 +206,16 @@ mod tests {
         let tool = RhaiTool::new();
         assert_eq!(
             tool.timeout_policy(&json!({})),
-            ToolTimeout::Secs(DEFAULT_RHAI_TIMEOUT_SECS)
+            ToolTimeout::Millis(DEFAULT_RHAI_TIMEOUT_SECS * 1_000)
         );
         assert_eq!(
             tool.timeout_policy(&json!({ "timeout_secs": 42 })),
-            ToolTimeout::Secs(42)
+            ToolTimeout::Millis(42_000)
         );
         // Out-of-range requests are clamped, never unbounded.
         assert_eq!(
             tool.timeout_policy(&json!({ "timeout_secs": 100000 })),
-            ToolTimeout::Secs(3600)
+            ToolTimeout::Millis(3_600_000)
         );
     }
 

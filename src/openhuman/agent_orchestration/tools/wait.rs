@@ -189,7 +189,11 @@ fn wait_schema(loop_mode: bool) -> serde_json::Value {
 fn timeout_policy_for_wait(args: &serde_json::Value) -> ToolTimeout {
     let duration_ms = duration_ms_from_args(args).unwrap_or(DEFAULT_DURATION_SECS * MILLIS_PER_SEC);
     let rounded_secs = duration_ms.saturating_add(MILLIS_PER_SEC - 1) / MILLIS_PER_SEC;
-    ToolTimeout::Secs(rounded_secs.saturating_add(1))
+    ToolTimeout::Millis(
+        rounded_secs
+            .saturating_add(1)
+            .saturating_mul(MILLIS_PER_SEC),
+    )
 }
 
 /// Extract and clamp the caller's requested wait duration in milliseconds.

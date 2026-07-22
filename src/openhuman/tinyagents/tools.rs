@@ -107,6 +107,10 @@ impl Tool<()> for ToolAdapter {
         tool_policy_from_openhuman_tool(self.inner.as_ref())
     }
 
+    fn timeout_policy(&self, call: &TaToolCall) -> TaToolTimeout {
+        self.inner.timeout_policy(&call.arguments)
+    }
+
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
         Ok(execute_openhuman_tool(self.inner.as_ref(), call, None).await)
     }
@@ -124,7 +128,6 @@ impl Tool<()> for ToolAdapter {
 pub(crate) fn tool_policy_from_openhuman_tool(
     tool: &dyn crate::openhuman::tools::Tool,
 ) -> ToolPolicy {
-    use crate::openhuman::tools::traits::ToolTimeout;
     use crate::openhuman::tools::PermissionLevel;
 
     let permission = tool.permission_level();
@@ -133,11 +136,6 @@ pub(crate) fn tool_policy_from_openhuman_tool(
         permission,
         PermissionLevel::None | PermissionLevel::ReadOnly
     ) && !external_effect;
-
-    let timeout_ms = match tool.timeout_policy(&serde_json::Value::Null) {
-        ToolTimeout::Secs(seconds) => Some(seconds.saturating_mul(1000)),
-        ToolTimeout::Inherit | ToolTimeout::Unbounded => None,
-    };
 
     ToolPolicy::classified()
         .with_side_effects(ToolSideEffects {
@@ -153,11 +151,8 @@ pub(crate) fn tool_policy_from_openhuman_tool(
             payment: false,
         })
         .with_runtime(ToolRuntime {
-            timeout_ms,
-            // tinyagents 1.7 added a structured timeout field alongside the
-            // numeric timeout_ms. Inherit the run/global policy and keep the
-            // numeric timeout_ms above as the only per-tool deadline signal.
-            timeout: TaToolTimeout::Inherit,
+            timeout_ms: None,
+            timeout: tool.timeout_policy(&serde_json::Value::Null),
             max_retries: None,
             idempotent: tool.is_concurrency_safe(&serde_json::Value::Null),
             cancelable: true,
@@ -224,8 +219,8 @@ pub(crate) async fn execute_openhuman_tool(
     // Execute through the session tool semantics the live path used
     // (`agent_tool_exec`): `execute_with_context` (so markdown-capable tools
     // render markdown and context-aware tools can see TinyAgents run metadata)
-    // under the tool's resolved timeout deadline. Without the deadline an
-    // inherited/long-running tool call could hang the turn indefinitely.
+    // under the crate harness's resolved timeout policy. The harness owns the
+    // deadline wrapper; this adapter only performs the host execution.
     // Per-call `ToolPolicy`/permission gating needs the session policy context,
     // which the per-tool adapter does not carry; approval covers external
     // effects, and `RunPolicy::unknown_tool` recovers unregistered tool names
@@ -233,43 +228,9 @@ pub(crate) async fn execute_openhuman_tool(
     let options = crate::openhuman::tools::ToolCallOptions {
         prefer_markdown: true,
     };
-    let (deadline, timeout_secs) =
-        crate::openhuman::tool_timeout::resolve_tool_deadline(tool.timeout_policy(&call.arguments));
-    let exec = tool.execute_with_context(call.arguments.clone(), options, context);
-    let outcome = match deadline {
-        Some(d) => match tokio::time::timeout(d, exec).await {
-            Ok(r) => r,
-            Err(_) => {
-                let elapsed_ms = started.elapsed().as_millis() as u64;
-                tracing::warn!(
-                    tool = %call.name,
-                    timeout_secs,
-                    elapsed_ms,
-                    "[tinyagents] tool timed out"
-                );
-                crate::core::event_bus::publish_global(
-                    crate::core::event_bus::DomainEvent::ToolExecutionCompleted {
-                        tool_name: tool_name.clone(),
-                        session_id: TINYAGENTS_TOOL_SESSION.to_string(),
-                        success: false,
-                        elapsed_ms,
-                    },
-                );
-                return TaToolResult {
-                    call_id: call.id,
-                    name: call.name.clone(),
-                    content: format!(
-                        "Error: tool '{}' timed out after {timeout_secs}s",
-                        call.name
-                    ),
-                    raw: None,
-                    error: Some(format!("tool '{}' timed out", call.name)),
-                    elapsed_ms,
-                };
-            }
-        },
-        None => exec.await,
-    };
+    let outcome = tool
+        .execute_with_context(call.arguments.clone(), options, context)
+        .await;
     let elapsed_ms = started.elapsed().as_millis() as u64;
     let result = match outcome {
         Ok(result) => {
@@ -378,6 +339,15 @@ impl Tool<()> for SharedToolAdapter {
         self.policy.clone()
     }
 
+    fn timeout_policy(&self, call: &TaToolCall) -> TaToolTimeout {
+        self.sets
+            .iter()
+            .flat_map(|set| set.iter())
+            .find(|tool| tool.name() == self.name)
+            .map(|tool| tool.timeout_policy(&call.arguments))
+            .unwrap_or(TaToolTimeout::Inherit)
+    }
+
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
         self.call_openhuman_tool(call, None).await
     }
@@ -437,8 +407,8 @@ mod tests {
     use crate::openhuman::tools::traits::ToolTimeout;
     use crate::openhuman::tools::ToolResult as OhToolResult;
 
-    /// A tool whose `execute_with_options` sleeps forever but declares a short
-    /// per-call timeout, so the adapter's deadline must fire.
+    /// A tool that declares a short per-call timeout, proving the adapter
+    /// forwards the crate-native policy to the harness runtime.
     struct HangingTool;
 
     #[async_trait]
@@ -457,7 +427,7 @@ mod tests {
             Ok(OhToolResult::success("never"))
         }
         fn timeout_policy(&self, _args: &serde_json::Value) -> ToolTimeout {
-            ToolTimeout::Secs(1)
+            ToolTimeout::Millis(1_000)
         }
     }
 
@@ -490,19 +460,11 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn tool_execution_respects_the_per_call_timeout() {
-        let result =
-            execute_openhuman_tool(&HangingTool, call("hang", serde_json::json!({})), None).await;
-        assert!(
-            result
-                .error
-                .as_deref()
-                .is_some_and(|e| e.contains("timed out")),
-            "a hanging tool must surface a timeout error, got {:?}",
-            result.error
-        );
-        assert!(result.content.contains("timed out"));
+    #[test]
+    fn adapter_forwards_the_per_call_timeout() {
+        let adapter = ToolAdapter::new(Arc::new(HangingTool));
+        let call = call("hang", serde_json::json!({}));
+        assert_eq!(adapter.timeout_policy(&call), ToolTimeout::Millis(1_000));
     }
 
     #[tokio::test]

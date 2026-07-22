@@ -5,6 +5,7 @@ use crate::openhuman::agent::tool_policy::GeneratedToolRuntimeContext;
 
 // Re-export the unified ToolResult from the lightweight skills types module so all tools use one type.
 pub use crate::openhuman::skills::types::{ToolContent, ToolResult};
+pub use tinyagents::harness::tool::ToolTimeout;
 
 /// Controls where a tool is available.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,25 +112,6 @@ pub struct ToolCallOptions {
     /// Tools should populate `ToolResult::markdown_formatted` when
     /// this is set; the harness will pick that field up if present.
     pub prefer_markdown: bool,
-}
-
-/// How the harness should bound a single tool invocation in wall-clock time.
-///
-/// Returned by [`Tool::timeout_policy`]. Separates the common "use the global
-/// timeout" case from the scripting-tool cases ("no deadline" / "this exact
-/// deadline") so the harness can hard-kill genuinely hang-prone tools while
-/// letting a long-but-legitimate script run to completion.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ToolTimeout {
-    /// Use the global, operator/config-driven tool timeout. Default for most
-    /// tools (network, MCP, etc.) — a hung call must not wedge the session.
-    Inherit,
-    /// Run without any harness-imposed deadline. Scripting tools return this
-    /// when the caller did not request an explicit budget.
-    Unbounded,
-    /// Enforce exactly this many seconds. The harness clamps it to the valid
-    /// range (`MIN_TIMEOUT_SECS..=MAX_TIMEOUT_SECS`) defensively.
-    Secs(u64),
 }
 
 /// Description of a tool for the LLM
@@ -443,7 +425,7 @@ pub trait Tool: Send + Sync {
     /// `node_exec`, `npm_exec`) instead return [`ToolTimeout::Unbounded`] when
     /// the caller did not request a budget — a build / solver / test run
     /// legitimately takes minutes and must not be hard-killed by a default cap
-    /// (issue #4023) — and [`ToolTimeout::Secs`] only when an explicit
+    /// (issue #4023) — and [`ToolTimeout::Millis`] only when an explicit
     /// `timeout_secs` was supplied.
     ///
     /// Default: [`ToolTimeout::Inherit`] (use the global timeout).

@@ -177,6 +177,7 @@ fn parse_agent_turn_wall_clock_ms(env_value: Option<&str>) -> Option<u64> {
 
 fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPolicy {
     let mut policy = RunPolicy::default();
+    policy.tool_timeouts = Some(crate::openhuman::tool_timeout::settings());
     policy.limits.max_model_calls = max_iterations;
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;

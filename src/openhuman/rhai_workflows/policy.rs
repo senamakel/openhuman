@@ -17,7 +17,7 @@ use crate::openhuman::tool_timeout;
 use super::types::RhaiLimitsOverride;
 
 /// Default per-cell wall-clock timeout when the caller does not specify one.
-/// Matches the `rhai_workflows` tool's default `ToolTimeout::Secs(300)` so the inner
+/// Matches the `rhai_workflows` tool's default `ToolTimeout::Millis(300_000)` so the inner
 /// deadline and the harness backstop agree.
 pub const DEFAULT_RHAI_TIMEOUT_SECS: u64 = 300;
 

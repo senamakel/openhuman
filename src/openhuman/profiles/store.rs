@@ -148,6 +148,7 @@ impl AgentProfileStore {
     pub fn upsert(&self, profile: AgentProfile) -> Result<AgentProfilesState, String> {
         let mut state = self.load()?;
         let profile = normalise_profile(profile);
+        super::home::validate_profile_id(&profile.id)?;
         tracing::debug!(
             profile_id = %profile.id,
             agent_id = %profile.agent_id,
@@ -684,6 +685,24 @@ mod tests {
 
         let resolved = store.resolve(Some("custom-profile")).expect("resolve").1;
         assert_eq!(resolved.id, "custom-profile");
+    }
+
+    #[test]
+    fn upsert_rejects_profile_ids_longer_than_home_path_limit() {
+        let dir = tempdir().expect("tempdir");
+        let store = AgentProfileStore::new(dir.path().to_path_buf());
+        let profile = custom(&"a".repeat(65), "Overlong", "orchestrator");
+
+        let error = store
+            .upsert(profile)
+            .expect_err("overlong id must be rejected");
+        assert!(error.contains("too long"));
+        assert!(store
+            .load()
+            .expect("load")
+            .profiles
+            .iter()
+            .all(|profile| profile.name != "Overlong"));
     }
 
     #[test]

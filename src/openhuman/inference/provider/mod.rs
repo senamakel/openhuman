@@ -40,7 +40,6 @@ pub use error_code::{
     BackendErrorCode,
 };
 #[cfg(test)]
-pub(crate) use factory::chat_model_from_provider;
 pub(crate) use factory::is_raw_passthrough_model;
 pub use factory::{
     create_chat_model, create_chat_model_from_string, create_chat_model_from_string_with_model_id,

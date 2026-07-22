@@ -311,36 +311,6 @@ mod tests {
     use std::sync::Arc;
     use tempfile::TempDir;
 
-    struct MockProvider;
-    #[async_trait]
-    impl crate::openhuman::inference::provider::Provider for MockProvider {
-        async fn chat_with_system(
-            &self,
-            _: Option<&str>,
-            _: &str,
-            _: &str,
-            _: f64,
-        ) -> anyhow::Result<String> {
-            Ok("".into())
-        }
-        async fn chat(
-            &self,
-            _: crate::openhuman::inference::provider::ChatRequest<'_>,
-            _: &str,
-            _: f64,
-        ) -> anyhow::Result<crate::openhuman::inference::provider::ChatResponse> {
-            Ok(crate::openhuman::inference::provider::ChatResponse {
-                text: Some("done".into()),
-                tool_calls: vec![],
-                usage: None,
-                reasoning_content: None,
-            })
-        }
-        fn supports_native_tools(&self) -> bool {
-            true
-        }
-    }
-
     struct MockMemory;
     #[async_trait]
     impl crate::openhuman::memory::Memory for MockMemory {
@@ -397,6 +367,10 @@ mod tests {
     }
 
     fn test_parent_ctx(workspace_dir: PathBuf) -> ParentExecutionContext {
+        let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+            Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+                "done",
+            ]));
         ParentExecutionContext {
             workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
@@ -407,9 +381,7 @@ mod tests {
             model_name: "test".into(),
             temperature: 0.4,
             workspace_dir,
-            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-                MockProvider,
-            )),
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
             memory: Arc::new(MockMemory),
             channel: "test".into(),
             all_tools: Arc::new(vec![]),

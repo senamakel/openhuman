@@ -186,35 +186,6 @@ async fn rejects_two_tasks_outside_agent_turn() {
     assert!(result.output().contains("outside of an agent turn"));
 }
 
-struct NoopProvider;
-
-#[async_trait]
-impl Provider for NoopProvider {
-    async fn chat_with_system(
-        &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".into())
-    }
-
-    async fn chat(
-        &self,
-        _request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
-        Ok(ChatResponse {
-            text: Some("ok".into()),
-            tool_calls: Vec::new(),
-            usage: None,
-            reasoning_content: None,
-        })
-    }
-}
-
 struct NoopMemory;
 
 #[async_trait]
@@ -273,14 +244,15 @@ impl Memory for NoopMemory {
     }
 }
 
-fn parent_context_with_provider(
-    max_parallel_tools: usize,
-    provider: Arc<dyn Provider>,
-) -> ParentExecutionContext {
+fn parent_context(max_parallel_tools: usize) -> ParentExecutionContext {
     let agent_config = AgentConfig {
         max_parallel_tools,
         ..Default::default()
     };
+    let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+        Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+            "ok",
+        ]));
     ParentExecutionContext {
         workspace_descriptor: None,
         agent_definition_id: "orchestrator".into(),
@@ -291,7 +263,7 @@ fn parent_context_with_provider(
         ]
         .into_iter()
         .collect(),
-        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(provider),
+        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
         all_tools: Arc::new(Vec::new()),
         all_tool_specs: Arc::new(Vec::new()),
         visible_tool_names: std::collections::HashSet::new(),
@@ -311,10 +283,6 @@ fn parent_context_with_provider(
         on_progress: None,
         run_queue: None,
     }
-}
-
-fn parent_context(max_parallel_tools: usize) -> ParentExecutionContext {
-    parent_context_with_provider(max_parallel_tools, Arc::new(NoopProvider))
 }
 
 fn parent_context_with_tools(
@@ -367,6 +335,7 @@ fn definition_with_tool_scope(
 
 #[tokio::test]
 async fn rejects_more_tasks_than_parent_parallel_limit() {
+    let _ = AgentDefinitionRegistry::init_global_builtins();
     let tool = SpawnParallelAgentsTool::new();
     let parent = parent_context(2);
     let result = with_parent_context(parent, async {
@@ -382,7 +351,11 @@ async fn rejects_more_tasks_than_parent_parallel_limit() {
     .await
     .expect("tool result");
     assert!(result.is_error);
-    assert!(result.output().contains("max_parallel_tools"));
+    assert!(
+        result.output().contains("max_parallel_tools"),
+        "unexpected result: {}",
+        result.output()
+    );
 }
 
 #[tokio::test]

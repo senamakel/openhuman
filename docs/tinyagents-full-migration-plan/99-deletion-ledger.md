@@ -8,8 +8,9 @@ also name its upstream PR before the host copy is removed.
 
 | Work package | Host artifact | Preconditions / replacement | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| WP-1 | `inference/provider/router.rs` + tests | Crate `ModelRouter` owns live routing | PENDING | #4783 adopted the router; legacy provider consumers remain |
-| WP-1 | `inference/provider/reliable.rs` + tests | Crate retry/fallback owns every model call | PENDING | Retargeted provider wire-parity tests |
+| WP-1 | `inference/provider/router.rs` + tests | Crate `ModelRouter` owns live routing | DELETED | `fcd3f3331`; #4783 adopted the router; root `cargo check` green |
+| WP-1 | `inference/provider/reliable.rs` + tests | Crate retry/fallback owns every model call | DELETED | `fcd3f3331`; crate retry/fallback plus root `cargo check` green |
+| WP-1 | Legacy compatible raw-coverage trio | Wire parity retained against crate `OpenAiModel` | DELETED | `4750defb0`; all 14 `inference_provider_e2e` tests green |
 | WP-1 | `inference/provider/legacy_provider.rs` and `compatible` alias | Every OpenAI-compatible slug uses crate `OpenAiModel` | PENDING | #4780/#4782/#4784 client cutover; residual legacy callers must be removed |
 | WP-1 | `inference/provider/traits.rs` + tests | No `impl Provider`; consumers use crate model/message/usage types | PENDING | Consumer sweep + `inference_provider_e2e` and `agent_harness_e2e` |
 | WP-1 | `tinyagents/model.rs::ProviderModel` / `MaxTokensModel` | Tier and bespoke models are direct `ChatModel`s | PENDING | `rg ProviderModel src` empty |

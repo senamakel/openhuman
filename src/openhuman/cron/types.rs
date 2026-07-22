@@ -262,6 +262,30 @@ pub struct CronRun {
     pub duration_ms: Option<i64>,
 }
 
+/// Deserialize a nullable patch field with true double-option semantics:
+///
+/// | wire            | result        | meaning       |
+/// | --------------- | ------------- | ------------- |
+/// | key absent      | `None`        | no change     |
+/// | key present `null` | `Some(None)`  | clear the value |
+/// | key present value  | `Some(Some(v))` | set the value |
+///
+/// A plain `#[derive(Deserialize)]` on `Option<Option<T>>` collapses the absent
+/// and the `null` cases *both* to the outer `None`, so "clear over the wire"
+/// (`{"profile_id": null}`) silently deserializes as "no change" — a no-op. Used
+/// with `#[serde(default, deserialize_with = "deserialize_double_option")]`,
+/// this helper restores the distinction: serde only invokes it when the key is
+/// *present*, so a present `null` becomes `Some(None)` and a present value
+/// becomes `Some(Some(v))`, while an absent key falls back to the `default`
+/// (`None`).
+fn deserialize_double_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Some(Option::<T>::deserialize(deserializer)?))
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CronJobPatch {
     pub schedule: Option<Schedule>,
@@ -273,9 +297,15 @@ pub struct CronJobPatch {
     pub model: Option<String>,
     pub session_target: Option<SessionTarget>,
     pub delete_after_run: Option<bool>,
+    /// `Option<Option<String>>` distinguishes "no change" (`None`) from
+    /// "clear the agent definition" (`Some(None)`). See
+    /// [`deserialize_double_option`] for why the custom deserializer is required
+    /// to honor a wire `null` as a clear rather than a silent no-op.
+    #[serde(default, deserialize_with = "deserialize_double_option")]
     pub agent_id: Option<Option<String>>,
     /// `Option<Option<String>>` distinguishes "no change" (`None`) from
     /// "clear the profile" (`Some(None)`) — same shape as `agent_id`.
+    #[serde(default, deserialize_with = "deserialize_double_option")]
     pub profile_id: Option<Option<String>>,
 }
 
@@ -567,6 +597,41 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(set.profile_id, Some(Some("alice".to_string())));
+    }
+
+    #[test]
+    fn patch_profile_id_wire_double_option_semantics() {
+        // The RPC path deserializes CronJobPatch from JSON params — pin the three
+        // wire cases so a `null` clears rather than silently no-ops.
+        // absent key → no change.
+        let absent: CronJobPatch = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(absent.profile_id, None, "absent key means no change");
+        // present null → clear.
+        let cleared: CronJobPatch = serde_json::from_value(json!({ "profile_id": null })).unwrap();
+        assert_eq!(
+            cleared.profile_id,
+            Some(None),
+            "wire null must clear the attribution"
+        );
+        // present value → set.
+        let set: CronJobPatch = serde_json::from_value(json!({ "profile_id": "writer" })).unwrap();
+        assert_eq!(set.profile_id, Some(Some("writer".to_string())));
+    }
+
+    #[test]
+    fn patch_agent_id_wire_double_option_semantics() {
+        // Same fix applied consistently to `agent_id` (its doc + the struct-level
+        // clearing test already document the Some(None)=clear intent).
+        let absent: CronJobPatch = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(absent.agent_id, None, "absent key means no change");
+        let cleared: CronJobPatch = serde_json::from_value(json!({ "agent_id": null })).unwrap();
+        assert_eq!(
+            cleared.agent_id,
+            Some(None),
+            "wire null must clear the agent definition"
+        );
+        let set: CronJobPatch = serde_json::from_value(json!({ "agent_id": "welcome" })).unwrap();
+        assert_eq!(set.agent_id, Some(Some("welcome".to_string())));
     }
 
     #[test]

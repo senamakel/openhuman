@@ -7899,7 +7899,9 @@ async fn json_rpc_profiles_dedicated_memory_lifecycle() {
         .find(|p| p.get("id").and_then(Value::as_str) == Some("writer"))
         .expect("writer present in list");
     assert_eq!(
-        listed_writer.get("dedicatedMemory").and_then(Value::as_bool),
+        listed_writer
+            .get("dedicatedMemory")
+            .and_then(Value::as_bool),
         Some(true)
     );
     // The home was materialized on upsert, so SOUL.md exists and its path is
@@ -7969,11 +7971,45 @@ async fn json_rpc_profiles_dedicated_memory_lifecycle() {
     )
     .await;
     let cron_update_result = assert_no_jsonrpc_error(&cron_update, "cron_update");
-    let updated_job = cron_update_result.get("result").unwrap_or(cron_update_result);
+    let updated_job = cron_update_result
+        .get("result")
+        .unwrap_or(cron_update_result);
     assert_eq!(
         updated_job.get("profile_id").and_then(Value::as_str),
         Some("editor"),
         "cron_update must repoint profile_id: {cron_update_result}"
+    );
+
+    // cron_update with a wire `null` clears the attribution (double-option
+    // semantics — a plain `Option<Option<String>>` would silently no-op here).
+    let cron_clear = post_json_rpc(
+        &rpc_base,
+        67,
+        "openhuman.cron_update",
+        json!({ "job_id": job_id, "patch": { "profile_id": null } }),
+    )
+    .await;
+    let cron_clear_result = assert_no_jsonrpc_error(&cron_clear, "cron_update clear");
+    let cleared_job = cron_clear_result.get("result").unwrap_or(cron_clear_result);
+    assert!(
+        cleared_job.get("profile_id").is_none_or(Value::is_null),
+        "cron_update patch profile_id=null must clear the attribution: {cron_clear_result}"
+    );
+
+    // ...and cron_list confirms the attribution is gone.
+    let cron_list_after = post_json_rpc(&rpc_base, 68, "openhuman.cron_list", json!({})).await;
+    let cron_list_after_result = assert_no_jsonrpc_error(&cron_list_after, "cron_list after clear");
+    let jobs_after = cron_list_after_result
+        .get("result")
+        .and_then(Value::as_array)
+        .expect("cron_list jobs array");
+    let listed_after = jobs_after
+        .iter()
+        .find(|j| j.get("id").and_then(Value::as_str) == Some(job_id.as_str()))
+        .expect("job present in cron_list after clear");
+    assert!(
+        listed_after.get("profile_id").is_none_or(Value::is_null),
+        "cleared profile_id must not reappear in cron_list: {listed_after}"
     );
 
     // --- select then delete round-trips the active id ---
@@ -7987,7 +8023,9 @@ async fn json_rpc_profiles_dedicated_memory_lifecycle() {
     let select_result = assert_no_jsonrpc_error(&select, "profiles_select");
     let select_payload = select_result.get("result").unwrap_or(select_result);
     assert_eq!(
-        select_payload.get("activeProfileId").and_then(Value::as_str),
+        select_payload
+            .get("activeProfileId")
+            .and_then(Value::as_str),
         Some("writer")
     );
 
@@ -8001,7 +8039,9 @@ async fn json_rpc_profiles_dedicated_memory_lifecycle() {
     let delete_result = assert_no_jsonrpc_error(&delete, "profiles_delete");
     let delete_payload = delete_result.get("result").unwrap_or(delete_result);
     assert_eq!(
-        delete_payload.get("activeProfileId").and_then(Value::as_str),
+        delete_payload
+            .get("activeProfileId")
+            .and_then(Value::as_str),
         Some("default"),
         "deleting the active custom profile falls back to default"
     );

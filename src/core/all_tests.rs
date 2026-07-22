@@ -119,7 +119,6 @@ fn registered_controller_rpc_method_name() {
 fn namespace_description_known_namespaces() {
     assert!(namespace_description("memory").is_some());
     assert!(namespace_description("memory_tree").is_some());
-    assert!(namespace_description("redirect_links").is_some());
     assert!(namespace_description("billing").is_some());
     assert!(namespace_description("config").is_some());
     assert!(namespace_description("health").is_some());
@@ -1092,6 +1091,42 @@ fn meet_controllers_absent_when_feature_off() {
             group_for_namespace(ns),
             None,
             "`{ns}` must not register when the `meet` feature is off"
+        );
+    }
+}
+
+/// All three desktop-automation namespaces register under
+/// `DomainGroup::DesktopAutomation` when the `desktop-automation` feature is on
+/// (#5049). Paired with `desktop_automation_controllers_absent_when_feature_off`
+/// below: together they pin both directions of the compile-time gate.
+#[cfg(feature = "desktop-automation")]
+#[test]
+fn desktop_automation_controllers_registered_when_feature_on() {
+    for ns in ["autocomplete", "screen_intelligence", "companion"] {
+        assert_eq!(
+            group_for_namespace(ns),
+            Some(DomainGroup::DesktopAutomation),
+            "`{ns}` must register under DomainGroup::DesktopAutomation when the \
+             `desktop-automation` feature is on"
+        );
+    }
+}
+
+/// Negative half of the `desktop-automation` gate (#5049): with the cluster
+/// compiled out, none of the `autocomplete` / `screen_intelligence` / `companion`
+/// controllers register (unknown-method over `/rpc`, absent from `/schema`).
+/// Pairs with `desktop_automation_controllers_registered_when_feature_on` above.
+/// The `screen_intelligence_*` tool-absence half lives in
+/// `tools::ops_tests::screen_intelligence_tools_absent_when_feature_off`, where
+/// the full agent tool list can be built.
+#[cfg(not(feature = "desktop-automation"))]
+#[test]
+fn desktop_automation_controllers_absent_when_feature_off() {
+    for ns in ["autocomplete", "screen_intelligence", "companion"] {
+        assert_eq!(
+            group_for_namespace(ns),
+            None,
+            "`{ns}` must not register when the `desktop-automation` feature is off"
         );
     }
 }

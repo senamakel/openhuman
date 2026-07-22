@@ -160,6 +160,9 @@ pub struct DomainSet {
     /// future backing controller would stay live. Fold the media-generation
     /// controller into this group when it lands.
     pub media: bool,
+    /// Accessibility middleware, screen intelligence, inline autocomplete, the
+    /// desktop companion loop, and the `computer` agent-tool family.
+    pub desktop_automation: bool,
     /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
 }
@@ -182,6 +185,7 @@ impl DomainSet {
             web3: true,
             voice: true,
             media: true,
+            desktop_automation: true,
             platform: true,
         }
     }
@@ -204,6 +208,7 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
+            desktop_automation: false,
             platform: false,
         }
     }
@@ -224,6 +229,7 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
+            desktop_automation: false,
             platform: false,
         }
     }
@@ -244,6 +250,7 @@ impl DomainSet {
             DomainGroup::Web3 => self.web3,
             DomainGroup::Voice => self.voice,
             DomainGroup::Media => self.media,
+            DomainGroup::DesktopAutomation => self.desktop_automation,
             DomainGroup::Platform => self.platform,
         }
     }
@@ -594,6 +601,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::DesktopAutomation,
             DomainGroup::Platform,
         ] {
             assert!(full.allows(group), "full() must allow {group:?}");
@@ -620,6 +628,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::DesktopAutomation,
             DomainGroup::Platform,
         ] {
             assert!(!harness.allows(off), "harness() must NOT allow {off:?}");
@@ -641,6 +650,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::DesktopAutomation,
             DomainGroup::Platform,
         ] {
             assert!(!none.allows(group), "none() must NOT allow {group:?}");

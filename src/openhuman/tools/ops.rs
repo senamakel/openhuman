@@ -109,7 +109,7 @@ pub fn all_tools_with_runtime(
     // tool registrations below, so they are genuinely unread when that feature
     // is compiled out.
     #[cfg(not(feature = "skills"))]
-    let _ = (skill_allowlist, profile_skills_root);
+    let _ = (active_profile, skill_allowlist, profile_skills_root);
 
     // Build a session-scoped managed Node.js bootstrap once, so ShellTool,
     // NodeExecTool, and NpmExecTool all share the same memoised resolution

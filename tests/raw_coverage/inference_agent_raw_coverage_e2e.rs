@@ -129,12 +129,8 @@ use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
     BYOK_INCOMPLETE_SENTINEL,
 };
-use openhuman_core::openhuman::inference::provider::openhuman_backend::OpenHumanBackendProvider;
-use openhuman_core::openhuman::inference::temperature::{glob_match, temperature_for_model};
-use openhuman_core::openhuman::tinyagents::thread_context::{
-    current_thread_id, with_thread_id,
-};
 use openhuman_core::openhuman::inference::provider::traits::ProviderCapabilities;
+use openhuman_core::openhuman::inference::provider::OpenHumanBackendModel;
 use openhuman_core::openhuman::inference::provider::{
     format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
     is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
@@ -144,6 +140,7 @@ use openhuman_core::openhuman::inference::provider::{
     ProviderRuntimeOptions, ToolCall, ToolResultMessage, UsageInfo,
 };
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
+use openhuman_core::openhuman::inference::temperature::{glob_match, temperature_for_model};
 use openhuman_core::openhuman::inference::voice::cloud_transcribe::{
     transcribe_cloud, CloudTranscribeOptions,
 };
@@ -170,6 +167,7 @@ use openhuman_core::openhuman::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
 use openhuman_core::openhuman::security::SecurityPolicy;
+use openhuman_core::openhuman::tinyagents::thread_context::{current_thread_id, with_thread_id};
 use openhuman_core::openhuman::todos::ops::BoardLocation;
 use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::{Tool, ToolResult, ToolSpec};
@@ -2085,46 +2083,50 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
 
 #[tokio::test]
 async fn inference_openhuman_backend_provider_covers_authless_and_streaming_edges() {
-    use futures_util::StreamExt;
-    use openhuman_core::openhuman::inference::provider::traits::StreamOptions;
+    use tinyagents::harness::message::Message;
+    use tinyagents::harness::model::{ChatModel, ModelRequest};
 
     let state_dir = tempdir().expect("openhuman provider state");
-    let provider = OpenHumanBackendProvider::new(
+    let provider = OpenHumanBackendModel::new(
         Some(" https://api.example.test/ "),
         &ProviderRuntimeOptions {
             openhuman_dir: Some(state_dir.path().to_path_buf()),
             secrets_encrypt: false,
             ..ProviderRuntimeOptions::default()
         },
+        "reasoning-v1",
     );
-    assert!(provider.supports_native_tools());
-    assert!(provider.supports_vision());
-    assert!(!provider.supports_streaming());
+    let profile = provider.profile().expect("managed backend profile");
+    assert!(profile.tool_calling);
+    assert!(profile.modalities.image_in);
+    assert!(profile.streaming);
 
     let missing_session = provider
-        .chat_with_system(Some("sys"), "hello", "   ", 0.2)
+        .invoke(
+            &(),
+            ModelRequest::new(vec![Message::system("sys"), Message::user("hello")])
+                .with_model("reasoning-v1"),
+        )
         .await
         .expect_err("without app-session token provider fails before network");
     assert!(missing_session
         .to_string()
         .contains("No backend session: store a JWT via auth"));
 
-    let mut stream = provider.stream_chat_with_system(
-        Some("sys"),
-        "hello",
-        "reasoning-v1",
-        0.2,
-        StreamOptions::new(true),
-    );
-    let chunk = stream
-        .next()
+    let stream_error = match provider
+        .stream(
+            &(),
+            ModelRequest::new(vec![Message::system("sys"), Message::user("hello")])
+                .with_model("reasoning-v1"),
+        )
         .await
-        .expect("stream unsupported chunk")
-        .expect("stream unsupported result");
-    assert!(chunk.is_final);
-    assert!(chunk
-        .delta
-        .contains("streaming is not supported for OpenHuman backend provider"));
+    {
+        Ok(_) => panic!("streaming should resolve the session before network"),
+        Err(error) => error,
+    };
+    assert!(stream_error
+        .to_string()
+        .contains("No backend session: store a JWT via auth"));
 }
 
 #[tokio::test]
@@ -2254,7 +2256,7 @@ async fn inference_provider_trait_defaults_cover_prompt_guided_paths() {
     assert!(StreamChunk::error("boom").is_final);
 }
 
- fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String {
+fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String {
     match create_chat_provider_from_string(role, provider, config) {
         Ok((_, model)) => panic!("provider factory unexpectedly succeeded with model {model}"),
         Err(err) => err.to_string(),
@@ -4116,7 +4118,7 @@ async fn agent_error_hooks_interrupt_and_stop_hooks_cover_public_paths() {
     assert_eq!(*calls.lock().expect("hook calls"), 2);
 }
 
- #[tokio::test]
+#[tokio::test]
 async fn agent_debug_prompt_dump_and_identity_rendering_cover_file_layouts() {
     let _lock = ENV_LOCK
         .get_or_init(|| std::sync::Mutex::new(()))

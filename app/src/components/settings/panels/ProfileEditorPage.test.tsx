@@ -181,5 +181,21 @@ describe('ProfileEditorPage', () => {
     renderAt('/settings/profiles/edit/writer', [profile({ id: 'writer' })]);
     expect(screen.queryByText('Identity file')).not.toBeInTheDocument();
     expect(screen.queryByText('Workspace directory')).not.toBeInTheDocument();
+    expect(screen.queryByText('Skills directory')).not.toBeInTheDocument();
+  });
+
+  it('shows the resolved skills directory path and hint when present', () => {
+    renderAt('/settings/profiles/edit/writer', [
+      profile({
+        id: 'writer',
+        name: 'Writer',
+        skillsDir: '/workspace/personalities/writer/skills',
+      }),
+    ]);
+    expect(screen.getByText('Skills directory')).toBeInTheDocument();
+    expect(screen.getByText('/workspace/personalities/writer/skills')).toBeInTheDocument();
+    expect(
+      screen.getByText('SKILL.md workflows placed here are private to this profile.')
+    ).toBeInTheDocument();
   });
 });

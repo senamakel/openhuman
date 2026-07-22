@@ -400,6 +400,18 @@ const ProfileEditorPage = () => {
                 }
               />
             )}
+            {existing?.skillsDir && (
+              <SettingsRow
+                label={t('settings.profiles.editor.skillsDir')}
+                description={t('settings.profiles.editor.skillsDirHint')}
+                stacked
+                control={
+                  <code className="font-mono text-xs text-content-muted break-all">
+                    {existing.skillsDir}
+                  </code>
+                }
+              />
+            )}
           </SettingsSection>
 
           {/* Capabilities */}

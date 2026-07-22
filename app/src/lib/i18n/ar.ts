@@ -5025,6 +5025,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'معزول (موصى به)',
   'settings.cron.jobs.formSessionMain': 'الجلسة الرئيسية',
   'settings.cron.jobs.formSessionTarget': 'هدف الجلسة',
+  'settings.cron.jobs.formProfile': 'ملف الوكيل',
+  'settings.cron.jobs.formProfileNone': 'بدون ملف',
+  'settings.cron.jobs.formProfileHint':
+    'شغّل هذه المهمة بالملف المحدد، مستخدمًا روحه وذاكرته ومساحة عمله.',
+  'settings.cron.jobs.profile': 'الملف',
   'settings.cron.jobs.lastStatus': 'آخر حالة',
   'settings.cron.jobs.loading': 'جارٍ تحميل مهام cron...',
   'settings.cron.jobs.loadingRuns': 'جارٍ تحميل عمليات التشغيل',
@@ -7124,6 +7129,9 @@ const messages: TranslationMap = {
     'امنح هذا الملف مجلد عمل خاص به لعمليات الملفات والأدوات.',
   'settings.profiles.editor.soulMdFile': 'ملف الهوية',
   'settings.profiles.editor.workspaceDir': 'مجلد مساحة العمل',
+  'settings.profiles.editor.skillsDir': 'دليل المهارات',
+  'settings.profiles.editor.skillsDirHint':
+    'ملفات سير عمل SKILL.md الموضوعة هنا خاصة بهذا الملف وحده.',
   'settings.profiles.editor.all': 'الكل',
   'settings.profiles.editor.selected': 'محدّد',
   'settings.profiles.editor.addPlaceholder': 'اكتب معرّفًا ثم اضغط Enter',

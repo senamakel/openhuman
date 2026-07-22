@@ -5196,6 +5196,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Изолированная (рекомендуется)',
   'settings.cron.jobs.formSessionMain': 'Основная сессия',
   'settings.cron.jobs.formSessionTarget': 'Целевая сессия',
+  'settings.cron.jobs.formProfile': 'Профиль агента',
+  'settings.cron.jobs.formProfileNone': 'Без профиля',
+  'settings.cron.jobs.formProfileHint':
+    'Запускать эту задачу от выбранного профиля, используя его душу, память и рабочее пространство.',
+  'settings.cron.jobs.profile': 'Профиль',
   'settings.cron.jobs.lastStatus': 'Последний статус',
   'settings.cron.jobs.loading': 'Загрузка заданий...',
   'settings.cron.jobs.loadingRuns': 'Загрузка запусков',
@@ -7373,6 +7378,9 @@ const messages: TranslationMap = {
     'Выделить этому профилю собственный рабочий каталог для операций с файлами и инструментами.',
   'settings.profiles.editor.soulMdFile': 'Файл идентичности',
   'settings.profiles.editor.workspaceDir': 'Рабочий каталог',
+  'settings.profiles.editor.skillsDir': 'Каталог навыков',
+  'settings.profiles.editor.skillsDirHint':
+    'Рабочие процессы SKILL.md, размещённые здесь, доступны только этому профилю.',
   'settings.profiles.editor.all': 'Все',
   'settings.profiles.editor.selected': 'Выбранные',
   'settings.profiles.editor.addPlaceholder': 'Введите идентификатор и нажмите Enter',

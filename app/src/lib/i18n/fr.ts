@@ -5268,6 +5268,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Isolée (recommandé)',
   'settings.cron.jobs.formSessionMain': 'Session principale',
   'settings.cron.jobs.formSessionTarget': 'Session cible',
+  'settings.cron.jobs.formProfile': "Profil de l'agent",
+  'settings.cron.jobs.formProfileNone': 'Aucun profil',
+  'settings.cron.jobs.formProfileHint':
+    'Exécuter cette tâche avec le profil sélectionné, en utilisant son âme, sa mémoire et son espace de travail.',
+  'settings.cron.jobs.profile': 'Profil',
   'settings.cron.jobs.lastStatus': 'Dernier statut',
   'settings.cron.jobs.loading': 'Chargement des tâches cron…',
   'settings.cron.jobs.loadingRuns': 'Chargement des exécutions',
@@ -7475,6 +7480,9 @@ const messages: TranslationMap = {
     'Donner à ce profil son propre répertoire de travail pour les opérations de fichiers et d’outils.',
   'settings.profiles.editor.soulMdFile': 'Fichier d’identité',
   'settings.profiles.editor.workspaceDir': 'Répertoire de travail',
+  'settings.profiles.editor.skillsDir': 'Répertoire des compétences',
+  'settings.profiles.editor.skillsDirHint':
+    'Les workflows SKILL.md placés ici sont privés à ce profil.',
   'settings.profiles.editor.all': 'Tous',
   'settings.profiles.editor.selected': 'Sélectionnés',
   'settings.profiles.editor.addPlaceholder': 'Saisissez un identifiant, puis Entrée',

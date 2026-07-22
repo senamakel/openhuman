@@ -5145,6 +5145,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'पृथक (अनुशंसित)',
   'settings.cron.jobs.formSessionMain': 'मुख्य सत्र',
   'settings.cron.jobs.formSessionTarget': 'सत्र लक्ष्य',
+  'settings.cron.jobs.formProfile': 'एजेंट प्रोफ़ाइल',
+  'settings.cron.jobs.formProfileNone': 'कोई प्रोफ़ाइल नहीं',
+  'settings.cron.jobs.formProfileHint':
+    'इस कार्य को चयनित प्रोफ़ाइल के रूप में चलाएँ, उसकी पहचान, स्मृति और कार्यस्थान का उपयोग करते हुए।',
+  'settings.cron.jobs.profile': 'प्रोफ़ाइल',
   'settings.cron.jobs.lastStatus': 'आखिरी स्टेटस',
   'settings.cron.jobs.loading': 'Cron jobs लोड हो रही हैं...',
   'settings.cron.jobs.loadingRuns': 'रन लोड हो रहे हैं',
@@ -7285,6 +7290,9 @@ const messages: TranslationMap = {
     'फ़ाइल और टूल कार्यों के लिए इस प्रोफ़ाइल को अपनी खुद की वर्किंग डायरेक्टरी दें।',
   'settings.profiles.editor.soulMdFile': 'पहचान फ़ाइल',
   'settings.profiles.editor.workspaceDir': 'वर्कस्पेस डायरेक्टरी',
+  'settings.profiles.editor.skillsDir': 'स्किल निर्देशिका',
+  'settings.profiles.editor.skillsDirHint':
+    'यहाँ रखे गए SKILL.md वर्कफ़्लो केवल इस प्रोफ़ाइल के लिए निजी हैं।',
   'settings.profiles.editor.all': 'सभी',
   'settings.profiles.editor.selected': 'चयनित',
   'settings.profiles.editor.addPlaceholder': 'आईडी टाइप करें, एंटर दबाएँ',

@@ -5167,6 +5167,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Terisolasi (disarankan)',
   'settings.cron.jobs.formSessionMain': 'Sesi utama',
   'settings.cron.jobs.formSessionTarget': 'Target sesi',
+  'settings.cron.jobs.formProfile': 'Profil agen',
+  'settings.cron.jobs.formProfileNone': 'Tanpa profil',
+  'settings.cron.jobs.formProfileHint':
+    'Jalankan tugas ini sebagai profil yang dipilih, menggunakan jiwa, memori, dan ruang kerjanya.',
+  'settings.cron.jobs.profile': 'Profil',
   'settings.cron.jobs.lastStatus': 'Status terakhir',
   'settings.cron.jobs.loading': 'Memuat cron job...',
   'settings.cron.jobs.loadingRuns': 'Memuat run',
@@ -7322,6 +7327,9 @@ const messages: TranslationMap = {
     'Berikan profil ini direktori kerjanya sendiri untuk operasi file dan alat.',
   'settings.profiles.editor.soulMdFile': 'Berkas identitas',
   'settings.profiles.editor.workspaceDir': 'Direktori ruang kerja',
+  'settings.profiles.editor.skillsDir': 'Direktori keterampilan',
+  'settings.profiles.editor.skillsDirHint':
+    'Alur kerja SKILL.md yang ditempatkan di sini bersifat pribadi untuk profil ini.',
   'settings.profiles.editor.all': 'Semua',
   'settings.profiles.editor.selected': 'Terpilih',
   'settings.profiles.editor.addPlaceholder': 'Ketik id, tekan Enter',

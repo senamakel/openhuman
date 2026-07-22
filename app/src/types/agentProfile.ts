@@ -39,6 +39,12 @@ export interface AgentProfile {
    * path of the dedicated workspace directory when `dedicatedWorkspace` is set.
    */
   workspaceDir?: string;
+  /**
+   * Read-only, resolved by the core on read (never sent on upsert): absolute
+   * path of the profile's private `skills/` directory when it exists on disk.
+   * SKILL.md workflows placed there are scoped to this profile only.
+   */
+  skillsDir?: string;
 }
 
 export interface AgentProfilesResponse {

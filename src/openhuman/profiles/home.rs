@@ -309,11 +309,12 @@ pub fn ensure_profile_home(
 ///   persisted inline value, and
 /// - the trimmed inline content differs from the current file content.
 ///
-/// When `soul_md` is empty/`None` the file is left untouched, so a user who
-/// manually edits `SOUL.md` (and clears the inline value) keeps that file
-/// authoritative. Only ever called from the upsert path; select must not clobber
-/// a manually edited file with a stale inline value. Returns `Ok(true)` when the
-/// file was rewritten.
+/// When `soul_md` was already empty/`None`, the file is left untouched so a
+/// manual `SOUL.md` remains authoritative. A transition from a previously
+/// non-empty inline value to empty removes the file that Settings had synced,
+/// allowing the normal root fallback to take effect. Only ever called from the
+/// upsert path; select must not clobber a manually edited file with a stale
+/// inline value. Returns `Ok(true)` when the file was rewritten or removed.
 pub fn sync_soul_md_on_upsert(
     workspace_dir: &Path,
     profile: &AgentProfile,
@@ -327,7 +328,12 @@ pub fn sync_soul_md_on_upsert(
         );
         return Ok(false);
     }
-    // Empty / absent inline soul_md → leave any manual file edits authoritative.
+    let home = profile_home(workspace_dir, &profile.id);
+    let soul_path = home.join("SOUL.md");
+
+    // Clearing a previously persisted inline soul is an explicit Settings edit:
+    // remove the file that prior inline value created. If inline was already
+    // empty, preserve any manual file exactly as before.
     let desired = match profile
         .soul_md
         .as_ref()
@@ -336,6 +342,22 @@ pub fn sync_soul_md_on_upsert(
     {
         Some(s) => s,
         None => {
+            let previously_inline = previous_soul_md
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty());
+            if previously_inline {
+                match std::fs::remove_file(&soul_path) {
+                    Ok(()) => {
+                        tracing::debug!(
+                            profile_id = %profile.id,
+                            "[profiles][home] sync_soul_md_on_upsert: cleared synced SOUL.md"
+                        );
+                        return Ok(true);
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+                    Err(error) => return Err(error),
+                }
+            }
             tracing::debug!(
                 profile_id = %profile.id,
                 "[profiles][home] sync_soul_md_on_upsert: inline soul_md empty, file left as-is"
@@ -356,8 +378,6 @@ pub fn sync_soul_md_on_upsert(
         return Ok(false);
     }
 
-    let home = profile_home(workspace_dir, &profile.id);
-    let soul_path = home.join("SOUL.md");
     // No-op when the file already matches the edited value (compare trimmed so a
     // trailing-newline difference doesn't churn the file).
     if let Ok(current) = std::fs::read_to_string(&soul_path) {
@@ -657,6 +677,24 @@ mod tests {
             std::fs::read_to_string(&soul_path).unwrap(),
             "MANUALLY EDITED SOUL"
         );
+    }
+
+    #[test]
+    fn sync_soul_md_on_upsert_removes_file_when_inline_is_cleared() {
+        let ws = TempDir::new().unwrap();
+        let action = TempDir::new().unwrap();
+        let mut profile = test_profile("judy");
+        profile.soul_md = Some("Settings identity".to_string());
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
+        let soul_path = profile_home(ws.path(), "judy").join("SOUL.md");
+        assert!(soul_path.exists());
+
+        profile.soul_md = None;
+        assert!(
+            sync_soul_md_on_upsert(ws.path(), &profile, Some("Settings identity"))
+                .expect("clear synced soul")
+        );
+        assert!(!soul_path.exists());
     }
 
     #[test]

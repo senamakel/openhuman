@@ -2642,7 +2642,7 @@ fn make_cloud_provider_by_slug(
 ///   API (`with_responses_api_primary`), with the codex account/originator
 ///   headers, user-agent, `client_version` query param, and `max_output_tokens`
 ///   omitted (the crate `/v1/responses` support, tinyagents#51);
-/// - `OpenhumanJwt` → `None` (routed to the managed backend elsewhere).
+/// - `OpenhumanJwt` → the crate-native managed backend model.
 ///
 /// The legacy host's rare chat-completions-404 → `/v1/responses` **fallback** for
 /// non-codex slugs is not replicated (the crate has responses-*primary*, not
@@ -2735,11 +2735,12 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         Err(e) => return Some(Err(e)),
     };
 
-    // Every configured cloud slug except the managed `OpenhumanJwt` entry builds
-    // a crate-native client. Codex OAuth routes to the Responses API with its
-    // headers / UA / query; every other Bearer/Anthropic/None slug uses Chat
-    // Completions (its primary path — the legacy host's rare 404 → `/v1/responses`
-    // fallback for non-codex slugs is not replicated).
+    // Every configured cloud slug builds a crate-native model. OpenhumanJwt
+    // delegates to the managed backend model; Codex OAuth routes to the
+    // Responses API with its headers / UA / query; every other
+    // Bearer/Anthropic/None slug uses Chat Completions (its primary path — the
+    // legacy host's rare 404 → `/v1/responses` fallback for non-codex slugs is
+    // not replicated).
     let mut endpoint = entry.endpoint.clone();
     let mut extra_headers: Vec<(String, String)> = Vec::new();
     let mut extra_query_params: Vec<(String, String)> = Vec::new();
@@ -2750,7 +2751,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     let auth = match entry.auth_style {
         AuthStyle::Anthropic => CompatAuthStyle::Anthropic,
         AuthStyle::None => CompatAuthStyle::None,
-        AuthStyle::OpenhumanJwt => return None,
+        AuthStyle::OpenhumanJwt => return Some(make_openhuman_backend_model(role, config)),
         AuthStyle::Bearer => {
             // The codex routing may re-target the endpoint (OAuth backend).
             endpoint = codex.endpoint.clone();
@@ -2777,7 +2778,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     };
 
     // Egress spine (privacy epic S2, #4436): committed to a BYOK cloud slug here
-    // — past the managed/bespoke/OpenhumanJwt `None` returns and the access
+    // — past the managed/bespoke returns and the access
     // gates, so this constructs. Disclose as external. Single cloud chokepoint
     // for every crate-native ChatModel/turn entry (the Provider path's cloud
     // builder emits via `emit_inference_egress`).

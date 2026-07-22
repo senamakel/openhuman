@@ -3050,6 +3050,30 @@ fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
 }
 
 #[test]
+fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let mut config = Config::default();
+    config.cloud_providers.push(oh_entry("p_oh"));
+    config.chat_provider = Some("openhuman:reasoning-v1".to_string());
+
+    let (model, model_id) = try_create_cloud_slug_chat_model("chat", &config)
+        .expect("configured OpenhumanJwt slug should be recognized")
+        .expect("managed model should build");
+
+    assert_eq!(
+        model_id,
+        config
+            .default_model
+            .clone()
+            .unwrap_or_else(|| crate::openhuman::config::DEFAULT_MODEL.to_string())
+    );
+    assert!(
+        model.profile().is_none(),
+        "OpenhumanJwt must use the crate-native managed backend model"
+    );
+}
+
+#[test]
 fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     // `openai` (API-key Bearer, no codex OAuth) now flips crate-native on Chat

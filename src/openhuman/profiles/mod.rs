@@ -35,6 +35,7 @@
 //! - [`ensure_profile_home`] materializes the home idempotently (never
 //!   overwriting a user's edited files) on upsert/select.
 
+pub mod guard;
 pub mod home;
 pub mod ops;
 pub mod paths;
@@ -43,6 +44,7 @@ mod schemas;
 pub mod store;
 pub mod types;
 
+pub use guard::{profile_id_from_policy_id, workspace_policy_id};
 pub use home::{
     dedicated_workspace_dir, ensure_profile_home, profile_action_workspace, profile_home,
     validate_profile_id,

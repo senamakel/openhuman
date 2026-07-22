@@ -1213,6 +1213,11 @@ impl Agent {
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
             .workspace_descriptor(profile_workspace_descriptor)
+            // 1a — carry the active profile id (any active profile, not just
+            // dedicated-workspace ones) so profile-scoped post-turn hooks can
+            // see which profile the turn ran under. `None` for the profile-less
+            // session keeps every consumer byte-identical.
+            .active_profile_id(profile.map(|p| p.id.clone()))
             .workflows(crate::openhuman::skills::load_workflow_metadata(
                 &config.workspace_dir,
             ))
@@ -1494,7 +1499,7 @@ pub(crate) fn derive_profile_workspace_descriptor(
     );
     Some(
         tinyagents::harness::workspace::WorkspaceDescriptor::new(dir)
-            .with_policy_id(format!("openhuman.profile:{profile_id}")),
+            .with_policy_id(crate::openhuman::profiles::workspace_policy_id(&profile_id)),
     )
 }
 

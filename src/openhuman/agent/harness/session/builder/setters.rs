@@ -42,6 +42,7 @@ impl AgentBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
+            active_profile_id: None,
             session_parent_prefix: None,
             omit_profile: None,
             omit_memory_md: None,
@@ -197,6 +198,18 @@ impl AgentBuilder {
         descriptor: Option<tinyagents::harness::workspace::WorkspaceDescriptor>,
     ) -> Self {
         self.workspace_descriptor = descriptor;
+        self
+    }
+
+    /// Sets the active agent-profile id for this session (1a plumbing).
+    ///
+    /// `None` (default) is the profile-less session. When set, the id is
+    /// carried on the built [`Agent`] and threaded into the post-turn
+    /// [`TurnContext`](crate::openhuman::agent::hooks::TurnContext) so
+    /// profile-scoped hooks (agent-experience capture) can stamp records with
+    /// it. A `None` here keeps every downstream consumer on its legacy path.
+    pub fn active_profile_id(mut self, profile_id: Option<String>) -> Self {
+        self.active_profile_id = profile_id;
         self
     }
 
@@ -523,6 +536,7 @@ impl AgentBuilder {
             // `refresh_delegation_tools` to re-resolve the agent's
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
+            active_profile_id: self.active_profile_id,
             session_transcript_path: None,
             persisted_transcript_messages: Vec::new(),
             session_key: {

@@ -241,6 +241,57 @@ async fn build_session_agent_falls_back_to_global_default_when_no_definition() {
     );
 }
 
+// ── 1a: active profile id plumbed onto the built session ─────────────────────
+
+#[tokio::test]
+async fn build_session_agent_carries_active_profile_id_when_profile_present() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = "alice".to_string();
+    profile.built_in = false;
+    profile.is_master = false;
+
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        None,
+        None,
+        None,
+        false,
+        Some(&profile),
+    )
+    .expect("build_session_agent_inner with a profile should succeed");
+
+    assert_eq!(
+        agent.active_profile_id.as_deref(),
+        Some("alice"),
+        "an active profile must plumb its id onto the built session"
+    );
+}
+
+#[tokio::test]
+async fn build_session_agent_leaves_active_profile_id_none_without_profile() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // The profile-less path (the legacy default) must stay byte-identical:
+    // no active profile id is stamped.
+    let agent =
+        Agent::build_session_agent_inner(&config, "orchestrator", None, None, None, false, None)
+            .expect("build_session_agent_inner with no profile should succeed");
+
+    assert_eq!(
+        agent.active_profile_id, None,
+        "the profile-less session must not carry an active profile id"
+    );
+}
+
 // ── #5050 Fix 1: shared `Arc<Config>` for the per-build tool config ──────────
 
 #[test]

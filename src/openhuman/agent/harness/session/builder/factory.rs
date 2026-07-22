@@ -402,12 +402,8 @@ impl Agent {
         let memory_suffix = profile
             .map(crate::openhuman::profiles::effective_memory_suffix)
             .unwrap_or_default();
-        let session_raw_dir =
-            config
-                .workspace_dir
-                .join(crate::openhuman::profiles::session_raw_subdir_for_suffix(
-                    &memory_suffix,
-                ));
+        let session_raw_subdir =
+            crate::openhuman::profiles::session_raw_subdir_for_suffix(&memory_suffix);
         tracing::debug!(
             memory_subdir = %memory_subdir,
             has_profile = profile.is_some(),
@@ -1313,7 +1309,7 @@ impl Agent {
             // see which profile the turn ran under. `None` for the profile-less
             // session keeps every consumer byte-identical.
             .active_profile_id(profile.map(|p| p.id.clone()))
-            .profile_memory_storage(memory_subdir, session_raw_dir)
+            .profile_memory_storage(memory_subdir, session_raw_subdir)
             .workflows(
                 crate::openhuman::skills::load_workflow_metadata_for_profile(
                     &config.workspace_dir,

@@ -296,10 +296,7 @@ async fn dedicated_memory_profile_scopes_tree_and_transcript_storage() {
     .expect("build dedicated-memory session");
 
     assert_eq!(agent.memory_subdir, "memory-alice");
-    assert_eq!(
-        agent.session_raw_dir,
-        config.workspace_dir.join("session_raw-alice")
-    );
+    assert_eq!(agent.session_raw_subdir, "session_raw-alice");
 }
 
 #[tokio::test]

@@ -44,7 +44,7 @@ impl AgentBuilder {
             agent_definition_name: None,
             active_profile_id: None,
             memory_subdir: None,
-            session_raw_dir: None,
+            session_raw_subdir: None,
             session_parent_prefix: None,
             omit_profile: None,
             omit_memory_md: None,
@@ -218,10 +218,10 @@ impl AgentBuilder {
     pub fn profile_memory_storage(
         mut self,
         memory_subdir: String,
-        session_raw_dir: std::path::PathBuf,
+        session_raw_subdir: String,
     ) -> Self {
         self.memory_subdir = Some(memory_subdir);
-        self.session_raw_dir = Some(session_raw_dir);
+        self.session_raw_subdir = Some(session_raw_subdir);
         self
     }
 
@@ -505,9 +505,9 @@ impl AgentBuilder {
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let action_dir = self.action_dir.unwrap_or_else(|| workspace_dir.clone());
         let memory_subdir = self.memory_subdir.unwrap_or_else(|| "memory".to_string());
-        let session_raw_dir = self
-            .session_raw_dir
-            .unwrap_or_else(|| workspace_dir.join("session_raw"));
+        let session_raw_subdir = self
+            .session_raw_subdir
+            .unwrap_or_else(|| "session_raw".to_string());
 
         Ok(Agent {
             turn_model_source,
@@ -554,7 +554,7 @@ impl AgentBuilder {
             agent_definition_id: agent_definition_name.clone(),
             active_profile_id: self.active_profile_id,
             memory_subdir,
-            session_raw_dir,
+            session_raw_subdir,
             session_transcript_path: None,
             persisted_transcript_messages: Vec::new(),
             session_key: {

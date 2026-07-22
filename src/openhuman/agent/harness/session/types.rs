@@ -143,10 +143,11 @@ pub struct Agent {
     /// legacy numeric suffix). Used for memory-tree reads and paired with the
     /// profile-specific transcript directory below.
     pub(super) memory_subdir: String,
-    /// Exact directory for JSONL transcripts. Keeping this separate from
-    /// `workspace_dir` prevents dedicated-memory profiles from reading or
-    /// writing the shared `session_raw/` store.
-    pub(super) session_raw_dir: PathBuf,
+    /// Profile-selected JSONL transcript subdirectory (`session_raw` or
+    /// `session_raw-<id>`). It is resolved against the current `workspace_dir`
+    /// at I/O time so relocating an agent does not leave transcripts pinned to
+    /// its original workspace while dedicated-memory profiles remain isolated.
+    pub(super) session_raw_subdir: String,
     /// Resolved filesystem path for this session's transcript file.
     /// Set on first write, reused for subsequent **appends** within the
     /// same session.
@@ -394,7 +395,7 @@ pub struct AgentBuilder {
     /// (web chat, task dispatcher, cron) set the active profile id here.
     pub(super) active_profile_id: Option<String>,
     pub(super) memory_subdir: Option<String>,
-    pub(super) session_raw_dir: Option<PathBuf>,
+    pub(super) session_raw_subdir: Option<String>,
     /// Directory chain of parent session keys for a sub-agent. `None`
     /// (default) means this is a root session — its transcript lands
     /// flat in `session_raw/DDMMYYYY/{session_key}.jsonl`. Populated

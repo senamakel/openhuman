@@ -502,7 +502,8 @@ impl Agent {
                 Some(prefix) => format!("{}__{}", prefix, self.session_key),
                 None => self.session_key.clone(),
             };
-            match transcript::resolve_keyed_transcript_path_in_dir(&self.session_raw_dir, &stem) {
+            let session_raw_dir = self.workspace_dir.join(&self.session_raw_subdir);
+            match transcript::resolve_keyed_transcript_path_in_dir(&session_raw_dir, &stem) {
                 Ok(path) => {
                     log::info!(
                         "[transcript] new session transcript path={}",

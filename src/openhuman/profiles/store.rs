@@ -171,6 +171,8 @@ impl AgentProfileStore {
             default.include_agent_conversations = profile.include_agent_conversations;
             default.allowed_skills = profile.allowed_skills;
             default.allowed_mcp_servers = profile.allowed_mcp_servers;
+            default.dedicated_memory = profile.dedicated_memory;
+            default.dedicated_workspace = profile.dedicated_workspace;
             // memory_dir_suffix stays as built-in default (don't let user override the default's suffix)
             default.sort_order = profile.sort_order;
             default
@@ -749,6 +751,8 @@ mod tests {
         profile.system_prompt_suffix = Some(" suffix ".into());
         profile.allowed_tools = Some(vec![" todo ".into()]);
         profile.memory_sources = Some(vec!["slack-eng".into()]);
+        profile.dedicated_memory = true;
+        profile.dedicated_workspace = true;
         let state = store.upsert(profile).expect("upsert default");
         let default = state
             .profiles
@@ -764,6 +768,8 @@ mod tests {
             default.memory_sources.as_deref(),
             Some(vec!["slack-eng".to_string()].as_slice())
         );
+        assert!(default.dedicated_memory);
+        assert!(default.dedicated_workspace);
     }
 
     #[test]

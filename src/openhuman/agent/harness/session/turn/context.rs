@@ -322,10 +322,10 @@ impl Agent {
             include_memory_md: !self.omit_memory_md,
             curated_snapshot: None,
             user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
-            // Profile SOUL.md is rendered by AgentProfilePromptSection; curated
-            // MEMORY.md is bound at session construction so UserFilesSection
-            // uses it instead of the workspace-root fallback.
-            personality_soul_md: None, // TODO: personality_ctx.soul_md_override
+            // Profile SOUL.md and curated MEMORY.md are bound at session
+            // construction so the normal identity/user-files sections use
+            // them instead of their workspace-root fallbacks.
+            personality_soul_md: self.personality_soul_md.clone(),
             personality_memory_md: self.personality_memory_md.clone(),
             personality_roster: vec![], // TODO: build_personality_roster(&workspace_dir)
             agents_md_global: agents_md.global,

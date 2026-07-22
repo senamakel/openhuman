@@ -695,28 +695,17 @@ impl Agent {
                     )
                 })
             });
-        // Every explicitly selected profile drives its live persona from its
-        // own SOUL.md (hot-read in the section), so ordinary web-chat / cron
-        // turns get the seeded/synced identity — not just delegation. This
-        // includes the Default profile because Settings persists its edits at
-        // `personalities/default/SOUL.md`. The profile-less path remains
-        // byte-identical and continues using only the workspace-root identity.
-        let soul_profile: Option<crate::openhuman::profiles::AgentProfile> = profile.cloned();
-        if profile_suffix.is_some() || workspace_notice.is_some() || soul_profile.is_some() {
+        if profile_suffix.is_some() || workspace_notice.is_some() {
             log::debug!(
-                "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={} profile_soul={}",
+                "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={}",
                 profile_suffix.as_deref().map(|s| s.chars().count()).unwrap_or(0),
                 workspace_notice.is_some(),
-                soul_profile.is_some(),
             );
             let mut section = crate::openhuman::profiles::AgentProfilePromptSection::new(
                 profile_suffix.unwrap_or_default(),
             );
             if let Some(notice) = workspace_notice {
                 section = section.with_workspace_notice(notice);
-            }
-            if let Some(soul_profile) = soul_profile {
-                section = section.with_profile_soul(soul_profile);
             }
             prompt_builder = prompt_builder.add_section(Box::new(section));
         }
@@ -1262,6 +1251,9 @@ impl Agent {
             // see which profile the turn ran under. `None` for the profile-less
             // session keeps every consumer byte-identical.
             .active_profile_id(profile.map(|p| p.id.clone()))
+            .personality_soul_md(profile.and_then(|profile| {
+                crate::openhuman::profiles::resolve_personality_soul(&config.workspace_dir, profile)
+            }))
             .personality_memory_md(profile.and_then(|profile| {
                 crate::openhuman::profiles::resolve_personality_memory_md(
                     &config.workspace_dir,

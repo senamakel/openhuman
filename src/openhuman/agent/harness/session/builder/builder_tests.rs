@@ -399,6 +399,11 @@ async fn build_session_agent_injects_profile_soul_into_prompt() {
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
+    std::fs::write(
+        config.workspace_dir.join("SOUL.md"),
+        "I am the conflicting workspace-root identity.",
+    )
+    .unwrap();
     // Seed the non-default profile's home SOUL.md (as ensure_profile_home would).
     let home = config.workspace_dir.join("personalities").join("alice");
     std::fs::create_dir_all(&home).unwrap();
@@ -422,6 +427,10 @@ async fn build_session_agent_injects_profile_soul_into_prompt() {
     assert!(
         prompt.contains("I am Alice, a meticulous archivist."),
         "the live profile session prompt must include the profile SOUL.md content"
+    );
+    assert!(
+        !prompt.contains("I am the conflicting workspace-root identity."),
+        "profile SOUL.md must replace, not accompany, workspace-root SOUL.md"
     );
 }
 

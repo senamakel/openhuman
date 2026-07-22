@@ -4,14 +4,8 @@
 
 use std::path::Path;
 
-use super::types::AgentProfile;
 use crate::openhuman::context::prompt::{PromptContext, PromptSection};
 use anyhow::Result;
-
-/// Upper bound on the injected persona SOUL.md, mirroring the identity-file cap
-/// (`BOOTSTRAP_MAX_CHARS`) so a large per-profile SOUL.md can't bloat the frozen
-/// prompt prefix.
-const PROFILE_SOUL_MAX_CHARS: usize = 20_000;
 
 /// One-sentence system-prompt notice, mirroring hermes's cross-profile
 /// disclosure: names the profile's dedicated workspace and states that other
@@ -32,12 +26,6 @@ pub fn cross_profile_workspace_notice(profile_id: &str, workspace_path: &Path) -
 pub struct AgentProfilePromptSection {
     body: String,
     workspace_notice: Option<String>,
-    /// When set, the active profile whose `SOUL.md` identity is hot-read on each
-    /// prompt build and rendered ahead of the persona body. Carried (rather than
-    /// a pre-resolved string) so the file is re-read at `build` time, matching
-    /// the identity section's live-file semantics — a Settings/file edit takes
-    /// effect on the next prompt build.
-    soul_profile: Option<AgentProfile>,
 }
 
 impl AgentProfilePromptSection {
@@ -45,7 +33,6 @@ impl AgentProfilePromptSection {
         Self {
             body,
             workspace_notice: None,
-            soul_profile: None,
         }
     }
 
@@ -59,35 +46,6 @@ impl AgentProfilePromptSection {
         self.workspace_notice = (!notice.is_empty()).then_some(notice);
         self
     }
-
-    /// Bind the active profile so its resolved `SOUL.md` identity is injected
-    /// into the live session prompt (ordinary web-chat / cron turns, not just
-    /// delegation). The soul is hot-read via
-    /// [`resolve_personality_soul`](crate::openhuman::profiles::resolve_personality_soul)
-    /// on each `build`, following the same resolution order as
-    /// `PersonalityContext` (`personalities/<id>/SOUL.md` → `soul_md_path` →
-    /// inline → `None`). Callers pass this only for non-default profiles; the
-    /// default/master profile keeps the workspace root `SOUL.md`.
-    #[must_use]
-    pub fn with_profile_soul(mut self, profile: AgentProfile) -> Self {
-        self.soul_profile = Some(profile);
-        self
-    }
-
-    /// Hot-read the bound profile's SOUL.md, trimmed and capped. `None` when no
-    /// profile is bound or nothing resolves (caller's root fallback stays intact).
-    fn resolve_soul(&self, workspace_dir: &Path) -> Option<String> {
-        self.soul_profile
-            .as_ref()
-            .and_then(|profile| super::resolve_personality_soul(workspace_dir, profile))
-            .map(|soul| soul.trim().to_string())
-            .filter(|soul| !soul.is_empty())
-            .map(|soul| {
-                soul.chars()
-                    .take(PROFILE_SOUL_MAX_CHARS)
-                    .collect::<String>()
-            })
-    }
 }
 
 impl PromptSection for AgentProfilePromptSection {
@@ -95,16 +53,10 @@ impl PromptSection for AgentProfilePromptSection {
         "agent_profile"
     }
 
-    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
-        // Hot-read the profile identity each build; `None` (no bound profile or
-        // nothing resolves) preserves the prior body/notice-only output exactly.
-        let soul = self.resolve_soul(ctx.workspace_dir);
+    fn build(&self, _ctx: &PromptContext<'_>) -> Result<String> {
         let body = self.body.trim();
         let notice = self.workspace_notice.as_deref().unwrap_or_default();
         let mut parts: Vec<&str> = Vec::new();
-        if let Some(ref soul) = soul {
-            parts.push(soul.as_str());
-        }
         if !body.is_empty() {
             parts.push(body);
         }

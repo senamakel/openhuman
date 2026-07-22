@@ -47,3 +47,13 @@ fn direct_model_turn_source_builds_without_provider_adapter() {
     assert_eq!(models.context_window(), Some(32_000));
     assert!(!models.native_tools());
 }
+
+#[test]
+fn run_policy_for_makes_invalid_tool_arguments_recoverable() {
+    let policy = run_policy_for(10, false);
+    assert_eq!(
+        policy.invalid_args,
+        InvalidArgsPolicy::ReturnToolError,
+        "schema-invalid calls must return a corrective tool result instead of aborting the turn"
+    );
+}

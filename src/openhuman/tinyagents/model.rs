@@ -449,6 +449,35 @@ pub(super) struct MaxTokensModel {
     max_tokens: u32,
 }
 
+/// A model wrapper that overrides capability metadata without changing wire
+/// behavior. Directly injected crate models use this when a turn supplies a
+/// more precise context window or explicitly selects prompt-guided tool mode.
+pub(super) struct ProfileOverrideModel {
+    inner: Arc<dyn ChatModel<()>>,
+    profile: ModelProfile,
+}
+
+impl ProfileOverrideModel {
+    pub(super) fn new(inner: Arc<dyn ChatModel<()>>, profile: ModelProfile) -> Self {
+        Self { inner, profile }
+    }
+}
+
+#[async_trait]
+impl ChatModel<()> for ProfileOverrideModel {
+    fn profile(&self) -> Option<&ModelProfile> {
+        Some(&self.profile)
+    }
+
+    async fn invoke(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelResponse> {
+        self.inner.invoke(state, request).await
+    }
+
+    async fn stream(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
+        self.inner.stream(state, request).await
+    }
+}
+
 impl MaxTokensModel {
     pub(super) fn new(inner: Arc<dyn ChatModel<()>>, max_tokens: u32) -> Self {
         Self { inner, max_tokens }

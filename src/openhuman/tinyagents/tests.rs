@@ -42,6 +42,26 @@ fn crate_native_text_mode_does_not_resolve_host_provider() {
     );
 }
 
+#[test]
+fn direct_model_turn_source_builds_without_host_provider() {
+    let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+        Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+            "done",
+        ]));
+    let source = TurnModelSource::from_model(model);
+
+    assert!(source.provider.is_none());
+    assert!(source.crate_native.is_none());
+    assert!(source.direct_model.is_some());
+
+    let models = source
+        .build("mock-model", 0.0, Some(32_000))
+        .expect("direct model source builds");
+    assert_eq!(models.provider_id(), "injected");
+    assert_eq!(models.context_window(), Some(32_000));
+    assert!(!models.native_tools());
+}
+
 /// A real openhuman tool the harness will execute.
 struct EchoTool;
 

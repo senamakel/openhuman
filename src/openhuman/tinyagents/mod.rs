@@ -81,7 +81,7 @@ pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{
     HandoffConfig, SuperContextConfig, TranscriptSnapshotSink, TurnContextMiddleware,
 };
-use model::{BuiltTurnModels, ProviderModel, TierRoutes, TurnChatModel};
+use model::{BuiltTurnModels, ProfileOverrideModel, ProviderModel, TierRoutes, TurnChatModel};
 pub(crate) use observability::SubagentScope;
 use observability::{
     CapPauser, IterationCursor, OpenhumanEventBridge, ProviderUsageCarry, ToolFailureMap,
@@ -1398,6 +1398,9 @@ fn build_turn_models_crate(
 #[derive(Clone)]
 pub struct TurnModelSource {
     provider: Option<Arc<dyn Provider>>,
+    /// A directly injected crate model. This is the replacement test seam for
+    /// provider-backed mocks while WP-1 removes `ProviderModel`.
+    direct_model: Option<TurnChatModel>,
     /// When set, [`build`](Self::build) / [`build_summarizer`](Self::build_summarizer)
     /// construct **crate-native** models from `(role, config)` (Phase 3 P3-B) via
     /// [`build_turn_models_crate`]. Crate-native sources keep `provider` as
@@ -1432,6 +1435,19 @@ impl TurnModelSource {
     pub fn new(provider: Arc<dyn Provider>) -> Self {
         Self {
             provider: Some(provider),
+            direct_model: None,
+            crate_native: None,
+            force_text_mode: false,
+        }
+    }
+
+    /// Use an already-constructed TinyAgents model as the complete turn model
+    /// source. Intended for deterministic tests and embedding callers that do
+    /// not need role/config-based route construction.
+    pub fn from_model(model: TurnChatModel) -> Self {
+        Self {
+            provider: None,
+            direct_model: Some(model),
             crate_native: None,
             force_text_mode: false,
         }
@@ -1448,6 +1464,7 @@ impl TurnModelSource {
     ) -> Self {
         Self {
             provider: None,
+            direct_model: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
                 config,
@@ -1470,6 +1487,7 @@ impl TurnModelSource {
     ) -> Self {
         Self {
             provider: None,
+            direct_model: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
                 config,
@@ -1496,6 +1514,11 @@ impl TurnModelSource {
         if let Some(provider) = &self.provider {
             return provider.effective_context_window(model).await;
         }
+        if let Some(direct) = &self.direct_model {
+            return direct
+                .profile()
+                .and_then(|profile| profile.max_input_tokens);
+        }
         let provider_string = self.crate_native.as_ref().map(|source| {
             source.primary_override.clone().unwrap_or_else(|| {
                 crate::openhuman::inference::provider::provider_for_role(
@@ -1519,6 +1542,12 @@ impl TurnModelSource {
         if let Some(provider) = &self.provider {
             return provider.is_local_provider();
         }
+        if let Some(direct) = &self.direct_model {
+            return direct
+                .profile()
+                .and_then(|profile| profile.provider.as_deref())
+                .is_some_and(|provider| provider.eq_ignore_ascii_case("local"));
+        }
         self.crate_native.as_ref().is_some_and(|source| {
             let provider = source.primary_override.clone().unwrap_or_else(|| {
                 crate::openhuman::inference::provider::provider_for_role(
@@ -1538,6 +1567,35 @@ impl TurnModelSource {
         temperature: f64,
         context_window: Option<u64>,
     ) -> anyhow::Result<TurnModels> {
+        if let Some(direct) = &self.direct_model {
+            let mut profile = direct.profile().cloned().unwrap_or_default();
+            if let Some(window) = context_window.filter(|window| *window > 0) {
+                profile.max_input_tokens = Some(window);
+            }
+            if self.force_text_mode {
+                profile.tool_calling = false;
+                profile.parallel_tool_calls = false;
+            }
+            let provider_id = profile
+                .provider
+                .clone()
+                .unwrap_or_else(|| "injected".to_string());
+            let native_tools = profile.tool_calling;
+            let supports_vision = profile.modalities.image_in;
+            let context_window = context_window.or(profile.max_input_tokens);
+            let primary: TurnChatModel =
+                Arc::new(ProfileOverrideModel::new(direct.clone(), profile));
+            return Ok(TurnModels {
+                primary,
+                routes: Vec::new(),
+                summarizer: direct.clone(),
+                error_slot: Arc::new(std::sync::Mutex::new(None)),
+                provider_id,
+                context_window,
+                native_tools,
+                supports_vision,
+            });
+        }
         if let Some(cn) = &self.crate_native {
             let provider_string = cn.primary_override.clone().unwrap_or_else(|| {
                 crate::openhuman::inference::provider::provider_for_role(&cn.role, &cn.config)
@@ -1599,6 +1657,9 @@ impl TurnModelSource {
         model: &str,
         temperature: f64,
     ) -> anyhow::Result<Arc<dyn tinyagents::harness::model::ChatModel<()>>> {
+        if let Some(direct) = &self.direct_model {
+            return Ok(direct.clone());
+        }
         if let Some(cn) = &self.crate_native {
             let built = match cn.primary_override.as_deref() {
                 Some(ps) => crate::openhuman::inference::provider::factory::create_turn_chat_model_from_string(

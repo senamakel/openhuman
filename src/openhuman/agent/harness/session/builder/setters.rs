@@ -78,6 +78,16 @@ impl AgentBuilder {
         self
     }
 
+    /// Sets an already-constructed TinyAgents chat model. This is the native
+    /// injection seam for tests and embedders; no legacy `Provider` adapter is
+    /// constructed.
+    pub fn chat_model(mut self, model: Arc<dyn tinyagents::harness::model::ChatModel<()>>) -> Self {
+        self.turn_model_source = Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            model,
+        ));
+        self
+    }
+
     /// Sets the AI provider as a **crate-native** turn-model source (Phase 3 P3-B):
     /// `build`/`build_summarizer` construct crate `ChatModel`s from `(role, config)`
     /// via `create_turn_chat_model` (managed → `OpenHumanBackendModel`, local/cloud →

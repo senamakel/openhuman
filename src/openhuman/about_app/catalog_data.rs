@@ -1435,7 +1435,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         name: "Persona Pack",
         domain: "settings",
         category: CapabilityCategory::Settings,
-        description: "Personalize the assistant as one identity: set a display name and description, edit or reset the SOUL.md personality prompt, and reach mascot avatar and voice settings — all from a single Persona surface.",
+        description: "Personalize the assistant across one or more agent profiles: set a display name and description, edit or reset each profile's SOUL.md identity (kept in its own home under personalities/<id>/ and re-read every message), give a profile its own dedicated memory subtree or its own working directory, and reach mascot avatar and voice settings. Multiple profiles can run with isolated identity, memory, and workspace state.",
         how_to: "Settings > Persona",
         status: CapabilityStatus::Beta,
         privacy: GITHUB_MASCOT_MANIFEST,

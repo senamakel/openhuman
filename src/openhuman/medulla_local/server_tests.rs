@@ -95,6 +95,13 @@ struct MockOpts {
     /// Drop the connection on the first `instruct` of the first connection,
     /// forcing the supervisor to restart-and-retry.
     die_first_instruct: bool,
+    /// Answer every `instruct` with `ok=false` (`bad_request`): a healthy
+    /// connection issuing an application-level rejection, which must NOT
+    /// trigger restart-and-retry.
+    reject_instruct: bool,
+    /// Counts accepted connections, so a test can assert whether the
+    /// supervisor restarted (2) or failed fast on the live child (1).
+    connection_count: Option<Arc<AtomicU64>>,
     /// Sink recording the tool names advertised in the `hello` request, so a
     /// test can assert the host advertised its curated surface.
     observed_hello_tools: Option<Arc<Mutex<Vec<String>>>>,
@@ -109,6 +116,9 @@ fn spawn_mock_serve(listener: UnixListener, opts: MockOpts) {
                 Ok(pair) => pair,
                 Err(_) => break,
             };
+            if let Some(counter) = &opts.connection_count {
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
             serve_connection(stream, conn_index, &opts).await;
             conn_index += 1;
         }
@@ -185,6 +195,19 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
                 if opts.die_first_instruct && conn_index == 0 {
                     // Drop the connection mid-request: the host must restart.
                     return;
+                }
+                if opts.reject_instruct {
+                    // Application-level rejection over a healthy connection:
+                    // the host must fail fast, not kill and respawn us.
+                    write_line(
+                        &mut write_half,
+                        &json!({
+                            "t": "res", "id": id, "ok": false,
+                            "error": { "code": "bad_request", "message": "instruct refused by mock" }
+                        }),
+                    )
+                    .await;
+                    continue;
                 }
                 if opts.issue_inference {
                     // Reverse-RPC into the host inference port, then read its ret.
@@ -389,10 +412,12 @@ async fn tools_are_advertised_and_invocable() {
 async fn restart_on_death_retries_once() {
     let path = unique_socket_path("restart");
     let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
     spawn_mock_serve(
         listener,
         MockOpts {
             die_first_instruct: true,
+            connection_count: Some(connections.clone()),
             ..MockOpts::default()
         },
     );
@@ -405,5 +430,57 @@ async fn restart_on_death_retries_once() {
         .await
         .expect("restart-and-retry-once should recover");
     assert_eq!(receipt.instruction_id, "inst-agent-0");
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        2,
+        "a mid-request transport death must trigger exactly one respawn"
+    );
     let _ = std::fs::remove_file(&path);
 }
+
+#[tokio::test]
+async fn serve_rejection_fails_fast_without_restart() {
+    let path = unique_socket_path("reject");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            reject_instruct: true,
+            connection_count: Some(connections.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let supervisor = build(path.clone(), Arc::new(RecordingState::default()));
+    let error = supervisor
+        .instruct("reconcile", json!({}))
+        .await
+        .expect_err("an ok=false serve rejection must surface as an error");
+
+    // The error is the typed, non-retryable serve rejection…
+    let request_error = error
+        .downcast_ref::<RequestError>()
+        .expect("supervisor errors must stay downcastable to RequestError");
+    assert!(
+        matches!(request_error, RequestError::Serve { code, .. } if code == "bad_request"),
+        "expected a Serve error carrying the wire code, got: {request_error:?}"
+    );
+    assert!(!request_error.is_retryable());
+
+    // …the healthy child was NOT killed and respawned…
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        1,
+        "an application-level rejection must not trigger a restart"
+    );
+
+    // …and the connection is still live for the next request.
+    let status = supervisor.snapshot().await;
+    assert!(
+        status.running,
+        "the connection must survive a serve rejection"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+

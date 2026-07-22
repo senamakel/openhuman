@@ -50,6 +50,46 @@ const START_FAILURE_BACKOFF: Duration = Duration::from_secs(300);
 /// Poll interval while waiting for the child to create its listening socket.
 const SOCKET_CONNECT_POLL: Duration = Duration::from_millis(50);
 
+/// Why a supervised request failed — the axis the restart-and-retry policy
+/// pivots on. Only [`RequestError::Transport`] (the established connection
+/// broke mid-request: process death, closed socket, IO failure, read timeout)
+/// is retryable, because respawning the child yields a fresh transport. The
+/// other variants are deterministic protocol- or application-level failures:
+/// killing a healthy child and replaying the request would hit the same
+/// failure again and can lose session state or duplicate side effects, so
+/// they fail fast.
+#[derive(Debug, thiserror::Error)]
+pub enum RequestError {
+    /// Spawning/connecting/handshaking a fresh child failed (including a
+    /// protocol-version mismatch in the handshake). The connect path already
+    /// has its own retry window, so this is terminal for the request.
+    #[error("{0:#}")]
+    Connect(anyhow::Error),
+    /// The established connection broke mid-request. Retryable once.
+    #[error("{0:#}")]
+    Transport(anyhow::Error),
+    /// serve answered `ok=false`: an application-level rejection over a
+    /// healthy connection (e.g. `bad_request`, `not_ready`). Not retryable.
+    #[error("medulla serve `{op}` failed: {code}: {message}")]
+    Serve {
+        op: String,
+        code: String,
+        message: String,
+    },
+    /// The transport delivered a frame the host cannot use (an undecodable
+    /// result payload). Not retryable — a restart replays the same exchange.
+    #[error("{0:#}")]
+    Protocol(anyhow::Error),
+}
+
+impl RequestError {
+    /// Whether killing and respawning the child could plausibly change the
+    /// outcome of replaying this request.
+    pub fn is_retryable(&self) -> bool {
+        matches!(self, Self::Transport(_))
+    }
+}
+
 /// A live, handshaken connection to one serve child.
 ///
 /// Owns the split unix-socket halves, the next-id counter (§2), and the
@@ -131,22 +171,33 @@ impl Connection {
 
     /// Typed request (§4): write a `req`, then drive the read loop —
     /// servicing interleaved `call` port callbacks and folding `event`s —
-    /// until the correlated `res` arrives.
-    pub async fn request<T: DeserializeOwned>(&mut self, op: &str, params: Value) -> Result<T> {
+    /// until the correlated `res` arrives. The error is classified (see
+    /// [`RequestError`]) so the supervisor can restrict restart-and-retry to
+    /// transport failures.
+    pub async fn request<T: DeserializeOwned>(
+        &mut self,
+        op: &str,
+        params: Value,
+    ) -> Result<T, RequestError> {
         let value = self.request_raw(op, params).await?;
         serde_json::from_value(value)
             .with_context(|| format!("decoding medulla serve `{op}` result"))
+            .map_err(RequestError::Protocol)
     }
 
-    async fn request_raw(&mut self, op: &str, params: Value) -> Result<Value> {
+    async fn request_raw(&mut self, op: &str, params: Value) -> Result<Value, RequestError> {
         let id = self.next_id.to_string();
         self.next_id += 1;
         debug!(id = %id, op, "[medulla_local] sending req");
         self.write_frame(&super::protocol::req_frame(&id, op, params))
-            .await?;
+            .await
+            .map_err(RequestError::Transport)?;
 
         loop {
-            let line = self.next_line(REQUEST_TIMEOUT).await?;
+            let line = self
+                .next_line(REQUEST_TIMEOUT)
+                .await
+                .map_err(RequestError::Transport)?;
             let frame: Value = match serde_json::from_str(&line) {
                 Ok(frame) => frame,
                 Err(error) => {
@@ -171,11 +222,21 @@ impl Connection {
                         continue;
                     }
                     if !res.ok {
-                        let message = res
-                            .error
-                            .map(|e| format!("{}: {}", e.code, e.message))
-                            .unwrap_or_else(|| "unknown medulla serve error".to_string());
-                        bail!("medulla serve `{op}` failed: {message}");
+                        // An application-level rejection over a healthy
+                        // connection — surfaced typed so the supervisor
+                        // fails fast instead of killing the child.
+                        let (code, message) =
+                            res.error.map(|e| (e.code, e.message)).unwrap_or_else(|| {
+                                (
+                                    "unknown_error".to_string(),
+                                    "unknown medulla serve error".to_string(),
+                                )
+                            });
+                        return Err(RequestError::Serve {
+                            op: op.to_string(),
+                            code,
+                            message,
+                        });
                     }
                     return Ok(res.result.unwrap_or(Value::Null));
                 }
@@ -478,6 +539,14 @@ pub struct MedullaSupervisor {
     connection: Mutex<Option<Connection>>,
 }
 
+impl std::fmt::Debug for MedullaSupervisor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MedullaSupervisor")
+            .field("connector", &self.connector.describe())
+            .finish_non_exhaustive()
+    }
+}
+
 impl MedullaSupervisor {
     pub fn new(connector: Arc<dyn Connector>, ports: Arc<dyn HostPorts>) -> Self {
         Self {
@@ -496,31 +565,54 @@ impl MedullaSupervisor {
         Ok(())
     }
 
-    /// Request with restart-and-retry-once (§7): on any transport failure the
-    /// host resets the connection, respawns via the connector (which replays
-    /// `hello`), and retries the request exactly once.
+    /// Request with restart-and-retry-once (§7) — restricted to transport
+    /// failures: only when the established connection broke mid-request
+    /// (process death, closed socket, IO failure, timeout) does the host
+    /// reset, respawn via the connector (which replays `hello`), and retry
+    /// exactly once. Application-level rejections (`ok=false`), undecodable
+    /// results, and connect/handshake failures are deterministic — retrying
+    /// them would kill a healthy child and can duplicate side effects — so
+    /// they fail fast with the typed [`RequestError`].
     pub async fn request<T: DeserializeOwned>(&self, op: &str, params: Value) -> Result<T> {
         match self.request_once(op, params.clone()).await {
             Ok(value) => Ok(value),
-            Err(error) => {
+            Err(error) if error.is_retryable() => {
                 warn!(
-                    "[medulla_local] request `{op}` failed; restarting {} before retry: {error:#}",
+                    "[medulla_local] request `{op}` hit a transport failure; restarting {} before retry: {error}",
                     self.connector.describe()
                 );
                 self.reset().await;
-                self.request_once(op, params).await
+                self.request_once(op, params).await.map_err(Into::into)
+            }
+            Err(error) => {
+                debug!("[medulla_local] request `{op}` failed non-retryably: {error}");
+                Err(error.into())
             }
         }
     }
 
-    async fn request_once<T: DeserializeOwned>(&self, op: &str, params: Value) -> Result<T> {
+    async fn request_once<T: DeserializeOwned>(
+        &self,
+        op: &str,
+        params: Value,
+    ) -> Result<T, RequestError> {
         let mut guard = self.connection.lock().await;
         if guard.is_none() {
-            *guard = Some(self.connector.connect(self.ports.clone()).await?);
+            *guard = Some(
+                self.connector
+                    .connect(self.ports.clone())
+                    .await
+                    .map_err(RequestError::Connect)?,
+            );
         }
-        let connection = guard
-            .as_mut()
-            .context("medulla connection missing after connect")?;
+        let connection = match guard.as_mut() {
+            Some(connection) => connection,
+            None => {
+                return Err(RequestError::Connect(anyhow::anyhow!(
+                    "medulla connection missing after connect"
+                )))
+            }
+        };
         connection.request(op, params).await
     }
 

@@ -6,9 +6,10 @@ binaries (see `src/bin/library_profile/main.rs`). Full write-up:
 [`docs/library-benchmarking.md`](../../docs/library-benchmarking.md). Prior
 findings: [`docs/resource-profiling-session-2026-07-21.md`](../../docs/resource-profiling-session-2026-07-21.md).
 
-Four driver scripts: `library-bench.sh` (per-scenario RSS/duration),
-`library-cpu.sh` (samply), `library-heap.sh` (dhat), and `library-fleet.sh`
-(fleet-scale sweep + budget gate).
+Five driver scripts: `library-bench.sh` (per-scenario RSS/duration),
+`library-cpu.sh` (samply), `library-heap.sh` (dhat), `library-fleet.sh`
+(fleet-scale sweep + budget gate), and `library-instances.sh` (multi-process
+instance sweep).
 
 ## Scripts
 
@@ -66,6 +67,32 @@ Results land in `target/profile/rust-library/fleet-<timestamp>/` (or
 `--no-gate` to report only). See
 [`docs/library-benchmarking.md`](../../docs/library-benchmarking.md#the-2-gb--2-vcpu-server-budget)
 for the budget math.
+
+### `library-instances.sh` — multi-instance (many-processes) sweep
+
+Spawns N independent `library-profile` processes (each a live instance held
+alive via `OPENHUMAN_PROFILE_HOLD_SECS`), staggered on startup, and measures
+**per-process** cost and box survivability — the opencompany "N independent
+processes/containers" deployment model, as opposed to `library-fleet.sh`'s
+"N agents in one process" model. Samples aggregate sum-RSS + live count every
+2s while instances hold, captures a `vm_stat` snapshot at peak (and a
+best-effort `footprint` sample if that macOS tool is present), then
+aggregates per swept N: launched/ok counts, median settled RSS per instance,
+mean and peak aggregate sum-RSS, and — on Linux, where it's meaningful —
+summed PSS.
+
+```bash
+./scripts/profile/library-instances.sh --instances "10,50" --hold-secs 30
+./scripts/profile/library-instances.sh --instances "100,500" --max-instances 500 --gate
+```
+
+Results land in `target/profile/rust-library/instances-<timestamp>/` (or
+`--out DIR`). Refuses to spawn more than `--max-instances` (default 200)
+without an explicit raise — see the script's `--help` for the RAM math. Exits
+nonzero with `--gate` if any instance failed to complete cleanly (nonzero
+exit or missing/invalid JSON); default is report-only. See
+[`docs/library-benchmarking.md`](../../docs/library-benchmarking.md#fleet-one-process-vs-instances-many-processes)
+for the fleet-vs-instances framing.
 
 ## Quick start
 

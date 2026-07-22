@@ -38,7 +38,7 @@ stderr). Each models a distinct embedding use case:
 
 ## How to run
 
-Four scripts under `scripts/profile/` (each has `-h`/`--help`):
+Five scripts under `scripts/profile/` (each has `-h`/`--help`):
 
 - **`library-bench.sh`** — the primary RSS/duration benchmark. Builds the
   binaries, runs each scenario N fresh-process repeats (default 5), and
@@ -76,6 +76,16 @@ Four scripts under `scripts/profile/` (each has `-h`/`--help`):
   ```bash
   ./scripts/profile/library-fleet.sh --agents 100 --latency-ms 200
   ./scripts/profile/library-fleet.sh --agents "50,100,500" --target 1000 --budget-mib 2048
+  ```
+
+- **`library-instances.sh`** — sweeps N independent *processes* (not agents
+  in one process) of a scenario, held alive via `OPENHUMAN_PROFILE_HOLD_SECS`,
+  and measures per-instance/aggregate cost — the many-processes counterpart
+  to `library-fleet.sh`'s one-process model (see
+  [below](#fleet-one-process-vs-instances-many-processes)).
+
+  ```bash
+  ./scripts/profile/library-instances.sh --instances "10,25,50" --hold-secs 30
   ```
 
 ### Default vs slim builds
@@ -186,6 +196,49 @@ path — `proc_metrics` reads `/proc/<pid>/status` and `/proc/<pid>/stat` on
 Linux — so true validation should eventually mean running the same
 `library-profile fleet` binary on a cgroup-limited Linux box (matching the 2
 vCPU / 2 GB target) rather than trusting the macOS projection alone.
+
+### Fleet (one process) vs instances (many processes)
+
+The budget section above measures one deployment shape: N agents sharing a
+single process. But "opencompany" may instead run OpenHuman as **N
+independent processes or containers** — one per tenant — rather than N
+agents inside one process. Those are different cost models and the fleet
+number does not answer the second one.
+
+- **Fleet (`library-fleet.sh`)** pays the ~30-50 MiB fixed base (allocator
+  high water, code paging, registries, detectors) **once**, and amortizes it
+  across however many agents share that process. Marginal cost per agent is
+  what matters, and it can be well under 1 MiB once the base is paid.
+- **Instances (`library-instances.sh`)** pays that same fixed base **N
+  times**, once per process — minus whatever the OS actually shares across
+  processes (resident executable text, shared library mappings). Summed RSS
+  across instances therefore **double-counts** those shared pages; it is an
+  upper bound, not the true footprint. True per-instance marginal cost is
+  better read from summed PSS (Linux only — macOS has no PSS-equivalent
+  metric), which divides shared pages across the processes that share them.
+
+`library-instances.sh` spawns N held `library-profile` processes staggered
+on startup, samples aggregate sum-RSS every 2s while they hold at settled
+state, and reports median settled RSS/instance, mean and peak aggregate
+sum-RSS, and summed PSS when available, plus a labeled 2 GB-box
+extrapolation estimate:
+
+```bash
+./scripts/profile/library-instances.sh --instances "10,25,50" --hold-secs 30
+```
+
+**This is still a macOS proxy, not container validation.** True validation
+means running the same binary under real `cgroup` memory limits (e.g.
+`docker run --memory=2g`) on a Linux host and observing whether it survives
+or gets OOM-killed at the target instance count — not projecting from local
+sum-RSS. That is follow-up work, and it belongs on a Linux box: this repo's
+own `openhuman-core` Docker build is currently blocked on Apple Silicon (the
+`whisper-rs-sys`/whisper.cpp NEON fp16 intrinsics fail to compile under
+arm64-Linux emulation with GCC 12 — see the umbrella repo's root `CLAUDE.md`
+gotchas and `docs/resource-profiling-session-2026-07-21.md`). The path
+around that blocker is either building for `linux/amd64` under emulation (the
+whisper AVX path has no NEON bug) or running the validation on a native Linux
+host rather than macOS Docker Desktop.
 
 ## Profiling escalation path
 

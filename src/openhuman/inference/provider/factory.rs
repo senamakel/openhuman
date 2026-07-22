@@ -513,9 +513,9 @@ pub(crate) fn resolve_byok_fallback_provider_string(config: &Config) -> Option<S
 ///
 /// Because it is global, tests that install an override MUST run serially
 /// and clear it via the returned guard. Inert in production: the check below
-/// is gated on `cfg(test)` or the off-by-default `e2e-test-support` feature,
+/// is gated on `cfg(test)` or an off-by-default test/profiling feature,
 /// so the override is never consulted in shipped builds.
-#[cfg(any(test, feature = "e2e-test-support"))]
+#[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
 pub mod test_provider_override {
     use super::Provider;
     use crate::openhuman::inference::provider::traits::{
@@ -710,7 +710,7 @@ pub fn create_chat_provider(
     // Test-only: a scripted mock provider injected by an e2e test wins over
     // anything config-derived. Gated on cfg(test) / the off-by-default
     // `e2e-test-support` feature; never consulted in shipped builds.
-    #[cfg(any(test, feature = "e2e-test-support"))]
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(p) = test_provider_override::current() {
         return Ok((
             Box::new(test_provider_override::ProviderHandle(p)),
@@ -984,11 +984,11 @@ pub fn create_chat_model_with_model_id(
     // override is installed. Temperature rides the per-call `ModelRequest` on the
     // crate path (the managed model is reused across prompts of differing temp).
     let test_override_active = {
-        #[cfg(any(test, feature = "e2e-test-support"))]
+        #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {
             test_provider_override::current().is_some()
         }
-        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        #[cfg(not(any(test, feature = "e2e-test-support", feature = "rss-bench")))]
         {
             false
         }
@@ -1058,11 +1058,11 @@ pub fn create_chat_model_from_string_with_model_id(
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     let test_override_active = {
-        #[cfg(any(test, feature = "e2e-test-support"))]
+        #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {
             test_provider_override::current().is_some()
         }
-        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        #[cfg(not(any(test, feature = "e2e-test-support", feature = "rss-bench")))]
         {
             false
         }
@@ -1477,11 +1477,11 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
     native_tool_calling: bool,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
     let test_override_active = {
-        #[cfg(any(test, feature = "e2e-test-support"))]
+        #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {
             test_provider_override::current().is_some()
         }
-        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        #[cfg(not(any(test, feature = "e2e-test-support", feature = "rss-bench")))]
         {
             false
         }
@@ -1559,11 +1559,11 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools(
     native_tool_calling: bool,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
     let test_override_active = {
-        #[cfg(any(test, feature = "e2e-test-support"))]
+        #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {
             test_provider_override::current().is_some()
         }
-        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        #[cfg(not(any(test, feature = "e2e-test-support", feature = "rss-bench")))]
         {
             false
         }

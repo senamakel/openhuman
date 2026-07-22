@@ -243,6 +243,10 @@ pub(super) struct AutonomySettingsUpdate {
     /// may run without an approval prompt. Empty list clears it.
     pub(super) auto_approve: Option<Vec<String>>,
     pub(super) require_task_plan_approval: Option<bool>,
+    /// Blanket "auto-approve everything" bypass. `SubconsciousTainted` and
+    /// `Unknown` origins are still denied by the gate regardless of this
+    /// setting.
+    pub(super) auto_approve_all: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

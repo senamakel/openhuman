@@ -11830,6 +11830,49 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         "auto_approve allowlist should round-trip, got envelope: {after_allow_outer}"
     );
 
+    // `auto_approve_all` (the blanket bypass) round-trips through the same
+    // update/get path, and defaults to `false`.
+    let initial_auto_all = initial_outer
+        .get("result")
+        .and_then(|r| r.get("auto_approve_all"))
+        .and_then(Value::as_bool);
+    assert_eq!(
+        initial_auto_all,
+        Some(false),
+        "auto_approve_all should default to false, got envelope: {initial_outer}"
+    );
+
+    let update_auto_all = post_json_rpc(
+        &rpc_base,
+        7007,
+        "openhuman.config_update_autonomy_settings",
+        json!({ "auto_approve_all": true }),
+    )
+    .await;
+    assert_no_jsonrpc_error(
+        &update_auto_all,
+        "update_autonomy_settings auto_approve_all",
+    );
+
+    let after_auto_all = post_json_rpc(
+        &rpc_base,
+        7008,
+        "openhuman.config_get_autonomy_settings",
+        json!({}),
+    )
+    .await;
+    let after_auto_all_outer =
+        assert_no_jsonrpc_error(&after_auto_all, "get_autonomy_settings auto_approve_all");
+    let auto_all_value = after_auto_all_outer
+        .get("result")
+        .and_then(|r| r.get("auto_approve_all"))
+        .and_then(Value::as_bool);
+    assert_eq!(
+        auto_all_value,
+        Some(true),
+        "auto_approve_all should round-trip to true, got envelope: {after_auto_all_outer}"
+    );
+
     mock_join.abort();
     rpc_join.abort();
 }

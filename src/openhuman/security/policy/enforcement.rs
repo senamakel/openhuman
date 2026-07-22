@@ -77,11 +77,12 @@ impl SecurityPolicy {
         action_dir: &Path,
     ) -> Self {
         log::info!(
-            "[openhuman:policy] SecurityPolicy created: autonomy={:?}, workspace_only={}, allowed_cmds={}, max_actions/hr={}",
+            "[openhuman:policy] SecurityPolicy created: autonomy={:?}, workspace_only={}, allowed_cmds={}, max_actions/hr={}, auto_approve_all={}",
             autonomy_config.level,
             autonomy_config.workspace_only,
             autonomy_config.allowed_commands.len(),
-            autonomy_config.max_actions_per_hour
+            autonomy_config.max_actions_per_hour,
+            autonomy_config.auto_approve_all
         );
 
         // `auto_approve` is the user's "Always allow" allowlist: the
@@ -164,6 +165,7 @@ impl SecurityPolicy {
             trusted_roots,
             allow_tool_install: autonomy_config.allow_tool_install,
             auto_approve: autonomy_config.auto_approve.clone(),
+            auto_approve_all: autonomy_config.auto_approve_all,
             tracker: ActionTracker::new(),
             canonical_workspace: Arc::new(OnceCell::new()),
         }

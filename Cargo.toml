@@ -54,6 +54,13 @@ name = "rss-bench"
 path = "src/bin/rss_bench.rs"
 required-features = ["rss-bench"]
 
+# Stateful library profiling workloads (memory ingestion + real sub-agent
+# delegation under a hermetic mock provider). Local/dev only.
+[[bin]]
+name = "library-profile"
+path = "src/bin/library_profile/main.rs"
+required-features = ["rss-bench"]
+
 [lib]
 name = "openhuman_core"
 crate-type = ["rlib"]
@@ -112,6 +119,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
 serde_yaml = "0.9"
+# dhat — heap profiler for the offline `library-profile` benchmark binary only.
+# Default-OFF, dev-only: pulled in solely by the `rss-bench-dhat` feature so it
+# never enters the shipped desktop/library build (same posture as `rss-bench`).
+dhat = { version = "0.3", optional = true }
 # (Removed `html2md` dep. dhat-rs profiling on real Gmail inboxes
 # showed `html2md::walk` and `html2md::tables::handle` allocating
 # ~894 MB peak heap on a 10 KB HTML input from Otter.ai-style emails
@@ -374,7 +385,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "desktop-automation", "tui", "medulla-local"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "desktop-automation", "channels", "tui", "medulla-local"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -585,7 +596,6 @@ desktop-automation = ["dep:uiautomation"]
 # build-fact "tui feature disabled at compile time" error from the untouched
 # `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
-
 # Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
 # a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,
 # host-side inference + tools port callbacks, the `medulla_local` RPC namespace,
@@ -606,6 +616,33 @@ tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
 # gate to the Tauri shell never breaks Windows packaging.
 medulla-local = []
 
+# Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
+# Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,
+# controllers, host, proactive messaging and inbound dispatch) together with the
+# `webview_accounts` / `webview_apis` / `webview_notifications` / `whatsapp_data`
+# webview-bridge domains. Default-ON — the desktop app always ships with
+# channels. Slim / headless builds opt out via `--no-default-features --features
+# "<explicit list without channels>"`. Composes with the runtime
+# `DomainSet::Channels` flag (#4796): this feature narrows the compile-time
+# surface, `DomainSet` gates it at runtime.
+#
+# INTENTIONALLY EMPTY — do NOT "fix" this by adding `dep:` entries. This gate
+# sheds ZERO dependencies: `tinychannels` stays load-bearing regardless
+# (`config/schema/channels.rs` re-exports its config types, `event_bus/events.rs`
+# `DomainEvent` embeds `tinychannels::ChannelInboundEnvelope`, and
+# `security/pairing.rs` re-exports its pairing helpers), so it is always
+# compiled. The gate's value is compile-time surface + binary size, not the dep
+# tree. (`whatsapp-web` refines this gate — see below — forwarding to the
+# `tinychannels/whatsapp-web` provider feature.)
+#
+# NOTE: the in-app web chat (`openhuman::web_chat`, RPC namespace `channel`) is
+# NOT gated by this feature even though its runtime tag is
+# `DomainGroup::Channels` — it is core product surface and stays always
+# compiled (decoupled from `channels/` in #5002). The `channels::{traits, cli}`
+# carve-outs also stay ungated — `traits` is a 1-line tinychannels re-export and
+# `cli::CliChannel` is the dep-free local REPL used by the always-on agent
+# harness interactive loop. See AGENTS.md "channels gate" + `channels/mod.rs`.
+channels = []
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
 peripheral-rpi = ["dep:rppal"]
@@ -613,7 +650,9 @@ browser-native = ["dep:fantoccini"]
 fantoccini = ["browser-native"]
 landlock = ["sandbox-landlock"]
 # The WhatsApp Web provider now lives in tinychannels; forward to its feature.
-whatsapp-web = ["tinychannels/whatsapp-web"]
+# It is a refinement INSIDE the `channels` gate — enabling it pulls in the whole
+# channels domain (the provider re-exports live under `channels/providers/`).
+whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # Exposes the destructive `openhuman.test_reset` RPC. Off by default; the E2E
 # build (app/scripts/e2e-build.sh) flips it on. Shipped binaries never have
 # this feature so the wipe RPC isn't even registered, let alone reachable.
@@ -622,6 +661,11 @@ e2e-test-support = []
 # part of the shipped desktop/library build and the feature-forwarding gate
 # (which only inspects the `default` list) never requires forwarding it.
 rss-bench = []
+# Adds dhat heap profiling on top of `rss-bench` for the `library-profile`
+# binary. Default-OFF, dev-only: installs dhat's global allocator, which
+# perturbs RSS/timing numbers, so it is a separate opt-in feature rather than
+# folded into `rss-bench`. Never forwarded to the shipped build.
+rss-bench-dhat = ["rss-bench", "dep:dhat"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

@@ -5565,6 +5565,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'কাজের পরিকল্পনা অনুমোদন প্রয়োজন',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'নির্ধারিত কর্মের পূর্বে একটি author-ed কর্মের সঞ্চালনার পূর্বে কর্ম স্থগিত করা হবে।',
+  'settings.agentAccess.autoApproveAll.label': 'সব কাজ স্বয়ংক্রিয়ভাবে অনুমোদন করুন',
+  'settings.agentAccess.autoApproveAll.desc':
+    'সক্রিয় করা হলে, এজেন্ট আপনার অনুমতি না নিয়েই সব কাজ সম্পাদন করবে। এর মধ্যে রয়েছে ফাইল লেখা, শেল কমান্ড, নেটওয়ার্ক অনুরোধ এবং অন্যান্য যেকোনো পার্শ্বপ্রতিক্রিয়া। কঠোর নিরাপত্তা বাধা (ক্রেডেনশিয়াল ডিরেক্টরি, ওয়ার্কস্পেসের অভ্যন্তরীণ পাথ) তবুও কার্যকর থাকবে।',
   'settings.agentAccess.tinyplaceAutopilot.title': 'স্বয়ংক্রিয় tiny.place এজেন্ট',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'OpenHuman-কে tiny.place-এ নিজে কাজ করতে দিন। এটি নির্ধারিত সময় অনুযায়ী মূল্যবান কাজ খোঁজে (প্রথমে খোলা বাউন্টি), নিজের দক্ষতার সাথে মানানসই কাজ করে এবং আপনার পরিচয় থেকে কাজ করে। এটি তত্ত্বাবধান ছাড়াই চলে এবং অর্থ ব্যয় করতে পারে, তাই পরীক্ষার সময় এটি devnet-এ রাখুন। ডিফল্টভাবে বন্ধ।',

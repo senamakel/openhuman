@@ -244,6 +244,15 @@ pub struct SecurityPolicy {
     /// `autonomy.auto_approve`; populated/cleared via `config.update_autonomy_settings`
     /// (or an "Always allow" decision) and observed live via `live_policy`.
     pub auto_approve: Vec<String>,
+    /// When true, the approval gate auto-approves ALL tool calls without
+    /// prompting — a blanket bypass, not just the `auto_approve` allowlist
+    /// above. `TrustedAutomationSource::SubconsciousTainted` and
+    /// `AgentTurnOrigin::Unknown` origins are still denied by the gate
+    /// regardless of this flag. Sourced from `autonomy.auto_approve_all`;
+    /// observed live via `live_policy`. Does not affect
+    /// `is_always_forbidden`, `is_workspace_internal_path`, or
+    /// `ToolPolicyMiddleware`, which are independent code paths.
+    pub auto_approve_all: bool,
     pub tracker: ActionTracker,
     /// Lazily-cached canonical form of [`workspace_dir`].
     ///
@@ -369,6 +378,7 @@ impl Default for SecurityPolicy {
             trusted_roots: Vec::new(),
             allow_tool_install: false,
             auto_approve: Vec::new(),
+            auto_approve_all: false,
             tracker: ActionTracker::new(),
             canonical_workspace: Arc::new(OnceCell::new()),
         }

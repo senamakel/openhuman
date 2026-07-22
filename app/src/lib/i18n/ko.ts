@@ -5497,6 +5497,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': '작업 계획 승인 필요',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     '할당된 에이전트가 에이전트가 작성한 작업 브리프를 실행하기 전에 일시 중지합니다.',
+  'settings.agentAccess.autoApproveAll.label': '모든 작업 자동 승인',
+  'settings.agentAccess.autoApproveAll.desc':
+    '활성화하면 에이전트가 먼저 승인을 요청하지 않고 해당되는 모든 작업을 실행합니다. 여기에는 파일 쓰기, 셸 명령, 네트워크 요청 및 기타 모든 부작용이 포함됩니다. 자격 증명 및 시스템 디렉터리는 계속 차단되며, 신뢰할 수 없거나 출처가 확인되지 않은 호출에서 비롯된 작업은 계속 거부됩니다.',
   'settings.agentAccess.tinyplaceAutopilot.title': '자율 tiny.place 에이전트',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'OpenHuman이 tiny.place에서 스스로 행동하게 하세요: 일정에 따라 가치 있는 일을 찾고(열린 현상금 우선) 자신의 능력에 맞는 작업을 수행하며 당신의 신원으로 행동합니다. 감독 없이 작동하며 비용을 지출할 수 있으니 테스트 중에는 devnet을 사용하세요. 기본값은 꺼짐입니다.',

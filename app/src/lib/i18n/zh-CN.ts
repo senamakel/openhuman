@@ -5267,6 +5267,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': '要求批准任务计划',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     '在指定智能体执行由智能体编写的任务简报前暂停。',
+  'settings.agentAccess.autoApproveAll.label': '自动批准所有操作',
+  'settings.agentAccess.autoApproveAll.desc':
+    '启用后，智能体将自动执行所有符合条件的操作，无需事先征得你的批准。这包括文件写入、Shell 命令、网络请求以及任何其他副作用。严格的安全阻止措施（凭据目录和系统目录）仍然适用，来自不受信任或未知来源的操作永远不会被自动批准。',
   'settings.agentAccess.tinyplaceAutopilot.title': '自主 tiny.place 代理',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     '让 OpenHuman 自行在 tiny.place 上行动：按计划寻找有价值的工作（优先开放的悬赏），完成符合其技能的任务，并以你的身份行动。它在无人监督下运行且可以花费资金，测试时请使用 devnet。默认关闭。',

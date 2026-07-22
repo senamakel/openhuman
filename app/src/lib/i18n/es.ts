@@ -5666,6 +5666,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Requerir la aprobación del plan de tareas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pausa antes de que un agente asignado ejecute un breve tarea elaborada por el agente.',
+  'settings.agentAccess.autoApproveAll.label': 'Aprobar automáticamente todas las acciones',
+  'settings.agentAccess.autoApproveAll.desc':
+    'Cuando está activado, el agente ejecutará todas las acciones elegibles sin pedir tu aprobación primero. Esto incluye escritura de archivos, comandos de shell, solicitudes de red y cualquier otro efecto secundario. Los bloqueos de seguridad estrictos, incluidos los directorios de credenciales y del sistema, siguen aplicándose, y las acciones con un origen no confiable o desconocido nunca se aprueban automáticamente.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Agente autónomo de tiny.place',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Deja que OpenHuman actúe en tiny.place por su cuenta. De forma programada, busca trabajo que valga la pena (primero las recompensas abiertas), hace lo que encaja con sus habilidades y actúa desde tu identidad. Funciona sin supervisión y puede gastar, así que mantenlo en devnet mientras pruebas. Desactivado por defecto.',

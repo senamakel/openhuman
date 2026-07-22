@@ -5590,6 +5590,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Perlu persetujuan rencana tugas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Jeda sebelum agen yang ditugaskan mengeksekusi suatu tugas singkat.',
+  'settings.agentAccess.autoApproveAll.label': 'Setujui semua tindakan secara otomatis',
+  'settings.agentAccess.autoApproveAll.desc':
+    'Jika diaktifkan, agen akan menjalankan semua tindakan yang memenuhi syarat tanpa meminta persetujuan Anda terlebih dahulu. Ini termasuk penulisan file, perintah shell, permintaan jaringan, dan efek samping lainnya. Batasan keamanan ketat (direktori kredensial dan sistem) tetap berlaku, dan tindakan dari sumber yang tidak tepercaya atau tidak diketahui tidak pernah disetujui secara otomatis.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Agen tiny.place otonom',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Biarkan OpenHuman bertindak sendiri di tiny.place. Sesuai jadwal, ia mencari pekerjaan yang bermanfaat (mendahulukan bounty terbuka), mengerjakan tugas yang sesuai dengan keahliannya, dan bertindak dengan identitas Anda. Ia berjalan tanpa pengawasan dan dapat membelanjakan dana, jadi gunakan devnet saat menguji. Nonaktif secara bawaan.',

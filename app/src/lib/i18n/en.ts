@@ -6274,6 +6274,9 @@ const en: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pause before an assigned agent executes an agent-authored task brief.',
+  'settings.agentAccess.autoApproveAll.label': 'Auto-approve all actions',
+  'settings.agentAccess.autoApproveAll.desc':
+    'When enabled, the agent executes all eligible actions without asking for your approval first. This includes file writes, shell commands, network requests, and any other side effects. Credential and system directories stay blocked, and actions from untrusted or unlabelled call origins are still denied.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Autonomous tiny.place agent',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Let OpenHuman act on tiny.place on its own. On a schedule, it finds worthwhile work (open bounties first), does what fits its skills, and acts from your identity. It runs unattended and can spend, so keep it on devnet while testing. Off by default.',

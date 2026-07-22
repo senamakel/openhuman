@@ -5437,6 +5437,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
+  'settings.agentAccess.autoApproveAll.label': 'الموافقة التلقائية على جميع الإجراءات',
+  'settings.agentAccess.autoApproveAll.desc':
+    'عند التفعيل، سينفذ الوكيل جميع الإجراءات المؤهلة دون طلب موافقتك أولاً. يشمل ذلك كتابة الملفات وتنفيذ أوامر الطرفية وطلبات الشبكة وأي تأثيرات جانبية أخرى. تظل الحواجز الأمنية الصارمة، مثل أدلة بيانات الاعتماد والأدلة النظامية، سارية المفعول، ولا تتم الموافقة التلقائية أبداً على الإجراءات ذات المصدر غير الموثوق أو غير المعروف.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'وكيل tiny.place المستقل',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'دع OpenHuman يتصرف على tiny.place بمفرده. وفق جدول زمني، يبحث عن عمل مجدٍ (المكافآت المفتوحة أولًا)، وينجز ما يناسب مهاراته ويتصرف من هويتك. يعمل دون إشراف ويمكنه الإنفاق، لذا أبقِه على devnet أثناء الاختبار. معطّل افتراضيًا.',

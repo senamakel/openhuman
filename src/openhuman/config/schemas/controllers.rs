@@ -466,6 +466,7 @@ pub(super) fn handle_update_autonomy_settings(params: Map<String, Value>) -> Con
                 .map(|v| u32::try_from(v).unwrap_or(u32::MAX)),
             auto_approve: update.auto_approve,
             require_task_plan_approval: update.require_task_plan_approval,
+            auto_approve_all: update.auto_approve_all,
         };
         to_json(config_rpc::load_and_apply_autonomy_settings(patch).await?)
     })

@@ -1,7 +1,7 @@
 //! Live-runtime unit tests (#3374 PR4).
 //!
 //! The worker-driving core ([`super::drive_member`]) is exercised directly with
-//! a mock `Provider` installed via [`with_parent_context`] (mirroring
+//! a mock `ChatModel` installed via [`with_parent_context`] (mirroring
 //! `workflow_runs::engine_tests`), so a teammate runs deterministically without
 //! touching the network. [`super::start_member_run`]'s pre-spawn outcome routing
 //! (blocked / already-claimed / no-claimable / unknown) is tested through the
@@ -19,14 +19,13 @@ use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
 use crate::openhuman::config::{AgentConfig, Config};
 use crate::openhuman::context::prompt::ToolCallFormat;
-use crate::openhuman::inference::provider::traits::ProviderCapabilities;
-use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider};
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::session_db::run_ledger::{
     self, AgentTeamMemberStatus, AgentTeamMemberUpsert, AgentTeamStatus, AgentTeamTaskStatus,
     AgentTeamTaskUpsert, AgentTeamUpsert,
 };
 use crate::openhuman::tools::{Tool, ToolSpec};
+use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse};
 
 // ── Mocks (mirror workflow_runs::engine_tests) ──────────────────────────────
 
@@ -81,58 +80,39 @@ impl Memory for NoopMemory {
     }
 }
 
-fn text_response(text: impl Into<String>) -> ChatResponse {
-    ChatResponse {
-        text: Some(text.into()),
-        tool_calls: Vec::new(),
-        usage: None,
-        reasoning_content: None,
-    }
+fn text_response(text: impl Into<String>) -> ModelResponse {
+    ModelResponse::assistant(text)
 }
 
-/// Mock provider that answers every child with a fixed completion, or fails.
+/// Mock model that answers every child with a fixed completion, or fails.
 #[derive(Clone)]
-struct CannedProvider {
+struct CannedModel {
     output: String,
     fail: bool,
 }
 
 #[async_trait]
-impl Provider for CannedProvider {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-    async fn chat_with_system(
+impl ChatModel<()> for CannedModel {
+    async fn invoke(
         &self,
-        _s: Option<&str>,
-        _m: &str,
-        _model: &str,
-        _t: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".to_string())
-    }
-    async fn chat(
-        &self,
-        _request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         if self.fail {
-            return Err(anyhow::anyhow!("mock provider forced failure"));
+            return Err(tinyagents::TinyAgentsError::Model(
+                "mock model forced failure".to_string(),
+            ));
         }
         Ok(text_response(self.output.clone()))
     }
 }
 
-fn mock_parent(provider: Arc<dyn Provider>) -> ParentExecutionContext {
+fn mock_parent(model: Arc<dyn ChatModel<()>>) -> ParentExecutionContext {
     ParentExecutionContext {
         workspace_descriptor: None,
         agent_definition_id: "agent_team_runtime".to_string(),
         allowed_subagent_ids: HashSet::new(),
-        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(provider),
+        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
         all_tools: Arc::new(Vec::<Box<dyn Tool>>::new()),
         all_tool_specs: Arc::new(Vec::<ToolSpec>::new()),
         visible_tool_names: std::collections::HashSet::new(),
@@ -258,7 +238,7 @@ async fn drive_member_completes_task_with_worker_output_as_evidence() {
         .unwrap()
         .unwrap();
 
-    let provider = Arc::new(CannedProvider {
+    let provider = Arc::new(CannedModel {
         output: "did the thing".into(),
         fail: false,
     });
@@ -325,7 +305,7 @@ async fn run_member_loop_drives_member_under_ambient_parent() {
         .unwrap()
         .unwrap();
 
-    let provider = Arc::new(CannedProvider {
+    let provider = Arc::new(CannedModel {
         output: "did the thing".into(),
         fail: false,
     });
@@ -381,7 +361,7 @@ async fn drive_member_releases_task_when_worker_fails() {
         .unwrap()
         .unwrap();
 
-    let provider = Arc::new(CannedProvider {
+    let provider = Arc::new(CannedModel {
         output: String::new(),
         fail: true,
     });

@@ -997,10 +997,41 @@ fn build_cap_digest(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::inference::provider::{ChatResponse, Provider, ToolCall};
     use crate::openhuman::tools::ToolResult;
     use async_trait::async_trait;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use tinyagents::harness::message::{AssistantMessage, MessageDelta};
+    use tinyagents::harness::model::{
+        ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
+    };
+    use tinyagents::harness::tool::ToolCall;
+
+    fn native_tool_profile() -> &'static ModelProfile {
+        static PROFILE: std::sync::LazyLock<ModelProfile> =
+            std::sync::LazyLock::new(|| ModelProfile {
+                provider: Some("subagent-graph-test".to_string()),
+                tool_calling: true,
+                parallel_tool_calls: true,
+                streaming: true,
+                ..ModelProfile::default()
+            });
+        &PROFILE
+    }
+
+    fn tool_response(id: &str, name: &str, arguments: serde_json::Value) -> ModelResponse {
+        ModelResponse {
+            message: AssistantMessage {
+                id: None,
+                content: Vec::new(),
+                tool_calls: vec![ToolCall::new(id, name, arguments)],
+                usage: None,
+            },
+            usage: None,
+            finish_reason: Some("tool_calls".to_string()),
+            raw: None,
+            resolved_model: None,
+        }
+    }
 
     struct EchoTool;
     #[async_trait]
@@ -1024,42 +1055,22 @@ mod tests {
         calls: AtomicUsize,
     }
     #[async_trait]
-    impl Provider for TwoStepProvider {
-        async fn chat_with_system(
-            &self,
-            _s: Option<&str>,
-            _m: &str,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
+    impl ChatModel<()> for TwoStepProvider {
+        fn profile(&self) -> Option<&ModelProfile> {
+            Some(native_tool_profile())
         }
-        async fn chat(
+
+        async fn invoke(
             &self,
-            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<ChatResponse> {
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyagents::Result<ModelResponse> {
             let n = self.calls.fetch_add(1, Ordering::SeqCst);
             if n == 0 {
-                Ok(ChatResponse {
-                    tool_calls: vec![ToolCall {
-                        id: "1".to_string(),
-                        name: "echo".to_string(),
-                        arguments: r#"{"msg":"hi"}"#.to_string(),
-                        extra_content: None,
-                    }],
-                    ..Default::default()
-                })
+                Ok(tool_response("1", "echo", serde_json::json!({"msg": "hi"})))
             } else {
-                Ok(ChatResponse {
-                    text: Some("all done".to_string()),
-                    ..Default::default()
-                })
+                Ok(ModelResponse::assistant("all done"))
             }
-        }
-        fn supports_native_tools(&self) -> bool {
-            true
         }
     }
 
@@ -1074,7 +1085,7 @@ mod tests {
         let mut history = vec![ChatMessage::user("please echo hi")];
 
         let (output, iterations, usage, early_exit, hit_cap, _breaker) = run_subagent_via_graph(
-            crate::openhuman::tinyagents::TurnModelSource::new(provider),
+            crate::openhuman::tinyagents::TurnModelSource::from_model(provider),
             "mock-model",
             0.0,
             &mut history,
@@ -1115,44 +1126,36 @@ mod tests {
     /// delta sender, exercising the child-progress bridge end to end.
     struct ThinkingStreamProvider;
     #[async_trait]
-    impl Provider for ThinkingStreamProvider {
-        async fn chat_with_system(
-            &self,
-            _s: Option<&str>,
-            _m: &str,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
+    impl ChatModel<()> for ThinkingStreamProvider {
+        fn profile(&self) -> Option<&ModelProfile> {
+            Some(native_tool_profile())
         }
-        async fn chat(
+
+        async fn invoke(
             &self,
-            r: crate::openhuman::inference::provider::ChatRequest<'_>,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<ChatResponse> {
-            use crate::openhuman::inference::provider::ProviderDelta;
-            if let Some(tx) = r.stream {
-                let _ = tx
-                    .send(ProviderDelta::ThinkingDelta {
-                        delta: "let me think".into(),
-                    })
-                    .await;
-                for chunk in ["Hel", "lo"] {
-                    let _ = tx
-                        .send(ProviderDelta::TextDelta {
-                            delta: chunk.into(),
-                        })
-                        .await;
-                }
-            }
-            Ok(ChatResponse {
-                text: Some("Hello".to_string()),
-                ..Default::default()
-            })
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyagents::Result<ModelResponse> {
+            Ok(ModelResponse::assistant("Hello"))
         }
-        fn supports_native_tools(&self) -> bool {
-            true
+
+        async fn stream(
+            &self,
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyagents::Result<ModelStream> {
+            let response = ModelResponse::assistant("Hello");
+            Ok(Box::pin(futures::stream::iter(vec![
+                ModelStreamItem::Started,
+                ModelStreamItem::MessageDelta(MessageDelta {
+                    text: String::new(),
+                    reasoning: "let me think".to_string(),
+                    tool_call: None,
+                }),
+                ModelStreamItem::MessageDelta(MessageDelta::text("Hel")),
+                ModelStreamItem::MessageDelta(MessageDelta::text("lo")),
+                ModelStreamItem::Completed(response),
+            ])))
         }
     }
 
@@ -1163,7 +1166,9 @@ mod tests {
         let mut history = vec![ChatMessage::user("hi")];
 
         let (output, _iters, _usage, _early, _hit_cap, _breaker) = run_subagent_via_graph(
-            crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(ThinkingStreamProvider)),
+            crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::new(
+                ThinkingStreamProvider,
+            )),
             "mock-model",
             0.0,
             &mut history,
@@ -1260,42 +1265,26 @@ mod tests {
         calls: AtomicUsize,
     }
     #[async_trait]
-    impl Provider for AskThenAnswer {
-        async fn chat_with_system(
-            &self,
-            _s: Option<&str>,
-            _m: &str,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
+    impl ChatModel<()> for AskThenAnswer {
+        fn profile(&self) -> Option<&ModelProfile> {
+            Some(native_tool_profile())
         }
-        async fn chat(
+
+        async fn invoke(
             &self,
-            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<ChatResponse> {
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyagents::Result<ModelResponse> {
             let n = self.calls.fetch_add(1, Ordering::SeqCst);
             if n == 0 {
-                Ok(ChatResponse {
-                    tool_calls: vec![ToolCall {
-                        id: "ask-1".to_string(),
-                        name: "ask_user_clarification".to_string(),
-                        arguments: r#"{"question":"which file?"}"#.to_string(),
-                        extra_content: None,
-                    }],
-                    ..Default::default()
-                })
+                Ok(tool_response(
+                    "ask-1",
+                    "ask_user_clarification",
+                    serde_json::json!({"question": "which file?"}),
+                ))
             } else {
-                Ok(ChatResponse {
-                    text: Some("should not be reached".to_string()),
-                    ..Default::default()
-                })
+                Ok(ModelResponse::assistant("should not be reached"))
             }
-        }
-        fn supports_native_tools(&self) -> bool {
-            true
         }
     }
 
@@ -1310,7 +1299,7 @@ mod tests {
         let mut history = vec![ChatMessage::user("help me")];
 
         let (output, iterations, _usage, early_exit, _hit_cap, _breaker) = run_subagent_via_graph(
-            crate::openhuman::tinyagents::TurnModelSource::new(provider.clone()),
+            crate::openhuman::tinyagents::TurnModelSource::from_model(provider.clone()),
             "mock-model",
             0.0,
             &mut history,
@@ -1370,42 +1359,22 @@ mod tests {
     /// A request with no tools is the cap-hit summary call — it returns prose.
     struct LoopForeverProvider;
     #[async_trait]
-    impl Provider for LoopForeverProvider {
-        async fn chat_with_system(
-            &self,
-            _s: Option<&str>,
-            _m: &str,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
+    impl ChatModel<()> for LoopForeverProvider {
+        fn profile(&self) -> Option<&ModelProfile> {
+            Some(native_tool_profile())
         }
-        async fn chat(
+
+        async fn invoke(
             &self,
-            r: crate::openhuman::inference::provider::ChatRequest<'_>,
-            _model: &str,
-            _t: f64,
-        ) -> anyhow::Result<ChatResponse> {
-            if r.tools.is_some() {
-                Ok(ChatResponse {
-                    tool_calls: vec![ToolCall {
-                        id: "n".to_string(),
-                        name: "noop".to_string(),
-                        arguments: "{}".to_string(),
-                        extra_content: None,
-                    }],
-                    ..Default::default()
-                })
+            _state: &(),
+            request: ModelRequest,
+        ) -> tinyagents::Result<ModelResponse> {
+            if !request.tools.is_empty() {
+                Ok(tool_response("n", "noop", serde_json::json!({})))
             } else {
                 // The summary call (tools=None): return a progress checkpoint.
-                Ok(ChatResponse {
-                    text: Some("progress: explored two leads".to_string()),
-                    ..Default::default()
-                })
+                Ok(ModelResponse::assistant("progress: explored two leads"))
             }
-        }
-        fn supports_native_tools(&self) -> bool {
-            true
         }
     }
 
@@ -1417,7 +1386,9 @@ mod tests {
         let mut history = vec![ChatMessage::user("do a big task")];
 
         let (output, iterations, _usage, early_exit, hit_cap, _breaker) = run_subagent_via_graph(
-            crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(LoopForeverProvider)),
+            crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::new(
+                LoopForeverProvider,
+            )),
             "mock-model",
             0.0,
             &mut history,

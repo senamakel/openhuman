@@ -65,6 +65,11 @@ impl Default for MedullaLocalConfig {
 /// Default overall per-request deadline for serve requests, in seconds.
 pub const DEFAULT_REQUEST_DEADLINE_SECS: u64 = 300;
 
+/// Ceiling for [`MedullaLocalConfig::request_deadline_secs`]: 24 hours. Larger
+/// values add no practical headroom and a near-`u64::MAX` duration would panic
+/// in `Instant + Duration` arithmetic on the request path.
+pub const MAX_REQUEST_DEADLINE_SECS: u64 = 24 * 60 * 60;
+
 fn default_request_deadline_secs() -> u64 {
     DEFAULT_REQUEST_DEADLINE_SECS
 }
@@ -93,7 +98,19 @@ impl MedullaLocalConfig {
     /// back to the default.
     pub fn request_deadline(&self) -> std::time::Duration {
         let secs = if self.request_deadline_secs == 0 {
+            tracing::warn!(
+                configured = self.request_deadline_secs,
+                effective_secs = DEFAULT_REQUEST_DEADLINE_SECS,
+                "medulla_local request_deadline_secs=0 would disable the request ceiling; using the default"
+            );
             DEFAULT_REQUEST_DEADLINE_SECS
+        } else if self.request_deadline_secs > MAX_REQUEST_DEADLINE_SECS {
+            tracing::warn!(
+                configured = self.request_deadline_secs,
+                effective_secs = MAX_REQUEST_DEADLINE_SECS,
+                "medulla_local request_deadline_secs exceeds the 24h ceiling; clamping"
+            );
+            MAX_REQUEST_DEADLINE_SECS
         } else {
             self.request_deadline_secs
         };
@@ -223,6 +240,31 @@ mod tests {
         assert_eq!(
             zeroed.request_deadline(),
             std::time::Duration::from_secs(DEFAULT_REQUEST_DEADLINE_SECS)
+        );
+    }
+
+    #[test]
+    fn request_deadline_clamps_oversized_values_to_the_ceiling() {
+        // A near-u64::MAX duration would panic in `Instant + Duration`
+        // arithmetic on the request path; the accessor clamps instead.
+        let oversized: MedullaLocalConfig = serde_json::from_str(&format!(
+            r#"{{ "request_deadline_secs": {} }}"#,
+            u64::MAX - 1
+        ))
+        .unwrap();
+        assert_eq!(
+            oversized.request_deadline(),
+            std::time::Duration::from_secs(MAX_REQUEST_DEADLINE_SECS)
+        );
+        // The boundary value itself is accepted un-clamped.
+        let at_max: MedullaLocalConfig = serde_json::from_str(&format!(
+            r#"{{ "request_deadline_secs": {} }}"#,
+            MAX_REQUEST_DEADLINE_SECS
+        ))
+        .unwrap();
+        assert_eq!(
+            at_max.request_deadline(),
+            std::time::Duration::from_secs(MAX_REQUEST_DEADLINE_SECS)
         );
     }
 }

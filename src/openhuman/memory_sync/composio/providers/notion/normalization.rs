@@ -1,4 +1,4 @@
-//! Notion sync helpers — result extraction, pagination cursor,
+//! Notion host normalization helpers — result extraction, pagination cursor,
 //! page title extraction, and time utilities.
 
 use serde_json::Value;

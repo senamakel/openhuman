@@ -1,6 +1,6 @@
 //! Unit tests for the Notion provider.
 
-use super::sync::{extract_notion_cursor, extract_page_title, extract_results};
+use super::normalization::{extract_notion_cursor, extract_page_title, extract_results};
 use super::NotionProvider;
 use crate::openhuman::memory_sync::composio::providers::ComposioProvider;
 use serde_json::json;

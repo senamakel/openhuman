@@ -25,7 +25,7 @@ pub mod error_codes {
 }
 
 /// A host tool spec advertised in the `hello` request (`ToolSpec`, §3). The
-/// serve side binds these into a `MedullaModule`.
+/// serve side binds these into its module registry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolSpec {
     pub name: String,

@@ -62,8 +62,8 @@ impl PortError {
 #[async_trait]
 pub trait HostPorts: Send + Sync {
     /// The host tool specs advertised in the `hello` handshake (§3), which serve
-    /// binds into a `MedullaModule` so the model can see and emit `tools.invoke`
-    /// calls for them.
+    /// binds into the serve-side module registry so the model can see and emit
+    /// `tools.invoke` calls for them.
     ///
     /// This MUST correspond to the set [`Self::invoke_tool`] will actually
     /// answer — an advertised tool the port later refuses is a phantom the model

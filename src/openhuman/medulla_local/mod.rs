@@ -1,8 +1,8 @@
 //! Local Medulla brain — supervises a `medulla-serve` Node child and speaks the
-//! serve NDJSON protocol (`docs/specs/medulla-serve-protocol.md`) as the host.
+//! medulla-serve NDJSON protocol, v1, as the host.
 //!
 //! This is Flavor A of the Medulla flavors plan (§3.1–§3.2): openhuman runs
-//! medulla-v1's `createAgentHarness` in a supervised child and answers its port
+//! medulla-v1's agent-harness facade in a supervised child and answers its port
 //! callbacks against the local capability surface (inference routing, curated
 //! read-only tools). It also backs the subconscious-replacement draft (§5.2):
 //! with `subconscious.engine = "medulla"`, each heartbeat tick routes its

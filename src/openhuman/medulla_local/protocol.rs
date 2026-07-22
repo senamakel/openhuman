@@ -1,9 +1,8 @@
 //! Wire-level frame envelopes for the `medulla-serve` NDJSON protocol.
 //!
-//! The contract is specified verbatim in
-//! `docs/specs/medulla-serve-protocol.md` (plan §2.2). `serve` is the Node
-//! child wrapping medulla-v1's `createAgentHarness`; `host` is this Rust
-//! supervisor. Six frame kinds cross three flows:
+//! The contract follows the medulla-serve NDJSON protocol, v1 (plan §2.2).
+//! `serve` is the Node child wrapping medulla-v1's agent-harness facade;
+//! `host` is this Rust supervisor. Six frame kinds cross three flows:
 //!
 //! | `t`     | direction   | flow                                    |
 //! | ------- | ----------- | --------------------------------------- |

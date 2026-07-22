@@ -362,8 +362,8 @@ impl Connector for NodeServeConnector {
         let serve_entry = self.serve_entry.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
                 "medulla serve entry not configured: set subconscious.medulla_local.serve_entry \
-                 or the OPENHUMAN_MEDULLA_SERVE_ENTRY env var to medulla-v1's built \
-                 `dist/serve/index.js`"
+                 or the OPENHUMAN_MEDULLA_SERVE_ENTRY env var to the medulla-serve entry point \
+                 (path supplied via config/env, e.g. a built `dist/serve/index.js`)"
             )
         })?;
         if !serve_entry.is_file() {
@@ -411,8 +411,8 @@ impl Connector for NodeServeConnector {
         }
 
         let stream = connect_unix_retry(&self.socket_path, HANDSHAKE_TIMEOUT).await?;
-        // Advertise the curated read-only tool surface so serve binds it into a
-        // MedullaModule and the model can emit `tools.invoke` for these tools.
+        // Advertise the curated read-only tool surface so serve binds it into
+        // its module registry and the model can emit `tools.invoke` for these tools.
         // The spec set comes from the same `HostPorts` the `tools` port callback
         // dispatches to, so what is advertised is exactly what can be invoked.
         let tools = ports.tool_specs();

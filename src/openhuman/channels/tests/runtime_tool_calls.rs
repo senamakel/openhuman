@@ -5,74 +5,17 @@ use super::super::context::{
 use super::super::runtime::process_channel_message;
 use super::super::{traits, Channel};
 use super::common::{
-    IterativeToolProvider, MockPriceTool, ModelCaptureProvider, NoopMemory, RecordingChannel,
-    TelegramRecordingChannel, ToolCallingAliasProvider, ToolCallingProvider,
+    IterativeToolModel, MockPriceTool, ModelCaptureModel, NoopMemory, RecordingChannel,
+    TelegramRecordingChannel, ToolCallingModel,
 };
-use crate::openhuman::inference::provider::{self, Provider};
+use crate::openhuman::inference::provider;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
-
-async fn process_channel_message_executes_tool_calls_instead_of_sending_raw_json() {
-    let _bus_guard = super::common::use_real_agent_handler().await;
-    let channel_impl = Arc::new(RecordingChannel::default());
-    let channel: Arc<dyn Channel> = channel_impl.clone();
-
-    let mut channels_by_name = HashMap::new();
-    channels_by_name.insert(channel.name().to_string(), channel);
-
-    let runtime_ctx = Arc::new(ChannelRuntimeContext {
-        channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(ToolCallingProvider),
-        )),
-        default_provider: Arc::new("test-provider".to_string()),
-        memory: Arc::new(NoopMemory),
-        tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
-        system_prompt: Arc::new("test-system-prompt".to_string()),
-        model: Arc::new("test-model".to_string()),
-        temperature: 0.0,
-        auto_save_memory: false,
-        max_tool_iterations: 10,
-        min_relevance_score: 0.0,
-        conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
-        route_overrides: Arc::new(Mutex::new(HashMap::new())),
-        api_url: None,
-        inference_url: None,
-        reliability: Arc::new(crate::openhuman::config::ReliabilityConfig::default()),
-        provider_runtime_options: provider::ProviderRuntimeOptions::default(),
-        workspace_dir: Arc::new(std::env::temp_dir()),
-        message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
-        multimodal: crate::openhuman::config::MultimodalConfig::default(),
-        multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
-        config: None,
-    });
-
-    process_channel_message(
-        runtime_ctx,
-        traits::ChannelMessage {
-            id: "msg-1".to_string(),
-            sender: "alice".to_string(),
-            reply_target: "chat-42".to_string(),
-            content: "What is the BTC price now?".to_string(),
-            channel: "test-channel".to_string(),
-            timestamp: 1,
-            thread_ts: None,
-        },
-    )
-    .await;
-
-    let sent_messages = channel_impl.sent_messages.lock().await;
-    assert_eq!(sent_messages.len(), 1);
-    assert!(sent_messages[0].starts_with("chat-42:"));
-    assert!(sent_messages[0].contains("BTC is currently around"));
-    assert!(!sent_messages[0].contains("\"tool_calls\""));
-    assert!(!sent_messages[0].contains("mock_price"));
-}
+use tinyagents::harness::model::ChatModel;
 
 #[tokio::test]
-async fn process_channel_message_executes_tool_calls_with_alias_tags() {
+async fn process_channel_message_executes_native_tool_calls() {
     let _bus_guard = super::common::use_real_agent_handler().await;
     let channel_impl = Arc::new(RecordingChannel::default());
     let channel: Arc<dyn Channel> = channel_impl.clone();
@@ -82,8 +25,8 @@ async fn process_channel_message_executes_tool_calls_with_alias_tags() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(ToolCallingAliasProvider),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(ToolCallingModel),
         )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
@@ -125,8 +68,7 @@ async fn process_channel_message_executes_tool_calls_with_alias_tags() {
     let sent_messages = channel_impl.sent_messages.lock().await;
     assert_eq!(sent_messages.len(), 1);
     assert!(sent_messages[0].starts_with("chat-84:"));
-    assert!(sent_messages[0].contains("alias-tag flow resolved"));
-    assert!(!sent_messages[0].contains("<toolcall>"));
+    assert!(sent_messages[0].contains("BTC is currently around"));
     assert!(!sent_messages[0].contains("mock_price"));
 }
 
@@ -139,24 +81,24 @@ async fn process_channel_message_handles_models_command_without_llm_call() {
     let mut channels_by_name = HashMap::new();
     channels_by_name.insert(channel.name().to_string(), channel);
 
-    let default_provider_impl = Arc::new(ModelCaptureProvider::default());
-    let default_provider: Arc<dyn Provider> = default_provider_impl.clone();
-    let fallback_provider_impl = Arc::new(ModelCaptureProvider::default());
-    let fallback_provider: Arc<dyn Provider> = fallback_provider_impl.clone();
+    let default_provider_impl = Arc::new(ModelCaptureModel::new("default-model"));
+    let default_provider: Arc<dyn ChatModel<()>> = default_provider_impl.clone();
+    let fallback_provider_impl = Arc::new(ModelCaptureModel::new("fallback-model"));
+    let fallback_provider: Arc<dyn ChatModel<()>> = fallback_provider_impl.clone();
 
     let mut provider_cache_seed = HashMap::new();
     provider_cache_seed.insert(
         "test-provider".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&default_provider)),
+        crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::clone(&default_provider)),
     );
     provider_cache_seed.insert(
         "openrouter".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::new(fallback_provider),
+        crate::openhuman::tinyagents::TurnModelSource::from_model(fallback_provider),
     );
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
             Arc::clone(&default_provider),
         )),
         default_provider: Arc::new("test-provider".to_string()),
@@ -221,19 +163,19 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
     let mut channels_by_name = HashMap::new();
     channels_by_name.insert(channel.name().to_string(), channel);
 
-    let default_provider_impl = Arc::new(ModelCaptureProvider::default());
-    let default_provider: Arc<dyn Provider> = default_provider_impl.clone();
-    let routed_provider_impl = Arc::new(ModelCaptureProvider::default());
-    let routed_provider: Arc<dyn Provider> = routed_provider_impl.clone();
+    let default_provider_impl = Arc::new(ModelCaptureModel::new("default-model"));
+    let default_provider: Arc<dyn ChatModel<()>> = default_provider_impl.clone();
+    let routed_provider_impl = Arc::new(ModelCaptureModel::new("route-model"));
+    let routed_provider: Arc<dyn ChatModel<()>> = routed_provider_impl.clone();
 
     let mut provider_cache_seed = HashMap::new();
     provider_cache_seed.insert(
         "test-provider".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&default_provider)),
+        crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::clone(&default_provider)),
     );
     provider_cache_seed.insert(
         "openrouter".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::new(routed_provider),
+        crate::openhuman::tinyagents::TurnModelSource::from_model(routed_provider),
     );
 
     let routed_msg = traits::ChannelMessage {
@@ -257,7 +199,7 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
             Arc::clone(&default_provider),
         )),
         default_provider: Arc::new("test-provider".to_string()),
@@ -308,8 +250,8 @@ async fn process_channel_message_respects_configured_max_tool_iterations_above_d
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(IterativeToolProvider {
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(IterativeToolModel {
                 required_tool_iterations: 11,
             }),
         )),
@@ -368,8 +310,8 @@ async fn process_channel_message_reports_configured_max_tool_iterations_limit() 
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(IterativeToolProvider {
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(IterativeToolModel {
                 required_tool_iterations: 20,
             }),
         )),

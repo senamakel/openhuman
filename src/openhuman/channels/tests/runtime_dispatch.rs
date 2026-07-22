@@ -4,7 +4,7 @@ use super::super::runtime::{
     process_channel_message, run_message_dispatch_loop, RuntimeChannelMessage,
 };
 use super::super::{traits, Channel};
-use super::common::{use_real_agent_handler, NoopMemory, RecordingChannel, SlowProvider};
+use super::common::{use_real_agent_handler, NoopMemory, RecordingChannel, SlowModel};
 use crate::core::event_bus::{init_global, DomainEvent, DEFAULT_CAPACITY};
 use crate::openhuman::agent::bus::{mock_agent_run_turn, AgentTurnRequest, AgentTurnResponse};
 use crate::openhuman::inference::provider;
@@ -116,8 +116,8 @@ async fn message_dispatch_processes_messages_in_parallel() {
 
         let runtime_ctx = Arc::new(ChannelRuntimeContext {
             channels_by_name: Arc::new(channels_by_name),
-            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-                Arc::new(SlowProvider {
+            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+                Arc::new(SlowModel {
                     delay: Duration::from_millis(5),
                 }),
             )),
@@ -191,8 +191,8 @@ async fn process_channel_message_cancels_scoped_typing_task() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(SlowProvider {
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(SlowModel {
                 delay: Duration::from_millis(20),
             }),
         )),
@@ -281,10 +281,10 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        // Still need a Provider for the Arc field, but the stubbed bus
+        // Still need a model for the context field, but the stubbed bus
         // handler never invokes it — so a minimal no-op is fine.
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(super::common::DummyProvider),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(super::common::DummyModel),
         )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
@@ -368,8 +368,8 @@ async fn channel_processed_event_records_resolved_agent_route() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(super::common::DummyProvider),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(super::common::DummyModel),
         )),
         default_provider: Arc::new("requested-provider".to_string()),
         memory: Arc::new(NoopMemory),
@@ -482,8 +482,8 @@ async fn process_channel_message_hardens_multimodal_files_against_smuggled_marke
     };
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(super::common::DummyProvider),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(super::common::DummyModel),
         )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
@@ -567,8 +567,8 @@ async fn process_channel_message_hardens_against_relative_path_markers() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::new(super::common::DummyProvider),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            Arc::new(super::common::DummyModel),
         )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),

@@ -5,7 +5,7 @@ use super::super::context::{
     CHANNEL_MESSAGE_TIMEOUT_SECS, MIN_CHANNEL_MESSAGE_TIMEOUT_SECS,
 };
 use super::super::traits;
-use super::common::DummyProvider;
+use super::common::DummyModel;
 use crate::openhuman::inference::provider::ChatMessage;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -63,8 +63,8 @@ fn compact_sender_history_keeps_recent_truncated_messages() {
 
     let ctx = ChannelRuntimeContext {
         channels_by_name: Arc::new(HashMap::new()),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-            DummyProvider,
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::new(
+            DummyModel,
         ))),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(super::common::NoopMemory),

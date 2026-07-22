@@ -4,7 +4,7 @@ use super::super::context::{
 };
 use super::super::runtime::process_channel_message;
 use super::super::{traits, Channel};
-use super::common::{HistoryCaptureProvider, NoopMemory, RecordingChannel};
+use super::common::{HistoryCaptureModel, NoopMemory, RecordingChannel};
 use crate::openhuman::embeddings::NoopEmbedding;
 use crate::openhuman::inference::provider;
 use crate::openhuman::memory::{Memory, MemoryCategory};
@@ -134,11 +134,11 @@ async fn process_channel_message_restores_per_sender_history_on_follow_ups() {
     let mut channels_by_name = HashMap::new();
     channels_by_name.insert(channel.name().to_string(), channel);
 
-    let provider_impl = Arc::new(HistoryCaptureProvider::default());
+    let provider_impl = Arc::new(HistoryCaptureModel::default());
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
             provider_impl.clone(),
         )),
         default_provider: Arc::new("test-provider".to_string()),
@@ -219,13 +219,13 @@ async fn process_channel_message_uses_autosaved_memory_after_history_is_cleared(
     let mut channels_by_name = HashMap::new();
     channels_by_name.insert(channel.name().to_string(), channel);
 
-    let provider_impl = Arc::new(HistoryCaptureProvider::default());
+    let provider_impl = Arc::new(HistoryCaptureModel::default());
     let tmp = TempDir::new().unwrap();
     let memory = Arc::new(UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap());
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
             provider_impl.clone(),
         )),
         default_provider: Arc::new("test-provider".to_string()),

@@ -34,7 +34,7 @@ impl SubconsciousEngine {
 }
 
 /// Settings for the supervised local `medulla-serve` child.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct MedullaLocalConfig {
     /// Path to medulla-v1's built serve entry (`dist/serve/index.js`). Empty
@@ -43,6 +43,30 @@ pub struct MedullaLocalConfig {
     /// unconfigured (see [`Self::resolved_serve_entry`]).
     #[serde(default)]
     pub serve_entry: String,
+    /// Overall deadline, in seconds, for one serve request (from writing the
+    /// `req` to receiving its correlated `res`), regardless of interleaved
+    /// frame traffic. Distinct from the per-read idle timeout: a child that
+    /// keeps streaming frames without ever answering is bounded by this
+    /// ceiling. `0` falls back to the default
+    /// ([`DEFAULT_REQUEST_DEADLINE_SECS`], 300).
+    #[serde(default = "default_request_deadline_secs")]
+    pub request_deadline_secs: u64,
+}
+
+impl Default for MedullaLocalConfig {
+    fn default() -> Self {
+        Self {
+            serve_entry: String::new(),
+            request_deadline_secs: DEFAULT_REQUEST_DEADLINE_SECS,
+        }
+    }
+}
+
+/// Default overall per-request deadline for serve requests, in seconds.
+pub const DEFAULT_REQUEST_DEADLINE_SECS: u64 = 300;
+
+fn default_request_deadline_secs() -> u64 {
+    DEFAULT_REQUEST_DEADLINE_SECS
 }
 
 /// Environment override for the serve entry when `serve_entry` is left unset.
@@ -62,6 +86,18 @@ impl MedullaLocalConfig {
     /// entry as unconfigured instead of pointing at a machine-local path.
     pub fn resolved_serve_entry(&self) -> Option<std::path::PathBuf> {
         Self::resolve_entry(&self.serve_entry, std::env::var(SERVE_ENTRY_ENV).ok())
+    }
+
+    /// The effective overall per-request deadline. A configured `0` (an
+    /// explicit zero would disable the ceiling entirely — never wanted) falls
+    /// back to the default.
+    pub fn request_deadline(&self) -> std::time::Duration {
+        let secs = if self.request_deadline_secs == 0 {
+            DEFAULT_REQUEST_DEADLINE_SECS
+        } else {
+            self.request_deadline_secs
+        };
+        std::time::Duration::from_secs(secs)
     }
 
     /// Pure resolver shared by [`Self::resolved_serve_entry`], factored out so
@@ -158,6 +194,35 @@ mod tests {
         assert_eq!(
             MedullaLocalConfig::resolve_entry("", Some("   ".to_string())),
             None
+        );
+    }
+
+    #[test]
+    fn request_deadline_defaults_and_zero_falls_back() {
+        // Both construction paths — `Default` and a config that omits the
+        // field — land on the same documented default.
+        assert_eq!(
+            MedullaLocalConfig::default().request_deadline_secs,
+            DEFAULT_REQUEST_DEADLINE_SECS
+        );
+        let omitted: MedullaLocalConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(omitted.request_deadline_secs, DEFAULT_REQUEST_DEADLINE_SECS);
+
+        // A configured value is honoured…
+        let configured: MedullaLocalConfig =
+            serde_json::from_str(r#"{ "request_deadline_secs": 120 }"#).unwrap();
+        assert_eq!(
+            configured.request_deadline(),
+            std::time::Duration::from_secs(120)
+        );
+
+        // …and an explicit zero (which would disable the ceiling) falls back
+        // to the default instead.
+        let zeroed: MedullaLocalConfig =
+            serde_json::from_str(r#"{ "request_deadline_secs": 0 }"#).unwrap();
+        assert_eq!(
+            zeroed.request_deadline(),
+            std::time::Duration::from_secs(DEFAULT_REQUEST_DEADLINE_SECS)
         );
     }
 }

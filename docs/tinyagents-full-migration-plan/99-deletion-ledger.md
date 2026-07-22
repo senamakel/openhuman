@@ -15,7 +15,7 @@ also name its upstream PR before the host copy is removed.
 | WP-1 | `tinyagents/model.rs::ProviderModel` / `MaxTokensModel` | Tier and bespoke models are direct `ChatModel`s | PENDING | `rg ProviderModel src` empty |
 | WP-1 | `tinyagents/convert.rs` message conversion | No host `ChatMessage`; retain tool-schema conversion until WP-4 | PENDING | Conversion tests moved or retired |
 | WP-1 | `inference/provider/crate_provider.rs` | No legacy `Provider` consumer needs the reverse adapter | PENDING | `rg 'impl Provider' src` empty |
-| WP-2 | `routing/{policy,quality,factory}.rs` | Generic decisions use crate `ModelRouter`; host health signals remain | PENDING | Routing parity tests host/crate |
+| WP-2 | `routing/` | Product adaptive routing remains host-side; crate `ModelRouter` owns the separate static workload table | **HOST-OWNED** | Crate router deliberately has no models/I/O. Host owns local health probes, privacy/latency/cost policy, quality-triggered remote fallback, concrete provider construction, and telemetry. Static workload projection already moved in #4783. |
 | WP-2 | `tool_timeout` implementation | Crate `ToolTimeout` owns timeout mechanics; host only projects config/env | PENDING | Timeout precedence tests |
 | WP-2 | `model_council/{council,graph}.rs` | Generic ensemble graph released in tinyagents | PENDING | Upstream PR + offline graph tests |
 | WP-3 | legacy `run_turn_engine` and graph escape hatches | All regression assertions exercise the crate turn path | PENDING | `rg OPENHUMAN_AGENT_GRAPH_` history-only |

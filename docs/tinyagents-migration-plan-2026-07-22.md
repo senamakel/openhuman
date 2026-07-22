@@ -178,7 +178,7 @@ host files (`schemas.rs`, `presets.rs`, `model_ids.rs`, `paths.rs`, `parse.rs`,
 | --- | --- | --- |
 | `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. One big deletion: the legacy `run_turn_engine` parallel loop (`agent/harness/session/turn/core.rs`, `agent/harness/subagent_runner/ops/graph.rs`) duplicating `harness::agent_loop` — WP-3. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
 | `agent_orchestration/` | 64 / 27.9k | Engine already on `tinyagents::graph` (workflow runs, teams, delegation, `map_reduce`); what remains is the product layer (ledgers, RPC). Residual upstream item: detached-subagent `TaskStore` lifecycle — WP-5. 25 files crate-backed. |
-| `routing/` | 8 / 2.7k | **Zero crate refs — fully parallel implementation** of what `registry::router` + harness fallback now do. `policy.rs` (463), `quality.rs` (445), `factory.rs` migrate/upstream; `provider.rs`, `health.rs`, `telemetry.rs` (local-model health) stay host — WP-2. |
+| `routing/` | 8 / 2.7k | **HOST-OWNED adaptive local-runtime routing.** WP-2 corrected the initial false equivalence with crate `ModelRouter`: the crate owns pure workload alias/capability/fallback declarations, while this module owns per-call local health, privacy/latency/cost policy, response-quality fallback, provider construction, and product telemetry. The static workload projection was already adopted in `tinyagents/routes.rs`; no host files are duplicates. |
 | `model_council/` | 4 / 1.1k | `council.rs` (573) + `graph.rs` (128, already graph-shaped) are a generic N-model ensemble → upstream as a crate graph pattern; `schemas.rs` (392, RPC) stays — WP-2. |
 | `council_registry/` | 4 / 0.6k | Definitions-as-data + RPC. Stays. |
 | `tool_timeout/` | 1 / 316 | Process-global timeout with env/config precedence; crate analogue `harness::tool::ToolTimeout` exists. Collapse to a host shim that pushes config into the crate — WP-2. |
@@ -327,12 +327,15 @@ src/` empty; `inference/provider/` ≤ ~8k LOC (from ~15.9k + tests);
 
 Independent, individually shippable slices:
 
-1. **`routing/` → `registry::router`.** Map `policy.rs`/`quality.rs` tiering
-   onto `ModelRouter`/`WorkloadRoute` (adopted since #4783 — finish the "host
-   adopts" row IN PROGRESS in the ledger). Upstream generic scoring the crate
-   lacks; keep `health.rs`/`telemetry.rs`/`provider.rs` as the host
-   local-runtime signal source feeding router inputs. `routing/provider_tests.rs`
-   becomes seam tests; policy/quality parity tests go upstream.
+1. **`routing/` — HOST-OWNED (audit complete).** The crate `ModelRouter` is a
+   pure, declarative workload alias → registered-model table; its own contract
+   explicitly holds no models and drives no I/O. OpenHuman `routing/` instead
+   performs adaptive local-vs-remote dispatch: cached runtime health probes,
+   privacy/latency/cost hints, response-quality refusal detection, remote retry,
+   concrete local-provider construction, and product telemetry. Those are not
+   parallel implementations. The genuinely shared static workload projection
+   was already adopted in `tinyagents/routes.rs` by #4783; retain all eight host
+   routing files and do not upstream product policy into the crate router.
 2. **`tool_timeout/` → crate `ToolTimeout`.** Host keeps only the
    config/env push (`OPENHUMAN_TOOL_TIMEOUT_SECS` precedence) into the crate
    value. 316 LOC → ~50.
@@ -345,8 +348,9 @@ Independent, individually shippable slices:
    the RPC-facing taxonomy mapping. Skip if the crate's outcome model diverges
    — reclassify HOST-OWNED in the ledger instead.
 
-**Exit:** `routing/policy|quality|factory` and `tool_timeout` deleted or
-shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED).
+**Exit:** `tool_timeout` deleted or shimmed and the council slice resolved;
+ledger rows added per slice (DRIFT→PR or HOST-OWNED). The `routing/` slice is
+terminal as HOST-OWNED.
 
 ### WP-3 — Retire the legacy turn engine
 
@@ -459,8 +463,7 @@ prematurely.**
 | `tinyagents/` remainder (seam) | STAYS, shrinks |
 | `agent/` legacy `run_turn_engine` + escape hatches | DELETE (WP-3) |
 | `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `council_registry/`, `tool_registry/` | STAYS (product/host) |
-| `routing/{policy,quality,factory}.rs` | MIGRATE to `registry::router` (WP-2) |
-| `routing/{provider,health,telemetry}.rs` | STAYS (host signals) |
+| `routing/` (all files) | HOST-OWNED adaptive local-runtime dispatch; crate `ModelRouter` already owns only the separate static workload projection |
 | `tool_timeout/` | COLLAPSE to shim over crate `ToolTimeout` (WP-2) |
 | `tool_status/` classification | UPSTREAM candidate (WP-2, low priority) |
 | `model_council/{council,graph}.rs` | UPSTREAM as crate graph pattern (WP-2) |

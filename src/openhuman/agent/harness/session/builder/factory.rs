@@ -355,11 +355,26 @@ impl Agent {
         let runtime: Arc<dyn host_runtime::RuntimeAdapter> = Arc::from(
             host_runtime::create_runtime(&config.runtime, config.shell.hide_window)?,
         );
-        let security = Arc::new(SecurityPolicy::from_config(
+        // 1b — arm the cross-profile write guard for the session iff the active
+        // profile owns a dedicated workspace (i.e. a descriptor was derived
+        // above). The guard blocks tool writes/commands that target a *sibling*
+        // profile's `<action_dir>/profiles/<Q>` dir. A profile-less session, or
+        // a shared-workspace profile, leaves it disarmed (`active_profile =
+        // None`) so path validation is byte-identical. The broad `action_dir`
+        // is captured so the guard survives the per-tool-call `action_dir`
+        // override `security_for_tool_context` applies.
+        let base_security = SecurityPolicy::from_config(
             &config.autonomy,
             &config.workspace_dir,
             &config.action_dir,
-        ));
+        );
+        let security = Arc::new(
+            match profile.filter(|_| profile_workspace_descriptor.is_some()) {
+                Some(p) => base_security
+                    .with_active_profile(p.id.clone(), config.action_dir.clone()),
+                None => base_security,
+            },
+        );
         // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
         let audit = crate::openhuman::security::get_or_create_workspace_audit_logger(
             crate::openhuman::config::AuditConfig::default(),
@@ -696,17 +711,34 @@ impl Agent {
                 prompt_builder = prompt_builder.with_reflection_context(chunks);
             }
         }
-        if let Some(suffix) = profile_prompt_suffix
+        // Compose the profile prompt section: the persona suffix, plus (1b) the
+        // cross-profile workspace notice when a dedicated workspace is active.
+        // The notice discloses the boundary the guard enforces, so it is added
+        // even when the profile carries no persona suffix.
+        let profile_suffix = profile_prompt_suffix
             .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-        {
+            .filter(|s| !s.is_empty());
+        let workspace_notice = profile_workspace_descriptor.as_ref().and_then(|descriptor| {
+            profile.map(|p| {
+                crate::openhuman::profiles::cross_profile_workspace_notice(
+                    &p.id,
+                    &descriptor.root,
+                )
+            })
+        });
+        if profile_suffix.is_some() || workspace_notice.is_some() {
             log::debug!(
-                "[agent:builder] profile prompt section injected suffix_chars={}",
-                suffix.chars().count()
+                "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={}",
+                profile_suffix.as_deref().map(|s| s.chars().count()).unwrap_or(0),
+                workspace_notice.is_some()
             );
-            prompt_builder = prompt_builder.add_section(Box::new(
-                crate::openhuman::profiles::AgentProfilePromptSection::new(suffix),
-            ));
+            let mut section = crate::openhuman::profiles::AgentProfilePromptSection::new(
+                profile_suffix.unwrap_or_default(),
+            );
+            if let Some(notice) = workspace_notice {
+                section = section.with_workspace_notice(notice);
+            }
+            prompt_builder = prompt_builder.add_section(Box::new(section));
         }
 
         // Build post-turn hooks when learning is enabled

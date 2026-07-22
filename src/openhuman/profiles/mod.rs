@@ -44,7 +44,10 @@ mod schemas;
 pub mod store;
 pub mod types;
 
-pub use guard::{profile_id_from_policy_id, workspace_policy_id};
+pub use guard::{
+    classify_cross_profile_target, profile_id_from_policy_id, scan_command_for_cross_profile,
+    workspace_policy_id, CrossProfileDecision,
+};
 pub use home::{
     dedicated_workspace_dir, ensure_profile_home, profile_action_workspace, profile_home,
     validate_profile_id,
@@ -54,7 +57,7 @@ pub use paths::{
     memory_tree_subdir_for_suffix, resolve_personality_memory_md, resolve_personality_soul,
     session_raw_subdir_for_suffix, HasToolkit, PersonalityContext,
 };
-pub use prompt_section::AgentProfilePromptSection;
+pub use prompt_section::{cross_profile_workspace_notice, AgentProfilePromptSection};
 pub use store::{built_in_profiles, load_profiles, AgentProfileStore};
 pub use types::{profile_signature, AgentProfile, AgentProfilesState, DEFAULT_PROFILE_ID};
 

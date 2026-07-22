@@ -53,7 +53,7 @@
 //! that phrase set is intrinsically scoped to custom providers. The
 //! HTTP-layer wrapper [`super::ops::is_provider_config_rejection_http`]
 //! polarity-guards those phrases on `provider !=
-//! openhuman_backend::PROVIDER_LABEL` so a model-rejection from our
+//! openhuman_backend_model::PROVIDER_LABEL` so a model-rejection from our
 //! **own** backend that we did not expect (which would be a real
 //! regression we sent it a bad request) still reaches Sentry. The
 //! message-only predicate is consumed by
@@ -292,7 +292,7 @@ pub fn is_provider_config_rejection_message(body: &str) -> bool {
 /// the same phrase already lives in that predicate's list. The narrower
 /// helper exists so the HTTP-layer wrapper
 /// ([`super::ops::is_provider_config_rejection_http`]) can drop its
-/// `provider != openhuman_backend::PROVIDER_LABEL` polarity guard for
+/// `provider != openhuman_backend_model::PROVIDER_LABEL` polarity guard for
 /// this specific body shape — the OpenHuman hosted backend now emits the
 /// same OpenAI-compatible "Model 'X' is not available" wire body in
 /// response to user-configured unknown model ids, so the original

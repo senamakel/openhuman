@@ -325,7 +325,7 @@ fn skips_sentry_report_for_transient_upstream_statuses() {
 
 #[test]
 fn backend_error_code_owned_gates_managed_errors_except_malformed_bad_request() {
-    use crate::openhuman::inference::provider::openhuman_backend::PROVIDER_LABEL;
+    use crate::openhuman::inference::provider::openhuman_backend_model::PROVIDER_LABEL;
 
     // F2/F4: backend-owned / expected-user-state errorCodes must NOT page the
     // provider HTTP layer.
@@ -515,12 +515,12 @@ mod provider_config_rejection_suppression {
         // rule.)
         assert!(!is_provider_config_rejection_http(
             reqwest::StatusCode::BAD_REQUEST,
-            openhuman_backend::PROVIDER_LABEL,
+            openhuman_backend_model::PROVIDER_LABEL,
             TIER_LEAK_BODY,
         ));
         assert!(!is_provider_config_rejection_http(
             reqwest::StatusCode::BAD_REQUEST,
-            openhuman_backend::PROVIDER_LABEL,
+            openhuman_backend_model::PROVIDER_LABEL,
             TEMP_BODY,
         ));
     }
@@ -545,7 +545,7 @@ mod provider_config_rejection_suppression {
             assert!(
                 is_provider_config_rejection_http(
                     reqwest::StatusCode::BAD_REQUEST,
-                    openhuman_backend::PROVIDER_LABEL,
+                    openhuman_backend_model::PROVIDER_LABEL,
                     body,
                 ),
                 "TAURI-RUST-2Z1 body must be suppressed for openhuman backend: {body:?}"
@@ -614,7 +614,7 @@ mod provider_config_rejection_suppression {
         assert!(
             !is_provider_config_rejection_http(
                 reqwest::StatusCode::FORBIDDEN,
-                openhuman_backend::PROVIDER_LABEL,
+                openhuman_backend_model::PROVIDER_LABEL,
                 body,
             ),
             "backend 403 subscription phrase must NOT be suppressed (polarity guard)"
@@ -1130,7 +1130,7 @@ fn parse_models_response_handles_non_object_body() {
 #[test]
 fn is_backend_auth_failure_only_matches_openhuman_backend_401_403() {
     use reqwest::StatusCode;
-    let backend = crate::openhuman::inference::provider::openhuman_backend::PROVIDER_LABEL;
+    let backend = crate::openhuman::inference::provider::openhuman_backend_model::PROVIDER_LABEL;
 
     assert!(is_backend_auth_failure(backend, StatusCode::UNAUTHORIZED));
     assert!(is_backend_auth_failure(backend, StatusCode::FORBIDDEN));
@@ -1210,7 +1210,7 @@ fn byo_provider_auth_failure_demotes_authentication_error_bodies() {
 #[test]
 fn byo_provider_auth_failure_excludes_openhuman_backend() {
     use reqwest::StatusCode;
-    let backend = crate::openhuman::inference::provider::openhuman_backend::PROVIDER_LABEL;
+    let backend = crate::openhuman::inference::provider::openhuman_backend_model::PROVIDER_LABEL;
     let body = r#"{"error":{"type":"authentication_error"}}"#;
     assert!(!is_byo_provider_auth_failure_http(
         backend,
@@ -1347,7 +1347,7 @@ async fn publish_backend_session_expired_emits_sanitized_session_expired() {
     );
     publish_backend_session_expired(
         "chat_completions",
-        crate::openhuman::inference::provider::openhuman_backend::PROVIDER_LABEL,
+        crate::openhuman::inference::provider::openhuman_backend_model::PROVIDER_LABEL,
         reqwest::StatusCode::UNAUTHORIZED,
         &msg,
     );

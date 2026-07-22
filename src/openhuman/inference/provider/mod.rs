@@ -16,7 +16,6 @@ pub mod error_classify;
 pub mod error_code;
 pub mod factory;
 mod openai_codex;
-pub mod openhuman_backend;
 /// Crate-native managed OpenHuman backend as a host `ChatModel` (issue #4727).
 pub mod openhuman_backend_model;
 pub mod ops;
@@ -48,6 +47,5 @@ pub use factory::{
     create_chat_model_with_model_id, create_chat_provider, provider_for_role, role_for_model_tier,
     BYOK_INCOMPLETE_SENTINEL,
 };
-pub use openhuman_backend::OpenHumanBackendProvider;
-pub use openhuman_backend_model::OpenHumanBackendModel;
+pub use openhuman_backend_model::{OpenHumanBackendModel, PROVIDER_LABEL};
 pub use ops::*;

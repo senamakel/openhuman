@@ -31,7 +31,7 @@
 //! error is collapsed to a `String` at the native-bus boundary before it
 //! reaches the channel classifier or the higher-layer re-report sites.
 
-use super::openhuman_backend;
+use super::openhuman_backend_model;
 
 /// A recognised backend `errorCode` token (PR #870).
 ///
@@ -121,7 +121,7 @@ pub fn extract_backend_error_code_token(err: &str) -> Option<String> {
 /// downstream sites (`expected_error_kind`, `before_send`) that no longer carry
 /// the typed provider.
 pub fn is_managed_backend_envelope(err: &str) -> bool {
-    let label = openhuman_backend::PROVIDER_LABEL.to_ascii_lowercase();
+    let label = openhuman_backend_model::PROVIDER_LABEL.to_ascii_lowercase();
     let lower = err.to_ascii_lowercase();
     lower.contains(&format!("{label} api error"))
         || lower.contains(&format!("{label} streaming api error"))

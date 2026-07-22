@@ -8,8 +8,8 @@
 //! accounting. This host `ChatModel` bridges all three onto the crate wire client:
 //!
 //! * **Dynamic JWT** — [`invoke`](ChatModel::invoke)/[`stream`](ChatModel::stream)
-//!   resolve the current bearer via [`OpenHumanBackendProvider::resolve_bearer`]
-//!   and build a fresh crate `OpenAiModel` (Bearer) per call.
+//!   resolve the current bearer and build a fresh crate `OpenAiModel` (Bearer)
+//!   per call.
 //! * **`thread_id`** — injected into `ModelRequest.provider_options` so the crate
 //!   flattens it into the request body as the top-level `thread_id` field (parity
 //!   with the host `with_openhuman_thread_id`).
@@ -25,33 +25,52 @@
 
 use async_trait::async_trait;
 use serde_json::Value;
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use tinyagents::harness::model::{
-    ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream,
+    ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream,
 };
 use tinyagents::harness::providers::openai::OpenAiModel;
 use tinyagents::{Result as TaResult, TinyAgentsError};
 
-use super::openhuman_backend::{OpenHumanBackendProvider, PROVIDER_LABEL};
+use super::ProviderRuntimeOptions;
+use crate::api::config::effective_api_url;
+use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
 use crate::openhuman::tinyagents::thread_context;
 
+pub const PROVIDER_LABEL: &str = "OpenHuman";
+
 /// The managed OpenHuman backend as a crate [`ChatModel`]. Holds the backend
-/// provider (for JWT + base-URL resolution) and the default model id sent when a
-/// request doesn't override it.
+/// connection settings (for JWT + base-URL resolution) and the default model id
+/// sent when a request doesn't override it.
 pub struct OpenHumanBackendModel {
-    backend: OpenHumanBackendProvider,
+    options: ProviderRuntimeOptions,
+    api_url: Option<String>,
     default_model: String,
     native_tool_calling: bool,
 }
 
 impl OpenHumanBackendModel {
-    /// Wrap a resolved [`OpenHumanBackendProvider`] with the default model id.
-    pub fn new(backend: OpenHumanBackendProvider, default_model: impl Into<String>) -> Self {
+    pub fn new(
+        api_url: Option<&str>,
+        options: &ProviderRuntimeOptions,
+        default_model: impl Into<String>,
+    ) -> Self {
         Self {
-            backend,
-            default_model: default_model.into(),
+            options: options.clone(),
+            api_url: api_url
+                .map(str::trim)
+                .filter(|url| !url.is_empty())
+                .map(ToOwned::to_owned),
+            default_model: resolve_model(&default_model.into()),
             native_tool_calling: true,
         }
+    }
+
+    pub fn with_default_model(mut self, model: impl Into<String>) -> Self {
+        self.default_model = resolve_model(&model.into());
+        self
     }
 
     /// Force prompt-guided tool calling for toolsets that exceed the managed
@@ -61,17 +80,47 @@ impl OpenHumanBackendModel {
         self
     }
 
+    fn state_dir(&self) -> PathBuf {
+        self.options.openhuman_dir.clone().unwrap_or_else(|| {
+            directories::UserDirs::new()
+                .map(|dirs| dirs.home_dir().join(".openhuman"))
+                .unwrap_or_else(|| PathBuf::from(".openhuman"))
+        })
+    }
+
+    fn resolve_bearer(&self) -> anyhow::Result<String> {
+        if crate::openhuman::scheduler_gate::is_signed_out() {
+            anyhow::bail!(
+                "SESSION_EXPIRED: backend session not active — sign in to resume LLM work"
+            );
+        }
+        let auth = AuthService::new(&self.state_dir(), self.options.secrets_encrypt);
+        if let Some(token) = auth
+            .get_provider_bearer_token(
+                APP_SESSION_PROVIDER,
+                self.options.auth_profile_override.as_deref(),
+            )?
+            .filter(|token| !token.trim().is_empty())
+        {
+            return Ok(token);
+        }
+        anyhow::bail!("No backend session: store a JWT via auth (app-session)")
+    }
+
+    fn base_url(&self) -> String {
+        format!(
+            "{}/openai/v1",
+            effective_api_url(&self.api_url).trim_end_matches('/')
+        )
+    }
+
     /// Resolve the current JWT + base URL and build a fresh crate `OpenAiModel`
     /// (Bearer). Rebuilt per call because the session JWT rotates.
     fn build_wire_model(&self) -> TaResult<OpenAiModel> {
         let token = self
-            .backend
             .resolve_bearer()
             .map_err(|e| TinyAgentsError::Model(e.to_string()))?;
-        let base_url = self
-            .backend
-            .base_url()
-            .map_err(|e| TinyAgentsError::Model(e.to_string()))?;
+        let base_url = self.base_url();
         // The hosted API is chat-completions only (no `/v1/responses`); auth is a
         // plain bearer JWT. The tier/model rides `request.model`, which the backend
         // resolves — the baked default only applies when a request omits it.
@@ -82,10 +131,23 @@ impl OpenHumanBackendModel {
     }
 }
 
+fn resolve_model(model: &str) -> String {
+    let trimmed = model.trim();
+    if trimmed.is_empty() {
+        log::debug!(
+            "[providers][openhuman-backend] empty model passed to OpenHuman backend; \
+             substituting default `{}` (TAURI-RUST-RS)",
+            crate::openhuman::config::MODEL_REASONING_V1
+        );
+        crate::openhuman::config::MODEL_REASONING_V1.to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 /// The subset of the managed backend's `openhuman` response envelope the crate
 /// `Usage`/`ModelResponse` can't carry — billing + cache tokens — so it can be
-/// re-projected for the host cost bridge. Mirrors the fields the legacy
-/// `compatible` provider read via `extract_usage`.
+/// re-projected for the host cost bridge.
 #[derive(Debug, Default, serde::Deserialize)]
 struct ManagedEnvelope {
     #[serde(default)]
@@ -174,10 +236,19 @@ fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
 #[async_trait]
 impl ChatModel<()> for OpenHumanBackendModel {
     fn profile(&self) -> Option<&ModelProfile> {
-        // The managed backend serves every workload tier (the tier rides
-        // `request.model`), so it advertises no single static capability profile;
-        // vision gating is enforced by the seam's RequiredCapabilitiesMiddleware.
-        None
+        static PROFILE: OnceLock<ModelProfile> = OnceLock::new();
+        Some(PROFILE.get_or_init(|| ModelProfile {
+            provider: Some("managed".to_string()),
+            modalities: Modalities {
+                image_in: true,
+                ..Modalities::default()
+            },
+            tool_calling: true,
+            parallel_tool_calls: true,
+            streaming: true,
+            streaming_tool_chunks: true,
+            ..ModelProfile::default()
+        }))
     }
 
     async fn invoke(&self, state: &(), request: ModelRequest) -> TaResult<ModelResponse> {
@@ -206,11 +277,11 @@ mod tests {
     use tinyagents::harness::message::Message;
 
     fn backend() -> OpenHumanBackendModel {
-        let provider = OpenHumanBackendProvider::new(
+        OpenHumanBackendModel::new(
             Some("https://api.example.test"),
             &ProviderRuntimeOptions::default(),
-        );
-        OpenHumanBackendModel::new(provider, "reasoning-v1")
+            "reasoning-v1",
+        )
     }
 
     #[tokio::test]
@@ -235,8 +306,25 @@ mod tests {
     }
 
     #[test]
-    fn managed_model_has_no_static_profile() {
-        assert!(backend().profile().is_none());
+    fn managed_model_advertises_tool_and_vision_capabilities() {
+        let model = backend();
+        let profile = model.profile().expect("managed profile");
+        assert!(profile.tool_calling);
+        assert!(profile.modalities.image_in);
+    }
+
+    #[test]
+    fn resolve_model_normalizes_blank_and_trims_non_empty_values() {
+        assert_eq!(
+            resolve_model(""),
+            crate::openhuman::config::MODEL_REASONING_V1
+        );
+        assert_eq!(
+            resolve_model(" \t\n"),
+            crate::openhuman::config::MODEL_REASONING_V1
+        );
+        assert_eq!(resolve_model("  reasoning-v1  "), "reasoning-v1");
+        assert_eq!(resolve_model("hint:reasoning"), "hint:reasoning");
     }
 
     /// The managed `openhuman.{billing,usage}` envelope on `raw` must re-project

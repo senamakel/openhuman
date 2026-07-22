@@ -313,7 +313,7 @@ pub fn current_policy() -> Policy {
 
 /// `true` when the signed-out override is active. Cheap atomic load —
 /// safe to call from hot paths (e.g. per-LLM-call short-circuit in
-/// `OpenHumanBackendProvider`).
+/// `OpenHumanBackendModel`).
 #[cfg(not(test))]
 pub fn is_signed_out() -> bool {
     SIGNED_OUT.load(Ordering::Acquire)

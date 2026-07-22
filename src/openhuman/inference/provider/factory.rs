@@ -7,7 +7,7 @@
 //! ## Provider-string grammar
 //!
 //! ```text
-//! "openhuman"                    → OpenHumanBackendProvider; model = config.default_model
+//! "openhuman"                    → OpenHumanBackendModel; model = config.default_model
 //! "cloud" / missing              → primary_cloud; legacy custom inference_url wins when
 //!                                  primary still points at OpenHuman after migration
 //! "ollama:<model>[@<temp>]"      → local Ollama at config.local_ai.base_url
@@ -33,7 +33,7 @@ use crate::openhuman::inference::provider::openai_codex::{
     openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
     OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
 };
-use crate::openhuman::inference::provider::openhuman_backend::OpenHumanBackendProvider;
+use crate::openhuman::inference::provider::openhuman_backend_model::OpenHumanBackendModel;
 use crate::openhuman::inference::provider::traits::Provider;
 use crate::openhuman::inference::provider::ProviderRuntimeOptions;
 use std::sync::Arc;
@@ -260,7 +260,7 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
 /// alias nor a known managed tier ([`is_known_openhuman_tier`]) — i.e. the model
 /// ids a user pins directly on an agent/node (e.g. `"claude-opus-4"`). The
 /// OpenHuman backend preserves such ids verbatim
-/// ([`super::openhuman_backend`]'s `resolve_model`) and is authoritative over
+/// (the managed model's blank-id normalization) and is authoritative over
 /// their validity, so the core must **not** silently collapse them onto
 /// `reasoning-v1` (issue #4598). Managed tiers and every `hint:*` string return
 /// `false` so their existing resolution is untouched.
@@ -1307,13 +1307,13 @@ pub(crate) fn summarization_tier_model() -> &'static str {
 /// keep inheriting `config.default_model`.
 /// Resolve the managed OpenHuman backend for `role` — the model id (tier /
 /// summarization / default, with `hint:<tier>` translation) plus a configured
-/// [`OpenHumanBackendProvider`]. Shared by both the `Provider` path
+/// [`OpenHumanBackendModel`]. Shared by both the `Provider` path
 /// ([`make_openhuman_backend`]) and the crate `ChatModel` path
 /// ([`make_openhuman_backend_model`], issue #4727 Motion B).
 fn resolve_managed_backend(
     role: &str,
     config: &Config,
-) -> anyhow::Result<(OpenHumanBackendProvider, String)> {
+) -> anyhow::Result<(OpenHumanBackendModel, String)> {
     let model = if let Some(tier) = managed_tier_for_role(role) {
         log::debug!(
             "[providers][chat-factory] role={} pinned to managed tier model={}",
@@ -1420,7 +1420,7 @@ fn resolve_managed_backend(
         crate::openhuman::security::egress::EgressDescriptor::inference("openhuman", &model, true),
     );
     Ok((
-        OpenHumanBackendProvider::new(config.api_url.as_deref(), &options),
+        OpenHumanBackendModel::new(config.api_url.as_deref(), &options, model.clone()),
         model,
     ))
 }
@@ -1430,8 +1430,14 @@ fn make_openhuman_backend(
     role: &str,
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
-    let (provider, model) = resolve_managed_backend(role, config)?;
-    Ok((Box::new(provider), model))
+    let (model_client, model) = resolve_managed_backend(role, config)?;
+    Ok((
+        Box::new(super::crate_provider::CrateBackedProvider::new(
+            Arc::new(model_client),
+            "managed",
+        )),
+        model,
+    ))
 }
 
 /// The managed OpenHuman backend as a crate-native host `ChatModel`
@@ -1446,10 +1452,9 @@ pub(crate) fn make_openhuman_backend_model(
     std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>>,
     String,
 )> {
-    let (provider, model) = resolve_managed_backend(role, config)?;
-    let chat: std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>> = std::sync::Arc::new(
-        super::openhuman_backend_model::OpenHumanBackendModel::new(provider, model.clone()),
-    );
+    let (model_client, model) = resolve_managed_backend(role, config)?;
+    let chat: std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+        std::sync::Arc::new(model_client);
     Ok((chat, model))
 }
 
@@ -1504,11 +1509,9 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
         if resolves_to_managed_backend(role, config) {
             let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
             return Ok(Arc::new(
-                super::openhuman_backend_model::OpenHumanBackendModel::new(
-                    backend,
-                    model.to_string(),
-                )
-                .with_native_tool_calling(native_tool_calling),
+                backend
+                    .with_default_model(model)
+                    .with_native_tool_calling(native_tool_calling),
             ));
         }
         let resolved_provider = provider_for_role(role, config);
@@ -1713,7 +1716,8 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools(
     if is_managed && !test_override_active {
         let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
         return Ok(Arc::new(
-            super::openhuman_backend_model::OpenHumanBackendModel::new(backend, model.to_string())
+            backend
+                .with_default_model(model)
                 .with_native_tool_calling(native_tool_calling),
         ));
     }

@@ -107,12 +107,13 @@ pub async fn spawn_workflow_run_background_with_profile(
                  gate decision: FAILED ({tag})\n\
                  detail: {body}"
             );
-            if let Err(e) = run_log::write_header(
+            if let Err(e) = run_log::write_header_with_profile(
                 &gate_log_path,
                 &skill.definition.id,
                 &gate_run_id,
                 &inputs,
                 &header_prompt,
+                active_profile.as_ref().map(|profile| profile.id.as_str()),
             )
             .await
             {
@@ -178,9 +179,17 @@ pub async fn spawn_workflow_run_background_with_profile(
         let log_path = log_path.clone();
         let inherited_origin = inherited_origin.clone();
         let active_profile = active_profile.clone();
+        let run_profile_id = active_profile.as_ref().map(|profile| profile.id.clone());
         tokio::spawn(async move {
-            if let Err(e) =
-                run_log::write_header(&log_path, &workflow_id, &run_id, &inputs, &task_prompt).await
+            if let Err(e) = run_log::write_header_with_profile(
+                &log_path,
+                &workflow_id,
+                &run_id,
+                &inputs,
+                &task_prompt,
+                run_profile_id.as_deref(),
+            )
+            .await
             {
                 tracing::warn!(run_id = %run_id, error = %e, "[skills] workflow_run: header write failed");
             }

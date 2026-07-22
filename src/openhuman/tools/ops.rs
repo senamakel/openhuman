@@ -570,9 +570,19 @@ pub fn all_tools_with_runtime(
                 .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         #[cfg(feature = "skills")]
-        Box::new(WorkflowRecentRunsTool::new(config.clone())),
+        Box::new(
+            WorkflowRecentRunsTool::new(config.clone())
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
-        Box::new(WorkflowReadRunLogTool::new(config.clone())),
+        Box::new(
+            WorkflowReadRunLogTool::new(config.clone())
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
         Box::new(WorkflowCreateTool::new(config.clone())),
         #[cfg(feature = "skills")]

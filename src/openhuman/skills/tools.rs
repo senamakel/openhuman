@@ -34,7 +34,7 @@ use super::ops_install::{
 };
 use super::ops_types::WorkflowScope;
 use super::registry::get_workflow_with_profile;
-use super::run_log::{find_run_log_path, read_run_log_slice, scan_runs};
+use super::run_log::{read_run_log_slice, scan_runs};
 
 fn read_required_str(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
     args.get(key)
@@ -338,13 +338,37 @@ impl Tool for WorkflowReadResourceTool {
 /// List recent skill runs.
 pub struct WorkflowRecentRunsTool {
     workspace_dir: PathBuf,
+    active_profile_id: Option<String>,
+    skill_allowlist: SkillAllowlist,
+    profile_skills_root: Option<PathBuf>,
 }
 
 impl WorkflowRecentRunsTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
+            active_profile_id: None,
+            skill_allowlist: None,
+            profile_skills_root: None,
         }
+    }
+
+    pub fn with_active_profile(
+        mut self,
+        profile: Option<crate::openhuman::profiles::AgentProfile>,
+    ) -> Self {
+        self.active_profile_id = profile.map(|profile| profile.id);
+        self
+    }
+
+    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
+        self.skill_allowlist = allowlist;
+        self
+    }
+
+    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
+        self.profile_skills_root = root;
+        self
     }
 }
 
@@ -384,7 +408,19 @@ impl Tool for WorkflowRecentRunsTool {
             .and_then(serde_json::Value::as_u64)
             .map(|v| v as usize)
             .unwrap_or(20);
-        let runs = scan_runs(&self.workspace_dir, skill_id, limit);
+        let profile_local = profile_local_skill_ids(self.profile_skills_root.as_deref());
+        let runs = scan_runs(&self.workspace_dir, skill_id, usize::MAX)
+            .into_iter()
+            .filter(|run| {
+                run.profile_id.as_deref() == self.active_profile_id.as_deref()
+                    && skill_allowed_including_profile(
+                        &self.skill_allowlist,
+                        &profile_local,
+                        &run.workflow_id,
+                    )
+            })
+            .take(limit)
+            .collect::<Vec<_>>();
         Ok(ToolResult::success(serde_json::to_string(&json!({
             "count": runs.len(),
             "runs": runs,
@@ -399,13 +435,37 @@ impl Tool for WorkflowRecentRunsTool {
 /// Read a slice of a run log.
 pub struct WorkflowReadRunLogTool {
     workspace_dir: PathBuf,
+    active_profile_id: Option<String>,
+    skill_allowlist: SkillAllowlist,
+    profile_skills_root: Option<PathBuf>,
 }
 
 impl WorkflowReadRunLogTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
+            active_profile_id: None,
+            skill_allowlist: None,
+            profile_skills_root: None,
         }
+    }
+
+    pub fn with_active_profile(
+        mut self,
+        profile: Option<crate::openhuman::profiles::AgentProfile>,
+    ) -> Self {
+        self.active_profile_id = profile.map(|profile| profile.id);
+        self
+    }
+
+    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
+        self.skill_allowlist = allowlist;
+        self
+    }
+
+    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
+        self.profile_skills_root = root;
+        self
     }
 }
 
@@ -446,8 +506,20 @@ impl Tool for WorkflowReadRunLogTool {
             .and_then(serde_json::Value::as_u64)
             .map(|v| v as usize)
             .unwrap_or(65536);
-        let path = find_run_log_path(&self.workspace_dir, &run_id)
+        let profile_local = profile_local_skill_ids(self.profile_skills_root.as_deref());
+        let run = scan_runs(&self.workspace_dir, None, usize::MAX)
+            .into_iter()
+            .find(|run| {
+                run.run_id == run_id
+                    && run.profile_id.as_deref() == self.active_profile_id.as_deref()
+                    && skill_allowed_including_profile(
+                        &self.skill_allowlist,
+                        &profile_local,
+                        &run.workflow_id,
+                    )
+            })
             .ok_or_else(|| anyhow::anyhow!("read_workflow_run_log: run `{run_id}` not found"))?;
+        let path = PathBuf::from(run.log_path);
         let slice = read_run_log_slice(&path, offset, max_bytes)
             .map_err(|e| anyhow::anyhow!("read_workflow_run_log: {e}"))?;
         Ok(ToolResult::success(serde_json::to_string(&slice)?))
@@ -651,6 +723,65 @@ mod tests {
         assert!(
             text.contains("not available to the active agent profile"),
             "expected profile-allowlist rejection, got: {text}"
+        );
+    }
+
+    #[tokio::test]
+    async fn run_history_is_scoped_to_profile_and_allowlist() {
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let mut config = Config::default();
+        config.workspace_dir = tmp.path().to_path_buf();
+        let config = Arc::new(config);
+        let run_id = "aaaaaaaa-1111-2222-3333-444444444444";
+        let path =
+            crate::openhuman::skills::run_log::run_log_path(tmp.path(), "private-flow", run_id);
+        crate::openhuman::skills::run_log::write_header_with_profile(
+            &path,
+            "private-flow",
+            run_id,
+            &json!({"secret": true}),
+            "private prompt",
+            Some("alice"),
+        )
+        .await
+        .expect("write header");
+
+        let mut alice = crate::openhuman::profiles::built_in_profiles()
+            .into_iter()
+            .next()
+            .expect("built-in profile");
+        alice.id = "alice".to_string();
+        let mut bob = alice.clone();
+        bob.id = "bob".to_string();
+
+        let alice_list = WorkflowRecentRunsTool::new(config.clone())
+            .with_active_profile(Some(alice.clone()))
+            .execute(json!({}))
+            .await
+            .expect("alice list");
+        assert!(alice_list.output_for_llm(false).contains(run_id));
+
+        let bob_list = WorkflowRecentRunsTool::new(config.clone())
+            .with_active_profile(Some(bob.clone()))
+            .execute(json!({}))
+            .await
+            .expect("bob list");
+        assert!(!bob_list.output_for_llm(false).contains(run_id));
+
+        let bob_read = WorkflowReadRunLogTool::new(config.clone())
+            .with_active_profile(Some(bob))
+            .execute(json!({"run_id": run_id}))
+            .await;
+        assert!(bob_read.is_err(), "another profile must not read the log");
+
+        let alice_disallowed = WorkflowReadRunLogTool::new(config)
+            .with_active_profile(Some(alice))
+            .with_skill_allowlist(Some(std::collections::HashSet::new()))
+            .execute(json!({"run_id": run_id}))
+            .await;
+        assert!(
+            alice_disallowed.is_err(),
+            "the profile allowlist must also gate run logs"
         );
     }
 

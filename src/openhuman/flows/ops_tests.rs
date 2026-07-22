@@ -237,6 +237,11 @@ fn engine_compatibility_requires_exhaustive_router_choices_for_reconvergence() {
     let exhaustive_switch = nested_router_reconvergence_graph("switch", &["known-case", "default"]);
     assert!(engine_compatibility_errors(&exhaustive_switch).is_empty());
 
+    // A switch with only `default` is exhaustive: every input takes that edge,
+    // so it is an unconditional step even though it has a single wired port.
+    let default_only_switch = nested_router_reconvergence_graph("switch", &["default"]);
+    assert!(engine_compatibility_errors(&default_only_switch).is_empty());
+
     let missing_switch_default =
         nested_router_reconvergence_graph("switch", &["known-case", "other-case"]);
     let errors = engine_compatibility_errors(&missing_switch_default);
@@ -403,6 +408,38 @@ fn resolver_lookup_rejects_an_incompatible_saved_child() {
         "{error}"
     );
     assert!(error.contains(&child.id), "{error}");
+}
+
+#[test]
+fn resolver_lookup_rejects_an_incompatible_saved_grandchild() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let grandchild = store::create_flow(
+        &config,
+        "legacy unsafe grandchild".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let child = store::create_flow(
+        &config,
+        "saved child".to_string(),
+        structurally_valid_graph(referenced_child_graph(&grandchild.id)),
+        false,
+        false,
+    )
+    .unwrap();
+
+    let error = load_engine_compatible_flow_graph(&config, &child.id)
+        .expect_err("resolver lookup must reject an unsafe saved grandchild");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    assert!(error.contains(&grandchild.id), "{error}");
+    assert!(error.contains("saved-child"), "{error}");
 }
 
 #[test]

@@ -220,8 +220,12 @@ fn graph_engine_compatibility_errors(
                     NodeKind::Switch => ports.contains("default"),
                     _ => true,
                 };
-                let every_port_deterministically_reaches = ports.len() >= 2
-                    && routing_choices_are_exhaustive
+                let can_prove_all_routing_choices = if is_router {
+                    routing_choices_are_exhaustive
+                } else {
+                    ports.len() >= 2
+                };
+                let every_port_deterministically_reaches = can_prove_all_routing_choices
                     && ports.iter().all(|port| {
                         reaches_deterministically_via_port(
                             graph,
@@ -2738,6 +2742,14 @@ pub(crate) fn load_engine_compatible_flow_graph(
     if let Some(graph) = graph.as_ref() {
         ensure_engine_compatible(graph)
             .map_err(|error| format!("workflow_id '{id}' is engine-incompatible: {error}"))?;
+        if let Some(error) = referenced_workflow_compatibility_errors(config, graph)
+            .into_iter()
+            .next()
+        {
+            return Err(format!(
+                "workflow_id '{id}' references an engine-incompatible workflow: {error}"
+            ));
+        }
     }
     Ok(graph)
 }

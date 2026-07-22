@@ -587,21 +587,17 @@ impl Tool for EditWorkflowTool {
         // save/run path can accept. Reject it before advancing the durable
         // working copy, while preserving the established write-back behavior
         // for later binding/connection/contract gates.
-        let compatibility = ops::engine_compatibility_errors(&edited);
+        let compatibility = ops::config_aware_engine_compatibility_errors(&self.config, &edited);
         if !compatibility.is_empty() {
-            let messages: Vec<String> = compatibility
-                .into_iter()
-                .map(|error| format!("{}: {}", error.code, error.message))
-                .collect();
             tracing::debug!(
                 target: "flows",
                 %name,
-                error_count = messages.len(),
+                error_count = compatibility.len(),
                 "[flows] edit_workflow: the edited graph is engine-incompatible"
             );
             return Ok(ToolResult::error(format!(
                 "The edited graph is incompatible with the current engine:\n\n{}\n\nFix the ops and call edit_workflow again.",
-                messages.join("\n\n")
+                compatibility.join("\n\n")
             )));
         }
 

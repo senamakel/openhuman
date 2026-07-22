@@ -287,8 +287,7 @@ fn ensure_engine_compatible(graph: &WorkflowGraph) -> Result<(), String> {
 /// run/resume as well as before returning a resolver graph: otherwise earlier
 /// side-effect nodes could execute before an unsafe saved descendant resolves.
 fn ensure_execution_compatible(config: &Config, graph: &WorkflowGraph) -> Result<(), String> {
-    ensure_engine_compatible(graph)?;
-    match referenced_workflow_compatibility_errors(config, graph)
+    match config_aware_engine_compatibility_errors(config, graph)
         .into_iter()
         .next()
     {
@@ -460,16 +459,9 @@ pub(crate) fn to_flow_validation_error(
 /// `validate_and_migrate_graph` / `validate_all` first) — these gates check
 /// resolvability/contracts on a compilable graph.
 pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
-    let compatibility_errors = engine_compatibility_errors(graph);
+    let compatibility_errors = config_aware_engine_compatibility_errors(config, graph);
     if !compatibility_errors.is_empty() {
-        return compatibility_errors
-            .into_iter()
-            .map(|error| format!("{}: {}", error.code, error.message))
-            .collect();
-    }
-    let referenced_compatibility_errors = referenced_workflow_compatibility_errors(config, graph);
-    if !referenced_compatibility_errors.is_empty() {
-        return referenced_compatibility_errors;
+        return compatibility_errors;
     }
     // Cheap, sync: a binding guaranteed to resolve null / wrong at runtime.
     let binding_errors = validate_binding_resolvability(graph);
@@ -576,6 +568,24 @@ fn referenced_workflow_compatibility_errors(config: &Config, graph: &WorkflowGra
     }
 
     Vec::new()
+}
+
+/// Returns the complete engine-topology gate for a graph in its host context.
+/// The graph-only half covers inline descendants; the config-aware half follows
+/// literal saved-workflow references. Authoring and execution boundaries share
+/// this helper so neither can accept a graph the other must reject.
+pub(crate) fn config_aware_engine_compatibility_errors(
+    config: &Config,
+    graph: &WorkflowGraph,
+) -> Vec<String> {
+    let direct = engine_compatibility_errors(graph);
+    if !direct.is_empty() {
+        return direct
+            .into_iter()
+            .map(|error| format!("{}: {}", error.code, error.message))
+            .collect();
+    }
+    referenced_workflow_compatibility_errors(config, graph)
 }
 
 /// Strict-mode gate for the create/update RPC path (audit F3): validates

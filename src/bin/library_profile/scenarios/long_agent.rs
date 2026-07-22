@@ -3,14 +3,11 @@
 //! BEFORE the measured region, then runs N sequential turns inside it, pushing
 //! a per-turn checkpoint so the plateau/leak curve is visible.
 
-use std::sync::Arc;
-
 use anyhow::Result;
 use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::inference::provider::Provider;
 
 use crate::harness::{fixture, measure, ProfileResult};
 use crate::mock::PlainTextMock;
@@ -37,8 +34,7 @@ pub async fn run() -> Result<ProfileResult> {
     openhuman_core::openhuman::agent::bus::register_agent_handlers();
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let mock = PlainTextMock::new("Phoenix migration is healthy; no action needed.");
-    let provider: Arc<dyn Provider> = mock.clone();
-    let _provider = test_provider_override::install(provider);
+    let _provider = test_provider_override::install_model(mock.clone());
 
     let mut agent = Agent::from_config_for_agent(&fixture.config, "subconscious")?;
     eprintln!("[library-profile] long-agent: warming agent with one pre-measure turn");

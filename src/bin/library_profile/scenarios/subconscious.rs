@@ -2,14 +2,11 @@
 //! `LongLivedSession` path as `subagents`, but the mock returns a direct text
 //! response (no `spawn_parallel_agents` tool call). Complements `subagents`.
 
-use std::sync::Arc;
-
 use anyhow::Result;
 use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::config::schema::SubconsciousMode;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::inference::provider::Provider;
 use openhuman_core::openhuman::subconscious::LongLivedSession;
 
 use crate::harness::{fixture, measure, ProfileResult};
@@ -21,8 +18,7 @@ pub async fn run() -> Result<ProfileResult> {
     openhuman_core::openhuman::agent::bus::register_agent_handlers();
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let mock = PlainTextMock::new("Phoenix migration is on track; nothing needs your attention.");
-    let provider: Arc<dyn Provider> = mock.clone();
-    let _provider = test_provider_override::install(provider);
+    let _provider = test_provider_override::install_model(mock.clone());
 
     if std::env::var_os("OPENHUMAN_PROFILE_PREWARM_SUBAGENTS").is_some() {
         eprintln!("[library-profile] subconscious: prewarming one full turn");

@@ -3,15 +3,12 @@
 //! (recorded as a checkpoint), then `flows_run` is measured as the workload.
 //! The agent node's LLM routes through the plain-text mock provider.
 
-use std::sync::Arc;
-
 use anyhow::Result;
 use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::flows::ops::{flows_create, flows_run};
 use openhuman_core::openhuman::flows::FlowRunTrigger;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::inference::provider::Provider;
 use serde_json::json;
 
 use crate::harness::{fixture, measure, ProfileResult};
@@ -23,8 +20,7 @@ pub async fn run() -> Result<ProfileResult> {
     openhuman_core::openhuman::agent::bus::register_agent_handlers();
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let mock = PlainTextMock::new("Phoenix migration status: healthy, ramp on Friday.");
-    let provider: Arc<dyn Provider> = mock.clone();
-    let _provider = test_provider_override::install(provider);
+    let _provider = test_provider_override::install_model(mock.clone());
 
     let graph = json!({
         "name": "profile-workflow",

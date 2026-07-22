@@ -32,14 +32,11 @@
 //! per-child RSS) — captured at the workload peak, since the `node` child has
 //! already exited by settle time.
 
-use std::sync::Arc;
-
 use anyhow::Result;
 use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::inference::provider::Provider;
 use openhuman_core::openhuman::security::AutonomyLevel;
 
 use crate::harness::{fixture, measure_with_tree, EnvGuard, ProfileResult};
@@ -91,8 +88,7 @@ pub async fn run() -> Result<ProfileResult> {
     let _ = AgentDefinitionRegistry::init_global_builtins();
 
     let mock = SkillRunMock::new();
-    let provider: Arc<dyn Provider> = mock.clone();
-    let _provider = test_provider_override::install(provider);
+    let _provider = test_provider_override::install_model(mock.clone());
     eprintln!(
         "[library-profile] skill-run: registries ready, node_exec mock installed \
          (agent={CODE_AGENT})"

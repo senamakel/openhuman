@@ -831,7 +831,10 @@ pub fn create_chat_provider_from_string(
                 workspace,
                 config.action_dir.clone(),
             )?;
-        let p_box: Box<dyn Provider> = Box::new(provider);
+        let p_box: Box<dyn Provider> = Box::new(super::crate_provider::CrateBackedProvider::new(
+            Arc::new(provider),
+            "claude-code",
+        ));
         return Ok((p_box, model));
     }
 
@@ -911,7 +914,13 @@ pub fn create_chat_provider_from_string(
             model
         );
         let provider = ClaudeAgentSdkProvider::new(config.claude_agent_sdk.clone());
-        return Ok((Box::new(provider), model));
+        return Ok((
+            Box::new(super::crate_provider::CrateBackedProvider::new(
+                Arc::new(provider),
+                "claude-agent-sdk",
+            )),
+            model,
+        ));
     }
 
     // New grammar: "<slug>:<model>[@<temp>]"

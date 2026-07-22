@@ -10,10 +10,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
-use crate::openhuman::config::schema::claude_agent_sdk::ClaudeAgentSdkConfig;
-use crate::openhuman::inference::provider::traits::Provider;
-
 use super::protocol::SdkMessage;
+use crate::openhuman::config::schema::claude_agent_sdk::ClaudeAgentSdkConfig;
 
 pub struct ClaudeAgentSdkProvider {
     pub(super) config: ClaudeAgentSdkConfig,
@@ -252,19 +250,6 @@ impl ClaudeAgentSdkProvider {
 }
 
 #[async_trait]
-impl Provider for ClaudeAgentSdkProvider {
-    async fn chat_with_system(
-        &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        self.invoke_cli(system_prompt, message, model).await
-    }
-}
-
-#[async_trait]
 impl ChatModel<()> for ClaudeAgentSdkProvider {
     fn profile(&self) -> Option<&ModelProfile> {
         Some(&self.profile)
@@ -399,9 +384,17 @@ printf '%s\n' '{"type":"result","result":"captured","is_error":false}'
         let system_prompt = "system instruction\n".repeat(2_500);
 
         let output = provider
-            .chat_with_system(Some(&system_prompt), "hello", "claude-sonnet-4-6", 0.0)
+            .invoke(
+                &(),
+                ModelRequest::new(vec![
+                    Message::system(&system_prompt),
+                    Message::user("hello"),
+                ])
+                .with_model("claude-sonnet-4-6"),
+            )
             .await
-            .expect("fake claude response");
+            .expect("fake claude response")
+            .text();
 
         assert_eq!(output, "captured");
         assert_eq!(
@@ -418,7 +411,7 @@ printf '%s\n' '{"type":"result","result":"captured","is_error":false}'
         let provider = ClaudeAgentSdkProvider::new(config);
 
         let error = provider
-            .chat_with_system(None, "hello", "claude-sonnet-4-6", 0.0)
+            .invoke_cli(None, "hello", "claude-sonnet-4-6")
             .await
             .expect_err("missing binary must fail");
 
@@ -490,7 +483,11 @@ printf '%s\n' '{"type":"result","result":"Calling.<tool_call>{\"name\":\"lookup\
             std::fs::read_to_string(format!("{}.stdin", script.display())).expect("captured stdin");
         assert!(stdin.contains("Base system"));
         assert!(stdin.contains("## Tool Use Protocol"));
-        assert!(stdin.ends_with("[Tool results]\nfirst result\nsecond result"));
+        assert!(
+            stdin.contains("[Tool results]\n<tool_result>\nfirst result\n</tool_result>"),
+            "unexpected CLI stdin: {stdin:?}"
+        );
+        assert!(stdin.ends_with("<tool_result>\nsecond result\n</tool_result>"));
         let args =
             std::fs::read_to_string(format!("{}.args", script.display())).expect("captured args");
         assert!(args.contains("request-model"));

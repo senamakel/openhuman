@@ -29,7 +29,7 @@ use tinyagents::harness::model::{
 };
 use tokio::sync::Semaphore;
 
-use super::traits::{ChatMessage, ChatRequest, ChatResponse, Provider, ProviderCapabilities};
+use super::traits::{ChatMessage, ChatRequest, ChatResponse};
 
 /// Provider string prefix used in the factory grammar: `claude-code:<model>`.
 pub const PROVIDER_PREFIX: &str = "claude-code:";
@@ -314,67 +314,6 @@ fn thread_key_from_messages(messages: &[ChatMessage]) -> String {
         "hash_{:032x}",
         u128::from_be_bytes(digest[..16].try_into().unwrap())
     )
-}
-
-#[async_trait]
-impl Provider for ClaudeCodeProvider {
-    fn telemetry_provider_id(&self) -> String {
-        "claude-code".to_string()
-    }
-
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-
-    async fn chat_with_system(
-        &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        let mut messages = Vec::new();
-        if let Some(sp) = system_prompt {
-            messages.push(ChatMessage::system(sp));
-        }
-        messages.push(ChatMessage::user(message));
-        let request = ChatRequest {
-            messages: &messages,
-            tools: None,
-            stream: None,
-            max_tokens: None,
-        };
-        let resp = self.run_chat(request, Some(model)).await?;
-        Ok(resp.text.unwrap_or_default())
-    }
-
-    async fn chat_with_history(
-        &self,
-        messages: &[ChatMessage],
-        model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        let request = ChatRequest {
-            messages,
-            tools: None,
-            stream: None,
-            max_tokens: None,
-        };
-        let resp = self.run_chat(request, Some(model)).await?;
-        Ok(resp.text.unwrap_or_default())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
-        self.run_chat(request, Some(model)).await
-    }
 }
 
 #[cfg(test)]

@@ -426,6 +426,42 @@ async fn build_session_agent_injects_profile_soul_into_prompt() {
 }
 
 #[tokio::test]
+async fn build_session_agent_injects_default_profile_soul_into_prompt() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+    use crate::openhuman::context::prompt::LearnedContextData;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let home = config.workspace_dir.join("personalities").join("default");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(
+        home.join("SOUL.md"),
+        "I am the user-edited Default profile identity.",
+    )
+    .unwrap();
+
+    let profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        None,
+        None,
+        None,
+        false,
+        Some(&profile),
+    )
+    .expect("build default-profile session");
+
+    let prompt = agent
+        .build_system_prompt(LearnedContextData::default())
+        .expect("build_system_prompt");
+    assert!(
+        prompt.contains("I am the user-edited Default profile identity."),
+        "the live Default profile prompt must include personalities/default/SOUL.md"
+    );
+}
+
+#[tokio::test]
 async fn build_session_agent_profile_less_prompt_has_no_personality_soul() {
     use crate::openhuman::agent::harness::session::types::Agent;
     use crate::openhuman::context::prompt::LearnedContextData;

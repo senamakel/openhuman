@@ -769,14 +769,13 @@ impl Agent {
                     )
                 })
             });
-        // A non-default profile drives its live persona from its own SOUL.md
-        // (hot-read in the section), so ordinary web-chat / cron turns get the
-        // seeded/synced identity — not just delegation. The default/master
-        // profile keeps the workspace root SOUL.md (its identity), so the common
-        // default session stays byte-identical.
-        let soul_profile: Option<crate::openhuman::profiles::AgentProfile> = profile
-            .filter(|p| p.id != crate::openhuman::profiles::DEFAULT_PROFILE_ID)
-            .cloned();
+        // Every explicitly selected profile drives its live persona from its
+        // own SOUL.md (hot-read in the section), so ordinary web-chat / cron
+        // turns get the seeded/synced identity — not just delegation. This
+        // includes the Default profile because Settings persists its edits at
+        // `personalities/default/SOUL.md`. The profile-less path remains
+        // byte-identical and continues using only the workspace-root identity.
+        let soul_profile: Option<crate::openhuman::profiles::AgentProfile> = profile.cloned();
         if profile_suffix.is_some() || workspace_notice.is_some() || soul_profile.is_some() {
             log::debug!(
                 "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={} profile_soul={}",

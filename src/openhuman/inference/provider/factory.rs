@@ -518,67 +518,39 @@ pub(crate) fn resolve_byok_fallback_provider_string(config: &Config) -> Option<S
 #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
 pub mod test_provider_override {
     use super::Provider;
-    use crate::openhuman::inference::provider::traits::{
-        ChatRequest, ChatResponse, PromptCacheCapabilities, ProviderCapabilities,
-    };
-    use async_trait::async_trait;
     use std::sync::{Arc, Mutex, OnceLock};
+    use tinyagents::harness::model::ChatModel;
 
-    static OVERRIDE: OnceLock<Mutex<Option<Arc<dyn Provider>>>> = OnceLock::new();
-    fn cell() -> &'static Mutex<Option<Arc<dyn Provider>>> {
+    static OVERRIDE: OnceLock<Mutex<Option<Arc<dyn ChatModel<()>>>>> = OnceLock::new();
+    fn cell() -> &'static Mutex<Option<Arc<dyn ChatModel<()>>>> {
         OVERRIDE.get_or_init(|| Mutex::new(None))
     }
 
-    pub(crate) fn current() -> Option<Arc<dyn Provider>> {
+    pub(crate) fn current() -> Option<Arc<dyn ChatModel<()>>> {
         cell().lock().unwrap().clone()
     }
 
-    /// Install a mock provider; the returned guard clears it on drop.
+    /// Install a legacy mock provider during the consumer-test migration.
     #[must_use]
     pub fn install(provider: Arc<dyn Provider>) -> InstallGuard {
-        *cell().lock().unwrap() = Some(provider);
+        *cell().lock().unwrap() = Some(crate::openhuman::tinyagents::model::provider_chat_model(
+            provider,
+            "mock-model".to_string(),
+            0.7,
+        ));
+        InstallGuard
+    }
+
+    /// Install a crate-native mock model; the returned guard clears it on drop.
+    #[must_use]
+    pub fn install_model(model: Arc<dyn ChatModel<()>>) -> InstallGuard {
+        *cell().lock().unwrap() = Some(model);
         InstallGuard
     }
     pub struct InstallGuard;
     impl Drop for InstallGuard {
         fn drop(&mut self) {
             *cell().lock().unwrap() = None;
-        }
-    }
-
-    /// Thin delegating wrapper so the factory can hand out a fresh
-    /// `Box<dyn Provider>` backed by the shared mock `Arc` — one mock instance
-    /// serves the orchestrator AND the inner workflow run, routing by prompt
-    /// content. Forwards the methods the turn engine actually calls; the rest
-    /// use the trait defaults (which read back through `capabilities`).
-    pub(crate) struct ProviderHandle(pub Arc<dyn Provider>);
-
-    #[async_trait]
-    impl Provider for ProviderHandle {
-        fn capabilities(&self) -> ProviderCapabilities {
-            self.0.capabilities()
-        }
-        fn prompt_cache_capabilities(&self) -> PromptCacheCapabilities {
-            self.0.prompt_cache_capabilities()
-        }
-        async fn chat_with_system(
-            &self,
-            system_prompt: Option<&str>,
-            message: &str,
-            model: &str,
-            temperature: f64,
-        ) -> anyhow::Result<String> {
-            self.0
-                .chat_with_system(system_prompt, message, model, temperature)
-                .await
-        }
-        async fn chat(
-            &self,
-            request: ChatRequest<'_>,
-            model: &str,
-            temperature: f64,
-        ) -> anyhow::Result<ChatResponse> {
-            self.0.chat(request, model, temperature).await
         }
     }
 }
@@ -713,7 +685,7 @@ pub fn create_chat_provider(
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(p) = test_provider_override::current() {
         return Ok((
-            Box::new(test_provider_override::ProviderHandle(p)),
+            Box::new(super::crate_provider::CrateBackedProvider::new(p, "mock")),
             "mock-model".to_string(),
         ));
     }
@@ -982,6 +954,10 @@ pub fn create_chat_model_with_model_id(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
+    if let Some(model) = test_provider_override::current() {
+        return Ok((model, "mock-model".to_string()));
+    }
     // Managed OpenHuman backend → crate-native host `ChatModel`
     // ([`OpenHumanBackendModel`], issue #4727 Motion B) instead of a
     // `ProviderModel`-wrapped provider. A test-provider override (below, inside
@@ -1068,6 +1044,10 @@ pub fn create_chat_model_from_string_with_model_id(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
+    if let Some(model) = test_provider_override::current() {
+        return Ok((model, "mock-model".to_string()));
+    }
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {
@@ -1504,6 +1484,10 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
     temperature: f64,
     native_tool_calling: bool,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
+    if let Some(model) = test_provider_override::current() {
+        return Ok(model);
+    }
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {
@@ -1710,6 +1694,10 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools(
     temperature: f64,
     native_tool_calling: bool,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
+    if let Some(model) = test_provider_override::current() {
+        return Ok(model);
+    }
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {

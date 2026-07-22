@@ -489,7 +489,7 @@ fn build_parent_context_and_sanitize_helpers_cover_snapshot_paths() {
     );
     let long = "x".repeat(500);
     assert_eq!(sanitize_learned_entry(&long).chars().count(), 200);
-    assert!(collect_tree_root_summaries(agent.workspace_dir(), 8_000, 32_000).is_empty());
+    assert!(collect_tree_root_summaries(agent.workspace_dir(), "memory", 8_000, 32_000).is_empty());
 }
 
 #[test]
@@ -570,11 +570,48 @@ fn collect_tree_root_summaries_maps_namespace_body_and_timestamp() {
     };
     write_node(&config, &node).unwrap();
 
-    let summaries = collect_tree_root_summaries(&workspace, 8_000, 32_000);
+    let summaries = collect_tree_root_summaries(&workspace, "memory", 8_000, 32_000);
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0].namespace, "activities");
     assert_eq!(summaries[0].body, summary);
     assert_eq!(summaries[0].updated_at, updated_at);
+}
+
+#[test]
+fn collect_tree_root_summaries_reads_only_profile_memory_subtree() {
+    use crate::openhuman::config::Config;
+    use crate::openhuman::memory_tree::tree_runtime::store::write_node;
+    use crate::openhuman::memory_tree::tree_runtime::types::{
+        derive_parent_id, estimate_tokens, level_from_node_id, TreeNode,
+    };
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let config = Config {
+        workspace_dir: workspace.clone(),
+        ..Config::default()
+    };
+    let now = chrono::Utc::now();
+    let node = TreeNode {
+        node_id: "root".into(),
+        namespace: "private".into(),
+        level: level_from_node_id("root"),
+        parent_id: derive_parent_id("root"),
+        summary: "Alice-only context".into(),
+        token_count: estimate_tokens("Alice-only context"),
+        child_count: 0,
+        created_at: now,
+        updated_at: now,
+        metadata: None,
+    };
+    write_node(&config, &node).unwrap();
+    std::fs::rename(workspace.join("memory"), workspace.join("memory-alice")).unwrap();
+
+    assert!(collect_tree_root_summaries(&workspace, "memory", 8_000, 32_000).is_empty());
+    let summaries = collect_tree_root_summaries(&workspace, "memory-alice", 8_000, 32_000);
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].body, "Alice-only context");
 }
 
 #[tokio::test]

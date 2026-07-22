@@ -1186,13 +1186,16 @@ pub fn read_transcript_display(path: &Path) -> Result<DisplaySessionTranscript> 
 /// transcript without accidentally folding delegated worker transcripts
 /// into the main chat timeline.
 pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) -> Option<PathBuf> {
+    find_root_transcript_for_thread_in_dir(&raw_session_dir(workspace_dir), thread_id)
+}
+
+pub fn find_root_transcript_for_thread_in_dir(raw_dir: &Path, thread_id: &str) -> Option<PathBuf> {
     let thread_id = thread_id.trim();
     if thread_id.is_empty() {
         return None;
     }
 
-    let raw_dir = raw_session_dir(workspace_dir);
-    let entries = fs::read_dir(&raw_dir).ok()?;
+    let entries = fs::read_dir(raw_dir).ok()?;
     let mut matches: Vec<PathBuf> = entries
         .flatten()
         .map(|entry| entry.path())
@@ -1439,6 +1442,10 @@ pub fn read_thread_usage_summary(
 /// own key so collisions are effectively impossible.
 pub fn resolve_keyed_transcript_path(workspace_dir: &Path, stem: &str) -> Result<PathBuf> {
     let raw_dir = raw_session_dir(workspace_dir);
+    resolve_keyed_transcript_path_in_dir(&raw_dir, stem)
+}
+
+pub fn resolve_keyed_transcript_path_in_dir(raw_dir: &Path, stem: &str) -> Result<PathBuf> {
     fs::create_dir_all(&raw_dir)
         .with_context(|| format!("create session_raw dir {}", raw_dir.display()))?;
     let sanitized = sanitize_stem(stem);

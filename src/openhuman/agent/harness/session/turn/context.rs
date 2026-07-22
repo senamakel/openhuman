@@ -244,6 +244,7 @@ impl Agent {
         let limits = self.config.resolved_memory_limits();
         let tree_root_summaries = collect_tree_root_summaries(
             &self.workspace_dir,
+            &self.memory_subdir,
             limits.per_namespace_max_chars,
             limits.total_tree_max_chars,
         );

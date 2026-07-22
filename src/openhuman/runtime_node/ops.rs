@@ -128,6 +128,7 @@ fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
         None,
         None,
         None,
+        None,
     );
     debug!(
         tool_count = built.len(),

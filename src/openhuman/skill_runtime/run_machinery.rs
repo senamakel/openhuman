@@ -42,7 +42,7 @@ pub async fn spawn_workflow_run_background(
     skill_id_param: String,
     inputs_param: Option<Value>,
 ) -> Result<WorkflowRunStarted, String> {
-    spawn_workflow_run_background_with_profile(skill_id_param, inputs_param, None).await
+    spawn_workflow_run_background_with_profile(skill_id_param, inputs_param, None, None).await
 }
 
 /// Like [`spawn_workflow_run_background`], but resolves the target skill against
@@ -56,6 +56,7 @@ pub async fn spawn_workflow_run_background_with_profile(
     skill_id_param: String,
     inputs_param: Option<Value>,
     profile_skills_root: Option<std::path::PathBuf>,
+    active_profile: Option<crate::openhuman::profiles::AgentProfile>,
 ) -> Result<WorkflowRunStarted, String> {
     let workspace = resolve_workspace_dir().await;
     let skill = registry::get_workflow_with_profile(
@@ -176,6 +177,7 @@ pub async fn spawn_workflow_run_background_with_profile(
         let inputs = inputs.clone();
         let log_path = log_path.clone();
         let inherited_origin = inherited_origin.clone();
+        let active_profile = active_profile.clone();
         tokio::spawn(async move {
             if let Err(e) =
                 run_log::write_header(&log_path, &workflow_id, &run_id, &inputs, &task_prompt).await
@@ -201,7 +203,15 @@ pub async fn spawn_workflow_run_background_with_profile(
             if config.http_request.allowed_domains.is_empty() {
                 config.http_request.allowed_domains = vec!["*".to_string()];
             }
-            let mut agent = match Agent::from_config_for_agent(&config, "orchestrator") {
+            let mut agent = match Agent::from_config_for_agent_with_profile(
+                &config,
+                "orchestrator",
+                None,
+                active_profile
+                    .as_ref()
+                    .and_then(|profile| profile.system_prompt_suffix.clone()),
+                active_profile.as_ref(),
+            ) {
                 Ok(a) => a,
                 Err(e) => {
                     let _ = run_log::write_footer(

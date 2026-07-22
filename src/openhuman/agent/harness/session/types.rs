@@ -139,6 +139,14 @@ pub struct Agent {
     /// [`WorkspaceDescriptor::policy_id`](tinyagents::harness::workspace::WorkspaceDescriptor)
     /// and only exists for *dedicated-workspace* profiles.
     pub(super) active_profile_id: Option<String>,
+    /// Profile-selected memory subtree name (`memory`, `memory-<id>`, or a
+    /// legacy numeric suffix). Used for memory-tree reads and paired with the
+    /// profile-specific transcript directory below.
+    pub(super) memory_subdir: String,
+    /// Exact directory for JSONL transcripts. Keeping this separate from
+    /// `workspace_dir` prevents dedicated-memory profiles from reading or
+    /// writing the shared `session_raw/` store.
+    pub(super) session_raw_dir: PathBuf,
     /// Resolved filesystem path for this session's transcript file.
     /// Set on first write, reused for subsequent **appends** within the
     /// same session.
@@ -385,6 +393,8 @@ pub struct AgentBuilder {
     /// (default) means the profile-less session; the profile-launching callers
     /// (web chat, task dispatcher, cron) set the active profile id here.
     pub(super) active_profile_id: Option<String>,
+    pub(super) memory_subdir: Option<String>,
+    pub(super) session_raw_dir: Option<PathBuf>,
     /// Directory chain of parent session keys for a sub-agent. `None`
     /// (default) means this is a root session — its transcript lands
     /// flat in `session_raw/DDMMYYYY/{session_key}.jsonl`. Populated

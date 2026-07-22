@@ -43,6 +43,8 @@ impl AgentBuilder {
             event_channel: None,
             agent_definition_name: None,
             active_profile_id: None,
+            memory_subdir: None,
+            session_raw_dir: None,
             session_parent_prefix: None,
             omit_profile: None,
             omit_memory_md: None,
@@ -210,6 +212,16 @@ impl AgentBuilder {
     /// it. A `None` here keeps every downstream consumer on its legacy path.
     pub fn active_profile_id(mut self, profile_id: Option<String>) -> Self {
         self.active_profile_id = profile_id;
+        self
+    }
+
+    pub fn profile_memory_storage(
+        mut self,
+        memory_subdir: String,
+        session_raw_dir: std::path::PathBuf,
+    ) -> Self {
+        self.memory_subdir = Some(memory_subdir);
+        self.session_raw_dir = Some(session_raw_dir);
         self
     }
 
@@ -492,6 +504,10 @@ impl AgentBuilder {
             .workspace_dir
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let action_dir = self.action_dir.unwrap_or_else(|| workspace_dir.clone());
+        let memory_subdir = self.memory_subdir.unwrap_or_else(|| "memory".to_string());
+        let session_raw_dir = self
+            .session_raw_dir
+            .unwrap_or_else(|| workspace_dir.join("session_raw"));
 
         Ok(Agent {
             turn_model_source,
@@ -537,6 +553,8 @@ impl AgentBuilder {
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
             active_profile_id: self.active_profile_id,
+            memory_subdir,
+            session_raw_dir,
             session_transcript_path: None,
             persisted_transcript_messages: Vec::new(),
             session_key: {

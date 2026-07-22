@@ -426,9 +426,10 @@ impl Agent {
             return false;
         }
 
-        let Some(path) =
-            super::transcript::find_root_transcript_for_thread(&self.workspace_dir, thread_id)
-        else {
+        let Some(path) = super::transcript::find_root_transcript_for_thread_in_dir(
+            &self.session_raw_dir,
+            thread_id,
+        ) else {
             log::debug!(
                 "[web-channel] no root session_raw transcript for thread={thread_id} — \
                  falling back to conversation-log prose seeding"

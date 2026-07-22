@@ -399,6 +399,15 @@ impl Agent {
                 )
             })
             .unwrap_or_else(|| "memory".to_string());
+        let memory_suffix = profile
+            .map(crate::openhuman::profiles::effective_memory_suffix)
+            .unwrap_or_default();
+        let session_raw_dir =
+            config
+                .workspace_dir
+                .join(crate::openhuman::profiles::session_raw_subdir_for_suffix(
+                    &memory_suffix,
+                ));
         tracing::debug!(
             memory_subdir = %memory_subdir,
             has_profile = profile.is_some(),
@@ -486,6 +495,7 @@ impl Agent {
             &tool_config.action_dir,
             &tool_config.agents,
             &tool_config,
+            profile,
             profile_skill_allowlist.as_ref(),
             profile_mcp_allowlist.as_deref(),
             profile_skills_root.as_deref(),
@@ -1303,6 +1313,7 @@ impl Agent {
             // see which profile the turn ran under. `None` for the profile-less
             // session keeps every consumer byte-identical.
             .active_profile_id(profile.map(|p| p.id.clone()))
+            .profile_memory_storage(memory_subdir, session_raw_dir)
             .workflows(
                 crate::openhuman::skills::load_workflow_metadata_for_profile(
                     &config.workspace_dir,

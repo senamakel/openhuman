@@ -79,6 +79,7 @@ pub fn all_tools(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -99,6 +100,7 @@ pub fn all_tools_with_runtime(
     action_dir: &std::path::Path,
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::openhuman::config::Config,
+    active_profile: Option<&crate::openhuman::profiles::AgentProfile>,
     skill_allowlist: Option<&std::collections::HashSet<String>>,
     mcp_allowlist: Option<&[String]>,
     profile_skills_root: Option<&std::path::Path>,
@@ -231,6 +233,7 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "skills")]
         Box::new(
             RunWorkflowTool::new()
+                .with_active_profile(active_profile.cloned())
                 .with_skill_allowlist(skill_allowlist.cloned())
                 .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),

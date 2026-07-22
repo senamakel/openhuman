@@ -274,6 +274,35 @@ async fn build_session_agent_carries_active_profile_id_when_profile_present() {
 }
 
 #[tokio::test]
+async fn dedicated_memory_profile_scopes_tree_and_transcript_storage() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = "alice".to_string();
+    profile.built_in = false;
+    profile.dedicated_memory = true;
+
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        None,
+        None,
+        None,
+        false,
+        Some(&profile),
+    )
+    .expect("build dedicated-memory session");
+
+    assert_eq!(agent.memory_subdir, "memory-alice");
+    assert_eq!(
+        agent.session_raw_dir,
+        config.workspace_dir.join("session_raw-alice")
+    );
+}
+
+#[tokio::test]
 async fn build_session_agent_leaves_active_profile_id_none_without_profile() {
     use crate::openhuman::agent::harness::session::types::Agent;
 

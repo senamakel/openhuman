@@ -1668,7 +1668,12 @@ impl TurnModelSource {
         temperature: f64,
     ) -> anyhow::Result<Arc<dyn tinyagents::harness::model::ChatModel<()>>> {
         if let Some(direct) = &self.direct_model {
-            return Ok(direct.clone());
+            let profile = direct.profile().cloned().unwrap_or_default();
+            return Ok(Arc::new(
+                ProfileOverrideModel::new(direct.clone(), profile)
+                    .with_request_model(model)
+                    .with_request_temperature(temperature),
+            ));
         }
         if let Some(cn) = &self.crate_native {
             let built = match cn.primary_override.as_deref() {

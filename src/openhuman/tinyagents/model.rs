@@ -471,6 +471,7 @@ pub(super) struct ProfileOverrideModel {
     inner: Arc<dyn ChatModel<()>>,
     profile: ModelProfile,
     request_model: Option<String>,
+    request_temperature: Option<f64>,
 }
 
 impl ProfileOverrideModel {
@@ -479,6 +480,7 @@ impl ProfileOverrideModel {
             inner,
             profile,
             request_model: None,
+            request_temperature: None,
         }
     }
 
@@ -487,9 +489,17 @@ impl ProfileOverrideModel {
         self
     }
 
-    fn pin_request_model(&self, mut request: ModelRequest) -> ModelRequest {
+    pub(super) fn with_request_temperature(mut self, temperature: f64) -> Self {
+        self.request_temperature = Some(temperature);
+        self
+    }
+
+    fn pin_request_options(&self, mut request: ModelRequest) -> ModelRequest {
         if request.model.is_none() {
             request.model.clone_from(&self.request_model);
+        }
+        if request.temperature.is_none() {
+            request.temperature = self.request_temperature;
         }
         request
     }
@@ -503,13 +513,13 @@ impl ChatModel<()> for ProfileOverrideModel {
 
     async fn invoke(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelResponse> {
         self.inner
-            .invoke(state, self.pin_request_model(request))
+            .invoke(state, self.pin_request_options(request))
             .await
     }
 
     async fn stream(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
         self.inner
-            .stream(state, self.pin_request_model(request))
+            .stream(state, self.pin_request_options(request))
             .await
     }
 }

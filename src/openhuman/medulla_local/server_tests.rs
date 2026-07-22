@@ -130,6 +130,10 @@ struct MockOpts {
     /// provider/tool holding the connection during callback servicing — only
     /// the overall per-request deadline can end the wait.
     stall_call_before_res: bool,
+    /// Drop the connection on `status` for each of the first N accepted
+    /// connections (generalizes `die_first_status`), so the retry attempt can
+    /// be made to fail too.
+    die_status_connections: u64,
 }
 
 /// Spawn a mock serve loop on `listener`, one accepted connection at a time.
@@ -258,7 +262,9 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
                 .await;
             }
             "status" => {
-                if opts.die_first_status && conn_index == 0 {
+                if (opts.die_first_status && conn_index == 0)
+                    || conn_index < opts.die_status_connections
+                {
                     // Drop the connection mid-request: status is idempotent,
                     // so the host must restart and retry.
                     return;
@@ -911,6 +917,64 @@ async fn overall_deadline_bounds_status_during_hung_port_callback() {
         connections.load(Ordering::SeqCst),
         2,
         "an idempotent deadline trip must restart-and-retry exactly once"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn retry_failure_resets_cache_so_next_request_reestablishes() {
+    let path = unique_socket_path("retry-failure-reset");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    let instructs = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            // Both the first attempt AND its retry die mid-status; the third
+            // connection behaves.
+            die_status_connections: 2,
+            connection_count: Some(connections.clone()),
+            instruct_count: Some(instructs.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let supervisor = build(path.clone(), Arc::new(RecordingState::default()));
+    let error = supervisor
+        .harness_status()
+        .await
+        .expect_err("a retry that also dies mid-request must surface an error");
+    let request_error = error
+        .downcast_ref::<RequestError>()
+        .expect("supervisor errors must stay downcastable to RequestError");
+    assert!(
+        matches!(request_error, RequestError::Transport(_)),
+        "expected the transport error from the failed retry, got: {request_error:?}"
+    );
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        2,
+        "restart-and-retry must have attempted exactly one respawn"
+    );
+
+    // The broken replacement connection was reset, not left cached: the next
+    // request — the non-idempotent instruct — starts from a clean establish
+    // and succeeds, instead of being written into the stale transport and
+    // misreading as MaybeApplied.
+    let receipt = supervisor
+        .instruct("reconcile", json!({}))
+        .await
+        .expect("the request after a failed retry must re-establish and succeed");
+    assert_eq!(receipt.instruction_id, "inst-agent-0");
+    assert_eq!(
+        instructs.load(Ordering::SeqCst),
+        1,
+        "the instruct must be submitted exactly once, on the fresh connection"
+    );
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        3,
+        "the request after a failed retry must open a fresh connection"
     );
     let _ = std::fs::remove_file(&path);
 }

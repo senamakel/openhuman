@@ -696,7 +696,10 @@ impl MedullaSupervisor {
     /// failures on **idempotent** ops: only when the established connection
     /// broke mid-request (process death, closed socket, IO failure, timeout)
     /// does the host reset, respawn via the connector (which replays
-    /// `hello`), and retry exactly once. Application-level rejections
+    /// `hello`), and retry exactly once. A retry that ALSO breaks
+    /// mid-request resets the replacement connection as well, so the next
+    /// request starts from a clean establish instead of reusing a
+    /// possibly-poisoned transport. Application-level rejections
     /// (`ok=false`), undecodable results, and connect/handshake failures are
     /// deterministic — retrying them would kill a healthy child — so they
     /// fail fast with the typed [`RequestError`]. Non-idempotent ops (see
@@ -730,7 +733,27 @@ impl MedullaSupervisor {
                     self.connector.describe()
                 );
                 self.reset().await;
-                self.request_once(op, params).await.map_err(Into::into)
+                match self.request_once(op, params).await {
+                    Ok(value) => Ok(value),
+                    Err(retry_error) => {
+                        // The replacement connection is not left cached when
+                        // the retry ALSO breaks mid-request: a known-bad
+                        // transport would cost the next caller a full deadline
+                        // — and could misreport `MaybeApplied` for an
+                        // `instruct` written into it — before self-correcting.
+                        // Reset so the next request starts from a clean
+                        // establish.
+                        if retry_error.is_retryable() {
+                            warn!(
+                                "[medulla_local] retry of `{op}` hit another transport failure; \
+                                 resetting {} so the next request re-establishes: {retry_error}",
+                                self.connector.describe()
+                            );
+                            self.reset().await;
+                        }
+                        Err(retry_error.into())
+                    }
+                }
             }
             Err(error) => {
                 debug!("[medulla_local] request `{op}` failed non-retryably: {error}");

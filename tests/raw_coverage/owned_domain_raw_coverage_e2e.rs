@@ -20,9 +20,6 @@ use openhuman_core::openhuman::composio::ComposioClient;
 use openhuman_core::openhuman::config::{
     CapabilityProviderConfig, CapabilityProviderTrustState, Config, McpServerConfig,
 };
-use openhuman_core::openhuman::inference::provider::compatible::{
-    AuthStyle, OpenAiCompatibleProvider,
-};
 use openhuman_core::openhuman::inference::provider::{
     ChatMessage, ChatRequest, Provider, ProviderDelta,
 };
@@ -338,127 +335,7 @@ fn owned_domain_config(workspace_root: &std::path::Path) -> Config {
     config
 }
 
-#[tokio::test]
-async fn openai_compatible_provider_covers_auth_temperature_tool_fallback_and_responses() {
-    let (base_url, state) = serve_provider_mock().await;
-    let provider = OpenAiCompatibleProvider::new_with_user_agent(
-        "owned-mock",
-        &base_url,
-        Some("secret-token"),
-        AuthStyle::Bearer,
-        "OpenHumanOwnedCoverage/1.0",
-    )
-    .with_temperature_unsupported_models(vec!["gpt-5*".to_string()]);
-
-    let tool = ToolSpec {
-        name: "lookup".to_string(),
-        description: "Lookup a record".to_string(),
-        parameters: json!({ "type": "object" }),
-    };
-    let messages = vec![ChatMessage::system("system"), ChatMessage::user("hello")];
-    let tool_err = provider
-        .chat(
-            ChatRequest {
-                messages: &messages,
-                tools: Some(&[tool.clone(), tool]),
-                stream: None,
-                max_tokens: None,
-            },
-            "gpt-5-mini",
-            0.6,
-        )
-        .await
-        .expect_err("tool rejection is returned without a speculative retry");
-    assert!(tool_err.to_string().contains("unknown parameter: tools"));
-
-    let response = provider
-        .chat(
-            ChatRequest {
-                messages: &messages,
-                tools: None,
-                stream: None,
-                max_tokens: None,
-            },
-            "gpt-5-mini",
-            0.6,
-        )
-        .await
-        .expect("provider native chat");
-    assert_eq!(response.text.as_deref(), Some("visible answer"));
-    assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].name, "lookup");
-    assert_eq!(response.tool_calls[0].arguments, r#"{"query":"openhuman"}"#);
-    assert!(response.usage.is_none());
-
-    let chat_requests = state.chat_requests.lock().expect("chat requests").clone();
-    assert_eq!(chat_requests.len(), 2);
-    assert_eq!(
-        chat_requests[0].pointer("/tools/0/function/name"),
-        Some(&json!("lookup"))
-    );
-    assert!(chat_requests[0].get("temperature").is_none());
-    assert_eq!(chat_requests[0]["tools"].as_array().unwrap().len(), 2);
-    assert!(chat_requests[1].get("tools").is_none());
-
-    let auth_headers = state.auth_headers.lock().expect("auth headers").clone();
-    assert!(
-        auth_headers
-            .iter()
-            .any(|header| header.as_deref() == Some("Bearer secret-token")),
-        "bearer auth should be sent"
-    );
-    let user_agents = state.user_agents.lock().expect("user agents").clone();
-    assert!(
-        user_agents
-            .iter()
-            .any(|header| header.as_deref() == Some("OpenHumanOwnedCoverage/1.0")),
-        "custom user-agent should be sent"
-    );
-
-    let fallback_text = provider
-        .chat_with_history(&[ChatMessage::user("fallback please")], "missing-chat", 0.4)
-        .await
-        .expect("responses fallback");
-    assert_eq!(fallback_text, "responses fallback answer");
-    assert_eq!(
-        state.response_requests.lock().expect("response requests")[0].pointer("/input/0/content"),
-        Some(&json!([{"text": "fallback please", "type": "input_text"}]))
-    );
-}
-
-#[tokio::test]
-async fn openai_compatible_provider_streaming_json_fallback_aggregates_response() {
-    let (base_url, _state) = serve_provider_mock().await;
-    let provider = OpenAiCompatibleProvider::new("owned-mock", &base_url, None, AuthStyle::None);
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<ProviderDelta>(4);
-    let messages = vec![ChatMessage::user("stream please")];
-
-    let response = provider
-        .chat(
-            ChatRequest {
-                messages: &messages,
-                tools: None,
-                stream: Some(&tx),
-                max_tokens: None,
-            },
-            "stream-model",
-            0.7,
-        )
-        .await
-        .expect("streaming JSON fallback");
-
-    assert_eq!(response.text.as_deref(), Some("stream fallback body"));
-    assert_eq!(
-        response.reasoning_content.as_deref(),
-        Some("stream thinking")
-    );
-    assert!(matches!(
-        rx.try_recv(),
-        Ok(ProviderDelta::TextDelta { delta }) if delta == "stream fallback body"
-    ));
-}
-
-#[tokio::test]
+ #[tokio::test]
 async fn composio_client_round_trips_backend_paths_and_payload_normalization() {
     let (base_url, state) = serve_composio_mock().await;
     let client = ComposioClient::new(Arc::new(IntegrationClient::new(

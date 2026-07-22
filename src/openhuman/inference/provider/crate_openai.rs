@@ -1,7 +1,7 @@
 //! Crate-native OpenAI-compatible client construction (issue #4727, Motion B).
 //!
-//! The cutover replaces the in-house [`OpenAiCompatibleProvider`] wire client with
-//! the vendored `tinyagents` crate's `OpenAiModel` — a `ChatModel` that speaks the
+//! The cutover replaced the in-house OpenAI-compatible wire client with the
+//! vendored `tinyagents` crate's `OpenAiModel` — a `ChatModel` that speaks the
 //! OpenAI Chat Completions wire and, since tinyagents #44/#47/#48, carries the
 //! host-parity config the OpenHuman provider catalog needs: configurable auth
 //! styles + static headers, per-model temperature suppression/override, and
@@ -15,10 +15,8 @@
 //! (`/v1/responses` + query-param auth) — stay as host `ChatModel` impls and do
 //! **not** route through here.
 //!
-//! **Status: scaffolding.** The builder + auth mapping are complete and
-//! unit-tested; wiring it as the factory's default construction path (and the
-//! per-provider wire-parity validation that must precede deleting
-//! `compatible*.rs`) is the follow-up within this cutover.
+//! The builder + auth mapping are the factory's default construction path and
+//! are covered by the provider wire-parity suite.
 
 use std::sync::Arc;
 
@@ -95,8 +93,7 @@ pub(crate) struct CrateOpenAiConfig<'a> {
 }
 
 /// Build a crate-native `OpenAiModel` (`ChatModel`) for the given OpenAI-compatible
-/// provider config — the cutover replacement for constructing an
-/// `OpenAiCompatibleProvider`.
+/// provider config.
 pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn ChatModel<()>> {
     let mut model = OpenAiModel::compatible_provider(
         config.provider_name,

@@ -15,7 +15,7 @@
 //! "mlx:<model>[@<temp>]"         → local MLX-compatible server
 //! "local-openai:<model>[@<temp>]"→ generic local OpenAI-compatible
 //! "<slug>:<model>[@<temp>]"      → cloud_providers entry keyed by slug;
-//!                                  builds OpenAiCompatibleProvider (Bearer) or
+//!                                  builds the crate-native OpenAI client (Bearer) or
 //!                                  Anthropic flavour depending on auth_style.
 //! ```
 //!
@@ -2801,7 +2801,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
             temperature_unsupported_models: unsupported.as_slice(),
             temperature_override,
             // Cloud OpenAI-compatible providers accept a `system` role — no merge
-            // (parity with `OpenAiCompatibleProvider::new`).
+            // (parity with the crate-native OpenAI model defaults).
             merge_system_into_user: false,
             extra_headers: extra_headers.as_slice(),
             native_tool_calling: Some(native_tool_calling),
@@ -2904,7 +2904,7 @@ pub fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String
     Ok(String::new())
 }
 
-/// Build an `OpenAiCompatibleProvider` with the given auth style.
+/// Build a legacy `Provider` adapter over the crate-native OpenAI model.
 fn make_openai_compatible_provider(
     endpoint: &str,
     api_key: &str,
@@ -2921,7 +2921,7 @@ fn make_openai_compatible_provider(
     )
 }
 
-/// Build an `OpenAiCompatibleProvider` with auth style, temperature
+/// Build a legacy `Provider` adapter with auth style, temperature
 /// suppression list from config, and an optional per-workload temperature
 /// override (extracted from the provider string's `@<temp>` suffix).
 ///

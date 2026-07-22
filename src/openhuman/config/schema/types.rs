@@ -340,7 +340,7 @@ pub struct Config {
     //                            openhuman, behaves identically to "openhuman"
     //   "openhuman"            → OpenHuman backend (api_url + api_key session JWT)
     //   "openai:<model>"       → look up cloud_providers entry of type=openai;
-    //                            build OpenAiCompatibleProvider with Bearer auth
+    //                            build crate OpenAiModel with Bearer auth
     //   "anthropic:<model>"    → type=anthropic; Bearer auth on the compat endpoint
     //   "openrouter:<model>"   → type=openrouter; Bearer auth
     //   "orcarouter:<model>"   → type=orcarouter; Bearer auth (e.g. "orcarouter:orcarouter/auto")

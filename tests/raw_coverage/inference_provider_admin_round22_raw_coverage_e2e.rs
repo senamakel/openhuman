@@ -29,9 +29,6 @@ use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::inference::local::LocalAiService;
-use openhuman_core::openhuman::inference::provider::compatible::{
-    AuthStyle as CompatibleAuthStyle, OpenAiCompatibleProvider,
-};
 use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string,
 };
@@ -109,119 +106,7 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|e| e.into_inner())
 }
 
-#[tokio::test]
-async fn compatible_provider_covers_responses_fallback_auth_and_merge_system_edges() {
-    let _env = env_lock();
-    let (base, state) = serve_mock().await;
-
-    let fallback = OpenAiCompatibleProvider::new(
-        "round22-compatible",
-        &format!("{base}/fallback/v1"),
-        Some("sk-round22"),
-        CompatibleAuthStyle::Bearer,
-    );
-    let text = fallback
-        .chat_with_history(
-            &[
-                ChatMessage::system("policy one"),
-                ChatMessage::user("use responses fallback"),
-            ],
-            "fallback-model",
-            0.7,
-        )
-        .await
-        .expect("responses fallback");
-    assert_eq!(text, "round22 responses text");
-
-    let no_fallback = OpenAiCompatibleProvider::new_no_responses_fallback(
-        "round22-no-fallback",
-        &format!("{base}/fallback/v1"),
-        None,
-        CompatibleAuthStyle::None,
-    );
-    let err = no_fallback
-        .chat_with_history(&[ChatMessage::user("no fallback")], "fallback-model", 0.2)
-        .await
-        .expect_err("404 without responses fallback");
-    assert!(err.to_string().contains("404"));
-
-    let system_only_text = fallback
-        .chat_with_history(
-            &[ChatMessage::system("only instructions")],
-            "fallback-model",
-            0.2,
-        )
-        .await
-        .expect("system-only responses fallback");
-    assert_eq!(system_only_text, "round22 responses text");
-
-    let merged = OpenAiCompatibleProvider::new_merge_system_into_user(
-        "minimax",
-        &format!("{base}/merge/v1"),
-        Some("x-api-secret"),
-        CompatibleAuthStyle::XApiKey,
-    );
-    let merged_text = merged
-        .chat_with_history(
-            &[
-                ChatMessage::system("system policy"),
-                ChatMessage::user("hello"),
-            ],
-            "merge-model",
-            0.1,
-        )
-        .await
-        .expect("merge system into user");
-    assert_eq!(merged_text, "merged ok");
-
-    let custom = OpenAiCompatibleProvider::new_with_user_agent(
-        "custom-auth",
-        &format!("{base}/custom-auth/v1"),
-        Some("custom-secret"),
-        CompatibleAuthStyle::Custom("x-custom-auth".to_string()),
-        "Round22UA/1",
-    );
-    assert_eq!(
-        custom
-            .chat_with_system(Some("custom policy"), "custom hello", "custom-model", 0.3)
-            .await
-            .expect("custom auth"),
-        "custom auth ok"
-    );
-
-    let seen = state.requests.lock().expect("requests");
-    let responses = seen
-        .iter()
-        .find(|req| req.path == "/fallback/v1/responses")
-        .expect("responses request");
-    assert_eq!(responses.auth.as_deref(), Some("Bearer sk-round22"));
-    assert_eq!(responses.body["instructions"], "policy one");
-    assert_eq!(responses.body["input"][0]["role"], "user");
-
-    let merged_body = seen
-        .iter()
-        .find(|req| req.path == "/merge/v1/chat/completions")
-        .expect("merge request")
-        .body
-        .clone();
-    assert_eq!(merged_body["messages"].as_array().unwrap().len(), 1);
-    assert_eq!(merged_body["messages"][0]["role"], "user");
-    assert!(merged_body["messages"][0]["content"]
-        .as_str()
-        .unwrap()
-        .contains("system policy"));
-    assert!(seen
-        .iter()
-        .any(|req| req.path == "/merge/v1/chat/completions"
-            && req.auth.as_deref() == Some("x-api-secret")));
-    assert!(seen
-        .iter()
-        .any(|req| req.path == "/custom-auth/v1/chat/completions"
-            && req.auth.as_deref() == Some("custom-secret")
-            && req.user_agent.as_deref() == Some("Round22UA/1")));
-}
-
-#[tokio::test]
+ #[tokio::test]
 async fn provider_admin_model_listing_covers_openrouter_validation_and_local_synthesis() {
     let _env = env_lock();
     let (base, state) = serve_mock().await;

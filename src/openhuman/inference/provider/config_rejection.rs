@@ -199,7 +199,7 @@ pub fn is_provider_config_rejection_message(body: &str) -> bool {
         // TAURI-RUST-4XK (~649 events) — Ollama Cloud subscription gate.
         // Body: `{"error":"this model requires a subscription, upgrade for
         // access: https://ollama.com/upgrade (ref: <uuid>)"}` on a 403
-        // Forbidden from `compatible::OpenAiCompatibleProvider` with
+        // Forbidden from the OpenAI-compatible client with
         // `name = "ollama"`. User-state: the model picked in Settings is
         // a paid-tier Ollama Cloud model the user's account doesn't
         // cover. The UI surfaces an actionable upgrade link in the

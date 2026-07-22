@@ -971,11 +971,8 @@ pub fn log_openai_oauth_session_expired(
 /// subscriber clears the session and flips the scheduler-gate signed-out
 /// override (halting downstream LLM work — see OPENHUMAN-TAURI-1T), and skip
 /// the Sentry report. Mirrors the `is_auth_failure && is_backend` arm in
-/// [`api_error`], factored out for the hand-rolled provider HTTP-error chains
-/// in [`super::compatible::OpenAiCompatibleProvider`] which consume the
-/// response body inline and so can't delegate to `api_error`. The
-/// `chat_completions` chain lacked this branch and reported the backend
-/// `401 Invalid token` to Sentry — that drift was TAURI-RUST-N.
+/// [`api_error`], factored out for adapter error paths that already consumed
+/// the response body and cannot delegate to `api_error`.
 ///
 /// `message` is the already-formatted `"{provider} API error ({status}): …"`
 /// string; it embeds the sanitized body, but the prefix and caller-controlled

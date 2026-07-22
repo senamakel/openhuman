@@ -23,9 +23,6 @@ use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::inference::local::LocalAiService;
-use openhuman_core::openhuman::inference::provider::compatible::{
-    AuthStyle as CompatibleAuthStyle, OpenAiCompatibleProvider,
-};
 use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
 };
@@ -79,127 +76,7 @@ fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-#[tokio::test]
-async fn compatible_provider_covers_chat_responses_streaming_tools_and_errors() {
-    let _env_lock = __shared_env_lock();
-    let (base, state) = serve_mock().await;
-    let provider = OpenAiCompatibleProvider::new_with_user_agent(
-        "custom_openai",
-        &format!("{base}/v1"),
-        Some("sk-test-secret"),
-        CompatibleAuthStyle::Bearer,
-        "round15-agent",
-    )
-    .with_temperature_unsupported_models(vec!["cold-*".to_string()])
-    .with_temperature_override(Some(0.7));
-
-    let simple = provider
-        .chat_with_system(Some("system"), "hello", "demo-chat", 0.2)
-        .await
-        .expect("chat_with_system");
-    assert_eq!(simple, "chat:demo-chat");
-
-    let history = provider
-        .chat_with_history(
-            &[ChatMessage::system("rules"), ChatMessage::user("history")],
-            "responses-only",
-            0.3,
-        )
-        .await
-        .expect("responses fallback");
-    assert_eq!(history, "responses fallback text");
-
-    let tools = vec![ToolSpec {
-        name: "lookup".to_string(),
-        description: "lookup a thing".to_string(),
-        parameters: json!({
-            "type": "object",
-            "properties": { "query": { "type": "string" } },
-            "required": ["query"]
-        }),
-    }];
-    let native = provider
-        .chat(
-            ChatRequest {
-                messages: &[ChatMessage::user("use a tool")],
-                tools: Some(&tools),
-                stream: None,
-                max_tokens: None,
-            },
-            "tool-model",
-            0.1,
-        )
-        .await
-        .expect("native tools");
-    assert_eq!(native.text.as_deref(), Some("tool response"));
-    assert_eq!(native.tool_calls.len(), 1);
-    assert_eq!(native.tool_calls[0].name, "lookup");
-    assert_eq!(native.tool_calls[0].arguments, r#"{"query":"openhuman"}"#);
-    let usage = native.usage.expect("usage");
-    assert_eq!(usage.input_tokens, 1);
-    assert_eq!(usage.output_tokens, 2);
-    assert_eq!(usage.cached_input_tokens, 1);
-    assert_eq!(usage.charged_amount_usd, 0.0);
-
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<ProviderDelta>(16);
-    let streamed = provider
-        .chat(
-            ChatRequest {
-                messages: &[ChatMessage::user("stream it")],
-                tools: Some(&tools),
-                stream: Some(&tx),
-                max_tokens: None,
-            },
-            "stream-model",
-            0.1,
-        )
-        .await
-        .expect("streaming native chat");
-    drop(tx);
-    assert_eq!(streamed.text.as_deref(), Some("hello world"));
-    assert_eq!(streamed.reasoning_content.as_deref(), Some("thinking"));
-    assert_eq!(streamed.tool_calls.len(), 1);
-
-    let deltas = collect_deltas(&mut rx).await;
-    assert!(deltas
-        .iter()
-        .any(|d| matches!(d, ProviderDelta::TextDelta { delta } if delta == "hello ")));
-    assert!(deltas
-        .iter()
-        .any(|d| matches!(d, ProviderDelta::ThinkingDelta { delta } if delta == "thinking")));
-    assert!(deltas.iter().any(
-        |d| matches!(d, ProviderDelta::ToolCallStart { tool_name, .. } if tool_name == "lookup")
-    ));
-
-    let err = provider
-        .chat_with_system(None, "boom", "budget-model", 0.2)
-        .await
-        .expect_err("budget error");
-    assert!(err.to_string().contains("budget exhausted"));
-    assert_eq!(
-        sanitize_api_error("leaked sk-abcdef ghp_secret-token"),
-        "leaked [REDACTED] [REDACTED]"
-    );
-
-    let cold = provider
-        .chat_with_system(None, "no temperature", "cold-no-temp", 0.2)
-        .await
-        .expect("temperature omitted");
-    assert_eq!(cold, "chat:cold-no-temp");
-
-    let seen = state.requests.lock().expect("requests");
-    assert!(seen.iter().any(|(path, auth, _)| {
-        path == "/v1/chat/completions" && auth.as_deref() == Some("Bearer sk-test-secret")
-    }));
-    assert!(seen
-        .iter()
-        .any(|(path, _, body)| path == "/v1/responses" && body["instructions"] == "rules"));
-    assert!(seen.iter().any(|(_, _, body)| {
-        body.get("temperature").is_none() && body["model"] == "cold-no-temp"
-    }));
-}
-
-#[tokio::test]
+ #[tokio::test]
 async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes() {
     let _env_lock = __shared_env_lock();
     let (base, _state) = serve_mock().await;

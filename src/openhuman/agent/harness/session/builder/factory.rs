@@ -1527,10 +1527,11 @@ mod provider_role_tests {
 /// rooted at `<action_dir>/profiles/<id>` when `profile` opts into
 /// `dedicated_workspace` and its id passes validation (via
 /// [`dedicated_workspace_dir`](crate::openhuman::profiles::dedicated_workspace_dir)),
-/// creating the dir as a side effect; `None` for the shared-workspace common case
-/// and for legacy ids that fail validation (both fall back to the shared
-/// `action_dir` cwd). The returned descriptor propagates to subagents — see the
-/// deliberate-isolation note at the call site.
+/// creating the dir as a side effect; `None` for the shared-workspace common case,
+/// for legacy ids that fail validation, and when the directory can't be created
+/// (all three fall back to the shared `action_dir` cwd rather than binding tools
+/// to a nonexistent dir). The returned descriptor propagates to subagents — see
+/// the deliberate-isolation note at the call site.
 pub(crate) fn derive_profile_workspace_descriptor(
     action_dir: &std::path::Path,
     profile: Option<&crate::openhuman::profiles::AgentProfile>,
@@ -1544,9 +1545,12 @@ pub(crate) fn derive_profile_workspace_descriptor(
             profile_id = %profile_id,
             dir = %dir.display(),
             error = %e,
-            "[profiles] failed to create dedicated workspace dir; \
-             tools will still target it as cwd"
+            "[profiles] failed to create dedicated workspace dir — \
+             falling back to the shared action_dir cwd for this session"
         );
+        // Return None so callers fall back to the shared action_dir rather than
+        // binding every acting tool (shell/file/git) to a cwd that doesn't exist.
+        return None;
     }
     tracing::debug!(
         profile_id = %profile_id,
@@ -1616,5 +1620,20 @@ mod profile_workspace_descriptor_tests {
         // so the session falls back to the shared action_dir cwd.
         let p = profile("Bad Id", true);
         assert!(derive_profile_workspace_descriptor(action.path(), Some(&p)).is_none());
+    }
+
+    #[test]
+    fn create_dir_failure_yields_no_descriptor() {
+        // Point `action_dir` at a regular file so `profiles/…` can't be created.
+        // The function must fall back to `None` (shared action_dir cwd) rather
+        // than hand tools a descriptor rooted at a nonexistent dir.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let action_file = tmp.path().join("not-a-dir");
+        std::fs::write(&action_file, b"x").expect("write file");
+        let p = profile("alice", true);
+        assert!(
+            derive_profile_workspace_descriptor(&action_file, Some(&p)).is_none(),
+            "a create_dir_all failure must fall back to None"
+        );
     }
 }

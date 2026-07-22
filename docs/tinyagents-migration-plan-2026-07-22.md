@@ -37,8 +37,8 @@ remaining work is now well-bounded:
   crate `ModelRouter` is adopted; and **`compatible*.rs` is already deleted**
   (collapsed into a single `legacy_provider.rs` facade).
 - What remains falls into six work packages (§5): finish the model-layer
-  cutover and delete the legacy `Provider` stack (~9–10k LOC); retire the
-  legacy `run_turn_engine`; consolidate `routing/`, `tool_timeout/`,
+  cutover and delete the legacy `Provider` stack (~9–10k LOC); record that the
+  legacy `run_turn_engine` was already retired; consolidate `routing/`, `tool_timeout/`,
   `tool_status/`, `model_council/` onto crate primitives; reconcile the tool
   model (the one genuinely design-gated package); shrink the seam; and a
   housekeeping package (version-pin reconciliation + broken-link cleanup) that
@@ -174,7 +174,7 @@ host files (`schemas.rs`, `presets.rs`, `model_ids.rs`, `paths.rs`, `parse.rs`,
 
 | Domain | Files / LOC | Disposition |
 | --- | --- | --- |
-| `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. One big deletion: the legacy `run_turn_engine` parallel loop (`agent/harness/session/turn/core.rs`, `agent/harness/subagent_runner/ops/graph.rs`) duplicating `harness::agent_loop` — WP-3. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
+| `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. WP-3 verified that `session/turn/core.rs` is the product turn-preparation shell and `subagent_runner/ops/graph.rs` unconditionally calls `run_turn_via_tinyagents_shared`; the legacy loops and runtime escape hatches were removed before this audit. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
 | `agent_orchestration/` | 64 / 27.9k | Engine already on `tinyagents::graph` (workflow runs, teams, delegation, `map_reduce`); what remains is the product layer (ledgers, RPC). Residual upstream item: detached-subagent `TaskStore` lifecycle — WP-5. 25 files crate-backed. |
 | `routing/` | 8 / 2.7k | **Deleted in WP-2.** A repository-wide reference audit found no consumer outside the module; #4783's crate `ModelRouter` already owns the live path, so retaining the nominally host-specific health/provider files would preserve an unreachable parallel stack. |
 | `model_council/` | 4 / 1.1k | `council.rs` (573) + `graph.rs` (128, already graph-shaped) are a generic N-model ensemble → upstream as a crate graph pattern; `schemas.rs` (392, RPC) stays — WP-2. |
@@ -242,9 +242,9 @@ carry explicit superseded banners.
   `agentbox_e2e`, `orchestration_*`, `embeddings_rpc_e2e`,
   `ollama_lifecycle_e2e`, `openai_oauth/flow_tests.rs`, all `local/*_tests`,
   and the `raw_coverage` family except the compatible trio.
-- **Runner impact:** `scripts/test-rust-with-mock.sh:52` still documents the
-  `OPENHUMAN_AGENT_GRAPH_{TINYAGENTS,CHANNEL,SUBAGENT}=0` escape hatches into
-  the legacy engine — these go away with WP-3.
+- **Runner impact:** `scripts/test-rust-with-mock.sh:52` had a stale comment
+  advertising removed `OPENHUMAN_AGENT_GRAPH_*` escape hatches. WP-3 removes
+  that documentation; the runner behavior itself was already crate-only.
 
 ---
 
@@ -345,21 +345,20 @@ shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED).
 
 ### WP-3 — Retire the legacy turn engine
 
-`run_turn_engine` (`agent/harness/session/turn/core.rs`,
-`agent/harness/subagent_runner/ops/graph.rs`) is the pre-#4249 loop kept as a
-parity fallback; `run_turn_via_tinyagents_shared` has been default-ON in
-production for the whole 4x-series.
+**Audit result: complete before this plan was written.** The filenames cited by
+the initial audit survived, but their legacy engines did not:
 
-1. Confirm no production caller can reach the legacy path except via the
-   `OPENHUMAN_AGENT_GRAPH_{TINYAGENTS,CHANNEL,SUBAGENT}=0` escape hatches.
-2. Delete the legacy engine + the escape hatches + the
-   `scripts/test-rust-with-mock.sh` documentation of them.
-3. Port any legacy-only regression assertions in
-   `agent/harness/session/turn_tests.rs` / `subagent_runner/ops_tests.rs` to
-   the tinyagents path before deletion (failing-before/passing-after).
+1. `session/turn/core.rs` performs OpenHuman turn preparation and calls the
+   TinyAgents session path; it contains no `run_turn_engine` definition.
+2. `subagent_runner/ops/graph.rs` documents the removed `run_inner_loop` /
+   `run_turn_engine` and unconditionally calls `run_turn_via_tinyagents_shared`.
+3. No runtime or test code reads `OPENHUMAN_AGENT_GRAPH_*`; only this plan and a
+   stale test-runner comment mentioned those names. The stale comment is now
+   removed.
 
-**Exit:** one turn engine; `grep -rn "OPENHUMAN_AGENT_GRAPH_" ` returns only
-changelog/history.
+**Exit satisfied:** one TinyAgents turn engine; source and scripts contain no
+`OPENHUMAN_AGENT_GRAPH_*` reference. Historical/parity comments mentioning the
+former engine remain intentionally as provenance, not executable branches.
 
 ### WP-4 — Tool-model reconciliation (design-gated; do not start on autopilot)
 
@@ -452,7 +451,7 @@ prematurely.**
 | `tinyagents/model.rs` (`ProviderModel`), `convert.rs` message layer | DELETE (WP-1) |
 | `tinyagents/middleware.rs` generic middlewares | UPSTREAM case-by-case (WP-5) |
 | `tinyagents/` remainder (seam) | STAYS, shrinks |
-| `agent/` legacy `run_turn_engine` + escape hatches | DELETE (WP-3) |
+| `agent/` legacy `run_turn_engine` + escape hatches | ALREADY DELETED; WP-3 corrected the stale audit and runner documentation |
 | `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `council_registry/`, `tool_registry/` | STAYS (product/host) |
 | `routing/` | DELETED; #4783 crate router already owned the only live path (WP-2) |
 | `tool_timeout/` | COLLAPSE to shim over crate `ToolTimeout` (WP-2) |

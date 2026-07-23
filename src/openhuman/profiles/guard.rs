@@ -147,7 +147,9 @@ pub fn classify_cross_profile_target(
 ///
 /// # What it does catch
 ///
-/// It splits the command on whitespace, redirect/pipe operators, and common
+/// It splits the command into simple `;` / `&&` / `||` segments, tracks a
+/// leading literal `cd <path>` across those segments, then splits each segment
+/// on whitespace, redirect/pipe operators, and common
 /// shell punctuation (quotes, parens, backtick, `,`, `=`, `{`, `}`, `&`), keeps
 /// only path-shaped tokens (those containing a path separator or a leading `~`),
 /// resolves each against `cwd`, and classifies it via
@@ -157,6 +159,70 @@ pub fn classify_cross_profile_target(
 /// Returns the first sibling profile id it would write into, or `None` when no
 /// scanned token lands in another profile.
 pub fn scan_command_for_cross_profile(
+    command: &str,
+    cwd: &Path,
+    action_dir: &Path,
+    active_profile: &str,
+) -> Option<String> {
+    let mut effective_cwd = cwd.to_path_buf();
+    for segment in split_command_segments(command) {
+        if let Some(other_id) =
+            scan_command_segment(segment, &effective_cwd, action_dir, active_profile)
+        {
+            return Some(other_id);
+        }
+
+        let Some(next_cwd) = simple_cd_target(segment, &effective_cwd) else {
+            continue;
+        };
+        if let CrossProfileDecision::Block { other_id } =
+            classify_cross_profile_target(action_dir, active_profile, &next_cwd)
+        {
+            return Some(other_id);
+        }
+        effective_cwd = next_cwd;
+    }
+    None
+}
+
+/// Split at top-level shell sequencing operators while leaving separators
+/// inside simple quotes alone. This is intentionally not a complete shell
+/// parser; it only supplies enough ordering for literal `cd` tracking.
+fn split_command_segments(command: &str) -> Vec<&str> {
+    let bytes = command.as_bytes();
+    let mut segments = Vec::new();
+    let mut start = 0;
+    let mut quote: Option<u8> = None;
+    let mut i = 0;
+    while i < bytes.len() {
+        let byte = bytes[i];
+        if matches!(byte, b'\'' | b'"' | b'`') {
+            if quote == Some(byte) {
+                quote = None;
+            } else if quote.is_none() {
+                quote = Some(byte);
+            }
+            i += 1;
+            continue;
+        }
+        if quote.is_none()
+            && (byte == b';'
+                || (i + 1 < bytes.len()
+                    && ((byte == b'&' && bytes[i + 1] == b'&')
+                        || (byte == b'|' && bytes[i + 1] == b'|'))))
+        {
+            segments.push(&command[start..i]);
+            i += if byte == b';' { 1 } else { 2 };
+            start = i;
+            continue;
+        }
+        i += 1;
+    }
+    segments.push(&command[start..]);
+    segments
+}
+
+fn scan_command_segment(
     command: &str,
     cwd: &Path,
     action_dir: &Path,
@@ -201,6 +267,35 @@ pub fn scan_command_for_cross_profile(
         }
     }
     None
+}
+
+/// Resolve a literal leading `cd` for the next sequenced command. Dynamic
+/// targets (`$VAR`, command substitution) remain in the documented best-effort
+/// gap. Nonexistent/non-directory targets are ignored because the shell's `cd`
+/// would fail and leave cwd unchanged.
+fn simple_cd_target(segment: &str, cwd: &Path) -> Option<PathBuf> {
+    let mut words = segment.split_whitespace();
+    if words.next()? != "cd" {
+        return None;
+    }
+    let mut target = words.next()?;
+    if target == "--" {
+        target = words.next()?;
+    }
+    let target = target.trim_matches(|c| matches!(c, '"' | '\''));
+    if target.is_empty() || target.contains('$') || target.contains('`') || target.contains("$(") {
+        return None;
+    }
+    let expanded = crate::openhuman::config::expand_tilde(target);
+    let path = Path::new(&expanded);
+    let candidate = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        cwd.join(path)
+    };
+    candidate
+        .is_dir()
+        .then(|| canonicalize_best_effort(&candidate))
 }
 
 /// Canonicalize `path`, falling back to the raw path when it does not exist.
@@ -409,6 +504,36 @@ mod tests {
         let cwd = action.join("profiles").join("alice");
         assert_eq!(
             scan_command_for_cross_profile("cp x ../bob/y", &cwd, &action, "alice"),
+            Some("bob".to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_tracks_cd_before_sibling_write() {
+        let (_g, action) = profiles_layout();
+        let cwd = action.join("profiles").join("alice");
+        assert_eq!(
+            scan_command_for_cross_profile(
+                "cd .. && printf x > bob/loot.txt",
+                &cwd,
+                &action,
+                "alice"
+            ),
+            Some("bob".to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_tracks_chained_bare_cd_into_sibling() {
+        let (_g, action) = profiles_layout();
+        let cwd = action.join("profiles").join("alice");
+        assert_eq!(
+            scan_command_for_cross_profile(
+                "cd ..; cd bob; printf x > loot.txt",
+                &cwd,
+                &action,
+                "alice"
+            ),
             Some("bob".to_string())
         );
     }

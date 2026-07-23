@@ -3,9 +3,7 @@
 //! The crate store is now **authoritative** for thread goals — [`super::store`]
 //! delegates every operation to it. This module supplies the conversion helpers
 //! (local ↔ crate [`ThreadGoal`]/[`ThreadGoalStatus`]), the store-handle opener
-//! ([`crate_goals_store`]), the raw mirror read/write/delete helpers used by the
-//! one operation without a crate equivalent (the unconditional
-//! `set_continuation_suppressed`), and the idempotent
+//! ([`crate_goals_store`]), raw mirror helpers used by migration tests, and the idempotent
 //! [`migrate_legacy_goals_into_crate_store`] boot helper that copies goals left
 //! in the retired `{workspace}/thread_goals/` file-JSON tree only when the crate
 //! store has no value for that thread.

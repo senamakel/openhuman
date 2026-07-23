@@ -13,22 +13,13 @@
 //!
 //! The crate store owns the concurrency (per-thread async locks) and the goal
 //! business logic (objective-change reset, budget re-open, status transitions,
-//! the stale-goal-id accounting guard). Only the unconditional
-//! [`set_continuation_suppressed`] has no crate equivalent — it is replicated
-//! here via the adapter's raw mirror read/write helpers.
+//! suppression compare-and-set, and stale-goal-id accounting guards).
 
 use std::path::Path;
 
-use chrono::Utc;
-
-use super::crate_adapter::{crate_goals_store, from_crate_goal, get_mirror, put_mirror};
+use super::crate_adapter::{crate_goals_store, from_crate_goal};
 use super::types::ThreadGoal;
 use tinyagents::graph::goals::store as crate_store;
-
-/// Current unix time in milliseconds.
-fn now_ms() -> u64 {
-    Utc::now().timestamp_millis().max(0) as u64
-}
 
 /// Set (create or replace) the thread's goal. A changed objective mints a fresh
 /// goal and resets counters; an unchanged objective preserves counters and
@@ -124,27 +115,6 @@ pub async fn resume(workspace_dir: &Path, thread_id: &str) -> Result<ThreadGoal,
         .await
         .map_err(|e| e.to_string())?;
     Ok(from_crate_goal(&goal))
-}
-
-/// Unconditionally set `continuation_suppressed` on the thread's goal.
-///
-/// The crate store exposes only the compare-and-set
-/// [`set_continuation_suppressed_if`] variant, so this unconditional form (its
-/// sole caller clears the flag on user-initiated activity for an already-active
-/// goal) is replicated via the adapter's raw mirror read/write.
-pub async fn set_continuation_suppressed(
-    workspace_dir: &Path,
-    thread_id: &str,
-    suppressed: bool,
-) -> Result<ThreadGoal, String> {
-    let store = crate_goals_store(workspace_dir);
-    let mut goal = get_mirror(&store, thread_id)
-        .await?
-        .ok_or_else(|| format!("no thread goal for thread '{}'", thread_id.trim()))?;
-    goal.continuation_suppressed = suppressed;
-    goal.updated_at_ms = now_ms();
-    put_mirror(&store, &goal).await?;
-    Ok(goal)
 }
 
 /// Set `continuation_suppressed` only when the thread's current goal still

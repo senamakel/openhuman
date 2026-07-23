@@ -272,6 +272,16 @@ fn interpret_whisper_output(
     model_id: String,
 ) -> Result<RpcOutcome<WhisperTranscribeResult>, String> {
     if !success {
+        // Windows-specific: STATUS_DLL_NOT_FOUND means the system VC++ runtime
+        // is missing. Surface an actionable message instead of a cryptic exit code.
+        if crate::openhuman::inference::paths::is_dll_not_found_exit(exit_code) {
+            let maybe_msg =
+                crate::openhuman::inference::paths::report_dll_not_found(LOG_PREFIX);
+            let display_msg = maybe_msg.unwrap_or_else(|| {
+                format!("{LOG_PREFIX} whisper-cli unavailable (STATUS_DLL_NOT_FOUND — check VC++ Redistributable)")
+            });
+            return Err(display_msg);
+        }
         return Err(format!(
             "{LOG_PREFIX} whisper-cli failed (exit={exit_code:?}): {}",
             String::from_utf8_lossy(stderr).trim()

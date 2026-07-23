@@ -89,6 +89,17 @@ this section as investigation history.
 | WP2-3 | `model_council/` ensemble | **CLOSED / CRATE ADOPTED** | `graph.rs` already executes ordered member fan-out through `tinyagents::graph::parallel::map_reduce` with `FailurePolicy::CollectAll`. The remaining `council.rs` and RPC code are HOST-OWNED product semantics: read-only OpenHuman jurors, config/model selection, synthesis prompt/result schema, cost limit, and validation. |
 | WP2-4 | `tool_status/` failure classification | **HOST-OWNED** | The types are serialized into OpenHuman threads/UI and the classifier consumes OpenHuman security markers, product retry categories, and user-facing remediation copy. TinyAgents owns raw tool outcomes; the host mapping is deliberately downstream product policy. |
 
+## WP-5 Detached Lifecycle Ownership Audit
+
+| Surface | Status | Ownership / exit evidence |
+| --- | --- | --- |
+| Process-local detached task map, ownership checks, status receivers, cancellation tokens, abort handles, terminal sweep, steering lookup | **CUTOVER / UPSTREAM PR OPEN — tinyagents#75** | The generic mechanics now live in TinyAgents `DetachedTaskRegistry`. OpenHuman calls the crate registry for snapshots, wait/timeout, owned and trusted steering, per-task/thread/global cancellation, and soft-cap cleanup. Distinct lock-poison errors are propagated by the crate. All 17 focused host tests pass. |
+| Durable detached task lifecycle | **HOST PROJECTION ON CRATE STORE** | OpenHuman retains workspace-specific `JsonlTaskStore` selection and maps product `SubagentStatus` into crate `OrchestrationTaskStatus`; this is durable product projection, not executor ownership. |
+| Detached task metadata, RPC/UI delivery, `RunQueue` fallback | **HOST-OWNED** | Agent/session/thread/workspace metadata, cancellation notices, background delivery, trusted desktop RPC, and compatibility steering are OpenHuman product surfaces. The fallback can shrink independently after live crate-steering parity, but does not block generic registry deletion. |
+
+Final closure requires TinyAgents #75 to merge and the temporary integration
+gitlink to be replaced with its canonical upstream commit.
+
 ## WP-5 Middleware Ownership Audit
 
 The earlier seam snapshot counted 17 middleware types. The audit found 18: the

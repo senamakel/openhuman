@@ -410,6 +410,14 @@ changes remain gated on explicit approval of that proposal.
    `subagent_control.rs`) onto crate `TaskStore`/`SteeringRegistry` fully;
    host keeps ledgers + RPC. This restores the lifecycle consolidation intent
    recorded by the earlier audit without relying on a phantom design doc.
+   **Cutover implemented:** TinyAgents PR
+   [#75](https://github.com/tinyhumansai/tinyagents/pull/75) adds the generic
+   ownership-aware `DetachedTaskRegistry`; OpenHuman now delegates snapshots,
+   waits, steering lookup, cancellation/abort, terminal sweeping, and lock-error
+   handling to it. The host retains durable `TaskStore` projection, product
+   metadata, RPC, and the `RunQueue` compatibility fallback. All 17 focused
+   `running_subagents` tests pass. Final closure waits for the upstream PR to
+   merge and the integration gitlink to be replaced by the canonical commit.
 3. Finish the C4 journal-progress-parity plan (S2–S6): journal-backed progress
    projection, then delete `agent/progress_tracing.rs` (1,272) +
    `progress_tracing/langfuse.rs` (825) in favor of crate observability —

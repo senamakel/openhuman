@@ -26,7 +26,7 @@ also name its upstream PR before the host copy is removed.
 | WP-4 | host tool trait/adapter artifacts selected by design | Approved tool-model decision preserves security and ungated result types | DESIGN GATE | Successor design document |
 | WP-5 | `SchemaGuardMiddleware` | TinyAgents `InvalidArgsPolicy::ReturnToolError` owns recoverable schema-invalid admission | DELETED | Policy regression + 18 `agent_harness_e2e` tests green; 232 net host lines removed in the cutover commit |
 | WP-5 | generic seam middlewares | Equivalent crate middleware released and adopted | PENDING | Per-middleware drift rows + parity tests |
-| WP-5 | detached subagent registry mechanics | Crate `TaskStore`/`SteeringRegistry` own lifecycle | PENDING | Upstream PR + orchestration tests |
+| WP-5 | detached subagent registry mechanics | Crate `DetachedTaskRegistry` + `TaskStore`/`SteeringRegistry` own generic process-local lifecycle | CUTOVER / UPSTREAM PR OPEN | TinyAgents #75; OpenHuman commits `3fc769828` + `29908675f`; 17 focused `running_subagents` tests green. Host retains durable projection, product metadata, RPC, and `RunQueue` fallback. Replace the integration gitlink with the canonical merged commit before CLOSED. |
 | WP-5 | `agent/progress_tracing.rs` and `progress_tracing/langfuse.rs` | C4 S2-S6 gates pass; journal projection is self-sufficient | BLOCKED | One-release shadow parity and C4 §5 gate |
 
 Deletion totals are reconciled in WP-6 after all rows are terminal. The

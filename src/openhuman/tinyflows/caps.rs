@@ -433,6 +433,64 @@ pub(crate) fn parse_llm_json(text: &str) -> Option<Value> {
     matches!(parsed, Value::Object(_) | Value::Array(_)).then_some(parsed)
 }
 
+/// Find and parse a fenced JSON block (```json … ``` or ``` … ```) anywhere
+/// in `text`, not just when the whole text starts with it. Returns `None` when
+/// no fenced block parses to an object or array.
+fn extract_fenced_json_block(text: &str) -> Option<Value> {
+    let text = text.trim();
+    // Look for the first opening ``` fence
+    let fence_start = text.find("```")?;
+    let after_fence = text[fence_start + 3..].trim();
+    // Skip optional "json" after the opening fence
+    let content = after_fence.strip_prefix("json").unwrap_or(after_fence).trim();
+    // Find the *last* closing ``` (preferring the outermost fence, which
+    // matches how Markdown renderers treat nested fences — the last ``` is
+    // the one that closes the block the LLM opened).
+    let close = content.rfind("```")?;
+    let inner = content[..close].trim();
+    let parsed = serde_json::from_str::<Value>(inner).ok()?;
+    matches!(parsed, Value::Object(_) | Value::Array(_)).then_some(parsed)
+}
+
+/// Find and parse the first balanced `{…}` or `[…}` span in `text`. Walks
+/// through the text character by character tracking brace depth; when a span
+/// is found and parses as JSON, it is returned. `None` when no span parses.
+fn extract_balanced_json(text: &str) -> Option<Value> {
+    let text = text.trim();
+    let bytes = text.as_bytes();
+    let len = bytes.len();
+    for start in 0..len {
+        let open_byte = bytes[start];
+        let (open, close) = match open_byte {
+            b'{' => (b'{', b'}'),
+            b'[' => (b'[', b']'),
+            _ => continue,
+        };
+        let mut depth = 0u32;
+        for end in start..len {
+            let b = bytes[end];
+            if b == open {
+                depth = depth.checked_add(1)?;
+            } else if b == close {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    // Found a balanced span — try to parse it.
+                    let candidate = &text[start..=end];
+                    if let Ok(parsed) = serde_json::from_str::<Value>(candidate) {
+                        if matches!(parsed, Value::Object(_) | Value::Array(_)) {
+                            return Some(parsed);
+                        }
+                    }
+                    // Span didn't parse; continue scanning from the position
+                    // after this false-positive open byte.
+                    break;
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Select the model an `agent` node completion actually runs on.
 ///
 /// `resolved_model` is what [`create_chat_provider`] returned for the node's
@@ -841,20 +899,40 @@ pub(crate) fn build_harness_run_prompt(request: &Value) -> String {
 /// still applies.
 pub(crate) fn build_agent_result(agent_ref: &str, final_text: &str, request: &Value) -> Value {
     if structured_output_requested(request) {
+        // Try 1: bare JSON parsing and full-text fence blocks (existing).
         if let Some(parsed) = parse_llm_json(final_text) {
             tracing::debug!(
                 target: "flows",
                 agent_ref,
-                "[flows] agent_runner: structured output parsed from harness turn"
+                "[flows] agent_runner: structured output parsed from harness turn (parse_llm_json)"
+            );
+            return parsed;
+        }
+        // Try 2: find a fenced ```json … ``` block anywhere in the text.
+        if let Some(parsed) = extract_fenced_json_block(final_text) {
+            tracing::debug!(
+                target: "flows",
+                agent_ref,
+                "[flows] agent_runner: structured output extracted from fenced JSON block in prose"
+            );
+            return parsed;
+        }
+        // Try 3: find the first balanced {…} / […} span in the text (handles
+        // cases where the LLM wraps JSON in prose without fence blocks).
+        if let Some(parsed) = extract_balanced_json(final_text) {
+            tracing::debug!(
+                target: "flows",
+                agent_ref,
+                "[flows] agent_runner: structured output extracted from balanced brace/bracket span in prose"
             );
             return parsed;
         }
         tracing::warn!(
             target: "flows",
             agent_ref,
-            "[flows] agent_runner: structured output requested but the harness turn did not parse \
-             as JSON — falling back to the {{text}} shape (the output_parser sub-port may still \
-             coerce it)"
+            "[flows] agent_runner: structured output requested but none of the extraction strategies \
+             produced valid JSON — falling back to the {{text}} shape (the output_parser sub-port may \
+             still coerce it)"
         );
     }
     json!({ "text": final_text, "agent_ref": agent_ref })
@@ -5551,5 +5629,78 @@ mod tests {
         assert_eq!(value["usage"]["context_window"], 128_000);
         assert_eq!(value["usage"]["charged_amount_usd"], 0.125);
         assert_eq!(value["reasoning_content"], "private chain");
+    }
+
+    // ── build_agent_result improvements (issue #5151) ────────────────────
+
+    #[test]
+    fn build_agent_result_extracts_embedded_json_from_prose_text() {
+        // When the agent's final text wraps JSON in prose without fence
+        // blocks (e.g. the LLM explains the result before outputting the
+        // data), build_agent_result must still extract the object rather than
+        // falling back to {text, agent_ref} which kills the downstream
+        // output_parser.
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "object", "required": ["name"] }
+            }
+        });
+        let result = build_agent_result(
+            "agent-1",
+            "The result is: { \"name\": \"Alice\", \"age\": 30 }",
+            &request,
+        );
+        assert_eq!(result, json!({ "name": "Alice", "age": 30 }));
+    }
+
+    #[test]
+    fn build_agent_result_extracts_embedded_array_from_prose_text() {
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "array" }
+            }
+        });
+        let result = build_agent_result(
+            "agent-1",
+            "Here is the list: [1, 2, 3]",
+            &request,
+        );
+        assert_eq!(result, json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn build_agent_result_falls_back_to_text_when_no_json_found_in_prose() {
+        // Pure prose with no JSON-like content must still fall back to the
+        // safe {text, agent_ref} shape.
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "object", "required": ["name"] }
+            }
+        });
+        let result = build_agent_result(
+            "agent-1",
+            "I searched for the information but could not find it.",
+            &request,
+        );
+        assert_eq!(
+            result,
+            json!({ "text": "I searched for the information but could not find it.",
+                    "agent_ref": "agent-1" })
+        );
+    }
+
+    #[test]
+    fn build_agent_result_prefers_fenced_json_over_balanced_brace_extraction() {
+        // When both a fenced block and loose prose-with-JSON are present,
+        // the fenced block wins (it's the canonical / better-specified
+        // format).
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "object" }
+            }
+        });
+        let text = "Some text\n```json\n{\"from_fence\": true}\n```\nmore text { \"from_brace\": true }";
+        let result = build_agent_result("agent-1", text, &request);
+        assert_eq!(result, json!({ "from_fence": true }));
     }
 }

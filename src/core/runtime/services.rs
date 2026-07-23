@@ -239,14 +239,14 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     // authoritative. Idempotent (skips already-copied rows) and returns fast on
     // an empty/absent legacy dir. Run it on every core boot so an in-process
     // restart with a different workspace migrates that workspace too.
-    let _ = spawn_thread_goals_migration(config.clone());
+    std::mem::drop(spawn_thread_goals_migration(config.clone()));
 
     // Idempotent copy of any task boards left in the retired
     // `{workspace}/agent_task_boards/*.json` file-JSON tree into the crate
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
     // As above, each core boot must inspect its own workspace.
-    let _ = spawn_task_boards_migration(config.clone());
+    std::mem::drop(spawn_task_boards_migration(config.clone()));
 }
 
 fn spawn_thread_goals_migration(config: Config) -> tokio::task::JoinHandle<()> {

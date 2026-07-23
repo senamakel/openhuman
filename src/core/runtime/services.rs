@@ -239,14 +239,50 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     // authoritative. Idempotent (skips already-copied rows) and returns fast on
     // an empty/absent legacy dir. Run it on every core boot so an in-process
     // restart with a different workspace migrates that workspace too.
-    std::mem::drop(spawn_thread_goals_migration(config.clone()));
+    //
+    // Previously these ran as detached `tokio::spawn` tasks whose JoinHandle was
+    // immediately dropped; the core became RPC-ready before the copy finished, so
+    // a user/API write landing between the crate `get(None)` check and the later
+    // `put` could be silently overwritten by the stale legacy value (CodeRabbit
+    // + Codex P1 finding). Now we block on completion — the copy is fast on both
+    // an empty legacy dir and a pre-migrated workspace — so the runtime surface
+    // is only exposed once the crate store is authoritative.
+    block_on_migration("thread_goals",
+        crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
+            &config.workspace_dir,
+        )
+    );
 
     // Idempotent copy of any task boards left in the retired
     // `{workspace}/agent_task_boards/*.json` file-JSON tree into the crate
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
     // As above, each core boot must inspect its own workspace.
-    std::mem::drop(spawn_task_boards_migration(config.clone()));
+    block_on_migration("task_boards",
+        crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
+            &config.workspace_dir,
+        )
+    );
+}
+
+fn block_on_migration(
+    label: &str,
+    mut goal: impl std::future::Future<Output = Result<impl std::fmt::Debug, String>>,
+) {
+    let Ok(rt) = tokio::runtime::Handle::try_current() else {
+        log::warn!("[{label}] cannot block on migration — no tokio runtime; legacy→crate copy skipped for this boot");
+        return;
+    };
+    match rt.block_on(&mut goal) {
+        Ok(report) => {
+            let report_str = format!("{report:?}");
+            // Avoid log noise: a zero-total report means the legacy dir is absent/empty.
+            if !report_str.contains("total: 0") {
+                log::info!("[{label}] legacy→crate migration: {report_str}");
+            }
+        }
+        Err(e) => log::warn!("[{label}] legacy→crate migration failed: {e}"),
+    }
 }
 
 fn spawn_thread_goals_migration(config: Config) -> tokio::task::JoinHandle<()> {

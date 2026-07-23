@@ -70,24 +70,48 @@ pub async fn ingest_rpc(
     let result = match source_kind {
         SourceKind::Chat => {
             let batch: ChatBatch = serde_json::from_value(payload)
-                .map_err(|e| format!("invalid chat payload: {e}"))?;
+                .map_err(|e| {
+                    let msg = format!("invalid chat payload: {e}");
+                    log::warn!("[memory::rpc] {msg}");
+                    msg
+                })?;
             do_ingest_chat(config, &source_id, &owner, tags, batch)
                 .await
-                .map_err(|e| format!("ingest: {e}"))?
+                .map_err(|e| {
+                    let msg = format!("ingest: {e}");
+                    log::warn!("[memory::rpc] {msg}");
+                    msg
+                })?
         }
         SourceKind::Email => {
             let thread: EmailThread = serde_json::from_value(payload)
-                .map_err(|e| format!("invalid email payload: {e}"))?;
+                .map_err(|e| {
+                    let msg = format!("invalid email payload: {e}");
+                    log::warn!("[memory::rpc] {msg}");
+                    msg
+                })?;
             do_ingest_email(config, &source_id, &owner, tags, thread)
                 .await
-                .map_err(|e| format!("ingest: {e}"))?
+                .map_err(|e| {
+                    let msg = format!("ingest: {e}");
+                    log::warn!("[memory::rpc] {msg}");
+                    msg
+                })?
         }
         SourceKind::Document => {
             let doc: DocumentInput = serde_json::from_value(payload)
-                .map_err(|e| format!("invalid document payload: {e}"))?;
+                .map_err(|e| {
+                    let msg = format!("invalid document payload: {e}");
+                    log::warn!("[memory::rpc] {msg}");
+                    msg
+                })?;
             do_ingest_document(config, &source_id, &owner, tags, doc)
                 .await
-                .map_err(|e| format!("ingest: {e}"))?
+                .map_err(|e| {
+                    let msg = format!("ingest: {e}");
+                    log::warn!("[memory::rpc] {msg}");
+                    msg
+                })?
         }
     };
 

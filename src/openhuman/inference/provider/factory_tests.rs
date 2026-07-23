@@ -930,6 +930,21 @@ fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
 }
 
 #[test]
+fn turn_model_route_metadata_uses_post_remap_cloud_model() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let mut config = Config::default();
+    config.cloud_providers.push(deepseek_entry("p_ds"));
+    config.chat_provider = Some("deepseek:chat-v1".to_string());
+
+    let (_model, provider, resolved_model) =
+        create_turn_chat_model_with_native_tools_and_route("chat", &config, "chat-v1", 0.7, true)
+            .expect("abstract BYOK tier must build");
+
+    assert_eq!(provider, "deepseek");
+    assert_eq!(resolved_model, "deepseek-chat");
+}
+
+#[test]
 fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();

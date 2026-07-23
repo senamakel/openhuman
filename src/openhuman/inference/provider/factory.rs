@@ -1158,12 +1158,38 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
     role: &str,
     config: &Config,
     model: &str,
-    _temperature: f64,
+    temperature: f64,
     native_tool_calling: bool,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    create_turn_chat_model_with_native_tools_and_route(
+        role,
+        config,
+        model,
+        temperature,
+        native_tool_calling,
+    )
+    .map(|(chat, _, _)| chat)
+}
+
+/// Build a turn model together with the concrete provider and post-remap model
+/// id that the constructed client will put on the wire. The route metadata is
+/// consumed by channel audit recording; returning it from the construction
+/// branches avoids re-parsing a provider string before cloud default-model and
+/// abstract-tier remapping has run.
+pub(crate) fn create_turn_chat_model_with_native_tools_and_route(
+    role: &str,
+    config: &Config,
+    model: &str,
+    _temperature: f64,
+    native_tool_calling: bool,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String, String)> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
-    if let Some(model) = test_provider_override::current() {
-        return Ok(model);
+    if let Some(chat) = test_provider_override::current() {
+        let provider = chat
+            .profile()
+            .and_then(|profile| profile.provider.clone())
+            .unwrap_or_else(|| "injected".to_string());
+        return Ok((chat, provider, model.to_string()));
     }
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
@@ -1178,20 +1204,34 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
     if !test_override_active {
         if resolves_to_managed_backend(role, config) {
             let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
-            return Ok(Arc::new(
-                backend
-                    .with_default_model(model)
-                    .with_native_tool_calling(native_tool_calling),
+            return Ok((
+                Arc::new(
+                    backend
+                        .with_default_model(model)
+                        .with_native_tool_calling(native_tool_calling),
+                ),
+                PROVIDER_OPENHUMAN.to_string(),
+                model.to_string(),
             ));
         }
         let resolved_provider = provider_for_role(role, config);
+        let provider_name = resolved_provider
+            .trim()
+            .split(':')
+            .next()
+            .unwrap_or(resolved_provider.trim())
+            .to_string();
         if let Some(result) = prepare_claude_agent_sdk_chat_model(role, &resolved_provider, config)
         {
             let _resolved_model = result?;
-            return Ok(Arc::new(ClaudeAgentSdkProvider::for_model(
-                config.claude_agent_sdk.clone(),
-                model,
-            )));
+            return Ok((
+                Arc::new(ClaudeAgentSdkProvider::for_model(
+                    config.claude_agent_sdk.clone(),
+                    model,
+                )),
+                provider_name,
+                model.to_string(),
+            ));
         }
         if let Some(result) = try_create_claude_code_chat_model_from_string(
             role,
@@ -1199,15 +1239,18 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
             config,
             Some(model),
         ) {
-            return result.map(|(chat, _model)| chat);
+            return result
+                .map(|(chat, _configured_model)| (chat, provider_name.clone(), model.to_string()));
         }
         if let Some(result) = try_create_local_runtime_chat_model(role, config) {
-            return result.map(|(chat, _model)| chat);
+            return result
+                .map(|(chat, resolved_model)| (chat, provider_name.clone(), resolved_model));
         }
         if let Some(result) =
             try_create_cloud_slug_chat_model_with_native_tools(role, config, native_tool_calling)
         {
-            return result.map(|(chat, _model)| chat);
+            return result
+                .map(|(chat, resolved_model)| (chat, provider_name.clone(), resolved_model));
         }
     }
     Err(unresolved_chat_model_error(
@@ -1368,9 +1411,32 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools(
     temperature: f64,
     native_tool_calling: bool,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    create_turn_chat_model_from_string_with_native_tools_and_route(
+        role,
+        provider_string,
+        config,
+        model,
+        temperature,
+        native_tool_calling,
+    )
+    .map(|(chat, _, _)| chat)
+}
+
+pub(crate) fn create_turn_chat_model_from_string_with_native_tools_and_route(
+    role: &str,
+    provider_string: &str,
+    config: &Config,
+    model: &str,
+    temperature: f64,
+    native_tool_calling: bool,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String, String)> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
-    if let Some(model) = test_provider_override::current() {
-        return Ok(model);
+    if let Some(chat) = test_provider_override::current() {
+        let provider = chat
+            .profile()
+            .and_then(|profile| profile.provider.clone())
+            .unwrap_or_else(|| "injected".to_string());
+        return Ok((chat, provider, model.to_string()));
     }
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
@@ -1386,15 +1452,25 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools(
     let is_managed = p.is_empty() || p == "cloud" || p == PROVIDER_OPENHUMAN;
     if is_managed && !test_override_active {
         let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
-        return Ok(Arc::new(
-            backend
-                .with_default_model(model)
-                .with_native_tool_calling(native_tool_calling),
+        return Ok((
+            Arc::new(
+                backend
+                    .with_default_model(model)
+                    .with_native_tool_calling(native_tool_calling),
+            ),
+            PROVIDER_OPENHUMAN.to_string(),
+            model.to_string(),
         ));
     }
     // A concrete non-managed string equals the role's resolution (triage only
     // honours a BYOK **cloud** route as-is), so the role-based builder matches.
-    create_turn_chat_model_with_native_tools(role, config, model, temperature, native_tool_calling)
+    create_turn_chat_model_with_native_tools_and_route(
+        role,
+        config,
+        model,
+        temperature,
+        native_tool_calling,
+    )
 }
 
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
@@ -1834,7 +1910,7 @@ fn looks_like_openhuman_backend(url: &str) -> bool {
 ///
 /// Tolerates whitespace around the components. Returns `temperature = None`
 /// when the suffix is absent or unparseable — the model text is taken as-is.
-pub(crate) fn split_model_and_temperature(raw: &str) -> (String, Option<f64>) {
+fn split_model_and_temperature(raw: &str) -> (String, Option<f64>) {
     let trimmed = raw.trim();
     if let Some(at_pos) = trimmed.rfind('@') {
         let head = trimmed[..at_pos].trim();

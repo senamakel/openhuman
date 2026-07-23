@@ -323,8 +323,15 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     log::debug!("[runtime.bootstrap] bootstrap job dispatch complete");
 }
 
-/// Starts one-shot boot background work selected by [`ServiceSet`].
-pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
+/// Runs startup migrations, then starts one-shot boot background work selected
+/// by [`ServiceSet`].
+///
+/// The legacy goal and task-board copies must complete before any service that
+/// can read or write their crate-backed stores starts, and before the runtime
+/// publishes readiness.
+pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
+    run_legacy_migrations(config).await;
+
     if services.harness_init {
         let cfg_for_init = config.clone();
         tokio::spawn(async move {
@@ -351,112 +358,54 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
         log::debug!("[runtime] MCP reconnect supervisor disabled by ServiceSet");
     }
 
-    // Idempotent copy of any goals left in the retired `{workspace}/thread_goals/`
-    // file-JSON tree into the crate `graph.goals` store, which is now
-    // authoritative. Idempotent (skips already-copied rows) and returns fast on
-    // an empty/absent legacy dir. Run it on every core boot so an in-process
-    // restart with a different workspace migrates that workspace too.
+}
+
+async fn run_legacy_migrations(config: &Config) {
+    // These used to run as detached tasks, allowing a user/API write to land
+    // between a migration's `get(None)` check and its later `put`. Await each
+    // copy in startup order so the crate stores are authoritative before
+    // writers and readiness are exposed.
     //
-    // Previously these ran as detached `tokio::spawn` tasks whose JoinHandle was
-    // immediately dropped; the core became RPC-ready before the copy finished, so
-    // a user/API write landing between the crate `get(None)` check and the later
-    // `put` could be silently overwritten by the stale legacy value (CodeRabbit
-    // + Codex P1 finding). Now we block on completion — the copy is fast on both
-    // an empty legacy dir and a pre-migrated workspace — so the runtime surface
-    // is only exposed once the crate store is authoritative.
-    block_on_migration(
-        "thread_goals",
-        crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
-            &config.workspace_dir,
-        ),
-    );
+    // Both copies are idempotent and must run for each workspace so an
+    // in-process restart with a different workspace migrates that workspace.
+    match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
+        &config.workspace_dir,
+    )
+    .await
+    {
+        Ok(report) if report.total > 0 => {
+            log::info!(
+                "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
+                report.total,
+                report.copied,
+                report.skipped
+            );
+        }
+        Ok(_) => {}
+        Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
+    }
 
     // Idempotent copy of any task boards left in the retired
     // `{workspace}/agent_task_boards/*.json` file-JSON tree into the crate
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
     // As above, each core boot must inspect its own workspace.
-    block_on_migration(
-        "task_boards",
-        crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
-            &config.workspace_dir,
-        ),
-    );
-}
-
-fn block_on_migration(
-    label: &str,
-    goal: impl std::future::Future<Output = Result<impl std::fmt::Debug, String>>,
-) {
-    let Ok(rt) = tokio::runtime::Handle::try_current() else {
-        log::warn!("[{label}] cannot block on migration — no tokio runtime; legacy→crate copy skipped for this boot");
-        return;
-    };
-    // Pin the future so block_on can drive it to completion.
-    let mut goal = std::pin::pin!(goal);
-    // block_in_place moves the current async task to a blocking thread so
-    // that block_on can safely block the current thread without violating
-    // tokio's "no blocking inside async" rule. Calling Handle::block_on
-    // from an unmodified async context panics with "Cannot start a runtime
-    // from within a runtime" — exactly what happens during embedded core
-    // startup (tests, Tauri in-process core, etc.), where
-    // start_core_runtime_services runs inside a tokio::spawn task.
-    tokio::task::block_in_place(|| {
-        match rt.block_on(&mut goal) {
-            Ok(report) => {
-                let report_str = format!("{report:?}");
-                // Avoid log noise: a zero-total report means the legacy dir is absent/empty.
-                if !report_str.contains("total: 0") {
-                    log::info!("[{label}] legacy→crate migration: {report_str}");
-                }
-            }
-            Err(e) => log::warn!("[{label}] legacy→crate migration failed: {e}"),
+    match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
+        &config.workspace_dir,
+    )
+    .await
+    {
+        Ok(report) if report.total > 0 => {
+            log::info!(
+                "[todos] legacy→crate migration: total={} copied={} skipped={}",
+                report.total,
+                report.copied,
+                report.skipped
+            );
         }
-    })
-}
-
-#[allow(dead_code)]
-fn spawn_thread_goals_migration(config: Config) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
-            &config.workspace_dir,
-        )
-        .await
-        {
-            Ok(report) if report.total > 0 => {
-                log::info!(
-                    "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
-                    report.total,
-                    report.copied,
-                    report.skipped
-                );
-            }
-            Ok(_) => {}
-            Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
-        }
-    })
-}
-
-#[allow(dead_code)]
-fn spawn_task_boards_migration(config: Config) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
-            &config.workspace_dir,
-        )
-        .await
-        {
-            Ok(report) if report.total > 0 => {
-                log::info!(
-                    "[todos] legacy→crate migration: total={} copied={} skipped={}",
-                    report.total,
-                    report.copied,
-                    report.skipped
-                );
-            }
-            Ok(_) => {}
-            Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
-        }
-    })
+        Ok(_) => {}
+        Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
+    }
 }
 
 fn spawn_mcp_reconnect_supervisor(config: Config) {
@@ -525,10 +474,7 @@ mod tests {
         second.workspace_dir = tmp.path().join("second");
 
         for config in [first, second] {
-            let goals = spawn_thread_goals_migration(config.clone());
-            let boards = spawn_task_boards_migration(config);
-            goals.await.expect("thread-goal migration task completes");
-            boards.await.expect("task-board migration task completes");
+            run_legacy_migrations(&config).await;
         }
     }
 

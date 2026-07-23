@@ -5,7 +5,8 @@
 //! the running loop and no way to collect the result inline. This registry
 //! closes both gaps.
 //!
-//! Each running async sub-agent registers, keyed by its `task_id`, with:
+//! Each running async sub-agent registers in TinyAgents'
+//! [`DetachedTaskRegistry`], keyed by its `task_id`, with:
 //! - an `Arc<RunQueue>` — the same steering channel the steering forwarder in
 //!   `run_turn_via_tinyagents_shared` drains mid-turn, so `steer_subagent` can
 //!   inject a message when no crate-native steering handle is registered;
@@ -17,11 +18,10 @@
 //! - an `AbortHandle` — used by `subagent_cancel`/`close_subagent` paths to stop
 //!   detached work.
 //!
-//! Ownership is enforced: only the spawning parent (matched by `parent_session`)
-//! may steer or wait on a given sub-agent. Terminal entries are pruned on `wait`,
-//! and swept on `register` only once the table passes a soft cap, so it can't
-//! grow unbounded if a parent never waits (the Codex "spawn-slot leak" failure
-//! mode — openai/codex#18335).
+//! TinyAgents owns the process-local watch/cancel/abort/steering mechanics.
+//! OpenHuman retains product metadata, durable task-store projection, and the
+//! legacy `RunQueue` steering fallback. Ownership is enforced by parent session;
+//! terminal entries are pruned on `wait` and swept at the registry soft cap.
 //!
 //! ## Typed lifecycle ledger (issue #4249)
 //!
@@ -32,8 +32,7 @@
 //! (`Pending` → `Running`) and spawns a watcher that mirrors the child's
 //! terminal status into the store (`Completed`/`Failed`/`Awaiting`); the cancel
 //! paths record `Cancelled`. This gives a typed, queryable lifecycle
-//! (`task_records`) without disturbing the watch/abort/steer machinery the store
-//! does not cover.
+//! (`task_records`) alongside the crate-owned runtime registry.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -45,7 +44,8 @@ use tokio::task::AbortHandle;
 
 use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use crate::openhuman::tinyagents::orchestration::{
-    shared_steering_registry, InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter,
+    shared_steering_registry, DetachedTaskRegistry, DetachedTaskRegistryError,
+    DetachedTaskWaitOutcome, InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter,
     OrchestrationTaskKind, OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
     OrchestrationTaskStatus, SteeringCommand, SteeringCommandKind, TaskStore,
 };
@@ -565,9 +565,9 @@ impl SubagentStatus {
     }
 }
 
-struct RunningSubagentEntry {
+#[derive(Clone)]
+struct RunningSubagentMetadata {
     agent_id: String,
-    parent_session: String,
     subagent_session_id: Option<String>,
     workspace_dir: PathBuf,
     /// Parent chat thread that spawned this sub-agent, captured at registration.
@@ -575,16 +575,6 @@ struct RunningSubagentEntry {
     /// sub-agent when its parent thread is deleted (see [`cancel_for_thread`]).
     parent_thread_id: Option<String>,
     run_queue: Arc<RunQueue>,
-    abort: AbortHandle,
-    /// Cooperative-cancellation handle held **alongside** the hard-kill
-    /// [`AbortHandle`] (issue #4249 / 07.2 step 2). The cancel/kill paths flip
-    /// this token *before* aborting so a run that has opted into cooperative
-    /// cancellation (a crate `CancellationToken` threaded into its `RunContext`)
-    /// can unwind cleanly at its next safe checkpoint; the abort remains the
-    /// executor-detail hard stop for runs that have not. Latching + cheap to
-    /// clone, so cancelling it is always safe/idempotent.
-    cancel: CancellationToken,
-    status: watch::Receiver<SubagentStatus>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -603,10 +593,17 @@ const REGISTRY_SOFT_CAP: usize = 256;
 /// existing detached task and wait-tool paths.
 const DETACHED_LEDGER_TIMEOUT_MS: u64 = 120_000;
 
-static REGISTRY: OnceLock<Mutex<HashMap<String, RunningSubagentEntry>>> = OnceLock::new();
+static REGISTRY: OnceLock<DetachedTaskRegistry<RunningSubagentMetadata, SubagentStatus>> =
+    OnceLock::new();
 
-fn registry() -> &'static Mutex<HashMap<String, RunningSubagentEntry>> {
-    REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
+fn registry() -> &'static DetachedTaskRegistry<RunningSubagentMetadata, SubagentStatus> {
+    REGISTRY.get_or_init(|| {
+        DetachedTaskRegistry::new(
+            shared_steering_registry().clone(),
+            REGISTRY_SOFT_CAP,
+            SubagentStatus::is_terminal,
+        )
+    })
 }
 
 /// Create the status channel a spawner threads into [`register`].
@@ -654,40 +651,30 @@ pub(crate) fn register(
     );
     spawn_status_watcher(task_id.clone(), workspace_dir.clone(), status.clone());
 
-    let entry = RunningSubagentEntry {
+    let metadata = RunningSubagentMetadata {
         agent_id,
-        parent_session,
         subagent_session_id,
         workspace_dir,
         parent_thread_id,
         run_queue,
-        abort,
-        // Fresh cooperative-cancel token registered alongside the abort handle.
-        // Threading it into the child run's `RunContext` (so cooperative cancel
-        // reaches the executor loop) is part of the gated executor shrink; today
-        // it establishes the cancel channel + terminal store write on the cancel
-        // paths without disturbing abort-handle hard-kill.
-        cancel: CancellationToken::new(),
-        status,
     };
-    let mut map = registry().lock().expect("running_subagents mutex poisoned");
-    if map.len() >= REGISTRY_SOFT_CAP {
-        // Only under genuine pressure: sweep collected/terminal entries so the
-        // table can't grow without bound when a parent never waits (the Codex
-        // spawn-slot leak). Live (Running) entries are always retained.
-        map.retain(|task_id, e| {
-            let keep = !e.status.borrow().is_terminal();
-            if !keep {
-                deregister_steering(task_id);
-            }
-            keep
-        });
-    }
-    map.insert(task_id.clone(), entry);
+    registry()
+        .register(
+            TaskId::new(task_id.clone()),
+            parent_session,
+            metadata,
+            status,
+            // Cooperative cancellation is flipped before the registry invokes
+            // the hard abort. The child executor can adopt this token without
+            // changing the registry/control API.
+            CancellationToken::new(),
+            abort,
+        )
+        .expect("duplicate detached sub-agent task id");
     log::debug!(
         "[running_subagents] registered task_id={} live_entries={}",
         task_id,
-        map.len()
+        registry().len()
     );
 }
 
@@ -741,21 +728,20 @@ pub(crate) struct SubagentSnapshot {
 /// never mutates the table. Ordered by `agent_id` then `task_id` so the rendered
 /// roster is stable across turns (the underlying map is unordered).
 pub(crate) fn snapshot_for_parent(parent_session: &str) -> Vec<SubagentSnapshot> {
-    let map = registry().lock().expect("running_subagents mutex poisoned");
-    let mut out: Vec<SubagentSnapshot> = map
-        .iter()
-        .filter(|(_, entry)| entry.parent_session == parent_session)
-        .map(|(task_id, entry)| {
-            let status = match &*entry.status.borrow() {
+    let mut out: Vec<SubagentSnapshot> = registry()
+        .snapshots(Some(parent_session))
+        .into_iter()
+        .map(|entry| {
+            let status = match &entry.status {
                 SubagentStatus::Running => "running",
                 SubagentStatus::Completed { .. } => "completed",
                 SubagentStatus::AwaitingUser { .. } => "awaiting_user",
                 SubagentStatus::Failed { .. } => "failed",
             };
             SubagentSnapshot {
-                agent_id: entry.agent_id.clone(),
-                subagent_session_id: entry.subagent_session_id.clone(),
-                task_id: task_id.clone(),
+                agent_id: entry.metadata.agent_id,
+                subagent_session_id: entry.metadata.subagent_session_id,
+                task_id: entry.task_id.as_str().to_string(),
                 status,
             }
         })
@@ -871,21 +857,20 @@ pub(crate) fn task_id_for_session(
     subagent_session_id: &str,
     parent_session: &str,
 ) -> Result<String, WaitError> {
-    let map = registry().lock().expect("running_subagents mutex poisoned");
     let mut saw_unowned = false;
     let mut owned_terminal: Option<String> = None;
-    for (task_id, entry) in map
-        .iter()
-        .filter(|(_, entry)| entry.subagent_session_id.as_deref() == Some(subagent_session_id))
-    {
-        if entry.parent_session != parent_session {
+    for snapshot in registry().snapshots(None).into_iter().filter(|snapshot| {
+        snapshot.metadata.subagent_session_id.as_deref() == Some(subagent_session_id)
+    }) {
+        if snapshot.owner_id != parent_session {
             saw_unowned = true;
             continue;
         }
-        if !entry.status.borrow().is_terminal() {
-            return Ok(task_id.clone());
+        let task_id = snapshot.task_id.as_str().to_string();
+        if !snapshot.status.is_terminal() {
+            return Ok(task_id);
         }
-        owned_terminal.get_or_insert_with(|| task_id.clone());
+        owned_terminal.get_or_insert(task_id);
     }
     if let Some(task_id) = owned_terminal {
         return Ok(task_id);
@@ -938,15 +923,13 @@ pub(crate) fn resume_ref_for_task(
     task_id: &str,
     parent_session: &str,
 ) -> Result<SubagentResumeRef, WaitError> {
-    let map = registry().lock().expect("running_subagents mutex poisoned");
-    let entry = map.get(task_id).ok_or(WaitError::Unknown)?;
-    if entry.parent_session != parent_session {
-        return Err(WaitError::NotOwned);
-    }
+    let snapshot = registry()
+        .snapshot(&TaskId::new(task_id), parent_session)
+        .map_err(wait_error_from_registry)?;
     Ok(SubagentResumeRef {
         task_id: task_id.to_string(),
-        agent_id: entry.agent_id.clone(),
-        subagent_session_id: entry.subagent_session_id.clone(),
+        agent_id: snapshot.metadata.agent_id,
+        subagent_session_id: snapshot.metadata.subagent_session_id,
     })
 }
 
@@ -997,12 +980,12 @@ fn steering_command_for_mode(mode: QueueMode, text: String) -> Option<SteeringCo
     }
 }
 
-fn send_registered_steering(task_id: &str, text: String, mode: QueueMode) -> bool {
+fn send_registered_steering(
+    handle: &tinyagents::harness::steering::SteeringHandle,
+    text: String,
+    mode: QueueMode,
+) -> bool {
     let Some(command) = steering_command_for_mode(mode, text) else {
-        return false;
-    };
-    let task_id = TaskId::new(task_id);
-    let Some(handle) = shared_steering_registry().get(&task_id) else {
         return false;
     };
     handle.send(command);
@@ -1088,20 +1071,9 @@ pub(crate) fn steer_directive(
     parent_session: &str,
     directive: SteeringDirective,
 ) -> Result<(), SteerDirectiveError> {
-    {
-        let map = registry().lock().expect("running_subagents mutex poisoned");
-        let entry = map.get(task_id).ok_or(SteerDirectiveError::Unknown)?;
-        if entry.parent_session != parent_session {
-            return Err(SteerDirectiveError::NotOwned);
-        }
-        if entry.status.borrow().is_terminal() {
-            return Err(SteerDirectiveError::AlreadyDone);
-        }
-    }
-
-    let handle = shared_steering_registry()
-        .get(&TaskId::new(task_id))
-        .ok_or(SteerDirectiveError::NoRegisteredHandle)?;
+    let handle = registry()
+        .steering_handle(&TaskId::new(task_id), parent_session)
+        .map_err(steer_directive_error_from_registry)?;
     let kind = directive.kind();
     if !handle.policy().is_allowed(kind) {
         log::warn!(
@@ -1120,16 +1092,6 @@ pub(crate) fn steer_directive(
     Ok(())
 }
 
-fn deregister_steering(task_id: &str) {
-    let task_id = TaskId::new(task_id);
-    if shared_steering_registry().deregister(&task_id).is_some() {
-        log::debug!(
-            "[running_subagents] deregistered steering handle task_id={}",
-            task_id.as_str()
-        );
-    }
-}
-
 /// Inject a message into a running sub-agent. Prefer the crate-native
 /// TinyAgents steering registry when the child run has registered its live
 /// handle, and fall back to the OpenHuman `RunQueue` compatibility path.
@@ -1139,19 +1101,19 @@ pub async fn steer(
     text: String,
     mode: QueueMode,
 ) -> Result<(), SteerError> {
-    let run_queue = {
-        let map = registry().lock().expect("running_subagents mutex poisoned");
-        let entry = map.get(task_id).ok_or(SteerError::Unknown)?;
-        if entry.parent_session != parent_session {
-            return Err(SteerError::NotOwned);
-        }
-        if entry.status.borrow().is_terminal() {
-            return Err(SteerError::AlreadyDone);
-        }
-        entry.run_queue.clone()
-    };
+    let task_id_key = TaskId::new(task_id);
+    let snapshot = registry()
+        .snapshot(&task_id_key, parent_session)
+        .map_err(steer_error_from_registry)?;
+    if snapshot.status.is_terminal() {
+        return Err(SteerError::AlreadyDone);
+    }
 
-    if send_registered_steering(task_id, text.clone(), mode) {
+    let steered_via_registry = registry()
+        .steering_handle(&task_id_key, parent_session)
+        .map(|handle| send_registered_steering(&handle, text.clone(), mode))
+        .unwrap_or(false);
+    if steered_via_registry {
         log::info!(
             "[running_subagents] steered task_id={} mode={} via=tinyagents_registry",
             task_id,
@@ -1160,7 +1122,9 @@ pub async fn steer(
         return Ok(());
     }
 
-    run_queue
+    snapshot
+        .metadata
+        .run_queue
         .push(QueuedMessage {
             text,
             mode,
@@ -1192,16 +1156,19 @@ pub(crate) async fn steer_control(
     text: String,
     mode: QueueMode,
 ) -> Result<(), SteerError> {
-    let run_queue = {
-        let map = registry().lock().expect("running_subagents mutex poisoned");
-        let entry = map.get(task_id).ok_or(SteerError::Unknown)?;
-        if entry.status.borrow().is_terminal() {
-            return Err(SteerError::AlreadyDone);
-        }
-        entry.run_queue.clone()
-    };
+    let task_id_key = TaskId::new(task_id);
+    let snapshot = registry()
+        .snapshot_trusted(&task_id_key)
+        .map_err(steer_error_from_registry)?;
+    if snapshot.status.is_terminal() {
+        return Err(SteerError::AlreadyDone);
+    }
 
-    if send_registered_steering(task_id, text.clone(), mode) {
+    let steered_via_registry = registry()
+        .steering_handle_trusted(&task_id_key)
+        .map(|handle| send_registered_steering(&handle, text.clone(), mode))
+        .unwrap_or(false);
+    if steered_via_registry {
         log::info!(
             "[running_subagents] control_steered task_id={} mode={} via=tinyagents_registry",
             task_id,
@@ -1210,7 +1177,9 @@ pub(crate) async fn steer_control(
         return Ok(());
     }
 
-    run_queue
+    snapshot
+        .metadata
+        .run_queue
         .push(QueuedMessage {
             text,
             mode,
@@ -1238,6 +1207,30 @@ pub(crate) enum WaitError {
     NotOwned,
 }
 
+fn wait_error_from_registry(error: DetachedTaskRegistryError) -> WaitError {
+    match error {
+        DetachedTaskRegistryError::NotOwned => WaitError::NotOwned,
+        _ => WaitError::Unknown,
+    }
+}
+
+fn steer_error_from_registry(error: DetachedTaskRegistryError) -> SteerError {
+    match error {
+        DetachedTaskRegistryError::NotOwned => SteerError::NotOwned,
+        DetachedTaskRegistryError::AlreadyDone => SteerError::AlreadyDone,
+        _ => SteerError::Unknown,
+    }
+}
+
+fn steer_directive_error_from_registry(error: DetachedTaskRegistryError) -> SteerDirectiveError {
+    match error {
+        DetachedTaskRegistryError::NotOwned => SteerDirectiveError::NotOwned,
+        DetachedTaskRegistryError::AlreadyDone => SteerDirectiveError::AlreadyDone,
+        DetachedTaskRegistryError::NoSteeringHandle => SteerDirectiveError::NoRegisteredHandle,
+        _ => SteerDirectiveError::Unknown,
+    }
+}
+
 /// Result of waiting on a sub-agent.
 #[derive(Debug)]
 pub(crate) enum WaitOutcome {
@@ -1254,43 +1247,18 @@ pub(crate) async fn wait(
     parent_session: &str,
     timeout: Duration,
 ) -> Result<WaitOutcome, WaitError> {
-    let mut rx = {
-        let map = registry().lock().expect("running_subagents mutex poisoned");
-        let entry = map.get(task_id).ok_or(WaitError::Unknown)?;
-        if entry.parent_session != parent_session {
-            return Err(WaitError::NotOwned);
+    match registry()
+        .wait(&TaskId::new(task_id), parent_session, timeout)
+        .await
+    {
+        Ok(DetachedTaskWaitOutcome::Terminal(status)) => Ok(WaitOutcome::Terminal(status)),
+        Ok(DetachedTaskWaitOutcome::TimedOut(status)) => Ok(WaitOutcome::TimedOut(status)),
+        Err(DetachedTaskRegistryError::StatusChannelClosed) => {
+            Ok(WaitOutcome::Terminal(SubagentStatus::Failed {
+                error: "sub-agent task ended without reporting a result".to_string(),
+            }))
         }
-        entry.status.clone()
-    };
-
-    // Fast path: already terminal.
-    let current = rx.borrow_and_update().clone();
-    if current.is_terminal() {
-        prune(task_id);
-        return Ok(WaitOutcome::Terminal(current));
-    }
-
-    let waited = async {
-        loop {
-            if rx.changed().await.is_err() {
-                // Sender dropped without a terminal status (task aborted/panicked).
-                return SubagentStatus::Failed {
-                    error: "sub-agent task ended without reporting a result".to_string(),
-                };
-            }
-            let status = rx.borrow().clone();
-            if status.is_terminal() {
-                return status;
-            }
-        }
-    };
-
-    match tokio::time::timeout(timeout, waited).await {
-        Ok(status) => {
-            prune(task_id);
-            Ok(WaitOutcome::Terminal(status))
-        }
-        Err(_) => Ok(WaitOutcome::TimedOut(rx.borrow().clone())),
+        Err(error) => Err(wait_error_from_registry(error)),
     }
 }
 
@@ -1336,27 +1304,22 @@ pub(crate) struct CancelledSubagent {
 /// `task_id` alone with no ownership check — it backs the user-facing "Cancel"
 /// affordance, and the desktop user owns every sub-agent in their own core.
 pub(crate) fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
-    let mut map = registry().lock().expect("running_subagents mutex poisoned");
-    let entry = map.remove(task_id)?;
-    deregister_steering(task_id);
-    // Cooperative cancel first (safe-boundary unwind for opted-in runs), then the
-    // hard abort as the executor-detail stop, then the terminal store write.
-    entry.cancel.cancel();
-    entry.abort.abort();
-    record_cancelled(&entry.workspace_dir, task_id);
+    let cancelled = registry().cancel_trusted(&TaskId::new(task_id)).ok()?;
+    let metadata = cancelled.metadata;
+    record_cancelled(&metadata.workspace_dir, task_id);
     log::debug!(
         "[running_subagents] cancel_by_task task_id={} agent_id={} parent_thread_id={:?} live_entries={}",
         task_id,
-        entry.agent_id,
-        entry.parent_thread_id,
-        map.len()
+        metadata.agent_id,
+        metadata.parent_thread_id,
+        registry().len()
     );
     Some(CancelledSubagent {
-        agent_id: entry.agent_id,
-        parent_session: entry.parent_session,
-        subagent_session_id: entry.subagent_session_id,
-        workspace_dir: entry.workspace_dir,
-        parent_thread_id: entry.parent_thread_id,
+        agent_id: metadata.agent_id,
+        parent_session: cancelled.owner_id,
+        subagent_session_id: metadata.subagent_session_id,
+        workspace_dir: metadata.workspace_dir,
+        parent_thread_id: metadata.parent_thread_id,
     })
 }
 
@@ -1384,28 +1347,17 @@ pub(crate) fn cancel_by_session_in_workspace(
 /// keep running (and later try to deliver) against a thread that no longer
 /// exists. Returns the number of sub-agents cancelled.
 pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
-    let mut map = registry().lock().expect("running_subagents mutex poisoned");
-    let to_cancel: Vec<String> = map
-        .iter()
-        .filter(|(_, e)| e.parent_thread_id.as_deref() == Some(thread_id))
-        .map(|(id, _)| id.clone())
-        .collect();
-    for id in &to_cancel {
-        if let Some(entry) = map.remove(id) {
-            deregister_steering(id);
-            // Cooperative cancel before the hard abort (issue #4249 / 07.2 step 2),
-            // mirroring `cancel_by_task`, then the terminal store write.
-            entry.cancel.cancel();
-            entry.abort.abort();
-            record_cancelled(&entry.workspace_dir, id);
-        }
+    let cancelled =
+        registry().cancel_where(|metadata| metadata.parent_thread_id.as_deref() == Some(thread_id));
+    for entry in &cancelled {
+        record_cancelled(&entry.metadata.workspace_dir, entry.task_id.as_str());
     }
-    let count = to_cancel.len();
+    let count = cancelled.len();
     log::debug!(
         "[running_subagents] cancel_for_thread thread_id={} cancelled={} live_entries={}",
         thread_id,
         count,
-        map.len()
+        registry().len()
     );
     count
 }
@@ -1417,18 +1369,13 @@ pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
 /// the cooperative-abort race. Headless sub-agents (no parent thread) are still
 /// aborted but contribute no id.
 pub(crate) fn cancel_all() -> Vec<String> {
-    let mut map = registry().lock().expect("running_subagents mutex poisoned");
-    let count = map.len();
+    let cancelled = registry().cancel_all();
+    let count = cancelled.len();
     let mut thread_ids: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
-    for (task_id, entry) in map.drain() {
-        deregister_steering(&task_id);
-        // Cooperative cancel before the hard abort (issue #4249 / 07.2 step 2),
-        // mirroring `cancel_by_task`, then the terminal store write.
-        entry.cancel.cancel();
-        entry.abort.abort();
-        record_cancelled(&entry.workspace_dir, &task_id);
-        if let Some(thread_id) = entry.parent_thread_id {
+    for entry in cancelled {
+        record_cancelled(&entry.metadata.workspace_dir, entry.task_id.as_str());
+        if let Some(thread_id) = entry.metadata.parent_thread_id {
             if seen.insert(thread_id.clone()) {
                 thread_ids.push(thread_id);
             }
@@ -1443,11 +1390,7 @@ pub(crate) fn cancel_all() -> Vec<String> {
 }
 
 fn prune(task_id: &str) {
-    deregister_steering(task_id);
-    registry()
-        .lock()
-        .expect("running_subagents mutex poisoned")
-        .remove(task_id);
+    let _ = registry().cancel_trusted(&TaskId::new(task_id));
 }
 
 fn now_ms() -> u64 {

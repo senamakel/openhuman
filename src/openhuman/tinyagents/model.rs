@@ -192,6 +192,7 @@ fn response_to_model_response(
         // provider reported neither (keeps non-managed responses byte-clean).
         raw: openhuman_usage_meta_raw(response.usage.as_ref()),
         resolved_model: None,
+        continue_turn: None,
     }
 }
 

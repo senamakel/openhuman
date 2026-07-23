@@ -11,7 +11,7 @@ const messages: TranslationMap = {
   'pages.settings.features.desktopCompanion': 'Pendamping Desktop',
   'pages.settings.features.desktopCompanionDesc':
     'Asisten suara dengan kesadaran layar: mendengar, melihat, berbicara, menunjuk',
-  'settings.companion.title': 'Perusahaan Desktop',
+  'settings.companion.title': 'Pendamping Desktop',
   'settings.companion.session': 'Sesi',
   'settings.companion.activeLabel': 'Aktif',
   'settings.companion.inactiveStatus': 'Tidak aktif',
@@ -20,12 +20,12 @@ const messages: TranslationMap = {
   'settings.companion.starting': 'Mulai…',
   'settings.companion.startSession': 'Mulai Sesi',
   'settings.companion.sessionId': 'ID Sesi',
-  'settings.companion.turns': 'Putaran',
+  'settings.companion.turns': 'Giliran',
   'settings.companion.remaining': 'Tersisa',
   'settings.companion.configuration': 'Konfigurasi',
   'settings.companion.hotkey': 'Tombol Pintas',
   'settings.companion.activationMode': 'Mode Aktivasi',
-  'settings.companion.sessionTtl': 'Sesi TTL',
+  'settings.companion.sessionTtl': 'TTL Sesi',
   'settings.companion.screenCapture': 'Tangkapan Layar',
   'settings.companion.appContext': 'Konteks Aplikasi',
   // Share cards (#5006).

@@ -18,7 +18,7 @@ const messages: TranslationMap = {
   'settings.companion.starting': 'शुरू हो रहा है...',
   'settings.companion.startSession': 'सत्र प्रारंभ करें',
   'settings.companion.sessionId': 'सत्र आईडी',
-  'settings.companion.turns': 'बदल जाता है',
+  'settings.companion.turns': 'टर्न',
   'settings.companion.remaining': 'शेष',
   'settings.companion.configuration': 'विन्यास',
   'settings.companion.hotkey': 'हॉटकी',

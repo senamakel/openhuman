@@ -868,7 +868,13 @@ mod tests {
             temp.path().to_path_buf(),
             reqwest::Client::new(),
         ));
-        let tool = NodeExecTool::new(security, Arc::new(NativeRuntime::new()), bootstrap);
+        let tool = NodeExecTool::new(
+            security,
+            Arc::new(NativeRuntime::new()),
+            bootstrap,
+            crate::openhuman::config::RuntimePoolConfig::default(),
+            temp.path().join("state"),
+        );
 
         let result = tool
             .execute(json!({

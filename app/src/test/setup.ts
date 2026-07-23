@@ -213,6 +213,7 @@ vi.mock('../utils/config', () => ({
   BACKEND_URL: mockApiUrl,
   TELEGRAM_BOT_USERNAME: 'openhuman_bot',
   LATEST_APP_DOWNLOAD_URL: 'https://github.com/tinyhumansai/openhuman/releases/latest',
+  OPENHUMAN_GITHUB_REPO_URL: 'https://github.com/tinyhumansai/openhuman',
   APP_VERSION: '0.0.0-test',
   APP_BINARY_VERSION: '0.0.0-test',
   APP_ENVIRONMENT: 'test',

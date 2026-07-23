@@ -541,6 +541,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Tidak dapat memuat profil lengkap.',
   'agentWorld.identities': 'Identitas',
   'agentWorld.profiles': 'Profil',
+  'agentWorld.transferHandle.action': 'Pindahkan',
+  'agentWorld.transferHandle.title': 'Pindahkan handle',
+  'agentWorld.transferHandle.warning':
+    'Memindahkan handle bersifat permanen dan tidak dapat dibatalkan. Penerima menjadi satu-satunya pemilik.',
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle penerima',
+  'agentWorld.transferHandle.confirm': 'Pindahkan handle',
+  'agentWorld.transferHandle.submitting': 'Memindahkan…',
+  'agentWorld.transferHandle.recipientRequired': 'Masukkan handle penerima.',
+  'agentWorld.transferHandle.confirmLabel': 'Ketik handle untuk mengonfirmasi',
+  'agentWorld.transferHandle.confirmMismatch': 'Handle yang diketik tidak cocok.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Handle utama tidak dapat ditransfer. Aktifkan handle lain terlebih dahulu.',
   'agentWorld.profile.edit': 'Edit profil',
   'agentWorld.profile.displayName': 'Nama tampilan',
   'agentWorld.profile.bio': 'Bio',
@@ -1615,6 +1627,11 @@ const messages: TranslationMap = {
   'settings.about.releases': 'Rilis',
   'settings.about.releasesDesc': 'Telusuri catatan rilis dan build sebelumnya di GitHub.',
   'settings.about.openReleases': 'Buka rilis GitHub',
+  'settings.about.starCta.title': 'Menikmati OpenHuman?',
+  'settings.about.starCta.body':
+    'Beri kami bintang di GitHub. Ini membantu lebih banyak orang menemukan kami.',
+  'settings.about.starCta.star': 'Beri bintang di GitHub',
+  'settings.about.starCta.dismiss': 'Nanti saja',
   'settings.about.connection': 'Koneksi',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Lokal',
@@ -1771,6 +1788,7 @@ const messages: TranslationMap = {
     'Masuk lagi untuk menyegarkan sesi OpenHuman Anda, atau beralih ke penyedia embedding lokal atau bawa-kunci-sendiri.',
   'settings.embeddings.signInAgain': 'Masuk lagi',
   'settings.embeddings.apiKeyLabel': 'Kunci API {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Kunci API',
   'settings.embeddings.placeholderStored': '•••••••• (disimpan)',
   'settings.embeddings.placeholderKey': 'Tempel kunci API Anda…',
   'settings.embeddings.keyStoredEncrypted': 'Kunci API Anda disimpan terenkripsi di perangkat ini.',
@@ -1873,6 +1891,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Cari katalog server MCP',
   'mcp.catalog.searchPlaceholder': 'Cari katalog server MCP...',
   'mcp.catalog.loadFailed': 'Gagal memuat katalog',
+  'mcp.registry.error.notFound':
+    'Server tidak ditemukan di registri. Periksa nama server lalu coba lagi, jelajahi server MCP yang tersedia, atau tambahkan server secara manual lewat URL.',
+  'mcp.registry.error.network':
+    'Tidak dapat menjangkau registri MCP. Periksa koneksi Anda lalu coba lagi, atau tambahkan server secara manual lewat URL.',
+  'mcp.registry.error.unavailable':
+    'Registri MCP sedang tidak tersedia. Coba lagi nanti, jelajahi server MCP yang tersedia, atau tambahkan server secara manual lewat URL.',
   'mcp.catalog.noResults': 'Tidak ada server yang ditemukan.',
   'mcp.catalog.noResultsFor': 'Tidak ditemukan server untuk "{query}".',
   'mcp.catalog.loadMore': 'Muat selengkapnya',
@@ -3506,6 +3530,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Alur kerja tidak dapat disimpan. Silakan coba lagi.',
   'chat.flowProposal.enableError':
     'Alur kerja disimpan, tetapi tidak dapat diaktifkan. Coba lagi, atau aktifkan dari halaman Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Tersimpan',
+  'chat.flowProposal.viewWorkflow': 'Lihat alur kerja',
   'chat.flowProposal.stepKind.agent': 'Agen',
   'chat.flowProposal.stepKind.toolCall': 'Tindakan',
   'chat.flowProposal.stepKind.httpRequest': 'Permintaan web',
@@ -5490,6 +5516,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Perlu persetujuan rencana tugas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Jeda sebelum agen yang ditugaskan mengeksekusi suatu tugas singkat.',
+  'settings.agentAccess.autoApproveAll.label': 'Setujui semua tindakan secara otomatis',
+  'settings.agentAccess.autoApproveAll.desc':
+    'Jika diaktifkan, agen akan menjalankan semua tindakan yang memenuhi syarat tanpa meminta persetujuan Anda terlebih dahulu. Ini termasuk penulisan file, perintah shell, permintaan jaringan, dan efek samping lainnya. Batasan keamanan ketat (direktori kredensial dan sistem) tetap berlaku, dan tindakan dari sumber yang tidak tepercaya atau tidak diketahui tidak pernah disetujui secara otomatis.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Agen tiny.place otonom',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Biarkan OpenHuman bertindak sendiri di tiny.place. Sesuai jadwal, ia mencari pekerjaan yang bermanfaat (mendahulukan bounty terbuka), mengerjakan tugas yang sesuai dengan keahliannya, dan bertindak dengan identitas Anda. Ia berjalan tanpa pengawasan dan dapat membelanjakan dana, jadi gunakan devnet saat menguji. Nonaktif secara bawaan.',
@@ -7180,6 +7209,14 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Status privasi',
   'privacy.status.external': 'Di luar perangkat',
   'privacy.status.local': 'Di perangkat',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Hanya diserap',
+  'sync.pipeline.storedWithoutVectors': 'Disimpan tanpa vektor. Pencarian semantik tidak tersedia.',
+  'sync.pipeline.signInToEnable': 'Masuk untuk mengaktifkan',
+  'sync.pipeline.extractionFailed': 'Ekstraksi struktur memori gagal. Wiki mungkin tidak lengkap.',
+  'sync.pipeline.treeDegraded':
+    'Pohon memori menurun. Pengambilan mungkin mengembalikan hasil usang.',
+  'sync.pipeline.viewHealth': 'Lihat kesehatan memori',
 };
 
 export default messages;

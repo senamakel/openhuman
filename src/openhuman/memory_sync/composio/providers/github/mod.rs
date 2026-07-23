@@ -6,14 +6,14 @@
 //! re-learning a new shape:
 //!
 //! - `provider.rs` — `impl ComposioProvider for GitHubProvider`
-//! - `sync.rs`     — payload-shape helpers (result extraction, title, cursor)
+//! - `normalization.rs`     — payload-shape helpers (result extraction, title, cursor)
 //! - `tools.rs`    — `GITHUB_CURATED` whitelist of Composio actions
 //! - `tests.rs`    — unit tests for the helpers + trait metadata
 //!
 //! Issue: #2408.
 
+mod normalization;
 mod provider;
-mod sync;
 #[cfg(test)]
 mod tests;
 pub mod tools;

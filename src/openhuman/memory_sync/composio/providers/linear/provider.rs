@@ -21,7 +21,7 @@
 use async_trait::async_trait;
 use serde_json::json;
 
-use super::sync;
+use super::normalization;
 use crate::openhuman::memory_sync::composio::providers::{
     merge_extra, pick_str, resolve_sync_interval_secs, ComposioProvider, CuratedTool,
     NormalizedTask, ProviderContext, ProviderUserProfile, TaskFetchFilter, TaskKind,
@@ -86,7 +86,7 @@ impl ComposioProvider for LinearProvider {
         }
 
         let data = &resp.data;
-        let viewer = sync::extract_viewer(data);
+        let viewer = normalization::extract_viewer(data);
         let viewer_ref = viewer.as_ref().unwrap_or(data);
 
         let display_name = pick_str(viewer_ref, &["name", "data.name", "displayName"]);
@@ -143,7 +143,7 @@ impl ComposioProvider for LinearProvider {
                     resp.error.unwrap_or_else(|| "provider failure".into())
                 ));
             }
-            let viewer_id = sync::extract_viewer_id(&resp.data).ok_or_else(|| {
+            let viewer_id = normalization::extract_viewer_id(&resp.data).ok_or_else(|| {
                 "[composio:linear] LINEAR_LIST_LINEAR_USERS returned no viewer id".to_string()
             })?;
             args["assigneeId"] = json!(viewer_id);
@@ -176,7 +176,7 @@ impl ComposioProvider for LinearProvider {
             .filter(|s| !s.is_empty());
 
         let mut out: Vec<NormalizedTask> = Vec::new();
-        for issue in sync::extract_issues(&resp.data) {
+        for issue in normalization::extract_issues(&resp.data) {
             if out.len() >= max {
                 break;
             }
@@ -203,8 +203,8 @@ impl ComposioProvider for LinearProvider {
 /// Map a raw Linear issue payload into a [`NormalizedTask`].
 fn normalize_linear_issue(issue: &serde_json::Value) -> Option<NormalizedTask> {
     let external_id = pick_str(issue, ISSUE_ID_PATHS)?;
-    let title =
-        sync::extract_issue_title(issue).unwrap_or_else(|| format!("Linear issue {external_id}"));
+    let title = normalization::extract_issue_title(issue)
+        .unwrap_or_else(|| format!("Linear issue {external_id}"));
     Some(NormalizedTask {
         external_id,
         source_id: String::new(),
@@ -218,7 +218,7 @@ fn normalize_linear_issue(issue: &serde_json::Value) -> Option<NormalizedTask> {
         due: pick_str(issue, &["dueDate", "data.dueDate"]),
         labels: extract_linear_labels(issue),
         priority: pick_str(issue, &["priorityLabel", "data.priorityLabel"]),
-        updated_at: sync::extract_issue_updated(issue),
+        updated_at: normalization::extract_issue_updated(issue),
         raw: issue.clone(),
     })
 }

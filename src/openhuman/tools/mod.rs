@@ -63,6 +63,7 @@ pub use crate::openhuman::tinyplace::tools::*;
 pub use crate::openhuman::todos::tools::*;
 #[cfg(feature = "web3")]
 pub use crate::openhuman::wallet::tools::*;
+#[cfg(feature = "channels")]
 pub use crate::openhuman::whatsapp_data::tools::*;
 pub use crate::openhuman::workspace::tools::*;
 pub use implementations::*;

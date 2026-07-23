@@ -149,6 +149,88 @@ fn all_tools_includes_spawn_subagent() {
     );
 }
 
+/// The three read-only WhatsApp-data agent tools are registered when the
+/// `channels` feature is on (#4801). Paired with the absent-variant below to
+/// pin both directions of the compile-time gate.
+#[cfg(feature = "channels")]
+#[test]
+fn whatsapp_data_tools_present_when_channels_on() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem = test_memory(&tmp);
+    let browser = BrowserConfig {
+        enabled: false,
+        allowed_domains: vec![],
+        session_name: None,
+        ..BrowserConfig::default()
+    };
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names = tool_names(&tools);
+    for expected in [
+        "whatsapp_data_list_chats",
+        "whatsapp_data_list_messages",
+        "whatsapp_data_search_messages",
+    ] {
+        assert!(
+            names.iter().any(|n| n == expected),
+            "`{expected}` must be registered when the `channels` feature is on; got: {names:?}"
+        );
+    }
+}
+
+/// With `channels` compiled out the three WhatsApp-data agent tools are absent
+/// from the registry (not degraded to an error) — the tool types live in the
+/// gated `whatsapp_data` domain (#4801).
+#[cfg(not(feature = "channels"))]
+#[test]
+fn whatsapp_data_tools_absent_when_channels_off() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem = test_memory(&tmp);
+    let browser = BrowserConfig {
+        enabled: false,
+        allowed_domains: vec![],
+        session_name: None,
+        ..BrowserConfig::default()
+    };
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names = tool_names(&tools);
+    for absent in [
+        "whatsapp_data_list_chats",
+        "whatsapp_data_list_messages",
+        "whatsapp_data_search_messages",
+    ] {
+        assert!(
+            !names.iter().any(|n| n == absent),
+            "`{absent}` must be absent when the `channels` feature is off; got: {names:?}"
+        );
+    }
+}
+
 #[test]
 fn all_tools_includes_spawn_async_subagent() {
     let tmp = TempDir::new().unwrap();
@@ -291,6 +373,76 @@ fn media_tools_absent_when_feature_off() {
         !names.iter().any(|n| n.starts_with("media_")),
         "no `media_*` tools may be registered when the `media` feature is off; \
          got: {names:?}"
+    );
+}
+
+// Compile-time `documents` feature gate (#5048). The office-document agent
+// tools (`generate_presentation`, `generate_document`) are present only when
+// the `documents` feature is compiled in — leaf gate, no stub facade, so the
+// disabled build must drop both from the tool list entirely.
+#[cfg(feature = "documents")]
+#[test]
+fn document_tools_registered_when_feature_on() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem = test_memory(&tmp);
+    let browser = BrowserConfig {
+        enabled: false,
+        ..BrowserConfig::default()
+    };
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names = tool_names(&tools);
+    assert!(
+        names.iter().any(|n| n == "generate_presentation"),
+        "generate_presentation must register with `documents` on; got: {names:?}"
+    );
+    assert!(
+        names.iter().any(|n| n == "generate_document"),
+        "generate_document must register with `documents` on; got: {names:?}"
+    );
+}
+
+#[cfg(not(feature = "documents"))]
+#[test]
+fn document_tools_absent_when_feature_off() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem = test_memory(&tmp);
+    let browser = BrowserConfig {
+        enabled: false,
+        ..BrowserConfig::default()
+    };
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names = tool_names(&tools);
+    assert!(
+        !names
+            .iter()
+            .any(|n| n == "generate_presentation" || n == "generate_document"),
+        "no document tools may register when the `documents` feature is off; got: {names:?}"
     );
 }
 

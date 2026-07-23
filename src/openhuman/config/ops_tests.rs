@@ -1749,6 +1749,67 @@ async fn apply_autonomy_settings_replaces_auto_approve() {
 }
 
 #[tokio::test]
+async fn autonomy_auto_approve_all_defaults_false() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let cfg = tmp_config(&tmp);
+    assert!(
+        !cfg.autonomy.auto_approve_all,
+        "fresh AutonomyConfig must default auto_approve_all to false"
+    );
+}
+
+#[tokio::test]
+async fn autonomy_auto_approve_all_persists() {
+    // ENV_LOCK serializes the `live_policy::reload_from` triggered by
+    // `apply_autonomy_settings` against other live-policy-touching tests.
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+
+    apply_autonomy_settings(
+        &mut cfg,
+        AutonomySettingsPatch {
+            auto_approve_all: Some(true),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("apply auto_approve_all=true");
+    assert!(cfg.autonomy.auto_approve_all);
+    let on_disk = tokio::fs::read_to_string(&cfg.config_path).await.unwrap();
+    assert!(
+        on_disk.contains("auto_approve_all = true"),
+        "expected TOML to persist auto_approve_all = true, got:\n{on_disk}"
+    );
+
+    // Parse the saved TOML directly (rather than `load_config_with_timeout`,
+    // which resolves the workspace from `OPENHUMAN_WORKSPACE`/discovery and
+    // `tmp_config` doesn't point that at `tmp`) to confirm the value survives
+    // a fresh deserialize, then flip it back off and confirm that round-trips
+    // too.
+    let on_disk_cfg: crate::openhuman::config::Config =
+        toml::from_str(&on_disk).expect("parse saved TOML");
+    assert!(on_disk_cfg.autonomy.auto_approve_all);
+
+    apply_autonomy_settings(
+        &mut cfg,
+        AutonomySettingsPatch {
+            auto_approve_all: Some(false),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("apply auto_approve_all=false");
+    assert!(!cfg.autonomy.auto_approve_all);
+    let on_disk_after = tokio::fs::read_to_string(&cfg.config_path).await.unwrap();
+    assert!(
+        on_disk_after.contains("auto_approve_all = false"),
+        "expected TOML to persist auto_approve_all = false, got:\n{on_disk_after}"
+    );
+}
+
+#[tokio::test]
 async fn add_auto_approve_tool_appends_then_dedupes() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();

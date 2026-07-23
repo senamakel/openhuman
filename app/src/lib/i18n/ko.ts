@@ -528,6 +528,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': '전체 프로필을 불러오지 못했습니다.',
   'agentWorld.identities': '아이덴티티',
   'agentWorld.profiles': '프로필',
+  'agentWorld.transferHandle.action': '이전',
+  'agentWorld.transferHandle.title': '핸들 이전',
+  'agentWorld.transferHandle.warning':
+    '핸들 이전은 영구적이며 되돌릴 수 없습니다. 수신자가 유일한 소유자가 됩니다.',
+  'agentWorld.transferHandle.recipientPlaceholder': '수신자 @handle',
+  'agentWorld.transferHandle.confirm': '핸들 이전',
+  'agentWorld.transferHandle.submitting': '이전 중…',
+  'agentWorld.transferHandle.recipientRequired': '수신자 핸들을 입력하세요.',
+  'agentWorld.transferHandle.confirmLabel': '확인하려면 핸들을 입력하세요',
+  'agentWorld.transferHandle.confirmMismatch': '입력한 핸들이 일치하지 않습니다.',
+  'agentWorld.transferHandle.primaryLocked':
+    '기본 핸들은 이전할 수 없습니다. 먼저 다른 핸들을 활성화하세요.',
   'agentWorld.profile.edit': '프로필 편집',
   'agentWorld.profile.displayName': '표시 이름',
   'agentWorld.profile.bio': '소개',
@@ -1590,6 +1602,11 @@ const messages: TranslationMap = {
   'settings.about.releases': '릴리스',
   'settings.about.releasesDesc': 'GitHub에서 릴리스 노트와 이전 빌드를 찾아보세요.',
   'settings.about.openReleases': 'GitHub 릴리스 열기',
+  'settings.about.starCta.title': 'OpenHuman이 마음에 드시나요?',
+  'settings.about.starCta.body':
+    'GitHub에서 별을 눌러 주세요. 더 많은 사람이 저희를 발견하는 데 도움이 됩니다.',
+  'settings.about.starCta.star': 'GitHub에서 별 누르기',
+  'settings.about.starCta.dismiss': '나중에',
   'settings.about.connection': '연결',
   'settings.about.connectionMode': '모드',
   'settings.about.connectionModeLocal': '로컬',
@@ -1745,6 +1762,7 @@ const messages: TranslationMap = {
     'OpenHuman 세션을 새로 고치려면 다시 로그인하거나, 로컬 또는 자체 키 임베딩 공급자로 전환하세요.',
   'settings.embeddings.signInAgain': '다시 로그인',
   'settings.embeddings.apiKeyLabel': '{provider} API 키',
+  'settings.embeddings.apiKeyLabelGeneric': 'API 키',
   'settings.embeddings.placeholderStored': '•••••••(저장됨)',
   'settings.embeddings.placeholderKey': 'API 키를 붙여넣으세요…',
   'settings.embeddings.keyStoredEncrypted': 'API 키는 이 기기에 암호화되어 저장됩니다.',
@@ -1846,6 +1864,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'MCP 서버 카탈로그 검색',
   'mcp.catalog.searchPlaceholder': 'MCP 서버 카탈로그 검색...',
   'mcp.catalog.loadFailed': '카탈로그를 로드하지 못했습니다.',
+  'mcp.registry.error.notFound':
+    '레지스트리에서 서버를 찾을 수 없습니다. 서버 이름을 확인한 뒤 다시 시도하거나, 사용 가능한 MCP 서버를 찾아보거나, URL로 서버를 직접 추가하세요.',
+  'mcp.registry.error.network':
+    'MCP 레지스트리에 연결할 수 없습니다. 연결을 확인한 뒤 다시 시도하거나, URL로 서버를 직접 추가하세요.',
+  'mcp.registry.error.unavailable':
+    '현재 MCP 레지스트리를 사용할 수 없습니다. 나중에 다시 시도하거나, 사용 가능한 MCP 서버를 찾아보거나, URL로 서버를 직접 추가하세요.',
   'mcp.catalog.noResults': '서버를 찾을 수 없습니다.',
   'mcp.catalog.noResultsFor': '"{query}"에 대한 서버를 찾을 수 없습니다.',
   'mcp.catalog.loadMore': '추가 로드',
@@ -3454,6 +3478,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': '워크플로를 저장할 수 없습니다. 다시 시도하세요.',
   'chat.flowProposal.enableError':
     '워크플로는 저장되었지만 활성화할 수 없습니다. 다시 시도하거나 Workflows 페이지에서 활성화하세요.',
+  'chat.flowProposal.savedConfirmation': '저장됨',
+  'chat.flowProposal.viewWorkflow': '워크플로 보기',
   'chat.flowProposal.stepKind.agent': '에이전트',
   'chat.flowProposal.stepKind.toolCall': '작업',
   'chat.flowProposal.stepKind.httpRequest': '웹 요청',
@@ -5399,6 +5425,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': '작업 계획 승인 필요',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     '할당된 에이전트가 에이전트가 작성한 작업 브리프를 실행하기 전에 일시 중지합니다.',
+  'settings.agentAccess.autoApproveAll.label': '모든 작업 자동 승인',
+  'settings.agentAccess.autoApproveAll.desc':
+    '활성화하면 에이전트가 먼저 승인을 요청하지 않고 해당되는 모든 작업을 실행합니다. 여기에는 파일 쓰기, 셸 명령, 네트워크 요청 및 기타 모든 부작용이 포함됩니다. 자격 증명 및 시스템 디렉터리는 계속 차단되며, 신뢰할 수 없거나 출처가 확인되지 않은 호출에서 비롯된 작업은 계속 거부됩니다.',
   'settings.agentAccess.tinyplaceAutopilot.title': '자율 tiny.place 에이전트',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'OpenHuman이 tiny.place에서 스스로 행동하게 하세요: 일정에 따라 가치 있는 일을 찾고(열린 현상금 우선) 자신의 능력에 맞는 작업을 수행하며 당신의 신원으로 행동합니다. 감독 없이 작동하며 비용을 지출할 수 있으니 테스트 중에는 devnet을 사용하세요. 기본값은 꺼짐입니다.',
@@ -7064,6 +7093,14 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': '개인정보 상태',
   'privacy.status.external': '기기 외',
   'privacy.status.local': '기기 내',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': '수집만 완료',
+  'sync.pipeline.storedWithoutVectors': '벡터 없이 저장됨. 의미 검색을 사용할 수 없습니다.',
+  'sync.pipeline.signInToEnable': '사용하려면 로그인하세요',
+  'sync.pipeline.extractionFailed': '메모리 구조 추출에 실패했습니다. 위키가 불완전할 수 있습니다.',
+  'sync.pipeline.treeDegraded':
+    '메모리 트리가 저하되었습니다. 검색이 오래된 결과를 반환할 수 있습니다.',
+  'sync.pipeline.viewHealth': '메모리 상태 보기',
 };
 
 export default messages;

@@ -111,7 +111,7 @@ These are subscriber registrations rather than a single `bus.rs`; subscriptions 
 - `src/core/all.rs` — registers the `learning.*` controllers + schemas.
 - `src/openhuman/agent/harness/session/{builder,turn}.rs` and `agent_memory/memory_loader.rs` — wire the post-turn hooks, prompt sections, and learned-context loading into the agent loop.
 - `src/openhuman/channels/runtime/startup.rs` — likely registers schedulers/subscribers at startup.
-- `src/openhuman/memory_store/unified/profile.rs`, `memory_sync/composio/providers/profile.rs`, `memory_tools/{capture,mod}.rs`, `tools/impl/system/tool_stats.rs`, `tools/schemas.rs` — consume facet/learning types.
+- `src/openhuman/memory_store/namespace_store/profile.rs`, `memory_sync/composio/providers/profile.rs`, `memory_tools/{capture,mod}.rs`, `tools/impl/system/tool_stats.rs`, `tools/schemas.rs` — consume facet/learning types.
 
 ## Notes / gotchas
 

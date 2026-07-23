@@ -440,8 +440,11 @@ pub fn all_tools_with_runtime(
         // store lives in the Tauri shell; these tools reach it over the
         // in-process native request bus. The matching ingest write-path is
         // scanner-only (dispatched by the shell) and intentionally NOT a tool.
+        #[cfg(feature = "channels")]
         Box::new(WhatsAppDataListChatsTool),
+        #[cfg(feature = "channels")]
         Box::new(WhatsAppDataListMessagesTool),
+        #[cfg(feature = "channels")]
         Box::new(WhatsAppDataSearchMessagesTool),
         Box::new(ScheduleTool::new(security.clone(), root_config.clone())),
         Box::new(ProxyConfigTool::new(config.clone(), security.clone())),
@@ -743,6 +746,7 @@ pub fn all_tools_with_runtime(
     // backed) as of the #2780-follow-up rust-engine refactor — no
     // managed Python venv, no first-call install latency. Always
     // registered.
+    #[cfg(feature = "documents")]
     tools.push(Box::new(PresentationTool::new(
         root_config.workspace_dir.clone(),
         security.clone(),
@@ -752,6 +756,7 @@ pub fn all_tools_with_runtime(
     // (docx-rs backed) — no managed runtime, no subprocess — emitting a
     // real `.docx` through the same byte-agnostic artifact pipeline as
     // the presentation tool. Always registered; same constructor shape.
+    #[cfg(feature = "documents")]
     tools.push(Box::new(DocumentTool::new(
         root_config.workspace_dir.clone(),
         security.clone(),

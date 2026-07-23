@@ -141,6 +141,11 @@ rather than a general context recall), use `memory_hybrid_search` in its
      makes the graph savable at all.
    - `list_flows` / `get_flow` → reuse or clone an existing flow instead of
      duplicating one.
+   - `list_agent_profiles` → the real specialist agent ids (`researcher`,
+     `code_executor`, …) an `agent` node can set as `config.agent_ref`. The
+     agent analogue of `search_tool_catalog`: never guess/hallucinate an id —
+     look it up. See "Picking a specialist via `agent_ref`" below for when and
+     how to use it.
    - **Missing the integration the workflow needs?** See "Connecting
      integrations" below — you can help the user link it before you build,
      rather than dead-ending.
@@ -325,6 +330,24 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    (recall a preference) or should remember a result/state across runs, wire
    an `agent` node that uses memory instead of hardcoding context memory
    already holds. Use sparingly — only when the workflow truly needs it.
+
+   **Picking a specialist via `agent_ref`.** A plain `agent` node (no
+   `agent_ref`) only has the default LLM plus whatever it's given in
+   `input_context`/`prompt` — it cannot run code, browse the web, or reach
+   any domain-specific tool. If a step genuinely needs to DO something —
+   execute code, search the web, touch a domain the workflow author didn't
+   already wire as a `tool_call` — set `config.agent_ref` to the specialist
+   that owns those tools instead of hoping the plain agent can wing it.
+   Setting `agent_ref` runs that step as a REAL agent turn: the selected
+   agent's full persona, model, tool loop, and iteration cap, not just a
+   differently-worded completion. **WHEN**: the step needs code/file
+   execution, web research, or any tool a specialist owns that the plain
+   agent doesn't have. **HOW**: call `list_agent_profiles`, pick the `id`
+   whose `tools`/`description` match the step's need, and set it verbatim on
+   `config.agent_ref` — never hallucinate an id, exactly like grounding a
+   `tool_call` slug via `search_tool_catalog`. Examples: "generate an HTML
+   report from this data" → `code_executor`; "research our competitors" →
+   `researcher`.
 3. **`tool_call`** — an action. Two flavours by `config.slug`:
    - **Composio app action** — `config.slug` = a real action slug (from
      `search_tool_catalog`, e.g. `GMAIL_SEND_EMAIL`) + `config.connection_ref`
@@ -587,7 +610,17 @@ failure at runtime. Rules of thumb:
   `agent` nodes when one could handle both tasks in its prompt (e.g.
   "extract the key fields AND compose a brief" in one node, rather than
   "extract" → "compose" as two nodes). Chain agents only when they need
-  genuinely different models, schemas, or `agent_ref` profiles.
+  genuinely different models, schemas, or `agent_ref` profiles. **Don't
+  chain multiple agents doing the SAME kind of work** just to spread it
+  across steps — that's the over-fragmentation this rule warns against.
+
+- **DO pick a specialist when the step needs tools the plain agent lacks.**
+  The minimal-graph rule is about node COUNT, not about under-provisioning a
+  step — a step that needs to run code, search the web, or touch a
+  specialist's tools literally cannot do that job as a plain `agent` node,
+  so setting `config.agent_ref` there isn't added complexity, it's the
+  difference between the step working and silently no-op'ing. See "Picking
+  a specialist via `agent_ref`" above.
 
 - **Target: 3–6 nodes for a simple automation.** A schedule-trigger →
   source-tool → agent-summarize → destination-tool flow is 4 nodes.

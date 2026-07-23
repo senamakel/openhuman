@@ -10867,6 +10867,49 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         "auto_approve allowlist should round-trip, got envelope: {after_allow_outer}"
     );
 
+    // `auto_approve_all` (the blanket bypass) round-trips through the same
+    // update/get path, and defaults to `false`.
+    let initial_auto_all = initial_outer
+        .get("result")
+        .and_then(|r| r.get("auto_approve_all"))
+        .and_then(Value::as_bool);
+    assert_eq!(
+        initial_auto_all,
+        Some(false),
+        "auto_approve_all should default to false, got envelope: {initial_outer}"
+    );
+
+    let update_auto_all = post_json_rpc(
+        &rpc_base,
+        7007,
+        "openhuman.config_update_autonomy_settings",
+        json!({ "auto_approve_all": true }),
+    )
+    .await;
+    assert_no_jsonrpc_error(
+        &update_auto_all,
+        "update_autonomy_settings auto_approve_all",
+    );
+
+    let after_auto_all = post_json_rpc(
+        &rpc_base,
+        7008,
+        "openhuman.config_get_autonomy_settings",
+        json!({}),
+    )
+    .await;
+    let after_auto_all_outer =
+        assert_no_jsonrpc_error(&after_auto_all, "get_autonomy_settings auto_approve_all");
+    let auto_all_value = after_auto_all_outer
+        .get("result")
+        .and_then(|r| r.get("auto_approve_all"))
+        .and_then(Value::as_bool);
+    assert_eq!(
+        auto_all_value,
+        Some(true),
+        "auto_approve_all should round-trip to true, got envelope: {after_auto_all_outer}"
+    );
+
     mock_join.abort();
     rpc_join.abort();
 }
@@ -13996,7 +14039,13 @@ async fn json_rpc_agent_team_live_member_run_roundtrip_inner() {
         "Task B must reach done"
     );
     assert!(
-        poll_team_members_status(&rpc_base, &team_id, "idle").await,
+        poll_team_members_status(
+            &rpc_base,
+            &team_id,
+            &[alice_id.as_str(), bob_id.as_str()],
+            "idle",
+        )
+        .await,
         "team members must return to idle"
     );
 
@@ -14099,12 +14148,15 @@ async fn poll_team_task_status(rpc_base: &str, team_id: &str, task_id: &str, wan
     false
 }
 
-/// Poll `agent_team_get` until every team member reaches `want` status.
-///
-/// Task completion and member cleanup are separate ledger writes, so observing
-/// a `done` task does not guarantee the member's idle transition is visible in
-/// the same snapshot.
-async fn poll_team_members_status(rpc_base: &str, team_id: &str, want: &str) -> bool {
+/// Poll `agent_team_get` until every team member reaches `want` (or time out).
+/// Task completion and the worker's transition back to idle are separate
+/// durable operations, so observing a done task does not yet imply idle.
+async fn poll_team_members_status(
+    rpc_base: &str,
+    team_id: &str,
+    expected_member_ids: &[&str],
+    want: &str,
+) -> bool {
     for attempt in 0..160 {
         tokio::time::sleep(Duration::from_millis(250)).await;
         let got = post_json_rpc(
@@ -14114,13 +14166,17 @@ async fn poll_team_members_status(rpc_base: &str, team_id: &str, want: &str) -> 
             json!({ "teamId": team_id }),
         )
         .await;
-        let view = assert_no_jsonrpc_error(&got, "agent_team_get member poll");
-        let members = view
+        let members = assert_no_jsonrpc_error(&got, "agent_team_get member poll")
             .get("team")
-            .and_then(|team| team.get("members"))
+            .and_then(|tv| tv.get("members"))
             .and_then(Value::as_array);
         if members.is_some_and(|members| {
-            !members.is_empty()
+            members.len() == expected_member_ids.len()
+                && expected_member_ids.iter().all(|expected_id| {
+                    members.iter().any(|member| {
+                        member.get("id").and_then(Value::as_str) == Some(*expected_id)
+                    })
+                })
                 && members
                     .iter()
                     .all(|member| member.get("memberStatus").and_then(Value::as_str) == Some(want))

@@ -12,9 +12,8 @@ trees/     summary tree persistence (one table, kind-parameterized)
 vectors/   local vector DB (cosine, brute-force)
 kv/        global + namespace key-value (kv_global, kv_namespace)
 contacts/  [removed] facade over people::store (Person/Handle/Interaction)
-unified/   [staging for removal] UnifiedMemory's remaining SQLite surface
-           (documents/query/segments/events/profile) — replaced as the
-           Memory trait callers migrate to per-kind backends
+namespace_store/  host-retained namespace documents, graph, episodic/event/
+                  segment/profile tables, and retrieval policy
 ```
 
 ## Cross-cutting modules
@@ -43,7 +42,7 @@ unified/   [staging for removal] UnifiedMemory's remaining SQLite surface
 | [`vectors/`](vectors/) | Standalone vector store. `VectorStore` over SQLite, byte-codec for f32 vectors, cosine similarity. |
 | [`kv.rs`](kv.rs) | Global + namespace key-value (`kv_global`, `kv_namespace` tables). |
 | `contacts/` | Removed. Contact access now lives outside `memory_store` via `people::store`. |
-| [`unified/`](unified/) | **Staging for removal.** Shrinking SQLite surface that still backs the `Memory` trait while callers migrate to per-kind modules. Active pieces today: `documents`, `query`, `segments`, `events`, `profile`. The `fts5` episodic surface is replaced by [`memory_archivist`](../memory_archivist/) and `graph` by the crate's `tinycortex::memory::graph` (the host `memory_graph` placeholder was deleted in the W7 migration). See [`unified/README.md`](unified/README.md). |
+| [`namespace_store/`](namespace_store/) | Host-retained namespace/document tier over the shared SQLite database: documents, persisted product graph relations, episodic/events, segments, profile facets, and host retrieval policy. TinyCortex owns the generic chunk/vector/tree/queue substrate; this tier remains the stable `Memory` implementation. See [`namespace_store/README.md`](namespace_store/README.md). |
 
 ## Layer rules
 

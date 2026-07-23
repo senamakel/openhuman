@@ -69,6 +69,19 @@ const DEFAULT_APPROVAL_TTL: Duration = Duration::from_secs(60 * 10);
 /// minutes — if nobody approves within two, deny and move on.
 const IN_CALL_APPROVAL_TTL: Duration = Duration::from_secs(120);
 
+/// Shorter park window for approvals raised by the Flow Canvas copilot's
+/// live-run path — `flows_build` streaming into the copilot pane calling
+/// `run_flow` / `resume_flow_run` (PR #5090). A stale ten-minute park on a
+/// copilot pane the user may have already navigated away from is a long time
+/// to leave a live Slack/Gmail/HTTP node waiting; if nobody approves within
+/// three minutes, deny and let the authoring turn continue (the user can
+/// still re-trigger the run from the Runs rail). Mirrors
+/// [`IN_CALL_APPROVAL_TTL`]'s clamp, scoped by [`APPROVAL_COPILOT_STREAM_CONTEXT`]
+/// instead of [`APPROVAL_IN_CALL_CONTEXT`]. Deliberately NOT applied to
+/// main-chat `WebChat` parks — only `flows::ops::flows_build`'s streaming
+/// branch scopes the task-local below.
+const COPILOT_APPROVAL_TTL: Duration = Duration::from_secs(180);
+
 /// Per-turn chat context for routing a parked approval's yes/no reply back to
 /// the originating thread. The web channel scopes this task-local around the
 /// agent run (`web_chat`); because the `run_turn` handler, the
@@ -104,6 +117,19 @@ pub struct InCallApprovalContext {
 
 tokio::task_local! {
     pub static APPROVAL_IN_CALL_CONTEXT: InCallApprovalContext;
+}
+
+tokio::task_local! {
+    /// Marks a park as originating from the Flow Canvas copilot's streaming
+    /// `flows_build` path — scoped by `flows::ops::flows_build` around the
+    /// streaming `agent.run_single(&prompt)` call, alongside the existing
+    /// `AgentTurnOrigin::WebChat` + [`APPROVAL_CHAT_CONTEXT`] double-scope that
+    /// path already uses. Presence alone is the signal (no fields needed): when
+    /// set, the park window is clamped to [`COPILOT_APPROVAL_TTL`] instead of
+    /// the gate's own (possibly env-overridden) TTL. Absent for every other
+    /// caller — in particular, plain main-chat `WebChat` turns do not scope
+    /// this, so they keep the full [`DEFAULT_APPROVAL_TTL`].
+    pub static APPROVAL_COPILOT_STREAM_CONTEXT: ();
 }
 
 /// Per-run flow context (flow-approval-surface, PR2 of the tinyflows
@@ -344,6 +370,28 @@ impl ApprovalGate {
         self.ttl
     }
 
+    /// Resolve the actual park duration from the gate's own `effective_ttl`
+    /// plus whichever origin-specific clamp is active for this call
+    /// (`in_call` → [`IN_CALL_APPROVAL_TTL`], `copilot_stream` →
+    /// [`COPILOT_APPROVAL_TTL`]). A clamp only ever *shortens* the park — it
+    /// can never extend `effective_ttl` past what the gate itself allows
+    /// (e.g. a debug env override). Both flags are expected to be mutually
+    /// exclusive in production (a live-meeting turn and a `flows_build`
+    /// copilot stream are different call sites), but if both were ever true
+    /// the tighter of the two clamps wins, since each `min` only narrows.
+    /// Split out (rather than inlined at the call site) so it is unit
+    /// testable without needing to actually park a future.
+    fn resolve_park_ttl(effective_ttl: Duration, in_call: bool, copilot_stream: bool) -> Duration {
+        let mut ttl = effective_ttl;
+        if in_call {
+            ttl = ttl.min(IN_CALL_APPROVAL_TTL);
+        }
+        if copilot_stream {
+            ttl = ttl.min(COPILOT_APPROVAL_TTL);
+        }
+        ttl
+    }
+
     /// Whether `tool_name` is on the user's "Always allow" list. Prefers the
     /// process-global live policy (so a grant made this session is seen
     /// immediately) and falls back to the gate's boot-time config snapshot.
@@ -356,6 +404,23 @@ impl ApprovalGate {
             .auto_approve
             .iter()
             .any(|t| t == tool_name)
+    }
+
+    /// Whether the user has opted into "auto-approve everything" — a
+    /// blanket bypass of the human approval prompt. Mirrors
+    /// [`Self::tool_is_auto_approved`]'s live-policy-first, boot-config-
+    /// fallback pattern so a toggle made this session (config save + live
+    /// policy reload) takes effect on the very next tool call.
+    ///
+    /// Callers MUST still exclude `TrustedAutomationSource::SubconsciousTainted`
+    /// and `AgentTurnOrigin::Unknown` before trusting this flag — see the
+    /// `matches!` guard at the call site below. This method only reports the
+    /// user's setting; it does not know about origin.
+    fn is_auto_approve_all_enabled(&self) -> bool {
+        if let Some(policy) = crate::openhuman::security::live_policy::current() {
+            return policy.auto_approve_all;
+        }
+        self.config.autonomy.auto_approve_all
     }
 
     /// Intercept a tool call. Blocks until the user decides or the
@@ -533,6 +598,45 @@ impl ApprovalGate {
             }
         );
 
+        // Blanket "auto-approve everything" bypass (opt-in, off by default).
+        // Sits ABOVE the origin match below so it prevents parking entirely
+        // for every origin except the two that must never be silently
+        // allowed: a subconscious tick whose memory context is tainted by
+        // external-sync content (indirect prompt injection defense) and an
+        // unlabelled call site (fail-closed default). Both are excluded here
+        // so they still fall through to the origin match and hit their Deny
+        // arms unchanged. This check is independent of — and does not
+        // weaken — `is_always_forbidden`, `is_workspace_internal_path`, or
+        // `ToolPolicyMiddleware`, which all run inside the tool
+        // implementation itself, not the approval gate.
+        let auto_all = self.is_auto_approve_all_enabled()
+            && !matches!(
+                &origin,
+                AgentTurnOrigin::TrustedAutomation {
+                    source: TrustedAutomationSource::SubconsciousTainted,
+                    ..
+                } | AgentTurnOrigin::Unknown
+            );
+
+        if auto_all {
+            // `origin_class` is the sanitized variant label (no thread/client
+            // ids, channel sender, reply target, or message id) — safe at
+            // `info`. The full `?origin` (with those identifiers) is still
+            // available at `debug` for local troubleshooting.
+            tracing::info!(
+                tool = tool_name,
+                origin_class = %origin.class(),
+                auto_approved = true,
+                "[approval::gate] auto_approve_all enabled — auto-approving without prompt"
+            );
+            tracing::debug!(
+                tool = tool_name,
+                origin = ?origin,
+                "[approval::gate] auto_approve_all full origin (debug-only)"
+            );
+            return (GateOutcome::Allow, None);
+        }
+
         // "Always allow" allowlist shortcut — the user's persisted
         // `autonomy.auto_approve` set. Read from the live policy first so a
         // grant made earlier in this session (which writes config + reloads the
@@ -557,6 +661,11 @@ impl ApprovalGate {
         // live-meeting orchestrator turn. Enables the spoken approval
         // channel alongside the thread card (issue #3513).
         let in_call_ctx = APPROVAL_IN_CALL_CONTEXT.try_with(|c| c.clone()).ok();
+
+        // Copilot-streaming context — set by `flows::ops::flows_build` around
+        // the streaming `run_single` call. Presence alone clamps the park
+        // window to `COPILOT_APPROVAL_TTL`; see that task-local's doc.
+        let copilot_stream = APPROVAL_COPILOT_STREAM_CONTEXT.try_with(|_| ()).is_ok();
 
         // Branch by origin. Web chat parks for an in-app approval; external
         // channel persists an audit row and TTL-denies (no routable approval
@@ -716,8 +825,18 @@ impl ApprovalGate {
 
         let request_id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now();
-        let expires_at =
-            Some(now + chrono::Duration::from_std(self.effective_ttl()).unwrap_or_default());
+        // Resolve the clamped park TTL up front so the persisted `expires_at`
+        // and the actual wait below (see `resolve_park_ttl` further down)
+        // use the same value — see `Self::resolve_park_ttl` and the
+        // COPILOT_APPROVAL_TTL / IN_CALL_APPROVAL_TTL clamps. Computing this
+        // only after persisting the pending row let a copilot-streaming park
+        // advertise the old 10-minute `expires_at` while only actually
+        // waiting 180s, so a core restart or an `expire_stale` sweep mid-park
+        // could leave the row "actionable" for the wrong window (CodeRabbit
+        // + Codex review on PR #5112).
+        let effective_ttl =
+            Self::resolve_park_ttl(self.effective_ttl(), in_call_ctx.is_some(), copilot_stream);
+        let expires_at = Some(now + chrono::Duration::from_std(effective_ttl).unwrap_or_default());
 
         // Correlation context (flow-approval-surface, PR2): a Workflow-origin
         // park carries the flow id on the origin itself, but not the run id —
@@ -861,15 +980,21 @@ impl ApprovalGate {
             "[approval::gate] tool call parked, waiting for decision"
         );
 
-        // Live meetings get a clamped park window — see IN_CALL_APPROVAL_TTL.
-        // `effective_ttl()` applies the debug-only env override; the in-call
-        // clamp is applied on top so a longer override can't extend a live
-        // meeting's park window past IN_CALL_APPROVAL_TTL.
-        let effective_ttl = if in_call_ctx.is_some() {
-            IN_CALL_APPROVAL_TTL.min(self.effective_ttl())
-        } else {
-            self.effective_ttl()
-        };
+        // Live meetings and copilot-streaming flows_build runs each get a
+        // clamped park window — see IN_CALL_APPROVAL_TTL / COPILOT_APPROVAL_TTL
+        // and `Self::resolve_park_ttl`. `effective_ttl` was resolved above
+        // (before `expires_at` was built) so the persisted expiry and this
+        // wait use the identical clamped duration; `effective_ttl()` applies
+        // the debug-only env override, and the clamp is applied on top so a
+        // longer override can't extend either park past its clamp.
+        if copilot_stream {
+            tracing::debug!(
+                tool = tool_name,
+                ttl_secs = COPILOT_APPROVAL_TTL.as_secs(),
+                "[approval::gate] flows_build copilot-streaming park — clamping park window to \
+                 COPILOT_APPROVAL_TTL"
+            );
+        }
 
         // Optional caller-supplied park bound (issue #4756). A caller
         // (`composio_connect`) can cap how long the gate parks so a turn
@@ -1832,6 +1957,234 @@ mod tests {
         );
     }
 
+    /// With `auto_approve_all: true`, a WebChat-origin call resolves to
+    /// `Allow` immediately — no pending row is created and the chat context
+    /// is never consulted, proving the short-circuit fires above the park.
+    #[tokio::test]
+    async fn auto_approve_all_resolves_allow() {
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let (gate, dir) = test_gate();
+        let policy = crate::openhuman::security::SecurityPolicy {
+            auto_approve_all: true,
+            ..crate::openhuman::security::SecurityPolicy::default()
+        };
+        // Scoped: restores whatever live_policy held before this test on drop
+        // (including on panic), so a leaked `auto_approve_all: true` can never
+        // reach a sibling gate test that doesn't hold `TEST_ENV_LOCK`.
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
+            Arc::new(policy),
+            dir.path().to_path_buf(),
+            dir.path().to_path_buf(),
+        );
+
+        let outcome = turn_origin::with_origin(
+            web_origin(),
+            gate.intercept("openhuman_test_aaa_webchat", "noop", serde_json::json!({})),
+        )
+        .await;
+
+        assert!(matches!(outcome, GateOutcome::Allow));
+        assert!(
+            gate.list_pending().unwrap().is_empty(),
+            "auto_approve_all must short-circuit before any pending row is persisted"
+        );
+    }
+
+    /// Control test: with `auto_approve_all: false` (the default), a
+    /// WebChat-origin call parks normally — it does NOT resolve to `Allow`
+    /// until a decision is sent on the oneshot.
+    #[tokio::test]
+    async fn auto_approve_all_off_still_parks() {
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let (gate, dir) = test_gate();
+        let policy = crate::openhuman::security::SecurityPolicy {
+            auto_approve_all: false,
+            ..crate::openhuman::security::SecurityPolicy::default()
+        };
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
+            Arc::new(policy),
+            dir.path().to_path_buf(),
+            dir.path().to_path_buf(),
+        );
+        let gate = Arc::new(gate);
+
+        let g = gate.clone();
+        let handle = tokio::spawn(async move {
+            turn_origin::with_origin(
+                web_origin(),
+                APPROVAL_CHAT_CONTEXT.scope(
+                    chat_ctx(),
+                    g.intercept("openhuman_test_aaa_off", "noop", serde_json::json!({})),
+                ),
+            )
+            .await
+        });
+
+        // The call must actually park: poll for the pending row instead of
+        // racing an immediate result.
+        let mut tries = 0;
+        let pending = loop {
+            let rows = gate.list_pending().unwrap();
+            if let Some(p) = rows.into_iter().next() {
+                break p;
+            }
+            tries += 1;
+            assert!(
+                tries < 50,
+                "pending row never appeared — call resolved without parking"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+
+        gate.decide(&pending.request_id, ApprovalDecision::ApproveOnce)
+            .unwrap();
+        let outcome = handle.await.unwrap();
+        assert!(matches!(outcome, GateOutcome::Allow));
+    }
+
+    /// `auto_approve_all: true` must NOT override a `SubconsciousTainted`
+    /// origin — the gate still hard-denies it (indirect prompt injection
+    /// defense).
+    #[tokio::test]
+    async fn auto_approve_all_does_not_override_subconscioustainted() {
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let (gate, dir) = test_gate();
+        let policy = crate::openhuman::security::SecurityPolicy {
+            auto_approve_all: true,
+            ..crate::openhuman::security::SecurityPolicy::default()
+        };
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
+            Arc::new(policy),
+            dir.path().to_path_buf(),
+            dir.path().to_path_buf(),
+        );
+
+        let origin = AgentTurnOrigin::TrustedAutomation {
+            job_id: "job-tainted".into(),
+            source: TrustedAutomationSource::SubconsciousTainted,
+        };
+        let outcome = turn_origin::with_origin(
+            origin,
+            gate.intercept("openhuman_test_aaa_tainted", "noop", serde_json::json!({})),
+        )
+        .await;
+
+        match outcome {
+            GateOutcome::Deny { reason } => assert!(reason.contains("external-sync")),
+            other => panic!("expected deny, got {other:?}"),
+        }
+    }
+
+    /// `auto_approve_all: true` must NOT override an `Unknown` origin — the
+    /// gate still fails closed for unlabelled call sites.
+    #[tokio::test]
+    async fn auto_approve_all_does_not_override_unknown() {
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let (gate, dir) = test_gate();
+        let policy = crate::openhuman::security::SecurityPolicy {
+            auto_approve_all: true,
+            ..crate::openhuman::security::SecurityPolicy::default()
+        };
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
+            Arc::new(policy),
+            dir.path().to_path_buf(),
+            dir.path().to_path_buf(),
+        );
+
+        // No `with_origin` scope at all — mirrors an unlabelled call site,
+        // which `turn_origin::current()` maps to `AgentTurnOrigin::Unknown`.
+        let outcome = gate
+            .intercept("openhuman_test_aaa_unknown", "noop", serde_json::json!({}))
+            .await;
+
+        match outcome {
+            GateOutcome::Deny { reason } => assert!(reason.contains("no origin label")),
+            other => panic!("expected deny, got {other:?}"),
+        }
+    }
+
+    /// `auto_approve_all: true` overrides the `GoalContinuation` bypass —
+    /// normally that origin skips the per-tool allowlist and always parks,
+    /// but the blanket bypass sits above that check and allows immediately.
+    #[tokio::test]
+    async fn auto_approve_all_overrides_bypass_shortcut() {
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let (gate, dir) = test_gate();
+        let policy = crate::openhuman::security::SecurityPolicy {
+            auto_approve_all: true,
+            ..crate::openhuman::security::SecurityPolicy::default()
+        };
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
+            Arc::new(policy),
+            dir.path().to_path_buf(),
+            dir.path().to_path_buf(),
+        );
+
+        let origin = AgentTurnOrigin::TrustedAutomation {
+            job_id: "goal-1".into(),
+            source: TrustedAutomationSource::GoalContinuation,
+        };
+        let outcome = turn_origin::with_origin(
+            origin,
+            gate.intercept("openhuman_test_aaa_goal", "noop", serde_json::json!({})),
+        )
+        .await;
+
+        assert!(matches!(outcome, GateOutcome::Allow));
+        assert!(
+            gate.list_pending().unwrap().is_empty(),
+            "auto_approve_all must short-circuit before any pending row is persisted"
+        );
+    }
+
+    /// `auto_approve_all: true` overrides a `Workflow { require_approval: true }`
+    /// origin — normally the user's per-flow "gate every action" choice forces
+    /// a park, but the blanket bypass sits above that check too.
+    #[tokio::test]
+    async fn auto_approve_all_overrides_require_approval_workflow() {
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let (gate, dir) = test_gate();
+        let policy = crate::openhuman::security::SecurityPolicy {
+            auto_approve_all: true,
+            ..crate::openhuman::security::SecurityPolicy::default()
+        };
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
+            Arc::new(policy),
+            dir.path().to_path_buf(),
+            dir.path().to_path_buf(),
+        );
+
+        let origin = AgentTurnOrigin::TrustedAutomation {
+            job_id: "flow-1".into(),
+            source: TrustedAutomationSource::Workflow {
+                require_approval: true,
+            },
+        };
+        let outcome = turn_origin::with_origin(
+            origin,
+            gate.intercept("openhuman_test_aaa_workflow", "noop", serde_json::json!({})),
+        )
+        .await;
+
+        assert!(matches!(outcome, GateOutcome::Allow));
+        assert!(
+            gate.list_pending().unwrap().is_empty(),
+            "auto_approve_all must short-circuit before any pending row is persisted"
+        );
+    }
+
     #[tokio::test]
     async fn timeout_returns_deny() {
         let (gate, _dir) = test_gate(); // TTL = 500ms
@@ -2162,6 +2515,148 @@ mod tests {
             Duration::from_secs(2),
             "unset OPENHUMAN_APPROVAL_TTL_SECS must fall back to boot-time TTL"
         );
+    }
+
+    /// Tests for `resolve_park_ttl` — the pure clamp-selection helper behind
+    /// the copilot-streaming TTL shortening (fix/flows-copilot-approval-ttl).
+    /// Exercised directly (rather than by actually parking + waiting out a
+    /// multi-minute TTL) so the assertions stay fast and deterministic.
+    mod resolve_park_ttl_tests {
+        use super::*;
+
+        #[test]
+        fn default_park_keeps_the_full_ttl() {
+            let default_ttl = DEFAULT_APPROVAL_TTL;
+            assert_eq!(
+                ApprovalGate::resolve_park_ttl(default_ttl, false, false),
+                default_ttl,
+                "a plain park (no in-call, no copilot stream) must not be clamped"
+            );
+        }
+
+        #[test]
+        fn copilot_stream_shortens_a_default_ten_minute_park() {
+            let default_ttl = DEFAULT_APPROVAL_TTL;
+            assert_eq!(
+                ApprovalGate::resolve_park_ttl(default_ttl, false, true),
+                COPILOT_APPROVAL_TTL,
+                "a flows_build copilot-streaming park must clamp to COPILOT_APPROVAL_TTL"
+            );
+            assert!(
+                COPILOT_APPROVAL_TTL < DEFAULT_APPROVAL_TTL,
+                "the copilot clamp must actually be shorter than the default TTL"
+            );
+        }
+
+        #[test]
+        fn in_call_clamp_is_unaffected_by_the_copilot_flag() {
+            let default_ttl = DEFAULT_APPROVAL_TTL;
+            assert_eq!(
+                ApprovalGate::resolve_park_ttl(default_ttl, true, false),
+                IN_CALL_APPROVAL_TTL,
+                "an in-call meeting park must keep clamping to IN_CALL_APPROVAL_TTL, unchanged \
+                 by this fix"
+            );
+        }
+
+        #[test]
+        fn a_clamp_never_extends_a_shorter_boot_time_ttl() {
+            // Mirrors production's env-override guard: a clamp may only
+            // narrow, never widen, the gate's own effective TTL (e.g. a
+            // debug-only `OPENHUMAN_APPROVAL_TTL_SECS=60` override that is
+            // already shorter than either clamp).
+            let short_ttl = Duration::from_secs(60);
+            assert_eq!(
+                ApprovalGate::resolve_park_ttl(short_ttl, false, true),
+                short_ttl,
+                "copilot clamp must not extend a boot-time TTL that is already shorter"
+            );
+            assert_eq!(
+                ApprovalGate::resolve_park_ttl(short_ttl, true, false),
+                short_ttl,
+                "in-call clamp must not extend a boot-time TTL that is already shorter"
+            );
+        }
+
+        #[test]
+        fn both_flags_active_takes_the_tighter_clamp() {
+            // Not expected in production (different call sites), but the
+            // helper must not panic or pick the wrong side if it ever
+            // happens — the tighter of the two clamps should win either way.
+            let default_ttl = DEFAULT_APPROVAL_TTL;
+            let tighter = IN_CALL_APPROVAL_TTL.min(COPILOT_APPROVAL_TTL);
+            assert_eq!(
+                ApprovalGate::resolve_park_ttl(default_ttl, true, true),
+                tighter
+            );
+        }
+    }
+
+    /// Integration regression test for the streaming-to-gate contract
+    /// (CodeRabbit review on PR #5112): `resolve_park_ttl` is covered directly
+    /// above, but that alone doesn't prove `intercept_audited_inner` actually
+    /// persists the clamped TTL when the copilot-streaming context is scoped.
+    /// Builds a gate with the full `DEFAULT_APPROVAL_TTL` boot TTL (unlike
+    /// `test_gate()`'s 2s, which is already shorter than either clamp and
+    /// would make this assertion vacuous), scopes
+    /// `APPROVAL_COPILOT_STREAM_CONTEXT` alongside the chat context + WebChat
+    /// origin the way `flows::ops::flows_build` does in production, and
+    /// inspects the persisted `expires_at` on the pending row.
+    #[tokio::test]
+    async fn copilot_streaming_park_persists_the_clamped_expiry() {
+        let dir = TempDir::new().unwrap();
+        let config = Config {
+            workspace_dir: dir.path().to_path_buf(),
+            ..Config::default()
+        };
+        let session = format!("session-{}", uuid::Uuid::new_v4());
+        let gate = ApprovalGate::new(config, session, DEFAULT_APPROVAL_TTL);
+        let gate = Arc::new(gate);
+
+        let before = chrono::Utc::now();
+        let g = gate.clone();
+        let handle = tokio::spawn(async move {
+            turn_origin::with_origin(
+                web_origin(),
+                APPROVAL_CHAT_CONTEXT.scope(
+                    chat_ctx(),
+                    APPROVAL_COPILOT_STREAM_CONTEXT.scope(
+                        (),
+                        g.intercept("composio", "send slack", serde_json::json!({})),
+                    ),
+                ),
+            )
+            .await
+        });
+
+        let pending = loop {
+            if let Some(p) = gate.list_pending().unwrap().into_iter().next() {
+                break p;
+            }
+            tokio::task::yield_now().await;
+        };
+
+        let expires_at = pending
+            .expires_at
+            .expect("a parked approval always sets expires_at");
+        let ttl_persisted = expires_at - before;
+        assert!(
+            ttl_persisted
+                <= chrono::Duration::from_std(COPILOT_APPROVAL_TTL).unwrap()
+                    + chrono::Duration::seconds(5),
+            "copilot-streaming park must persist an expires_at clamped to COPILOT_APPROVAL_TTL \
+             (180s), not the gate's full {:?} boot TTL — got a {ttl_persisted} window",
+            DEFAULT_APPROVAL_TTL
+        );
+        assert!(
+            ttl_persisted < chrono::Duration::from_std(DEFAULT_APPROVAL_TTL).unwrap(),
+            "sanity: the persisted expiry must be shorter than the unclamped default TTL"
+        );
+
+        gate.decide(&pending.request_id, ApprovalDecision::ApproveOnce)
+            .unwrap();
+        let outcome = handle.await.unwrap();
+        assert!(matches!(outcome, GateOutcome::Allow));
     }
 
     #[test]

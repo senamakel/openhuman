@@ -1,6 +1,6 @@
 [package]
 name = "openhuman"
-version = "0.63.0"
+version = "0.63.1"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
 autobins = false
@@ -41,6 +41,10 @@ path = "src/bin/test_mcp_stub.rs"
 [[bin]]
 name = "openhuman-fleet"
 path = "src/bin/fleet.rs"
+# The fleet supervisor embeds the axum control-plane server, so it only builds
+# with the HTTP transport compiled in (#5048). Under `--no-default-features`
+# (no `http-server`) this target is skipped rather than failing to link.
+required-features = ["http-server"]
 
 # Embedded-RSS benchmark harness (#5046). Gated behind the default-OFF
 # `rss-bench` feature so no benchmark code enters the shipped build. Build with
@@ -48,6 +52,13 @@ path = "src/bin/fleet.rs"
 [[bin]]
 name = "rss-bench"
 path = "src/bin/rss_bench.rs"
+required-features = ["rss-bench"]
+
+# Stateful library profiling workloads (memory ingestion + real sub-agent
+# delegation under a hermetic mock provider). Local/dev only.
+[[bin]]
+name = "library-profile"
+path = "src/bin/library_profile/main.rs"
 required-features = ["rss-bench"]
 
 [lib]
@@ -61,9 +72,9 @@ crate-type = ["rlib"]
 tinyplace = "2.0"
 # tinyflows — host-agnostic workflow engine (typed node graph → validate → compile →
 # run on tinyagents). Powers the "Workflows" feature via the seam in
-# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.7 transitively
-# (same version openhuman already uses — no conflict). Published on crates.io
-# and patched below to the vendored submodule.
+# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 2.1 transitively
+# (same version OpenHuman uses directly, preserving one trait identity). Published
+# on crates.io and patched below to the vendored submodule.
 #
 # `mock` feature: enables `tinyflows::caps::mock::mock_capabilities()` — the
 # deterministic in-memory capability bundle the flows `dry_run_workflow` agent
@@ -93,21 +104,27 @@ tinyjuice = { version = "0.2.1", default-features = false }
 # NOT enabled here — the default-ON `flows` feature turns it on via
 # `tinyagents/repl` (#4797), so a slim build without `flows` sheds `rhai`.
 # The crate itself can never be dropped: 26+ domains consume tinyagents.
-tinyagents = { version = "1.7", features = ["sqlite"] }
+tinyagents = { version = "2.1", features = ["sqlite"] }
 # TinyCortex — Rust core for the memory engine (store/chunks/tree/retrieval/
 # queue/ingest/score + long tail), vendored as a git submodule and patched
 # below to `vendor/tinycortex`. OpenHuman's memory subsystem migrates onto this
 # crate through the adapter seam in `src/openhuman/tinycortex/` (mirroring the
-# tinyagents seam): engine logic in the crate; RPC, agent tools, live sync,
-# security gating, and the global singleton stay host-side. rusqlite/git2 are
+# tinyagents seam): engine logic (including provider sync pipelines) in the
+# crate; RPC, agent tools, sync scheduling/credentials/events, security gating,
+# and the global singleton stay host-side. rusqlite/git2 are
 # aligned to the host pins (=0.40 / 0.21) so one bundled SQLite + one libgit2
-# link. Keep the version pin in lockstep with the submodule tag.
+# link. The submodule intentionally tracks reviewed upstream main commits;
+# keep this semver requirement compatible with the vendored crate version.
 tinycortex = { version = "0.1", features = ["git-diff", "persona", "sync"] }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
 serde_yaml = "0.9"
+# dhat — heap profiler for the offline `library-profile` benchmark binary only.
+# Default-OFF, dev-only: pulled in solely by the `rss-bench-dhat` feature so it
+# never enters the shipped desktop/library build (same posture as `rss-bench`).
+dhat = { version = "0.3", optional = true }
 # (Removed `html2md` dep. dhat-rs profiling on real Gmail inboxes
 # showed `html2md::walk` and `html2md::tables::handle` allocating
 # ~894 MB peak heap on a 10 KB HTML input from Otter.ai-style emails
@@ -118,7 +135,15 @@ serde_yaml = "0.9"
 # stripper (`fast_html_to_text` in
 # providers/gmail/post_process.rs) and prefer the email's
 # `text/plain` MIME part when available.)
-reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "native-tls", "stream", "http2", "multipart", "socks"] }
+# TLS: rustls only in the base declaration, so Linux/macOS — including the
+# headless embedding target (#5046) — link a single TLS stack + cert set
+# (Mozilla webpki-roots). Windows re-adds `native-tls` via the
+# `[target.'cfg(windows)'.dependencies]` block below (Cargo unions features
+# per target), because `src/openhuman/tls/mod.rs` deliberately routes the
+# Windows client through the SChannel/OS cert store for corporate MITM +
+# AV root CAs. So the two TLS backends coexist only on Windows, never on
+# the RAM-sensitive platforms.
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"
@@ -211,16 +236,22 @@ sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
 clap = { version = "4.5", features = ["derive"] }
 lettre = { version = "0.11.22", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"], optional = true }
-axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
-tower = { version = "0.5", default-features = false }
-sentry = { version = "0.47.0", default-features = false, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "reqwest", "rustls"] }
+# HTTP + Socket.IO server transport — the `/rpc` JSON-RPC endpoint, `/v1`
+# OpenAI-compat router, agentbox/http_host sub-servers, and the Socket.IO
+# live-event bridge. Exclusive to the default-ON `http-server` feature (#5048):
+# a slim/embedded build without it (`--no-default-features`) sheds `axum` +
+# `socketioxide` and never binds a listener — the core still runs background
+# services and answers over the CLI/native dispatch surface. See the
+# `http-server` feature note below and `src/core/http_server_status.rs`.
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"], optional = true }
+sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "reqwest", "rustls"] }
 tokio-stream = { version = "0.1.18", features = ["full"] }
 url = "2"
-socketioxide = { version = "0.15", features = ["extensions"] }
-whisper-rs = "0.16"
+socketioxide = { version = "0.15", features = ["extensions"], optional = true }
+whisper-rs = { version = "0.16", optional = true }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 tempfile = "3"
-cpal = "0.15"
+cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
 enigo = "0.3"
 arboard = "3"
@@ -249,11 +280,11 @@ coins-bip39 = "0.8"
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"], optional = true }
 
 fantoccini = { version = "0.22.0", optional = true, default-features = false, features = ["rustls-tls"] }
-pdf-extract = "0.10"
+pdf-extract = { version = "0.10", optional = true }
 # The WhatsApp Web provider (and its `whatsapp-rust` / `wacore` / `serde-big-array`
 # stack) now lives in the tinychannels crate; the `whatsapp-web` feature forwards
 # to `tinychannels/whatsapp-web`.
-ppt-rs = "0.2.14"
+ppt-rs = { version = "0.2.14", optional = true }
 # Terminal chat UI (`openhuman tui` / `chat`). Exclusive to the default-ON
 # `tui` feature (see `[features]` below): a slim / headless build without `tui`
 # drops both `ratatui` and `crossterm`. Kept in lockstep — ratatui 0.30
@@ -271,13 +302,19 @@ unicode-width = { version = "0.2", optional = true }
 # `ppt-rs` presentation engine: synthesise bytes in-process, hand them to
 # the byte-agnostic artifact pipeline. `default-features` keeps the crate's
 # image support (unused here, but avoids a bespoke feature list drifting).
-docx-rs = "0.4.20"
+docx-rs = { version = "0.4.20", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 # Windows: tokio-tungstenite uses native-tls (schannel) so wss://
 # connections honor the Windows cert store, including corporate CAs
 # installed by AV / TLS-inspection proxies. See run-dev-win.sh notes.
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake", "native-tls"] }
+# Windows re-adds reqwest's native-tls backend (dropped from the base decl in
+# `[dependencies]`) so `tls::tls_client_builder()` can call `.use_native_tls()`
+# and reach the SChannel/OS cert store — same rationale as tokio-tungstenite
+# above. Cargo unions these features with the base rustls decl, so on Windows
+# reqwest carries both backends; Linux/macOS keep rustls only.
+reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
 # AppContainer / process-jail backend in `openhuman::cwd_jail`.
 # Feature list mirrors the Win32 surface used by cwd_jail/windows.rs:
 # AppContainer profile APIs, ACL editing, STARTUPINFOEXW process spawn,
@@ -298,7 +335,7 @@ windows-sys = { version = "0.61", features = [
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-whisper-rs = { version = "0.16", features = ["metal"] }
+whisper-rs = { version = "0.16", features = ["metal"], optional = true }
 # Contacts framework bindings for address book seeding.
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSObject", "NSString", "NSPredicate"] }
@@ -317,6 +354,18 @@ rppal = { version = "0.22", optional = true }
 # crates we never use (and that bloat the dev Cargo.lock noticeably).
 # TestTransport only needs the `test` feature.
 sentry = { version = "0.47.0", default-features = false, features = ["test"] }
+# axum is optional in `[dependencies]` (exclusive to the default-ON
+# `http-server` feature, #5048), but ~17 `#[cfg(test)]` modules stand up
+# in-process axum mock servers / call `build_core_http_router` regardless of
+# the feature set under test. Declaring a plain (non-optional) dev-dep keeps
+# those tests compiling in ALL test builds without per-file `#[cfg]` — mirrors
+# the `sentry` dual-declaration above. The prod fns those tests exercise are
+# still gated, so the *tests* naming them carry `#[cfg(feature = "http-server")]`.
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
+# `tower` was a plain runtime dep only for its re-exports in the axum server
+# path; with `http-server` optional it is test-only (tower::ServiceExt::oneshot
+# drives the mock routers), so it lives here as a dev-dep now.
+tower = { version = "0.5", default-features = false }
 # Mock HTTP server for provider E2E tests (inference_provider_e2e).
 wiremock = "0.6"
 # Used in json_rpc_e2e to backdate mtime on stale lock files.
@@ -331,12 +380,56 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "voice", "web3", "media", "meet", "skills", "flows", "mcp", "tui"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla-local"]
+# HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
+# its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
+# OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
+# server (`openhuman::http_host`), the AgentBox `/run` HTTP surface
+# (`agentbox::http`), the WebSocket dictation stream
+# (`inference::voice::streaming`), the `openhuman text-input run` dev server,
+# the MCP Streamable-HTTP transport (`mcp_server::http`, additionally gated by
+# `mcp`), and the Socket.IO live-event bridge (`core::socketio`). Default-ON —
+# the desktop shell REQUIRES it (see the `HTTP_SERVER_COMPILED_IN` compile
+# assert in `app/src-tauri/src/lib.rs`). Slim / headless-embedding builds opt
+# out via `--no-default-features --features "<explicit list without
+# http-server>"`, which drops the exclusive `axum` + `socketioxide` deps; the
+# core then runs background services without binding a listener (`serve()`
+# returns early) and is driven over the CLI / native dispatch surface instead.
+#
+# TYPE CARVE-OUT (see AGENTS.md): `core::socketio`'s inert event payload types
+# (`WebChannelEvent`, `TurnUsagePayload`, `SubagentUsagePayload`,
+# `SubagentProgressDetail`) stay compiled in BOTH builds — ~10 always-on
+# domains construct them — so `pub mod socketio;` is UNGATED and only the
+# socketioxide/axum-touching bodies are gated. Likewise `inference::http::types`
+# and `EXTERNAL_OPENAI_COMPAT_PROVIDER` stay compiled for `core::auth`.
+http-server = ["dep:axum", "dep:socketioxide"]
 # AST-aware code compression (tree-sitter Rust/TS/Python grammars; C build).
 # On by default; disable to fall back to the brace-depth heuristic.
 tokenjuice-treesitter = [
     "tinyjuice/tinyjuice-treesitter",
 ]
+# In-process inference engine: the whisper.cpp STT engine
+# (`inference::local::service::whisper_engine`) plus the `cpal` audio-device
+# probe shared by voice capture and the accessibility microphone-permission
+# check. Default-ON. Slim / headless builds opt out via
+# `--no-default-features --features "<explicit list without inference>"`, which
+# drops the exclusive `whisper-rs` (including the macOS `metal` variant and the
+# `whisper-rs-sys` patch, which go inert once whisper-rs leaves the graph) and
+# `cpal` dependencies. When off, the whisper facade resolves to
+# `whisper_engine::stub` — in-process STT returns a disabled error, while the
+# local-AI service still reaches Ollama / LM Studio over HTTP — and the
+# microphone probe reports `Unknown`. `voice` requires this gate, so building
+# `voice` always pulls `inference` in transitively.
+inference = ["dep:whisper-rs", "dep:cpal"]
+# Office-document tools: the `generate_presentation` (ppt-rs) and
+# `generate_document` (docx-rs) agent tools, plus `pdf-extract` for PDF text
+# extraction during multimodal file ingest. Default-ON. Slim / headless builds
+# opt out via `--no-default-features --features "<explicit list without
+# documents>"`, which drops all three crates. Leaf gate (no stub facade): when
+# off, the two tools are absent from the tool list rather than degraded to an
+# error, and PDF ingest degrades the file to a reference instead of extracted
+# text (`agent::multimodal::extract_pdf_text`).
+documents = ["dep:pdf-extract", "dep:ppt-rs", "dep:docx-rs"]
 # Voice + audio_toolkit domains: STT/TTS providers, the standalone dictation
 # server, always-on listening, and podcast audio generation/email delivery.
 # Default-ON — the desktop app always ships with voice. Slim / headless builds
@@ -344,10 +437,9 @@ tokenjuice-treesitter = [
 # which also drops the exclusive `hound` (WAV I/O) + `lettre` (podcast email)
 # dependencies. Composes with the runtime `DomainSet::voice` flag (#4796): the
 # feature narrows the compile-time surface, `DomainSet` gates it at runtime.
-# NOTE: this gate does NOT drop whisper-rs / llama / cpal — those live in the
-# inference domain (shared with accessibility for cpal) and await a separate
-# `inference` gate.
-voice = ["dep:hound", "dep:lettre"]
+# Requires `inference` (the whisper engine + the cpal capture stack), so
+# enabling `voice` turns `inference` on transitively.
+voice = ["inference", "dep:hound", "dep:lettre"]
 # Web3 domains: openhuman::wallet + openhuman::web3 + openhuman::x402 — the
 # crypto wallet (multi-chain sign/broadcast), the high-level swap/bridge/dapp
 # surface, and the x402 machine-payment protocol. Default-ON — the desktop app
@@ -442,6 +534,28 @@ skills = []
 # `sanitize::sanitize_for_llm`). The gate follows the real dependency graph,
 # not the directory name.
 mcp = []
+# Sentry crash/error reporting: the `sentry::init` guard + secret-scrubbing
+# `before_send` hook (src/main.rs), the sentry-tracing bridge layer
+# (core::logging), the ~24 `before_send` Event classifiers + the two
+# `report_*_message` capture paths (core::observability), the session-boundary
+# scope binding (credentials::sentry_scope), and the `openhuman sentry-test`
+# CLI probe. Default-ON — the desktop app always ships with crash reporting.
+# Slim / headless builds opt out via `--no-default-features --features
+# "<explicit list without crash-reporting>"`, which drops the exclusive
+# `sentry` dependency (and its transitive backtrace/contexts/panic/tracing/
+# debug-images/reqwest/rustls stack) from the non-test build.
+#
+# TYPE CARVE-OUT (see AGENTS.md "Compile-time domain gates"): the sentry-free
+# string classifiers (`is_transient_message_failure`,
+# `is_insufficient_credits_message`, `contains_transient_transport_phrase`, …)
+# and the `report_*_message` / `sentry_scope::{bind,clear}` signatures stay
+# compiled in BOTH builds — only the `sentry::`-touching bodies are gated — so
+# NO stub file is needed and always-on callers need no per-call `#[cfg]`. When
+# off, `report_error_message`/`report_warning_message` still emit their
+# `tracing::{error,warn}!` diagnostic, `sentry_tracing_layer()` degrades to a
+# no-op `Identity` layer, and `openhuman sentry-test` returns a "built without
+# the crash-reporting feature" error.
+crash-reporting = ["dep:sentry"]
 
 # Terminal chat UI: the `openhuman tui` (alias `chat`) CLI subcommand, a
 # ratatui/crossterm terminal front-end onto the same `web_chat` surface the
@@ -456,7 +570,53 @@ mcp = []
 # build-fact "tui feature disabled at compile time" error from the untouched
 # `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
+# Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
+# a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,
+# host-side inference + tools port callbacks, the `medulla_local` RPC namespace,
+# and the subconscious-replacement draft (`subconscious.engine = "medulla"`,
+# §5.2). Default-ON — the desktop app ships it — and therefore FORWARDED to the
+# Tauri shell's `openhuman_core` features (default-features=false there). Slim /
+# headless builds opt out via `--no-default-features --features "<list without
+# medulla-local>"`. The module is `#[cfg(feature = "medulla-local")]` at its
+# `pub mod` declaration (a registration-site gate, like `flows`); the
+# `subconscious.engine` config field stays compiled in ALL builds (inert serde),
+# and the subconscious tick's medulla branch is `#[cfg]`-gated so the default
+# (`local`) path is byte-identical whether or not this feature is on.
+# Sheds ZERO exclusive dependencies — tokio net/process, reqwest, serde are all
+# load-bearing for other domains; the value is compile-time surface.
+# The serve transport is unix-only (unix domain sockets): on non-unix targets
+# (Windows desktop) the feature still compiles via a supervisor stub that
+# reports a typed unsupported-platform error, so forwarding the default-ON
+# gate to the Tauri shell never breaks Windows packaging.
+medulla-local = []
 
+# Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
+# Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,
+# controllers, host, proactive messaging and inbound dispatch) together with the
+# `webview_accounts` / `webview_apis` / `webview_notifications` / `whatsapp_data`
+# webview-bridge domains. Default-ON — the desktop app always ships with
+# channels. Slim / headless builds opt out via `--no-default-features --features
+# "<explicit list without channels>"`. Composes with the runtime
+# `DomainSet::Channels` flag (#4796): this feature narrows the compile-time
+# surface, `DomainSet` gates it at runtime.
+#
+# INTENTIONALLY EMPTY — do NOT "fix" this by adding `dep:` entries. This gate
+# sheds ZERO dependencies: `tinychannels` stays load-bearing regardless
+# (`config/schema/channels.rs` re-exports its config types, `event_bus/events.rs`
+# `DomainEvent` embeds `tinychannels::ChannelInboundEnvelope`, and
+# `security/pairing.rs` re-exports its pairing helpers), so it is always
+# compiled. The gate's value is compile-time surface + binary size, not the dep
+# tree. (`whatsapp-web` refines this gate — see below — forwarding to the
+# `tinychannels/whatsapp-web` provider feature.)
+#
+# NOTE: the in-app web chat (`openhuman::web_chat`, RPC namespace `channel`) is
+# NOT gated by this feature even though its runtime tag is
+# `DomainGroup::Channels` — it is core product surface and stays always
+# compiled (decoupled from `channels/` in #5002). The `channels::{traits, cli}`
+# carve-outs also stay ungated — `traits` is a 1-line tinychannels re-export and
+# `cli::CliChannel` is the dep-free local REPL used by the always-on agent
+# harness interactive loop. See AGENTS.md "channels gate" + `channels/mod.rs`.
+channels = []
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
 peripheral-rpi = ["dep:rppal"]
@@ -464,7 +624,9 @@ browser-native = ["dep:fantoccini"]
 fantoccini = ["browser-native"]
 landlock = ["sandbox-landlock"]
 # The WhatsApp Web provider now lives in tinychannels; forward to its feature.
-whatsapp-web = ["tinychannels/whatsapp-web"]
+# It is a refinement INSIDE the `channels` gate — enabling it pulls in the whole
+# channels domain (the provider re-exports live under `channels/providers/`).
+whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # Exposes the destructive `openhuman.test_reset` RPC. Off by default; the E2E
 # build (app/scripts/e2e-build.sh) flips it on. Shipped binaries never have
 # this feature so the wipe RPC isn't even registered, let alone reachable.
@@ -473,6 +635,11 @@ e2e-test-support = []
 # part of the shipped desktop/library build and the feature-forwarding gate
 # (which only inspects the `default` list) never requires forwarding it.
 rss-bench = []
+# Adds dhat heap profiling on top of `rss-bench` for the `library-profile`
+# binary. Default-OFF, dev-only: installs dhat's global allocator, which
+# perturbs RSS/timing numbers, so it is a separate opt-in feature rather than
+# folded into `rss-bench`. Never forwarded to the shipped build.
+rss-bench-dhat = ["rss-bench", "dep:dhat"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
@@ -510,12 +677,6 @@ tinycortex = { path = "vendor/tinycortex" }
 tinyjuice = { path = "vendor/tinyjuice" }
 tinychannels = { path = "vendor/tinychannels" }
 tinyplace = { path = "vendor/tinyplace/sdk/rust" }
-
-# TinyCortex temporarily pins the embedding API port while tinyagents #58 is
-# pending. Resolve that git source to the same vendored crate so host adapters
-# and TinyCortex share one `EmbeddingModel` trait identity.
-[patch."https://github.com/senamakel/tinyagents"]
-tinyagents = { path = "vendor/tinyagents" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

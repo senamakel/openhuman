@@ -7,13 +7,15 @@
  * each finished step, and the core socket bridge re-emits it to the frontend
  * as both `flow:run_progress` and `flow_run_progress` (colon + underscore
  * aliases — see `useFlowRunProgress`, whose subscribe/teardown style this
- * mirrors). There is, however, no terminal/completion socket event today —
- * a run transitioning `running` -> `completed`/`failed`/etc. emits nothing —
- * so a step-progress subscription alone can't catch that final refresh. This
- * hook therefore layers a 5s poll fallback on top of the socket subscription:
- * the socket keeps the refetch snappy while steps are landing, and the poll
- * guarantees the terminal transition (which has no event) still gets picked
- * up within a few seconds.
+ * mirrors). The terminal transition (`running` -> `completed`/`failed`/etc.)
+ * now has its own event too — `DomainEvent::FlowRunFinished`, bridged as
+ * `flow:run_finished` / `flow_run_finished` — and every caller of this hook
+ * (`FlowRunsSidebar`, `FlowRunsDrawer`, `WorkflowRunsPage`) separately wires
+ * `useFlowRunFinished` alongside it for that immediate refetch (issue B35
+ * follow-up). This hook's own poll is therefore no longer the primary way a
+ * terminal transition gets noticed — it's now a long-interval backstop for
+ * the (rare) case a broadcast event is dropped under lag or a socket
+ * reconnect gap, not a tight polling loop.
  *
  * This is deliberately dumb about *which* run changed — callers pass the
  * list they already fetched and a `refetch` that reloads it; this hook just
@@ -43,8 +45,13 @@ const TERMINAL_STATUSES = new Set<FlowRunStatus>([
 /** Trailing debounce window for a burst of `flow:run_progress` events. */
 const DEBOUNCE_MS = 3_000;
 
-/** Poll fallback cadence — catches the terminal transition, which has no socket event. */
-const POLL_INTERVAL_MS = 5_000;
+/**
+ * Poll fallback cadence. Now a long safety net (not the primary terminal-
+ * transition signal — `useFlowRunFinished` is, see module doc above): only
+ * matters if a broadcast event was dropped under lag or during a socket
+ * reconnect gap.
+ */
+const POLL_INTERVAL_MS = 30_000;
 
 /**
  * Subscribes to live run-progress events (debounced) and polls on a fallback

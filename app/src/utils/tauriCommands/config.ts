@@ -489,6 +489,14 @@ export interface AutonomySettings {
   auto_approve: string[];
   /** Require approval before an agent executes a task-board plan. */
   require_task_plan_approval?: boolean;
+  /**
+   * When true, the approval gate auto-approves ALL tool calls without
+   * prompting — a blanket bypass, not just the `auto_approve` allowlist
+   * above. Subconscious-tainted and unlabelled origins are still denied by
+   * the gate regardless of this flag; hard security blocks are unaffected.
+   * Defaults to `false`.
+   */
+  auto_approve_all?: boolean;
 }
 
 /** Partial update — omitted fields are left unchanged. */
@@ -503,6 +511,8 @@ export interface AutonomySettingsUpdate {
   /** Replaces the "Always allow" allowlist wholesale. */
   auto_approve?: string[];
   require_task_plan_approval?: boolean;
+  /** Blanket "auto-approve everything" bypass. See `AutonomySettings`. */
+  auto_approve_all?: boolean;
 }
 
 export async function openhumanGetAutonomySettings(): Promise<CommandResponse<AutonomySettings>> {

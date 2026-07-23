@@ -3750,9 +3750,10 @@ mod tests {
     // ── ToolOutputMiddleware: COMPACTION_EXEMPT_TOOLS (workflow proposals) ───
 
     /// A `workflow_proposal` payload with enough uniform-object rows to clear
-    /// tinyjuice's `MIN_ROWS` (3) and default ~512-byte tabulation floor —
-    /// i.e. exactly the shape that used to get its `"type"` marker stripped by
-    /// the `[json table: …]` rewrite before the middleware exemption existed.
+    /// tinyjuice's `MIN_ROWS` (3) and OpenHuman's default 2 KiB compaction
+    /// floor — i.e. exactly the shape that used to get its `"type"` marker
+    /// stripped by the `[json table: …]` rewrite before the middleware
+    /// exemption existed.
     fn large_workflow_proposal_json() -> String {
         let nodes: Vec<serde_json::Value> = (0..20)
             .map(|i| {
@@ -3809,6 +3810,13 @@ mod tests {
         // NOT in COMPACTION_EXEMPT_TOOLS loses the `"type"` marker.
         let mw = compaction_enabled_mw();
         let payload = large_workflow_proposal_json();
+        assert!(
+            payload.len()
+                >= crate::openhuman::config::Config::default()
+                    .tokenjuice
+                    .min_bytes_to_compress,
+            "baseline payload must clear OpenHuman's configured compaction floor"
+        );
         let mut result = tool_result("some_other_tool", &payload);
         mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
         assert_ne!(

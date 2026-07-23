@@ -533,7 +533,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "shlex",
  "syn 2.0.117",
 ]
@@ -765,9 +765,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.11.1"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 dependencies = [
  "serde",
 ]
@@ -1736,6 +1736,22 @@ dependencies = [
  "quote",
  "rustc_version",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "dhat"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98cd11d84628e233de0ce467de10b8633f4ddaecafadefc86e13b84b8739b827"
+dependencies = [
+ "backtrace",
+ "lazy_static",
+ "mintex",
+ "parking_lot",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "thousands",
 ]
 
 [[package]]
@@ -3063,7 +3079,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -3894,9 +3910,9 @@ dependencies = [
 
 [[package]]
 name = "mail-parser"
-version = "0.11.3"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a2420e9ce11c2b0583ca97ddff7ab2398c8a613154e9b72e3bafdbf767f1d7"
+checksum = "47785d444be4d32c1709171c6219a90f667c0ad0ffe68b4b179e794f31f4f9e8"
 dependencies = [
  "hashify",
 ]
@@ -4002,6 +4018,12 @@ dependencies = [
  "adler2",
  "simd-adler32",
 ]
+
+[[package]]
+name = "mintex"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c505b3e17ed6b70a7ed2e67fbb2c560ee327353556120d6e72f5232b6880d536"
 
 [[package]]
 name = "mio"
@@ -4635,7 +4657,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman"
-version = "0.63.0"
+version = "0.63.1"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -4659,6 +4681,7 @@ dependencies = [
  "cron",
  "crossterm",
  "curve25519-dalek",
+ "dhat",
  "directories",
  "dirs 5.0.1",
  "docx-rs",
@@ -4723,7 +4746,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.18",
- "tinyagents 1.9.0",
+ "tinyagents",
  "tinychannels",
  "tinycortex",
  "tinyflows",
@@ -5498,7 +5521,7 @@ dependencies = [
  "pin-project-lite",
  "quinn-proto",
  "quinn-udp",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "rustls",
  "socket2",
  "thiserror 2.0.18",
@@ -5519,7 +5542,7 @@ dependencies = [
  "lru-slab",
  "rand 0.9.4",
  "ring",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "rustls",
  "rustls-pki-types",
  "slab",
@@ -6082,6 +6105,12 @@ name = "rustc-demangle"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
@@ -7232,6 +7261,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "thousands"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bf63baf9f5039dadc247375c29eb13706706cfde997d0330d05aa63a77d8820"
+
+[[package]]
 name = "thread_local"
 version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7298,7 +7333,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "1.9.0"
+version = "2.1.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -7307,23 +7342,6 @@ dependencies = [
  "reqwest 0.12.28",
  "rhai",
  "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "tinyagents"
-version = "2.0.0"
-dependencies = [
- "async-trait",
- "bytes",
- "chrono",
- "futures",
- "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -7397,7 +7415,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.18",
- "tinyagents 2.0.0",
+ "tinyagents",
  "tokio",
  "toml 0.8.23",
  "tracing",
@@ -7417,7 +7435,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tinyagents 1.9.0",
+ "tinyagents",
  "tracing",
 ]
 
@@ -8805,7 +8823,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

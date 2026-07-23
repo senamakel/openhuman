@@ -19,7 +19,7 @@ use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::memory::global as memory_global;
-use openhuman_core::openhuman::memory::jobs::drain_until_idle;
+use openhuman_core::openhuman::memory_queue::drain_until_idle;
 use openhuman_core::openhuman::memory_sync::composio::bus::{
     ComposioConfigChangedSubscriber, ComposioConnectionCreatedSubscriber, ComposioTriggerSubscriber,
 };

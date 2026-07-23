@@ -224,6 +224,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 optional_bool("require_task_plan_approval", "Require approval before an agent executes a task-board plan."),
+                optional_bool("auto_approve_all", "When true, auto-approve all tool calls without prompting. SubconsciousTainted and Unknown origins still denied. Hard security blocks unaffected."),
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         },

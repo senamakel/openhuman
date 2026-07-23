@@ -541,6 +541,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Não foi possível carregar o perfil completo.',
   'agentWorld.identities': 'Identidades',
   'agentWorld.profiles': 'Perfis',
+  'agentWorld.transferHandle.action': 'Transferir',
+  'agentWorld.transferHandle.title': 'Transferir handle',
+  'agentWorld.transferHandle.warning':
+    'Transferir um handle é permanente e não pode ser desfeito. O destinatário torna-se o seu único proprietário.',
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle do destinatário',
+  'agentWorld.transferHandle.confirm': 'Transferir handle',
+  'agentWorld.transferHandle.submitting': 'A transferir…',
+  'agentWorld.transferHandle.recipientRequired': 'Introduza o handle do destinatário.',
+  'agentWorld.transferHandle.confirmLabel': 'Digite o handle para confirmar',
+  'agentWorld.transferHandle.confirmMismatch': 'O handle digitado não corresponde.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Um identificador principal não pode ser transferido. Ative outro identificador primeiro.',
   'agentWorld.profile.edit': 'Editar perfil',
   'agentWorld.profile.displayName': 'Nome de exibição',
   'agentWorld.profile.bio': 'Bio',
@@ -1638,6 +1650,10 @@ const messages: TranslationMap = {
   'settings.about.releasesDesc':
     'Navegar pelas notas de versão e compilações anteriores no GitHub.',
   'settings.about.openReleases': 'Abrir versões no GitHub',
+  'settings.about.starCta.title': 'Gostando do OpenHuman?',
+  'settings.about.starCta.body': 'Dê uma estrela no GitHub. Assim mais pessoas nos encontram.',
+  'settings.about.starCta.star': 'Marcar com estrela no GitHub',
+  'settings.about.starCta.dismiss': 'Agora não',
   'settings.about.connection': 'Conexão',
   'settings.about.connectionMode': 'Modo',
   'settings.about.connectionModeLocal': 'Local',
@@ -1794,6 +1810,7 @@ const messages: TranslationMap = {
     'Faça login novamente para atualizar sua sessão OpenHuman, ou mude para um provedor de embeddings local ou com sua própria chave.',
   'settings.embeddings.signInAgain': 'Entrar novamente',
   'settings.embeddings.apiKeyLabel': 'Chave API {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Chave de API',
   'settings.embeddings.placeholderStored': '•••••••• (armazenado)',
   'settings.embeddings.placeholderKey': 'Cole sua chave API…',
   'settings.embeddings.keyStoredEncrypted':
@@ -1897,6 +1914,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Pesquisar catálogo de servidores MCP',
   'mcp.catalog.searchPlaceholder': 'Pesquisar servidores MCP...',
   'mcp.catalog.loadFailed': 'Falha ao carregar o catálogo',
+  'mcp.registry.error.notFound':
+    'Servidor não encontrado no registro. Confira o nome do servidor e tente novamente, navegue pelos servidores MCP disponíveis ou adicione o servidor manualmente por URL.',
+  'mcp.registry.error.network':
+    'Não foi possível acessar o registro MCP. Verifique sua conexão e tente novamente, ou adicione o servidor manualmente por URL.',
+  'mcp.registry.error.unavailable':
+    'O registro MCP está indisponível no momento. Tente novamente mais tarde, navegue pelos servidores MCP disponíveis ou adicione o servidor manualmente por URL.',
   'mcp.catalog.noResults': 'Nenhum servidor encontrado.',
   'mcp.catalog.noResultsFor': 'Nenhum servidor encontrado para "{query}".',
   'mcp.catalog.loadMore': 'Carregar mais',
@@ -3546,6 +3569,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Não foi possível salvar o fluxo de trabalho. Tente novamente.',
   'chat.flowProposal.enableError':
     'Fluxo de trabalho salvo, mas não foi possível ativá-lo. Tente novamente ou ative-o na página Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Salvo',
+  'chat.flowProposal.viewWorkflow': 'Ver fluxo de trabalho',
   'chat.flowProposal.stepKind.agent': 'Agente',
   'chat.flowProposal.stepKind.toolCall': 'Ação',
   'chat.flowProposal.stepKind.httpRequest': 'Pedido web',
@@ -5546,6 +5571,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Exigir aprovação do plano de tarefas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pausa antes que um agente designado execute um briefing de tarefa elaborado pelo agente.',
+  'settings.agentAccess.autoApproveAll.label': 'Aprovar automaticamente todas as ações',
+  'settings.agentAccess.autoApproveAll.desc':
+    'Quando ativado, o agente executará todas as ações sem pedir sua aprovação antes. Isso inclui gravação de arquivos, comandos de shell, solicitações de rede e qualquer outro efeito colateral. Os bloqueios de segurança rígidos (diretórios de credenciais, caminhos internos do espaço de trabalho) continuam em vigor.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Agente autônomo do tiny.place',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Deixe o OpenHuman agir sozinho no tiny.place. De forma agendada, ele busca trabalhos relevantes (priorizando recompensas abertas), executa o que combina com suas habilidades e age com a sua identidade. Funciona sem supervisão e pode gastar, então mantenha-o na devnet durante os testes. Desativado por padrão.',
@@ -7264,6 +7292,15 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Estado de privacidade',
   'privacy.status.external': 'Fora do dispositivo',
   'privacy.status.local': 'No dispositivo',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Apenas ingerido',
+  'sync.pipeline.storedWithoutVectors': 'Armazenado sem vetores. Pesquisa semântica indisponível.',
+  'sync.pipeline.signInToEnable': 'Inicie sessão para ativar',
+  'sync.pipeline.extractionFailed':
+    'Falha na extração da estrutura de memória. O wiki pode estar incompleto.',
+  'sync.pipeline.treeDegraded':
+    'Árvore de memória degradada. A recuperação pode retornar resultados desatualizados.',
+  'sync.pipeline.viewHealth': 'Ver a saúde da memória',
 };
 
 export default messages;

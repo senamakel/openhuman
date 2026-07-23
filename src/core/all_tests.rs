@@ -233,6 +233,38 @@ fn voice_and_audio_controllers_absent_when_feature_off() {
     );
 }
 
+/// With the `inference` feature on (the default), the in-process whisper STT
+/// engine is compiled in — `INFERENCE_COMPILED_IN` reflects that, and
+/// `whisper-rs` + `cpal` are linked (dependency shed proven separately by
+/// `cargo tree -i whisper-rs` / `cargo tree -i cpal`).
+#[test]
+#[cfg(feature = "inference")]
+fn inference_engine_compiled_in_when_feature_on() {
+    assert!(crate::openhuman::inference::INFERENCE_COMPILED_IN);
+}
+
+/// With the `inference` feature off, the whisper engine is compiled out: the
+/// marker flips and the always-compiled `whisper_engine` facade resolves to the
+/// disabled stub — every transcription call returns the disabled error, while
+/// the local-AI service still reaches Ollama / LM Studio over HTTP. This is the
+/// compile-time stub-facade correctness gate (see
+/// `inference::local::service::whisper_engine::stub`); `whisper-rs` + `cpal`
+/// leave the dependency graph.
+#[test]
+#[cfg(not(feature = "inference"))]
+fn inference_engine_compiled_out_when_feature_off() {
+    use crate::openhuman::inference::local::service::whisper_engine;
+    assert!(!crate::openhuman::inference::INFERENCE_COMPILED_IN);
+    let handle = whisper_engine::new_handle();
+    assert!(!whisper_engine::is_loaded(&handle));
+    let err = whisper_engine::transcribe_pcm_f32(&handle, &[0.0; 16], None, None)
+        .expect_err("in-process STT must be disabled when `inference` is off");
+    assert!(
+        err.contains("inference"),
+        "disabled error should name the gate: {err}"
+    );
+}
+
 /// With the `skills` feature on (the default), all three skill domains are
 /// compiled in and registered — the desktop build is byte-identical.
 #[test]
@@ -826,6 +858,8 @@ async fn harness_excludes_gated_namespaces() {
     // convention; gate it like its siblings so the disabled build passes (#5022).
     #[cfg(feature = "voice")]
     assert!(full_ns.contains("voice"), "full() must expose voice");
+    #[cfg(feature = "channels")]
+    assert!(full_ns.contains("channels"), "full() must expose channels");
 
     let ctx = CoreContext::for_test(DomainSet::harness(), None);
     let harness_ns: BTreeSet<&'static str> =
@@ -849,6 +883,7 @@ async fn harness_excludes_gated_namespaces() {
         "skills",
         "wallet",
         "meet",
+        "channels",
         "mcp_clients",
         "health",
     ] {
@@ -1093,4 +1128,111 @@ fn meet_controllers_absent_when_feature_off() {
             "`{ns}` must not register when the `meet` feature is off"
         );
     }
+}
+
+/// The channel + webview-bridge namespaces register when the `channels` feature
+/// is on (#4801).
+///
+/// Paired with `channels_controllers_absent_when_feature_off` below to pin both
+/// directions of the compile-time gate. `webview_notifications` has no
+/// controllers (v1 toggle lives shell-side), so it is not asserted here.
+#[cfg(feature = "channels")]
+#[test]
+fn channels_controllers_registered_when_feature_on() {
+    let namespaces: Vec<&str> = all_controller_schemas()
+        .iter()
+        .map(|s| s.namespace)
+        .collect();
+    for ns in ["channels", "webview_apis"] {
+        assert!(
+            namespaces.contains(&ns),
+            "with the `channels` feature ON the `{ns}` controllers must be registered"
+        );
+    }
+}
+
+/// With `channels` compiled out the channel + webview-bridge domains leave zero
+/// trace in the registry (#4801) — while the in-app web chat (`channel`
+/// namespace) stays present, pinning the #5002 decoupling: turning off external
+/// messaging must NOT take down core in-app chat.
+///
+/// This is the half that proves the gate does something. The 3 `whatsapp_data`
+/// agent tools are pinned separately in `tools::ops_tests` (that module has the
+/// full-tool-list machinery); here we assert the controller surface.
+#[cfg(not(feature = "channels"))]
+#[test]
+fn channels_controllers_absent_when_feature_off() {
+    let namespaces: Vec<&str> = all_controller_schemas()
+        .iter()
+        .map(|s| s.namespace)
+        .collect();
+    for ns in [
+        "channels",
+        "webview_apis",
+        "webview_notifications",
+        "whatsapp_data",
+    ] {
+        assert!(
+            !namespaces.contains(&ns),
+            "with the `channels` feature OFF the `{ns}` controllers must be absent \
+             (unknown-method over /rpc, omitted from /schema)"
+        );
+    }
+    // #5002 decoupling: the in-app web chat controllers (RPC namespace `channel`)
+    // are core product surface and must survive the `channels` gate being off.
+    assert!(
+        namespaces.contains(&"channel"),
+        "the in-app web_chat controllers (`channel` namespace) must stay registered \
+         even with the `channels` feature OFF (#5002 decoupling)"
+    );
+}
+
+/// With the `http-server` feature on (the default), the HTTP + Socket.IO
+/// transport is compiled in — `HTTP_SERVER_COMPILED_IN` reflects that, and
+/// `socketioxide` is linked. `socketioxide` is the only dependency this gate
+/// actually sheds (proven by `cargo tree -i socketioxide`); `axum` stays in the
+/// graph either way because `tinychannels` pulls it transitively.
+#[test]
+#[cfg(feature = "http-server")]
+fn http_server_compiled_in_when_feature_on() {
+    assert!(crate::core::http_server_status::HTTP_SERVER_COMPILED_IN);
+}
+
+/// With the `http-server` feature off, the transport is compiled out: the
+/// marker flips, `serve()` returns without binding a listener, and the
+/// exclusive `socketioxide` dependency leaves the graph (`axum` remains, pulled
+/// transitively by `tinychannels`). The desktop shell's compile-time assert on
+/// this marker (`app/src-tauri/src/lib.rs`) turns a silent listener-less core
+/// into a build failure (cf. voice #4901).
+#[test]
+#[cfg(not(feature = "http-server"))]
+fn http_server_compiled_out_when_feature_off() {
+    assert!(!crate::core::http_server_status::HTTP_SERVER_COMPILED_IN);
+}
+
+/// With `http-server` on, the `http_host` static-directory server registers its
+/// controllers, so the `http_host.*` RPC surface is present in `/schema`.
+#[test]
+#[cfg(feature = "http-server")]
+fn http_host_controllers_registered_when_http_server_on() {
+    let schemas = all_controller_schemas();
+    assert!(
+        schemas.iter().any(|s| s.namespace == "http_host"),
+        "`http_host` controllers must be registered when the `http-server` feature is on"
+    );
+}
+
+/// With `http-server` off, the whole `http_host` axum domain is compiled out and
+/// its controller-registration push in `core::all` is gated in lockstep, so the
+/// `http_host` namespace never enters the registry (unknown-method over `/rpc`,
+/// absent from `/schema`). This is the negative half that proves the gate
+/// removes the surface.
+#[test]
+#[cfg(not(feature = "http-server"))]
+fn http_host_controllers_absent_when_http_server_off() {
+    let schemas = all_controller_schemas();
+    assert!(
+        !schemas.iter().any(|s| s.namespace == "http_host"),
+        "`http_host` controllers must be compiled out when the `http-server` feature is off"
+    );
 }

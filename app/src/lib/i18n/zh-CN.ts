@@ -503,6 +503,16 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': '无法加载完整资料。',
   'agentWorld.identities': '身份',
   'agentWorld.profiles': '档案',
+  'agentWorld.transferHandle.action': '转移',
+  'agentWorld.transferHandle.title': '转移句柄',
+  'agentWorld.transferHandle.warning': '句柄转移是永久性的，无法撤销。接收者将成为其唯一所有者。',
+  'agentWorld.transferHandle.recipientPlaceholder': '接收者 @handle',
+  'agentWorld.transferHandle.confirm': '转移句柄',
+  'agentWorld.transferHandle.submitting': '正在转移…',
+  'agentWorld.transferHandle.recipientRequired': '请输入接收者的句柄。',
+  'agentWorld.transferHandle.confirmLabel': '输入句柄以确认',
+  'agentWorld.transferHandle.confirmMismatch': '输入的句柄不匹配。',
+  'agentWorld.transferHandle.primaryLocked': '无法转移主用户名。请先将另一个用户名设为活跃。',
   'agentWorld.profile.edit': '编辑资料',
   'agentWorld.profile.displayName': '显示名称',
   'agentWorld.profile.bio': '简介',
@@ -1519,6 +1529,10 @@ const messages: TranslationMap = {
   'settings.about.releases': '发布版本',
   'settings.about.releasesDesc': '在 GitHub 上浏览发布说明和早期版本。',
   'settings.about.openReleases': '打开 GitHub 发布',
+  'settings.about.starCta.title': '喜欢 OpenHuman 吗？',
+  'settings.about.starCta.body': '在 GitHub 上给我们点个星，这能帮助更多人发现我们。',
+  'settings.about.starCta.star': '在 GitHub 上加星',
+  'settings.about.starCta.dismiss': '暂不',
   'settings.about.connection': '连接方式',
   'settings.about.connectionMode': '模式',
   'settings.about.connectionModeLocal': '本地',
@@ -1665,6 +1679,7 @@ const messages: TranslationMap = {
     '重新登录以刷新 OpenHuman 会话，或切换到本地/自带密钥的嵌入提供商。',
   'settings.embeddings.signInAgain': '重新登录',
   'settings.embeddings.apiKeyLabel': '{provider} API 密钥',
+  'settings.embeddings.apiKeyLabelGeneric': 'API 密钥',
   'settings.embeddings.placeholderStored': '••••••••（已存储）',
   'settings.embeddings.placeholderKey': '粘贴您的 API 密钥…',
   'settings.embeddings.keyStoredEncrypted': '您的 API 密钥已加密存储在此设备上。',
@@ -1762,6 +1777,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': '搜索锻造目录',
   'mcp.catalog.searchPlaceholder': '搜索锻造目录...',
   'mcp.catalog.loadFailed': '加载目录失败',
+  'mcp.registry.error.notFound':
+    '在注册表中找不到该服务器。请检查服务器名称后重试，也可以浏览可用的 MCP 服务器，或通过 URL 手动添加服务器。',
+  'mcp.registry.error.network':
+    '无法连接到 MCP 注册表。请检查网络连接后重试，或通过 URL 手动添加服务器。',
+  'mcp.registry.error.unavailable':
+    'MCP 注册表暂时不可用。请稍后重试，也可以浏览可用的 MCP 服务器，或通过 URL 手动添加服务器。',
   'mcp.catalog.noResults': '未找到服务器。',
   'mcp.catalog.noResultsFor': '找不到“{query}”的服务器。',
   'mcp.catalog.loadMore': '加载更多',
@@ -3310,6 +3331,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.dismiss': '忽略',
   'chat.flowProposal.error': '无法保存该工作流。请重试。',
   'chat.flowProposal.enableError': '工作流已保存，但无法启用。请重试，或在“工作流”页面手动启用。',
+  'chat.flowProposal.savedConfirmation': '已保存',
+  'chat.flowProposal.viewWorkflow': '查看工作流',
   'chat.flowProposal.stepKind.agent': '智能体',
   'chat.flowProposal.stepKind.toolCall': '操作',
   'chat.flowProposal.stepKind.httpRequest': '网络请求',
@@ -5173,6 +5196,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': '要求批准任务计划',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     '在指定智能体执行由智能体编写的任务简报前暂停。',
+  'settings.agentAccess.autoApproveAll.label': '自动批准所有操作',
+  'settings.agentAccess.autoApproveAll.desc':
+    '启用后，智能体将自动执行所有符合条件的操作，无需事先征得你的批准。这包括文件写入、Shell 命令、网络请求以及任何其他副作用。严格的安全阻止措施（凭据目录和系统目录）仍然适用，来自不受信任或未知来源的操作永远不会被自动批准。',
   'settings.agentAccess.tinyplaceAutopilot.title': '自主 tiny.place 代理',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     '让 OpenHuman 自行在 tiny.place 上行动：按计划寻找有价值的工作（优先开放的悬赏），完成符合其技能的任务，并以你的身份行动。它在无人监督下运行且可以花费资金，测试时请使用 devnet。默认关闭。',
@@ -6760,6 +6786,13 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': '隐私状态',
   'privacy.status.external': '设备外',
   'privacy.status.local': '本地设备',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': '仅已导入',
+  'sync.pipeline.storedWithoutVectors': '已存储但无向量。语义搜索不可用。',
+  'sync.pipeline.signInToEnable': '登录以启用',
+  'sync.pipeline.extractionFailed': '记忆结构提取失败。维基可能不完整。',
+  'sync.pipeline.treeDegraded': '记忆树已降级。检索可能返回过时的结果。',
+  'sync.pipeline.viewHealth': '查看记忆健康状况',
 };
 
 export default messages;

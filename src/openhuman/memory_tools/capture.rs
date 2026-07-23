@@ -33,8 +33,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use super::store::{tool_memory_store, ToolMemoryStore};
-use super::types::{ToolMemoryPriority, ToolMemorySource};
+use super::{tool_memory_store, ToolMemoryPriority, ToolMemorySource, ToolMemoryStore};
 use crate::openhuman::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
 use crate::openhuman::memory::Memory;
 
@@ -291,8 +290,8 @@ fn tool_aliases(tool_name: &str) -> Vec<&'static str> {
 mod tests {
     use super::*;
     use crate::openhuman::agent::hooks::ToolCallRecord;
-    use crate::openhuman::memory_tools::store::tool_memory_store;
     use crate::openhuman::memory_tools::test_helpers::MockMemory;
+    use crate::openhuman::memory_tools::tool_memory_store;
 
     fn ctx_with(message: &str, tool_calls: Vec<ToolCallRecord>) -> TurnContext {
         TurnContext {

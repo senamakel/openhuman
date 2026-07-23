@@ -26,6 +26,10 @@ pub struct AutonomySettingsPatch {
     /// "Always allow" allowlist — tool names the gate skips prompting for.
     pub auto_approve: Option<Vec<String>>,
     pub require_task_plan_approval: Option<bool>,
+    /// Blanket "auto-approve everything" bypass. `SubconsciousTainted` and
+    /// `Unknown` origins are still denied by the gate regardless of this
+    /// setting.
+    pub auto_approve_all: Option<bool>,
 }
 
 /// Partial update for the `[agent]` block. Currently carries the single
@@ -121,6 +125,9 @@ pub async fn apply_autonomy_settings(
     }
     if let Some(require_task_plan_approval) = update.require_task_plan_approval {
         config.autonomy.require_task_plan_approval = require_task_plan_approval;
+    }
+    if let Some(auto_approve_all) = update.auto_approve_all {
+        config.autonomy.auto_approve_all = auto_approve_all;
     }
 
     config.save().await.map_err(|e| e.to_string())?;

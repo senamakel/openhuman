@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "OpenHuman"
-version = "0.63.0"
+version = "0.63.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -208,7 +208,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -219,7 +219,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -915,9 +915,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.11.1"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 dependencies = [
  "serde",
 ]
@@ -2064,7 +2064,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2482,7 +2482,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3709,7 +3709,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -4110,7 +4110,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4606,9 +4606,9 @@ dependencies = [
 
 [[package]]
 name = "mail-parser"
-version = "0.11.3"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a2420e9ce11c2b0583ca97ddff7ab2398c8a613154e9b72e3bafdbf767f1d7"
+checksum = "47785d444be4d32c1709171c6219a90f667c0ad0ffe68b4b179e794f31f4f9e8"
 dependencies = [
  "hashify",
 ]
@@ -4994,7 +4994,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -5525,7 +5525,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman"
-version = "0.63.0"
+version = "0.63.1"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -5606,7 +5606,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.18",
- "tinyagents 1.9.0",
+ "tinyagents",
  "tinychannels",
  "tinycortex",
  "tinyflows",
@@ -5618,7 +5618,6 @@ dependencies = [
  "tokio-tungstenite 0.24.0",
  "tokio-util",
  "toml 1.1.2+spec-1.1.0",
- "tower",
  "tracing",
  "tracing-appender",
  "tracing-log",
@@ -7136,7 +7135,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7195,7 +7194,7 @@ dependencies = [
  "security-framework 3.7.0",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7952,7 +7951,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -8812,7 +8811,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -8973,7 +8972,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "1.9.0"
+version = "2.1.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -8982,23 +8981,6 @@ dependencies = [
  "reqwest 0.12.28",
  "rhai",
  "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "tinyagents"
-version = "2.0.0"
-dependencies = [
- "async-trait",
- "bytes",
- "chrono",
- "futures",
- "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -9067,7 +9049,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.18",
- "tinyagents 2.0.0",
+ "tinyagents",
  "tokio",
  "toml 0.8.2",
  "tracing",
@@ -9087,7 +9069,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tinyagents 1.9.0",
+ "tinyagents",
  "tracing",
 ]
 
@@ -9673,7 +9655,7 @@ checksum = "f2f6fb2847f6742cd76af783a2a2c49e9375d0a111c7bef6f71cd9e738c72d6e"
 dependencies = [
  "memoffset",
  "tempfile",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -10446,7 +10428,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

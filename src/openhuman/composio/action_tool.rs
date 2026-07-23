@@ -227,7 +227,9 @@ impl Tool for ComposioActionTool {
         // a normal execute whenever the contract can't be resolved (see
         // `contract_gate::consult`), so an unconfigured/offline client never
         // blocks the action. Uses `live_config` so gate routing matches dispatch.
-        match super::contract_gate::consult(&self.gate, &live_config, &self.action_name).await {
+        match super::contract_gate::consult(&self.gate, &live_config, &self.action_name, &args)
+            .await
+        {
             super::contract_gate::GateDecision::Surface(contract) => {
                 tracing::info!(
                     tool = %self.action_name,

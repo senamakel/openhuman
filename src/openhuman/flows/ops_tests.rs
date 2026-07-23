@@ -24,6 +24,639 @@ fn trigger_only_graph() -> Value {
     })
 }
 
+fn nested_conditional_fan_in_graph() -> Value {
+    json!({
+        "name": "nested-conditional-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    })
+}
+
+fn main_port_conditional_fan_in_graph() -> Value {
+    json!({
+        "name": "main-port-conditional-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "route", "kind": "switch", "name": "Route", "config": { "field": "kind" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "other", "kind": "output_parser", "name": "Other" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "route" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "route", "from_port": "main", "to_node": "a" },
+            { "from_node": "route", "from_port": "other", "to_node": "other" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    })
+}
+
+fn referenced_child_graph(workflow_id: &str) -> Value {
+    json!({
+        "name": "parent-with-saved-child",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "saved-child",
+                "kind": "sub_workflow",
+                "name": "Saved child",
+                "config": { "workflow_id": workflow_id }
+            }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "saved-child" }
+        ]
+    })
+}
+
+fn structurally_valid_graph(value: Value) -> WorkflowGraph {
+    let graph = migrate_and_deserialize_graph(value).expect("graph should deserialize");
+    tinyflows::validate::validate(&graph).expect("fixture should be structurally valid");
+    graph
+}
+
+fn nested_router_reconvergence_graph(inner_kind: &str, inner_ports: &[&str]) -> WorkflowGraph {
+    let mut edges = vec![
+        json!({ "from_node": "start", "from_port": "main", "to_node": "outer" }),
+        json!({ "from_node": "start", "from_port": "main", "to_node": "c" }),
+        json!({ "from_node": "outer", "from_port": "true", "to_node": "inner" }),
+        json!({ "from_node": "outer", "from_port": "false", "to_node": "outer_else" }),
+    ];
+    edges.extend(
+        inner_ports
+            .iter()
+            .map(|port| json!({ "from_node": "inner", "from_port": port, "to_node": "a" })),
+    );
+    edges.extend([
+        json!({ "from_node": "a", "from_port": "main", "to_node": "m" }),
+        json!({ "from_node": "c", "from_port": "main", "to_node": "m" }),
+    ]);
+
+    structurally_valid_graph(json!({
+        "name": "nested-router-reconvergence",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": inner_kind, "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": edges
+    }))
+}
+
+#[test]
+fn engine_compatibility_distinguishes_nested_from_safe_fan_ins() {
+    let risky = structurally_valid_graph(nested_conditional_fan_in_graph());
+    let errors = engine_compatibility_errors(&risky);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+    assert_eq!(errors[0].node_id.as_deref(), Some("m"));
+
+    let one_level = structurally_valid_graph(json!({
+        "name": "one-level-mixed-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "cond", "kind": "condition", "name": "Condition", "config": { "field": "flag" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "other", "kind": "output_parser", "name": "Other" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "cond" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "cond", "from_port": "true", "to_node": "a" },
+            { "from_node": "cond", "from_port": "false", "to_node": "other" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&one_level).is_empty());
+
+    let nested_without_fan_in = structurally_valid_graph(json!({
+        "name": "nested-without-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&nested_without_fan_in).is_empty());
+
+    let unconditional = structurally_valid_graph(json!({
+        "name": "unconditional-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "a" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&unconditional).is_empty());
+}
+
+#[test]
+fn engine_compatibility_rejects_main_label_on_conditional_fan_in_path() {
+    let graph = structurally_valid_graph(main_port_conditional_fan_in_graph());
+    let errors = engine_compatibility_errors(&graph);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN);
+    assert_eq!(errors[0].node_id.as_deref(), Some("m"));
+
+    let reconverged = structurally_valid_graph(json!({
+        "name": "main-port-reconverges-before-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "route", "kind": "switch", "name": "Route", "config": { "field": "kind" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "route" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "route", "from_port": "main", "to_node": "a" },
+            { "from_node": "route", "from_port": "default", "to_node": "a" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&reconverged).is_empty());
+}
+
+#[test]
+fn engine_compatibility_requires_exhaustive_router_choices_for_reconvergence() {
+    let exhaustive_condition = nested_router_reconvergence_graph("condition", &["true", "false"]);
+    assert!(engine_compatibility_errors(&exhaustive_condition).is_empty());
+
+    let missing_condition_branch = nested_router_reconvergence_graph("condition", &["true"]);
+    let errors = engine_compatibility_errors(&missing_condition_branch);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+
+    let exhaustive_switch = nested_router_reconvergence_graph("switch", &["known-case", "default"]);
+    assert!(engine_compatibility_errors(&exhaustive_switch).is_empty());
+
+    // Same-port fan-out is unconditional: TinyFlows schedules both `main`
+    // successors. A side path after an exhaustive router must not make the
+    // reconverging path look like another conditional choice.
+    let exhaustive_switch_with_main_fanout = structurally_valid_graph(json!({
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "switch", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "fanout", "kind": "output_parser", "name": "Fan out" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "side", "kind": "output_parser", "name": "Side" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "known-case", "to_node": "fanout" },
+            { "from_node": "inner", "from_port": "default", "to_node": "fanout" },
+            { "from_node": "fanout", "from_port": "main", "to_node": "a" },
+            { "from_node": "fanout", "from_port": "main", "to_node": "side" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&exhaustive_switch_with_main_fanout).is_empty());
+
+    // A switch with only `default` is exhaustive: every input takes that edge,
+    // so it is an unconditional step even though it has a single wired port.
+    let default_only_switch = nested_router_reconvergence_graph("switch", &["default"]);
+    assert!(engine_compatibility_errors(&default_only_switch).is_empty());
+
+    let missing_switch_default =
+        nested_router_reconvergence_graph("switch", &["known-case", "other-case"]);
+    let errors = engine_compatibility_errors(&missing_switch_default);
+    assert!(!errors.is_empty());
+    assert!(errors
+        .iter()
+        .all(|error| error.code == UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN));
+    // Both the switch's own reconvergence and the downstream merge are unsafe;
+    // multiple switch ports may also report the same predecessor. Pin the
+    // affected fan-ins without coupling the test to diagnostic multiplicity.
+    assert!(errors
+        .iter()
+        .any(|error| error.node_id.as_deref() == Some("a")));
+    assert!(errors
+        .iter()
+        .any(|error| error.node_id.as_deref() == Some("m")));
+}
+
+#[test]
+fn engine_compatibility_rejects_reconvergence_before_nested_router() {
+    let graph = structurally_valid_graph(json!({
+        "name": "reconverged-before-nested-router",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "inner" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    let errors = engine_compatibility_errors(&graph);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+}
+
+#[test]
+fn engine_compatibility_treats_single_wired_router_outputs_as_conditional() {
+    let graph = structurally_valid_graph(json!({
+        "name": "single-wired-nested-router-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "switch", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "case", "to_node": "inner" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+
+    let errors = engine_compatibility_errors(&graph);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+    assert_eq!(errors[0].node_id.as_deref(), Some("m"));
+}
+
+#[test]
+fn engine_compatibility_detects_a_router_directly_preceding_fan_in() {
+    let nested = structurally_valid_graph(json!({
+        "name": "direct-nested-router-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "switch", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "case", "to_node": "inner" },
+            { "from_node": "inner", "from_port": "true", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    let errors = engine_compatibility_errors(&nested);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+
+    let main_port = structurally_valid_graph(json!({
+        "name": "direct-main-port-router-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "route", "kind": "switch", "name": "Route", "config": { "field": "kind" } },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "route" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "route", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    let errors = engine_compatibility_errors(&main_port);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN);
+}
+
+#[test]
+fn engine_compatibility_recurses_through_nested_inline_sub_workflows() {
+    let unsafe_child = nested_conditional_fan_in_graph();
+    let middle = json!({
+        "nodes": [
+            { "id": "middle-trigger", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "inner-child",
+                "kind": "sub_workflow",
+                "name": "Inner child",
+                "config": { "workflow": unsafe_child }
+            }
+        ],
+        "edges": [
+            { "from_node": "middle-trigger", "from_port": "main", "to_node": "inner-child" }
+        ]
+    });
+    let parent = structurally_valid_graph(json!({
+        "nodes": [
+            { "id": "parent-trigger", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "middle-child",
+                "kind": "sub_workflow",
+                "name": "Middle child",
+                "config": { "workflow": middle }
+            }
+        ],
+        "edges": [
+            { "from_node": "parent-trigger", "from_port": "main", "to_node": "middle-child" }
+        ]
+    }));
+
+    let errors = engine_compatibility_errors(&parent);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+    assert!(errors[0].message.contains("middle-child"));
+    assert!(errors[0].message.contains("inner-child"));
+}
+
+#[test]
+fn resolver_lookup_rejects_an_incompatible_saved_child() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+
+    let error = load_engine_compatible_flow_graph(&config, &child.id)
+        .expect_err("resolver lookup must reject an unsafe legacy child");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+}
+
+#[test]
+fn resolver_lookup_rejects_an_incompatible_saved_grandchild() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let grandchild = store::create_flow(
+        &config,
+        "legacy unsafe grandchild".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let child = store::create_flow(
+        &config,
+        "saved child".to_string(),
+        structurally_valid_graph(referenced_child_graph(&grandchild.id)),
+        false,
+        false,
+    )
+    .unwrap();
+
+    let error = load_engine_compatible_flow_graph(&config, &child.id)
+        .expect_err("resolver lookup must reject an unsafe saved grandchild");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    assert!(error.contains(&grandchild.id), "{error}");
+    assert!(error.contains("saved-child"), "{error}");
+}
+
+#[test]
+fn flows_validate_returns_stable_nested_conditional_fan_in_error() {
+    let outcome = flows_validate(nested_conditional_fan_in_graph());
+    assert!(!outcome.value.valid);
+    assert_eq!(outcome.value.error_details.len(), 1);
+    assert_eq!(
+        outcome.value.error_details[0].code,
+        UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN
+    );
+    assert_eq!(outcome.value.error_details[0].node_id.as_deref(), Some("m"));
+    assert!(outcome.value.warnings.is_empty());
+}
+
+#[tokio::test]
+async fn flows_run_rejects_legacy_nested_conditional_fan_in_before_execution() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // Bypass the current author-time gate to simulate a definition persisted
+    // by an older OpenHuman build. Reads remain supported; execution does not.
+    let graph = structurally_valid_graph(nested_conditional_fan_in_graph());
+    let flow = store::create_flow(&config, "legacy".to_string(), graph, false, true).unwrap();
+
+    let err = flows_run(
+        &config,
+        &flow.id,
+        json!({ "outer": true, "inner": true }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("legacy unsafe topology must fail closed");
+    assert!(err.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN), "{err}");
+
+    let reloaded = flows_get(&config, &flow.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status, None);
+    assert_eq!(
+        reloaded.value.graph, flow.graph,
+        "stored graph must be preserved"
+    );
+}
+
+#[tokio::test]
+async fn flows_run_rejects_an_incompatible_saved_child_before_execution() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let parent = store::create_flow(
+        &config,
+        "parent".to_string(),
+        structurally_valid_graph(referenced_child_graph(&child.id)),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let error = flows_run(&config, &parent.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .expect_err("an unsafe saved child must fail before root execution starts");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+
+    let reloaded = flows_get(&config, &parent.id).await.unwrap().value;
+    assert_eq!(reloaded.last_status, None, "no run should have started");
+}
+
+#[tokio::test]
+async fn flows_update_allows_metadata_only_edits_of_legacy_incompatible_graph() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let graph = structurally_valid_graph(nested_conditional_fan_in_graph());
+    let flow = store::create_flow(&config, "legacy".to_string(), graph, false, false).unwrap();
+
+    let updated = flows_update(
+        &config,
+        &flow.id,
+        Some("renamed legacy".to_string()),
+        None,
+        Some(true),
+        None,
+    )
+    .await
+    .expect("metadata-only update should preserve access to a legacy graph");
+
+    assert_eq!(updated.value.name, "renamed legacy");
+    assert!(updated.value.require_approval);
+    assert_eq!(updated.value.graph, flow.graph);
+}
+
+#[tokio::test]
+async fn flows_create_rejects_an_incompatible_saved_child_before_persisting() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+
+    let error = flows_create(
+        &config,
+        "rejected parent".to_string(),
+        referenced_child_graph(&child.id),
+        false,
+    )
+    .await
+    .expect_err("create must reject an unsafe saved child");
+
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    let flows = store::list_flows(&config).unwrap();
+    assert_eq!(flows.len(), 1, "the rejected parent must not be persisted");
+    assert_eq!(flows[0].id, child.id);
+}
+
+#[tokio::test]
+async fn flows_update_rejects_an_incompatible_saved_child_before_persisting() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let original_graph = structurally_valid_graph(trigger_only_graph());
+    let parent = store::create_flow(
+        &config,
+        "safe parent".to_string(),
+        original_graph.clone(),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let error = flows_update(
+        &config,
+        &parent.id,
+        None,
+        Some(referenced_child_graph(&child.id)),
+        None,
+        None,
+    )
+    .await
+    .expect_err("update must reject an unsafe saved child");
+
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    let reloaded = flows_get(&config, &parent.id).await.unwrap().value;
+    assert_eq!(
+        reloaded.graph, original_graph,
+        "the rejected graph update must not be persisted"
+    );
+}
+
 #[tokio::test]
 async fn flows_create_rejects_graph_without_trigger() {
     let tmp = TempDir::new().unwrap();
@@ -923,6 +1556,118 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
 }
 
 #[tokio::test]
+async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+
+    // Simulate a graph persisted before the host compatibility gate existed.
+    // The store layer intentionally trusts its typed caller; authoring paths
+    // own validation.
+    store::update_flow_graph(
+        &config,
+        &created.value.id,
+        created.value.name.clone(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        created.value.require_approval,
+        None,
+        None,
+    )
+    .unwrap();
+
+    let error = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .expect_err("an incompatible checkpoint cannot be resumed safely");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert_eq!(run_row.status, "failed");
+    assert!(run_row.pending_approvals.is_empty());
+    assert!(
+        run_row
+            .error
+            .as_deref()
+            .is_some_and(|value| value.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN)),
+        "the terminal run row should retain the rejection reason: {run_row:?}"
+    );
+    let flow = flows_get(&config, &created.value.id).await.unwrap().value;
+    assert_eq!(flow.last_status.as_deref(), Some("failed"));
+}
+
+#[tokio::test]
+async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    store::update_flow_graph(
+        &config,
+        &created.value.id,
+        created.value.name.clone(),
+        structurally_valid_graph(referenced_child_graph(&child.id)),
+        created.value.require_approval,
+        None,
+        None,
+    )
+    .unwrap();
+
+    let error = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .expect_err("an incompatible saved child cannot be resumed safely");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert_eq!(run_row.status, "failed");
+    assert!(run_row.pending_approvals.is_empty());
+    assert!(run_row
+        .error
+        .as_deref()
+        .is_some_and(|value| value.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN)));
+    let flow = flows_get(&config, &created.value.id).await.unwrap().value;
+    assert_eq!(flow.last_status.as_deref(), Some("failed"));
+}
+
+#[tokio::test]
 async fn flows_resume_missing_flow_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -1405,6 +2150,205 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
         !saw_notification,
         "a fully-completed run must not publish a pending-approval notification"
     );
+}
+
+/// Issue B35 (runs-rail live refresh): `flows_run` must publish
+/// `DomainEvent::FlowRunStarted` right after the run row is persisted, with
+/// the flow id and the run's thread id, so the socket bridge can tell an open
+/// Workflows sidebar/drawer to refetch and show "Running" immediately instead
+/// of waiting for the (up to 610s) blocking RPC to resolve.
+#[tokio::test]
+async fn flows_run_publishes_flow_run_started_with_flow_and_run_id() {
+    use crate::core::event_bus::{
+        init_global, subscribe_global, DomainEvent, EventHandler, DEFAULT_CAPACITY,
+    };
+    use async_trait::async_trait;
+    use std::sync::Mutex as StdMutex;
+
+    #[derive(Default)]
+    struct Collector {
+        events: Arc<StdMutex<Vec<(String, String)>>>,
+    }
+
+    #[async_trait]
+    impl EventHandler for Collector {
+        fn name(&self) -> &str {
+            "test::flows::ops::flow_run_started_collector"
+        }
+        fn domains(&self) -> Option<&[&str]> {
+            Some(&["cron"])
+        }
+        async fn handle(&self, event: &DomainEvent) {
+            if let DomainEvent::FlowRunStarted { flow_id, run_id } = event {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push((flow_id.clone(), run_id.clone()));
+            }
+        }
+    }
+
+    init_global(DEFAULT_CAPACITY);
+    let events: Arc<StdMutex<Vec<(String, String)>>> = Arc::new(StdMutex::new(Vec::new()));
+    let collector = Arc::new(Collector {
+        events: Arc::clone(&events),
+    });
+    let _handle = subscribe_global(collector).expect("bus subscriber installed");
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "b35-run-started".to_string(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    // The bus is process-global and shared with concurrently-running tests,
+    // so filter for our own flow id rather than asserting on total count.
+    let mut found = None;
+    for _ in 0..20 {
+        {
+            let guard = events.lock().unwrap();
+            if let Some(entry) = guard.iter().find(|(fid, _)| *fid == created.value.id) {
+                found = Some(entry.clone());
+                break;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    let (flow_id, run_id) = found.expect("expected a FlowRunStarted event for this flow");
+    assert_eq!(flow_id, created.value.id);
+    assert_eq!(run_id, thread_id);
+}
+
+/// PR #5115 review finding (Codex): a run that merely pauses at an approval
+/// gate must NOT publish `DomainEvent::FlowRunFinished` — only the eventual
+/// terminal settle (here, after `flows_resume`) should. `finalize_terminal_status`
+/// can return `"pending_approval"`, and `finish_flow_run_row` used to publish
+/// unconditionally on every status; since `useFlowRunFinished` de-dupes
+/// delivered events by `${flow_id}:${run_id}`, an event fired for the pause
+/// would poison that cache and cause the real completion event after resume
+/// to be silently dropped as an alias replay. Exercises the full pause ->
+/// resume lifecycle and asserts exactly one `FlowRunFinished` is observed,
+/// carrying the final `"completed"` status, not `"pending_approval"`.
+#[tokio::test]
+async fn flows_run_finished_event_skips_pending_approval_and_fires_once_on_resume() {
+    use crate::core::event_bus::{
+        init_global, subscribe_global, DomainEvent, EventHandler, DEFAULT_CAPACITY,
+    };
+    use async_trait::async_trait;
+    use std::sync::Mutex as StdMutex;
+
+    #[derive(Default)]
+    struct Collector {
+        events: Arc<StdMutex<Vec<(String, String, String)>>>,
+    }
+
+    #[async_trait]
+    impl EventHandler for Collector {
+        fn name(&self) -> &str {
+            "test::flows::ops::flow_run_finished_pending_approval_collector"
+        }
+        fn domains(&self) -> Option<&[&str]> {
+            Some(&["cron"])
+        }
+        async fn handle(&self, event: &DomainEvent) {
+            if let DomainEvent::FlowRunFinished {
+                flow_id,
+                run_id,
+                status,
+            } = event
+            {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push((flow_id.clone(), run_id.clone(), status.clone()));
+            }
+        }
+    }
+
+    init_global(DEFAULT_CAPACITY);
+    let events: Arc<StdMutex<Vec<(String, String, String)>>> = Arc::new(StdMutex::new(Vec::new()));
+    let collector = Arc::new(Collector {
+        events: Arc::clone(&events),
+    });
+    let _handle = subscribe_global(collector).expect("bus subscriber installed");
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "b35-finished-skips-pause".to_string(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+    assert_eq!(pending, vec!["gate".to_string()]);
+
+    // Give the bus a moment to deliver anything it's going to deliver, then
+    // assert the pause produced no FlowRunFinished for this run at all.
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    {
+        let guard = events.lock().unwrap();
+        assert!(
+            !guard.iter().any(|(_, rid, _)| *rid == thread_id),
+            "a run parked at an approval gate must not publish FlowRunFinished: {guard:?}"
+        );
+    }
+
+    let resumed = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .unwrap();
+    assert_eq!(resumed.value["pending_approvals"], json!([]));
+
+    // The bus is process-global and shared with concurrently-running tests,
+    // so filter for our own run id rather than asserting on total count.
+    let mut matched: Vec<(String, String, String)> = Vec::new();
+    for _ in 0..20 {
+        {
+            let guard = events.lock().unwrap();
+            matched = guard
+                .iter()
+                .filter(|(_, rid, _)| *rid == thread_id)
+                .cloned()
+                .collect();
+            if !matched.is_empty() {
+                break;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert_eq!(
+        matched.len(),
+        1,
+        "expected exactly one FlowRunFinished for this run (the post-resume settle, \
+         none for the pause): {matched:?}"
+    );
+    let (flow_id, run_id, status) = matched.into_iter().next().unwrap();
+    assert_eq!(flow_id, created.value.id);
+    assert_eq!(run_id, thread_id);
+    assert_eq!(status, "completed");
 }
 
 // ── Live run observation (issue G2) ───────────────────────────────────────
@@ -2305,6 +3249,100 @@ fn binding_to_agent_with_matching_schema_is_accepted() {
         validate_binding_resolvability(&g).is_empty(),
         "{:?}",
         validate_binding_resolvability(&g)
+    );
+}
+
+// ── validate_agent_refs (agent-ref resolvability gate, PR #5114) ───────────
+
+#[tokio::test]
+async fn agent_ref_plain_node_without_ref_is_accepted() {
+    // A plain `agent` node carries NO `agent_ref` — it runs on the default LLM
+    // completion and never touches `OpenHumanAgentRunner`'s routing at all, so
+    // this gate must never reject it. This is the exact invariant #5114 must
+    // preserve: only an UNKNOWN `agent_ref` is rejected, never a plain node.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan", "config": { "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn agent_ref_blank_string_is_treated_as_absent() {
+    // A whitespace-only `agent_ref` must be treated the same as no ref at all
+    // rather than being resolved (and potentially rejected as "unknown").
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan",
+              "config": { "agent_ref": "   ", "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn agent_ref_resolving_to_a_harness_definition_is_accepted() {
+    // "orchestrator" is one of the bundled built-in agent definitions
+    // (see `agent_registry::defaults::default_agents_include_core_personas`),
+    // so it must resolve via `AgentRoute::Harness` and never touch the
+    // custom agent registry at all.
+    //
+    // This also exercises the CodeRabbit/Codex #5114 review fix: run via the
+    // scoped `cargo test --lib flows::ops` filter, no other domain's test gets
+    // to call `AgentDefinitionRegistry::init_global_builtins()` first, so this
+    // only passes because `validate_agent_refs` now defensively initialises
+    // the harness registry itself before resolving a ref.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan",
+              "config": { "agent_ref": "orchestrator", "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(
+        errors.is_empty(),
+        "a real harness agent_ref must never be rejected: {errors:?}"
+    );
+}
+
+#[tokio::test]
+async fn agent_ref_unknown_is_rejected() {
+    // The whole point of the gate (and the branch Codex flagged as uncovered on
+    // #5114): an `agent` node whose `agent_ref` is NOT a real registered agent —
+    // neither a bundled harness definition nor a custom registry entry — must be
+    // REJECTED at author time, with the offending id named, rather than silently
+    // hitting the `RegistryFallback` persona path at run time. Exercises the
+    // error-construction branch of `validate_agent_refs`.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan",
+              "config": { "agent_ref": "no_such_agent_xyz", "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(!errors.is_empty(), "an unknown agent_ref must be rejected");
+    assert!(
+        errors.iter().any(|e| e.contains("no_such_agent_xyz")),
+        "the rejection error must name the offending agent_ref: {errors:?}"
     );
 }
 
@@ -4546,6 +5584,116 @@ async fn strict_gate_passes_a_valid_graph_and_rejects_a_structurally_invalid_one
     let err = strict_gate(&config, &bad).await.unwrap_err();
     assert!(err.contains("structurally invalid"), "{err}");
     assert!(err.contains("trigger"), "{err}");
+
+    // A structurally valid graph must still pass the shared engine gate.
+    let err = strict_gate(&config, &nested_conditional_fan_in_graph())
+        .await
+        .unwrap_err();
+    assert!(err.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN), "{err}");
+}
+
+#[tokio::test]
+async fn strict_gate_rejects_an_incompatible_saved_child_reference() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+
+    let error = strict_gate(&config, &referenced_child_graph(&child.id))
+        .await
+        .expect_err("strict authoring must reject an incompatible saved child");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    assert!(error.contains("saved-child"), "{error}");
+}
+
+#[tokio::test]
+async fn builder_proposal_rejects_an_incompatible_saved_child_reference() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let parent = structurally_valid_graph(referenced_child_graph(&child.id));
+
+    let error = build_builder_proposal(
+        &config,
+        "propose_workflow",
+        "parent",
+        &parent,
+        false,
+        false,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect_err("a proposal must reject an incompatible saved child");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    assert!(error.contains("saved-child"), "{error}");
+}
+
+#[test]
+fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow_a = store::create_flow(
+        &config,
+        "cycle a".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let flow_b = store::create_flow(
+        &config,
+        "cycle b".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    store::update_flow_graph(
+        &config,
+        &flow_a.id,
+        flow_a.name.clone(),
+        structurally_valid_graph(referenced_child_graph(&flow_b.id)),
+        false,
+        None,
+        None,
+    )
+    .unwrap();
+    store::update_flow_graph(
+        &config,
+        &flow_b.id,
+        flow_b.name.clone(),
+        structurally_valid_graph(referenced_child_graph(&flow_a.id)),
+        false,
+        None,
+        None,
+    )
+    .unwrap();
+
+    let candidate = structurally_valid_graph(referenced_child_graph(&flow_a.id));
+    assert!(referenced_workflow_compatibility_errors(&config, &candidate).is_empty());
 }
 
 // ── core-managed drafts (F5) ─────────────────────────────────────────────────

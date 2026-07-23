@@ -541,6 +541,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Не удалось загрузить полный профиль.',
   'agentWorld.identities': 'Идентичности',
   'agentWorld.profiles': 'Профили',
+  'agentWorld.transferHandle.action': 'Передать',
+  'agentWorld.transferHandle.title': 'Передать хэндл',
+  'agentWorld.transferHandle.warning':
+    'Передача хэндла необратима и не может быть отменена. Получатель становится его единственным владельцем.',
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle получателя',
+  'agentWorld.transferHandle.confirm': 'Передать хэндл',
+  'agentWorld.transferHandle.submitting': 'Передача…',
+  'agentWorld.transferHandle.recipientRequired': 'Введите хэндл получателя.',
+  'agentWorld.transferHandle.confirmLabel': 'Введите хэндл для подтверждения',
+  'agentWorld.transferHandle.confirmMismatch': 'Введённый хэндл не совпадает.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Основной хэндл нельзя передать. Сначала сделайте активным другой хэндл.',
   'agentWorld.profile.edit': 'Изменить профиль',
   'agentWorld.profile.displayName': 'Отображаемое имя',
   'agentWorld.profile.bio': 'О себе',
@@ -1621,6 +1633,10 @@ const messages: TranslationMap = {
   'settings.about.releases': 'Релизы',
   'settings.about.releasesDesc': 'Просмотр заметок к релизам и предыдущих сборок на GitHub.',
   'settings.about.openReleases': 'Открыть релизы на GitHub',
+  'settings.about.starCta.title': 'Нравится OpenHuman?',
+  'settings.about.starCta.body': 'Поставьте нам звезду на GitHub. Так нас найдёт больше людей.',
+  'settings.about.starCta.star': 'Поставить звезду на GitHub',
+  'settings.about.starCta.dismiss': 'Не сейчас',
   'settings.about.connection': 'Соединение',
   'settings.about.connectionMode': 'Режим',
   'settings.about.connectionModeLocal': 'Локальный',
@@ -1777,6 +1793,7 @@ const messages: TranslationMap = {
     'Войдите снова, чтобы обновить сеанс OpenHuman, или переключитесь на локального провайдера эмбеддингов либо провайдера с собственным ключом.',
   'settings.embeddings.signInAgain': 'Войти снова',
   'settings.embeddings.apiKeyLabel': 'API-ключ {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'API-ключ',
   'settings.embeddings.placeholderStored': '•••••••• (сохранено)',
   'settings.embeddings.placeholderKey': 'Вставьте API-ключ…',
   'settings.embeddings.keyStoredEncrypted':
@@ -1880,6 +1897,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Поиск в каталоге кузнечного дела',
   'mcp.catalog.searchPlaceholder': 'Поиск в каталоге кузнечного дела...',
   'mcp.catalog.loadFailed': 'Не удалось загрузить каталог.',
+  'mcp.registry.error.notFound':
+    'Сервер не найден в реестре. Проверьте имя сервера и повторите попытку, просмотрите доступные MCP-серверы или добавьте сервер вручную по URL.',
+  'mcp.registry.error.network':
+    'Не удалось подключиться к реестру MCP. Проверьте соединение и повторите попытку или добавьте сервер вручную по URL.',
+  'mcp.registry.error.unavailable':
+    'Реестр MCP сейчас недоступен. Повторите попытку позже, просмотрите доступные MCP-серверы или добавьте сервер вручную по URL.',
   'mcp.catalog.noResults': 'Серверы не найдены.',
   'mcp.catalog.noResultsFor': 'Серверы для «{query}» не найдены.',
   'mcp.catalog.loadMore': 'Загрузить больше',
@@ -3518,6 +3541,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Не удалось сохранить рабочий процесс. Попробуйте еще раз.',
   'chat.flowProposal.enableError':
     'Рабочий процесс сохранён, но не удалось его включить. Попробуйте ещё раз или включите его на странице Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Сохранено',
+  'chat.flowProposal.viewWorkflow': 'Просмотреть рабочий процесс',
   'chat.flowProposal.stepKind.agent': 'Агент',
   'chat.flowProposal.stepKind.toolCall': 'Действие',
   'chat.flowProposal.stepKind.httpRequest': 'Веб-запрос',
@@ -5520,6 +5545,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Требовать утверждения плана задач',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
+  'settings.agentAccess.autoApproveAll.label': 'Автоматически одобрять все действия',
+  'settings.agentAccess.autoApproveAll.desc':
+    'При включении агент будет выполнять все подходящие действия, не спрашивая вашего одобрения. Это включает запись файлов, команды оболочки, сетевые запросы и любые другие побочные эффекты. Жесткие блокировки безопасности (каталоги учетных данных и системные каталоги) продолжают действовать, а действия из ненадежных или неизвестных источников никогда не одобряются автоматически.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Автономный агент tiny.place',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Позвольте OpenHuman самостоятельно действовать в tiny.place. По расписанию он ищет подходящую работу (сначала открытые награды), выполняет задачи по своим навыкам и действует от вашего имени. Он работает без присмотра и может тратить средства, поэтому при тестировании используйте devnet. По умолчанию выключено.',
@@ -7225,6 +7253,15 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Состояние конфиденциальности',
   'privacy.status.external': 'Вне устройства',
   'privacy.status.local': 'На устройстве',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Только загружено',
+  'sync.pipeline.storedWithoutVectors': 'Сохранено без векторов. Семантический поиск недоступен.',
+  'sync.pipeline.signInToEnable': 'Войдите, чтобы включить',
+  'sync.pipeline.extractionFailed':
+    'Не удалось извлечь структуру памяти. Вики может быть неполной.',
+  'sync.pipeline.treeDegraded':
+    'Дерево памяти деградировало. Поиск может возвращать устаревшие результаты.',
+  'sync.pipeline.viewHealth': 'Показать состояние памяти',
 };
 
 export default messages;

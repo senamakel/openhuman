@@ -562,6 +562,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Vollständiges Profil konnte nicht geladen werden.',
   'agentWorld.identities': 'Identitäten',
   'agentWorld.profiles': 'Profile',
+  'agentWorld.transferHandle.action': 'Übertragen',
+  'agentWorld.transferHandle.title': 'Handle übertragen',
+  'agentWorld.transferHandle.warning':
+    'Das Übertragen eines Handles ist dauerhaft und kann nicht rückgängig gemacht werden. Der Empfänger wird alleiniger Eigentümer.',
+  'agentWorld.transferHandle.recipientPlaceholder': 'Empfänger-@handle',
+  'agentWorld.transferHandle.confirm': 'Handle übertragen',
+  'agentWorld.transferHandle.submitting': 'Wird übertragen…',
+  'agentWorld.transferHandle.recipientRequired': 'Gib den Empfänger-Handle ein.',
+  'agentWorld.transferHandle.confirmLabel': 'Zum Bestätigen den Handle eingeben',
+  'agentWorld.transferHandle.confirmMismatch': 'Der eingegebene Handle stimmt nicht überein.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Ein primäres Handle kann nicht übertragen werden. Mache zuerst ein anderes Handle aktiv.',
   'agentWorld.profile.edit': 'Profil bearbeiten',
   'agentWorld.profile.displayName': 'Anzeigename',
   'agentWorld.profile.bio': 'Bio',
@@ -1661,6 +1673,10 @@ const messages: TranslationMap = {
   'settings.about.releases': 'Veröffentlichungen',
   'settings.about.releasesDesc': 'Durchsuche Versionshinweise und frühere Builds auf GitHub.',
   'settings.about.openReleases': 'Öffne GitHub-Releases',
+  'settings.about.starCta.title': 'Gefällt dir OpenHuman?',
+  'settings.about.starCta.body': 'Gib uns einen Stern auf GitHub. So finden mehr Menschen zu uns.',
+  'settings.about.starCta.star': 'Auf GitHub einen Stern vergeben',
+  'settings.about.starCta.dismiss': 'Nicht jetzt',
   'settings.about.connection': 'Verbindung',
   'settings.about.connectionMode': 'Modus',
   'settings.about.connectionModeLocal': 'Lokal',
@@ -1818,6 +1834,7 @@ const messages: TranslationMap = {
     'Melde dich erneut an, um deine OpenHuman-Sitzung zu aktualisieren, oder wechsle zu einem lokalen oder eigenen Einbettungsanbieter.',
   'settings.embeddings.signInAgain': 'Erneut anmelden',
   'settings.embeddings.apiKeyLabel': '{provider} API-Schlüssel',
+  'settings.embeddings.apiKeyLabelGeneric': 'API-Schlüssel',
   'settings.embeddings.placeholderStored': '•••••••• (gespeichert)',
   'settings.embeddings.placeholderKey': 'API-Schlüssel einfügen…',
   'settings.embeddings.keyStoredEncrypted':
@@ -1922,6 +1939,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'MCP-Server-Katalog durchsuchen',
   'mcp.catalog.searchPlaceholder': 'MCP-Server-Katalog durchsuchen...',
   'mcp.catalog.loadFailed': 'Katalog konnte nicht geladen werden',
+  'mcp.registry.error.notFound':
+    'Server in der Registrierung nicht gefunden. Prüfen Sie den Servernamen und versuchen Sie es erneut, durchsuchen Sie verfügbare MCP-Server oder fügen Sie den Server manuell per URL hinzu.',
+  'mcp.registry.error.network':
+    'Die MCP-Registrierung ist nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut, oder fügen Sie den Server manuell per URL hinzu.',
+  'mcp.registry.error.unavailable':
+    'Die MCP-Registrierung ist derzeit nicht verfügbar. Versuchen Sie es später erneut, durchsuchen Sie verfügbare MCP-Server oder fügen Sie den Server manuell per URL hinzu.',
   'mcp.catalog.noResults': 'Keine Server gefunden.',
   'mcp.catalog.noResultsFor': 'Keine Server für „{query}“ gefunden.',
   'mcp.catalog.loadMore': 'Mehr laden',
@@ -3591,6 +3614,8 @@ const messages: TranslationMap = {
     'Der Workflow konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
   'chat.flowProposal.enableError':
     'Workflow gespeichert, konnte aber nicht aktiviert werden. Versuchen Sie es erneut oder aktivieren Sie ihn auf der Workflows-Seite.',
+  'chat.flowProposal.savedConfirmation': 'Gespeichert',
+  'chat.flowProposal.viewWorkflow': 'Workflow ansehen',
   'chat.flowProposal.stepKind.agent': 'Agent',
   'chat.flowProposal.stepKind.toolCall': 'Aktion',
   'chat.flowProposal.stepKind.httpRequest': 'Webanfrage',
@@ -5620,6 +5645,9 @@ const messages: TranslationMap = {
     'Erfordern Sie die Genehmigung des Aufgabenplans',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pausieren Sie, bevor ein zugewiesener Agent ein vom Agenten verfasstes Aufgaben-Briefing ausführt.',
+  'settings.agentAccess.autoApproveAll.label': 'Alle Aktionen automatisch genehmigen',
+  'settings.agentAccess.autoApproveAll.desc':
+    'Wenn aktiviert, genehmigt der Agent automatisch alle zulässigen Aktionen, ohne vorher deine Zustimmung einzuholen. Dazu gehören Dateischreibvorgänge, Shell-Befehle, Netzwerkanfragen und andere Aktionen mit externen Auswirkungen. Feste Sicherheitssperren (Anmeldeinformationen und Systemverzeichnisse) gelten weiterhin, und Aktionen aus nicht vertrauenswürdigen oder unbekannten Quellen werden nie automatisch genehmigt.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Autonomer tiny.place-Agent',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Lass OpenHuman eigenständig auf tiny.place handeln: zeitgesteuert sucht es lohnende Arbeit – zuerst offene Bounties –, erledigt Passendes und handelt über deine Identität. Es läuft unbeaufsichtigt und kann Geld ausgeben; nutze beim Testen devnet. Standardmäßig aus.',
@@ -7352,6 +7380,16 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Datenschutzstatus',
   'privacy.status.external': 'Außerhalb des Geräts',
   'privacy.status.local': 'Auf dem Gerät',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Nur aufgenommen',
+  'sync.pipeline.storedWithoutVectors':
+    'Ohne Vektoren gespeichert. Semantische Suche nicht verfügbar.',
+  'sync.pipeline.signInToEnable': 'Zum Aktivieren anmelden',
+  'sync.pipeline.extractionFailed':
+    'Extraktion der Speicherstruktur fehlgeschlagen. Das Wiki ist möglicherweise unvollständig.',
+  'sync.pipeline.treeDegraded':
+    'Speicherbaum beeinträchtigt. Die Abfrage liefert möglicherweise veraltete Ergebnisse.',
+  'sync.pipeline.viewHealth': 'Speicherzustand anzeigen',
 };
 
 export default messages;

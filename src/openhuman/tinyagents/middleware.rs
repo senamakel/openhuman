@@ -1046,15 +1046,16 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
         // approval await.
         let mut audit_id: Option<String> = None;
         let has_ext = self.has_external_effect(&call.name, &call.arguments);
-        eprintln!(
-            "[approval_mw] wrap_tool tool={} has_external_effect={}",
-            call.name, has_ext,
+        tracing::debug!(
+            tool = %call.name,
+            has_external_effect = has_ext,
+            "[tinyagents::mw] checking tool for approval"
         );
         if has_ext {
             if let Some(gate) = ApprovalGate::try_global() {
-                eprintln!(
-                    "[approval_mw] gate present, calling intercept_audited for tool={}",
-                    call.name,
+                tracing::debug!(
+                    tool = %call.name,
+                    "[tinyagents::mw] routing external-effect tool through approval gate"
                 );
                 let summary = summarize_action(&call.name, &call.arguments);
                 let redacted = redact_args(&call.arguments);
@@ -1079,9 +1080,9 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
                     GateOutcome::Allow => audit_id = request_id,
                 }
             } else {
-                eprintln!(
-                    "[approval_mw] external-effect tool={} but ApprovalGate::try_global() returned None — gate not installed, skipping approval",
-                    call.name,
+                tracing::warn!(
+                    tool = %call.name,
+                    "[tinyagents::mw] approval gate unavailable; external-effect tool will run without interactive approval"
                 );
             }
         }

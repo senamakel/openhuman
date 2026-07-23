@@ -24,6 +24,7 @@ also name its upstream PR before the host copy is removed.
 | WP-2 | `tool_status/` | OpenHuman security markers, serialized UI/persistence taxonomy, retry categories, and remediation copy | HOST-OWNED | Consumer audit; classifier/type unit tests |
 | WP-3 | legacy `run_turn_engine` and graph escape hatches | All regression assertions exercise the crate turn path | ALREADY DELETED | Audit found no engine definition or runtime env read; session and subagent paths call TinyAgents unconditionally. Removed the stale runner comment. |
 | WP-4 | host tool trait/adapter artifacts selected by design | Approved tool-model decision preserves security and ungated result types | DESIGN GATE | Successor design document |
+| WP-5 | `SchemaGuardMiddleware` | TinyAgents `InvalidArgsPolicy::ReturnToolError` owns recoverable schema-invalid admission | DELETED | Policy regression + 18 `agent_harness_e2e` tests green; 232 net host lines removed in the cutover commit |
 | WP-5 | generic seam middlewares | Equivalent crate middleware released and adopted | PENDING | Per-middleware drift rows + parity tests |
 | WP-5 | detached subagent registry mechanics | Crate `TaskStore`/`SteeringRegistry` own lifecycle | PENDING | Upstream PR + orchestration tests |
 | WP-5 | `agent/progress_tracing.rs` and `progress_tracing/langfuse.rs` | C4 S2-S6 gates pass; journal projection is self-sufficient | BLOCKED | One-release shadow parity and C4 §5 gate |

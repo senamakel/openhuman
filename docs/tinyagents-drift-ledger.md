@@ -91,11 +91,12 @@ this section as investigation history.
 
 ## WP-5 Middleware Ownership Audit
 
-The earlier seam snapshot counted 17 middleware types. The current file has 18:
-the tool-exposure shadow was added after that snapshot. `TurnContextMiddleware`
-is an installer/config bundle rather than another hook implementation and is not
-counted. A middleware may be deleted only after the referenced upstream change
-is merged, vendored, and its host path is cut over.
+The earlier seam snapshot counted 17 middleware types. The audit found 18: the
+tool-exposure shadow was added after that snapshot. The crate-backed
+`SchemaGuardMiddleware` cutover below reduces the current file to 17 again.
+`TurnContextMiddleware` is an installer/config bundle rather than another hook
+implementation and is not counted. A middleware may be deleted only after its
+crate replacement and host cutover are both verified.
 
 | Middleware | Status | Ownership / exit evidence |
 | --- | --- | --- |
@@ -111,7 +112,7 @@ is merged, vendored, and its host path is cut over.
 | `ToolPolicyMiddleware` | **HOST-OWNED** | Enforces args-aware channel permission ceilings, generated-tool provenance, and OpenHuman policy decisions. Static crate `ToolPolicy` remains metadata and a generic fail-closed layer. |
 | `ToolOutcomeCaptureMiddleware` | **HOST-OWNED** | Projects final capped results and classified failures into OpenHuman tool-call records/UI state. |
 | `ArgRecoveryMiddleware` | **UPSTREAM READY — tinyagents#71** | PR #71 adds `NormalizeThenReturnToolError` and admission-time normalization with preservation regressions. Delete after the merged crate policy is vendored and the host config selects it. |
-| `SchemaGuardMiddleware` | **UPSTREAM READY — tinyagents#71** | The same crate policy converts schema-invalid calls into model-visible tool errors without synthetic stub arguments. Delete together with `ArgRecoveryMiddleware` after host cutover. |
+| `SchemaGuardMiddleware` | **CLOSED / DELETED** | TinyAgents 2.1 already provides `InvalidArgsPolicy::ReturnToolError`. The host now selects it and deleted pre-validation, synthetic schema-valid arguments, the pending map, and the tool-wrap short circuit. The policy regression and all 18 `agent_harness_e2e` tests pass. PR #71 is only needed to absorb the remaining normalization middleware. |
 | `MemoryProtocolMiddleware` | **HOST-OWNED** | Enforces OpenHuman's read/dedupe/write/index memory protocol and product tool names. |
 | `CostBudgetMiddleware` | **HOST PROJECTION** | TinyAgents `BudgetMiddleware` already runs in shadow; this wrapper maps OpenHuman billing-envelope USD/token accounting and halt summaries. Thin only when crate usage is sufficient for every host provider. |
 | `RepeatedToolFailureMiddleware` | **CRATE-BACKED / HOST PROJECTION** | Detection uses crate `NoProgressTracker`; the wrapper owns OpenHuman retry taxonomy, polling exemptions, steering, and user-facing halt summary. No duplicate generic tracker remains to upstream. |
@@ -119,8 +120,8 @@ is merged, vendored, and its host path is cut over.
 | `ImageAwareMessageTrimMiddleware` | **UPSTREAM READY — tinyagents#73** | PR #73 makes crate trimming image/token-policy aware. Delete after vendoring and proving host context-window regressions against the crate middleware. |
 
 The three upstream PRs are independently mergeable and green at the time of
-this audit. Their host deletions remain pending because OpenHuman still vendors
-an earlier TinyAgents revision.
+this audit. Their remaining host deletions stay pending because OpenHuman still
+vendors an earlier TinyAgents revision.
 
 Motion A confined all `Provider` handling to the seam + factory. Motion B
 replaces the *construction* of host `Provider`s with crate-native

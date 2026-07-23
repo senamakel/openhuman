@@ -199,12 +199,12 @@ The seam is healthy: 23/25 files use the crate; it implements `Middleware`
   `ChatMessage` is OpenHuman's versioned JSONL/thread persistence record (including
   message ids and product metadata), not a duplicate provider request type;
   replacing it directly with the crate enum would change existing on-disk data.
-- **`middleware.rs` (4,702):** the WP-5 audit now records all 18 concrete
-  middleware types (the tool-exposure shadow was added after the 17-type
-  snapshot) in `docs/tinyagents-drift-ledger.md`, with crate
-  analogues (`ArgRecovery` overlaps crate #45 arg-recovery; `SchemaGuard`
-  overlaps crate schema validation + `InvalidArgsPolicy` #42; `RepeatProgress`
-  overlaps `no_progress/`). Upstream the generic ones; host-policy ones
+- **`middleware.rs` (4,702):** the WP-5 audit records all 18 concrete types
+  found at audit time (the tool-exposure shadow was added after the 17-type
+  snapshot) in `docs/tinyagents-drift-ledger.md`. `SchemaGuard` is now deleted
+  in favor of TinyAgents 2.1 `InvalidArgsPolicy::ReturnToolError`, leaving 17.
+  `ArgRecovery` overlaps crate #45/#71 normalization and `RepeatProgress`
+  overlaps `no_progress/`/#72. Upstream the generic ones; host-policy ones
   (ApprovalSecurity, CredentialScrub, CliRpcOnly, MemoryProtocol, CostBudget)
   stay — WP-5.
 - `routes.rs` `UsageCarry`/`FallbackObserver` thin out as usage/fallback become
@@ -401,9 +401,10 @@ changes remain gated on explicit approval of that proposal.
 
 ### WP-5 — Seam shrink + orchestration lifecycle upstreaming
 
-1. Middleware audit (§4.3): per-middleware ledger rows; upstream
-   `ArgRecovery`/`SchemaGuard`/`RepeatProgress` equivalents where the crate's
-   #42/#45/no_progress machinery can absorb them; keep host-policy middlewares.
+1. Middleware audit (§4.3): per-middleware ledger rows; `SchemaGuard` is deleted
+   through the existing crate invalid-args policy, while `ArgRecovery` and
+   `RepeatProgress` await their #71/#72 crate equivalents; keep host-policy
+   middlewares.
 2. Detached-subagent lifecycle: move the generic detached-run registry
    mechanics (`agent_orchestration/running_subagents.rs`,
    `subagent_control.rs`) onto crate `TaskStore`/`SteeringRegistry` fully;

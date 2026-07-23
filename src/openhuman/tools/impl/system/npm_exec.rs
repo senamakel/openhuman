@@ -674,4 +674,51 @@ mod tests {
         assert!(result.is_error);
         assert!(result.text().contains("Cross-profile access blocked"));
     }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn symlinked_cwd_cannot_target_sibling_profile() {
+        use crate::openhuman::agent::host_runtime::NativeRuntime;
+        use crate::openhuman::config::schema::NodeConfig;
+        use crate::openhuman::security::policy::ActiveProfileGuard;
+        use crate::openhuman::security::AutonomyLevel;
+        use std::os::unix::fs::symlink;
+
+        let temp = tempfile::tempdir().unwrap();
+        let action_root = temp.path().join("actions");
+        let alice = action_root.join("profiles/alice");
+        let bob = action_root.join("profiles/bob");
+        std::fs::create_dir_all(&bob).unwrap();
+        std::fs::create_dir_all(&alice).unwrap();
+        symlink(&bob, alice.join("link")).unwrap();
+        let security = Arc::new(SecurityPolicy {
+            autonomy: AutonomyLevel::Full,
+            workspace_dir: temp.path().join("state"),
+            action_dir: alice,
+            workspace_only: false,
+            active_profile: Some(ActiveProfileGuard {
+                profile_id: "alice".into(),
+                action_dir: action_root,
+            }),
+            ..SecurityPolicy::default()
+        });
+        let bootstrap = Arc::new(NodeBootstrap::new(
+            NodeConfig::default(),
+            temp.path().to_path_buf(),
+            reqwest::Client::new(),
+        ));
+        let tool = NpmExecTool::new(security, Arc::new(NativeRuntime::new()), bootstrap);
+
+        let result = tool
+            .execute(json!({
+                "subcommand": "run",
+                "args": ["build"],
+                "cwd": "link"
+            }))
+            .await
+            .unwrap();
+
+        assert!(result.is_error);
+        assert!(result.text().contains("Cross-profile access blocked"));
+    }
 }

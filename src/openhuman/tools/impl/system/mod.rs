@@ -77,12 +77,26 @@ pub(super) fn check_cross_profile_command(
     let Some(guard) = security.active_profile.as_ref() else {
         return Ok(());
     };
-    let Some(other_id) = crate::openhuman::profiles::scan_command_for_cross_profile(
-        command,
-        cwd,
+    // Classify cwd itself before scanning command tokens. A process tool may
+    // accept a syntactically in-profile directory that is actually a symlink
+    // into a sibling; once spawned there, npm lifecycle hooks or a shell can
+    // mutate that sibling without mentioning its path in the command.
+    let other_id = match crate::openhuman::profiles::classify_cross_profile_target(
         &guard.action_dir,
         &guard.profile_id,
-    ) else {
+        cwd,
+    ) {
+        crate::openhuman::profiles::CrossProfileDecision::Block { other_id } => Some(other_id),
+        crate::openhuman::profiles::CrossProfileDecision::Allow => {
+            crate::openhuman::profiles::scan_command_for_cross_profile(
+                command,
+                cwd,
+                &guard.action_dir,
+                &guard.profile_id,
+            )
+        }
+    };
+    let Some(other_id) = other_id else {
         return Ok(());
     };
 

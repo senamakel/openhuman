@@ -1297,6 +1297,32 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
+        id: "companion.session",
+        name: "Desktop Companion Session",
+        domain: "companion",
+        category: CapabilityCategory::ScreenIntelligence,
+        description: "Run a consent-gated desktop companion session that combines a global \
+                      hotkey, native microphone capture, optional foreground app/window context, \
+                      hosted assistant reasoning, speech synthesis, and visual pointing. The \
+                      interaction loop runs in the Tauri shell while speech services run through \
+                      the embedded core.",
+        how_to: "Settings > Companion: start a session, then use the configured hotkey.",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+    Capability {
+        id: "companion.pointing",
+        name: "Visual Pointing",
+        domain: "companion",
+        category: CapabilityCategory::ScreenIntelligence,
+        description: "Parse pointing targets from companion responses and render them over the \
+                      matching desktop monitor. Target coordinates and labels are derived by the \
+                      hosted assistant from the session's optional foreground-window context.",
+        how_to: "Automatic during an active companion session when the assistant identifies a UI target.",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+    Capability {
         id: "channels.connect_platform",
         name: "Connect Messaging Platforms",
         domain: "channels",

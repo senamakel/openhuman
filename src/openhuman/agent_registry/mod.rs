@@ -13,10 +13,10 @@ mod schemas;
 pub mod tools;
 pub mod types;
 
-pub use defaults::default_agents;
+pub use defaults::{default_agents, definition_from_registry_entry};
 pub use ops::{
-    get_agent, list_agents, merge_entries, remove_agent, set_agent_enabled, update_agent,
-    upsert_custom_agent,
+    find_custom_in_config, get_agent, list_agents, merge_entries, remove_agent, set_agent_enabled,
+    update_agent, upsert_custom_agent,
 };
 pub use schemas::{
     all_controller_schemas as all_agent_registry_controller_schemas,

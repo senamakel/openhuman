@@ -230,6 +230,12 @@ pub struct Config {
     #[serde(default)]
     pub heartbeat: HeartbeatConfig,
 
+    /// Subconscious engine selection (local tinyagents graph vs. local
+    /// medulla-serve child). Default `local` — omitting this block preserves
+    /// the historical behavior exactly.
+    #[serde(default)]
+    pub subconscious: crate::openhuman::config::schema::SubconsciousConfig,
+
     #[serde(default)]
     pub cron: CronConfig,
 
@@ -764,6 +770,7 @@ impl Default for Config {
             model_routes: Vec::new(),
             embedding_routes: Vec::new(),
             heartbeat: HeartbeatConfig::default(),
+            subconscious: crate::openhuman::config::schema::SubconsciousConfig::default(),
             cron: CronConfig::default(),
             task_sources: TaskSourcesConfig::default(),
             channels_config: ChannelsConfig::default(),

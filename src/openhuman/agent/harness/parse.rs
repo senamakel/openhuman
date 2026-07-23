@@ -230,7 +230,38 @@ fn normalize_garbled_tool_call_tags(s: &str) -> Cow<'_, str> {
         let (close_start, close_end) = pair[1];
         out.push_str(&s[cursor..open_start]); // text before the open tag, verbatim
         out.push_str("<tool_call>");
-        out.push_str(strip_call_prefix(&s[open_end..close_start]));
+        // Strip the `call:` prefix, then try to recover a Kimi-family
+        // `NAME{…}` argument-sentinel body into canonical JSON (#5119). When
+        // the body is already canonical JSON / P-Format the recovery is a no-op
+        // and the stripped body flows through unchanged.
+        let stripped = strip_call_prefix(&s[open_end..close_start]);
+        match recover_sentinel_tool_call_body(stripped) {
+            Some(recovered) => {
+                // Recovered a Kimi-family `NAME{…}` sentinel body into canonical
+                // JSON. body_chars only (never the body itself — it may carry
+                // tool arguments with user data); stable `[agent_parse]` prefix
+                // so it aggregates with the other harness log families.
+                tracing::debug!(
+                    body_chars = recovered.chars().count(),
+                    "[agent_parse] recovered Kimi-family sentinel tool-call body into canonical JSON (#5119)"
+                );
+                out.push_str(&recovered)
+            }
+            None => {
+                // A body still carrying the `<|"|>` arg-quote sentinel that
+                // recovery could NOT normalize is a new Kimi garble variant.
+                // Surface it (body_chars only — never the body: it may carry
+                // user data) so operators debugging a future unrecovered variant
+                // get a signal instead of a silently dropped tool call.
+                if stripped.contains(ARG_QUOTE_SENTINEL) {
+                    tracing::warn!(
+                        body_chars = stripped.chars().count(),
+                        "[agent_parse] unrecovered Kimi-family sentinel tool-call body; passing through as text (#5119)"
+                    );
+                }
+                out.push_str(stripped)
+            }
+        }
         out.push_str("</tool_call>");
         cursor = close_end;
     }
@@ -247,6 +278,117 @@ fn strip_call_prefix(body: &str) -> &str {
         .strip_prefix("call:")
         .map(str::trim_start)
         .unwrap_or(trimmed)
+}
+
+/// The Kimi-K2-family argument-quote sentinel that leaks in place of a real `"`
+/// around string values (`[<|"|>INBOX<|"|>]` instead of `["INBOX"]`). It is the
+/// body-level sibling of the tag garble [`normalize_garbled_tool_call_tags`]
+/// already repairs; see [`recover_sentinel_tool_call_body`].
+const ARG_QUOTE_SENTINEL: &str = "<|\"|>";
+
+/// Recover a Kimi-K2-family garbled tool-call **body** into canonical
+/// `{"name":…,"arguments":…}` JSON (#5119).
+///
+/// The managed `burst`/`chat` tiers are Kimi-K2-family models; in text mode they
+/// sometimes render a call as `NAME{…}` — the action name before a JSON-ish
+/// argument object with **unquoted keys** and the `<|"|>` sentinel in place of
+/// string quotes — e.g. `GMAIL_FETCH_EMAILS{label_ids:[<|"|>INBOX<|"|>],max_results:1}`.
+/// After [`normalize_garbled_tool_call_tags`] fixes the surrounding tags this
+/// body still matches neither the JSON nor the P-Format grammar, so the call is
+/// dropped as narrative text and the tool never runs (the turn then loops).
+///
+/// Recovery: replace the `<|"|>` sentinels with real quotes, split the leading
+/// action name off the `{…}` object, quote the object's bare keys, and re-emit
+/// as `{"name":"NAME","arguments":{…}}` for the existing JSON parser. Returns
+/// `None` — leaving the body untouched — whenever the shape does not match: a
+/// canonical JSON body (`{…}`, empty name), a P-Format body (`NAME[…]`, no `{`),
+/// or the already-handled `call:{"name":…}` form all fall through unchanged.
+fn recover_sentinel_tool_call_body(body: &str) -> Option<String> {
+    let repaired = body.replace(ARG_QUOTE_SENTINEL, "\"");
+    let trimmed = repaired.trim();
+
+    // Shape must be `NAME{…}`: a bare action identifier immediately followed by
+    // a brace object. A body already starting with `{` yields an empty name and
+    // is left to the JSON parser; a `NAME[…]` P-Format body has no `{`.
+    let brace = trimmed.find('{')?;
+    let name = trimmed[..brace].trim();
+    if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return None;
+    }
+    let object = trimmed[brace..].trim_end();
+    if !object.starts_with('{') || !object.ends_with('}') {
+        return None;
+    }
+
+    // Kimi renders object keys unquoted (`{label_ids: …}`); quote them so the
+    // result is strict JSON, then confirm it actually parses as an object before
+    // committing to the rewrite.
+    let quoted = quote_bare_json_object_keys(object);
+    let arguments: serde_json::Value = serde_json::from_str(&quoted).ok()?;
+    if !arguments.is_object() {
+        return None;
+    }
+
+    serde_json::to_string(&serde_json::json!({ "name": name, "arguments": arguments })).ok()
+}
+
+/// Quote every **bare** object key (`{label_ids: …}` → `{"label_ids": …}`) in a
+/// JSON-ish string, tracking string context so a `:` or identifier inside a
+/// value never triggers a spurious rewrite. Bare literal values
+/// (`true`/`false`/`null`/numbers) are left untouched — they are valid JSON —
+/// and already-quoted keys pass through unchanged.
+fn quote_bare_json_object_keys(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 16);
+    let mut in_string = false;
+    let mut escaped = false;
+    // True right after a structural `{` or `,` — the only positions where a bare
+    // key may begin.
+    let mut expect_key = false;
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_string = true;
+                expect_key = false;
+                out.push(c);
+            }
+            '{' | ',' => {
+                expect_key = true;
+                out.push(c);
+            }
+            c if c.is_whitespace() => out.push(c), // keep looking for a key
+            c if expect_key && (c.is_ascii_alphabetic() || c == '_') => {
+                out.push('"');
+                out.push(c);
+                while let Some(&nc) = chars.peek() {
+                    if nc.is_ascii_alphanumeric() || nc == '_' {
+                        out.push(nc);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                out.push('"');
+                expect_key = false;
+            }
+            _ => {
+                expect_key = false;
+                out.push(c);
+            }
+        }
+    }
+    out
 }
 
 /// `<invoke` prefix shared by the bare (`<invoke>`) and Claude-native

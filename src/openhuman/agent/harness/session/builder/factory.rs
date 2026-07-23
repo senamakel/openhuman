@@ -74,47 +74,11 @@ impl Agent {
     pub fn from_config_for_agent(config: &Config, agent_id: &str) -> Result<Self> {
         // Look up the target definition up front so we can fail fast
         // with a clear error instead of building half an agent and then
-        // discovering the id is unknown. The registry is a singleton
-        // initialised at startup; if it's not yet populated we
-        // conservatively fall back to the legacy "orchestrator-shaped"
-        // build by proceeding without a definition override.
-        let target_def: Option<crate::openhuman::agent::harness::definition::AgentDefinition> =
-            match AgentDefinitionRegistry::global() {
-                Some(reg) => match reg.get(agent_id) {
-                    Some(def) => Some(def.clone()),
-                    None if agent_id == "orchestrator" => {
-                        // Orchestrator is allowed to be missing from the
-                        // registry (legacy path, tests, pre-startup) —
-                        // fall back to default behaviour.
-                        log::debug!(
-                            "[agent::builder] orchestrator definition not in registry — \
-                         using legacy default prompt + filter"
-                        );
-                        None
-                    }
-                    None => {
-                        return Err(anyhow::anyhow!(
-                            "agent definition '{}' not found in registry",
-                            agent_id
-                        ));
-                    }
-                },
-                None => {
-                    if agent_id != "orchestrator" {
-                        return Err(anyhow::anyhow!(
-                            "AgentDefinitionRegistry is not initialised — cannot \
-                         resolve agent '{}'. Call AgentDefinitionRegistry::init_global \
-                         at startup.",
-                            agent_id
-                        ));
-                    }
-                    log::debug!(
-                        "[agent::builder] registry not initialised, orchestrator requested — \
-                     using legacy default prompt + filter"
-                    );
-                    None
-                }
-            };
+        // discovering the id is unknown. See `resolve_target_definition`
+        // for the full resolution order (harness registry, then the
+        // config-backed custom agent registry, then the orchestrator's
+        // legacy pre-startup fallback).
+        let target_def = resolve_target_definition(config, agent_id)?;
 
         log::info!(
             "[agent::builder] building session agent id={} \
@@ -197,30 +161,7 @@ impl Agent {
         profile_prompt_suffix: Option<String>,
         profile: Option<&crate::openhuman::profiles::AgentProfile>,
     ) -> Result<Self> {
-        let target_def: Option<crate::openhuman::agent::harness::definition::AgentDefinition> =
-            match AgentDefinitionRegistry::global() {
-                Some(reg) => match reg.get(agent_id) {
-                    Some(def) => Some(def.clone()),
-                    None if agent_id == "orchestrator" => None,
-                    None => {
-                        return Err(anyhow::anyhow!(
-                            "agent definition '{}' not found in registry",
-                            agent_id
-                        ));
-                    }
-                },
-                None => {
-                    if agent_id != "orchestrator" {
-                        return Err(anyhow::anyhow!(
-                            "AgentDefinitionRegistry is not initialised — cannot \
-                         resolve agent '{}'. Call AgentDefinitionRegistry::init_global \
-                         at startup.",
-                            agent_id
-                        ));
-                    }
-                    None
-                }
-            };
+        let target_def = resolve_target_definition(config, agent_id)?;
         Self::build_session_agent_inner(
             config,
             agent_id,
@@ -885,7 +826,35 @@ impl Agent {
                 };
                 (synthed, None)
             }
-            (_, None) => {
+            (Some(def), None) => {
+                // We have a target definition (either a pre-populated
+                // harness entry looked up before the registry singleton
+                // existed, or — the common case today — a `CustomRegistry`
+                // definition `resolve_target_definition` synthesizes
+                // straight from `config.agent_registry.entries` without
+                // ever consulting `AgentDefinitionRegistry::global()`, see
+                // `agent_registry::find_custom_in_config`). Delegation-tool
+                // synthesis needs the registry (to resolve named
+                // subagents), so it's skipped here, but `def.tools` is a
+                // real scope the caller authored and MUST still gate
+                // visibility — silently dropping it into the `(_, None)`
+                // "no registry, no filter" catch-all would leave a custom
+                // agent's `ToolScope::Named` allowlist entirely
+                // unenforced (visible tools empty rather than the named
+                // set), regressing the least-privilege contract this
+                // synthesis path exists to provide.
+                log::debug!(
+                    "[agent::builder] AgentDefinitionRegistry not initialised — skipping \
+                     delegation tool synthesis, but still applying target definition's own \
+                     tool scope"
+                );
+                let filter: Option<std::collections::HashSet<String>> = match &def.tools {
+                    ToolScope::Named(names) => Some(names.iter().cloned().collect()),
+                    ToolScope::Wildcard => None,
+                };
+                (Vec::new(), filter)
+            }
+            (None, None) => {
                 log::debug!(
                     "[agent::builder] AgentDefinitionRegistry not initialised — \
                      skipping delegation tool synthesis"
@@ -1212,6 +1181,81 @@ impl Agent {
         agent.synthesized_tool_names = synthesized_tool_names;
         Ok(agent)
     }
+}
+
+/// Resolves the `AgentDefinition` a session should be built from, given the
+/// requested `agent_id`, in three steps:
+///
+/// 1. **Harness registry** (`AgentDefinitionRegistry`, the process-global
+///    singleton of built-in + workspace-TOML-override definitions) — a hit
+///    here wins outright.
+/// 2. **Config-backed custom agent registry** (`config.agent_registry.entries`,
+///    `AgentRegistrySource::Custom`) — on a harness-registry miss (or the
+///    registry not yet being initialised), a user-authored custom agent is
+///    synthesized into a real `AgentDefinition` via
+///    `agent_registry::definition_from_registry_entry` so it runs through
+///    the exact same `build_session_agent_inner` path (and therefore the
+///    exact same `SecurityPolicy` / tool-filtering / approval gate) as a
+///    built-in. This closes the gap where a custom agent either hard-errored
+///    (chat, task-dispatcher) or silently ran tool-less/persona-only (flows'
+///    `RegistryFallback`) — see the cross-cutting fix in the PR that added
+///    this function.
+/// 3. **Orchestrator legacy fallback** — `orchestrator` alone is allowed to
+///    resolve to `None` (pre-startup, tests): the caller then builds with the
+///    default prompt/filter, matching pre-#1 behaviour.
+///
+/// Any other id that resolves nowhere is a hard error, exactly as before this
+/// function existed — only the *search order* changed, not the failure
+/// contract for a genuinely-unknown id.
+fn resolve_target_definition(
+    config: &Config,
+    agent_id: &str,
+) -> Result<Option<crate::openhuman::agent::harness::definition::AgentDefinition>> {
+    let registry = AgentDefinitionRegistry::global();
+
+    if let Some(reg) = registry {
+        if let Some(def) = reg.get(agent_id) {
+            return Ok(Some(def.clone()));
+        }
+    }
+
+    // Harness registry miss (or not yet initialised). Before failing, check
+    // the config-backed custom agent registry — the one place custom
+    // (non-shipped) agents live.
+    if let Some(entry) = crate::openhuman::agent_registry::find_custom_in_config(config, agent_id) {
+        log::info!(
+            "[agent::builder] agent_id={} not found in the harness AgentDefinitionRegistry — \
+             synthesizing a definition from its custom agent_registry entry so it runs with its \
+             real tool belt instead of persona-only / erroring",
+            agent_id
+        );
+        return Ok(Some(
+            crate::openhuman::agent_registry::definition_from_registry_entry(&entry),
+        ));
+    }
+
+    if agent_id == "orchestrator" {
+        // Orchestrator is allowed to be missing from every source (legacy
+        // path, tests, pre-startup) — fall back to default behaviour.
+        log::debug!(
+            "[agent::builder] orchestrator definition not in any registry — using legacy \
+             default prompt + filter"
+        );
+        return Ok(None);
+    }
+
+    if registry.is_none() {
+        return Err(anyhow::anyhow!(
+            "AgentDefinitionRegistry is not initialised — cannot resolve agent '{}'. Call \
+             AgentDefinitionRegistry::init_global at startup.",
+            agent_id
+        ));
+    }
+
+    Err(anyhow::anyhow!(
+        "agent definition '{}' not found in registry",
+        agent_id
+    ))
 }
 
 /// Resolve the `Config` the tool registry is built from (#5050, Fix 1).

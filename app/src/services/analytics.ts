@@ -98,6 +98,8 @@ const ALLOWED_EVENT_NAMES = [
   'account_connect_success',
   'chat_message_sent',
   'chat_message_shared',
+  'github_star_cta_clicked',
+  'github_star_cta_dismissed',
   'automation_run_started',
   'automation_run_resumed',
   'automation_run_cancelled',

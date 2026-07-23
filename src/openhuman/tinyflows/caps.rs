@@ -893,19 +893,86 @@ impl AgentRunner for OpenHumanAgentRunner {
                     agent_ref,
                     "[flows] agent_runner: HARNESS path — running the full agent tool loop"
                 );
-                self.run_via_harness(agent_ref, request, conn).await
+                // A shipped/TOML harness definition has no `entry.model` — the
+                // definition's own `ModelSpec` (already applied by the session
+                // builder) is the only model pin in play here.
+                self.run_via_harness(agent_ref, request, conn, None).await
             }
             AgentRoute::RegistryFallback => {
-                tracing::info!(
-                    target: "flows",
+                // `route_for_agent_ref` only consults the harness
+                // `AgentDefinitionRegistry`, so a miss there used to mean
+                // "run the persona-only completion fallback" unconditionally
+                // — even for a user-created custom agent, which has real
+                // `tool_allowlist`/`model` settings that fallback ignores.
+                //
+                // The agent factory (`Agent::from_config_for_agent`) now
+                // also consults `config.agent_registry.entries` on a
+                // harness-registry miss and synthesizes a real
+                // `AgentDefinition` for any `AgentRegistrySource::Custom`
+                // entry it finds (issue B38/Gap 2). So: route a *known,
+                // enabled* custom entry through the harness turn — it gets
+                // its real tool belt — and reserve the persona-only
+                // completion for `agent_ref`s that are unknown to both the
+                // harness registry AND the custom config registry (or that
+                // are disabled, which `run_via_registry_fallback` already
+                // rejects with a clear error).
+                let custom_entry = crate::openhuman::agent_registry::find_custom_in_config(
+                    &self.config,
                     agent_ref,
-                    "[flows] agent_runner: FALLBACK path — persona-shaping single completion for a \
-                     custom registry entry"
                 );
-                self.run_via_registry_fallback(agent_ref, request, conn)
-                    .await
+                let entry_model = custom_entry.as_ref().and_then(|e| e.model.clone());
+                match route_custom_entry_lookup(custom_entry.as_ref()) {
+                    AgentRoute::Harness => {
+                        tracing::info!(
+                            target: "flows",
+                            agent_ref,
+                            "[flows] agent_runner: CUSTOM-REGISTRY path — routing through the \
+                             harness so the custom agent runs with its real tool belt instead of \
+                             the persona-only completion fallback"
+                        );
+                        // Preserve the custom entry's own `model` pin (e.g.
+                        // `hint:reasoning` or a raw BYOK model id) as the
+                        // fallback below the node's own override — same
+                        // precedence `run_via_registry_fallback` already gave
+                        // it, now honored on the harness path too (P2 review
+                        // comment on this PR: this previously regressed to the
+                        // default chat model for a custom flow agent with no
+                        // per-node override).
+                        self.run_via_harness(agent_ref, request, conn, entry_model.as_deref())
+                            .await
+                    }
+                    AgentRoute::RegistryFallback => {
+                        tracing::info!(
+                            target: "flows",
+                            agent_ref,
+                            "[flows] agent_runner: FALLBACK path — persona-shaping single \
+                             completion for a custom registry entry"
+                        );
+                        self.run_via_registry_fallback(agent_ref, request, conn)
+                            .await
+                    }
+                }
             }
         }
+    }
+}
+
+/// Decides how to run an `agent_ref` that has no harness definition, given
+/// the (already-performed) config-backed custom registry lookup: an
+/// [`AgentRoute::Harness`] for a known, *enabled* custom entry — the factory
+/// synthesizes a real `AgentDefinition` for it (issue B38/Gap 2), so it can
+/// run the full tool loop — and [`AgentRoute::RegistryFallback`] for
+/// anything else (no entry at all, or a disabled one, which
+/// [`OpenHumanAgentRunner::run_via_registry_fallback`] itself rejects with a
+/// clear "is disabled" error rather than silently skipping it here). Pure
+/// over the lookup result so the decision is unit-testable without a live
+/// `Config`/registry.
+pub(crate) fn route_custom_entry_lookup(
+    entry: Option<&crate::openhuman::agent_registry::AgentRegistryEntry>,
+) -> AgentRoute {
+    match entry {
+        Some(e) if e.enabled => AgentRoute::Harness,
+        _ => AgentRoute::RegistryFallback,
     }
 }
 
@@ -913,11 +980,21 @@ impl OpenHumanAgentRunner {
     /// Full harness turn: build a real session agent for `agent_ref` and drive
     /// one `run_single` under the node's model override + timeout. See
     /// [`OpenHumanAgentRunner`] for the security/origin contract.
+    ///
+    /// `entry_model` is the custom `AgentRegistryEntry`'s own `model` pin (a
+    /// `hint:<role>` or raw BYOK model id), when `agent_ref` resolved to one —
+    /// `None` for a shipped/TOML harness definition, which has no such entry.
+    /// It is the fallback below the node's own `config.model` override (see
+    /// `resolve_node_model`), matching the precedence
+    /// `run_via_registry_fallback` already gave `entry.model` — without this,
+    /// a custom flow agent's model pin (e.g. `hint:reasoning`) silently
+    /// dropped to the default chat model once routed through the harness.
     async fn run_via_harness(
         &self,
         agent_ref: &str,
         request: Value,
         conn: Option<&str>,
+        entry_model: Option<&str>,
     ) -> Result<Value> {
         use crate::openhuman::agent::Agent;
 
@@ -931,9 +1008,9 @@ impl OpenHumanAgentRunner {
         }
 
         // Model precedence for a harness node: node `config.model` > the
-        // definition's own default. There is no custom registry `entry_model` on
-        // this path.
-        let node_model = resolve_node_model(&request, None);
+        // custom registry entry's own `model` pin (if any) > the definition's
+        // own default.
+        let node_model = resolve_node_model(&request, entry_model);
 
         // Apply the override the cron way (`run_agent_job`): a cloned `Config`
         // with a new `default_model`, so we never mutate the shared config or

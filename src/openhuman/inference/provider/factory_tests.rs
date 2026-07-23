@@ -808,6 +808,61 @@ async fn create_chat_model_uses_native_test_override() {
     assert_eq!(response.text(), "echo: hi there");
 }
 
+#[tokio::test]
+async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() {
+    use async_trait::async_trait;
+    use std::sync::{Arc, Mutex};
+    use tinyagents::harness::message::Message;
+    use tinyagents::harness::model::{ModelRequest, ModelResponse};
+
+    struct TemperatureProbe {
+        seen: Arc<Mutex<Vec<Option<f64>>>>,
+    }
+
+    #[async_trait]
+    impl ChatModel<()> for TemperatureProbe {
+        async fn invoke(
+            &self,
+            _state: &(),
+            request: ModelRequest,
+        ) -> tinyagents::Result<ModelResponse> {
+            self.seen
+                .lock()
+                .expect("probe lock")
+                .push(request.temperature);
+            Ok(ModelResponse::assistant("ok"))
+        }
+    }
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let _override = test_provider_override::install_model(Arc::new(TemperatureProbe {
+        seen: Arc::clone(&seen),
+    }));
+
+    let config = Config::default();
+    let role_model = create_chat_model("chat", &config, 0.3).expect("role model");
+    role_model
+        .invoke(&(), ModelRequest::new(vec![Message::user("default")]))
+        .await
+        .expect("default-temperature invoke");
+
+    let explicit_model = create_chat_model_from_string("chat", "openhuman", &config, 0.7)
+        .expect("explicit provider model");
+    explicit_model
+        .invoke(
+            &(),
+            ModelRequest::new(vec![Message::user("explicit")]).with_temperature(0.9),
+        )
+        .await
+        .expect("explicit-temperature invoke");
+
+    assert_eq!(
+        *seen.lock().expect("probe lock"),
+        vec![Some(0.3), Some(0.9)]
+    );
+}
+
 // ── Motion B (#4727): managed-backend crate-native routing ──────────────────
 // `create_chat_model` must route the managed OpenHuman backend through the
 // crate-native `OpenHumanBackendModel`, whose concrete `managed` profile
@@ -995,13 +1050,7 @@ fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
         .expect("configured OpenhumanJwt slug should be recognized")
         .expect("managed model should build");
 
-    assert_eq!(
-        model_id,
-        config
-            .default_model
-            .clone()
-            .unwrap_or_else(|| crate::openhuman::config::DEFAULT_MODEL.to_string())
-    );
+    assert_eq!(model_id, "reasoning-v1");
     assert_eq!(
         model
             .profile()

@@ -35,7 +35,7 @@ use crate::openhuman::inference::provider::openai_codex::{
 use crate::openhuman::inference::provider::openhuman_backend_model::OpenHumanBackendModel;
 use crate::openhuman::inference::provider::ProviderRuntimeOptions;
 use std::sync::Arc;
-use tinyagents::harness::model::ChatModel;
+use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
 
 /// Sentinel meaning "use the OpenHuman backend session JWT".
 pub const PROVIDER_OPENHUMAN: &str = "openhuman";
@@ -663,8 +663,8 @@ fn emit_inference_egress(role: &str, provider: &str) {
 ///
 /// The crate [`ChatModel`] is the model interface for the harness and one-shot
 /// inference callers. Production and tests both inject this native interface;
-/// `temperature` is retained for API compatibility while per-call requests own
-/// the effective value.
+/// `temperature` is applied as the request default while an explicit per-call
+/// value still wins.
 pub fn create_chat_model(
     role: &str,
     config: &Config,
@@ -681,7 +681,15 @@ pub fn create_chat_model(
 pub fn create_chat_model_with_model_id(
     role: &str,
     config: &Config,
-    _temperature: f64,
+    temperature: f64,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    let (model, model_id) = create_chat_model_with_model_id_inner(role, config)?;
+    Ok((with_default_temperature(model, temperature), model_id))
+}
+
+fn create_chat_model_with_model_id_inner(
+    role: &str,
+    config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(model) = test_provider_override::current() {
@@ -691,8 +699,8 @@ pub fn create_chat_model_with_model_id(
     // ([`OpenHumanBackendModel`], issue #4727 Motion B) instead of a
     // adapted provider. A native test-model override must still win, so only
     // take this path when no
-    // override is installed. Temperature rides the per-call `ModelRequest` on the
-    // crate path (the managed model is reused across prompts of differing temp).
+    // override is installed. The public wrapper supplies the construction-time
+    // default while preserving an explicit per-call `ModelRequest` temperature.
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
         {
@@ -769,7 +777,17 @@ pub fn create_chat_model_from_string_with_model_id(
     role: &str,
     provider: &str,
     config: &Config,
-    _temperature: f64,
+    temperature: f64,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    let (model, model_id) =
+        create_chat_model_from_string_with_model_id_inner(role, provider, config)?;
+    Ok((with_default_temperature(model, temperature), model_id))
+}
+
+fn create_chat_model_from_string_with_model_id_inner(
+    role: &str,
+    provider: &str,
+    config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(model) = test_provider_override::current() {
@@ -814,6 +832,50 @@ pub fn create_chat_model_from_string_with_model_id(
         }
     }
     Err(unresolved_chat_model_error(role, provider, config))
+}
+
+struct DefaultTemperatureChatModel {
+    inner: Arc<dyn ChatModel<()>>,
+    temperature: f64,
+}
+
+#[async_trait::async_trait]
+impl ChatModel<()> for DefaultTemperatureChatModel {
+    fn profile(&self) -> Option<&tinyagents::harness::model::ModelProfile> {
+        self.inner.profile()
+    }
+
+    async fn invoke(
+        &self,
+        state: &(),
+        mut request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        if request.temperature.is_none() {
+            request.temperature = Some(self.temperature);
+        }
+        self.inner.invoke(state, request).await
+    }
+
+    async fn stream(
+        &self,
+        state: &(),
+        mut request: ModelRequest,
+    ) -> tinyagents::Result<ModelStream> {
+        if request.temperature.is_none() {
+            request.temperature = Some(self.temperature);
+        }
+        self.inner.stream(state, request).await
+    }
+}
+
+fn with_default_temperature(
+    model: Arc<dyn ChatModel<()>>,
+    temperature: f64,
+) -> Arc<dyn ChatModel<()>> {
+    Arc::new(DefaultTemperatureChatModel {
+        inner: model,
+        temperature,
+    })
 }
 
 /// Reproduce the legacy provider factory's access gates and diagnostics for a
@@ -2165,7 +2227,16 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     let auth = match entry.auth_style {
         AuthStyle::Anthropic => CompatAuthStyle::Anthropic,
         AuthStyle::None => CompatAuthStyle::None,
-        AuthStyle::OpenhumanJwt => return Some(make_openhuman_backend_model(role, config)),
+        AuthStyle::OpenhumanJwt => {
+            let (backend, _resolved_model) = match resolve_managed_backend(role, config) {
+                Ok(result) => result,
+                Err(error) => return Some(Err(error)),
+            };
+            return Some(Ok((
+                Arc::new(backend.with_default_model(&effective_model)),
+                effective_model,
+            )));
+        }
         AuthStyle::Bearer => {
             // The codex routing may re-target the endpoint (OAuth backend).
             endpoint = codex.endpoint.clone();

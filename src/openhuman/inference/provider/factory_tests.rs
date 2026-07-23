@@ -91,6 +91,7 @@ fn nvidia_nim_entry(id: &str, default_model: Option<&str>) -> CloudProviderCreds
 /// successfully and return that model id unchanged.
 #[test]
 fn nvidia_nim_with_explicit_model_builds_correctly() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
     let (_, model) = create_test_chat_model_from_string(
         "reasoning",
@@ -112,6 +113,7 @@ fn nvidia_nim_with_explicit_model_builds_correctly() {
 /// Regression test for https://github.com/tinyhumansai/openhuman/issues/2784.
 #[test]
 fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
     let err = match create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config) {
         Ok(_) => panic!("empty model string must not succeed — would send model='' to the API"),
@@ -132,6 +134,7 @@ fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
 /// default_model, that default should be used — no error.
 #[test]
 fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = config_with_providers(vec![nvidia_nim_entry(
         "p_nim",
         Some("meta/llama-3.1-70b-instruct"),

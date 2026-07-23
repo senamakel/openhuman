@@ -221,6 +221,19 @@ fn transition_error_to_idle() {
 }
 
 #[test]
+fn failed_turn_recovers_to_idle_and_preserves_error() {
+    with_clean_session(|| {
+        let _s = start_default_session();
+        transition_state(CompanionState::Listening, None).unwrap();
+        recover_after_turn_error("no audio samples".into());
+
+        let status = session_status();
+        assert_eq!(status.state, CompanionState::Idle);
+        assert_eq!(status.last_error.as_deref(), Some("no audio samples"));
+    });
+}
+
+#[test]
 fn transition_speaking_to_listening_interrupt() {
     with_clean_session(|| {
         let _s = start_default_session();

@@ -39,8 +39,7 @@ const LOG_PREFIX: &str = "[companion]";
 static CONFIG: Mutex<Option<CompanionConfig>> = Mutex::new(None);
 
 /// The in-flight mic capture, if the companion is currently Listening. Used to
-/// implement tap-to-talk: the first activation starts capture, the second stops
-/// it and runs the turn.
+/// implement both tap-to-talk and push-to-talk activation.
 static ACTIVE_CAPTURE: Mutex<Option<MicCapture>> = Mutex::new(None);
 
 /// Install the app handle so the session/pipeline can emit frontend events from
@@ -107,13 +106,48 @@ pub(crate) async fn companion_config_set(
     Ok(config)
 }
 
-// ── Activation (tap-to-talk) driven by the hotkey / companion_activate ──
+// ── Activation driven by the hotkey / companion_activate ──────────────
+
+/// Handle a global-hotkey press according to the configured activation mode.
+///
+/// Push mode begins capture on press; tap mode toggles capture on each press.
+pub fn handle_hotkey_pressed(app: AppHandle<AppRuntime>) {
+    if current_config()
+        .activation_mode
+        .eq_ignore_ascii_case("push")
+    {
+        start_capture();
+    } else {
+        handle_activation(app);
+    }
+}
+
+/// Handle a global-hotkey release according to the configured activation mode.
+///
+/// Only push mode consumes releases. Tap mode intentionally waits for the next
+/// press, preserving toggle behavior.
+pub fn handle_hotkey_released(app: AppHandle<AppRuntime>) {
+    if current_config()
+        .activation_mode
+        .eq_ignore_ascii_case("push")
+    {
+        finish_capture_and_run(app);
+    }
+}
 
 /// Handle a companion activation (hotkey press or the `companion_activate`
 /// command). Tap-to-talk: the first activation while a session is active starts
 /// native mic capture (Listening); the next activation stops capture and spawns
 /// the interaction turn.
 pub fn handle_activation(app: AppHandle<AppRuntime>) {
+    if ACTIVE_CAPTURE.lock().is_some() {
+        finish_capture_and_run(app);
+    } else {
+        start_capture();
+    }
+}
+
+fn start_capture() {
     let status = session::session_status();
     if !status.active {
         debug!("{LOG_PREFIX} activation ignored — no active session");
@@ -121,39 +155,42 @@ pub fn handle_activation(app: AppHandle<AppRuntime>) {
     }
 
     let mut cap = ACTIVE_CAPTURE.lock();
-    if cap.is_none() {
-        // Begin listening.
-        if let Err(e) = session::transition_state(CompanionState::Listening, None) {
-            warn!("{LOG_PREFIX} could not enter Listening: {e}");
-            return;
-        }
-        match MicCapture::start() {
-            Ok(c) => {
-                *cap = Some(c);
-                info!("{LOG_PREFIX} listening — mic capture started");
-            }
-            Err(e) => {
-                warn!("{LOG_PREFIX} mic capture failed to start: {e}");
-                let _ = session::transition_state(
-                    CompanionState::Error,
-                    Some(format!("mic capture failed: {e}")),
-                );
-            }
-        }
-    } else {
-        // Stop listening and run the turn.
-        let capture = cap.take().expect("checked is_some");
-        drop(cap);
-        let (samples, rate) = capture.stop();
-        info!("{LOG_PREFIX} captured {} samples @ {rate}Hz", samples.len());
-        let screens = monitors_geometry(&app);
-        tauri::async_runtime::spawn(async move {
-            let cancel = CancellationToken::new();
-            if let Err(e) = pipeline::run_audio_turn(&samples, rate, &screens, cancel).await {
-                warn!("{LOG_PREFIX} companion turn failed: {e}");
-            }
-        });
+    if cap.is_some() {
+        debug!("{LOG_PREFIX} capture start ignored — already listening");
+        return;
     }
+
+    if let Err(e) = session::transition_state(CompanionState::Listening, None) {
+        warn!("{LOG_PREFIX} could not enter Listening: {e}");
+        return;
+    }
+    match MicCapture::start() {
+        Ok(c) => {
+            *cap = Some(c);
+            info!("{LOG_PREFIX} listening — mic capture started");
+        }
+        Err(e) => {
+            warn!("{LOG_PREFIX} mic capture failed to start: {e}");
+            session::recover_after_turn_error(format!("mic capture failed: {e}"));
+        }
+    }
+}
+
+fn finish_capture_and_run(app: AppHandle<AppRuntime>) {
+    let Some(capture) = ACTIVE_CAPTURE.lock().take() else {
+        debug!("{LOG_PREFIX} capture stop ignored — not listening");
+        return;
+    };
+    let (samples, rate) = capture.stop();
+    info!("{LOG_PREFIX} captured {} samples @ {rate}Hz", samples.len());
+    let screens = monitors_geometry(&app);
+    tauri::async_runtime::spawn(async move {
+        let cancel = CancellationToken::new();
+        if let Err(e) = pipeline::run_audio_turn(&samples, rate, &screens, cancel).await {
+            warn!("{LOG_PREFIX} companion turn failed: {e}");
+            session::recover_after_turn_error(e);
+        }
+    });
 }
 
 /// Enumerate connected monitors as [`ScreenGeometry`] for POINT-tag coordinate

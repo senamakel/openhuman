@@ -182,7 +182,9 @@ pub async fn run_audio_turn(
     cancel: CancellationToken,
 ) -> Result<TurnResult, String> {
     if audio_samples.is_empty() {
-        return Err("no audio samples".into());
+        let message = "no audio samples".to_string();
+        session::recover_after_turn_error(message.clone());
+        return Err(message);
     }
 
     info!(

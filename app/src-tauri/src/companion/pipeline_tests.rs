@@ -147,6 +147,9 @@ async fn audio_turn_rejects_empty_samples() {
     let result = run_audio_turn(&[], 16_000, &single_screen(), cancel).await;
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("no audio"));
+    let status = session::session_status();
+    assert_eq!(status.state, CompanionState::Idle);
+    assert_eq!(status.last_error.as_deref(), Some("no audio samples"));
     session::reset_for_test();
 }
 

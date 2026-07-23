@@ -245,6 +245,19 @@ pub fn transition_state(
     Ok(previous)
 }
 
+/// Record a failed turn and return the active session to `Idle` so the next
+/// activation can start a fresh capture.
+pub fn recover_after_turn_error(message: String) {
+    let status = session_status();
+    if !status.active {
+        return;
+    }
+    if status.state != CompanionState::Error {
+        let _ = transition_state(CompanionState::Error, Some(message));
+    }
+    let _ = transition_state(CompanionState::Idle, None);
+}
+
 /// Add a conversation turn to the session history.
 pub fn push_conversation_turn(turn: ConversationTurn) -> Result<(), String> {
     let mut guard = ACTIVE_SESSION.lock();

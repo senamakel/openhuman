@@ -40,14 +40,17 @@ pub(crate) async fn register_companion_hotkey(
     let register_shortcut = |variant: &str| -> Result<(), String> {
         let app_clone = app.clone();
         app.global_shortcut()
-            .on_shortcut(variant, move |_app, _sc, event| {
-                if event.state == ShortcutState::Pressed {
+            .on_shortcut(variant, move |_app, _sc, event| match event.state {
+                ShortcutState::Pressed => {
                     debug!("[companion] hotkey pressed — emitting companion://activate");
                     if let Err(e) = app_clone.emit("companion://activate", ()) {
                         warn!("[companion] emit failed: {e}");
                     }
-                    // Drive the native tap-to-talk capture/turn loop.
-                    crate::companion::handle_activation(app_clone.clone());
+                    crate::companion::handle_hotkey_pressed(app_clone.clone());
+                }
+                ShortcutState::Released => {
+                    debug!("[companion] hotkey released");
+                    crate::companion::handle_hotkey_released(app_clone.clone());
                 }
             })
             .map_err(|e| format!("Failed to register shortcut '{variant}': {e}"))
@@ -135,7 +138,8 @@ pub(crate) async fn companion_activate(app: AppHandle<AppRuntime>) -> Result<(),
     info!("[companion] companion_activate: called");
     app.emit("companion://activate", ())
         .map_err(|e| format!("Failed to emit companion://activate: {e}"))?;
-    // Drive the native tap-to-talk capture/turn loop.
+    // Programmatic activation is a toggle regardless of the configured hotkey
+    // mode because a button has no corresponding release event.
     crate::companion::handle_activation(app.clone());
     Ok(())
 }

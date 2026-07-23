@@ -54,7 +54,11 @@ impl SecurityPolicy {
         let check = if expanded_path.is_absolute() {
             expanded_path.to_path_buf()
         } else {
-            self.workspace_dir.join(expanded_path)
+            // File tools resolve relative paths from action_dir, not the
+            // core-state workspace. Joining workspace_dir here accidentally
+            // reserves internal directory names (for example
+            // `personalities/alice.md`) in an otherwise legitimate project.
+            self.action_dir.join(expanded_path)
         };
         if self.is_workspace_internal_path(&check) {
             log::trace!(

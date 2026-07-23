@@ -904,6 +904,30 @@ fn relative_paths_allowed() {
 }
 
 #[test]
+fn relative_personalities_path_resolves_under_action_dir() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let workspace = tmp.path().join("state");
+    let action = tmp.path().join("projects");
+    std::fs::create_dir_all(workspace.join("personalities").join("alice")).unwrap();
+    std::fs::create_dir_all(action.join("personalities")).unwrap();
+    let policy = SecurityPolicy {
+        workspace_dir: workspace.clone(),
+        action_dir: action,
+        ..SecurityPolicy::default()
+    };
+
+    assert!(policy.is_path_string_allowed("personalities/alice.md"));
+    assert!(!policy.is_path_string_allowed(
+        workspace
+            .join("personalities")
+            .join("alice")
+            .join("SOUL.md")
+            .to_string_lossy()
+            .as_ref()
+    ));
+}
+
+#[test]
 fn path_traversal_blocked() {
     let p = default_policy();
     assert!(!p.is_path_string_allowed("../etc/passwd"));

@@ -539,11 +539,11 @@ impl ApprovalGate {
         // external_effect tool from an unlabelled call site.
         let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
         log::info!(
-            "[approval::gate] intercept_audited_inner tool={tool_name} origin={origin:?} auto_approve_all={auto_all} bypass_auto={bypass} chat_ctx={chat_ctx}",
-            tool_name = tool_name,
-            origin = ?origin,
-            auto_all = self.is_auto_approve_all_enabled(),
-            bypass = matches!(&origin,
+            "[approval::gate] intercept_audited_inner tool={} origin={:?} auto_approve_all={} bypass_auto={} chat_ctx={}",
+            tool_name,
+            origin,
+            self.is_auto_approve_all_enabled(),
+            matches!(&origin,
                 AgentTurnOrigin::TrustedAutomation {
                     source: TrustedAutomationSource::GoalContinuation,
                     ..
@@ -554,7 +554,7 @@ impl ApprovalGate {
                     ..
                 }
             ),
-            chat_ctx = APPROVAL_CHAT_CONTEXT.try_with(|c| c.clone()).is_ok(),
+            APPROVAL_CHAT_CONTEXT.try_with(|c| c.clone()).is_ok(),
         );
 
         // Per-flow tool trust shortcut (flow-approval-surface, PR2): a prior

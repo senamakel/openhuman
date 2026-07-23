@@ -789,6 +789,7 @@ async fn run_typed_mode(
                 lazy_resolver = Some(LazyToolkitResolver {
                     config: arc_config.clone(),
                     actions: integration.tools.clone(),
+                    resolved: std::sync::Mutex::default(),
                 });
             } else {
                 tracing::warn!(

@@ -477,8 +477,8 @@ fn omlx_dispatch_empty_model_errors() {
 
 #[test]
 fn omlx_provider_builds_without_key_uses_no_auth() {
-    // Covers the no-api_key warn branch in make_omlx_provider — must not panic,
-    // must return Ok with the correct model name.
+    // Covers the no-api_key OMLX builder branch — must not panic and must
+    // return Ok with the correct model name.
     let mut config = crate::openhuman::config::Config::default();
     config.local_ai.api_key = None;
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
@@ -489,7 +489,7 @@ fn omlx_provider_builds_without_key_uses_no_auth() {
 
 #[test]
 fn omlx_dispatch_success_builds_provider() {
-    // Covers the success arms (non-empty model -> make_omlx_provider) in both
+    // Covers the non-empty OMLX model success arms in both
     // create_test_chat_model_from_string and create_test_local_chat_model_from_string.
     let mut config = crate::openhuman::config::Config::default();
     config.local_ai.api_key = Some("sk-omlx-test".to_string());

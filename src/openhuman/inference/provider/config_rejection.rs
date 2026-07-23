@@ -167,8 +167,8 @@ pub fn is_provider_config_rejection_message(body: &str) -> bool {
         // when the request body contains an empty `"model":""` field.
         "model field is required",
         // TAURI-RUST-GKV (~2.3k events / 1 user) — the LOCAL form of the
-        // 4NM empty-model state, caught one layer earlier. The #2784 guard
-        // in `factory::make_cloud_provider_by_slug` bails BEFORE any
+        // 4NM empty-model state, caught one layer earlier. The #2784 cloud-slug
+        // resolution guard bails BEFORE any
         // provider HTTP call when a `<slug>` provider string carries no
         // model and the `cloud_providers` entry has no `default_model`:
         //   "[chat-factory] no model configured: role '<r>' resolved to an
@@ -640,8 +640,8 @@ mod tests {
 
     #[test]
     fn detects_chat_factory_empty_model_local_bail() {
-        // TAURI-RUST-GKV — the #2784 factory guard
-        // (`make_cloud_provider_by_slug`) catches the empty-model state
+        // TAURI-RUST-GKV — the #2784 cloud-slug resolution guard catches the
+        // empty-model state
         // BEFORE the provider HTTP call (the local form of 4NM) and bails
         // with this body (role/slug interpolated). Verbatim from Sentry
         // issue 18482 (role='chat', slug='nvidia').

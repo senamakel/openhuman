@@ -3,7 +3,7 @@
 //! This module is the canonical home for all inference concerns:
 //! - `local/`    — Ollama / LM Studio / Whisper / Piper runtime management
 //!                 (was `src/openhuman/local_ai/`)
-//! - `provider/` — cloud + local provider trait, routing, reliability
+//! - `provider/` — native chat models, cloud/local routing, auth and errors
 //!                 (was `src/openhuman/providers/`)
 //! - `voice/`    — transcription (STT) and TTS inference implementations
 //!                 (moved from `src/openhuman/voice/`)

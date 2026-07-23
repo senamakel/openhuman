@@ -1,4 +1,4 @@
-//! Unified provider abstraction — cloud + local chat, embedding, and streaming.
+//! Native chat-model construction plus cloud/local inference policy and DTOs.
 //!
 //! This module was previously `src/openhuman/providers/`. It now lives under
 //! `inference/provider/` so all inference concerns (local runtime, cloud

@@ -18,12 +18,11 @@ use crate::openhuman::config::{
 /// The workload routes projected into the registry, keyed by their OpenHuman
 /// tier alias (the string the wrapped provider resolves at dispatch).
 ///
-/// This mirrors the tier-name set `provider/router.rs::openhuman_tier_to_hint`
-/// recognizes (`reasoning`, `chat`, `agentic`, `burst`, `coding`,
-/// `summarization`, `vision`). `router.rs` stays the product source of truth for
-/// which provider/model each name resolves to; this list is only the projection
-/// inventory. `subconscious`/`memory` are intentionally absent — they are role
-/// aliases that ride the `chat-v1` model rather than distinct router tiers.
+/// This is the canonical tier inventory (`reasoning`, `chat`, `agentic`,
+/// `burst`, `coding`, `summarization`, `vision`). The inference provider factory
+/// resolves the selected tier to its configured model. `subconscious`/`memory`
+/// are intentionally absent — they are role aliases that ride the `chat-v1`
+/// model rather than distinct router tiers.
 pub(super) const WORKLOAD_ROUTE_TIERS: &[&str] = &[
     MODEL_CHAT_V1,
     MODEL_REASONING_V1,
@@ -37,7 +36,7 @@ pub(super) const WORKLOAD_ROUTE_TIERS: &[&str] = &[
 /// The OpenHuman workload-tier routing table as a crate
 /// [`ModelRouter`](tinyagents::registry::ModelRouter) — the single declarative
 /// source for cross-route **fallback chains** and per-tier **required-capability
-/// gates** (issue #4249, Phase 3: RouterProvider → crate registry projection).
+/// gates** (issue #4249, Phase 3 routing consolidation).
 ///
 /// The router owns the policy this module previously open-coded as
 /// `same_family_fallbacks` +

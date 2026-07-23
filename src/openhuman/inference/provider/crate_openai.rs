@@ -144,11 +144,9 @@ pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn
     Arc::new(model)
 }
 
-/// Factory-level crate-native builder — the drop-in parallel to the host
-/// `make_openai_compatible_provider_with_config`, taking the same resolved
-/// inputs (provider slug, endpoint, credential, host auth style, model, the
-/// config temperature-suppression list + per-workload override) and returning a
-/// crate `ChatModel` instead of a `Box<dyn Provider>`.
+/// Factory-level native builder taking resolved provider slug, endpoint,
+/// credential, host auth style, model, temperature-suppression list, and
+/// per-workload override and returning a crate `ChatModel`.
 ///
 /// The cutover swaps each generic OpenAI-compatible construction site over to
 /// this. `merge_system_into_user` is threaded per-provider (the catalog knows
@@ -187,8 +185,7 @@ pub(crate) fn make_crate_openai_chat_model(
 }
 
 /// Build a crate-native `ChatModel` for a **local OpenAI-compatible runtime**
-/// (Ollama, LM Studio, MLX, OMLX, local-openai) — the crate-native counterpart
-/// of the host `make_*_provider` local builders. Local runtimes reject the
+/// (Ollama, LM Studio, MLX, OMLX, local-openai). Local runtimes reject the
 /// OpenAI `tools` parameter and are text-only, so native tool calling and vision
 /// are forced off; `num_ctx` (Ollama) rides baked provider options as
 /// `{"options": {"num_ctx": N}}`, matching the host provider's wire shape.

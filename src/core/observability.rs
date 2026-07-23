@@ -1055,6 +1055,20 @@ pub fn is_session_expired_message(msg: &str) -> bool {
         // `does_not_classify_streaming_byo_key_401_as_session_expired`.
         || (msg.contains("OpenHuman streaming API error (401")
             && msg.contains("\"error\":\"Invalid token\""))
+        // TAURI-RUST-N — same OpenHuman backend "Invalid token" envelope
+        // wrapped by the tinyagents `ProviderError::Display` format
+        // (`TinyAgentsError::Provider(Box<ProviderError>)`). The crate-native
+        // path (`OpenHumanBackendModel`) delegates to tinyagents' `OpenAiModel`
+        // which formats errors as `"{provider} returned HTTP {status}: {body}"`,
+        // producing `"OpenHuman returned HTTP 401: ..."` — different from the
+        // `"OpenHuman API error (401"` prefix the classic `api_error` path emits.
+        // Same conjunctive-anchor pattern: scoped to `"OpenHuman returned HTTP
+        // {status}"` (so a third-party BYO-key 401 from a provider whose label
+        // contains "OpenHuman" cannot match) AND the envelope-shaped
+        // `"\"error\":\"Invalid token\""` (so bare prose mentions of "invalid
+        // token" stay actionable).
+        || (msg.contains("OpenHuman returned HTTP 401")
+            && msg.contains("\"error\":\"Invalid token\""))
 }
 
 /// Detect a remote MCP server's connect-time 401 — the user must sign in to
@@ -2387,6 +2401,38 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
 /// honest.
 pub const REPORT_ERROR_TRACING_TARGET: &str = "openhuman::observability::report_error";
 
+/// Cooldown period for rate-limiting repeated filesystem-limit errors.
+/// Within this window, the same (domain, operation) pair that carries
+/// `(os error 665)` is suppressed — Sentry never receives a duplicate
+/// Sentry event, and only a `debug!` log line is emitted.
+const FS_ERROR_COOLDOWN: std::time::Duration = std::time::Duration::from_secs(300); // 5 min
+
+/// In-process state tracking the last-reported time of `ERROR_FILE_SYSTEM_LIMITATION`
+/// (os error 665) events, keyed by `(domain, operation)`. This prevents
+/// unthrottled retry loops from flooding Sentry (TAURI-RUST-QT0: 6,050 events /
+/// 1 user).
+static LAST_FS_LIMIT_REPORT: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<(String, String), std::time::Instant>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+/// Returns `true` when `(domain, operation)` was already reported with
+/// an error-665 message within [`FS_ERROR_COOLDOWN`]. Cleans up stale
+/// entries older than the cooldown on every call.
+fn was_recently_reported(domain: &str, operation: &str) -> bool {
+    let mut guard = LAST_FS_LIMIT_REPORT.lock().expect("fs limit cooldown lock");
+    let now = std::time::Instant::now();
+    // Prune stale entries older than cooldown (single-pass to keep map bounded).
+    guard.retain(|_, last| now.duration_since(*last) < FS_ERROR_COOLDOWN);
+    let key = (domain.to_string(), operation.to_string());
+    if let Some(last) = guard.get(&key) {
+        if now.duration_since(*last) < FS_ERROR_COOLDOWN {
+            return true;
+        }
+    }
+    guard.insert(key, now);
+    false
+}
+
 pub(crate) fn report_error_message(
     message: &str,
     domain: &str,
@@ -2399,6 +2445,24 @@ pub(crate) fn report_error_message(
     // `crash-reporting` `before_send` hook — so scrub once, up front.
     let scrubbed = crate::core::log_redaction::scrub_secrets(message);
     let message = scrubbed.as_str();
+    // Rate-limit Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665)
+    // events: skip the Sentry capture if the same (domain, operation) pair
+    // was already reported within the last 5 minutes. This prevents
+    // unthrottled retry loops from flooding Sentry (TAURI-RUST-QT0:
+    // 6,050 events / 1 user). The `before_send` chain also filters these,
+    // but this early-exit avoids the Sentry scope overhead entirely.
+    #[cfg(feature = "crash-reporting")]
+    if message.contains("os error 665")
+        && was_recently_reported(domain, operation)
+    {
+        tracing::debug!(
+            target: REPORT_ERROR_TRACING_TARGET,
+            domain = domain,
+            operation = operation,
+            "[observability] {domain}.{operation} rate-limited os error 665 (reported within cooldown)"
+        );
+        return;
+    }
     // Sentry-touching behaviour is gated behind `crash-reporting`. The
     // diagnostic `tracing::error!` stays compiled in both builds (see the
     // `#[cfg(not(...))]` companion below) so stderr / file appenders keep the
@@ -3275,106 +3339,94 @@ fn event_contains_budget_exhausted_message(event: &sentry::protocol::Event<'_>) 
 /// user-config provider pattern. Target: ~22 Sentry issues / ~26k events.
 #[cfg(feature = "crash-reporting")]
 pub fn is_user_config_provider_event(event: &sentry::protocol::Event<'_>) -> bool {
-    let domain = event.tags.get("domain").map(String::as_str);
+    // Collect all text sources to check against
+    let texts: Vec<&str> = {
+        let mut v = Vec::with_capacity(2 + event.exception.values.len());
+        if let Some(msg) = event.message.as_deref() {
+            v.push(msg);
+        }
+        if let Some(log) = event.logentry.as_ref().map(|l| l.message.as_str()) {
+            v.push(log);
+        }
+        for exc in &event.exception.values {
+            if let Some(val) = exc.value.as_deref() {
+                v.push(val);
+            }
+        }
+        v
+    };
+    if texts.is_empty() {
+        return false;
+    }
 
-    // Provider 4xx user-config errors — match on tags for structured events
+    // Provider 4xx patterns — user config errors like:
+    //   "HTTP 400", "HTTP 401", "HTTP 403", "HTTP 404"
+    // matching against llm_provider domain events
+    let tags = &event.tags;
+    let domain = tags.get("domain").map(String::as_str);
     if domain == Some("llm_provider") {
-        if let Some(status) = event.tags.get("status") {
+        if let Some(status) = tags.get("status") {
+            // 4xx user config errors
             if matches!(status.as_str(), "400" | "401" | "403" | "404") {
                 return true;
             }
         }
+        // Message-level patterns
+        let lower = texts.join(" ").to_ascii_lowercase();
+        if lower.contains("401 payment required")
+            || lower.contains("subscription")
+            || lower.contains("max monthly spend")
+            || lower.contains("context length exceeded")
+            || lower.contains("context size exceeded")
+        {
+            return true;
+        }
     }
 
-    // Collect all message/exception text sources
-    let texts = collect_event_texts(event);
-    if texts.is_empty() {
-        return false;
-    }
-    let lower = texts.join(" ").to_ascii_lowercase();
-
-    // Subscription / payment / plan-limit patterns
-    if lower.contains("401 payment required")
-        || lower.contains("subscription")
-        || lower.contains("max monthly spend")
-        || lower.contains("monthly request count")
-        || lower.contains("credit limit exceeded")
-        || lower.contains("insufficient credits")
-        || lower.contains("out of credits")
-    {
-        return true;
-    }
-
-    // Context-length / model-capacity patterns
-    if lower.contains("context length exceeded")
-        || lower.contains("context size exceeded")
-        || lower.contains("token limit exceeded")
-        || lower.contains("max tokens exceeded")
-    {
-        return true;
-    }
-
-    // Model-not-found / unavailable patterns
-    if lower.contains("model not found")
-        || lower.contains("model unavailable")
-        || lower.contains("not supported")
-        || lower.contains("does not exist")
-        || (lower.contains("model") && lower.contains("not available"))
-    {
-        return true;
-    }
-
-    // Embedding API errors — user's embedding provider config
-    if (lower.contains("embed") || lower.contains("embedding"))
-        && (lower.contains("401")
-            || lower.contains("404")
-            || lower.contains("unauthorized")
-            || lower.contains("invalid model"))
-    {
-        return true;
-    }
-
-    // Email config errors
-    if lower.contains("unsafe login") && lower.contains("imap") {
-        return true;
+    // Embedding API 4xx / unauthorized — user's embedding provider config
+    if domain == Some("llm_provider") || domain == Some("local_ai") {
+        let lower = texts.join(" ").to_ascii_lowercase();
+        if (lower.contains("embed") || lower.contains("embedding"))
+            && (lower.contains("401") || lower.contains("404") || lower.contains("unauthorized")
+                || lower.contains("invalid model"))
+        {
+            return true;
+        }
     }
 
     false
 }
 
-/// Helper to collect all text sources from a Sentry event.
-#[cfg(feature = "crash-reporting")]
-fn collect_event_texts(event: &sentry::protocol::Event<'_>) -> Vec<&str> {
-    let mut v = Vec::with_capacity(2 + event.exception.values.len());
-    if let Some(msg) = event.message.as_deref() {
-        v.push(msg);
-    }
-    if let Some(log) = event.logentry.as_ref().map(|l| l.message.as_str()) {
-        v.push(log);
-    }
-    for exc in &event.exception.values {
-        if let Some(val) = exc.value.as_deref() {
-            v.push(val);
-        }
-    }
-    v
-}
-
 /// Defense-in-depth `before_send` filter for **connectivity/network flakiness**
 /// events — transient, self-resolving failures like timeouts, gateways, and
-/// "Failed to fetch" messages.
+/// "Failed to fetch" messages from the frontend.
 ///
 /// Primary suppression lives at the caller sites. This is the outermost net for
 /// any future call site that bypasses those classifiers. Target: ~8 issues.
 #[cfg(feature = "crash-reporting")]
 pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
-    let texts = collect_event_texts(event);
+    let texts: Vec<&str> = {
+        let mut v = Vec::with_capacity(2 + event.exception.values.len());
+        if let Some(msg) = event.message.as_deref() {
+            v.push(msg);
+        }
+        if let Some(log) = event.logentry.as_ref().map(|l| l.message.as_str()) {
+            v.push(log);
+        }
+        for exc in &event.exception.values {
+            if let Some(val) = exc.value.as_deref() {
+                v.push(val);
+            }
+        }
+        v
+    };
     if texts.is_empty() {
         return false;
     }
+
     let lower = texts.join(" ").to_ascii_lowercase();
 
-    // Frontend CEF connectivity blips
+    // Failed to fetch (frontend CEF connectivity blips)
     if lower.contains("failed to fetch") || lower.contains("typeerror: failed to fetch") {
         return true;
     }
@@ -3385,7 +3437,6 @@ pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
         || lower.contains("connection closed before")
         || lower.contains("broken pipe")
         || lower.contains("tls handshake eof")
-        || lower.contains("error sending request")
     {
         return true;
     }
@@ -3396,18 +3447,16 @@ pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
         || lower.contains("502 gateway timeout")
         || lower.contains("timeout: 503")
         || lower.contains("upstream connect error")
-        || (lower.contains("503") && lower.contains("service unavailable"))
     {
         return true;
     }
 
-    // Non-provider HTTP 401 (frontend session lapses, not llm_provider/backend_api)
+    // CoreRpcError / HTTP 401 (from frontend — user session issue, not code defect)
+    // Only match bare HTTP 401 (CoreRpcError / fetch), not llm_provider 401
+    // which is handled by the session-expired classifier
     let domain = event.tags.get("domain").map(String::as_str);
     if domain != Some("llm_provider") && domain != Some("backend_api") {
-        if lower.contains("http 401")
-            || lower.contains("status: 401")
-            || lower.contains("401 unauthorized")
-        {
+        if lower.contains("http 401") || lower.contains("status: 401") || lower.contains("401 unauthorized") {
             return true;
         }
     }
@@ -3420,11 +3469,15 @@ pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
     false
 }
 
-/// Filter out events from **stale releases** — releases older than 6 minor
-/// versions behind the current build. Ancient-client errors are not actionable
-/// against the current codebase. Target: ~4 issues from v0.54.x releases.
+/// Filter out events from **stale releases** — releases older than
+/// `MAX_AGE_MINOR_VERSIONS` minor versions behind the current build.
+///
+/// Ancient-client errors are not actionable against the current codebase.
+/// Target: ~4 issues from releases like v0.54.0 against current v0.58+.
 #[cfg(feature = "crash-reporting")]
 pub fn is_stale_release_event(event: &sentry::protocol::Event<'_>) -> bool {
+    // Maximum number of minor versions behind the current release to accept.
+    // Events from clients on releases older than this are dropped.
     const MAX_AGE_MINOR_VERSIONS: u32 = 6;
 
     let Some(release) = event.release.as_ref() else {
@@ -3433,12 +3486,15 @@ pub fn is_stale_release_event(event: &sentry::protocol::Event<'_>) -> bool {
 
     let current = env!("CARGO_PKG_VERSION");
     parse_version(current).is_some_and(|(current_major, current_minor)| {
-        parse_release_tag(release).is_some_and(|(event_major, event_minor)| {
-            if event_major != current_major {
-                return event_major < current_major;
-            }
-            current_minor.saturating_sub(event_minor) > MAX_AGE_MINOR_VERSIONS
-        })
+        parse_release_tag(release)
+            .is_some_and(|(event_major, event_minor)| {
+                if event_major != current_major {
+                    // Different major version = definitely stale (or from the future)
+                    return event_major < current_major;
+                }
+                // Same major: check minor version gap
+                current_minor.saturating_sub(event_minor) > MAX_AGE_MINOR_VERSIONS
+            })
     })
 }
 
@@ -3446,7 +3502,9 @@ pub fn is_stale_release_event(event: &sentry::protocol::Event<'_>) -> bool {
 /// `"openhuman@0.58.0+abc123def456"` into `(major, minor)`.
 #[cfg(feature = "crash-reporting")]
 fn parse_release_tag(tag: &str) -> Option<(u32, u32)> {
+    // Strip the `openhuman@` prefix
     let after_at = tag.split('@').nth(1)?;
+    // Get the version part before any `+` suffix
     let version = after_at.split('+').next()?;
     parse_version(version)
 }

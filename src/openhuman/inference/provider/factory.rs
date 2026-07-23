@@ -1834,7 +1834,7 @@ fn looks_like_openhuman_backend(url: &str) -> bool {
 ///
 /// Tolerates whitespace around the components. Returns `temperature = None`
 /// when the suffix is absent or unparseable — the model text is taken as-is.
-fn split_model_and_temperature(raw: &str) -> (String, Option<f64>) {
+pub(crate) fn split_model_and_temperature(raw: &str) -> (String, Option<f64>) {
     let trimmed = raw.trim();
     if let Some(at_pos) = trimmed.rfind('@') {
         let head = trimmed[..at_pos].trim();

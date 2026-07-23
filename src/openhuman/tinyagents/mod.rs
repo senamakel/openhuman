@@ -80,7 +80,9 @@ pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{
     HandoffConfig, SuperContextConfig, TranscriptSnapshotSink, TurnContextMiddleware,
 };
-use model::{BuiltTurnModels, ProfileOverrideModel, TierRoutes, TurnChatModel};
+use model::{
+    BuiltTurnModels, ProfileOverrideModel, RouteRecordingModel, TierRoutes, TurnChatModel,
+};
 pub(crate) use observability::SubagentScope;
 use observability::{
     CapPauser, IterationCursor, OpenhumanEventBridge, ProviderUsageCarry, ToolFailureMap,
@@ -1256,6 +1258,72 @@ impl TurnModels {
 /// downcastable `anyhow` to preserve), so typed provider-error *recovery* is unused
 /// here (Sentry suppression is unaffected — both `skips_sentry` cases are raised in
 /// the host turn loop).
+fn resolved_route_metadata(
+    role: &str,
+    config: &crate::openhuman::config::Config,
+    model: &str,
+    provider_override: Option<&str>,
+) -> (String, String) {
+    use crate::openhuman::inference::provider::factory::{
+        CLAUDE_AGENT_SDK_PREFIX, CLAUDE_AGENT_SDK_PROVIDER, PROVIDER_OPENHUMAN,
+    };
+
+    let provider_string = provider_override
+        .map(str::trim)
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            crate::openhuman::inference::provider::provider_for_role(role, config)
+                .trim()
+                .to_owned()
+        });
+    let managed = provider_string.is_empty()
+        || provider_string == "cloud"
+        || provider_string == PROVIDER_OPENHUMAN;
+    if managed {
+        return (PROVIDER_OPENHUMAN.to_string(), model.to_string());
+    }
+
+    let provider = provider_string
+        .split(':')
+        .next()
+        .unwrap_or(&provider_string)
+        .to_string();
+    // The two subprocess adapters are explicitly pinned to the turn model by
+    // `create_turn_chat_model`; all other non-managed builders take their wire
+    // model from the provider string (`slug:model[@temperature]`).
+    let model = if provider_string == CLAUDE_AGENT_SDK_PROVIDER
+        || provider_string.starts_with(CLAUDE_AGENT_SDK_PREFIX)
+        || provider_string
+            .starts_with(crate::openhuman::inference::provider::claude_code::PROVIDER_PREFIX)
+    {
+        model.to_string()
+    } else {
+        provider_string
+            .split_once(':')
+            .map(|(_, configured)| {
+                crate::openhuman::inference::provider::factory::split_model_and_temperature(
+                    configured,
+                )
+                .0
+            })
+            .filter(|configured| !configured.is_empty())
+            .unwrap_or_else(|| model.to_string())
+    };
+    (provider, model)
+}
+
+fn with_resolved_route_recording(
+    model: TurnChatModel,
+    role: &str,
+    config: &crate::openhuman::config::Config,
+    requested_model: &str,
+    provider_override: Option<&str>,
+) -> TurnChatModel {
+    let (provider, resolved_model) =
+        resolved_route_metadata(role, config, requested_model, provider_override);
+    Arc::new(RouteRecordingModel::new(model, provider, resolved_model))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn build_turn_models_crate(
     role: &str,
@@ -1274,7 +1342,7 @@ fn build_turn_models_crate(
     // The primary honours an explicit provider-string override when the producer's
     // effective provider differs from `provider_for_role(role)` (triage #1257).
     let build_primary = |m: &str| -> anyhow::Result<TurnChatModel> {
-        match primary_override {
+        let model = match primary_override {
             Some(ps) => factory::create_turn_chat_model_from_string_with_native_tools(
                 role,
                 ps,
@@ -1290,7 +1358,14 @@ fn build_turn_models_crate(
                 temperature,
                 !force_text_mode,
             ),
-        }
+        }?;
+        Ok(with_resolved_route_recording(
+            model,
+            role,
+            config,
+            m,
+            primary_override,
+        ))
     };
 
     // Build the primary, every workload-tier route, and the summarizer under one
@@ -1313,7 +1388,10 @@ fn build_turn_models_crate(
                 }
                 let tier_role = factory::role_for_model_tier(tier);
                 match factory::create_turn_chat_model(tier_role, config, tier, temperature) {
-                    Ok(route_model) => routes.push((tier.to_string(), route_model)),
+                    Ok(route_model) => routes.push((
+                        tier.to_string(),
+                        with_resolved_route_recording(route_model, tier_role, config, tier, None),
+                    )),
                     Err(e) => {
                         // A route that can't be built (e.g. an unconfigured BYOK tier) is
                         // skipped, not fatal — the primary still dispatches (parity with the

@@ -322,16 +322,25 @@ fn block_on_migration(
     };
     // Pin the future so block_on can drive it to completion.
     let mut goal = std::pin::pin!(goal);
-    match rt.block_on(&mut goal) {
-        Ok(report) => {
-            let report_str = format!("{report:?}");
-            // Avoid log noise: a zero-total report means the legacy dir is absent/empty.
-            if !report_str.contains("total: 0") {
-                log::info!("[{label}] legacy→crate migration: {report_str}");
+    // block_in_place moves the current async task to a blocking thread so
+    // that block_on can safely block the current thread without violating
+    // tokio's "no blocking inside async" rule. Calling Handle::block_on
+    // from an unmodified async context panics with "Cannot start a runtime
+    // from within a runtime" — exactly what happens during embedded core
+    // startup (tests, Tauri in-process core, etc.), where
+    // start_core_runtime_services runs inside a tokio::spawn task.
+    tokio::task::block_in_place(|| {
+        match rt.block_on(&mut goal) {
+            Ok(report) => {
+                let report_str = format!("{report:?}");
+                // Avoid log noise: a zero-total report means the legacy dir is absent/empty.
+                if !report_str.contains("total: 0") {
+                    log::info!("[{label}] legacy→crate migration: {report_str}");
+                }
             }
+            Err(e) => log::warn!("[{label}] legacy→crate migration failed: {e}"),
         }
-        Err(e) => log::warn!("[{label}] legacy→crate migration failed: {e}"),
-    }
+    })
 }
 
 #[allow(dead_code)]

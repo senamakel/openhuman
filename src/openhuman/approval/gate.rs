@@ -538,6 +538,24 @@ impl ApprovalGate {
         // `Unknown`, which is denied — the gate refuses to execute an
         // external_effect tool from an unlabelled call site.
         let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
+        tracing::info!(
+            tool = %tool_name,
+            origin = ?origin,
+            auto_approve_all = self.is_auto_approve_all_enabled(),
+            bypass_auto_approve_shortcut = matches!(&origin,
+                AgentTurnOrigin::TrustedAutomation {
+                    source: TrustedAutomationSource::GoalContinuation,
+                    ..
+                } | AgentTurnOrigin::TrustedAutomation {
+                    source: TrustedAutomationSource::Workflow {
+                        require_approval: true
+                    },
+                    ..
+                }
+            ),
+            chat_ctx_available = APPROVAL_CHAT_CONTEXT.try_with(|c| c.clone()).is_ok(),
+            "[approval::gate] intercept_audited_inner — processing"
+        );
 
         // Per-flow tool trust shortcut (flow-approval-surface, PR2): a prior
         // `ApproveAlwaysForFlow` decision on this exact `(flow_id, tool_name)`

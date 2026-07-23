@@ -1045,8 +1045,19 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
         // Resolve external-effect up front so no tool borrow is held across the
         // approval await.
         let mut audit_id: Option<String> = None;
-        if self.has_external_effect(&call.name, &call.arguments) {
+        let has_ext = self.has_external_effect(&call.name, &call.arguments);
+        tracing::debug!(
+            tool = %call.name,
+            has_external_effect = has_ext,
+            has_subagent_scope = ctx.is_subagent.is_some(),
+            "[approval_mw] wrap_tool evaluating external effect"
+        );
+        if has_ext {
             if let Some(gate) = ApprovalGate::try_global() {
+                tracing::debug!(
+                    tool = %call.name,
+                    "[approval_mw] gate present, calling intercept_audited"
+                );
                 let summary = summarize_action(&call.name, &call.arguments);
                 let redacted = redact_args(&call.arguments);
                 let (outcome, request_id) =

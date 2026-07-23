@@ -4132,6 +4132,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'অনুমোদনের অপেক্ষায়',
   'flowRuns.status.failed': 'ব্যর্থ',
   'flowRuns.status.cancelled': 'বাতিল করা হয়েছে',
+  'flowRuns.status.interrupted': 'বিঘ্নিত',
 
   'flows.page.title': 'ওয়ার্কফ্লো',
   'flows.page.description': 'সংরক্ষিত অটোমেশন যা আপনি সক্ষম, চালাতে এবং পর্যবেক্ষণ করতে পারেন।',
@@ -4158,6 +4159,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'অনুমোদনের অপেক্ষায়',
   'flows.allRuns.status.failed': 'ব্যর্থ',
   'flows.allRuns.status.cancelled': 'বাতিল',
+  'flows.allRuns.status.interrupted': 'বিঘ্নিত',
   'flows.list.minutesAgo': '{count} মিনিট আগে',
   'flows.list.hoursAgo': '{count} ঘণ্টা আগে',
   'flows.list.daysAgo': '{count} দিন আগে',

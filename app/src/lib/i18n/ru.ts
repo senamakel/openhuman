@@ -4167,6 +4167,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'Ожидает подтверждения',
   'flowRuns.status.failed': 'Не удалось',
   'flowRuns.status.cancelled': 'Отменено',
+  'flowRuns.status.interrupted': 'Прервано',
 
   'flows.page.title': 'Рабочие процессы',
   'flows.page.description':
@@ -4195,6 +4196,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'Ожидает одобрения',
   'flows.allRuns.status.failed': 'Ошибка',
   'flows.allRuns.status.cancelled': 'Отменено',
+  'flows.allRuns.status.interrupted': 'Прервано',
   'flows.list.minutesAgo': '{count} мин назад',
   'flows.list.hoursAgo': '{count} ч назад',
   'flows.list.daysAgo': '{count} дн назад',

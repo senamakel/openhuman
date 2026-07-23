@@ -8,7 +8,7 @@
 //!      gather grounding context.
 //!   3. **reflect** — hand `diff + context` to the slim decision agent, which
 //!      records to-dos (`update_task`), evolves goals (`goals_*`), notifies the
-//!      user (`notify_user`), or delegates (`spawn_async_subagent`).
+//!      user (`notify_user`), or delegates (`spawn_subagent`).
 //!
 //! The generic [`SubconsciousInstance`] runner owns the scheduler + circuit
 //! breaker; this profile owns only what is memory-specific.
@@ -45,7 +45,7 @@ const SUBCONSCIOUS_TOOL_CATALOG: &str = "\
 - update_task: Add or update an actionable item on the user's global to-do board.
 - goals_add: Record a new long-term goal that the changed world makes relevant.
 - goals_edit: Revise an existing long-term goal.
-- spawn_async_subagent: Delegate deeper research or multi-step work.
+- spawn_subagent: Delegate deeper research or multi-step work (runs inline; its result comes back to you).
 ";
 
 /// Construct the live `memory` instance from config (used by the registry /
@@ -192,7 +192,7 @@ impl MemoryProfile {
 
         let mode_guidance = match self.mode {
             SubconsciousMode::Aggressive | SubconsciousMode::EventDriven => {
-                "\n\nYou may delegate deeper work with `spawn_async_subagent` (e.g. research \
+                "\n\nYou may delegate deeper work with `spawn_subagent` (e.g. research \
                  or multi-step execution) when you spot something genuinely actionable."
             }
             _ => "",

@@ -368,6 +368,11 @@ fn definition_with_tool_scope(
 
 #[tokio::test]
 async fn rejects_more_tasks_than_parent_parallel_limit() {
+    // The parallel-limit check now runs inside the execution graph, which is
+    // reached only after the registry lookup — so this test needs the global
+    // builtins initialised (as its siblings already do) rather than relying on
+    // whichever test happened to initialise them first.
+    let _ = AgentDefinitionRegistry::init_global_builtins();
     let tool = SpawnParallelAgentsTool::new();
     let parent = parent_context(2);
     let result = with_parent_context(parent, async {
@@ -383,7 +388,11 @@ async fn rejects_more_tasks_than_parent_parallel_limit() {
     .await
     .expect("tool result");
     assert!(result.is_error);
-    assert!(result.output().contains("max_parallel_tools"));
+    assert!(
+        result.output().contains("max_parallel_tools"),
+        "{}",
+        result.output()
+    );
 }
 
 #[tokio::test]

@@ -4131,6 +4131,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'अनुमोदन की प्रतीक्षा में',
   'flowRuns.status.failed': 'विफल',
   'flowRuns.status.cancelled': 'रद्द किया गया',
+  'flowRuns.status.interrupted': 'बाधित',
 
   'flows.page.title': 'वर्कफ़्लो',
   'flows.page.description': 'सहेजे गए ऑटोमेशन जिन्हें आप सक्षम, चला और मॉनिटर कर सकते हैं।',
@@ -4156,6 +4157,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'अनुमोदन लंबित',
   'flows.allRuns.status.failed': 'विफल',
   'flows.allRuns.status.cancelled': 'रद्द',
+  'flows.allRuns.status.interrupted': 'बाधित',
   'flows.list.minutesAgo': '{count} मिनट पहले',
   'flows.list.hoursAgo': '{count} घंटे पहले',
   'flows.list.daysAgo': '{count} दिन पहले',

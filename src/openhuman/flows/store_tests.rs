@@ -782,3 +782,149 @@ fn upsert_suggestions_empty_is_noop() {
     let config = test_config(&tmp);
     assert_eq!(upsert_suggestions(&config, &[]).unwrap(), 0);
 }
+
+// ── Orphaned-running-run reconciliation (bug B42) ──────────────────────────
+
+#[test]
+fn list_running_run_ids_returns_only_running_rows() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+
+    insert_flow_run(
+        &config,
+        "run-live-1",
+        &flow.id,
+        "run-live-1",
+        "2026-01-01T00:00:00Z",
+    )
+    .unwrap();
+    insert_flow_run(
+        &config,
+        "run-live-2",
+        &flow.id,
+        "run-live-2",
+        "2026-01-01T00:00:01Z",
+    )
+    .unwrap();
+    insert_flow_run(
+        &config,
+        "run-done",
+        &flow.id,
+        "run-done",
+        "2026-01-01T00:00:02Z",
+    )
+    .unwrap();
+    finish_flow_run(
+        &config,
+        "run-done",
+        "completed",
+        "2026-01-01T00:00:03Z",
+        &[],
+        &[],
+        None,
+    )
+    .unwrap();
+
+    let mut running = list_running_run_ids(&config, "2099-01-01T00:00:00Z").unwrap();
+    running.sort();
+    assert_eq!(
+        running,
+        vec![
+            ("run-live-1".to_string(), flow.id.clone()),
+            ("run-live-2".to_string(), flow.id.clone()),
+        ],
+        "only the two still-running rows must be listed, not the completed one"
+    );
+}
+
+#[test]
+fn list_running_run_ids_excludes_rows_started_at_or_after_the_floor() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+
+    insert_flow_run(
+        &config,
+        "run-old",
+        &flow.id,
+        "run-old",
+        "2026-01-01T00:00:00Z",
+    )
+    .unwrap();
+    insert_flow_run(
+        &config,
+        "run-at",
+        &flow.id,
+        "run-at",
+        "2026-01-01T00:00:05Z",
+    )
+    .unwrap();
+    insert_flow_run(
+        &config,
+        "run-new",
+        &flow.id,
+        "run-new",
+        "2026-01-01T00:00:09Z",
+    )
+    .unwrap();
+
+    // The floor is exclusive: a row stamped exactly at the boot floor was
+    // inserted by THIS process (`start_flow_run_row` anchors the floor before
+    // stamping), so it must fall outside the candidate set along with newer
+    // rows — otherwise the sweep could interrupt a live run and drop its
+    // checkpoint mid-flight.
+    let running = list_running_run_ids(&config, "2026-01-01T00:00:05Z").unwrap();
+    assert_eq!(
+        running,
+        vec![("run-old".to_string(), flow.id.clone())],
+        "only rows strictly older than the floor are sweep candidates"
+    );
+}
+
+#[test]
+fn mark_run_interrupted_reconciles_a_running_row_with_reason() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    insert_flow_run(&config, "run-x", &flow.id, "run-x", "2026-01-01T00:00:00Z").unwrap();
+
+    let flipped =
+        mark_run_interrupted(&config, "run-x", "2026-01-01T00:05:00Z", "boom reason").unwrap();
+    assert!(flipped, "a running row must be reconciled");
+
+    let row = get_flow_run(&config, "run-x").unwrap().unwrap();
+    assert_eq!(row.status, "interrupted");
+    assert_eq!(row.finished_at.as_deref(), Some("2026-01-01T00:05:00Z"));
+    assert_eq!(row.error.as_deref(), Some("boom reason"));
+}
+
+#[test]
+fn mark_run_interrupted_is_a_noop_for_a_terminal_row() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    insert_flow_run(&config, "run-y", &flow.id, "run-y", "2026-01-01T00:00:00Z").unwrap();
+    finish_flow_run(
+        &config,
+        "run-y",
+        "completed",
+        "2026-01-01T00:00:01Z",
+        &[],
+        &[],
+        None,
+    )
+    .unwrap();
+
+    // The `status = 'running'` guard must protect an already-settled run.
+    let flipped =
+        mark_run_interrupted(&config, "run-y", "2026-01-01T00:05:00Z", "should not apply").unwrap();
+    assert!(
+        !flipped,
+        "a completed run must never be clobbered to interrupted"
+    );
+
+    let row = get_flow_run(&config, "run-y").unwrap().unwrap();
+    assert_eq!(row.status, "completed");
+    assert!(row.error.is_none());
+}

@@ -476,6 +476,54 @@ mod tests {
     }
 
     #[test]
+    fn facet_to_json_includes_cue_families_and_evidence_refs() {
+        use crate::openhuman::learning::candidate::EvidenceRef;
+        use crate::openhuman::memory_store::profile::{
+            FacetState, FacetType, ProfileFacet, UserState,
+        };
+        use std::collections::HashMap;
+
+        let mut cue_families = HashMap::new();
+        cue_families.insert("explicit".to_string(), 3u32);
+        cue_families.insert("structural".to_string(), 1u32);
+
+        let facet = ProfileFacet {
+            facet_id: "f1".into(),
+            facet_type: FacetType::Preference,
+            key: "style/verbosity".into(),
+            value: "terse".into(),
+            confidence: 0.8,
+            evidence_count: 4,
+            source_segment_ids: None,
+            first_seen_at: 1000.0,
+            last_seen_at: 1200.0,
+            state: FacetState::Active,
+            stability: 0.9,
+            user_state: UserState::Auto,
+            evidence_refs: vec![EvidenceRef::Episodic { episodic_id: 42 }],
+            class: Some("style".into()),
+            cue_families: Some(cue_families),
+        };
+
+        // Populated provenance round-trips through the serializer.
+        let json = facet_to_json(&facet);
+        assert_eq!(json["cue_families"]["explicit"].as_u64(), Some(3));
+        assert_eq!(json["cue_families"]["structural"].as_u64(), Some(1));
+        assert_eq!(json["evidence_refs"][0]["type"].as_str(), Some("episodic"));
+        assert_eq!(json["evidence_refs"][0]["episodic_id"].as_i64(), Some(42));
+
+        // Empty/None provenance serializes to []/null (present, not dropped).
+        let bare = ProfileFacet {
+            evidence_refs: vec![],
+            cue_families: None,
+            ..facet
+        };
+        let json = facet_to_json(&bare);
+        assert_eq!(json["evidence_refs"].as_array().map(Vec::len), Some(0));
+        assert!(json["cue_families"].is_null());
+    }
+
+    #[test]
     fn schemas_and_controllers_match() {
         let s = all_learning_controller_schemas();
         let c = all_learning_registered_controllers();
@@ -735,6 +783,12 @@ fn facet_to_json(f: &crate::openhuman::memory_store::profile::ProfileFacet) -> s
         "first_seen_at": f.first_seen_at,
         "last_seen_at": f.last_seen_at,
         "class": f.class,
+        // Provenance the store already persists and row_to_facet hydrates, but
+        // the serializer previously dropped: the citations behind the facet and
+        // the per-cue-family evidence counts. `None`/empty serialize to
+        // `null`/`[]`.
+        "cue_families": f.cue_families,
+        "evidence_refs": f.evidence_refs,
     })
 }
 

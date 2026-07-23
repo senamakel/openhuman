@@ -4,7 +4,7 @@
 //! `src/openhuman/cron/ops.rs`.
 
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use chrono::Utc;
 use serde_json::{json, Value};
@@ -3705,6 +3705,133 @@ pub async fn flows_run(
     input: Value,
     trigger: FlowRunTrigger,
 ) -> Result<RpcOutcome<Value>, String> {
+    // Prep synchronously (validate + compile-check + mint the run id), insert
+    // the initial `running` row, and announce it, then hand off to the shared
+    // run body. Both the synchronous "Run" RPC path (this fn) and the detached
+    // agent path ([`flows_run_detached`]) reuse `run_flow_body` so a single
+    // [`RunRowFinalizer`] guards the row on every exit — bug B42.
+    let prepared = prepare_flow_run(config, flow_id)?;
+    let thread_id = prepared.thread_id.clone();
+    let no_actionable_nodes = prepared.no_actionable_nodes;
+
+    // Register BEFORE the row exists, so a `flows_cancel_run` can never observe
+    // a `running` row that no live run owns (see [`run_flow_body`]'s doc).
+    let (cancel_token, run_guard) = run_registry::register(&thread_id);
+    start_flow_run_row(config, &thread_id, flow_id);
+    publish_flow_run_started(flow_id, &thread_id);
+
+    run_flow_body(
+        Arc::new(config.clone()),
+        prepared.flow,
+        flow_id.to_string(),
+        thread_id,
+        input,
+        trigger,
+        no_actionable_nodes,
+        cancel_token,
+        run_guard,
+    )
+    .await
+}
+
+/// Agent-initiated `run_flow` entry point (bug B41). Unlike [`flows_run`], this
+/// does NOT block on the engine: the tinyagents harness caps a single tool call
+/// at 120s, but any flow whose first real node is a live-research agent node
+/// (`web_search` + `web_fetch` + `parallel_research`) inherently runs longer
+/// than that, so a blocking `run_flow` tool call could *never* succeed for a
+/// realistic flow — it died at exactly 120s, orphaning the run row (bug B42).
+///
+/// Instead this validates + compile-checks the flow synchronously (so a broken
+/// flow still returns an immediate, actionable error to the agent), inserts the
+/// `running` row, publishes `FlowRunStarted`, then spawns [`run_flow_body`] on a
+/// background task and returns `{ run_id, status: "running", detached: true }`
+/// in well under 120s. The copilot already polls `get_flow_run(run_id)` (seen
+/// in live traces), so it observes the run settle to a terminal state on its
+/// own cadence. Mirrors how the UI "Run" control and the trigger bus
+/// (`flows::bus::spawn_run`) already fire runs fire-and-forget. Combined with
+/// B42's finalizer + boot sweep, a detached run ALWAYS settles to a terminal
+/// row even if the process dies mid-run.
+pub async fn flows_run_detached(
+    config: &Config,
+    flow_id: &str,
+    input: Value,
+    trigger: FlowRunTrigger,
+) -> Result<RpcOutcome<Value>, String> {
+    let prepared = prepare_flow_run(config, flow_id)?;
+    let thread_id = prepared.thread_id.clone();
+    let no_actionable_nodes = prepared.no_actionable_nodes;
+
+    // Register BEFORE the `run_id` becomes observable to the agent. The spawned
+    // task below may not be polled for some time, so registering inside it
+    // would leave a window where a `flows_cancel_run` on the returned `run_id`
+    // sees no in-flight run, settles the row `cancelled` + drops the
+    // checkpoint, and the background run then executes the flow's real side
+    // effects anyway and overwrites that terminal status. Registering here
+    // means such a cancel always takes the signalled branch and this run's own
+    // cancellation arm unwinds it. See [`run_flow_body`]'s doc.
+    let (cancel_token, run_guard) = run_registry::register(&thread_id);
+    start_flow_run_row(config, &thread_id, flow_id);
+    publish_flow_run_started(flow_id, &thread_id);
+
+    tracing::info!(
+        target: "flows",
+        flow_id = %flow_id,
+        run_id = %thread_id,
+        "[flows] flows_run_detached: registered + spawning background run; returning run_id immediately"
+    );
+
+    let config_arc = Arc::new(config.clone());
+    let flow = prepared.flow;
+    let flow_id_owned = flow_id.to_string();
+    let body_thread_id = thread_id.clone();
+    tokio::spawn(async move {
+        if let Err(e) = run_flow_body(
+            config_arc,
+            flow,
+            flow_id_owned,
+            body_thread_id,
+            input,
+            trigger,
+            no_actionable_nodes,
+            cancel_token,
+            run_guard,
+        )
+        .await
+        {
+            // The row is already reconciled by the body's terminal write /
+            // finalizer — this only logs that the detached run ended in error.
+            tracing::warn!(target: "flows", error = %e, "[flows] flows_run_detached: background run ended with error (row already reconciled)");
+        }
+    });
+
+    let result = json!({
+        "run_id": thread_id,
+        "flow_id": flow_id,
+        "status": "running",
+        "detached": true,
+    });
+    Ok(RpcOutcome::single_log(
+        result,
+        format!("flow run started (detached): {thread_id}"),
+    ))
+}
+
+/// A validated, ready-to-execute flow run: the loaded [`Flow`], the freshly
+/// minted `thread_id` (== run id / checkpointer key), and whether the graph has
+/// no actionable nodes. Produced by [`prepare_flow_run`] and consumed by both
+/// `flows_run` entry points.
+struct PreparedFlowRun {
+    flow: Flow,
+    thread_id: String,
+    no_actionable_nodes: bool,
+}
+
+/// Synchronous prep shared by [`flows_run`] and [`flows_run_detached`]: loads
+/// the flow, warns on an actionless graph, rejects an engine-incompatible
+/// topology, compile-checks the graph so a broken flow fails fast *before* any
+/// `running` row is inserted, and mints the run's `thread_id`. Returns an error
+/// (never a wedged row) if the flow can't run at all.
+fn prepare_flow_run(config: &Config, flow_id: &str) -> Result<PreparedFlowRun, String> {
     let flow = store::get_flow(config, flow_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("flow '{flow_id}' not found"))?;
@@ -3743,26 +3870,31 @@ pub async fn flows_run(
         );
         return Err(error);
     }
-    let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
+    // Compile-check up front so a structurally broken graph fails the caller
+    // immediately, before a `running` row exists. `run_flow_body` recompiles
+    // (cheap) to actually execute.
+    tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
 
-    let config_arc = Arc::new(config.clone());
-    // Scope the state store per-flow so two flows never collide on a state key.
-    let caps =
-        crate::openhuman::tinyflows::build_capabilities(config_arc, format!("flow:{flow_id}"));
-    let checkpointer =
-        crate::openhuman::tinyflows::open_flow_checkpointer(config).map_err(|e| e.to_string())?;
     let thread_id = format!("flow:{flow_id}:{}", uuid::Uuid::new_v4());
-
     tracing::debug!(
         target: "flows",
         flow_id = %flow_id,
         thread_id = %thread_id,
         require_approval = flow.require_approval,
-        "[flows] flows_run: starting checkpointed run"
+        "[flows] flows_run: prepared checkpointed run"
     );
 
-    start_flow_run_row(config, &thread_id, flow_id);
+    Ok(PreparedFlowRun {
+        flow,
+        thread_id,
+        no_actionable_nodes,
+    })
+}
 
+/// Announces a freshly-started run on the global event bus so the frontend run
+/// list flips to `running` immediately. Factored out of [`flows_run`] so both
+/// entry points publish identically.
+fn publish_flow_run_started(flow_id: &str, thread_id: &str) {
     tracing::debug!(
         target: "flows",
         flow_id = %flow_id,
@@ -3771,13 +3903,172 @@ pub async fn flows_run(
     );
     crate::core::event_bus::publish_global(crate::core::event_bus::DomainEvent::FlowRunStarted {
         flow_id: flow_id.to_string(),
-        run_id: thread_id.clone(),
+        run_id: thread_id.to_string(),
     });
+}
 
-    // Register this run as in-flight (issue G4) so a concurrent
-    // `flows_cancel_run` can signal it to abort. The guard deregisters on any
-    // exit from this fn (including the early returns below).
-    let (cancel_token, _run_guard) = run_registry::register(&thread_id);
+/// Human-readable reason stamped on a run row that the [`RunRowFinalizer`]
+/// drop-guard reconciles because its run future was dropped mid-flight (harness
+/// tool abort, chat turn end, runtime shutdown, panic) before any terminal
+/// write landed. Surfaced verbatim in the run-details sidebar (bug B42c) so a
+/// cancelled/timed-out run reads as interrupted rather than a blank spinner.
+const INTERRUPTED_DROP_REASON: &str =
+    "Run interrupted before completion — it was cancelled, timed out, or the app shut down mid-run.";
+
+/// Cancellation-safe finalizer for a live `flow_runs` row (bug B42).
+///
+/// While a run's engine future is awaiting, dropping that future — the harness
+/// 120s tool abort, a chat turn ending, tokio runtime shutdown, or a panic —
+/// would otherwise leave the row wedged at `status="running"`, `error=NULL`,
+/// `steps=[]` forever, which the run-details sidebar renders as a perpetual
+/// blank spinner. Held across the await, this guard writes a terminal
+/// `"interrupted"` status + human reason on `Drop` UNLESS it has been
+/// explicitly [`disarm`](Self::disarm)ed after a real terminal write. The
+/// `armed` flag is a single-task `Cell` (the guard never crosses tasks by
+/// reference), so the type stays `Send` for `tokio::spawn`.
+struct RunRowFinalizer {
+    config: Arc<Config>,
+    thread_id: String,
+    flow_id: String,
+    armed: std::cell::Cell<bool>,
+}
+
+impl RunRowFinalizer {
+    fn new(config: Arc<Config>, thread_id: &str, flow_id: &str) -> Self {
+        Self {
+            config,
+            thread_id: thread_id.to_string(),
+            flow_id: flow_id.to_string(),
+            armed: std::cell::Cell::new(true),
+        }
+    }
+
+    /// Disarm the guard after a real terminal write (success/failure/cancel/
+    /// pause) has already finalized the row, so `Drop` becomes a no-op.
+    fn disarm(&self) {
+        self.armed.set(false);
+    }
+}
+
+impl Drop for RunRowFinalizer {
+    fn drop(&mut self) {
+        if !self.armed.get() {
+            return;
+        }
+        tracing::warn!(
+            target: "flows",
+            flow_id = %self.flow_id,
+            thread_id = %self.thread_id,
+            "[flows] RunRowFinalizer: run future dropped before settling — reconciling orphaned 'running' row to 'interrupted'"
+        );
+        // Preserve whatever steps the live observer already persisted.
+        let observed = current_persisted_steps(&self.config, &self.thread_id);
+        finish_flow_run_row(
+            &self.config,
+            &self.thread_id,
+            &self.flow_id,
+            "interrupted",
+            &observed,
+            &[],
+            Some(INTERRUPTED_DROP_REASON),
+        );
+        // Keep the flow-definition summary in step with the row, exactly as the
+        // success/failure/cancel arms and the boot sweep do — otherwise the
+        // runs list keeps advertising the *previous* run's `last_status` /
+        // `last_run_at` for a flow whose latest run was interrupted.
+        // `record_run` is synchronous, so it is safe in `Drop`.
+        if let Err(e) = store::record_run(&self.config, &self.flow_id, "interrupted") {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %self.flow_id,
+                thread_id = %self.thread_id,
+                error = %e,
+                "[flows] RunRowFinalizer: failed to update flow summary for interrupted run"
+            );
+        }
+    }
+}
+
+/// Executes an already-prepared, already-`running`-row-inserted flow run to a
+/// terminal state, finalizing the `flow_runs` row on every exit path.
+///
+/// Split out of [`flows_run`] (bugs B41/B42) so the synchronous and detached
+/// entry points share ONE run body — and so a single [`RunRowFinalizer`]
+/// reconciles the row to `"interrupted"` if this future is dropped mid-await
+/// before any terminal write lands. The caller MUST have already
+/// [`run_registry::register`]ed `thread_id` (handing the token + guard in
+/// here), inserted the initial `running` row ([`start_flow_run_row`]) and
+/// published `FlowRunStarted`.
+///
+/// **Registration is the caller's job on purpose.** It used to happen here, but
+/// on the detached path that left a window: `flows_run_detached` returned the
+/// `run_id` to the agent before the spawned task had registered, so a
+/// `flows_cancel_run` landing in that gap saw `is_in_flight == false`, took the
+/// "parked/stale" branch, wrote a terminal `cancelled` row and dropped the
+/// checkpoint — while this body then started and executed the flow's real
+/// side effects anyway, finally overwriting `cancelled` with its own terminal
+/// status. Registering before the `run_id` is observable makes the cancel
+/// always take the signalled branch instead. `_run_guard` is held for the whole
+/// body and deregisters on any exit, including the early returns below.
+async fn run_flow_body(
+    config_arc: Arc<Config>,
+    flow: Flow,
+    flow_id: String,
+    thread_id: String,
+    input: Value,
+    trigger: FlowRunTrigger,
+    no_actionable_nodes: bool,
+    cancel_token: tokio_util::sync::CancellationToken,
+    _run_guard: run_registry::RunGuard,
+) -> Result<RpcOutcome<Value>, String> {
+    let config: &Config = config_arc.as_ref();
+    let flow_id: &str = flow_id.as_str();
+
+    // Recompile to execute — the entry point already compile-checked to fail
+    // fast before the running row existed. A failure *now* (after the row was
+    // inserted) must finalize the row as failed, never orphan it.
+    let compiled = match tinyflows::compiler::compile(&flow.graph) {
+        Ok(compiled) => compiled,
+        Err(e) => {
+            let msg = e.to_string();
+            tracing::warn!(target: "flows", flow_id, error = %msg, "[flows] run_flow_body: compile failed after start row inserted");
+            let observed = current_persisted_steps(config, &thread_id);
+            finish_flow_run_row(
+                config,
+                &thread_id,
+                flow_id,
+                "failed",
+                &observed,
+                &[],
+                Some(&msg),
+            );
+            return Err(msg);
+        }
+    };
+
+    // Scope the state store per-flow so two flows never collide on a state key.
+    let caps = crate::openhuman::tinyflows::build_capabilities(
+        config_arc.clone(),
+        format!("flow:{flow_id}"),
+    );
+    let checkpointer = match crate::openhuman::tinyflows::open_flow_checkpointer(config) {
+        Ok(checkpointer) => checkpointer,
+        Err(e) => {
+            let msg = e.to_string();
+            tracing::warn!(target: "flows", flow_id, error = %msg, "[flows] run_flow_body: checkpointer open failed after start row inserted");
+            let observed = current_persisted_steps(config, &thread_id);
+            finish_flow_run_row(
+                config,
+                &thread_id,
+                flow_id,
+                "failed",
+                &observed,
+                &[],
+                Some(&msg),
+            );
+            return Err(msg);
+        }
+    };
 
     // Record a failed attempt so `last_run_at`/`last_status` reflect reality
     // (a stop-policy engine/capability failure or a timeout) rather than
@@ -3845,6 +4136,11 @@ pub async fn flows_run(
     );
     let timed = tokio::time::timeout(std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS), run);
     tokio::pin!(timed);
+    // B42 drop-guard: armed for the whole awaiting region below. If this future
+    // is dropped before any terminal write (harness abort, turn end, runtime
+    // shutdown, panic), its `Drop` reconciles the orphaned `running` row to
+    // `interrupted`. Every settled path disarms it after its own terminal write.
+    let finalizer = RunRowFinalizer::new(config_arc.clone(), &thread_id, flow_id);
     // Race the run against a cancellation signal (issue G4). `biased` checks the
     // cancel arm first so a `flows_cancel_run` that lands right as the run
     // settles still wins deterministically.
@@ -3865,6 +4161,7 @@ pub async fn flows_run(
                 &[],
                 Some("run cancelled"),
             );
+            finalizer.disarm();
             drop_checkpoint(config, &thread_id).await;
             return Ok(RpcOutcome::single_log(
                 json!({
@@ -3880,12 +4177,14 @@ pub async fn flows_run(
             Ok(Ok(journaled)) => journaled,
             Ok(Err(e)) => {
                 record_failed(&e.to_string());
+                finalizer.disarm();
                 tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: run failed");
                 return Err(e.to_string());
             }
             Err(_elapsed) => {
                 let msg = format!("flow run timed out after {FLOW_RUN_TIMEOUT_SECS}s");
                 record_failed(&msg);
+                finalizer.disarm();
                 tracing::warn!(target: "flows", flow_id = %flow_id, timeout_secs = FLOW_RUN_TIMEOUT_SECS, "[flows] flows_run: run timed out");
                 return Err(msg);
             }
@@ -3895,7 +4194,10 @@ pub async fn flows_run(
 
     let settled = settle_steps(config, &thread_id, &outcome.output);
     let (status, error) = finalize_terminal_status(&settled, &outcome.pending_approvals);
-    store::record_run(config, flow_id, status).map_err(|e| e.to_string())?;
+    // Finalize the run row (and disarm the drop-guard) BEFORE the flow-summary
+    // write, so a `record_run` failure can never leave the row wedged at
+    // `running` — the row's terminal state is the correctness-critical write;
+    // the summary is best-effort observability (see `start_flow_run_row`).
     finish_flow_run_row(
         config,
         &thread_id,
@@ -3905,6 +4207,10 @@ pub async fn flows_run(
         &outcome.pending_approvals,
         error.as_deref(),
     );
+    finalizer.disarm();
+    if let Err(e) = store::record_run(config, flow_id, status) {
+        tracing::warn!(target: "flows", flow_id = %flow_id, status, error = %e, "[flows] flows_run: failed to record run summary (run row already finalized)");
+    }
     export_run_to_langfuse(
         config,
         &flow.name,
@@ -4296,6 +4602,90 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
     swept.len()
 }
 
+/// Boot-time orphan sweep (bug B42, part b): reconciles every `flow_runs` row
+/// still at `status = 'running'` that has **no live in-process run** to a
+/// terminal `"interrupted"`. A hard crash / SIGKILL / power loss leaves the
+/// [`RunRowFinalizer`] drop-guard no chance to run, so a `running` row from the
+/// prior process would otherwise stay wedged forever, rendering as a perpetual
+/// blank spinner in the run-details sidebar.
+///
+/// Two independent guards keep the sweep off a run that **this** process owns:
+///
+/// 1. **A boot floor.** Only rows whose `started_at` predates
+///    [`PROCESS_RUN_FLOOR`] are candidates at all, so a row this process
+///    inserted is provably out of scope regardless of registration timing —
+///    which is what the sweep is actually for: rows left by a *prior* process.
+///    Sweeping a live run would not merely mislabel it (its own terminal write
+///    would correct that) — it would `drop_checkpoint` it mid-run, and that is
+///    unrecoverable.
+/// 2. **The in-flight registry.** [`run_registry::is_in_flight`] gates each
+///    surviving candidate. Both run entry points now register **before**
+///    inserting the row, so within this process a `running` row is never
+///    unregistered; this guard covers clock skew and rows stamped by a
+///    differently-skewed process.
+///
+/// The two are deliberately redundant: either alone would be sufficient today,
+/// and neither depends on the other's ordering assumption holding.
+///
+/// Each swept run also updates the flow summary, announces a terminal
+/// `FlowRunFinished`, and drops its durable checkpoint (a `running` row is never
+/// resumable — only `pending_approval` is). Best-effort by construction: a store
+/// error is logged and the sweep returns what it managed.
+pub async fn sweep_orphaned_running_runs_on_boot(config: &Config) -> usize {
+    let now_str = Utc::now().to_rfc3339();
+    const REASON: &str =
+        "Run interrupted by an app restart — no live run was executing this row after boot.";
+
+    let floor: &str = PROCESS_RUN_FLOOR.as_str();
+    tracing::debug!(target: "flows", floor, "[flows] boot sweep: reconciling only runs started before this process");
+    let candidates = match store::list_running_run_ids(config, floor) {
+        Ok(candidates) => candidates,
+        Err(e) => {
+            tracing::warn!(target: "flows", error = %e, "[flows] boot sweep: failed to list running runs (skipping)");
+            return 0;
+        }
+    };
+    if candidates.is_empty() {
+        return 0;
+    }
+    tracing::debug!(target: "flows", count = candidates.len(), "[flows] boot sweep: examining running rows for orphans");
+
+    let mut swept = 0usize;
+    for (run_id, flow_id) in candidates {
+        if run_registry::is_in_flight(&run_id) {
+            tracing::debug!(target: "flows", run_id = %run_id, flow_id = %flow_id, "[flows] boot sweep: run is live in-process — leaving it running");
+            continue;
+        }
+        match store::mark_run_interrupted(config, &run_id, &now_str, REASON) {
+            Ok(true) => {
+                swept += 1;
+                if let Err(e) = store::record_run(config, &flow_id, "interrupted") {
+                    tracing::warn!(target: "flows", run_id = %run_id, flow_id = %flow_id, error = %e, "[flows] boot sweep: failed to update flow summary for reconciled run");
+                }
+                crate::core::event_bus::publish_global(
+                    crate::core::event_bus::DomainEvent::FlowRunFinished {
+                        flow_id: flow_id.clone(),
+                        run_id: run_id.clone(),
+                        status: "interrupted".to_string(),
+                    },
+                );
+                drop_checkpoint(config, &run_id).await;
+                tracing::info!(target: "flows", run_id = %run_id, flow_id = %flow_id, "[flows] boot sweep: reconciled orphaned running run to 'interrupted'");
+            }
+            Ok(false) => {
+                tracing::debug!(target: "flows", run_id = %run_id, "[flows] boot sweep: row changed status concurrently — skipped");
+            }
+            Err(e) => {
+                tracing::warn!(target: "flows", run_id = %run_id, error = %e, "[flows] boot sweep: failed to reconcile running run");
+            }
+        }
+    }
+    if swept > 0 {
+        tracing::info!(target: "flows", count = swept, "[flows] boot sweep reconciled orphaned running runs to 'interrupted'");
+    }
+    swept
+}
+
 /// Cancels a flow run (issue G4), settling it to a terminal `"cancelled"`
 /// status and dropping its durable checkpoint so the aborted thread can never
 /// be resumed.
@@ -4310,9 +4700,11 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
 ///   this settles the row terminally itself and drops the checkpoint.
 ///
 /// A run that is already terminal (`completed` / `completed_with_warnings` /
-/// `failed` / `cancelled`) is a clear error, not a silent no-op — otherwise a
-/// settled warning run could be overwritten as `"cancelled"`, corrupting the
-/// run-honesty status it already recorded.
+/// `failed` / `cancelled` / `interrupted`) is a clear error, not a silent
+/// no-op — otherwise a settled warning run could be overwritten as
+/// `"cancelled"`, corrupting the run-honesty status it already recorded, and an
+/// already-`interrupted` run (reconciled by the drop-guard / boot sweep, bug
+/// B42) could be clobbered back to `"cancelled"`.
 pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcome<Value>, String> {
     let run = store::get_flow_run(config, run_id)
         .map_err(|e| e.to_string())?
@@ -4320,7 +4712,7 @@ pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcom
 
     if matches!(
         run.status.as_str(),
-        "completed" | "completed_with_warnings" | "failed" | "cancelled"
+        "completed" | "completed_with_warnings" | "failed" | "cancelled" | "interrupted"
     ) {
         return Err(format!(
             "flow run '{run_id}' is already terminal (status: {}) — nothing to cancel",
@@ -4402,10 +4794,35 @@ fn workflow_origin(flow_id: &str, require_approval: bool) -> AgentTurnOrigin {
     }
 }
 
+/// RFC3339 instant at which THIS process first entered the flow-run lifecycle —
+/// the floor the boot orphan sweep (bug B42) uses to bound its candidate set.
+///
+/// Initialized on first touch by whichever comes first: [`start_flow_run_row`]
+/// (which forces it *before* stamping the row it is about to insert) or
+/// [`sweep_orphaned_running_runs_on_boot`]. Either ordering yields the same
+/// invariant — **every `flow_runs` row this process inserts has
+/// `started_at >= *PROCESS_RUN_FLOOR`** — so a sweep restricted to
+/// `started_at < *PROCESS_RUN_FLOOR` provably only ever sees rows left behind by
+/// a *prior* process.
+///
+/// The floor makes that guarantee structural rather than a consequence of
+/// registration ordering. `run_registry::is_in_flight` alone once left a window
+/// — the entry points used to insert the `running` row before `run_flow_body`
+/// registered, so a live run was briefly `running`-but-not-in-flight, and
+/// sweeping it there would `drop_checkpoint` it mid-run (unrecoverable, unlike
+/// the status, which the live run's own terminal write would fix). Registration
+/// has since moved ahead of the insert, closing that window at the source too;
+/// the floor stays because it holds regardless of what future callers do with
+/// that ordering.
+static PROCESS_RUN_FLOOR: LazyLock<String> = LazyLock::new(|| Utc::now().to_rfc3339());
+
 /// Best-effort insert of the initial `"running"` `flow_runs` row. Logged,
 /// never fails the run — run-history persistence is an observability aid,
 /// not a correctness requirement of the run itself.
 fn start_flow_run_row(config: &Config, thread_id: &str, flow_id: &str) {
+    // Anchor the boot-sweep floor BEFORE stamping this row, so this row's
+    // `started_at` can never precede it. See [`PROCESS_RUN_FLOOR`].
+    LazyLock::force(&PROCESS_RUN_FLOOR);
     let started_at = Utc::now().to_rfc3339();
     if let Err(e) = store::insert_flow_run(config, thread_id, flow_id, thread_id, &started_at) {
         tracing::warn!(target: "flows", flow_id, thread_id, error = %e, "[flows] failed to persist flow run start");

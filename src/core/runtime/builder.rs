@@ -620,6 +620,12 @@ impl CoreRuntime {
         if self.services.cron {
             services::spawn_cron_service();
         }
+        // Flow-run boot reconciliation is selected by the flows *domain*, not by
+        // a background service — runs can be started without cron in the
+        // ServiceSet, so their orphans must be reconcilable without it too.
+        if self.ctx.domains().flows {
+            services::spawn_flows_boot_reconcile();
+        }
         if self.services.channels {
             services::spawn_channels_service();
         }

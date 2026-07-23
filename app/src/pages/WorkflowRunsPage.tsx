@@ -37,6 +37,7 @@ const STATUS_CLASS: Record<FlowRunStatus, string> = {
   pending_approval: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
   failed: 'bg-coral-500/15 text-coral-700 dark:text-coral-300',
   cancelled: 'bg-content-faint/15 text-content-secondary',
+  interrupted: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
 };
 
 export default function WorkflowRunsPage() {

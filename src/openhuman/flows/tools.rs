@@ -294,10 +294,18 @@ impl Tool for RunFlowTool {
         tracing::info!(
             target: "flows",
             %flow_id,
-            "[flows] run_flow: agent-initiated test run starting"
+            "[flows] run_flow: agent-initiated test run starting (detached)"
         );
 
-        match crate::openhuman::flows::ops::flows_run(
+        // Detach (bug B41): a flow whose first real node is a live-research
+        // agent node inherently runs longer than the tinyagents harness's 120s
+        // per-tool-call cap, so a blocking `run_flow` could never succeed —
+        // it died at 120s, orphaning the run row (bug B42). `flows_run_detached`
+        // validates + compile-checks synchronously (so a broken flow still
+        // returns an immediate, actionable error), fires the run on a background
+        // task, and returns `{ run_id, status: "running" }` in well under 120s.
+        // The copilot then polls `get_flow_run(run_id)` to observe completion.
+        match crate::openhuman::flows::ops::flows_run_detached(
             &self.config,
             &flow_id,
             input,
@@ -305,15 +313,30 @@ impl Tool for RunFlowTool {
         )
         .await
         {
-            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
-                "type": "workflow_run_result",
-                "flow_id": flow_id,
-                "result": outcome.value,
-            }))?)),
+            Ok(outcome) => {
+                let run_id = outcome
+                    .value
+                    .get("run_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                    "type": "workflow_run_started",
+                    "flow_id": flow_id,
+                    "run_id": run_id,
+                    "status": "running",
+                    "detached": true,
+                    "note": "The run started in the background and is now 'running'. Poll \
+                             get_flow_run with this run_id to see it settle to a terminal \
+                             status (completed / failed / interrupted / pending_approval); \
+                             do not assume success from this response alone.",
+                    "result": outcome.value,
+                }))?))
+            }
             Err(e) => {
-                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] run_flow: failed");
+                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] run_flow: failed to start");
                 Ok(ToolResult::error(format!(
-                    "Could not run flow '{flow_id}': {e}"
+                    "Could not start flow '{flow_id}': {e}"
                 )))
             }
         }

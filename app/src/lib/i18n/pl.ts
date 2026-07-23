@@ -4185,6 +4185,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'Oczekuje na zatwierdzenie',
   'flowRuns.status.failed': 'Niepowodzenie',
   'flowRuns.status.cancelled': 'Anulowano',
+  'flowRuns.status.interrupted': 'Przerwano',
 
   'flows.page.title': 'Przepływy pracy',
   'flows.page.description':
@@ -4212,6 +4213,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'Oczekuje na zatwierdzenie',
   'flows.allRuns.status.failed': 'Niepowodzenie',
   'flows.allRuns.status.cancelled': 'Anulowano',
+  'flows.allRuns.status.interrupted': 'Przerwano',
   'flows.list.minutesAgo': '{count} min temu',
   'flows.list.hoursAgo': '{count} godz. temu',
   'flows.list.daysAgo': '{count} dni temu',

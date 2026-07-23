@@ -431,7 +431,25 @@ impl Tool for SpawnSubagentTool {
             }
         }
 
-        if !blocking {
+        // Async-by-default only holds where the finished result has somewhere
+        // to land. `spawn_async_subagent` delivers thread-addressed (see
+        // `background_delivery`), so outside a chat turn (flow `agent` node,
+        // CLI, cron) it now refuses outright (B40). Self-heal to blocking
+        // dispatch here rather than forwarding into that guard: the caller
+        // asked to delegate, and running the sub-agent inline is the one mode
+        // that both executes it and returns its output. Mirrors the
+        // `has_delivery_thread` fallback the `delegate_*` tools already do in
+        // `dispatch.rs::dispatch_subagent`.
+        let has_delivery_thread =
+            crate::openhuman::inference::provider::thread_context::current_thread_id().is_some();
+        if !blocking && !has_delivery_thread {
+            log::info!(
+                "[spawn_subagent] async delegation requested for '{}' but no delivery thread \
+                 (flow node / CLI / cron context) — falling back to blocking dispatch",
+                definition.id
+            );
+        }
+        if !blocking && has_delivery_thread {
             let mut async_args = args;
             if let Some(obj) = async_args.as_object_mut() {
                 obj.insert(
@@ -1147,7 +1165,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn legacy_archetype_alias_is_forwarded_to_async_default_path() {
+    async fn legacy_archetype_alias_is_normalized_to_agent_id() {
         let _ = AgentDefinitionRegistry::init_global_builtins();
         let tool = SpawnSubagentTool;
         let result = tool
@@ -1158,17 +1176,49 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_error);
-        assert!(
-            result
-                .output()
-                .contains("spawn_async_subagent called outside of an agent turn"),
-            "{}",
-            result.output()
-        );
+        // The alias resolved: the call got past argument validation and only
+        // failed later, on the missing parent turn.
         assert!(
             !result.output().contains("agent_id is required"),
             "{}",
             result.output()
+        );
+        assert!(
+            result.output().contains("called outside of an agent turn"),
+            "{}",
+            result.output()
+        );
+    }
+
+    /// B40: with no chat thread bound, async-by-default delegation has nowhere
+    /// to deliver a result, so `spawn_subagent` must self-heal to blocking
+    /// dispatch rather than forwarding into `spawn_async_subagent`'s
+    /// thread-less guard — otherwise the guard's own advice ("use
+    /// `spawn_subagent`") would loop straight back into the guard. Asserted
+    /// via which tool owns the downstream error.
+    #[tokio::test]
+    async fn async_default_self_heals_to_blocking_without_delivery_thread() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let result = SpawnSubagentTool
+            .execute(json!({
+                "agent_id": "researcher",
+                "prompt": "work with no delivery thread",
+            }))
+            .await
+            .unwrap();
+
+        let out = result.output();
+        assert!(
+            !out.contains("spawn_async_subagent"),
+            "thread-less spawn_subagent must not route into the async tool: {out}"
+        );
+        assert!(
+            !out.contains("no parent chat thread"),
+            "thread-less spawn_subagent must not hit the async delivery guard: {out}"
+        );
+        assert!(
+            out.contains("spawn_subagent called outside of an agent turn"),
+            "expected the blocking path's own error: {out}"
         );
     }
 

@@ -4037,6 +4037,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'بانتظار الموافقة',
   'flowRuns.status.failed': 'فشل',
   'flowRuns.status.cancelled': 'ملغى',
+  'flowRuns.status.interrupted': 'تمت المقاطعة',
 
   'flows.page.title': 'سير العمل',
   'flows.page.description': 'أتمتة محفوظة يمكنك تفعيلها وتشغيلها ومتابعتها.',
@@ -4062,6 +4063,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'بانتظار الموافقة',
   'flows.allRuns.status.failed': 'فشل',
   'flows.allRuns.status.cancelled': 'أُلغي',
+  'flows.allRuns.status.interrupted': 'تمت المقاطعة',
   'flows.list.minutesAgo': 'منذ {count} دقيقة',
   'flows.list.hoursAgo': 'منذ {count} ساعة',
   'flows.list.daysAgo': 'منذ {count} يوم',

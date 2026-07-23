@@ -4229,6 +4229,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': "En attente d'approbation",
   'flowRuns.status.failed': 'Échoué',
   'flowRuns.status.cancelled': 'Annulé',
+  'flowRuns.status.interrupted': 'Interrompu',
 
   'flows.page.title': 'Workflows',
   'flows.page.description':
@@ -4257,6 +4258,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'En attente d’approbation',
   'flows.allRuns.status.failed': 'Échoué',
   'flows.allRuns.status.cancelled': 'Annulé',
+  'flows.allRuns.status.interrupted': 'Interrompu',
   'flows.list.minutesAgo': 'il y a {count} min',
   'flows.list.hoursAgo': 'il y a {count} h',
   'flows.list.daysAgo': 'il y a {count} j',

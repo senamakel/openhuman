@@ -1,8 +1,14 @@
 # Migrating `src/openhuman/inference/` onto `vendor/tinyagents/`
 
-**Status:** plan (not started)
-**Relates to:** #4249 (tinyagents migration), `docs/tinyagents-migration-spec.md` (Phase 2 — model registry / profiles / fallback), `docs/tinyagents-full-migration-plan/`, `docs/tinyagents-drift-ledger.md`
-**tinyagents:** 1.7.1, vendored as a git submodule at `vendor/tinyagents/` and path-patched over the crates.io pin (root `Cargo.toml`: `tinyagents = { version = "1.7", features = ["sqlite", "repl"] }` + `[patch.crates-io] tinyagents = { path = "vendor/tinyagents" }`).
+**Status:** superseded on 2026-07-22 by
+[`tinyagents-migration-plan-2026-07-22.md`](tinyagents-migration-plan-2026-07-22.md).
+This document is retained as historical model-layer design detail; its pins,
+status, and present-tense inventory are not current.
+**Relates to:** #4249 (tinyagents migration),
+`docs/tinyagents-migration-plan-2026-07-22.md`,
+`docs/tinyagents-full-migration-plan/`, and
+`docs/tinyagents-drift-ledger.md`.
+**tinyagents audit anchor:** 1.7.1. See the superseding plan for the active pin.
 
 ---
 
@@ -74,7 +80,10 @@ Verified against 1.7.1 source; re-audit at Phase 0 since the crate moves fast.
 - **G3 — Auth-failure signal**: openhuman publishes `DomainEvent::SessionExpired` when a chat attempt fails auth. The crate client must classify 401/expired distinctly (as a `ProviderError` kind) so the host factory can hook it without string-sniffing.
 - **G4 — Request dump / wire observability**: `compatible_dump.rs` writes raw request/response dumps for debugging. Upstream a transport-level hook (or confirm the crate's observability exporters cover it) before deleting.
 - **G5 — Per-request timeout policy**: `compatible_timeout.rs` semantics vs. what the crate transport exposes. Upstream a per-call timeout on `ModelRequest`/`ProviderSpec` if missing.
-- **G6 — BYOK auth styles**: the provider preset catalog (`docs/inference-provider-catalog.md`) supports multiple `AuthStyle`s (headers etc.). Confirm crate `ProviderSpec` can express every style in the catalog; upstream what's missing.
+- **G6 — BYOK auth styles**: the authoritative provider catalog
+  (`src/openhuman/config/schema/cloud_providers.rs`) supports multiple
+  `AuthStyle`s (headers etc.). Confirm crate `ProviderSpec` can express every
+  style in the catalog; upstream what's missing.
 - **G7 — Repeat-output guard**: `compatible_repeat.rs` (degenerate-repetition detection). Decide: upstream as an optional stream guard, or accept the loss (note #4463 already tracks deleted repeat guards).
 
 Upstream flow: change in `vendor/tinyagents` (submodule working tree) → PR to `tinyhumansai/tinyagents` → publish → bump the crates.io pin in **both** Cargo worlds (root + `app/src-tauri`) and the submodule ref in lockstep. Nothing in openhuman may depend on unpublished vendored-only API at a merge point.
@@ -87,7 +96,8 @@ Each phase compiles green in both Cargo worlds, keeps ≥80% diff coverage, and 
 
 ### Phase 0 — Inventory & gap re-audit
 - Enumerate every consumer of `Provider` / `ChatRequest` / `ChatResponse` / `ChatMessage` outside `inference/` (151 files) and bucket them: (a) goes through the seam already, (b) direct one-shot `provider.chat(...)` callers (learning, memory, subconscious, screen_intelligence, sentiment, triage…), (c) type-only imports.
-- Re-verify §3 gaps against current crate HEAD; file crate issues; update `docs/tinyagents-sdk-gaps.md`.
+- Re-verify §3 gaps against current crate HEAD; file crate issues; update
+  `vendor/tinyagents/docs/sdk-gaps.md`.
 - Golden-transcript capture: record request/response wire dumps for the BYOK catalog matrix + Ollama + openhuman backend on the current stack, as fixtures for Phase 2 parity.
 
 **Exit:** disposition table confirmed per-file; crate gap PRs filed.
@@ -133,7 +143,11 @@ Each phase compiles green in both Cargo worlds, keeps ≥80% diff coverage, and 
 **Exit:** no ad-hoc prompt/parse loops outside the crate surface.
 
 ### Phase 7 — Cleanup, docs, deletion ledger
-- Update `inference/README.md`, `gitbooks/developing/architecture/agent-harness.md`, `docs/inference-provider-catalog.md`; add deletions to `docs/tinyagents-full-migration-plan/99-deletion-ledger.md`; refresh `docs/tinyagents-drift-ledger.md`.
+- Update `inference/README.md`,
+  `gitbooks/developing/architecture/agent-harness.md`, and the authoritative
+  provider catalog in `src/openhuman/config/schema/cloud_providers.rs`; add
+  deletions to `docs/tinyagents-full-migration-plan/99-deletion-ledger.md`;
+  refresh `docs/tinyagents-drift-ledger.md`.
 - Remove dead re-exports from `inference/mod.rs`; keep temporary `pub use` shims only where a follow-up PR is already open.
 - Sweep for stale doc-comments naming `Provider`/`CompatibleProvider`.
 

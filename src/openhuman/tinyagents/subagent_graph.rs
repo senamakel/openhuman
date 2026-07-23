@@ -46,8 +46,8 @@ fn phase_node(
 
 /// Build the fixed sub-agent pipeline graph.
 ///
-/// The node names intentionally match `docs/tinyagents-full-migration-plan/
-/// 07-subagents/01-subagent-pipeline.md`:
+/// The node names are the stable sub-agent pipeline stages tracked by WP-5 of
+/// `docs/tinyagents-migration-plan-2026-07-22.md`:
 ///
 /// `resolve_definition -> prepare_context -> assemble_prompt -> expose_tools ->
 /// run_child -> finalize`

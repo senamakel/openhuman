@@ -71,6 +71,11 @@ export const FLOW_RUN_STATUS_ACCENT: Record<FlowRunStatus, string> = {
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
   // Neutral treatment, matching `WorkflowRunDetail.tsx`'s `RUN_STATUS_ACCENT.cancelled`.
   cancelled: 'border-line bg-surface-muted text-content-secondary',
+  // Interrupted (bug B42): a run reconciled after its future was dropped
+  // mid-flight. Amber-leaning "worth a look" like `pending_approval`, but
+  // settled — it carries an `error` reason banner.
+  interrupted:
+    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
 };
 
 /** Header status dot per run status — mirrors `PHASE_STATUS_DOT`. Exported, see above. */
@@ -82,6 +87,8 @@ export const FLOW_RUN_STATUS_DOT: Record<FlowRunStatus, string> = {
   pending_approval: 'bg-amber-500 animate-pulse',
   failed: 'bg-coral-500',
   cancelled: 'bg-surface-strong',
+  // Settled (no pulse) — reconciled after being dropped mid-flight (bug B42).
+  interrupted: 'bg-amber-500',
 };
 
 /** i18n key per run status. Exported, see above. */
@@ -92,6 +99,7 @@ export const FLOW_RUN_STATUS_KEY: Record<FlowRunStatus, string> = {
   pending_approval: 'flowRuns.status.pending_approval',
   failed: 'flowRuns.status.failed',
   cancelled: 'flowRuns.status.cancelled',
+  interrupted: 'flowRuns.status.interrupted',
 };
 
 function formatTimestamp(value: string | null | undefined): string | null {

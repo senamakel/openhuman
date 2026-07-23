@@ -4246,6 +4246,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'Wartet auf Genehmigung',
   'flowRuns.status.failed': 'Fehlgeschlagen',
   'flowRuns.status.cancelled': 'Abgebrochen',
+  'flowRuns.status.interrupted': 'Unterbrochen',
 
   'flows.page.title': 'Workflows',
   'flows.page.description':
@@ -4273,6 +4274,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'Warten auf Freigabe',
   'flows.allRuns.status.failed': 'Fehlgeschlagen',
   'flows.allRuns.status.cancelled': 'Abgebrochen',
+  'flows.allRuns.status.interrupted': 'Unterbrochen',
   'flows.list.minutesAgo': 'vor {count} Min.',
   'flows.list.hoursAgo': 'vor {count} Std.',
   'flows.list.daysAgo': 'vor {count} Tagen',

@@ -234,9 +234,26 @@ pub(crate) fn user_is_signed_in_to_composio(config: &crate::openhuman::config::C
 /// [`crate::openhuman::composio::ComposioClient`] so the live
 /// `composio.mode` toggle is honoured per execute — see
 /// [`crate::openhuman::composio::ComposioActionTool`] and issue #1710.
+///
+/// ## Tool caching (#5119)
+///
+/// `resolve()` caches the built [`ComposioActionTool`] (and therefore its
+/// [`ContractGate`]) per slug so that a given action reuses the same gate
+/// instance across multiple `resolve()` calls. This is forward-looking: the
+/// `lazy_resolver` is not yet wired for production dispatch (#4249 1b), but
+/// when it is, caching prevents the fresh-gate-per-call problem that would
+/// cause every resolution to surface the contract instead of executing.
+/// Additionally, the [`ContractGate`] itself has a process-wide auto-proceed
+/// safety net that handles the re-delegation pattern even without caching.
 pub(crate) struct LazyToolkitResolver {
     pub(super) config: std::sync::Arc<crate::openhuman::config::Config>,
     pub(super) actions: Vec<crate::openhuman::context::prompt::ConnectedIntegrationTool>,
+    /// Cache of resolved tools keyed by action slug. Once a tool is built
+    /// for a slug, subsequent `resolve()` calls for the same slug reuse the
+    /// cached instance — sharing its [`ContractGate`] state (#5119).
+    #[allow(dead_code)] // used via pub(super) from tests
+    pub(super) resolved:
+        std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<dyn crate::openhuman::tools::Tool>>>,
 }
 
 /// Minimum normalized-slug length before the prefix/superstring tier in
@@ -247,24 +264,63 @@ pub(crate) struct LazyToolkitResolver {
 const TIER4_MIN_SLUG_LEN: usize = 8;
 
 impl LazyToolkitResolver {
-    /// NOTE (contract gate, #4853): this builds a *fresh* `ComposioActionTool`
-    /// — and therefore a fresh, empty `ContractGate` — on every call. The gate's
-    /// surface-once state lives in the tool instance, so if a future wiring
-    /// resolves a new tool per invocation the gate would surface the full
-    /// contract on every call and the retry would never see `first_time == false`
-    /// to proceed. When this path is wired to actually dispatch, cache the
-    /// resolved tool (and its gate) per turn so a given action can proceed after
-    /// its contract has been surfaced once.
-    pub(super) fn resolve(&self, name: &str) -> Option<Box<dyn crate::openhuman::tools::Tool>> {
+    /// Resolve a `ComposioActionTool` for `name`, caching the built tool per
+    /// slug so subsequent calls for the same slug return the same
+    /// [`ContractGate`] instance (#5119).
+    ///
+    /// ## Caching
+    ///
+    /// Tools are cached by slug in the `resolved` map. The first call for a
+    /// slug builds the tool and stores it; subsequent calls return the cached
+    /// `Arc<dyn Tool>`, sharing the [`ContractGate`] state across calls. This
+    /// prevents the fresh-gate-per-call problem: the contract is surfaced at
+    /// most once per resolver instance, and the retry proceeds normally.
+    ///
+    /// Additionally, the [`ContractGate`] has a process-wide auto-proceed
+    /// safety net that fires when too many fresh gate instances have all
+    /// surfaced the same contract without executing (#5119). This handles
+    /// the cross-spawn re-delegation pattern even when caching is bypassed.
+    pub(super) fn resolve(
+        &self,
+        name: &str,
+    ) -> Option<std::sync::Arc<dyn crate::openhuman::tools::Tool>> {
+        // Check cache first — returns the same Arc (and therefore the same
+        // ContractGate) for repeated resolve calls on the same slug.
+        {
+            let cache = self
+                .resolved
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            if let Some(cached) = cache.get(name) {
+                tracing::trace!(
+                    target: "subagent_runner",
+                    slug = %name,
+                    "[subagent_runner] returning cached composio tool"
+                );
+                return Some(cached.clone());
+            }
+        }
+
         let action = self.find_action(name)?;
-        Some(Box::new(
+        let tool: std::sync::Arc<dyn crate::openhuman::tools::Tool> = std::sync::Arc::new(
             crate::openhuman::composio::ComposioActionTool::new(
                 self.config.clone(),
                 action.name.clone(),
                 action.description.clone(),
                 action.parameters.clone(),
             ),
-        ))
+        );
+
+        // Store in cache for future lookups.
+        {
+            let mut cache = self
+                .resolved
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            cache.insert(action.name.clone(), tool.clone());
+        }
+
+        Some(tool)
     }
 
     /// Match a model-supplied tool name to a real toolkit action, tolerant

@@ -3917,6 +3917,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': '等待批准',
   'flowRuns.status.failed': '失败',
   'flowRuns.status.cancelled': '已取消',
+  'flowRuns.status.interrupted': '已中断',
 
   'flows.page.title': '工作流',
   'flows.page.description': '已保存的自动化流程，可启用、运行并监控。',
@@ -3941,6 +3942,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': '等待批准',
   'flows.allRuns.status.failed': '失败',
   'flows.allRuns.status.cancelled': '已取消',
+  'flows.allRuns.status.interrupted': '已中断',
   'flows.list.minutesAgo': '{count}分钟前',
   'flows.list.hoursAgo': '{count}小时前',
   'flows.list.daysAgo': '{count}天前',

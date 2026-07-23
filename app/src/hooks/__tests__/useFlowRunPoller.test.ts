@@ -170,6 +170,30 @@ describe('useFlowRunPoller', () => {
     expect(getFlowRun).toHaveBeenCalledTimes(1);
   });
 
+  it('stops polling once the run is interrupted', async () => {
+    // Bug B42: an `interrupted` run (reconciled after being dropped mid-flight)
+    // is terminal — the poller must not loop forever on it.
+    getFlowRun.mockResolvedValue(
+      makeRun({
+        status: 'interrupted',
+        error: 'Run interrupted before completion',
+        finished_at: '2026-01-01T00:01:00Z',
+      })
+    );
+    const { result } = renderHook(() => useFlowRunPoller('thread-1'));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.run?.status).toBe('interrupted');
+    expect(getFlowRun).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(getFlowRun).toHaveBeenCalledTimes(1);
+  });
+
   it('stops polling once the run fails', async () => {
     getFlowRun.mockResolvedValue(makeRun({ status: 'failed', error: 'boom' }));
     const { result } = renderHook(() => useFlowRunPoller('thread-1'));

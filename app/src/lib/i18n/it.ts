@@ -4202,6 +4202,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'In attesa di approvazione',
   'flowRuns.status.failed': 'Non riuscito',
   'flowRuns.status.cancelled': 'Annullato',
+  'flowRuns.status.interrupted': 'Interrotto',
 
   'flows.page.title': 'Flussi di lavoro',
   'flows.page.description': 'Automazioni salvate che puoi abilitare, eseguire e monitorare.',
@@ -4227,6 +4228,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'In attesa di approvazione',
   'flows.allRuns.status.failed': 'Non riuscito',
   'flows.allRuns.status.cancelled': 'Annullato',
+  'flows.allRuns.status.interrupted': 'Interrotto',
   'flows.list.minutesAgo': '{count} min fa',
   'flows.list.hoursAgo': '{count} h fa',
   'flows.list.daysAgo': '{count} g fa',

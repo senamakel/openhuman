@@ -4090,6 +4090,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': '승인 대기 중',
   'flowRuns.status.failed': '실패',
   'flowRuns.status.cancelled': '취소됨',
+  'flowRuns.status.interrupted': '중단됨',
 
   'flows.page.title': '워크플로',
   'flows.page.description': '활성화, 실행, 모니터링할 수 있는 저장된 자동화입니다.',
@@ -4114,6 +4115,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': '승인 대기 중',
   'flows.allRuns.status.failed': '실패',
   'flows.allRuns.status.cancelled': '취소됨',
+  'flows.allRuns.status.interrupted': '중단됨',
   'flows.list.minutesAgo': '{count}분 전',
   'flows.list.hoursAgo': '{count}시간 전',
   'flows.list.daysAgo': '{count}일 전',

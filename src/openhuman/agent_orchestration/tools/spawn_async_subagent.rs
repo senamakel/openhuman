@@ -225,6 +225,40 @@ impl Tool for SpawnAsyncSubagentTool {
         let progress_sink = parent.on_progress.clone();
         let parent_thread_id =
             crate::openhuman::inference::provider::thread_context::current_thread_id();
+
+        // Async delivery is thread-addressed: the finished result is inserted
+        // back into the parent chat thread as a follow-up turn
+        // (`background_delivery`). Outside a chat turn (flow `agent` nodes,
+        // CLI, cron) there is no `current_thread_id()` to deliver into, so
+        // `background_delivery::deliver_batch` logs "dropping headless batch"
+        // and the (possibly real, completed) work is silently discarded — the
+        // caller sees "Accepted" and never learns the result never arrived.
+        // Fail loudly instead: the caller has a synchronous alternative
+        // (`spawn_subagent` with `blocking: true`, or a `delegate_*` tool).
+        // Both of those self-heal to blocking dispatch in this situation
+        // rather than reaching this guard — see the `has_delivery_thread`
+        // checks in `spawn_subagent.rs` and `dispatch.rs::dispatch_subagent`.
+        // Only a *direct* `spawn_async_subagent` call lands here.
+        if parent_thread_id.is_none() {
+            log::warn!(
+                "[spawn_async_subagent] refusing fire-and-forget spawn with no delivery thread \
+                 parent={} requested={} — directing caller to synchronous delegation (flow node / \
+                 CLI / cron context, background result would be discarded)",
+                parent.agent_definition_id,
+                definition.id
+            );
+            return Ok(ToolResult::error(
+                "spawn_async_subagent: no parent chat thread available to deliver the result \
+                 into (this looks like a flow node, CLI, or cron run rather than an interactive \
+                 chat turn). Fire-and-forget delegation has nowhere to land its result here and \
+                 the sub-agent's work would be silently discarded. Use synchronous delegation \
+                 instead: call `spawn_subagent` with `blocking: true`, or use a `delegate_*` \
+                 tool — both run the sub-agent inline and hand you its output in this turn. \
+                 For parallel work, model it as parallel flow nodes rather than background \
+                 sub-agents.",
+            ));
+        }
+
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
         let effective_action_root = workspace_descriptor
@@ -1040,6 +1074,19 @@ fn reusable_follow_up_message(prompt: &str, context: Option<&str>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
+    use crate::openhuman::agent::harness::fork_context::{
+        with_parent_context, ParentExecutionContext,
+    };
+    use crate::openhuman::config::AgentConfig;
+    use crate::openhuman::context::prompt::ToolCallFormat;
+    use crate::openhuman::inference::provider::Provider;
+    use crate::openhuman::memory::{
+        Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
+    };
+    use std::collections::HashSet;
+    use std::path::Path;
+    use std::sync::Arc;
 
     #[test]
     fn parameters_schema_advertises_fire_and_forget_fields() {
@@ -1279,5 +1326,179 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("prompt"));
+    }
+
+    /// B40 / Gap 4: a delegating agent (orchestrator/subconscious) calling
+    /// `spawn_async_subagent` directly from a thread-less context (flow
+    /// `agent` node, CLI, cron) must get a clear, actionable error instead of
+    /// silently accepting the spawn and later dropping its result in
+    /// `background_delivery`'s "headless batch" path. Sets up a real parent
+    /// turn context (so the call gets past the `current_parent()` /
+    /// allowlist / registry checks) but deliberately does NOT wrap the call
+    /// in `with_thread_id`, so `current_thread_id()` is None — the exact
+    /// condition that used to sail through to `tokio::spawn` and lose the
+    /// result.
+    #[tokio::test]
+    async fn errors_clearly_when_no_parent_thread_for_delivery() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let workspace = tempfile::TempDir::new().expect("workspace");
+
+        let result = with_parent_context(parent_context(workspace.path()), async {
+            SpawnAsyncSubagentTool::new()
+                .execute(json!({
+                    "agent_id": "researcher",
+                    "prompt": "investigate x",
+                }))
+                .await
+        })
+        .await
+        .unwrap();
+
+        assert!(result.is_error);
+        let out = result.output();
+        assert!(out.contains("no parent chat thread"), "{out}");
+        // The recommended escape hatch must name `blocking: true` — plain
+        // `spawn_subagent` defaults to async and would otherwise be steered
+        // straight back into this same guard.
+        assert!(out.contains("spawn_subagent"), "{out}");
+        assert!(out.contains("blocking: true"), "{out}");
+        assert!(out.contains("delegate_"), "{out}");
+    }
+
+    /// The positive half of the branch above: with a chat thread bound, the
+    /// guard must NOT fire. This asserts only that the call gets *past* the
+    /// `parent_thread_id.is_none()` check — driving the full spawn/session
+    /// machinery to a successful "Accepted" is out of scope for a unit test,
+    /// so a later failure is acceptable; a "no parent chat thread" failure is
+    /// not. Pins that the guard keys on thread presence and nothing else.
+    #[tokio::test]
+    async fn guard_does_not_fire_when_parent_thread_is_bound() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let workspace = tempfile::TempDir::new().expect("workspace");
+
+        let result = with_parent_context(parent_context(workspace.path()), async {
+            crate::openhuman::inference::provider::thread_context::with_thread_id(
+                "t-parent",
+                async {
+                    SpawnAsyncSubagentTool::new()
+                        .execute(json!({
+                            "agent_id": "researcher",
+                            "prompt": "investigate x",
+                        }))
+                        .await
+                },
+            )
+            .await
+        })
+        .await
+        .unwrap();
+
+        assert!(
+            !result.output().contains("no parent chat thread"),
+            "guard fired despite a bound parent thread: {}",
+            result.output()
+        );
+    }
+
+    fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
+        ParentExecutionContext {
+            workspace_descriptor: None,
+            agent_definition_id: "orchestrator".into(),
+            allowed_subagent_ids: HashSet::from(["researcher".to_string()]),
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
+                NoopProvider,
+            )),
+            all_tools: Arc::new(Vec::new()),
+            all_tool_specs: Arc::new(Vec::new()),
+            visible_tool_names: std::collections::HashSet::new(),
+            model_name: "test-model".into(),
+            temperature: 0.0,
+            workspace_dir: workspace_dir.to_path_buf(),
+            memory: Arc::new(NoopMemory),
+            agent_config: AgentConfig::default(),
+            workflows: Arc::new(Vec::new()),
+            memory_context: Arc::new(None),
+            session_id: "parent-session".into(),
+            channel: "test".into(),
+            connected_integrations: Vec::new(),
+            tool_call_format: ToolCallFormat::Native,
+            session_key: "parent-key".into(),
+            session_parent_prefix: None,
+            on_progress: None,
+            run_queue: None,
+        }
+    }
+
+    struct NoopProvider;
+
+    #[async_trait::async_trait]
+    impl Provider for NoopProvider {
+        async fn chat_with_system(
+            &self,
+            _system_prompt: Option<&str>,
+            _message: &str,
+            _model: &str,
+            _temperature: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+    }
+
+    struct NoopMemory;
+
+    #[async_trait::async_trait]
+    impl Memory for NoopMemory {
+        fn name(&self) -> &str {
+            "noop"
+        }
+
+        async fn store(
+            &self,
+            _namespace: &str,
+            _key: &str,
+            _content: &str,
+            _category: MemoryCategory,
+            _session_id: Option<&str>,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn recall(
+            &self,
+            _query: &str,
+            _limit: usize,
+            _opts: RecallOpts<'_>,
+        ) -> anyhow::Result<Vec<MemoryEntry>> {
+            Ok(Vec::new())
+        }
+
+        async fn get(&self, _namespace: &str, _key: &str) -> anyhow::Result<Option<MemoryEntry>> {
+            Ok(None)
+        }
+
+        async fn list(
+            &self,
+            _namespace: Option<&str>,
+            _category: Option<&MemoryCategory>,
+            _session_id: Option<&str>,
+        ) -> anyhow::Result<Vec<MemoryEntry>> {
+            Ok(Vec::new())
+        }
+
+        async fn forget(&self, _namespace: &str, _key: &str) -> anyhow::Result<bool> {
+            Ok(false)
+        }
+
+        async fn namespace_summaries(&self) -> anyhow::Result<Vec<NamespaceSummary>> {
+            Ok(Vec::new())
+        }
+
+        async fn count(&self) -> anyhow::Result<usize> {
+            Ok(0)
+        }
+
+        async fn health_check(&self) -> bool {
+            true
+        }
     }
 }

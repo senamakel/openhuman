@@ -4665,6 +4665,7 @@ const en: TranslationMap = {
   'flowRuns.status.pending_approval': 'Awaiting approval',
   'flowRuns.status.failed': 'Failed',
   'flowRuns.status.cancelled': 'Cancelled',
+  'flowRuns.status.interrupted': 'Interrupted',
 
   // ── Workflows list page + nav tab (B5a): the `flows::` domain's
   // discoverable hub at /flows. Distinct from the legacy SKILL.md
@@ -4711,6 +4712,7 @@ const en: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'Pending approval',
   'flows.allRuns.status.failed': 'Failed',
   'flows.allRuns.status.cancelled': 'Cancelled',
+  'flows.allRuns.status.interrupted': 'Interrupted',
   'flows.list.minutesAgo': '{count}m ago',
   'flows.list.hoursAgo': '{count}h ago',
   'flows.list.daysAgo': '{count}d ago',

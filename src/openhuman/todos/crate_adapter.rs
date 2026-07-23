@@ -200,6 +200,18 @@ pub(crate) async fn get_crate_board_raw(
     }
 }
 
+/// Whether the crate store contains any value for `thread_id`, without
+/// attempting to decode it. Migration uses this stricter existence check so a
+/// corrupt or forward-schema value remains authoritative and is never
+/// overwritten by a stale legacy file.
+async fn crate_board_value_exists(store: &Arc<dyn Store>, thread_id: &str) -> Result<bool, String> {
+    store
+        .get(TODOS_NAMESPACE, &todo_key(thread_id))
+        .await
+        .map(|value| value.is_some())
+        .map_err(|e| format!("check crate task board existence: {e}"))
+}
+
 /// Delete the crate board value for `thread_id` (ns `graph.todos`). No-op when
 /// absent. Unlike the crate `clear` op (which writes an empty board), this
 /// removes the key so a subsequent read reports `None` — matching the legacy
@@ -316,8 +328,8 @@ pub async fn migrate_legacy_task_boards_into_crate_store(
     );
     for board in &legacy {
         let crate_board = to_crate_board(board);
-        match get_crate_board_raw(&store, &board.thread_id).await {
-            Ok(Some(_)) => {
+        match crate_board_value_exists(&store, &board.thread_id).await {
+            Ok(true) => {
                 report.skipped += 1;
                 tracing::debug!(
                     thread_id = %board.thread_id,
@@ -325,7 +337,7 @@ pub async fn migrate_legacy_task_boards_into_crate_store(
                 );
                 continue;
             }
-            Ok(None) => {}
+            Ok(false) => {}
             Err(e) => {
                 return Err(format!(
                     "check crate task board before migrating thread {}: {e}",
@@ -516,5 +528,35 @@ mod tests {
         let preserved = get_crate_board_raw(&store, "t2").await.unwrap().unwrap();
         assert_eq!(preserved.cards[0].title, "newer crate title");
         assert_eq!(preserved.updated_at, "2026-07-04T00:00:00Z");
+    }
+
+    #[tokio::test]
+    async fn migration_preserves_undecodable_but_present_crate_board() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_legacy_board(dir, &legacy_board("t-corrupt", "stale-task"));
+
+        let store = crate_todos_store(dir);
+        let key = todo_key("t-corrupt");
+        let undecodable = serde_json::json!({
+            "thread_id": "t-corrupt",
+            "cards": "future-schema",
+        });
+        store
+            .put(TODOS_NAMESPACE, &key, undecodable.clone())
+            .await
+            .unwrap();
+
+        let report = migrate_legacy_task_boards_into_crate_store(dir)
+            .await
+            .unwrap();
+        assert_eq!(report.total, 1);
+        assert_eq!(report.copied, 0);
+        assert_eq!(report.skipped, 1);
+        assert_eq!(
+            store.get(TODOS_NAMESPACE, &key).await.unwrap(),
+            Some(undecodable),
+            "migration must not overwrite a present row it cannot decode"
+        );
     }
 }

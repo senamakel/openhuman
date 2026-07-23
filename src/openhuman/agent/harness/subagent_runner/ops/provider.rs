@@ -252,8 +252,9 @@ pub(crate) struct LazyToolkitResolver {
     /// for a slug, subsequent `resolve()` calls for the same slug reuse the
     /// cached instance — sharing its [`ContractGate`] state (#5119).
     #[allow(dead_code)] // used via pub(super) from tests
-    pub(super) resolved:
-        std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<dyn crate::openhuman::tools::Tool>>>,
+    pub(super) resolved: std::sync::Mutex<
+        std::collections::HashMap<String, std::sync::Arc<dyn crate::openhuman::tools::Tool>>,
+    >,
 }
 
 /// Minimum normalized-slug length before the prefix/superstring tier in
@@ -302,14 +303,13 @@ impl LazyToolkitResolver {
         }
 
         let action = self.find_action(name)?;
-        let tool: std::sync::Arc<dyn crate::openhuman::tools::Tool> = std::sync::Arc::new(
-            crate::openhuman::composio::ComposioActionTool::new(
+        let tool: std::sync::Arc<dyn crate::openhuman::tools::Tool> =
+            std::sync::Arc::new(crate::openhuman::composio::ComposioActionTool::new(
                 self.config.clone(),
                 action.name.clone(),
                 action.description.clone(),
                 action.parameters.clone(),
-            ),
-        );
+            ));
 
         // Store in cache for future lookups.
         {

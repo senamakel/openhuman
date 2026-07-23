@@ -442,7 +442,10 @@ fn extract_fenced_json_block(text: &str) -> Option<Value> {
     let fence_start = text.find("```")?;
     let after_fence = text[fence_start + 3..].trim();
     // Skip optional "json" after the opening fence
-    let content = after_fence.strip_prefix("json").unwrap_or(after_fence).trim();
+    let content = after_fence
+        .strip_prefix("json")
+        .unwrap_or(after_fence)
+        .trim();
     // Find the *last* closing ``` (preferring the outermost fence, which
     // matches how Markdown renderers treat nested fences — the last ``` is
     // the one that closes the block the LLM opened).
@@ -5660,11 +5663,7 @@ mod tests {
                 "schema": { "type": "array" }
             }
         });
-        let result = build_agent_result(
-            "agent-1",
-            "Here is the list: [1, 2, 3]",
-            &request,
-        );
+        let result = build_agent_result("agent-1", "Here is the list: [1, 2, 3]", &request);
         assert_eq!(result, json!([1, 2, 3]));
     }
 
@@ -5699,7 +5698,8 @@ mod tests {
                 "schema": { "type": "object" }
             }
         });
-        let text = "Some text\n```json\n{\"from_fence\": true}\n```\nmore text { \"from_brace\": true }";
+        let text =
+            "Some text\n```json\n{\"from_fence\": true}\n```\nmore text { \"from_brace\": true }";
         let result = build_agent_result("agent-1", text, &request);
         assert_eq!(result, json!({ "from_fence": true }));
     }

@@ -289,6 +289,7 @@ fn block_on_migration(
     }
 }
 
+#[allow(dead_code)]
 fn spawn_thread_goals_migration(config: Config) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
@@ -310,6 +311,7 @@ fn spawn_thread_goals_migration(config: Config) -> tokio::task::JoinHandle<()> {
     })
 }
 
+#[allow(dead_code)]
 fn spawn_task_boards_migration(config: Config) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(

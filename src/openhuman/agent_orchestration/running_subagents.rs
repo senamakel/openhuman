@@ -674,7 +674,9 @@ pub(crate) fn register(
     log::debug!(
         "[running_subagents] registered task_id={} live_entries={}",
         task_id,
-        registry().len()
+        registry()
+            .len()
+            .expect("detached task registry lock poisoned")
     );
 }
 
@@ -730,6 +732,7 @@ pub(crate) struct SubagentSnapshot {
 pub(crate) fn snapshot_for_parent(parent_session: &str) -> Vec<SubagentSnapshot> {
     let mut out: Vec<SubagentSnapshot> = registry()
         .snapshots(Some(parent_session))
+        .expect("detached task registry lock poisoned")
         .into_iter()
         .map(|entry| {
             let status = match &entry.status {
@@ -859,9 +862,14 @@ pub(crate) fn task_id_for_session(
 ) -> Result<String, WaitError> {
     let mut saw_unowned = false;
     let mut owned_terminal: Option<String> = None;
-    for snapshot in registry().snapshots(None).into_iter().filter(|snapshot| {
-        snapshot.metadata.subagent_session_id.as_deref() == Some(subagent_session_id)
-    }) {
+    for snapshot in registry()
+        .snapshots(None)
+        .expect("detached task registry lock poisoned")
+        .into_iter()
+        .filter(|snapshot| {
+            snapshot.metadata.subagent_session_id.as_deref() == Some(subagent_session_id)
+        })
+    {
         if snapshot.owner_id != parent_session {
             saw_unowned = true;
             continue;
@@ -1312,7 +1320,9 @@ pub(crate) fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
         task_id,
         metadata.agent_id,
         metadata.parent_thread_id,
-        registry().len()
+        registry()
+            .len()
+            .expect("detached task registry lock poisoned")
     );
     Some(CancelledSubagent {
         agent_id: metadata.agent_id,
@@ -1347,8 +1357,9 @@ pub(crate) fn cancel_by_session_in_workspace(
 /// keep running (and later try to deliver) against a thread that no longer
 /// exists. Returns the number of sub-agents cancelled.
 pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
-    let cancelled =
-        registry().cancel_where(|metadata| metadata.parent_thread_id.as_deref() == Some(thread_id));
+    let cancelled = registry()
+        .cancel_where(|metadata| metadata.parent_thread_id.as_deref() == Some(thread_id))
+        .expect("detached task registry lock poisoned");
     for entry in &cancelled {
         record_cancelled(&entry.metadata.workspace_dir, entry.task_id.as_str());
     }
@@ -1357,7 +1368,9 @@ pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
         "[running_subagents] cancel_for_thread thread_id={} cancelled={} live_entries={}",
         thread_id,
         count,
-        registry().len()
+        registry()
+            .len()
+            .expect("detached task registry lock poisoned")
     );
     count
 }
@@ -1369,7 +1382,9 @@ pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
 /// the cooperative-abort race. Headless sub-agents (no parent thread) are still
 /// aborted but contribute no id.
 pub(crate) fn cancel_all() -> Vec<String> {
-    let cancelled = registry().cancel_all();
+    let cancelled = registry()
+        .cancel_all()
+        .expect("detached task registry lock poisoned");
     let count = cancelled.len();
     let mut thread_ids: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();

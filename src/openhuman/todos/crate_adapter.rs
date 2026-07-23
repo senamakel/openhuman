@@ -175,7 +175,8 @@ pub(crate) fn from_crate_board(board: &CrateBoard) -> OhBoard {
 
 /// Read the raw crate [`CrateBoard`] stored for `thread_id` (ns `graph.todos`,
 /// key `hex(thread_id)`), or `None` when the thread has no board value. Does
-/// **not** normalise. An undecodable value is treated as absent.
+/// **not** normalise. An undecodable value returns an error so live
+/// read/modify/write callers fail closed instead of replacing a present row.
 pub(crate) async fn get_crate_board_raw(
     store: &Arc<dyn Store>,
     thread_id: &str,
@@ -185,17 +186,9 @@ pub(crate) async fn get_crate_board_raw(
         .await
         .map_err(|e| format!("read crate task board: {e}"))?;
     match value {
-        Some(v) => match serde_json::from_value::<CrateBoard>(v) {
-            Ok(board) => Ok(Some(board)),
-            Err(e) => {
-                tracing::debug!(
-                    thread_id = %thread_id,
-                    error = %e,
-                    "[todos][crate-adapter] undecodable crate board; treating as absent"
-                );
-                Ok(None)
-            }
-        },
+        Some(v) => serde_json::from_value::<CrateBoard>(v)
+            .map(Some)
+            .map_err(|e| format!("decode crate task board for thread {thread_id}: {e}")),
         None => Ok(None),
     }
 }

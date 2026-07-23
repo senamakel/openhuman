@@ -511,28 +511,31 @@ mod tests {
         assert!(board.cards.is_empty());
     }
 
-    /// An undecodable crate value is treated as absent (never wedges the read),
-    /// so `get` returns `None` rather than surfacing a parse error to the caller.
+    /// An undecodable crate value must fail closed so a later read/modify/write
+    /// operation cannot replace the authoritative row with an empty board.
     #[tokio::test]
-    async fn undecodable_board_value_reads_as_none() {
+    async fn undecodable_board_value_returns_error_without_overwriting_row() {
         use tinyagents::graph::todos::store::TODOS_NAMESPACE;
 
         let dir = tempdir().expect("tempdir");
         let store = crate_adapter::crate_todos_store(dir.path());
+        let key = crate_adapter::todo_key("thread-corrupt");
+        let undecodable = serde_json::json!({ "not": "a board" });
         store
-            .put(
-                TODOS_NAMESPACE,
-                &crate_adapter::todo_key("thread-corrupt"),
-                serde_json::json!({ "not": "a board" }),
-            )
+            .put(TODOS_NAMESPACE, &key, undecodable.clone())
             .await
             .expect("seed garbage value");
 
         let board_store = TaskBoardStore::new(dir.path().to_path_buf());
-        assert!(board_store
+        let error = board_store
             .get("thread-corrupt")
             .await
-            .expect("get")
-            .is_none());
+            .expect_err("undecodable row must not be treated as absent");
+        assert!(error.contains("decode crate task board"));
+        assert_eq!(
+            store.get(TODOS_NAMESPACE, &key).await.expect("raw get"),
+            Some(undecodable),
+            "failed live reads must leave the authoritative row untouched"
+        );
     }
 }

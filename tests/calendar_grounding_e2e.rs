@@ -55,6 +55,7 @@ impl ChatModel<()> for MockCalendarModel {
                 finish_reason: Some("tool_calls".into()),
                 raw: None,
                 resolved_model: None,
+                continue_turn: None,
             })
         } else {
             // End the loop

@@ -357,6 +357,7 @@ mod tests {
             finish_reason: None,
             raw: Some(raw),
             resolved_model: None,
+            continue_turn: None,
         };
 
         let projected = project_managed_usage(response);
@@ -396,6 +397,7 @@ mod tests {
             finish_reason: None,
             raw: Some(serde_json::json!({ "id": "resp_1" })),
             resolved_model: None,
+            continue_turn: None,
         };
 
         let projected = project_managed_usage(response);

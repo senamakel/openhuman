@@ -341,6 +341,7 @@ fn response(text: Option<&str>, tool_calls: Vec<ToolCall>) -> ModelResponse {
         finish_reason: None,
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 

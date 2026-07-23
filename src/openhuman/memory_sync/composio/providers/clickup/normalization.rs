@@ -1,4 +1,4 @@
-//! ClickUp sync helpers — result extraction, task-title extraction,
+//! ClickUp host normalization helpers — result extraction, task-title extraction,
 //! and time utilities.
 //!
 //! ClickUp's REST API (and therefore Composio's wrapping of it) returns

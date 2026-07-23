@@ -2,8 +2,8 @@
 
 use tinycortex::memory::store::kv::KvStore;
 
+use crate::openhuman::memory_store::namespace_store::UnifiedMemory;
 use crate::openhuman::memory_store::types::MemoryKvRecord;
-use crate::openhuman::memory_store::unified::UnifiedMemory;
 
 impl UnifiedMemory {
     fn tinycortex_kv(&self) -> Result<KvStore, String> {

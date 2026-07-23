@@ -26,7 +26,7 @@ one job. memory orchestrates and routes between them.
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | [`memory_store`](../memory_store/)         | Storage primitives: raw / chunks / entities / trees / vectors / kv / contacts. SQLite + on-disk md. |
 | [`memory_tree`](../memory_tree/)           | Generic tree mechanics: bucket-seal, flush, summarise, and retrieval/traversal backends.            |
-| [`memory_archivist`](../memory_archivist/) | Chat conversation → clip tool-calls → push to tree (shim over `tinycortex::memory::archivist`).      |
+| `tinycortex::memory::archivist`            | Chat conversation → clip tool-calls → push to tree; called directly by the host harness.            |
 | [`memory_tools`](../memory_tools/)         | Tool-scoped rules + agent read/write tools.                                                         |
 | [`memory_sync`](../memory_sync/)           | Composio + workspace + MCP sync pipelines.                                                          |
 

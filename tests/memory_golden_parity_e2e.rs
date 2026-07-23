@@ -10,7 +10,7 @@
 //!   1. the **crate-owned substrate** the `tinycortex` chunk DB creates
 //!      (`init_db` → `chunks/schema.rs`), and
 //!   2. the **host-retained `UnifiedMemory` namespace-document tier**
-//!      (`memory_store/unified/*`),
+//!      (`memory_store/namespace_store/*`),
 //!
 //! coexisting without collision (parity checklist P3/P5/P11/P12 — the W3 gate).
 //! A store/tree cutover that reshaped, renamed, or dropped a table would strand
@@ -105,7 +105,7 @@ const CRATE_CHUNK_SCHEMA_TABLES: &[&str] = &[
 ];
 
 /// The host-retained `UnifiedMemory` namespace-document tier
-/// (`memory_store/unified/*`) — stays host, coexists in the shared workspace.
+/// (`memory_store/namespace_store/*`) — stays host, coexists in the shared workspace.
 const HOST_UNIFIED_TABLES: &[&str] = &[
     "memory_docs",
     "graph_global",

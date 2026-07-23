@@ -18,7 +18,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use super::sync;
+use super::normalization;
 use crate::openhuman::memory_sync::composio::providers::{
     first_array_str, merge_extra, pick_str, resolve_sync_interval_secs, ComposioProvider,
     CuratedTool, NormalizedTask, ProviderContext, ProviderUserProfile, TaskContainer,
@@ -194,7 +194,7 @@ impl ComposioProvider for NotionProvider {
             .filter(|s| !s.is_empty());
 
         let mut out: Vec<NormalizedTask> = Vec::new();
-        for page in sync::extract_results(&resp.data) {
+        for page in normalization::extract_results(&resp.data) {
             if out.len() >= max {
                 break;
             }
@@ -302,8 +302,8 @@ impl ComposioProvider for NotionProvider {
 /// preserved for enrichment.
 fn normalize_notion_page(page: &serde_json::Value) -> Option<NormalizedTask> {
     let external_id = pick_str(page, PAGE_ID_PATHS)?;
-    let title =
-        sync::extract_page_title(page).unwrap_or_else(|| format!("Notion page {external_id}"));
+    let title = normalization::extract_page_title(page)
+        .unwrap_or_else(|| format!("Notion page {external_id}"));
     Some(NormalizedTask {
         external_id,
         source_id: String::new(),
@@ -358,7 +358,7 @@ fn normalize_notion_page(page: &serde_json::Value) -> Option<NormalizedTask> {
 /// "keep only object==database" check silently dropped every database.
 /// Pure (no I/O) so it is unit-testable.
 pub(super) fn parse_database_results(data: &serde_json::Value) -> Vec<TaskContainer> {
-    let results = sync::extract_results(data);
+    let results = normalization::extract_results(data);
     let mut kinds: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let mut out: Vec<TaskContainer> = Vec::new();
     for item in &results {

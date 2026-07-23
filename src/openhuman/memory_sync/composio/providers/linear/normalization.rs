@@ -1,4 +1,4 @@
-//! Linear sync helpers — result extraction, issue-title extraction,
+//! Linear host normalization helpers — result extraction, issue-title extraction,
 //! viewer identity, cursor extraction, and time utilities.
 //!
 //! Linear's GraphQL API (and therefore Composio's wrapping of it) returns

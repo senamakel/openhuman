@@ -332,6 +332,7 @@ fn text_response_with_reasoning(text: &str, reasoning: &str) -> ModelResponse {
         finish_reason: None,
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 
@@ -351,6 +352,7 @@ fn tool_response(name: &str, args: &str) -> ModelResponse {
         finish_reason: Some("tool_calls".to_string()),
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 

@@ -226,6 +226,7 @@ impl ChatModel<()> for StubModel {
                 finish_reason: Some("tool_calls".into()),
                 raw: None,
                 resolved_model: None,
+                continue_turn: None,
             })
         } else {
             Ok(ModelResponse::assistant("done"))

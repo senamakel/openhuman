@@ -206,6 +206,7 @@ fn tool_response(id: &str, name: &str, arguments: serde_json::Value) -> ModelRes
         finish_reason: Some("tool_calls".to_string()),
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 

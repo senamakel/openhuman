@@ -66,6 +66,7 @@ fn model_response(response: ChatResponse) -> ModelResponse {
         usage: None,
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 

@@ -190,6 +190,7 @@ fn response(
         finish_reason: None,
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 
@@ -214,6 +215,7 @@ fn response_with_cached(
         finish_reason: None,
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 

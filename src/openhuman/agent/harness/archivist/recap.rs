@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 impl ArchivistHook {
     /// Read every entry recorded for `session_id`, preferring the
-    /// md-backed `memory_archivist::store` when `self.config` is set and
+    /// crate-owned md-backed archivist store when `self.config` is set and
     /// falling back to the legacy FTS5 episodic table otherwise.
     ///
     /// Returns `EpisodicEntry` so the existing call sites (segment
@@ -23,7 +23,10 @@ impl ArchivistHook {
         session_id: &str,
     ) -> Vec<EpisodicEntry> {
         if let Some(cfg) = self.config.as_ref() {
-            match crate::openhuman::memory_archivist::store::session_entries(cfg, session_id) {
+            let engine_config =
+                crate::openhuman::tinycortex::memory_config_from(cfg, cfg.workspace_dir.clone());
+            match tinycortex::memory::archivist::store::session_entries(&engine_config, session_id)
+            {
                 Ok(turns) => {
                     return turns
                         .into_iter()

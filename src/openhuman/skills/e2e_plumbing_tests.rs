@@ -75,6 +75,7 @@ fn tool_call(id: &str, name: &str, args: serde_json::Value) -> ModelResponse {
         finish_reason: Some("tool_calls".to_string()),
         raw: None,
         resolved_model: None,
+        continue_turn: None,
     }
 }
 

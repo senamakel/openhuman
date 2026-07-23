@@ -29,11 +29,14 @@
 //! - `OPENHUMAN_MEMORY_EMBED_MODEL`
 //! - `OPENHUMAN_MEMORY_EMBED_TIMEOUT_MS`
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
-use super::{CloudEmbedder, Embedder, InertEmbedder, OllamaEmbedder};
+use std::time::Duration;
+
+use super::{Embedder, InertEmbedder, ProviderEmbedder, EMBEDDING_DIM};
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::local::ollama_base_url;
+use tinyagents::harness::embeddings::{OllamaEmbeddingModel, RECOMMENDED_OLLAMA_CONTEXT_TOKENS};
 
 /// Cheap heuristic for "is a backend session reachable?" — the cloud
 /// embedder needs one and bails on first embed call without it. We use
@@ -69,7 +72,7 @@ pub fn build_embedder_from_config(config: &Config) -> Result<Box<dyn Embedder>> 
             log::debug!(
                 "[memory_tree::embed::factory] read → Ollama endpoint={endpoint} model={model} timeout_ms={timeout_ms}"
             );
-            Box::new(OllamaEmbedder::new(endpoint, model, timeout_ms))
+            Box::new(build_ollama_embedder(&endpoint, &model, timeout_ms)?)
         }
         EmbedderChoice::OptOut => {
             log::info!(
@@ -90,7 +93,7 @@ pub fn build_embedder_from_config(config: &Config) -> Result<Box<dyn Embedder>> 
                 "[memory_tree::embed::factory] read → cloud (Voyage) — flip \
                  'Memory embeddings' in Local AI Settings to switch to local"
             );
-            Box::new(CloudEmbedder::new(config))
+            Box::new(build_cloud_embedder(config))
         }
         EmbedderChoice::NoProvider => {
             log::warn!(
@@ -215,7 +218,9 @@ pub fn build_write_embedder(config: &Config) -> Result<Option<Box<dyn Embedder>>
             timeout_ms,
         } => {
             clear_semantic_recall_degraded();
-            Some(Box::new(OllamaEmbedder::new(endpoint, model, timeout_ms)))
+            Some(Box::new(build_ollama_embedder(
+                &endpoint, &model, timeout_ms,
+            )?))
         }
         EmbedderChoice::OptOut => {
             clear_semantic_recall_degraded();
@@ -231,7 +236,7 @@ pub fn build_write_embedder(config: &Config) -> Result<Option<Box<dyn Embedder>>
         }
         EmbedderChoice::Cloud => {
             clear_semantic_recall_degraded();
-            Some(Box::new(CloudEmbedder::new(config)))
+            Some(Box::new(build_cloud_embedder(config)))
         }
         EmbedderChoice::NoProvider => {
             log::warn!(
@@ -243,6 +248,36 @@ pub fn build_write_embedder(config: &Config) -> Result<Option<Box<dyn Embedder>>
             None
         }
     })
+}
+
+fn build_ollama_embedder(endpoint: &str, model: &str, timeout_ms: u64) -> Result<ProviderEmbedder> {
+    let timeout = Duration::from_millis(if timeout_ms == 0 { 10_000 } else { timeout_ms });
+    let client = reqwest::Client::builder()
+        .connect_timeout(timeout)
+        .build()
+        .context("build Ollama embeddings HTTP client")?;
+    let model = OllamaEmbeddingModel::try_new(endpoint, model, EMBEDDING_DIM)?
+        .with_context_options(
+            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+        )
+        .with_client(client);
+    Ok(ProviderEmbedder::new(
+        crate::openhuman::embeddings::TinyAgentsEmbeddingProvider::boxed(model),
+        "ollama",
+    ))
+}
+
+fn build_cloud_embedder(config: &Config) -> ProviderEmbedder {
+    let openhuman_dir = config.config_path.parent().map(std::path::PathBuf::from);
+    let provider = crate::openhuman::embeddings::cloud::OpenHumanCloudEmbedding::new(
+        None,
+        openhuman_dir,
+        config.secrets.encrypt,
+        crate::openhuman::embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_MODEL,
+        crate::openhuman::embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
+    );
+    ProviderEmbedder::new(Box::new(provider), "cloud")
 }
 
 #[cfg(test)]

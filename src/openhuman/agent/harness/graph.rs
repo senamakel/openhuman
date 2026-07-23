@@ -219,6 +219,7 @@ mod tests {
                 finish_reason: Some("tool_calls".to_string()),
                 raw: None,
                 resolved_model: None,
+                continue_turn: None,
             },
             ModelResponse::assistant("channel done"),
         ]));

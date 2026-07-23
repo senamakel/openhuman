@@ -5,16 +5,15 @@ from generic namespace memory and from `learning::tool_tracker` statistics.
 
 ## Namespace convention
 
-Each tool gets its own namespace `tool-{tool_name}`. Build the string via
-[`types::tool_memory_namespace`] — never hard-code it.
+Each tool gets its own namespace `tool-{tool_name}`. Build the string via the
+`tool_memory_namespace` re-export — never hard-code it.
 
 ## Layout
 
 | Path | Role |
 | --- | --- |
 | [`mod.rs`](mod.rs) | Module root + public re-exports. |
-| [`types.rs`](types.rs) | **Shim** — re-exports `ToolMemoryRule` / `ToolMemoryPriority` / `ToolMemorySource` / `tool_memory_namespace` from `tinycortex::memory::tool_memory::types` (W7). |
-| [`store.rs`](store.rs) | **Shim** — re-exports the crate `ToolMemoryStore` (`put_rule`, `get_rule`, `list_rules`, `delete_rule`, `rules_for_prompt`, `list_tool_names`, `record`, `list_rules_json`) + `tool_memory_store(Arc<dyn Memory>)`. The trait and engine are both crate-owned. |
+| [`mod.rs`](mod.rs) | Re-exports crate types/store and defines `tool_memory_store(Arc<dyn Memory>)`. |
 | [`capture.rs`](capture.rs) | `ToolMemoryCaptureHook` — `PostTurnHook` impl that captures user edicts and repeated tool failures into the store (host-retained). |
 | [`prompt.rs`](prompt.rs) | **Shim** — re-exports the crate `ToolMemoryRulesSection` + `render_tool_memory_rules` + `TOOL_MEMORY_HEADING`, and keeps the host `PromptSection` impl that plugs the section into the system-prompt builder. |
 | [`tools/`](tools/) | Agent-facing read/write tools: `MemoryToolsListTool` (list rules for a tool), `MemoryToolsPutTool` (upsert a rule). |
@@ -35,6 +34,5 @@ The agent harness:
 - No upward dependencies — only `memory::Memory` trait (via `Arc<dyn Memory>`)
   and project-wide primitives (`tools::traits::Tool`, `serde_json`).
 - `MockMemory` is `#[cfg(test)]`-only — never available outside test builds.
-- Re-exports in `mod.rs` are the public surface; the underlying submodules
-  are `pub` so test code can reach in but consumers should go through the
-  re-exports.
+- Re-exports in `mod.rs` are the public surface. Crate-owned type and store
+  forwarding files were removed; consumers should use the domain root.

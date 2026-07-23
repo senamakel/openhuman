@@ -109,10 +109,12 @@ tinyagents = { version = "2.1", features = ["sqlite"] }
 # queue/ingest/score + long tail), vendored as a git submodule and patched
 # below to `vendor/tinycortex`. OpenHuman's memory subsystem migrates onto this
 # crate through the adapter seam in `src/openhuman/tinycortex/` (mirroring the
-# tinyagents seam): engine logic in the crate; RPC, agent tools, live sync,
-# security gating, and the global singleton stay host-side. rusqlite/git2 are
+# tinyagents seam): engine logic (including provider sync pipelines) in the
+# crate; RPC, agent tools, sync scheduling/credentials/events, security gating,
+# and the global singleton stay host-side. rusqlite/git2 are
 # aligned to the host pins (=0.40 / 0.21) so one bundled SQLite + one libgit2
-# link. Keep the version pin in lockstep with the submodule tag.
+# link. The submodule intentionally tracks reviewed upstream main commits;
+# keep this semver requirement compatible with the vendored crate version.
 tinycortex = { version = "0.1", features = ["git-diff", "persona", "sync"] }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
 serde = { version = "1", features = ["derive"] }

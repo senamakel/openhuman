@@ -121,6 +121,7 @@ impl MockLlm {
                 finish_reason: Some("tool_calls".to_string()),
                 raw: None,
                 resolved_model: None,
+                continue_turn: None,
             };
         } else {
             "Mock orchestrator handled the promoted trigger.".to_string()

@@ -5523,6 +5523,7 @@ mod tests {
                 None, 0.125, 128_000,
             ),
             resolved_model: None,
+            continue_turn: None,
         };
 
         let value = model_response_to_completion_value(&response);

@@ -213,7 +213,7 @@ pub fn sample_self() -> anyhow::Result<ProcSample> {
         )
     };
     if result != 0 {
-        return Err(std::io::Error::last_os_error()).map_err(Into::into);
+        return Err(std::io::Error::last_os_error().into());
     }
     // SAFETY: `proc_pid_rusage` returned success and initialized `usage`.
     let usage = unsafe { usage.assume_init() };

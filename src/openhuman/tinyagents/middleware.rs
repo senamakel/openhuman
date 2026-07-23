@@ -1086,6 +1086,7 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
                     has_ext = true,
                     "[approval_mw] external-effect tool but ApprovalGate::try_global() returned None — gate not installed, skipping approval"
                 );
+            }
         }
 
         let outcome = next.run(ctx, state, call).await?;

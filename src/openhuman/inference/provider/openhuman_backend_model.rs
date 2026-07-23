@@ -77,7 +77,8 @@ impl OpenHumanBackendModel {
         // resolves — the baked default only applies when a request omits it.
         Ok(
             OpenAiModel::compatible_provider(PROVIDER_LABEL, token, base_url, &self.default_model)
-                .with_native_tool_calling(self.native_tool_calling),
+                .with_native_tool_calling(self.native_tool_calling)
+                .with_requires_streaming(true),
         )
     }
 }

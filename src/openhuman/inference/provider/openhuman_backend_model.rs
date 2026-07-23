@@ -172,6 +172,27 @@ fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
     request
 }
 
+/// Publish a `SessionExpired` event when the backend rejects a crate-native
+/// model call with `401`/`403` Unauthorized — mirroring the check in
+/// [`CrateBackedProvider::invoke`](super::CrateBackedProvider) which the
+/// crate-native path bypasses.
+fn maybe_publish_session_expired(err: &TinyAgentsError) {
+    if let TinyAgentsError::Provider(pe) = err {
+        if pe.provider.as_str() == "OpenHuman" && matches!(pe.status, Some(401 | 403)) {
+            let reason = crate::openhuman::inference::provider::ops::sanitize_api_error(&pe.message);
+            crate::core::event_bus::publish_global(
+                crate::core::event_bus::DomainEvent::SessionExpired {
+                    source: format!(
+                        "openhuman_backend_model.invoke({})",
+                        pe.status.unwrap_or(0)
+                    ),
+                    reason,
+                },
+            );
+        }
+    }
+}
+
 #[async_trait]
 impl ChatModel<()> for OpenHumanBackendModel {
     fn profile(&self) -> Option<&ModelProfile> {
@@ -183,7 +204,13 @@ impl ChatModel<()> for OpenHumanBackendModel {
 
     async fn invoke(&self, state: &(), request: ModelRequest) -> TaResult<ModelResponse> {
         let model = self.build_wire_model()?;
-        let response = model.invoke(state, with_thread_id(request)).await?;
+        let response = match model.invoke(state, with_thread_id(request)).await {
+            Ok(response) => response,
+            Err(e) => {
+                maybe_publish_session_expired(&e);
+                return Err(e);
+            }
+        };
         Ok(project_managed_usage(response))
     }
 
@@ -196,7 +223,13 @@ impl ChatModel<()> for OpenHumanBackendModel {
         // survive via `UsageDelta`). The authoritative charged amount is recovered
         // on the non-streaming `invoke` path above. Restoring it for streaming
         // needs the crate to preserve the final chunk's raw JSON (tracked upstream).
-        model.stream(state, with_thread_id(request)).await
+        match model.stream(state, with_thread_id(request)).await {
+            Ok(stream) => Ok(stream),
+            Err(e) => {
+                maybe_publish_session_expired(&e);
+                Err(e)
+            }
+        }
     }
 }
 

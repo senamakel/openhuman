@@ -503,8 +503,11 @@ pub(crate) fn tts_model_target_path(config: &Config) -> PathBuf {
 pub(crate) fn is_dll_not_found_exit(exit_code: Option<i32>) -> bool {
     #[cfg(windows)]
     {
-        // 0xC0000135 as a signed i32
-        exit_code == Some(-0x7FFF_FFCB)
+        // STATUS_DLL_NOT_FOUND (0xC0000135) as a signed i32.
+        // Windows NT status codes returned through GetExitCodeProcess are
+        // 32-bit unsigned; Rust's ExitStatus::code() reinterprets the
+        // bit pattern as i32, so 0xC0000135 → -1073741515.
+        exit_code == Some(-1073741515)
     }
     #[cfg(not(windows))]
     {

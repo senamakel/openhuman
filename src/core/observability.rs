@@ -2470,7 +2470,9 @@ static LAST_FS_LIMIT_REPORT: std::sync::LazyLock<
 /// an error-665 message within [`FS_ERROR_COOLDOWN`]. Cleans up stale
 /// entries older than the cooldown on every call.
 fn was_recently_reported(domain: &str, operation: &str) -> bool {
-    let mut guard = LAST_FS_LIMIT_REPORT.lock().expect("fs limit cooldown lock");
+    let mut guard = LAST_FS_LIMIT_REPORT
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let now = std::time::Instant::now();
     // Prune stale entries older than cooldown (single-pass to keep map bounded).
     guard.retain(|_, last| now.duration_since(*last) < FS_ERROR_COOLDOWN);
@@ -3446,8 +3448,14 @@ pub fn is_user_config_provider_event(event: &sentry::protocol::Event<'_>) -> boo
     let domain = tags.get("domain").map(String::as_str);
     if domain == Some("llm_provider") {
         if let Some(status) = tags.get("status") {
-            // 4xx user config errors
-            if matches!(status.as_str(), "400" | "401" | "403" | "404") {
+            // 4xx user config errors. 401/403/404 are unambiguously
+            // auth/permission/config issues and safe to drop blanket.
+            // 400 (Bad Request) may also be a client-side serialization
+            // bug — only drop when the message content confirms it's
+            // a user config error (handled by message patterns below
+            // and the earlier `is_budget_event` / `is_insufficient_credits_event`
+            // filters in the before_send chain).
+            if matches!(status.as_str(), "401" | "403" | "404") {
                 return true;
             }
         }
@@ -3508,11 +3516,6 @@ pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
 
     let lower = texts.join(" ").to_ascii_lowercase();
 
-    // Failed to fetch (frontend CEF connectivity blips)
-    if lower.contains("failed to fetch") || lower.contains("typeerror: failed to fetch") {
-        return true;
-    }
-
     // Core HTTP transport errors
     if lower.contains("connection refused")
         || lower.contains("connection reset")
@@ -3546,8 +3549,14 @@ pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
         }
     }
 
-    // Timeout patterns
-    if lower.contains("timed out") || lower.contains("timeout after") {
+    // Timeout patterns — scoped to known transient forms so genuine
+    // non-transport timeouts (database locks, inference hangs) still
+    // reach Sentry for investigation.
+    if lower.contains("connection timed out")
+        || lower.contains("request timed out")
+        || lower.contains("deadline has elapsed")
+        || lower.contains("timeout after")
+    {
         return true;
     }
 

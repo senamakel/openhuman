@@ -100,6 +100,7 @@ export function useThreadGoal(
   useEffect(() => {
     if (prevThreadRef.current !== threadId) {
       prevThreadRef.current = threadId;
+      activeThread.current = threadId; // keep the race guard in sync
       setExpanded(false);
       setGoal(null);
     }

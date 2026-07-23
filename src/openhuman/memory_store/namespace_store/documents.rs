@@ -392,7 +392,7 @@ impl UnifiedMemory {
         namespace: &str,
     ) -> Result<Vec<StoredMemoryDocument>, String> {
         let conn = self.conn.lock();
-        let ns = Self::sanitize_namespace(namespace);
+        let ns = Self::sanitize_namespace(&safety::pii::redact_pii(namespace).value);
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -469,7 +469,9 @@ impl UnifiedMemory {
                 )
                 .map_err(|e| format!("prepare list_documents: {e}"))?;
             let mut rows = stmt
-                .query(params![Self::sanitize_namespace(ns)])
+                .query(params![Self::sanitize_namespace(
+                    &safety::pii::redact_pii(ns).value
+                )])
                 .map_err(|e| format!("query list_documents: {e}"))?;
             while let Some(row) = rows
                 .next()
@@ -543,7 +545,7 @@ impl UnifiedMemory {
     /// for the given namespace in a single transaction. Also removes the
     /// on-disk markdown directory (`namespaces/{ns}/docs/`).
     pub async fn clear_namespace(&self, namespace: &str) -> Result<(), String> {
-        let ns = Self::sanitize_namespace(namespace);
+        let ns = Self::sanitize_namespace(&safety::pii::redact_pii(namespace).value);
         log::debug!("[memory] clear_namespace: starting for namespace={ns}");
 
         {
@@ -616,7 +618,7 @@ impl UnifiedMemory {
         namespace: &str,
         document_id: &str,
     ) -> Result<Value, String> {
-        let ns = Self::sanitize_namespace(namespace);
+        let ns = Self::sanitize_namespace(&safety::pii::redact_pii(namespace).value);
         let rel_path: Option<String> = {
             let conn = self.conn.lock();
             conn.query_row(

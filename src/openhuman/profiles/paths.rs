@@ -1,7 +1,9 @@
 //! Personality-scoped path resolution and context for multi-agent sessions.
 
+use std::hash::{Hash, Hasher};
 use std::path::{Component, Path};
 
+use super::home::validate_profile_id;
 use super::types::AgentProfile;
 
 /// Reject path strings that could escape the workspace: absolute paths,
@@ -46,11 +48,55 @@ pub fn session_raw_subdir_for_suffix(suffix: &str) -> String {
 
 /// Resolve the SOUL.md content for a personality.
 ///
-/// Resolution order:
-/// 1. `soul_md_path` — read the file at that relative path under workspace.
-/// 2. `soul_md` — inline content from the profile.
-/// 3. `None` — caller falls back to the workspace root `SOUL.md`.
+/// Resolution order (hermes-style — the per-profile identity file wins and is
+/// re-read on every prompt build):
+/// 1. `personalities/<id>/SOUL.md` — the canonical per-profile identity file
+///    (skipped when the profile id fails [`validate_profile_id`], so legacy
+///    profiles with arbitrary ids can't construct an unexpected path).
+/// 2. `soul_md_path` — read the file at that relative path under workspace.
+/// 3. `soul_md` — inline content from the profile.
+/// 4. `None` — caller falls back to the workspace root `SOUL.md`.
 pub fn resolve_personality_soul(workspace_dir: &Path, profile: &AgentProfile) -> Option<String> {
+    // Step 1: the per-profile home SOUL.md. Only attempted for ids that pass the
+    // hermes name grammar — a legacy/built-in id that fails validation skips
+    // straight to the existing (2)/(3)/(4) resolution below, unchanged.
+    match validate_profile_id(&profile.id) {
+        Ok(()) => {
+            let home_soul = super::home::profile_home(workspace_dir, &profile.id).join("SOUL.md");
+            match std::fs::read_to_string(&home_soul) {
+                Ok(content) if !content.trim().is_empty() => {
+                    tracing::debug!(
+                        path = %home_soul.display(),
+                        profile_id = %profile.id,
+                        "[personality] soul_md loaded from profile home"
+                    );
+                    return Some(content);
+                }
+                Ok(_) => {
+                    tracing::debug!(
+                        profile_id = %profile.id,
+                        "[personality] profile-home SOUL.md empty, trying soul_md_path/inline"
+                    );
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        path = %home_soul.display(),
+                        profile_id = %profile.id,
+                        error = %e,
+                        "[personality] profile-home SOUL.md absent, trying soul_md_path/inline"
+                    );
+                }
+            }
+        }
+        Err(e) => {
+            tracing::debug!(
+                profile_id = %profile.id,
+                error = %e,
+                "[personality] profile id fails validation, skipping profile-home SOUL.md"
+            );
+        }
+    }
+
     if let Some(ref rel_path) = profile.soul_md_path {
         let rel = Path::new(rel_path);
         if !is_safe_relative_path(rel) {
@@ -160,6 +206,82 @@ pub fn resolve_personality_memory_md(
     }
 }
 
+/// Fingerprint every profile input baked into a cached session agent.
+///
+/// The profile record alone is insufficient because users may edit the
+/// canonical SOUL.md or MEMORY.md files directly. Hashing their resolved
+/// contents makes the next web-chat turn rebuild its cached agent without
+/// retaining the files themselves in cache metadata or logs.
+pub fn profile_session_signature(workspace_dir: &Path, profile: &AgentProfile) -> String {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    super::types::profile_signature(profile).hash(&mut hasher);
+    resolve_personality_soul(workspace_dir, profile).hash(&mut hasher);
+    resolve_personality_memory_md(workspace_dir, profile).hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+/// Derive the effective memory directory suffix for a profile.
+///
+/// Precedence:
+/// 1. when `dedicated_memory` is set, derive `"-<id>"` from the profile id
+///    (id must pass [`validate_profile_id`], else fall back to the shared `""`
+///    and warn — a legacy id can't mint an unexpected directory name). This is
+///    an explicit user opt-in and **wins over** the auto-assigned numeric
+///    suffix: the store stamps every non-default profile with `Some("-1")`,
+///    `Some("-2")`, … on upsert, so if the numeric suffix took precedence the
+///    isolation toggle could never take effect (it would be dead code). Toggling
+///    `dedicated_memory` on therefore switches the profile to its own
+///    `memory-<id>` subtree — the intended behaviour of the toggle.
+/// 2. else, an explicit `memory_dir_suffix` (the legacy auto-assigned numeric
+///    suffix, e.g. `"-1"`) — pre-existing non-dedicated profiles keep their
+///    directories;
+/// 3. else `""` (the shared/global memory tree).
+///
+/// The returned suffix feeds the existing
+/// [`memory_subdir_for_suffix`] / [`memory_tree_subdir_for_suffix`] /
+/// [`session_raw_subdir_for_suffix`] helpers unchanged.
+pub fn effective_memory_suffix(profile: &AgentProfile) -> String {
+    if profile.dedicated_memory {
+        match validate_profile_id(&profile.id) {
+            Ok(()) => {
+                let suffix = format!("-{}", profile.id);
+                tracing::debug!(
+                    profile_id = %profile.id,
+                    suffix = %suffix,
+                    "[personality] effective_memory_suffix derived from dedicated_memory"
+                );
+                return suffix;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    profile_id = %profile.id,
+                    error = %e,
+                    "[personality] dedicated_memory requested but id fails validation, \
+                     falling back to legacy/shared memory tree"
+                );
+            }
+        }
+    }
+    if let Some(suffix) = profile
+        .memory_dir_suffix
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        tracing::debug!(
+            profile_id = %profile.id,
+            suffix = %suffix,
+            "[personality] effective_memory_suffix using legacy numeric suffix"
+        );
+        return suffix.to_string();
+    }
+    tracing::debug!(
+        profile_id = %profile.id,
+        "[personality] effective_memory_suffix using shared memory tree"
+    );
+    String::new()
+}
+
 /// All personality-resolved overrides needed to build a scoped agent session.
 #[derive(Debug, Clone)]
 pub struct PersonalityContext {
@@ -174,7 +296,7 @@ pub struct PersonalityContext {
 impl PersonalityContext {
     /// Build from a resolved `AgentProfile`, reading personality files from the workspace.
     pub fn from_profile(workspace_dir: &Path, profile: AgentProfile) -> Self {
-        let memory_suffix = profile.memory_dir_suffix.clone().unwrap_or_default();
+        let memory_suffix = effective_memory_suffix(&profile);
         let soul_md_override = resolve_personality_soul(workspace_dir, &profile);
         let memory_md_override = resolve_personality_memory_md(workspace_dir, &profile);
         let composio_allowlist = profile.composio_integrations.clone();
@@ -253,6 +375,8 @@ mod tests {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         }
     }
 
@@ -274,6 +398,120 @@ mod tests {
     fn session_raw_subdir_for_suffix_patterns() {
         assert_eq!(session_raw_subdir_for_suffix(""), "session_raw");
         assert_eq!(session_raw_subdir_for_suffix("-1"), "session_raw-1");
+    }
+
+    #[test]
+    fn resolve_soul_prefers_profile_home_file() {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("personalities").join("alice");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join("SOUL.md"), "Home identity for Alice").unwrap();
+
+        let mut profile = test_profile("alice");
+        // Both inline and soul_md_path present — the profile-home file still wins.
+        profile.soul_md = Some("Inline soul".to_string());
+        let result = resolve_personality_soul(tmp.path(), &profile);
+        assert_eq!(result.as_deref(), Some("Home identity for Alice"));
+    }
+
+    #[test]
+    fn resolve_soul_skips_home_file_for_invalid_legacy_id() {
+        let tmp = TempDir::new().unwrap();
+        // A legacy id that fails validate_profile_id (space + uppercase).
+        let legacy_id = "Legacy Id";
+        let home = tmp.path().join("personalities").join(legacy_id);
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join("SOUL.md"), "SHOULD BE SKIPPED").unwrap();
+
+        let mut profile = test_profile("placeholder");
+        profile.id = legacy_id.to_string();
+        profile.soul_md = Some("Legacy inline soul".to_string());
+        // Step 1 (profile-home SOUL.md) is skipped for the invalid id; resolution
+        // falls through to the inline value.
+        let result = resolve_personality_soul(tmp.path(), &profile);
+        assert_eq!(result.as_deref(), Some("Legacy inline soul"));
+    }
+
+    #[test]
+    fn resolve_soul_empty_home_file_falls_through_to_inline() {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("personalities").join("alice");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join("SOUL.md"), "   \n").unwrap(); // whitespace only
+
+        let mut profile = test_profile("alice");
+        profile.soul_md = Some("Inline wins over empty home file".to_string());
+        let result = resolve_personality_soul(tmp.path(), &profile);
+        assert_eq!(result.as_deref(), Some("Inline wins over empty home file"));
+    }
+
+    #[test]
+    fn effective_memory_suffix_dedicated_wins_over_numeric() {
+        let mut profile = test_profile("alice");
+        // The store auto-assigns a numeric suffix to every non-default profile,
+        // so `dedicated_memory` must win over it — otherwise the toggle would be
+        // dead code and could never route to the `memory-<id>` subtree.
+        profile.memory_dir_suffix = Some("-3".to_string());
+        profile.dedicated_memory = true;
+        assert_eq!(effective_memory_suffix(&profile), "-alice");
+    }
+
+    #[test]
+    fn effective_memory_suffix_numeric_retained_when_not_dedicated() {
+        let mut profile = test_profile("alice");
+        // With dedicated_memory off, the persisted legacy numeric suffix is
+        // retained so an existing memory directory is never orphaned.
+        profile.memory_dir_suffix = Some("-3".to_string());
+        profile.dedicated_memory = false;
+        assert_eq!(effective_memory_suffix(&profile), "-3");
+    }
+
+    #[test]
+    fn effective_memory_suffix_invalid_id_dedicated_falls_back_to_numeric() {
+        let mut profile = test_profile("placeholder");
+        profile.id = "Bad Id".to_string();
+        // An invalid id can't mint a `-<id>` directory even with dedicated on, so
+        // it falls back to the persisted numeric suffix rather than the shared
+        // tree.
+        profile.memory_dir_suffix = Some("-2".to_string());
+        profile.dedicated_memory = true;
+        assert_eq!(effective_memory_suffix(&profile), "-2");
+    }
+
+    #[test]
+    fn effective_memory_suffix_dedicated_derives_from_id() {
+        let mut profile = test_profile("alice");
+        profile.memory_dir_suffix = None;
+        profile.dedicated_memory = true;
+        assert_eq!(effective_memory_suffix(&profile), "-alice");
+    }
+
+    #[test]
+    fn effective_memory_suffix_shared_default() {
+        let mut profile = test_profile("alice");
+        profile.memory_dir_suffix = None;
+        profile.dedicated_memory = false;
+        assert_eq!(effective_memory_suffix(&profile), "");
+    }
+
+    #[test]
+    fn effective_memory_suffix_invalid_id_falls_back_to_shared() {
+        let mut profile = test_profile("placeholder");
+        profile.id = "Bad Id".to_string();
+        profile.memory_dir_suffix = None;
+        profile.dedicated_memory = true;
+        // Invalid id cannot mint a directory name — fall back to shared "".
+        assert_eq!(effective_memory_suffix(&profile), "");
+    }
+
+    #[test]
+    fn effective_memory_suffix_empty_string_suffix_is_not_legacy() {
+        let mut profile = test_profile("alice");
+        // The default profile stores Some("") — treated as "no legacy suffix", so
+        // dedicated_memory (if set) still derives, else shared.
+        profile.memory_dir_suffix = Some(String::new());
+        profile.dedicated_memory = false;
+        assert_eq!(effective_memory_suffix(&profile), "");
     }
 
     #[test]
@@ -329,6 +567,25 @@ mod tests {
         let profile = test_profile("alice");
         let result = resolve_personality_memory_md(tmp.path(), &profile);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn profile_session_signature_tracks_profile_file_edits() {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("personalities/alice");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join("SOUL.md"), "first soul").unwrap();
+        std::fs::write(home.join("MEMORY.md"), "first memory").unwrap();
+        let profile = test_profile("alice");
+
+        let original = profile_session_signature(tmp.path(), &profile);
+        std::fs::write(home.join("SOUL.md"), "second soul").unwrap();
+        let after_soul_edit = profile_session_signature(tmp.path(), &profile);
+        assert_ne!(original, after_soul_edit);
+
+        std::fs::write(home.join("MEMORY.md"), "second memory").unwrap();
+        let after_memory_edit = profile_session_signature(tmp.path(), &profile);
+        assert_ne!(after_soul_edit, after_memory_edit);
     }
 
     #[test]

@@ -230,6 +230,12 @@ pub struct Config {
     #[serde(default)]
     pub heartbeat: HeartbeatConfig,
 
+    /// Subconscious engine selection (local tinyagents graph vs. local
+    /// medulla-serve child). Default `local` — omitting this block preserves
+    /// the historical behavior exactly.
+    #[serde(default)]
+    pub subconscious: crate::openhuman::config::schema::SubconsciousConfig,
+
     #[serde(default)]
     pub cron: CronConfig,
 
@@ -408,6 +414,11 @@ pub struct Config {
     /// other Python subprocess integrations).
     #[serde(default)]
     pub runtime_python: RuntimePythonConfig,
+
+    /// Shared language-runtime pool (long-lived `node`/`python` workers reused
+    /// across skill runs and `node_exec` instead of one child per run, #5106).
+    #[serde(default)]
+    pub runtime_pool: RuntimePoolConfig,
 
     /// TokenJuice content-router / compaction configuration.
     #[serde(default)]
@@ -764,6 +775,7 @@ impl Default for Config {
             model_routes: Vec::new(),
             embedding_routes: Vec::new(),
             heartbeat: HeartbeatConfig::default(),
+            subconscious: crate::openhuman::config::schema::SubconsciousConfig::default(),
             cron: CronConfig::default(),
             task_sources: TaskSourcesConfig::default(),
             channels_config: ChannelsConfig::default(),
@@ -806,6 +818,7 @@ impl Default for Config {
             subconscious_provider: None,
             node: NodeConfig::default(),
             runtime_python: RuntimePythonConfig::default(),
+            runtime_pool: RuntimePoolConfig::default(),
             tokenjuice: TokenjuiceConfig::default(),
             voice_server: VoiceServerConfig::default(),
             voice_providers: Vec::new(),

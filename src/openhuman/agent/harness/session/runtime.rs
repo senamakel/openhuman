@@ -426,8 +426,9 @@ impl Agent {
             return false;
         }
 
+        let session_raw_dir = self.workspace_dir.join(&self.session_raw_subdir);
         let Some(path) =
-            super::transcript::find_root_transcript_for_thread(&self.workspace_dir, thread_id)
+            super::transcript::find_root_transcript_for_thread_in_dir(&session_raw_dir, thread_id)
         else {
             log::debug!(
                 "[web-channel] no root session_raw transcript for thread={thread_id} — \

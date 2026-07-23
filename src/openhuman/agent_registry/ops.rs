@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::openhuman::agent::harness::AgentDefinitionRegistry;
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::config::Config;
 
 use super::defaults::default_agents;
 use super::types::{AgentRegistryEntry, AgentRegistryPatch, AgentRegistrySource, AgentToolInfo};
@@ -197,6 +198,43 @@ pub fn merge_entries(
     result
 }
 
+/// Synchronous, config-only lookup for a user-authored (`Custom`-source),
+/// **enabled** agent registry entry by id.
+///
+/// Used by the agent factory (`Agent::from_config_for_agent` family, see
+/// `agent::harness::session::builder::factory`) on a harness-registry lookup
+/// miss so a custom agent can be synthesized into a real
+/// `AgentDefinition` (via `definition_from_registry_entry`) and run with its
+/// real tool belt, instead of erroring (chat/task-dispatcher) or degrading to
+/// a persona-only completion (flows). Deliberately sync — unlike
+/// [`get_agent`]/[`list_agents`] — because the factory already holds a
+/// `&Config` in scope and must not spawn an async config reload mid-build.
+///
+/// Only `AgentRegistrySource::Custom` entries match: a `Default`-sourced
+/// override (a user edit to a shipped agent, e.g. via `update_agent`) is
+/// already resolvable through the harness `AgentDefinitionRegistry` by id —
+/// that agent ships an `agent.toml`/builtin definition — so it never reaches
+/// this fallback path.
+///
+/// A **disabled** custom entry is deliberately treated as a miss (`None`),
+/// same as an unknown id — never synthesized into a runnable definition here.
+/// Every caller of this function (chat, task-dispatcher, flows' registry
+/// routing) resolves an agent id directly to "runnable or not"; without this
+/// filter a disabled custom agent referenced by an existing profile or a
+/// direct caller could still run through the harness path, silently
+/// bypassing the disabled flag the flows path already enforces explicitly.
+pub fn find_custom_in_config(config: &Config, id: &str) -> Option<AgentRegistryEntry> {
+    let id = id.trim();
+    config
+        .agent_registry
+        .entries
+        .iter()
+        .find(|entry| {
+            entry.id == id && entry.enabled && matches!(entry.source, AgentRegistrySource::Custom)
+        })
+        .cloned()
+}
+
 fn apply_patch(entry: &mut AgentRegistryEntry, patch: AgentRegistryPatch) {
     if let Some(name) = patch.name {
         entry.name = name;
@@ -292,6 +330,56 @@ mod tests {
         let merged = merge_entries(&configured, true);
         assert!(merged.iter().any(|agent| agent.id == "orchestrator"));
         assert_eq!(merged.last().unwrap().id, "finance_analyst");
+    }
+
+    #[test]
+    fn find_custom_in_config_returns_matching_custom_entry() {
+        let mut config = Config::default();
+        config.agent_registry.entries = vec![custom_agent("finance_analyst", true)];
+
+        let found = find_custom_in_config(&config, "finance_analyst");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, "finance_analyst");
+    }
+
+    #[test]
+    fn find_custom_in_config_ignores_default_source_entries() {
+        // A `Default`-sourced override (a user edit to a shipped agent) must
+        // NOT be picked up here — it already resolves via the harness
+        // `AgentDefinitionRegistry`, so this fallback should stay a miss.
+        let mut config = Config::default();
+        config.agent_registry.entries = vec![AgentRegistryEntry {
+            source: AgentRegistrySource::Default,
+            ..custom_agent("researcher", true)
+        }];
+
+        assert!(find_custom_in_config(&config, "researcher").is_none());
+    }
+
+    #[test]
+    fn find_custom_in_config_misses_unknown_id() {
+        let mut config = Config::default();
+        config.agent_registry.entries = vec![custom_agent("finance_analyst", true)];
+
+        assert!(find_custom_in_config(&config, "totally_unknown").is_none());
+    }
+
+    #[test]
+    fn find_custom_in_config_ignores_disabled_custom_entries() {
+        // Regression test (P2 review comment on this PR): a disabled custom
+        // agent must be treated as a miss here, exactly like an unknown id —
+        // otherwise a direct factory caller (chat, task-dispatcher) that
+        // references a disabled custom agent's id (e.g. via an existing
+        // profile) would still synthesize it into a runnable definition,
+        // bypassing the disabled flag that the flows path already enforces
+        // explicitly via `route_custom_entry_lookup`.
+        let mut config = Config::default();
+        config.agent_registry.entries = vec![custom_agent("finance_analyst", false)];
+
+        assert!(
+            find_custom_in_config(&config, "finance_analyst").is_none(),
+            "a disabled custom entry must not be returned as a runnable custom agent"
+        );
     }
 
     #[test]

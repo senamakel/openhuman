@@ -1,6 +1,6 @@
 //! Unit tests for the ClickUp provider.
 
-use super::sync::{
+use super::normalization::{
     extract_task_name, extract_task_updated, extract_tasks, extract_user_id, extract_workspace_ids,
 };
 use super::ClickUpProvider;

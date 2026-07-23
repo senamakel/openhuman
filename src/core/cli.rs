@@ -7,6 +7,7 @@
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
+use std::io::IsTerminal;
 
 use crate::core::all;
 use crate::core::autocomplete_cli_adapter;
@@ -44,6 +45,25 @@ Contribute & Star us on GitHub: https://github.com/tinyhumansai/openhuman
 /// Returns an error if the command fails, parameters are invalid, or if
 /// the subcommand/namespace is unknown.
 pub fn run_from_cli_args(args: &[String]) -> Result<()> {
+    load_dotenv_for_cli()?;
+
+    let host = crate::core::types::HostKind::detect_standalone();
+    if args == ["--tui"]
+        || should_auto_launch_tui(
+            args,
+            std::io::stdin().is_terminal(),
+            std::io::stdout().is_terminal(),
+            host,
+            cfg!(feature = "tui"),
+        )
+    {
+        return crate::openhuman::tui::run_from_cli(&[]);
+    }
+
+    // `--no-tui` is a global opt-out, not a synthetic subcommand. Strip it
+    // before normal dispatch so `openhuman --no-tui --help` and
+    // `openhuman --no-tui run ...` retain their ordinary CLI meaning.
+    let args = strip_no_tui(args);
     // Print the welcome banner to stderr to keep stdout clean for JSON output.
     // `mcp`/`mcp-server` speak JSON-RPC on stdout; `tui`/`chat` own the whole
     // terminal (alternate screen + raw mode) — a banner on either would corrupt
@@ -55,8 +75,6 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
     ) {
         eprint!("{CLI_BANNER}");
     }
-
-    load_dotenv_for_cli()?;
 
     let grouped = grouped_schemas();
     if args.is_empty() || is_help(&args[0]) {
@@ -98,6 +116,31 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         "sentry-test" => run_sentry_test_command(&args[1..]),
         // Generic namespace dispatcher: `openhuman <namespace> <function> ...`
         namespace => run_namespace_command(namespace, &args[1..], &grouped),
+    }
+}
+
+/// Pure launch policy for the bare `openhuman` command. Explicit subcommands
+/// are never rewritten. Docker and redirected/CI sessions keep the headless
+/// CLI behavior; `openhuman tui` remains an explicit override everywhere.
+fn should_auto_launch_tui(
+    args: &[String],
+    stdin_is_terminal: bool,
+    stdout_is_terminal: bool,
+    host: crate::core::types::HostKind,
+    tui_compiled: bool,
+) -> bool {
+    args.is_empty()
+        && stdin_is_terminal
+        && stdout_is_terminal
+        && host == crate::core::types::HostKind::Cli
+        && tui_compiled
+}
+
+fn strip_no_tui(args: &[String]) -> &[String] {
+    if args.first().map(String::as_str) == Some("--no-tui") {
+        &args[1..]
+    } else {
+        args
     }
 }
 
@@ -588,12 +631,15 @@ fn grouped_schemas() -> BTreeMap<String, Vec<ControllerSchema>> {
 fn print_general_help(grouped: &BTreeMap<String, Vec<ControllerSchema>>) {
     println!("OpenHuman core CLI\n");
     println!("Usage:");
+    println!("  openhuman [--no-tui]                    (tabbed terminal UI on interactive hosts)");
     println!("  openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only] [--verbose]");
     println!("  openhuman call --method <name> [--params '<json>']");
     println!(
         "  openhuman mcp [-v|--verbose]              (stdio MCP server; read-only memory tools)"
     );
-    println!("  openhuman tui [--thread <id>|--new]        (terminal chat UI, alias: chat)");
+    println!(
+        "  openhuman tui [--thread <id>|--new]        (force tabbed terminal UI, alias: chat)"
+    );
     println!("  openhuman skills <subcommand> [options]   (skill development runtime)");
     println!("  openhuman agent <subcommand> [options]    (inspect agent definitions & prompts)");
     println!("  openhuman voice [--hotkey <combo>] [--mode <tap|push>]  (voice dictation server)");

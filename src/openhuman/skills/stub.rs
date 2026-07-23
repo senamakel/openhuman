@@ -44,6 +44,18 @@ pub fn load_workflow_metadata(_workspace_dir: &Path) -> Vec<Workflow> {
     Vec::new()
 }
 
+/// Always empty: with skills compiled out there is nothing to discover, whether
+/// or not a profile-local root is supplied. Mirrors
+/// [`super::ops_discover::load_workflow_metadata_for_profile`] so the harness's
+/// per-profile catalog call site needs no `#[cfg]`.
+pub fn load_workflow_metadata_for_profile(
+    _workspace_dir: &Path,
+    _profile_skills_root: Option<&Path>,
+) -> Vec<Workflow> {
+    log::debug!("[skills-stub] load_workflow_metadata_for_profile -> [] (skills disabled)");
+    Vec::new()
+}
+
 /// No-op success: with skills compiled out there is no skills directory to
 /// provision, and workspace bootstrap must not fail because of it.
 pub fn init_workflows_dir(_workspace_dir: &Path) -> Result<(), String> {

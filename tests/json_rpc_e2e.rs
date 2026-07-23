@@ -7828,6 +7828,228 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
     rpc_join.abort();
 }
 
+// ---------------------------------------------------------------------------
+// Agent profiles — home materialization + dedicated-memory field lifecycle
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn json_rpc_profiles_dedicated_memory_lifecycle() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _action_guard = EnvVarGuard::unset("OPENHUMAN_ACTION_DIR");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // --- upsert a custom profile opting into dedicated memory ---
+    // agentId "orchestrator" is always admitted without a registry (the implicit
+    // default), so this upsert persists even in the bare e2e core.
+    let upsert = post_json_rpc(
+        &rpc_base,
+        60,
+        "openhuman.profiles_upsert",
+        json!({
+            "profile": {
+                "id": "writer",
+                "name": "Writer",
+                "description": "Drafts crisp copy.",
+                "agentId": "orchestrator",
+                "builtIn": false,
+                "dedicatedMemory": true
+            }
+        }),
+    )
+    .await;
+    let upsert_result = assert_no_jsonrpc_error(&upsert, "profiles_upsert");
+    let upsert_payload = upsert_result.get("result").unwrap_or(upsert_result);
+    let writer = upsert_payload
+        .get("profiles")
+        .and_then(Value::as_array)
+        .expect("profiles array")
+        .iter()
+        .find(|p| p.get("id").and_then(Value::as_str) == Some("writer"))
+        .expect("writer profile present after upsert");
+    assert_eq!(
+        writer.get("dedicatedMemory").and_then(Value::as_bool),
+        Some(true),
+        "dedicatedMemory should round-trip: {upsert_payload}"
+    );
+
+    // --- list must surface the field + the resolved soulMdFile path ---
+    let list = post_json_rpc(&rpc_base, 61, "openhuman.profiles_list", json!({})).await;
+    let list_result = assert_no_jsonrpc_error(&list, "profiles_list");
+    let list_payload = list_result.get("result").unwrap_or(list_result);
+    let listed_writer = list_payload
+        .get("profiles")
+        .and_then(Value::as_array)
+        .expect("profiles array")
+        .iter()
+        .find(|p| p.get("id").and_then(Value::as_str) == Some("writer"))
+        .expect("writer present in list");
+    assert_eq!(
+        listed_writer
+            .get("dedicatedMemory")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    // The home was materialized on upsert, so SOUL.md exists and its path is
+    // surfaced read-only. A shared-memory profile carries no workspaceDir.
+    assert!(
+        listed_writer
+            .get("soulMdFile")
+            .and_then(Value::as_str)
+            .is_some_and(|s| s.ends_with("personalities/writer/SOUL.md")),
+        "soulMdFile should resolve: {listed_writer}"
+    );
+    assert!(
+        listed_writer.get("workspaceDir").is_none(),
+        "dedicated_memory (not workspace) must not surface workspaceDir"
+    );
+
+    // --- 2b: a cron agent job can be attributed to this profile, and the
+    // attribution round-trips through cron_add and cron_list (snake_case
+    // `profile_id`, matching the cron domain's wire convention). ---
+    let cron_add = post_json_rpc(
+        &rpc_base,
+        64,
+        "openhuman.cron_add",
+        json!({
+            "schedule": "0 9 * * *",
+            "prompt": "draft the daily note",
+            "profile_id": "writer"
+        }),
+    )
+    .await;
+    let cron_add_result = assert_no_jsonrpc_error(&cron_add, "cron_add");
+    // `RpcOutcome::single_log` wraps the job as `{ "result": <job>, "logs": [..] }`.
+    let added_job = cron_add_result.get("result").unwrap_or(cron_add_result);
+    let job_id = added_job
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("cron job id present")
+        .to_string();
+    assert_eq!(
+        added_job.get("profile_id").and_then(Value::as_str),
+        Some("writer"),
+        "cron_add must round-trip profile_id: {cron_add_result}"
+    );
+
+    let cron_list = post_json_rpc(&rpc_base, 65, "openhuman.cron_list", json!({})).await;
+    let cron_list_result = assert_no_jsonrpc_error(&cron_list, "cron_list");
+    let jobs = cron_list_result
+        .get("result")
+        .and_then(Value::as_array)
+        .expect("cron_list jobs array");
+    let listed_job = jobs
+        .iter()
+        .find(|j| j.get("id").and_then(Value::as_str) == Some(job_id.as_str()))
+        .expect("added cron job present in cron_list");
+    assert_eq!(
+        listed_job.get("profile_id").and_then(Value::as_str),
+        Some("writer"),
+        "cron_list must surface profile_id: {listed_job}"
+    );
+
+    // cron_update can repoint the attribution (Some(Some) over the wire).
+    let cron_update = post_json_rpc(
+        &rpc_base,
+        66,
+        "openhuman.cron_update",
+        json!({ "job_id": job_id, "patch": { "profile_id": "editor" } }),
+    )
+    .await;
+    let cron_update_result = assert_no_jsonrpc_error(&cron_update, "cron_update");
+    let updated_job = cron_update_result
+        .get("result")
+        .unwrap_or(cron_update_result);
+    assert_eq!(
+        updated_job.get("profile_id").and_then(Value::as_str),
+        Some("editor"),
+        "cron_update must repoint profile_id: {cron_update_result}"
+    );
+
+    // cron_update with a wire `null` clears the attribution (double-option
+    // semantics — a plain `Option<Option<String>>` would silently no-op here).
+    let cron_clear = post_json_rpc(
+        &rpc_base,
+        67,
+        "openhuman.cron_update",
+        json!({ "job_id": job_id, "patch": { "profile_id": null } }),
+    )
+    .await;
+    let cron_clear_result = assert_no_jsonrpc_error(&cron_clear, "cron_update clear");
+    let cleared_job = cron_clear_result.get("result").unwrap_or(cron_clear_result);
+    assert!(
+        cleared_job.get("profile_id").is_none_or(Value::is_null),
+        "cron_update patch profile_id=null must clear the attribution: {cron_clear_result}"
+    );
+
+    // ...and cron_list confirms the attribution is gone.
+    let cron_list_after = post_json_rpc(&rpc_base, 68, "openhuman.cron_list", json!({})).await;
+    let cron_list_after_result = assert_no_jsonrpc_error(&cron_list_after, "cron_list after clear");
+    let jobs_after = cron_list_after_result
+        .get("result")
+        .and_then(Value::as_array)
+        .expect("cron_list jobs array");
+    let listed_after = jobs_after
+        .iter()
+        .find(|j| j.get("id").and_then(Value::as_str) == Some(job_id.as_str()))
+        .expect("job present in cron_list after clear");
+    assert!(
+        listed_after.get("profile_id").is_none_or(Value::is_null),
+        "cleared profile_id must not reappear in cron_list: {listed_after}"
+    );
+
+    // --- select then delete round-trips the active id ---
+    let select = post_json_rpc(
+        &rpc_base,
+        62,
+        "openhuman.profiles_select",
+        json!({"profile_id": "writer"}),
+    )
+    .await;
+    let select_result = assert_no_jsonrpc_error(&select, "profiles_select");
+    let select_payload = select_result.get("result").unwrap_or(select_result);
+    assert_eq!(
+        select_payload
+            .get("activeProfileId")
+            .and_then(Value::as_str),
+        Some("writer")
+    );
+
+    let delete = post_json_rpc(
+        &rpc_base,
+        63,
+        "openhuman.profiles_delete",
+        json!({"profile_id": "writer"}),
+    )
+    .await;
+    let delete_result = assert_no_jsonrpc_error(&delete, "profiles_delete");
+    let delete_payload = delete_result.get("result").unwrap_or(delete_result);
+    assert_eq!(
+        delete_payload
+            .get("activeProfileId")
+            .and_then(Value::as_str),
+        Some("default"),
+        "deleting the active custom profile falls back to default"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
 #[tokio::test]
 async fn json_rpc_local_ai_lm_studio_config_diagnostics_and_prompt() {
     let _env_lock = json_rpc_e2e_env_lock();

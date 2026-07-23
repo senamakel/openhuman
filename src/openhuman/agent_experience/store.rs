@@ -1,10 +1,10 @@
 use crate::openhuman::agent_experience::types::{
-    redact_text, stable_experience_id, AgentExperience, ExperienceHit,
+    redact_text, stable_experience_id_for_profile, AgentExperience, ExperienceHit,
 };
 use crate::openhuman::memory::{Memory, MemoryCategory};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 pub const AGENT_EXPERIENCE_NAMESPACE: &str = "agent_experience";
@@ -16,7 +16,34 @@ pub struct ExperienceQuery {
     pub tags: Vec<String>,
     pub agent_id: Option<String>,
     pub entrypoint: Option<String>,
+    /// Profile partition (1c). When `Some(P)`, retrieval returns records stamped
+    /// `P` plus unstamped legacy records and excludes records stamped with a
+    /// different profile. When `None` (the profile-less session), every record
+    /// is in scope — see [`experience_matches_profile`].
+    pub profile_id: Option<String>,
     pub max_hits: usize,
+}
+
+/// Profile partition predicate shared by retrieval and RPC list (1c).
+///
+/// - A **profile-less** query (`query_profile == None`) sees **everything**:
+///   the default session historically owns the whole shared experience pool and
+///   must keep recalling every record it and prior versions wrote, so narrowing
+///   it would silently drop guidance the default agent still relies on.
+/// - A **profiled** query (`Some(P)`) sees records stamped `P` plus unstamped
+///   legacy/shared records (`record_profile == None`), and excludes records
+///   stamped with a different profile `Q` — the isolation the feature adds.
+pub fn experience_matches_profile(
+    record_profile: Option<&str>,
+    query_profile: Option<&str>,
+) -> bool {
+    match query_profile {
+        None => true,
+        Some(active) => match record_profile {
+            None => true,
+            Some(owner) => owner == active,
+        },
+    }
 }
 
 #[derive(Clone)]
@@ -31,10 +58,11 @@ impl AgentExperienceStore {
 
     pub async fn put(&self, mut experience: AgentExperience) -> Result<AgentExperience, String> {
         if experience.id.trim().is_empty() {
-            experience.id = stable_experience_id(
+            experience.id = stable_experience_id_for_profile(
                 &experience.task_summary,
                 &experience.tool_sequence,
                 experience.outcome,
+                experience.profile_id.as_deref(),
             );
         }
         if experience.task_summary.trim().is_empty() {
@@ -100,11 +128,44 @@ impl AgentExperienceStore {
         Ok(experiences)
     }
 
+    /// [`Self::list`] narrowed to a profile partition (1c). `profile_id == None`
+    /// returns everything (the profile-less view); `Some(P)` returns records
+    /// stamped `P` plus unstamped legacy records. Shares
+    /// [`experience_matches_profile`] with retrieval so the two never diverge.
+    pub async fn list_for_profile(
+        &self,
+        profile_id: Option<&str>,
+    ) -> Result<Vec<AgentExperience>, String> {
+        Ok(self
+            .list()
+            .await?
+            .into_iter()
+            .filter(|experience| {
+                experience_matches_profile(experience.profile_id.as_deref(), profile_id)
+            })
+            .collect())
+    }
+
     pub async fn dismiss(&self, id: &str) -> Result<bool, String> {
+        self.dismiss_for_profile(id, None).await
+    }
+
+    /// Dismiss an experience only when it belongs to the caller's visible
+    /// profile partition. A profiled caller may dismiss its own or unstamped
+    /// legacy records, but never a sibling profile's record even if it knows
+    /// the storage id.
+    pub async fn dismiss_for_profile(
+        &self,
+        id: &str,
+        profile_id: Option<&str>,
+    ) -> Result<bool, String> {
         let key = storage_key(id);
         let Some(mut experience) = self.fetch(&key).await? else {
             return Ok(false);
         };
+        if !experience_matches_profile(experience.profile_id.as_deref(), profile_id) {
+            return Ok(false);
+        }
         experience.dismissed = true;
         experience.updated_at_ms = now_ms();
         self.put(experience).await?;
@@ -125,6 +186,12 @@ impl AgentExperienceStore {
             .await?
             .into_iter()
             .filter(|experience| !experience.dismissed)
+            .filter(|experience| {
+                experience_matches_profile(
+                    experience.profile_id.as_deref(),
+                    query.profile_id.as_deref(),
+                )
+            })
             .filter_map(|experience| {
                 let (score, match_reasons) = score_experience(
                     &experience,
@@ -166,6 +233,41 @@ impl AgentExperienceStore {
             None => Ok(None),
         }
     }
+}
+
+/// Retrieve one logical experience pool across multiple physical memory stores.
+///
+/// Dedicated profiles write new experiences into their own memory subtree, but
+/// still need to recall unstamped legacy experiences from the shared store.
+/// Keep the merge, de-duplication, ordering, and final limit in one place so the
+/// RPC and live-turn paths cannot drift.
+pub async fn retrieve_across_stores(
+    stores: &[AgentExperienceStore],
+    query: ExperienceQuery,
+) -> Result<Vec<ExperienceHit>, String> {
+    let max_hits = query.max_hits;
+    let mut by_id: BTreeMap<String, ExperienceHit> = BTreeMap::new();
+    for store in stores {
+        for hit in store.retrieve(query.clone()).await? {
+            let id = hit.experience.id.clone();
+            match by_id.get(&id) {
+                Some(existing) if existing.score >= hit.score => {}
+                _ => {
+                    by_id.insert(id, hit);
+                }
+            }
+        }
+    }
+    let mut hits: Vec<_> = by_id.into_values().collect();
+    hits.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| b.experience.updated_at_ms.cmp(&a.experience.updated_at_ms))
+            .then_with(|| a.experience.id.cmp(&b.experience.id))
+    });
+    hits.truncate(max_hits);
+    Ok(hits)
 }
 
 fn storage_key(id: &str) -> String {
@@ -289,6 +391,7 @@ mod tests {
             source: ExperienceSource::ToolLoop,
             agent_id: Some("orchestrator".into()),
             entrypoint: Some("chat".into()),
+            profile_id: None,
             task_fingerprint: format!("fp-{id}"),
             task_summary: task_summary.to_string(),
             tools_used: tools.iter().map(|tool| (*tool).to_string()).collect(),
@@ -341,6 +444,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn generated_ids_partition_identical_experiences_by_profile() {
+        let (store, _) = fresh_store();
+        let mut alice = sample_experience("", "same task", vec!["grep"], vec!["docs"], 0.8);
+        alice.profile_id = Some("alice".into());
+        let mut bob = alice.clone();
+        bob.profile_id = Some("bob".into());
+
+        let alice = store.put(alice).await.unwrap();
+        let bob = store.put(bob).await.unwrap();
+
+        assert_ne!(alice.id, bob.id);
+        let listed = store.list().await.unwrap();
+        assert_eq!(listed.len(), 2);
+        assert!(listed
+            .iter()
+            .any(|item| item.profile_id.as_deref() == Some("alice")));
+        assert!(listed
+            .iter()
+            .any(|item| item.profile_id.as_deref() == Some("bob")));
+    }
+
+    #[tokio::test]
     async fn retrieve_ranks_tool_and_query_matches() {
         let (store, _) = fresh_store();
         store
@@ -371,6 +496,7 @@ mod tests {
                 tags: vec!["docs".into()],
                 agent_id: Some("orchestrator".into()),
                 entrypoint: Some("chat".into()),
+                profile_id: None,
                 max_hits: 2,
             })
             .await
@@ -381,6 +507,137 @@ mod tests {
         assert!(hits[0].score > hits[1].score);
         assert!(hits[0].match_reasons.contains(&"tool_overlap".into()));
         assert!(hits[0].match_reasons.contains(&"query_overlap".into()));
+    }
+
+    #[test]
+    fn experience_matches_profile_partition_rules() {
+        // Profile-less query sees everything.
+        assert!(experience_matches_profile(None, None));
+        assert!(experience_matches_profile(Some("p"), None));
+        // Profiled query: own + legacy in, sibling out.
+        assert!(experience_matches_profile(Some("p"), Some("p")));
+        assert!(experience_matches_profile(None, Some("p")));
+        assert!(!experience_matches_profile(Some("q"), Some("p")));
+    }
+
+    async fn seed_partitioned(store: &AgentExperienceStore) {
+        let mut own = sample_experience("exp_p", "task p", vec!["grep"], vec!["docs"], 0.8);
+        own.profile_id = Some("p".into());
+        store.put(own).await.unwrap();
+
+        let mut sibling = sample_experience("exp_q", "task q", vec!["grep"], vec!["docs"], 0.8);
+        sibling.profile_id = Some("q".into());
+        store.put(sibling).await.unwrap();
+
+        // Unstamped legacy record.
+        store
+            .put(sample_experience(
+                "exp_legacy",
+                "task legacy",
+                vec!["grep"],
+                vec!["docs"],
+                0.8,
+            ))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn retrieve_partitions_by_profile() {
+        let (store, _) = fresh_store();
+        seed_partitioned(&store).await;
+
+        // Profile P: sees P + legacy, never Q.
+        let hits = store
+            .retrieve(ExperienceQuery {
+                query: "task".into(),
+                tools: vec!["grep".into()],
+                tags: vec!["docs".into()],
+                profile_id: Some("p".into()),
+                max_hits: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let ids: BTreeSet<_> = hits.iter().map(|h| h.experience.id.clone()).collect();
+        assert!(ids.contains("exp_p"), "profile P must see its own record");
+        assert!(
+            ids.contains("exp_legacy"),
+            "profile P must see legacy records"
+        );
+        assert!(!ids.contains("exp_q"), "profile P must not see sibling Q");
+
+        // Profile-less: sees everything.
+        let all = store
+            .retrieve(ExperienceQuery {
+                query: "task".into(),
+                tools: vec!["grep".into()],
+                tags: vec!["docs".into()],
+                profile_id: None,
+                max_hits: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let all_ids: BTreeSet<_> = all.iter().map(|h| h.experience.id.clone()).collect();
+        assert!(all_ids.contains("exp_p"));
+        assert!(all_ids.contains("exp_q"));
+        assert!(all_ids.contains("exp_legacy"));
+    }
+
+    #[tokio::test]
+    async fn dismiss_for_profile_rejects_sibling_record() {
+        let (store, _) = fresh_store();
+        seed_partitioned(&store).await;
+
+        assert!(!store.dismiss_for_profile("exp_q", Some("p")).await.unwrap());
+        assert!(store
+            .list()
+            .await
+            .unwrap()
+            .iter()
+            .find(|experience| experience.id == "exp_q")
+            .is_some_and(|experience| !experience.dismissed));
+
+        assert!(store
+            .dismiss_for_profile("exp_legacy", Some("p"))
+            .await
+            .unwrap());
+        assert!(store.dismiss_for_profile("exp_p", Some("p")).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn list_for_profile_partitions() {
+        let (store, _) = fresh_store();
+        seed_partitioned(&store).await;
+
+        let p_ids: BTreeSet<_> = store
+            .list_for_profile(Some("p"))
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|e| e.id)
+            .collect();
+        assert_eq!(
+            p_ids,
+            BTreeSet::from(["exp_legacy".to_string(), "exp_p".to_string()])
+        );
+
+        let all_ids: BTreeSet<_> = store
+            .list_for_profile(None)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|e| e.id)
+            .collect();
+        assert_eq!(
+            all_ids,
+            BTreeSet::from([
+                "exp_legacy".to_string(),
+                "exp_p".to_string(),
+                "exp_q".to_string()
+            ])
+        );
     }
 
     #[tokio::test]
@@ -405,6 +662,7 @@ mod tests {
                 tags: vec!["docs".into()],
                 agent_id: None,
                 entrypoint: None,
+                profile_id: None,
                 max_hits: 5,
             })
             .await

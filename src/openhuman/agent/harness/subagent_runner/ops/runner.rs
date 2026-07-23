@@ -643,6 +643,15 @@ async fn run_typed_mode(
     if definition.id == "tools_agent" {
         allowed_indices.retain(|&i| parent.all_tools[i].category() != ToolCategory::Workflow);
     }
+    // A child may only narrow the parent's effective tool surface, never widen
+    // it back to `all_tools`. This preserves profile allowlists and channel
+    // policy across delegation (including wildcard child definitions and
+    // force-included `extra_tools`). Empty retains legacy "unknown" semantics.
+    super::super::tool_prep::retain_parent_visible_tool_indices(
+        &mut allowed_indices,
+        &parent.all_tools,
+        &parent.visible_tool_names,
+    );
 
     if is_integrations_agent_with_toolkit {
         if let Some(tk) = toolkit_filter {
@@ -789,6 +798,14 @@ async fn run_typed_mode(
                 );
             }
         }
+    }
+
+    // Dynamic Composio action tools are effectful too. Do not let delegation
+    // synthesize one that the parent profile/policy did not expose. Internal
+    // runner-only tools (such as extract_from_result below) are added after
+    // this intersection and cannot access the filesystem/process surface.
+    if !parent.visible_tool_names.is_empty() {
+        dynamic_tools.retain(|tool| parent.visible_tool_names.contains(tool.name()));
     }
 
     // ── Progressive-disclosure handoff cache ───────────────────────────

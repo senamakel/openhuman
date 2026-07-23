@@ -330,6 +330,23 @@ fn find_root_transcript_for_thread_skips_subagent_siblings() {
 }
 
 #[test]
+fn find_root_transcript_for_thread_scans_profile_scoped_raw_dirs() {
+    let dir = TempDir::new().unwrap();
+    let scoped_raw = dir.path().join("session_raw-alice");
+    fs::create_dir_all(&scoped_raw).unwrap();
+
+    let mut meta = sample_meta();
+    meta.thread_id = Some("thread-scoped".into());
+    let expected = scoped_raw.join("1714000000_orchestrator_thread-scoped.jsonl");
+    write_transcript(&expected, &sample_messages(), &meta, None).unwrap();
+
+    assert_eq!(
+        find_root_transcript_for_thread(dir.path(), "thread-scoped"),
+        Some(expected)
+    );
+}
+
+#[test]
 fn find_latest_falls_back_to_legacy_ddmmyyyy_raw_dir() {
     // Pre-migration transcript at session_raw/DDMMYYYY/main_*.jsonl
     // must still resolve via the legacy fallback when the flat dir is
@@ -894,6 +911,31 @@ fn read_thread_usage_summary_sums_multiple_transcripts() {
     assert_eq!(s.input_tokens, 350);
     assert!((s.cost_usd - 0.03).abs() < 1e-9);
     assert_eq!(s.turn_count, 2);
+}
+
+#[test]
+fn read_thread_usage_summary_scans_profile_scoped_raw_dirs() {
+    let ws = TempDir::new().unwrap();
+    let raw = ws.path().join("session_raw-alice");
+    std::fs::create_dir_all(&raw).unwrap();
+    let mut meta = sample_meta();
+    meta.thread_id = Some("thr-scoped-usage".into());
+    meta.input_tokens = 321;
+    meta.output_tokens = 45;
+    meta.turn_count = 2;
+    write_transcript(
+        &raw.join("1700000000_main.jsonl"),
+        &sample_messages(),
+        &meta,
+        None,
+    )
+    .unwrap();
+
+    let summary = read_thread_usage_summary(ws.path(), "thr-scoped-usage")
+        .expect("scoped usage summary present");
+    assert_eq!(summary.input_tokens, 321);
+    assert_eq!(summary.output_tokens, 45);
+    assert_eq!(summary.turn_count, 2);
 }
 
 #[test]

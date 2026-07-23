@@ -18,6 +18,11 @@ fn meta_line(thread_id: &str) -> String {
 /// `session_raw/{stem}.jsonl` and return the path.
 fn write_raw(workspace: &Path, stem: &str, thread_id: &str, body: &[&str]) -> PathBuf {
     let path = transcript::resolve_keyed_transcript_path(workspace, stem).expect("resolve");
+    write_raw_at(&path, thread_id, body);
+    path
+}
+
+fn write_raw_at(path: &Path, thread_id: &str, body: &[&str]) {
     let mut buf = meta_line(thread_id);
     buf.push('\n');
     for line in body {
@@ -25,7 +30,6 @@ fn write_raw(workspace: &Path, stem: &str, thread_id: &str, body: &[&str]) -> Pa
         buf.push('\n');
     }
     std::fs::write(&path, buf).expect("write raw transcript");
-    path
 }
 
 /// A full turn: system scaffolding, a user prompt with the injected datetime
@@ -228,6 +232,37 @@ fn subagent_file_projects_as_nested_item() {
     assert!(subagent.1.iter().any(
         |i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "sub work done")
     ));
+}
+
+#[test]
+fn profile_scoped_root_and_subagent_project_together() {
+    let dir = TempDir::new().unwrap();
+    let raw_dir = dir.path().join("session_raw-alice");
+    std::fs::create_dir_all(&raw_dir).unwrap();
+    let root_stem = "450_orchestrator";
+    let thread_id = "thr_profile";
+
+    write_raw_at(
+        &raw_dir.join(format!("{root_stem}.jsonl")),
+        thread_id,
+        &[r#"{"role":"user","content":"delegate","request_id":"req-1"}"#],
+    );
+    write_raw_at(
+        &raw_dir.join(format!("{root_stem}__451_coder.jsonl")),
+        thread_id,
+        &[r#"{"role":"assistant","content":"scoped sub work"}"#],
+    );
+
+    let projected = project_thread(dir.path(), thread_id).expect("project scoped thread");
+    assert!(projected.items.iter().any(|item| matches!(
+        item,
+        DisplayItem::Subagent { items, .. }
+            if items.iter().any(|inner| matches!(
+                inner,
+                DisplayItem::AssistantMessage { content, .. }
+                    if content == "scoped sub work"
+            ))
+    )));
 }
 
 #[test]

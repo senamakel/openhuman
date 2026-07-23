@@ -244,6 +244,7 @@ impl Agent {
         let limits = self.config.resolved_memory_limits();
         let tree_root_summaries = collect_tree_root_summaries(
             &self.workspace_dir,
+            &self.memory_subdir,
             limits.per_namespace_max_chars,
             limits.total_tree_max_chars,
         );
@@ -321,12 +322,11 @@ impl Agent {
             include_memory_md: !self.omit_memory_md,
             curated_snapshot: None,
             user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
-            // TODO(phase-2): Wire personality context into the live agent turn.
-            // Currently personalities only take effect during delegate_to_personality sub-agent runs.
-            // To activate: load the active profile via AgentProfileStore::resolve(), build
-            // PersonalityContext::from_profile(), and populate these fields.
-            personality_soul_md: None, // TODO: personality_ctx.soul_md_override
-            personality_memory_md: None, // TODO: personality_ctx.memory_md_override
+            // Profile SOUL.md and curated MEMORY.md are bound at session
+            // construction so the normal identity/user-files sections use
+            // them instead of their workspace-root fallbacks.
+            personality_soul_md: self.personality_soul_md.clone(),
+            personality_memory_md: self.personality_memory_md.clone(),
             personality_roster: vec![], // TODO: build_personality_roster(&workspace_dir)
             agents_md_global: agents_md.global,
             agents_md_local: agents_md.local,

@@ -14,7 +14,7 @@ use crate::openhuman::memory_store::profile::{self, ProfileFacet, UserState};
 /// Thin wrapper around the `user_profile` table.
 ///
 /// All methods delegate to the standalone helpers in
-/// `memory::store::unified::profile`. This type exists so callers
+/// `memory_store::namespace_store::profile`. This type exists so callers
 /// (stability detector, prompt sections, RPCs) share a single typed
 /// entry-point that can be constructed from any `Arc<Mutex<Connection>>`.
 pub struct FacetCache {

@@ -78,11 +78,12 @@ pub mod mcp_registry;
 pub mod mcp_server;
 #[cfg(feature = "media")]
 pub mod media_generation;
+#[cfg(feature = "medulla-local")]
+pub mod medulla_local;
 #[cfg(feature = "meet")]
 pub mod meet;
 pub mod meet_agent;
 pub mod memory;
-pub mod memory_archivist;
 pub mod memory_conversations;
 pub mod memory_diff;
 pub mod memory_goals;
@@ -112,6 +113,7 @@ pub mod referral;
 pub mod rhai_workflows;
 pub mod routing;
 pub mod runtime_node;
+pub mod runtime_pool;
 pub mod runtime_python;
 pub mod runtime_python_server;
 pub mod sandbox;

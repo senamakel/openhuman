@@ -78,6 +78,9 @@ pub fn all_tools(
         root_config,
         None,
         None,
+        None,
+        None,
+        None,
     )
 }
 
@@ -98,13 +101,17 @@ pub fn all_tools_with_runtime(
     action_dir: &std::path::Path,
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::openhuman::config::Config,
+    active_profile: Option<&crate::openhuman::profiles::AgentProfile>,
     skill_allowlist: Option<&std::collections::HashSet<String>>,
     mcp_allowlist: Option<&[String]>,
+    profile_skills_root: Option<&std::path::Path>,
+    approval_workspace_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
-    // `skill_allowlist` scopes only the `skills`-gated tool registrations
-    // below, so it is genuinely unread when that feature is compiled out.
+    // `skill_allowlist` / `profile_skills_root` scope only the `skills`-gated
+    // tool registrations below, so they are genuinely unread when that feature
+    // is compiled out.
     #[cfg(not(feature = "skills"))]
-    let _ = skill_allowlist;
+    let _ = (active_profile, skill_allowlist, profile_skills_root);
 
     // Build a session-scoped managed Node.js bootstrap once, so ShellTool,
     // NodeExecTool, and NpmExecTool all share the same memoised resolution
@@ -151,10 +158,18 @@ pub fn all_tools_with_runtime(
         python_bootstrap.as_ref().map(Arc::clone),
     ));
 
+    let file_write: Box<dyn Tool> = match approval_workspace_root {
+        Some(root) => Box::new(FileWriteTool::with_approval_workspace_root(
+            security.clone(),
+            root.to_path_buf(),
+        )),
+        None => Box::new(FileWriteTool::new(security.clone())),
+    };
+
     let mut tools: Vec<Box<dyn Tool>> = vec![
         shell,
         Box::new(FileReadTool::new(security.clone())),
-        Box::new(FileWriteTool::new(security.clone())),
+        file_write,
         // Coding-harness baseline tools (issue #1205): file navigation
         // + atomic editing primitives. Use these instead of falling
         // through to `shell` for grep/find/sed work.
@@ -226,9 +241,19 @@ pub fn all_tools_with_runtime(
         // `await_run_outcome` — the same spawn path `openhuman.skills_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
         #[cfg(feature = "skills")]
-        Box::new(RunWorkflowTool::new().with_skill_allowlist(skill_allowlist.cloned())),
+        Box::new(
+            RunWorkflowTool::new()
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
-        Box::new(AwaitWorkflowTool::new()),
+        Box::new(
+            AwaitWorkflowTool::new()
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         Box::new(CurrentTimeTool::new()),
         // Reversibility for native tool-output compaction (Stage 1a): when a
         // large result is compacted with a `retrieve_tool_output("<hash>")`
@@ -516,12 +541,15 @@ pub fn all_tools_with_runtime(
         // `tools::user_filter` (install also fetches remote content).
         #[cfg(feature = "skills")]
         Box::new(
-            WorkflowListTool::new(config.clone()).with_skill_allowlist(skill_allowlist.cloned()),
+            WorkflowListTool::new(config.clone())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         #[cfg(feature = "skills")]
         Box::new(
             WorkflowDescribeTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned()),
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
@@ -543,12 +571,23 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "skills")]
         Box::new(
             WorkflowReadResourceTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned()),
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         #[cfg(feature = "skills")]
-        Box::new(WorkflowRecentRunsTool::new(config.clone())),
+        Box::new(
+            WorkflowRecentRunsTool::new(config.clone())
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
-        Box::new(WorkflowReadRunLogTool::new(config.clone())),
+        Box::new(
+            WorkflowReadRunLogTool::new(config.clone())
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
         Box::new(WorkflowCreateTool::new(config.clone())),
         #[cfg(feature = "skills")]
@@ -1023,6 +1062,8 @@ pub fn all_tools_with_runtime(
             security.clone(),
             Arc::clone(&runtime),
             Arc::clone(bootstrap),
+            root_config.runtime_pool.clone(),
+            root_config.workspace_dir.clone(),
         )));
         tools.push(Box::new(NpmExecTool::new(
             security.clone(),
@@ -1030,6 +1071,20 @@ pub fn all_tools_with_runtime(
             Arc::clone(bootstrap),
         )));
         tracing::debug!("[tools::ops] registered node_exec + npm_exec");
+    }
+
+    // Managed Python exec tool — gated on `root_config.runtime_python.enabled`.
+    // Shares the same `PythonBootstrap` as ShellTool. Inline code routes through
+    // the shared runtime pool (#5106) when enabled.
+    if let Some(bootstrap) = python_bootstrap.as_ref() {
+        tools.push(Box::new(PythonExecTool::new(
+            security.clone(),
+            Arc::clone(&runtime),
+            Arc::clone(bootstrap),
+            root_config.runtime_pool.clone(),
+            root_config.workspace_dir.clone(),
+        )));
+        tracing::debug!("[tools::ops] registered python_exec");
     }
 
     // Vision tools are always available

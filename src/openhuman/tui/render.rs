@@ -1,4 +1,4 @@
-//! Ratatui rendering for the terminal chat UI — pure view over
+//! Ratatui rendering for the tabbed terminal UI — pure view over
 //! [`TranscriptState`] + [`UiState`]. No state mutation happens here.
 //!
 //! Layout (top → bottom):
@@ -9,57 +9,207 @@
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Tabs, Wrap};
 use ratatui::Frame;
 use unicode_width::UnicodeWidthStr;
 
 use super::state::{EntryKind, TranscriptState};
+use super::ui_state::{AppTab, SettingsAction, UiState};
 
 /// Ocean accent from the design tokens (`#4A83DD`), kept terminal-native.
 const OCEAN: Color = Color::Rgb(0x4A, 0x83, 0xDD);
 
 const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-/// View-only UI state owned by the event loop and read by [`draw`].
-pub struct UiState {
-    /// Current input line contents.
-    pub input: String,
-    /// Lines scrolled up from the tail. `0` follows the newest content.
-    pub scroll_from_bottom: u16,
-    /// Monotonic tick used to animate the streaming spinner.
-    pub spinner_tick: usize,
-    /// The thread id shown in the status bar.
-    pub thread_id: String,
-    /// The client stream id (for the status bar, abbreviated).
-    pub client_id: String,
-}
-
-impl UiState {
-    pub fn new(thread_id: String, client_id: String) -> Self {
-        Self {
-            input: String::new(),
-            scroll_from_bottom: 0,
-            spinner_tick: 0,
-            thread_id,
-            client_id,
-        }
-    }
-}
-
 /// Draw one frame.
 pub fn draw(frame: &mut Frame, state: &TranscriptState, ui: &UiState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(1),    // transcript
-            Constraint::Length(3), // input box
-            Constraint::Length(1), // status bar
+            Constraint::Length(3),
+            Constraint::Min(1),
+            Constraint::Length(1),
         ])
         .split(frame.area());
 
+    draw_tabs(frame, chunks[0], ui);
+    match ui.active_tab {
+        AppTab::Logs => draw_logs(frame, chunks[1], ui),
+        AppTab::Chat => draw_chat(frame, chunks[1], state, ui),
+        AppTab::Config => draw_config(frame, chunks[1], ui),
+        AppTab::Settings => draw_settings(frame, chunks[1], ui),
+    }
+    draw_footer(frame, chunks[2], state, ui);
+}
+
+fn draw_tabs(frame: &mut Frame, area: Rect, ui: &UiState) {
+    let selected = AppTab::ALL
+        .iter()
+        .position(|tab| *tab == ui.active_tab)
+        .unwrap_or(0);
+    let titles = AppTab::ALL
+        .iter()
+        .enumerate()
+        .map(|(idx, tab)| Line::from(format!(" {} {} ", idx + 1, tab.title())))
+        .collect::<Vec<_>>();
+    let tabs = Tabs::new(titles)
+        .select(selected)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" OpenHuman CLI "),
+        )
+        .style(Style::default().fg(Color::DarkGray))
+        .highlight_style(Style::default().fg(OCEAN).add_modifier(Modifier::BOLD));
+    frame.render_widget(tabs, area);
+}
+
+fn draw_chat(frame: &mut Frame, area: Rect, state: &TranscriptState, ui: &UiState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(3)])
+        .split(area);
     draw_transcript(frame, chunks[0], state, ui);
     draw_input(frame, chunks[1], ui);
-    draw_status(frame, chunks[2], state, ui);
+}
+
+fn draw_logs(frame: &mut Frame, area: Rect, ui: &UiState) {
+    let lines = crate::core::logging::tui_log_lines();
+    let text = if lines.is_empty() {
+        Text::from("Core logs will appear here as OpenHuman starts.")
+    } else {
+        Text::from(lines.join("\n"))
+    };
+    let inner_height = area.height.saturating_sub(2).max(1);
+    let inner_width = area.width.saturating_sub(2).max(1);
+    let total_rows = text
+        .lines
+        .iter()
+        .map(|line| u32::from(wrapped_line_count(line, inner_width)))
+        .sum::<u32>();
+    let max_scroll = total_rows
+        .saturating_sub(u32::from(inner_height))
+        .min(u32::from(u16::MAX)) as u16;
+    let top = max_scroll.saturating_sub(ui.log_scroll_from_bottom.min(max_scroll));
+    let paragraph = Paragraph::new(text)
+        .block(Block::default().borders(Borders::ALL).title(" Core logs "))
+        .style(Style::default().fg(Color::Gray))
+        .wrap(Wrap { trim: false })
+        .scroll((top, 0));
+    frame.render_widget(paragraph, area);
+}
+
+fn draw_config(frame: &mut Frame, area: Rect, ui: &UiState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(5), Constraint::Length(4)])
+        .split(area);
+    let items = ui
+        .config_items
+        .iter()
+        .map(|item| {
+            ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("{:<18}", item.label),
+                    Style::default().fg(Color::Gray),
+                ),
+                Span::styled(
+                    if item.value.is_empty() {
+                        "(not set)"
+                    } else {
+                        &item.value
+                    },
+                    Style::default().fg(Color::White),
+                ),
+            ]))
+        })
+        .collect::<Vec<_>>();
+    let mut list_state = ListState::default().with_selected(Some(ui.config_selected));
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Safe configuration "),
+        )
+        .highlight_symbol("› ")
+        .highlight_style(Style::default().fg(OCEAN).add_modifier(Modifier::BOLD));
+    frame.render_stateful_widget(list, chunks[0], &mut list_state);
+
+    let selected = &ui.config_items[ui.config_selected.min(ui.config_items.len() - 1)];
+    let detail = if let Some(input) = &ui.config_edit {
+        let visible = tail_to_width(input, chunks[1].width.saturating_sub(5) as usize);
+        format!("Editing {}\n> {}▏", selected.label, visible)
+    } else {
+        format!("{}\n{}", selected.hint, ui.config_status)
+    };
+    frame.render_widget(
+        Paragraph::new(detail)
+            .block(Block::default().borders(Borders::ALL).title(" Edit "))
+            .wrap(Wrap { trim: false }),
+        chunks[1],
+    );
+}
+
+fn draw_settings(frame: &mut Frame, area: Rect, ui: &UiState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Min(3),
+        ])
+        .split(area);
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                &ui.auth_summary,
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )),
+            Line::from(ui.account_detail.clone()),
+        ])
+        .block(Block::default().borders(Borders::ALL).title(" Account "))
+        .wrap(Wrap { trim: false }),
+        chunks[0],
+    );
+
+    let actions = SettingsAction::ALL
+        .iter()
+        .map(|action| ListItem::new(action.label()))
+        .collect::<Vec<_>>();
+    let mut action_state = ListState::default().with_selected(Some(ui.settings_selected));
+    frame.render_stateful_widget(
+        List::new(actions)
+            .block(Block::default().borders(Borders::ALL).title(" Actions "))
+            .highlight_symbol("› ")
+            .highlight_style(Style::default().fg(OCEAN).add_modifier(Modifier::BOLD)),
+        chunks[1],
+        &mut action_state,
+    );
+
+    let detail = if let Some(token) = &ui.login_token {
+        let visible = "•".repeat(
+            token
+                .chars()
+                .count()
+                .min(chunks[2].width.saturating_sub(5) as usize),
+        );
+        format!(
+            "Paste a one-time login token, then press Enter.\n> {}▏",
+            visible
+        )
+    } else if ui.logout_confirm {
+        "Log out and stop account-bound services? Press y to confirm or Esc to cancel.".to_string()
+    } else {
+        ui.settings_status.clone()
+    };
+    frame.render_widget(
+        Paragraph::new(detail)
+            .block(Block::default().borders(Borders::ALL).title(" Status "))
+            .wrap(Wrap { trim: false }),
+        chunks[2],
+    );
 }
 
 fn draw_transcript(frame: &mut Frame, area: Rect, state: &TranscriptState, ui: &UiState) {
@@ -106,21 +256,43 @@ fn draw_input(frame: &mut Frame, area: Rect, ui: &UiState) {
     frame.render_widget(paragraph, area);
 }
 
-fn draw_status(frame: &mut Frame, area: Rect, state: &TranscriptState, ui: &UiState) {
-    let turn = if state.is_streaming() {
+fn draw_footer(frame: &mut Frame, area: Rect, state: &TranscriptState, ui: &UiState) {
+    let context = match ui.active_tab {
+        AppTab::Logs => "PgUp/PgDn scroll",
+        AppTab::Chat => "Enter send · Esc cancel · Ctrl+N new · PgUp/PgDn scroll",
+        AppTab::Config => {
+            if ui.config_edit.is_some() {
+                "Enter save · Esc cancel"
+            } else {
+                "↑↓ navigate · Enter edit"
+            }
+        }
+        AppTab::Settings => {
+            if ui.is_editing() {
+                "Enter confirm · Esc cancel"
+            } else {
+                "↑↓ navigate · Enter select"
+            }
+        }
+    };
+    let turn = if ui.active_tab == AppTab::Chat && state.is_streaming() {
         let frame_ch = SPINNER_FRAMES[ui.spinner_tick % SPINNER_FRAMES.len()];
         format!("{frame_ch} streaming")
     } else {
-        "idle".to_string()
+        ui.active_tab.title().to_string()
     };
-    let thread_short = abbreviate(&ui.thread_id, 24);
 
     let left = Span::styled(
-        format!(" thread {thread_short} · {turn} "),
+        format!(" {turn} "),
         Style::default().fg(Color::Black).bg(OCEAN),
     );
+    let navigation = if ui.is_editing() {
+        "Finish or Esc before switching tabs"
+    } else {
+        "Tab/Shift+Tab switch · Alt+1-4 tabs"
+    };
     let hints = Span::styled(
-        "  Enter send · Esc cancel · Ctrl+N new · PgUp/PgDn scroll · Ctrl+C quit",
+        format!("  {navigation} · {context} · Ctrl+C quit"),
         Style::default().fg(Color::DarkGray),
     );
     let paragraph = Paragraph::new(Line::from(vec![left, hints]));
@@ -201,41 +373,54 @@ fn tail_to_width(s: &str, width: usize) -> String {
     out.into_iter().rev().collect()
 }
 
-/// Middle-truncate an id to `max` columns (`abc…xyz`).
-fn abbreviate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        return s.to_string();
-    }
-    let keep = max.saturating_sub(1) / 2;
-    let head: String = s.chars().take(keep).collect();
-    let tail: String = s
-        .chars()
-        .rev()
-        .take(keep)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-    format!("{head}…{tail}")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    fn rendered(ui: &UiState) -> String {
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        let transcript = TranscriptState::new("test-client");
+        terminal
+            .draw(|frame| draw(frame, &transcript, ui))
+            .expect("draw");
+        terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>()
+    }
+
+    #[test]
+    fn tab_bar_and_navigation_footer_are_always_rendered() {
+        let ui = UiState::new("thread-1".into(), "client-1".into());
+        let output = rendered(&ui);
+        for title in ["1 Logs", "2 Chat", "3 Config", "4 Settings"] {
+            assert!(output.contains(title), "missing tab {title}");
+        }
+        assert!(output.contains("Tab/Shift+Tab switch"));
+        assert!(output.contains("PgUp/PgDn scroll"));
+    }
+
+    #[test]
+    fn editing_footer_explains_that_tab_switching_is_paused() {
+        let mut ui = UiState::new("thread-1".into(), "client-1".into());
+        ui.active_tab = AppTab::Config;
+        ui.config_edit = Some("value".to_string());
+        let output = rendered(&ui);
+        assert!(output.contains("Finish or Esc before switching tabs"));
+        assert!(!output.contains("Alt+1-4 tabs"));
+    }
 
     #[test]
     fn tail_to_width_keeps_the_end() {
         assert_eq!(tail_to_width("hello world", 5), "world");
         assert_eq!(tail_to_width("hi", 10), "hi");
         assert_eq!(tail_to_width("anything", 0), "");
-    }
-
-    #[test]
-    fn abbreviate_middle_truncates_long_ids() {
-        let out = abbreviate("thread-0123456789abcdef", 11);
-        assert!(out.contains('…'));
-        assert!(out.chars().count() <= 11);
-        assert_eq!(abbreviate("short", 24), "short");
     }
 
     #[test]

@@ -31,8 +31,7 @@ memory_store::trees    (persistence: one Tree table, one schema)
 | [`tree/`](tree/) | `bucket_seal` (append leaf + cascade seal), `flush` (time-based partial seal), `registry` (kind-parameterized `get_or_create_tree` with UNIQUE-race recovery), `mod.rs` (re-exports + `memory_store::trees` shims for legacy paths). |
 | [`summarise.rs`](summarise.rs) | One function: produce the next-level summary text for a bucket. Wraps the chat model with a fixed prompt and token budget. |
 | [`retrieval/`](retrieval/) | Agent-facing tools. Read: `walk` (agentic), `drill_down`, `fetch_leaves`, `query_{source,global,topic}`, `search_entities`. Write: `ingest_document` (orchestrator-facing). |
-| [`score/`](score/) | Scoring signals, embedding (cloud/ollama/inert), entity extraction (regex/LLM), canonical resolver, entity index store. |
-| [`tools.rs`](tools.rs) | Re-exports from `memory::query` for backward compatibility. |
+| [`score/`](score/) | Product adapters over TinyCortex scoring and TinyAgents embedding models, plus entity extraction and the entity index store. |
 
 ## Layer rules
 

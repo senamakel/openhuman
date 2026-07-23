@@ -1,6 +1,6 @@
 [package]
 name = "openhuman"
-version = "0.63.0"
+version = "0.63.1"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
 autobins = false
@@ -109,10 +109,12 @@ tinyagents = { version = "2.1", features = ["sqlite"] }
 # queue/ingest/score + long tail), vendored as a git submodule and patched
 # below to `vendor/tinycortex`. OpenHuman's memory subsystem migrates onto this
 # crate through the adapter seam in `src/openhuman/tinycortex/` (mirroring the
-# tinyagents seam): engine logic in the crate; RPC, agent tools, live sync,
-# security gating, and the global singleton stay host-side. rusqlite/git2 are
+# tinyagents seam): engine logic (including provider sync pipelines) in the
+# crate; RPC, agent tools, sync scheduling/credentials/events, security gating,
+# and the global singleton stay host-side. rusqlite/git2 are
 # aligned to the host pins (=0.40 / 0.21) so one bundled SQLite + one libgit2
-# link. Keep the version pin in lockstep with the submodule tag.
+# link. The submodule intentionally tracks reviewed upstream main commits;
+# keep this semver requirement compatible with the vendored crate version.
 tinycortex = { version = "0.1", features = ["git-diff", "persona", "sync"] }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
 serde = { version = "1", features = ["derive"] }
@@ -385,7 +387,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "desktop-automation", "channels", "tui"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "desktop-automation", "channels", "tui", "medulla-local"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -583,9 +585,9 @@ crash-reporting = ["dep:sentry"]
 # NOTE: only `uiautomation` is exclusive and thus shed. `enigo` is shared with the
 # `voice` domain; `rdev` / `arboard` are voice-owned — none of those are dropped here.
 desktop-automation = ["dep:uiautomation"]
-# Terminal chat UI: the `openhuman tui` (alias `chat`) CLI subcommand, a
-# ratatui/crossterm terminal front-end onto the same `web_chat` surface the
-# desktop app drives. Default-ON for the standalone `openhuman-core` binary, but
+# Tabbed terminal UI: the `openhuman tui` (alias `chat`) CLI subcommand, a
+# ratatui/crossterm front-end for logs, orchestrator chat, curated configuration,
+# and account settings. Default-ON for the standalone `openhuman-core` binary, but
 # INTENTIONALLY NOT forwarded to the desktop shell (the desktop app ships its own
 # Tauri UI and never needs a terminal one) — see the allowlist entry in
 # `scripts/ci/check-feature-forwarding.mjs`. Slim / headless builds opt out via
@@ -596,6 +598,26 @@ desktop-automation = ["dep:uiautomation"]
 # build-fact "tui feature disabled at compile time" error from the untouched
 # `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
+# Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
+# a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,
+# host-side inference + tools port callbacks, the `medulla_local` RPC namespace,
+# and the subconscious-replacement draft (`subconscious.engine = "medulla"`,
+# §5.2). Default-ON — the desktop app ships it — and therefore FORWARDED to the
+# Tauri shell's `openhuman_core` features (default-features=false there). Slim /
+# headless builds opt out via `--no-default-features --features "<list without
+# medulla-local>"`. The module is `#[cfg(feature = "medulla-local")]` at its
+# `pub mod` declaration (a registration-site gate, like `flows`); the
+# `subconscious.engine` config field stays compiled in ALL builds (inert serde),
+# and the subconscious tick's medulla branch is `#[cfg]`-gated so the default
+# (`local`) path is byte-identical whether or not this feature is on.
+# Sheds ZERO exclusive dependencies — tokio net/process, reqwest, serde are all
+# load-bearing for other domains; the value is compile-time surface.
+# The serve transport is unix-only (unix domain sockets): on non-unix targets
+# (Windows desktop) the feature still compiles via a supervisor stub that
+# reports a typed unsupported-platform error, so forwarding the default-ON
+# gate to the Tauri shell never breaks Windows packaging.
+medulla-local = []
+
 # Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
 # Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,
 # controllers, host, proactive messaging and inbound dispatch) together with the

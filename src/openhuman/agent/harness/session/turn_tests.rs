@@ -7,6 +7,9 @@ use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,
 };
+use crate::openhuman::agent_experience::{
+    AgentExperience, AgentExperienceStore, ExperienceOutcome, ExperienceSource,
+};
 use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, UsageInfo,
@@ -489,7 +492,49 @@ fn build_parent_context_and_sanitize_helpers_cover_snapshot_paths() {
     );
     let long = "x".repeat(500);
     assert_eq!(sanitize_learned_entry(&long).chars().count(), 200);
-    assert!(collect_tree_root_summaries(agent.workspace_dir(), 8_000, 32_000).is_empty());
+    assert!(collect_tree_root_summaries(agent.workspace_dir(), "memory", 8_000, 32_000).is_empty());
+}
+
+#[test]
+fn build_parent_context_propagates_own_descriptor_on_root_turn() {
+    // Regression (PR #5118 review, Codex): on a ROOT chat turn `current_parent()`
+    // is `None`, so the parent snapshot must fall back to the agent's OWN
+    // descriptor. Without it, a dedicated-workspace profile's descriptor never
+    // reaches subagents spawned via spawn_subagent/spawn_async_subagent, and they
+    // silently fall back to the shared action_dir instead of
+    // `<action_dir>/profiles/<id>`.
+    let descriptor = tinyagents::harness::workspace::WorkspaceDescriptor::new(
+        std::path::PathBuf::from("/tmp/act/profiles/alice"),
+    )
+    .with_policy_id("openhuman.profile:alice");
+
+    let mut agent = make_agent(None);
+    // No ambient parent context is installed in this test, so current_parent()
+    // is None — exactly the root-turn scenario.
+    agent.workspace_descriptor = Some(descriptor);
+
+    let parent = agent.build_parent_execution_context();
+    assert_eq!(
+        parent.workspace_descriptor.as_ref().map(|d| d.root.clone()),
+        Some(std::path::PathBuf::from("/tmp/act/profiles/alice")),
+        "root turn must propagate the agent's own profile descriptor to spawned subagents"
+    );
+    assert_eq!(
+        parent
+            .workspace_descriptor
+            .as_ref()
+            .map(|d| d.policy_id.clone()),
+        Some("openhuman.profile:alice".to_string()),
+    );
+}
+
+#[test]
+fn build_parent_context_has_no_descriptor_without_profile_or_parent() {
+    // A profile-less root turn (no ambient parent, no own descriptor) keeps the
+    // snapshot's descriptor `None` so shared-action_dir behaviour is unchanged.
+    let agent = make_agent(None);
+    let parent = agent.build_parent_execution_context();
+    assert!(parent.workspace_descriptor.is_none());
 }
 
 #[test]
@@ -528,11 +573,48 @@ fn collect_tree_root_summaries_maps_namespace_body_and_timestamp() {
     };
     write_node(&config, &node).unwrap();
 
-    let summaries = collect_tree_root_summaries(&workspace, 8_000, 32_000);
+    let summaries = collect_tree_root_summaries(&workspace, "memory", 8_000, 32_000);
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0].namespace, "activities");
     assert_eq!(summaries[0].body, summary);
     assert_eq!(summaries[0].updated_at, updated_at);
+}
+
+#[test]
+fn collect_tree_root_summaries_reads_only_profile_memory_subtree() {
+    use crate::openhuman::config::Config;
+    use crate::openhuman::memory_tree::tree_runtime::store::write_node;
+    use crate::openhuman::memory_tree::tree_runtime::types::{
+        derive_parent_id, estimate_tokens, level_from_node_id, TreeNode,
+    };
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let config = Config {
+        workspace_dir: workspace.clone(),
+        ..Config::default()
+    };
+    let now = chrono::Utc::now();
+    let node = TreeNode {
+        node_id: "root".into(),
+        namespace: "private".into(),
+        level: level_from_node_id("root"),
+        parent_id: derive_parent_id("root"),
+        summary: "Alice-only context".into(),
+        token_count: estimate_tokens("Alice-only context"),
+        child_count: 0,
+        created_at: now,
+        updated_at: now,
+        metadata: None,
+    };
+    write_node(&config, &node).unwrap();
+    std::fs::rename(workspace.join("memory"), workspace.join("memory-alice")).unwrap();
+
+    assert!(collect_tree_root_summaries(&workspace, "memory", 8_000, 32_000).is_empty());
+    let summaries = collect_tree_root_summaries(&workspace, "memory-alice", 8_000, 32_000);
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].body, "Alice-only context");
 }
 
 #[tokio::test]
@@ -588,6 +670,54 @@ async fn transcript_resume_is_bounded_by_max_history_messages() {
     assert_eq!(cached[2].content, "a6");
     assert_eq!(cached[3].content, "u7");
     assert_eq!(cached[4].content, "a7");
+}
+
+#[tokio::test]
+async fn transcript_resume_uses_profile_scoped_raw_directory() {
+    let mut shared = make_agent(None);
+    shared.persist_session_transcript(
+        &[
+            ChatMessage::system("shared-system"),
+            ChatMessage::user("shared-user"),
+        ],
+        0,
+        0,
+        0,
+        0.0,
+        None,
+    );
+
+    let mut profile = make_agent(None);
+    profile.workspace_dir = shared.workspace_dir.clone();
+    profile.agent_definition_name = shared.agent_definition_name.clone();
+    profile.session_raw_subdir = "session_raw-alice".to_string();
+    profile.persist_session_transcript(
+        &[
+            ChatMessage::system("profile-system"),
+            ChatMessage::user("profile-user"),
+        ],
+        0,
+        0,
+        0,
+        0.0,
+        None,
+    );
+
+    let mut resumed = make_agent(None);
+    resumed.workspace_dir = shared.workspace_dir.clone();
+    resumed.agent_definition_name = shared.agent_definition_name.clone();
+    resumed.session_raw_subdir = "session_raw-alice".to_string();
+    resumed.try_load_session_transcript();
+
+    let cached = resumed
+        .cached_transcript_messages
+        .expect("profile transcript");
+    assert!(cached
+        .iter()
+        .any(|message| message.content == "profile-user"));
+    assert!(cached
+        .iter()
+        .all(|message| message.content != "shared-user"));
 }
 
 // NOTE: The `execute_tool_call_*` tests that exercised the legacy per-call
@@ -1944,6 +2074,62 @@ fn make_real_memory(workspace: &std::path::Path) -> Arc<dyn Memory> {
     use crate::openhuman::embeddings::NoopEmbedding;
     use crate::openhuman::memory_store::UnifiedMemory;
     Arc::new(UnifiedMemory::new(workspace, Arc::new(NoopEmbedding), None).unwrap())
+}
+
+#[tokio::test]
+async fn dedicated_profile_experience_recall_merges_shared_legacy_store() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let dedicated = make_real_memory(&tmp.path().join("dedicated"));
+    let shared = make_real_memory(&tmp.path().join("shared"));
+    AgentExperienceStore::new(shared.clone())
+        .put(AgentExperience {
+            id: "legacy-shared-deploy".into(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            source: ExperienceSource::ToolLoop,
+            agent_id: None,
+            entrypoint: None,
+            profile_id: None,
+            task_fingerprint: "deploy-rust-service".into(),
+            task_summary: "Deploy the Rust service safely".into(),
+            tools_used: vec![],
+            tool_sequence: vec![],
+            outcome: ExperienceOutcome::Success,
+            error_class: None,
+            lesson: "Legacy shared deployment guidance".into(),
+            reuse_hint: "Check the release health endpoint".into(),
+            avoid_hint: None,
+            confidence: 0.9,
+            tags: vec![],
+            payload_hash: None,
+            dismissed: false,
+        })
+        .await
+        .unwrap();
+
+    let agent = Agent::builder()
+        .provider(Box::new(DummyProvider))
+        .tools(vec![])
+        .memory(dedicated)
+        .shared_experience_memory(Some(shared))
+        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .workspace_dir(tmp.path().to_path_buf())
+        .event_context("profile-experience-test", "web_chat")
+        .active_profile_id(Some("alice".into()))
+        .profile_memory_storage("memory-alice".into(), "session_raw-alice".into())
+        .learning_enabled(true)
+        .build()
+        .unwrap();
+
+    let enriched = agent
+        .inject_agent_experience_context(
+            "How should I deploy the Rust service?",
+            "original prompt".into(),
+        )
+        .await;
+
+    assert!(enriched.contains("Legacy shared deployment guidance"));
+    assert!(enriched.contains("original prompt"));
 }
 
 #[tokio::test]

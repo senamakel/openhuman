@@ -674,7 +674,7 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
 /// disk-full condition during its own page bookkeeping (journal/WAL extension)
 /// before the next syscall surfaces an errno, rusqlite renders the `SQLITE_FULL`
 /// result code as `"database or disk is full"` (Sentry TAURI-RUST-B6N, hit at
-/// `memory_store::unified::documents::tx.commit()` during
+/// `memory_store::namespace_store::documents::tx.commit()` during
 /// `openhuman.memory_doc_ingest`). `SQLITE_FULL` has only two causes:
 /// genuine ENOSPC/ERROR_DISK_FULL (always the case in practice — the same
 /// burst always produces an os-error-28/112 sibling event) or a
@@ -683,7 +683,7 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
 /// rusqlite renders `SQLITE_FULL` in one of two shapes. The **bare** shape is
 /// the five words `"database or disk is full"` — Our local memory-store write
 /// call-sites wrap it with `format!("<verb>: {e}")` (e.g. `"commit tx: ..."` /
-/// `"clear_namespace commit tx: ..."` in `memory_store::unified::documents`),
+/// `"clear_namespace commit tx: ..."` in `memory_store::namespace_store::documents`),
 /// so the phrase lands as the **suffix** of the local emit. The **extended**
 /// shape carries the full error-code envelope, `"database or disk is full:
 /// Error code 13: Insertion failed because database is full"` (Sentry
@@ -1190,9 +1190,8 @@ fn is_loopback_unavailable(lower: &str) -> bool {
 /// the local Ollama daemon — pure user-state errors the UI already surfaces
 /// (toast / settings page warning) where Sentry has no remediation path.
 ///
-/// Several canonical wire shapes are covered, all emitted by
-/// `openhuman::embeddings::ollama::OllamaEmbedding::embed` and the embed
-/// service fallback path:
+/// Several canonical wire shapes are covered, all emitted by the TinyAgents
+/// Ollama embedder and the host embed service fallback path:
 ///
 /// - **TAURI-RUST-XS** (~376 events on self-hosted Sentry): user pointed the
 ///   embedder at a chat / vision model id with a temperature suffix (e.g.
@@ -4250,7 +4249,7 @@ mod tests {
             // SQLITE_FULL rendering from rusqlite — engine-level disk-full
             // detection during page-bookkeeping (journal/WAL extension) that
             // beats the next syscall to the errno. Production hit at
-            // `memory_store::unified::documents::tx.commit()` during
+            // `memory_store::namespace_store::documents::tx.commit()` during
             // `openhuman.memory_doc_ingest`, in the same burst that emits
             // os-error-112 siblings (Sentry TAURI-RUST-B6N).
             "commit tx: database or disk is full",

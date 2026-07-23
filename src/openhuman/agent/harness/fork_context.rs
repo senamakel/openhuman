@@ -60,8 +60,10 @@ pub struct ParentExecutionContext {
     /// to reason about what the parent can *actually* invoke — e.g.
     /// `agent_prepare_context` recommending next tool calls — must consult
     /// this, not `all_tool_specs` (which is the full registry, including
-    /// hidden direct-exec/spawn tools the parent never advertises). Empty
-    /// means "unknown" — callers should treat that as "no restriction".
+    /// hidden direct-exec/spawn tools the parent never advertises). The
+    /// sub-agent runner intersects child scopes with this set so profile and
+    /// channel allowlists cannot be widened through delegation. Empty means
+    /// "unknown" — callers should treat that as "no restriction".
     pub visible_tool_names: std::collections::HashSet<String>,
 
     /// Model name the parent is currently using (after classification).

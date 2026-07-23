@@ -21,15 +21,13 @@ fn noop_name_and_dims() {
 async fn noop_embed_returns_empty() {
     let p = NoopEmbedding;
     let result = p.embed(&["hello"]).await.unwrap();
-    assert!(result.is_empty());
+    assert_eq!(result, vec![Vec::<f32>::new()]);
 }
 
 #[tokio::test]
-async fn noop_embed_one_returns_error() {
-    // embed returns empty vec → pop() returns None → error from default impl
+async fn noop_embed_one_returns_empty_vector() {
     let p = NoopEmbedding;
-    let err = p.embed_one("hello").await.unwrap_err();
-    assert!(err.to_string().contains("Empty embedding result"));
+    assert!(p.embed_one("hello").await.unwrap().is_empty());
 }
 
 #[tokio::test]

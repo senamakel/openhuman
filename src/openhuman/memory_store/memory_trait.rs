@@ -17,11 +17,11 @@ use serde_json::json;
 use crate::openhuman::memory::traits::{
     Memory, MemoryCategory, MemoryEntry, MemoryTaint, NamespaceSummary, RecallOpts,
 };
+use crate::openhuman::memory_store::namespace_store::fts5;
 use crate::openhuman::memory_store::types::{NamespaceDocumentInput, GLOBAL_NAMESPACE};
-use crate::openhuman::memory_store::unified::fts5;
 use anyhow::Context;
 
-use super::unified::UnifiedMemory;
+use super::namespace_store::UnifiedMemory;
 
 /// Convert a UNIX timestamp (f64) to RFC3339 string.
 fn timestamp_to_rfc3339(ts: f64) -> String {

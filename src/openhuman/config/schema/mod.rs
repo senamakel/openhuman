@@ -9,6 +9,8 @@ pub use cloud_providers::{
     generate_provider_id, is_slug_reserved, migrate_legacy_fields, AuthStyle, CloudProviderCreds,
     CloudProviderType,
 };
+pub mod subconscious;
+pub use subconscious::{MedullaLocalConfig, SubconsciousConfig, SubconsciousEngine};
 mod accessibility;
 mod agent;
 mod autocomplete;
@@ -39,6 +41,7 @@ mod privacy;
 mod proxy;
 mod routes;
 mod runtime;
+mod runtime_pool;
 mod runtime_python;
 mod scheduler_gate;
 mod storage_memory;
@@ -85,6 +88,7 @@ pub use routes::{EmbeddingRouteConfig, ModelRouteConfig};
 pub use runtime::{
     DockerRuntimeConfig, ReliabilityConfig, RuntimeConfig, SchedulerConfig, ShellConfig,
 };
+pub use runtime_pool::{RuntimePoolConfig, RuntimePoolLangConfig};
 pub use runtime_python::RuntimePythonConfig;
 pub use scheduler_gate::{SchedulerGateConfig, SchedulerGateMode};
 pub use storage_memory::{

@@ -366,10 +366,10 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | ----- | ------------------------------------------ | ----- | -------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------- |
 | 8.4.1 | Save Preference (general / situational)    | RU    | `src/openhuman/agent/tools/save_preference_tests.rs`                                                           | ✅     | `save_preference` tool → `user_pref_{general,situational}`, topic-keyed |
 | 8.4.2 | Lane A — Standing Prefs in System Prompt   | RU    | `src/openhuman/learning/prompt_sections.rs`, `src/openhuman/agent/harness/session/turn_tests.rs`               | ✅     | General prefs rendered into the system prompt at thread start           |
-| 8.4.3 | Lane B — Situational Recall (vector-gated) | RU    | `src/openhuman/memory/store/unified/query_tests.rs::recall_relevant_by_vector_gates_on_similarity`             | ✅     | Per-turn; relevant query injects, unrelated suppresses                  |
+| 8.4.3 | Lane B — Situational Recall (vector-gated) | RU    | `src/openhuman/memory_store/namespace_store/query_tests.rs::recall_relevant_by_vector_gates_on_similarity`             | ✅     | Per-turn; relevant query injects, unrelated suppresses                  |
 | 8.4.4 | Same-Topic Contradiction (replace)         | RU    | `src/openhuman/agent/tools/save_preference_tests.rs::recategorising_moves_pref_between_namespaces`             | ✅     | `ON CONFLICT REPLACE`; a topic lives in exactly one scope               |
 | 8.4.5 | Cross-Topic Contradiction Surfacing        | RU    | `src/openhuman/agent/tools/save_preference_tests.rs::save_surfaces_related_preference_for_contradiction_check` | ✅     | Related prefs surfaced in the tool result for the chat agent to resolve |
-| 8.4.6 | vector_chunks Model-Signature Recall Guard | RU    | `src/openhuman/memory/store/unified/query_tests.rs::vector_recall_excludes_other_model_signature`              | ✅     | Excludes cross-model vectors; dim-guards legacy rows                    |
+| 8.4.6 | vector_chunks Model-Signature Recall Guard | RU    | `src/openhuman/memory_store/namespace_store/query_tests.rs::vector_recall_excludes_other_model_signature`              | ✅     | Excludes cross-model vectors; dim-guards legacy rows                    |
 
 ### 8.5 Long-term Goals
 
@@ -516,6 +516,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | ------ | --------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 11.3.1 | Hosted-only orchestration (client = trigger + effects + render) | RI+VU | `tests/orchestration_hosted_client.rs`, `app/src/components/intelligence/TinyPlaceOrchestrationTab.test.tsx`, `app/src/components/orchestration/__tests__/AgentChatPanel.test.tsx` | ✅     | Local wake-graph brain retired (frontend_agent/graph/master_agent/reasoning_agent deleted). Client forwards events to the hosted brain (`POST /orchestration/v1/events`), uploads world-diffs, syncs hosted sessions/messages/steering into the render cache, and executes `send_dm`/`evict` socket effects; cloud-unreachable banner on outage. |
 | 11.3.2 | Direct paid Medulla orchestration with local OpenHuman tools    | RU    | `src/openhuman/orchestration/medulla.rs`, `src/openhuman/orchestration/schemas.rs`                                                                                                 | ✅     | `openhuman.orchestration_run` checks the active paid plan, starts a hosted Medulla cycle, executes requested contact/session/send tools locally, and continues pending/tool-use events to a final result. Mocked HTTP tests cover direct and tool-loop success plus plan, pending, backend-error, unknown-tool, and tool-failure paths.          |
+| 11.3.3 | Local medulla-serve supervision (`medulla_local` RPC, Flavor A draft) | RU+RI | `src/openhuman/medulla_local/server_tests.rs`, `tests/medulla_local_e2e.rs`                                                                                                        | ✅     | Behind the default-ON `medulla-local` feature. Unit tests drive the supervisor's handshake seam against a mock connector: restart-and-retry fires only on mid-request transport death of an idempotent op (exactly one respawn); the non-idempotent `instruct` is never replayed — a transport break surfaces the typed `MaybeApplied` error with no duplicate submission; an overall per-request deadline (`subconscious.medulla_local.request_deadline_secs`, default 300s) bounds a request even while the child keeps streaming frames or while a serve→host port callback (`inference.invoke`/`tools.invoke`) hangs on a stalled provider/tool — tripping as the typed transport error (`MaybeApplied` for `instruct`, restart-and-retry-once for `status`); a retry that also breaks mid-request resets the replacement connection, so the next request re-establishes cleanly instead of reusing a poisoned transport; child liveness is probed before the cached connection is trusted, so a child that dies between requests reports `running=false` and is respawned on the next request instead of misreporting `MaybeApplied`; `ok=false` serve rejections fail fast with the typed `RequestError` without killing the child; and the global cache is keyed on an order-canonical config fingerprint (map-field insertion order cannot invalidate it, a changed config rebuilds and bypasses the start-failure backoff). The transport is unix-only; non-unix targets compile a stub whose entry points report a typed unsupported-platform error (self-tested on those targets). The RI suite boots the real JSON-RPC router and asserts `medulla_local.status` returns a well-formed idle snapshot (running=false, actionable message) and `instruct` fails cleanly when no serve entry is configured — hermetic, no Node child or network.          |
 
 ---
 
@@ -599,7 +600,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 
 ---
 
-## 14. Terminal Chat UI (`openhuman tui`)
+## 14. Tabbed Terminal UI (`openhuman` / `openhuman tui`)
 
 ### 14.1 TUI Subcommand (feature-gated `tui`)
 
@@ -607,19 +608,37 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | ------ | ------------------------------------------------- | ----- | ----------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
 | 14.1.1 | Transcript reducer (deltas, done, error, tools)   | RU    | `src/openhuman/tui/state.rs`                                                        | ✅     | Pure `TranscriptState::apply_event` — client-id filtering, text/thinking split, `chat_done` finalization |
 | 14.1.2 | Runner flags + thread resolution + RPC name pins  | RU    | `src/openhuman/tui/runner.rs`, `src/openhuman/tui/app.rs`                           | ✅     | `--thread`/`--new` parsing; canonical `openhuman.*` method names resolve via registry                     |
-| 14.1.3 | Render layout (viewport, input, status)           | RU    | `src/openhuman/tui/render.rs`                                                       | ✅     | ratatui TestBackend                                                                                       |
+| 14.1.3 | Tab order + render layout + persistent footer     | RU    | `src/openhuman/tui/ui_state.rs`, `src/openhuman/tui/render.rs`                      | ✅     | Logs-first tab state and ratatui TestBackend                                                              |
 | 14.1.4 | Disabled-build stub (`--no-default-features`)     | RU    | `src/core/cli_tests.rs` (`tui`/`chat` `*_reports_disabled_build_when_gate_off`)     | ✅     | Build-fact error, not `unknown namespace`                                                                 |
-| 14.1.5 | Interactive terminal session (raw mode, streaming) | MS    | manual smoke                                                                        | 🚫     | Needs a real TTY; not driver-automatable                                                                  |
+| 14.1.5 | Bare-command launch policy                        | RU    | `src/core/cli_tests.rs`                                                             | ✅     | TTY + CLI auto-launch; Docker, pipes, feature-off, and explicit commands stay headless                    |
+| 14.1.6 | Bounded live core-log buffer                      | RU    | `src/core/logging.rs`                                                               | ✅     | Preserves ordering; bounds both line count and individual line length                                     |
+| 14.1.7 | Interactive terminal session (raw mode, streaming) | MS    | manual PTY smoke                                                                    | 🚫     | Requires a real PTY to verify key input and terminal restoration                                          |
+
+## 15. Agent Profile Homes (multi-agent profiles)
+
+### 15.1 Profile Homes & Isolation
+
+| ID     | Feature                                                        | Layer | Test path(s)                                                                                                   | Status | Notes                                                                                                          |
+| ------ | -------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| 15.1.1 | Profile home materialization + file-backed SOUL.md             | RU    | `src/openhuman/profiles/home.rs`, `src/openhuman/profiles/paths.rs`                                            | ✅     | Idempotent atomic seeds, id validation matrix, soul resolution order incl. legacy-id skip                       |
+| 15.1.2 | Dedicated memory suffix + dedicated workspace descriptor       | RU    | `src/openhuman/profiles/paths.rs`, `src/openhuman/agent/harness/session/builder/factory.rs`                    | ✅     | `effective_memory_suffix` matrix; real `derive_profile_workspace_descriptor` seam, None path unchanged          |
+| 15.1.3 | Cross-profile write guard (file tools + shell)                 | RU    | `src/openhuman/profiles/guard.rs`, `src/openhuman/security/policy/policy_tests.rs`                             | ✅     | Block sibling / allow own / disarmed-allows; traversal + symlink cases through real `validate_parent_path`      |
+| 15.1.4 | Profile-scoped agent experience (capture stamp + partition)    | RU    | `src/openhuman/agent_experience/` (capture/store/ops tests)                                                    | ✅     | Profiled query sees own + legacy, excludes siblings; profile-less sees all                                      |
+| 15.1.5 | Per-profile skills dir (discover/describe/read/run precedence) | RU    | `src/openhuman/skills/registry.rs`, `src/openhuman/skills/ops_discover.rs`                                     | ✅     | Owner-only visibility; profile-local wins collisions; global-only resolves everywhere                           |
+| 15.1.6 | Cron profile attribution (schema, patch clearing, fallback)    | RU/RI | `src/openhuman/cron/types.rs`, `src/openhuman/cron/store.rs`, `tests/json_rpc_e2e.rs`                          | ✅     | Double-option wire semantics (absent/null/value); deleted-profile fallback; e2e round-trip incl. null clearing  |
+| 15.1.7 | Profiles RPC lifecycle (dedicated memory, enriched paths)      | RI    | `tests/json_rpc_e2e.rs` (`json_rpc_profiles_dedicated_memory_lifecycle`)                                       | ✅     | Upsert → list shows `dedicatedMemory` + enriched `soulMdFile`/`workspaceDir`/`skillsDir`                        |
+| 15.1.8 | Profile editor isolation UI (toggles, path rows)               | VU    | `app/src/components/settings/panels/ProfileEditorPage.test.tsx`                                                | ✅     | Default-off render, dispatch payload, hydration, path rows shown/hidden                                         |
+| 15.1.9 | Cron profile picker UI (assign, clear, deleted fallback)       | VU    | `app/src/components/settings/panels/cron/` tests, `app/src/services/api/agentProfilesApi.test.ts`              | ✅     | Create with/without id, edit prefill, clear→null, deleted-profile preserved, list label fallback                |
 
 ## Summary
 
 | Status           | Count                                            |
 | ---------------- | ------------------------------------------------ |
-| ✅ Covered       | 70                                               |
+| ✅ Covered       | 79                                               |
 | 🟡 Partial       | 27                                               |
 | ❌ Missing       | 26                                               |
 | 🚫 Manual smoke  | 11                                               |
-| **Total leaves** | **135 explicit + nested = 206 product features** |
+| **Total leaves** | **143 explicit + nested = 214 product features** |
 
 PR-A delta: 13 leaves moved from ❌ → ✅ via 5 WDIO specs + 2 Vitest + 1 Rust integration test.
 Remaining gaps tracked under sub-issues #965 (process), #966 (docs), #967 (tools), #968 (auth/perm), #969 (settings), #970 (rewards), #971 (manual smoke).

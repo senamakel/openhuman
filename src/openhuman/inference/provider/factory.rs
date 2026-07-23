@@ -2228,13 +2228,18 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         AuthStyle::Anthropic => CompatAuthStyle::Anthropic,
         AuthStyle::None => CompatAuthStyle::None,
         AuthStyle::OpenhumanJwt => {
-            let (backend, _resolved_model) = match resolve_managed_backend(role, config) {
+            let (backend, resolved_model) = match resolve_managed_backend(role, config) {
                 Ok(result) => result,
                 Err(error) => return Some(Err(error)),
             };
+            let pinned_model = if effective_model.trim().is_empty() {
+                resolved_model
+            } else {
+                effective_model
+            };
             return Some(Ok((
-                Arc::new(backend.with_default_model(&effective_model)),
-                effective_model,
+                Arc::new(backend.with_default_model(&pinned_model)),
+                pinned_model,
             )));
         }
         AuthStyle::Bearer => {

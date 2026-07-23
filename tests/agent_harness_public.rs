@@ -135,6 +135,7 @@ fn stub_parent_context() -> ParentExecutionContext {
         all_tools: Arc::new(vec![]),
         all_tool_specs: Arc::new(vec![]),
         visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         model_name: "stub-model".into(),
         temperature: 0.4,
         workspace_dir: std::path::PathBuf::from("/tmp"),

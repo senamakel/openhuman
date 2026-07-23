@@ -1193,6 +1193,17 @@ impl Agent {
             );
             effective_agent_config.max_tool_iterations = def_cap;
         }
+        let profile_subagent_tool_ceiling = profile
+            .and_then(|profile| profile.allowed_tools.as_ref())
+            .filter(|tools| !tools.is_empty())
+            .map(|tools| {
+                tools
+                    .iter()
+                    .map(|tool| tool.trim())
+                    .filter(|tool| !tool.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            });
         let mut builder = Agent::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
             .tools(tools)
@@ -1255,6 +1266,9 @@ impl Agent {
             .omit_memory_md(effective_omit_memory_md)
             .trigger_memory_agent(effective_trigger_memory_agent)
             .tokenjuice_compression(effective_tokenjuice_compression);
+        if let Some(ceiling) = profile_subagent_tool_ceiling {
+            builder = builder.subagent_tool_ceiling_names(ceiling);
+        }
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }

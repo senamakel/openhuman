@@ -300,6 +300,7 @@ fn parent(workspace: PathBuf, provider: Arc<ScriptedProvider>) -> ParentExecutio
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(specs),
         visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         model_name: "round18-model".to_string(),
         temperature: 0.0,
         workspace_dir: workspace,
@@ -343,6 +344,7 @@ fn prompt_context<'a>(
             ..LearnedContextData::default()
         },
         visible_tool_names: visible,
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         tool_call_format: ToolCallFormat::PFormat,
         connected_integrations: &[] as &[ConnectedIntegration],
         connected_identities_md: String::new(),

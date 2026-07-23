@@ -300,6 +300,11 @@ async fn profile_allowed_tools_restrict_shared_session_builder() {
         &["file_read".to_string()].into_iter().collect(),
         "every profile-aware caller must inherit the same tool restriction"
     );
+    assert_eq!(
+        agent.subagent_tool_ceiling_names_for_test(),
+        &["file_read".to_string()].into_iter().collect(),
+        "an explicit profile tool restriction must also ceiling delegated agents"
+    );
 }
 
 #[tokio::test]
@@ -572,6 +577,10 @@ async fn from_config_for_agent_synthesizes_custom_registry_entry_with_named_scop
     assert!(
         !visible.contains("automate"),
         "a tool outside the custom agent's allowlist must not be visible: {visible:?}"
+    );
+    assert!(
+        agent.subagent_tool_ceiling_names_for_test().is_empty(),
+        "an agent definition's direct tool scope must not become a delegation ceiling"
     );
 }
 

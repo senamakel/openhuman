@@ -284,6 +284,7 @@ fn parent_context(workspace: &Path, provider: Arc<ScriptedProvider>) -> ParentEx
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(specs),
         visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         model_name: "round21-parent-model".to_string(),
         temperature: 0.0,
         workspace_dir: workspace.to_path_buf(),

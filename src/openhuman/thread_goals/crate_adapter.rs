@@ -6,7 +6,7 @@
 //! ([`crate_goals_store`]), raw mirror helpers used by migration tests, and the idempotent
 //! [`migrate_legacy_goals_into_crate_store`] boot helper that copies goals left
 //! in the retired `{workspace}/thread_goals/` file-JSON tree only when the crate
-//! store has no value for that thread.
+//! store has no value for that thread, then removes the retired row.
 //!
 //! Persistence target: the crate [`Store`] rooted at the shared workspace KV
 //! tree (`{workspace}/tinyagents_store/kv`), namespace [`GOALS_NAMESPACE`]
@@ -32,6 +32,9 @@ use tinyagents::harness::store::Store;
 use super::types::{ThreadGoal, ThreadGoalStatus};
 use crate::openhuman::session_import::ops::open_session_stores;
 
+const LEGACY_GOALS_DIR: &str = "thread_goals";
+const LEGACY_GOALS_EXTENSION: &str = "json";
+
 /// Open the crate [`Store`] handle used for the goals mirror, rooted at the
 /// shared workspace KV tree (`{workspace}/tinyagents_store/kv`). Same layout the
 /// 04-sessions journal + status store use, so everything lives under one tree.
@@ -49,6 +52,34 @@ fn goal_key(thread_id: &str) -> String {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect()
+}
+
+fn legacy_goal_path(workspace_dir: &Path, thread_id: &str) -> Result<std::path::PathBuf, String> {
+    let thread_id = thread_id.trim();
+    if thread_id.is_empty() {
+        return Err("invalid thread goal thread_id: empty or whitespace".to_string());
+    }
+    Ok(workspace_dir.join(LEGACY_GOALS_DIR).join(format!(
+        "{}.{LEGACY_GOALS_EXTENSION}",
+        hex::encode(thread_id.as_bytes())
+    )))
+}
+
+/// Remove a retired file-store row for `thread_id`, if present.
+///
+/// Clears call this before deleting the authoritative crate row so a failed
+/// legacy cleanup can never leave an absent crate row that migration would
+/// resurrect on the next boot.
+pub(crate) async fn delete_legacy_goal_file(
+    workspace_dir: &Path,
+    thread_id: &str,
+) -> Result<bool, String> {
+    let path = legacy_goal_path(workspace_dir, thread_id)?;
+    match tokio::fs::remove_file(&path).await {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(format!("delete legacy thread goal {}: {e}", path.display())),
+    }
 }
 
 /// Map a legacy [`ThreadGoalStatus`] onto the crate [`CrateStatus`]. The two
@@ -175,9 +206,10 @@ pub struct GoalMigrationReport {
 
 /// Copy legacy thread-goal rows missing from the crate `graph.goals` store.
 ///
-/// **Idempotent and non-destructive**: any existing crate value is
-/// authoritative and skipped, even when it differs from the stale legacy file.
-/// This prevents restarts from reverting status, usage, or budget progress.
+/// **Idempotent**: any existing crate value is authoritative and skipped, even
+/// when it differs from the stale legacy file. After a row is copied or
+/// skipped, its retired file is removed so clearing the crate row later cannot
+/// resurrect stale state on the next boot.
 ///
 /// Wired into `core::runtime::services::start_boot_once_jobs` on every core
 /// boot. Honors the single-writer constraint: run it only inside the core
@@ -186,10 +218,13 @@ pub struct GoalMigrationReport {
 /// JSON tree. Returns an empty vec when the directory is absent (the common
 /// case after the first migration). Undecodable/unreadable files are skipped —
 /// a stray file can't wedge the idempotent copy.
-async fn read_legacy_file_goals(workspace_dir: &Path) -> Result<Vec<ThreadGoal>, String> {
-    const LEGACY_DIR: &str = "thread_goals";
-    const LEGACY_EXT: &str = "json";
-    let dir = workspace_dir.join(LEGACY_DIR);
+struct LegacyGoalRow {
+    path: std::path::PathBuf,
+    goal: ThreadGoal,
+}
+
+async fn read_legacy_file_goals(workspace_dir: &Path) -> Result<Vec<LegacyGoalRow>, String> {
+    let dir = workspace_dir.join(LEGACY_GOALS_DIR);
     let mut entries = match tokio::fs::read_dir(&dir).await {
         Ok(rd) => rd,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -207,12 +242,12 @@ async fn read_legacy_file_goals(workspace_dir: &Path) -> Result<Vec<ThreadGoal>,
         .map_err(|e| format!("iterate legacy thread goals dir: {e}"))?
     {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some(LEGACY_EXT) {
+        if path.extension().and_then(|e| e.to_str()) != Some(LEGACY_GOALS_EXTENSION) {
             continue;
         }
         match tokio::fs::read_to_string(&path).await {
             Ok(body) => match serde_json::from_str::<ThreadGoal>(&body) {
-                Ok(goal) => goals.push(goal),
+                Ok(goal) => goals.push(LegacyGoalRow { path, goal }),
                 Err(e) => {
                     tracing::debug!(path = %path.display(), error = %e, "[thread_goals][crate-migrate] skip parse error");
                 }
@@ -239,7 +274,8 @@ pub async fn migrate_legacy_goals_into_crate_store(
         total = report.total,
         "[thread_goals][crate-migrate] start copy legacy goals → graph.goals"
     );
-    for goal in &legacy {
+    for row in &legacy {
+        let goal = &row.goal;
         match store.get(GOALS_NAMESPACE, &goal_key(&goal.thread_id)).await {
             Ok(Some(_)) => {
                 report.skipped += 1;
@@ -248,9 +284,16 @@ pub async fn migrate_legacy_goals_into_crate_store(
                     goal_id = %goal.goal_id,
                     "[thread_goals][crate-migrate] skip (crate goal already authoritative)"
                 );
-                continue;
             }
-            Ok(None) => {}
+            Ok(None) => {
+                put_mirror(&store, goal).await?;
+                report.copied += 1;
+                tracing::debug!(
+                    thread_id = %goal.thread_id,
+                    goal_id = %goal.goal_id,
+                    "[thread_goals][crate-migrate] copied"
+                );
+            }
             Err(e) => {
                 return Err(format!(
                     "check crate goal before migrating thread {}: {e}",
@@ -258,13 +301,12 @@ pub async fn migrate_legacy_goals_into_crate_store(
                 ))
             }
         }
-        put_mirror(&store, goal).await?;
-        report.copied += 1;
-        tracing::debug!(
-            thread_id = %goal.thread_id,
-            goal_id = %goal.goal_id,
-            "[thread_goals][crate-migrate] copied"
-        );
+        tokio::fs::remove_file(&row.path).await.map_err(|e| {
+            format!(
+                "remove migrated legacy thread goal {}: {e}",
+                row.path.display()
+            )
+        })?;
     }
     tracing::info!(
         total = report.total,
@@ -391,10 +433,14 @@ mod tests {
     /// Write a goal into the retired legacy `{workspace}/thread_goals/` file-JSON
     /// tree (the shape `read_legacy_file_goals` reads), so the migration has
     /// something to copy.
+    fn legacy_goal_file(dir: &std::path::Path, thread_id: &str) -> std::path::PathBuf {
+        legacy_goal_path(dir, thread_id).unwrap()
+    }
+
     fn write_legacy_goal(dir: &std::path::Path, goal: &ThreadGoal) {
         let legacy_dir = dir.join("thread_goals");
         std::fs::create_dir_all(&legacy_dir).unwrap();
-        let path = legacy_dir.join(format!("{}.json", goal.thread_id));
+        let path = legacy_goal_file(dir, &goal.thread_id);
         std::fs::write(&path, serde_json::to_string(goal).unwrap()).unwrap();
     }
 
@@ -426,6 +472,8 @@ mod tests {
         assert_eq!(r1.total, 2);
         assert_eq!(r1.copied, 2);
         assert_eq!(r1.skipped, 0);
+        assert!(!legacy_goal_file(dir, "t1").exists());
+        assert!(!legacy_goal_file(dir, "t2").exists());
 
         // Crate rows now match legacy rows exactly.
         let store = crate_goals_store(dir);
@@ -433,21 +481,58 @@ mod tests {
         assert_eq!(m2.tokens_used, 50);
         assert_eq!(m2.objective, "objective two");
 
-        // Simulate live usage/status updates while the legacy files remain.
+        // Simulate live usage/status updates after migration.
         let mut advanced = m2;
         advanced.tokens_used = 999;
         advanced.status = ThreadGoalStatus::Complete;
         advanced.updated_at_ms = 3_000;
         put_mirror(&store, &advanced).await.unwrap();
 
-        // Second run is a no-op and must preserve the newer crate state.
+        // Second run has no retired rows left and preserves the newer state.
         let r2 = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
-        assert_eq!(r2.total, 2);
+        assert_eq!(r2.total, 0);
         assert_eq!(r2.copied, 0, "idempotent: nothing re-copied");
-        assert_eq!(r2.skipped, 2);
+        assert_eq!(r2.skipped, 0);
         let preserved = get_mirror(&store, "t2").await.unwrap().unwrap();
         assert_eq!(preserved.tokens_used, 999);
         assert_eq!(preserved.status, ThreadGoalStatus::Complete);
         assert_eq!(preserved.updated_at_ms, 3_000);
+    }
+
+    #[tokio::test]
+    async fn migration_discards_stale_legacy_row_when_crate_is_authoritative() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let stale = legacy_goal("t1", "stale objective", 1);
+        write_legacy_goal(dir, &stale);
+
+        let store = crate_goals_store(dir);
+        let current = legacy_goal("t1", "current objective", 99);
+        put_mirror(&store, &current).await.unwrap();
+
+        let report = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
+        assert_eq!(report.total, 1);
+        assert_eq!(report.copied, 0);
+        assert_eq!(report.skipped, 1);
+        assert!(!legacy_goal_file(dir, "t1").exists());
+        assert_eq!(get_mirror(&store, "t1").await.unwrap(), Some(current));
+    }
+
+    #[tokio::test]
+    async fn clear_does_not_allow_migrated_goal_to_resurrect() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let goal = legacy_goal("t1", "retired objective", 5);
+        write_legacy_goal(dir, &goal);
+        let store = crate_goals_store(dir);
+        put_mirror(&store, &goal).await.unwrap();
+
+        assert!(super::super::store::clear(dir, "t1").await.unwrap());
+        assert!(!legacy_goal_file(dir, "t1").exists());
+        assert!(get_mirror(&store, "t1").await.unwrap().is_none());
+
+        let report = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
+        assert_eq!(report.total, 0);
+        assert!(get_mirror(&store, "t1").await.unwrap().is_none());
     }
 }

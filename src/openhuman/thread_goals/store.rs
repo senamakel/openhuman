@@ -17,7 +17,7 @@
 
 use std::path::Path;
 
-use super::crate_adapter::{crate_goals_store, from_crate_goal};
+use super::crate_adapter::{crate_goals_store, delete_legacy_goal_file, from_crate_goal};
 use super::types::ThreadGoal;
 use tinyagents::graph::goals::store as crate_store;
 
@@ -80,6 +80,7 @@ pub async fn list_all(workspace_dir: &Path) -> Result<Vec<ThreadGoal>, String> {
 
 /// Delete the thread's goal. Returns whether a goal was present.
 pub async fn clear(workspace_dir: &Path, thread_id: &str) -> Result<bool, String> {
+    delete_legacy_goal_file(workspace_dir, thread_id).await?;
     let store = crate_goals_store(workspace_dir);
     let existed = crate_store::clear(&store, thread_id)
         .await

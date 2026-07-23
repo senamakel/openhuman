@@ -2140,7 +2140,7 @@ async fn dedicated_profile_experience_recall_merges_shared_legacy_store() {
         .unwrap();
 
     let agent = Agent::builder()
-        .provider(Box::new(DummyProvider))
+        .chat_model(Arc::new(DummyProvider))
         .tools(vec![])
         .memory(dedicated)
         .shared_experience_memory(Some(shared))

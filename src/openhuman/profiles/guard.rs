@@ -240,6 +240,7 @@ fn scan_command_segment(
     active_profile: &str,
 ) -> Option<String> {
     let profiles_root = canonicalize_best_effort(&action_dir.join("profiles"));
+    let cwd_is_action_root = canonicalize_best_effort(cwd) == canonicalize_best_effort(action_dir);
     let cwd_is_profiles_root = canonicalize_best_effort(cwd) == profiles_root;
     let mut token_index = 0usize;
     // Split on shell punctuation as well as whitespace/redirects so a path
@@ -273,7 +274,13 @@ fn scan_command_segment(
             && !is_command_word
             && !token.starts_with('-')
             && cwd.join(token).is_dir();
-        if !path_shaped && !bare_profile_operand {
+        // From the shared action root, the literal bare operand `profiles`
+        // names the protected collection root itself (`rm -rf profiles`,
+        // `mv profiles backup`). It has no slash, so classify it explicitly
+        // before spawning just as we do bare sibling ids from inside that root.
+        let bare_profiles_root_operand =
+            cwd_is_action_root && !is_command_word && token == "profiles";
+        if !path_shaped && !bare_profile_operand && !bare_profiles_root_operand {
             continue;
         }
         let expanded = crate::openhuman::config::expand_tilde(token);
@@ -564,6 +571,15 @@ mod tests {
         let cwd = action.join("profiles").join("alice");
         assert_eq!(
             scan_command_for_cross_profile("rm -rf ..", &cwd, &action, "alice"),
+            Some(PROFILES_ROOT_SENTINEL.to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_blocks_bare_profiles_root_from_action_dir() {
+        let (_g, action) = profiles_layout();
+        assert_eq!(
+            scan_command_for_cross_profile("rm -rf profiles", &action, &action, "alice"),
             Some(PROFILES_ROOT_SENTINEL.to_string())
         );
     }

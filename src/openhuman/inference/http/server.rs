@@ -34,7 +34,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tinyagents::harness::model::{ModelRequest, ModelStreamItem};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 use crate::core::types::AppState;
 use crate::openhuman::config::Config;

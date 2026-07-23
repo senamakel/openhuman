@@ -11,7 +11,7 @@ use crate::rpc::RpcOutcome;
 use serde_json::{json, Value};
 use tinyagents::harness::message::Message;
 use tinyagents::harness::model::ModelRequest;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 const LOG_PREFIX: &str = "[inference::ops]";
 

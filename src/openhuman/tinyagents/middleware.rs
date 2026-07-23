@@ -1048,8 +1048,7 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
         let has_ext = self.has_external_effect(&call.name, &call.arguments);
         eprintln!(
             "[approval_mw] wrap_tool tool={} has_external_effect={}",
-            call.name,
-            has_ext,
+            call.name, has_ext,
         );
         if has_ext {
             if let Some(gate) = ApprovalGate::try_global() {

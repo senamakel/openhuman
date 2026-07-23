@@ -3587,7 +3587,16 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
         reqwest::Client::new(),
     ));
 
-    let node = NodeExecTool::new(full_security.clone(), runtime.clone(), bootstrap.clone());
+    let node = NodeExecTool::new(
+        full_security.clone(),
+        runtime.clone(),
+        bootstrap.clone(),
+        openhuman_core::openhuman::config::RuntimePoolConfig {
+            enabled: false,
+            ..Default::default()
+        },
+        config.workspace_dir.clone(),
+    );
     assert_eq!(node.name(), "node_exec");
     assert_eq!(node.permission_level(), PermissionLevel::Execute);
     assert!(node.description().contains("Execute JavaScript"));
@@ -3614,6 +3623,11 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
         readonly_security.clone(),
         runtime.clone(),
         bootstrap.clone(),
+        openhuman_core::openhuman::config::RuntimePoolConfig {
+            enabled: false,
+            ..Default::default()
+        },
+        config.workspace_dir.clone(),
     );
     let blocked = readonly_node
         .execute(json!({ "inline_code": "console.log('blocked')" }))

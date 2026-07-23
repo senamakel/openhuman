@@ -1049,6 +1049,41 @@ fn all_tools_registers_node_exec_when_node_enabled() {
 }
 
 #[test]
+fn all_tools_registers_python_exec_when_python_enabled() {
+    // Default RuntimePythonConfig has `enabled = true`, so `python_exec` must
+    // appear in the registry (routes inline code through the runtime pool, #5106).
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem_cfg = MemoryConfig {
+        backend: "markdown".into(),
+        ..MemoryConfig::default()
+    };
+    let mem: Arc<dyn Memory> =
+        Arc::from(crate::openhuman::memory_store::create_memory(&mem_cfg, tmp.path()).unwrap());
+
+    let browser = BrowserConfig::default();
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+    assert!(
+        names.contains(&"python_exec"),
+        "python_exec must be registered when runtime_python.enabled=true; got: {names:?}"
+    );
+}
+
+#[test]
 fn all_tools_excludes_node_exec_when_node_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());

@@ -5094,6 +5094,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': '격리됨 (권장)',
   'settings.cron.jobs.formSessionMain': '메인 세션',
   'settings.cron.jobs.formSessionTarget': '세션 대상',
+  'settings.cron.jobs.formProfile': '에이전트 프로필',
+  'settings.cron.jobs.formProfileNone': '프로필 없음',
+  'settings.cron.jobs.formProfileHint':
+    '선택한 프로필로 이 작업을 실행하며, 해당 프로필의 정체성, 메모리, 작업 공간을 사용합니다.',
+  'settings.cron.jobs.profile': '프로필',
   'settings.cron.jobs.lastStatus': '마지막 상태',
   'settings.cron.jobs.loading': 'cron 작업 불러오는 중...',
   'settings.cron.jobs.loadingRuns': '실행 기록 불러오는 중',
@@ -7202,6 +7207,16 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': '이 프로필이 나열하고 실행할 수 있는 워크플로.',
   'settings.profiles.editor.mcpServers': 'MCP 서버',
   'settings.profiles.editor.mcpServersHint': '이 프로필이 접근할 수 있는 MCP 서버.',
+  'settings.profiles.editor.dedicatedMemory': '전용 메모리',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    '기본 메모리를 공유하는 대신 이 프로필에 전용 메모리를 부여합니다.',
+  'settings.profiles.editor.dedicatedWorkspace': '전용 작업 공간',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    '파일 및 도구 작업을 위해 이 프로필에 전용 작업 디렉터리를 부여합니다.',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md 파일',
+  'settings.profiles.editor.workspaceDir': '작업 공간 디렉터리',
+  'settings.profiles.editor.skillsDir': '기술 디렉터리',
+  'settings.profiles.editor.skillsDirHint': '여기에 넣은 SKILL.md 파일은 이 프로필에만 적용됩니다.',
   'settings.profiles.editor.all': '전체',
   'settings.profiles.editor.selected': '선택됨',
   'settings.profiles.editor.addPlaceholder': '식별자를 입력하고 Enter를 누르세요',

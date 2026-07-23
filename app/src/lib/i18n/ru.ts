@@ -5203,6 +5203,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Изолированная (рекомендуется)',
   'settings.cron.jobs.formSessionMain': 'Основная сессия',
   'settings.cron.jobs.formSessionTarget': 'Целевая сессия',
+  'settings.cron.jobs.formProfile': 'Профиль агента',
+  'settings.cron.jobs.formProfileNone': 'Без профиля',
+  'settings.cron.jobs.formProfileHint':
+    'Запускать эту задачу от выбранного профиля, используя его душу, память и рабочее пространство.',
+  'settings.cron.jobs.profile': 'Профиль',
   'settings.cron.jobs.lastStatus': 'Последний статус',
   'settings.cron.jobs.loading': 'Загрузка заданий...',
   'settings.cron.jobs.loadingRuns': 'Загрузка запусков',
@@ -7372,6 +7377,17 @@ const messages: TranslationMap = {
   'settings.profiles.editor.mcpServers': 'Серверы MCP',
   'settings.profiles.editor.mcpServersHint':
     'Серверы MCP, к которым может обращаться этот профиль.',
+  'settings.profiles.editor.dedicatedMemory': 'Выделенная память',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Выделить этому профилю собственную память вместо общей памяти по умолчанию.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Выделенное рабочее пространство',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Выделить этому профилю собственный рабочий каталог для операций с файлами и инструментами.',
+  'settings.profiles.editor.soulMdFile': 'Файл SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'Рабочий каталог',
+  'settings.profiles.editor.skillsDir': 'Каталог навыков',
+  'settings.profiles.editor.skillsDirHint':
+    'Файлы SKILL.md, размещённые здесь, доступны только этому профилю.',
   'settings.profiles.editor.all': 'Все',
   'settings.profiles.editor.selected': 'Выбранные',
   'settings.profiles.editor.addPlaceholder': 'Введите идентификатор и нажмите Enter',

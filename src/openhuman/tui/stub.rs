@@ -1,4 +1,4 @@
-//! Disabled-`tui` facade for [`super`] (the terminal chat UI).
+//! Disabled-`tui` facade for [`super`] (the tabbed terminal UI).
 //!
 //! Compiled only when the `tui` Cargo feature is OFF (see the gate in
 //! [`super`]). It mirrors the one public symbol always-compiled callers reach —

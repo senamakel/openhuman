@@ -1177,8 +1177,9 @@ pub fn read_transcript_display(path: &Path) -> Result<DisplaySessionTranscript> 
     Ok(DisplaySessionTranscript { meta, records })
 }
 
-/// Find the newest root `session_raw/*.jsonl` transcript whose metadata
-/// declares `thread_id`.
+/// Find the newest root transcript whose metadata declares `thread_id`, across
+/// the shared `session_raw/` store and every profile-scoped
+/// `session_raw-<id>/` store.
 ///
 /// Root transcripts live directly under `session_raw/` and do not carry
 /// the `__` separator used for sub-agent siblings. This helper is the
@@ -1186,13 +1187,37 @@ pub fn read_transcript_display(path: &Path) -> Result<DisplaySessionTranscript> 
 /// transcript without accidentally folding delegated worker transcripts
 /// into the main chat timeline.
 pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) -> Option<PathBuf> {
+    raw_session_dirs(workspace_dir)
+        .into_iter()
+        .filter_map(|raw_dir| find_root_transcript_for_thread_in_dir(&raw_dir, thread_id))
+        .max_by(|left, right| left.file_name().cmp(&right.file_name()))
+}
+
+fn raw_session_dirs(workspace_dir: &Path) -> Vec<PathBuf> {
+    let mut raw_dirs = vec![raw_session_dir(workspace_dir)];
+    if let Ok(entries) = fs::read_dir(workspace_dir) {
+        raw_dirs.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
+            path.is_dir()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| {
+                        name.strip_prefix("session_raw-")
+                            .is_some_and(|suffix| !suffix.is_empty())
+                    })
+        }));
+    }
+    raw_dirs.sort();
+    raw_dirs
+}
+
+pub fn find_root_transcript_for_thread_in_dir(raw_dir: &Path, thread_id: &str) -> Option<PathBuf> {
     let thread_id = thread_id.trim();
     if thread_id.is_empty() {
         return None;
     }
 
-    let raw_dir = raw_session_dir(workspace_dir);
-    let entries = fs::read_dir(&raw_dir).ok()?;
+    let entries = fs::read_dir(raw_dir).ok()?;
     let mut matches: Vec<PathBuf> = entries
         .flatten()
         .map(|entry| entry.path())
@@ -1335,39 +1360,41 @@ pub fn read_thread_usage_summary(
         return None;
     }
 
-    let raw_dir = raw_session_dir(workspace_dir);
-    let entries = fs::read_dir(&raw_dir).ok()?;
-
     // Single scan: split the thread's transcripts into root (orchestrator) and
     // `__` sub-agent files. Root totals stay the parent's; sub-agent files are
     // grouped by archetype for the per-agent breakdown.
     let mut root_matches: Vec<PathBuf> = Vec::new();
     let mut sub_matches: Vec<PathBuf> = Vec::new();
-    for path in entries.flatten().map(|entry| entry.path()) {
-        if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
-            continue;
-        }
-        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+    for raw_dir in raw_session_dirs(workspace_dir) {
+        let Ok(entries) = fs::read_dir(&raw_dir) else {
             continue;
         };
-        let is_subagent = stem.contains("__");
-        let matches_thread = read_transcript_meta_only(&path)
-            .map(|m| m.thread_id.as_deref() == Some(thread_id))
-            .unwrap_or(false);
-        if !matches_thread {
-            continue;
-        }
-        if is_subagent {
-            sub_matches.push(path);
-        } else {
-            root_matches.push(path);
+        for path in entries.flatten().map(|entry| entry.path()) {
+            if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
+                continue;
+            }
+            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let is_subagent = stem.contains("__");
+            let matches_thread = read_transcript_meta_only(&path)
+                .map(|m| m.thread_id.as_deref() == Some(thread_id))
+                .unwrap_or(false);
+            if !matches_thread {
+                continue;
+            }
+            if is_subagent {
+                sub_matches.push(path);
+            } else {
+                root_matches.push(path);
+            }
         }
     }
 
     if root_matches.is_empty() && sub_matches.is_empty() {
         return None;
     }
-    root_matches.sort();
+    root_matches.sort_by(|left, right| left.file_name().cmp(&right.file_name()));
 
     let mut summary = ThreadUsageSummary::default();
     for path in &root_matches {
@@ -1439,7 +1466,11 @@ pub fn read_thread_usage_summary(
 /// own key so collisions are effectively impossible.
 pub fn resolve_keyed_transcript_path(workspace_dir: &Path, stem: &str) -> Result<PathBuf> {
     let raw_dir = raw_session_dir(workspace_dir);
-    fs::create_dir_all(&raw_dir)
+    resolve_keyed_transcript_path_in_dir(&raw_dir, stem)
+}
+
+pub fn resolve_keyed_transcript_path_in_dir(raw_dir: &Path, stem: &str) -> Result<PathBuf> {
+    fs::create_dir_all(raw_dir)
         .with_context(|| format!("create session_raw dir {}", raw_dir.display()))?;
     let sanitized = sanitize_stem(stem);
     Ok(raw_dir.join(format!("{sanitized}.jsonl")))
@@ -1494,8 +1525,19 @@ pub fn resolve_new_transcript_path(workspace_dir: &Path, agent_name: &str) -> Re
 /// The fallback is one-release transitional and can be removed once
 /// existing transcripts have rolled forward.
 pub fn find_latest_transcript(workspace_dir: &Path, agent_name: &str) -> Option<PathBuf> {
+    find_latest_transcript_in_subdir(workspace_dir, "session_raw", agent_name)
+}
+
+/// Find the most recent transcript inside a session's configured raw subtree.
+/// Scoped profile sessions must never fall back to shared transcripts; the
+/// legacy date-grouped/markdown fallback applies only to `session_raw`.
+pub fn find_latest_transcript_in_subdir(
+    workspace_dir: &Path,
+    session_raw_subdir: &str,
+    agent_name: &str,
+) -> Option<PathBuf> {
     let sanitized = sanitize_agent_name(agent_name);
-    let raw_root = workspace_dir.join("session_raw");
+    let raw_root = workspace_dir.join(session_raw_subdir);
     let sessions_root = workspace_dir.join("sessions");
 
     // Primary path: flat session_raw/ directory. The stem-suffix scan
@@ -1505,6 +1547,10 @@ pub fn find_latest_transcript(workspace_dir: &Path, agent_name: &str) -> Option<
         if let Some(path) = latest_in_dir(&raw_root, &sanitized) {
             return Some(path);
         }
+    }
+
+    if session_raw_subdir != "session_raw" {
+        return None;
     }
 
     // Fallback: legacy date-grouped layout (one-release migration

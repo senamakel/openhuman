@@ -5153,6 +5153,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'বিচ্ছিন্ন (প্রস্তাবিত)',
   'settings.cron.jobs.formSessionMain': 'প্রধান সেশন',
   'settings.cron.jobs.formSessionTarget': 'সেশন টার্গেট',
+  'settings.cron.jobs.formProfile': 'এজেন্ট প্রোফাইল',
+  'settings.cron.jobs.formProfileNone': 'কোনো প্রোফাইল নয়',
+  'settings.cron.jobs.formProfileHint':
+    'নির্বাচিত প্রোফাইল হিসেবে এই কাজটি চালান, তার পরিচয়, মেমরি ও ওয়ার্কস্পেস ব্যবহার করে।',
+  'settings.cron.jobs.profile': 'প্রোফাইল',
   'settings.cron.jobs.lastStatus': 'শেষ স্ট্যাটাস',
   'settings.cron.jobs.loading': 'ক্রন জব লোড হচ্ছে...',
   'settings.cron.jobs.loadingRuns': 'রান লোড হচ্ছে',
@@ -7290,6 +7295,17 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': 'এই প্রোফাইল যেসব ওয়ার্কফ্লো তালিকাভুক্ত ও চালাতে পারে।',
   'settings.profiles.editor.mcpServers': 'MCP সার্ভার',
   'settings.profiles.editor.mcpServersHint': 'এই প্রোফাইল যেসব MCP সার্ভারে পৌঁছাতে পারে।',
+  'settings.profiles.editor.dedicatedMemory': 'নিবেদিত মেমরি',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'ডিফল্ট মেমরি ভাগ করার পরিবর্তে এই প্রোফাইলকে নিজস্ব মেমরি দিন।',
+  'settings.profiles.editor.dedicatedWorkspace': 'নিবেদিত ওয়ার্কস্পেস',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'ফাইল ও টুল কাজের জন্য এই প্রোফাইলকে নিজস্ব ওয়ার্কিং ডিরেক্টরি দিন।',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md ফাইল',
+  'settings.profiles.editor.workspaceDir': 'ওয়ার্কস্পেস ডিরেক্টরি',
+  'settings.profiles.editor.skillsDir': 'স্কিল ডিরেক্টরি',
+  'settings.profiles.editor.skillsDirHint':
+    'এখানে রাখা SKILL.md ফাইলগুলি শুধু এই প্রোফাইলের জন্য ব্যক্তিগত।',
   'settings.profiles.editor.all': 'সব',
   'settings.profiles.editor.selected': 'নির্বাচিত',
   'settings.profiles.editor.addPlaceholder': 'একটি আইডি লিখে এন্টার চাপুন',

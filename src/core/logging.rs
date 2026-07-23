@@ -11,8 +11,9 @@
 //!     calls and core `tracing::*` calls funnel into the same file via
 //!     [`tracing_log::LogTracer`].
 
+use std::collections::VecDeque;
 use std::fmt;
-use std::io::{self, IsTerminal};
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, Once, OnceLock};
 
@@ -21,6 +22,7 @@ use tracing::{Event, Level};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::fmt::format::{FormatEvent, FormatFields, Writer};
 use tracing_subscriber::fmt::FmtContext;
+use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -46,6 +48,67 @@ static FILE_GUARD: Mutex<Option<WorkerGuard>> = Mutex::new(None);
 /// [`init_for_embedded`] so UI commands (e.g. `reveal_logs_folder`) can find
 /// it without re-deriving the data dir.
 static LOG_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+const TUI_LOG_CAPACITY: usize = 2_000;
+const TUI_LOG_LINE_MAX_CHARS: usize = 4_096;
+static TUI_LOG_BUFFER: OnceLock<std::sync::Arc<Mutex<VecDeque<String>>>> = OnceLock::new();
+
+#[derive(Clone)]
+struct TuiLogMakeWriter {
+    buffer: std::sync::Arc<Mutex<VecDeque<String>>>,
+}
+
+struct TuiLogWriter {
+    buffer: std::sync::Arc<Mutex<VecDeque<String>>>,
+    pending: Vec<u8>,
+}
+
+impl<'a> MakeWriter<'a> for TuiLogMakeWriter {
+    type Writer = TuiLogWriter;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        TuiLogWriter {
+            buffer: self.buffer.clone(),
+            pending: Vec::new(),
+        }
+    }
+}
+
+impl Write for TuiLogWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.pending.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.publish();
+        Ok(())
+    }
+}
+
+impl TuiLogWriter {
+    fn publish(&mut self) {
+        if self.pending.is_empty() {
+            return;
+        }
+        let rendered = String::from_utf8_lossy(&self.pending);
+        if let Ok(mut lines) = self.buffer.lock() {
+            for line in rendered.lines().filter(|line| !line.is_empty()) {
+                if lines.len() == TUI_LOG_CAPACITY {
+                    lines.pop_front();
+                }
+                lines.push_back(line.chars().take(TUI_LOG_LINE_MAX_CHARS).collect());
+            }
+        }
+        self.pending.clear();
+    }
+}
+
+impl Drop for TuiLogWriter {
+    fn drop(&mut self) {
+        self.publish();
+    }
+}
 
 /// Default `RUST_LOG` when it is unset: either global levels or only the inline autocomplete module tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -377,15 +440,25 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
                 }))
         });
 
+        let tui_buffer = std::sync::Arc::new(Mutex::new(VecDeque::new()));
+        let tui_layer = tracing_subscriber::fmt::layer()
+            .with_ansi(false)
+            .event_format(CleanCliFormat)
+            .with_writer(TuiLogMakeWriter {
+                buffer: tui_buffer.clone(),
+            });
+
         // NOTE: no stderr layer here — that is the whole point of this entry
         // point. Only the file layer + Sentry are attached.
         if tracing_subscriber::registry()
             .with(filter)
             .with(file_layer)
+            .with(tui_layer)
             .with(sentry_tracing_layer())
             .try_init()
             .is_ok()
         {
+            let _ = TUI_LOG_BUFFER.set(tui_buffer);
             if let Some((_, guard, dir)) = pending_file {
                 if let Ok(mut slot) = FILE_GUARD.lock() {
                     *slot = Some(guard);
@@ -398,6 +471,16 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
     });
 
     log_directory().map(Path::to_path_buf)
+}
+
+/// Snapshot the bounded in-memory log stream rendered by the terminal Logs tab.
+/// The file appender remains authoritative for long-term retention.
+pub fn tui_log_lines() -> Vec<String> {
+    TUI_LOG_BUFFER
+        .get()
+        .and_then(|buffer| buffer.lock().ok())
+        .map(|lines| lines.iter().cloned().collect())
+        .unwrap_or_default()
 }
 
 /// Path to the active log directory (set by [`init_for_embedded`]). Returns
@@ -670,5 +753,42 @@ mod tests {
                 *slot = prior;
             }
         }
+    }
+
+    #[test]
+    fn tui_log_writer_keeps_a_bounded_ordered_ring() {
+        let buffer = std::sync::Arc::new(Mutex::new(VecDeque::new()));
+        let mut writer = TuiLogWriter {
+            buffer: buffer.clone(),
+            pending: Vec::new(),
+        };
+        for index in 0..=TUI_LOG_CAPACITY {
+            writeln!(writer, "line-{index}").expect("write log line");
+            writer.flush().expect("flush log line");
+        }
+        let lines = buffer.lock().expect("buffer lock");
+        assert_eq!(lines.len(), TUI_LOG_CAPACITY);
+        assert_eq!(lines.front().map(String::as_str), Some("line-1"));
+        let expected_last = format!("line-{TUI_LOG_CAPACITY}");
+        assert_eq!(
+            lines.back().map(String::as_str),
+            Some(expected_last.as_str())
+        );
+    }
+
+    #[test]
+    fn tui_log_writer_caps_individual_lines() {
+        let buffer = std::sync::Arc::new(Mutex::new(VecDeque::new()));
+        let mut writer = TuiLogWriter {
+            buffer: buffer.clone(),
+            pending: Vec::new(),
+        };
+        writeln!(writer, "{}", "x".repeat(TUI_LOG_LINE_MAX_CHARS + 50)).expect("write long line");
+        writer.flush().expect("flush long line");
+        let lines = buffer.lock().expect("buffer lock");
+        assert_eq!(
+            lines.front().map(|line| line.chars().count()),
+            Some(TUI_LOG_LINE_MAX_CHARS)
+        );
     }
 }

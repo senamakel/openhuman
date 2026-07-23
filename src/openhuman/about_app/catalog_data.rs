@@ -241,18 +241,17 @@ pub(super) const CAPABILITIES: &[Capability] = &[
     },
     Capability {
         id: "conversation.terminal_chat",
-        name: "Terminal Chat (TUI)",
+        name: "Tabbed Terminal UI",
         domain: "tui",
         category: CapabilityCategory::Conversation,
-        description: "Chat with the assistant from a terminal instead of the desktop UI. \
-                      `openhuman tui` (alias `chat`) opens a ratatui full-screen chat onto the \
-                      same conversation surface the app uses, running the core in-process. \
-                      Streams replies, thinking, and tool activity live; supports scrollback, \
-                      cancelling a turn, and starting a new thread. Ships only in the standalone \
-                      `openhuman-core` binary (the desktop app has its own UI).",
-        how_to: "Run `openhuman tui` (or `openhuman chat`) from a terminal. Flags: \
-                 `--thread <id>` to resume a thread, `--new` for a fresh one. Keys: Enter send, \
-                 Esc cancel, Ctrl+N new thread, PgUp/PgDn scroll, Ctrl+C quit.",
+        description: "Operate OpenHuman from a terminal through four tabs: live core logs, \
+                      orchestrator chat, safe configuration, and account settings. Bare \
+                      `openhuman` opens it on an interactive non-container host; `openhuman tui` \
+                      (alias `chat`) forces it. The chat streams replies, thinking, and tools live.",
+        how_to: "Run `openhuman`, or `openhuman tui` to force the UI. Use Tab/Shift+Tab or Alt+1-4 \
+                 to switch Logs, Chat, Config, and Settings. `--thread <id>` resumes a chat and \
+                 `--new` starts one. Settings accepts a one-time login token and supports account \
+                 refresh and logout. Use `openhuman --no-tui` to suppress automatic launch.",
         status: CapabilityStatus::Beta,
         privacy: DERIVED_TO_BACKEND,
     },
@@ -1435,7 +1434,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         name: "Persona Pack",
         domain: "settings",
         category: CapabilityCategory::Settings,
-        description: "Personalize the assistant as one identity: set a display name and description, edit or reset the SOUL.md personality prompt, and reach mascot avatar and voice settings — all from a single Persona surface.",
+        description: "Personalize the assistant across one or more agent profiles: set a display name and description, edit or reset each profile's SOUL.md identity (kept in its own home under personalities/<id>/ and re-read every message), give a profile its own dedicated memory subtree or its own working directory, drop private skills under personalities/<id>/skills/ that only that profile can discover, attribute a scheduled cron job to a profile so it runs with that profile's identity, memory, and permissions, and reach mascot avatar and voice settings. Multiple profiles can run with isolated identity, memory, skills, and workspace state.",
         how_to: "Settings > Persona",
         status: CapabilityStatus::Beta,
         privacy: GITHUB_MASCOT_MANIFEST,

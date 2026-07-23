@@ -5246,6 +5246,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Aislada (recomendado)',
   'settings.cron.jobs.formSessionMain': 'Sesión principal',
   'settings.cron.jobs.formSessionTarget': 'Sesión de destino',
+  'settings.cron.jobs.formProfile': 'Perfil del agente',
+  'settings.cron.jobs.formProfileNone': 'Sin perfil',
+  'settings.cron.jobs.formProfileHint':
+    'Ejecuta esta tarea como el perfil seleccionado, usando su alma, memoria y espacio de trabajo.',
+  'settings.cron.jobs.profile': 'Perfil',
   'settings.cron.jobs.lastStatus': 'Último estado',
   'settings.cron.jobs.loading': 'Cargando tareas cron...',
   'settings.cron.jobs.loadingRuns': 'Cargando ejecuciones',
@@ -7441,6 +7446,17 @@ const messages: TranslationMap = {
     'Flujos de trabajo que este perfil puede listar y ejecutar.',
   'settings.profiles.editor.mcpServers': 'Servidores MCP',
   'settings.profiles.editor.mcpServersHint': 'Servidores MCP a los que puede acceder este perfil.',
+  'settings.profiles.editor.dedicatedMemory': 'Memoria dedicada',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Dale a este perfil su propia memoria en lugar de compartir la memoria predeterminada.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Espacio de trabajo dedicado',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Dale a este perfil su propio directorio de trabajo para operaciones de archivos y herramientas.',
+  'settings.profiles.editor.soulMdFile': 'Archivo SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'Directorio de trabajo',
+  'settings.profiles.editor.skillsDir': 'Directorio de habilidades',
+  'settings.profiles.editor.skillsDirHint':
+    'Las habilidades basadas en SKILL.md colocadas aquí son privadas de este perfil.',
   'settings.profiles.editor.all': 'Todos',
   'settings.profiles.editor.selected': 'Seleccionados',
   'settings.profiles.editor.addPlaceholder': 'Escribe un identificador y pulsa Intro',

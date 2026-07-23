@@ -5033,6 +5033,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'معزول (موصى به)',
   'settings.cron.jobs.formSessionMain': 'الجلسة الرئيسية',
   'settings.cron.jobs.formSessionTarget': 'هدف الجلسة',
+  'settings.cron.jobs.formProfile': 'ملف الوكيل',
+  'settings.cron.jobs.formProfileNone': 'بدون ملف',
+  'settings.cron.jobs.formProfileHint':
+    'شغّل هذه المهمة بالملف المحدد، مستخدمًا روحه وذاكرته ومساحة عمله.',
+  'settings.cron.jobs.profile': 'الملف',
   'settings.cron.jobs.lastStatus': 'آخر حالة',
   'settings.cron.jobs.loading': 'جارٍ تحميل مهام cron...',
   'settings.cron.jobs.loadingRuns': 'جارٍ تحميل عمليات التشغيل',
@@ -7124,6 +7129,17 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': 'سير العمل الذي يمكن لهذا الملف سرده وتشغيله.',
   'settings.profiles.editor.mcpServers': 'خوادم MCP',
   'settings.profiles.editor.mcpServersHint': 'خوادم MCP التي يمكن لهذا الملف الوصول إليها.',
+  'settings.profiles.editor.dedicatedMemory': 'ذاكرة مخصصة',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'امنح هذا الملف ذاكرته الخاصة بدلاً من مشاركة الذاكرة الافتراضية.',
+  'settings.profiles.editor.dedicatedWorkspace': 'مساحة عمل مخصصة',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'امنح هذا الملف مجلد عمل خاص به لعمليات الملفات والأدوات.',
+  'settings.profiles.editor.soulMdFile': 'ملف SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'مجلد مساحة العمل',
+  'settings.profiles.editor.skillsDir': 'دليل المهارات',
+  'settings.profiles.editor.skillsDirHint':
+    'ملفات SKILL.md الموضوعة هنا خاصة بهذا الملف الشخصي وحده.',
   'settings.profiles.editor.all': 'الكل',
   'settings.profiles.editor.selected': 'محدّد',
   'settings.profiles.editor.addPlaceholder': 'اكتب معرّفًا ثم اضغط Enter',

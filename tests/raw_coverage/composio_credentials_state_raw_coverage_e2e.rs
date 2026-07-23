@@ -298,14 +298,17 @@ async fn round15_composio_agent_tools_backend_cache_and_trigger_history_edges() 
 
     let action_tool = ComposioActionTool::new(
         arc_config,
-        "GMAIL_FETCH_EMAILS".to_string(),
+        // Use a round-local toolkit prefix so the process-global live catalog
+        // cache cannot inherit a GMAIL contract seeded by another raw-coverage
+        // module in this shared integration-test binary.
+        "ROUND15MAIL_FETCH_EMAILS".to_string(),
         "Fetch inbox".to_string(),
         Some(json!({
             "type": "object",
             "properties": { "query": { "type": "string" } }
         })),
     );
-    assert_eq!(action_tool.name(), "GMAIL_FETCH_EMAILS");
+    assert_eq!(action_tool.name(), "ROUND15MAIL_FETCH_EMAILS");
     assert_eq!(action_tool.category().to_string(), "skill");
     let contract_result = action_tool
         .execute(json!({ "invented_filter": "from:me" }))
@@ -808,6 +811,20 @@ async fn composio_backend_handler(State(state): State<MockState>, request: Reque
                 {
                     "type": "function",
                     "function": {
+                        "name": "ROUND15MAIL_FETCH_EMAILS",
+                        "description": "Fetch Round15 test messages",
+                        "parameters": {
+                            "type": "object",
+                            "required": ["query"],
+                            "properties": {
+                                "query": { "type": "string" }
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
                         "name": "GMAIL_SEND_EMAIL",
                         "description": "Send Gmail messages",
                         "parameters": { "type": "object" }
@@ -833,7 +850,7 @@ async fn composio_backend_handler(State(state): State<MockState>, request: Reque
         })),
         (Method::POST, "/agent-integrations/composio/execute") => {
             match body.get("tool").and_then(Value::as_str) {
-                Some("GMAIL_FETCH_EMAILS") => ok(json!({
+                Some("GMAIL_FETCH_EMAILS" | "ROUND15MAIL_FETCH_EMAILS") => ok(json!({
                     "data": { "messages": [{ "id": "msg-round15" }] },
                     "successful": true,
                     "error": null,

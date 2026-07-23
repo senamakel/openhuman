@@ -415,6 +415,11 @@ pub struct Config {
     #[serde(default)]
     pub runtime_python: RuntimePythonConfig,
 
+    /// Shared language-runtime pool (long-lived `node`/`python` workers reused
+    /// across skill runs and `node_exec` instead of one child per run, #5106).
+    #[serde(default)]
+    pub runtime_pool: RuntimePoolConfig,
+
     /// TokenJuice content-router / compaction configuration.
     #[serde(default)]
     pub tokenjuice: TokenjuiceConfig,
@@ -813,6 +818,7 @@ impl Default for Config {
             subconscious_provider: None,
             node: NodeConfig::default(),
             runtime_python: RuntimePythonConfig::default(),
+            runtime_pool: RuntimePoolConfig::default(),
             tokenjuice: TokenjuiceConfig::default(),
             voice_server: VoiceServerConfig::default(),
             voice_providers: Vec::new(),

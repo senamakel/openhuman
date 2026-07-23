@@ -5300,6 +5300,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Isoliert (empfohlen)',
   'settings.cron.jobs.formSessionMain': 'Hauptsitzung',
   'settings.cron.jobs.formSessionTarget': 'Sitzungsziel',
+  'settings.cron.jobs.formProfile': 'Agentenprofil',
+  'settings.cron.jobs.formProfileNone': 'Kein Profil',
+  'settings.cron.jobs.formProfileHint':
+    'Diesen Auftrag als ausgewähltes Profil ausführen, mit dessen Seele, Gedächtnis und Arbeitsbereich.',
+  'settings.cron.jobs.profile': 'Profil',
   'settings.cron.jobs.lastStatus': 'Letzter Stand',
   'settings.cron.jobs.loading': 'Cron-Jobs werden geladen...',
   'settings.cron.jobs.loadingRuns': 'Ladeläufe',
@@ -7505,6 +7510,17 @@ const messages: TranslationMap = {
     'Workflows, die dieses Profil auflisten und ausführen kann.',
   'settings.profiles.editor.mcpServers': 'MCP-Server',
   'settings.profiles.editor.mcpServersHint': 'MCP-Server, die dieses Profil erreichen kann.',
+  'settings.profiles.editor.dedicatedMemory': 'Dediziertes Gedächtnis',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Gib diesem Profil ein eigenes Gedächtnis, statt das Standardgedächtnis zu teilen.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Dedizierter Arbeitsbereich',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Gib diesem Profil ein eigenes Arbeitsverzeichnis für Datei- und Tool-Operationen.',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md-Datei',
+  'settings.profiles.editor.workspaceDir': 'Arbeitsverzeichnis',
+  'settings.profiles.editor.skillsDir': 'Skill-Verzeichnis',
+  'settings.profiles.editor.skillsDirHint':
+    'Hier abgelegte SKILL.md-Dateien sind privat für dieses Profil.',
   'settings.profiles.editor.all': 'Alle',
   'settings.profiles.editor.selected': 'Ausgewählt',
   'settings.profiles.editor.addPlaceholder': 'Kennung eingeben und Enter drücken',

@@ -252,6 +252,20 @@ pub enum ExpectedErrorKind {
     /// (`inference_downloads_progress` re-reads config every poll → 36k events /
     /// 1 Windows user).
     ConfigReadIoFailure,
+    /// Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665) — the NTFS file
+    /// system cannot complete the operation because the filesystem is too
+    /// fragmented, the USN journal has overflowed, or a filesystem filter
+    /// driver has hit its resource cap. This is a persistent host-filesystem
+    /// condition that the user must resolve by restarting, running a defrag,
+    /// or freeing space — Sentry has no remediation path.
+    ///
+    /// Also covers `ERROR_DISK_FULL` (112) / `ERROR_HANDLE_DISK_FULL` (39),
+    /// although those are more reliably caught by the `DiskFull` arm above.
+    ///
+    /// Matched on the locale-stable `(os error 665)` suffix (the Italian
+    /// locale rendering observed in Sentry TAURI-RUST-QT0 — 6,050 events from
+    /// 1 Windows user — is `".. (os error 665)"`, matching any locale).
+    WindowsFileSystemLimitation,
     /// The subconscious engine's SQLite schema init couldn't open its database
     /// file at all — a host-filesystem condition, not a code bug. Two canonical
     /// renderings, both bound to the user's local FS:
@@ -620,6 +634,9 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     if is_disk_full_message(&lower) {
         return Some(ExpectedErrorKind::DiskFull);
     }
+    if is_windows_file_system_limitation_message(&lower) {
+        return Some(ExpectedErrorKind::WindowsFileSystemLimitation);
+    }
     if is_config_load_timed_out_message(&lower) {
         return Some(ExpectedErrorKind::ConfigLoadTimedOut);
     }
@@ -738,6 +755,26 @@ fn is_disk_full_message(lower: &str) -> bool {
     let extended_local = lower.contains("database or disk is full")
         && lower.contains("insertion failed because database is full");
     (bare_suffix || extended_local) && !lower.contains("backend returned ")
+}
+
+/// Detect Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665) —
+/// a host-filesystem condition (fragmentation, USN journal overflow,
+/// filter-driver resource cap) that is persistent, locale-independent
+/// in the `(os error N)` suffix, and unrecoverable by the app.
+///
+/// Anchor on the locale-stable `(os error 665)` suffix. The Italian
+/// locale rendering is `"Impossibile completare l'operazione a causa
+/// di un limite del file system (os error 665)"` (Sentry
+/// TAURI-RUST-QT0, 6,050 events / 1 user). The `(os error 665)` suffix
+/// is the same across every locale, so no locale-detection is needed.
+///
+/// Polarity contract — only match when `(os error 665)` appears in
+/// the message body. This is a standard `std::io::Error` Display
+/// rendering, so it will never appear in a remote backend body
+/// accidentally.
+fn is_windows_file_system_limitation_message(lower: &str) -> bool {
+    lower.contains("(os error 665)")
+        && !lower.contains("backend returned ")
 }
 
 /// Detect the literal `"Config loading timed out"` string produced by
@@ -2173,6 +2210,21 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
                 "[observability] {domain}.{operation} skipped expected disk-full error"
             );
         }
+        ExpectedErrorKind::WindowsFileSystemLimitation => {
+            // Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665) —
+            // caused by fragmentation, USN journal overflow, or a
+            // filesystem filter driver bottleneck. The user must restart
+            // their machine, run a defrag, or free disk space — Sentry
+            // has no remediation path. Demote at `warn!` so a sustained
+            // spike shows up in dashboards without flooding Sentry.
+            // Drops TAURI-RUST-QT0 (6,050 events / 1 user).
+            tracing::warn!(
+                domain = domain,
+                operation = operation,
+                kind = "windows_file_system_limitation",
+                "[observability] {domain}.{operation} skipped expected Windows file-system-limitation error (os error 665)"
+            );
+        }
         ExpectedErrorKind::MemoryStoreBreakerOpen => {
             tracing::warn!(
                 domain = domain,
@@ -3262,6 +3314,38 @@ pub fn is_ollama_cloud_internal_500_event(event: &sentry::protocol::Event<'_>) -
             .value
             .as_deref()
             .is_some_and(is_ollama_cloud_internal_500_message_any)
+    })
+}
+
+/// Defense-in-depth `before_send` filter for Windows `ERROR_FILE_SYSTEM_LIMITATION`
+/// (os error 665) — a host-filesystem condition (fragmentation, USN journal
+/// overflow, filter-driver resource cap) that is persistent, locale-independent
+/// in the `(os error N)` suffix, and unrecoverable by the app.
+///
+/// The primary suppression lives at the emit site via `expected_error_kind` →
+/// `ExpectedErrorKind::WindowsFileSystemLimitation` (called by
+/// `report_error_or_expected`). This filter catches any future call site that
+/// bypasses `report_error_or_expected` and emits the error via `report_error`
+/// or `tracing::error!` directly — keeping TAURI-RUST-QT0 (6,050 events /
+/// 1 user) permanently off Sentry.
+///
+/// Also catches `OS error 665` from the Tauri shell side
+/// (`app/src-tauri/`) which is compiled into a separate crate and therefore
+/// cannot route through the core's `expected_error_kind` classifier.
+#[cfg(feature = "crash-reporting")]
+pub fn is_windows_file_system_limitation_event(event: &sentry::protocol::Event<'_>) -> bool {
+    let check = |text: &str| -> bool {
+        let lower = text.to_ascii_lowercase();
+        lower.contains("(os error 665)")
+    };
+    if event.message.as_deref().is_some_and(check) {
+        return true;
+    }
+    event.exception.values.iter().any(|exception| {
+        exception
+            .value
+            .as_deref()
+            .is_some_and(check)
     })
 }
 

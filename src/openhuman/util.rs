@@ -638,8 +638,20 @@ pub fn is_transient_fs_error(err: &anyhow::Error) -> bool {
                 //      `openhuman.team_get_usage` because this code was not
                 //      previously classified as transient and `create_new`
                 //      returned a `kind = Other` io::Error on the first try.
+                // 665: ERROR_FILE_SYSTEM_LIMITATION — the NTFS filesystem
+                //      is fragmented, the USN journal has overflowed, or a
+                //      filter driver resource cap has been hit. Although
+                //      not always transient (fragmentation is persistent),
+                //      the USN journal and filter-driver cases can resolve
+                //      after a delay, so exponential backoff is still
+                //      better than an immediate bail + unthrottled outer
+                //      retry. The observability module classifies persistent
+                //      665 errors as `ExpectedErrorKind::WindowsFileSystemLimitation`
+                //      to prevent Sentry flooding (TAURI-RUST-QT0).
                 // 1224: ERROR_USER_MAPPED_FILE
-                return code == 5 || code == 32 || code == 33 || code == 303 || code == 1224;
+                return code == 5 || code == 32 || code == 33 || code == 303
+                    || code == 665
+                    || code == 1224;
             }
         }
         #[cfg(not(windows))]

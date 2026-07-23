@@ -116,6 +116,21 @@ fn main() {
             if openhuman_core::core::observability::is_ollama_cloud_internal_500_event(&event) {
                 return None;
             }
+            // Defense-in-depth: drop Windows `ERROR_FILE_SYSTEM_LIMITATION`
+            // (os error 665) — a persistent host-filesystem condition with
+            // zero local lever and no Sentry remediation path. The primary
+            // suppression lives at the emit site via `expected_error_kind` →
+            // `ExpectedErrorKind::WindowsFileSystemLimitation`; this catches
+            // any call site that uses `report_error` directly instead of
+            // `report_error_or_expected` (TAURI-RUST-QT0: 6,050 events / 1 user).
+            if openhuman_core::core::observability::is_windows_file_system_limitation_event(&event)
+            {
+                log::debug!(
+                    "[sentry-fs-limitation-filter] dropping Windows file-system-limitation event (os error 665) event_id={:?}",
+                    event.event_id
+                );
+                return None;
+            }
             // Defense-in-depth: drop max-tool-iterations cap events that
             // slipped past the call-site filters in
             // `agent::harness::session::runtime::run_single`,

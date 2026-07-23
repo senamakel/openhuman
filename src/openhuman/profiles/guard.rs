@@ -151,8 +151,9 @@ pub fn classify_cross_profile_target(
 /// leading literal `cd <path>` across those segments, then splits each segment
 /// on whitespace, redirect/pipe operators, and common
 /// shell punctuation (quotes, parens, backtick, `,`, `=`, `{`, `}`, `&`), keeps
-/// only path-shaped tokens (those containing a path separator or a leading `~`),
-/// resolves each against `cwd`, and classifies it via
+/// path-shaped tokens (those containing a path separator or a leading `~`),
+/// plus bare operands naming an existing profile when the tracked cwd is the
+/// profiles root, resolves each against `cwd`, and classifies it via
 /// [`classify_cross_profile_target`]. This reliably catches the realistic
 /// non-adversarial escape vectors: an absolute path into `profiles/<Q>`, a
 /// `../<Q>/…` traversal, a `--flag=../<Q>/…` form, and simple quoted paths.
@@ -228,6 +229,9 @@ fn scan_command_segment(
     action_dir: &Path,
     active_profile: &str,
 ) -> Option<String> {
+    let profiles_root = canonicalize_best_effort(&action_dir.join("profiles"));
+    let cwd_is_profiles_root = canonicalize_best_effort(cwd) == profiles_root;
+    let mut token_index = 0usize;
     // Split on shell punctuation as well as whitespace/redirects so a path
     // embedded in a quoted string, a `flag=value`, a comma list, or a brace
     // expansion is isolated into its own token. Splitting only ever produces
@@ -246,11 +250,19 @@ fn scan_command_segment(
         if token.is_empty() {
             continue;
         }
-        // Only path-shaped tokens can reach another directory: they contain a
-        // separator or start with `~`. A bare word (`ls`, `bob`) resolves under
-        // cwd (the profile's own dir) and is never a sibling.
+        let is_command_word = token_index == 0;
+        token_index += 1;
+        // Ordinarily only path-shaped tokens can reach another directory. Once
+        // a preceding `cd` has moved cwd to `<action_dir>/profiles`, however, a
+        // bare operand can name a sibling directly (`rm -rf bob`). Scan such an
+        // operand only when it resolves to an existing profile directory; this
+        // avoids treating ordinary arguments (`echo hi`) as profile ids.
         let path_shaped = token.contains('/') || token.contains('\\') || token.starts_with('~');
-        if !path_shaped {
+        let bare_profile_operand = cwd_is_profiles_root
+            && !is_command_word
+            && !token.starts_with('-')
+            && cwd.join(token).is_dir();
+        if !path_shaped && !bare_profile_operand {
             continue;
         }
         let expanded = crate::openhuman::config::expand_tilde(token);
@@ -520,6 +532,26 @@ mod tests {
                 "alice"
             ),
             Some("bob".to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_tracks_cd_before_bare_sibling_operand() {
+        let (_g, action) = profiles_layout();
+        let cwd = action.join("profiles").join("alice");
+        assert_eq!(
+            scan_command_for_cross_profile("cd ..; rm -rf bob", &cwd, &action, "alice"),
+            Some("bob".to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_allows_non_profile_bare_operand_at_profiles_root() {
+        let (_g, action) = profiles_layout();
+        let cwd = action.join("profiles").join("alice");
+        assert_eq!(
+            scan_command_for_cross_profile("cd ..; echo hi", &cwd, &action, "alice"),
+            None
         );
     }
 

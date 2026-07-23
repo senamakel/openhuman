@@ -36,7 +36,10 @@ use tinyagents::harness::middleware::{
     MiddlewareToolOutcome, ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
 };
 use tinyagents::harness::model::{ModelRequest, ModelResponse, PromptSegment, SegmentRole};
-use tinyagents::harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
+use tinyagents::harness::no_progress::{
+    NoProgress, NoProgressTracker, SuccessfulRepeat, SuccessfulRepeatTracker, ToolAttempt,
+    DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
+};
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
@@ -2432,18 +2435,6 @@ const RECOVERABLE_REPEAT_FAILURE_THRESHOLD: u32 = 8;
 /// `RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD`.
 const RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD: u32 = 12;
 
-/// The model re-emitting the IDENTICAL assistant output (narration + the same
-/// tool call) this many times in a row is a no-progress narration loop — halt.
-/// Mirrors the legacy `REPEAT_OUTPUT_THRESHOLD` (#4095).
-const REPEAT_OUTPUT_THRESHOLD: u32 = 4;
-
-/// The model re-issuing the IDENTICAL `(tool, args)` batch this many times in a
-/// row — regardless of whether each call *succeeds* — is spinning one action
-/// with no new information. Set just below [`REPEAT_OUTPUT_THRESHOLD`] so a
-/// verbatim call loop is caught a step earlier than the broader narration loop.
-/// Mirrors the legacy `REPEAT_CALL_THRESHOLD` (#4088).
-const REPEAT_CALL_THRESHOLD: u32 = 3;
-
 /// Clamp the last-error text embedded in a circuit-breaker halt summary so a huge
 /// tool error (already capped at 1MB upstream) can't blow up the agent's result.
 /// Mirrors the legacy `tool_loop::truncate_for_halt`.
@@ -2625,41 +2616,6 @@ fn assistant_visible_text(message: &tinyagents::harness::message::AssistantMessa
     out
 }
 
-/// A back-to-back identical-signature streak counter. Trips (`record` returns the
-/// new consecutive count) once the same hashed signature repeats; a different
-/// signature resets the run. Backs both the repeat-output and repeat-call guards.
-#[derive(Default)]
-struct StreakGuard {
-    last_hash: Option<u64>,
-    consecutive: u32,
-}
-
-impl StreakGuard {
-    /// Record one signature; returns the new consecutive count for that signature
-    /// (1 after a reset). A different signature resets the streak to 1.
-    fn record(&mut self, signature: &str) -> u32 {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        signature.hash(&mut hasher);
-        let h = hasher.finish();
-        if self.last_hash == Some(h) {
-            self.consecutive += 1;
-        } else {
-            self.last_hash = Some(h);
-            self.consecutive = 1;
-        }
-        self.consecutive
-    }
-
-    /// Clear the streak — used when an iteration is a legitimately-repeating
-    /// poll/wait (see [`is_repeat_call_exempt`]) or a failing batch that another
-    /// guard owns, so it counts as a distinct action rather than a repeat.
-    fn reset(&mut self) {
-        self.last_hash = None;
-        self.consecutive = 0;
-    }
-}
-
 /// Per-batch state the repeat-CALL guard needs but can only fully evaluate once
 /// every tool result in the assistant's batch has come back: the canonical
 /// `(tool, args)` signature captured at `after_model`, plus the running
@@ -2676,19 +2632,19 @@ struct PendingCallBatch {
     exempt: bool,
 }
 
-/// Restores the deleted successful-repeat / identical-output loop breakers
-/// (#4088 / #4095) as a seam middleware. The crate `no_progress` ladder (driving
-/// [`RepeatedToolFailureMiddleware`]) resets on every success, so a model looping
-/// on a *successful* no-op tool or re-emitting an identical narration+call never
-/// trips it and burns the whole iteration budget. This guard closes both gaps:
+/// Host adapter for the crate's successful-repeat tracker (#4088 / #4095).
+/// [`SuccessfulRepeatTracker`] owns the generic streak accounting; this adapter
+/// builds canonical OpenHuman tool signatures, applies the product polling-tool
+/// exemption, and maps a crate halt verdict into the shared halt summary and
+/// steering pause:
 ///
 /// - **Repeat-output** (`after_model`, checked before the tools run): halts when
 ///   the assistant's visible text + tool-call `(name, args)` batch is byte
-///   identical [`REPEAT_OUTPUT_THRESHOLD`] iterations in a row.
+///   identical [`DEFAULT_REPEAT_OUTPUT_THRESHOLD`] iterations in a row.
 /// - **Repeat-call** (evaluated once the batch's tool results are all back, gated
 ///   on every call succeeding): halts when the `(tool, args)` batch alone repeats
-///   [`REPEAT_CALL_THRESHOLD`] times — catching successful no-op loops that vary
-///   only their narration.
+///   [`DEFAULT_REPEAT_CALL_THRESHOLD`] times — catching successful no-op loops
+///   that vary only their narration.
 ///
 /// Polling/wait tools ([`is_repeat_call_exempt`]) are exempt from both: their
 /// contract is to be re-invoked identically, so an all-poll batch resets the
@@ -2699,12 +2655,7 @@ struct PendingCallBatch {
 pub(crate) struct RepeatProgressMiddleware {
     handle: SteeringHandle,
     halt_summary: super::HaltSummarySlot,
-    /// Narration+call identical-output streak (#4095), threshold
-    /// [`REPEAT_OUTPUT_THRESHOLD`].
-    output_guard: std::sync::Mutex<StreakGuard>,
-    /// `(tool, args)`-only successful-batch streak (#4088), threshold
-    /// [`REPEAT_CALL_THRESHOLD`].
-    call_guard: std::sync::Mutex<StreakGuard>,
+    tracker: SuccessfulRepeatTracker,
     /// Batch bookkeeping bridging `after_model` → `after_tool` for the call guard.
     pending: std::sync::Mutex<Option<PendingCallBatch>>,
 }
@@ -2714,8 +2665,7 @@ impl RepeatProgressMiddleware {
         Self {
             handle,
             halt_summary,
-            output_guard: std::sync::Mutex::new(StreakGuard::default()),
-            call_guard: std::sync::Mutex::new(StreakGuard::default()),
+            tracker: SuccessfulRepeatTracker::default(),
             pending: std::sync::Mutex::new(None),
         }
     }
@@ -2774,32 +2724,9 @@ impl Middleware<()> for RepeatProgressMiddleware {
             call_sig
         );
 
-        // Repeat-OUTPUT guard, checked BEFORE the (repeated) tools run so we don't
-        // burn another no-op iteration.
-        if all_exempt {
-            if let Ok(mut g) = self.output_guard.lock() {
-                g.reset();
-            }
-        } else {
-            let consecutive = self
-                .output_guard
-                .lock()
-                .map(|mut g| g.record(&output_sig))
-                .unwrap_or(0);
-            if consecutive >= REPEAT_OUTPUT_THRESHOLD {
-                tracing::warn!(
-                    consecutive,
-                    "[tinyagents::mw] repeat-output circuit breaker tripped — identical response+tool-call repeated; halting"
-                );
-                self.halt(format!(
-                    "Stopping: the last {consecutive} iterations produced the IDENTICAL response \
-                     and tool call with no change — the run is stuck repeating the same step \
-                     without making progress. Re-issuing it will not help. Summarise what (if \
-                     anything) was actually accomplished and report that the task could not \
-                     progress, or take a genuinely different approach.",
-                ));
-            }
-        }
+        // Stage output with the crate tracker. Its halt verdict is intentionally
+        // deferred until the matching tool batch is confirmed successful.
+        let _ = self.tracker.record_output(&output_sig, all_exempt);
 
         // Stage the batch for the repeat-CALL guard, evaluated once every result
         // is back (gated on success) in `after_tool`.
@@ -2843,34 +2770,12 @@ impl Middleware<()> for RepeatProgressMiddleware {
             return Ok(());
         };
 
-        // Repeat-CALL breaker for SUCCESSFUL no-op loops (#4088): the failure
-        // breaker owns repeated *failures* and resets on success, so an identical
-        // call that keeps SUCCEEDING slips past it. A failing batch (its domain)
-        // or an all-poll exemption resets the streak instead of recording.
-        if batch.exempt || !batch.all_ok {
-            if let Ok(mut g) = self.call_guard.lock() {
-                g.reset();
-            }
-            return Ok(());
-        }
-        let consecutive = self
-            .call_guard
-            .lock()
-            .map(|mut g| g.record(&batch.call_sig))
-            .unwrap_or(0);
-        if consecutive >= REPEAT_CALL_THRESHOLD {
-            tracing::warn!(
-                consecutive,
-                "[tinyagents::mw] repeat-call circuit breaker tripped — identical successful (tool,args) batch repeated; halting"
-            );
-            self.halt(format!(
-                "Stopping: the same tool call was issued {consecutive} times in a row with \
-                 identical arguments and no new information — the run is stuck repeating one \
-                 action without making progress. Re-issuing it will not help. Summarise what (if \
-                 anything) was actually accomplished and report that the task could not progress, \
-                 or take a genuinely different action (a different tool, different arguments, or \
-                 hand back).",
-            ));
+        if let SuccessfulRepeat::Halt(summary) =
+            self.tracker
+                .record_call_batch(&batch.call_sig, batch.all_ok, batch.exempt)
+        {
+            tracing::warn!("[tinyagents::mw] crate successful-repeat tracker halted the run");
+            self.halt(summary);
         }
         Ok(())
     }
@@ -4320,6 +4225,94 @@ mod tests {
             drain_pause_count(&handle2),
             1,
             "the third identical error+ok:false result halts, same as a plain error"
+        );
+    }
+
+    // ── RepeatProgressMiddleware / crate SuccessfulRepeatTracker ───────────
+
+    fn repeated_success_response(tool: &str, args: serde_json::Value) -> ModelResponse {
+        ModelResponse {
+            message: tinyagents::harness::message::AssistantMessage {
+                id: None,
+                content: vec![ContentBlock::Text("working".to_string())],
+                tool_calls: vec![TaToolCall::new("repeat-1", tool, args)],
+                usage: None,
+            },
+            usage: None,
+            finish_reason: Some("tool_calls".to_string()),
+            raw: None,
+            resolved_model: None,
+            continue_turn: None,
+        }
+    }
+
+    async fn run_successful_repeat_cycle(
+        mw: &RepeatProgressMiddleware,
+        tool: &str,
+        args: serde_json::Value,
+        error: Option<&str>,
+    ) {
+        let mut response = repeated_success_response(tool, args);
+        mw.after_model(&mut ctx(), &(), &mut response)
+            .await
+            .unwrap();
+        let mut result = tool_result(tool, "ok");
+        result.error = error.map(str::to_string);
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn successful_repeat_tracker_halt_maps_to_summary_and_pause() {
+        let handle = SteeringHandle::allow_all();
+        let summary = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let mw = RepeatProgressMiddleware::new(handle.clone(), summary.clone());
+
+        for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+            run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+            assert_eq!(drain_pause_count(&handle), 0);
+        }
+        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+
+        assert_eq!(drain_pause_count(&handle), 1);
+        assert!(
+            summary
+                .lock()
+                .unwrap()
+                .as_deref()
+                .is_some_and(|text| text.contains("successful tool-call batch")),
+            "crate halt summary should be preserved for the host turn result"
+        );
+    }
+
+    #[tokio::test]
+    async fn successful_repeat_tracker_resets_failed_and_exempt_batches() {
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatProgressMiddleware::new(
+            handle.clone(),
+            std::sync::Arc::new(std::sync::Mutex::new(None)),
+        );
+
+        for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+            run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+        }
+        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), Some("temporary failure"))
+            .await;
+        for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+            run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+        }
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "a failed batch resets the successful-repeat streak"
+        );
+
+        for _ in 0..DEFAULT_REPEAT_OUTPUT_THRESHOLD + 1 {
+            run_successful_repeat_cycle(&mw, "wait_subagent", json!({"task_id": "t"}), None).await;
+        }
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "polling tools remain exempt from successful-repeat halts"
         );
     }
 

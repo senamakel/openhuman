@@ -22,7 +22,7 @@ be upstreamed, retained, or deleted before each phase cuts over.
 | Thing | Value |
 | --- | --- |
 | Host repo | `tinyhumansai/openhuman` |
-| Host branch | `feat/tinyagents-migration-2026-07-22` |
+| Host branch | `feat/tinyagents-provider-cleanup` |
 | Host audit base | `5b8a9f269` (`upstream/main`, 2026-07-22) |
 | Active plan | `docs/tinyagents-migration-plan-2026-07-22.md` |
 | TinyAgents submodule | `vendor/tinyagents` -> `tinyhumansai/tinyagents` |
@@ -93,12 +93,12 @@ this section as investigation history.
 
 | Surface | Status | Ownership / exit evidence |
 | --- | --- | --- |
-| Process-local detached task map, ownership checks, status receivers, cancellation tokens, abort handles, terminal sweep, steering lookup | **CUTOVER / UPSTREAM PR OPEN — tinyagents#75** | The generic mechanics now live in TinyAgents `DetachedTaskRegistry`. OpenHuman calls the crate registry for snapshots, wait/timeout, owned and trusted steering, per-task/thread/global cancellation, and soft-cap cleanup. Distinct lock-poison errors are propagated by the crate. All 17 focused host tests pass. |
+| Process-local detached task map, ownership checks, status receivers, cancellation tokens, abort handles, terminal sweep, steering lookup | **CLOSED / CRATE ADOPTED — tinyagents#75** | TinyAgents #75 merged as `d548657`; the canonical vendored pointer `4358efe` includes its `DetachedTaskRegistry`. OpenHuman calls the crate registry for snapshots, wait/timeout, owned and trusted steering, per-task/thread/global cancellation, and soft-cap cleanup. Distinct lock-poison errors are propagated by the crate. All 17 focused host tests pass. |
 | Durable detached task lifecycle | **HOST PROJECTION ON CRATE STORE** | OpenHuman retains workspace-specific `JsonlTaskStore` selection and maps product `SubagentStatus` into crate `OrchestrationTaskStatus`; this is durable product projection, not executor ownership. |
 | Detached task metadata, RPC/UI delivery, `RunQueue` fallback | **HOST-OWNED** | Agent/session/thread/workspace metadata, cancellation notices, background delivery, trusted desktop RPC, and compatibility steering are OpenHuman product surfaces. The fallback can shrink independently after live crate-steering parity, but does not block generic registry deletion. |
 
-Final closure requires TinyAgents #75 to merge and the temporary integration
-gitlink to be replaced with its canonical upstream commit.
+TinyAgents #75 is merged and the temporary integration gitlink has been
+replaced by canonical upstream commit `4358efe`.
 
 ## WP-5 Middleware Ownership Audit
 
@@ -127,7 +127,7 @@ crate replacement and host cutover are both verified.
 | `MemoryProtocolMiddleware` | **HOST-OWNED** | Enforces OpenHuman's read/dedupe/write/index memory protocol and product tool names. |
 | `CostBudgetMiddleware` | **HOST PROJECTION** | TinyAgents `BudgetMiddleware` already runs in shadow; this wrapper maps OpenHuman billing-envelope USD/token accounting and halt summaries. Thin only when crate usage is sufficient for every host provider. |
 | `RepeatedToolFailureMiddleware` | **CRATE-BACKED / HOST PROJECTION** | Detection uses crate `NoProgressTracker`; the wrapper owns OpenHuman retry taxonomy, polling exemptions, steering, and user-facing halt summary. No duplicate generic tracker remains to upstream. |
-| `RepeatProgressMiddleware` | **UPSTREAM READY — tinyagents#72** | PR #72 adds successful-output and successful-call-batch repeat tracking with exemptions and reset semantics. Delete after vendoring and mapping its verdict to the host halt summary. |
+| `RepeatProgressMiddleware` | **CLOSED / CRATE-BACKED — tinyagents#72** | PR #72 merged and is included in canonical pointer `4358efe`. The host duplicate `StreakGuard`, thresholds, and streak accounting are deleted; the remaining thin adapter builds OpenHuman signatures/polling exemptions and maps the crate `SuccessfulRepeatTracker` verdict to the host halt summary and steering pause. All 51 focused middleware tests pass. |
 | `ImageAwareMessageTrimMiddleware` | **UPSTREAM READY — tinyagents#73** | PR #73 makes crate trimming image/token-policy aware. Delete after vendoring and proving host context-window regressions against the crate middleware. |
 
 The three upstream PRs are independently mergeable and green at the time of

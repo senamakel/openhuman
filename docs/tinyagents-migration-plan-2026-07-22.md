@@ -15,7 +15,7 @@ earlier phases.
 `src/openhuman/tinyagents/` seam, (4) the existing docs/tests — all against the
 working tree at `main` (`5b8a9f269`, 2026-07-22).
 
-**Execution status:** active on `feat/tinyagents-migration-2026-07-22`.
+**Execution status:** active on `feat/tinyagents-provider-cleanup`.
 WP-0 discovered and corrected an additional cross-crate constraint: once the
 vendored manifest honestly reports 2.1, `tinyflows` must also require
 TinyAgents 2.1 or Cargo resolves a second 1.9 copy and splits trait identity.
@@ -203,8 +203,9 @@ The seam is healthy: 23/25 files use the crate; it implements `Middleware`
   found at audit time (the tool-exposure shadow was added after the 17-type
   snapshot) in `docs/tinyagents-drift-ledger.md`. `SchemaGuard` is now deleted
   in favor of TinyAgents 2.1 `InvalidArgsPolicy::ReturnToolError`, leaving 17.
-  `ArgRecovery` overlaps crate #45/#71 normalization and `RepeatProgress`
-  overlaps `no_progress/`/#72. Upstream the generic ones; host-policy ones
+  `ArgRecovery` overlaps crate #45/#71 normalization. `RepeatProgress` now uses
+  the merged #72 crate tracker; only the thin OpenHuman signature/exemption and
+  halt-projection adapter remains. Upstream the generic ones; host-policy ones
   (ApprovalSecurity, CredentialScrub, CliRpcOnly, MemoryProtocol, CostBudget)
   stay — WP-5.
 - `routes.rs` `UsageCarry`/`FallbackObserver` thin out as usage/fallback become
@@ -402,9 +403,11 @@ changes remain gated on explicit approval of that proposal.
 ### WP-5 — Seam shrink + orchestration lifecycle upstreaming
 
 1. Middleware audit (§4.3): per-middleware ledger rows; `SchemaGuard` is deleted
-   through the existing crate invalid-args policy, while `ArgRecovery` and
-   `RepeatProgress` await their #71/#72 crate equivalents; keep host-policy
-   middlewares.
+   through the existing crate invalid-args policy. TinyAgents #72 is merged and
+   `RepeatProgress` now delegates generic streak accounting to the crate
+   `SuccessfulRepeatTracker`; the host duplicate guard and thresholds are
+   deleted, while the thin product adapter remains. `ArgRecovery` still awaits
+   the #71 crate equivalent; keep host-policy middlewares.
 2. Detached-subagent lifecycle: move the generic detached-run registry
    mechanics (`agent_orchestration/running_subagents.rs`,
    `subagent_control.rs`) onto crate `TaskStore`/`SteeringRegistry` fully;
@@ -416,8 +419,9 @@ changes remain gated on explicit approval of that proposal.
    waits, steering lookup, cancellation/abort, terminal sweeping, and lock-error
    handling to it. The host retains durable `TaskStore` projection, product
    metadata, RPC, and the `RunQueue` compatibility fallback. All 17 focused
-   `running_subagents` tests pass. Final closure waits for the upstream PR to
-   merge and the integration gitlink to be replaced by the canonical commit.
+   `running_subagents` tests pass. TinyAgents #75 merged as `d548657`, and the
+   canonical vendored pointer `4358efe` includes it, closing the generic
+   lifecycle cutover.
 3. Finish the C4 journal-progress-parity plan (S2–S6): journal-backed progress
    projection, then delete `agent/progress_tracing.rs` (1,272) +
    `progress_tracing/langfuse.rs` (825) in favor of crate observability —

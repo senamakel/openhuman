@@ -205,6 +205,20 @@ pub(super) fn filter_tool_indices(
         .collect()
 }
 
+/// Intersect a child definition's tool indices with the tools the parent turn
+/// actually exposes. An empty parent set is the legacy "unknown/unrestricted"
+/// sentinel used by internal callers and older tests.
+pub(super) fn retain_parent_visible_tool_indices(
+    indices: &mut Vec<usize>,
+    parent_tools: &[Box<dyn Tool>],
+    parent_visible: &std::collections::HashSet<String>,
+) {
+    if parent_visible.is_empty() {
+        return;
+    }
+    indices.retain(|&index| parent_visible.contains(parent_tools[index].name()));
+}
+
 pub(super) fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
     disallowed.iter().any(|entry| {
         if let Some(prefix) = entry.strip_suffix('*') {
@@ -339,6 +353,17 @@ mod recovery_visibility_tests {
             None,
         );
         assert!(!names(&idx, &t).contains(&RECOVERY_TOOL_NAME.to_string()));
+    }
+
+    #[test]
+    fn parent_visibility_caps_wildcard_child_scope() {
+        let t = tools();
+        let mut idx = filter_tool_indices(&t, &ToolScope::Wildcard, &[], None);
+        let parent_visible = ["current_time".to_string()].into_iter().collect();
+
+        retain_parent_visible_tool_indices(&mut idx, &t, &parent_visible);
+
+        assert_eq!(names(&idx, &t), vec!["current_time".to_string()]);
     }
 }
 

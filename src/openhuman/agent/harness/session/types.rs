@@ -44,8 +44,8 @@ pub struct Agent {
     /// provider in the main agent's chat requests.
     pub(super) visible_tool_specs: Arc<Vec<ToolSpec>>,
     /// When non-empty, only these tool names are visible in the main
-    /// agent's prompt and callable by the main agent. Sub-agents ignore
-    /// this filter — they apply per-definition whitelists in the runner.
+    /// agent's prompt and callable by the main agent. Sub-agents intersect
+    /// their per-definition scopes with the effective parent-visible set.
     /// Empty = no filter (all tools visible, backward compat).
     pub(super) visible_tool_names: std::collections::HashSet<String>,
     pub(super) tool_policy_session: ToolPolicySession,

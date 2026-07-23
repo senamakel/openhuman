@@ -115,7 +115,15 @@ function destinationForElement(element: HTMLElement): string {
 function controlState(element: HTMLElement): string {
   if (element instanceof HTMLInputElement) {
     if (element.type === 'checkbox' || element.type === 'radio') {
-      return element.checked ? 'checked' : 'unchecked';
+      // Defensive guard: React 19's controlled-component state restoration
+      // can briefly leave an input's DOM node in an inconsistent state where
+      // `instanceof HTMLInputElement` passes but the element is disconnected
+      // and its `checked` property access throws (see issue #5161).
+      try {
+        return element.checked ? 'checked' : 'unchecked';
+      } catch {
+        return 'changed';
+      }
     }
     if (element.type === 'range') return 'changed';
   }

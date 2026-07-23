@@ -651,7 +651,7 @@ async fn oauth_mcp_callback_handler(
     let config = match crate::openhuman::config::Config::load_or_init().await {
         Ok(c) => c,
         Err(e) => {
-            log::error!("[oauth:mcp] config load failed: {e}");
+            log::warn!("[oauth:mcp] config load failed: {e}");
             return html(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 error_html("Internal error loading config. Please try again."),
@@ -668,7 +668,7 @@ async fn oauth_mcp_callback_handler(
             )
         }
         Err(e) => {
-            log::error!("[oauth:mcp] complete failed: {e}");
+            log::warn!("[oauth:mcp] complete failed: {e}");
             html(
                 StatusCode::BAD_GATEWAY,
                 error_html(&format!("Sign-in could not be completed: {e}")),
@@ -2481,7 +2481,7 @@ pub async fn bootstrap_core_runtime(
         // above — it must run even when this gate-install branch is skipped.)
         crate::openhuman::web_chat::register_artifact_surface_subscriber();
     } else {
-        log::error!(
+        log::info!(
             "[runtime] approval gate DISABLED (OPENHUMAN_APPROVAL_GATE=0 honored on host={}) — \
              Prompt-class external-effect tool calls run unprompted",
             host_kind.tag()

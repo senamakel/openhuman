@@ -8,8 +8,8 @@
 //! store-handle opener ([`crate_todos_store`]), the raw crate-board read/write
 //! helpers used for the existence-preserving `get`/`delete` semantics, and the
 //! one-time [`migrate_legacy_task_boards_into_crate_store`] boot helper that
-//! copies any boards left in the retired `<workspace>/agent_task_boards/`
-//! file-JSON tree into the crate store on first boot.
+//! copies boards left in the retired `<workspace>/agent_task_boards/`
+//! file-JSON tree only when the crate store has no value for that thread.
 //!
 //! Persistence target: the crate [`Store`] rooted at the shared workspace KV
 //! tree (`<workspace>/tinyagents_store/kv`), namespace [`TODOS_NAMESPACE`]
@@ -231,9 +231,9 @@ async fn put_crate_board_raw(store: &Arc<dyn Store>, board: &CrateBoard) -> Resu
 pub struct TaskBoardMigrationReport {
     /// Legacy board files examined.
     pub total: usize,
-    /// Boards written into the crate store (absent or divergent value).
+    /// Boards written into the crate store because no crate value existed.
     pub copied: usize,
-    /// Boards already present in the crate store with an identical value.
+    /// Boards already present in the crate store and left authoritative.
     pub skipped: usize,
 }
 
@@ -291,9 +291,12 @@ async fn read_legacy_file_boards(workspace_dir: &Path) -> Result<Vec<OhBoard>, S
     Ok(boards)
 }
 
-/// Copy every existing legacy task board into the crate `graph.todos` store.
-/// **Idempotent**: a board whose crate value already equals the (faithfully
-/// converted) legacy value is skipped, so re-running does no writes.
+/// Copy legacy task boards missing from the crate `graph.todos` store.
+///
+/// **Idempotent and non-destructive**: any existing crate value is
+/// authoritative and skipped, even when it differs from the stale legacy
+/// file. This prevents a later process restart from reverting post-migration
+/// edits while the retired files remain on disk.
 ///
 /// Wired into boot behind a one-shot `Once` marker in
 /// `core::runtime::services`. Honors the single-writer constraint: run it only
@@ -315,21 +318,20 @@ pub async fn migrate_legacy_task_boards_into_crate_store(
     for board in &legacy {
         let crate_board = to_crate_board(board);
         match get_crate_board_raw(&store, &board.thread_id).await {
-            Ok(Some(existing)) if existing == crate_board => {
+            Ok(Some(_)) => {
                 report.skipped += 1;
                 tracing::debug!(
                     thread_id = %board.thread_id,
-                    "[todos][crate-migrate] skip (already mirrored)"
+                    "[todos][crate-migrate] skip (crate board already authoritative)"
                 );
                 continue;
             }
-            Ok(_) => {}
+            Ok(None) => {}
             Err(e) => {
-                tracing::debug!(
-                    thread_id = %board.thread_id,
-                    error = %e,
-                    "[todos][crate-migrate] board pre-read failed; copying anyway"
-                );
+                return Err(format!(
+                    "check crate task board before migrating thread {}: {e}",
+                    board.thread_id
+                ))
             }
         }
         put_crate_board_raw(&store, &crate_board).await?;
@@ -499,12 +501,21 @@ mod tests {
         let m2 = get_crate_board_raw(&store, "t2").await.unwrap().unwrap();
         assert_eq!(m2.cards[0].id, "task-2");
 
-        // Second run is a no-op (idempotent).
+        // Simulate a live post-migration edit while the legacy files remain.
+        let mut edited = m2;
+        edited.cards[0].title = "newer crate title".to_string();
+        edited.updated_at = "2026-07-04T00:00:00Z".to_string();
+        put_crate_board_raw(&store, &edited).await.unwrap();
+
+        // Second run is a no-op (idempotent) and must not restore stale data.
         let r2 = migrate_legacy_task_boards_into_crate_store(dir)
             .await
             .unwrap();
         assert_eq!(r2.total, 2);
         assert_eq!(r2.copied, 0, "idempotent: nothing re-copied");
         assert_eq!(r2.skipped, 2);
+        let preserved = get_crate_board_raw(&store, "t2").await.unwrap().unwrap();
+        assert_eq!(preserved.cards[0].title, "newer crate title");
+        assert_eq!(preserved.updated_at, "2026-07-04T00:00:00Z");
     }
 }

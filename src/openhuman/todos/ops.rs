@@ -36,31 +36,12 @@ pub const ORCHESTRATOR_TASKS_THREAD_ID: &str = "orchestrator-tasks";
 
 use super::store::{global_scratch_store, ScratchTodoStore};
 
-/// Serialise scratch CRUD so each public op's load → mutate → save
-/// sequence runs in one critical section. An **async** mutex so the guard can be
-/// held across `.await` points (the crate-backed `Thread` path is async) without
-/// making the future `!Send`. Per-thread ops are additionally serialised inside
-/// the crate store by its own per-thread async lock.
-fn scratch_serial_lock() -> &'static AsyncMutex<()> {
-    static LOCK: OnceLock<AsyncMutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| AsyncMutex::new(()))
-}
-
-async fn maybe_scratch_lock(
-    location: &BoardLocation,
-) -> Option<tokio::sync::MutexGuard<'static, ()>> {
-    if matches!(location, BoardLocation::Scratch) {
-        Some(scratch_serial_lock().lock().await)
-    } else {
-        None
-    }
-}
-
-/// Per-board **async** mutex map for serialising claim operations. Keyed by a
+/// Per-board **async** mutex map for serialising every read/modify/write
+/// operation. Keyed by a
 /// canonical board key (thread_id for `Thread`, `"_scratch_"` for `Scratch`).
 /// The outer sync `Mutex` only guards the map itself (never held across an
-/// await); the inner `Arc<AsyncMutex<()>>` is the per-board lock that claim
-/// callers hold across load → check → write, including its `.await` points.
+/// await); the inner `Arc<AsyncMutex<()>>` is held across load → mutate → save,
+/// including its `.await` points.
 fn board_lock(location: &BoardLocation) -> Arc<AsyncMutex<()>> {
     static MAP: OnceLock<Mutex<HashMap<String, Arc<AsyncMutex<()>>>>> = OnceLock::new();
     let map_mu = MAP.get_or_init(|| Mutex::new(HashMap::new()));
@@ -298,7 +279,8 @@ pub async fn add(
         content_len = content.len(),
         "[todos][ops] add entry"
     );
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     let content = content.trim();
     if content.is_empty() {
         return Err("todo content must not be empty".to_string());
@@ -341,7 +323,8 @@ pub async fn edit(
         id,
         "[todos][ops] edit entry"
     );
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     let mut cards = load_cards(location).await?;
     let card = cards
         .iter_mut()
@@ -405,7 +388,8 @@ pub async fn set_session_thread(
     id: &str,
     session_thread_id: Option<String>,
 ) -> Result<TodosSnapshot, String> {
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     let mut cards = load_cards(location).await?;
     let card = cards
         .iter_mut()
@@ -444,9 +428,11 @@ pub async fn decide_plan(
     id: &str,
     approve: bool,
 ) -> Result<TodosSnapshot, String> {
-    let cards = load_cards(location).await?;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
+    let mut cards = load_cards(location).await?;
     let current = cards
-        .iter()
+        .iter_mut()
         .find(|c| c.id == id)
         .ok_or_else(|| format!("todo id '{id}' not found"))?;
     if current.status != TaskCardStatus::AwaitingApproval {
@@ -455,12 +441,15 @@ pub async fn decide_plan(
             current.status.as_str()
         ));
     }
-    let new_status = if approve {
+    current.status = if approve {
         TaskCardStatus::Ready
     } else {
         TaskCardStatus::Rejected
     };
-    update_status(location, id, new_status).await
+    current.updated_at = Utc::now().to_rfc3339();
+    let cards = save_cards(location, cards).await?;
+    emit_progress(location, &cards);
+    Ok(into_snapshot(location, cards))
 }
 
 /// Clear a parked plan for re-planning. Transitions **every**
@@ -474,7 +463,8 @@ pub async fn revise_plan(
     location: &BoardLocation,
     feedback: &str,
 ) -> Result<TodosSnapshot, String> {
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     let mut cards = load_cards(location).await?;
     let mut revised = 0usize;
     for card in cards.iter_mut() {
@@ -502,7 +492,8 @@ pub async fn remove(location: &BoardLocation, id: &str) -> Result<TodosSnapshot,
         id,
         "[todos][ops] remove entry"
     );
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     let mut cards = load_cards(location).await?;
     let before = cards.len();
     cards.retain(|c| c.id != id);
@@ -524,7 +515,8 @@ pub async fn replace(
         card_count = cards.len(),
         "[todos][ops] replace entry"
     );
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     enforce_single_in_progress(&cards)?;
     let cards = save_cards(location, cards).await?;
     emit_progress(location, &cards);
@@ -534,7 +526,8 @@ pub async fn replace(
 /// Empty the list.
 pub async fn clear(location: &BoardLocation) -> Result<TodosSnapshot, String> {
     tracing::debug!(thread_id = ?location.thread_id(), "[todos][ops] clear entry");
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     let cards = save_cards(location, Vec::new()).await?;
     emit_progress(location, &cards);
     Ok(into_snapshot(location, cards))
@@ -542,7 +535,8 @@ pub async fn clear(location: &BoardLocation) -> Result<TodosSnapshot, String> {
 
 /// Snapshot the current list without mutating.
 pub async fn list(location: &BoardLocation) -> Result<TodosSnapshot, String> {
-    let _scratch_guard = maybe_scratch_lock(location).await;
+    let lock = board_lock(location);
+    let _guard = lock.lock().await;
     let cards = load_cards(location).await?;
     Ok(into_snapshot(location, cards))
 }
@@ -571,7 +565,6 @@ pub async fn claim_card(
         "[todos][ops] claim_card entry"
     );
 
-    let _scratch_guard = maybe_scratch_lock(location).await;
     let mut cards = load_cards(location).await?;
 
     // The whole load → check → write runs under the per-board async lock above,
@@ -779,6 +772,40 @@ mod tests {
         assert!(snap.markdown.contains("Tests pass"));
         assert!(snap.markdown.contains("cargo test"));
         assert!(snap.markdown.contains(&snap.cards[0].id));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_adds_preserve_every_thread_board_mutation() {
+        const WRITERS: usize = 12;
+        let dir = tempdir().unwrap();
+        let loc = thread_loc(dir.path(), "concurrent-adds");
+        let barrier = Arc::new(tokio::sync::Barrier::new(WRITERS));
+        let mut handles = Vec::with_capacity(WRITERS);
+
+        for index in 0..WRITERS {
+            let loc = loc.clone();
+            let barrier = barrier.clone();
+            handles.push(tokio::spawn(async move {
+                barrier.wait().await;
+                add(&loc, &format!("task {index}"), CardPatch::default()).await
+            }));
+        }
+
+        for handle in handles {
+            handle.await.unwrap().unwrap();
+        }
+
+        let snapshot = list(&loc).await.unwrap();
+        assert_eq!(snapshot.cards.len(), WRITERS);
+        for index in 0..WRITERS {
+            assert!(
+                snapshot
+                    .cards
+                    .iter()
+                    .any(|card| card.title == format!("task {index}")),
+                "missing concurrent mutation {index}"
+            );
+        }
     }
 
     #[tokio::test]

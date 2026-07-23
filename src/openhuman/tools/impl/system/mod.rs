@@ -106,11 +106,20 @@ pub(super) fn check_cross_profile_command(
         other_profile = %other_id,
         "[profiles] cross-profile process command blocked"
     );
-    Err(format!(
-        "{} Cross-profile access blocked: profile '{}' may not touch profile '{}'s workspace. \
-         Stay within your own profile directory; do not retry this command.",
-        crate::openhuman::security::POLICY_BLOCKED_MARKER,
-        guard.profile_id,
-        other_id
-    ))
+    if other_id == crate::openhuman::profiles::PROFILES_ROOT_SENTINEL {
+        Err(format!(
+            "{} Cross-profile access blocked: profile '{}' may not modify the shared profiles \
+             root. Stay within your own profile directory; do not retry this command.",
+            crate::openhuman::security::POLICY_BLOCKED_MARKER,
+            guard.profile_id,
+        ))
+    } else {
+        Err(format!(
+            "{} Cross-profile access blocked: profile '{}' may not touch profile '{}'s workspace. \
+             Stay within your own profile directory; do not retry this command.",
+            crate::openhuman::security::POLICY_BLOCKED_MARKER,
+            guard.profile_id,
+            other_id
+        ))
+    }
 }

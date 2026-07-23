@@ -62,7 +62,7 @@ pub mod types;
 
 pub use guard::{
     classify_cross_profile_target, profile_id_from_policy_id, scan_command_for_cross_profile,
-    workspace_policy_id, CrossProfileDecision,
+    workspace_policy_id, CrossProfileDecision, PROFILES_ROOT_SENTINEL,
 };
 pub use home::{
     dedicated_workspace_dir, ensure_profile_home, profile_action_workspace, profile_home,

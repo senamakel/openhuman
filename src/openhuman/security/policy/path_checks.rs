@@ -332,6 +332,14 @@ impl SecurityPolicy {
                 target = %resolved.display(),
                 "[profiles] cross-profile write blocked"
             );
+            if other_id == crate::openhuman::profiles::PROFILES_ROOT_SENTINEL {
+                return Err(format!(
+                    "{POLICY_BLOCKED_MARKER} Cross-profile access blocked: profile '{}' may not \
+                     write to the shared profiles root. Stay within your own profile directory; \
+                     do not retry this path.",
+                    guard.profile_id
+                ));
+            }
             return Err(format!(
                 "{POLICY_BLOCKED_MARKER} Cross-profile access blocked: profile '{}' may not write \
                  into profile '{}'s workspace. Stay within your own profile directory; do not \

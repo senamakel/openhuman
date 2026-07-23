@@ -24,6 +24,9 @@ use std::path::{Component, Path, PathBuf};
 /// is the profile id. Kept private-behind-helpers so the encode/decode pair is
 /// the only way this string is produced or parsed.
 const PROFILE_POLICY_ID_PREFIX: &str = "openhuman.profile:";
+/// Marker returned when the protected target is the shared `profiles/` root
+/// rather than one named sibling profile.
+pub const PROFILES_ROOT_SENTINEL: &str = "<profiles-root>";
 
 /// Encode a profile id as the `WorkspaceDescriptor::policy_id` the session
 /// builder stamps onto a dedicated-workspace descriptor (`openhuman.profile:<id>`).
@@ -56,7 +59,8 @@ pub enum CrossProfileDecision {
     /// `<action_dir>/profiles/` entirely).
     Allow,
     /// The target lands inside `<action_dir>/profiles/<other_id>/` with
-    /// `other_id != active_profile` — blocked.
+    /// `other_id != active_profile`, or is the shared profiles root itself —
+    /// blocked. Root targets carry [`PROFILES_ROOT_SENTINEL`].
     Block {
         /// The sibling profile whose workspace the target tried to reach.
         other_id: String,
@@ -73,7 +77,8 @@ pub enum CrossProfileDecision {
 /// joined onto `action_dir` first so the classifier is robust to either.
 ///
 /// Returns [`CrossProfileDecision::Block`] iff the canonicalized `target` is
-/// inside `<action_dir>/profiles/<Q>/` for some `Q != active_profile`, otherwise
+/// the shared `<action_dir>/profiles/` root or is inside
+/// `<action_dir>/profiles/<Q>/` for some `Q != active_profile`, otherwise
 /// [`CrossProfileDecision::Allow`].
 ///
 /// **Symlink safety.** The comparison is done on canonicalized paths: the
@@ -103,6 +108,11 @@ pub fn classify_cross_profile_target(
     let Ok(relative) = canon_target.strip_prefix(&canon_profiles_root) else {
         return CrossProfileDecision::Allow;
     };
+    if relative.as_os_str().is_empty() {
+        return CrossProfileDecision::Block {
+            other_id: PROFILES_ROOT_SENTINEL.to_string(),
+        };
+    }
     // First component under `profiles/` is the owning profile id.
     let Some(Component::Normal(owner)) = relative.components().next() else {
         return CrossProfileDecision::Allow;
@@ -257,7 +267,8 @@ fn scan_command_segment(
         // bare operand can name a sibling directly (`rm -rf bob`). Scan such an
         // operand only when it resolves to an existing profile directory; this
         // avoids treating ordinary arguments (`echo hi`) as profile ids.
-        let path_shaped = token.contains('/') || token.contains('\\') || token.starts_with('~');
+        let path_shaped =
+            token == ".." || token.contains('/') || token.contains('\\') || token.starts_with('~');
         let bare_profile_operand = cwd_is_profiles_root
             && !is_command_word
             && !token.starts_with('-')
@@ -471,13 +482,15 @@ mod tests {
     }
 
     #[test]
-    fn profiles_root_itself_is_allowed() {
-        // `profiles/` (no owner component) is not a sibling write.
+    fn profiles_root_itself_is_blocked() {
+        // Mutating the shared root can affect every sibling at once.
         let (_g, action) = profiles_layout();
         let target = action.join("profiles");
         assert_eq!(
             classify_cross_profile_target(&action, "alice", &target),
-            CrossProfileDecision::Allow
+            CrossProfileDecision::Block {
+                other_id: PROFILES_ROOT_SENTINEL.into()
+            }
         );
     }
 
@@ -531,7 +544,7 @@ mod tests {
                 &action,
                 "alice"
             ),
-            Some("bob".to_string())
+            Some(PROFILES_ROOT_SENTINEL.to_string())
         );
     }
 
@@ -541,17 +554,17 @@ mod tests {
         let cwd = action.join("profiles").join("alice");
         assert_eq!(
             scan_command_for_cross_profile("cd ..; rm -rf bob", &cwd, &action, "alice"),
-            Some("bob".to_string())
+            Some(PROFILES_ROOT_SENTINEL.to_string())
         );
     }
 
     #[test]
-    fn scan_command_allows_non_profile_bare_operand_at_profiles_root() {
+    fn scan_command_blocks_parent_profiles_root_operand() {
         let (_g, action) = profiles_layout();
         let cwd = action.join("profiles").join("alice");
         assert_eq!(
-            scan_command_for_cross_profile("cd ..; echo hi", &cwd, &action, "alice"),
-            None
+            scan_command_for_cross_profile("rm -rf ..", &cwd, &action, "alice"),
+            Some(PROFILES_ROOT_SENTINEL.to_string())
         );
     }
 
@@ -566,7 +579,7 @@ mod tests {
                 &action,
                 "alice"
             ),
-            Some("bob".to_string())
+            Some(PROFILES_ROOT_SENTINEL.to_string())
         );
     }
 

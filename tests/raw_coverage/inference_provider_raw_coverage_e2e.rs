@@ -26,10 +26,7 @@ use openhuman_core::openhuman::inference::local::LocalAiService;
 use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_model_from_string_with_model_id, provider_for_role,
 };
-use openhuman_core::openhuman::inference::provider::{
-    list_configured_models, sanitize_api_error, ChatMessage, ChatRequest, Provider, ProviderDelta,
-};
-use openhuman_core::openhuman::tools::ToolSpec;
+use openhuman_core::openhuman::inference::provider::{list_configured_models, sanitize_api_error};
 
 #[derive(Clone, Default)]
 struct MockState {
@@ -317,14 +314,6 @@ async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama(
 
     service.shutdown_owned_ollama(&config).await;
     assert!(!service.has_owned_ollama());
-}
-
-async fn collect_deltas(rx: &mut tokio::sync::mpsc::Receiver<ProviderDelta>) -> Vec<ProviderDelta> {
-    let mut out = Vec::new();
-    while let Some(delta) = rx.recv().await {
-        out.push(delta);
-    }
-    out
 }
 
 fn temp_config(tmp: &TempDir) -> Config {

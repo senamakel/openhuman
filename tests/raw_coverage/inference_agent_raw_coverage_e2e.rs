@@ -56,6 +56,9 @@ use openhuman_core::openhuman::agent::multimodal::{
     contains_image_markers, count_image_markers, extract_ollama_image_payload, parse_image_markers,
     prepare_messages_for_provider, MultimodalError,
 };
+use openhuman_core::openhuman::agent::messages::{
+    ChatMessage, ConversationMessage, ToolResultMessage,
+};
 use openhuman_core::openhuman::agent::pformat::{
     build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
     PFormatParamType, PFormatRegistry, PFormatToolParams,
@@ -135,8 +138,7 @@ use openhuman_core::openhuman::inference::provider::{
     is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
 };
 use openhuman_core::openhuman::inference::provider::{
-    ChatMessage, ChatResponse, ConversationMessage, ProviderRuntimeOptions, ToolCall,
-    ToolResultMessage, UsageInfo,
+    ChatResponse, ProviderRuntimeOptions, ToolCall, UsageInfo,
 };
 use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
 use openhuman_core::openhuman::inference::temperature::{glob_match, temperature_for_model};

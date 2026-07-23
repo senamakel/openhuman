@@ -20,9 +20,6 @@ use openhuman_core::openhuman::composio::ComposioClient;
 use openhuman_core::openhuman::config::{
     CapabilityProviderConfig, CapabilityProviderTrustState, Config, McpServerConfig,
 };
-use openhuman_core::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, Provider, ProviderDelta,
-};
 use openhuman_core::openhuman::integrations::IntegrationClient;
 use openhuman_core::openhuman::tool_registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
@@ -33,7 +30,6 @@ use openhuman_core::openhuman::tool_registry::{
 use openhuman_core::openhuman::tool_registry::{
     denials as tool_registry_denials, ops as tool_registry_ops,
 };
-use openhuman_core::openhuman::tools::ToolSpec;
 
 static OWNED_DOMAIN_ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 

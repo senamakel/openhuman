@@ -27,10 +27,7 @@ use openhuman_core::openhuman::inference::local::ops::{
 };
 use openhuman_core::openhuman::inference::local::LocalAiService;
 use openhuman_core::openhuman::inference::provider::factory::auth_key_for_slug;
-use openhuman_core::openhuman::inference::provider::{
-    list_configured_models, ChatMessage, ChatRequest, Provider, ProviderDelta,
-};
-use openhuman_core::openhuman::tools::ToolSpec;
+use openhuman_core::openhuman::inference::provider::list_configured_models;
 
 #[derive(Clone, Default)]
 struct MockState {

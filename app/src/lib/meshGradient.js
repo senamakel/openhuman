@@ -624,7 +624,7 @@ class Gradient {
   showGradientLegend() {
     this.width > this.minWidth &&
       ((this.isGradientLegendVisible = !0),
-        document.body && document.body.classList.add('isGradientLegendVisible'));
+      document.body && document.body.classList.add('isGradientLegendVisible'));
   }
   hideGradientLegend() {
     ((this.isGradientLegendVisible = !1),

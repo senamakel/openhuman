@@ -120,8 +120,7 @@ async function hasInferenceStatus(threadId: string): Promise<boolean> {
   return (await browser.execute((tid: string) => {
     const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
     const state = winAny.__OPENHUMAN_STORE__?.getState() as
-      | { chatRuntime?: { inferenceStatusByThread?: Record<string, unknown> } }
-      | undefined;
+      { chatRuntime?: { inferenceStatusByThread?: Record<string, unknown> } } | undefined;
     return state?.chatRuntime?.inferenceStatusByThread?.[tid] != null;
   }, threadId)) as boolean;
 }

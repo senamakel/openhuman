@@ -249,9 +249,7 @@ describe('ChatComposer', () => {
       renderComposer();
       expect(screen.getByRole('textbox')).toBeInTheDocument();
       // Normal rendering should not trigger the render-loop guard.
-      expect(warnSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining('Render-loop detected')
-      );
+      expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Render-loop detected'));
       warnSpy.mockRestore();
     });
 
@@ -273,7 +271,7 @@ describe('ChatComposer', () => {
         return (
           <ChatComposer
             inputValue={text}
-            setInputValue={(v) => setText(typeof v === 'function' ? v('') : v)}
+            setInputValue={v => setText(typeof v === 'function' ? v('') : v)}
             onSend={vi.fn().mockResolvedValue(undefined)}
             textInputRef={textInputRef}
             fileInputRef={fileInputRef}
@@ -301,7 +299,7 @@ describe('ChatComposer', () => {
       }
 
       const loopCalls = warnSpy.mock.calls.filter(
-        (args) => typeof args[0] === 'string' && args[0].includes('Render-loop detected')
+        args => typeof args[0] === 'string' && args[0].includes('Render-loop detected')
       );
       expect(loopCalls.length).toBeGreaterThan(0);
       expect(loopCalls[0][0]).toContain('ChatComposer');
@@ -341,7 +339,7 @@ describe('ChatComposer', () => {
       );
 
       // Wait for the setTimeout(0) reset to fire.
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 50));
 
       // Then render again — should not warn because the counter was reset.
       rerender(
@@ -368,7 +366,7 @@ describe('ChatComposer', () => {
       );
 
       const loopCalls = warnSpy.mock.calls.filter(
-        (args) => typeof args[0] === 'string' && args[0].includes('Render-loop detected')
+        args => typeof args[0] === 'string' && args[0].includes('Render-loop detected')
       );
       expect(loopCalls).toHaveLength(0);
       warnSpy.mockRestore();

@@ -1,16 +1,8 @@
 export type RewardsDiscordMembershipStatus =
-  | 'member'
-  | 'not_in_guild'
-  | 'not_linked'
-  | 'unavailable';
+  'member' | 'not_in_guild' | 'not_linked' | 'unavailable';
 
 export type RewardsDiscordRoleStatus =
-  | 'assigned'
-  | 'not_assigned'
-  | 'not_linked'
-  | 'not_in_guild'
-  | 'not_configured'
-  | 'unavailable';
+  'assigned' | 'not_assigned' | 'not_linked' | 'not_in_guild' | 'not_configured' | 'unavailable';
 
 export interface RewardsSnapshot {
   discord: {

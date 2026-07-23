@@ -5,13 +5,7 @@ import type { IntegrationNotification } from '../types/notifications';
 import { resetUserScopedState } from './resetActions';
 
 export type NotificationCategory =
-  | 'messages'
-  | 'agents'
-  | 'skills'
-  | 'system'
-  | 'meetings'
-  | 'reminders'
-  | 'important';
+  'messages' | 'agents' | 'skills' | 'system' | 'meetings' | 'reminders' | 'important';
 
 export interface NotificationAction {
   actionId: string;

@@ -649,7 +649,10 @@ pub fn is_transient_fs_error(err: &anyhow::Error) -> bool {
                 //      665 errors as `ExpectedErrorKind::WindowsFileSystemLimitation`
                 //      to prevent Sentry flooding (TAURI-RUST-QT0).
                 // 1224: ERROR_USER_MAPPED_FILE
-                return code == 5 || code == 32 || code == 33 || code == 303
+                return code == 5
+                    || code == 32
+                    || code == 33
+                    || code == 303
                     || code == 665
                     || code == 1224;
             }

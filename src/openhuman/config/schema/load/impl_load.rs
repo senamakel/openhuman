@@ -36,16 +36,15 @@ static WARNED_CONFIG_READ_FAILURE: OnceLock<Mutex<bool>> = OnceLock::new();
 ///
 /// Rate-limits the warning to at most one per process lifetime so a
 /// permanently corrupted file does not flood telemetry (#5167).
-async fn read_config_with_recovery_or_default(
-    config_path: &Path,
-) -> Result<(String, bool)> {
+async fn read_config_with_recovery_or_default(config_path: &Path) -> Result<(String, bool)> {
     let reads = || async {
         fs::read_to_string(config_path)
             .await
             .with_context(|| format!("Failed to read config file: {}", config_path.display()))
     };
 
-    let result = crate::openhuman::util::retry_with_backoff_async("read config file", 5, 20, reads).await;
+    let result =
+        crate::openhuman::util::retry_with_backoff_async("read config file", 5, 20, reads).await;
     match result {
         Ok(contents) => Ok((contents, false)),
         Err(e) => {
@@ -54,12 +53,11 @@ async fn read_config_with_recovery_or_default(
             // and falling back to backup/defaults. Other errors (permission
             // denied, file not found after retries, etc.) are propagated
             // so the caller surfaces them to the user.
-            let is_content_corruption = e
-                .chain()
-                .any(|cause| {
-                    cause.downcast_ref::<std::io::Error>()
-                        .map_or(false, |ioe| ioe.kind() == std::io::ErrorKind::InvalidData)
-                });
+            let is_content_corruption = e.chain().any(|cause| {
+                cause
+                    .downcast_ref::<std::io::Error>()
+                    .map_or(false, |ioe| ioe.kind() == std::io::ErrorKind::InvalidData)
+            });
 
             if !is_content_corruption {
                 return Err(e);
@@ -318,8 +316,7 @@ impl Config {
             // otherwise parse successfully with serde defaults (all fields at
             // their `Option::None` / `vec![]` / `false` values) instead of
             // the richer `Default` impl (issue #5167).
-            let (mut config, config_was_corrupted) = if read_was_recovered && contents.is_empty()
-            {
+            let (mut config, config_was_corrupted) = if read_was_recovered && contents.is_empty() {
                 (Config::default(), true)
             } else {
                 parse_config_with_recovery(&config_path, &contents).await
@@ -338,9 +335,7 @@ impl Config {
             config.apply_env_overrides_from(env);
 
             if config_was_corrupted {
-                let already_renamed = !tokio::fs::try_exists(&config_path)
-                    .await
-                    .unwrap_or(false);
+                let already_renamed = !tokio::fs::try_exists(&config_path).await.unwrap_or(false);
                 if already_renamed {
                     // The read helper already renamed the corrupted file to
                     // `.corrupted.<ts>` -- just persist the recovered config.
@@ -470,8 +465,7 @@ impl Config {
         // However, we still use `read_config_with_recovery_or_default` to handle the
         // non-UTF-8 case: a corrupted file is renamed to `.corrupted.<ts>` so the next
         // authoritative load can create a fresh config.
-        let (raw, _read_was_recovered) =
-            read_config_with_recovery_or_default(&config_path).await?;
+        let (raw, _read_was_recovered) = read_config_with_recovery_or_default(&config_path).await?;
         let (mut config, _was_corrupted) = parse_config_with_recovery(&config_path, &raw).await;
         config.config_path = config_path;
         config.workspace_dir = workspace_dir;
@@ -517,8 +511,7 @@ impl Config {
             );
         }
 
-        let (raw, read_was_recovered) =
-            read_config_with_recovery_or_default(&config_path).await?;
+        let (raw, read_was_recovered) = read_config_with_recovery_or_default(&config_path).await?;
         let (mut config, config_was_corrupted) = if read_was_recovered && raw.is_empty() {
             (Config::default(), true)
         } else {

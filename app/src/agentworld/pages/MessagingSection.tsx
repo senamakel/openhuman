@@ -1485,9 +1485,7 @@ function DmsPanel() {
       const name = input.startsWith('@') ? input.slice(1) : input;
       const resolved = await apiClient.directory.resolve(name);
       const identity = resolved?.identity as
-        | { cryptoId?: string; [key: string]: unknown }
-        | null
-        | undefined;
+        { cryptoId?: string; [key: string]: unknown } | null | undefined;
       const agent = resolved?.agent as { cryptoId?: string; [key: string]: unknown } | null;
 
       const cryptoId = identity?.cryptoId ?? agent?.cryptoId;

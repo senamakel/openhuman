@@ -20,8 +20,7 @@ export {
 };
 
 export type OAuthAppVersionGateResult =
-  | { ok: true }
-  | { ok: false; current: string; minimum: string; downloadUrl: string };
+  { ok: true } | { ok: false; current: string; minimum: string; downloadUrl: string };
 
 function block(minimum: string, current: string): OAuthAppVersionGateResult {
   return { ok: false, current, minimum, downloadUrl: LATEST_APP_DOWNLOAD_URL };

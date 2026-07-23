@@ -22,14 +22,7 @@ import debug from 'debug';
 // ---------------------------------------------------------------------------
 
 export type SettingsSection =
-  | 'home'
-  | 'account'
-  | 'ai'
-  | 'agents'
-  | 'features'
-  | 'crypto'
-  | 'notifications'
-  | 'developer';
+  'home' | 'account' | 'ai' | 'agents' | 'features' | 'crypto' | 'notifications' | 'developer';
 
 /**
  * Sidebar groups for the two-pane settings layout, in display order. The former

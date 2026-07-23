@@ -181,11 +181,7 @@ export interface ComposioDisableTriggerResponse {
  * `UnifiedSkillCard` can render both.
  */
 export type ComposioConnectionState =
-  | 'disconnected'
-  | 'pending'
-  | 'connected'
-  | 'expired'
-  | 'error';
+  'disconnected' | 'pending' | 'connected' | 'expired' | 'error';
 
 export function deriveComposioState(
   connection: ComposioConnection | undefined

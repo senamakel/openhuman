@@ -179,13 +179,11 @@ fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
 fn maybe_publish_session_expired(err: &TinyAgentsError) {
     if let TinyAgentsError::Provider(pe) = err {
         if pe.provider.as_str() == "OpenHuman" && matches!(pe.status, Some(401 | 403)) {
-            let reason = crate::openhuman::inference::provider::ops::sanitize_api_error(&pe.message);
+            let reason =
+                crate::openhuman::inference::provider::ops::sanitize_api_error(&pe.message);
             crate::core::event_bus::publish_global(
                 crate::core::event_bus::DomainEvent::SessionExpired {
-                    source: format!(
-                        "openhuman_backend_model.invoke({})",
-                        pe.status.unwrap_or(0)
-                    ),
+                    source: format!("openhuman_backend_model.invoke({})", pe.status.unwrap_or(0)),
                     reason,
                 },
             );

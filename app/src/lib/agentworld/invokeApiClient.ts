@@ -1210,13 +1210,7 @@ export interface BountyCommentsResponse {
 }
 
 export type BountyStatus =
-  | 'draft'
-  | 'open'
-  | 'judging'
-  | 'review'
-  | 'awarded'
-  | 'refunded'
-  | 'cancelled';
+  'draft' | 'open' | 'judging' | 'review' | 'awarded' | 'refunded' | 'cancelled';
 
 // ── GraphQL Ledger types ────────────────────────────────────────────────────
 

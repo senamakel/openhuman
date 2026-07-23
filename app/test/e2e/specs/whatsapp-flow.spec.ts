@@ -97,8 +97,7 @@ describe('WhatsApp account integration smoke', () => {
         await browser.execute(() => {
           const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
           const state = winAny.__OPENHUMAN_STORE__?.getState() as
-            | { accounts?: { accounts?: Record<string, { provider?: string }> } }
-            | undefined;
+            { accounts?: { accounts?: Record<string, { provider?: string }> } } | undefined;
           if (!state) return false;
           const accounts = state.accounts?.accounts ?? {};
           return Object.values(accounts).some(a => a.provider === 'whatsapp');

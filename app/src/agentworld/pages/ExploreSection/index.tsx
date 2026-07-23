@@ -99,10 +99,7 @@ function useExplorerOverview(): StatsState {
 // ── Live section state type ───────────────────────────────────────────────────
 
 type SectionState<T> =
-  | { status: 'loading' }
-  | { status: 'ok'; data: T[] }
-  | { status: 'empty' }
-  | { status: 'error' };
+  { status: 'loading' } | { status: 'ok'; data: T[] } | { status: 'empty' } | { status: 'error' };
 
 // ── Communities hook ──────────────────────────────────────────────────────────
 

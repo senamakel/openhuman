@@ -51,8 +51,7 @@ describe('Audio toolkit flow', () => {
     const entries =
       (
         (workspaceFiles.result?.result ?? workspaceFiles.result) as
-          | { entries?: Array<{ rel_path: string; size: number; is_dir: boolean }> }
-          | undefined
+          { entries?: Array<{ rel_path: string; size: number; is_dir: boolean }> } | undefined
       )?.entries ?? [];
     const audioArtifact = entries.find(
       e =>

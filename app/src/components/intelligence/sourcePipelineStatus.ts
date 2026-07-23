@@ -28,9 +28,7 @@ import type { MemoryTreePipelineStatus } from '../../utils/tauriCommands/memoryT
 
 /** One failed layer of the post-ingest pipeline, in severity-display order. */
 export type SourcePipelineIssueKind =
-  | 'stored_without_vectors'
-  | 'extraction_failed'
-  | 'tree_degraded';
+  'stored_without_vectors' | 'extraction_failed' | 'tree_degraded';
 
 /** Coarse retrieval-readiness state for a single source row. */
 export type SourcePipelineState = 'none' | 'retrieval_ready' | 'ingested_only';

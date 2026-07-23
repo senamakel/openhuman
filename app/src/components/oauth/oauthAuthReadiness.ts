@@ -20,8 +20,7 @@ const POLL_MS = 200;
 export type OAuthAuthReadinessFailure = 'core_mode_unset' | 'core_unreachable';
 
 export type OAuthAuthReadinessResult =
-  | { ready: true }
-  | { ready: false; reason: OAuthAuthReadinessFailure };
+  { ready: true } | { ready: false; reason: OAuthAuthReadinessFailure };
 
 const delay = (ms: number): Promise<void> =>
   new Promise(resolve => {

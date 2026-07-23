@@ -190,8 +190,7 @@ export async function waitForSocketConnected(timeoutMs = 30_000): Promise<boolea
       const activeUserId = winAny.__OPENHUMAN_CORE_STATE__?.()?.snapshot?.auth?.userId;
       if (!activeUserId) return false;
       const state = winAny.__OPENHUMAN_STORE__?.getState() as
-        | { socket?: { byUser?: Record<string, { status?: string }> } }
-        | undefined;
+        { socket?: { byUser?: Record<string, { status?: string }> } } | undefined;
       const byUser = state?.socket?.byUser ?? {};
       return byUser[activeUserId]?.status === 'connected';
     });
@@ -208,8 +207,7 @@ export async function getSelectedThreadId(): Promise<string | null> {
   return (await browser.execute(() => {
     const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
     const state = winAny.__OPENHUMAN_STORE__?.getState() as
-      | { thread?: { selectedThreadId?: string | null } }
-      | undefined;
+      { thread?: { selectedThreadId?: string | null } } | undefined;
     return state?.thread?.selectedThreadId ?? null;
   })) as string | null;
 }

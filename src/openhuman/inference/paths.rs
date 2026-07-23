@@ -930,10 +930,7 @@ mod tests {
     #[test]
     fn try_claim_returns_true_once_then_false() {
         reset_dll_not_found_backoff_for_test();
-        assert!(
-            try_claim_dll_not_found_report(),
-            "first claim must succeed"
-        );
+        assert!(try_claim_dll_not_found_report(), "first claim must succeed");
         // After the claim, subsequent attempts within the cooldown should fail.
         assert!(
             !try_claim_dll_not_found_report(),
@@ -944,7 +941,10 @@ mod tests {
     #[test]
     fn is_backoff_active_after_claim() {
         reset_dll_not_found_backoff_for_test();
-        assert!(!is_dll_not_found_backoff_active(), "before claim, no backoff");
+        assert!(
+            !is_dll_not_found_backoff_active(),
+            "before claim, no backoff"
+        );
         try_claim_dll_not_found_report();
         assert!(
             is_dll_not_found_backoff_active(),

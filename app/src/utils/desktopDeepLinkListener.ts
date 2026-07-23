@@ -172,10 +172,11 @@ const storeSessionWithRetry = async (sessionToken: string): Promise<void> => {
   let lastError: unknown;
   for (let attempt = 1; attempt <= AUTH_STORE_RETRIES; attempt++) {
     try {
-      await storeSession(sessionToken, {}, {
-        allowPendingBackendValidation: true,
-        timeoutMs: AUTH_STORE_TIMEOUT_MS,
-      });
+      await storeSession(
+        sessionToken,
+        {},
+        { allowPendingBackendValidation: true, timeoutMs: AUTH_STORE_TIMEOUT_MS }
+      );
       return; // success
     } catch (err) {
       lastError = err;
@@ -332,7 +333,8 @@ const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
       // deferred validation. If the backend was genuinely unreachable through
       // all retries this is a connectivity observation, not an app crash
       // (issue #5166).
-      const isTransient = kind === 'auth_me_timeout' || kind === 'auth_me_gateway' || kind === 'network';
+      const isTransient =
+        kind === 'auth_me_timeout' || kind === 'auth_me_gateway' || kind === 'network';
       Sentry.captureException(new Error(`auth store failed: ${kind}`), {
         level: isTransient ? 'warning' : 'error',
         tags: { surface: 'react', phase: 'deep-link-auth-store', auth_store_failure: kind },

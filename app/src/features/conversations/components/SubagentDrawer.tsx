@@ -54,11 +54,7 @@ function statusTone(status: ToolTimelineEntryStatus | undefined): {
   dot: string;
   pill: string;
   label:
-    | 'statusRunning'
-    | 'statusCompleted'
-    | 'statusFailed'
-    | 'statusAwaitingUser'
-    | 'statusCancelled';
+    'statusRunning' | 'statusCompleted' | 'statusFailed' | 'statusAwaitingUser' | 'statusCancelled';
 } {
   if (status === 'success') {
     return {

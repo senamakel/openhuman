@@ -1128,11 +1128,11 @@ async fn kv_set_global_auto_sanitizes_pii_like_key() {
         .expect("PII-like global key should be auto-sanitized, not rejected");
 
     // The key in storage contains the redacted token.
-    let stored = memory
-        .kv_get_global("ssn-123-45-6789")
-        .await
-        .unwrap();
-    assert!(stored.is_none(), "original PII key should not match after sanitization");
+    let stored = memory.kv_get_global("ssn-123-45-6789").await.unwrap();
+    assert!(
+        stored.is_none(),
+        "original PII key should not match after sanitization"
+    );
 }
 
 #[tokio::test]
@@ -1220,7 +1220,10 @@ async fn upsert_document_auto_sanitizes_pii_like_namespace() {
 
     // Look up the document by sanitized namespace (note sanitize_namespace
     // normalises special chars, so `[` becomes `_`).
-    let docs = memory.load_documents_for_scope("cliente-RFC-VECJ880326XK4").await.unwrap();
+    let docs = memory
+        .load_documents_for_scope("cliente-RFC-VECJ880326XK4")
+        .await
+        .unwrap();
     let doc = docs.iter().find(|d| d.document_id == doc_id).unwrap();
     assert!(
         doc.namespace.contains("REDACTED"), // [REDACTED_PII_RFC] after sanitize_namespace

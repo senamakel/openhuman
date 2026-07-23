@@ -773,8 +773,7 @@ fn is_disk_full_message(lower: &str) -> bool {
 /// rendering, so it will never appear in a remote backend body
 /// accidentally.
 fn is_windows_file_system_limitation_message(lower: &str) -> bool {
-    lower.contains("(os error 665)")
-        && !lower.contains("backend returned ")
+    lower.contains("(os error 665)") && !lower.contains("backend returned ")
 }
 
 /// Detect the literal `"Config loading timed out"` string produced by
@@ -2504,9 +2503,7 @@ pub(crate) fn report_error_message(
     // 6,050 events / 1 user). The `before_send` chain also filters these,
     // but this early-exit avoids the Sentry scope overhead entirely.
     #[cfg(feature = "crash-reporting")]
-    if message.contains("os error 665")
-        && was_recently_reported(domain, operation)
-    {
+    if message.contains("os error 665") && was_recently_reported(domain, operation) {
         tracing::debug!(
             target: REPORT_ERROR_TRACING_TARGET,
             domain = domain,
@@ -3341,12 +3338,11 @@ pub fn is_windows_file_system_limitation_event(event: &sentry::protocol::Event<'
     if event.message.as_deref().is_some_and(check) {
         return true;
     }
-    event.exception.values.iter().any(|exception| {
-        exception
-            .value
-            .as_deref()
-            .is_some_and(check)
-    })
+    event
+        .exception
+        .values
+        .iter()
+        .any(|exception| exception.value.as_deref().is_some_and(check))
 }
 
 /// 404 on PATCH/DELETE to a channel-message path is an expected backend state
@@ -3471,7 +3467,9 @@ pub fn is_user_config_provider_event(event: &sentry::protocol::Event<'_>) -> boo
     if domain == Some("llm_provider") || domain == Some("local_ai") {
         let lower = texts.join(" ").to_ascii_lowercase();
         if (lower.contains("embed") || lower.contains("embedding"))
-            && (lower.contains("401") || lower.contains("404") || lower.contains("unauthorized")
+            && (lower.contains("401")
+                || lower.contains("404")
+                || lower.contains("unauthorized")
                 || lower.contains("invalid model"))
         {
             return true;
@@ -3540,7 +3538,10 @@ pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
     // which is handled by the session-expired classifier
     let domain = event.tags.get("domain").map(String::as_str);
     if domain != Some("llm_provider") && domain != Some("backend_api") {
-        if lower.contains("http 401") || lower.contains("status: 401") || lower.contains("401 unauthorized") {
+        if lower.contains("http 401")
+            || lower.contains("status: 401")
+            || lower.contains("401 unauthorized")
+        {
             return true;
         }
     }
@@ -3570,15 +3571,14 @@ pub fn is_stale_release_event(event: &sentry::protocol::Event<'_>) -> bool {
 
     let current = env!("CARGO_PKG_VERSION");
     parse_version(current).is_some_and(|(current_major, current_minor)| {
-        parse_release_tag(release)
-            .is_some_and(|(event_major, event_minor)| {
-                if event_major != current_major {
-                    // Different major version = definitely stale (or from the future)
-                    return event_major < current_major;
-                }
-                // Same major: check minor version gap
-                current_minor.saturating_sub(event_minor) > MAX_AGE_MINOR_VERSIONS
-            })
+        parse_release_tag(release).is_some_and(|(event_major, event_minor)| {
+            if event_major != current_major {
+                // Different major version = definitely stale (or from the future)
+                return event_major < current_major;
+            }
+            // Same major: check minor version gap
+            current_minor.saturating_sub(event_minor) > MAX_AGE_MINOR_VERSIONS
+        })
     })
 }
 

@@ -1049,7 +1049,6 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
         tracing::debug!(
             tool = %call.name,
             has_external_effect = has_ext,
-            has_subagent_scope = ctx.is_subagent.is_some(),
             "[approval_mw] wrap_tool evaluating external effect"
         );
         if has_ext {

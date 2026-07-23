@@ -269,12 +269,14 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
 
 fn block_on_migration(
     label: &str,
-    mut goal: impl std::future::Future<Output = Result<impl std::fmt::Debug, String>>,
+    goal: impl std::future::Future<Output = Result<impl std::fmt::Debug, String>>,
 ) {
     let Ok(rt) = tokio::runtime::Handle::try_current() else {
         log::warn!("[{label}] cannot block on migration — no tokio runtime; legacy→crate copy skipped for this boot");
         return;
     };
+    // Pin the future so block_on can drive it to completion.
+    let mut goal = std::pin::pin!(goal);
     match rt.block_on(&mut goal) {
         Ok(report) => {
             let report_str = format!("{report:?}");

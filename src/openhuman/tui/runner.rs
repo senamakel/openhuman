@@ -1,4 +1,4 @@
-//! CLI entry point for the terminal chat UI (`openhuman tui` / `chat`).
+//! CLI entry point for the tabbed terminal UI (`openhuman` / `tui` / `chat`).
 //!
 //! Parses flags, initializes **file-only** logging (the TUI owns the terminal —
 //! see `logging::init_for_tui`), boots the core in-process with no transport and
@@ -11,7 +11,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use crate::core::runtime::{
-    CoreBuilder, CoreRuntime, DomainSet, ServiceSet, AGENT_WORKER_STACK_BYTES,
+    CoreBuilder, CoreRuntime, DomainSet, ServiceSet, AGENT_WORKER_STACK_BYTES, MAX_BLOCKING_THREADS,
 };
 use crate::core::types::HostKind;
 
@@ -57,7 +57,7 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
     let data_dir = resolve_data_dir();
     let log_dir = crate::core::logging::init_for_tui(&data_dir, verbose);
     log::info!(
-        "[tui] starting terminal chat UI (thread={:?} new={} logs={:?})",
+        "[tui] starting tabbed terminal UI (thread={:?} new={} logs={:?})",
         thread_id,
         force_new,
         log_dir
@@ -69,6 +69,7 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_stack_size(AGENT_WORKER_STACK_BYTES)
+        .max_blocking_threads(MAX_BLOCKING_THREADS)
         .build()?;
     rt.block_on(async_main(thread_id, force_new))
 }
@@ -77,7 +78,7 @@ async fn async_main(thread_flag: Option<String>, force_new: bool) -> anyhow::Res
     // In-process core: full domains (channel.web_chat needs DomainGroup::Channels,
     // so harness() is not enough), no transport, no background services.
     let runtime = Arc::new(
-        CoreBuilder::new(HostKind::Cli)
+        CoreBuilder::new(HostKind::detect_standalone())
             .domains(DomainSet::full())
             .services(ServiceSet::none())
             .build()
@@ -153,14 +154,14 @@ fn print_help() {
     println!("Usage: openhuman tui [--thread <id>] [--new] [-v|--verbose]");
     println!("       openhuman chat [--thread <id>] [--new] [-v|--verbose]");
     println!();
-    println!("Open a terminal chat UI onto the general-chat surface (the same one the");
-    println!("desktop app uses). Runs the core in-process — no server, no ports.");
+    println!("Open the tabbed terminal UI for core logs, orchestrator chat, configuration,");
+    println!("and account settings. Runs the core in-process — no server, no ports.");
     println!();
     println!("  --thread <id>   Attach to an existing conversation thread.");
     println!("  --new           Force a new thread (default when --thread is omitted).");
     println!("  -v, --verbose   Debug-level logging (written to the log file, never the UI).");
     println!();
-    println!("Keys: Enter send · Esc cancel turn · Ctrl+N new thread · PgUp/PgDn scroll ·");
+    println!("Keys: Tab/Shift+Tab or Alt+1-4 switch tabs · arrows navigate · Enter select ·");
     println!("      Ctrl+C / Ctrl+D quit.");
 }
 
@@ -213,11 +214,22 @@ mod tests {
             "openhuman.channel_web_chat",
             "openhuman.channel_web_cancel",
             "openhuman.threads_create_new",
+            "openhuman.config_get_client_config",
+            "openhuman.config_update_model_settings",
+            "openhuman.config_get_autonomy_settings",
+            "openhuman.config_update_autonomy_settings",
+            "openhuman.config_get_privacy_mode",
+            "openhuman.config_set_privacy_mode",
+            "openhuman.auth_get_state",
+            "openhuman.auth_get_me",
+            "openhuman.auth_consume_login_token",
+            "openhuman.auth_store_session",
+            "openhuman.auth_clear_session",
         ] {
             assert!(
                 crate::core::all::schema_for_rpc_method(method).is_some(),
                 "TUI invokes `{method}`, but it is not a registered RPC method — \
-                 the terminal chat UI would fail with `unknown method: {method}`"
+                 the tabbed terminal UI would fail with `unknown method: {method}`"
             );
         }
     }

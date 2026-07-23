@@ -557,9 +557,9 @@ mcp = []
 # the crash-reporting feature" error.
 crash-reporting = ["dep:sentry"]
 
-# Terminal chat UI: the `openhuman tui` (alias `chat`) CLI subcommand, a
-# ratatui/crossterm terminal front-end onto the same `web_chat` surface the
-# desktop app drives. Default-ON for the standalone `openhuman-core` binary, but
+# Tabbed terminal UI: the `openhuman tui` (alias `chat`) CLI subcommand, a
+# ratatui/crossterm front-end for logs, orchestrator chat, curated configuration,
+# and account settings. Default-ON for the standalone `openhuman-core` binary, but
 # INTENTIONALLY NOT forwarded to the desktop shell (the desktop app ships its own
 # Tauri UI and never needs a terminal one) — see the allowlist entry in
 # `scripts/ci/check-feature-forwarding.mjs`. Slim / headless builds opt out via

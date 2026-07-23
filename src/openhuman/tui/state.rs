@@ -1,4 +1,4 @@
-//! Pure, terminal-free transcript reducer for the terminal chat UI.
+//! Pure, terminal-free transcript reducer for the tabbed terminal UI's Chat tab.
 //!
 //! [`TranscriptState`] is a plain data structure with **no ratatui / crossterm /
 //! IO dependencies** — the renderer ([`super::render`]) reads it and the event

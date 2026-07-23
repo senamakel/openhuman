@@ -117,6 +117,8 @@ ENV OPENHUMAN_WORKSPACE=/home/openhuman/.openhuman
 # Bind to all interfaces so the container is reachable
 ENV OPENHUMAN_CORE_HOST=0.0.0.0
 ENV OPENHUMAN_CORE_PORT=7788
+# Stable first-party signal for CLI launch policy; containers default headless.
+ENV OPENHUMAN_DOCKER=1
 ENV RUST_LOG=info
 # AgentBox marketplace mode — off by default for desktop builds. The
 # AgentBox console flips this on per deployment, along with GMI_MAAS_*.

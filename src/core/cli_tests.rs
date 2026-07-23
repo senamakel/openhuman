@@ -1,9 +1,83 @@
-use super::{grouped_schemas, load_dotenv_for_cli, parse_function_params, parse_input_value};
+use super::{
+    grouped_schemas, load_dotenv_for_cli, parse_function_params, parse_input_value,
+    should_auto_launch_tui, strip_no_tui,
+};
+use crate::core::types::HostKind;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use std::sync::{Mutex, OnceLock};
 use tempfile::tempdir;
 
 static CLI_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+#[test]
+fn bare_cli_auto_launches_tui_only_for_interactive_non_container_hosts() {
+    let none: Vec<String> = vec![];
+    assert!(should_auto_launch_tui(
+        &none,
+        true,
+        true,
+        HostKind::Cli,
+        true
+    ));
+    assert!(!should_auto_launch_tui(
+        &none,
+        false,
+        true,
+        HostKind::Cli,
+        true
+    ));
+    assert!(!should_auto_launch_tui(
+        &none,
+        true,
+        false,
+        HostKind::Cli,
+        true
+    ));
+    assert!(!should_auto_launch_tui(
+        &none,
+        true,
+        true,
+        HostKind::Docker,
+        true
+    ));
+    assert!(!should_auto_launch_tui(
+        &none,
+        true,
+        true,
+        HostKind::Cli,
+        false
+    ));
+}
+
+#[test]
+fn explicit_args_never_trigger_bare_cli_auto_launch() {
+    for args in [
+        vec!["--no-tui".to_string()],
+        vec!["run".to_string()],
+        vec!["tui".to_string()],
+    ] {
+        assert!(!should_auto_launch_tui(
+            &args,
+            true,
+            true,
+            HostKind::Cli,
+            true
+        ));
+    }
+}
+
+#[test]
+fn no_tui_is_stripped_before_normal_cli_dispatch() {
+    let args = vec![
+        "--no-tui".to_string(),
+        "run".to_string(),
+        "--jsonrpc-only".to_string(),
+    ];
+    assert_eq!(strip_no_tui(&args), &args[1..]);
+
+    let ordinary = vec!["run".to_string()];
+    assert_eq!(strip_no_tui(&ordinary), ordinary.as_slice());
+}
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     CLI_ENV_LOCK

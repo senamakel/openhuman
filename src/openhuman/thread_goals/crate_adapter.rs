@@ -5,7 +5,7 @@
 //! (local ↔ crate [`ThreadGoal`]/[`ThreadGoalStatus`]), the store-handle opener
 //! ([`crate_goals_store`]), the raw mirror read/write/delete helpers used by the
 //! one operation without a crate equivalent (the unconditional
-//! `set_continuation_suppressed`), and the one-time
+//! `set_continuation_suppressed`), and the idempotent
 //! [`migrate_legacy_goals_into_crate_store`] boot helper that copies goals left
 //! in the retired `{workspace}/thread_goals/` file-JSON tree only when the crate
 //! store has no value for that thread.
@@ -162,7 +162,7 @@ pub(crate) async fn delete_mirror(store: &Arc<dyn Store>, thread_id: &str) -> Re
         .map_err(|e| format!("delete crate goal mirror: {e}"))
 }
 
-// ── One-time legacy→crate migration helper (wired to boot via a Once) ─────────
+// ── Idempotent legacy→crate migration helper (run on each core boot) ──────────
 
 /// Outcome of a [`migrate_legacy_goals_into_crate_store`] run.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -181,13 +181,13 @@ pub struct GoalMigrationReport {
 /// authoritative and skipped, even when it differs from the stale legacy file.
 /// This prevents restarts from reverting status, usage, or budget progress.
 ///
-/// Wired into boot behind a one-shot `Once` marker in
-/// `core::runtime::services::start_boot_once_jobs`. Honors the single-writer
-/// constraint: run it only inside the core process.
+/// Wired into `core::runtime::services::start_boot_once_jobs` on every core
+/// boot. Honors the single-writer constraint: run it only inside the core
+/// process.
 /// Read any goals left in the retired legacy `{workspace}/thread_goals/` file-
 /// JSON tree. Returns an empty vec when the directory is absent (the common
 /// case after the first migration). Undecodable/unreadable files are skipped —
-/// a stray file can't wedge the one-time copy.
+/// a stray file can't wedge the idempotent copy.
 async fn read_legacy_file_goals(workspace_dir: &Path) -> Result<Vec<ThreadGoal>, String> {
     const LEGACY_DIR: &str = "thread_goals";
     const LEGACY_EXT: &str = "json";

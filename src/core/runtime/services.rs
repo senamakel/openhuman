@@ -234,65 +234,61 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
         log::debug!("[runtime] MCP reconnect supervisor disabled by ServiceSet");
     }
 
-    // One-time copy of any goals left in the retired `{workspace}/thread_goals/`
+    // Idempotent copy of any goals left in the retired `{workspace}/thread_goals/`
     // file-JSON tree into the crate `graph.goals` store, which is now
     // authoritative. Idempotent (skips already-copied rows) and returns fast on
-    // an empty/absent legacy dir. Runs single-writer inside this core process.
-    spawn_thread_goals_migration(config.clone());
+    // an empty/absent legacy dir. Run it on every core boot so an in-process
+    // restart with a different workspace migrates that workspace too.
+    let _ = spawn_thread_goals_migration(config.clone());
 
-    // One-time copy of any task boards left in the retired
+    // Idempotent copy of any task boards left in the retired
     // `{workspace}/agent_task_boards/*.json` file-JSON tree into the crate
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
-    spawn_task_boards_migration(config.clone());
+    // As above, each core boot must inspect its own workspace.
+    let _ = spawn_task_boards_migration(config.clone());
 }
 
-fn spawn_thread_goals_migration(config: Config) {
-    static MIGRATION_SPAWNED: Once = Once::new();
-    MIGRATION_SPAWNED.call_once(|| {
-        tokio::spawn(async move {
-            match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
-                &config.workspace_dir,
-            )
-            .await
-            {
-                Ok(report) if report.total > 0 => {
-                    log::info!(
-                        "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
-                        report.total,
-                        report.copied,
-                        report.skipped
-                    );
-                }
-                Ok(_) => {}
-                Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
+fn spawn_thread_goals_migration(config: Config) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
+            &config.workspace_dir,
+        )
+        .await
+        {
+            Ok(report) if report.total > 0 => {
+                log::info!(
+                    "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
+                    report.total,
+                    report.copied,
+                    report.skipped
+                );
             }
-        });
-    });
+            Ok(_) => {}
+            Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
+        }
+    })
 }
 
-fn spawn_task_boards_migration(config: Config) {
-    static MIGRATION_SPAWNED: Once = Once::new();
-    MIGRATION_SPAWNED.call_once(|| {
-        tokio::spawn(async move {
-            match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
-                &config.workspace_dir,
-            )
-            .await
-            {
-                Ok(report) if report.total > 0 => {
-                    log::info!(
-                        "[todos] legacy→crate migration: total={} copied={} skipped={}",
-                        report.total,
-                        report.copied,
-                        report.skipped
-                    );
-                }
-                Ok(_) => {}
-                Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
+fn spawn_task_boards_migration(config: Config) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
+            &config.workspace_dir,
+        )
+        .await
+        {
+            Ok(report) if report.total > 0 => {
+                log::info!(
+                    "[todos] legacy→crate migration: total={} copied={} skipped={}",
+                    report.total,
+                    report.copied,
+                    report.skipped
+                );
             }
-        });
-    });
+            Ok(_) => {}
+            Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
+        }
+    })
 }
 
 fn spawn_mcp_reconnect_supervisor(config: Config) {
@@ -345,5 +341,26 @@ pub fn spawn_socket_auto_connect(
         });
     } else {
         log::debug!("[socket] auto-connect disabled by ServiceSet");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn legacy_migrations_run_for_each_workspace() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut first = Config::default();
+        first.workspace_dir = tmp.path().join("first");
+        let mut second = Config::default();
+        second.workspace_dir = tmp.path().join("second");
+
+        for config in [first, second] {
+            let goals = spawn_thread_goals_migration(config.clone());
+            let boards = spawn_task_boards_migration(config);
+            goals.await.expect("thread-goal migration task completes");
+            boards.await.expect("task-board migration task completes");
+        }
     }
 }

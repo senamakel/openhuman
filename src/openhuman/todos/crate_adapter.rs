@@ -7,7 +7,7 @@
 //! crate `TaskBoardCard`/`TaskBoard`/`TaskCardStatus`/`TaskApprovalMode`), the
 //! store-handle opener ([`crate_todos_store`]), the raw crate-board read/write
 //! helpers used for the existence-preserving `get`/`delete` semantics, and the
-//! one-time [`migrate_legacy_task_boards_into_crate_store`] boot helper that
+//! idempotent [`migrate_legacy_task_boards_into_crate_store`] boot helper that
 //! copies boards left in the retired `<workspace>/agent_task_boards/`
 //! file-JSON tree only when the crate store has no value for that thread.
 //!
@@ -224,7 +224,7 @@ async fn put_crate_board_raw(store: &Arc<dyn Store>, board: &CrateBoard) -> Resu
         .map_err(|e| format!("mirror task board into {TODOS_NAMESPACE}: {e}"))
 }
 
-// ── One-time legacy→crate migration helper (wired to boot via a Once) ─────────
+// ── Idempotent legacy→crate migration helper (run on each core boot) ──────────
 
 /// Outcome of a [`migrate_legacy_task_boards_into_crate_store`] run.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -241,7 +241,7 @@ pub struct TaskBoardMigrationReport {
 /// file-JSON tree. Returns an empty vec when the directory is absent (the common
 /// case after the first migration). The per-thread run ledger (`*.runs.json`)
 /// stays local and is skipped. Undecodable/unreadable files are skipped so a
-/// stray file can't wedge the one-time copy.
+/// stray file can't wedge the idempotent copy.
 async fn read_legacy_file_boards(workspace_dir: &Path) -> Result<Vec<OhBoard>, String> {
     const LEGACY_DIR: &str = "agent_task_boards";
     const LEGACY_EXT: &str = "json";
@@ -298,9 +298,8 @@ async fn read_legacy_file_boards(workspace_dir: &Path) -> Result<Vec<OhBoard>, S
 /// file. This prevents a later process restart from reverting post-migration
 /// edits while the retired files remain on disk.
 ///
-/// Wired into boot behind a one-shot `Once` marker in
-/// `core::runtime::services`. Honors the single-writer constraint: run it only
-/// inside the core process.
+/// Wired into `core::runtime::services` on every core boot. Honors the
+/// single-writer constraint: run it only inside the core process.
 pub async fn migrate_legacy_task_boards_into_crate_store(
     workspace_dir: &Path,
 ) -> Result<TaskBoardMigrationReport, String> {

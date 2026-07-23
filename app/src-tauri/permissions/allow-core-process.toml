@@ -74,6 +74,30 @@ allow = [
     "show_ptt_overlay",
 
     # =========================
+    # DESKTOP COMPANION
+    # =========================
+    # The desktop companion moved from core RPC into the Tauri shell. Its
+    # settings panel and hotkey bridge invoke these commands directly, so each
+    # one must be present in the main-window capability.
+    "register_companion_hotkey",
+    "unregister_companion_hotkey",
+    "companion_activate",
+    "companion_start_session",
+    "companion_stop_session",
+    "companion_status",
+    "companion_config_get",
+    "companion_config_set",
+
+    # =========================
+    # STRUCTURED WHATSAPP DATA
+    # =========================
+    # The SQLite store moved from the core into the Tauri shell. Intelligence
+    # views now query it through these read-only invoke commands.
+    "whatsapp_data_list_chats",
+    "whatsapp_data_list_messages",
+    "whatsapp_data_search_messages",
+
+    # =========================
     # ACCOUNT WEBVIEW
     # =========================
     "webview_account_open",

@@ -426,11 +426,13 @@ describe('authStoreFailureUserMessage (issue #3025)', () => {
     'other',
   ];
 
-  // Local / unset mode always keeps the plain retry message — the failure there
-  // is a transient embedded-core/backend blip that retrying can clear.
+  // Local / unset mode should mention the retry attempt so the user knows
+  // the system tried before giving up (issue #5166).
   it.each(['local', null] as const)('stays generic for mode=%s', mode => {
     for (const kind of CLOUD_KINDS) {
-      expect(authStoreFailureUserMessage(kind, mode)).toBe('Sign-in failed. Please try again.');
+      const msg = authStoreFailureUserMessage(kind, mode);
+      expect(msg).toContain('retry');
+      expect(msg).not.toContain('remote');
     }
   });
 

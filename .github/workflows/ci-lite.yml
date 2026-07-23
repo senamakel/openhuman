@@ -446,6 +446,7 @@ jobs:
           core/cli_tests.rs
           core/jsonrpc_tests.rs
           core/legacy_aliases.rs
+          core/runtime/services.rs
           openhuman/agent/harness/builtin_definitions.rs
           openhuman/agent/harness/definition_tests.rs
           openhuman/agent/harness/session/tests.rs

@@ -357,7 +357,6 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
         log::debug!("[runtime] MCP boot-spawn disabled by ServiceSet");
         log::debug!("[runtime] MCP reconnect supervisor disabled by ServiceSet");
     }
-
 }
 
 async fn run_legacy_migrations(config: &Config) {

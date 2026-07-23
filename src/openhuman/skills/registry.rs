@@ -13,6 +13,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
+use crate::openhuman::skills::WorkflowScope;
 
 /// One declared input — a parameter the skill needs, with a human description.
 /// `required` inputs must be supplied at run time; `kind` is an optional type
@@ -294,11 +295,11 @@ pub fn get_workflow_with_profile(
         return Some(exact.clone());
     }
 
-    // Lists advertise the frontmatter display name as well as the directory
-    // slug. Resolve that name back to the canonical runnable slug so a private
-    // workflow admitted by the profile-local allow set can actually be
-    // described and run. Discovery has already applied scope precedence and
-    // collision deduplication, matching the list surface.
+    // Profile lists advertise the frontmatter display name as well as the
+    // directory slug. Resolve that name back to the canonical runnable slug so
+    // a private workflow admitted by the profile-local allow set can actually
+    // be described and run. Keep the legacy profile-less lookup id-only: global
+    // display names have never been runnable ids and may collide with builtins.
     let home = dirs::home_dir();
     let trusted = super::ops_discover::is_workspace_trusted(workspace_dir);
     let slug = super::ops_discover::discover_workflows_with_profile(
@@ -308,7 +309,7 @@ pub fn get_workflow_with_profile(
         trusted,
     )
     .into_iter()
-    .find(|workflow| workflow.name == id)
+    .find(|workflow| workflow.scope == WorkflowScope::Profile && workflow.name == id)
     .map(|workflow| {
         if workflow.dir_name.is_empty() {
             workflow.name

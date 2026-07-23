@@ -38,6 +38,22 @@ impl SecurityPolicy {
         let expanded = self.expand_tilde(path);
         let expanded_path = Path::new(&expanded);
 
+        // Core-sensitive single-file names remain reserved even when a
+        // relative request resolves under the separate action root. Directory
+        // names are root-sensitive (a project may legitimately have
+        // `personalities/`), but `.env`/SOUL.md/etc. retain the existing
+        // top-level deny contract.
+        if !expanded_path.is_absolute()
+            && expanded_path.components().count() == 1
+            && WORKSPACE_INTERNAL_FILES.iter().any(|name| {
+                expanded_path
+                    .file_name()
+                    .is_some_and(|requested| requested == std::ffi::OsStr::new(name))
+            })
+        {
+            return false;
+        }
+
         // Credential stores are never reachable, even via a trusted-root grant.
         if Self::is_always_forbidden(expanded_path) {
             return false;

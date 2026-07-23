@@ -8,8 +8,10 @@ use super::*;
 fn with_clean_session<F: FnOnce()>(f: F) {
     let _lock = lock_test_state();
     reset_for_test();
+    let _ = events::take_recorded_events();
     f();
     reset_for_test();
+    let _ = events::take_recorded_events();
 }
 
 fn start_default_session() -> StartCompanionSessionResult {
@@ -81,6 +83,27 @@ fn stop_session_succeeds() {
         .unwrap();
         assert!(result.stopped);
         assert_eq!(result.reason.as_deref(), Some("test"));
+    });
+}
+
+#[test]
+fn stop_session_emits_idle_from_active_state() {
+    with_clean_session(|| {
+        let session = start_default_session();
+        transition_state(CompanionState::Listening, None).unwrap();
+        let _ = events::take_recorded_events();
+
+        let result = stop_session(&StopCompanionSessionParams {
+            reason: Some("test".into()),
+        })
+        .unwrap();
+
+        assert!(result.stopped);
+        let events = events::take_recorded_events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].session_id, session.session_id);
+        assert_eq!(events[0].previous_state, CompanionState::Listening);
+        assert_eq!(events[0].state, CompanionState::Idle);
     });
 }
 
@@ -260,6 +283,18 @@ fn cancelled_old_turn_does_not_reset_interrupting_capture() {
 }
 
 #[test]
+fn pre_stt_listening_turn_can_return_to_idle() {
+    with_clean_session(|| {
+        let _s = start_default_session();
+        transition_state(CompanionState::Listening, None).unwrap();
+
+        finish_listening_turn();
+
+        assert_eq!(session_status().state, CompanionState::Idle);
+    });
+}
+
+#[test]
 fn transition_invalid_idle_to_speaking() {
     with_clean_session(|| {
         let _s = start_default_session();
@@ -367,6 +402,29 @@ fn start_session_auto_expires_stale_session() {
         .unwrap();
         assert_ne!(first.session_id, second.session_id);
         assert_eq!(second.state, CompanionState::Idle);
+    });
+}
+
+#[test]
+fn expire_session_emits_idle_from_active_state() {
+    with_clean_session(|| {
+        let session = start_session(&StartCompanionSessionParams {
+            consent: true,
+            ttl_secs: Some(1),
+        })
+        .unwrap();
+        transition_state(CompanionState::Thinking, None).unwrap_err();
+        transition_state(CompanionState::Listening, None).unwrap();
+        let _ = events::take_recorded_events();
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+
+        assert!(expire_session_if_needed());
+        assert!(!session_status().active);
+        let events = events::take_recorded_events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].session_id, session.session_id);
+        assert_eq!(events[0].previous_state, CompanionState::Listening);
+        assert_eq!(events[0].state, CompanionState::Idle);
     });
 }
 

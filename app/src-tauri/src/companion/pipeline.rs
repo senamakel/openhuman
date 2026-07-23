@@ -210,9 +210,12 @@ pub async fn run_audio_turn(
 
     // STT.
     let transcript = match stt(audio_samples, sample_rate).await {
+        Ok(text) if cancel.is_cancelled() => {
+            return Ok(cancelled_result(text.trim()));
+        }
         Ok(text) if text.trim().is_empty() => {
             info!("{LOG_PREFIX} STT returned empty transcript, skipping turn");
-            session::finish_turn();
+            super::finish_listening_without_active_capture();
             return Ok(TurnResult {
                 transcript: String::new(),
                 response_text: String::new(),

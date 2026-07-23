@@ -55,6 +55,7 @@ struct ActiveTurn {
 
 static ACTIVE_TURN: Mutex<Option<ActiveTurn>> = Mutex::new(None);
 static NEXT_TURN_ID: AtomicU64 = AtomicU64::new(1);
+static SESSION_LIFECYCLE: Mutex<()> = Mutex::new(());
 
 /// Install the app handle so the session/pipeline can emit frontend events from
 /// outside a command context. Call once from `Builder::setup`.
@@ -75,6 +76,8 @@ pub(crate) async fn companion_start_session(
     consent: bool,
 ) -> Result<StartCompanionSessionResult, String> {
     debug!("{LOG_PREFIX} companion_start_session consent={consent}");
+    let _lifecycle = SESSION_LIFECYCLE.lock();
+    cleanup_expired_session();
     let ttl_secs = current_config().ttl_secs;
     session::start_session(&StartCompanionSessionParams {
         consent,
@@ -86,19 +89,32 @@ pub(crate) async fn companion_start_session(
 #[tauri::command]
 pub(crate) async fn companion_stop_session() -> Result<StopCompanionSessionResult, String> {
     debug!("{LOG_PREFIX} companion_stop_session");
-    cancel_active_turn();
-    // Tear down any in-flight capture so the mic is released.
-    if let Some(capture) = ACTIVE_CAPTURE.lock().take() {
-        let _ = capture.stop();
-    }
+    let _lifecycle = SESSION_LIFECYCLE.lock();
+    stop_session_resources();
     session::stop_session(&StopCompanionSessionParams {
         reason: Some("user_requested".into()),
     })
 }
 
+fn stop_session_resources() {
+    cancel_active_turn();
+    if let Some(capture) = ACTIVE_CAPTURE.lock().take() {
+        let _ = capture.stop();
+    }
+}
+
+fn cleanup_expired_session() {
+    if session::session_is_expired() {
+        stop_session_resources();
+        let _ = session::expire_session_if_needed();
+    }
+}
+
 /// Get the current desktop companion session status.
 #[tauri::command]
 pub(crate) async fn companion_status() -> Result<CompanionSessionStatus, String> {
+    let _lifecycle = SESSION_LIFECYCLE.lock();
+    cleanup_expired_session();
     Ok(session::session_status())
 }
 
@@ -163,6 +179,8 @@ pub fn handle_activation(app: AppHandle<AppRuntime>) {
 }
 
 fn start_capture() {
+    let _lifecycle = SESSION_LIFECYCLE.lock();
+    cleanup_expired_session();
     let status = session::session_status();
     if !status.active {
         debug!("{LOG_PREFIX} activation ignored — no active session");
@@ -178,6 +196,10 @@ fn start_capture() {
     // Interrupt any previous STT/LLM/TTS task before the new capture owns the
     // Listening state. The pipeline observes this token between every phase.
     cancel_active_turn();
+    // A cancelled pre-STT turn can still own Listening after its capture was
+    // consumed. Retire that state while holding the capture lock so its later
+    // cleanup cannot race a newly-started microphone capture.
+    session::finish_listening_turn();
 
     if let Err(e) = session::transition_state(CompanionState::Listening, None) {
         warn!("{LOG_PREFIX} could not enter Listening: {e}");
@@ -196,6 +218,7 @@ fn start_capture() {
 }
 
 fn finish_capture_and_run(app: AppHandle<AppRuntime>) {
+    let _lifecycle = SESSION_LIFECYCLE.lock();
     let Some(capture) = ACTIVE_CAPTURE.lock().take() else {
         debug!("{LOG_PREFIX} capture stop ignored — not listening");
         return;
@@ -216,6 +239,13 @@ fn finish_capture_and_run(app: AppHandle<AppRuntime>) {
         }
         clear_active_turn(turn_id);
     });
+}
+
+pub(super) fn finish_listening_without_active_capture() {
+    let capture = ACTIVE_CAPTURE.lock();
+    if capture.is_none() {
+        session::finish_listening_turn();
+    }
 }
 
 fn register_active_turn() -> (u64, CancellationToken) {

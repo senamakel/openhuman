@@ -122,7 +122,11 @@ pub fn stop_session(
             info!(
                 "{LOG_PREFIX} stopping session id={session_id} reason={reason} turns={turn_count}",
             );
+            let previous = inner.state;
             drop(guard);
+            if previous != CompanionState::Idle {
+                events::emit_state_changed(&session_id, CompanionState::Idle, previous);
+            }
 
             Ok(StopCompanionSessionResult {
                 stopped: true,
@@ -139,39 +143,47 @@ pub fn stop_session(
     }
 }
 
+/// Return whether the active session has exceeded its TTL.
+pub fn session_is_expired() -> bool {
+    let guard = ACTIVE_SESSION.lock();
+    guard
+        .as_ref()
+        .and_then(|inner| inner.expires_at_ms)
+        .is_some_and(|expires_at_ms| chrono::Utc::now().timestamp_millis() >= expires_at_ms)
+}
+
+/// Atomically remove the active session only when its TTL has elapsed.
+pub fn expire_session_if_needed() -> bool {
+    let mut guard = ACTIVE_SESSION.lock();
+    let Some(inner) = guard.as_ref() else {
+        return false;
+    };
+    let expired = inner
+        .expires_at_ms
+        .is_some_and(|expires_at_ms| chrono::Utc::now().timestamp_millis() >= expires_at_ms);
+    if !expired {
+        return false;
+    }
+
+    let stale = guard.take().expect("active session checked above");
+    let session_id = stale.id.clone();
+    let previous = stale.state;
+    let turn_count = stale.conversation.len();
+    drop(guard);
+    info!("{LOG_PREFIX} auto-expiring stale session id={session_id} turns={turn_count}");
+    if previous != CompanionState::Idle {
+        events::emit_state_changed(&session_id, CompanionState::Idle, previous);
+    }
+    true
+}
+
 /// Get the current session status.
 pub fn session_status() -> CompanionSessionStatus {
-    let mut guard = ACTIVE_SESSION.lock();
+    let guard = ACTIVE_SESSION.lock();
     match guard.as_ref() {
         Some(inner) => {
             let now_ms = chrono::Utc::now().timestamp_millis();
             let remaining_ms = inner.expires_at_ms.map(|exp| (exp - now_ms).max(0));
-
-            // Auto-expire if TTL exceeded. Clear inline (guard.take) instead of
-            // calling stop_session() to avoid a TOCTOU race where another thread
-            // starts a new session between drop(guard) and the stop_session() call.
-            if let Some(remaining) = remaining_ms {
-                if remaining == 0 {
-                    let stale = guard.take().expect("checked is_some");
-                    let stale_id = stale.id.clone();
-                    let turn_count = stale.conversation.len();
-                    drop(stale);
-                    drop(guard);
-                    info!(
-                        "{LOG_PREFIX} auto-expiring stale session id={stale_id} turns={turn_count}"
-                    );
-                    return CompanionSessionStatus {
-                        active: false,
-                        state: CompanionState::Idle,
-                        session_id: None,
-                        started_at_ms: None,
-                        expires_at_ms: None,
-                        remaining_ms: None,
-                        turn_count: 0,
-                        last_error: Some("session expired".into()),
-                    };
-                }
-            }
 
             CompanionSessionStatus {
                 active: true,
@@ -282,6 +294,23 @@ pub fn finish_turn() {
     let session_id = inner.id.clone();
     drop(guard);
     events::emit_state_changed(&session_id, CompanionState::Idle, previous);
+}
+
+/// Return a pre-STT/empty-transcript turn from `Listening` to `Idle`.
+///
+/// The caller must ensure no newer microphone capture owns `Listening`.
+pub fn finish_listening_turn() {
+    let mut guard = ACTIVE_SESSION.lock();
+    let Some(inner) = guard.as_mut() else {
+        return;
+    };
+    if inner.state != CompanionState::Listening {
+        return;
+    }
+    inner.state = CompanionState::Idle;
+    let session_id = inner.id.clone();
+    drop(guard);
+    events::emit_state_changed(&session_id, CompanionState::Idle, CompanionState::Listening);
 }
 
 /// Add a conversation turn to the session history.

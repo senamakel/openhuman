@@ -24,6 +24,10 @@ pub const STATE_CHANGED_EVENT: &str = "companion://state_changed";
 /// Process-global `AppHandle`, set once from `Builder::setup`.
 static COMPANION_APP_HANDLE: OnceLock<AppHandle<crate::AppRuntime>> = OnceLock::new();
 
+#[cfg(test)]
+static RECORDED_EVENTS: std::sync::Mutex<Vec<CompanionStateChangedEvent>> =
+    std::sync::Mutex::new(Vec::new());
+
 /// Store the app handle so the pipeline/session can emit frontend events from
 /// outside a command context. Idempotent — a second write is ignored.
 pub fn set_app_handle(app: AppHandle<crate::AppRuntime>) {
@@ -38,14 +42,19 @@ pub fn set_app_handle(app: AppHandle<crate::AppRuntime>) {
 /// the emit fails, we log and move on rather than failing the turn.
 pub fn emit_state_changed(session_id: &str, state: CompanionState, previous: CompanionState) {
     debug!("{LOG_PREFIX} state_changed session={session_id} {previous} -> {state}");
-    let Some(app) = COMPANION_APP_HANDLE.get() else {
-        debug!("{LOG_PREFIX} no app handle installed — state change not delivered to frontend");
-        return;
-    };
     let payload = CompanionStateChangedEvent {
         session_id: session_id.to_string(),
         state,
         previous_state: previous,
+    };
+    #[cfg(test)]
+    RECORDED_EVENTS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .push(payload.clone());
+    let Some(app) = COMPANION_APP_HANDLE.get() else {
+        debug!("{LOG_PREFIX} no app handle installed — state change not delivered to frontend");
+        return;
     };
     if let Err(e) = app.emit(STATE_CHANGED_EVENT, payload) {
         debug!("{LOG_PREFIX} emit {STATE_CHANGED_EVENT} failed: {e}");
@@ -61,4 +70,13 @@ pub fn emit_state_changed(session_id: &str, state: CompanionState, previous: Com
     });
     let delivered = openhuman_core::core::socketio::publish_companion_state_changed(socket_payload);
     debug!("{LOG_PREFIX} queued companion state for {delivered} Socket.IO bridge subscriber(s)");
+}
+
+#[cfg(test)]
+pub(crate) fn take_recorded_events() -> Vec<CompanionStateChangedEvent> {
+    std::mem::take(
+        &mut *RECORDED_EVENTS
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()),
+    )
 }

@@ -105,8 +105,9 @@ pub(crate) async fn register_companion_hotkey(
 }
 
 /// Unregister the global companion hotkey (if any).
-#[tauri::command]
-pub(crate) async fn unregister_companion_hotkey(app: AppHandle<AppRuntime>) -> Result<(), String> {
+pub(crate) fn unregister_companion_hotkey_for_app(
+    app: &AppHandle<AppRuntime>,
+) -> Result<(), String> {
     info!("[companion] unregister_companion_hotkey: called");
     let state = app.state::<CompanionHotkeyState>();
     let mut guard = state.0.lock().unwrap();
@@ -130,6 +131,12 @@ pub(crate) async fn unregister_companion_hotkey(app: AppHandle<AppRuntime>) -> R
         guard.clear();
     }
     Ok(())
+}
+
+/// Tauri command wrapper around the shared lifecycle cleanup.
+#[tauri::command]
+pub(crate) async fn unregister_companion_hotkey(app: AppHandle<AppRuntime>) -> Result<(), String> {
+    unregister_companion_hotkey_for_app(&app)
 }
 
 /// Programmatic companion activation (e.g. from a "Test" button in settings).

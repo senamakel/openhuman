@@ -73,11 +73,12 @@ pub(super) fn current_config() -> CompanionConfig {
 /// Start a desktop companion session with explicit consent.
 #[tauri::command]
 pub(crate) async fn companion_start_session(
+    app: AppHandle<AppRuntime>,
     consent: bool,
 ) -> Result<StartCompanionSessionResult, String> {
     debug!("{LOG_PREFIX} companion_start_session consent={consent}");
     let _lifecycle = SESSION_LIFECYCLE.lock();
-    cleanup_expired_session();
+    cleanup_expired_session(&app);
     let ttl_secs = current_config().ttl_secs;
     session::start_session(&StartCompanionSessionParams {
         consent,
@@ -87,13 +88,17 @@ pub(crate) async fn companion_start_session(
 
 /// Stop the active desktop companion session.
 #[tauri::command]
-pub(crate) async fn companion_stop_session() -> Result<StopCompanionSessionResult, String> {
+pub(crate) async fn companion_stop_session(
+    app: AppHandle<AppRuntime>,
+) -> Result<StopCompanionSessionResult, String> {
     debug!("{LOG_PREFIX} companion_stop_session");
     let _lifecycle = SESSION_LIFECYCLE.lock();
     stop_session_resources();
-    session::stop_session(&StopCompanionSessionParams {
+    let result = session::stop_session(&StopCompanionSessionParams {
         reason: Some("user_requested".into()),
-    })
+    })?;
+    crate::companion_commands::unregister_companion_hotkey_for_app(&app)?;
+    Ok(result)
 }
 
 fn stop_session_resources() {
@@ -103,18 +108,23 @@ fn stop_session_resources() {
     }
 }
 
-fn cleanup_expired_session() {
+fn cleanup_expired_session(app: &AppHandle<AppRuntime>) {
     if session::session_is_expired() {
         stop_session_resources();
         let _ = session::expire_session_if_needed();
+        if let Err(error) = crate::companion_commands::unregister_companion_hotkey_for_app(app) {
+            warn!("{LOG_PREFIX} failed to unregister expired session hotkey: {error}");
+        }
     }
 }
 
 /// Get the current desktop companion session status.
 #[tauri::command]
-pub(crate) async fn companion_status() -> Result<CompanionSessionStatus, String> {
+pub(crate) async fn companion_status(
+    app: AppHandle<AppRuntime>,
+) -> Result<CompanionSessionStatus, String> {
     let _lifecycle = SESSION_LIFECYCLE.lock();
-    cleanup_expired_session();
+    cleanup_expired_session(&app);
     Ok(session::session_status())
 }
 
@@ -147,7 +157,7 @@ pub fn handle_hotkey_pressed(app: AppHandle<AppRuntime>) {
         .activation_mode
         .eq_ignore_ascii_case("push")
     {
-        start_capture();
+        start_capture(&app);
     } else {
         handle_activation(app);
     }
@@ -174,13 +184,13 @@ pub fn handle_activation(app: AppHandle<AppRuntime>) {
     if ACTIVE_CAPTURE.lock().is_some() {
         finish_capture_and_run(app);
     } else {
-        start_capture();
+        start_capture(&app);
     }
 }
 
-fn start_capture() {
+fn start_capture(app: &AppHandle<AppRuntime>) {
     let _lifecycle = SESSION_LIFECYCLE.lock();
-    cleanup_expired_session();
+    cleanup_expired_session(app);
     let status = session::session_status();
     if !status.active {
         debug!("{LOG_PREFIX} activation ignored — no active session");

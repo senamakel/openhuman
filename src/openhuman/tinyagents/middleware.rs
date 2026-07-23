@@ -38,7 +38,6 @@ use tinyagents::harness::middleware::{
 use tinyagents::harness::model::{ModelRequest, ModelResponse, PromptSegment, SegmentRole};
 use tinyagents::harness::no_progress::{
     NoProgress, NoProgressTracker, SuccessfulRepeat, SuccessfulRepeatTracker, ToolAttempt,
-    DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
 };
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
@@ -2997,6 +2996,9 @@ impl Middleware<()> for ImageAwareMessageTrimMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tinyagents::harness::no_progress::{
+        DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
+    };
 
     // #4462: image-aware token estimation. A base64 image marker must be priced
     // at the flat IMAGE_MARKER_TOKEN_COST, not chars/4 of its payload — otherwise

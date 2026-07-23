@@ -1060,6 +1060,14 @@ fn resolve_managed_backend(
     role: &str,
     config: &Config,
 ) -> anyhow::Result<(OpenHumanBackendModel, String)> {
+    resolve_managed_backend_with_model_override(role, config, None)
+}
+
+fn resolve_managed_backend_with_model_override(
+    role: &str,
+    config: &Config,
+    model_override: Option<&str>,
+) -> anyhow::Result<(OpenHumanBackendModel, String)> {
     let model = if let Some(tier) = managed_tier_for_role(role) {
         log::debug!(
             "[providers][chat-factory] role={} pinned to managed tier model={}",
@@ -1153,7 +1161,13 @@ fn resolve_managed_backend(
             }
         }
     };
-    // Egress spine (privacy epic S2, #4436): `resolve_managed_backend` is the
+    let model = model_override
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or(model);
+
+    // Egress spine (privacy epic S2, #4436): managed backend resolution is the
     // universal chokepoint for EVERY managed-backend inference construction —
     // the direct ChatModel path and both turn paths
     // (`create_turn_chat_model[_from_string]_with_native_tools`) resolve here.
@@ -2228,21 +2242,15 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         AuthStyle::Anthropic => CompatAuthStyle::Anthropic,
         AuthStyle::None => CompatAuthStyle::None,
         AuthStyle::OpenhumanJwt => {
-            let (backend, resolved_model) = match resolve_managed_backend(role, config) {
-                Ok(result) => result,
-                Err(error) => return Some(Err(error)),
-            };
-            let pinned_model = if effective_model.trim().is_empty() {
-                resolved_model
-            } else {
-                effective_model
-            };
+            let model_override =
+                (!effective_model.trim().is_empty()).then_some(effective_model.as_str());
+            let (backend, pinned_model) =
+                match resolve_managed_backend_with_model_override(role, config, model_override) {
+                    Ok(result) => result,
+                    Err(error) => return Some(Err(error)),
+                };
             return Some(Ok((
-                Arc::new(
-                    backend
-                        .with_default_model(&pinned_model)
-                        .with_native_tool_calling(native_tool_calling),
-                ),
+                Arc::new(backend.with_native_tool_calling(native_tool_calling)),
                 pinned_model,
             )));
         }

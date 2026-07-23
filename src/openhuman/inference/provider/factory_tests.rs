@@ -214,6 +214,7 @@ fn config_api_key_fallback_inert_without_inference_url() {
 
 #[test]
 fn mlx_provider_string_resolves() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "mlx:llama-3.1-8b", &config);
     assert!(result.is_ok(), "mlx provider must resolve");
@@ -223,6 +224,7 @@ fn mlx_provider_string_resolves() {
 
 #[test]
 fn local_openai_provider_string_resolves() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "local-openai:phi3", &config);
     assert!(result.is_ok(), "local-openai provider must resolve");
@@ -232,6 +234,7 @@ fn local_openai_provider_string_resolves() {
 
 #[test]
 fn mlx_provider_empty_model_errors() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "mlx:", &config);
     let err = result.err().expect("mlx: with empty model must error");
@@ -240,6 +243,7 @@ fn mlx_provider_empty_model_errors() {
 
 #[test]
 fn local_openai_provider_empty_model_errors() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = Config::default();
     let result = create_test_chat_model_from_string("chat", "local-openai:", &config);
     let err = result
@@ -250,6 +254,7 @@ fn local_openai_provider_empty_model_errors() {
 
 #[test]
 fn ollama_provider_passes_num_ctx() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.local_ai.num_ctx = Some(32768);
     let result = create_test_chat_model_from_string("chat", "ollama:qwen3:14b", &config);
@@ -445,6 +450,7 @@ fn role_for_model_tier_unknown_falls_back_to_chat() {
 
 #[test]
 fn omlx_provider_builds_with_bearer_key() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = crate::openhuman::config::Config::default();
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
@@ -455,6 +461,7 @@ fn omlx_provider_builds_with_bearer_key() {
 
 #[test]
 fn omlx_dispatch_empty_model_errors() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     // Covers the empty-model bail! arms in create_test_chat_model_from_string
     // and create_test_local_chat_model_from_string for the "omlx:" prefix.
     let config = crate::openhuman::config::Config::default();
@@ -480,6 +487,7 @@ fn omlx_dispatch_empty_model_errors() {
 
 #[test]
 fn omlx_provider_builds_without_key_uses_no_auth() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     // Covers the no-api_key OMLX builder branch — must not panic and must
     // return Ok with the correct model name.
     let mut config = crate::openhuman::config::Config::default();
@@ -492,6 +500,7 @@ fn omlx_provider_builds_without_key_uses_no_auth() {
 
 #[test]
 fn omlx_dispatch_success_builds_provider() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     // Covers the non-empty OMLX model success arms in both
     // create_test_chat_model_from_string and create_test_local_chat_model_from_string.
     let mut config = crate::openhuman::config::Config::default();
@@ -1060,6 +1069,57 @@ fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
             .and_then(|profile| profile.provider.as_deref()),
         Some("managed"),
         "OpenhumanJwt must use the crate-native managed backend model"
+    );
+}
+
+#[tokio::test]
+async fn openhuman_jwt_slug_discloses_pinned_model() {
+    use crate::core::event_bus::{init_global, publish_global, DomainEvent, DEFAULT_CAPACITY};
+    use crate::openhuman::security::egress::{EgressDescriptor, EgressReason};
+    use std::time::Duration;
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    init_global(DEFAULT_CAPACITY);
+    let mut rx = crate::core::event_bus::global().unwrap().raw_receiver();
+
+    let marker = "egress-jwt-pinned-marker-v1";
+    let mut config = Config::default();
+    config.cloud_providers.push(oh_entry("p_oh"));
+    let provider = format!("openhuman:{marker}");
+    let _ = try_create_cloud_slug_chat_model_from_string("chat", &provider, &config)
+        .expect("configured OpenhumanJwt slug should be recognized")
+        .expect("managed model should build");
+
+    let sentinel = "egress-jwt-pinned-sentinel-end";
+    publish_global(DomainEvent::ExternalTransferPending {
+        descriptor: EgressDescriptor::network_fetch(sentinel),
+        thread_id: None,
+        client_id: None,
+    });
+
+    let mut count = 0usize;
+    loop {
+        match tokio::time::timeout(Duration::from_secs(3), rx.recv()).await {
+            Ok(Ok(DomainEvent::ExternalTransferPending { descriptor, .. })) => {
+                if descriptor.service == marker {
+                    assert_eq!(descriptor.provider_slug, "openhuman");
+                    assert!(matches!(descriptor.reason, EgressReason::Inference));
+                    count += 1;
+                } else if descriptor.service == sentinel {
+                    break;
+                }
+            }
+            Ok(Ok(_)) => continue,
+            Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(_))) => continue,
+            Ok(Err(tokio::sync::broadcast::error::RecvError::Closed)) => {
+                panic!("event bus closed before sentinel arrived")
+            }
+            Err(_) => panic!("timed out before egress sentinel arrived"),
+        }
+    }
+    assert_eq!(
+        count, 1,
+        "JWT construction must disclose its pinned model once"
     );
 }
 

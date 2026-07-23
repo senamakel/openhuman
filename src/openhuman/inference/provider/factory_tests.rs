@@ -717,7 +717,10 @@ fn standard_mode_permits_external() {
 fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // Drive the live-policy-backed wrapper: install a LocalOnly policy, then
     // assert an external provider is refused with the privacy message and a
-    // local provider passes.
+    // local provider passes. Factory tests use `inference_test_guard`; take the
+    // same lock before mutating the process-global live policy so parallel
+    // cloud-model construction cannot observe this temporary LocalOnly mode.
+    let _inference = crate::openhuman::inference::inference_test_guard();
     let _env = crate::openhuman::config::TEST_ENV_LOCK
         .lock()
         .unwrap_or_else(|e| e.into_inner());

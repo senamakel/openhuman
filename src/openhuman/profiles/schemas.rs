@@ -298,23 +298,24 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let _env = WorkspaceEnvGuard::set(temp.path());
 
-        // Seed the built-in default home the way first activation does; the
+        const PROFILE_ID: &str = "reasoning";
+        // Seed a non-default built-in home the way first activation does; the
+        // unedited Default intentionally keeps using the legacy root SOUL.md.
         // enriched payload advertises the resolved SOUL.md path once it exists.
         let selected = handle_profile_select(Map::from_iter([(
             "profile_id".into(),
-            Value::String(DEFAULT_PROFILE_ID.into()),
+            Value::String(PROFILE_ID.into()),
         )]))
         .await
-        .expect("select default");
-        let soul_path =
-            soul_md_file(&selected, DEFAULT_PROFILE_ID).expect("select seeds the built-in SOUL.md");
+        .expect("select built-in");
+        let soul_path = soul_md_file(&selected, PROFILE_ID).expect("select seeds built-in SOUL.md");
 
         // User later edits the built-in's Soul in Settings.
         handle_profile_upsert(Map::from_iter([(
             "profile".into(),
             json!({
-                "id": DEFAULT_PROFILE_ID,
-                "name": "Default",
+                "id": PROFILE_ID,
+                "name": "Reasoning",
                 "description": "",
                 "agentId": "orchestrator",
                 "soulMd": "Edited built-in persona.",
@@ -339,22 +340,22 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let _env = WorkspaceEnvGuard::set(temp.path());
 
+        const PROFILE_ID: &str = "reasoning";
         let selected = handle_profile_select(Map::from_iter([(
             "profile_id".into(),
-            Value::String(DEFAULT_PROFILE_ID.into()),
+            Value::String(PROFILE_ID.into()),
         )]))
         .await
-        .expect("select default");
-        let soul_path =
-            soul_md_file(&selected, DEFAULT_PROFILE_ID).expect("select seeds the built-in SOUL.md");
+        .expect("select built-in");
+        let soul_path = soul_md_file(&selected, PROFILE_ID).expect("select seeds built-in SOUL.md");
         std::fs::write(&soul_path, "MANUAL EDIT").unwrap();
 
         // Upsert with no soulMd — must not touch the manually edited file.
         handle_profile_upsert(Map::from_iter([(
             "profile".into(),
             json!({
-                "id": DEFAULT_PROFILE_ID,
-                "name": "Default",
+                "id": PROFILE_ID,
+                "name": "Reasoning",
                 "description": "",
                 "agentId": "orchestrator",
                 "builtIn": true,

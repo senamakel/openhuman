@@ -144,8 +144,7 @@ describe('CompanionPanel', () => {
       if (cmd === 'companion_start_session')
         return { session_id: 'new-sess', state: 'idle', expires_at_ms: null };
       if (cmd === 'register_companion_hotkey') throw new Error('shortcut unavailable');
-      if (cmd === 'companion_stop_session')
-        return { stopped: true, reason: 'user_requested' };
+      if (cmd === 'companion_stop_session') return { stopped: true, reason: 'user_requested' };
       if (cmd === 'companion_status') return mockStatus;
       if (cmd === 'companion_config_get') return mockConfig;
       throw new Error(`unmocked command: ${cmd}`);

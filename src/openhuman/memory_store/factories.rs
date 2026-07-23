@@ -356,6 +356,12 @@ pub(crate) fn create_session_memory_with_local_ai(
     embedding_routes: &[EmbeddingRouteConfig],
     storage_provider: Option<&StorageProviderConfig>,
     workspace_dir: &Path,
+    // Memory subdirectory under `workspace_dir` — `"memory"` for the shared
+    // tree, `"memory-<id>"` for a profile that opted into dedicated memory
+    // (derived by the session builder from `effective_memory_suffix`). Routes
+    // the session's captures + recall (the `UnifiedMemory` SQLite store) into the
+    // profile's own subtree so `dedicatedMemory` isolation actually takes effect.
+    memory_subdir: &str,
 ) -> anyhow::Result<SessionMemory> {
     let memory = create_unified_memory_full(
         memory,
@@ -364,6 +370,7 @@ pub(crate) fn create_session_memory_with_local_ai(
         local_embedding_model,
         embedding_api_key,
         workspace_dir,
+        memory_subdir,
     )?;
     let sqlite_connection = Arc::clone(&memory.conn);
     Ok(SessionMemory {
@@ -427,6 +434,9 @@ fn create_memory_full(
         local_embedding_model,
         embedding_api_key,
         workspace_dir,
+        // Non-session callers (migration, standalone memory) always use the
+        // shared default subtree.
+        "memory",
     )?))
 }
 
@@ -437,6 +447,7 @@ fn create_unified_memory_full(
     local_embedding_model: Option<&str>,
     embedding_api_key: &str,
     workspace_dir: &Path,
+    memory_subdir: &str,
 ) -> anyhow::Result<UnifiedMemory> {
     // 1. Resolve the intended provider from config.
     let intended = effective_embedding_settings(config, local_embedding_model);
@@ -506,8 +517,15 @@ fn create_unified_memory_full(
         })?,
     );
 
-    // 4. Instantiate UnifiedMemory which handles SQLite and vector storage.
-    UnifiedMemory::new(workspace_dir, embedder, config.sqlite_open_timeout_secs)
+    // 4. Instantiate UnifiedMemory which handles SQLite and vector storage,
+    //    rooted at the caller-selected subtree (`memory` shared, `memory-<id>`
+    //    for a dedicated-memory profile).
+    UnifiedMemory::new_with_memory_dir(
+        workspace_dir,
+        memory_subdir,
+        embedder,
+        config.sqlite_open_timeout_secs,
+    )
 }
 
 /// Create a memory instance specifically for migration purposes.

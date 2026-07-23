@@ -827,33 +827,36 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         const content = event.full_response?.trim() ?? '';
         if (!content) return;
-        // Persist this round's leading narration as its own interleaved bubble,
-        // stamped with the producing turn's request id (Phase 4 anchoring).
-        // `isInterim: true` marks this as between-tool narration rather than a
-        // turn's terminal answer — the main chat still renders it as a bubble
-        // (unchanged), but callers that only want the terminal turn (e.g. the
-        // Flows copilot's `displayMessages`, see `useWorkflowBuilderChat`) can
-        // filter it out.
-        rtLog('interim_narration_tagged', {
+        // Narration is NOT promoted to a chat message any more.
+        //
+        // It used to be persisted here via `addInferenceResponse({ isInterim })`,
+        // which gave it a lifetime no other progress signal has: thinking is
+        // wiped at `chat_done`, tool rows collapse, but narration bubbles
+        // ("Let me get the data for both.", "The HTML is hard to parse…")
+        // stayed in the thread forever, wedged between the question and the
+        // answer they were superseded by.
+        //
+        // It is already captured twice over without this: `streamDeltaReceived`
+        // coalesces every `content` delta into `processingByThread` as a
+        // `narration` transcript item (chatRuntimeSlice), and the core persists
+        // the same thing server-side as `TranscriptItem::Narration`, kept after
+        // completion so a reload replays it. The inline rail and the Agent
+        // Process Source panel both render that transcript — so narration is
+        // still fully visible while the turn runs, and still inspectable after,
+        // just not as a permanent chat bubble.
+        //
+        // The event is still consumed (not dropped upstream) for its dedup key
+        // and the preview reset below, both of which are round-scoped.
+        rtLog('interim_narration_observed', {
           thread: event.thread_id,
           request: event.request_id,
           round: event.round,
         });
-        void dispatch(
-          addInferenceResponse({
-            content,
-            threadId: event.thread_id,
-            extraMetadata: {
-              isInterim: true,
-              ...(event.request_id ? { requestId: event.request_id } : {}),
-            },
-          })
-        );
-        // The narration has now become a bubble, so drop it from the live
-        // streaming preview (which accumulates across the whole turn under one
-        // request_id) — otherwise the same text lingers in the preview tail and
-        // reads as a duplicate for the full duration of the tool call. Reset
-        // synchronously so the next round's deltas start from an empty buffer.
+        // Drop the round's narration from the live streaming preview, which
+        // accumulates across the whole turn under one request_id. This matters
+        // MORE now: without it the same text renders both in the rail (as a
+        // transcript item) and in the preview tail. Reset synchronously so the
+        // next round's deltas start from an empty buffer.
         const cr = store.getState().chatRuntime;
         const existing = cr.streamingAssistantByThread[event.thread_id];
         if (existing && existing.requestId === event.request_id) {

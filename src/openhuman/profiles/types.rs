@@ -66,6 +66,16 @@ pub struct AgentProfile {
     /// Display order (lower = shown first).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sort_order: Option<u32>,
+    /// Give this profile its own memory subtree (`memory-<id>`,
+    /// `memory_tree-<id>`, `session_raw-<id>`) instead of the shared/global one.
+    /// Default false. See [`super::paths::effective_memory_suffix`].
+    #[serde(default)]
+    pub dedicated_memory: bool,
+    /// Give this profile its own working directory under `action_dir`
+    /// (`<action_dir>/profiles/<id>`) used as the default cwd for its tool runs.
+    /// Default false. See [`super::home::dedicated_workspace_dir`].
+    #[serde(default)]
+    pub dedicated_workspace: bool,
 }
 
 /// serde default for `include_agent_conversations` (true).
@@ -115,6 +125,8 @@ mod tests {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         };
         assert!(profile_signature(&profile).contains("\"planner\""));
     }
@@ -144,5 +156,28 @@ mod tests {
         // Defaults to true so existing users keep cross-chat recall.
         assert!(profile.include_agent_conversations);
         assert!(!profile.is_master);
+        // New home fields default to false so legacy payloads keep behaving.
+        assert!(!profile.dedicated_memory);
+        assert!(!profile.dedicated_workspace);
+    }
+
+    #[test]
+    fn new_home_fields_roundtrip_over_camelcase() {
+        let json = json!({
+            "id": "alice",
+            "name": "Alice",
+            "description": "",
+            "agentId": "orchestrator",
+            "builtIn": false,
+            "dedicatedMemory": true,
+            "dedicatedWorkspace": true
+        });
+        let profile: AgentProfile = serde_json::from_value(json).expect("deserialize");
+        assert!(profile.dedicated_memory);
+        assert!(profile.dedicated_workspace);
+        // Serializes back out as camelCase.
+        let out = serde_json::to_value(&profile).expect("serialize");
+        assert_eq!(out["dedicatedMemory"], serde_json::json!(true));
+        assert_eq!(out["dedicatedWorkspace"], serde_json::json!(true));
     }
 }

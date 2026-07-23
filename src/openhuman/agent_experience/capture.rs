@@ -5,7 +5,8 @@ use std::sync::Arc;
 use crate::openhuman::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
 use crate::openhuman::agent_experience::store::AgentExperienceStore;
 use crate::openhuman::agent_experience::types::{
-    redact_text, stable_experience_id, AgentExperience, ExperienceOutcome, ExperienceSource,
+    redact_text, stable_experience_id, stable_experience_id_for_profile, AgentExperience,
+    ExperienceOutcome, ExperienceSource,
 };
 use crate::openhuman::memory::Memory;
 
@@ -14,18 +15,37 @@ const MAX_SUMMARY_CHARS: usize = 280;
 pub struct AgentExperienceCaptureHook {
     store: AgentExperienceStore,
     enabled: bool,
+    /// Profile the session runs under (1c). Stamped onto every captured record
+    /// so retrieval can partition by profile. `None` for the profile-less
+    /// session — those records stay unstamped (shared/legacy).
+    profile_id: Option<String>,
 }
 
 impl AgentExperienceCaptureHook {
     pub fn new(memory: Arc<dyn Memory>, enabled: bool) -> Self {
+        Self::with_profile(memory, enabled, None)
+    }
+
+    /// [`Self::new`] carrying the active profile id (1c). The session builder
+    /// passes the resolved profile so captured records are stamped with it.
+    pub fn with_profile(
+        memory: Arc<dyn Memory>,
+        enabled: bool,
+        profile_id: Option<String>,
+    ) -> Self {
         Self {
             store: AgentExperienceStore::new(memory),
             enabled,
+            profile_id,
         }
     }
 
     pub fn from_store(store: AgentExperienceStore, enabled: bool) -> Self {
-        Self { store, enabled }
+        Self {
+            store,
+            enabled,
+            profile_id: None,
+        }
     }
 
     pub fn extract_candidates(ctx: &TurnContext) -> Vec<AgentExperience> {
@@ -64,7 +84,23 @@ impl PostTurnHook for AgentExperienceCaptureHook {
             return Ok(());
         }
 
-        for candidate in Self::extract_candidates(ctx) {
+        for mut candidate in Self::extract_candidates(ctx) {
+            // Stamp the active profile (1c) so retrieval can partition. Left as
+            // `None` for the profile-less session — unstamped records read as
+            // shared/legacy and surface under any profile.
+            candidate.profile_id = self.profile_id.clone();
+            // Re-derive the storage key to include the profile now that it's
+            // stamped: `extract_candidates` builds the id profile-agnostically, so
+            // two profiles hitting the same task/tool/outcome triple would
+            // otherwise share one `experience/<id>` key and overwrite each other.
+            // `None` reproduces the legacy id byte-for-byte (see
+            // `stable_experience_id_for_profile`).
+            candidate.id = stable_experience_id_for_profile(
+                &candidate.task_summary,
+                &candidate.tool_sequence,
+                candidate.outcome,
+                candidate.profile_id.as_deref(),
+            );
             if let Err(err) = self.store.put(candidate).await {
                 log::warn!("[agent-experience] failed to capture turn experience: {err}");
             }
@@ -217,6 +253,10 @@ fn build_experience(
         source: ExperienceSource::ToolLoop,
         agent_id: clean_optional(agent_id),
         entrypoint: clean_optional(entrypoint),
+        // Stamped by the hook's `on_turn_complete` from the active profile;
+        // `extract_candidates` stays profile-agnostic so its unit tests need no
+        // profile context.
+        profile_id: None,
         task_fingerprint: stable_task_fingerprint(&task_summary),
         task_summary,
         tools_used,
@@ -370,5 +410,78 @@ mod tests {
         assert_eq!(stored[0].outcome, ExperienceOutcome::Success);
         assert_eq!(stored[0].agent_id.as_deref(), Some("orchestrator"));
         assert_eq!(stored[0].entrypoint.as_deref(), Some("web_channel"));
+        // Profile-less hook leaves records unstamped (shared/legacy).
+        assert_eq!(stored[0].profile_id, None);
+    }
+
+    #[tokio::test]
+    async fn on_turn_complete_stamps_active_profile() {
+        let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
+        let hook = AgentExperienceCaptureHook::with_profile(
+            memory.clone(),
+            true,
+            Some("alice".to_string()),
+        );
+
+        hook.on_turn_complete(&ctx_with(vec![
+            call("grep", true, "grep: ok (20 chars)"),
+            call("file_read", true, "file_read: ok (100 chars)"),
+        ]))
+        .await
+        .unwrap();
+
+        let stored = AgentExperienceStore::new(memory).list().await.unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(
+            stored[0].profile_id.as_deref(),
+            Some("alice"),
+            "captured record must be stamped with the active profile id"
+        );
+    }
+
+    #[tokio::test]
+    async fn identical_candidates_under_different_profiles_do_not_collide() {
+        // Alice and Bob learn the same task/tool/outcome triple. Their records
+        // must land under distinct storage keys so neither overwrites the other,
+        // and the profile-less (None) key must match the legacy derivation.
+        let calls = || {
+            vec![
+                call("grep", true, "grep: ok (20 chars)"),
+                call("file_read", true, "file_read: ok (100 chars)"),
+            ]
+        };
+
+        let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
+        AgentExperienceCaptureHook::with_profile(memory.clone(), true, Some("alice".to_string()))
+            .on_turn_complete(&ctx_with(calls()))
+            .await
+            .unwrap();
+        AgentExperienceCaptureHook::with_profile(memory.clone(), true, Some("bob".to_string()))
+            .on_turn_complete(&ctx_with(calls()))
+            .await
+            .unwrap();
+        AgentExperienceCaptureHook::new(memory.clone(), true)
+            .on_turn_complete(&ctx_with(calls()))
+            .await
+            .unwrap();
+
+        let stored = AgentExperienceStore::new(memory).list().await.unwrap();
+        // Three distinct records rather than one repeatedly-overwritten key.
+        assert_eq!(stored.len(), 3, "each profile keeps its own record");
+        let ids: std::collections::HashSet<&str> = stored.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids.len(), 3, "the three storage keys must be distinct");
+
+        // The profile-less record's key matches the legacy (profile-agnostic)
+        // derivation for the same triple.
+        let none_record = stored
+            .iter()
+            .find(|e| e.profile_id.is_none())
+            .expect("a profile-less record");
+        let legacy_id = stable_experience_id(
+            &none_record.task_summary,
+            &none_record.tool_sequence,
+            none_record.outcome,
+        );
+        assert_eq!(none_record.id, legacy_id);
     }
 }

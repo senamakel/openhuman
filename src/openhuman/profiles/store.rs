@@ -148,6 +148,7 @@ impl AgentProfileStore {
     pub fn upsert(&self, profile: AgentProfile) -> Result<AgentProfilesState, String> {
         let mut state = self.load()?;
         let profile = normalise_profile(profile);
+        super::home::validate_profile_id(&profile.id)?;
         tracing::debug!(
             profile_id = %profile.id,
             agent_id = %profile.agent_id,
@@ -171,6 +172,8 @@ impl AgentProfileStore {
             default.include_agent_conversations = profile.include_agent_conversations;
             default.allowed_skills = profile.allowed_skills;
             default.allowed_mcp_servers = profile.allowed_mcp_servers;
+            default.dedicated_memory = profile.dedicated_memory;
+            default.dedicated_workspace = profile.dedicated_workspace;
             // memory_dir_suffix stays as built-in default (don't let user override the default's suffix)
             default.sort_order = profile.sort_order;
             default
@@ -332,6 +335,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
         AgentProfile {
             id: "research".to_string(),
@@ -358,6 +363,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
         AgentProfile {
             id: "planner".to_string(),
@@ -384,6 +391,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
         AgentProfile {
             id: "review".to_string(),
@@ -410,6 +419,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
     ]
 }
@@ -437,6 +448,8 @@ pub(crate) fn built_in_default_profile() -> AgentProfile {
         memory_dir_suffix: Some("".into()),
         is_master: true,
         sort_order: None,
+        dedicated_memory: false,
+        dedicated_workspace: false,
     }
 }
 
@@ -575,6 +588,14 @@ fn next_available_suffix(existing: &std::collections::HashSet<String>) -> String
     }
 }
 
+/// Normalise a raw profile id into its persisted slug form, mirroring the
+/// transformation `normalise_profile` applies on upsert. Exposed so callers
+/// (e.g. `ops::upsert`) can locate the persisted profile by its stored id after
+/// the store has slugified it.
+pub(crate) fn normalise_profile_id(input: &str) -> String {
+    slugify_profile_id(input)
+}
+
 fn slugify_profile_id(input: &str) -> String {
     let mut out = String::new();
     let mut last_was_sep = false;
@@ -629,6 +650,8 @@ mod tests {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         }
     }
 
@@ -662,6 +685,24 @@ mod tests {
 
         let resolved = store.resolve(Some("custom-profile")).expect("resolve").1;
         assert_eq!(resolved.id, "custom-profile");
+    }
+
+    #[test]
+    fn upsert_rejects_profile_ids_longer_than_home_path_limit() {
+        let dir = tempdir().expect("tempdir");
+        let store = AgentProfileStore::new(dir.path().to_path_buf());
+        let profile = custom(&"a".repeat(65), "Overlong", "orchestrator");
+
+        let error = store
+            .upsert(profile)
+            .expect_err("overlong id must be rejected");
+        assert!(error.contains("too long"));
+        assert!(store
+            .load()
+            .expect("load")
+            .profiles
+            .iter()
+            .all(|profile| profile.name != "Overlong"));
     }
 
     #[test]
@@ -729,6 +770,8 @@ mod tests {
         profile.system_prompt_suffix = Some(" suffix ".into());
         profile.allowed_tools = Some(vec![" todo ".into()]);
         profile.memory_sources = Some(vec!["slack-eng".into()]);
+        profile.dedicated_memory = true;
+        profile.dedicated_workspace = true;
         let state = store.upsert(profile).expect("upsert default");
         let default = state
             .profiles
@@ -744,6 +787,8 @@ mod tests {
             default.memory_sources.as_deref(),
             Some(vec!["slack-eng".to_string()].as_slice())
         );
+        assert!(default.dedicated_memory);
+        assert!(default.dedicated_workspace);
     }
 
     #[test]
@@ -821,6 +866,25 @@ mod tests {
             .expect("upsert charlie");
         let charlie = state.profiles.iter().find(|p| p.id == "charlie").unwrap();
         assert_eq!(charlie.memory_dir_suffix.as_deref(), Some("-1"));
+    }
+
+    #[test]
+    fn upsert_roundtrips_dedicated_home_fields() {
+        let dir = tempdir().expect("tempdir");
+        let store = AgentProfileStore::new(dir.path().to_path_buf());
+        let mut profile = custom("iso", "Iso", "orchestrator");
+        profile.dedicated_memory = true;
+        profile.dedicated_workspace = true;
+        store.upsert(profile).expect("upsert");
+
+        let loaded = store.load().expect("load");
+        let iso = loaded
+            .profiles
+            .iter()
+            .find(|p| p.id == "iso")
+            .expect("iso profile");
+        assert!(iso.dedicated_memory);
+        assert!(iso.dedicated_workspace);
     }
 
     #[test]

@@ -46,7 +46,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "list" => ControllerSchema {
             namespace: "profiles",
             function: "list",
-            description: "List persistent agent profiles and the active profile id.",
+            description: "List persistent agent profiles and the active profile id. Each \
+                          profile is enriched with resolved read-only path info: soulMdFile \
+                          (personalities/<id>/SOUL.md if present) and workspaceDir (the \
+                          dedicated workspace when opted in).",
             inputs: vec![],
             outputs: vec![json_output("profiles", "Agent profile state payload.")],
         },
@@ -65,8 +68,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
             function: "upsert",
             description: "Create or update an agent profile. The `profile` payload may include \
                           memory_sources, includeAgentConversations, allowedSkills, \
-                          allowedMcpServers, composioIntegrations, allowedTools, and soulMd; \
-                          an omitted/empty allowlist means \"all\".",
+                          allowedMcpServers, composioIntegrations, allowedTools, soulMd, \
+                          dedicatedMemory (own memory subtree), and dedicatedWorkspace (own \
+                          working dir under action_dir); an omitted/empty allowlist means \"all\".",
             inputs: vec![FieldSchema {
                 name: "profile",
                 ty: TypeSchema::Json,
@@ -271,6 +275,100 @@ mod tests {
         .await
         .expect("profile delete");
         assert_eq!(deleted["activeProfileId"], DEFAULT_PROFILE_ID);
+    }
+
+    /// Resolve the enriched `soulMdFile` absolute path for `profile_id` from a
+    /// profiles-state payload (present once the home's SOUL.md exists on disk).
+    fn soul_md_file(payload: &Value, profile_id: &str) -> Option<String> {
+        payload["profiles"]
+            .as_array()?
+            .iter()
+            .find(|p| p["id"] == profile_id)?
+            .get("soulMdFile")?
+            .as_str()
+            .map(str::to_string)
+    }
+
+    #[tokio::test]
+    async fn built_in_profile_soul_edit_syncs_to_disk() {
+        // Regression (PR #5118 review, Codex): select() seeds a built-in's home on
+        // first activation, so a later Soul edit through the editor must reconcile
+        // the on-disk SOUL.md — the sync path must NOT be gated on `!built_in`.
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let temp = tempfile::tempdir().expect("tempdir");
+        let _env = WorkspaceEnvGuard::set(temp.path());
+
+        const PROFILE_ID: &str = "reasoning";
+        // Seed a non-default built-in home the way first activation does; the
+        // unedited Default intentionally keeps using the legacy root SOUL.md.
+        // enriched payload advertises the resolved SOUL.md path once it exists.
+        let selected = handle_profile_select(Map::from_iter([(
+            "profile_id".into(),
+            Value::String(PROFILE_ID.into()),
+        )]))
+        .await
+        .expect("select built-in");
+        let soul_path = soul_md_file(&selected, PROFILE_ID).expect("select seeds built-in SOUL.md");
+
+        // User later edits the built-in's Soul in Settings.
+        handle_profile_upsert(Map::from_iter([(
+            "profile".into(),
+            json!({
+                "id": PROFILE_ID,
+                "name": "Reasoning",
+                "description": "",
+                "agentId": "orchestrator",
+                "soulMd": "Edited built-in persona.",
+                "builtIn": true,
+            }),
+        )]))
+        .await
+        .expect("upsert default with edited soul");
+
+        assert_eq!(
+            std::fs::read_to_string(&soul_path).unwrap(),
+            "Edited built-in persona.\n",
+            "editing a built-in's soul must overwrite its seeded SOUL.md"
+        );
+    }
+
+    #[tokio::test]
+    async fn built_in_profile_empty_soul_leaves_file_untouched() {
+        // The sync is a no-op when soulMd is empty/None, so a user's manual edit
+        // to a built-in's SOUL.md stays authoritative.
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let temp = tempfile::tempdir().expect("tempdir");
+        let _env = WorkspaceEnvGuard::set(temp.path());
+
+        const PROFILE_ID: &str = "reasoning";
+        let selected = handle_profile_select(Map::from_iter([(
+            "profile_id".into(),
+            Value::String(PROFILE_ID.into()),
+        )]))
+        .await
+        .expect("select built-in");
+        let soul_path = soul_md_file(&selected, PROFILE_ID).expect("select seeds built-in SOUL.md");
+        std::fs::write(&soul_path, "MANUAL EDIT").unwrap();
+
+        // Upsert with no soulMd — must not touch the manually edited file.
+        handle_profile_upsert(Map::from_iter([(
+            "profile".into(),
+            json!({
+                "id": PROFILE_ID,
+                "name": "Reasoning",
+                "description": "",
+                "agentId": "orchestrator",
+                "builtIn": true,
+            }),
+        )]))
+        .await
+        .expect("upsert default without soul");
+
+        assert_eq!(
+            std::fs::read_to_string(&soul_path).unwrap(),
+            "MANUAL EDIT",
+            "empty soulMd must leave a manually edited built-in SOUL.md untouched"
+        );
     }
 
     #[tokio::test]

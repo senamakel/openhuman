@@ -23,6 +23,7 @@ impl AgentBuilder {
             tools: None,
             visible_tool_names: None,
             memory: None,
+            shared_experience_memory: None,
             prompt_builder: None,
             tool_dispatcher: None,
             memory_loader: None,
@@ -33,6 +34,7 @@ impl AgentBuilder {
             temperature: None,
             workspace_dir: None,
             action_dir: None,
+            workspace_descriptor: None,
             workflows: None,
             auto_save: None,
             post_turn_hooks: Vec::new(),
@@ -41,6 +43,11 @@ impl AgentBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
+            active_profile_id: None,
+            personality_soul_md: None,
+            personality_memory_md: None,
+            memory_subdir: None,
+            session_raw_subdir: None,
             session_parent_prefix: None,
             omit_profile: None,
             omit_memory_md: None,
@@ -115,6 +122,13 @@ impl AgentBuilder {
         self
     }
 
+    /// Retains the shared store for experience recall when `memory` is a
+    /// dedicated profile subtree.
+    pub fn shared_experience_memory(mut self, memory: Option<Arc<dyn Memory>>) -> Self {
+        self.shared_experience_memory = memory;
+        self
+    }
+
     /// Sets the system prompt builder for the agent.
     pub fn prompt_builder(
         mut self,
@@ -185,6 +199,52 @@ impl AgentBuilder {
 
     pub fn action_dir(mut self, action_dir: std::path::PathBuf) -> Self {
         self.action_dir = Some(action_dir);
+        self
+    }
+
+    /// Sets the per-profile workspace descriptor (section D of agent-profile
+    /// homes). When set, the top-level chat turn threads it through so acting
+    /// tools resolve their default cwd to the profile's dedicated workspace.
+    pub fn workspace_descriptor(
+        mut self,
+        descriptor: Option<tinyagents::harness::workspace::WorkspaceDescriptor>,
+    ) -> Self {
+        self.workspace_descriptor = descriptor;
+        self
+    }
+
+    /// Sets the active agent-profile id for this session (1a plumbing).
+    ///
+    /// `None` (default) is the profile-less session. When set, the id is
+    /// carried on the built [`Agent`] and threaded into the post-turn
+    /// [`TurnContext`](crate::openhuman::agent::hooks::TurnContext) so
+    /// profile-scoped hooks (agent-experience capture) can stamp records with
+    /// it. A `None` here keeps every downstream consumer on its legacy path.
+    pub fn active_profile_id(mut self, profile_id: Option<String>) -> Self {
+        self.active_profile_id = profile_id;
+        self
+    }
+
+    /// Binds the active profile's SOUL.md as the session identity override.
+    pub fn personality_soul_md(mut self, soul_md: Option<String>) -> Self {
+        self.personality_soul_md = soul_md;
+        self
+    }
+
+    /// Binds the active profile's curated MEMORY.md to the frozen session
+    /// prompt. `None` keeps the legacy workspace-root fallback.
+    pub fn personality_memory_md(mut self, memory_md: Option<String>) -> Self {
+        self.personality_memory_md = memory_md;
+        self
+    }
+
+    pub fn profile_memory_storage(
+        mut self,
+        memory_subdir: String,
+        session_raw_subdir: String,
+    ) -> Self {
+        self.memory_subdir = Some(memory_subdir);
+        self.session_raw_subdir = Some(session_raw_subdir);
         self
     }
 
@@ -467,6 +527,10 @@ impl AgentBuilder {
             .workspace_dir
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let action_dir = self.action_dir.unwrap_or_else(|| workspace_dir.clone());
+        let memory_subdir = self.memory_subdir.unwrap_or_else(|| "memory".to_string());
+        let session_raw_subdir = self
+            .session_raw_subdir
+            .unwrap_or_else(|| "session_raw".to_string());
 
         Ok(Agent {
             turn_model_source,
@@ -478,6 +542,7 @@ impl AgentBuilder {
             memory: self
                 .memory
                 .ok_or_else(|| anyhow::anyhow!("memory is required"))?,
+            shared_experience_memory: self.shared_experience_memory,
             tool_dispatcher: std::sync::Arc::from(
                 self.tool_dispatcher
                     .ok_or_else(|| anyhow::anyhow!("tool_dispatcher is required"))?,
@@ -491,6 +556,7 @@ impl AgentBuilder {
             temperature: self.temperature.unwrap_or(0.7),
             workspace_dir,
             action_dir,
+            workspace_descriptor: self.workspace_descriptor,
             workflows: self.workflows.unwrap_or_default(),
             auto_save: self.auto_save.unwrap_or(false),
             last_memory_context: None,
@@ -510,6 +576,11 @@ impl AgentBuilder {
             // `refresh_delegation_tools` to re-resolve the agent's
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
+            active_profile_id: self.active_profile_id,
+            personality_soul_md: self.personality_soul_md,
+            personality_memory_md: self.personality_memory_md,
+            memory_subdir,
+            session_raw_subdir,
             session_transcript_path: None,
             persisted_transcript_messages: Vec::new(),
             session_key: {

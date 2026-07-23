@@ -40,6 +40,7 @@ mod privacy;
 mod proxy;
 mod routes;
 mod runtime;
+mod runtime_pool;
 mod runtime_python;
 mod scheduler_gate;
 mod storage_memory;
@@ -85,6 +86,7 @@ pub use routes::{EmbeddingRouteConfig, ModelRouteConfig};
 pub use runtime::{
     DockerRuntimeConfig, ReliabilityConfig, RuntimeConfig, SchedulerConfig, ShellConfig,
 };
+pub use runtime_pool::{RuntimePoolConfig, RuntimePoolLangConfig};
 pub use runtime_python::RuntimePythonConfig;
 pub use scheduler_gate::{SchedulerGateConfig, SchedulerGateMode};
 pub use storage_memory::{

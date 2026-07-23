@@ -147,10 +147,25 @@ impl AgentExperienceStore {
     }
 
     pub async fn dismiss(&self, id: &str) -> Result<bool, String> {
+        self.dismiss_for_profile(id, None).await
+    }
+
+    /// Dismiss an experience only when it belongs to the caller's visible
+    /// profile partition. A profiled caller may dismiss its own or unstamped
+    /// legacy records, but never a sibling profile's record even if it knows
+    /// the storage id.
+    pub async fn dismiss_for_profile(
+        &self,
+        id: &str,
+        profile_id: Option<&str>,
+    ) -> Result<bool, String> {
         let key = storage_key(id);
         let Some(mut experience) = self.fetch(&key).await? else {
             return Ok(false);
         };
+        if !experience_matches_profile(experience.profile_id.as_deref(), profile_id) {
+            return Ok(false);
+        }
         experience.dismissed = true;
         experience.updated_at_ms = now_ms();
         self.put(experience).await?;
@@ -568,6 +583,27 @@ mod tests {
         assert!(all_ids.contains("exp_p"));
         assert!(all_ids.contains("exp_q"));
         assert!(all_ids.contains("exp_legacy"));
+    }
+
+    #[tokio::test]
+    async fn dismiss_for_profile_rejects_sibling_record() {
+        let (store, _) = fresh_store();
+        seed_partitioned(&store).await;
+
+        assert!(!store.dismiss_for_profile("exp_q", Some("p")).await.unwrap());
+        assert!(store
+            .list()
+            .await
+            .unwrap()
+            .iter()
+            .find(|experience| experience.id == "exp_q")
+            .is_some_and(|experience| !experience.dismissed));
+
+        assert!(store
+            .dismiss_for_profile("exp_legacy", Some("p"))
+            .await
+            .unwrap());
+        assert!(store.dismiss_for_profile("exp_p", Some("p")).await.unwrap());
     }
 
     #[tokio::test]

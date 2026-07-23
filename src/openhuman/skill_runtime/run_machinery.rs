@@ -14,6 +14,20 @@ use crate::openhuman::skills::{preflight, registry, run_log};
 
 use crate::openhuman::skills::schemas::resolve_workspace_dir;
 
+async fn with_profile_memory_source_scope<F, T>(
+    active_profile: Option<&crate::openhuman::profiles::AgentProfile>,
+    fut: F,
+) -> T
+where
+    F: std::future::Future<Output = T>,
+{
+    crate::openhuman::memory::source_scope::with_source_scope(
+        active_profile.and_then(|profile| profile.memory_sources.clone()),
+        fut,
+    )
+    .await
+}
+
 /// Iteration cap for an autonomous skill run (orchestrator + sub-agents). High
 /// enough to "run until done", while the repeated-failure circuit breaker still
 /// stops dead-end grinding — deliberately bounded (not infinite) to cap spend.
@@ -273,11 +287,14 @@ pub async fn spawn_workflow_run_background_with_profile(
             let result = tokio::select! {
                 biased;
                 _ = cancel_token.cancelled() => None,
-                r = crate::openhuman::agent::turn_origin::with_origin(
-                    inherited_origin,
-                    with_autonomous_iter_cap(
-                        WORKFLOW_RUN_MAX_ITERATIONS,
-                        agent.run_single(&task_prompt),
+                r = with_profile_memory_source_scope(
+                    active_profile.as_ref(),
+                    crate::openhuman::agent::turn_origin::with_origin(
+                        inherited_origin,
+                        with_autonomous_iter_cap(
+                            WORKFLOW_RUN_MAX_ITERATIONS,
+                            agent.run_single(&task_prompt),
+                        ),
                     ),
                 ) => Some(r),
             };
@@ -356,5 +373,34 @@ pub async fn await_run_outcome(
         }
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         tokio::time::sleep(POLL_INTERVAL.min(remaining)).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn workflow_profile_installs_memory_source_scope() {
+        let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+        profile.memory_sources = Some(vec!["slack:#eng".into(), "github:openhuman".into()]);
+
+        let visible = with_profile_memory_source_scope(Some(&profile), async {
+            crate::openhuman::memory::source_scope::current_source_scope()
+        })
+        .await;
+
+        assert_eq!(
+            visible,
+            Some(std::collections::HashSet::from([
+                "slack:#eng".into(),
+                "github:openhuman".into(),
+            ]))
+        );
+        assert_eq!(
+            crate::openhuman::memory::source_scope::current_source_scope(),
+            None,
+            "workflow scope must not leak after the run future finishes"
+        );
     }
 }

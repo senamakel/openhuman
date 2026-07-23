@@ -209,7 +209,9 @@ pub async fn dismiss(params: DismissParams) -> Result<RpcOutcome<DismissResult>,
     let stores = open_query_stores(params.profile_id.as_deref()).await?;
     let mut dismissed = false;
     for store in stores {
-        dismissed |= store.dismiss(&params.id).await?;
+        dismissed |= store
+            .dismiss_for_profile(&params.id, params.profile_id.as_deref())
+            .await?;
     }
     Ok(RpcOutcome::single_log(
         DismissResult {

@@ -2238,7 +2238,11 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
                 effective_model
             };
             return Some(Ok((
-                Arc::new(backend.with_default_model(&pinned_model)),
+                Arc::new(
+                    backend
+                        .with_default_model(&pinned_model)
+                        .with_native_tool_calling(native_tool_calling),
+                ),
                 pinned_model,
             )));
         }

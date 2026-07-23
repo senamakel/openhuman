@@ -1061,6 +1061,29 @@ fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
 }
 
 #[test]
+fn openhuman_jwt_slug_preserves_forced_text_mode() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let mut config = Config::default();
+    config.cloud_providers.push(oh_entry("p_oh"));
+
+    let (model, _) = try_create_cloud_slug_chat_model_from_string_with_native_tools(
+        "chat",
+        "openhuman:reasoning-v1",
+        &config,
+        false,
+    )
+    .expect("configured OpenhumanJwt slug should be recognized")
+    .expect("managed model should build");
+
+    let profile = model
+        .profile()
+        .expect("managed model should expose its effective capabilities");
+    assert!(!profile.tool_calling);
+    assert!(!profile.parallel_tool_calls);
+    assert!(!profile.streaming_tool_chunks);
+}
+
+#[test]
 fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();

@@ -26,7 +26,6 @@
 use async_trait::async_trait;
 use serde_json::Value;
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 use tinyagents::harness::model::{
     ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream,
@@ -49,6 +48,7 @@ pub struct OpenHumanBackendModel {
     api_url: Option<String>,
     default_model: String,
     native_tool_calling: bool,
+    profile: ModelProfile,
 }
 
 impl OpenHumanBackendModel {
@@ -65,6 +65,18 @@ impl OpenHumanBackendModel {
                 .map(ToOwned::to_owned),
             default_model: resolve_model(&default_model.into()),
             native_tool_calling: true,
+            profile: ModelProfile {
+                provider: Some("managed".to_string()),
+                modalities: Modalities {
+                    image_in: true,
+                    ..Modalities::default()
+                },
+                tool_calling: true,
+                parallel_tool_calls: true,
+                streaming: true,
+                streaming_tool_chunks: true,
+                ..ModelProfile::default()
+            },
         }
     }
 
@@ -77,6 +89,9 @@ impl OpenHumanBackendModel {
     /// backend's native grammar ceiling.
     pub fn with_native_tool_calling(mut self, enabled: bool) -> Self {
         self.native_tool_calling = enabled;
+        self.profile.tool_calling = enabled;
+        self.profile.parallel_tool_calls = enabled;
+        self.profile.streaming_tool_chunks = enabled;
         self
     }
 
@@ -236,19 +251,7 @@ fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
 #[async_trait]
 impl ChatModel<()> for OpenHumanBackendModel {
     fn profile(&self) -> Option<&ModelProfile> {
-        static PROFILE: OnceLock<ModelProfile> = OnceLock::new();
-        Some(PROFILE.get_or_init(|| ModelProfile {
-            provider: Some("managed".to_string()),
-            modalities: Modalities {
-                image_in: true,
-                ..Modalities::default()
-            },
-            tool_calling: true,
-            parallel_tool_calls: true,
-            streaming: true,
-            streaming_tool_chunks: true,
-            ..ModelProfile::default()
-        }))
+        Some(&self.profile)
     }
 
     async fn invoke(&self, state: &(), request: ModelRequest) -> TaResult<ModelResponse> {

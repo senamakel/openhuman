@@ -6,9 +6,9 @@
 //! ([`crate_goals_store`]), the raw mirror read/write/delete helpers used by the
 //! one operation without a crate equivalent (the unconditional
 //! `set_continuation_suppressed`), and the one-time
-//! [`migrate_legacy_goals_into_crate_store`] boot helper that copies any goals
-//! left in the retired `{workspace}/thread_goals/` file-JSON tree into the crate
-//! store on first boot.
+//! [`migrate_legacy_goals_into_crate_store`] boot helper that copies goals left
+//! in the retired `{workspace}/thread_goals/` file-JSON tree only when the crate
+//! store has no value for that thread.
 //!
 //! Persistence target: the crate [`Store`] rooted at the shared workspace KV
 //! tree (`{workspace}/tinyagents_store/kv`), namespace [`GOALS_NAMESPACE`]
@@ -169,16 +169,17 @@ pub(crate) async fn delete_mirror(store: &Arc<dyn Store>, thread_id: &str) -> Re
 pub struct GoalMigrationReport {
     /// Legacy goal rows examined.
     pub total: usize,
-    /// Rows written into the crate store (absent or divergent mirror).
+    /// Rows written into the crate store because no crate value existed.
     pub copied: usize,
-    /// Rows already present in the crate store with an identical value.
+    /// Rows already present in the crate store and left authoritative.
     pub skipped: usize,
 }
 
-/// Copy every existing legacy thread-goal row into the crate `graph.goals`
-/// store. **Idempotent**: a row whose crate mirror already equals the legacy
-/// value is skipped, so re-running does no writes and reports everything under
-/// `skipped`.
+/// Copy legacy thread-goal rows missing from the crate `graph.goals` store.
+///
+/// **Idempotent and non-destructive**: any existing crate value is
+/// authoritative and skipped, even when it differs from the stale legacy file.
+/// This prevents restarts from reverting status, usage, or budget progress.
 ///
 /// Wired into boot behind a one-shot `Once` marker in
 /// `core::runtime::services::start_boot_once_jobs`. Honors the single-writer
@@ -241,24 +242,22 @@ pub async fn migrate_legacy_goals_into_crate_store(
         "[thread_goals][crate-migrate] start copy legacy goals → graph.goals"
     );
     for goal in &legacy {
-        match get_mirror(&store, &goal.thread_id).await {
-            Ok(Some(existing)) if existing == *goal => {
+        match store.get(GOALS_NAMESPACE, &goal_key(&goal.thread_id)).await {
+            Ok(Some(_)) => {
                 report.skipped += 1;
                 tracing::debug!(
                     thread_id = %goal.thread_id,
                     goal_id = %goal.goal_id,
-                    "[thread_goals][crate-migrate] skip (already mirrored)"
+                    "[thread_goals][crate-migrate] skip (crate goal already authoritative)"
                 );
                 continue;
             }
-            Ok(_) => {}
+            Ok(None) => {}
             Err(e) => {
-                // Read failure → attempt the write anyway (fail-forward copy).
-                tracing::debug!(
-                    thread_id = %goal.thread_id,
-                    error = %e,
-                    "[thread_goals][crate-migrate] mirror pre-read failed; copying anyway"
-                );
+                return Err(format!(
+                    "check crate goal before migrating thread {}: {e}",
+                    goal.thread_id
+                ))
             }
         }
         put_mirror(&store, goal).await?;
@@ -436,30 +435,21 @@ mod tests {
         assert_eq!(m2.tokens_used, 50);
         assert_eq!(m2.objective, "objective two");
 
-        // Second run is a no-op (idempotent) — everything already mirrored.
+        // Simulate live usage/status updates while the legacy files remain.
+        let mut advanced = m2;
+        advanced.tokens_used = 999;
+        advanced.status = ThreadGoalStatus::Complete;
+        advanced.updated_at_ms = 3_000;
+        put_mirror(&store, &advanced).await.unwrap();
+
+        // Second run is a no-op and must preserve the newer crate state.
         let r2 = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
         assert_eq!(r2.total, 2);
         assert_eq!(r2.copied, 0, "idempotent: nothing re-copied");
         assert_eq!(r2.skipped, 2);
-    }
-
-    #[tokio::test]
-    async fn migration_recopies_a_diverged_row() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path();
-        write_legacy_goal(dir, &legacy_goal("t", "obj", 0));
-        migrate_legacy_goals_into_crate_store(dir).await.unwrap();
-
-        // The legacy row advances (usage accounted) → crate mirror is now stale.
-        write_legacy_goal(dir, &legacy_goal("t", "obj", 99));
-
-        let r = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
-        assert_eq!(r.copied, 1, "diverged row re-copied");
-        assert_eq!(r.skipped, 0);
-        let store = crate_goals_store(dir);
-        assert_eq!(
-            get_mirror(&store, "t").await.unwrap().unwrap().tokens_used,
-            99
-        );
+        let preserved = get_mirror(&store, "t2").await.unwrap().unwrap();
+        assert_eq!(preserved.tokens_used, 999);
+        assert_eq!(preserved.status, ThreadGoalStatus::Complete);
+        assert_eq!(preserved.updated_at_ms, 3_000);
     }
 }

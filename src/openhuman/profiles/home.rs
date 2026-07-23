@@ -98,12 +98,12 @@ pub fn validate_profile_id(id: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Seed `target` with `contents` atomically: write a temp file in the same
-/// directory, then `rename` it over `target`. Callers invoke this only when
-/// `target` is absent, so the rename never clobbers a user's edited file; the
-/// write-then-rename keeps any concurrent reader from ever observing a
-/// half-written seed (a bare `write` can be seen mid-flush). Idempotency
-/// semantics are identical to the previous check-then-`write`.
+/// Write `contents` through a temp file in the same directory, then move it to
+/// `target`. Unix `rename` atomically replaces an existing target. Windows
+/// `rename` cannot overwrite, so rewrites remove the old target immediately
+/// before the move; this is the platform-safe remove/replace fallback used by
+/// Settings SOUL edits and clear tombstones. First-time seeds stay atomic on
+/// every platform, and no reader can observe a partially-written file.
 fn seed_file_atomic(dir: &Path, target: &Path, contents: &[u8]) -> io::Result<()> {
     let base = target
         .file_name()
@@ -111,6 +111,17 @@ fn seed_file_atomic(dir: &Path, target: &Path, contents: &[u8]) -> io::Result<()
         .unwrap_or("seed");
     let tmp = dir.join(format!(".{base}.tmp-{}", std::process::id()));
     std::fs::write(&tmp, contents)?;
+
+    #[cfg(windows)]
+    match std::fs::remove_file(target) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(error);
+        }
+    }
+
     match std::fs::rename(&tmp, target) {
         Ok(()) => Ok(()),
         Err(e) => {

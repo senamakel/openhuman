@@ -1140,6 +1140,84 @@ async fn openhuman_jwt_slug_discloses_pinned_model() {
     );
 }
 
+#[tokio::test]
+async fn native_claude_turn_routes_disclose_pinned_models() {
+    use crate::core::event_bus::{init_global, publish_global, DomainEvent, DEFAULT_CAPACITY};
+    use crate::openhuman::security::egress::EgressDescriptor;
+    use std::time::Duration;
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    init_global(DEFAULT_CAPACITY);
+    let mut rx = crate::core::event_bus::global().unwrap().raw_receiver();
+
+    let configured_sdk = "egress-sdk-configured-marker";
+    let pinned_sdk = "egress-sdk-pinned-marker";
+    let mut sdk_config = Config::default();
+    sdk_config.chat_provider = Some(format!("claude_agent_sdk:{configured_sdk}"));
+    create_turn_chat_model("chat", &sdk_config, pinned_sdk, 0.0)
+        .expect("Claude Agent SDK turn model should build");
+
+    let configured_code = "egress-code-configured-marker";
+    let pinned_code = "egress-code-pinned-marker";
+    let mut code_config = Config::default();
+    code_config.chat_provider = Some(format!("claude-code:{configured_code}"));
+    // Egress is disclosed once the effective model is selected, before the
+    // environment probe. The test therefore remains valid on hosts without the
+    // Claude Code CLI.
+    let _ = create_turn_chat_model("chat", &code_config, pinned_code, 0.0);
+
+    let sentinel = "egress-native-claude-sentinel-end";
+    publish_global(DomainEvent::ExternalTransferPending {
+        descriptor: EgressDescriptor::network_fetch(sentinel),
+        thread_id: None,
+        client_id: None,
+    });
+
+    let mut sdk_count = 0usize;
+    let mut code_count = 0usize;
+    let mut configured_count = 0usize;
+    loop {
+        match tokio::time::timeout(Duration::from_secs(3), rx.recv()).await {
+            Ok(Ok(DomainEvent::ExternalTransferPending { descriptor, .. })) => {
+                match descriptor.service.as_str() {
+                    service if service == pinned_sdk => {
+                        assert_eq!(descriptor.provider_slug, "claude_agent_sdk");
+                        sdk_count += 1;
+                    }
+                    service if service == pinned_code => {
+                        assert_eq!(descriptor.provider_slug, "claude-code");
+                        code_count += 1;
+                    }
+                    service if service == configured_sdk || service == configured_code => {
+                        configured_count += 1;
+                    }
+                    service if service == sentinel => break,
+                    _ => {}
+                }
+            }
+            Ok(Ok(_)) => continue,
+            Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(_))) => continue,
+            Ok(Err(tokio::sync::broadcast::error::RecvError::Closed)) => {
+                panic!("event bus closed before sentinel arrived")
+            }
+            Err(_) => panic!("timed out before egress sentinel arrived"),
+        }
+    }
+
+    assert_eq!(
+        sdk_count, 1,
+        "SDK route must disclose its pinned model once"
+    );
+    assert_eq!(
+        code_count, 1,
+        "Claude Code route must disclose its pinned model once"
+    );
+    assert_eq!(
+        configured_count, 0,
+        "native Claude routes must not disclose stale configured models"
+    );
+}
+
 #[test]
 fn openhuman_jwt_slug_preserves_forced_text_mode() {
     let _guard = crate::openhuman::inference::inference_test_guard();

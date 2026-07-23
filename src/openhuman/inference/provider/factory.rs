@@ -1315,6 +1315,7 @@ fn create_turn_chat_model_with_native_tools_and_route_inner(
         if let Some(result) = prepare_claude_agent_sdk_chat_model(role, &resolved_provider, config)
         {
             let _resolved_model = result?;
+            emit_inference_egress(role, &format!("{CLAUDE_AGENT_SDK_PREFIX}{model}"));
             return Ok((
                 Arc::new(ClaudeAgentSdkProvider::for_model(
                     config.claude_agent_sdk.clone(),
@@ -1368,6 +1369,7 @@ fn try_create_claude_agent_sdk_chat_model_from_string(
         Ok(model) => model,
         Err(error) => return Some(Err(error)),
     };
+    emit_inference_egress(role, &format!("{CLAUDE_AGENT_SDK_PREFIX}{model}"));
     let chat: Arc<dyn ChatModel<()>> = Arc::new(ClaudeAgentSdkProvider::for_model(
         config.claude_agent_sdk.clone(),
         model.clone(),
@@ -1388,7 +1390,6 @@ fn prepare_claude_agent_sdk_chat_model(
     if let Err(error) = verify_session_active(config) {
         return Some(Err(error));
     }
-    emit_inference_egress(role, provider);
     Some(Ok(model))
 }
 
@@ -1444,11 +1445,16 @@ fn try_create_claude_code_chat_model_from_string(
     if let Err(error) = verify_session_active(config) {
         return Some(Err(error));
     }
-    emit_inference_egress(role, provider);
-
     let workspace =
         crate::openhuman::inference::provider::claude_code::workspace_dir_from_config(config);
     let effective_model = model_override.unwrap_or(&configured_model).to_string();
+    emit_inference_egress(
+        role,
+        &format!(
+            "{}{effective_model}",
+            crate::openhuman::inference::provider::claude_code::PROVIDER_PREFIX
+        ),
+    );
     let chat =
         match crate::openhuman::inference::provider::claude_code::ClaudeCodeProvider::from_env(
             effective_model,

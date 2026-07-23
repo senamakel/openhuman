@@ -346,6 +346,19 @@ impl Agent {
         )?;
         let archivist_connection = session_memory.sqlite_connection;
         let memory: Arc<dyn Memory> = Arc::from(session_memory.memory);
+        // Dedicated profiles still recall unstamped experiences written by
+        // pre-profile versions from the shared memory DB. Retain the global
+        // shared handle explicitly on the session rather than making the hot
+        // turn path reload config or reach into process-global state.
+        let shared_experience_memory = if memory_subdir == "memory" {
+            None
+        } else {
+            Some(
+                crate::openhuman::memory::global::init(config.workspace_dir.clone())
+                    .map_err(anyhow::Error::msg)?
+                    .memory_handle(),
+            )
+        };
 
         // Per-profile skill (workflow) + MCP-server allowlists. `None` = all.
         let profile_skill_allowlist: Option<std::collections::HashSet<String>> = profile
@@ -1252,6 +1265,7 @@ impl Agent {
             .tools(tools)
             .visible_tool_names(visible)
             .memory(memory)
+            .shared_experience_memory(shared_experience_memory)
             .tool_dispatcher(tool_dispatcher)
             .memory_loader(Box::new(
                 DefaultMemoryLoader::new(5, config.memory.min_relevance_score)

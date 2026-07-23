@@ -23,6 +23,7 @@ impl AgentBuilder {
             tools: None,
             visible_tool_names: None,
             memory: None,
+            shared_experience_memory: None,
             prompt_builder: None,
             tool_dispatcher: None,
             memory_loader: None,
@@ -118,6 +119,13 @@ impl AgentBuilder {
     /// Sets the memory system for the agent.
     pub fn memory(mut self, memory: Arc<dyn Memory>) -> Self {
         self.memory = Some(memory);
+        self
+    }
+
+    /// Retains the shared store for experience recall when `memory` is a
+    /// dedicated profile subtree.
+    pub fn shared_experience_memory(mut self, memory: Option<Arc<dyn Memory>>) -> Self {
+        self.shared_experience_memory = memory;
         self
     }
 
@@ -534,6 +542,7 @@ impl AgentBuilder {
             memory: self
                 .memory
                 .ok_or_else(|| anyhow::anyhow!("memory is required"))?,
+            shared_experience_memory: self.shared_experience_memory,
             tool_dispatcher: std::sync::Arc::from(
                 self.tool_dispatcher
                     .ok_or_else(|| anyhow::anyhow!("tool_dispatcher is required"))?,

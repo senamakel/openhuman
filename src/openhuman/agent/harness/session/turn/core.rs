@@ -11,7 +11,8 @@ use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::hooks::{self, TurnContext};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_experience::{
-    prepend_experience_block, render_experience_hits, AgentExperienceStore, ExperienceQuery,
+    prepend_experience_block, render_experience_hits, retrieve_across_stores, AgentExperienceStore,
+    ExperienceQuery,
 };
 use crate::openhuman::agent_memory::memory_loader::collect_recall_citations;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage};
@@ -1668,7 +1669,10 @@ impl Agent {
             .iter()
             .map(|spec| spec.name.clone())
             .collect();
-        let store = AgentExperienceStore::new(self.memory.clone());
+        let mut stores = vec![AgentExperienceStore::new(self.memory.clone())];
+        if let Some(shared_memory) = &self.shared_experience_memory {
+            stores.push(AgentExperienceStore::new(shared_memory.clone()));
+        }
         let query = ExperienceQuery {
             query: user_message.to_string(),
             tools,
@@ -1683,7 +1687,7 @@ impl Agent {
             max_hits: MAX_EXPERIENCE_HITS,
         };
 
-        match store.retrieve(query).await {
+        match retrieve_across_stores(&stores, query).await {
             Ok(hits) => {
                 let matched_hits: Vec<_> = hits
                     .into_iter()

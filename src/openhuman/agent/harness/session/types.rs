@@ -50,6 +50,10 @@ pub struct Agent {
     pub(super) visible_tool_names: std::collections::HashSet<String>,
     pub(super) tool_policy_session: ToolPolicySession,
     pub(super) memory: Arc<dyn Memory>,
+    /// Shared memory store retained alongside a dedicated profile store so live
+    /// experience recall can merge unstamped legacy guidance. `None` for the
+    /// shared/default memory path.
+    pub(super) shared_experience_memory: Option<Arc<dyn Memory>>,
     // `Arc` (not `Box`) so the tinyagents turn path can hold a cheap clone of
     // the dispatcher without borrowing the `Agent` while session state mutates.
     pub(super) tool_dispatcher: Arc<dyn ToolDispatcher>,
@@ -368,6 +372,7 @@ pub struct AgentBuilder {
     /// When set, restricts which tools the main agent sees/calls.
     pub(super) visible_tool_names: Option<std::collections::HashSet<String>>,
     pub(super) memory: Option<Arc<dyn Memory>>,
+    pub(super) shared_experience_memory: Option<Arc<dyn Memory>>,
     pub(super) prompt_builder: Option<SystemPromptBuilder>,
     pub(super) tool_dispatcher: Option<Box<dyn ToolDispatcher>>,
     pub(super) memory_loader: Option<Box<dyn MemoryLoader>>,

@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::agent_experience::store::{AgentExperienceStore, ExperienceQuery};
+use crate::openhuman::agent_experience::store::{
+    retrieve_across_stores, AgentExperienceStore, ExperienceQuery,
+};
 use crate::openhuman::agent_experience::types::{AgentExperience, ExperienceHit};
 use crate::openhuman::config::Config;
 use crate::rpc::RpcOutcome;
-use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
@@ -174,27 +175,7 @@ pub async fn retrieve(params: RetrieveParams) -> Result<RpcOutcome<Vec<Experienc
         profile_id: params.profile_id,
         max_hits,
     };
-    let mut by_id: BTreeMap<String, ExperienceHit> = BTreeMap::new();
-    for store in stores {
-        for hit in store.retrieve(query.clone()).await? {
-            let id = hit.experience.id.clone();
-            match by_id.get(&id) {
-                Some(existing) if existing.score >= hit.score => {}
-                _ => {
-                    by_id.insert(id, hit);
-                }
-            }
-        }
-    }
-    let mut hits: Vec<_> = by_id.into_values().collect();
-    hits.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(Ordering::Equal)
-            .then_with(|| b.experience.updated_at_ms.cmp(&a.experience.updated_at_ms))
-            .then_with(|| a.experience.id.cmp(&b.experience.id))
-    });
-    hits.truncate(max_hits);
+    let hits = retrieve_across_stores(&stores, query).await?;
     Ok(RpcOutcome::single_log(hits, "agent experiences retrieved"))
 }
 

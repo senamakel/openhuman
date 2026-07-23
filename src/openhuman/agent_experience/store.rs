@@ -4,7 +4,7 @@ use crate::openhuman::agent_experience::types::{
 use crate::openhuman::memory::{Memory, MemoryCategory};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 pub const AGENT_EXPERIENCE_NAMESPACE: &str = "agent_experience";
@@ -218,6 +218,41 @@ impl AgentExperienceStore {
             None => Ok(None),
         }
     }
+}
+
+/// Retrieve one logical experience pool across multiple physical memory stores.
+///
+/// Dedicated profiles write new experiences into their own memory subtree, but
+/// still need to recall unstamped legacy experiences from the shared store.
+/// Keep the merge, de-duplication, ordering, and final limit in one place so the
+/// RPC and live-turn paths cannot drift.
+pub async fn retrieve_across_stores(
+    stores: &[AgentExperienceStore],
+    query: ExperienceQuery,
+) -> Result<Vec<ExperienceHit>, String> {
+    let max_hits = query.max_hits;
+    let mut by_id: BTreeMap<String, ExperienceHit> = BTreeMap::new();
+    for store in stores {
+        for hit in store.retrieve(query.clone()).await? {
+            let id = hit.experience.id.clone();
+            match by_id.get(&id) {
+                Some(existing) if existing.score >= hit.score => {}
+                _ => {
+                    by_id.insert(id, hit);
+                }
+            }
+        }
+    }
+    let mut hits: Vec<_> = by_id.into_values().collect();
+    hits.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| b.experience.updated_at_ms.cmp(&a.experience.updated_at_ms))
+            .then_with(|| a.experience.id.cmp(&b.experience.id))
+    });
+    hits.truncate(max_hits);
+    Ok(hits)
 }
 
 fn storage_key(id: &str) -> String {

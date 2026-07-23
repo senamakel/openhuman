@@ -7,6 +7,9 @@ use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,
 };
+use crate::openhuman::agent_experience::{
+    AgentExperience, AgentExperienceStore, ExperienceOutcome, ExperienceSource,
+};
 use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, UsageInfo,
@@ -2071,6 +2074,62 @@ fn make_real_memory(workspace: &std::path::Path) -> Arc<dyn Memory> {
     use crate::openhuman::embeddings::NoopEmbedding;
     use crate::openhuman::memory_store::UnifiedMemory;
     Arc::new(UnifiedMemory::new(workspace, Arc::new(NoopEmbedding), None).unwrap())
+}
+
+#[tokio::test]
+async fn dedicated_profile_experience_recall_merges_shared_legacy_store() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let dedicated = make_real_memory(&tmp.path().join("dedicated"));
+    let shared = make_real_memory(&tmp.path().join("shared"));
+    AgentExperienceStore::new(shared.clone())
+        .put(AgentExperience {
+            id: "legacy-shared-deploy".into(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            source: ExperienceSource::ToolLoop,
+            agent_id: None,
+            entrypoint: None,
+            profile_id: None,
+            task_fingerprint: "deploy-rust-service".into(),
+            task_summary: "Deploy the Rust service safely".into(),
+            tools_used: vec![],
+            tool_sequence: vec![],
+            outcome: ExperienceOutcome::Success,
+            error_class: None,
+            lesson: "Legacy shared deployment guidance".into(),
+            reuse_hint: "Check the release health endpoint".into(),
+            avoid_hint: None,
+            confidence: 0.9,
+            tags: vec![],
+            payload_hash: None,
+            dismissed: false,
+        })
+        .await
+        .unwrap();
+
+    let agent = Agent::builder()
+        .provider(Box::new(DummyProvider))
+        .tools(vec![])
+        .memory(dedicated)
+        .shared_experience_memory(Some(shared))
+        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .workspace_dir(tmp.path().to_path_buf())
+        .event_context("profile-experience-test", "web_chat")
+        .active_profile_id(Some("alice".into()))
+        .profile_memory_storage("memory-alice".into(), "session_raw-alice".into())
+        .learning_enabled(true)
+        .build()
+        .unwrap();
+
+    let enriched = agent
+        .inject_agent_experience_context(
+            "How should I deploy the Rust service?",
+            "original prompt".into(),
+        )
+        .await;
+
+    assert!(enriched.contains("Legacy shared deployment guidance"));
+    assert!(enriched.contains("original prompt"));
 }
 
 #[tokio::test]

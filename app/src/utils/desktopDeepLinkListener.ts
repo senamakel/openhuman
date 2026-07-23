@@ -152,7 +152,13 @@ const focusMainWindow = async () => {
   }
 };
 
-const AUTH_STORE_TIMEOUT_MS = 10_000;
+// The Rust core `auth_store_session` with `allowPendingBackendValidation: true`
+// connects to the backend `/auth/me` endpoint. The backend's HTTP client has
+// a 15s connect timeout + 120s request timeout. The frontend RPC timeout must
+// be long enough for the backend to establish a connection (15s) before the
+// first attempt fails, otherwise the retry loop never completes before the
+// backend responds. Set to 25s to cover the 15s connect window with headroom.
+const AUTH_STORE_TIMEOUT_MS = 25_000;
 const AUTH_STORE_RETRIES = 2;
 const AUTH_STORE_RETRY_BACKOFF_MS = 500;
 

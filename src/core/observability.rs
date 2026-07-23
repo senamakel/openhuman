@@ -3340,6 +3340,14 @@ pub fn is_windows_file_system_limitation_event(event: &sentry::protocol::Event<'
     if event.message.as_deref().is_some_and(check) {
         return true;
     }
+    if event
+        .logentry
+        .as_ref()
+        .map(|log| log.message.as_str())
+        .is_some_and(check)
+    {
+        return true;
+    }
     event
         .exception
         .values

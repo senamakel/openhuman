@@ -247,10 +247,11 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     // + Codex P1 finding). Now we block on completion — the copy is fast on both
     // an empty legacy dir and a pre-migrated workspace — so the runtime surface
     // is only exposed once the crate store is authoritative.
-    block_on_migration("thread_goals",
+    block_on_migration(
+        "thread_goals",
         crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
             &config.workspace_dir,
-        )
+        ),
     );
 
     // Idempotent copy of any task boards left in the retired
@@ -258,10 +259,11 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
     // As above, each core boot must inspect its own workspace.
-    block_on_migration("task_boards",
+    block_on_migration(
+        "task_boards",
         crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
             &config.workspace_dir,
-        )
+        ),
     );
 }
 

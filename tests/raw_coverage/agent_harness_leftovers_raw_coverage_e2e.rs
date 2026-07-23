@@ -330,7 +330,6 @@ fn prompt_context<'a>(
         dispatcher_instructions: "dispatcher guidance",
         learned,
         visible_tool_names: visible,
-        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         tool_call_format: format,
         connected_integrations: &[],
         connected_identities_md: String::new(),

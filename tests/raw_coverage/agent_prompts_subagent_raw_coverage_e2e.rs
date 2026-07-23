@@ -344,7 +344,6 @@ fn prompt_context<'a>(
             ..LearnedContextData::default()
         },
         visible_tool_names: visible,
-        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         tool_call_format: ToolCallFormat::PFormat,
         connected_integrations: &[] as &[ConnectedIntegration],
         connected_identities_md: String::new(),

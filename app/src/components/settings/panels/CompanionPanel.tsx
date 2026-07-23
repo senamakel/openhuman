@@ -66,8 +66,19 @@ const CompanionPanel = () => {
     setError(null);
     try {
       await invoke<StartCompanionSessionResult>('companion_start_session', { consent: true });
+      try {
+        await invoke<void>('register_companion_hotkey', {
+          shortcut: config?.hotkey ?? 'ctrl+space',
+        });
+      } catch (registrationError) {
+        // A session without its advertised shortcut cannot be used. Roll it
+        // back so the panel never reports a live but unreachable companion.
+        await invoke<StopCompanionSessionResult>('companion_stop_session').catch(() => undefined);
+        throw registrationError;
+      }
       await fetchStatus();
     } catch (err) {
+      await fetchStatus();
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsStarting(false);

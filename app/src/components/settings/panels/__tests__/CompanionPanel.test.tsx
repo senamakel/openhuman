@@ -78,7 +78,7 @@ describe('CompanionPanel', () => {
     });
   });
 
-  it('calls companion_start_session when start button clicked', async () => {
+  it('starts a session and registers its configured hotkey', async () => {
     const user = userEvent.setup();
     renderWithProviders(<CompanionPanel />);
 
@@ -89,6 +89,7 @@ describe('CompanionPanel', () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === 'companion_start_session')
         return { session_id: 'new-sess', state: 'idle', expires_at_ms: null };
+      if (cmd === 'register_companion_hotkey') return undefined;
       if (cmd === 'companion_status') return mockStatus;
       if (cmd === 'companion_config_get') return mockConfig;
       throw new Error(`unmocked command: ${cmd}`);
@@ -98,7 +99,15 @@ describe('CompanionPanel', () => {
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith('companion_start_session', { consent: true });
+      expect(invokeMock).toHaveBeenCalledWith('register_companion_hotkey', {
+        shortcut: mockConfig.hotkey,
+      });
     });
+
+    const calls = invokeMock.mock.calls.map(([command]) => command);
+    expect(calls.indexOf('companion_start_session')).toBeLessThan(
+      calls.indexOf('register_companion_hotkey')
+    );
   });
 
   it('shows error when start session fails', async () => {
@@ -120,6 +129,33 @@ describe('CompanionPanel', () => {
 
     await waitFor(() => {
       expect(screen.getByText('consent required')).toBeInTheDocument();
+    });
+  });
+
+  it('stops the new session when hotkey registration fails', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<CompanionPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Start Session')).toBeInTheDocument();
+    });
+
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'companion_start_session')
+        return { session_id: 'new-sess', state: 'idle', expires_at_ms: null };
+      if (cmd === 'register_companion_hotkey') throw new Error('shortcut unavailable');
+      if (cmd === 'companion_stop_session')
+        return { stopped: true, reason: 'user_requested' };
+      if (cmd === 'companion_status') return mockStatus;
+      if (cmd === 'companion_config_get') return mockConfig;
+      throw new Error(`unmocked command: ${cmd}`);
+    });
+
+    await user.click(screen.getByText('Start Session'));
+
+    await waitFor(() => {
+      expect(screen.getByText('shortcut unavailable')).toBeInTheDocument();
+      expect(invokeMock).toHaveBeenCalledWith('companion_stop_session');
     });
   });
 

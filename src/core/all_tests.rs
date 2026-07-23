@@ -1130,12 +1130,13 @@ fn meet_controllers_absent_when_feature_off() {
     }
 }
 
-/// The channel + webview-bridge namespaces register when the `channels` feature
-/// is on (#4801).
+/// The external-channel namespace registers when the `channels` feature is on
+/// (#4801).
 ///
 /// Paired with `channels_controllers_absent_when_feature_off` below to pin both
-/// directions of the compile-time gate. `webview_notifications` has no
-/// controllers (v1 toggle lives shell-side), so it is not asserted here.
+/// directions of the compile-time gate. The webview API/notification bridges
+/// and WhatsApp store have moved to the Tauri shell and expose no core
+/// controllers.
 #[cfg(feature = "channels")]
 #[test]
 fn channels_controllers_registered_when_feature_on() {
@@ -1143,12 +1144,10 @@ fn channels_controllers_registered_when_feature_on() {
         .iter()
         .map(|s| s.namespace)
         .collect();
-    for ns in ["channels", "webview_apis"] {
-        assert!(
-            namespaces.contains(&ns),
-            "with the `channels` feature ON the `{ns}` controllers must be registered"
-        );
-    }
+    assert!(
+        namespaces.contains(&"channels"),
+        "with the `channels` feature ON the `channels` controllers must be registered"
+    );
 }
 
 /// With `channels` compiled out the channel + webview-bridge domains leave zero
@@ -1166,18 +1165,11 @@ fn channels_controllers_absent_when_feature_off() {
         .iter()
         .map(|s| s.namespace)
         .collect();
-    for ns in [
-        "channels",
-        "webview_apis",
-        "webview_notifications",
-        "whatsapp_data",
-    ] {
-        assert!(
-            !namespaces.contains(&ns),
-            "with the `channels` feature OFF the `{ns}` controllers must be absent \
-             (unknown-method over /rpc, omitted from /schema)"
-        );
-    }
+    assert!(
+        !namespaces.contains(&"channels"),
+        "with the `channels` feature OFF the `channels` controllers must be absent \
+         (unknown-method over /rpc, omitted from /schema)"
+    );
     // #5002 decoupling: the in-app web chat controllers (RPC namespace `channel`)
     // are core product surface and must survive the `channels` gate being off.
     assert!(

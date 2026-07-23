@@ -256,15 +256,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Mcp,
         crate::openhuman::mcp_registry::all_mcp_registry_registered_controllers(),
     );
-    // Webview APIs bridge — proxies connector calls (Gmail, …) through
-    // a WebSocket to the Tauri shell so curl reaches the live webview.
-    // Gated behind the `channels` feature.
-    #[cfg(feature = "channels")]
-    push(
-        &mut controllers,
-        DomainGroup::Channels,
-        crate::openhuman::webview_apis::all_webview_apis_registered_controllers(),
-    );
     // Agent definition and prompt inspection
     push(
         &mut controllers,
@@ -691,13 +682,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         &mut controllers,
         DomainGroup::Threads,
         crate::openhuman::todos::all_todos_registered_controllers(),
-    );
-    // Embedded webview native notifications. Gated behind the `channels` feature.
-    #[cfg(feature = "channels")]
-    push(
-        &mut controllers,
-        DomainGroup::Channels,
-        crate::openhuman::webview_notifications::all_webview_notifications_registered_controllers(),
     );
     // Integration notification ingest, triage, and per-provider settings
     push(

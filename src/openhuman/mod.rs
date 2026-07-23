@@ -154,10 +154,6 @@ pub mod webhooks;
 #[cfg(feature = "channels")]
 pub mod webview_accounts;
 #[cfg(feature = "channels")]
-pub mod webview_apis;
-#[cfg(feature = "channels")]
-pub mod webview_notifications;
-#[cfg(feature = "channels")]
 pub mod whatsapp_data;
 pub mod workspace;
 pub mod x402;

@@ -308,6 +308,47 @@ async fn profile_allowed_tools_restrict_shared_session_builder() {
 }
 
 #[tokio::test]
+async fn channel_ceiling_does_not_inherit_orchestrator_role_visibility() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config
+        .agent
+        .channel_permissions
+        .insert("internal".to_string(), "execute".to_string());
+    let def = builtin_def("orchestrator");
+
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        Some(&def),
+        None,
+        None,
+        false,
+        None,
+    )
+    .expect("build channel-scoped orchestrator session");
+
+    assert!(
+        !agent.visible_tool_names_for_test().contains("file_write"),
+        "the orchestrator must not advertise the specialist file_write tool"
+    );
+    assert!(
+        agent
+            .subagent_tool_ceiling_names_for_test()
+            .contains("file_write"),
+        "an execute-capable channel must let code_executor inherit file_write"
+    );
+    assert!(
+        !agent
+            .subagent_tool_ceiling_names_for_test()
+            .contains("update_apply"),
+        "the execute channel ceiling must still exclude dangerous tools"
+    );
+}
+
+#[tokio::test]
 async fn dedicated_memory_profile_scopes_tree_and_transcript_storage() {
     use crate::openhuman::agent::harness::session::types::Agent;
 

@@ -484,11 +484,24 @@ impl AgentBuilder {
         // orchestrator intentionally cannot call `file_write` directly while
         // its code-executor specialist must be able to do so. Conflating those
         // two surfaces silently stripped specialist tools (#5118 merge).
+        //
+        // Build a second policy snapshot without the role visibility filter.
+        // `tool_policy_session` marks both channel-blocked and role-hidden tools
+        // as restricted, so deriving the child ceiling from it would reintroduce
+        // exactly that conflation.
+        let channel_policy_session = ToolPolicyEngine::build_session(
+            &agent_definition_name,
+            &event_channel,
+            "session",
+            &config.channel_permissions,
+            &tools,
+            &std::collections::HashSet::new(),
+        );
         let mut subagent_tool_ceiling_names = self.subagent_tool_ceiling_names.unwrap_or_default();
-        if tool_policy_session.has_restrictions() {
+        if channel_policy_session.has_restrictions() {
             let policy_allowed: std::collections::HashSet<String> = tool_specs
                 .iter()
-                .filter(|spec| tool_policy_session.is_allowed(&spec.name))
+                .filter(|spec| channel_policy_session.is_allowed(&spec.name))
                 .map(|spec| spec.name.clone())
                 .collect();
             if subagent_tool_ceiling_names.is_empty() {

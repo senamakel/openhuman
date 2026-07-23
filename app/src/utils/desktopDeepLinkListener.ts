@@ -152,6 +152,51 @@ const focusMainWindow = async () => {
   }
 };
 
+const AUTH_STORE_TIMEOUT_MS = 10_000;
+const AUTH_STORE_RETRIES = 2;
+const AUTH_STORE_RETRY_BACKOFF_MS = 500;
+
+/**
+ * Retry-safe wrapper around `storeSession` for transient backend timeouts.
+ *
+ * The Rust core's `auth_store_session` with `allowPendingBackendValidation: true`
+ * already retries the `/auth/me` call once (150ms delay) and falls through to
+ * deferred validation on a second transient failure *if* the JWT has a live
+ * local exp. However, the frontend coreRpcClient's default timeout (30s) can
+ * fire *before* Rust finishes its slow backend call + retry + deferred-validation
+ * path, producing a `CoreRpcError(kind='timeout')` even though Rust would have
+ * persisted the session successfully. This wrapper retries the whole RPC call
+ * so a transient backend blip doesn't bounce the user back to sign-in.
+ */
+const storeSessionWithRetry = async (sessionToken: string): Promise<void> => {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= AUTH_STORE_RETRIES; attempt++) {
+    try {
+      await storeSession(sessionToken, {}, {
+        allowPendingBackendValidation: true,
+        timeoutMs: AUTH_STORE_TIMEOUT_MS,
+      });
+      return; // success
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+      const isTimeout = /timed out|timeout|operation timed out/.test(message);
+      if (isTimeout && attempt < AUTH_STORE_RETRIES) {
+        console.warn(
+          '[DeepLink][auth] auth_store_session timed out (attempt %d/%d), retrying in %dms',
+          attempt,
+          AUTH_STORE_RETRIES,
+          AUTH_STORE_RETRY_BACKOFF_MS
+        );
+        await new Promise(r => setTimeout(r, AUTH_STORE_RETRY_BACKOFF_MS));
+        continue;
+      }
+      throw err; // non-timeout or last attempt
+    }
+  }
+  throw lastError;
+};
+
 const applySessionToken = async (sessionToken: string): Promise<void> => {
   // In cloud mode, bust any stale RPC URL/token caches so auth_store_session
   // targets the user's configured remote core. See issue #2377.
@@ -164,10 +209,10 @@ const applySessionToken = async (sessionToken: string): Promise<void> => {
 
   // Signal CoreStateProvider to hold off clearing session during token delivery.
   window.dispatchEvent(
-    new CustomEvent('core-state:suppress-reauth', { detail: { until: Date.now() + 15_000 } })
+    new CustomEvent('core-state:suppress-reauth', { detail: { until: Date.now() + 30_000 } })
   );
   try {
-    await storeSession(sessionToken, {}, { allowPendingBackendValidation: true });
+    await storeSessionWithRetry(sessionToken);
   } finally {
     window.dispatchEvent(new CustomEvent('core-state:suppress-reauth', { detail: { until: 0 } }));
   }
@@ -279,8 +324,17 @@ const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
       //     BEFORE our tag applies. A plain `Error` makes `originalException`
       //     non-matching, so the lead cause finally reaches Sentry.
       // The PII-free `kind` tag + stable fingerprint are all we need to group.
+      //
+      // Transient connectivity issues (timeout, gateway, network) are reported
+      // at `warning` rather than `error` — the auth flow already retried inside
+      // `storeSessionWithRetry`, and the Rust core with
+      // `allowPendingBackendValidation: true` also retries and falls back to
+      // deferred validation. If the backend was genuinely unreachable through
+      // all retries this is a connectivity observation, not an app crash
+      // (issue #5166).
+      const isTransient = kind === 'auth_me_timeout' || kind === 'auth_me_gateway' || kind === 'network';
       Sentry.captureException(new Error(`auth store failed: ${kind}`), {
-        level: 'error',
+        level: isTransient ? 'warning' : 'error',
         tags: { surface: 'react', phase: 'deep-link-auth-store', auth_store_failure: kind },
         fingerprint: ['deep-link-auth', 'session-store-failed', kind],
       });
@@ -339,7 +393,7 @@ export const authStoreFailureUserMessage = (
   mode: 'local' | 'cloud' | null
 ): string => {
   if (mode !== 'cloud') {
-    return 'Sign-in failed. Please try again.';
+    return 'Sign-in could not be completed right now. The local backend did not respond in time (even after retrying). Please check your internet connection and try again.';
   }
   switch (kind) {
     case 'auth_me_unauthorized':

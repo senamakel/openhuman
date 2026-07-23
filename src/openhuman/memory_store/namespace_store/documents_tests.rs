@@ -1108,66 +1108,65 @@ async fn upsert_document_metadata_only_rejects_secret_like_key() {
 }
 
 // ---------------------------------------------------------------------------
-// Personal-identifier (PII) rejection at the namespace/key boundary.
+// Personal-identifier (PII) at the namespace/key boundary — auto-sanitize.
 //
-// Mirrors the secret-like rejection tests above, exercising the
-// `safety::pii::has_likely_pii` early-return branches added to
-// `kv_set_global`, `kv_set_namespace`, `upsert_document`, and
-// `upsert_document_metadata_only`. Each branch returns the
-// `"cannot contain personal identifiers"` error.
+// Rather than rejecting writes with PII-like keys/namespaces (which caused
+// unthrottled retry loops, see #5164), the store now auto-sanitizes the
+// namespace and key using `redact_pii` before persisting. These tests verify
+// the upsert succeeds and the stored key/namespace contains redacted tokens.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn kv_set_global_rejects_pii_like_key() {
+async fn kv_set_global_auto_sanitizes_pii_like_key() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
-    let err = memory
+    // SSN-like key should be auto-sanitized, not rejected.
+    memory
         .kv_set_global("ssn-123-45-6789", &json!({"value": "ok"}))
         .await
-        .expect_err("PII-like global key should be rejected");
-    assert!(
-        err.contains("cannot contain personal identifiers"),
-        "unexpected error: {err}"
-    );
+        .expect("PII-like global key should be auto-sanitized, not rejected");
+
+    // The key in storage contains the redacted token.
+    let stored = memory
+        .kv_get_global("ssn-123-45-6789")
+        .await
+        .unwrap();
+    assert!(stored.is_none(), "original PII key should not match after sanitization");
 }
 
 #[tokio::test]
-async fn kv_set_namespace_rejects_pii_like_key() {
+async fn kv_set_namespace_auto_sanitizes_pii_like_key() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
-    let err = memory
+    memory
         .kv_set_namespace("safe", "ssn-123-45-6789", &json!({"value": "ok"}))
         .await
-        .expect_err("PII-like key should be rejected");
-    assert!(
-        err.contains("cannot contain personal identifiers"),
-        "unexpected error: {err}"
-    );
+        .expect("PII-like key should be auto-sanitized, not rejected");
+
+    let records = memory.kv_records_namespace("safe").await.unwrap();
+    // The record should still exist; the key gets redacted internally.
+    assert_eq!(records.len(), 1);
 }
 
 #[tokio::test]
-async fn kv_set_namespace_rejects_pii_like_namespace() {
+async fn kv_set_namespace_auto_sanitizes_pii_like_namespace() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
-    let err = memory
+    memory
         .kv_set_namespace("user/111.444.777-35", "safe-key", &json!({"value": "ok"}))
         .await
-        .expect_err("PII-like namespace should be rejected");
-    assert!(
-        err.contains("cannot contain personal identifiers"),
-        "unexpected error: {err}"
-    );
+        .expect("PII-like namespace should be auto-sanitized, not rejected");
 }
 
 #[tokio::test]
-async fn upsert_document_rejects_pii_like_key() {
+async fn upsert_document_auto_sanitizes_pii_like_key() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
-    let err = memory
+    let doc_id = memory
         .upsert_document(NamespaceDocumentInput {
             namespace: "safe".to_string(),
             key: "cuit-20-11111111-2".to_string(),
@@ -1183,19 +1182,25 @@ async fn upsert_document_rejects_pii_like_key() {
             taint: crate::openhuman::memory::MemoryTaint::Internal,
         })
         .await
-        .expect_err("PII-like key should be rejected");
+        .expect("PII-like key should be auto-sanitized, not rejected");
+
+    // The document was stored with a redacted key.
+    let docs = memory.load_documents_for_scope("safe").await.unwrap();
+    let doc = docs.iter().find(|d| d.document_id == doc_id).unwrap();
+    assert!(!doc.key.contains("20-11111111-2"), "key should be redacted");
     assert!(
-        err.contains("cannot contain personal identifiers"),
-        "unexpected error: {err}"
+        doc.key.contains("REDACTED"), // matches [REDACTED_PII_CUIT]
+        "key should contain a redaction token, got: {}",
+        doc.key
     );
 }
 
 #[tokio::test]
-async fn upsert_document_rejects_pii_like_namespace() {
+async fn upsert_document_auto_sanitizes_pii_like_namespace() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
-    let err = memory
+    let doc_id = memory
         .upsert_document(NamespaceDocumentInput {
             namespace: "cliente-RFC-VECJ880326XK4".to_string(),
             key: "k1".to_string(),
@@ -1211,19 +1216,25 @@ async fn upsert_document_rejects_pii_like_namespace() {
             taint: crate::openhuman::memory::MemoryTaint::Internal,
         })
         .await
-        .expect_err("PII-like namespace should be rejected");
+        .expect("PII-like namespace should be auto-sanitized, not rejected");
+
+    // Look up the document by sanitized namespace (note sanitize_namespace
+    // normalises special chars, so `[` becomes `_`).
+    let docs = memory.load_documents_for_scope("cliente-RFC-VECJ880326XK4").await.unwrap();
+    let doc = docs.iter().find(|d| d.document_id == doc_id).unwrap();
     assert!(
-        err.contains("cannot contain personal identifiers"),
-        "unexpected error: {err}"
+        doc.namespace.contains("REDACTED"), // [REDACTED_PII_RFC] after sanitize_namespace
+        "namespace should contain a redaction token, got: {}",
+        doc.namespace
     );
 }
 
 #[tokio::test]
-async fn upsert_document_metadata_only_rejects_pii_like_key() {
+async fn upsert_document_metadata_only_auto_sanitizes_pii_like_key() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
-    let err = memory
+    let doc_id = memory
         .upsert_document_metadata_only(NamespaceDocumentInput {
             namespace: "safe".to_string(),
             key: "ssn-123-45-6789".to_string(),
@@ -1239,19 +1250,23 @@ async fn upsert_document_metadata_only_rejects_pii_like_key() {
             taint: crate::openhuman::memory::MemoryTaint::Internal,
         })
         .await
-        .expect_err("PII-like key should be rejected");
+        .expect("PII-like key should be auto-sanitized, not rejected");
+
+    let docs = memory.load_documents_for_scope("safe").await.unwrap();
+    let doc = docs.iter().find(|d| d.document_id == doc_id).unwrap();
     assert!(
-        err.contains("cannot contain personal identifiers"),
-        "unexpected error: {err}"
+        doc.key.contains("REDACTED"), // [REDACTED_PII_SSN]
+        "key should contain a redaction token, got: {}",
+        doc.key
     );
 }
 
 #[tokio::test]
-async fn upsert_document_metadata_only_rejects_pii_like_namespace() {
+async fn upsert_document_metadata_only_auto_sanitizes_pii_like_namespace() {
     let tmp = TempDir::new().unwrap();
     let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
 
-    let err = memory
+    let doc_id = memory
         .upsert_document_metadata_only(NamespaceDocumentInput {
             namespace: "user/111.444.777-35".to_string(),
             key: "safe-key".to_string(),
@@ -1267,9 +1282,16 @@ async fn upsert_document_metadata_only_rejects_pii_like_namespace() {
             taint: crate::openhuman::memory::MemoryTaint::Internal,
         })
         .await
-        .expect_err("PII-like namespace should be rejected");
+        .expect("PII-like namespace should be auto-sanitized, not rejected");
+
+    let docs = memory
+        .load_documents_for_scope("user/111.444.777-35")
+        .await
+        .unwrap();
+    let doc = docs.iter().find(|d| d.document_id == doc_id).unwrap();
     assert!(
-        err.contains("cannot contain personal identifiers"),
-        "unexpected error: {err}"
+        doc.namespace.contains("REDACTED"), // [REDACTED_PII_CPF] after sanitize_namespace
+        "namespace should contain a redaction token, got: {}",
+        doc.namespace
     );
 }

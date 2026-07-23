@@ -96,6 +96,9 @@ pub async fn run_text_turn(
     let raw_reply = match llm_companion(trimmed, &history_window, screen_context.as_deref()).await {
         Ok(reply) => reply,
         Err(err) => {
+            if cancel.is_cancelled() {
+                return Ok(cancelled_result(trimmed));
+            }
             warn!("{LOG_PREFIX} LLM failed err={err}");
             session::transition_state(CompanionState::Error, Some(format!("LLM failure: {err}")))?;
             return Err(format!("LLM failure: {err}"));
@@ -160,7 +163,7 @@ pub async fn run_text_turn(
     }
 
     // Back to idle.
-    let _ = session::transition_state(CompanionState::Idle, None);
+    session::finish_turn();
 
     let result = TurnResult {
         transcript: trimmed.to_string(),
@@ -186,6 +189,9 @@ pub async fn run_audio_turn(
     cancel: CancellationToken,
 ) -> Result<TurnResult, String> {
     if audio_samples.is_empty() {
+        if cancel.is_cancelled() {
+            return Ok(cancelled_result(""));
+        }
         let message = "no audio samples".to_string();
         session::recover_after_turn_error(message.clone());
         return Err(message);
@@ -205,7 +211,7 @@ pub async fn run_audio_turn(
     let transcript = match stt(audio_samples, sample_rate).await {
         Ok(text) if text.trim().is_empty() => {
             info!("{LOG_PREFIX} STT returned empty transcript, skipping turn");
-            let _ = session::transition_state(CompanionState::Idle, None);
+            session::finish_turn();
             return Ok(TurnResult {
                 transcript: String::new(),
                 response_text: String::new(),
@@ -216,6 +222,9 @@ pub async fn run_audio_turn(
         }
         Ok(text) => text,
         Err(err) => {
+            if cancel.is_cancelled() {
+                return Ok(cancelled_result(""));
+            }
             warn!("{LOG_PREFIX} STT failed err={err}");
             session::transition_state(CompanionState::Error, Some(format!("STT failure: {err}")))?;
             return Err(format!("STT failure: {err}"));
@@ -418,7 +427,7 @@ fn tail_history(history: &[ConversationTurn], n: usize) -> Vec<&ConversationTurn
 
 fn cancelled_result(transcript: &str) -> TurnResult {
     // Restore session to Idle so it doesn't stay stuck in Thinking/Speaking.
-    let _ = session::transition_state(CompanionState::Idle, None);
+    session::finish_turn();
     info!("{LOG_PREFIX} turn cancelled, restored session to Idle");
     TurnResult {
         transcript: transcript.to_string(),

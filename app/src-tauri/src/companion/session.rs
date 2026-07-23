@@ -258,6 +258,32 @@ pub fn recover_after_turn_error(message: String) {
     let _ = transition_state(CompanionState::Idle, None);
 }
 
+/// Finish a turn without clobbering a newly-started interrupting capture.
+///
+/// The state check and update share the session lock, closing the race where an
+/// old cancelled task could observe `Thinking`, a new capture could enter
+/// `Listening`, and the old task could then reset that fresh capture to `Idle`.
+pub fn finish_turn() {
+    let mut guard = ACTIVE_SESSION.lock();
+    let Some(inner) = guard.as_mut() else {
+        return;
+    };
+    if matches!(
+        inner.state,
+        CompanionState::Idle | CompanionState::Listening
+    ) {
+        return;
+    }
+    let previous = inner.state;
+    if !is_valid_transition(previous, CompanionState::Idle) {
+        return;
+    }
+    inner.state = CompanionState::Idle;
+    let session_id = inner.id.clone();
+    drop(guard);
+    events::emit_state_changed(&session_id, CompanionState::Idle, previous);
+}
+
 /// Add a conversation turn to the session history.
 pub fn push_conversation_turn(turn: ConversationTurn) -> Result<(), String> {
     let mut guard = ACTIVE_SESSION.lock();

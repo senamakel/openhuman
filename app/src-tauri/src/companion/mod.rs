@@ -24,6 +24,7 @@ pub mod types;
 
 use log::{debug, info, warn};
 use parking_lot::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager};
 use tokio_util::sync::CancellationToken;
 
@@ -41,6 +42,19 @@ static CONFIG: Mutex<Option<CompanionConfig>> = Mutex::new(None);
 /// The in-flight mic capture, if the companion is currently Listening. Used to
 /// implement both tap-to-talk and push-to-talk activation.
 static ACTIVE_CAPTURE: Mutex<Option<MicCapture>> = Mutex::new(None);
+
+/// Cancellation handle for the currently running STT/LLM/TTS turn.
+///
+/// A new capture cancels the previous turn before entering `Listening`, so
+/// stale turn cleanup cannot race the interrupting utterance. The monotonic id
+/// lets a completed old task avoid clearing a newer turn's token.
+struct ActiveTurn {
+    id: u64,
+    cancel: CancellationToken,
+}
+
+static ACTIVE_TURN: Mutex<Option<ActiveTurn>> = Mutex::new(None);
+static NEXT_TURN_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Install the app handle so the session/pipeline can emit frontend events from
 /// outside a command context. Call once from `Builder::setup`.
@@ -72,6 +86,7 @@ pub(crate) async fn companion_start_session(
 #[tauri::command]
 pub(crate) async fn companion_stop_session() -> Result<StopCompanionSessionResult, String> {
     debug!("{LOG_PREFIX} companion_stop_session");
+    cancel_active_turn();
     // Tear down any in-flight capture so the mic is released.
     if let Some(capture) = ACTIVE_CAPTURE.lock().take() {
         let _ = capture.stop();
@@ -160,6 +175,10 @@ fn start_capture() {
         return;
     }
 
+    // Interrupt any previous STT/LLM/TTS task before the new capture owns the
+    // Listening state. The pipeline observes this token between every phase.
+    cancel_active_turn();
+
     if let Err(e) = session::transition_state(CompanionState::Listening, None) {
         warn!("{LOG_PREFIX} could not enter Listening: {e}");
         return;
@@ -184,13 +203,46 @@ fn finish_capture_and_run(app: AppHandle<AppRuntime>) {
     let (samples, rate) = capture.stop();
     info!("{LOG_PREFIX} captured {} samples @ {rate}Hz", samples.len());
     let screens = monitors_geometry(&app);
+    let (turn_id, cancel) = register_active_turn();
     tauri::async_runtime::spawn(async move {
-        let cancel = CancellationToken::new();
-        if let Err(e) = pipeline::run_audio_turn(&samples, rate, &screens, cancel).await {
-            warn!("{LOG_PREFIX} companion turn failed: {e}");
-            session::recover_after_turn_error(e);
+        let result = pipeline::run_audio_turn(&samples, rate, &screens, cancel.clone()).await;
+        if let Err(e) = result {
+            if cancel.is_cancelled() {
+                debug!("{LOG_PREFIX} interrupted companion turn stopped: {e}");
+            } else {
+                warn!("{LOG_PREFIX} companion turn failed: {e}");
+                session::recover_after_turn_error(e);
+            }
         }
+        clear_active_turn(turn_id);
     });
+}
+
+fn register_active_turn() -> (u64, CancellationToken) {
+    let id = NEXT_TURN_ID.fetch_add(1, Ordering::Relaxed);
+    let cancel = CancellationToken::new();
+    let mut active = ACTIVE_TURN.lock();
+    if let Some(previous) = active.take() {
+        previous.cancel.cancel();
+    }
+    *active = Some(ActiveTurn {
+        id,
+        cancel: cancel.clone(),
+    });
+    (id, cancel)
+}
+
+fn cancel_active_turn() {
+    if let Some(active) = ACTIVE_TURN.lock().take() {
+        active.cancel.cancel();
+    }
+}
+
+fn clear_active_turn(id: u64) {
+    let mut active = ACTIVE_TURN.lock();
+    if active.as_ref().map(|turn| turn.id) == Some(id) {
+        active.take();
+    }
 }
 
 /// Enumerate connected monitors as [`ScreenGeometry`] for POINT-tag coordinate
@@ -219,4 +271,29 @@ fn monitors_geometry(app: &AppHandle<AppRuntime>) -> Vec<ScreenGeometry> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod turn_cancellation_tests {
+    use super::*;
+
+    #[test]
+    fn interrupt_cancels_in_flight_turn_and_old_completion_cannot_clear_new_token() {
+        cancel_active_turn();
+
+        let (old_id, old_token) = register_active_turn();
+        cancel_active_turn();
+        assert!(old_token.is_cancelled());
+
+        let (new_id, new_token) = register_active_turn();
+        clear_active_turn(old_id);
+        assert!(!new_token.is_cancelled());
+        assert_eq!(
+            ACTIVE_TURN.lock().as_ref().map(|turn| turn.id),
+            Some(new_id)
+        );
+
+        cancel_active_turn();
+        assert!(new_token.is_cancelled());
+    }
 }

@@ -246,6 +246,20 @@ fn transition_speaking_to_listening_interrupt() {
 }
 
 #[test]
+fn cancelled_old_turn_does_not_reset_interrupting_capture() {
+    with_clean_session(|| {
+        let _s = start_default_session();
+        transition_state(CompanionState::Listening, None).unwrap();
+        transition_state(CompanionState::Thinking, None).unwrap();
+        transition_state(CompanionState::Speaking, None).unwrap();
+        transition_state(CompanionState::Listening, None).unwrap();
+
+        finish_turn();
+        assert_eq!(session_status().state, CompanionState::Listening);
+    });
+}
+
+#[test]
 fn transition_invalid_idle_to_speaking() {
     with_clean_session(|| {
         let _s = start_default_session();

@@ -632,8 +632,6 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
         "mcp_list_servers",
         "mcp_list_tools",
         "mcp_call_tool",
-        "mouse",
-        "keyboard",
         "tool_stats",
         "delegate",
         "mcp_setup_search",
@@ -644,6 +642,8 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
             "expected {expected} in {names:?}"
         );
     }
+    assert!(!names.iter().any(|name| name == "mouse"));
+    assert!(!names.iter().any(|name| name == "keyboard"));
     assert!(!names.iter().any(|name| name == "node_exec"));
     assert!(!names.iter().any(|name| name == "npm_exec"));
     assert!(

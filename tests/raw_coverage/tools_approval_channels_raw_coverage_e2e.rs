@@ -1424,8 +1424,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         "curl",
         "gitbooks_search",
         "gitbooks_get_page",
-        "mouse",
-        "keyboard",
         "tool_stats",
         "screenshot",
         "image_info",
@@ -1435,6 +1433,8 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
             "missing tool {expected}; got {names:?}"
         );
     }
+    assert!(!names.contains(&"mouse"));
+    assert!(!names.contains(&"keyboard"));
     assert!(!names.contains(&"node_exec"));
     assert!(!names.contains(&"npm_exec"));
 

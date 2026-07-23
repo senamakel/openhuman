@@ -486,9 +486,9 @@ async fn round22_tool_registry_covers_config_gated_registration() {
     assert!(names.contains(&"curl"));
     assert!(names.contains(&"gitbooks_search"));
     assert!(names.contains(&"gitbooks_get_page"));
-    assert!(names.contains(&"mouse"));
-    assert!(names.contains(&"keyboard"));
     assert!(names.contains(&"tool_stats"));
+    assert!(!names.contains(&"mouse"));
+    assert!(!names.contains(&"keyboard"));
     assert!(!names.contains(&"node_exec"));
     assert!(!names.contains(&"npm_exec"));
 }

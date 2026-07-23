@@ -1,13 +1,13 @@
 //! Unit tests for the GitHub Composio provider.
 
+use super::normalization::{
+    extract_issue_id, extract_issue_title, extract_issue_updated_at, extract_issues,
+    extract_user_login,
+};
 use super::provider::github_env_token;
 use super::provider::{
     build_fetch_query, build_search_query, github_search_arg_pairs, normalize_github_issue,
     normalize_github_repo_filter, ACTION_GET_AUTHENTICATED_USER, ACTION_SEARCH_ISSUES,
-};
-use super::sync::{
-    extract_issue_id, extract_issue_title, extract_issue_updated_at, extract_issues,
-    extract_user_login,
 };
 use super::tools::GITHUB_CURATED;
 use super::GitHubProvider;

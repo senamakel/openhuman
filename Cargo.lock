@@ -3079,7 +3079,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -4746,7 +4746,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.18",
- "tinyagents 2.1.0",
+ "tinyagents",
  "tinychannels",
  "tinycortex",
  "tinyflows",
@@ -7334,23 +7334,6 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "2.0.0"
-dependencies = [
- "async-trait",
- "bytes",
- "chrono",
- "futures",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "tinyagents"
 version = "2.1.0"
 dependencies = [
  "async-trait",
@@ -7433,7 +7416,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.18",
- "tinyagents 2.0.0",
+ "tinyagents",
  "tokio",
  "toml 0.8.23",
  "tracing",
@@ -7453,7 +7436,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tinyagents 2.1.0",
+ "tinyagents",
  "tracing",
 ]
 
@@ -8864,7 +8847,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

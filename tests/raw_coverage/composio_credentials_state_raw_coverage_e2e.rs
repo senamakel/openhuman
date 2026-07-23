@@ -310,12 +310,19 @@ async fn round15_composio_agent_tools_backend_cache_and_trigger_history_edges() 
     );
     assert_eq!(action_tool.name(), "ROUND15MAIL_FETCH_EMAILS");
     assert_eq!(action_tool.category().to_string(), "skill");
-    let contract_result = action_tool
+    let missing_required_result = action_tool
         .execute(json!({}))
         .await
         .expect("per-action contract gate");
-    assert!(contract_result.is_error);
-    assert!(contract_result.text().contains("Input JSON schema"));
+    assert!(missing_required_result.is_error);
+    assert!(missing_required_result.text().contains("Input JSON schema"));
+
+    let unknown_property_result = action_tool
+        .execute(json!({ "invented_filter": "from:me" }))
+        .await
+        .expect("per-action unknown property gate");
+    assert!(unknown_property_result.is_error);
+    assert!(unknown_property_result.text().contains("Input JSON schema"));
 
     let action_result = action_tool
         .execute(json!({ "query": "from:me" }))

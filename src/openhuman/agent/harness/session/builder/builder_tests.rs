@@ -579,7 +579,6 @@ async fn from_config_for_agent_synthesizes_custom_registry_entry_with_named_scop
         "a tool outside the custom agent's allowlist must not be visible: {visible:?}"
     );
 }
-}
 
 #[tokio::test]
 async fn build_session_agent_injects_default_profile_soul_into_prompt() {

@@ -538,7 +538,7 @@ impl ApprovalGate {
         // `Unknown`, which is denied — the gate refuses to execute an
         // external_effect tool from an unlabelled call site.
         let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
-        log::info!(
+        eprintln!(
             "[approval::gate] intercept_audited_inner tool={} origin={:?} auto_approve_all={} bypass_auto={} chat_ctx={}",
             tool_name,
             origin,

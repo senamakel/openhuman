@@ -19,7 +19,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::types::AgentProfile;
+use super::types::{AgentProfile, DEFAULT_PROFILE_ID};
 
 /// Directory holding a profile's core-managed identity + memory files:
 /// `<workspace>/personalities/<id>/`.
@@ -192,10 +192,24 @@ pub fn ensure_profile_home(
     })?;
 
     let soul_path = home.join("SOUL.md");
+    let has_inline_soul = profile
+        .soul_md
+        .as_ref()
+        .is_some_and(|soul| !soul.trim().is_empty());
     if soul_path.exists() {
         tracing::debug!(
             profile_id = %profile.id,
             "[profiles][home] SOUL.md already present, not overwriting"
+        );
+    } else if profile.id == DEFAULT_PROFILE_ID && !has_inline_soul {
+        // Backward compatibility: the built-in Default profile represents the
+        // legacy workspace identity. Selecting it must not create a generic
+        // profile-local template that shadows the user's root SOUL.md. Once a
+        // user authors a Default soul it is seeded normally; an explicit clear
+        // writes an existing empty tombstone in `sync_soul_md_on_upsert`.
+        tracing::debug!(
+            profile_id = %profile.id,
+            "[profiles][home] Default has no authored soul; preserving root SOUL.md fallback"
         );
     } else {
         let contents = profile
@@ -212,11 +226,7 @@ pub fn ensure_profile_home(
                 }
             })
             .unwrap_or_else(|| default_soul_template(profile));
-        let seeded_from_inline = profile
-            .soul_md
-            .as_ref()
-            .map(|s| !s.trim().is_empty())
-            .unwrap_or(false);
+        let seeded_from_inline = has_inline_soul;
         seed_file_atomic(&home, &soul_path, contents.as_bytes()).map_err(|e| {
             tracing::debug!(
                 profile_id = %profile.id,
@@ -526,6 +536,30 @@ mod tests {
         ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
         let soul = std::fs::read_to_string(profile_home(ws.path(), "bob").join("SOUL.md")).unwrap();
         assert_eq!(soul, "I am Bob, terse and exact.\n");
+    }
+
+    #[test]
+    fn ensure_default_profile_without_authored_soul_preserves_root_fallback() {
+        let ws = TempDir::new().unwrap();
+        let action = TempDir::new().unwrap();
+        std::fs::write(ws.path().join("SOUL.md"), "Established root identity").unwrap();
+        let mut profile = test_profile(DEFAULT_PROFILE_ID);
+        profile.built_in = true;
+        profile.soul_md = None;
+
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
+
+        assert!(profile_home(ws.path(), DEFAULT_PROFILE_ID)
+            .join("MEMORY.md")
+            .exists());
+        assert!(!profile_home(ws.path(), DEFAULT_PROFILE_ID)
+            .join("SOUL.md")
+            .exists());
+        assert_eq!(
+            super::super::paths::resolve_personality_soul(ws.path(), &profile),
+            None,
+            "no profile override leaves prompt construction on the root SOUL.md"
+        );
     }
 
     #[test]

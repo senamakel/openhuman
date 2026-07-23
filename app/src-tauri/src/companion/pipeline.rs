@@ -81,8 +81,12 @@ pub async fn run_text_turn(
     let history = session::conversation_history();
     let history_window = tail_history(&history, CONTEXT_WINDOW);
 
-    // Screen context (best-effort — skip if unavailable).
-    let screen_context = gather_screen_context().await;
+    // Foreground app/window context (best-effort and user-configurable).
+    let screen_context = if super::current_config().include_app_context {
+        gather_screen_context().await
+    } else {
+        None
+    };
 
     if cancel.is_cancelled() {
         return Ok(cancelled_result(trimmed));
@@ -370,15 +374,30 @@ async fn llm_companion(
         .ok_or_else(|| format!("unexpected chat completions response: {raw}"))
 }
 
-/// Gather screen context as a text summary for the LLM.
+/// Gather foreground app/window context as a text summary for the LLM.
 ///
-/// The shell's `screen_capture` module is a session-gated share picker (it needs
-/// a webview account label + session token and returns base64 PNGs), so it is
-/// not a fit for a lightweight standalone context grab. Until a dedicated
-/// foreground-context capture exists shell-side, this returns `None`
-/// (best-effort — the LLM still answers without screen context).
+/// The accessibility backbone remains in the embedded core after desktop
+/// controls moved out, so the shell can reuse its public, read-only foreground
+/// query without restoring any automation commands.
 async fn gather_screen_context() -> Option<String> {
-    None
+    #[cfg(target_os = "macos")]
+    {
+        openhuman_core::openhuman::accessibility::foreground_context().map(|ctx| {
+            format_foreground_context(ctx.app_name.as_deref(), ctx.window_title.as_deref())
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
+fn format_foreground_context(app_name: Option<&str>, window_title: Option<&str>) -> String {
+    format!(
+        "App: {} | Window: {}",
+        app_name.unwrap_or("unknown"),
+        window_title.unwrap_or("unknown"),
+    )
 }
 
 fn extract_chat_completion_text(raw: &Value) -> Option<String> {

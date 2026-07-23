@@ -1,9 +1,9 @@
 //! Frontend event delivery for the desktop companion.
 //!
-//! The former core module broadcast state changes over a Socket.IO
-//! `companion:state_changed` channel. Shell-side we instead emit a Tauri
-//! event `companion://state_changed` with a camelCase payload
-//! (`{ sessionId, state, previousState }`). The session state machine lives
+//! State changes are emitted as a Tauri event `companion://state_changed`
+//! with a camelCase payload (`{ sessionId, state, previousState }`) for the
+//! main renderer, and forwarded through the embedded core's transport-only
+//! Socket.IO seam for the native notch WKWebView. The session state machine lives
 //! deep below any `#[tauri::command]` boundary (it is driven from the
 //! pipeline), so we stash the `AppHandle` in a process-global `OnceLock`
 //! (mirroring `cdp::in_process::set_cef_app_handle`) and read it from the
@@ -50,4 +50,15 @@ pub fn emit_state_changed(session_id: &str, state: CompanionState, previous: Com
     if let Err(e) = app.emit(STATE_CHANGED_EVENT, payload) {
         debug!("{LOG_PREFIX} emit {STATE_CHANGED_EVENT} failed: {e}");
     }
+
+    // The native notch WKWebView has no Tauri IPC bridge; it connects directly
+    // to the embedded core over Socket.IO. Preserve the legacy snake_case
+    // payload on that transport without moving companion behavior back to core.
+    let socket_payload = serde_json::json!({
+        "session_id": session_id,
+        "state": state,
+        "previous_state": previous,
+    });
+    let delivered = openhuman_core::core::socketio::publish_companion_state_changed(socket_payload);
+    debug!("{LOG_PREFIX} queued companion state for {delivered} Socket.IO bridge subscriber(s)");
 }

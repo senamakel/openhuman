@@ -162,6 +162,18 @@ async fn gather_screen_context_returns_option() {
     let _ = ctx;
 }
 
+#[test]
+fn foreground_context_summary_preserves_app_and_window() {
+    assert_eq!(
+        format_foreground_context(Some("Safari"), Some("OpenHuman")),
+        "App: Safari | Window: OpenHuman"
+    );
+    assert_eq!(
+        format_foreground_context(None, None),
+        "App: unknown | Window: unknown"
+    );
+}
+
 // ── System prompt ────────────────────────────────────────────────────
 
 #[test]

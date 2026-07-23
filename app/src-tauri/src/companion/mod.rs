@@ -49,7 +49,7 @@ pub fn setup(app: &AppHandle<AppRuntime>) {
     info!("{LOG_PREFIX} setup complete");
 }
 
-fn current_config() -> CompanionConfig {
+pub(super) fn current_config() -> CompanionConfig {
     CONFIG.lock().clone().unwrap_or_default()
 }
 

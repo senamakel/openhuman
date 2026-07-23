@@ -147,6 +147,54 @@ async fn attributed_cron_build_retains_profile_gates() {
     );
 }
 
+#[tokio::test]
+async fn attributed_cron_build_applies_profile_runtime_defaults() {
+    crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins()
+        .expect("init built-in agent definitions");
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = "alice-runtime".into();
+    profile.built_in = false;
+    profile.model_override = Some("profile-runtime-model".into());
+    profile.temperature = Some(0.17);
+    profile.system_prompt_suffix = Some("CRON_PROFILE_SUFFIX_SENTINEL".into());
+    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+        .upsert(profile)
+        .expect("seed profile");
+
+    let mut job = test_job("");
+    job.job_type = JobType::Agent;
+    job.profile_id = Some("alice-runtime".into());
+    let built = build_agent_for_cron_job(&config, &job).expect("build attributed cron agent");
+
+    assert_eq!(built.agent.model_name(), "profile-runtime-model");
+    assert_eq!(built.agent.temperature(), 0.17);
+    let prompt = built
+        .agent
+        .build_system_prompt(crate::openhuman::agent::prompts::LearnedContextData::default())
+        .expect("build cron system prompt");
+    assert!(prompt.contains("CRON_PROFILE_SUFFIX_SENTINEL"));
+}
+
+#[test]
+fn cron_job_model_override_wins_over_profile_model() {
+    let config = Config {
+        default_model: Some("config-model".into()),
+        ..Config::default()
+    };
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.model_override = Some("profile-model".into());
+    profile.temperature = Some(0.23);
+    let mut job = test_job("");
+    job.model = Some("job-model".into());
+
+    let effective = apply_cron_profile_runtime_defaults(&config, &job, &profile);
+    assert_eq!(effective.default_model.as_deref(), Some("job-model"));
+    assert_eq!(effective.default_temperature, 0.23);
+}
+
 #[test]
 fn agent_failure_copy_mentions_retry_reporting_and_discord() {
     assert!(AGENT_JOB_USER_FAILURE_MESSAGE.contains("Something went wrong. Please try again."));

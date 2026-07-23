@@ -1117,13 +1117,13 @@ impl Agent {
             pformat_registry.len()
         );
 
-        // Temperature override: when we have a target definition, use
-        // its declared temperature from the TOML (welcome is 0.7,
-        // orchestrator is 0.4, etc). Fall back to
-        // `config.default_temperature` for the legacy "no definition"
-        // path so existing callers keep getting their configured value.
-        let effective_temperature = target_def
-            .map(|def| def.temperature)
+        // Temperature override: an active profile is the user-selected runtime
+        // default; otherwise use the target definition's TOML value (welcome is
+        // 0.7, orchestrator is 0.4, etc). Fall back to config for the legacy
+        // no-definition path.
+        let effective_temperature = profile
+            .and_then(|profile| profile.temperature)
+            .or_else(|| target_def.map(|def| def.temperature))
             .unwrap_or(config.default_temperature);
 
         // Thread PROFILE.md + MEMORY.md inclusion from the resolved

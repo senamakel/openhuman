@@ -1055,6 +1055,25 @@ struct BuiltCronAgent {
     profile: Option<crate::openhuman::profiles::AgentProfile>,
 }
 
+fn apply_cron_profile_runtime_defaults(
+    config: &Config,
+    job: &CronJob,
+    profile: &crate::openhuman::profiles::AgentProfile,
+) -> Config {
+    let mut effective = config.clone();
+    if let Some(model) = profile.model_override.clone() {
+        effective.default_model = Some(model);
+    }
+    if let Some(temperature) = profile.temperature {
+        effective.default_temperature = temperature;
+    }
+    // A job-level pin is the most specific model choice.
+    if let Some(model) = job.model.clone() {
+        effective.default_model = Some(model);
+    }
+    effective
+}
+
 fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<BuiltCronAgent> {
     // 2b — profile attribution. When the job names a profile that still exists,
     // build the run under it via the SAME profile-aware session path the task
@@ -1063,6 +1082,12 @@ fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Bu
     // tool/skill/MCP allowlists. A deleted profile falls through (warned in
     // `resolve_cron_profile`) to the profile-less path below.
     if let Some(profile) = resolve_cron_profile(config, job)? {
+        // Apply the same profile runtime defaults as interactive chat. A
+        // per-job model pin remains the most specific choice and therefore
+        // wins over the profile model. The profile-aware builder consumes the
+        // prompt suffix directly and gives profile temperature precedence over
+        // the selected agent definition.
+        let effective = apply_cron_profile_runtime_defaults(config, job, &profile);
         // A job may pin a built-in `agent_id`; otherwise the profile picks its
         // own agent definition.
         let agent_id = job
@@ -1070,10 +1095,10 @@ fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Bu
             .clone()
             .unwrap_or_else(|| profile.agent_id.clone());
         let agent = Agent::from_config_for_agent_with_profile(
-            config,
+            &effective,
             &agent_id,
             None,
-            None,
+            profile.system_prompt_suffix.clone(),
             Some(&profile),
         )
         .inspect(|_| {

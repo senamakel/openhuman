@@ -414,6 +414,7 @@ async fn gather_screen_context() -> Option<String> {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn format_foreground_context(app_name: Option<&str>, window_title: Option<&str>) -> String {
     format!(
         "App: {} | Window: {}",

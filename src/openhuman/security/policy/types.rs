@@ -189,6 +189,9 @@ pub(super) const WORKSPACE_INTERNAL_DIRS: &[&str] = &[
     // by an older version. Keep the directory on the internal denylist so agents
     // with workspace access cannot read or overwrite that leftover state.
     "redirect_links",
+    // The codegraph domain was removed, but upgraded workspaces can retain its
+    // internal index. Keep legacy state inaccessible to agent file tools.
+    "codegraph",
     ".openhuman",
     "tinyplace", // Signal session store + future tinyplace state; agent-write forbidden
 ];

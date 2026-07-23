@@ -25,6 +25,7 @@ pub struct UnsupportedPlatformError;
 /// Stub supervisor: never connectable on this platform. [`ensure_started`]
 /// always fails first, so these methods exist only to keep the call sites in
 /// `ops.rs` compiling identically on every target.
+#[derive(Debug)]
 pub struct MedullaSupervisor;
 
 impl MedullaSupervisor {

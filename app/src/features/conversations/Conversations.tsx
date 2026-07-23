@@ -276,6 +276,13 @@ const Conversations = ({
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
   const [attachError, setAttachError] = useState<ChatSendError | null>(null);
   const [sendAdvisory, setSendAdvisory] = useState<string | null>(null);
+  // Refs mirroring error/advisory state for effects that read them without
+  // depending on them, preventing the classic "effect→setState→re-fire" cascade
+  // that contributes to "Maximum update depth exceeded" (TAURI-REACT-2G).
+  const sendErrorRef = useRef(sendError);
+  sendErrorRef.current = sendError;
+  const sendAdvisoryRef = useRef(sendAdvisory);
+  sendAdvisoryRef.current = sendAdvisory;
   const [openRouterStatus, setOpenRouterStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   // Threads whose send is mid-flight (dispatched locally, backend not yet
   // accepted). A Set so concurrent sends to different threads each track their
@@ -489,14 +496,19 @@ const Conversations = ({
     typeof navigator.mediaDevices.getUserMedia === 'function';
 
   const handleCreateNewThread = async () => {
-    const thread = await dispatch(createNewThread()).unwrap();
-    dispatch(setSelectedThread(thread.id));
-    void dispatch(loadThreadMessages(thread.id));
-    if (shouldSyncChatRoute) {
-      debug('[chat][route] created thread thread=%s navigate=true', thread.id);
-      navigate(chatThreadPath(thread.id));
-    } else {
-      debug('[chat][route] created thread thread=%s navigate=false', thread.id);
+    try {
+      const thread = await dispatch(createNewThread()).unwrap();
+      dispatch(setSelectedThread(thread.id));
+      void dispatch(loadThreadMessages(thread.id));
+      if (shouldSyncChatRoute) {
+        debug('[chat][route] created thread thread=%s navigate=true', thread.id);
+        navigate(chatThreadPath(thread.id));
+      } else {
+        debug('[chat][route] created thread thread=%s navigate=false', thread.id);
+      }
+    } catch (error) {
+      debug('[chat] create thread failed: %O', error);
+      setSendError(chatSendError('create_thread_failed', t('chat.createThreadFailed')));
     }
   };
 
@@ -728,13 +740,17 @@ const Conversations = ({
   }, []);
 
   useEffect(() => {
-    if (sendError && inputValue.length > 0) {
+    if (sendErrorRef.current && inputValue.length > 0) {
       setSendError(null);
     }
-    if (sendAdvisory && inputValue.length > 0) {
+    if (sendAdvisoryRef.current && inputValue.length > 0) {
       setSendAdvisory(null);
     }
-  }, [inputValue, sendAdvisory, sendError]);
+    // Reads sendError/sendAdvisory through refs to avoid re-firing when they
+    // are cleared — which would cascade into extra render cycles and contribute
+    // to "Maximum update depth exceeded" (TAURI-REACT-2G).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputValue]);
 
   const clearSilenceTimer = useCallback((threadId: string) => {
     const existing = sendingTimeoutsRef.current.get(threadId);

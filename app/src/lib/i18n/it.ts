@@ -1050,6 +1050,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'Follow-up in coda',
   'chat.queuedFollowups.clear': 'Cancella',
   'chat.queuedFollowups.clearFailed': 'Impossibile svuotare la coda: riprova.',
+  'chat.createThreadFailed': 'Impossibile creare una nuova conversazione. Riprova.',
   'chat.parallelBranchLabel': 'Ramo parallelo',
   'chat.thinking': 'Sto pensando...',
   'chat.noMessages': 'Nessun messaggio',

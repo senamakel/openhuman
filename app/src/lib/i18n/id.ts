@@ -1034,6 +1034,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'Tindak lanjut dalam antrean',
   'chat.queuedFollowups.clear': 'Hapus',
   'chat.queuedFollowups.clearFailed': 'Gagal mengosongkan antrean: coba lagi.',
+  'chat.createThreadFailed': 'Gagal membuat thread baru: coba lagi.',
   'chat.parallelBranchLabel': 'Cabang paralel',
   'chat.thinking': 'Berpikir...',
   'chat.noMessages': 'Belum ada pesan',

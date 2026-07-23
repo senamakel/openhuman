@@ -1060,6 +1060,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'Suivis en file',
   'chat.queuedFollowups.clear': 'Effacer',
   'chat.queuedFollowups.clearFailed': 'Impossible de vider la file: réessayez.',
+  'chat.createThreadFailed': 'Impossible de créer un nouveau fil. Veuillez réessayer.',
   'chat.parallelBranchLabel': 'Branche parallèle',
   'chat.thinking': 'En train de réfléchir…',
   'chat.noMessages': "Aucun message pour l'instant",

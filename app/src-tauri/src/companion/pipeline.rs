@@ -305,7 +305,7 @@ async fn fetch_backend_creds() -> Result<(String, String), String> {
     let url_v = crate::core_rpc::call_core_rpc("openhuman.config_resolve_api_url", json!({}))
         .await
         .map_err(|e| format!("resolve api url: {e}"))?;
-    let api_url = url_v
+    let backend_url = url_v
         .get("api_url")
         .and_then(|u| u.as_str())
         .map(str::trim)
@@ -313,7 +313,7 @@ async fn fetch_backend_creds() -> Result<(String, String), String> {
         .ok_or_else(|| "no backend api_url".to_string())?
         .to_string();
 
-    Ok((token, api_url))
+    Ok((token, backend_url))
 }
 
 /// System prompt for the desktop companion LLM.
@@ -342,9 +342,8 @@ async fn llm_companion(
     history: &[&ConversationTurn],
     screen_context: Option<&str>,
 ) -> Result<String, String> {
-    let (token, api_url) = fetch_backend_creds().await?;
-    let base = api_url.trim_end_matches('/');
-    let endpoint = format!("{base}/openai/v1/chat/completions");
+    let (token, backend_url) = fetch_backend_creds().await?;
+    let endpoint = companion_chat_endpoint(&backend_url);
 
     let mut messages: Vec<Value> = Vec::with_capacity(history.len() + 2);
 
@@ -397,6 +396,13 @@ async fn llm_companion(
 
     extract_chat_completion_text(&raw)
         .ok_or_else(|| format!("unexpected chat completions response: {raw}"))
+}
+
+fn companion_chat_endpoint(backend_url: &str) -> String {
+    format!(
+        "{}/openai/v1/chat/completions",
+        backend_url.trim_end_matches('/')
+    )
 }
 
 /// Gather foreground app/window context as a text summary for the LLM.

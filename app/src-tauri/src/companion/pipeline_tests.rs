@@ -120,6 +120,14 @@ fn tts_dispatch_params_defer_provider_selection_to_core() {
     assert_eq!(tts_dispatch_params("hello"), json!({ "text": "hello" }));
 }
 
+#[test]
+fn companion_chat_endpoint_joins_only_the_backend_path() {
+    assert_eq!(
+        companion_chat_endpoint("https://api.tinyhumans.ai/"),
+        "https://api.tinyhumans.ai/openai/v1/chat/completions"
+    );
+}
+
 // ── Text turn tests ──────────────────────────────────────────────────
 
 #[tokio::test]

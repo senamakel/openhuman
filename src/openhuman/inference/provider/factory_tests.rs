@@ -869,9 +869,26 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
         .await
         .expect("explicit-temperature invoke");
 
+    let turn_model = create_turn_chat_model("chat", &config, "chat-v1", 0.2).expect("turn model");
+    turn_model
+        .invoke(&(), ModelRequest::new(vec![Message::user("turn default")]))
+        .await
+        .expect("turn default-temperature invoke");
+
+    let explicit_turn_model =
+        create_turn_chat_model_from_string("chat", "openhuman", &config, "chat-v1", 0.4)
+            .expect("explicit turn model");
+    explicit_turn_model
+        .invoke(
+            &(),
+            ModelRequest::new(vec![Message::user("turn explicit")]).with_temperature(0.8),
+        )
+        .await
+        .expect("turn explicit-temperature invoke");
+
     assert_eq!(
         *seen.lock().expect("probe lock"),
-        vec![Some(0.3), Some(0.9)]
+        vec![Some(0.3), Some(0.9), Some(0.2), Some(0.8)]
     );
 }
 

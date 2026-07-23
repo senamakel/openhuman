@@ -1256,7 +1256,22 @@ pub(crate) fn create_turn_chat_model_with_native_tools_and_route(
     role: &str,
     config: &Config,
     model: &str,
-    _temperature: f64,
+    temperature: f64,
+    native_tool_calling: bool,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String, String)> {
+    create_turn_chat_model_with_native_tools_and_route_inner(
+        role,
+        config,
+        model,
+        native_tool_calling,
+    )
+    .map(|(chat, provider, model)| (with_default_temperature(chat, temperature), provider, model))
+}
+
+fn create_turn_chat_model_with_native_tools_and_route_inner(
+    role: &str,
+    config: &Config,
+    model: &str,
     native_tool_calling: bool,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String, String)> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
@@ -1512,7 +1527,11 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools_and_route(
             .profile()
             .and_then(|profile| profile.provider.clone())
             .unwrap_or_else(|| "injected".to_string());
-        return Ok((chat, provider, model.to_string()));
+        return Ok((
+            with_default_temperature(chat, temperature),
+            provider,
+            model.to_string(),
+        ));
     }
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
@@ -1529,10 +1548,13 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools_and_route(
     if is_managed && !test_override_active {
         let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
         return Ok((
-            Arc::new(
-                backend
-                    .with_default_model(model)
-                    .with_native_tool_calling(native_tool_calling),
+            with_default_temperature(
+                Arc::new(
+                    backend
+                        .with_default_model(model)
+                        .with_native_tool_calling(native_tool_calling),
+                ),
+                temperature,
             ),
             PROVIDER_OPENHUMAN.to_string(),
             model.to_string(),

@@ -25,24 +25,46 @@ static WARNED_WORLD_READABLE_CONFIGS: OnceLock<Mutex<HashSet<std::path::PathBuf>
 /// `stream did not contain valid UTF-8` events (#5167).
 static WARNED_CONFIG_READ_FAILURE: OnceLock<Mutex<bool>> = OnceLock::new();
 
-/// Try to read `config_path`. On permanent failure (non-UTF-8 content,
-/// non-transient permission error), rename the corrupted file to
-/// `<config_file>.corrupted.<timestamp>`, try the `.bak` backup, and if
-/// that also fails return an empty string so the caller's
+/// Try to read `config_path`. On content corruption (non-UTF-8 bytes), rename
+/// the corrupted file to `<config_file>.corrupted.<timestamp>`, try the `.bak`
+/// backup, and if that also fails return an empty string so the caller's
 /// `parse_config_with_recovery` falls through to defaults.
+///
+/// Only triggers auto-recovery for **content** corruption (`InvalidData`), not
+/// for transient or permission errors (`PermissionDenied`, `NotFound`, etc.),
+/// which are propagated as errors so the caller can surface them to the user.
 ///
 /// Rate-limits the warning to at most one per process lifetime so a
 /// permanently corrupted file does not flood telemetry (#5167).
-async fn read_config_with_recovery_or_default(config_path: &Path) -> (String, bool) {
+async fn read_config_with_recovery_or_default(
+    config_path: &Path,
+) -> Result<(String, bool)> {
     let reads = || async {
         fs::read_to_string(config_path)
             .await
             .with_context(|| format!("Failed to read config file: {}", config_path.display()))
     };
 
-    match crate::openhuman::util::retry_with_backoff_async("read config file", 5, 20, reads).await {
-        Ok(contents) => (contents, false),
+    let result = crate::openhuman::util::retry_with_backoff_async("read config file", 5, 20, reads).await;
+    match result {
+        Ok(contents) => Ok((contents, false)),
         Err(e) => {
+            // Check if this is a content-corruption error (non-UTF-8).
+            // Only in that case do we auto-recover by renaming the file
+            // and falling back to backup/defaults. Other errors (permission
+            // denied, file not found after retries, etc.) are propagated
+            // so the caller surfaces them to the user.
+            let is_content_corruption = e
+                .chain()
+                .any(|cause| {
+                    cause.downcast_ref::<std::io::Error>()
+                        .map_or(false, |ioe| ioe.kind() == std::io::ErrorKind::InvalidData)
+                });
+
+            if !is_content_corruption {
+                return Err(e);
+            }
+
             // Rate-limit the warning to once per process lifetime.  The
             // MutexGuard *must* be scoped in its own block so it is dropped
             // before any `.await` below -- holding a non-Send guard across
@@ -54,7 +76,7 @@ async fn read_config_with_recovery_or_default(config_path: &Path) -> (String, bo
                     tracing::warn!(
                         path = %config_path.display(),
                         error = %e,
-                        "[config] Failed to read config file (non-UTF-8 or permission error); \
+                        "[config] Config file contains non-UTF-8 content; \
                          renaming to .corrupted and attempting recovery from backup"
                     );
                     *guard = true;
@@ -92,7 +114,7 @@ async fn read_config_with_recovery_or_default(config_path: &Path) -> (String, bo
                         backup = %backup_path.display(),
                         "[config] Read of config file failed; recovered from backup"
                     );
-                    (bak_contents, true)
+                    Ok((bak_contents, true))
                 }
                 Err(bak_err) => {
                     tracing::warn!(
@@ -102,7 +124,7 @@ async fn read_config_with_recovery_or_default(config_path: &Path) -> (String, bo
                         "[config] Backup also unreadable after failed config read; \
                          resetting to defaults"
                     );
-                    (String::new(), true)
+                    Ok((String::new(), true))
                 }
             }
         }
@@ -288,9 +310,20 @@ impl Config {
             // `.corrupted.<timestamp>` and backup/defaults are attempted,
             // with rate-limited error logging (#5167).
             let (contents, read_was_recovered) =
-                read_config_with_recovery_or_default(&config_path).await;
-            let (mut config, config_was_corrupted) =
-                parse_config_with_recovery(&config_path, &contents).await;
+                read_config_with_recovery_or_default(&config_path).await?;
+
+            // When `read_config_with_recovery_or_default` returned an empty
+            // string (both primary and backup were unreadable), skip the TOML
+            // parse and use `Config::default()` directly.  An empty TOML would
+            // otherwise parse successfully with serde defaults (all fields at
+            // their `Option::None` / `vec![]` / `false` values) instead of
+            // the richer `Default` impl (issue #5167).
+            let (mut config, config_was_corrupted) = if read_was_recovered && contents.is_empty()
+            {
+                (Config::default(), true)
+            } else {
+                parse_config_with_recovery(&config_path, &contents).await
+            };
 
             // If the read itself was recovered (non-UTF-8 file renamed, backup
             // used, or file renamed to .corrupted.ts), treat it as corruption so
@@ -438,7 +471,7 @@ impl Config {
         // non-UTF-8 case: a corrupted file is renamed to `.corrupted.<ts>` so the next
         // authoritative load can create a fresh config.
         let (raw, _read_was_recovered) =
-            read_config_with_recovery_or_default(&config_path).await;
+            read_config_with_recovery_or_default(&config_path).await?;
         let (mut config, _was_corrupted) = parse_config_with_recovery(&config_path, &raw).await;
         config.config_path = config_path;
         config.workspace_dir = workspace_dir;
@@ -485,9 +518,12 @@ impl Config {
         }
 
         let (raw, read_was_recovered) =
-            read_config_with_recovery_or_default(&config_path).await;
-        let (mut config, config_was_corrupted) =
-            parse_config_with_recovery(&config_path, &raw).await;
+            read_config_with_recovery_or_default(&config_path).await?;
+        let (mut config, config_was_corrupted) = if read_was_recovered && raw.is_empty() {
+            (Config::default(), true)
+        } else {
+            parse_config_with_recovery(&config_path, &raw).await
+        };
         let config_was_corrupted = config_was_corrupted || read_was_recovered;
         config.config_path = config_path;
         config.workspace_dir = workspace_dir;

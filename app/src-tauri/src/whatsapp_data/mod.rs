@@ -38,19 +38,16 @@ use store::WhatsAppDataStore;
 /// Lazily open (or return) the shell's whatsapp_data store, bound to the active
 /// OpenHuman workspace dir.
 ///
-/// The store is a process-global singleton so the scanner, the native query
-/// handlers, and the Tauri commands all share one connection lifecycle (and one
-/// write lock / corruption-recovery latch). The first call resolves the
-/// workspace via [`Config::load_or_init`]; subsequent calls are cheap.
+/// The store is process-global so the scanner, native query handlers, and Tauri
+/// commands share one write lock and recovery lifecycle. Every call resolves
+/// the active workspace; [`global::init`] reuses the store only when that path
+/// still matches, and atomically reopens it after user/reset workspace changes.
 pub async fn ensure_store() -> Result<Arc<WhatsAppDataStore>, String> {
-    if let Some(store) = global::store_if_ready() {
-        return Ok(store);
-    }
     let cfg = openhuman_core::openhuman::config::Config::load_or_init()
         .await
         .map_err(|e| format!("[whatsapp_data] config load failed: {e:#}"))?;
     log::debug!(
-        "[whatsapp_data] initializing shell store (workspace={})",
+        "[whatsapp_data] ensuring shell store (workspace={})",
         cfg.workspace_dir.display()
     );
     global::init(cfg.workspace_dir.clone())

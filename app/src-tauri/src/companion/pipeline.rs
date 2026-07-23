@@ -4,7 +4,7 @@
 //! from the former core `desktop_companion::pipeline`, re-plumbed for the shell:
 //!
 //! - **STT** and **TTS** are performed by the embedded core over JSON-RPC
-//!   (`openhuman.voice_transcribe_bytes` / `openhuman.voice_tts`) via
+//!   (`openhuman.voice_stt_dispatch` / `openhuman.voice_tts_dispatch`) via
 //!   [`crate::core_rpc::call_core_rpc`].
 //! - The **LLM turn** runs shell-side: it fetches the backend session token
 //!   (`openhuman.auth_get_session_token`) and effective API URL
@@ -20,6 +20,7 @@
 
 use std::time::Duration;
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -239,17 +240,18 @@ pub async fn run_audio_turn(
 
 // ─── Core-RPC / backend adapters ────────────────────────────────────
 
-/// Transcribe audio samples to text via the core STT endpoint.
+/// Transcribe audio samples through the core's configured STT provider.
 ///
-/// `openhuman.voice_transcribe_bytes` takes container bytes + an `extension`,
-/// so we pack the mono PCM into a shell-local WAV container first.
+/// The dispatch endpoint accepts base64 container bytes, so we pack the mono
+/// PCM into a shell-local WAV container first.
 async fn stt(samples: &[i16], sample_rate: u32) -> Result<String, String> {
     let wav = super::audio::pack_wav_pcm16le_mono(samples, sample_rate);
-    let params = json!({
-        "audio_bytes": wav,
-        "extension": "wav",
-    });
-    let result = crate::core_rpc::call_core_rpc("openhuman.voice_transcribe_bytes", params).await?;
+    let params = stt_dispatch_params(&wav);
+    let result = crate::core_rpc::call_core_rpc("openhuman.voice_stt_dispatch", params).await?;
+    debug!(
+        "{LOG_PREFIX} stt provider={:?}",
+        result.get("provider").and_then(|p| p.as_str())
+    );
     result
         .get("text")
         .and_then(|t| t.as_str())
@@ -257,19 +259,30 @@ async fn stt(samples: &[i16], sample_rate: u32) -> Result<String, String> {
         .ok_or_else(|| format!("unexpected transcribe response: {result}"))
 }
 
-/// Synthesize speech from text via the core TTS endpoint.
+fn stt_dispatch_params(wav: &[u8]) -> Value {
+    json!({
+        "audio_base64": BASE64_STANDARD.encode(wav),
+        "mime_type": "audio/wav",
+        "file_name": "companion.wav",
+    })
+}
+
+/// Synthesize speech through the core's configured TTS provider.
 ///
-/// `openhuman.voice_tts` writes the audio to a file and returns its path (no
-/// inline audio); the shell only needs to know synthesis succeeded to hold the
-/// Speaking state.
+/// The shell only needs to know synthesis succeeded to hold the Speaking
+/// state; native playback remains a follow-up.
 async fn tts(text: &str) -> Result<(), String> {
-    let params = json!({ "text": text });
-    let result = crate::core_rpc::call_core_rpc("openhuman.voice_tts", params).await?;
+    let params = tts_dispatch_params(text);
+    let result = crate::core_rpc::call_core_rpc("openhuman.voice_tts_dispatch", params).await?;
     debug!(
-        "{LOG_PREFIX} tts output_path={:?}",
-        result.get("output_path").and_then(|p| p.as_str())
+        "{LOG_PREFIX} tts audio_mime={:?}",
+        result.get("audio_mime").and_then(|mime| mime.as_str())
     );
     Ok(())
+}
+
+fn tts_dispatch_params(text: &str) -> Value {
+    json!({ "text": text })
 }
 
 /// Fetch the backend session token + effective API base URL from core so the

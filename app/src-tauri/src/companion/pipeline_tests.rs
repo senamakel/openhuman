@@ -103,6 +103,23 @@ fn extract_chat_completion_text_malformed() {
     assert_eq!(extract_chat_completion_text(&json!(42)), None);
 }
 
+#[test]
+fn stt_dispatch_params_encode_wav_for_provider_dispatch() {
+    assert_eq!(
+        stt_dispatch_params(b"wav"),
+        json!({
+            "audio_base64": "d2F2",
+            "mime_type": "audio/wav",
+            "file_name": "companion.wav",
+        })
+    );
+}
+
+#[test]
+fn tts_dispatch_params_defer_provider_selection_to_core() {
+    assert_eq!(tts_dispatch_params("hello"), json!({ "text": "hello" }));
+}
+
 // ── Text turn tests ──────────────────────────────────────────────────
 
 #[tokio::test]

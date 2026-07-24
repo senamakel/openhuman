@@ -543,6 +543,42 @@ fi
   esac
 ) || fail "smoke_extracted_apprun changed a sourced caller's disabled errexit state"
 
+APPARMOR_BIN="$WORK/apparmor-bin"
+APPARMOR_RECORD="$WORK/apparmor-command-record"
+APPARMOR_PROFILE="$WORK/openhuman-appimage-smoke.profile"
+APPARMOR_PROFILE_SNAPSHOT="$WORK/openhuman-appimage-smoke.profile.loaded"
+mkdir -p "$APPARMOR_BIN"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' \
+  >"$APPARMOR_BIN/apparmor_parser"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "%s\n" "$*" >>"$APPARMOR_RECORD"' \
+  'if [ "$2" = "apparmor_parser" ] && [ "$3" = "--replace" ]; then' \
+  '  cp "$4" "$APPARMOR_PROFILE_SNAPSHOT"' \
+  'fi' \
+  >"$APPARMOR_BIN/sudo"
+chmod +x "$APPARMOR_BIN/apparmor_parser" "$APPARMOR_BIN/sudo"
+export APPARMOR_RECORD APPARMOR_PROFILE_SNAPSHOT
+PATH="$APPARMOR_BIN:$PATH" install_smoke_userns_profile \
+  "$RUNTIME_COMPLETE" "$APPARMOR_PROFILE" \
+  || fail "install_smoke_userns_profile rejected the fixture AppDir"
+grep -F "\"$RUNTIME_COMPLETE/shared/bin/OpenHuman\"" \
+  "$APPARMOR_PROFILE_SNAPSHOT" >/dev/null \
+  || fail "AppArmor profile did not attach to the extracted real executable"
+grep -Fx "  userns," "$APPARMOR_PROFILE_SNAPSHOT" >/dev/null \
+  || fail "AppArmor profile did not preserve Chromium's userns sandbox"
+grep -Fx -- \
+  "--non-interactive apparmor_parser --replace $APPARMOR_PROFILE" \
+  "$APPARMOR_RECORD" >/dev/null \
+  || fail "AppArmor profile was not loaded through non-interactive sudo"
+PATH="$APPARMOR_BIN:$PATH" remove_smoke_userns_profile "$APPARMOR_PROFILE" \
+  || fail "remove_smoke_userns_profile rejected the loaded profile"
+grep -Fx -- \
+  "--non-interactive apparmor_parser --remove $APPARMOR_PROFILE" \
+  "$APPARMOR_RECORD" >/dev/null \
+  || fail "AppArmor profile was not removed after the smoke"
+echo "[test-rpaths] ok: CI smoke grants userns only to the extracted executable"
+
 assert_runtime_layout_rejected missing-anylinux \
   "missing anylinux.so" remove_anylinux
 assert_runtime_layout_rejected missing-libxdo \

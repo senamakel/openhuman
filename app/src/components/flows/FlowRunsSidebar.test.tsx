@@ -104,6 +104,15 @@ describe('FlowRunsSidebar', () => {
     expect(screen.getByTestId('flow-run-inspector-drawer-stub')).toHaveTextContent('run-1');
   });
 
+  it('uses an important padding override for the compact status badge', async () => {
+    listFlowRuns.mockResolvedValue([makeRun()]);
+    renderSidebar();
+
+    const badge = await screen.findByText('Failed');
+    expect(badge).toHaveClass('!px-1.5');
+    expect(badge).not.toHaveClass('px-1.5');
+  });
+
   it('passes onFixWithAgent through to the run inspector drawer', async () => {
     listFlowRuns.mockResolvedValue([makeRun()]);
     renderSidebar();

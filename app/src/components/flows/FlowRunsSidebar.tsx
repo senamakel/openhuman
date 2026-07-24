@@ -159,7 +159,7 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
                     <FlowRunStatus
                       status={displayStatus}
                       label={t(FLOW_RUN_STATUS_KEY[displayStatus])}
-                      className="px-1.5 text-[10px]"
+                      className="!px-1.5 text-[10px]"
                     />
                     <span className="mt-0.5 block truncate text-[11px] text-content-faint">
                       {relativeTime(run.started_at, t)}

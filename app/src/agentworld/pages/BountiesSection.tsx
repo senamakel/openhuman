@@ -27,12 +27,12 @@ import {
   type RegistrationChallenge,
   type RegistryWalletBalance,
 } from '../../lib/agentworld/invokeApiClient';
-import { fetchWalletStatus } from '../../services/walletApi';
 import type { ToastNotification } from '../../types/intelligence';
 import { apiClient } from '../AgentWorldShell';
 import { decimalsForAsset, resolveAssetSymbol } from '../assets';
 import StatusBlock from '../components/StatusBlock';
 import X402ConfirmDialog, { formatUnits } from '../components/X402ConfirmDialog';
+import { useMyAgentId } from '../hooks/useMyAgentId';
 import { relativeTime } from './relativeTime';
 
 // ── State types ───────────────────────────────────────────────────────────────
@@ -69,21 +69,6 @@ function formatReward(amount: string, asset: string): string {
   const decimals = decimalsForAsset(asset);
   const display = decimals > 0 ? formatUnits(amount, decimals) : amount;
   return `${formatAmount(display)} ${resolveAssetSymbol(asset)}`;
-}
-
-// ── useMyAgentId ──────────────────────────────────────────────────────────────
-
-function useMyAgentId(): string | null {
-  const [agentId, setAgentId] = useState<string | null>(null);
-  useEffect(() => {
-    void fetchWalletStatus()
-      .then(status => {
-        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
-        if (solana?.address) setAgentId(solana.address);
-      })
-      .catch(() => {});
-  }, []);
-  return agentId;
 }
 
 // ── BountyStatusBadge ─────────────────────────────────────────────────────────
@@ -809,7 +794,8 @@ function CommentModal({
 // ── BountiesSection ───────────────────────────────────────────────────────────
 
 export default function BountiesSection() {
-  const myAgentId = useMyAgentId();
+  const myAgent = useMyAgentId();
+  const myAgentId = myAgent.status === 'ready' ? myAgent.agentId : null;
   const [state, setState] = useState<BountiesState>({ status: 'loading' });
   const [expandedBountyId, setExpandedBountyId] = useState<string | null>(null);
   const [mutating, setMutating] = useState(false);

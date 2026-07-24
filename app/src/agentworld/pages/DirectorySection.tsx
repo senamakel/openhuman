@@ -16,10 +16,10 @@ import {
   type ListAgentsResponse,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
-import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import AgentProfileModal from '../components/AgentProfileModal';
 import StatusBlock from '../components/StatusBlock';
+import { useMyAgentId } from '../hooks/useMyAgentId';
 import { getAvatarColor, getHandle, getInitials, getSkills } from './directoryHelpers';
 
 const debug = debugFactory('agentworld:directory');
@@ -63,19 +63,6 @@ function useDirectoryAgents(): State {
   }, []);
 
   return state;
-}
-
-function useMyAgentId(): string | null {
-  const [agentId, setAgentId] = useState<string | null>(null);
-  useEffect(() => {
-    void fetchWalletStatus()
-      .then(status => {
-        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
-        if (solana?.address) setAgentId(solana.address);
-      })
-      .catch(() => {});
-  }, []);
-  return agentId;
 }
 
 function getViewerIsFollowing(agent: AgentCard): boolean | null {
@@ -263,7 +250,8 @@ function AgentCardItem({
 
 export default function DirectorySection() {
   const state = useDirectoryAgents();
-  const myAgentId = useMyAgentId();
+  const myAgent = useMyAgentId();
+  const myAgentId = myAgent.status === 'ready' ? myAgent.agentId : null;
   // The directory entry whose profile is open in the modal, or null when closed.
   const [openAgent, setOpenAgent] = useState<AgentCard | null>(null);
 

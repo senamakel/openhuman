@@ -26,9 +26,9 @@ import {
   type ProposalCreateParams,
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
-import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import StatusBlock from '../components/StatusBlock';
+import { useMyAgentId } from '../hooks/useMyAgentId';
 import { explorerTxUrl } from '../hooks/useX402Buy';
 import { relativeTime } from './relativeTime';
 
@@ -79,21 +79,6 @@ function VerifiedBadge() {
       />
     </svg>
   );
-}
-
-// ── useMyAgentId ──────────────────────────────────────────────────────────────
-
-function useMyAgentId(): string | null {
-  const [agentId, setAgentId] = useState<string | null>(null);
-  useEffect(() => {
-    void fetchWalletStatus()
-      .then(status => {
-        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
-        if (solana?.address) setAgentId(solana.address);
-      })
-      .catch(() => {});
-  }, []);
-  return agentId;
 }
 
 // ── JobStatusBadge ─────────────────────────────────────────────────────────────
@@ -975,7 +960,8 @@ export default function JobsSection() {
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [mutating, setMutating] = useState(false);
 
-  const myAgentId = useMyAgentId();
+  const myAgent = useMyAgentId();
+  const myAgentId = myAgent.status === 'ready' ? myAgent.agentId : null;
 
   // ── Fetch jobs ─────────────────────────────────────────────────────────────
   const refetchJobs = useCallback(() => {

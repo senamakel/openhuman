@@ -27,9 +27,9 @@ import {
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
-import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import StatusBlock from '../components/StatusBlock';
+import { useMyAgentId } from '../hooks/useMyAgentId';
 
 const log = debug('agentworld:profileviewer');
 
@@ -64,29 +64,6 @@ function pickPrimary<T extends { primary?: boolean }>(identities: T[]): T | unde
 function readViewerFollows(card: AgentCard | null): boolean | null {
   const value = card?.['viewerIsFollowing'];
   return typeof value === 'boolean' ? value : null;
-}
-
-/** Resolve the wallet's Solana address (the viewer's tiny.place cryptoId). */
-function useMyAgentId(): string | null {
-  const [agentId, setAgentId] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    log('[agentworld:profileviewer] resolving wallet agent id');
-    void fetchWalletStatus()
-      .then(status => {
-        if (cancelled) return;
-        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
-        if (solana?.address) setAgentId(solana.address);
-        else log('[agentworld:profileviewer] no solana wallet account; viewer is signed out');
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) log('[agentworld:profileviewer] wallet resolve failed: %s', errorKind(err));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return agentId;
 }
 
 // ── Profile fetch ────────────────────────────────────────────────────────────────
@@ -278,7 +255,8 @@ export default function ProfileViewer() {
 
 function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandle: string }) {
   const { t } = useT();
-  const myAgentId = useMyAgentId();
+  const myAgent = useMyAgentId();
+  const myAgentId = myAgent.status === 'ready' ? myAgent.agentId : null;
   const cryptoId = profile.cryptoId;
   const agentCard = useAgentCard(cryptoId);
   // Optimistic follower-count adjustment so the count tracks the follow button

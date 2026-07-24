@@ -53,6 +53,10 @@ Files:
   `tests/raw_coverage/tools_agent_credentials_state_raw_coverage_e2e.rs`, and
   `src/openhuman/tools/{ops_tests.rs,user_filter.rs}`. Preserve unrelated
   data-URL and user-image coverage.
+- Remove only the `screenshot-ref` local CLI wrapper/list entry/tests from
+  `src/openhuman/tools/local_cli.rs`, because it calls the deleted
+  `screen_intelligence` module. Preserve the standalone `ScreenshotTool` wrapper
+  for step 3.
 
 Tests and checks:
 
@@ -121,8 +125,8 @@ Files:
 - Delete the standalone native `ScreenshotTool` implementation and tests in
   `src/openhuman/tools/impl/browser/screenshot.rs`; remove its module/re-export
   from `src/openhuman/tools/impl/browser/mod.rs`, its registration from
-  `src/openhuman/tools/ops.rs`, and the local wrappers/tests in
-  `src/openhuman/tools/local_cli.rs`.
+  `src/openhuman/tools/ops.rs`, and the remaining standalone screenshot
+  wrapper/tests in `src/openhuman/tools/local_cli.rs`.
 - In `src/openhuman/tools/impl/browser/{types.rs,action_parser.rs,browser.rs,browser_tests.rs}` remove the `BrowserAction::Screenshot` variant, parser,
   advertised action/schema option, and `screen_capture` computer-use action.
   Keep `snapshot` and all non-pixel browser/computer input actions.

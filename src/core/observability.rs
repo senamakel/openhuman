@@ -3455,13 +3455,13 @@ pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
     // Only match bare HTTP 401 (CoreRpcError / fetch), not llm_provider 401
     // which is handled by the session-expired classifier
     let domain = event.tags.get("domain").map(String::as_str);
-    if domain != Some("llm_provider") && domain != Some("backend_api") {
-        if lower.contains("http 401")
+    if domain != Some("llm_provider")
+        && domain != Some("backend_api")
+        && (lower.contains("http 401")
             || lower.contains("status: 401")
-            || lower.contains("401 unauthorized")
-        {
-            return true;
-        }
+            || lower.contains("401 unauthorized"))
+    {
+        return true;
     }
 
     // Timeout patterns — scoped to known transient forms so genuine

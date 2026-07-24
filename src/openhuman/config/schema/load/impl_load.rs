@@ -53,7 +53,7 @@ async fn read_config_with_recovery_or_default(config_path: &Path) -> Result<(Str
             let is_content_corruption = e.chain().any(|cause| {
                 cause
                     .downcast_ref::<std::io::Error>()
-                    .map_or(false, |ioe| ioe.kind() == std::io::ErrorKind::InvalidData)
+                    .is_some_and(|ioe| ioe.kind() == std::io::ErrorKind::InvalidData)
             });
 
             if !is_content_corruption {

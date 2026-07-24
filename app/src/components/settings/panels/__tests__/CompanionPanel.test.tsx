@@ -31,11 +31,7 @@ const mockStatus = {
   last_error: null,
 };
 
-const mockConfig = {
-  hotkey: 'ctrl+space',
-  activation_mode: 'push',
-  ttl_secs: 3600,
-};
+const mockConfig = { hotkey: 'ctrl+space', activation_mode: 'push', ttl_secs: 3600 };
 
 beforeEach(() => {
   vi.clearAllMocks();

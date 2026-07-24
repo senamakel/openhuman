@@ -199,9 +199,7 @@ test.describe('Settings - Feature Preferences', () => {
   test('falls through the retired features settings route to settings home', async ({ page }) => {
     await openAuthenticatedRoute(page, 'pw-settings-features-route', '/settings/features');
 
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash))
-      .toBe('#/settings');
+    await expect.poll(async () => page.evaluate(() => window.location.hash)).toBe('#/settings');
   });
 
   test('persists the default messaging channel through redux state', async ({ page }) => {

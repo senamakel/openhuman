@@ -176,20 +176,20 @@ describe('rpcMethods catalog', () => {
       if (!method.startsWith('openhuman.')) continue;
       const methodRoot = method.slice('openhuman.'.length);
       const namespace = methodRoot.startsWith('inference_')
-          ? 'inference'
-          : methodRoot.startsWith('embeddings_')
-            ? 'embeddings'
-            : methodRoot.startsWith('providers_')
-              ? 'providers'
-              : methodRoot.startsWith('mcp_clients_')
-                ? 'mcp_clients'
-                : methodRoot.startsWith('health_')
-                  ? 'health'
-                  : methodRoot.startsWith('channels_')
-                    ? 'channels'
-                    : methodRoot.startsWith('tool_registry_')
-                      ? 'tool_registry'
-                      : 'config';
+        ? 'inference'
+        : methodRoot.startsWith('embeddings_')
+          ? 'embeddings'
+          : methodRoot.startsWith('providers_')
+            ? 'providers'
+            : methodRoot.startsWith('mcp_clients_')
+              ? 'mcp_clients'
+              : methodRoot.startsWith('health_')
+                ? 'health'
+                : methodRoot.startsWith('channels_')
+                  ? 'channels'
+                  : methodRoot.startsWith('tool_registry_')
+                    ? 'tool_registry'
+                    : 'config';
       const fnName = methodRoot.slice(`${namespace}_`.length);
       expect(schemaSources).toContain(`namespace: "${namespace}"`);
       expect(schemaSources).toContain(`function: "${fnName}"`);

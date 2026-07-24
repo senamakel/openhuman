@@ -75,10 +75,13 @@ describe('Settings - Feature Preferences', function () {
 
   it('falls through removed feature routes to settings home', async () => {
     await navigateViaHash('/settings/features');
-    await browser.waitUntil(async () => {
-      const hash = await browser.execute(() => window.location.hash);
-      return hash === '#/settings';
-    }, { timeout: 15_000 });
+    await browser.waitUntil(
+      async () => {
+        const hash = await browser.execute(() => window.location.hash);
+        return hash === '#/settings';
+      },
+      { timeout: 15_000 }
+    );
   });
 
   it('persists the default messaging channel through redux state', async () => {

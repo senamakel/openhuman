@@ -56,10 +56,7 @@ interface AppStateSnapshotResult {
     keyringConsent?: KeyringConsentPreference | null;
   };
   keyringStatus?: KeyringStatus;
-  runtime: {
-    localAi: LocalAiStatus;
-    service: ServiceStatus;
-  };
+  runtime: { localAi: LocalAiStatus; service: ServiceStatus };
   /**
    * Process + component health, folded into this snapshot (#daemon-poll-fold)
    * so the daemon-health store hydrates from the same poll instead of a second

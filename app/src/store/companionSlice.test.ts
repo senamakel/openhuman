@@ -94,11 +94,7 @@ describe('companionSlice', () => {
   });
 
   it('setConfig stores config object', () => {
-    const config = {
-      hotkey: 'ctrl+space',
-      activation_mode: 'push',
-      ttl_secs: 3600,
-    };
+    const config = { hotkey: 'ctrl+space', activation_mode: 'push', ttl_secs: 3600 };
     const state = companionReducer(initialState, setConfig(config));
     expect(state.config).toEqual(config);
   });
@@ -119,11 +115,7 @@ describe('companionSlice', () => {
       sessionActive: true,
       state: 'speaking',
       sessionId: 'sess-1',
-      config: {
-        hotkey: 'ctrl+space',
-        activation_mode: 'push',
-        ttl_secs: 3600,
-      },
+      config: { hotkey: 'ctrl+space', activation_mode: 'push', ttl_secs: 3600 },
       lastError: 'some error',
     };
     const state = companionReducer(active, clearSession());
@@ -147,11 +139,7 @@ describe('companion selectors', () => {
       sessionActive: true,
       state: 'speaking' as const,
       sessionId: 'sess-1',
-      config: {
-        hotkey: 'ctrl+space',
-        activation_mode: 'push',
-        ttl_secs: 3600,
-      },
+      config: { hotkey: 'ctrl+space', activation_mode: 'push', ttl_secs: 3600 },
       lastError: 'err',
     },
   };

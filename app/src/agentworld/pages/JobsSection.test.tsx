@@ -187,6 +187,30 @@ describe('JobStatusBadge colors', () => {
 // ── Inline expand ─────────────────────────────────────────────────────────────
 
 describe('Inline expand', () => {
+  test('uses unique disclosure IDs and supports keyboard activation', async () => {
+    const user = userEvent.setup();
+    const secondJob = { ...sampleJob, jobId: 'job-002', title: 'Build another dashboard widget' };
+    vi.mocked(apiClient.graphql.jobs).mockResolvedValue({ jobs: [sampleJob, secondJob], count: 2 });
+    render(<JobsSection />);
+
+    const firstToggle = await screen.findByRole('button', { name: /build a dashboard widget/i });
+    const secondToggle = screen.getByRole('button', { name: /build another dashboard widget/i });
+    expect(firstToggle).toHaveAttribute('id', 'job-job-001-toggle');
+    expect(firstToggle).toHaveAttribute('aria-controls', 'job-job-001-details');
+    expect(secondToggle).toHaveAttribute('id', 'job-job-002-toggle');
+    expect(secondToggle).toHaveAttribute('aria-controls', 'job-job-002-details');
+
+    firstToggle.focus();
+    await user.keyboard('{Enter}');
+    expect(firstToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('region')).toHaveAttribute('id', 'job-job-001-details');
+
+    secondToggle.focus();
+    await user.keyboard(' ');
+    expect(secondToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('region')).toHaveAttribute('id', 'job-job-002-details');
+  });
+
   test('click expands job to show full description', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.graphql.jobs).mockResolvedValue({ jobs: [sampleJob], count: 1 });

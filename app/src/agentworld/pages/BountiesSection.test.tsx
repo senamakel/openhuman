@@ -210,6 +210,36 @@ describe('BountyStatusBadge colors', () => {
 // ── Accordion expand ──────────────────────────────────────────────────────────
 
 describe('Accordion expand', () => {
+  test('uses unique disclosure IDs and supports keyboard activation', async () => {
+    const user = userEvent.setup();
+    const secondBounty = {
+      ...sampleBounty,
+      bountyId: 'bounty-002',
+      title: 'Build another integration plugin',
+    };
+    vi.mocked(apiClient.bounties.list).mockResolvedValue({
+      bounties: [sampleBounty, secondBounty],
+    });
+    render(<BountiesSection />);
+
+    const firstToggle = await screen.findByRole('button', { name: /build an integration plugin/i });
+    const secondToggle = screen.getByRole('button', { name: /build another integration plugin/i });
+    expect(firstToggle).toHaveAttribute('id', 'bounty-bounty-001-toggle');
+    expect(firstToggle).toHaveAttribute('aria-controls', 'bounty-bounty-001-details');
+    expect(secondToggle).toHaveAttribute('id', 'bounty-bounty-002-toggle');
+    expect(secondToggle).toHaveAttribute('aria-controls', 'bounty-bounty-002-details');
+
+    firstToggle.focus();
+    await user.keyboard('{Enter}');
+    expect(firstToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('region')).toHaveAttribute('id', 'bounty-bounty-001-details');
+
+    secondToggle.focus();
+    await user.keyboard(' ');
+    expect(secondToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('region')).toHaveAttribute('id', 'bounty-bounty-002-details');
+  });
+
   test('click expands row to show description and reward detail', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.bounties.list).mockResolvedValue(listWithBounties);

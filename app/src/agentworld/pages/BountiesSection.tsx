@@ -31,6 +31,7 @@ import {
 import type { ToastNotification } from '../../types/intelligence';
 import { apiClient } from '../AgentWorldShell';
 import { decimalsForAsset, resolveAssetSymbol } from '../assets';
+import ExpandableResourceRow from '../components/ExpandableResourceRow';
 import FormActions from '../components/FormActions';
 import FormField from '../components/FormField';
 import StatusBlock from '../components/StatusBlock';
@@ -143,17 +144,19 @@ function BountyRow({
   }, [expanded, bounty.bountyId]);
 
   return (
-    <div
+    <ExpandableResourceRow
+      id={`bounty-${bounty.bountyId}`}
+      expanded={expanded}
+      onToggle={onToggle}
       className={`overflow-hidden rounded-lg border bg-surface transition-colors ${
         expanded
-          ? 'border-primary-300 dark:border-primary-700 sm:col-span-2'
+          ? 'border-primary-300 dark:border-primary-700'
           : 'border-line hover:border-line-strong dark:hover:border-line-strong'
-      }`}>
-      {/* Summary (card header) */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50">
+      }`}
+      expandedClassName="sm:col-span-2"
+      summaryClassName="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50"
+      detailClassName="border-t border-line-subtle bg-surface-muted/50 px-4 pb-4 pt-3 dark:bg-surface/50"
+      summary={
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-sm font-medium text-content">{bounty.title}</span>
@@ -176,129 +179,78 @@ function BountyRow({
             <span>{relativeTime(bounty.createdAt)}</span>
           </div>
         </div>
-        <svg
-          className={`mt-0.5 h-4 w-4 shrink-0 text-content-faint transition-transform ${expanded ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+      }>
+      {detailLoading && (
+        <p className="animate-pulse text-xs text-content-faint">Loading details…</p>
+      )}
 
-      {/* Detail panel */}
-      {expanded && (
-        <div className="border-t border-line-subtle bg-surface-muted/50 px-4 pb-4 pt-3 dark:bg-surface/50">
-          {detailLoading && (
-            <p className="animate-pulse text-xs text-content-faint">Loading details…</p>
+      {/* Description */}
+      <p className="mb-3 whitespace-pre-wrap text-sm text-content-secondary">
+        {bounty.description}
+      </p>
+
+      {/* Reward detail */}
+      <div className="mb-3 flex flex-wrap gap-4 text-xs">
+        <div>
+          <span className="font-medium text-content-secondary">Reward: </span>
+          <span className="text-content">
+            {formatReward(bounty.reward.amount, bounty.reward.asset)}
+          </span>
+          {bounty.reward.network && (
+            <span className="ml-1 text-content-faint"> ({bounty.reward.network})</span>
           )}
-
-          {/* Description */}
-          <p className="mb-3 whitespace-pre-wrap text-sm text-content-secondary">
-            {bounty.description}
-          </p>
-
-          {/* Reward detail */}
-          <div className="mb-3 flex flex-wrap gap-4 text-xs">
-            <div>
-              <span className="font-medium text-content-secondary">Reward: </span>
-              <span className="text-content">
-                {formatReward(bounty.reward.amount, bounty.reward.asset)}
-              </span>
-              {bounty.reward.network && (
-                <span className="ml-1 text-content-faint"> ({bounty.reward.network})</span>
-              )}
-            </div>
-            {bounty.deadline && (
-              <div>
-                <span className="font-medium text-content-secondary">Deadline: </span>
-                <span className="text-content">{new Date(bounty.deadline).toLocaleString()}</span>
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-content-secondary">Created: </span>
-              <span className="text-content">{new Date(bounty.createdAt).toLocaleString()}</span>
-            </div>
+        </div>
+        {bounty.deadline && (
+          <div>
+            <span className="font-medium text-content-secondary">Deadline: </span>
+            <span className="text-content">{new Date(bounty.deadline).toLocaleString()}</span>
           </div>
+        )}
+        <div>
+          <span className="font-medium text-content-secondary">Created: </span>
+          <span className="text-content">{new Date(bounty.createdAt).toLocaleString()}</span>
+        </div>
+      </div>
 
-          {/* Council section */}
-          {bounty.council && (
-            <div className="mb-3 rounded border border-line bg-surface p-3">
-              <p className="mb-1 text-xs font-semibold text-content-secondary">Council</p>
-              <div className="flex flex-wrap gap-3 text-xs">
-                <span className="text-content-secondary">
-                  Status: <span className="font-medium">{bounty.council.status}</span>
-                </span>
-                {bounty.council.winnerSubmissionId && (
-                  <span className="text-content-secondary">
-                    Winner:{' '}
-                    <span className="font-mono">{abbrev(bounty.council.winnerSubmissionId)}</span>
-                  </span>
-                )}
-              </div>
-              {bounty.council.reasoning && (
-                <p className="mt-1 text-xs text-content-secondary line-clamp-3">
-                  {bounty.council.reasoning}
-                </p>
-              )}
-              {bounty.council.votes && bounty.council.votes.length > 0 && (
-                <div className="mt-2">
-                  <p className="mb-1 text-xs font-medium text-content-muted">Votes</p>
-                  <div className="space-y-1">
-                    {bounty.council.votes.map((vote, i) => (
-                      <div
-                        key={i}
-                        className="rounded border border-line-subtle bg-surface-muted px-2 py-1 text-xs dark:border-line-strong">
-                        <span className="font-mono text-content-secondary">
-                          {vote.model ?? 'judge'}
-                        </span>
-                        {vote.winnerSubmissionId && (
-                          <span className="ml-2 text-content-secondary">
-                            → {abbrev(vote.winnerSubmissionId)}
-                          </span>
-                        )}
-                        {vote.reasoning && (
-                          <p className="mt-0.5 text-content-muted dark:text-content-faint line-clamp-1">
-                            {vote.reasoning}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+      {/* Council section */}
+      {bounty.council && (
+        <div className="mb-3 rounded border border-line bg-surface p-3">
+          <p className="mb-1 text-xs font-semibold text-content-secondary">Council</p>
+          <div className="flex flex-wrap gap-3 text-xs">
+            <span className="text-content-secondary">
+              Status: <span className="font-medium">{bounty.council.status}</span>
+            </span>
+            {bounty.council.winnerSubmissionId && (
+              <span className="text-content-secondary">
+                Winner:{' '}
+                <span className="font-mono">{abbrev(bounty.council.winnerSubmissionId)}</span>
+              </span>
+            )}
+          </div>
+          {bounty.council.reasoning && (
+            <p className="mt-1 text-xs text-content-secondary line-clamp-3">
+              {bounty.council.reasoning}
+            </p>
           )}
-
-          {/* Submissions section */}
-          {submissions.length > 0 && (
-            <div className="mb-3">
-              <p className="mb-1 text-xs font-semibold text-content-secondary">
-                Submissions ({submissions.length})
-              </p>
+          {bounty.council.votes && bounty.council.votes.length > 0 && (
+            <div className="mt-2">
+              <p className="mb-1 text-xs font-medium text-content-muted">Votes</p>
               <div className="space-y-1">
-                {submissions.map(sub => (
+                {bounty.council.votes.map((vote, i) => (
                   <div
-                    key={sub.submissionId}
-                    className="rounded border border-line bg-surface p-2 text-xs">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-content-secondary">
-                        {abbrev(sub.submitter)}
+                    key={i}
+                    className="rounded border border-line-subtle bg-surface-muted px-2 py-1 text-xs dark:border-line-strong">
+                    <span className="font-mono text-content-secondary">
+                      {vote.model ?? 'judge'}
+                    </span>
+                    {vote.winnerSubmissionId && (
+                      <span className="ml-2 text-content-secondary">
+                        → {abbrev(vote.winnerSubmissionId)}
                       </span>
-                      <span className="text-content-muted dark:text-content-faint">
-                        {sub.status}
-                      </span>
-                    </div>
-                    {sub.title && <p className="mt-0.5 font-medium text-content">{sub.title}</p>}
-                    <a
-                      href={sub.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-0.5 block truncate text-primary-600 hover:underline dark:text-primary-400">
-                      {sub.url}
-                    </a>
-                    {sub.note && (
-                      <p className="mt-0.5 text-content-muted dark:text-content-faint line-clamp-2">
-                        {sub.note}
+                    )}
+                    {vote.reasoning && (
+                      <p className="mt-0.5 text-content-muted dark:text-content-faint line-clamp-1">
+                        {vote.reasoning}
                       </p>
                     )}
                   </div>
@@ -306,98 +258,125 @@ function BountyRow({
               </div>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Comments section */}
-          {comments.length > 0 && (
-            <div className="mb-3">
-              <p className="mb-1 text-xs font-semibold text-content-secondary">
-                Comments ({comments.length})
-              </p>
-              <div className="space-y-1">
-                {comments.map(c => (
-                  <div
-                    key={c.commentId}
-                    className="rounded border border-line bg-surface p-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-content-secondary">{abbrev(c.author)}</span>
-                      <span className="text-content-faint">{relativeTime(c.createdAt)}</span>
-                    </div>
-                    <p className="mt-0.5 text-content-secondary">{c.body}</p>
-                  </div>
-                ))}
+      {/* Submissions section */}
+      {submissions.length > 0 && (
+        <div className="mb-3">
+          <p className="mb-1 text-xs font-semibold text-content-secondary">
+            Submissions ({submissions.length})
+          </p>
+          <div className="space-y-1">
+            {submissions.map(sub => (
+              <div
+                key={sub.submissionId}
+                className="rounded border border-line bg-surface p-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-content-secondary">{abbrev(sub.submitter)}</span>
+                  <span className="text-content-muted dark:text-content-faint">{sub.status}</span>
+                </div>
+                {sub.title && <p className="mt-0.5 font-medium text-content">{sub.title}</p>}
+                <a
+                  href={sub.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-0.5 block truncate text-primary-600 hover:underline dark:text-primary-400">
+                  {sub.url}
+                </a>
+                {sub.note && (
+                  <p className="mt-0.5 text-content-muted dark:text-content-faint line-clamp-2">
+                    {sub.note}
+                  </p>
+                )}
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Comments section */}
+      {comments.length > 0 && (
+        <div className="mb-3">
+          <p className="mb-1 text-xs font-semibold text-content-secondary">
+            Comments ({comments.length})
+          </p>
+          <div className="space-y-1">
+            {comments.map(c => (
+              <div key={c.commentId} className="rounded border border-line bg-surface p-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-content-secondary">{abbrev(c.author)}</span>
+                  <span className="text-content-faint">{relativeTime(c.createdAt)}</span>
+                </div>
+                <p className="mt-0.5 text-content-secondary">{c.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* On-chain section */}
+      {(bounty.escrowAddress ?? bounty.fundingTxSig ?? bounty.payoutTxSig) && (
+        <div className="mb-3 rounded border border-line bg-surface p-3 text-xs">
+          <p className="mb-1 font-semibold text-content-secondary">On-chain</p>
+          {bounty.escrowAddress && (
+            <div>
+              <span className="text-content-muted">Escrow: </span>
+              <span className="font-mono text-content-secondary">
+                {abbrev(bounty.escrowAddress)}
+              </span>
             </div>
           )}
-
-          {/* On-chain section */}
-          {(bounty.escrowAddress ?? bounty.fundingTxSig ?? bounty.payoutTxSig) && (
-            <div className="mb-3 rounded border border-line bg-surface p-3 text-xs">
-              <p className="mb-1 font-semibold text-content-secondary">On-chain</p>
-              {bounty.escrowAddress && (
-                <div>
-                  <span className="text-content-muted">Escrow: </span>
-                  <span className="font-mono text-content-secondary">
-                    {abbrev(bounty.escrowAddress)}
-                  </span>
-                </div>
-              )}
-              {bounty.fundingTxSig && (
-                <div>
-                  <span className="text-content-muted">Funding tx: </span>
-                  <span className="font-mono text-content-secondary">
-                    {abbrev(bounty.fundingTxSig)}
-                  </span>
-                </div>
-              )}
-              {bounty.payoutTxSig && (
-                <div>
-                  <span className="text-content-muted">Payout tx: </span>
-                  <span className="font-mono text-content-secondary">
-                    {abbrev(bounty.payoutTxSig)}
-                  </span>
-                </div>
-              )}
+          {bounty.fundingTxSig && (
+            <div>
+              <span className="text-content-muted">Funding tx: </span>
+              <span className="font-mono text-content-secondary">
+                {abbrev(bounty.fundingTxSig)}
+              </span>
             </div>
           )}
-
-          {/* Action buttons (wallet-gated) */}
-          {myAgentId ? (
-            <div className="flex flex-wrap gap-2">
-              {/* Submit Work: non-creator + open status */}
-              {!isCreator && bounty.status === 'open' && (
-                <Button type="button" onClick={() => onSubmit(bounty.bountyId)} disabled={mutating}>
-                  Submit Work
-                </Button>
-              )}
-              {/* Comment: any authenticated user */}
-              <Button type="button" onClick={() => onComment(bounty.bountyId)} disabled={mutating}>
-                Comment
-              </Button>
-              {/* Run Council: creator + open status */}
-              {isCreator && bounty.status === 'open' && (
-                <Button
-                  type="button"
-                  onClick={() => onRunCouncil(bounty.bountyId)}
-                  disabled={mutating}>
-                  Run Council
-                </Button>
-              )}
-              {/* Cancel: creator + draft or open status */}
-              {isCreator && (bounty.status === 'draft' || bounty.status === 'open') && (
-                <Button type="button" onClick={() => onCancel(bounty.bountyId)} disabled={mutating}>
-                  Cancel
-                </Button>
-              )}
-              {/* TODO: surface Approve when admin role detection is available */}
+          {bounty.payoutTxSig && (
+            <div>
+              <span className="text-content-muted">Payout tx: </span>
+              <span className="font-mono text-content-secondary">{abbrev(bounty.payoutTxSig)}</span>
             </div>
-          ) : (
-            <p className="mt-2 text-xs text-content-faint">
-              Unlock your wallet to interact with this bounty.
-            </p>
           )}
         </div>
       )}
-    </div>
+
+      {/* Action buttons (wallet-gated) */}
+      {myAgentId ? (
+        <div className="flex flex-wrap gap-2">
+          {/* Submit Work: non-creator + open status */}
+          {!isCreator && bounty.status === 'open' && (
+            <Button type="button" onClick={() => onSubmit(bounty.bountyId)} disabled={mutating}>
+              Submit Work
+            </Button>
+          )}
+          {/* Comment: any authenticated user */}
+          <Button type="button" onClick={() => onComment(bounty.bountyId)} disabled={mutating}>
+            Comment
+          </Button>
+          {/* Run Council: creator + open status */}
+          {isCreator && bounty.status === 'open' && (
+            <Button type="button" onClick={() => onRunCouncil(bounty.bountyId)} disabled={mutating}>
+              Run Council
+            </Button>
+          )}
+          {/* Cancel: creator + draft or open status */}
+          {isCreator && (bounty.status === 'draft' || bounty.status === 'open') && (
+            <Button type="button" onClick={() => onCancel(bounty.bountyId)} disabled={mutating}>
+              Cancel
+            </Button>
+          )}
+          {/* TODO: surface Approve when admin role detection is available */}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-content-faint">
+          Unlock your wallet to interact with this bounty.
+        </p>
+      )}
+    </ExpandableResourceRow>
   );
 }
 

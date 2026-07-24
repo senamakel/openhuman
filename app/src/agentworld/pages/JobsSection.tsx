@@ -28,6 +28,7 @@ import {
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import { apiClient } from '../AgentWorldShell';
+import ExpandableResourceRow from '../components/ExpandableResourceRow';
 import FormActions from '../components/FormActions';
 import FormField from '../components/FormField';
 import StatusBlock from '../components/StatusBlock';
@@ -546,388 +547,360 @@ function JobRow({
   const proposalLabel = `${job.proposalCount} proposal${job.proposalCount !== 1 ? 's' : ''}`;
 
   return (
-    <div className="border-b border-line-subtle last:border-0">
-      {/* Summary row — avatar · stacked content · fixed meta column */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50">
-        <ClientAvatar
-          avatarUrl={job.clientProfile.avatarUrl ?? undefined}
-          displayName={job.clientProfile.displayName}
-        />
+    <ExpandableResourceRow
+      id={`job-${job.jobId}`}
+      expanded={expanded}
+      onToggle={onToggle}
+      className="border-b border-line-subtle last:border-0"
+      summaryClassName="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50"
+      detailClassName="border-t border-line-subtle bg-surface-muted px-4 py-3"
+      summary={
+        <>
+          <ClientAvatar
+            avatarUrl={job.clientProfile.avatarUrl ?? undefined}
+            displayName={job.clientProfile.displayName}
+          />
 
-        {/* Content */}
-        <div className="min-w-0 flex-1">
-          {/* Line 1: title + status */}
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold text-content">{job.title}</span>
-            <span className="shrink-0">
-              <JobStatusBadge status={job.status} />
-            </span>
+          {/* Content */}
+          <div className="min-w-0 flex-1">
+            {/* Line 1: title + status */}
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-semibold text-content">{job.title}</span>
+              <span className="shrink-0">
+                <JobStatusBadge status={job.status} />
+              </span>
+            </div>
+
+            {/* Line 2: client · budget */}
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-content-muted">
+              <span className="truncate">{displayClientName(job.clientProfile.displayName)}</span>
+              {job.clientProfile.verified && <VerifiedBadge />}
+              <span className="text-content-faint dark:text-neutral-600">·</span>
+              <span className="whitespace-nowrap font-medium text-content-secondary">
+                {budgetLabel}
+              </span>
+            </div>
+
+            {/* Line 3: skills + proposal count */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {visibleSkills.map(skill => (
+                <SkillChip key={skill} skill={skill} />
+              ))}
+              {overflowCount > 0 && (
+                <span className="text-xs text-content-faint">+{overflowCount}</span>
+              )}
+              <span className="text-xs text-content-faint">
+                {skills.length > 0 ? '· ' : ''}
+                {proposalLabel}
+              </span>
+            </div>
           </div>
 
-          {/* Line 2: client · budget */}
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-content-muted">
-            <span className="truncate">{displayClientName(job.clientProfile.displayName)}</span>
-            {job.clientProfile.verified && <VerifiedBadge />}
-            <span className="text-content-faint dark:text-neutral-600">·</span>
-            <span className="whitespace-nowrap font-medium text-content-secondary">
-              {budgetLabel}
-            </span>
-          </div>
-
-          {/* Line 3: skills + proposal count */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {visibleSkills.map(skill => (
-              <SkillChip key={skill} skill={skill} />
-            ))}
-            {overflowCount > 0 && (
-              <span className="text-xs text-content-faint">+{overflowCount}</span>
-            )}
-            <span className="text-xs text-content-faint">
-              {skills.length > 0 ? '· ' : ''}
-              {proposalLabel}
-            </span>
-          </div>
-        </div>
-
-        {/* Fixed meta column: time + chevron */}
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <span className="whitespace-nowrap text-xs text-content-faint">
+          <span className="shrink-0 whitespace-nowrap text-xs text-content-faint">
             {relativeTime(job.createdAt)}
           </span>
-          <svg
-            className={`h-4 w-4 shrink-0 text-content-faint transition-transform ${expanded ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </button>
+        </>
+      }>
+      {/* Description */}
+      <p className="mb-3 whitespace-pre-wrap text-sm text-content-secondary">{job.description}</p>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-line-subtle bg-surface-muted px-4 py-3">
-          {/* Description */}
-          <p className="mb-3 whitespace-pre-wrap text-sm text-content-secondary">
-            {job.description}
-          </p>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+        {/* Job ID */}
+        <dt className="font-medium text-content-muted">Job ID</dt>
+        <dd className="break-all font-mono text-content">{job.jobId}</dd>
 
+        {/* Category */}
+        {job.category && (
+          <>
+            <dt className="font-medium text-content-muted">Category</dt>
+            <dd className="text-content">{job.category}</dd>
+          </>
+        )}
+
+        {/* All skills */}
+        {skills.length > 0 && (
+          <>
+            <dt className="font-medium text-content-muted">Skills</dt>
+            <dd className="flex flex-wrap gap-1">
+              {skills.map(skill => (
+                <SkillChip key={skill} skill={skill} />
+              ))}
+            </dd>
+          </>
+        )}
+
+        {/* Budget chain */}
+        {job.budget.chain && (
+          <>
+            <dt className="font-medium text-content-muted">Chain</dt>
+            <dd className="text-content">{job.budget.chain}</dd>
+          </>
+        )}
+
+        {/* Proposal deadline */}
+        {job.proposalDeadline && (
+          <>
+            <dt className="font-medium text-content-muted">Proposal Deadline</dt>
+            <dd className="text-content">{job.proposalDeadline}</dd>
+          </>
+        )}
+
+        {/* Contract escrow ID */}
+        {job.contractEscrowId && (
+          <>
+            <dt className="font-medium text-content-muted">Escrow ID</dt>
+            <dd className="break-all font-mono text-content">{job.contractEscrowId}</dd>
+          </>
+        )}
+
+        {/* Selected candidate */}
+        {job.selectedCandidate && (
+          <>
+            <dt className="font-medium text-content-muted">Selected Candidate</dt>
+            <dd className="break-all font-mono text-content">{job.selectedCandidate}</dd>
+          </>
+        )}
+
+        {/* Group ID */}
+        {job.groupId && (
+          <>
+            <dt className="font-medium text-content-muted">Group ID</dt>
+            <dd className="break-all font-mono text-content">{job.groupId}</dd>
+          </>
+        )}
+
+        {/* Timestamps */}
+        <dt className="font-medium text-content-muted">Created</dt>
+        <dd className="text-content">{job.createdAt}</dd>
+
+        <dt className="font-medium text-content-muted">Updated</dt>
+        <dd className="text-content">{job.updatedAt}</dd>
+      </dl>
+
+      {/* Dispute section */}
+      {job.dispute && (
+        <div className="mt-3">
+          <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">Dispute</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-            {/* Job ID */}
-            <dt className="font-medium text-content-muted">Job ID</dt>
-            <dd className="break-all font-mono text-content">{job.jobId}</dd>
+            <dt className="font-medium text-content-muted">Reason</dt>
+            <dd className="text-content">{job.dispute.reason}</dd>
 
-            {/* Category */}
-            {job.category && (
+            <dt className="font-medium text-content-muted">Opened By</dt>
+            <dd className="break-all font-mono text-content">{job.dispute.openedBy}</dd>
+
+            <dt className="font-medium text-content-muted">Opened At</dt>
+            <dd className="text-content">{job.dispute.openedAt}</dd>
+
+            <dt className="font-medium text-content-muted">Status</dt>
+            <dd className="text-content">{job.dispute.status}</dd>
+
+            {job.dispute.outcome && (
               <>
-                <dt className="font-medium text-content-muted">Category</dt>
-                <dd className="text-content">{job.category}</dd>
+                <dt className="font-medium text-content-muted">Outcome</dt>
+                <dd className="text-content">{job.dispute.outcome}</dd>
               </>
             )}
 
-            {/* All skills */}
-            {skills.length > 0 && (
+            {job.dispute.splitBps != null && (
               <>
-                <dt className="font-medium text-content-muted">Skills</dt>
-                <dd className="flex flex-wrap gap-1">
-                  {skills.map(skill => (
-                    <SkillChip key={skill} skill={skill} />
-                  ))}
-                </dd>
+                <dt className="font-medium text-content-muted">Split bps</dt>
+                <dd className="text-content">{job.dispute.splitBps}</dd>
               </>
             )}
 
-            {/* Budget chain */}
-            {job.budget.chain && (
+            {job.dispute.judgeModel && (
               <>
-                <dt className="font-medium text-content-muted">Chain</dt>
-                <dd className="text-content">{job.budget.chain}</dd>
+                <dt className="font-medium text-content-muted">Judge Model</dt>
+                <dd className="text-content">{job.dispute.judgeModel}</dd>
               </>
             )}
 
-            {/* Proposal deadline */}
-            {job.proposalDeadline && (
+            {job.dispute.presided != null && (
               <>
-                <dt className="font-medium text-content-muted">Proposal Deadline</dt>
-                <dd className="text-content">{job.proposalDeadline}</dd>
+                <dt className="font-medium text-content-muted">Presided</dt>
+                <dd className="text-content">{job.dispute.presided ? 'Yes' : 'No'}</dd>
               </>
             )}
 
-            {/* Contract escrow ID */}
-            {job.contractEscrowId && (
+            {job.dispute.reasoning && (
               <>
-                <dt className="font-medium text-content-muted">Escrow ID</dt>
-                <dd className="break-all font-mono text-content">{job.contractEscrowId}</dd>
+                <dt className="font-medium text-content-muted">Reasoning</dt>
+                <dd className="text-content">{job.dispute.reasoning}</dd>
               </>
             )}
 
-            {/* Selected candidate */}
-            {job.selectedCandidate && (
+            {job.dispute.resolvedAt && (
               <>
-                <dt className="font-medium text-content-muted">Selected Candidate</dt>
-                <dd className="break-all font-mono text-content">{job.selectedCandidate}</dd>
+                <dt className="font-medium text-content-muted">Resolved At</dt>
+                <dd className="text-content">{job.dispute.resolvedAt}</dd>
               </>
             )}
-
-            {/* Group ID */}
-            {job.groupId && (
-              <>
-                <dt className="font-medium text-content-muted">Group ID</dt>
-                <dd className="break-all font-mono text-content">{job.groupId}</dd>
-              </>
-            )}
-
-            {/* Timestamps */}
-            <dt className="font-medium text-content-muted">Created</dt>
-            <dd className="text-content">{job.createdAt}</dd>
-
-            <dt className="font-medium text-content-muted">Updated</dt>
-            <dd className="text-content">{job.updatedAt}</dd>
           </dl>
 
-          {/* Dispute section */}
-          {job.dispute && (
-            <div className="mt-3">
-              <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">Dispute</p>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-                <dt className="font-medium text-content-muted">Reason</dt>
-                <dd className="text-content">{job.dispute.reason}</dd>
-
-                <dt className="font-medium text-content-muted">Opened By</dt>
-                <dd className="break-all font-mono text-content">{job.dispute.openedBy}</dd>
-
-                <dt className="font-medium text-content-muted">Opened At</dt>
-                <dd className="text-content">{job.dispute.openedAt}</dd>
-
-                <dt className="font-medium text-content-muted">Status</dt>
-                <dd className="text-content">{job.dispute.status}</dd>
-
-                {job.dispute.outcome && (
-                  <>
-                    <dt className="font-medium text-content-muted">Outcome</dt>
-                    <dd className="text-content">{job.dispute.outcome}</dd>
-                  </>
-                )}
-
-                {job.dispute.splitBps != null && (
-                  <>
-                    <dt className="font-medium text-content-muted">Split bps</dt>
-                    <dd className="text-content">{job.dispute.splitBps}</dd>
-                  </>
-                )}
-
-                {job.dispute.judgeModel && (
-                  <>
-                    <dt className="font-medium text-content-muted">Judge Model</dt>
-                    <dd className="text-content">{job.dispute.judgeModel}</dd>
-                  </>
-                )}
-
-                {job.dispute.presided != null && (
-                  <>
-                    <dt className="font-medium text-content-muted">Presided</dt>
-                    <dd className="text-content">{job.dispute.presided ? 'Yes' : 'No'}</dd>
-                  </>
-                )}
-
-                {job.dispute.reasoning && (
-                  <>
-                    <dt className="font-medium text-content-muted">Reasoning</dt>
-                    <dd className="text-content">{job.dispute.reasoning}</dd>
-                  </>
-                )}
-
-                {job.dispute.resolvedAt && (
-                  <>
-                    <dt className="font-medium text-content-muted">Resolved At</dt>
-                    <dd className="text-content">{job.dispute.resolvedAt}</dd>
-                  </>
-                )}
-              </dl>
-
-              {/* Jury votes table */}
-              {job.dispute.jury && job.dispute.jury.length > 0 && (
-                <div className="mt-2">
-                  <p className="mb-1 text-xs font-medium text-content-muted">Jury Votes</p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-line">
-                          <th className="pb-1 text-left font-medium text-content-muted">Model</th>
-                          <th className="pb-1 text-left font-medium text-content-muted">Outcome</th>
-                          <th className="pb-1 text-left font-medium text-content-muted">
-                            Split bps
-                          </th>
-                          <th className="pb-1 text-left font-medium text-content-muted">
-                            Reasoning
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {job.dispute.jury.map((vote, i) => (
-                          <tr key={i} className="border-b border-line-subtle last:border-0">
-                            <td className="py-0.5 font-mono text-content">{vote.model}</td>
-                            <td className="py-0.5 text-content">{vote.outcome}</td>
-                            <td className="py-0.5 text-content">{vote.splitBps}</td>
-                            <td className="py-0.5 text-content">{vote.reasoning ?? '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* On-chain section */}
-          {job.onChain && (
-            <div className="mt-3">
-              <p className="mb-1 text-xs font-semibold text-content-muted">On-chain</p>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-                {job.onChain.vault && (
-                  <>
-                    <dt className="font-medium text-content-muted">Vault</dt>
-                    <dd className="break-all font-mono text-content">{job.onChain.vault}</dd>
-                  </>
-                )}
-
-                {job.onChain.jobPdaCommit && (
-                  <>
-                    <dt className="font-medium text-content-muted">Job PDA Commit</dt>
-                    <dd className="break-all font-mono text-content">{job.onChain.jobPdaCommit}</dd>
-                  </>
-                )}
-
-                {job.onChain.fundingTxSig && (
-                  <>
-                    <dt className="font-medium text-content-muted">Funding Tx</dt>
-                    <dd className="break-all font-mono text-content">
-                      <a
-                        href={explorerTxUrl(job.onChain.fundingTxSig, 'solana-devnet')}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
-                        {job.onChain.fundingTxSig}
-                      </a>
-                    </dd>
-                  </>
-                )}
-              </dl>
-            </div>
-          )}
-
-          {/* Write actions (wallet-gated) */}
-          {myAgentId ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {/* Candidate actions: Apply (non-client, OPEN jobs) */}
-              {!isClient && job.status === 'OPEN' && (
-                <Button type="button" onClick={() => onApply(job.jobId)} disabled={mutating}>
-                  Apply
-                </Button>
-              )}
-
-              {/* Client actions */}
-              {isClient && (
-                <>
-                  {job.status === 'OPEN' && (
-                    <Button type="button" onClick={() => onCancel(job.jobId)} disabled={mutating}>
-                      Cancel Job
-                    </Button>
-                  )}
-                  {(job.status === 'OPEN' || job.status === 'IN_PROGRESS') && (
-                    <Button
-                      type="button"
-                      onClick={() => onViewProposals(job.jobId)}
-                      disabled={mutating}>
-                      View Proposals
-                    </Button>
-                  )}
-                  {job.status === 'IN_PROGRESS' && !job.dispute && (
-                    <Button
-                      type="button"
-                      onClick={() => onOpenDispute(job.jobId)}
-                      disabled={mutating}>
-                      Open Dispute
-                    </Button>
-                  )}
-                  {job.status === 'DISPUTED' && (
-                    <Button
-                      type="button"
-                      onClick={() => onAdjudicate(job.jobId)}
-                      disabled={mutating}>
-                      Adjudicate
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          ) : (
-            <p className="mt-4 text-xs text-content-faint">
-              Unlock your wallet to interact with this job.
-            </p>
-          )}
-
-          {/* Inline proposals panel */}
-          {showingProposals && (
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold text-content-secondary">Proposals</p>
-              {proposalsLoading ? (
-                <p className="text-xs text-content-faint animate-pulse">Loading proposals…</p>
-              ) : proposals.length === 0 ? (
-                <p className="text-xs text-content-faint">No proposals yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {proposals.map(p => (
-                    <div
-                      key={p.proposalId}
-                      className="rounded border border-line bg-surface p-2 text-xs">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="font-mono text-content-secondary">
-                          {p.candidate.slice(0, 8)}…
-                        </span>
-                        <span className="text-content-muted dark:text-content-faint">
-                          {p.status}
-                        </span>
-                        {p.bidAmount && (
-                          <span className="font-medium text-content">{p.bidAmount}</span>
-                        )}
-                      </div>
-                      {p.coverLetter && (
-                        <p className="mb-1 text-content-secondary line-clamp-2">{p.coverLetter}</p>
-                      )}
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          onClick={() => onShortlist(job.jobId, p.proposalId)}
-                          disabled={mutating}>
-                          Shortlist
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => onSelect(job.jobId, p.proposalId)}
-                          disabled={mutating}>
-                          Select
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => onWithdraw(job.jobId, p.proposalId)}
-                          disabled={mutating}>
-                          Withdraw
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {/* Jury votes table */}
+          {job.dispute.jury && job.dispute.jury.length > 0 && (
+            <div className="mt-2">
+              <p className="mb-1 text-xs font-medium text-content-muted">Jury Votes</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="pb-1 text-left font-medium text-content-muted">Model</th>
+                      <th className="pb-1 text-left font-medium text-content-muted">Outcome</th>
+                      <th className="pb-1 text-left font-medium text-content-muted">Split bps</th>
+                      <th className="pb-1 text-left font-medium text-content-muted">Reasoning</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {job.dispute.jury.map((vote, i) => (
+                      <tr key={i} className="border-b border-line-subtle last:border-0">
+                        <td className="py-0.5 font-mono text-content">{vote.model}</td>
+                        <td className="py-0.5 text-content">{vote.outcome}</td>
+                        <td className="py-0.5 text-content">{vote.splitBps}</td>
+                        <td className="py-0.5 text-content">{vote.reasoning ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
       )}
-    </div>
+
+      {/* On-chain section */}
+      {job.onChain && (
+        <div className="mt-3">
+          <p className="mb-1 text-xs font-semibold text-content-muted">On-chain</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            {job.onChain.vault && (
+              <>
+                <dt className="font-medium text-content-muted">Vault</dt>
+                <dd className="break-all font-mono text-content">{job.onChain.vault}</dd>
+              </>
+            )}
+
+            {job.onChain.jobPdaCommit && (
+              <>
+                <dt className="font-medium text-content-muted">Job PDA Commit</dt>
+                <dd className="break-all font-mono text-content">{job.onChain.jobPdaCommit}</dd>
+              </>
+            )}
+
+            {job.onChain.fundingTxSig && (
+              <>
+                <dt className="font-medium text-content-muted">Funding Tx</dt>
+                <dd className="break-all font-mono text-content">
+                  <a
+                    href={explorerTxUrl(job.onChain.fundingTxSig, 'solana-devnet')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+                    {job.onChain.fundingTxSig}
+                  </a>
+                </dd>
+              </>
+            )}
+          </dl>
+        </div>
+      )}
+
+      {/* Write actions (wallet-gated) */}
+      {myAgentId ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {/* Candidate actions: Apply (non-client, OPEN jobs) */}
+          {!isClient && job.status === 'OPEN' && (
+            <Button type="button" onClick={() => onApply(job.jobId)} disabled={mutating}>
+              Apply
+            </Button>
+          )}
+
+          {/* Client actions */}
+          {isClient && (
+            <>
+              {job.status === 'OPEN' && (
+                <Button type="button" onClick={() => onCancel(job.jobId)} disabled={mutating}>
+                  Cancel Job
+                </Button>
+              )}
+              {(job.status === 'OPEN' || job.status === 'IN_PROGRESS') && (
+                <Button
+                  type="button"
+                  onClick={() => onViewProposals(job.jobId)}
+                  disabled={mutating}>
+                  View Proposals
+                </Button>
+              )}
+              {job.status === 'IN_PROGRESS' && !job.dispute && (
+                <Button type="button" onClick={() => onOpenDispute(job.jobId)} disabled={mutating}>
+                  Open Dispute
+                </Button>
+              )}
+              {job.status === 'DISPUTED' && (
+                <Button type="button" onClick={() => onAdjudicate(job.jobId)} disabled={mutating}>
+                  Adjudicate
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      ) : (
+        <p className="mt-4 text-xs text-content-faint">
+          Unlock your wallet to interact with this job.
+        </p>
+      )}
+
+      {/* Inline proposals panel */}
+      {showingProposals && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold text-content-secondary">Proposals</p>
+          {proposalsLoading ? (
+            <p className="text-xs text-content-faint animate-pulse">Loading proposals…</p>
+          ) : proposals.length === 0 ? (
+            <p className="text-xs text-content-faint">No proposals yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {proposals.map(p => (
+                <div
+                  key={p.proposalId}
+                  className="rounded border border-line bg-surface p-2 text-xs">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="font-mono text-content-secondary">
+                      {p.candidate.slice(0, 8)}…
+                    </span>
+                    <span className="text-content-muted dark:text-content-faint">{p.status}</span>
+                    {p.bidAmount && <span className="font-medium text-content">{p.bidAmount}</span>}
+                  </div>
+                  {p.coverLetter && (
+                    <p className="mb-1 text-content-secondary line-clamp-2">{p.coverLetter}</p>
+                  )}
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      onClick={() => onShortlist(job.jobId, p.proposalId)}
+                      disabled={mutating}>
+                      Shortlist
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => onSelect(job.jobId, p.proposalId)}
+                      disabled={mutating}>
+                      Select
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => onWithdraw(job.jobId, p.proposalId)}
+                      disabled={mutating}>
+                      Withdraw
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </ExpandableResourceRow>
   );
 }
 

@@ -176,7 +176,7 @@ async fn poll_board(location: &BoardLocation, agent_assigned_only: bool) -> Resu
     // Reclaim stale/wedged runs before looking for new work. Reclaimed
     // cards move back to `todo` (re-dispatchable) so they appear in the
     // snapshot below and can be picked up in the same tick.
-    match runs::reclaim_stale(location, &RunLimits::default()) {
+    match runs::reclaim_stale(location, &RunLimits::default()).await {
         Ok(result) if result.reclaimed_count > 0 || result.blocked_count > 0 => {
             tracing::info!(
                 thread_id = ?location.thread_id(),
@@ -195,7 +195,7 @@ async fn poll_board(location: &BoardLocation, agent_assigned_only: bool) -> Resu
         _ => {}
     }
 
-    let snapshot = ops::list(location)?;
+    let snapshot = ops::list(location).await?;
 
     // `enforce_single_in_progress` caps the board at one running card, so if
     // one is already in progress there's nothing for this tick to claim.

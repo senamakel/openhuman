@@ -10,13 +10,13 @@ use crate::openhuman::agent::dispatcher::ToolDispatcher;
 use crate::openhuman::agent::harness::archivist::ArchivistHook;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::hooks::PostTurnHook;
+use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::tool_policy::ToolPolicy;
 use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::agent_tool_policy::ToolPolicySession;
 use crate::openhuman::context::prompt::SystemPromptBuilder;
 use crate::openhuman::context::ContextManager;
-use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tinyagents::TurnModelSource;
 use crate::openhuman::tools::{Tool, ToolSpec};
@@ -48,6 +48,12 @@ pub struct Agent {
     /// their per-definition scopes with the effective parent-visible set.
     /// Empty = no filter (all tools visible, backward compat).
     pub(super) visible_tool_names: std::collections::HashSet<String>,
+    /// Explicit profile/channel ceiling inherited by delegated agents.
+    ///
+    /// This is deliberately separate from [`Self::visible_tool_names`]: a
+    /// coordinator can have a narrow direct surface while delegating work to a
+    /// specialist with broader tools. Empty means no inherited ceiling.
+    pub(super) subagent_tool_ceiling_names: std::collections::HashSet<String>,
     pub(super) tool_policy_session: ToolPolicySession,
     pub(super) memory: Arc<dyn Memory>,
     /// Shared memory store retained alongside a dedicated profile store so live
@@ -371,6 +377,9 @@ pub struct AgentBuilder {
     pub(super) tools: Option<Vec<Box<dyn Tool>>>,
     /// When set, restricts which tools the main agent sees/calls.
     pub(super) visible_tool_names: Option<std::collections::HashSet<String>>,
+    /// Optional explicit profile ceiling for tools delegated agents may inherit.
+    /// Channel-policy restrictions are intersected during [`Self::build`].
+    pub(super) subagent_tool_ceiling_names: Option<std::collections::HashSet<String>>,
     pub(super) memory: Option<Arc<dyn Memory>>,
     pub(super) shared_experience_memory: Option<Arc<dyn Memory>>,
     pub(super) prompt_builder: Option<SystemPromptBuilder>,

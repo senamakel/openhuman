@@ -4,7 +4,7 @@ use super::project::{project_records, project_thread};
 use super::types::{DisplayItem, ToolCallStatus};
 use super::{get_page, DEFAULT_LIMIT};
 use crate::openhuman::agent::harness::session::transcript::{self, read_transcript_display};
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 

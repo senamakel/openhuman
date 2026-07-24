@@ -325,11 +325,32 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    what makes the output-parser coerce/validate it into a real boolean rather
    than a string that merely looks like one.
 
-   An `agent` node inside a workflow can also **read and write the user's
-   memory at run time**. If a workflow genuinely needs the user's context
-   (recall a preference) or should remember a result/state across runs, wire
-   an `agent` node that uses memory instead of hardcoding context memory
-   already holds. Use sparingly — only when the workflow truly needs it.
+   **Reading the user's memory at run time.** A plain `agent` node has NO
+   memory access: it is a single completion, so it cannot look anything up
+   and it cannot decide to. Prompting one to "recall the user's preference"
+   does not read memory — the model simply INVENTS an answer, and the graph
+   still looks correct. Never author that. Two mechanisms actually work:
+   - **A `tool_call` node** with `config.slug` = `oh:memory_recall` (semantic
+     recall) or `oh:memory_hybrid_search` (keyword/lexical lookup). One
+     deterministic read at a fixed point in the graph. Its output is a native
+     tool result, so bind downstream off
+     `=nodes.<id>.item.json.content[0].text` — NOT `.item.json.<field>`.
+   - **`config.agent_ref` = `context_scout`** when the step needs to DECIDE
+     what to look up, or to look up several things across multiple steps.
+     That runs a real read-only agent turn with memory recall, transcript
+     search, and thread reads, and returns a context bundle you feed into a
+     following `agent` node via `input_context`.
+
+   **A workflow can never WRITE the user's memory.** There is no
+   remember/store step, and no `agent_ref` that grants one — a flow runs on
+   trigger data that a third party can influence (an inbound email, a webhook
+   payload), so writing that into the user's memory is deliberately not
+   possible. If the user asks for a workflow that "remembers" something
+   across runs, say plainly that memory writes are not available to workflows
+   yet and build the rest of the flow without that step.
+
+   Use memory reads sparingly — only when the workflow genuinely needs the
+   user's context, rather than hardcoding what memory already holds.
 
    **Picking a specialist via `agent_ref`.** A plain `agent` node (no
    `agent_ref`) only has the default LLM plus whatever it's given in
@@ -347,7 +368,8 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    `config.agent_ref` — never hallucinate an id, exactly like grounding a
    `tool_call` slug via `search_tool_catalog`. Examples: "generate an HTML
    report from this data" → `code_executor`; "research our competitors" →
-   `researcher`.
+   `researcher`; "work out what this customer has asked us before" →
+   `context_scout` (see "Reading the user's memory at run time" above).
 3. **`tool_call`** — an action. Two flavours by `config.slug`:
    - **Composio app action** — `config.slug` = a real action slug (from
      `search_tool_catalog`, e.g. `GMAIL_SEND_EMAIL`) + `config.connection_ref`

@@ -1144,6 +1144,46 @@ async fn persist_job_result_failure_disables_one_shot() {
 }
 
 #[tokio::test]
+async fn persist_job_result_disables_at_job_without_delete_flag() {
+    // Regression: an `At` job created without delete_after_run (the RPC default,
+    // and every shell `At` job) must not be rescheduled after it runs. Its `at`
+    // is a fixed instant, so reschedule_after_run would write next_run = at
+    // (now in the past) and due_jobs would re-select it on every poll, re-firing
+    // the job forever.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+    let at = Utc::now() + ChronoDuration::minutes(10);
+    let job = cron::add_agent_job(
+        &config,
+        Some("at-no-delete".into()),
+        crate::openhuman::cron::Schedule::At { at },
+        "Hello",
+        SessionTarget::Isolated,
+        None,
+        None,
+        false, // delete_after_run = false — the previously-buggy case
+    )
+    .unwrap();
+    let started = Utc::now();
+    let finished = started + ChronoDuration::milliseconds(10);
+
+    let success = persist_job_result(&config, &job, true, "ok", started, finished).await;
+    assert!(success);
+
+    // The row is kept (not auto-deleted) but disabled, and its run is recorded.
+    let updated = cron::get_job(&config, &job.id).unwrap();
+    assert!(!updated.enabled, "At job must be disabled after one run");
+    assert_eq!(updated.last_status.as_deref(), Some("ok"));
+
+    // It is never due again — even at a time past its `at` instant.
+    let due = cron::due_jobs(&config, at + ChronoDuration::minutes(1)).unwrap();
+    assert!(
+        !due.iter().any(|j| j.id == job.id),
+        "disabled At job must not be re-selected by due_jobs"
+    );
+}
+
+#[tokio::test]
 async fn deliver_if_configured_skips_non_announce_mode() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp).await;

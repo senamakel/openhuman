@@ -15,7 +15,7 @@ earlier phases.
 `src/openhuman/tinyagents/` seam, (4) the existing docs/tests — all against the
 working tree at `main` (`5b8a9f269`, 2026-07-22).
 
-**Execution status:** active on `feat/tinyagents-migration-2026-07-22`.
+**Execution status:** active on `feat/tinyagents-provider-cleanup`.
 WP-0 discovered and corrected an additional cross-crate constraint: once the
 vendored manifest honestly reports 2.1, `tinyflows` must also require
 TinyAgents 2.1 or Cargo resolves a second 1.9 copy and splits trait identity.
@@ -37,8 +37,8 @@ remaining work is now well-bounded:
   crate `ModelRouter` is adopted; and **`compatible*.rs` is already deleted**
   (collapsed into a single `legacy_provider.rs` facade).
 - What remains falls into six work packages (§5): finish the model-layer
-  cutover and delete the legacy `Provider` stack (~9–10k LOC); retire the
-  legacy `run_turn_engine`; consolidate `routing/`, `tool_timeout/`,
+  cutover and delete the legacy `Provider` stack (~9–10k LOC); record that the
+  legacy `run_turn_engine` was already retired; consolidate `routing/`, `tool_timeout/`,
   `tool_status/`, `model_council/` onto crate primitives; reconcile the tool
   model (the one genuinely design-gated package); shrink the seam; and a
   housekeeping package (version-pin reconciliation + broken-link cleanup) that
@@ -176,13 +176,12 @@ host files (`schemas.rs`, `presets.rs`, `model_ids.rs`, `paths.rs`, `parse.rs`,
 
 | Domain | Files / LOC | Disposition |
 | --- | --- | --- |
-| `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. One big deletion: the legacy `run_turn_engine` parallel loop (`agent/harness/session/turn/core.rs`, `agent/harness/subagent_runner/ops/graph.rs`) duplicating `harness::agent_loop` — WP-3. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
+| `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. WP-3 verified that `session/turn/core.rs` is the product turn-preparation shell and `subagent_runner/ops/graph.rs` unconditionally calls `run_turn_via_tinyagents_shared`; the legacy loops and runtime escape hatches were removed before this audit. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
 | `agent_orchestration/` | 64 / 27.9k | Engine already on `tinyagents::graph` (workflow runs, teams, delegation, `map_reduce`); what remains is the product layer (ledgers, RPC). Residual upstream item: detached-subagent `TaskStore` lifecycle — WP-5. 25 files crate-backed. |
-| `routing/` | 8 / 2.7k | **Zero crate refs — fully parallel implementation** of what `registry::router` + harness fallback now do. `policy.rs` (463), `quality.rs` (445), `factory.rs` migrate/upstream; `provider.rs`, `health.rs`, `telemetry.rs` (local-model health) stay host — WP-2. |
-| `model_council/` | 4 / 1.1k | `council.rs` (573) + `graph.rs` (128, already graph-shaped) are a generic N-model ensemble → upstream as a crate graph pattern; `schemas.rs` (392, RPC) stays — WP-2. |
-| `council_registry/` | 4 / 0.6k | Definitions-as-data + RPC. Stays. |
-| `tool_timeout/` | 1 / 316 | Process-global timeout with env/config precedence; crate analogue `harness::tool::ToolTimeout` exists. Collapse to a host shim that pushes config into the crate — WP-2. |
-| `tool_status/` | 3 / 0.7k | Pure failure-classification data+logic, parallel to crate tool-outcome handling. Upstream the generic classification; keep host taxonomy mapping — WP-2 (candidate, low priority). |
+| `routing/` | 8 / 2.7k | **Deleted in WP-2.** A repository-wide reference audit found no consumer outside the module; #4783's crate `ModelRouter` already owns the live path, so retaining the nominally host-specific health/provider files would preserve an unreachable parallel stack. |
+| `model_council/` + `council_registry/` | 8 / 1.7k | **Deleted after WP-2 audit.** Generic fan-out already used crate `parallel::map_reduce`; upstream dead-code cleanup removed the remaining unreachable product and registry surfaces. |
+| `tool_timeout/` | 1 / 316 | **HOST-OWNED.** TinyAgents `harness::tool::ToolTimeout` is declarative per-tool metadata; it has no process-global value to receive OpenHuman config. This module owns UI/config + env precedence and the actual `tokio::time::timeout` deadline used by the host-tool adapter — WP-2 audit closed. |
+| `tool_status/` | 3 / 0.7k | **HOST-OWNED.** Its serialized UI/persistence taxonomy, OpenHuman security markers, retry categories, and user-facing remediation copy are product semantics. TinyAgents tool outcomes remain the generic execution input — WP-2 audit closed. |
 | `tools/` | 98 / 40.9k | The `Tool` trait + `ToolSpec` mechanics (`traits.rs:255`), `schema.rs`, `policy.rs`, `orchestrator_tools.rs`, `user_filter.rs` are framework-shaped; all of `tools/impl/*` + RPC (`schemas.rs` 985, `ops.rs` 1,407) are product. **Design-gated** (port-plan §2 blockers still apply) — WP-4. Note: `ToolResult`/`ToolContent` are re-exported from `skills::types` (~236 consumer files) — moving those types is the highest-blast-radius single step in the whole migration and must be its own slice. Security coupling: 49 files. |
 | `tool_registry/` | 7 / 1.8k | Read-only cross-surface discovery + RPC. Stays. |
 | `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/` | — | All host/product (definitions-as-data, RPC controllers, marketplace HTTP, remote-brain client — `orchestration/` talks to the hosted backend, not the local crate). Stay. `agent_tool_policy` overlaps crate `tool_policy` middleware mechanically but encodes host channel-permission policy — stays, mechanism may thin post-WP-4. |
@@ -195,16 +194,19 @@ The seam is healthy: 23/25 files use the crate; it implements `Middleware`
 `HarnessStatusStore`, `EmbeddingModel`, and `GraphEventSink`. Post-migration it
 **shrinks but remains host-owned**. Specific shrink targets:
 
-- **`model.rs` (1,004): `ProviderModel` still exists** (`struct` at :375,
-  `impl ChatModel<()>` at :542) and is referenced from ~7 modules — the Phase 1
-  exit criterion ("constructed in exactly one place, then zero") is unmet.
-  Deleted in WP-1 along with `convert.rs`'s (655) message-translation layer
-  (`chat_message_to_message`, `spec_to_schema` split: tool-schema conversion
-  survives until WP-4; message conversion dies with `ChatMessage`).
-- **`middleware.rs` (4,702):** audit each of the 17 middlewares for crate
-  analogues (`ArgRecovery` overlaps crate #45 arg-recovery; `SchemaGuard`
-  overlaps crate schema validation + `InvalidArgsPolicy` #42; `RepeatProgress`
-  overlaps `no_progress/`). Upstream the generic ones; host-policy ones
+- **`model.rs`: `ProviderModel` is deleted.** The former `convert.rs` was split:
+  tool-schema conversion remains as the 34-line WP-4 seam, while durable-message
+  conversion moved to `agent/message_convert.rs`. The execution audit found that
+  `ChatMessage` is OpenHuman's versioned JSONL/thread persistence record (including
+  message ids and product metadata), not a duplicate provider request type;
+  replacing it directly with the crate enum would change existing on-disk data.
+- **`middleware.rs` (4,702):** the WP-5 audit records all 18 concrete types
+  found at audit time (the tool-exposure shadow was added after the 17-type
+  snapshot) in `docs/tinyagents-drift-ledger.md`. `SchemaGuard` is now deleted
+  in favor of TinyAgents 2.1 `InvalidArgsPolicy::ReturnToolError`, leaving 17.
+  `ArgRecovery` overlaps crate #45/#71 normalization. `RepeatProgress` now uses
+  the merged #72 crate tracker; only the thin OpenHuman signature/exemption and
+  halt-projection adapter remains. Upstream the generic ones; host-policy ones
   (ApprovalSecurity, CredentialScrub, CliRpcOnly, MemoryProtocol, CostBudget)
   stay — WP-5.
 - `routes.rs` `UsageCarry`/`FallbackObserver` thin out as usage/fallback become
@@ -244,9 +246,9 @@ carry explicit superseded banners.
   `agentbox_e2e`, `orchestration_*`, `embeddings_rpc_e2e`,
   `ollama_lifecycle_e2e`, `openai_oauth/flow_tests.rs`, all `local/*_tests`,
   and the `raw_coverage` family except the compatible trio.
-- **Runner impact:** `scripts/test-rust-with-mock.sh:52` still documents the
-  `OPENHUMAN_AGENT_GRAPH_{TINYAGENTS,CHANNEL,SUBAGENT}=0` escape hatches into
-  the legacy engine — these go away with WP-3.
+- **Runner impact:** `scripts/test-rust-with-mock.sh:52` had a stale comment
+  advertising removed `OPENHUMAN_AGENT_GRAPH_*` escape hatches. WP-3 removes
+  that documentation; the runner behavior itself was already crate-only.
 
 ---
 
@@ -306,8 +308,9 @@ The continuation of #4727 Motion B / drift-ledger P1-8/P1-9. Slices:
 4. **Delete, in dependency order:** `router.rs` → `reliable.rs` →
    `legacy_provider.rs` (+ the `as compatible` alias in `provider/mod.rs:14`)
    → `provider/traits.rs` → seam `ProviderModel`/`MaxTokensModel`
-   (`tinyagents/model.rs`) + `convert.rs` message layer → the reverse adapter
-   `crate_provider.rs` last. Each deletion is its own commit with its test
+   (`tinyagents/model.rs`) → the reverse adapter `crate_provider.rs` last.
+   Re-home the durable transcript adapter beside the agent persistence DTO;
+   retain only tool-schema conversion in the seam until WP-4. Each deletion is its own commit with its test
    fallout (§4.5) handled in the same commit.
 5. **Consumer sweep:** migrate the 187 importing files to crate types
    (`Message`, `ModelRequest`, `Usage`, `TinyAgentsError`). Mechanical for
@@ -327,44 +330,46 @@ src/` empty; `inference/provider/` ≤ ~8k LOC (from ~15.9k + tests);
 
 Independent, individually shippable slices:
 
-1. **`routing/` → `registry::router`.** Map `policy.rs`/`quality.rs` tiering
-   onto `ModelRouter`/`WorkloadRoute` (adopted since #4783 — finish the "host
-   adopts" row IN PROGRESS in the ledger). Upstream generic scoring the crate
-   lacks; keep `health.rs`/`telemetry.rs`/`provider.rs` as the host
-   local-runtime signal source feeding router inputs. `routing/provider_tests.rs`
-   becomes seam tests; policy/quality parity tests go upstream.
-2. **`tool_timeout/` → crate `ToolTimeout`.** Host keeps only the
-   config/env push (`OPENHUMAN_TOOL_TIMEOUT_SECS` precedence) into the crate
-   value. 316 LOC → ~50.
-3. **`model_council/` ensemble → crate graph pattern.** `council.rs` +
-   `graph.rs` become a crate-side parallel-fanout + chair-synthesis graph
-   (natural fit for `map_reduce` + post-WP-0 `BarrierRelief`); host keeps
-   `schemas.rs` RPC + `council_registry/` definitions.
-4. **`tool_status/` classification (low priority):** upstream the generic
-   failure-classification table into crate tool-outcome handling; host keeps
-   the RPC-facing taxonomy mapping. Skip if the crate's outcome model diverges
-   — reclassify HOST-OWNED in the ledger instead.
+1. **`routing/` → `registry::router` — complete by deletion.** The execution
+   audit found the entire module self-contained: no production or test caller
+   outside `routing/` constructed its provider or consumed its health signals.
+   #4783's crate `ModelRouter` already owns live workload routing, so WP-2
+   removed the unreachable parallel stack and its self-tests.
+2. **`tool_timeout/` — HOST-OWNED (audit closed).** The similarly named crate
+   `ToolTimeout` is per-tool policy metadata, not a global timeout store or
+   executor. OpenHuman must retain config/env precedence, live UI updates,
+   seconds clamping, grace handling, and the adapter's hard deadline. The seam
+   already projects host policy into crate `ToolRuntime`; there is no duplicate
+   crate implementation to delete.
+3. **`model_council/` — complete by deletion.** Generic member fan-out already
+   ran through `tinyagents::graph::parallel::map_reduce`; upstream dead-code
+   cleanup removed the remaining unreachable council and registry product
+   surfaces.
+4. **`tool_status/` — HOST-OWNED (audit closed).** The classifier is tied to
+   OpenHuman security markers, serialized thread/UI types, retry categories,
+   localized-copy keys, and remediation language. TinyAgents owns generic tool
+   outcomes; mapping those outcomes into product status remains in the host.
 
-**Exit:** `routing/policy|quality|factory` and `tool_timeout` deleted or
-shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED).
+**Exit: complete.** `routing/`, `model_council/`, and `council_registry/` are
+deleted; timeout and status are explicitly HOST-OWNED. Ledger rows record the
+audit evidence.
 
 ### WP-3 — Retire the legacy turn engine
 
-`run_turn_engine` (`agent/harness/session/turn/core.rs`,
-`agent/harness/subagent_runner/ops/graph.rs`) is the pre-#4249 loop kept as a
-parity fallback; `run_turn_via_tinyagents_shared` has been default-ON in
-production for the whole 4x-series.
+**Audit result: complete before this plan was written.** The filenames cited by
+the initial audit survived, but their legacy engines did not:
 
-1. Confirm no production caller can reach the legacy path except via the
-   `OPENHUMAN_AGENT_GRAPH_{TINYAGENTS,CHANNEL,SUBAGENT}=0` escape hatches.
-2. Delete the legacy engine + the escape hatches + the
-   `scripts/test-rust-with-mock.sh` documentation of them.
-3. Port any legacy-only regression assertions in
-   `agent/harness/session/turn_tests.rs` / `subagent_runner/ops_tests.rs` to
-   the tinyagents path before deletion (failing-before/passing-after).
+1. `session/turn/core.rs` performs OpenHuman turn preparation and calls the
+   TinyAgents session path; it contains no `run_turn_engine` definition.
+2. `subagent_runner/ops/graph.rs` documents the removed `run_inner_loop` /
+   `run_turn_engine` and unconditionally calls `run_turn_via_tinyagents_shared`.
+3. No runtime or test code reads `OPENHUMAN_AGENT_GRAPH_*`; only this plan and a
+   stale test-runner comment mentioned those names. The stale comment is now
+   removed.
 
-**Exit:** one turn engine; `grep -rn "OPENHUMAN_AGENT_GRAPH_" ` returns only
-changelog/history.
+**Exit satisfied:** one TinyAgents turn engine; source and scripts contain no
+`OPENHUMAN_AGENT_GRAPH_*` reference. Historical/parity comments mentioning the
+former engine remain intentionally as provenance, not executable branches.
 
 ### WP-4 — Tool-model reconciliation (design-gated; do not start on autopilot)
 
@@ -389,16 +394,35 @@ deciding (a) trait unification vs permanent adapter, (b) the
 `SharedToolAdapter` seam is cheap and correct; **do not delete it
 prematurely.**
 
+The proposed decision is recorded in
+[`tinyagents-tool-model-decision-2026-07-23.md`](tinyagents-tool-model-decision-2026-07-23.md).
+It selects a permanent ownership-boundary adapter, keeps the host's structured
+result types in the always-compiled carve-out while preserving them through
+TinyAgents `raw`, and defines the required scope-enforcement matrix. WP-4 code
+changes remain gated on explicit approval of that proposal.
+
 ### WP-5 — Seam shrink + orchestration lifecycle upstreaming
 
-1. Middleware audit (§4.3): per-middleware ledger rows; upstream
-   `ArgRecovery`/`SchemaGuard`/`RepeatProgress` equivalents where the crate's
-   #42/#45/no_progress machinery can absorb them; keep host-policy middlewares.
+1. Middleware audit (§4.3): per-middleware ledger rows; `SchemaGuard` is deleted
+   through the existing crate invalid-args policy. TinyAgents #72 is merged and
+   `RepeatProgress` now delegates generic streak accounting to the crate
+   `SuccessfulRepeatTracker`; the host duplicate guard and thresholds are
+   deleted, while the thin product adapter remains. `ArgRecovery` still awaits
+   the #71 crate equivalent; keep host-policy middlewares.
 2. Detached-subagent lifecycle: move the generic detached-run registry
    mechanics (`agent_orchestration/running_subagents.rs`,
    `subagent_control.rs`) onto crate `TaskStore`/`SteeringRegistry` fully;
    host keeps ledgers + RPC. This restores the lifecycle consolidation intent
    recorded by the earlier audit without relying on a phantom design doc.
+   **Cutover implemented:** TinyAgents PR
+   [#75](https://github.com/tinyhumansai/tinyagents/pull/75) adds the generic
+   ownership-aware `DetachedTaskRegistry`; OpenHuman now delegates snapshots,
+   waits, steering lookup, cancellation/abort, terminal sweeping, and lock-error
+   handling to it. The host retains durable `TaskStore` projection, product
+   metadata, RPC, and the `RunQueue` compatibility fallback. All 17 focused
+   `running_subagents` tests pass. TinyAgents #75 merged as `d548657`, and the
+   canonical vendored pointer `4358efe` includes it, closing the generic
+   lifecycle cutover.
 3. Finish the C4 journal-progress-parity plan (S2–S6): journal-backed progress
    projection, then delete `agent/progress_tracing.rs` (1,272) +
    `progress_tracing/langfuse.rs` (825) in favor of crate observability —
@@ -454,16 +478,16 @@ prematurely.**
 | `inference/provider/{crate_openai,openhuman_backend_model,factory}.rs` | KEEP — becomes the host↔crate boundary (WP-1 finishes) |
 | `inference/provider/{temperature,thread_context,resolved_route,auth_error_registry}.rs` | RE-HOME to seam (WP-1) |
 | `inference/{local,voice,http,openai_oauth}/`, `provider/ops/`, bespoke providers, root host files | STAYS |
-| `tinyagents/model.rs` (`ProviderModel`), `convert.rs` message layer | DELETE (WP-1) |
+| `tinyagents/model.rs` (`ProviderModel`) | DELETED (WP-1) |
+| `tinyagents/convert.rs` message layer | RE-HOMED to `agent/message_convert.rs`; durable JSONL/thread compatibility is product-owned. Tool-schema conversion remains for WP-4. |
 | `tinyagents/middleware.rs` generic middlewares | UPSTREAM case-by-case (WP-5) |
 | `tinyagents/` remainder (seam) | STAYS, shrinks |
-| `agent/` legacy `run_turn_engine` + escape hatches | DELETE (WP-3) |
-| `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `council_registry/`, `tool_registry/` | STAYS (product/host) |
-| `routing/{policy,quality,factory}.rs` | MIGRATE to `registry::router` (WP-2) |
-| `routing/{provider,health,telemetry}.rs` | STAYS (host signals) |
-| `tool_timeout/` | COLLAPSE to shim over crate `ToolTimeout` (WP-2) |
-| `tool_status/` classification | UPSTREAM candidate (WP-2, low priority) |
-| `model_council/{council,graph}.rs` | UPSTREAM as crate graph pattern (WP-2) |
+| `agent/` legacy `run_turn_engine` + escape hatches | ALREADY DELETED; WP-3 corrected the stale audit and runner documentation |
+| `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `tool_registry/` | STAYS (product/host) |
+| `routing/` | DELETED; #4783 crate router already owned the only live path (WP-2) |
+| `tool_timeout/` | HOST-OWNED: config/env state + hard-deadline enforcement; crate timeout is metadata only (WP-2 closed) |
+| `tool_status/` classification | HOST-OWNED: OpenHuman UI/security/recovery taxonomy (WP-2 closed) |
+| `model_council/`, `council_registry/` | DELETED after crate-backed fan-out audit and upstream dead-code cleanup (WP-2 closed) |
 | `tools/` trait mechanics | DESIGN-GATED (WP-4) |
 | `tools/impl/*`, all `schemas.rs` RPC controllers | STAYS |
 | `agent_orchestration/` detached-run mechanics | UPSTREAM to `TaskStore` (WP-5) |

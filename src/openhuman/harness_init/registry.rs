@@ -5,9 +5,15 @@
 //! orchestrates and reports; it does not reimplement any download logic.
 //!
 //! Current steps (all non-required — failure degrades to a fallback):
-//!   1. `python_runtime` — managed CPython (prerequisite for spaCy).
-//!   2. `spacy`          — spaCy venv + `en_core_web_sm` model.
-//!   3. `runtime_python_server` — long-running Python backend host.
+//!   1. `python_runtime` — managed CPython. Only provisions eagerly when a
+//!      Python backend is actually enabled (`enabled_backends` non-empty);
+//!      otherwise it is a no-op and lazy consumers (Python tools / skills)
+//!      resolve the interpreter on first use (#5056).
+//!   2. `spacy`          — spaCy venv + `en_core_web_sm` model. Opt-in
+//!      (`memory_tree.spacy_enabled`, default OFF) so a fresh install does not
+//!      provision it — nor spawn the runtime Python server — on launch.
+//!   3. `runtime_python_server` — long-running Python backend host. Derived:
+//!      launches only when `enabled_backends` is non-empty.
 //!   4. `node_runtime`   — managed Node.js (skills / MCP).
 //!
 //! Voice models (Whisper, Piper) and Ollama stay lazy/opt-in and are
@@ -73,9 +79,20 @@ fn python_runtime_step() -> HarnessInitStep {
     }
 }
 
+/// Whether the managed interpreter must be provisioned **eagerly at boot**.
+/// True only when Python is enabled AND a Python backend (spaCy / Kompress)
+/// actually needs it. When no backend is enabled we skip the speculative
+/// managed-CPython download entirely (#5056) — lazy consumers (Python tools /
+/// skills, Python MCP servers) still resolve the interpreter on first use.
+fn python_needed_eagerly(config: &Config) -> bool {
+    config.runtime_python.enabled
+        && !crate::openhuman::runtime_python_server::enabled_backends(config).is_empty()
+}
+
 async fn python_is_done(config: &Config) -> bool {
-    if !config.runtime_python.enabled {
-        // Disabled → nothing to provision; treat as satisfied.
+    if !python_needed_eagerly(config) {
+        // Nothing at boot needs the interpreter → treat as satisfied. Never
+        // downloads CPython speculatively.
         return true;
     }
     // Durable on-disk probe: survives restarts (unlike the process-local
@@ -89,7 +106,7 @@ async fn python_is_done(config: &Config) -> bool {
 }
 
 async fn python_run(config: &Config) -> Result<(), String> {
-    if !config.runtime_python.enabled {
+    if !python_needed_eagerly(config) {
         return Ok(());
     }
     use crate::openhuman::runtime_python::PythonBootstrap;
@@ -299,6 +316,46 @@ mod tests {
                 step.id
             );
         }
+    }
+
+    /// #5056: on a fresh install (`Config::default()`) `runtime_python.enabled`
+    /// is `true` but no Python backend (spaCy/Kompress) is on, so the
+    /// `python_runtime` step must report itself already `Done` and `run` must
+    /// be a no-op — proving the eager managed-CPython download is skipped
+    /// when nothing at boot needs it. This is a pure gating check
+    /// (`python_needed_eagerly` returns `false`): it never touches disk or
+    /// resolves a real interpreter, so it stays hermetic.
+    #[tokio::test]
+    async fn python_runtime_step_is_done_by_default_with_no_backend_enabled() {
+        let config = Config::default();
+        assert!(
+            !python_needed_eagerly(&config),
+            "default config should not need Python eagerly (no backend enabled)"
+        );
+        assert!(
+            python_is_done(&config).await,
+            "python_runtime step should be Done without provisioning when no backend is enabled"
+        );
+        assert!(
+            python_run(&config).await.is_ok(),
+            "python_runtime run should no-op when no backend is enabled"
+        );
+    }
+
+    /// Inverse of the above: once a backend (spaCy) is enabled, the step must
+    /// no longer be trivially `Done` via the eager-skip branch — proving the
+    /// gate still allows provisioning when a backend genuinely needs Python.
+    /// We only assert the gating predicate here (not `is_done`/`run`), so the
+    /// test never attempts a real interpreter probe/download.
+    #[test]
+    fn python_needed_eagerly_true_when_spacy_backend_enabled() {
+        let mut config = Config::default();
+        config.runtime_python.enabled = true;
+        config.memory_tree.spacy_enabled = true;
+        assert!(
+            python_needed_eagerly(&config),
+            "python should be needed eagerly once a Python backend is enabled"
+        );
     }
 
     #[tokio::test]

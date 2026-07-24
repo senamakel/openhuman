@@ -97,23 +97,6 @@ impl Default for SecretsConfig {
     }
 }
 
-// ── Native computer control (mouse + keyboard) ─────────────────────
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(default)]
-pub struct ComputerControlConfig {
-    /// Master toggle for mouse and keyboard tools. Disabled by default —
-    /// the user must explicitly opt in.
-    #[serde(default)]
-    pub enabled: bool,
-    /// Opt-in for the mutating `ax_interact` actions (`press` / `set_value`).
-    /// Disabled by default: the read-only `list` action is always available,
-    /// but actuating arbitrary app controls / typing into arbitrary fields
-    /// requires explicit user opt-in (mirrors `enabled` for mouse/keyboard).
-    #[serde(default)]
-    pub ax_interact_mutations: bool,
-}
-
 // ── Agent integration tools (backend-proxied) ───────────────────────
 
 /// Routing mode for an integration that supports a backend-managed

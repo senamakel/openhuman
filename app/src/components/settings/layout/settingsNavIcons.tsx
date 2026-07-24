@@ -117,7 +117,6 @@ export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
     )
   ),
   'screen-awareness-debug': icon(stroke('M3 5h18v12H3zM8 21h8m-4-4v4')),
-  'autocomplete-debug': icon(stroke('M4 6h16M4 10h10M4 14h7m3 4h3m0 0l-2-2m2 2l-2 2')),
   // Automation & Integrations
   tasks: icon(
     stroke(

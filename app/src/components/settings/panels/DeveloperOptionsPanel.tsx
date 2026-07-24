@@ -137,22 +137,6 @@ const modelsDebugGroup: DevGroup = {
         </svg>
       ),
     },
-    {
-      id: 'autocomplete-debug',
-      titleKey: 'settings.developerMenu.autocomplete.title',
-      descriptionKey: 'settings.developerMenu.autocomplete.desc',
-      route: 'autocomplete-debug',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 6h16M4 10h10M4 14h7m3 4h3m0 0l-2-2m2 2l-2 2"
-          />
-        </svg>
-      ),
-    },
   ],
 };
 

@@ -32,8 +32,8 @@ use super::types::{ThreadGoal, ThreadGoalStatus};
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;
-use crate::openhuman::inference::provider::thread_context::with_thread_id;
 use crate::openhuman::threads::turn_state::{TurnLifecycle, TurnStateStore};
+use crate::openhuman::tinyagents::thread_context::with_thread_id;
 
 /// Serialise continuation dispatches so at most one autonomous goal turn runs at
 /// a time (Codex's `Semaphore(1)` guard).

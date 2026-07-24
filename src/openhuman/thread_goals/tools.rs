@@ -7,7 +7,7 @@
 //! system-driven and have no model tool.
 //!
 //! The target thread is resolved from the ambient
-//! [`current_thread_id`](crate::openhuman::inference::provider::thread_context::current_thread_id)
+//! [`current_thread_id`](crate::openhuman::tinyagents::thread_context::current_thread_id)
 //! task-local set by the chat channel — tools never take a `thread_id` arg, so
 //! the model can't address another thread's goal. Each tool is sandboxed to a
 //! single `workspace_dir` captured at construction.
@@ -19,7 +19,7 @@ use serde_json::json;
 
 use super::store;
 use super::types::ThreadGoal;
-use crate::openhuman::inference::provider::thread_context::current_thread_id;
+use crate::openhuman::tinyagents::thread_context::current_thread_id;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 /// Render a goal as a compact, model-readable block.
@@ -156,9 +156,6 @@ impl Tool for GoalSetTool {
                         status: goal.status.as_str().to_string(),
                     },
                 );
-                // Shadow: mirror into the crate graph.goals store (flag-gated OFF;
-                // acts on legacy, logs divergence). Best-effort, never fatal.
-                super::crate_adapter::shadow_mirror_goal(&self.workspace_dir, &goal).await;
                 Ok(ToolResult::success(format!(
                     "Goal set.\n{}",
                     render_goal(&goal)
@@ -215,8 +212,6 @@ impl Tool for GoalCompleteTool {
                         status: goal.status.as_str().to_string(),
                     },
                 );
-                // Shadow: mirror into the crate graph.goals store (flag-gated OFF).
-                super::crate_adapter::shadow_mirror_goal(&self.workspace_dir, &goal).await;
                 Ok(ToolResult::success(format!(
                     "Goal marked complete.\n{}",
                     render_goal(&goal)
@@ -230,7 +225,7 @@ impl Tool for GoalCompleteTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::inference::provider::thread_context::with_thread_id;
+    use crate::openhuman::tinyagents::thread_context::with_thread_id;
 
     #[tokio::test]
     async fn set_get_complete_via_tools_in_thread_scope() {

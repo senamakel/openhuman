@@ -2099,25 +2099,6 @@ mod tests {
         );
     }
 
-    struct CountingProvider {
-        calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
-    }
-
-    #[async_trait::async_trait]
-    impl crate::openhuman::inference::provider::Provider for CountingProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Ok("{\"label\":\"Policy Test\",\"headline\":\"Done\",\"key_points\":[],\"action_items\":[]}"
-                .to_string())
-        }
-    }
-
     struct EnvGuard {
         previous: Option<std::ffi::OsString>,
     }
@@ -2197,12 +2178,12 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let _env = EnvGuard::set_workspace(tmp.path());
 
-        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let model = std::sync::Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(
+            vec!["{\"label\":\"Policy Test\",\"headline\":\"Done\",\"key_points\":[],\"action_items\":[]}"],
+        ));
         let _provider =
-            crate::openhuman::inference::provider::factory::test_provider_override::install(
-                std::sync::Arc::new(CountingProvider {
-                    calls: calls.clone(),
-                }),
+            crate::openhuman::inference::provider::factory::test_provider_override::install_model(
+                model.clone(),
             );
 
         let turns = vec![BackendMeetTurn {
@@ -2222,7 +2203,7 @@ mod tests {
 
         assert!(!thread_id.is_empty());
         assert_eq!(
-            calls.load(std::sync::atomic::Ordering::SeqCst),
+            model.requests().len(),
             0,
             "UseProvidedOnly must not call the summarization provider"
         );

@@ -15,7 +15,7 @@ use std::sync::Arc;
 use once_cell::sync::OnceCell;
 
 use crate::openhuman::config::CostConfig;
-use crate::openhuman::inference::provider::traits::UsageInfo;
+use crate::openhuman::inference::provider::types::UsageInfo;
 
 use super::tracker::CostTracker;
 use super::types::{CostSource, TokenUsage};

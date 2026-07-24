@@ -21,14 +21,15 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use crate::core::event_bus::register_native_global;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::openhuman::config::MultimodalConfig;
-use crate::openhuman::inference::provider::{
-    current_resolved_provider_route, with_resolved_provider_route_scope, ChatMessage,
-};
 use crate::openhuman::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
+};
+use crate::openhuman::tinyagents::{
+    current_resolved_provider_route, with_resolved_provider_route_scope,
 };
 use crate::openhuman::tools::Tool;
 
@@ -471,40 +472,15 @@ pub async fn use_real_agent_handler() -> tokio::sync::MutexGuard<'static, ()> {
 mod tests {
     use super::*;
     use crate::core::event_bus::NativeRegistry;
-    use crate::openhuman::inference::provider::Provider;
-    use async_trait::async_trait;
-
-    /// Minimal `Provider` implementation used only to build the
-    /// [`TurnModelSource`] in [`AgentTurnRequest`]. The tests below
-    /// override the bus handler with a stub that never calls any
-    /// provider methods, so this no-op is sufficient — the only required
-    /// trait method is `chat_with_system`, everything else has a default.
-    struct NoopProvider;
-
-    #[async_trait]
-    impl Provider for NoopProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            anyhow::bail!(
-                "NoopProvider::chat_with_system should not be invoked by tests that \
-                 override the agent.run_turn handler"
-            )
-        }
-    }
 
     /// Build a canonical test request. The bus handler is always stubbed
     /// in these tests, so the provider trait object is never actually
-    /// invoked — it only needs to satisfy the type.
+    /// invoked — an empty native scripted model only satisfies the type.
     fn test_request() -> AgentTurnRequest {
+        let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+            Arc::new(tinyagents::harness::testkit::ScriptedModel::new(Vec::new()));
         AgentTurnRequest {
-            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-                NoopProvider,
-            )),
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
             history: vec![
                 ChatMessage::system("you are a test bot"),
                 ChatMessage::user("hello"),

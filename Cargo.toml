@@ -318,23 +318,16 @@ reqwest = { version = "0.12", default-features = false, features = ["native-tls"
 # AppContainer / process-jail backend in `openhuman::cwd_jail`.
 # Feature list mirrors the Win32 surface used by cwd_jail/windows.rs:
 # AppContainer profile APIs, ACL editing, STARTUPINFOEXW process spawn,
-# and the GENERIC_* file access masks. `Win32_System_Com` is used by the
-# UIA accessibility backend (`accessibility::uia_interact`) to initialise COM
-# on the worker thread before creating the UI Automation client.
+# and the GENERIC_* file access masks.
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_Authorization",
     "Win32_Security_Isolation",
     "Win32_Storage_FileSystem",
-    "Win32_System_Com",
     "Win32_System_Memory",
     "Win32_System_Threading",
 ] }
-# Microsoft UI Automation (UIA) bindings — the Windows backend for the
-# `ax_interact` tool (`accessibility::uia_interact`). Safe Rust wrappers over
-# the UIA COM API; the Windows analogue of the macOS AXUIElement Swift helper.
-uiautomation = { version = "0.25", optional = true }
 
 [target.'cfg(not(windows))'.dependencies]
 # macOS / Linux: keep rustls + Mozilla webpki-roots — the historical
@@ -387,7 +380,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "desktop-automation", "channels", "tui", "medulla-local"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla-local"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -564,27 +557,6 @@ mcp = []
 # the crash-reporting feature" error.
 crash-reporting = ["dep:sentry"]
 
-# Desktop-automation cluster (#5049): the five modules that read/drive the local
-# desktop UI — `openhuman::accessibility` (macOS AX / Windows UIA FFI middleware),
-# `openhuman::screen_intelligence` (capture + vision loop), `openhuman::autocomplete`
-# (inline completion), `openhuman::desktop_companion` (Clicky-style loop), and the
-# `computer` agent-tool family (`ax_interact` / `automate` / mouse / keyboard).
-# Default-ON — the desktop app always ships with these. Slim / headless builds opt
-# out via `--no-default-features --features "<explicit list without desktop-automation>"`,
-# which drops the exclusive `uiautomation` (Windows UI Automation COM bindings)
-# dependency. Composes with the runtime `DomainSet::desktop_automation` flag: the
-# feature narrows the compile-time surface, `DomainSet` gates it at runtime.
-#
-# CARVE-OUT: the inert type modules stay compiled in BOTH builds —
-# `accessibility::types` (incl. the `GlobeHotkey*` structs), `autocomplete::types`
-# (`AutocompleteStatus`), and `screen_intelligence::types` (`AccessibilityStatus`,
-# `CaptureImageRefResult`) — because always-on callers (`text_input`, `voice`,
-# `app_state`) name them. Only behaviour is gated; the stubs re-export the one real
-# type definition. See AGENTS.md "skills gate — the type carve-out".
-#
-# NOTE: only `uiautomation` is exclusive and thus shed. `enigo` is shared with the
-# `voice` domain; `rdev` / `arboard` are voice-owned — none of those are dropped here.
-desktop-automation = ["dep:uiautomation"]
 # Tabbed terminal UI: the `openhuman tui` (alias `chat`) CLI subcommand, a
 # ratatui/crossterm front-end for logs, orchestrator chat, curated configuration,
 # and account settings. Default-ON for the standalone `openhuman-core` binary, but

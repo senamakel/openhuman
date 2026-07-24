@@ -10,7 +10,6 @@ use std::collections::BTreeMap;
 use std::io::IsTerminal;
 
 use crate::core::all;
-use crate::core::autocomplete_cli_adapter;
 use crate::core::jsonrpc::{default_state, invoke_method, parse_json_params};
 use crate::core::logging::CliLogDefault;
 use crate::core::{ControllerSchema, TypeSchema};
@@ -96,7 +95,6 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         "screen-intelligence" => {
             crate::openhuman::screen_intelligence::cli::run_screen_intelligence_command(&args[1..])
         }
-        "text-input" => crate::openhuman::text_input::cli::run_text_input_command(&args[1..]),
         "tree-summarizer" => {
             crate::openhuman::memory_tree::tree_runtime::cli::run_tree_summarizer_command(
                 &args[1..],
@@ -294,7 +292,7 @@ fn run_server_command(args: &[String]) -> Result<()> {
     let mut socketio_enabled = true;
     let mut headless_api = false;
     let mut verbose = false;
-    let mut log_scope = CliLogDefault::Global;
+    let log_scope = CliLogDefault::Global;
     let mut i = 0usize;
 
     // Manual argument parsing loop for specific flags.
@@ -331,13 +329,8 @@ fn run_server_command(args: &[String]) -> Result<()> {
                 verbose = true;
                 i += 1;
             }
-            other if autocomplete_cli_adapter::parse_run_scope_flag(other).is_some() => {
-                log_scope = autocomplete_cli_adapter::parse_run_scope_flag(other)
-                    .unwrap_or(CliLogDefault::Global);
-                i += 1;
-            }
             "-h" | "--help" => {
-                println!("Usage: openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only|--headless-api] [--autocomplete-logs] [-v|--verbose]");
+                println!("Usage: openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only|--headless-api] [-v|--verbose]");
                 println!();
                 println!(
                     "  --host <addr>    Bind address (default: 127.0.0.1 or OPENHUMAN_CORE_HOST)"
@@ -347,7 +340,6 @@ fn run_server_command(args: &[String]) -> Result<()> {
                 );
                 println!("  --jsonrpc-only   HTTP JSON-RPC only; disable Socket.IO");
                 println!("  --headless-api   HTTP JSON-RPC only; disable all background services");
-                autocomplete_cli_adapter::print_run_scope_help_line();
                 println!("  -v, --verbose    Shorthand for RUST_LOG=debug when RUST_LOG is unset");
                 println!();
                 println!("Logging: set RUST_LOG (e.g. RUST_LOG=debug openhuman run). Default level is info.");
@@ -460,12 +452,6 @@ fn run_namespace_command(
         ));
     };
 
-    let preparsed = autocomplete_cli_adapter::preparse_namespace(namespace, args);
-    let args: &[String] = &preparsed.args;
-    if let Some((verbose, scope)) = preparsed.init_logging {
-        crate::core::logging::init_for_cli_run(verbose, scope);
-    }
-
     if args.is_empty() || is_help(&args[0]) {
         // If there's a domain-specific CLI handler for this namespace, use it as the default.
         if let Some(cli_handler) = all::cli_handler_for_namespace(namespace) {
@@ -481,20 +467,6 @@ fn run_namespace_command(
             "unknown function '{namespace} {function}'. Run `openhuman {namespace} --help`."
         ));
     };
-
-    // Domain adapters can intercept specific namespace/function combinations.
-    if args.len() > 1
-        && is_help(&args[1])
-        && autocomplete_cli_adapter::maybe_print_start_help(namespace, function)
-    {
-        return Ok(());
-    }
-    if let Some(value) =
-        autocomplete_cli_adapter::maybe_handle_namespace_start(namespace, function, &args[1..])?
-    {
-        println!("{}", serde_json::to_string_pretty(&value)?);
-        return Ok(());
-    }
 
     if args.len() > 1 && is_help(&args[1]) {
         print_function_help(namespace, &schema);
@@ -666,7 +638,6 @@ fn print_namespace_help(namespace: &str, schemas: &[ControllerSchema]) {
         println!("  {} - {}", schema.function, schema.description);
     }
     println!("\nUse `openhuman {namespace} <function> --help` for parameters.");
-    autocomplete_cli_adapter::maybe_print_namespace_help_footer(namespace);
 }
 
 /// Prints detailed help for a specific function, including its parameters and description.

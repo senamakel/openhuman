@@ -30,21 +30,17 @@ pub mod approval;
 pub mod artifacts;
 #[cfg(feature = "voice")]
 pub mod audio_toolkit;
-pub mod autocomplete;
 pub mod billing;
 pub mod channels;
-pub mod codegraph;
 pub mod composio;
 pub mod config;
 pub mod connectivity;
 pub mod context;
 pub mod cost;
-pub mod council_registry;
 pub mod credentials;
 pub mod cron;
 pub mod cwd_jail;
 pub mod dashboard;
-pub mod desktop_companion;
 pub mod dev_paths;
 pub mod devices;
 pub mod doctor;
@@ -96,7 +92,6 @@ pub mod memory_tools;
 pub mod memory_tree;
 pub mod migration;
 pub mod migrations;
-pub mod model_council;
 pub mod monitor;
 pub mod notifications;
 pub mod orchestration;
@@ -111,7 +106,6 @@ pub mod recall_calendar;
 pub mod referral;
 #[cfg(feature = "flows")]
 pub mod rhai_workflows;
-pub mod routing;
 pub mod runtime_node;
 pub mod runtime_pool;
 pub mod runtime_python;
@@ -135,7 +129,6 @@ pub mod task_sources;
 pub mod team;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;
-pub mod text_input;
 pub mod thread_goals;
 pub mod threads;
 pub mod tinyagents;
@@ -160,10 +153,6 @@ pub mod web_chat;
 pub mod webhooks;
 #[cfg(feature = "channels")]
 pub mod webview_accounts;
-#[cfg(feature = "channels")]
-pub mod webview_apis;
-#[cfg(feature = "channels")]
-pub mod webview_notifications;
 #[cfg(feature = "channels")]
 pub mod whatsapp_data;
 pub mod workspace;

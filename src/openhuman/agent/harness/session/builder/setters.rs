@@ -22,6 +22,7 @@ impl AgentBuilder {
             turn_model_source: None,
             tools: None,
             visible_tool_names: None,
+            subagent_tool_ceiling_names: None,
             memory: None,
             shared_experience_memory: None,
             prompt_builder: None,
@@ -59,36 +60,20 @@ impl AgentBuilder {
         }
     }
 
-    /// Sets the AI provider for the agent.
-    ///
-    /// Accepts a `Box<dyn Provider>` for backward compatibility but wraps it in
-    /// the seam [`TurnModelSource`](crate::openhuman::tinyagents::TurnModelSource)
-    /// internally (issue #4249, Phase 3 / Motion A) so the agent + sub-agents
-    /// spawned from it share the same source.
-    pub fn provider(
-        mut self,
-        provider: Box<dyn crate::openhuman::inference::provider::Provider>,
-    ) -> Self {
-        self.turn_model_source = Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::from(provider),
+    /// Sets an already-constructed TinyAgents chat model. This is the native
+    /// injection seam for tests and embedders; no legacy `Provider` adapter is
+    /// constructed.
+    pub fn chat_model(mut self, model: Arc<dyn tinyagents::harness::model::ChatModel<()>>) -> Self {
+        self.turn_model_source = Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            model,
         ));
-        self
-    }
-
-    /// Sets the AI provider from an existing `Arc`. Use this when sharing
-    /// a provider instance across multiple agents.
-    pub fn provider_arc(
-        mut self,
-        provider: Arc<dyn crate::openhuman::inference::provider::Provider>,
-    ) -> Self {
-        self.turn_model_source = Some(crate::openhuman::tinyagents::TurnModelSource::new(provider));
         self
     }
 
     /// Sets the AI provider as a **crate-native** turn-model source (Phase 3 P3-B):
     /// `build`/`build_summarizer` construct crate `ChatModel`s from `(role, config)`
     /// via `create_turn_chat_model` (managed → `OpenHumanBackendModel`, local/cloud →
-    /// crate `OpenAiModel`) instead of wrapping `provider` in `ProviderModel`s.
+    /// crate `OpenAiModel`) instead of wrapping `provider` in `native model adapters.
     /// Used by the production session factory; the plain
     /// [`provider`](Self::provider) setter (Provider path) stays for tests that
     /// inject a mock they observe.
@@ -113,6 +98,14 @@ impl AgentBuilder {
     /// runner. Pass `None` (default) to make all tools visible.
     pub fn visible_tool_names(mut self, names: std::collections::HashSet<String>) -> Self {
         self.visible_tool_names = Some(names);
+        self
+    }
+
+    /// Restrict the tool names that delegated agents may inherit from the full
+    /// registry. Empty/`None` keeps delegation governed by each child
+    /// definition unless the channel policy adds a ceiling.
+    pub fn subagent_tool_ceiling_names(mut self, names: std::collections::HashSet<String>) -> Self {
+        self.subagent_tool_ceiling_names = Some(names);
         self
     }
 
@@ -470,6 +463,41 @@ impl AgentBuilder {
             &visible_names,
         );
 
+        // A child agent inherits explicit profile and channel restrictions, but
+        // not the coordinator's own role-specific tool scope. For example, the
+        // orchestrator intentionally cannot call `file_write` directly while
+        // its code-executor specialist must be able to do so. Conflating those
+        // two surfaces silently stripped specialist tools (#5118 merge).
+        //
+        // Build a second policy snapshot without the role visibility filter.
+        // `tool_policy_session` marks both channel-blocked and role-hidden tools
+        // as restricted, so deriving the child ceiling from it would reintroduce
+        // exactly that conflation.
+        let channel_policy_session = ToolPolicyEngine::build_session(
+            &agent_definition_name,
+            &event_channel,
+            "session",
+            &config.channel_permissions,
+            &tools,
+            &std::collections::HashSet::new(),
+        );
+        let mut subagent_tool_ceiling_names = self.subagent_tool_ceiling_names.unwrap_or_default();
+        if channel_policy_session.has_restrictions() {
+            let policy_allowed: std::collections::HashSet<String> = tool_specs
+                .iter()
+                .filter(|spec| channel_policy_session.is_allowed(&spec.name))
+                .map(|spec| spec.name.clone())
+                .collect();
+            if subagent_tool_ceiling_names.is_empty() {
+                subagent_tool_ceiling_names = policy_allowed;
+            } else {
+                subagent_tool_ceiling_names.retain(|name| policy_allowed.contains(name));
+                if subagent_tool_ceiling_names.is_empty() {
+                    subagent_tool_ceiling_names.insert("__subagent_no_tools__".to_string());
+                }
+            }
+        }
+
         // Build the filtered spec list that the main agent sends to the
         // provider. The explicit visible-tool allowlist and the resolved
         // channel permission policy must stay aligned so prompt-visible
@@ -538,6 +566,7 @@ impl AgentBuilder {
             tool_specs: Arc::new(tool_specs),
             visible_tool_specs: Arc::new(visible_tool_specs),
             visible_tool_names: visible_names,
+            subagent_tool_ceiling_names,
             tool_policy_session,
             memory: self
                 .memory

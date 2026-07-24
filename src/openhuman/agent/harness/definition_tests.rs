@@ -395,7 +395,6 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("archivist", 3),
         ("critic", 5),
         ("crypto_agent", 8),
-        ("desktop_control_agent", 8),
         ("goals_agent", 5),
         ("help", 6),
         ("image_agent", 8),

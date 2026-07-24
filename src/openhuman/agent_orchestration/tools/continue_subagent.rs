@@ -13,8 +13,8 @@ use crate::openhuman::agent::harness::fork_context::current_parent;
 use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentCheckpointData, SubagentRunOptions, SubagentRunStatus,
 };
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;

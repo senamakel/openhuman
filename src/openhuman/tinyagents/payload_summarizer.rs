@@ -57,7 +57,7 @@ use async_trait::async_trait;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use tinyagents::harness::context::RunContext;
-use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
+use tinyagents::harness::runtime::{AgentHarness, InvalidArgsPolicy, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::subagent::SubAgent;
 use tracing::{debug, info, warn};
 
@@ -282,6 +282,7 @@ impl SubagentPayloadSummarizer {
         policy.limits.max_tool_calls = self.definition.max_iterations.saturating_mul(8).max(8);
         policy.retry.max_attempts = 1;
         policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
+        policy.invalid_args = InvalidArgsPolicy::ReturnToolError;
 
         let mut harness: AgentHarness<()> = AgentHarness::new();
         harness.with_policy(policy);

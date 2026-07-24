@@ -34,23 +34,6 @@ pub fn spawn_login_gated_services(embedded_core: bool) {
                     log::debug!("[core] desktop core startup");
                 }
 
-                // Register autocomplete shutdown hook so the engine (and its
-                // Swift overlay helper) are stopped cleanly on process exit.
-                // This is unconditional — the hook should fire regardless of
-                // whether the user is currently logged in.
-                crate::core::shutdown::register(|| async {
-                    let engine = crate::openhuman::autocomplete::global_engine();
-                    let status = engine.status().await;
-                    if status.running {
-                        log::info!(
-                            "[core] stopping autocomplete engine (phase={})",
-                            status.phase
-                        );
-                        engine.stop(None).await;
-                        log::info!("[core] autocomplete engine stopped");
-                    }
-                });
-
                 // Check if a user is already logged in from a previous session.
                 let already_logged_in = crate::openhuman::config::default_root_openhuman_dir()
                     .ok()
@@ -234,42 +217,121 @@ pub fn spawn_channels_service() {
     log::debug!("[channels] channels feature disabled at compile time — not spawning listeners");
 }
 
+/// Which bootstrap jobs a given [`ServiceSet`] enables — the single source of
+/// truth for the flag→job mapping.
+///
+/// Computed by [`bootstrap_job_plan`] (a pure fn) so the wiring can be unit
+/// tested without spawning the detached, global-state loops that
+/// [`start_bootstrap_jobs`] launches. Each field maps 1:1 to one spawn site.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BootstrapJobPlan {
+    /// Memory queue ingestion workers (`memory_queue::start`).
+    pub memory_queue: bool,
+    /// Composio periodic connection sync (`composio::start_periodic_sync`).
+    pub composio_integration_sync: bool,
+    /// Workspace memory-source periodic sync — repos, folders, RSS, web pages
+    /// (`memory_sync::workspace::start_workspace_periodic_sync`).
+    pub workspace_memory_sync: bool,
+    /// Orchestration relay-mailbox drain supervisor
+    /// (`orchestration::start_message_drain_supervisor`).
+    pub orchestration_drain: bool,
+    /// Proactive task pollers (`task_sources::start_periodic_poll` +
+    /// `agent::task_dispatcher::start_board_poller`).
+    pub proactive_task_pollers: bool,
+}
+
+/// Pure flag→job mapping for [`start_bootstrap_jobs`]. No side effects.
+///
+/// Note the Composio integration sync AND the one-shot Composio source reconcile
+/// both ride `services.integrations` — both no-op without active Composio
+/// connections, so they share the one concern flag. `channels` gates NO
+/// bootstrap job (its remaining meaning is exactly `spawn_channels_service`).
+pub(crate) fn bootstrap_job_plan(services: &ServiceSet) -> BootstrapJobPlan {
+    BootstrapJobPlan {
+        memory_queue: services.memory_queue,
+        composio_integration_sync: services.integrations,
+        workspace_memory_sync: services.memory_sync,
+        orchestration_drain: services.orchestration,
+        proactive_task_pollers: services.cron,
+    }
+}
+
 /// Starts legacy bootstrap loops that predate [`ServiceSet`].
 ///
 /// These are separated from pure subscriber registration so a no-background
 /// runtime can register handlers first without permanently suppressing a later
 /// desktop/runtime-with-services boot.
+///
+/// Selection is computed once via [`bootstrap_job_plan`], then each job spawns
+/// behind its own concern flag. The four non-channel jobs used to ride
+/// `services.channels` — a channels-off + memory/integrations-on embedder
+/// silently lost all of them (#5028) — so they now sit behind `integrations` /
+/// `memory_sync` / `orchestration` instead.
 pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
-    if services.memory_queue {
+    let plan = bootstrap_job_plan(&services);
+    log::debug!("[runtime.bootstrap] starting bootstrap jobs with plan {plan:?}");
+
+    if plan.memory_queue {
+        log::debug!("[runtime.bootstrap] starting memory queue workers");
         crate::openhuman::memory_queue::start(config.clone());
     } else {
-        log::debug!("[runtime] memory queue workers disabled by ServiceSet");
+        log::debug!("[runtime.bootstrap] memory queue workers disabled by ServiceSet");
     }
 
-    if services.channels {
+    // Integrations — Composio periodic connection sync + one-shot source
+    // reconcile. Both no-op without active Composio connections.
+    if plan.composio_integration_sync {
+        log::debug!("[runtime.bootstrap] starting composio integration sync + source reconcile");
         crate::openhuman::composio::start_periodic_sync();
-        // Workspace-kind memory sources (GitHub repos, folders, RSS, web pages)
-        // get their own cadence loop; the Composio scheduler only walks
-        // Composio connections.
-        crate::openhuman::memory_sync::workspace::start_workspace_periodic_sync();
-        crate::openhuman::orchestration::start_message_drain_supervisor();
         tokio::spawn(async {
+            log::debug!("[runtime.bootstrap] composio source reconcile started");
             crate::openhuman::memory_sources::reconcile::ensure_composio_sources().await;
+            log::debug!("[runtime.bootstrap] composio source reconcile completed");
         });
     } else {
-        log::debug!("[runtime] bootstrap channel/integration pollers disabled by ServiceSet");
+        log::debug!(
+            "[runtime.bootstrap] composio integration sync + source reconcile disabled by ServiceSet"
+        );
     }
 
-    if services.cron {
+    // Memory sync — workspace-kind memory sources (GitHub repos, folders, RSS,
+    // web pages) get their own cadence loop; the Composio scheduler above only
+    // walks Composio connections.
+    if plan.workspace_memory_sync {
+        log::debug!("[runtime.bootstrap] starting workspace memory-source periodic sync");
+        crate::openhuman::memory_sync::workspace::start_workspace_periodic_sync();
+    } else {
+        log::debug!("[runtime.bootstrap] workspace periodic sync disabled by ServiceSet");
+    }
+
+    // Orchestration — relay-mailbox drain supervisor.
+    if plan.orchestration_drain {
+        log::debug!("[runtime.bootstrap] starting orchestration message drain supervisor");
+        crate::openhuman::orchestration::start_message_drain_supervisor();
+    } else {
+        log::debug!("[runtime.bootstrap] message drain supervisor disabled by ServiceSet");
+    }
+
+    if plan.proactive_task_pollers {
+        log::debug!("[runtime.bootstrap] starting proactive task pollers (task sources + board)");
         crate::openhuman::task_sources::start_periodic_poll();
         crate::openhuman::agent::task_dispatcher::start_board_poller();
     } else {
-        log::debug!("[runtime] bootstrap proactive task pollers disabled by ServiceSet");
+        log::debug!("[runtime.bootstrap] proactive task pollers disabled by ServiceSet");
     }
+
+    log::debug!("[runtime.bootstrap] bootstrap job dispatch complete");
 }
 
-/// Starts one-shot boot background work selected by [`ServiceSet`].
-pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
+/// Runs startup migrations, then starts one-shot boot background work selected
+/// by [`ServiceSet`].
+///
+/// The legacy goal and task-board copies must complete before any service that
+/// can read or write their crate-backed stores starts, and before the runtime
+/// publishes readiness.
+pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
+    run_legacy_migrations(config).await;
+
     if services.harness_init {
         let cfg_for_init = config.clone();
         tokio::spawn(async move {
@@ -294,6 +356,54 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     } else {
         log::debug!("[runtime] MCP boot-spawn disabled by ServiceSet");
         log::debug!("[runtime] MCP reconnect supervisor disabled by ServiceSet");
+    }
+}
+
+async fn run_legacy_migrations(config: &Config) {
+    // These used to run as detached tasks, allowing a user/API write to land
+    // between a migration's `get(None)` check and its later `put`. Await each
+    // copy in startup order so the crate stores are authoritative before
+    // writers and readiness are exposed.
+    //
+    // Both copies are idempotent and must run for each workspace so an
+    // in-process restart with a different workspace migrates that workspace.
+    match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
+        &config.workspace_dir,
+    )
+    .await
+    {
+        Ok(report) if report.total > 0 => {
+            log::info!(
+                "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
+                report.total,
+                report.copied,
+                report.skipped
+            );
+        }
+        Ok(_) => {}
+        Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
+    }
+
+    // Idempotent copy of any task boards left in the retired
+    // `{workspace}/agent_task_boards/*.json` file-JSON tree into the crate
+    // `graph.todos` store, which is now authoritative. Idempotent and returns
+    // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
+    // As above, each core boot must inspect its own workspace.
+    match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
+        &config.workspace_dir,
+    )
+    .await
+    {
+        Ok(report) if report.total > 0 => {
+            log::info!(
+                "[todos] legacy→crate migration: total={} copied={} skipped={}",
+                report.total,
+                report.copied,
+                report.skipped
+            );
+        }
+        Ok(_) => {}
+        Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
     }
 }
 
@@ -347,5 +457,134 @@ pub fn spawn_socket_auto_connect(
         });
     } else {
         log::debug!("[socket] auto-connect disabled by ServiceSet");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn legacy_migrations_run_for_each_workspace() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut first = Config::default();
+        first.workspace_dir = tmp.path().join("first");
+        let mut second = Config::default();
+        second.workspace_dir = tmp.path().join("second");
+
+        for config in [first, second] {
+            run_legacy_migrations(&config).await;
+        }
+    }
+
+    /// desktop() must enable every bootstrap job — proves the un-bundling kept
+    /// the desktop job set byte-identical.
+    #[test]
+    fn desktop_plan_enables_every_job() {
+        let plan = bootstrap_job_plan(&ServiceSet::desktop());
+        assert_eq!(
+            plan,
+            BootstrapJobPlan {
+                memory_queue: true,
+                composio_integration_sync: true,
+                workspace_memory_sync: true,
+                orchestration_drain: true,
+                proactive_task_pollers: true,
+            }
+        );
+    }
+
+    /// none() / headless_api() run no bootstrap job at all.
+    #[test]
+    fn job_free_presets_enable_nothing() {
+        let empty = BootstrapJobPlan {
+            memory_queue: false,
+            composio_integration_sync: false,
+            workspace_memory_sync: false,
+            orchestration_drain: false,
+            proactive_task_pollers: false,
+        };
+        assert_eq!(bootstrap_job_plan(&ServiceSet::none()), empty);
+        assert_eq!(bootstrap_job_plan(&ServiceSet::headless_api()), empty);
+    }
+
+    /// From none(), flipping exactly one concern flag enables exactly its job
+    /// and nothing else.
+    #[test]
+    fn each_concern_flag_enables_exactly_its_job() {
+        let mut integrations = ServiceSet::none();
+        integrations.integrations = true;
+        let plan = bootstrap_job_plan(&integrations);
+        assert!(plan.composio_integration_sync);
+        assert!(!plan.workspace_memory_sync);
+        assert!(!plan.orchestration_drain);
+        assert!(!plan.memory_queue);
+        assert!(!plan.proactive_task_pollers);
+
+        let mut memory_sync = ServiceSet::none();
+        memory_sync.memory_sync = true;
+        let plan = bootstrap_job_plan(&memory_sync);
+        assert!(plan.workspace_memory_sync);
+        assert!(!plan.composio_integration_sync);
+        assert!(!plan.orchestration_drain);
+
+        let mut orchestration = ServiceSet::none();
+        orchestration.orchestration = true;
+        let plan = bootstrap_job_plan(&orchestration);
+        assert!(plan.orchestration_drain);
+        assert!(!plan.composio_integration_sync);
+        assert!(!plan.workspace_memory_sync);
+    }
+
+    /// From desktop(), disabling exactly one concern flag disables only its job.
+    #[test]
+    fn disabling_one_concern_disables_only_its_job() {
+        let mut services = ServiceSet::desktop();
+        services.integrations = false;
+        let plan = bootstrap_job_plan(&services);
+        assert!(!plan.composio_integration_sync);
+        assert!(plan.workspace_memory_sync);
+        assert!(plan.orchestration_drain);
+        assert!(plan.memory_queue);
+        assert!(plan.proactive_task_pollers);
+
+        let mut services = ServiceSet::desktop();
+        services.memory_sync = false;
+        let plan = bootstrap_job_plan(&services);
+        assert!(!plan.workspace_memory_sync);
+        assert!(plan.composio_integration_sync);
+        assert!(plan.orchestration_drain);
+
+        let mut services = ServiceSet::desktop();
+        services.orchestration = false;
+        let plan = bootstrap_job_plan(&services);
+        assert!(!plan.orchestration_drain);
+        assert!(plan.composio_integration_sync);
+        assert!(plan.workspace_memory_sync);
+    }
+
+    /// The #5028 regression: `channels` gates NO bootstrap job. Turning channels
+    /// on by itself must enable zero sync jobs, and turning channels off while
+    /// the new flags stay on must lose nothing.
+    #[test]
+    fn channels_flag_gates_no_bootstrap_job() {
+        // channels=true alone → zero sync jobs.
+        let mut channels_only = ServiceSet::none();
+        channels_only.channels = true;
+        let plan = bootstrap_job_plan(&channels_only);
+        assert_eq!(
+            plan,
+            bootstrap_job_plan(&ServiceSet::none()),
+            "channels alone must enable no bootstrap job"
+        );
+
+        // channels=false with every new flag on → identical to desktop's plan.
+        let mut channels_off = ServiceSet::desktop();
+        channels_off.channels = false;
+        assert_eq!(
+            bootstrap_job_plan(&channels_off),
+            bootstrap_job_plan(&ServiceSet::desktop()),
+            "dropping channels must not drop any bootstrap job"
+        );
     }
 }

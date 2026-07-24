@@ -3,7 +3,7 @@
 //! This module is the canonical home for all inference concerns:
 //! - `local/`    — Ollama / LM Studio / Whisper / Piper runtime management
 //!                 (was `src/openhuman/local_ai/`)
-//! - `provider/` — cloud + local provider trait, routing, reliability
+//! - `provider/` — native chat models, cloud/local routing, auth and errors
 //!                 (was `src/openhuman/providers/`)
 //! - `voice/`    — transcription (STT) and TTS inference implementations
 //!                 (moved from `src/openhuman/voice/`)
@@ -20,6 +20,7 @@
 /// `cargo tree -i whisper-rs` / `cargo tree -i cpal`).
 pub const INFERENCE_COMPILED_IN: bool = cfg!(feature = "inference");
 
+pub mod auth_error_registry;
 pub mod device;
 pub mod http;
 pub mod local;
@@ -33,6 +34,7 @@ pub mod presets;
 pub mod provider;
 mod schemas;
 pub mod sentiment;
+pub mod temperature;
 pub mod types;
 pub mod voice;
 

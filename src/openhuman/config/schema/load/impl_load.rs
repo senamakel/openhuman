@@ -4,10 +4,7 @@ use super::dirs::{
     resolve_config_dirs_ignoring_env, resolve_runtime_config_dirs_with, ConfigResolutionSource,
 };
 use super::env::{EnvLookup, ProcessEnv, ProcessEnvWithoutWorkspace};
-use super::migrate::{
-    migrate_cloud_provider_slugs, migrate_legacy_autocomplete_disabled_apps,
-    migrate_legacy_inference_url,
-};
+use super::migrate::{migrate_cloud_provider_slugs, migrate_legacy_inference_url};
 use super::secrets::{decrypt_config_secrets, encrypt_config_secrets};
 use anyhow::{Context, Result};
 use std::collections::HashSet;
@@ -329,7 +326,6 @@ impl Config {
             config.config_path = config_path.clone();
             config.workspace_dir = workspace_dir;
             config.action_dir = resolve_action_dir(&config.action_dir_override);
-            migrate_legacy_autocomplete_disabled_apps(&mut config);
             migrate_legacy_inference_url(&mut config);
             migrate_cloud_provider_slugs(&mut config);
             config.apply_env_overrides_from(env);
@@ -521,7 +517,6 @@ impl Config {
         config.config_path = config_path;
         config.workspace_dir = workspace_dir;
         config.action_dir = resolve_action_dir(&config.action_dir_override);
-        migrate_legacy_autocomplete_disabled_apps(&mut config);
         migrate_legacy_inference_url(&mut config);
         migrate_cloud_provider_slugs(&mut config);
         config.apply_env_overrides_from(&ProcessEnvWithoutWorkspace);

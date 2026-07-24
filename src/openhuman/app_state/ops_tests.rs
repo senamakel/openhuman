@@ -219,7 +219,7 @@ fn runtime_snapshot_cache_hit_within_ttl() {
         entry.fetched_at.elapsed() < RUNTIME_SNAPSHOT_TTL,
         "fresh entry should be within TTL"
     );
-    assert_eq!(entry.snapshot.autocomplete.phase, dummy.autocomplete.phase);
+    assert_eq!(entry.snapshot.local_ai.state, dummy.local_ai.state);
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn fresh_cached_runtime_snapshot_returns_entry_within_ttl() {
     });
 
     let served = fresh_cached_runtime_snapshot(&cfg, 1).expect("fresh entry should be served");
-    assert_eq!(served.autocomplete.phase, dummy.autocomplete.phase);
+    assert_eq!(served.local_ai.state, dummy.local_ai.state);
 }
 
 #[test]
@@ -312,7 +312,6 @@ fn degraded_runtime_snapshot_has_expected_degraded_fields() {
     let cfg = Config::default();
     let snapshot = degraded_runtime_snapshot(&cfg);
 
-    assert_eq!(snapshot.autocomplete.phase, "degraded");
     assert_eq!(snapshot.local_ai.state, "disabled");
     assert!(
         matches!(

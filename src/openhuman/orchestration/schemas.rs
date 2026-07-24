@@ -416,11 +416,12 @@ fn handle_sessions_list(_params: Map<String, Value>) -> ControllerFuture {
             let rows = store::list_sessions(conn)?;
             let visible_counts = store::visible_message_counts(conn)?;
             let pinned_visible_counts = store::visible_message_counts_by_session(conn)?;
+            let unread_counts = store::unread_counts(conn)?;
             let mut out: Vec<SessionSummary> = Vec::with_capacity(rows.len() + 2);
             let mut have_master = false;
             let mut have_subconscious = false;
             for session in rows {
-                let unread = store::unread_count(conn, &session.session_id)?;
+                let unread = unread_counts.get(&session.session_id).copied().unwrap_or(0);
                 match session.session_id.as_str() {
                     "master" => have_master = true,
                     "subconscious" => have_subconscious = true,

@@ -9,13 +9,13 @@ use crate::openhuman::agent::harness;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::hooks::{self, TurnContext};
+use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_experience::{
     prepend_experience_block, render_experience_hits, retrieve_across_stores, AgentExperienceStore,
     ExperienceQuery,
 };
 use crate::openhuman::agent_memory::memory_loader::collect_recall_citations;
-use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage};
 use crate::openhuman::memory::MemoryCategory;
 use crate::openhuman::util::truncate_with_ellipsis;
 
@@ -656,7 +656,7 @@ impl Agent {
             let autosave_key = format!("user_msg:{}", uuid::Uuid::new_v4());
             let chars = user_msg.chars().count();
             // Captured *before* `tokio::spawn` — the ambient thread id is a
-            // `tokio::task_local` (see `inference::provider::thread_context`)
+            // `tokio::task_local` (see `tinyagents::thread_context`)
             // and does not propagate into a spawned task, so it must be read
             // on this (still-scoped) task and moved in explicitly. Tagging
             // this document with the live chat thread id is what lets the
@@ -665,7 +665,7 @@ impl Agent {
             // turn, so the agent's own on-demand memory search doesn't echo
             // its own triggering request back as a "relevant" result.
             let session_id_for_autosave =
-                crate::openhuman::inference::provider::thread_context::current_thread_id();
+                crate::openhuman::tinyagents::thread_context::current_thread_id();
             log::debug!(
                 "[agent_autosave] enqueue user-message store key={autosave_key} chars={chars} \
                  session_id={}",

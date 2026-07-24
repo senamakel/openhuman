@@ -1,6 +1,6 @@
 use crate::openhuman::config::DelegateAgentConfig;
 use crate::openhuman::inference::provider::{
-    OpenHumanBackendModel, OpenHumanBackendProvider, ProviderRuntimeOptions, INFERENCE_BACKEND_ID,
+    OpenHumanBackendModel, ProviderRuntimeOptions, INFERENCE_BACKEND_ID,
 };
 use crate::openhuman::security::policy::ToolOperation;
 use crate::openhuman::security::SecurityPolicy;
@@ -180,7 +180,8 @@ impl Tool for DelegateTool {
         }
 
         let model = OpenHumanBackendModel::new(
-            OpenHumanBackendProvider::new(None, &self.provider_runtime_options),
+            None,
+            &self.provider_runtime_options,
             agent_config.model.clone(),
         );
 

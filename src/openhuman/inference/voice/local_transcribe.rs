@@ -261,8 +261,8 @@ pub async fn transcribe_whisper(
 ///   mischaracterised silence as a failure and flooded Sentry
 ///   (TAURI-RUST-2S: 799 events / 23 users across every shipped release).
 ///   Return `Ok` with an empty transcript instead — the frontend
-///   (`sttClient.ts`) and internal callers (`voice::always_on`,
-///   `desktop_companion::pipeline`) already treat empty text as a benign skip.
+///   (`sttClient.ts`) and internal callers (`voice::always_on`) already
+///   treat empty text as a benign skip.
 /// - **Exit 0 with text** → the trimmed transcript.
 fn interpret_whisper_output(
     success: bool,

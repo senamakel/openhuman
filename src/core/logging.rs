@@ -110,13 +110,11 @@ impl Drop for TuiLogWriter {
     }
 }
 
-/// Default `RUST_LOG` when it is unset: either global levels or only the inline autocomplete module tree.
+/// Default `RUST_LOG` when it is unset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CliLogDefault {
     /// Typical server/CLI logging (`info`, or `debug` when `verbose`).
     Global,
-    /// Silence other modules; only `openhuman_core::openhuman::autocomplete::*` emits logs.
-    AutocompleteOnly,
 }
 
 /// Custom log formatter for the OpenHuman CLI.
@@ -533,10 +531,6 @@ fn seed_rust_log(verbose: bool, default_scope: CliLogDefault) {
                 "info".to_string()
             }
         }
-        CliLogDefault::AutocompleteOnly => {
-            let level = if verbose { "trace" } else { "debug" };
-            format!("off,openhuman_core::openhuman::autocomplete={level}")
-        }
     };
     std::env::set_var("RUST_LOG", default);
 }
@@ -545,12 +539,6 @@ fn build_env_filter(verbose: bool, default_scope: CliLogDefault) -> tracing_subs
     tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| match default_scope {
         CliLogDefault::Global => {
             tracing_subscriber::EnvFilter::new(if verbose { "debug" } else { "info" })
-        }
-        CliLogDefault::AutocompleteOnly => {
-            let level = if verbose { "trace" } else { "debug" };
-            tracing_subscriber::EnvFilter::new(format!(
-                "off,openhuman_core::openhuman::autocomplete={level}"
-            ))
         }
     })
 }
@@ -650,24 +638,6 @@ mod tests {
     }
 
     #[test]
-    fn seed_rust_log_autocomplete_scopes_to_module() {
-        with_clean_rust_log(|| {
-            seed_rust_log(false, CliLogDefault::AutocompleteOnly);
-            assert_eq!(
-                std::env::var("RUST_LOG").unwrap(),
-                "off,openhuman_core::openhuman::autocomplete=debug"
-            );
-        });
-        with_clean_rust_log(|| {
-            seed_rust_log(true, CliLogDefault::AutocompleteOnly);
-            assert_eq!(
-                std::env::var("RUST_LOG").unwrap(),
-                "off,openhuman_core::openhuman::autocomplete=trace"
-            );
-        });
-    }
-
-    #[test]
     fn seed_rust_log_respects_existing_value() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let prior = std::env::var("RUST_LOG").ok();
@@ -685,7 +655,7 @@ mod tests {
     fn build_env_filter_returns_a_filter() {
         // Smoke test: shouldn't panic and should produce *some* filter regardless of inputs.
         let _ = build_env_filter(false, CliLogDefault::Global);
-        let _ = build_env_filter(true, CliLogDefault::AutocompleteOnly);
+        let _ = build_env_filter(true, CliLogDefault::Global);
     }
 
     #[test]

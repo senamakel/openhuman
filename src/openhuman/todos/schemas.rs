@@ -448,7 +448,7 @@ fn handle_list(params: Map<String, Value>) -> ControllerFuture {
         let p = parse::<ThreadIdParams>(params)?;
         let loc = thread_location(&p.thread_id).await?;
         tracing::debug!(thread_id = %p.thread_id, "[rpc][todos] list entry");
-        snapshot_to_json(ops::list(&loc)?)
+        snapshot_to_json(ops::list(&loc).await?)
     })
 }
 
@@ -473,7 +473,7 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             source_metadata: p.source_metadata,
         };
         tracing::debug!(thread_id = %p.thread_id, "[rpc][todos] add entry");
-        snapshot_to_json(ops::add(&loc, &p.content, patch)?)
+        snapshot_to_json(ops::add(&loc, &p.content, patch).await?)
     })
 }
 
@@ -497,7 +497,7 @@ fn handle_edit(params: Map<String, Value>) -> ControllerFuture {
             source_metadata: None,
         };
         tracing::debug!(thread_id = %p.thread_id, id = %p.id, "[rpc][todos] edit entry");
-        snapshot_to_json(ops::edit(&loc, &p.id, patch)?)
+        snapshot_to_json(ops::edit(&loc, &p.id, patch).await?)
     })
 }
 
@@ -512,7 +512,7 @@ fn handle_update_status(params: Map<String, Value>) -> ControllerFuture {
             status = %p.status,
             "[rpc][todos] update_status entry"
         );
-        snapshot_to_json(ops::update_status(&loc, &p.id, status)?)
+        snapshot_to_json(ops::update_status(&loc, &p.id, status).await?)
     })
 }
 
@@ -526,7 +526,7 @@ fn handle_set_session_thread(params: Map<String, Value>) -> ControllerFuture {
             session_thread_id = ?p.session_thread_id,
             "[rpc][todos] set_session_thread entry"
         );
-        snapshot_to_json(ops::set_session_thread(&loc, &p.id, p.session_thread_id)?)
+        snapshot_to_json(ops::set_session_thread(&loc, &p.id, p.session_thread_id).await?)
     })
 }
 
@@ -540,7 +540,7 @@ fn handle_decide_plan(params: Map<String, Value>) -> ControllerFuture {
             approve = p.approve,
             "[rpc][todos] decide_plan entry"
         );
-        snapshot_to_json(ops::decide_plan(&loc, &p.id, p.approve)?)
+        snapshot_to_json(ops::decide_plan(&loc, &p.id, p.approve).await?)
     })
 }
 
@@ -553,7 +553,7 @@ fn handle_revise_plan(params: Map<String, Value>) -> ControllerFuture {
             feedback_len = p.feedback.len(),
             "[rpc][todos] revise_plan entry"
         );
-        snapshot_to_json(ops::revise_plan(&loc, &p.feedback)?)
+        snapshot_to_json(ops::revise_plan(&loc, &p.feedback).await?)
     })
 }
 
@@ -593,7 +593,7 @@ fn handle_remove(params: Map<String, Value>) -> ControllerFuture {
         let p = parse::<RemoveParams>(params)?;
         let loc = thread_location(&p.thread_id).await?;
         tracing::debug!(thread_id = %p.thread_id, id = %p.id, "[rpc][todos] remove entry");
-        snapshot_to_json(ops::remove(&loc, &p.id)?)
+        snapshot_to_json(ops::remove(&loc, &p.id).await?)
     })
 }
 
@@ -606,7 +606,7 @@ fn handle_replace(params: Map<String, Value>) -> ControllerFuture {
             card_count = p.cards.len(),
             "[rpc][todos] replace entry"
         );
-        snapshot_to_json(ops::replace(&loc, p.cards)?)
+        snapshot_to_json(ops::replace(&loc, p.cards).await?)
     })
 }
 
@@ -615,7 +615,7 @@ fn handle_clear(params: Map<String, Value>) -> ControllerFuture {
         let p = parse::<ThreadIdParams>(params)?;
         let loc = thread_location(&p.thread_id).await?;
         tracing::debug!(thread_id = %p.thread_id, "[rpc][todos] clear entry");
-        snapshot_to_json(ops::clear(&loc)?)
+        snapshot_to_json(ops::clear(&loc).await?)
     })
 }
 
@@ -692,7 +692,7 @@ fn handle_reclaim_stale(params: Map<String, Value>) -> ControllerFuture {
             ?limits,
             "[rpc][todos] reclaim_stale entry"
         );
-        let result = runs::reclaim_stale(&loc, &limits)?;
+        let result = runs::reclaim_stale(&loc, &limits).await?;
         serde_json::to_value(&result).map_err(|e| format!("serialize reclaim result: {e}"))
     })
 }

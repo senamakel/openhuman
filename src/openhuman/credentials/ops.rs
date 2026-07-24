@@ -151,22 +151,6 @@ pub async fn start_login_gated_services(config: &Config) {
         ));
     }
 
-    // 5. Autocomplete (text suggestions + Swift overlay helper).
-    {
-        let config = config.clone();
-        tasks.push((
-            "autocomplete",
-            tokio::spawn(async move {
-                let step = std::time::Instant::now();
-                crate::openhuman::autocomplete::start_if_enabled(&config).await;
-                log::debug!(
-                    "[services] autocomplete started ({} ms)",
-                    step.elapsed().as_millis()
-                );
-            }),
-        ));
-    }
-
     // 6. Orchestration hosted-client: read-sync loop + world-diff uploader +
     //    one-shot history migration. Idempotent (aborts a prior session's loops
     //    first); no-op when orchestration is disabled. Runs here so both startup
@@ -209,16 +193,6 @@ pub async fn start_login_gated_services(config: &Config) {
 /// Stop all login-gated background services.  Called from `clear_session()`
 /// on logout so orphan processes don't consume resources.
 pub async fn stop_login_gated_services(config: &Config) {
-    // 1. Autocomplete — stop engine + Swift overlay helper.
-    {
-        let engine = crate::openhuman::autocomplete::global_engine();
-        let status = engine.status().await;
-        if status.running {
-            engine.stop(None).await;
-            log::info!("[services] autocomplete engine stopped on logout");
-        }
-    }
-
     // 2. Voice server
     if let Some(server) = crate::openhuman::voice::server::try_global_server() {
         server.stop().await;
@@ -957,7 +931,7 @@ pub async fn store_provider_credentials(
 /// bare slug (`openrouter`) the inference classifier records under.
 fn clear_provider_auth_error(provider: &str) {
     let slug = provider.strip_prefix("provider:").unwrap_or(provider);
-    crate::openhuman::inference::provider::auth_error_registry::clear(slug);
+    crate::openhuman::inference::auth_error_registry::clear(slug);
 }
 
 pub async fn remove_provider_credentials(

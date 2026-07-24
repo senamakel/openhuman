@@ -13,7 +13,7 @@
 //!   `markdown` string so the chat UI / agent transcript can render the
 //!   list directly without re-formatting.
 
-pub mod graph_shadow;
+pub mod crate_adapter;
 pub mod ops;
 pub mod runs;
 pub mod schemas;

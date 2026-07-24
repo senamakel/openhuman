@@ -753,6 +753,93 @@ mod tests {
         );
     }
 
+    /// Regression guard for the shipped prompt bug this test was added with:
+    /// the standing prompt used to claim an `agent` node "can also **read and
+    /// write the user's memory at run time**". Both halves were false. A plain
+    /// `agent` node is a single completion through `OpenHumanLlm::complete`
+    /// (`tinyflows/caps.rs`) — no tool loop, so it can neither read nor write
+    /// memory. Told otherwise, the builder authored a plain agent node
+    /// prompted to "recall the user's preference", and the model FABRICATED
+    /// one: the step silently invented context instead of failing, which is
+    /// strictly worse than not working. The banned strings below are the exact
+    /// wording that produced that, so it can never be reintroduced verbatim.
+    #[test]
+    fn standing_prompt_does_not_claim_plain_agent_nodes_reach_memory() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        for banned in [
+            "read and write the user's\n   memory at run time",
+            "wire\n   an `agent` node that uses memory",
+        ] {
+            assert!(
+                !STANDING_PROMPT.contains(banned),
+                "standing prompt must not tell the builder a plain `agent` node can \
+                 reach memory ({banned:?}) — it has no tool loop, so the model \
+                 fabricates the recalled value instead of looking it up"
+            );
+        }
+
+        assert!(
+            STANDING_PROMPT.contains("A plain `agent` node has NO\n   memory access"),
+            "standing prompt must state outright that a plain agent node has no \
+             memory access, so the builder never authors a no-op recall step"
+        );
+    }
+
+    /// The two mechanisms that DO reach memory from inside a running flow must
+    /// both be taught, with the correct binding path for the deterministic one.
+    /// A native `oh:` tool result is a `ToolResult` — `{ content: [{ type,
+    /// text }], is_error }` — so a downstream binding dereferences
+    /// `.item.json.content[0].text`, not the bare `.item.json.<field>` an
+    /// agent/`http_request` output would use. Getting that path wrong is the
+    /// same class of silent-null failure the `=`-binding rules exist to stop.
+    #[test]
+    fn standing_prompt_teaches_the_two_working_memory_read_paths() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        for rule in [
+            "oh:memory_recall",
+            "oh:memory_hybrid_search",
+            "context_scout",
+            "=nodes.<id>.item.json.content[0].text",
+        ] {
+            assert!(
+                STANDING_PROMPT.contains(rule),
+                "standing prompt must teach `{rule}` — it is one of the only two \
+                 mechanisms that actually read memory at flow run time, or the \
+                 binding path needed to consume one"
+            );
+        }
+    }
+
+    /// Flows run on trigger data a third party can influence (an inbound
+    /// email, a webhook payload), so writing that into the user's personal
+    /// memory is deliberately not offered. `agent_memory` is NOT an escape
+    /// hatch here despite being a registered, `read_only` builtin: its
+    /// `memory_tree` tool inherits the trait-default `PermissionLevel::ReadOnly`
+    /// while dispatching an `ingest_document` WRITE mode, so it survives the
+    /// read-only tool filter in `session/builder/factory.rs` (which consults
+    /// the argless `permission_level()`). Steering the builder there would
+    /// hand prompt-injected trigger content a memory-write foothold — exactly
+    /// the hole `context_scout`'s own agent.toml documents refusing.
+    #[test]
+    fn standing_prompt_states_flows_cannot_write_memory_and_avoids_agent_memory() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        assert!(
+            STANDING_PROMPT.contains("can never WRITE the user's memory"),
+            "standing prompt must state plainly that a workflow cannot write the \
+             user's memory, so the builder stops authoring remember/store steps"
+        );
+        assert!(
+            !STANDING_PROMPT.contains("agent_memory"),
+            "standing prompt must not steer the builder to `agent_memory` as a \
+             flow agent_ref: its `memory_tree` tool declares ReadOnly but exposes \
+             an ingest_document write mode, so it would give prompt-injectable \
+             trigger data a memory-write path"
+        );
+    }
+
     #[test]
     fn repair_includes_run_id_error_and_failing_nodes() {
         let mut r = req(BuildMode::Repair);

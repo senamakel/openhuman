@@ -22,7 +22,7 @@ be upstreamed, retained, or deleted before each phase cuts over.
 | Thing | Value |
 | --- | --- |
 | Host repo | `tinyhumansai/openhuman` |
-| Host branch | `feat/tinyagents-migration-2026-07-22` |
+| Host branch | `feat/tinyagents-provider-cleanup` |
 | Host audit base | `5b8a9f269` (`upstream/main`, 2026-07-22) |
 | Active plan | `docs/tinyagents-migration-plan-2026-07-22.md` |
 | TinyAgents submodule | `vendor/tinyagents` -> `tinyhumansai/tinyagents` |
@@ -78,6 +78,61 @@ this section as investigation history.
 | P1-11 | OpenAI/Codex/custom cloud slugs | **CLOSED** | [openhuman#4782](https://github.com/tinyhumansai/openhuman/pull/4782) completed the configured cloud-slug client cutover, including Responses API construction. |
 | P1-12 | Host workload routing | **CLOSED** | [openhuman#4783](https://github.com/tinyhumansai/openhuman/pull/4783) adopted crate `ModelRouter` for fallback and capability decisions. |
 | P1-13 | Crate-native registered turn models / `compatible*.rs` deletion | **CLOSED** | [openhuman#4784](https://github.com/tinyhumansai/openhuman/pull/4784) moved the hot turn path and deleted the former `compatible*.rs` cluster. The collapsed `legacy_provider.rs` facade and the broader legacy `Provider` stack remain WP-1 deletion work; see the deletion ledger. |
+| P1-14 | Legacy `run_turn_engine` and `OPENHUMAN_AGENT_GRAPH_*` escape hatches | **CLOSED BEFORE AUDIT** | WP-3 verified that both session and subagent production paths call the TinyAgents seam unconditionally. No engine definition or env read remains; only historical parity comments and stale migration prose named the retired implementation. |
+
+## WP-2 Consolidation Audit
+
+| # | Area | Status | Evidence / action |
+| --- | --- | --- | --- |
+| WP2-1 | `routing/` parallel provider/health stack | **CLOSED / DELETED** | Repository-wide reference audit found no caller outside the module; the live route already uses crate `ModelRouter`. Deleted the unreachable stack and kept the crate-backed seam. |
+| WP2-2 | `tool_timeout/` vs crate `harness::tool::ToolTimeout` | **HOST-OWNED** | The crate type is declarative per-tool metadata (`Inherit`/`Unbounded`/`Millis`) and has no process-global setting or execution store. OpenHuman owns persisted-config and `OPENHUMAN_TOOL_TIMEOUT_SECS` precedence, live UI updates, bounds/grace semantics, and the `tokio::time::timeout` around adapted host tools. The seam already projects host timeout policy into crate `ToolRuntime`; no upstream gap or duplicate engine remains. |
+| WP2-3 | `model_council/` ensemble | **CLOSED / DELETED** | The generic fan-out already used `tinyagents::graph::parallel::map_reduce`; upstream subsequently removed the unreachable product council and registry surfaces during dead-code cleanup. |
+| WP2-4 | `tool_status/` failure classification | **HOST-OWNED** | The types are serialized into OpenHuman threads/UI and the classifier consumes OpenHuman security markers, product retry categories, and user-facing remediation copy. TinyAgents owns raw tool outcomes; the host mapping is deliberately downstream product policy. |
+
+## WP-5 Detached Lifecycle Ownership Audit
+
+| Surface | Status | Ownership / exit evidence |
+| --- | --- | --- |
+| Process-local detached task map, ownership checks, status receivers, cancellation tokens, abort handles, terminal sweep, steering lookup | **CLOSED / CRATE ADOPTED — tinyagents#75** | TinyAgents #75 merged as `d548657`; the canonical vendored pointer `4358efe` includes its `DetachedTaskRegistry`. OpenHuman calls the crate registry for snapshots, wait/timeout, owned and trusted steering, per-task/thread/global cancellation, and soft-cap cleanup. Distinct lock-poison errors are propagated by the crate. All 17 focused host tests pass. |
+| Durable detached task lifecycle | **HOST PROJECTION ON CRATE STORE** | OpenHuman retains workspace-specific `JsonlTaskStore` selection and maps product `SubagentStatus` into crate `OrchestrationTaskStatus`; this is durable product projection, not executor ownership. |
+| Detached task metadata, RPC/UI delivery, `RunQueue` fallback | **HOST-OWNED** | Agent/session/thread/workspace metadata, cancellation notices, background delivery, trusted desktop RPC, and compatibility steering are OpenHuman product surfaces. The fallback can shrink independently after live crate-steering parity, but does not block generic registry deletion. |
+
+TinyAgents #75 is merged and the temporary integration gitlink has been
+replaced by canonical upstream commit `4358efe`.
+
+## WP-5 Middleware Ownership Audit
+
+The earlier seam snapshot counted 17 middleware types. The audit found 18: the
+tool-exposure shadow was added after that snapshot. The crate-backed
+`SchemaGuardMiddleware` cutover below reduces the current file to 17 again.
+`TurnContextMiddleware` is an installer/config bundle rather than another hook
+implementation and is not counted. A middleware may be deleted only after its
+crate replacement and host cutover are both verified.
+
+| Middleware | Status | Ownership / exit evidence |
+| --- | --- | --- |
+| `TranscriptSnapshotMiddleware` | **HOST-OWNED** | Mirrors partial crate transcripts into OpenHuman's persisted `ChatMessage` DTO so failed sub-agent runs remain ingestible. |
+| `OpenHumanToolExposureShadowMiddleware` | **TRANSITIONAL / PARITY-GATED** | Exercises crate allowlist/contextual selection in shadow against the host registry. Delete with the host precompute only after divergence telemetry proves parity; do not flip from this audit alone. |
+| `HandoffMiddleware` | **HOST-OWNED** | Implements integrations-agent progressive disclosure through OpenHuman's `ResultHandoffCache` and `extract_from_result` contract. |
+| `SuperContextMiddleware` | **HOST-OWNED** | Runs OpenHuman first-turn context collection and injects product-formatted context. |
+| `PromptCacheSegmentMiddleware` | **HOST SEAM** | Projects OpenHuman's stable system/tool-cache boundaries and SHA-256 identity into the crate `PromptCacheGuardMiddleware`; the actual drift guard is crate-owned. |
+| `ToolOutputMiddleware` | **HOST-OWNED** | Applies host artifact persistence, TokenJuice compaction, byte caps, and the OpenHuman payload summarizer. |
+| `ApprovalSecurityMiddleware` | **HOST-OWNED** | Calls the global OpenHuman approval gate, redacts args, and records product audit rows. Generic crate approval cannot replace this product/security decision. |
+| `CliRpcOnlyMiddleware` | **HOST-OWNED** | Enforces OpenHuman `ToolScope` at the autonomous-agent boundary. WP-4 defines the complete Agent/CLI/RPC scope matrix. |
+| `CredentialScrubMiddleware` | **HOST-OWNED** | Uses OpenHuman's credential detector and scrubs model context, errors, raw JSON, and persisted host surfaces. Crate redaction protects a different generic boundary. |
+| `ToolPolicyMiddleware` | **HOST-OWNED** | Enforces args-aware channel permission ceilings, generated-tool provenance, and OpenHuman policy decisions. Static crate `ToolPolicy` remains metadata and a generic fail-closed layer. |
+| `ToolOutcomeCaptureMiddleware` | **HOST-OWNED** | Projects final capped results and classified failures into OpenHuman tool-call records/UI state. |
+| `ArgRecoveryMiddleware` | **UPSTREAM READY — tinyagents#71** | PR #71 adds `NormalizeThenReturnToolError` and admission-time normalization with preservation regressions. Delete after the merged crate policy is vendored and the host config selects it. |
+| `SchemaGuardMiddleware` | **CLOSED / DELETED** | TinyAgents 2.1 already provides `InvalidArgsPolicy::ReturnToolError`. The host now selects it and deleted pre-validation, synthetic schema-valid arguments, the pending map, and the tool-wrap short circuit. The policy regression and all 18 `agent_harness_e2e` tests pass. PR #71 is only needed to absorb the remaining normalization middleware. |
+| `MemoryProtocolMiddleware` | **HOST-OWNED** | Enforces OpenHuman's read/dedupe/write/index memory protocol and product tool names. |
+| `CostBudgetMiddleware` | **HOST PROJECTION** | TinyAgents `BudgetMiddleware` already runs in shadow; this wrapper maps OpenHuman billing-envelope USD/token accounting and halt summaries. Thin only when crate usage is sufficient for every host provider. |
+| `RepeatedToolFailureMiddleware` | **CRATE-BACKED / HOST PROJECTION** | Detection uses crate `NoProgressTracker`; the wrapper owns OpenHuman retry taxonomy, polling exemptions, steering, and user-facing halt summary. No duplicate generic tracker remains to upstream. |
+| `RepeatProgressMiddleware` | **CLOSED / CRATE-BACKED — tinyagents#72** | PR #72 merged and is included in canonical pointer `4358efe`. The host duplicate `StreakGuard`, thresholds, and streak accounting are deleted; the remaining thin adapter builds OpenHuman signatures/polling exemptions and maps the crate `SuccessfulRepeatTracker` verdict to the host halt summary and steering pause. All 51 focused middleware tests pass. |
+| `ImageAwareMessageTrimMiddleware` | **UPSTREAM READY — tinyagents#73** | PR #73 makes crate trimming image/token-policy aware. Delete after vendoring and proving host context-window regressions against the crate middleware. |
+
+The three upstream PRs are independently mergeable and green at the time of
+this audit. Their remaining host deletions stay pending because OpenHuman still
+vendors an earlier TinyAgents revision.
 
 Motion A confined all `Provider` handling to the seam + factory. Motion B
 replaces the *construction* of host `Provider`s with crate-native

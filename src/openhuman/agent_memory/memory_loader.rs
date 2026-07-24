@@ -364,7 +364,7 @@ impl MemoryLoader for DefaultMemoryLoader {
         // Suppressed when the profile opts out of agent-conversation recall.
         if self.include_agent_conversations {
             let current_thread_id =
-                crate::openhuman::inference::provider::thread_context::current_thread_id();
+                crate::openhuman::tinyagents::thread_context::current_thread_id();
             let cross_hits: Vec<(String, String)> = if let Some(workspace_dir) = &self.workspace_dir
             {
                 let store = ConversationStore::new(workspace_dir.clone());

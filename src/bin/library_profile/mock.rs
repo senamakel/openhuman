@@ -1,16 +1,15 @@
-//! Deterministic offline `Provider` mocks installed via
+//! Deterministic offline `ChatModel` mocks installed via
 //! `test_provider_override` (honoured only under the `rss-bench` feature).
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::openhuman::inference::provider::traits::{
-    ChatRequest, ChatResponse, ProviderCapabilities, ToolCall,
-};
-use openhuman_core::openhuman::inference::provider::Provider;
+use openhuman_core::openhuman::inference::provider::types::{ChatResponse, ToolCall};
+use tinyagents::harness::message::{AssistantMessage, ContentBlock, Message};
+use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyagents::harness::tool::ToolCall as TinyAgentsToolCall;
 
 /// A plain `ChatResponse` carrying only text (no tool calls).
 pub fn response(text: &str) -> ChatResponse {
@@ -19,6 +18,55 @@ pub fn response(text: &str) -> ChatResponse {
         tool_calls: Vec::new(),
         usage: None,
         reasoning_content: None,
+    }
+}
+
+fn joined_request(request: &ModelRequest) -> String {
+    request
+        .messages
+        .iter()
+        .map(|message| {
+            let role = match message {
+                Message::System(_) => "system",
+                Message::User(_) => "user",
+                Message::Assistant(_) => "assistant",
+                Message::Tool(_) => "tool",
+            };
+            format!("{role}: {}", message.text())
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn model_response(response: ChatResponse) -> ModelResponse {
+    let content = response
+        .text
+        .filter(|text| !text.is_empty())
+        .map(|text| vec![ContentBlock::Text(text)])
+        .unwrap_or_default();
+    let tool_calls = response
+        .tool_calls
+        .into_iter()
+        .map(|call| {
+            TinyAgentsToolCall::new(
+                call.id,
+                call.name,
+                serde_json::from_str(&call.arguments).unwrap_or(serde_json::Value::Null),
+            )
+        })
+        .collect::<Vec<_>>();
+    ModelResponse {
+        finish_reason: (!tool_calls.is_empty()).then(|| "tool_calls".to_string()),
+        message: AssistantMessage {
+            id: None,
+            content,
+            tool_calls,
+            usage: None,
+        },
+        usage: None,
+        raw: None,
+        resolved_model: None,
+        continue_turn: None,
     }
 }
 
@@ -281,38 +329,15 @@ impl SubagentMock {
 }
 
 #[async_trait]
-impl Provider for SubagentMock {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-
-    async fn chat_with_system(
+impl ChatModel<()> for SubagentMock {
+    async fn invoke(
         &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        let joined = format!("{}\n{message}", system_prompt.unwrap_or(""));
-        Ok(self.dispatch(&joined).await.text.unwrap_or_default())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<ChatResponse> {
-        let joined = request
-            .messages
-            .iter()
-            .map(|message| format!("{}: {}", message.role, message.content))
-            .collect::<Vec<_>>()
-            .join("\n");
-        Ok(self.dispatch(&joined).await)
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        Ok(model_response(
+            self.dispatch(&joined_request(&request)).await,
+        ))
     }
 }
 
@@ -361,44 +386,16 @@ impl LatencyMock {
 }
 
 #[async_trait]
-impl Provider for LatencyMock {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-
-    async fn chat_with_system(
+impl ChatModel<()> for LatencyMock {
+    async fn invoke(
         &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         self.latency.sleep_sampled().await;
-        record(
-            &self.prompts,
-            &format!("{}\n{message}", system_prompt.unwrap_or("")),
-        );
-        Ok(self.text.clone())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<ChatResponse> {
-        self.latency.sleep_sampled().await;
-        let joined = request
-            .messages
-            .iter()
-            .map(|message| format!("{}: {}", message.role, message.content))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let joined = joined_request(&request);
         record(&self.prompts, &joined);
-        Ok(response(&self.text))
+        Ok(model_response(response(&self.text)))
     }
 }
 
@@ -419,42 +416,15 @@ impl PlainTextMock {
 }
 
 #[async_trait]
-impl Provider for PlainTextMock {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-
-    async fn chat_with_system(
+impl ChatModel<()> for PlainTextMock {
+    async fn invoke(
         &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        record(
-            &self.prompts,
-            &format!("{}\n{message}", system_prompt.unwrap_or("")),
-        );
-        Ok(self.text.clone())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<ChatResponse> {
-        let joined = request
-            .messages
-            .iter()
-            .map(|message| format!("{}: {}", message.role, message.content))
-            .collect::<Vec<_>>()
-            .join("\n");
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        let joined = joined_request(&request);
         record(&self.prompts, &joined);
-        Ok(response(&self.text))
+        Ok(model_response(response(&self.text)))
     }
 }
 
@@ -532,39 +502,12 @@ impl SkillRunMock {
 }
 
 #[async_trait]
-impl Provider for SkillRunMock {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-
-    async fn chat_with_system(
+impl ChatModel<()> for SkillRunMock {
+    async fn invoke(
         &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        Ok(self
-            .reply(&format!("{}\n{message}", system_prompt.unwrap_or("")))
-            .text
-            .unwrap_or_default())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<ChatResponse> {
-        let joined = request
-            .messages
-            .iter()
-            .map(|message| format!("{}: {}", message.role, message.content))
-            .collect::<Vec<_>>()
-            .join("\n");
-        Ok(self.reply(&joined))
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        Ok(model_response(self.reply(&joined_request(&request))))
     }
 }

@@ -2,14 +2,11 @@
 //! cold agent turn built directly from config, with a plain-text mock provider
 //! (no tool calls, no delegation).
 
-use std::sync::Arc;
-
 use anyhow::Result;
 use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::inference::provider::Provider;
 
 use crate::harness::{fixture, measure, ProfileResult};
 use crate::mock::PlainTextMock;
@@ -20,8 +17,7 @@ pub async fn run() -> Result<ProfileResult> {
     openhuman_core::openhuman::agent::bus::register_agent_handlers();
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let mock = PlainTextMock::new("The Phoenix migration is healthy and on track.");
-    let provider: Arc<dyn Provider> = mock.clone();
-    let _provider = test_provider_override::install(provider);
+    let _provider = test_provider_override::install_model(mock.clone());
     eprintln!("[library-profile] agent-turn: registries ready, mock installed");
 
     measure("agent-turn", 1, None, |_rec| async {

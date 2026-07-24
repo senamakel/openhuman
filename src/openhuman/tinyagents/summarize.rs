@@ -54,14 +54,14 @@ const SUMMARIZE_KEEP_LAST: usize = 8;
 /// baked in), so the summary is produced by the active model (a cheaper
 /// summarizer model can be threaded later if compaction on the main model proves
 /// expensive — the legacy `ContextConfig::summarizer_model` hook).
-pub(super) struct ProviderModelSummarizer {
+pub(super) struct ModelSummarizer {
     model: Arc<dyn ChatModel<()>>,
     /// Model id, kept for logging/provenance only (the id rides the wrapped
     /// [`ChatModel`]).
     model_id: String,
 }
 
-impl ProviderModelSummarizer {
+impl ModelSummarizer {
     /// Build a summarizer over `model` (its id/temperature pinned).
     pub(super) fn new(model: Arc<dyn ChatModel<()>>, model_id: impl Into<String>) -> Self {
         Self {
@@ -83,7 +83,7 @@ fn role_label(msg: &TaMessage) -> &'static str {
 }
 
 #[async_trait]
-impl Summarizer for ProviderModelSummarizer {
+impl Summarizer for ModelSummarizer {
     async fn summarize(&self, messages: &[TaMessage]) -> TaResult<SummaryRecord> {
         if messages.is_empty() {
             return Err(TinyAgentsError::Validation(
@@ -148,7 +148,7 @@ impl Summarizer for ProviderModelSummarizer {
                 original_token_estimate,
                 summary_token_estimate,
                 reason: format!(
-                    "ProviderModelSummarizer via {} (LLM compaction at {:.0}% of context window)",
+                    "ModelSummarizer via {} (LLM compaction at {:.0}% of context window)",
                     self.model_id,
                     SUMMARIZE_THRESHOLD_FRACTION * 100.0
                 ),
@@ -181,7 +181,7 @@ struct CachedSummary {
 
 /// Fault-tolerant, per-turn-caching [`Summarizer`] adapter (issue #4461).
 ///
-/// Wraps the real (LLM-backed) [`ProviderModelSummarizer`] the turn hands the
+/// Wraps the real (LLM-backed) [`ModelSummarizer`] the turn hands the
 /// crate [`ContextCompressionMiddleware`][tinyagents::harness::middleware::ContextCompressionMiddleware]
 /// and hardens two regressions the crate introduced versus the legacy engine:
 ///
@@ -385,7 +385,7 @@ impl Summarizer for FaultTolerantCachingSummarizer {
 /// The policy triggers compaction once the estimated transcript tokens reach
 /// `context_window * `[`SUMMARIZE_THRESHOLD_FRACTION`] and keeps the most recent
 /// [`SUMMARIZE_KEEP_LAST`] non-system messages (plus all system messages)
-/// verbatim. Pair it with [`ProviderModelSummarizer`] via
+/// verbatim. Pair it with [`ModelSummarizer`] via
 /// [`ContextCompressionMiddleware::with_summarizer`][tinyagents::harness::middleware::ContextCompressionMiddleware::with_summarizer].
 pub(super) fn summarization_policy(context_window: u64) -> SummarizationPolicy {
     let mut policy = SummarizationPolicy::default()

@@ -47,12 +47,10 @@ use tokio::sync::mpsc;
 /// `chat_provider` routing and unconditionally build a cloud chain, so
 /// Telegram (and other channels) never honored a user's local-Ollama /
 /// BYOK selection. `resolve_chat_workload` inspects the resolved chat
-/// workload string and chooses between preserving the legacy
-/// `create_intelligent_routing_provider` chain (Cloud) and dispatching
-/// to the unified workload factory (Workload).
+/// workload string and chooses between the managed-cloud selection (Cloud)
+/// and dispatching to the unified workload factory (Workload).
 pub(super) enum ChatWorkloadResolution {
-    /// Preserve the existing cloud chain (`ReliableProvider` +
-    /// `IntelligentRoutingProvider`) and `config.default_model`.
+    /// Preserve the managed-cloud selection and `config.default_model`.
     Cloud,
     /// Build the channel provider via `create_chat_provider("chat", config)`.
     Workload {
@@ -833,7 +831,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name,
-        provider: None,
+        turn_model_source: None,
         default_provider: Arc::new(provider_name),
         memory: Arc::clone(&mem),
         tools_registry: Arc::clone(&tools_registry),
@@ -844,7 +842,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         max_tool_iterations: config.agent.max_tool_iterations,
         min_relevance_score: config.memory.min_relevance_score,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: config.api_url.clone(),
         inference_url: config.inference_url.clone(),

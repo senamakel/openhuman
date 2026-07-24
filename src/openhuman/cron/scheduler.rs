@@ -1186,13 +1186,21 @@ async fn persist_job_result(
         duration_ms,
     );
 
-    if is_one_shot_auto_delete(job) {
-        if success {
+    // A fixed-instant (`Schedule::At`) job is inherently one-shot: its `at` is in
+    // the past the moment it runs, so `reschedule_after_run` (which writes
+    // next_run = at for an `At` schedule) leaves next_run <= now and the job is
+    // re-selected by `due_jobs` on every poll, re-executing forever. Terminate
+    // every `At` job after a single run, regardless of `delete_after_run`. Only an
+    // auto-delete job that succeeded is removed; everything else is kept disabled
+    // so its run history stays inspectable. (Inside this `At` branch
+    // `is_one_shot_auto_delete` reduces to `job.delete_after_run`.)
+    if matches!(job.schedule, Schedule::At { .. }) {
+        if is_one_shot_auto_delete(job) && success {
             if let Err(e) = remove_job(config, &job.id) {
                 tracing::warn!("Failed to remove one-shot cron job after success: {e}");
             }
         } else {
-            let _ = record_last_run(config, &job.id, finished_at, false, output);
+            let _ = record_last_run(config, &job.id, finished_at, success, output);
             if let Err(e) = update_job(
                 config,
                 &job.id,
@@ -1201,7 +1209,7 @@ async fn persist_job_result(
                     ..CronJobPatch::default()
                 },
             ) {
-                tracing::warn!("Failed to disable failed one-shot cron job: {e}");
+                tracing::warn!("Failed to disable one-shot cron job: {e}");
             }
         }
         return success;

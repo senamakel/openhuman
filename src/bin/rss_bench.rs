@@ -3,7 +3,7 @@
 //!
 //! Mirrors the OpenCompany embedding contract: a bare [`Agent`] built directly
 //! via [`Agent::builder`] (no `CoreBuilder`, no RPC, no background services)
-//! with an injected mock provider, an in-process `"none"` memory backend, and a
+//! with an injected mock model, an in-process `"none"` memory backend, and a
 //! per-agent temp workspace. Builds a 1-agent and an 8-agent roster, runs one
 //! deterministic warm-up turn per agent to fault in lazy allocations, settles,
 //! then samples `/proc/self/{status,smaps_rollup}`.
@@ -28,9 +28,6 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use openhuman_core::openhuman::agent::dispatcher::NativeToolDispatcher;
 use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::inference::provider::{
-    ChatRequest, ChatResponse, Provider, UsageInfo,
-};
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
@@ -44,6 +41,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
+use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse};
 
 /// Roster sizes measured by default: the 1-agent baseline and the
 /// representative 8-agent company roster from #5046.
@@ -56,45 +54,23 @@ const DEFAULT_REPEAT: usize = 5;
 /// the outer CI job timeout.
 const CHILD_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Provider that never touches the network: returns a fixed assistant message
+/// Model that never touches the network: returns a fixed assistant message
 /// with a `stop` shape (no tool calls) so a turn completes in one round-trip.
-struct MockProvider;
+struct MockModel;
 
 #[async_trait]
-impl Provider for MockProvider {
-    async fn chat_with_system(
+impl ChatModel<()> for MockModel {
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        Ok("ok".into())
-    }
-
-    async fn chat(
-        &self,
-        _request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<ChatResponse> {
-        Ok(ChatResponse {
-            text: Some("ok".into()),
-            tool_calls: vec![],
-            usage: Some(UsageInfo {
-                input_tokens: 8,
-                output_tokens: 2,
-                context_window: 8000,
-                charged_amount_usd: 0.0,
-                ..Default::default()
-            }),
-            reasoning_content: None,
-        })
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        Ok(ModelResponse::assistant("ok"))
     }
 }
 
 /// Trivial host-supplied tool so the roster mirrors a real embedding (the host
-/// injects its own tools). Never invoked — the provider returns no tool calls.
+/// injects its own tools). Never invoked — the model returns no tool calls.
 struct EchoTool;
 
 #[async_trait]
@@ -182,7 +158,7 @@ struct Roster {
     _workspaces: Vec<TempDir>,
 }
 
-/// Build `n` bare agents, each with its own temp workspace, mock provider,
+/// Build `n` bare agents, each with its own temp workspace, mock model,
 /// `"none"` memory backend, and a single host-supplied tool.
 fn build_roster(n: usize) -> Result<Roster> {
     let mut agents = Vec::with_capacity(n);
@@ -194,7 +170,7 @@ fn build_roster(n: usize) -> Result<Roster> {
         let memory: Arc<dyn Memory> = Arc::new(NoopMemory);
 
         let agent = Agent::builder()
-            .provider(Box::new(MockProvider))
+            .chat_model(Arc::new(MockModel))
             .tools(vec![Box::new(EchoTool)])
             .memory(memory)
             .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -215,7 +191,7 @@ fn build_roster(n: usize) -> Result<Roster> {
 }
 
 /// One deterministic warm-up turn per agent, forcing first-touch allocations
-/// (prompt build, tokenizer, provider adapter) to fault in before measuring.
+/// (prompt build, tokenizer, model seam) to fault in before measuring.
 async fn warm_up(roster: &mut Roster) -> Result<()> {
     for agent in &mut roster.agents {
         let _ = agent.turn("warmup").await.context("warm-up turn")?;

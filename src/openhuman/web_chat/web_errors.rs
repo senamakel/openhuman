@@ -246,7 +246,7 @@ pub(crate) fn is_fallback_chain_exhausted(err: &str) -> bool {
 
 /// Extract a Retry-After / retry_after seconds hint from a free-form
 /// error string. Mirrors the typed [`crate::openhuman::inference::
-/// provider::reliable::parse_retry_after_ms`] helper but operates on
+/// provider::error_classify::parse_retry_after_ms`] helper but operates on
 /// the already-flattened `String` that reaches the channel-classifier
 /// layer.
 ///
@@ -1034,7 +1034,7 @@ pub(crate) fn is_provider_request_rejected_text(lower: &str) -> bool {
 }
 
 /// String-flat mirror of
-/// [`crate::openhuman::inference::provider::reliable::is_non_retryable_rate_limit`].
+/// [`crate::openhuman::inference::provider::error_classify::is_non_retryable_rate_limit`].
 ///
 /// The reliable provider already classifies 429s into retryable vs
 /// non-retryable based on business-quota markers ("plan does not

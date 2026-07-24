@@ -1542,7 +1542,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
                         data-testid={`run-stop-${r.run_id}`}
                         onClick={() => void handleStopRun(r.run_id)}
                         leadingIcon={<span aria-hidden="true">◼</span>}>
-                        {t('autocomplete.stop')}
+                        {t('orchestration.detail.stop')}
                       </Button>
                     </div>
                   )}

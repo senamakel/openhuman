@@ -1,18 +1,26 @@
 //! Persistent per-thread task board used by the agent kanban UI.
 //!
-//! Boards live under `<workspace>/agent_task_boards/<hex(thread_id)>.json`.
-//! The agent updates them through the `todo` tool; the UI can fetch or
-//! replace them through the `threads.task_board_*` and granular
-//! `openhuman.todos_*` RPC surfaces.
+//! **Crate-backed.** Boards now live in the vendored `tinyagents::graph::todos`
+//! crate KV store (`<workspace>/tinyagents_store/kv/graph.todos/<hex(thread_id)>`),
+//! not the retired `<workspace>/agent_task_boards/<hex(thread_id)>.json`
+//! file-JSON tree. [`TaskBoardStore`] is a thin adapter that preserves the
+//! historical `get`/`put`/`delete` surface every consumer uses and forwards each
+//! operation to the crate store via [`crate::openhuman::todos::crate_adapter`],
+//! converting the crate `TaskBoard` back to the local [`TaskBoard`] and its
+//! `TinyAgentsError` to a `String`.
+//!
+//! The agent updates boards through the `todo` tool; the UI can fetch or replace
+//! them through the `threads.task_board_*` and granular `openhuman.todos_*` RPC
+//! surfaces. The single-writer constraint (the core process is the only writer)
+//! is documented in the adapter module.
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-const TASK_BOARD_DIR: &str = "agent_task_boards";
-const TASK_BOARD_EXTENSION: &str = "json";
+use tinyagents::graph::todos::store as crate_todos;
+
+use crate::openhuman::todos::crate_adapter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -134,61 +142,36 @@ impl TaskBoardStore {
         Self { workspace_dir }
     }
 
-    pub fn get(&self, thread_id: &str) -> Result<Option<TaskBoard>, String> {
+    /// The thread's board, or `None` when the thread has never had one. Reads
+    /// the crate `graph.todos` value **raw** (no normalise) so the absent-vs-
+    /// empty distinction survives, exactly as the legacy file read did.
+    pub async fn get(&self, thread_id: &str) -> Result<Option<TaskBoard>, String> {
         let thread_id = validate_thread_id(thread_id)?;
         tracing::debug!(thread_id = %thread_id, "[agent:task_board] get entry");
-        let path = self.board_path(&thread_id)?;
-        if !path.exists() {
-            tracing::debug!(
-                thread_id = %thread_id,
-                path = %path.display(),
-                "[agent:task_board] get not_found"
-            );
-            return Ok(None);
+        let store = crate_adapter::crate_todos_store(&self.workspace_dir);
+        match crate_adapter::get_crate_board_raw(&store, &thread_id).await? {
+            Some(crate_board) => {
+                let board = crate_adapter::from_crate_board(&crate_board);
+                tracing::debug!(
+                    thread_id = %thread_id,
+                    card_count = board.cards.len(),
+                    "[agent:task_board] get ok"
+                );
+                Ok(Some(board))
+            }
+            None => {
+                tracing::debug!(thread_id = %thread_id, "[agent:task_board] get not_found");
+                Ok(None)
+            }
         }
-        let mut buf = String::new();
-        fs::File::open(&path)
-            .map_err(|e| {
-                tracing::debug!(
-                    thread_id = %thread_id,
-                    path = %path.display(),
-                    error = %e,
-                    "[agent:task_board] get open_error"
-                );
-                format!("open task board {}: {e}", path.display())
-            })?
-            .read_to_string(&mut buf)
-            .map_err(|e| {
-                tracing::debug!(
-                    thread_id = %thread_id,
-                    path = %path.display(),
-                    error = %e,
-                    "[agent:task_board] get read_error"
-                );
-                format!("read task board {}: {e}", path.display())
-            })?;
-        let board = serde_json::from_str::<TaskBoard>(&buf).map_err(|e| {
-            tracing::debug!(
-                thread_id = %thread_id,
-                path = %path.display(),
-                error = %e,
-                "[agent:task_board] get parse_error"
-            );
-            format!(
-                "parse task board {} for thread '{}': {e}",
-                path.display(),
-                thread_id
-            )
-        })?;
-        tracing::debug!(
-            thread_id = %thread_id,
-            card_count = board.cards.len(),
-            "[agent:task_board] get ok"
-        );
-        Ok(Some(board))
     }
 
-    pub fn put(&self, mut board: TaskBoard) -> Result<TaskBoard, String> {
+    /// Persist `board`. Locally normalises first (minting `task-<uuid>` ids for
+    /// blank cards, recomputing order), then hands the cards to the crate
+    /// `replace` op — which re-normalises and **enforces the single-`InProgress`
+    /// invariant** (an invalid board now errors here rather than being silently
+    /// saved). Returns the saved board with crate-normalised cards.
+    pub async fn put(&self, mut board: TaskBoard) -> Result<TaskBoard, String> {
         tracing::debug!(
             thread_id = %board.thread_id,
             card_count = board.cards.len(),
@@ -197,116 +180,56 @@ impl TaskBoardStore {
         normalise_board(&mut board);
         let thread_id = validate_thread_id(&board.thread_id)?;
         board.thread_id = thread_id.clone();
-        let dir = self.ensure_dir()?;
-        let path = self.board_path(&thread_id)?;
-        let mut tmp = tempfile::NamedTempFile::new_in(&dir).map_err(|e| {
-            tracing::debug!(
-                thread_id = %thread_id,
-                dir = %dir.display(),
-                error = %e,
-                "[agent:task_board] put tempfile_error"
-            );
-            format!("create task board tempfile in {}: {e}", dir.display())
-        })?;
-        let bytes = serde_json::to_vec_pretty(&board).map_err(|e| {
-            tracing::debug!(
-                thread_id = %thread_id,
-                error = %e,
-                "[agent:task_board] put serialize_error"
-            );
-            format!("serialize task board: {e}")
-        })?;
-        tmp.write_all(&bytes).map_err(|e| {
-            tracing::debug!(
-                thread_id = %thread_id,
-                error = %e,
-                "[agent:task_board] put write_error"
-            );
-            format!("write task board tempfile: {e}")
-        })?;
-        tmp.as_file().sync_all().map_err(|e| {
-            tracing::debug!(
-                thread_id = %thread_id,
-                error = %e,
-                "[agent:task_board] put fsync_error"
-            );
-            format!("fsync task board tempfile: {e}")
-        })?;
-        tmp.persist(&path).map_err(|e| {
-            tracing::debug!(
-                thread_id = %thread_id,
-                path = %path.display(),
-                error = %e,
-                "[agent:task_board] put persist_error"
-            );
-            format!("persist task board {}: {e}", path.display())
-        })?;
+        let store = crate_adapter::crate_todos_store(&self.workspace_dir);
+        let crate_cards: Vec<_> = board
+            .cards
+            .iter()
+            .map(crate_adapter::to_crate_card)
+            .collect();
+        let snap = crate_todos::replace(&store, &thread_id, crate_cards)
+            .await
+            .map_err(|e| e.to_string())?;
+        let cards: Vec<TaskBoardCard> = snap
+            .cards
+            .iter()
+            .map(crate_adapter::from_crate_card)
+            .collect();
         tracing::debug!(
             thread_id = %thread_id,
-            card_count = board.cards.len(),
-            path = %path.display(),
+            card_count = cards.len(),
             "[agent:task_board] put ok"
         );
-        Ok(board)
+        Ok(TaskBoard {
+            thread_id,
+            cards,
+            updated_at: Utc::now().to_rfc3339(),
+        })
     }
 
-    pub fn delete(&self, thread_id: &str) -> Result<bool, String> {
+    /// Delete the thread's board. Returns whether a board was present. Removes
+    /// the crate key outright (not the crate `clear`, which writes an empty
+    /// board) so a subsequent [`get`](Self::get) reports `None`.
+    pub async fn delete(&self, thread_id: &str) -> Result<bool, String> {
         let thread_id = validate_thread_id(thread_id)?;
         tracing::debug!(thread_id = %thread_id, "[agent:task_board] delete entry");
-        let path = self.board_path(&thread_id)?;
-        if !path.exists() {
-            tracing::debug!(
-                thread_id = %thread_id,
-                path = %path.display(),
-                "[agent:task_board] delete not_found"
-            );
-            return Ok(false);
+        let store = crate_adapter::crate_todos_store(&self.workspace_dir);
+        let existed = crate_adapter::get_crate_board_raw(&store, &thread_id)
+            .await?
+            .is_some();
+        if existed {
+            crate_adapter::delete_crate_board_raw(&store, &thread_id).await?;
         }
-        fs::remove_file(&path).map_err(|e| {
-            tracing::debug!(
-                thread_id = %thread_id,
-                path = %path.display(),
-                error = %e,
-                "[agent:task_board] delete error"
-            );
-            format!("delete task board {}: {e}", path.display())
-        })?;
-        tracing::debug!(
-            thread_id = %thread_id,
-            path = %path.display(),
-            "[agent:task_board] delete ok"
-        );
-        Ok(true)
-    }
-
-    fn ensure_dir(&self) -> Result<PathBuf, String> {
-        let dir = self.workspace_dir.join(TASK_BOARD_DIR);
-        fs::create_dir_all(&dir).map_err(|e| {
-            tracing::debug!(
-                dir = %dir.display(),
-                error = %e,
-                "[agent:task_board] ensure_dir error"
-            );
-            format!("create task board dir {}: {e}", dir.display())
-        })?;
-        Ok(dir)
-    }
-
-    fn board_path(&self, thread_id: &str) -> Result<PathBuf, String> {
-        let thread_id = validate_thread_id(thread_id)?;
-        Ok(self.workspace_dir.join(TASK_BOARD_DIR).join(format!(
-            "{}.{}",
-            hex::encode(thread_id.as_bytes()),
-            TASK_BOARD_EXTENSION
-        )))
+        tracing::debug!(thread_id = %thread_id, existed, "[agent:task_board] delete ok");
+        Ok(existed)
     }
 }
 
-pub fn board_for_thread(workspace_dir: &Path, thread_id: &str) -> Result<TaskBoard, String> {
+pub async fn board_for_thread(workspace_dir: &Path, thread_id: &str) -> Result<TaskBoard, String> {
     let thread_id = validate_thread_id(thread_id)?;
     let store = TaskBoardStore::new(workspace_dir.to_path_buf());
     Ok(store
-        .get(&thread_id)?
+        .get(&thread_id)
+        .await?
         .unwrap_or_else(|| TaskBoard::empty(thread_id)))
 }
 
@@ -430,8 +353,8 @@ mod tests {
         assert!(!board.updated_at.is_empty());
     }
 
-    #[test]
-    fn board_store_roundtrips_and_normalises_cards() {
+    #[tokio::test]
+    async fn board_store_roundtrips_and_normalises_cards() {
         let dir = tempdir().expect("tempdir");
         let store = TaskBoardStore::new(dir.path().to_path_buf());
         let board = TaskBoard {
@@ -477,7 +400,7 @@ mod tests {
             updated_at: String::new(),
         };
 
-        let saved = store.put(board).expect("put");
+        let saved = store.put(board).await.expect("put");
         assert_eq!(saved.cards[0].title, "Draft plan");
         assert_eq!(
             saved.cards[0].objective.as_deref(),
@@ -499,28 +422,29 @@ mod tests {
         assert!(saved.cards[0].id.starts_with("task-"));
         assert_eq!(saved.cards[1].blocker.as_deref(), Some("waiting on user"));
 
-        let loaded = store.get("thread-1").expect("get").expect("present");
+        let loaded = store.get("thread-1").await.expect("get").expect("present");
         assert_eq!(loaded.cards.len(), 2);
         assert_eq!(loaded.cards[1].status, TaskCardStatus::Blocked);
 
-        assert!(store.delete("thread-1").expect("delete existing"));
-        assert!(store.get("thread-1").expect("get deleted").is_none());
-        assert!(!store.delete("thread-1").expect("delete missing"));
+        assert!(store.delete("thread-1").await.expect("delete existing"));
+        assert!(store.get("thread-1").await.expect("get deleted").is_none());
+        assert!(!store.delete("thread-1").await.expect("delete missing"));
     }
 
-    #[test]
-    fn missing_board_returns_none() {
+    #[tokio::test]
+    async fn missing_board_returns_none() {
         let dir = tempdir().expect("tempdir");
         let store = TaskBoardStore::new(dir.path().to_path_buf());
-        assert!(store.get("missing").expect("get").is_none());
+        assert!(store.get("missing").await.expect("get").is_none());
     }
 
-    #[test]
-    fn blank_thread_id_is_rejected() {
+    #[tokio::test]
+    async fn blank_thread_id_is_rejected() {
         let dir = tempdir().expect("tempdir");
         let store = TaskBoardStore::new(dir.path().to_path_buf());
         assert!(store
             .get("   ")
+            .await
             .expect_err("blank id")
             .contains("thread_id"));
     }
@@ -577,28 +501,41 @@ mod tests {
         assert_eq!(board.cards[0].order, 0);
     }
 
-    #[test]
-    fn board_for_thread_returns_empty_board_when_file_is_missing() {
+    #[tokio::test]
+    async fn board_for_thread_returns_empty_board_when_file_is_missing() {
         let dir = tempdir().expect("tempdir");
-        let board = board_for_thread(dir.path(), " thread-2 ").expect("board");
+        let board = board_for_thread(dir.path(), " thread-2 ")
+            .await
+            .expect("board");
         assert_eq!(board.thread_id, "thread-2");
         assert!(board.cards.is_empty());
     }
 
-    #[test]
-    fn corrupt_board_file_returns_parse_error() {
-        let dir = tempdir().expect("tempdir");
-        let board_dir = dir.path().join(TASK_BOARD_DIR);
-        fs::create_dir_all(&board_dir).expect("board dir");
-        let path = board_dir.join(format!(
-            "{}.{}",
-            hex::encode("thread-corrupt".as_bytes()),
-            TASK_BOARD_EXTENSION
-        ));
-        fs::write(path, "{not json").expect("write corrupt board");
+    /// An undecodable crate value must fail closed so a later read/modify/write
+    /// operation cannot replace the authoritative row with an empty board.
+    #[tokio::test]
+    async fn undecodable_board_value_returns_error_without_overwriting_row() {
+        use tinyagents::graph::todos::store::TODOS_NAMESPACE;
 
-        let store = TaskBoardStore::new(dir.path().to_path_buf());
-        let err = store.get("thread-corrupt").expect_err("parse error");
-        assert!(err.contains("parse task board"), "err: {err}");
+        let dir = tempdir().expect("tempdir");
+        let store = crate_adapter::crate_todos_store(dir.path());
+        let key = crate_adapter::todo_key("thread-corrupt");
+        let undecodable = serde_json::json!({ "not": "a board" });
+        store
+            .put(TODOS_NAMESPACE, &key, undecodable.clone())
+            .await
+            .expect("seed garbage value");
+
+        let board_store = TaskBoardStore::new(dir.path().to_path_buf());
+        let error = board_store
+            .get("thread-corrupt")
+            .await
+            .expect_err("undecodable row must not be treated as absent");
+        assert!(error.contains("decode crate task board"));
+        assert_eq!(
+            store.get(TODOS_NAMESPACE, &key).await.expect("raw get"),
+            Some(undecodable),
+            "failed live reads must leave the authoritative row untouched"
+        );
     }
 }

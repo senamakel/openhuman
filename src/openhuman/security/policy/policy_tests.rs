@@ -2681,6 +2681,7 @@ fn is_workspace_internal_path_blocks_state_dirs() {
     ));
     assert!(policy.is_workspace_internal_path(&ws.join("approval")));
     assert!(policy.is_workspace_internal_path(&ws.join("mcp_clients")));
+    assert!(policy.is_workspace_internal_path(&ws.join("codegraph")));
 }
 
 #[test]

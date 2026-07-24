@@ -10,13 +10,13 @@ use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunStatus,
 };
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_orchestration::running_subagents::{self, SubagentStatus};
 use crate::openhuman::agent_orchestration::subagent_sessions::{
     self, DurableSubagentStatus, SubagentSessionSelector, SubagentSessionStore,
     SubagentSessionUpsert,
 };
-use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::memory_conversations::{self as conversations, ConversationMessage};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
@@ -223,8 +223,7 @@ impl Tool for SpawnAsyncSubagentTool {
 
         let parent_session = parent.session_id.clone();
         let progress_sink = parent.on_progress.clone();
-        let parent_thread_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id();
+        let parent_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
 
         // Async delivery is thread-addressed: the finished result is inserted
         // back into the parent chat thread as a follow-up turn
@@ -258,7 +257,6 @@ impl Tool for SpawnAsyncSubagentTool {
                  sub-agents.",
             ));
         }
-
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
         let effective_action_root = workspace_descriptor
@@ -551,7 +549,7 @@ impl Tool for SpawnAsyncSubagentTool {
             };
 
             let result = with_parent_context(background_parent, async move {
-                crate::openhuman::inference::provider::thread_context::with_thread_id(
+                crate::openhuman::tinyagents::thread_context::with_thread_id(
                     background_thread_affinity_id,
                     async move {
                         run_subagent(&background_definition, &background_prompt, options).await
@@ -1080,7 +1078,6 @@ mod tests {
     };
     use crate::openhuman::config::AgentConfig;
     use crate::openhuman::context::prompt::ToolCallFormat;
-    use crate::openhuman::inference::provider::Provider;
     use crate::openhuman::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
     };
@@ -1377,17 +1374,14 @@ mod tests {
         let workspace = tempfile::TempDir::new().expect("workspace");
 
         let result = with_parent_context(parent_context(workspace.path()), async {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
-                "t-parent",
-                async {
-                    SpawnAsyncSubagentTool::new()
-                        .execute(json!({
-                            "agent_id": "researcher",
-                            "prompt": "investigate x",
-                        }))
-                        .await
-                },
-            )
+            crate::openhuman::tinyagents::thread_context::with_thread_id("t-parent", async {
+                SpawnAsyncSubagentTool::new()
+                    .execute(json!({
+                        "agent_id": "researcher",
+                        "prompt": "investigate x",
+                    }))
+                    .await
+            })
             .await
         })
         .await
@@ -1405,12 +1399,13 @@ mod tests {
             workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
             allowed_subagent_ids: HashSet::from(["researcher".to_string()]),
-            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-                NoopProvider,
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::new(
+                tinyagents::harness::testkit::ScriptedModel::replies(vec!["done"]),
             )),
             all_tools: Arc::new(Vec::new()),
             all_tool_specs: Arc::new(Vec::new()),
             visible_tool_names: std::collections::HashSet::new(),
+            subagent_tool_ceiling_names: std::collections::HashSet::new(),
             model_name: "test-model".into(),
             temperature: 0.0,
             workspace_dir: workspace_dir.to_path_buf(),
@@ -1426,21 +1421,6 @@ mod tests {
             session_parent_prefix: None,
             on_progress: None,
             run_queue: None,
-        }
-    }
-
-    struct NoopProvider;
-
-    #[async_trait::async_trait]
-    impl Provider for NoopProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
         }
     }
 

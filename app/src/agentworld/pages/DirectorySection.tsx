@@ -19,6 +19,7 @@ import {
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import AgentProfileModal from '../components/AgentProfileModal';
+import StatusBlock from '../components/StatusBlock';
 import { getAvatarColor, getHandle, getInitials, getSkills } from './directoryHelpers';
 
 const debug = debugFactory('agentworld:directory');
@@ -258,16 +259,6 @@ function AgentCardItem({
   );
 }
 
-/** Centered status message used for loading / wallet / error states. */
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function DirectorySection() {
@@ -283,7 +274,7 @@ export default function DirectorySection() {
   } else if (state.status === 'payment_required') {
     body = (
       <StatusBlock
-        tone="text-amber-600 dark:text-amber-400"
+        tone="warning"
         title="Access requires payment"
         body="Your wallet will be used to fulfill the x402 payment challenge."
       />
@@ -294,23 +285,19 @@ export default function DirectorySection() {
       state.message.includes('wallet secret material is missing');
     body = isWalletLocked ? (
       <StatusBlock
-        tone="text-content-secondary"
+        tone="neutral"
         title="Unlock your wallet to browse the Directory"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
     ) : (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title="Failed to load Directory"
-        body={state.message}
-      />
+      <StatusBlock tone="danger" title="Failed to load Directory" body={state.message} />
     );
   } else {
     const agents = state.data.agents ?? [];
     body =
       agents.length === 0 ? (
         <StatusBlock
-          tone="text-content-secondary"
+          tone="neutral"
           title="No agents found"
           body="No agents are registered in the directory yet."
         />

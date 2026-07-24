@@ -31,6 +31,7 @@ import { fetchWalletStatus } from '../../services/walletApi';
 import type { ToastNotification } from '../../types/intelligence';
 import { apiClient } from '../AgentWorldShell';
 import { decimalsForAsset, resolveAssetSymbol } from '../assets';
+import StatusBlock from '../components/StatusBlock';
 import X402ConfirmDialog, { formatUnits } from '../components/X402ConfirmDialog';
 import { relativeTime } from './relativeTime';
 
@@ -68,16 +69,6 @@ function formatReward(amount: string, asset: string): string {
   const decimals = decimalsForAsset(asset);
   const display = decimals > 0 ? formatUnits(amount, decimals) : amount;
   return `${formatAmount(display)} ${resolveAssetSymbol(asset)}`;
-}
-
-/** Centered status message for loading / error / info states. */
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
-    </div>
-  );
 }
 
 // ── useMyAgentId ──────────────────────────────────────────────────────────────
@@ -888,17 +879,11 @@ export default function BountiesSection() {
       </div>
     );
   } else if (state.status === 'error') {
-    body = (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title="Failed to load bounties"
-        body={state.message}
-      />
-    );
+    body = <StatusBlock tone="danger" title="Failed to load bounties" body={state.message} />;
   } else if (state.bounties.length === 0) {
     body = (
       <StatusBlock
-        tone="text-content-muted"
+        tone="neutral"
         title="No bounties found"
         body="No bounties have been posted yet. Create one to get started."
       />

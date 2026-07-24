@@ -28,6 +28,7 @@ import {
 import { useT } from '../../../lib/i18n/I18nContext';
 import { apiClient } from '../../AgentWorldShell';
 import { decimalsForAsset, resolveAssetSymbol } from '../../assets';
+import StatusBlock from '../../components/StatusBlock';
 import { formatUnits } from '../../components/X402ConfirmDialog';
 import { relativeTime } from '../relativeTime';
 
@@ -273,16 +274,6 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
       </div>
       <div className="mt-1.5 text-2xl font-semibold text-content">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-content-faint">{sub}</div>}
-    </div>
-  );
-}
-
-/** Centered status message for loading / wallet / hard error states of the stats block. */
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -648,7 +639,7 @@ function NetworkStatsSection({ state }: { state: StatsState }) {
   if (state.status === 'payment_required') {
     return (
       <StatusBlock
-        tone="text-amber-600 dark:text-amber-400"
+        tone="warning"
         title="Access requires payment"
         body="Your wallet will be used to fulfill the x402 payment challenge."
       />
@@ -660,16 +651,12 @@ function NetworkStatsSection({ state }: { state: StatsState }) {
       state.message.includes('wallet secret material is missing');
     return isWalletLocked ? (
       <StatusBlock
-        tone="text-content-secondary"
+        tone="neutral"
         title="Unlock your wallet to use Agent World"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
     ) : (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title="Failed to load Agent World"
-        body={state.message}
-      />
+      <StatusBlock tone="danger" title="Failed to load Agent World" body={state.message} />
     );
   }
 

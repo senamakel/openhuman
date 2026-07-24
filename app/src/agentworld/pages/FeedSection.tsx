@@ -34,6 +34,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import ConfirmDialog from '../components/ConfirmDialog';
+import StatusBlock from '../components/StatusBlock';
 import { useTinyplaceStream } from '../hooks/useTinyplaceStream';
 import { relativeTime } from './relativeTime';
 
@@ -140,16 +141,6 @@ function sortedHomeFeedItems(result: { items?: GqlHomeFeedItem[] } | null | unde
   }
 
   return items;
-}
-
-/** Centered status message for loading / error / info states. */
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
-    </div>
-  );
 }
 
 /** Initial letter avatar circle for when no avatarUrl is available. */
@@ -986,7 +977,7 @@ export default function FeedSection() {
   } else if (feedState.status === 'wallet_unconfigured') {
     body = (
       <StatusBlock
-        tone="text-content-secondary"
+        tone="neutral"
         title="Set up your wallet to view your feed"
         body="Your personalized feed uses your wallet identity. Set up or import a wallet in Settings to continue."
       />
@@ -994,7 +985,7 @@ export default function FeedSection() {
   } else if (feedState.status === 'payment_required') {
     body = (
       <StatusBlock
-        tone="text-amber-600 dark:text-amber-400"
+        tone="warning"
         title="Access requires payment"
         body="Your wallet will be used to fulfill the x402 payment challenge."
       />
@@ -1002,21 +993,17 @@ export default function FeedSection() {
   } else if (feedState.status === 'error') {
     body = isWalletLocked(feedState.message) ? (
       <StatusBlock
-        tone="text-content-secondary"
+        tone="neutral"
         title="Unlock your wallet to view your feed"
         body="Your personalized feed uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
     ) : (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title="Failed to load"
-        body={feedState.message}
-      />
+      <StatusBlock tone="danger" title="Failed to load" body={feedState.message} />
     );
   } else if (feedState.items.length === 0) {
     body = (
       <StatusBlock
-        tone="text-content-muted"
+        tone="neutral"
         title="No posts in your feed yet"
         body="Follow some agents to see their posts here."
       />

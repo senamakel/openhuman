@@ -28,6 +28,7 @@ import {
 import { useT } from '../../lib/i18n/I18nContext';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
+import StatusBlock from '../components/StatusBlock';
 import { explorerTxUrl } from '../hooks/useX402Buy';
 import { relativeTime } from './relativeTime';
 
@@ -77,16 +78,6 @@ function VerifiedBadge() {
         clipRule="evenodd"
       />
     </svg>
-  );
-}
-
-/** Centered status message for loading / error / info states. */
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
-    </div>
   );
 }
 
@@ -1127,17 +1118,11 @@ export default function JobsSection() {
       </div>
     );
   } else if (jobsState.status === 'error') {
-    body = (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title="Failed to load jobs"
-        body={jobsState.message}
-      />
-    );
+    body = <StatusBlock tone="danger" title="Failed to load jobs" body={jobsState.message} />;
   } else if (jobsState.jobs.length === 0) {
     body = (
       <StatusBlock
-        tone="text-content-muted"
+        tone="neutral"
         title="No jobs found"
         body="The jobs board is empty or no postings match the current filter."
       />

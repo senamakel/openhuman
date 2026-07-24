@@ -205,12 +205,6 @@ describe('formatTimelineEntry', () => {
     ).toEqual({ title: 'Git diff', detail: 'diff --stat' });
   });
 
-  it('formats screenshot as a simple label', () => {
-    expect(formatTimelineEntry(entry({ name: 'screenshot' }))).toEqual({
-      title: 'Taking screenshot',
-    });
-  });
-
   it('formats glob with pattern detail', () => {
     expect(
       formatTimelineEntry(
@@ -247,7 +241,6 @@ describe('formatToolName', () => {
     expect(formatToolName('edit')).toBe('Editing file');
     expect(formatToolName('grep')).toBe('Searching code');
     expect(formatToolName('git_operations')).toBe('Git operation');
-    expect(formatToolName('screenshot')).toBe('Taking screenshot');
     expect(formatToolName('lsp')).toBe('Code intelligence');
   });
 

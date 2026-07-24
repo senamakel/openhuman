@@ -153,19 +153,6 @@ export interface BrowserSettingsUpdate {
   backend?: 'agent_browser' | 'playwright' | 'rust_native' | 'computer_use' | 'auto' | null;
 }
 
-export interface ScreenIntelligenceSettingsUpdate {
-  enabled?: boolean | null;
-  capture_policy?: string | null;
-  policy_mode?: 'all_except_blacklist' | 'whitelist_only' | null;
-  baseline_fps?: number | null;
-  vision_enabled?: boolean | null;
-  autocomplete_enabled?: boolean | null;
-  use_vision_model?: boolean | null;
-  keep_screenshots?: boolean | null;
-  allowlist?: string[] | null;
-  denylist?: string[] | null;
-}
-
 export interface LocalAiSettingsUpdate {
   runtime_enabled?: boolean | null;
   /**
@@ -450,18 +437,6 @@ export async function openhumanUpdateBrowserSettings(
   }
   return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
     method: CORE_RPC_METHODS.configUpdateBrowserSettings,
-    params: update,
-  });
-}
-
-export async function openhumanUpdateScreenIntelligenceSettings(
-  update: ScreenIntelligenceSettingsUpdate
-): Promise<CommandResponse<ConfigSnapshot>> {
-  if (!isTauri()) {
-    throw new Error('Not running in Tauri');
-  }
-  return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: CORE_RPC_METHODS.configUpdateScreenIntelligenceSettings,
     params: update,
   });
 }

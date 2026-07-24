@@ -57,14 +57,6 @@ export const TOOL_CATALOG: ToolDefinition[] = [
 
   // Vision
   {
-    id: 'screenshot',
-    displayName: 'Screenshot',
-    description: 'Capture screenshots of your screen.',
-    category: 'Vision',
-    defaultEnabled: true,
-    rustToolNames: ['screenshot'],
-  },
-  {
     id: 'image_info',
     displayName: 'Image Analysis',
     description: 'Inspect and analyse image files.',

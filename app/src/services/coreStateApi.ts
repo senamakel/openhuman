@@ -1,6 +1,5 @@
 import type { User } from '../types/api';
 import type { TeamInvite, TeamMember, TeamWithRole } from '../types/team';
-import type { AccessibilityStatus } from '../utils/tauriCommands/accessibility';
 import type { LocalAiStatus } from '../utils/tauriCommands/localAi';
 import type { ServiceStatus } from '../utils/tauriCommands/service';
 import { callCoreRpc } from './coreRpcClient';
@@ -58,7 +57,6 @@ interface AppStateSnapshotResult {
   };
   keyringStatus?: KeyringStatus;
   runtime: {
-    screenIntelligence: AccessibilityStatus;
     localAi: LocalAiStatus;
     service: ServiceStatus;
   };

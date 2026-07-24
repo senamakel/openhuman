@@ -121,7 +121,7 @@ async function setupLayout(onboardingTasks: unknown = null) {
         activeMode: 'os_keyring',
         backendName: 'os',
       },
-      runtime: { screenIntelligence: null, localAi: null, service: null },
+      runtime: { localAi: null, service: null },
     },
     isBootstrapping: false,
     isReady: true,

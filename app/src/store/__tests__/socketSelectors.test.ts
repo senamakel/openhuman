@@ -29,7 +29,7 @@ function makeCoreState(token: string | null, userId: string | null = null): Core
         activeMode: 'os_keyring',
         backendName: 'os',
       },
-      runtime: { screenIntelligence: null, localAi: null, service: null },
+      runtime: { localAi: null, service: null },
     },
     teams: [],
     teamMembersById: {},

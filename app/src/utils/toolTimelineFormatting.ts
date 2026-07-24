@@ -35,7 +35,6 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   git_operations: 'Git operation',
   browser: 'Browsing',
   browser_open: 'Opening browser',
-  screenshot: 'Taking screenshot',
   image_info: 'Analyzing image',
   install_tool: 'Installing tool',
   lsp: 'Code intelligence',
@@ -115,7 +114,6 @@ const CLIENT_KNOWN_TOOLS = new Set<string>([
   'git_operations',
   'browser',
   'browser_open',
-  'screenshot',
   'image_info',
   'install_tool',
   'lsp',
@@ -189,7 +187,6 @@ const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   curl: 'fetch',
   browser: 'browse',
   browser_open: 'browse',
-  screenshot: 'browse',
 };
 
 /** Categorize a (possibly `subagent:`-prefixed) tool name for grouping/icons. */
@@ -544,9 +541,6 @@ function formatToolDetail(
       const host = url ? hostnameFromUrl(url) : undefined;
       return { title: host ? `Browsing ${host}` : 'Browsing' };
     }
-
-    case 'screenshot':
-      return { title: 'Taking screenshot' };
 
     case 'image_info':
       return { title: 'Analyzing image' };

@@ -30,7 +30,6 @@ import ProfileEditorPage from './panels/ProfileEditorPage';
 import ProfilesPanel from './panels/ProfilesPanel';
 import RecoveryPhrasePanel from './panels/RecoveryPhrasePanel';
 import SandboxSettingsPanel from './panels/SandboxSettingsPanel';
-import ScreenAwarenessDebugPanel from './panels/ScreenAwarenessDebugPanel';
 import SecurityPanel from './panels/SecurityPanel';
 import TeamInvitesPanel from './panels/TeamInvitesPanel';
 import TeamManagementPanel from './panels/TeamManagementPanel';
@@ -135,12 +134,6 @@ export function settingsRouteElements(): ReactNode {
       {/* The Integrations settings section was retired; the composio/OAuth grid
           lives on the Connections page. */}
       <Route path="integrations" element={<Navigate to="/connections" replace />} />
-      {/* Screen Awareness / Desktop Agent / Desktop Companion moved to the
-          Connections page (Desktop group). */}
-      <Route
-        path="screen-intelligence"
-        element={<Navigate to="/connections?tab=screen-intelligence" replace />}
-      />
       <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
       <Route path="companion" element={<Navigate to="/connections?tab=companion" replace />} />
       {/* Meeting settings moved to the Connections page (meetings tab). */}
@@ -180,10 +173,6 @@ export function settingsRouteElements(): ReactNode {
       {/* Dev Workflow panel retired — superseded by Workflows (/flows). */}
       <Route path="dev-workflow" element={<Navigate to="/flows" replace />} />
       <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
-      <Route
-        path="screen-awareness-debug"
-        element={wrapSettingsPage(<ScreenAwarenessDebugPanel />)}
-      />
       {/* Voice Debug page retired. */}
       <Route path="voice-debug" element={<SettingsRedirect to="/settings/developer-options" />} />
       {/* Local Model Debug is a chip on the Connections → LLM page. */}
@@ -214,10 +203,6 @@ export function settingsRouteElements(): ReactNode {
       {/* Old hub pages */}
       <Route path="ai" element={<Navigate to="/connections?tab=llm" replace />} />
       <Route path="agents-settings" element={<SettingsRedirect to="/settings/agents" />} />
-      <Route
-        path="features"
-        element={<Navigate to="/connections?tab=screen-intelligence" replace />}
-      />
       <Route path="crypto" element={<Navigate to="/connections?tab=wallet" replace />} />
       <Route path="notifications-hub" element={<SettingsRedirect to="/settings/notifications" />} />
       {/* Composio (API key + routing) moved to Connections → API keys. */}

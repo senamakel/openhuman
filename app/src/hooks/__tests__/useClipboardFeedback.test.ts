@@ -48,9 +48,9 @@ describe('useClipboardFeedback', () => {
     expect(result.current.status).toBe('idle');
   });
 
-  test('returns false and exposes error feedback when writing fails', async () => {
+  test('returns false and resets error feedback after the configured delay', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'));
-    const { result } = renderHook(() => useClipboardFeedback({ writeText }));
+    const { result } = renderHook(() => useClipboardFeedback({ writeText, resetAfterMs: 600 }));
 
     let copied = true;
     await act(async () => {
@@ -59,6 +59,36 @@ describe('useClipboardFeedback', () => {
 
     expect(copied).toBe(false);
     expect(result.current.status).toBe('error');
+
+    act(() => {
+      vi.advanceTimersByTime(599);
+    });
+    expect(result.current.status).toBe('error');
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.status).toBe('idle');
+  });
+
+  test('returns false when navigator.clipboard is missing and resets error after 2000ms', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    const { result } = renderHook(() => useClipboardFeedback());
+
+    let copied = true;
+    await act(async () => {
+      copied = await result.current.copy('shareable value');
+    });
+
+    expect(copied).toBe(false);
+    expect(result.current.status).toBe('error');
+    act(() => {
+      vi.advanceTimersByTime(1999);
+    });
+    expect(result.current.status).toBe('error');
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.status).toBe('idle');
   });
 
   test('replaces the reset timer after a repeated successful copy', async () => {
@@ -81,6 +111,30 @@ describe('useClipboardFeedback', () => {
 
     act(() => {
       vi.advanceTimersByTime(250);
+    });
+    expect(result.current.status).toBe('idle');
+  });
+
+  test('replaces an error reset timer when a newer copy fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'));
+    const { result } = renderHook(() => useClipboardFeedback({ writeText, resetAfterMs: 1000 }));
+
+    await act(async () => {
+      await result.current.copy('first value');
+    });
+    act(() => {
+      vi.advanceTimersByTime(750);
+    });
+    await act(async () => {
+      await result.current.copy('second value');
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(999);
+    });
+    expect(result.current.status).toBe('error');
+    act(() => {
+      vi.advanceTimersByTime(1);
     });
     expect(result.current.status).toBe('idle');
   });
@@ -122,6 +176,23 @@ describe('useClipboardFeedback', () => {
     expect(result.current.status).toBe('idle');
   });
 
+  test('manual reset clears error feedback and cancels its pending timer', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'));
+    const { result } = renderHook(() => useClipboardFeedback({ writeText, resetAfterMs: 1000 }));
+
+    await act(async () => {
+      await result.current.copy('shareable value');
+    });
+    expect(result.current.status).toBe('error');
+    expect(vi.getTimerCount()).toBe(1);
+
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.status).toBe('idle');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   test('does not update state when an in-flight copy settles after unmount', async () => {
     const pending = deferred<void>();
     const writeText = vi.fn().mockReturnValue(pending.promise);
@@ -140,6 +211,25 @@ describe('useClipboardFeedback', () => {
 
     expect(consoleError).not.toHaveBeenCalled();
     expect(result.current.status).toBe('idle');
+  });
+
+  test('clears a scheduled error reset on unmount', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result, unmount } = renderHook(() => useClipboardFeedback({ writeText }));
+
+    await act(async () => {
+      await result.current.copy('shareable value');
+    });
+    expect(result.current.status).toBe('error');
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(consoleError).not.toHaveBeenCalled();
   });
 
   test('keeps callbacks stable while honoring updated writer and reset duration options', async () => {

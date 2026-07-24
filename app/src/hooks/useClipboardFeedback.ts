@@ -35,6 +35,19 @@ export function useClipboardFeedback(
     }
   }, []);
 
+  const scheduleFeedbackReset = useCallback(
+    (operationId: number) => {
+      clearResetTimer();
+      resetTimerRef.current = setTimeout(() => {
+        if (mountedRef.current && operationId === operationIdRef.current) {
+          resetTimerRef.current = null;
+          setStatus('idle');
+        }
+      }, resetAfterMsRef.current);
+    },
+    [clearResetTimer]
+  );
+
   const reset = useCallback(() => {
     operationIdRef.current += 1;
     clearResetTimer();
@@ -55,22 +68,18 @@ export function useClipboardFeedback(
 
         if (mountedRef.current && operationId === operationIdRef.current) {
           setStatus('copied');
-          resetTimerRef.current = setTimeout(() => {
-            if (mountedRef.current && operationId === operationIdRef.current) {
-              setStatus('idle');
-            }
-            resetTimerRef.current = null;
-          }, resetAfterMsRef.current);
+          scheduleFeedbackReset(operationId);
         }
         return true;
       } catch {
         if (mountedRef.current && operationId === operationIdRef.current) {
           setStatus('error');
+          scheduleFeedbackReset(operationId);
         }
         return false;
       }
     },
-    [clearResetTimer]
+    [clearResetTimer, scheduleFeedbackReset]
   );
 
   useEffect(() => {

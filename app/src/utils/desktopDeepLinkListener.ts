@@ -161,6 +161,14 @@ const focusMainWindow = async () => {
 const AUTH_STORE_TIMEOUT_MS = 25_000;
 const AUTH_STORE_RETRIES = 2;
 const AUTH_STORE_RETRY_BACKOFF_MS = 500;
+// The suppress-reauth window must cover the full worst-case retry duration:
+// AUTH_STORE_RETRIES × AUTH_STORE_TIMEOUT_MS + (AUTH_STORE_RETRIES − 1) × backoff
+// = 2 × 25 000 + 500 = 50 500 ms. Add 5 s of headroom for RPC serialization,
+// CoreStateProvider polling jitter, and the final try-catch turnaround.
+const AUTH_STORE_SUPPRESS_REAUTH_MS =
+  AUTH_STORE_RETRIES * AUTH_STORE_TIMEOUT_MS +
+  (AUTH_STORE_RETRIES - 1) * AUTH_STORE_RETRY_BACKOFF_MS +
+  5_000;
 
 /**
  * Retry-safe wrapper around `storeSession` for transient backend timeouts.
@@ -216,7 +224,9 @@ const applySessionToken = async (sessionToken: string): Promise<void> => {
 
   // Signal CoreStateProvider to hold off clearing session during token delivery.
   window.dispatchEvent(
-    new CustomEvent('core-state:suppress-reauth', { detail: { until: Date.now() + 30_000 } })
+    new CustomEvent('core-state:suppress-reauth', {
+      detail: { until: Date.now() + AUTH_STORE_SUPPRESS_REAUTH_MS },
+    })
   );
   try {
     await storeSessionWithRetry(sessionToken);
@@ -401,7 +411,10 @@ export const authStoreFailureUserMessage = (
   mode: 'local' | 'cloud' | null
 ): string => {
   if (mode !== 'cloud') {
-    return 'Sign-in could not be completed right now. The local backend did not respond in time (even after retrying). Please check your internet connection and try again.';
+    return (
+      'Sign-in could not be completed right now. The session store did not respond in time ' +
+      '(even after retrying). Please restart OpenHuman and try again.'
+    );
   }
   switch (kind) {
     case 'auth_me_unauthorized':

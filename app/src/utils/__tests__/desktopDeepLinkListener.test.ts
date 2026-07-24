@@ -204,7 +204,7 @@ describe('desktopDeepLinkListener', () => {
     expect(storeSession).toHaveBeenCalledWith(
       'web-token',
       {},
-      { allowPendingBackendValidation: true }
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
     );
   });
 
@@ -230,7 +230,7 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(getCurrent).mockResolvedValue([url]);
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
 
     // Replay the exact same deep link — the nonce was consumed, so it fails.
     vi.mocked(storeSession).mockClear();
@@ -249,7 +249,8 @@ describe('desktopDeepLinkListener', () => {
 
     const state = getDeepLinkAuthState();
     expect(state.requiresAppDataReset).toBe(false);
-    expect(state.errorMessage).toBe('Sign-in failed. Please try again.');
+    expect(state.errorMessage).toContain('did not respond');
+    expect(state.errorMessage).toContain('restart');
   });
 
   it('injection #1: store-time /auth/me failure bounces to signin — no session applied, no /home nav', async () => {
@@ -275,14 +276,14 @@ describe('desktopDeepLinkListener', () => {
       await waitForAuthSettled();
 
       // store WAS attempted (we reached the persistence call)...
-      expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+      expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
       // ...but it FAILED, so the session-applied event was never dispatched...
       expect(sessionTokenUpdated).not.toHaveBeenCalled();
       // ...and we never navigated to /home (ProtectedRoute/PublicRoute keep signin).
       expect(window.location.hash).not.toBe('#/home');
       // Surfaced as the generic toast; processing cleared.
       const state = getDeepLinkAuthState();
-      expect(state.errorMessage).toBe('Sign-in failed. Please try again.');
+      expect(state.errorMessage).toContain('did not respond');
       expect(state.isProcessing).toBe(false);
     } finally {
       window.removeEventListener('core-state:session-token-updated', sessionTokenUpdated);
@@ -315,7 +316,7 @@ describe('desktopDeepLinkListener', () => {
     resolveReadiness({ ready: true });
     await waitForAuthSettled();
 
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
     expect(getDeepLinkAuthState().isProcessing).toBe(false);
   });
 
@@ -348,7 +349,7 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).toHaveBeenCalledTimes(1);
     expect(clearCoreRpcTokenCache).toHaveBeenCalledTimes(1);
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
   });
 
   it('does NOT bust RPC caches before storeSession in local mode', async () => {
@@ -360,7 +361,7 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).not.toHaveBeenCalled();
     expect(clearCoreRpcTokenCache).not.toHaveBeenCalled();
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
   });
 
   it('dispatches suppress-reauth before storeSession and clears it after in cloud mode', async () => {

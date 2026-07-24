@@ -75,7 +75,6 @@ export const ATTACHMENT_MAX_FILES = 4;
 export const ATTACHMENT_MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
 export const ATTACHMENT_MAX_FILE_SIZE_BYTES = 16 * 1024 * 1024; // 16 MB
 export const ATTACHMENT_MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
-export const ATTACHMENT_MAX_SIZE_BYTES = ATTACHMENT_MAX_IMAGE_SIZE_BYTES;
 // Still frames sampled from a video and forwarded as `[IMAGE:]` markers. 2 keeps
 // a clip within the 4-marker budget alongside other attachments (e.g. 1 video +
 // 2 images, or 2 videos).

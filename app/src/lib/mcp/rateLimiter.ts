@@ -207,9 +207,6 @@ export function isHeavyTool(toolName: string): boolean {
   return API_WRITE_TOOLS.has(toolName);
 }
 
-/** @deprecated Use isStateOnlyTool instead */
-export const isReadOnlyTool = isStateOnlyTool;
-
 /**
  * Reset the per-request call counter. Call at the start of each new
  * MCP request (agent turn) to allow a fresh budget of tool calls.

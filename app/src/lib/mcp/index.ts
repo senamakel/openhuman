@@ -13,7 +13,6 @@ export {
   resetRequestCallCount,
   classifyTool,
   isStateOnlyTool,
-  isReadOnlyTool,
   isHeavyTool,
   getRateLimitStatus,
   RATE_LIMIT_CONFIG,

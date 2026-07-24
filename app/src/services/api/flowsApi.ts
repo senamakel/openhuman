@@ -1044,5 +1044,3 @@ export const flowsApi = {
   validateFlow,
   listFlowConnections,
 };
-
-export default flowsApi;

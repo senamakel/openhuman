@@ -129,7 +129,7 @@ impl MemoryProfile {
     async fn run_agent(
         &self,
         config: &Config,
-        prompt_text: &str,
+        user_message: &str,
         has_external_content: bool,
     ) -> Result<usize, String> {
         use crate::openhuman::agent::Agent;
@@ -190,28 +190,6 @@ impl MemoryProfile {
 
         agent.set_event_context(tick_id.clone(), "subconscious");
 
-        let mode_guidance = match self.mode {
-            SubconsciousMode::Aggressive | SubconsciousMode::EventDriven => {
-                "\n\nYou may delegate deeper work with `spawn_subagent` (e.g. research \
-                 or multi-step execution) when you spot something genuinely actionable."
-            }
-            _ => "",
-        };
-
-        let user_message = format!(
-            "{prompt_text}\
-             ## Your job\n\n\
-             The diff above is how the user's world changed since the last check; the prepared \
-             context grounds it. Decide what (if anything) deserves action:\n\
-             - Record or update actionable follow-ups on the user's to-do board with `update_task` \
-               (pass `threadId: \"user-tasks\"`).\n\
-             - Evolve the user's long-term goals with `goals_add` / `goals_edit` when the world \
-               shifts what matters to them.\n\
-             - Surface anything time-sensitive or important with `notify_user`.\n\n\
-             If nothing meaningful changed, do nothing — staying silent is the right call most \
-             ticks. Do not invent busywork.{mode_guidance}",
-        );
-
         debug!(tick_id = %tick_id, "[subconscious:memory] spawning decision agent");
         let source = tick_origin_source(has_external_content);
         let origin = crate::openhuman::agent::turn_origin::AgentTurnOrigin::TrustedAutomation {
@@ -220,7 +198,7 @@ impl MemoryProfile {
         };
         let response = crate::openhuman::agent::turn_origin::with_origin(
             origin,
-            agent.run_single(&user_message),
+            agent.run_single(user_message),
         )
         .await
         .map_err(|e| {
@@ -234,6 +212,30 @@ impl MemoryProfile {
             response_chars
         );
         Ok(response_chars)
+    }
+
+    fn decision_prompt(&self, prompt_text: &str) -> String {
+        let mode_guidance = match self.mode {
+            SubconsciousMode::Aggressive | SubconsciousMode::EventDriven => {
+                "\n\nYou may delegate deeper work with `spawn_subagent` (e.g. research \
+                 or multi-step execution) when you spot something genuinely actionable."
+            }
+            _ => "",
+        };
+
+        format!(
+            "{prompt_text}\
+             ## Your job\n\n\
+             The diff above is how the user's world changed since the last check; the prepared \
+             context grounds it. Decide what (if anything) deserves action:\n\
+             - Record or update actionable follow-ups on the user's to-do board with `update_task` \
+               (pass `threadId: \"user-tasks\"`).\n\
+             - Evolve the user's long-term goals with `goals_add` / `goals_edit` when the world \
+               shifts what matters to them.\n\
+             - Surface anything time-sensitive or important with `notify_user`.\n\n\
+             If nothing meaningful changed, do nothing — staying silent is the right call most \
+             ticks. Do not invent busywork.{mode_guidance}",
+        )
     }
 }
 
@@ -327,9 +329,38 @@ impl SubconsciousProfile for MemoryProfile {
             agent_prompt.push_str("\n\n");
         }
 
-        let response_chars = self
-            .run_agent(config, &agent_prompt, obs.has_external_content)
-            .await?;
+        let decision_prompt = self.decision_prompt(&agent_prompt);
+        let response_chars = if config.subconscious.engine.is_local() {
+            debug!("[subconscious:memory] reflection engine=local");
+            self.run_agent(config, &decision_prompt, obs.has_external_content)
+                .await?
+        } else {
+            debug!("[subconscious:memory] reflection engine=hosted");
+            match super::super::hosted::reflect(config, &decision_prompt, obs.has_external_content)
+                .await
+            {
+                Ok(response_chars) => response_chars,
+                Err(error) if error.safe_to_fallback() => {
+                    warn!(
+                        phase = ?error.phase(),
+                        "[subconscious:memory] hosted reflection unavailable before submission; \
+                         falling back locally"
+                    );
+                    self.run_agent(config, &decision_prompt, obs.has_external_content)
+                        .await?
+                }
+                Err(error) => {
+                    warn!(
+                        phase = ?error.phase(),
+                        "[subconscious:memory] hosted reflection failed after submission; \
+                         local fallback suppressed"
+                    );
+                    return Err(format!(
+                        "hosted Medulla reflection failed after submission: {error}"
+                    ));
+                }
+            }
+        };
         Ok(Reflection::Acted { response_chars })
     }
 

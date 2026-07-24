@@ -263,21 +263,23 @@ impl SubconsciousInstance {
             self.profile.id(),
             subconscious_provider_signature(&config)
         );
-        if self
-            .state
-            .lock()
-            .await
-            .should_skip_for_rate_cap_halt(&provider_signature, &prefix)
-        {
-            return Ok(self.quiet_result(tick_at, started));
-        }
-        if let Some(reason) = subconscious_provider_unavailable_reason(&config) {
-            info!("{prefix} provider unavailable, skipping tick: {reason}");
-            let mut state = self.state.lock().await;
-            state.provider_unavailable_reason = Some(reason);
-            state.consecutive_failures += 1;
-            state.total_ticks += 1;
-            return Ok(self.quiet_result(tick_at, started));
+        if config.subconscious.engine.is_local() {
+            if self
+                .state
+                .lock()
+                .await
+                .should_skip_for_rate_cap_halt(&provider_signature, &prefix)
+            {
+                return Ok(self.quiet_result(tick_at, started));
+            }
+            if let Some(reason) = subconscious_provider_unavailable_reason(&config) {
+                info!("{prefix} provider unavailable, skipping tick: {reason}");
+                let mut state = self.state.lock().await;
+                state.provider_unavailable_reason = Some(reason);
+                state.consecutive_failures += 1;
+                state.total_ticks += 1;
+                return Ok(self.quiet_result(tick_at, started));
+            }
         }
         {
             let mut state = self.state.lock().await;

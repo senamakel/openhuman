@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod factory;
 pub mod heartbeat;
+mod hosted;
 pub mod instance;
 pub mod profile;
 pub mod profiles;

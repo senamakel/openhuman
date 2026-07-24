@@ -39,14 +39,14 @@ pub struct MedullaRunError {
 }
 
 impl MedullaRunError {
-    fn preflight(message: impl Into<String>) -> Self {
+    pub(crate) fn preflight(message: impl Into<String>) -> Self {
         Self {
             phase: MedullaFailurePhase::Preflight,
             message: message.into(),
         }
     }
 
-    fn submitted(message: impl Into<String>) -> Self {
+    pub(crate) fn submitted(message: impl Into<String>) -> Self {
         Self {
             phase: MedullaFailurePhase::Submitted,
             message: message.into(),

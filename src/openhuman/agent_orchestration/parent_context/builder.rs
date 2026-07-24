@@ -95,12 +95,12 @@ pub(crate) async fn build_root_parent(
             definition
                 .subagents
                 .iter()
-                .filter_map(|entry| match entry {
+                .map(|entry| match entry {
                     crate::openhuman::agent::harness::definition::SubagentEntry::AgentId(id) => {
-                        Some(id.clone())
+                        id.clone()
                     }
                     crate::openhuman::agent::harness::definition::SubagentEntry::Skills(_) => {
-                        Some("integrations_agent".to_string())
+                        "integrations_agent".to_string()
                     }
                 })
                 .collect()

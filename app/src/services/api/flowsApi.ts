@@ -100,7 +100,7 @@ export interface FlowRun {
  * {@link getFlowRun} afterwards (thread_id === run id) if the caller needs the
  * up-to-date persisted status.
  */
-export interface FlowResumeResult {
+interface FlowResumeResult {
   output: unknown;
   pending_approvals: string[];
   thread_id: string;
@@ -163,14 +163,14 @@ export interface FlowValidationErrorDetail {
 }
 
 /** Where a {@link FlowDraft} originated (`src/openhuman/flows/types.rs::DraftOrigin`). */
-export type DraftOrigin = 'chat' | 'canvas' | 'import';
+type DraftOrigin = 'chat' | 'canvas' | 'import';
 
 /**
  * A core-managed, durable workflow draft (`src/openhuman/flows/types.rs::FlowDraft`)
  * — the shared working copy the agent tools and the canvas both read/write by
  * id across turns and reloads. Never live; promote runs the normal save gates.
  */
-export interface FlowDraft {
+interface FlowDraft {
   id: string;
   /** The saved flow this draft edits, if any (promote → update vs create). */
   flow_id?: string;
@@ -187,7 +187,7 @@ export interface FlowDraft {
  * JSON; `n8n` is an n8n workflow export (mapped best-effort host-side); `auto`
  * (the default) detects the shape.
  */
-export type FlowImportFormat = 'native' | 'n8n' | 'auto';
+type FlowImportFormat = 'native' | 'n8n' | 'auto';
 
 /**
  * Result of `openhuman.flows_import` (`src/openhuman/flows/types.rs::FlowImport`).
@@ -196,7 +196,7 @@ export type FlowImportFormat = 'native' | 'n8n' | 'auto';
  * notes (unmapped n8n node types, untranslated expressions, a synthesized or
  * demoted trigger). Import NEVER persists — the user Saves via the normal gate.
  */
-export interface FlowImport {
+interface FlowImport {
   graph: unknown;
   warnings: string[];
 }
@@ -217,7 +217,7 @@ export interface FlowConnection {
 }
 
 /** Optional fields for {@link updateFlow}. Omitted fields are left untouched. */
-export interface FlowUpdate {
+interface FlowUpdate {
   name?: string;
   graph?: unknown;
   requireApproval?: boolean;
@@ -232,7 +232,7 @@ export interface FlowUpdate {
 }
 
 /** A revision snapshot (`src/openhuman/flows/types.rs::FlowRevision`). */
-export interface FlowRevision {
+interface FlowRevision {
   id: string;
   flow_id: string;
   graph: unknown;
@@ -246,7 +246,7 @@ export interface FlowRevision {
  * conflict (encoded in the RPC error message as JSON). Detect it by parsing a
  * caught update error — see {@link parseFlowVersionConflict}.
  */
-export interface FlowVersionConflict {
+interface FlowVersionConflict {
   code: 'version_conflict';
   message: string;
   current: Flow;
@@ -256,6 +256,8 @@ export interface FlowVersionConflict {
  * If `err` is a `flows_update` version-conflict error, returns the structured
  * conflict (with the current server flow) so the UI can offer reload/diff;
  * otherwise `null`.
+ *
+ * @knipignore Documented flow history extension contract.
  */
 export function parseFlowVersionConflict(err: unknown): FlowVersionConflict | null {
   const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
@@ -574,7 +576,11 @@ export async function updateFlow(id: string, update: FlowUpdate): Promise<Flow> 
   return flow;
 }
 
-/** List a flow's revision history via `openhuman.flows_get_history` (newest first). */
+/**
+ * List a flow's revision history via `openhuman.flows_get_history` (newest first).
+ *
+ * @knipignore Documented flow history extension contract.
+ */
 export async function getFlowHistory(id: string, limit?: number): Promise<FlowRevision[]> {
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_get_history',
@@ -588,6 +594,8 @@ export async function getFlowHistory(id: string, limit?: number): Promise<FlowRe
  * Roll a flow back to a prior revision via `openhuman.flows_rollback` (restores
  * that revision's graph through the normal update path — itself snapshotted, so
  * a rollback is undoable). Honours optimistic concurrency via `expectedVersion`.
+ *
+ * @knipignore Documented flow history extension contract.
  */
 export async function rollbackFlow(
   id: string,
@@ -667,7 +675,7 @@ export async function importFlow(
 // ── Catalog RPCs for the UI (Phase 5, item 16) ───────────────────────────────
 
 /** One search hit from `openhuman.flows_search_tool_catalog` (secret-free). */
-export interface ToolCatalogEntry {
+interface ToolCatalogEntry {
   slug: string;
   toolkit: string;
   description?: string | null;
@@ -678,7 +686,11 @@ export interface ToolCatalogEntry {
   featured?: boolean;
 }
 
-/** Search the live Composio tool catalog via `openhuman.flows_search_tool_catalog`. */
+/**
+ * Search the live Composio tool catalog via `openhuman.flows_search_tool_catalog`.
+ *
+ * @knipignore Documented tool catalog extension contract.
+ */
 export async function searchToolCatalog(
   query: string,
   opts?: { toolkit?: string; limit?: number }
@@ -694,7 +706,7 @@ export async function searchToolCatalog(
 }
 
 /** A toolkit a graph needs, with its connected state (Phase 5, item 18). */
-export interface RequiredConnection {
+interface RequiredConnection {
   toolkit: string;
   status: 'connected' | 'missing';
 }
@@ -703,6 +715,8 @@ export interface RequiredConnection {
  * Compute which Composio toolkits a candidate graph needs and whether each is
  * connected, via `openhuman.flows_required_connections` — the data behind the
  * "Connect <toolkit>" CTAs. Also surfaced on the workflow_proposal payload.
+ *
+ * @knipignore Documented tool catalog extension contract.
  */
 export async function requiredConnections(graph: unknown): Promise<RequiredConnection[]> {
   const response = await callCoreRpc<unknown>({
@@ -713,7 +727,11 @@ export async function requiredConnections(graph: unknown): Promise<RequiredConne
   return result.required_connections ?? [];
 }
 
-/** Fetch one action's full contract via `openhuman.flows_get_tool_contract`. */
+/**
+ * Fetch one action's full contract via `openhuman.flows_get_tool_contract`.
+ *
+ * @knipignore Documented tool catalog extension contract.
+ */
 export async function getToolContract(slug: string): Promise<unknown> {
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_get_tool_contract',
@@ -726,7 +744,11 @@ export async function getToolContract(slug: string): Promise<unknown> {
 
 // ── Core-managed drafts (F5) ─────────────────────────────────────────────────
 
-/** Create a durable draft via `openhuman.flows_draft_create`. */
+/**
+ * Create a durable draft via `openhuman.flows_draft_create`.
+ *
+ * @knipignore Documented durable draft extension contract.
+ */
 export async function createDraft(params: {
   name: string;
   graph: unknown;
@@ -746,7 +768,11 @@ export async function createDraft(params: {
   return unwrapCliEnvelope<FlowDraft>(response);
 }
 
-/** Fetch a draft by id via `openhuman.flows_draft_get`. */
+/**
+ * Fetch a draft by id via `openhuman.flows_draft_get`.
+ *
+ * @knipignore Documented durable draft extension contract.
+ */
 export async function getDraft(id: string): Promise<FlowDraft> {
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_draft_get',
@@ -755,7 +781,11 @@ export async function getDraft(id: string): Promise<FlowDraft> {
   return unwrapCliEnvelope<FlowDraft>(response);
 }
 
-/** Patch a draft's name/graph/flow_id via `openhuman.flows_draft_update`. */
+/**
+ * Patch a draft's name/graph/flow_id via `openhuman.flows_draft_update`.
+ *
+ * @knipignore Documented durable draft extension contract.
+ */
 export async function updateDraft(
   id: string,
   patch: { name?: string; graph?: unknown; flowId?: string }
@@ -767,14 +797,22 @@ export async function updateDraft(
   return unwrapCliEnvelope<FlowDraft>(response);
 }
 
-/** List all drafts (newest-updated first) via `openhuman.flows_draft_list`. */
+/**
+ * List all drafts (newest-updated first) via `openhuman.flows_draft_list`.
+ *
+ * @knipignore Documented durable draft extension contract.
+ */
 export async function listDrafts(): Promise<FlowDraft[]> {
   const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_draft_list', params: {} });
   const result = unwrapCliEnvelope<{ drafts: FlowDraft[] }>(response);
   return result.drafts ?? [];
 }
 
-/** Delete a draft via `openhuman.flows_draft_delete`. */
+/**
+ * Delete a draft via `openhuman.flows_draft_delete`.
+ *
+ * @knipignore Documented durable draft extension contract.
+ */
 export async function deleteDraft(id: string): Promise<boolean> {
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_draft_delete',
@@ -787,6 +825,8 @@ export async function deleteDraft(id: string): Promise<boolean> {
 /**
  * Promote a draft into a saved flow via `openhuman.flows_draft_promote` (runs
  * the normal create/update gates, then removes the draft). Returns the Flow.
+ *
+ * @knipignore Documented durable draft extension contract.
  */
 export async function promoteDraft(id: string, requireApproval?: boolean): Promise<Flow> {
   log('promoteDraft: request id=%s', id);
@@ -909,7 +949,7 @@ const FLOW_BUILD_TIMEOUT_MS = 610_000;
  * lockstep with `parseWorkflowProposal` in `ChatRuntimeProvider` (the streamed
  * path); returns null if the payload isn't a valid proposal.
  */
-export function mapWorkflowProposal(payload: unknown): WorkflowProposal | null {
+function mapWorkflowProposal(payload: unknown): WorkflowProposal | null {
   if (!payload || typeof payload !== 'object') return null;
   const obj = payload as Record<string, unknown>;
   if (obj.type !== 'workflow_proposal') return null;
@@ -1023,24 +1063,3 @@ export async function markSuggestionBuilt(id: string): Promise<boolean> {
   log('markSuggestionBuilt: response built=%s', result.built);
   return result.built;
 }
-
-export const flowsApi = {
-  createFlow,
-  importFlow,
-  discoverWorkflows,
-  listSuggestions,
-  dismissSuggestion,
-  markSuggestionBuilt,
-  resumeFlow,
-  listFlowRuns,
-  getFlowRun,
-  getFlow,
-  listFlows,
-  setFlowEnabled,
-  runFlow,
-  updateFlow,
-  deleteFlow,
-  duplicateFlow,
-  validateFlow,
-  listFlowConnections,
-};

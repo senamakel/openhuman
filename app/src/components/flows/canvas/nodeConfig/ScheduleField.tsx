@@ -28,7 +28,7 @@ import {
 import { useT } from '../../../../lib/i18n/I18nContext';
 import { Field, INPUT_CLASS, MONO_CLASS } from './nodeConfigFields';
 
-export interface ScheduleFieldProps {
+interface ScheduleFieldProps {
   /** The cron string stored on `config.schedule`. */
   value: string;
   onChange: (value: string) => void;

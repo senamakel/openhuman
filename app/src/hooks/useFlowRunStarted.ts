@@ -42,7 +42,7 @@ const EVENT_UNDERSCORE = 'flow_run_started';
 const DEDUP_CACHE_SIZE = 50;
 
 /** Payload of a `flow:run_started` socket event (`DomainEvent::FlowRunStarted`). */
-export interface FlowRunStartedEvent {
+interface FlowRunStartedEvent {
   flow_id: string;
   run_id: string;
 }

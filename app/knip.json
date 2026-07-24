@@ -10,6 +10,7 @@
     "test/playwright/specs/**/*.spec.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}", "*.config.{js,ts}"],
+  "tags": ["-knipignore"],
   "ignoreDependencies": [
     "@tauri-apps/cli",
     "@testing-library/dom",

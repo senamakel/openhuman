@@ -29,10 +29,10 @@ const EVENT_COLON = 'flow:changed';
 const EVENT_UNDERSCORE = 'flow_changed';
 
 /** What happened to the flow. */
-export type FlowChangeKind = 'created' | 'updated' | 'deleted' | 'enabled_changed' | (string & {});
+type FlowChangeKind = 'created' | 'updated' | 'deleted' | 'enabled_changed' | (string & {});
 
 /** Payload of a `flow:changed` socket event (`DomainEvent::FlowChanged`). */
-export interface FlowChangedEvent {
+interface FlowChangedEvent {
   flow_id: string;
   kind: FlowChangeKind;
   /** Coarse hint: `agent` | `user` | `system`. */

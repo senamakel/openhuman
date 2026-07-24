@@ -183,7 +183,7 @@ export function describeCron(expr: string): string {
  * is also accepted — the Rust side's custom `Deserialize` treats it as
  * shorthand for `Cron{expr}`.
  */
-export type ScheduleValue =
+type ScheduleValue =
   | string
   | { kind?: string; expr?: string; tz?: string; at?: string; every_ms?: number }
   | null

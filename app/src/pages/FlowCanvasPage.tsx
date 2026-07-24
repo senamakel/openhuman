@@ -60,7 +60,7 @@ import type { ToastNotification } from '../types/intelligence';
  * agent" action (Phase 5c). Rides in `location.state` (ephemeral). The graph is
  * supplied by the editor itself, so only the run context travels here.
  */
-export interface CopilotRepairSeed {
+interface CopilotRepairSeed {
   runId: string;
   error?: string | null;
   failingNodeIds?: string[];
@@ -72,7 +72,7 @@ export interface CopilotRepairSeed {
  * open already building the described workflow. Rides in `location.state`
  * (ephemeral — lost on hard reload, which just leaves a blank flow to edit).
  */
-export interface CopilotBuildSeed {
+interface CopilotBuildSeed {
   /** The user's free-text workflow description from the prompt bar. */
   description: string;
   /**
@@ -105,7 +105,7 @@ export function asCopilotBuildSeed(state: unknown): CopilotBuildSeed | null {
  * pressing Send themselves. Rides in `location.state` (ephemeral — lost on
  * hard reload, which just leaves a blank flow with an empty copilot input).
  */
-export interface CopilotPrefillSeed {
+interface CopilotPrefillSeed {
   /** The text to populate the copilot's composer with, unsent. */
   text: string;
   /**
@@ -135,7 +135,7 @@ export function asCopilotPrefillSeed(state: unknown): CopilotPrefillSeed | null 
 }
 
 /** Narrow an opaque `location.state` to a {@link CopilotRepairSeed}. */
-export function asCopilotRepairSeed(state: unknown): CopilotRepairSeed | null {
+function asCopilotRepairSeed(state: unknown): CopilotRepairSeed | null {
   if (!state || typeof state !== 'object') return null;
   const record = state as Record<string, unknown>;
   const seed = record.copilotRepair;

@@ -37,7 +37,7 @@ function isTerminal(run: FlowRun | null): boolean {
   return run !== null && TERMINAL.has(run.status);
 }
 
-export interface UseFlowRunPollerResult {
+interface UseFlowRunPollerResult {
   run: FlowRun | null;
   loading: boolean;
   error: string | null;

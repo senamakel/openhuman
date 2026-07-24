@@ -300,6 +300,8 @@ describe('Create Bounty form', () => {
       titleInput = document.querySelector('input[placeholder="Bounty title"]') as HTMLElement;
       expect(titleInput).not.toBeNull();
     });
+    expect(titleInput).toHaveAttribute('id', 'create-bounty-title');
+    expect(screen.getByLabelText('Title *')).toBe(titleInput);
 
     // Submit with empty form — should show validation error (title field is empty)
     const submitBtn = document.querySelector('button[type="submit"]') as HTMLElement;
@@ -401,6 +403,7 @@ describe('Submit Work', () => {
     await waitFor(() => {
       expect(document.querySelector('input[placeholder="https://github.com/…"]')).not.toBeNull();
     });
+    expect(screen.getByLabelText('URL *')).toHaveAttribute('id', 'submit-work-url');
 
     // Click the submit button (type=submit) without filling in URL
     const submitBtn = document.querySelector('button[type="submit"]') as HTMLElement;
@@ -476,7 +479,9 @@ describe('Comment flow', () => {
       expect(screen.getByPlaceholderText(/your comment/i)).toBeInTheDocument();
     });
 
-    await user.type(screen.getByPlaceholderText(/your comment/i), 'Great bounty!');
+    const comment = screen.getByLabelText('Comment *');
+    expect(comment).toHaveAttribute('id', 'add-comment-body');
+    await user.type(comment, 'Great bounty!');
     await user.click(screen.getByText('Post Comment'));
 
     await waitFor(() => {

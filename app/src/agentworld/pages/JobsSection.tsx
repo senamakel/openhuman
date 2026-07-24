@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 import { ModalShell } from '../../components/ui/ModalShell';
 import {
   type GqlJobPosting,
@@ -27,6 +28,8 @@ import {
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import { apiClient } from '../AgentWorldShell';
+import FormActions from '../components/FormActions';
+import FormField from '../components/FormField';
 import StatusBlock from '../components/StatusBlock';
 import { useMyAgentId } from '../hooks/useMyAgentId';
 import { explorerTxUrl } from '../hooks/useX402Buy';
@@ -221,21 +224,16 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           void handleSubmit(e);
         }}
         className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">Title *</label>
-          <input
+        <FormField id="post-job-title" label="Title *" required>
+          <Input
             type="text"
-            required
+            inputSize="sm"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. Build a Solana integration"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Description
-          </label>
+        </FormField>
+        <FormField id="post-job-description" label="Description">
           <textarea
             rows={3}
             value={description}
@@ -243,72 +241,66 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="Describe the work, requirements, and deliverables"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">Category</label>
-          <input
+        </FormField>
+        <FormField id="post-job-category" label="Category">
+          <Input
             type="text"
+            inputSize="sm"
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. development, design, research"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">Skills</label>
-          <input
+        </FormField>
+        <FormField id="post-job-skills" label="Skills">
+          <Input
             type="text"
+            inputSize="sm"
             value={skillsCsv}
             onChange={e => setSkillsCsv(e.target.value)}
-            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. React, TypeScript"
           />
-        </div>
+        </FormField>
         <div className="flex gap-2">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-content-secondary">
-              Budget Amount *
-            </label>
-            <input
+          <FormField
+            id="post-job-budget-amount"
+            label="Budget Amount *"
+            required
+            className="flex-1">
+            <Input
               type="text"
-              required
+              inputSize="sm"
               value={budgetAmount}
               onChange={e => setBudgetAmount(e.target.value)}
-              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder="500"
             />
-          </div>
-          <div className="w-28">
-            <label className="mb-1 block text-xs font-medium text-content-secondary">Asset</label>
-            <input
+          </FormField>
+          <FormField id="post-job-budget-asset" label="Asset" className="w-28">
+            <Input
               type="text"
+              inputSize="sm"
               value={budgetAsset}
               onChange={e => setBudgetAsset(e.target.value)}
-              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder="USDC"
             />
-          </div>
+          </FormField>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Proposal Deadline
-          </label>
-          <input
+        <FormField id="post-job-proposal-deadline" label="Proposal Deadline">
+          <Input
             type="date"
+            inputSize="sm"
             value={proposalDeadline}
             onChange={e => setProposalDeadline(e.target.value)}
-            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
           />
-        </div>
+        </FormField>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
+        <FormActions className="pt-1">
           <Button type="button" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
             {submitting ? 'Posting…' : 'Post Job'}
           </Button>
-        </div>
+        </FormActions>
       </form>
     </ModalShell>
   );
@@ -391,10 +383,9 @@ function ApplyModal({
             void handleSubmit(e);
           }}
           className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-content-secondary">
-              {t('agentworld.jobs.applyModal.coverLetterLabel')}
-            </label>
+          <FormField
+            id="apply-cover-letter"
+            label={t('agentworld.jobs.applyModal.coverLetterLabel')}>
             <textarea
               rows={4}
               value={coverLetter}
@@ -402,37 +393,33 @@ function ApplyModal({
               className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.coverLetterPlaceholder')}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-content-secondary">
-              {t('agentworld.jobs.applyModal.bidAmountLabel')}
-            </label>
-            <input
+          </FormField>
+          <FormField id="apply-bid-amount" label={t('agentworld.jobs.applyModal.bidAmountLabel')}>
+            <Input
               type="text"
+              inputSize="sm"
               value={bidAmount}
               onChange={e => setBidAmount(e.target.value)}
-              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.bidAmountPlaceholder')}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-content-secondary">
-              {t('agentworld.jobs.applyModal.deliveryLabel')}
-            </label>
-            <input
+          </FormField>
+          <FormField
+            id="apply-estimated-delivery"
+            label={t('agentworld.jobs.applyModal.deliveryLabel')}>
+            <Input
               type="text"
+              inputSize="sm"
               value={estimatedDelivery}
               onChange={e => setEstimatedDelivery(e.target.value)}
-              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.deliveryPlaceholder')}
             />
-          </div>
+          </FormField>
           {error && (
             <p role="alert" className="text-xs text-red-600 dark:text-red-400">
               {error}
             </p>
           )}
-          <div className="flex justify-end gap-2 pt-1">
+          <FormActions className="pt-1">
             <Button type="button" onClick={onClose} disabled={submitting}>
               {t('agentworld.jobs.applyModal.cancel')}
             </Button>
@@ -441,7 +428,7 @@ function ApplyModal({
                 ? t('agentworld.jobs.applyModal.submitting')
                 : t('agentworld.jobs.applyModal.submit')}
             </Button>
-          </div>
+          </FormActions>
         </form>
       )}
     </ModalShell>
@@ -490,26 +477,23 @@ function DisputeModal({
           void handleSubmit(e);
         }}
         className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">Reason *</label>
+        <FormField id="open-dispute-reason" label="Reason *" required error={error}>
           <textarea
             rows={4}
-            required
             value={reason}
             onChange={e => setReason(e.target.value)}
             className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="Describe the issue that requires dispute resolution"
           />
-        </div>
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
+        </FormField>
+        <FormActions className="pt-1">
           <Button type="button" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
             {submitting ? 'Opening…' : 'Open Dispute'}
           </Button>
-        </div>
+        </FormActions>
       </form>
     </ModalShell>
   );

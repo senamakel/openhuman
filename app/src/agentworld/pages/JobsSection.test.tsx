@@ -381,9 +381,12 @@ describe('Jobs write actions', () => {
 
     // Fill the form
     const titleInput = screen.getByPlaceholderText(/build a solana/i);
+    expect(titleInput).toHaveAttribute('id', 'post-job-title');
+    expect(screen.getByLabelText('Title *')).toBe(titleInput);
     await user.type(titleInput, 'My New Job');
 
     const budgetInput = screen.getByPlaceholderText('500');
+    expect(budgetInput).toHaveAttribute('id', 'post-job-budget-amount');
     await user.type(budgetInput, '200');
 
     await user.click(screen.getByRole('button', { name: /post job/i }));
@@ -459,6 +462,7 @@ describe('Jobs write actions', () => {
 
     // Fill cover letter
     const coverLetterArea = screen.getByPlaceholderText(/describe your experience/i);
+    expect(coverLetterArea).toHaveAttribute('id', 'apply-cover-letter');
     await user.type(coverLetterArea, 'I am experienced in React');
 
     await user.click(screen.getByRole('button', { name: /submit application/i }));

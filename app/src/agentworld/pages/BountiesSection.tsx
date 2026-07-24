@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ToastContainer } from '../../components/intelligence/Toast';
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 import { ModalShell } from '../../components/ui/ModalShell';
 import {
   type Bounty,
@@ -30,6 +31,8 @@ import {
 import type { ToastNotification } from '../../types/intelligence';
 import { apiClient } from '../AgentWorldShell';
 import { decimalsForAsset, resolveAssetSymbol } from '../assets';
+import FormActions from '../components/FormActions';
+import FormField from '../components/FormField';
 import StatusBlock from '../components/StatusBlock';
 import X402ConfirmDialog, { formatUnits } from '../components/X402ConfirmDialog';
 import { useMyAgentId } from '../hooks/useMyAgentId';
@@ -543,20 +546,16 @@ function CreateBountyModal({
           void handleSubmit(e);
         }}
         className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">Title *</label>
-          <input
+        <FormField id="create-bounty-title" label="Title *">
+          <Input
             type="text"
+            inputSize="sm"
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Bounty title"
-            className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Description *
-          </label>
+        </FormField>
+        <FormField id="create-bounty-description" label="Description *">
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
@@ -564,68 +563,60 @@ function CreateBountyModal({
             rows={4}
             className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
+        </FormField>
         <div className="flex gap-2">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-content-secondary">
-              Amount *
-            </label>
-            <input
+          <FormField id="create-bounty-amount" label="Amount *" className="flex-1">
+            <Input
               type="number"
+              inputSize="sm"
               min="0"
               step="any"
               value={amount}
               onChange={e => setAmount(e.target.value)}
               placeholder="5"
-              className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
             />
-          </div>
-          <div className="w-28">
-            <label className="mb-1 block text-xs font-medium text-content-secondary">Asset</label>
-            <input
+          </FormField>
+          <FormField id="create-bounty-asset" label="Asset" className="w-28">
+            <Input
               type="text"
+              inputSize="sm"
               value={asset}
               onChange={e => setAsset(e.target.value)}
               placeholder="USDC"
-              className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
             />
-          </div>
+          </FormField>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Deadline (optional)
-          </label>
-          <input
+        <FormField id="create-bounty-deadline" label="Deadline (optional)">
+          <Input
             type="date"
+            inputSize="sm"
             value={deadline}
             min={minDeadline}
             onChange={e => setDeadline(e.target.value)}
-            className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Duration (days, alternative to deadline)
-          </label>
-          <input
+        </FormField>
+        <FormField
+          id="create-bounty-duration-days"
+          label="Duration (days, alternative to deadline)">
+          <Input
             type="number"
+            inputSize="sm"
             min="1"
             step="1"
             value={durationDays}
             onChange={e => setDurationDays(e.target.value)}
             placeholder="14"
-            className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
+        </FormField>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
+        <FormActions className="pt-1">
           <Button type="button" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
             {submitting ? 'Creating…' : 'Create Bounty'}
           </Button>
-        </div>
+        </FormActions>
       </form>
     </ModalShell>
   );
@@ -678,32 +669,25 @@ function SubmitWorkModal({
           void handleSubmit(e);
         }}
         className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">URL *</label>
-          <input
+        <FormField id="submit-work-url" label="URL *">
+          <Input
             type="text"
+            inputSize="sm"
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="https://github.com/…"
-            className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Title (optional)
-          </label>
-          <input
+        </FormField>
+        <FormField id="submit-work-title" label="Title (optional)">
+          <Input
             type="text"
+            inputSize="sm"
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="My submission"
-            className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">
-            Note (optional)
-          </label>
+        </FormField>
+        <FormField id="submit-work-note" label="Note (optional)">
           <textarea
             value={note}
             onChange={e => setNote(e.target.value)}
@@ -711,16 +695,16 @@ function SubmitWorkModal({
             rows={3}
             className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
+        </FormField>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
+        <FormActions className="pt-1">
           <Button type="button" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
             {submitting ? 'Submitting…' : 'Submit Work'}
           </Button>
-        </div>
+        </FormActions>
       </form>
     </ModalShell>
   );
@@ -766,26 +750,23 @@ function CommentModal({
           void handleSubmit(e);
         }}
         className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-content-secondary">Comment *</label>
+        <FormField id="add-comment-body" label="Comment *" required error={error}>
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
             placeholder="Your comment…"
-            required
             rows={4}
             className="w-full rounded border border-line-strong bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600"
           />
-        </div>
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
+        </FormField>
+        <FormActions className="pt-1">
           <Button type="button" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
             {submitting ? 'Posting…' : 'Post Comment'}
           </Button>
-        </div>
+        </FormActions>
       </form>
     </ModalShell>
   );

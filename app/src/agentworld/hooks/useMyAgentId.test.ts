@@ -3,14 +3,34 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { useMyAgentId } from './useMyAgentId';
 
-const { debugLog, fetchWalletStatus } = vi.hoisted(() => ({
+const { debugLog, fetchWalletStatus, setState } = vi.hoisted(() => ({
   debugLog: vi.fn(),
   fetchWalletStatus: vi.fn(),
+  setState: vi.fn(),
 }));
 
 vi.mock('debug', () => ({ default: vi.fn(() => debugLog) }));
 
 vi.mock('../../services/walletApi', () => ({ fetchWalletStatus }));
+
+vi.mock('react', async importOriginal => {
+  const react = await importOriginal<typeof import('react')>();
+
+  return {
+    ...react,
+    useState: ((initialState: unknown) => {
+      const [state, updateState] = react.useState(initialState);
+
+      return [
+        state,
+        (nextState: unknown) => {
+          setState(nextState);
+          updateState(nextState);
+        },
+      ];
+    }) as typeof react.useState,
+  };
+});
 
 function walletStatus(accounts: Array<{ chain: string; address: string }>) {
   return { accounts };
@@ -30,6 +50,7 @@ describe('useMyAgentId', () => {
   beforeEach(() => {
     debugLog.mockReset();
     fetchWalletStatus.mockReset();
+    setState.mockReset();
   });
 
   test('starts loading, fetches once, and resolves a Solana account', async () => {
@@ -93,11 +114,11 @@ describe('useMyAgentId', () => {
     expect(debugLog.mock.calls.flat().join(' ')).not.toContain('private rejection value');
   });
 
-  test('ignores a stale completion after unmount', async () => {
+  test('does not update state when resolution becomes stale after unmount', async () => {
     const request = deferred<ReturnType<typeof walletStatus>>();
     fetchWalletStatus.mockReturnValue(request.promise);
 
-    const { result, unmount } = renderHook(() => useMyAgentId());
+    const { unmount } = renderHook(() => useMyAgentId());
     unmount();
 
     await act(async () => {
@@ -105,6 +126,22 @@ describe('useMyAgentId', () => {
       await request.promise;
     });
 
-    expect(result.current).toEqual({ status: 'loading' });
+    expect(setState).not.toHaveBeenCalled();
+  });
+
+  test('does not log or update state when rejection becomes stale after unmount', async () => {
+    const request = deferred<ReturnType<typeof walletStatus>>();
+    fetchWalletStatus.mockReturnValue(request.promise);
+
+    const { unmount } = renderHook(() => useMyAgentId());
+    unmount();
+
+    await act(async () => {
+      request.reject(new Error('stale private wallet failure'));
+      await request.promise.catch(() => undefined);
+    });
+
+    expect(debugLog).not.toHaveBeenCalled();
+    expect(setState).not.toHaveBeenCalled();
   });
 });

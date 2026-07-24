@@ -89,10 +89,27 @@ pub(crate) async fn build_root_parent(
 
     let integrations = crate::openhuman::composio::fetch_connected_integrations(config).await;
     agent.set_connected_integrations(integrations);
+    let allowed_subagent_ids = crate::openhuman::agent::harness::AgentDefinitionRegistry::global()
+        .and_then(|registry| registry.get(agent_definition_id))
+        .map(|definition| {
+            definition
+                .subagents
+                .iter()
+                .filter_map(|entry| match entry {
+                    crate::openhuman::agent::harness::definition::SubagentEntry::AgentId(id) => {
+                        Some(id.clone())
+                    }
+                    crate::openhuman::agent::harness::definition::SubagentEntry::Skills(_) => {
+                        Some("integrations_agent".to_string())
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     Ok(ParentExecutionContext {
         agent_definition_id: agent_definition_id.to_string(),
-        allowed_subagent_ids: HashSet::new(),
+        allowed_subagent_ids,
         turn_model_source: agent.turn_model_source(),
         all_tools: agent.tools_arc(),
         all_tool_specs: agent.tool_specs_arc(),
@@ -207,14 +224,22 @@ mod tests {
             "subconscious",
             "subconscious",
             "subconscious",
-            async { current_parent().map(|p| p.agent_definition_id) },
+            async { current_parent().map(|p| (p.agent_definition_id, p.allowed_subagent_ids)) },
         )
         .await
         .expect("root parent builds from config");
         assert_eq!(
-            observed.as_deref(),
+            observed.as_ref().map(|(id, _)| id.as_str()),
             Some("subconscious"),
             "inner future must observe the installed root parent"
+        );
+        let allowed = &observed.expect("parent was installed").1;
+        assert_eq!(
+            allowed,
+            &["orchestrator".to_string(), "researcher".to_string()]
+                .into_iter()
+                .collect(),
+            "the background root must preserve the subconscious delegation allowlist"
         );
     }
 

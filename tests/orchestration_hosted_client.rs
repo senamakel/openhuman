@@ -10,6 +10,27 @@ use openhuman_core::openhuman::orchestration::store;
 use openhuman_core::openhuman::orchestration::wire::OrchestrationEventEnvelopeWire;
 use openhuman_core::openhuman::orchestration::world_model::observe_ingest_note;
 
+// ── hosted read contract ──────────────────────────────────────────────────────
+
+#[test]
+fn hosted_sync_does_not_poll_retired_steering_route() {
+    let cloud = include_str!("../src/openhuman/orchestration/cloud.rs");
+    let sync = include_str!("../src/openhuman/orchestration/sync.rs");
+
+    assert!(
+        !cloud.contains("/orchestration/v1/steering"),
+        "the backend retired GET /orchestration/v1/steering"
+    );
+    assert!(
+        !sync.contains("fetch_steering"),
+        "the periodic hosted sync must not call the retired steering endpoint"
+    );
+    assert!(
+        !sync.contains("orch:steering"),
+        "the retired hosted steering response must not remain cached"
+    );
+}
+
 // ── world_model: bounded, single-line, never leaks the body ───────────────────
 
 #[test]

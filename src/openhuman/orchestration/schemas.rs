@@ -145,7 +145,7 @@ fn schema_for(function: &str) -> ControllerSchema {
         "orchestration_status" => ControllerSchema {
             namespace: "orchestration",
             function: "status",
-            description: "Current steering directive, last subconscious tick, and ingest health.",
+            description: "Last subconscious tick and hosted ingest health.",
             inputs: vec![],
             outputs: vec![json_output("result", "OrchestrationStatus.")],
         },
@@ -242,17 +242,7 @@ struct SessionSummary {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SteeringSummary {
-    text: String,
-    created_at: String,
-    expires_after_cycles: u32,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct OrchestrationStatus {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    steering: Option<SteeringSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_tick_at: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -799,16 +789,8 @@ fn handle_mark_read(params: Map<String, Value>) -> ControllerFuture {
 fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = load_config("status").await?;
-        // Steering + reachability come from the hosted health probe's kv cache
-        // (see `sync`), so this read stays synchronous and offline-safe.
-        let steering =
-            super::sync::cached_steering(&config).map(|(text, max_cycles)| SteeringSummary {
-                text,
-                // Hosted steering carries no local created_at; the renderer keys
-                // its display off `text` presence, not this field.
-                created_at: String::new(),
-                expires_after_cycles: max_cycles,
-            });
+        // Reachability comes from the hosted health probe's kv cache (see
+        // `sync`), so this read stays synchronous and offline-safe.
         let cloud_reachable = super::sync::cloud_reachable(&config);
 
         let (ingest_last, lag, last_error): (Option<String>, i64, Option<String>) =
@@ -838,7 +820,6 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
             .filter(|v| *v > 0.0);
 
         to_json(OrchestrationStatus {
-            steering,
             last_tick_at,
             ingest_last_message_at: ingest_last.filter(|s| !s.is_empty()),
             ingest_cursor_lag: lag,

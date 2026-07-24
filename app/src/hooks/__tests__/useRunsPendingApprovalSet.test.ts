@@ -1,8 +1,8 @@
 /**
  * useRunsPendingApprovalSet — unit tests.
  *
- * Verifies: no poll when every run is terminal (or the list is empty); polls
- * `approval_list_pending` every 3s while a run is `running`; collects only
+ * Verifies: no poll when every run is terminal (or the list is empty); retains
+ * the shared `approval_list_pending` poller every 2s while a run is `running`; collects only
  * flow-origin (`source_context.kind === 'flow'`) matches into the returned
  * Set; a chat-origin approval (no flow `source_context`) is excluded; a
  * failed poll keeps the last-known set instead of clearing it; teardown once
@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PendingApproval } from '../../services/api/approvalApi';
 import type { FlowRun } from '../../services/api/flowsApi';
+import { resetFlowPendingApprovalsStoreForTests } from '../flowPendingApprovalsStore';
 import { resolveDisplayStatus, useRunsPendingApprovalSet } from '../useRunsPendingApprovalSet';
 
 const fetchPendingApprovals = vi.hoisted(() => vi.fn());
@@ -49,9 +50,11 @@ describe('useRunsPendingApprovalSet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    resetFlowPendingApprovalsStoreForTests();
   });
 
   afterEach(() => {
+    resetFlowPendingApprovalsStoreForTests();
     vi.useRealTimers();
   });
 
@@ -80,7 +83,7 @@ describe('useRunsPendingApprovalSet', () => {
     expect(fetchPendingApprovals).not.toHaveBeenCalled();
   });
 
-  it('polls every 3s while a run is running and includes it when a matching flow approval exists', async () => {
+  it('polls every 2s while a run is running and includes it when a matching flow approval exists', async () => {
     fetchPendingApprovals.mockResolvedValue([makeApproval({ request_id: 'req-a' })]);
     const { result } = renderHook(() =>
       useRunsPendingApprovalSet([makeRun({ status: 'running' })])
@@ -93,7 +96,7 @@ describe('useRunsPendingApprovalSet', () => {
     expect(result.current.has('run-1')).toBe(true);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(2000);
     });
     expect(fetchPendingApprovals).toHaveBeenCalledTimes(2);
   });
@@ -139,7 +142,7 @@ describe('useRunsPendingApprovalSet', () => {
     fetchPendingApprovals.mockRejectedValueOnce(new Error('network down'));
     rerender({ runs: [makeRun({ status: 'running' })] });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(2000);
     });
     expect(fetchPendingApprovals).toHaveBeenCalledTimes(2);
     expect(result.current.has('run-1')).toBe(true);
@@ -147,7 +150,7 @@ describe('useRunsPendingApprovalSet', () => {
     // A subsequent successful tick keeps polling on the same cadence.
     fetchPendingApprovals.mockResolvedValueOnce([makeApproval({ request_id: 'req-a' })]);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(2000);
     });
     expect(fetchPendingApprovals).toHaveBeenCalledTimes(3);
   });

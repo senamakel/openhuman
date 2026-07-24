@@ -342,6 +342,11 @@ rewrite_sharun_lib_path() {
             suffix="${entry#*/appimage_deb/data/usr/lib/}"
             normalized="+/$suffix"
             ;;
+          # lib4bin/quick-sharun staging roots vary by runner and tool
+          # version; older artifacts use an arbitrary absolute prefix ending
+          # in data/usr/lib rather than the appimage_deb directory above.
+          # Match that stable staged-layout tail here. The derived marker is
+          # validated below against the extracted AppDir's shared/lib tree.
           */data/usr/lib)
             normalized="+"
             ;;
@@ -793,7 +798,10 @@ strip_one_appimage() {
   if sanitize_elf_rpaths "$appdir"; then
     rewrote_rpaths=1
   fi
-  validate_sharun_lib_path "$appdir"
+  if ! validate_sharun_lib_path "$appdir"; then
+    rm -rf "$workdir"
+    return 1
+  fi
   if ! validate_appimage_required_libs "$appdir"; then
     rm -rf "$workdir"
     return 1

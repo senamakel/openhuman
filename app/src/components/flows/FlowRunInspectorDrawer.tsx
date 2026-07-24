@@ -477,5 +477,3 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
     </div>
   );
 }
-
-export default FlowRunInspectorDrawer;

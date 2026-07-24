@@ -48,7 +48,7 @@ interface Props {
   onCancel: () => void;
 }
 
-export const WorkflowRunApprovalCard: React.FC<Props> = ({
+const WorkflowRunApprovalCard: React.FC<Props> = ({
   definition,
   reasons,
   starting = false,

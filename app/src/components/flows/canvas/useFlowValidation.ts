@@ -105,5 +105,3 @@ export function useFlowValidation(
 
   return { validation, validating, validateNow: run };
 }
-
-export default useFlowValidation;

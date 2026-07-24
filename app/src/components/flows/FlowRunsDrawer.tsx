@@ -73,7 +73,7 @@ interface Props {
  * unconditionally and just flip `flowId` (same convention as
  * `FlowRunInspectorDrawer`/`SubagentDrawer`).
  */
-export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Props) {
+function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Props) {
   const { t } = useT();
   const [runs, setRuns] = useState<FlowRun[]>([]);
   const [loading, setLoading] = useState(false);

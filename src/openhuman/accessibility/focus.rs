@@ -444,7 +444,7 @@ pub fn validate_focused_target(
 }
 
 // ---------------------------------------------------------------------------
-// Foreground app context (from screen_intelligence)
+// Foreground app context for companion consumers.
 // ---------------------------------------------------------------------------
 
 /// Parse the raw stdout from the AppleScript foreground-context query.

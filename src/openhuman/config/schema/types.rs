@@ -152,9 +152,6 @@ pub struct Config {
     pub shell: ShellConfig,
 
     #[serde(default)]
-    pub screen_intelligence: ScreenIntelligenceConfig,
-
-    #[serde(default)]
     pub reliability: ReliabilityConfig,
 
     #[serde(default)]
@@ -754,7 +751,6 @@ impl Default for Config {
             sandbox: SandboxConfig::default(),
             runtime: RuntimeConfig::default(),
             shell: ShellConfig::default(),
-            screen_intelligence: ScreenIntelligenceConfig::default(),
             reliability: ReliabilityConfig::default(),
             scheduler: SchedulerConfig::default(),
             scheduler_gate: SchedulerGateConfig::default(),
@@ -895,6 +891,26 @@ mod model_pin_tests {
         assert_eq!(
             config.configured_agent_model("code_executor", false),
             Some("qwen/qwen3")
+        );
+    }
+
+    #[test]
+    fn config_ignores_legacy_screen_intelligence_table() {
+        let config: Config = toml::from_str(
+            r#"
+                [screen_intelligence]
+                enabled = true
+                baseline_fps = 30.0
+            "#,
+        )
+        .expect("legacy screen intelligence TOML should be ignored");
+
+        assert!(config.default_model.is_some());
+        assert!(
+            !toml::to_string(&config)
+                .expect("config should serialize")
+                .contains("screen_intelligence"),
+            "legacy screen intelligence data must not be persisted again"
         );
     }
 

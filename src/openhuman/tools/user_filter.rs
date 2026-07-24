@@ -205,14 +205,6 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
         default_enabled: false,
     },
     ToolFamily {
-        id: "screen_permissions",
-        rust_names: &[
-            "screen_intelligence_request_permissions",
-            "screen_intelligence_request_permission",
-        ],
-        default_enabled: false,
-    },
-    ToolFamily {
         id: "mcp_manage",
         rust_names: &["mcp_registry_install", "mcp_registry_uninstall"],
         default_enabled: false,

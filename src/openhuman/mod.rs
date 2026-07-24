@@ -112,7 +112,6 @@ pub mod runtime_python;
 pub mod runtime_python_server;
 pub mod sandbox;
 pub mod scheduler_gate;
-pub mod screen_intelligence;
 pub mod search;
 pub mod security;
 pub mod service;

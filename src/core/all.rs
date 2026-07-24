@@ -444,12 +444,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Platform,
         crate::openhuman::people::all_people_registered_controllers(),
     );
-    // Screen capture and UI analysis
-    push(
-        &mut controllers,
-        DomainGroup::Platform,
-        crate::openhuman::screen_intelligence::all_screen_intelligence_registered_controllers(),
-    );
     // Sandbox execution backends (Docker, local jail, policy, cleanup)
     push(
         &mut controllers,
@@ -882,7 +876,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "javascript" => Some("First-class JavaScript runtime bridge for listing and dispatching tools."),
         "medulla_local" => Some("Supervised local medulla-serve brain: status of the child and instruct enqueue (Flavor A draft)."),
         "monitor" => Some("Start, inspect, read, and stop bounded background command monitors."),
-        "screen_intelligence" => Some("Screen capture, permissions, and accessibility automation."),
         "security" => Some("Security policy and autonomy guardrail metadata."),
         "service" => Some("Desktop service lifecycle management."),
         "session_import" => {

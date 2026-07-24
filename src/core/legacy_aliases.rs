@@ -111,10 +111,6 @@ const LEGACY_ALIASES: &[(&str, &str)] = &[
         "openhuman.config_update_runtime_settings",
     ),
     (
-        "openhuman.update_screen_intelligence_settings",
-        "openhuman.config_update_screen_intelligence_settings",
-    ),
-    (
         "openhuman.workspace_onboarding_flag_exists",
         "openhuman.config_workspace_onboarding_flag_exists",
     ),

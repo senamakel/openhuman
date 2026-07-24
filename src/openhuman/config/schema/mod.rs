@@ -11,7 +11,6 @@ pub use cloud_providers::{
 };
 pub mod subconscious;
 pub use subconscious::{MedullaLocalConfig, SubconsciousConfig, SubconsciousEngine};
-mod accessibility;
 mod agent;
 mod autonomy;
 mod capability_providers;
@@ -49,7 +48,6 @@ mod tokenjuice;
 mod tools;
 mod update;
 
-pub use accessibility::ScreenIntelligenceConfig;
 pub use agent::{
     AgentConfig, DelegateAgentConfig, MemoryContextWindow, MemoryWindowLimits,
     OrchestratorModelConfig, RequiredOutputContract, TeamModelConfig,

@@ -135,22 +135,6 @@ pub async fn start_login_gated_services(config: &Config) {
         ));
     }
 
-    // 4. Screen intelligence (capture + vision analysis).
-    {
-        let config = config.clone();
-        tasks.push((
-            "screen_intelligence",
-            tokio::spawn(async move {
-                let step = std::time::Instant::now();
-                crate::openhuman::screen_intelligence::server::start_if_enabled(&config).await;
-                log::debug!(
-                    "[services] screen intelligence started ({} ms)",
-                    step.elapsed().as_millis()
-                );
-            }),
-        ));
-    }
-
     // 6. Orchestration hosted-client: read-sync loop + world-diff uploader +
     //    one-shot history migration. Idempotent (aborts a prior session's loops
     //    first); no-op when orchestration is disabled. Runs here so both startup
@@ -197,12 +181,6 @@ pub async fn stop_login_gated_services(config: &Config) {
     if let Some(server) = crate::openhuman::voice::server::try_global_server() {
         server.stop().await;
         log::info!("[services] voice server stopped on logout");
-    }
-
-    // 3. Screen intelligence server
-    if let Some(server) = crate::openhuman::screen_intelligence::server::try_global_server() {
-        server.stop().await;
-        log::info!("[services] screen intelligence server stopped on logout");
     }
 
     // 4. Local AI — reset state to idle. We don't kill the Ollama process

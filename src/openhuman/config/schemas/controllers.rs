@@ -12,9 +12,9 @@ use super::helpers::{
     ComposioTriggerSettingsUpdate, DictationSettingsUpdate, LocalAiSettingsUpdate,
     MeetSettingsUpdate, MemorySettingsUpdate, MemorySyncSettingsUpdate, ModelSettingsUpdate,
     OnboardingCompletedSetParams, PrivacyModeUpdate, RuntimeSettingsUpdate, SandboxSettingsUpdate,
-    ScreenIntelligenceSettingsUpdate, SearchSettingsUpdate, SetBrowserAllowAllParams,
-    SuperContextSetParams, VoiceServerSettingsUpdate, WorkspaceOnboardingFlagParams,
-    WorkspaceOnboardingFlagSetParams, DEFAULT_ONBOARDING_FLAG_NAME,
+    SearchSettingsUpdate, SetBrowserAllowAllParams, SuperContextSetParams,
+    VoiceServerSettingsUpdate, WorkspaceOnboardingFlagParams, WorkspaceOnboardingFlagSetParams,
+    DEFAULT_ONBOARDING_FLAG_NAME,
 };
 use super::schema_defs::schemas;
 
@@ -24,7 +24,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("get_client_config"),
         schemas("update_model_settings"),
         schemas("update_memory_settings"),
-        schemas("update_screen_intelligence_settings"),
         schemas("update_runtime_settings"),
         schemas("update_browser_settings"),
         schemas("update_local_ai_settings"),
@@ -87,10 +86,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("update_memory_settings"),
             handler: handle_update_memory_settings,
-        },
-        RegisteredController {
-            schema: schemas("update_screen_intelligence_settings"),
-            handler: handle_update_screen_intelligence_settings,
         },
         RegisteredController {
             schema: schemas("update_runtime_settings"),
@@ -414,25 +409,6 @@ fn handle_update_memory_settings(params: Map<String, Value>) -> ControllerFuture
             memory_window: update.memory_window,
         };
         to_json(config_rpc::load_and_apply_memory_settings(patch).await?)
-    })
-}
-
-fn handle_update_screen_intelligence_settings(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let update = deserialize_params::<ScreenIntelligenceSettingsUpdate>(params)?;
-        let patch = config_rpc::ScreenIntelligenceSettingsPatch {
-            enabled: update.enabled,
-            capture_policy: update.capture_policy,
-            policy_mode: update.policy_mode,
-            baseline_fps: update.baseline_fps,
-            vision_enabled: update.vision_enabled,
-            autocomplete_enabled: update.autocomplete_enabled,
-            use_vision_model: update.use_vision_model,
-            keep_screenshots: update.keep_screenshots,
-            allowlist: update.allowlist,
-            denylist: update.denylist,
-        };
-        to_json(config_rpc::load_and_apply_screen_intelligence_settings(patch).await?)
     })
 }
 

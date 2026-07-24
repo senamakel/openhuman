@@ -320,7 +320,6 @@ fn degraded_runtime_snapshot_has_expected_degraded_fields() {
         ),
         "service state should be Unknown in degraded snapshot"
     );
-    assert!(!snapshot.screen_intelligence.session.active);
 }
 
 #[test]

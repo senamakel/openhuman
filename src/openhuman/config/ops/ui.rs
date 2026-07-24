@@ -1,4 +1,4 @@
-//! UI-facing config operations: browser, screen intelligence, analytics, meet,
+//! UI-facing config operations: browser, analytics, meet,
 //! search, dictation, voice server, onboarding flags.
 
 use std::collections::HashMap;
@@ -7,7 +7,6 @@ use serde_json::json;
 
 use crate::openhuman::config::schema::CalendarProvider;
 use crate::openhuman::config::{AutoJoinPolicy, AutoSummarizePolicy, Config};
-use crate::openhuman::screen_intelligence;
 use crate::rpc::RpcOutcome;
 
 use super::loader::{fallback_workspace_dir, load_config_with_timeout, snapshot_config_json};
@@ -16,20 +15,6 @@ use super::loader::{fallback_workspace_dir, load_config_with_timeout, snapshot_c
 pub struct BrowserSettingsPatch {
     pub enabled: Option<bool>,
     pub backend: Option<String>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ScreenIntelligenceSettingsPatch {
-    pub enabled: Option<bool>,
-    pub capture_policy: Option<String>,
-    pub policy_mode: Option<String>,
-    pub baseline_fps: Option<f32>,
-    pub vision_enabled: Option<bool>,
-    pub autocomplete_enabled: Option<bool>,
-    pub use_vision_model: Option<bool>,
-    pub keep_screenshots: Option<bool>,
-    pub allowlist: Option<Vec<String>>,
-    pub denylist: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -160,65 +145,6 @@ pub async fn load_and_apply_browser_settings(
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     let mut config = load_config_with_timeout().await?;
     apply_browser_settings(&mut config, update).await
-}
-
-/// Updates the screen intelligence settings in the configuration.
-pub async fn apply_screen_intelligence_settings(
-    config: &mut Config,
-    update: ScreenIntelligenceSettingsPatch,
-) -> Result<RpcOutcome<serde_json::Value>, String> {
-    if let Some(enabled) = update.enabled {
-        config.screen_intelligence.enabled = enabled;
-    }
-    if let Some(capture_policy) = update.capture_policy {
-        config.screen_intelligence.capture_policy = capture_policy;
-    }
-    if let Some(policy_mode) = update.policy_mode {
-        config.screen_intelligence.policy_mode = policy_mode;
-    }
-    if let Some(baseline_fps) = update.baseline_fps {
-        config.screen_intelligence.baseline_fps = baseline_fps.clamp(0.2, 30.0);
-    }
-    if let Some(vision_enabled) = update.vision_enabled {
-        config.screen_intelligence.vision_enabled = vision_enabled;
-    }
-    if let Some(autocomplete_enabled) = update.autocomplete_enabled {
-        config.screen_intelligence.autocomplete_enabled = autocomplete_enabled;
-    }
-    if let Some(use_vision_model) = update.use_vision_model {
-        config.screen_intelligence.use_vision_model = use_vision_model;
-    }
-    if let Some(keep_screenshots) = update.keep_screenshots {
-        config.screen_intelligence.keep_screenshots = keep_screenshots;
-    }
-    if let Some(allowlist) = update.allowlist {
-        config.screen_intelligence.allowlist = allowlist;
-    }
-    if let Some(denylist) = update.denylist {
-        config.screen_intelligence.denylist = denylist;
-    }
-
-    config.save().await.map_err(|e| e.to_string())?;
-    let _ = screen_intelligence::global_engine()
-        .apply_config(config.screen_intelligence.clone())
-        .await;
-
-    let snapshot = snapshot_config_json(config)?;
-    Ok(RpcOutcome::new(
-        snapshot,
-        vec![format!(
-            "screen intelligence settings saved to {}",
-            config.config_path.display()
-        )],
-    ))
-}
-
-/// Loads the configuration, applies screen intelligence settings updates, and saves it.
-pub async fn load_and_apply_screen_intelligence_settings(
-    update: ScreenIntelligenceSettingsPatch,
-) -> Result<RpcOutcome<serde_json::Value>, String> {
-    let mut config = load_config_with_timeout().await?;
-    apply_screen_intelligence_settings(&mut config, update).await
 }
 
 /// Updates the analytics-related settings in the configuration.

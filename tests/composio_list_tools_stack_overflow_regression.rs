@@ -178,7 +178,6 @@ chat_onboarding_completed = true
 [observability]
 [autonomy]
 [runtime]
-[screen_intelligence]
 [autocomplete]
 [reliability]
 [scheduler]

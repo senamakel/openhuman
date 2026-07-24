@@ -1,4 +1,4 @@
-//! Platform permission detection and requests for accessibility, screen recording, input monitoring.
+//! Platform permission detection and requests for accessibility, input monitoring, and microphone access.
 
 use super::types::{PermissionKind, PermissionState, PermissionStatus};
 
@@ -20,8 +20,6 @@ extern "C" {
     fn AXIsProcessTrusted() -> bool;
     fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> bool;
     static kAXTrustedCheckOptionPrompt: CFStringRef;
-    fn CGPreflightScreenCaptureAccess() -> bool;
-    fn CGRequestScreenCaptureAccess() -> bool;
 }
 
 #[cfg(target_os = "macos")]
@@ -57,7 +55,6 @@ const IOHID_ACCESS_UNKNOWN: isize = 2;
 
 pub fn permission_to_str(permission: PermissionKind) -> &'static str {
     match permission {
-        PermissionKind::ScreenRecording => "screen_recording",
         PermissionKind::Accessibility => "accessibility",
         PermissionKind::InputMonitoring => "input_monitoring",
         PermissionKind::Microphone => "microphone",
@@ -91,27 +88,9 @@ pub fn request_accessibility_access() {
 }
 
 #[cfg(target_os = "macos")]
-pub fn request_screen_recording_access() {
-    unsafe {
-        let _ = CGRequestScreenCaptureAccess();
-    }
-}
-
-#[cfg(target_os = "macos")]
 pub fn detect_accessibility_permission() -> PermissionState {
     unsafe {
         if AXIsProcessTrusted() {
-            PermissionState::Granted
-        } else {
-            PermissionState::Denied
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
-pub fn detect_screen_recording_permission() -> PermissionState {
-    unsafe {
-        if CGPreflightScreenCaptureAccess() {
             PermissionState::Granted
         } else {
             PermissionState::Denied
@@ -271,7 +250,6 @@ pub fn microphone_denied_message() -> String {
 #[cfg(target_os = "macos")]
 pub fn detect_permissions() -> PermissionStatus {
     PermissionStatus {
-        screen_recording: detect_screen_recording_permission(),
         accessibility: detect_accessibility_permission(),
         input_monitoring: detect_input_monitoring_permission(),
         microphone: detect_microphone_permission(),
@@ -281,7 +259,6 @@ pub fn detect_permissions() -> PermissionStatus {
 #[cfg(not(target_os = "macos"))]
 pub fn detect_permissions() -> PermissionStatus {
     PermissionStatus {
-        screen_recording: PermissionState::Unsupported,
         accessibility: PermissionState::Unsupported,
         input_monitoring: PermissionState::Unsupported,
         microphone: detect_microphone_permission(),

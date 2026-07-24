@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Unified element bounds — used by both autocomplete and screen intelligence.
+/// Unified element bounds — used by autocomplete and companion context.
 #[derive(Debug, Clone, Copy)]
 pub struct ElementBounds {
     pub x: i32,
@@ -62,7 +62,6 @@ pub enum PermissionState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PermissionStatus {
-    pub screen_recording: PermissionState,
     pub accessibility: PermissionState,
     pub input_monitoring: PermissionState,
     pub microphone: PermissionState,
@@ -71,7 +70,6 @@ pub struct PermissionStatus {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PermissionKind {
-    ScreenRecording,
     Accessibility,
     InputMonitoring,
     Microphone,

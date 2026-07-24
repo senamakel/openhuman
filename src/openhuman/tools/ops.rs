@@ -705,27 +705,10 @@ pub fn all_tools_with_runtime(
         Box::new(SessionGetUserTool::new(config.clone())),
         Box::new(OAuthConnectUrlTool::new(config.clone())),
         Box::new(OAuthListTool::new(config.clone())),
-        // Desktop perception, MCP registry, workspace persona. Observe/connect/
-        // call tools default-ON; OS permission prompts (screen_permissions),
-        // MCP install/uninstall (mcp_manage), and persona/workspace writers
+        // MCP registry and workspace persona. Observe/connect/call tools
+        // default-ON; MCP install/uninstall (mcp_manage), and persona/workspace writers
         // (workspace_manage) ship default-OFF via `tools::user_filter`.
         //
-        // Screen intelligence tools (always-on Platform family).
-        Box::new(ScreenStatusTool),
-        Box::new(ScreenCaptureImageRefTool),
-        Box::new(ScreenVisionRecentTool),
-        Box::new(ScreenVisionFlushTool),
-        Box::new(ScreenRefreshPermissionsTool),
-        Box::new(ScreenCaptureNowTool),
-        Box::new(ScreenCaptureTestTool),
-        Box::new(ScreenSessionStartTool),
-        Box::new(ScreenSessionStopTool),
-        Box::new(ScreenInputActionTool),
-        Box::new(ScreenGlobeStartTool),
-        Box::new(ScreenGlobePollTool),
-        Box::new(ScreenGlobeStopTool),
-        Box::new(ScreenRequestPermissionsTool),
-        Box::new(ScreenRequestPermissionTool),
         // MCP registry (dynamic, user-installed servers) — compiled out with
         // the `mcp` feature. Per-element attrs inside the `vec![]` mirror the
         // voice idiom used earlier in this same literal.

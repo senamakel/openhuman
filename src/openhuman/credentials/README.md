@@ -5,7 +5,7 @@ Credential management for the OpenHuman app session and provider/OAuth auth prof
 ## Responsibilities
 
 - Store and validate the app session JWT (`app-session` provider, `default` profile), including local offline sessions and backend `GET /auth/me` validation.
-- On login: activate the user-scoped openhuman directory, purge pre-login (anonymous) conversation threads on first activation, bind memory/conversation persistence, bootstrap subconscious, and start login-gated services (local AI, voice, dictation, screen intelligence, autocomplete).
+- On login: activate the user-scoped openhuman directory, purge pre-login (anonymous) conversation threads on first activation, bind memory/conversation persistence, bootstrap subconscious, and start login-gated services (local AI, voice, dictation, autocomplete).
 - On logout / session-expiry: remove the JWT, clear the active-user marker, stop login-gated services, reset subconscious, and flip the scheduler-gate signed-out override.
 - Persist arbitrary provider credentials (token + metadata fields) as named auth profiles; list/remove/set-active; prefix-list profiles for grouped namespaces (e.g. `channel:*`).
 - Run backend OAuth flows: connect URL, list integrations, fetch integration handoff tokens, fetch one-time client key, revoke integration.
@@ -88,7 +88,7 @@ None. This module owns no agent tools (`tools.rs` does not exist).
 - `crate::openhuman::memory_conversations` — purge pre-login threads, bind conversation persistence after login.
 - `crate::openhuman::memory` — bind memory client to the active workspace after login.
 - `crate::openhuman::subconscious` — post-login bootstrap / user-switch reset.
-- `crate::openhuman::inference`, `::voice`, `::screen_intelligence`, `::autocomplete` — login-gated services started/stopped.
+- `crate::openhuman::inference`, `::voice`, `::autocomplete` — login-gated services started/stopped.
 - `crate::api::config`, `::jwt`, `::rest` — backend API URL, session-token read, `BackendOAuthClient` + OAuth/handoff types.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`), `crate::core` (`ControllerSchema`/`FieldSchema`/`TypeSchema`), `crate::core::event_bus` (`DomainEvent`/`EventHandler`), `crate::rpc::RpcOutcome` — controller registry + RPC envelope + event bus.
 

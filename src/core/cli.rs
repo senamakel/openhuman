@@ -91,10 +91,6 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         // `unknown namespace: tui`.
         "tui" | "chat" => crate::openhuman::tui::run_from_cli(&args[1..]),
         "call" => run_call_command(&args[1..]),
-        // Domain-specific CLI adapters that don't follow the generic namespace pattern.
-        "screen-intelligence" => {
-            crate::openhuman::screen_intelligence::cli::run_screen_intelligence_command(&args[1..])
-        }
         "tree-summarizer" => {
             crate::openhuman::memory_tree::tree_runtime::cli::run_tree_summarizer_command(
                 &args[1..],

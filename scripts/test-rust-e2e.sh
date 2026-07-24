@@ -53,7 +53,6 @@ ALL_E2E_SUITES=(
   memory_tree_summarizer_e2e
   memory_fast_retrieve_e2e
   ollama_embeddings_fallback_e2e
-  screen_intelligence_vision_e2e
   skill_registry_e2e
   subconscious_e2e
   worker_b_domain_e2e

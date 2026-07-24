@@ -98,20 +98,6 @@ pub(super) struct BrowserSettingsUpdate {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct ScreenIntelligenceSettingsUpdate {
-    pub(super) enabled: Option<bool>,
-    pub(super) capture_policy: Option<String>,
-    pub(super) policy_mode: Option<String>,
-    pub(super) baseline_fps: Option<f32>,
-    pub(super) vision_enabled: Option<bool>,
-    pub(super) autocomplete_enabled: Option<bool>,
-    pub(super) use_vision_model: Option<bool>,
-    pub(super) keep_screenshots: Option<bool>,
-    pub(super) allowlist: Option<Vec<String>>,
-    pub(super) denylist: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct AnalyticsSettingsUpdate {
     pub(super) enabled: Option<bool>,
 }

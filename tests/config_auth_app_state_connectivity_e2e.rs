@@ -2838,7 +2838,6 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.config_update_model_settings",
                 "openhuman.config_update_runtime_settings",
                 "openhuman.config_update_sandbox_settings",
-                "openhuman.config_update_screen_intelligence_settings",
                 "openhuman.config_update_search_settings",
                 "openhuman.config_update_voice_server_settings",
                 "openhuman.config_workspace_onboarding_flag_exists",
@@ -3058,26 +3057,11 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
     for (id, method, params) in [
         (
             10_005,
-            "openhuman.config_update_screen_intelligence_settings",
-            json!({
-                "enabled": false,
-                "capture_policy": "off",
-                "baseline_fps": 0.5,
-                "vision_enabled": false,
-                "autocomplete_enabled": false,
-                "use_vision_model": false,
-                "keep_screenshots": false,
-                "allowlist": ["Finder"],
-                "denylist": ["Passwords"]
-            }),
-        ),
-        (
-            10_006,
             "openhuman.config_update_runtime_settings",
             json!({ "kind": "local", "reasoning_enabled": true }),
         ),
         (
-            10_007,
+            10_006,
             "openhuman.config_update_browser_settings",
             json!({ "enabled": true }),
         ),
@@ -3629,16 +3613,6 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         &rpc(
             &harness.rpc_base,
             11_019,
-            "openhuman.config_update_screen_intelligence_settings",
-            json!({ "baseline_fps": 99.0 }),
-        )
-        .await,
-        "update_screen_intelligence_settings clamps baseline",
-    );
-    ok(
-        &rpc(
-            &harness.rpc_base,
-            11_020,
             "openhuman.config_update_voice_server_settings",
             json!({
                 "min_duration_secs": -1.0,
@@ -3648,12 +3622,8 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         .await,
         "update_voice_server_settings clamps non-negative floats",
     );
-    let config = rpc(&harness.rpc_base, 11_021, "openhuman.config_get", json!({})).await;
+    let config = rpc(&harness.rpc_base, 11_020, "openhuman.config_get", json!({})).await;
     let config_payload = payload(&config, "config_get after clamps");
-    assert_eq!(
-        config_payload.pointer("/config/screen_intelligence/baseline_fps"),
-        Some(&json!(30.0))
-    );
     assert_eq!(
         config_payload.pointer("/config/voice_server/min_duration_secs"),
         Some(&json!(0.0))

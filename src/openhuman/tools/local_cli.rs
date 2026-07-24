@@ -20,12 +20,6 @@ pub struct CliScreenshotArgs {
     pub print_data_url: bool,
 }
 
-#[derive(Debug, Default)]
-pub struct CliScreenshotRefArgs {
-    pub output: Option<PathBuf>,
-    pub print_data_url: bool,
-}
-
 pub fn tools_wrappers_list_json() -> serde_json::Value {
     json!({
         "result": {
@@ -33,10 +27,6 @@ pub fn tools_wrappers_list_json() -> serde_json::Value {
                 {
                     "name": "screenshot",
                     "description": "Capture a screenshot with screenshot tool wrapper."
-                },
-                {
-                    "name": "screenshot-ref",
-                    "description": "Capture data URL from screen intelligence capture_image_ref."
                 }
             ]
         },
@@ -107,44 +97,6 @@ pub async fn run_cli_screenshot(args: CliScreenshotArgs) -> Result<serde_json::V
     }))
 }
 
-pub async fn run_cli_screenshot_ref(
-    args: CliScreenshotRefArgs,
-) -> Result<serde_json::Value, String> {
-    let crate::rpc::RpcOutcome {
-        value: payload,
-        mut logs,
-    } = crate::openhuman::screen_intelligence::rpc::accessibility_capture_image_ref().await?;
-    logs.push("tools.screenshot-ref executed".to_string());
-
-    if let Some(output_path) = args.output.as_ref() {
-        if let Some(data_url) = payload.image_ref.as_deref() {
-            let bytes = decode_data_url_bytes(data_url)?;
-            write_bytes_to_path(output_path, &bytes)?;
-            logs.push(format!(
-                "decoded image_ref and wrote {} bytes to {}",
-                bytes.len(),
-                output_path.display()
-            ));
-        } else {
-            return Err(
-                "screen intelligence capture_image_ref did not return image_ref".to_string(),
-            );
-        }
-    }
-
-    Ok(json!({
-        "result": {
-            "ok": payload.ok,
-            "mime_type": payload.mime_type,
-            "bytes_estimate": payload.bytes_estimate,
-            "message": payload.message,
-            "output_path": args.output.as_ref().map(|p| p.display().to_string()),
-            "image_ref": if args.print_data_url { payload.image_ref } else { None::<String> },
-        },
-        "logs": logs
-    }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,25 +126,6 @@ mod tests {
         assert!(dbg.contains("print_data_url: true"));
     }
 
-    // ── CliScreenshotRefArgs ──────────────────────────────────────────────────
-
-    #[test]
-    fn cli_screenshot_ref_args_default_fields() {
-        let args = CliScreenshotRefArgs::default();
-        assert!(args.output.is_none());
-        assert!(!args.print_data_url);
-    }
-
-    #[test]
-    fn cli_screenshot_ref_args_debug_does_not_panic() {
-        let args = CliScreenshotRefArgs {
-            output: Some(PathBuf::from("/tmp/ref.png")),
-            print_data_url: false,
-        };
-        let dbg = format!("{args:?}");
-        assert!(dbg.contains("print_data_url: false"));
-    }
-
     // ── tools_wrappers_list_json ──────────────────────────────────────────────
 
     #[test]
@@ -207,7 +140,7 @@ mod tests {
         let wrappers = v["result"]["wrappers"]
             .as_array()
             .expect("wrappers is array");
-        assert_eq!(wrappers.len(), 2, "should list exactly 2 wrappers");
+        assert_eq!(wrappers.len(), 1, "should list exactly 1 wrapper");
 
         // First wrapper
         assert_eq!(wrappers[0]["name"].as_str(), Some("screenshot"));
@@ -217,16 +150,6 @@ mod tests {
                 .unwrap()
                 .contains("screenshot"),
             "screenshot description should mention screenshot"
-        );
-
-        // Second wrapper
-        assert_eq!(wrappers[1]["name"].as_str(), Some("screenshot-ref"));
-        assert!(
-            wrappers[1]["description"]
-                .as_str()
-                .unwrap()
-                .contains("capture_image_ref"),
-            "screenshot-ref description should mention capture_image_ref"
         );
     }
 

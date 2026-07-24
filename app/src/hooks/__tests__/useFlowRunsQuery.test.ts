@@ -6,8 +6,38 @@ import { useFlowRunsQuery } from '../useFlowRunsQuery';
 
 const listFlowRuns = vi.hoisted(() => vi.fn());
 const listAllFlowRuns = vi.hoisted(() => vi.fn());
+const stateUpdate = vi.hoisted(() => vi.fn());
+const debugMock = vi.hoisted(() => {
+  const namespaces: string[] = [];
+  const log = vi.fn();
+  return {
+    namespaces,
+    log,
+    factory: (namespace: string) => {
+      namespaces.push(namespace);
+      return log;
+    },
+  };
+});
 
 vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns, listAllFlowRuns }));
+vi.mock('debug', () => ({ default: debugMock.factory }));
+vi.mock('react', async importOriginal => {
+  const react = await importOriginal<typeof import('react')>();
+  return {
+    ...react,
+    useState: ((initialState: unknown) => {
+      const [state, updateState] = react.useState(initialState);
+      return [
+        state,
+        (nextState: unknown) => {
+          stateUpdate(nextState);
+          updateState(nextState);
+        },
+      ];
+    }) as typeof react.useState,
+  };
+});
 
 function makeRun(id: string, flowId = 'flow-1'): FlowRun {
   return {
@@ -176,21 +206,28 @@ describe('useFlowRunsQuery', () => {
 
   it('drops silent failures without exposing or logging the raw payload', async () => {
     listFlowRuns.mockResolvedValueOnce([makeRun('run-1')]);
-    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
     const { result } = renderHook(() =>
       useFlowRunsQuery({ scope: { kind: 'flow', flowId: 'flow-1' } })
     );
     await waitFor(() => expect(result.current.runs).toEqual([makeRun('run-1')]));
 
-    const sensitivePayload = { token: 'do-not-log-me' };
+    const sensitivePayload = Object.assign(new Error('private transport error'), {
+      token: 'do-not-log-me',
+    });
     listFlowRuns.mockRejectedValueOnce(sensitivePayload);
     await act(async () => {
       await result.current.refreshSilently();
     });
 
     expect(result.current).toMatchObject({ runs: [makeRun('run-1')], loading: false, error: null });
-    expect(JSON.stringify(debugSpy.mock.calls)).not.toContain('do-not-log-me');
-    debugSpy.mockRestore();
+    expect(debugMock.namespaces).toEqual(['app:flows:runs-query']);
+    expect(debugMock.log).toHaveBeenCalledExactlyOnceWith(
+      'silent refresh failed: scope=%s',
+      'flow'
+    );
+    const logged = JSON.stringify(debugMock.log.mock.calls);
+    expect(logged).not.toContain('do-not-log-me');
+    expect(logged).not.toContain('private transport error');
   });
 
   it('lets the latest silent request win over an older foreground request', async () => {
@@ -283,22 +320,34 @@ describe('useFlowRunsQuery', () => {
     expect(result.current.runs).toEqual([makeRun('latest')]);
   });
 
-  it('does not update state when a request settles after unmount', async () => {
-    const request = deferred<FlowRun[]>();
-    listFlowRuns.mockReturnValue(request.promise);
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const { result, unmount } = renderHook(() =>
-      useFlowRunsQuery({ scope: { kind: 'flow', flowId: 'flow-1' } })
-    );
-    await waitFor(() => expect(result.current.loading).toBe(true));
+  it.each(['success', 'failure'] as const)(
+    'does not notify state or render when deferred %s settles after unmount',
+    async outcome => {
+      const request = deferred<FlowRun[]>();
+      listFlowRuns.mockReturnValue(request.promise);
+      const renderTransition = vi.fn();
+      const { result, unmount } = renderHook(() => {
+        const current = useFlowRunsQuery({ scope: { kind: 'flow', flowId: 'flow-1' } });
+        renderTransition(current);
+        return current;
+      });
+      await waitFor(() => expect(result.current.loading).toBe(true));
 
-    unmount();
-    await act(async () => {
-      request.resolve([makeRun('late')]);
-      await request.promise;
-    });
+      const stateUpdateCount = stateUpdate.mock.calls.length;
+      const renderCount = renderTransition.mock.calls.length;
+      unmount();
+      await act(async () => {
+        if (outcome === 'success') {
+          request.resolve([makeRun('late')]);
+        } else {
+          request.reject(new Error('late failure'));
+        }
+        await request.promise.catch(() => undefined);
+        await Promise.resolve();
+      });
 
-    expect(consoleError).not.toHaveBeenCalled();
-    consoleError.mockRestore();
-  });
+      expect(stateUpdate).toHaveBeenCalledTimes(stateUpdateCount);
+      expect(renderTransition).toHaveBeenCalledTimes(renderCount);
+    }
+  );
 });

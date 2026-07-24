@@ -7,9 +7,9 @@
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
+use std::io::IsTerminal;
 
 use crate::core::all;
-use crate::core::autocomplete_cli_adapter;
 use crate::core::jsonrpc::{default_state, invoke_method, parse_json_params};
 use crate::core::logging::CliLogDefault;
 use crate::core::{ControllerSchema, TypeSchema};
@@ -44,6 +44,25 @@ Contribute & Star us on GitHub: https://github.com/tinyhumansai/openhuman
 /// Returns an error if the command fails, parameters are invalid, or if
 /// the subcommand/namespace is unknown.
 pub fn run_from_cli_args(args: &[String]) -> Result<()> {
+    load_dotenv_for_cli()?;
+
+    let host = crate::core::types::HostKind::detect_standalone();
+    if args == ["--tui"]
+        || should_auto_launch_tui(
+            args,
+            std::io::stdin().is_terminal(),
+            std::io::stdout().is_terminal(),
+            host,
+            cfg!(feature = "tui"),
+        )
+    {
+        return crate::openhuman::tui::run_from_cli(&[]);
+    }
+
+    // `--no-tui` is a global opt-out, not a synthetic subcommand. Strip it
+    // before normal dispatch so `openhuman --no-tui --help` and
+    // `openhuman --no-tui run ...` retain their ordinary CLI meaning.
+    let args = strip_no_tui(args);
     // Print the welcome banner to stderr to keep stdout clean for JSON output.
     // `mcp`/`mcp-server` speak JSON-RPC on stdout; `tui`/`chat` own the whole
     // terminal (alternate screen + raw mode) — a banner on either would corrupt
@@ -55,8 +74,6 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
     ) {
         eprint!("{CLI_BANNER}");
     }
-
-    load_dotenv_for_cli()?;
 
     let grouped = grouped_schemas();
     if args.is_empty() || is_help(&args[0]) {
@@ -78,7 +95,6 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         "screen-intelligence" => {
             crate::openhuman::screen_intelligence::cli::run_screen_intelligence_command(&args[1..])
         }
-        "text-input" => crate::openhuman::text_input::cli::run_text_input_command(&args[1..]),
         "tree-summarizer" => {
             crate::openhuman::memory_tree::tree_runtime::cli::run_tree_summarizer_command(
                 &args[1..],
@@ -98,6 +114,31 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         "sentry-test" => run_sentry_test_command(&args[1..]),
         // Generic namespace dispatcher: `openhuman <namespace> <function> ...`
         namespace => run_namespace_command(namespace, &args[1..], &grouped),
+    }
+}
+
+/// Pure launch policy for the bare `openhuman` command. Explicit subcommands
+/// are never rewritten. Docker and redirected/CI sessions keep the headless
+/// CLI behavior; `openhuman tui` remains an explicit override everywhere.
+fn should_auto_launch_tui(
+    args: &[String],
+    stdin_is_terminal: bool,
+    stdout_is_terminal: bool,
+    host: crate::core::types::HostKind,
+    tui_compiled: bool,
+) -> bool {
+    args.is_empty()
+        && stdin_is_terminal
+        && stdout_is_terminal
+        && host == crate::core::types::HostKind::Cli
+        && tui_compiled
+}
+
+fn strip_no_tui(args: &[String]) -> &[String] {
+    if args.first().map(String::as_str) == Some("--no-tui") {
+        &args[1..]
+    } else {
+        args
     }
 }
 
@@ -251,7 +292,7 @@ fn run_server_command(args: &[String]) -> Result<()> {
     let mut socketio_enabled = true;
     let mut headless_api = false;
     let mut verbose = false;
-    let mut log_scope = CliLogDefault::Global;
+    let log_scope = CliLogDefault::Global;
     let mut i = 0usize;
 
     // Manual argument parsing loop for specific flags.
@@ -288,13 +329,8 @@ fn run_server_command(args: &[String]) -> Result<()> {
                 verbose = true;
                 i += 1;
             }
-            other if autocomplete_cli_adapter::parse_run_scope_flag(other).is_some() => {
-                log_scope = autocomplete_cli_adapter::parse_run_scope_flag(other)
-                    .unwrap_or(CliLogDefault::Global);
-                i += 1;
-            }
             "-h" | "--help" => {
-                println!("Usage: openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only|--headless-api] [--autocomplete-logs] [-v|--verbose]");
+                println!("Usage: openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only|--headless-api] [-v|--verbose]");
                 println!();
                 println!(
                     "  --host <addr>    Bind address (default: 127.0.0.1 or OPENHUMAN_CORE_HOST)"
@@ -304,7 +340,6 @@ fn run_server_command(args: &[String]) -> Result<()> {
                 );
                 println!("  --jsonrpc-only   HTTP JSON-RPC only; disable Socket.IO");
                 println!("  --headless-api   HTTP JSON-RPC only; disable all background services");
-                autocomplete_cli_adapter::print_run_scope_help_line();
                 println!("  -v, --verbose    Shorthand for RUST_LOG=debug when RUST_LOG is unset");
                 println!();
                 println!("Logging: set RUST_LOG (e.g. RUST_LOG=debug openhuman run). Default level is info.");
@@ -417,12 +452,6 @@ fn run_namespace_command(
         ));
     };
 
-    let preparsed = autocomplete_cli_adapter::preparse_namespace(namespace, args);
-    let args: &[String] = &preparsed.args;
-    if let Some((verbose, scope)) = preparsed.init_logging {
-        crate::core::logging::init_for_cli_run(verbose, scope);
-    }
-
     if args.is_empty() || is_help(&args[0]) {
         // If there's a domain-specific CLI handler for this namespace, use it as the default.
         if let Some(cli_handler) = all::cli_handler_for_namespace(namespace) {
@@ -438,20 +467,6 @@ fn run_namespace_command(
             "unknown function '{namespace} {function}'. Run `openhuman {namespace} --help`."
         ));
     };
-
-    // Domain adapters can intercept specific namespace/function combinations.
-    if args.len() > 1
-        && is_help(&args[1])
-        && autocomplete_cli_adapter::maybe_print_start_help(namespace, function)
-    {
-        return Ok(());
-    }
-    if let Some(value) =
-        autocomplete_cli_adapter::maybe_handle_namespace_start(namespace, function, &args[1..])?
-    {
-        println!("{}", serde_json::to_string_pretty(&value)?);
-        return Ok(());
-    }
 
     if args.len() > 1 && is_help(&args[1]) {
         print_function_help(namespace, &schema);
@@ -588,12 +603,15 @@ fn grouped_schemas() -> BTreeMap<String, Vec<ControllerSchema>> {
 fn print_general_help(grouped: &BTreeMap<String, Vec<ControllerSchema>>) {
     println!("OpenHuman core CLI\n");
     println!("Usage:");
+    println!("  openhuman [--no-tui]                    (tabbed terminal UI on interactive hosts)");
     println!("  openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only] [--verbose]");
     println!("  openhuman call --method <name> [--params '<json>']");
     println!(
         "  openhuman mcp [-v|--verbose]              (stdio MCP server; read-only memory tools)"
     );
-    println!("  openhuman tui [--thread <id>|--new]        (terminal chat UI, alias: chat)");
+    println!(
+        "  openhuman tui [--thread <id>|--new]        (force tabbed terminal UI, alias: chat)"
+    );
     println!("  openhuman skills <subcommand> [options]   (skill development runtime)");
     println!("  openhuman agent <subcommand> [options]    (inspect agent definitions & prompts)");
     println!("  openhuman voice [--hotkey <combo>] [--mode <tap|push>]  (voice dictation server)");
@@ -620,7 +638,6 @@ fn print_namespace_help(namespace: &str, schemas: &[ControllerSchema]) {
         println!("  {} - {}", schema.function, schema.description);
     }
     println!("\nUse `openhuman {namespace} <function> --help` for parameters.");
-    autocomplete_cli_adapter::maybe_print_namespace_help_footer(namespace);
 }
 
 /// Prints detailed help for a specific function, including its parameters and description.

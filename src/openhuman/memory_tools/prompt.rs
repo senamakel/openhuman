@@ -46,9 +46,7 @@ mod tests {
     use crate::openhuman::agent::prompts::types::{
         LearnedContextData, PromptContext, ToolCallFormat,
     };
-    use crate::openhuman::memory_tools::types::{
-        ToolMemoryPriority, ToolMemoryRule, ToolMemorySource,
-    };
+    use crate::openhuman::memory_tools::{ToolMemoryPriority, ToolMemoryRule, ToolMemorySource};
 
     fn rule(tool: &str, body: &str, priority: ToolMemoryPriority) -> ToolMemoryRule {
         ToolMemoryRule {

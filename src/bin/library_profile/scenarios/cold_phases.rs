@@ -2,7 +2,6 @@
 //! inside one measured region. Each phase is sampled right after it completes
 //! so the JSON `checkpoints` series attributes the cold-start cost per phase.
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -10,7 +9,6 @@ use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::inference::provider::Provider;
 use openhuman_core::openhuman::memory_store::MemoryClient;
 
 use crate::harness::{fixture, measure, ProfileResult};
@@ -47,10 +45,9 @@ pub async fn run() -> Result<ProfileResult> {
             .map_err(anyhow::Error::msg)?;
         rec.checkpoint("memory-store")?;
 
-        // Provider mock for the two turns below (not itself a phase).
+        // Model mock for the two turns below (not itself a phase).
         let mock = PlainTextMock::new("Phoenix migration is healthy and on track.");
-        let provider: Arc<dyn Provider> = mock.clone();
-        let _provider = test_provider_override::install(provider);
+        let _provider = test_provider_override::install_model(mock.clone());
 
         // f. agent-build.
         let mut agent = Agent::from_config_for_agent(&fixture.config, "subconscious")?;

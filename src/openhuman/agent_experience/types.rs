@@ -28,6 +28,13 @@ pub struct AgentExperience {
     pub source: ExperienceSource,
     pub agent_id: Option<String>,
     pub entrypoint: Option<String>,
+    /// Id of the agent profile the turn ran under when this experience was
+    /// captured (1c). `None` for the default profile-less session and for every
+    /// record written before profile scoping existed (legacy). Serde-defaulted
+    /// so older stored payloads deserialize unchanged; retrieval treats `None`
+    /// records as shared/legacy and surfaces them under any profile.
+    #[serde(default)]
+    pub profile_id: Option<String>,
     pub task_fingerprint: String,
     pub task_summary: String,
     pub tools_used: Vec<String>,
@@ -68,6 +75,29 @@ pub fn stable_experience_id(
     tool_sequence: &[String],
     outcome: ExperienceOutcome,
 ) -> String {
+    stable_experience_id_for_profile(task_summary, tool_sequence, outcome, None)
+}
+
+/// Derive a stable experience id, partitioning the storage key by the capturing
+/// profile when one is set.
+///
+/// The store keys records by this id, so two profiles that learn the *same*
+/// task/tool/outcome triple must not collapse onto one key (the later
+/// `store.put()` would otherwise overwrite the earlier profile's record — see
+/// the 1c retrieval partition). Mixing the profile id into the digest keeps each
+/// profile's procedural experience distinct.
+///
+/// `profile_id == None` (the profile-less / legacy session) is **byte-identical**
+/// to the pre-1c derivation, so every record written before profile scoping keeps
+/// its exact id and stays retrievable. A `Some` profile appends a
+/// domain-separated segment, so profile A, profile B, and `None` yield three
+/// different keys for the same triple.
+pub fn stable_experience_id_for_profile(
+    task_summary: &str,
+    tool_sequence: &[String],
+    outcome: ExperienceOutcome,
+    profile_id: Option<&str>,
+) -> String {
     let mut hasher = Sha256::new();
     hasher.update(task_summary.trim().to_lowercase().as_bytes());
     hasher.update(b"\0");
@@ -76,6 +106,13 @@ pub fn stable_experience_id(
         hasher.update(b"\0");
     }
     hasher.update(outcome_key(outcome).as_bytes());
+    // Only stamp the profile segment when a non-empty id is present: an absent or
+    // blank profile must reproduce the legacy digest byte-for-byte so existing
+    // stored records keep their identity.
+    if let Some(profile_id) = profile_id.map(str::trim).filter(|id| !id.is_empty()) {
+        hasher.update(b"\0profile\0");
+        hasher.update(profile_id.to_lowercase().as_bytes());
+    }
     let digest = format!("{:x}", hasher.finalize());
     format!("exp_{}", &digest[..24])
 }
@@ -147,5 +184,64 @@ mod tests {
         let success = stable_experience_id("same task", &sequence, ExperienceOutcome::Success);
         let failure = stable_experience_id("same task", &sequence, ExperienceOutcome::Failure);
         assert_ne!(success, failure);
+    }
+
+    #[test]
+    fn stable_experience_id_for_profile_none_matches_legacy_derivation() {
+        // `None` must be byte-identical to the pre-1c derivation so existing
+        // stored records keep their identity.
+        let sequence = vec!["grep".to_string(), "file_read".to_string()];
+        let legacy = stable_experience_id("same task", &sequence, ExperienceOutcome::Success);
+        let none = stable_experience_id_for_profile(
+            "same task",
+            &sequence,
+            ExperienceOutcome::Success,
+            None,
+        );
+        assert_eq!(legacy, none);
+        // An empty / whitespace-only profile id is treated as `None`.
+        let blank = stable_experience_id_for_profile(
+            "same task",
+            &sequence,
+            ExperienceOutcome::Success,
+            Some("   "),
+        );
+        assert_eq!(legacy, blank);
+    }
+
+    #[test]
+    fn stable_experience_id_for_profile_partitions_by_profile() {
+        // Same task/tool/outcome triple under profile A vs B vs None yields three
+        // distinct keys, so no profile can overwrite another's record.
+        let sequence = vec!["grep".to_string(), "file_read".to_string()];
+        let none = stable_experience_id_for_profile(
+            "same task",
+            &sequence,
+            ExperienceOutcome::Success,
+            None,
+        );
+        let alice = stable_experience_id_for_profile(
+            "same task",
+            &sequence,
+            ExperienceOutcome::Success,
+            Some("alice"),
+        );
+        let bob = stable_experience_id_for_profile(
+            "same task",
+            &sequence,
+            ExperienceOutcome::Success,
+            Some("bob"),
+        );
+        assert_ne!(none, alice);
+        assert_ne!(none, bob);
+        assert_ne!(alice, bob);
+        // Deterministic per profile.
+        let alice_again = stable_experience_id_for_profile(
+            "same task",
+            &sequence,
+            ExperienceOutcome::Success,
+            Some("alice"),
+        );
+        assert_eq!(alice, alice_again);
     }
 }

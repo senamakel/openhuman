@@ -113,21 +113,21 @@ impl Tool for UpdateTaskTool {
             Err(err) => return Ok(ToolResult::error(err)),
         };
 
-        Ok(apply(&location, &id, patch))
+        Ok(apply(&location, &id, patch).await)
     }
 }
 
 /// Apply the move/update to the card and render the result. Split out from
 /// `execute` so the edit + response shaping is testable without a fork/thread
 /// context (which `resolve_location` needs).
-fn apply(location: &BoardLocation, id: &str, patch: CardPatch) -> ToolResult {
+async fn apply(location: &BoardLocation, id: &str, patch: CardPatch) -> ToolResult {
     tracing::info!(
         card_id = %id,
         thread_id = ?location.thread_id(),
         status = ?patch.status,
         "[tool][update_task] move/update task card"
     );
-    match ops::edit(location, id, patch) {
+    match ops::edit(location, id, patch).await {
         Ok(snap) => {
             let payload = json!({
                 "threadId": snap.thread_id,

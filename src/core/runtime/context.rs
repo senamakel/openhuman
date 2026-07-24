@@ -119,7 +119,7 @@ impl CoreContext {
         };
 
         // 5. Resolve config once, then initialize workspace-bound stores
-        //    (memory, attachments, whatsapp, people) with that exact workspace.
+        //    (memory, attachments, people) with that exact workspace.
         let config = match crate::openhuman::config::Config::load_or_init().await {
             Ok(cfg) => {
                 init_stores(&cfg, domains).await;
@@ -127,7 +127,7 @@ impl CoreContext {
             }
             Err(e) => {
                 log::error!(
-                    "[boot] memory::global + whatsapp_data init SKIPPED — \
+                    "[boot] memory::global init SKIPPED — \
                      Config::load_or_init failed ({e:#}). Memory persistence is \
                      DISABLED for this run; no silent fallback to the default \
                      workspace (which would cause chunk loss / cross-workspace \
@@ -284,8 +284,8 @@ impl CoreContext {
 /// A `Config::load_or_init` failure here is operator-visible and serious
 /// (corrupt toml, bad permissions, missing/unwritable `OPENHUMAN_WORKSPACE` —
 /// common on headless/containerised deploys with no writable `$HOME`).
-/// Previously the fallback to `Config::default()` initialised the memory +
-/// whatsapp_data stores against the *wrong* workspace dir, silently causing
+/// Previously the fallback to `Config::default()` initialised the memory
+/// store against the *wrong* workspace dir, silently causing
 /// chunk loss / cross-workspace bleed-over while the app looked healthy (Sentry
 /// OPENHUMAN-CORE-48). Instead: skip the workspace-bound init entirely so
 /// memory stays explicitly *uninitialised* — callers then get a clear "memory
@@ -307,8 +307,6 @@ pub struct StoreInitPlan {
     pub memory: bool,
     /// `agent::multimodal` attachments sidecar dir — gated on [`DomainGroup::Agent`].
     pub agent_attachments: bool,
-    /// `whatsapp_data::global` — gated on [`DomainGroup::Channels`].
-    pub whatsapp_data: bool,
     /// `people::store` — gated on [`DomainGroup::Platform`].
     pub people: bool,
     /// legacy-workflow prune under `skills::registry` — gated on [`DomainGroup::Skills`].
@@ -322,7 +320,6 @@ impl StoreInitPlan {
         Self {
             memory: domains.allows(DomainGroup::Memory),
             agent_attachments: domains.allows(DomainGroup::Agent),
-            whatsapp_data: domains.allows(DomainGroup::Channels),
             people: domains.allows(DomainGroup::Platform),
             skills_prune: domains.allows(DomainGroup::Skills),
         }
@@ -374,19 +371,9 @@ pub async fn init_stores(
     } else {
         log::debug!("[boot] image attachments sidecar dir SKIPPED — Agent domain disabled");
     }
-    // Initialize the WhatsApp data store so scanner ingest calls
-    // can write data without requiring a lazy-init fallback.
-    if plan.whatsapp_data {
-        match crate::openhuman::whatsapp_data::global::init(cfg.workspace_dir.clone()) {
-            Ok(_) => log::info!(
-                "[boot] whatsapp_data::global initialized (workspace={})",
-                cfg.workspace_dir.display()
-            ),
-            Err(e) => log::warn!("[boot] whatsapp_data::global init failed: {e}"),
-        }
-    } else {
-        log::debug!("[boot] whatsapp_data::global init SKIPPED — Channels domain disabled");
-    }
+    // (The WhatsApp data store moved to the Tauri shell; the core no longer
+    // initializes it here. The shell lazily opens it from its own workspace
+    // dir when the first ingest / query arrives.)
     // Seed the people store so people controllers + `people_*`
     // tools can read/write. Without this the process-global stays
     // empty and every call fails with "people store not
@@ -462,7 +449,6 @@ mod tests {
             StoreInitPlan {
                 memory: true,
                 agent_attachments: true,
-                whatsapp_data: true,
                 people: true,
                 skills_prune: true,
             },
@@ -478,7 +464,6 @@ mod tests {
             StoreInitPlan {
                 memory: false,
                 agent_attachments: false,
-                whatsapp_data: false,
                 people: false,
                 skills_prune: false,
             },
@@ -495,11 +480,7 @@ mod tests {
             plan.agent_attachments,
             "harness keeps agent attachments sidecar (Agent)"
         );
-        // Channels / Platform / Skills are NOT in harness → their stores stay off.
-        assert!(
-            !plan.whatsapp_data,
-            "harness must skip whatsapp_data::global (Channels)"
-        );
+        // Platform / Skills are NOT in harness → their stores stay off.
         assert!(!plan.people, "harness must skip people::store (Platform)");
         assert!(
             !plan.skills_prune,

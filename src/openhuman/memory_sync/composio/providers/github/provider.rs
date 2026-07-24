@@ -23,7 +23,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::time::Duration;
 
-use super::sync;
+use super::normalization;
 use crate::openhuman::memory_sync::composio::providers::{
     merge_extra, pick_str, resolve_sync_interval_secs, ComposioProvider, CuratedTool,
     GithubFetchMode, NormalizedTask, ProviderContext, ProviderUserProfile, TaskFetchFilter,
@@ -94,7 +94,7 @@ impl ComposioProvider for GitHubProvider {
         }
 
         let data = &resp.data;
-        let login = sync::extract_user_login(data);
+        let login = normalization::extract_user_login(data);
         let display_name = pick_str(data, &["name", "data.name"]).or_else(|| login.clone());
         let email = pick_str(data, &["email", "data.email"]);
         let avatar_url = pick_str(data, &["avatar_url", "data.avatar_url"]);
@@ -157,7 +157,7 @@ impl ComposioProvider for GitHubProvider {
         };
 
         let mut out: Vec<NormalizedTask> = Vec::new();
-        for issue in sync::extract_issues(&data) {
+        for issue in normalization::extract_issues(&data) {
             if out.len() >= max {
                 break;
             }
@@ -481,7 +481,7 @@ pub(super) fn normalize_github_repo_filter(raw: &str) -> String {
 /// not depend on the fetch query), so even if a `closed` item slips through
 /// the query bias it is dropped here.
 pub(super) fn normalize_github_issue(issue: &serde_json::Value) -> Option<NormalizedTask> {
-    let external_id = sync::extract_issue_id(issue)?;
+    let external_id = normalization::extract_issue_id(issue)?;
     let status = pick_str(issue, &["state", "data.state"]);
     if status
         .as_deref()
@@ -494,8 +494,8 @@ pub(super) fn normalize_github_issue(issue: &serde_json::Value) -> Option<Normal
         );
         return None;
     }
-    let title =
-        sync::extract_issue_title(issue).unwrap_or_else(|| format!("GitHub issue {external_id}"));
+    let title = normalization::extract_issue_title(issue)
+        .unwrap_or_else(|| format!("GitHub issue {external_id}"));
     let kind = if is_pull_request(issue) {
         TaskKind::PullRequest
     } else {
@@ -514,7 +514,7 @@ pub(super) fn normalize_github_issue(issue: &serde_json::Value) -> Option<Normal
         due: None,
         labels: extract_github_labels(issue),
         priority: None,
-        updated_at: sync::extract_issue_updated_at(issue),
+        updated_at: normalization::extract_issue_updated_at(issue),
         raw: issue.clone(),
     })
 }

@@ -24,11 +24,12 @@ use crate::core::runtime::CoreRuntime;
 use crate::core::socketio::WebChannelEvent;
 use crate::openhuman::web_chat;
 
-use super::render::{self, UiState};
+use super::render;
 use super::state::TranscriptState;
 use super::terminal::TerminalGuard;
+use super::ui_state::{AppTab, UiState};
 
-/// Run the terminal chat loop until the user quits (Ctrl+C / Ctrl+D) or the
+/// Run the tabbed terminal loop until the user quits (Ctrl+C / Ctrl+D) or the
 /// web-channel bus closes. The [`TerminalGuard`] restores the terminal on every
 /// exit path, including panics.
 pub async fn run(
@@ -37,13 +38,16 @@ pub async fn run(
     thread_id: String,
     mut web_rx: broadcast::Receiver<WebChannelEvent>,
 ) -> anyhow::Result<()> {
-    let mut guard = TerminalGuard::enter()?;
-
     let mut state = TranscriptState::new(client_id.clone());
     state.push_system(format!(
         "Connected · thread {thread_id}. Type a message and press Enter. Ctrl+C to quit."
     ));
     let mut ui = UiState::new(thread_id, client_id.clone());
+    super::controls::refresh_config(&runtime, &mut ui).await;
+    super::controls::refresh_auth(&runtime, &mut ui).await;
+    // Resolve local startup state before taking over the terminal. A slow or
+    // locked config must never strand the user on a blank raw-mode screen.
+    let mut guard = TerminalGuard::enter()?;
 
     // Blocking crossterm reader → async channel.
     let (input_tx, mut input_rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
@@ -77,8 +81,12 @@ pub async fn run(
                 Some(Event::Key(key)) => {
                     if handle_key(key, &runtime, &client_id, &mut state, &mut ui).await {
                         quit = true;
+                    } else if ui.identity_changed {
+                        ui.identity_changed = false;
+                        new_thread(&runtime, &mut state, &mut ui).await;
                     }
                 }
+                Some(Event::Paste(text)) => handle_paste(&text, &mut ui),
                 Some(_) => {} // resize / mouse / paste — redraw next iteration
                 None => quit = true, // reader thread gone
             },
@@ -118,29 +126,103 @@ async fn handle_key(
     }
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
+    if matches!(key.code, KeyCode::Char('c')) && ctrl {
+        log::info!("[tui] quit via Ctrl+C");
+        return true;
+    }
+    if matches!(key.code, KeyCode::Char('d')) && ctrl {
+        log::info!("[tui] quit via Ctrl+D");
+        return true;
+    }
+
+    if !ui.is_editing() {
+        if let Some(tab) = tab_shortcut(key, ui.active_tab) {
+            ui.active_tab = tab;
+        } else {
+            return handle_tab_key(key, runtime, client_id, state, ui).await;
+        }
+        return false;
+    }
+
+    handle_tab_key(key, runtime, client_id, state, ui).await
+}
+
+fn tab_shortcut(key: KeyEvent, current: AppTab) -> Option<AppTab> {
+    let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+    let alt = key.modifiers.contains(KeyModifiers::ALT);
     match key.code {
-        KeyCode::Char('c') if ctrl => {
-            log::info!("[tui] quit via Ctrl+C");
-            return true;
+        KeyCode::Tab if shift => Some(current.previous()),
+        KeyCode::Tab => Some(current.next()),
+        KeyCode::BackTab => Some(current.previous()),
+        KeyCode::Char('1') if alt => Some(AppTab::Logs),
+        KeyCode::Char('2') if alt => Some(AppTab::Chat),
+        KeyCode::Char('3') if alt => Some(AppTab::Config),
+        KeyCode::Char('4') if alt => Some(AppTab::Settings),
+        _ => None,
+    }
+}
+
+fn handle_paste(text: &str, ui: &mut UiState) {
+    match ui.active_tab {
+        AppTab::Chat => ui.input.push_str(text),
+        AppTab::Config => {
+            if let Some(input) = &mut ui.config_edit {
+                input.push_str(text);
+            }
         }
-        KeyCode::Char('d') if ctrl => {
-            log::info!("[tui] quit via Ctrl+D");
-            return true;
+        AppTab::Settings => {
+            if let Some(token) = &mut ui.login_token {
+                token.push_str(text);
+            }
         }
-        KeyCode::Char('n') if ctrl => new_thread(runtime, state, ui).await,
-        KeyCode::Esc => cancel_turn(runtime, client_id, &ui.thread_id, state),
-        KeyCode::PageUp => {
-            ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_add(5);
-        }
-        KeyCode::PageDown => {
-            ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_sub(5);
-        }
-        KeyCode::Enter => send_message(runtime, client_id, state, ui),
-        KeyCode::Backspace => {
-            ui.input.pop();
-        }
-        KeyCode::Char(c) if !ctrl => ui.input.push(c),
-        _ => {}
+        AppTab::Logs => {}
+    }
+}
+
+async fn handle_tab_key(
+    key: KeyEvent,
+    runtime: &Arc<CoreRuntime>,
+    client_id: &str,
+    state: &mut TranscriptState,
+    ui: &mut UiState,
+) -> bool {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    match ui.active_tab {
+        AppTab::Logs => match key.code {
+            KeyCode::PageUp | KeyCode::Up => {
+                ui.log_scroll_from_bottom = ui.log_scroll_from_bottom.saturating_add(5)
+            }
+            KeyCode::PageDown | KeyCode::Down => {
+                ui.log_scroll_from_bottom = ui.log_scroll_from_bottom.saturating_sub(5)
+            }
+            _ => {}
+        },
+        AppTab::Chat => match key.code {
+            KeyCode::Char('c') if ctrl => {
+                log::info!("[tui] quit via Ctrl+C");
+                return true;
+            }
+            KeyCode::Char('d') if ctrl => {
+                log::info!("[tui] quit via Ctrl+D");
+                return true;
+            }
+            KeyCode::Char('n') if ctrl => new_thread(runtime, state, ui).await,
+            KeyCode::Esc => cancel_turn(runtime, client_id, &ui.thread_id, state),
+            KeyCode::PageUp => {
+                ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_add(5);
+            }
+            KeyCode::PageDown => {
+                ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_sub(5);
+            }
+            KeyCode::Enter => send_message(runtime, client_id, state, ui),
+            KeyCode::Backspace => {
+                ui.input.pop();
+            }
+            KeyCode::Char(c) if !ctrl => ui.input.push(c),
+            _ => {}
+        },
+        AppTab::Config => super::controls::handle_config_key(key, runtime, ui).await,
+        AppTab::Settings => super::controls::handle_settings_key(key, runtime, ui).await,
     }
     false
 }
@@ -227,6 +309,8 @@ async fn new_thread(runtime: &Arc<CoreRuntime>, state: &mut TranscriptState, ui:
         .and_then(|v| super::runner::extract_thread_id(&v))
     {
         Some(new_id) => {
+            let client_id = state.client_id().to_string();
+            *state = TranscriptState::new(client_id);
             ui.thread_id = new_id.clone();
             ui.scroll_from_bottom = 0;
             state.push_system(format!("Started a new thread · {new_id}"));
@@ -236,5 +320,41 @@ async fn new_thread(runtime: &Arc<CoreRuntime>, state: &mut TranscriptState, ui:
             state.push_system("Could not create a new thread (see logs).".to_string());
             log::error!("[tui] threads.create_new returned no thread id");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+        KeyEvent::new(code, modifiers)
+    }
+
+    #[test]
+    fn plain_digits_remain_chat_input_and_alt_digits_switch_tabs() {
+        for digit in ['1', '2', '3', '4'] {
+            assert_eq!(
+                tab_shortcut(key(KeyCode::Char(digit), KeyModifiers::NONE), AppTab::Chat),
+                None
+            );
+        }
+        assert_eq!(
+            tab_shortcut(key(KeyCode::Char('3'), KeyModifiers::ALT), AppTab::Chat),
+            Some(AppTab::Config)
+        );
+    }
+
+    #[test]
+    fn paste_routes_only_to_the_active_editable_surface() {
+        let mut ui = UiState::new("thread".into(), "client".into());
+        ui.active_tab = AppTab::Chat;
+        handle_paste("model-4", &mut ui);
+        assert_eq!(ui.input, "model-4");
+
+        ui.active_tab = AppTab::Settings;
+        ui.login_token = Some(String::new());
+        handle_paste("one-time-token", &mut ui);
+        assert_eq!(ui.login_token.as_deref(), Some("one-time-token"));
     }
 }

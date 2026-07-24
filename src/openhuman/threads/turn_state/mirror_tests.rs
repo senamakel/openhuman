@@ -680,7 +680,7 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
 use crate::openhuman::agent::harness::session::transcript::{
     self, read_transcript, read_transcript_display, DisplayRecord, TranscriptMeta,
 };
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 
 fn seed_root_transcript(workspace: &std::path::Path, thread_id: &str) -> std::path::PathBuf {
     let stem = "100_orchestrator".to_string();

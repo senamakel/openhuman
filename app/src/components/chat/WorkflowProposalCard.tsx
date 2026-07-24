@@ -9,6 +9,7 @@ import { createFlow, setFlowEnabled } from '../../services/api/flowsApi';
 import { threadApi } from '../../services/api/threadApi';
 import {
   clearWorkflowProposalForThread,
+  markWorkflowProposalCompleted,
   type WorkflowProposal,
 } from '../../store/chatRuntimeSlice';
 import { useAppDispatch } from '../../store/hooks';
@@ -93,6 +94,14 @@ interface Props {
  * (disabled) and the card keeps `savedFlowId` around so a retry re-enables
  * instead of re-creating (which would duplicate the flow).
  *
+ * On a fully successful save (issue B36), the card does NOT dispatch
+ * `clearWorkflowProposalForThread` immediately — doing so would unmount it
+ * (the parent only renders this card while a pending proposal exists in
+ * Redux) before the user ever saw confirmation. Instead it swaps to a
+ * terminal "saved" view with a link into the persisted flow's own
+ * `/flows/:id` canvas; the proposal is only cleared once the user follows
+ * that link (see `viewWorkflow`) or hits "Dismiss".
+ *
  * Mirrors {@link PlanReviewCard}'s placement/chrome above the composer, and
  * the tool-timeline `StatusTag`/detail-chip visual language for the
  * node-kind badges + config hints in the step list.
@@ -108,6 +117,25 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
   // yet. Non-null means a retry of `save` should skip `createFlow` entirely
   // and only retry the enable step.
   const [savedFlowId, setSavedFlowId] = useState<string | null>(null);
+  // Set once the flow is fully persisted AND enabled — the terminal success
+  // state. Non-null swaps the card's body from the editable proposal (name/
+  // trigger/steps/buttons) to a compact saved confirmation with a link into
+  // the persisted flow's own canvas (issue B36). Kept distinct from
+  // `savedFlowId` above: that one tracks an in-between "saved but not yet
+  // armed" retry state, this one is the fully-done state.
+  //
+  // Initialized from `proposal.completedFlowId` (mirrored into Redux via
+  // `markWorkflowProposalCompleted`) rather than always starting at `null`:
+  // the card intentionally stays mounted after a successful save (its
+  // parent renders it only while the proposal survives in
+  // `pendingWorkflowProposalsByThread`), so a thread/route change can
+  // remount it before the user clicks "View workflow". Seeding from the
+  // Redux-persisted value keeps the confirmation showing across that
+  // remount instead of resetting to the pre-save editable view — which
+  // would let a second "Save & enable" click duplicate the flow.
+  const [completedFlowId, setCompletedFlowId] = useState<string | null>(
+    () => proposal.completedFlowId ?? null
+  );
 
   /**
    * When this proposal was rehydrated from a persisted thread message (the
@@ -128,6 +156,17 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
   const dismiss = () => {
     markSourceMessageConsumed();
     dispatch(clearWorkflowProposalForThread({ threadId }));
+  };
+
+  /**
+   * From the terminal "saved" confirmation (issue B36), jump into the
+   * persisted flow's own canvas. Clears the proposal from the thread's
+   * pending state at this point — the user is leaving to look at the
+   * authoritative canvas, so there is nothing left for this card to show.
+   */
+  const viewWorkflow = (flowId: string) => {
+    dispatch(clearWorkflowProposalForThread({ threadId }));
+    navigate(`/flows/${flowId}`);
   };
 
   /**
@@ -155,6 +194,17 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
     navigate(FLOW_CANVAS_DRAFT_ROUTE, { state: draft });
   };
 
+  /**
+   * Record the terminal "saved and enabled" state both locally (drives this
+   * render) and in Redux via `markWorkflowProposalCompleted` (survives a
+   * remount before the user clicks "View workflow" — see the
+   * `completedFlowId` state comment above).
+   */
+  const markCompleted = (flowId: string) => {
+    setCompletedFlowId(flowId);
+    dispatch(markWorkflowProposalCompleted({ threadId, flowId }));
+  };
+
   const save = async () => {
     if (saving) return;
     setSaving(true);
@@ -173,7 +223,8 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
         if (flow.enabled) {
           log('save: createFlow returned enabled — nothing further to arm id=%s', flow.id);
           markSourceMessageConsumed();
-          dispatch(clearWorkflowProposalForThread({ threadId }));
+          setSaving(false);
+          markCompleted(flow.id);
           onSaved?.();
           return;
         }
@@ -185,7 +236,8 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
       }
       await setFlowEnabled(flowId, true);
       markSourceMessageConsumed();
-      dispatch(clearWorkflowProposalForThread({ threadId }));
+      setSaving(false);
+      markCompleted(flowId);
       onSaved?.();
     } catch (e) {
       log('save failed (createFlow/setFlowEnabled): %o', e);
@@ -204,85 +256,115 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
       className="mb-2 rounded-xl border border-ocean-300 bg-surface p-3 text-sm shadow-md dark:border-ocean-700">
       <div className="flex items-start gap-2">
         <span aria-hidden className="text-base leading-none text-ocean-700 dark:text-ocean-200">
-          ⚙️
+          {completedFlowId ? '✅' : '⚙️'}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-ocean-900 dark:text-ocean-100">
-            {proposal.name || t('chat.flowProposal.title')}
-          </p>
-          <p className="mt-1 break-words text-ocean-800/90 dark:text-ocean-200/90">
-            {t('chat.flowProposal.subtitle')}
-          </p>
+          {completedFlowId ? (
+            // Terminal success state (issue B36): the flow is saved and
+            // enabled, so the editable proposal (name/trigger/steps/buttons)
+            // gives way to a compact confirmation with a link into the
+            // persisted flow's own canvas, instead of the card silently
+            // collapsing to nothing.
+            <div
+              data-testid="workflow-proposal-saved"
+              className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-ocean-900 dark:text-ocean-100">
+                {proposal.name || t('chat.flowProposal.title')}
+              </p>
+              <span className="text-xs text-sage-700 dark:text-sage-300">
+                <span aria-hidden>✓</span> {t('chat.flowProposal.savedConfirmation')}
+              </span>
+              <Button
+                variant="tertiary"
+                size="sm"
+                data-analytics-id="workflow-proposal-view"
+                onClick={() => viewWorkflow(completedFlowId)}
+                trailingIcon={<span aria-hidden>→</span>}>
+                {t('chat.flowProposal.viewWorkflow')}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <p className="font-semibold text-ocean-900 dark:text-ocean-100">
+                {proposal.name || t('chat.flowProposal.title')}
+              </p>
+              <p className="mt-1 break-words text-ocean-800/90 dark:text-ocean-200/90">
+                {t('chat.flowProposal.subtitle')}
+              </p>
 
-          <p className="mt-2 text-xs break-words text-content-secondary">
-            <span className="font-medium text-content-muted">
-              {t('chat.flowProposal.triggerLabel')}:
-            </span>{' '}
-            {proposal.summary.trigger}
-          </p>
+              <p className="mt-2 text-xs break-words text-content-secondary">
+                <span className="font-medium text-content-muted">
+                  {t('chat.flowProposal.triggerLabel')}:
+                </span>{' '}
+                {proposal.summary.trigger}
+              </p>
 
-          <div className="mt-2">
-            <p className="text-xs font-medium text-content-muted">
-              {t('chat.flowProposal.stepsLabel')}
-            </p>
-            {proposal.summary.steps.length > 0 ? (
-              <ol className="mt-1 max-h-56 list-decimal overflow-y-auto pl-6 text-content-secondary">
-                {proposal.summary.steps.map((step, i) => {
-                  const kindI18nKey = stepKindI18nKey(step.kind);
-                  const kindLabel = kindI18nKey
-                    ? t(kindI18nKey)
-                    : humanizeUnknownStepKind(step.kind);
-                  return (
-                    <li key={i} className="break-words">
-                      <span
-                        data-testid="workflow-proposal-step-kind"
-                        className="mr-1.5 inline-block rounded-full bg-ocean-100 px-1.5 py-0.5 text-[10px] font-medium text-ocean-700 dark:bg-ocean-500/15 dark:text-ocean-300">
-                        {kindLabel}
-                      </span>
-                      <span>{step.name}</span>
-                    </li>
-                  );
-                })}
-              </ol>
-            ) : (
-              <p className="mt-1 text-xs text-content-faint">{t('chat.flowProposal.noSteps')}</p>
-            )}
-          </div>
+              <div className="mt-2">
+                <p className="text-xs font-medium text-content-muted">
+                  {t('chat.flowProposal.stepsLabel')}
+                </p>
+                {proposal.summary.steps.length > 0 ? (
+                  <ol className="mt-1 max-h-56 list-decimal overflow-y-auto pl-6 text-content-secondary">
+                    {proposal.summary.steps.map((step, i) => {
+                      const kindI18nKey = stepKindI18nKey(step.kind);
+                      const kindLabel = kindI18nKey
+                        ? t(kindI18nKey)
+                        : humanizeUnknownStepKind(step.kind);
+                      return (
+                        <li key={i} className="break-words">
+                          <span
+                            data-testid="workflow-proposal-step-kind"
+                            className="mr-1.5 inline-block rounded-full bg-ocean-100 px-1.5 py-0.5 text-[10px] font-medium text-ocean-700 dark:bg-ocean-500/15 dark:text-ocean-300">
+                            {kindLabel}
+                          </span>
+                          <span>{step.name}</span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <p className="mt-1 text-xs text-content-faint">
+                    {t('chat.flowProposal.noSteps')}
+                  </p>
+                )}
+              </div>
 
-          {proposal.requireApproval && (
-            <p className="mt-2 text-xs text-content-faint">
-              {t('chat.flowProposal.requireApprovalHint')}
-            </p>
+              {proposal.requireApproval && (
+                <p className="mt-2 text-xs text-content-faint">
+                  {t('chat.flowProposal.requireApprovalHint')}
+                </p>
+              )}
+
+              {errorMsg && <p className="mt-2 text-xs text-coral">⚠ {errorMsg}</p>}
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  data-analytics-id="workflow-proposal-save"
+                  onClick={() => void save()}
+                  disabled={saving}>
+                  {saving ? t('chat.flowProposal.saving') : t('chat.flowProposal.save')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-analytics-id="workflow-proposal-open-canvas"
+                  onClick={openInCanvas}
+                  disabled={saving}>
+                  {t('chat.flowProposal.openInCanvas')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-analytics-id="workflow-proposal-dismiss"
+                  onClick={dismiss}
+                  disabled={saving}>
+                  {t('chat.flowProposal.dismiss')}
+                </Button>
+              </div>
+            </>
           )}
-
-          {errorMsg && <p className="mt-2 text-xs text-coral">⚠ {errorMsg}</p>}
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              data-analytics-id="workflow-proposal-save"
-              onClick={() => void save()}
-              disabled={saving}>
-              {saving ? t('chat.flowProposal.saving') : t('chat.flowProposal.save')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              data-analytics-id="workflow-proposal-open-canvas"
-              onClick={openInCanvas}
-              disabled={saving}>
-              {t('chat.flowProposal.openInCanvas')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              data-analytics-id="workflow-proposal-dismiss"
-              onClick={dismiss}
-              disabled={saving}>
-              {t('chat.flowProposal.dismiss')}
-            </Button>
-          </div>
         </div>
       </div>
     </div>

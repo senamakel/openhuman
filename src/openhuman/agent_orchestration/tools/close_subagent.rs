@@ -70,8 +70,7 @@ impl Tool for CloseSubagentTool {
             }
         };
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let parent_thread_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id();
+        let parent_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
         let owned = match subagent_sessions::list_for_parent(
             &store,
             &parent.session_id,
@@ -131,7 +130,6 @@ mod tests {
     };
     use crate::openhuman::config::AgentConfig;
     use crate::openhuman::context::prompt::ToolCallFormat;
-    use crate::openhuman::inference::provider::Provider;
     use crate::openhuman::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
     };
@@ -153,16 +151,13 @@ mod tests {
         let session = seed_session(&store, "thread-b");
 
         let res = with_parent_context(parent_context(workspace.path()), async {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
-                "thread-a",
-                async {
-                    CloseSubagentTool::new()
-                        .execute(json!({
-                            "subagent_session_id": session.subagent_session_id,
-                        }))
-                        .await
-                },
-            )
+            crate::openhuman::tinyagents::thread_context::with_thread_id("thread-a", async {
+                CloseSubagentTool::new()
+                    .execute(json!({
+                        "subagent_session_id": session.subagent_session_id,
+                    }))
+                    .await
+            })
             .await
         })
         .await
@@ -184,16 +179,13 @@ mod tests {
         let session = seed_session(&store, "thread-a");
 
         let res = with_parent_context(parent_context(workspace.path()), async {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
-                "thread-a",
-                async {
-                    CloseSubagentTool::new()
-                        .execute(json!({
-                            "subagent_session_id": session.subagent_session_id,
-                        }))
-                        .await
-                },
-            )
+            crate::openhuman::tinyagents::thread_context::with_thread_id("thread-a", async {
+                CloseSubagentTool::new()
+                    .execute(json!({
+                        "subagent_session_id": session.subagent_session_id,
+                    }))
+                    .await
+            })
             .await
         })
         .await
@@ -240,16 +232,17 @@ mod tests {
     }
 
     fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
+        let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+            Arc::new(tinyagents::harness::testkit::ScriptedModel::new(Vec::new()));
         ParentExecutionContext {
             workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
             allowed_subagent_ids: HashSet::new(),
-            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-                NoopProvider,
-            )),
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
             all_tools: Arc::new(Vec::new()),
             all_tool_specs: Arc::new(Vec::new()),
             visible_tool_names: std::collections::HashSet::new(),
+            subagent_tool_ceiling_names: std::collections::HashSet::new(),
             model_name: "test-model".into(),
             temperature: 0.0,
             workspace_dir: workspace_dir.to_path_buf(),
@@ -265,21 +258,6 @@ mod tests {
             session_parent_prefix: None,
             on_progress: None,
             run_queue: None,
-        }
-    }
-
-    struct NoopProvider;
-
-    #[async_trait::async_trait]
-    impl Provider for NoopProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
         }
     }
 

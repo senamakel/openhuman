@@ -22,8 +22,8 @@
 //! run: definition lookup/allowlists, archetype prompt assembly, toolkit
 //! filtering, sandbox/action-root narrowing, checkpoint/handback, and
 //! worker-thread transcript mirroring. Mapping it onto TinyAgents
-//! `SubAgent`/`SubAgentSession`/subgraph primitives is tracked in
-//! `docs/tinyagents-full-migration-plan/07-subagents/`.
+//! `SubAgent`/`SubAgentSession`/subgraph primitives is tracked in WP-5 of
+//! `docs/tinyagents-migration-plan-2026-07-22.md`.
 //!
 //! ## Layout
 //!

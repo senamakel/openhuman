@@ -24,7 +24,7 @@ use crate::openhuman::scheduler_gate::signals::Signals;
 /// simultaneous Ollama requests have crashed the user's laptop twice.
 ///
 /// Cloud-backend LLM calls bypass this semaphore at the worker layer
-/// (see `memory::jobs::worker::run_once`) because they're
+/// (see `memory_queue::worker::run_once`) because they're
 /// bandwidth-bound, not RAM-bound, and the worker pool itself bounds
 /// concurrency upstream. Keeping this at 1 preserves the laptop-RAM
 /// contract regardless of backend.
@@ -313,7 +313,7 @@ pub fn current_policy() -> Policy {
 
 /// `true` when the signed-out override is active. Cheap atomic load —
 /// safe to call from hot paths (e.g. per-LLM-call short-circuit in
-/// `OpenHumanBackendProvider`).
+/// `OpenHumanBackendModel`).
 #[cfg(not(test))]
 pub fn is_signed_out() -> bool {
     SIGNED_OUT.load(Ordering::Acquire)

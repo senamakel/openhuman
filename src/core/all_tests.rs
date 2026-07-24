@@ -858,6 +858,8 @@ async fn harness_excludes_gated_namespaces() {
     // convention; gate it like its siblings so the disabled build passes (#5022).
     #[cfg(feature = "voice")]
     assert!(full_ns.contains("voice"), "full() must expose voice");
+    #[cfg(feature = "channels")]
+    assert!(full_ns.contains("channels"), "full() must expose channels");
 
     let ctx = CoreContext::for_test(DomainSet::harness(), None);
     let harness_ns: BTreeSet<&'static str> =
@@ -881,6 +883,7 @@ async fn harness_excludes_gated_namespaces() {
         "skills",
         "wallet",
         "meet",
+        "channels",
         "mcp_clients",
         "health",
     ] {
@@ -1127,6 +1130,55 @@ fn meet_controllers_absent_when_feature_off() {
     }
 }
 
+/// The external-channel namespace registers when the `channels` feature is on
+/// (#4801).
+///
+/// Paired with `channels_controllers_absent_when_feature_off` below to pin both
+/// directions of the compile-time gate. The webview API/notification bridges
+/// and WhatsApp store have moved to the Tauri shell and expose no core
+/// controllers.
+#[cfg(feature = "channels")]
+#[test]
+fn channels_controllers_registered_when_feature_on() {
+    let namespaces: Vec<&str> = all_controller_schemas()
+        .iter()
+        .map(|s| s.namespace)
+        .collect();
+    assert!(
+        namespaces.contains(&"channels"),
+        "with the `channels` feature ON the `channels` controllers must be registered"
+    );
+}
+
+/// With `channels` compiled out the channel + webview-bridge domains leave zero
+/// trace in the registry (#4801) — while the in-app web chat (`channel`
+/// namespace) stays present, pinning the #5002 decoupling: turning off external
+/// messaging must NOT take down core in-app chat.
+///
+/// This is the half that proves the gate does something. The 3 `whatsapp_data`
+/// agent tools are pinned separately in `tools::ops_tests` (that module has the
+/// full-tool-list machinery); here we assert the controller surface.
+#[cfg(not(feature = "channels"))]
+#[test]
+fn channels_controllers_absent_when_feature_off() {
+    let namespaces: Vec<&str> = all_controller_schemas()
+        .iter()
+        .map(|s| s.namespace)
+        .collect();
+    assert!(
+        !namespaces.contains(&"channels"),
+        "with the `channels` feature OFF the `channels` controllers must be absent \
+         (unknown-method over /rpc, omitted from /schema)"
+    );
+    // #5002 decoupling: the in-app web chat controllers (RPC namespace `channel`)
+    // are core product surface and must survive the `channels` gate being off.
+    assert!(
+        namespaces.contains(&"channel"),
+        "the in-app web_chat controllers (`channel` namespace) must stay registered \
+         even with the `channels` feature OFF (#5002 decoupling)"
+    );
+}
+
 /// With the `http-server` feature on (the default), the HTTP + Socket.IO
 /// transport is compiled in — `HTTP_SERVER_COMPILED_IN` reflects that, and
 /// `socketioxide` is linked. `socketioxide` is the only dependency this gate
@@ -1175,40 +1227,4 @@ fn http_host_controllers_absent_when_http_server_off() {
         !schemas.iter().any(|s| s.namespace == "http_host"),
         "`http_host` controllers must be compiled out when the `http-server` feature is off"
     );
-}
-
-/// All three desktop-automation namespaces register under
-/// `DomainGroup::DesktopAutomation` when the `desktop-automation` feature is on
-/// (#5049). Paired with `desktop_automation_controllers_absent_when_feature_off`
-/// below: together they pin both directions of the compile-time gate.
-#[cfg(feature = "desktop-automation")]
-#[test]
-fn desktop_automation_controllers_registered_when_feature_on() {
-    for ns in ["autocomplete", "screen_intelligence", "companion"] {
-        assert_eq!(
-            group_for_namespace(ns),
-            Some(DomainGroup::DesktopAutomation),
-            "`{ns}` must register under DomainGroup::DesktopAutomation when the \
-             `desktop-automation` feature is on"
-        );
-    }
-}
-
-/// Negative half of the `desktop-automation` gate (#5049): with the cluster
-/// compiled out, none of the `autocomplete` / `screen_intelligence` / `companion`
-/// controllers register (unknown-method over `/rpc`, absent from `/schema`).
-/// Pairs with `desktop_automation_controllers_registered_when_feature_on` above.
-/// The `screen_intelligence_*` tool-absence half lives in
-/// `tools::ops_tests::screen_intelligence_tools_absent_when_feature_off`, where
-/// the full agent tool list can be built.
-#[cfg(not(feature = "desktop-automation"))]
-#[test]
-fn desktop_automation_controllers_absent_when_feature_off() {
-    for ns in ["autocomplete", "screen_intelligence", "companion"] {
-        assert_eq!(
-            group_for_namespace(ns),
-            None,
-            "`{ns}` must not register when the `desktop-automation` feature is off"
-        );
-    }
 }

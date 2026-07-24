@@ -12,6 +12,8 @@ export const FLOW_RUN_STATUS_ACCENT: Record<FlowRunStatusValue, string> = {
   failed:
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
   cancelled: 'border-line bg-surface-muted text-content-secondary',
+  interrupted:
+    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
 };
 
 export const FLOW_RUN_STATUS_DOT: Record<FlowRunStatusValue, string> = {
@@ -21,6 +23,7 @@ export const FLOW_RUN_STATUS_DOT: Record<FlowRunStatusValue, string> = {
   pending_approval: 'bg-amber-500 animate-pulse',
   failed: 'bg-coral-500',
   cancelled: 'bg-surface-strong',
+  interrupted: 'bg-amber-500',
 };
 
 export const FLOW_RUN_STATUS_KEY: Record<FlowRunStatusValue, string> = {
@@ -30,6 +33,7 @@ export const FLOW_RUN_STATUS_KEY: Record<FlowRunStatusValue, string> = {
   pending_approval: 'flowRuns.status.pending_approval',
   failed: 'flowRuns.status.failed',
   cancelled: 'flowRuns.status.cancelled',
+  interrupted: 'flowRuns.status.interrupted',
 };
 
 export type FlowRunStatusPresentation = 'badge' | 'dot';

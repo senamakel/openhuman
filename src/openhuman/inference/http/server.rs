@@ -33,18 +33,17 @@ use serde_json::json;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tinyagents::harness::message::Message;
 use tinyagents::harness::model::{ModelRequest, ModelStreamItem};
 use tracing::{debug, error};
-
-use crate::core::types::AppState;
-use crate::openhuman::config::Config;
-use crate::openhuman::inference::provider::traits::ChatMessage;
 
 use super::types::{
     ChatCompletionChoice, ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionDelta,
     ChatCompletionMessage, ChatCompletionRequest, ChatCompletionResponse, ChatCompletionUsage,
     ModelObject, ModelsResponse,
 };
+use crate::core::types::AppState;
+use crate::openhuman::config::Config;
 
 const LOG_PREFIX: &str = "[inference::http]";
 
@@ -113,15 +112,15 @@ async fn chat_completions_handler(
             }
         };
 
-    // Map request messages to provider ChatMessage type.
-    let messages: Vec<ChatMessage> = req
+    // Map the OpenAI-compatible wire messages directly into crate messages.
+    let messages: Vec<Message> = req
         .messages
         .iter()
-        .map(|m| ChatMessage {
-            id: None,
-            role: m.role.clone(),
-            content: m.content.clone(),
-            extra_metadata: None,
+        .map(|message| match message.role.as_str() {
+            "system" => Message::system(&message.content),
+            "assistant" => Message::assistant(&message.content),
+            "tool" => Message::tool("external-tool-call", &message.content),
+            _ => Message::user(&message.content),
         })
         .collect();
 
@@ -131,7 +130,7 @@ async fn chat_completions_handler(
     // check on the outbound body, so this is belt-and-suspenders for logging.
     let temperature = {
         let raw = req.temperature.unwrap_or(config.default_temperature);
-        let suppressed = crate::openhuman::inference::provider::temperature::temperature_for_model(
+        let suppressed = crate::openhuman::inference::temperature::temperature_for_model(
             &model_id, raw, &config,
         );
         if suppressed.is_none() && req.temperature.is_some() {
@@ -146,14 +145,9 @@ async fn chat_completions_handler(
     let completion_id = format!("chatcmpl-{}", uuid::Uuid::new_v4());
     let created = chrono::Utc::now().timestamp();
     let model_name = req.model.clone();
-    let model_request = ModelRequest::new(
-        messages
-            .iter()
-            .map(crate::openhuman::tinyagents::chat_message_to_message)
-            .collect(),
-    )
-    .with_model(model_id.clone())
-    .with_temperature(temperature);
+    let model_request = ModelRequest::new(messages)
+        .with_model(model_id.clone())
+        .with_temperature(temperature);
 
     if req.stream {
         let model_stream = match chat_model.stream(&(), model_request).await {

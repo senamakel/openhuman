@@ -1,6 +1,6 @@
 //! Shared orchestration helpers on the `tinyagents` graph layer (issue #4249).
 //!
-//! openhuman's control plane historically hand-rolled fan-out
+//! OpenHuman's control plane historically hand-rolled fan-out
 //! ([`futures_util::future::join_all`]) and a bespoke detached-sub-agent registry
 //! (raw `tokio` `AbortHandle`s, `watch` status channels, tombstone sets). This
 //! module is the shared seam that re-expresses that work on `tinyagents`
@@ -10,12 +10,10 @@
 //!   [`OrchestrationTaskKind`], …) are re-exported here so the detached-sub-agent
 //!   control plane gets typed task lifecycle bookkeeping (Pending → Running →
 //!   Completed/Failed/Cancelled/…) instead of bespoke status enums + watch
-//!   channels + tombstones. The store tracks lifecycle; the caller still owns the
-//!   executor (the `tokio` task + cooperative cancel + hard abort).
-//! - [`SteeringRegistry`] is re-exported as the next bridge for task-id-addressed
-//!   steering. Today the live control path still goes through OpenHuman's
-//!   `RunQueue`; the registry gives the follow-up patch one local import seam for
-//!   registering the TinyAgents [`SteeringHandle`] per detached task.
+//!   channels + tombstones. The store tracks durable lifecycle while
+//!   [`DetachedTaskRegistry`] owns the process-local status, cancellation,
+//!   hard-abort, ownership, and steering mechanics. OpenHuman retains its
+//!   product metadata and `RunQueue` compatibility fallback.
 //!
 //! Graph lifecycle events are mirrored onto tracing via the shared
 //! [`GraphTracingSink`](crate::openhuman::tinyagents::observability::GraphTracingSink).
@@ -28,9 +26,9 @@ pub(crate) use tinyagents::graph::orchestration::OrchestrationTaskStatus;
 #[allow(unused_imports)]
 pub(crate) use tinyagents::graph::orchestration::SteeringRegistry;
 pub(crate) use tinyagents::graph::orchestration::{
-    InMemoryTaskStore, JsonlTaskStore, OrchestrationControlOutcome, OrchestrationTaskFilter,
-    OrchestrationTaskKind, OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
-    TaskStore,
+    DetachedTaskRegistry, DetachedTaskRegistryError, DetachedTaskWaitOutcome, InMemoryTaskStore,
+    JsonlTaskStore, OrchestrationControlOutcome, OrchestrationTaskFilter, OrchestrationTaskKind,
+    OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec, TaskStore,
 };
 #[allow(unused_imports)]
 pub(crate) use tinyagents::harness::ids::TaskId;

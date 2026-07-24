@@ -23,6 +23,7 @@ named = [
     "git_operations",
     "node_exec",
     "npm_exec",
+    "python_exec",
     "grep",
     "glob",
     "list",

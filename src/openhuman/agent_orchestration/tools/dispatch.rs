@@ -122,7 +122,7 @@ pub(crate) async fn dispatch_subagent(
     if mode == DispatchMode::PreferAsync {
         let has_parent_turn = parent_ctx.is_some();
         let has_delivery_thread =
-            crate::openhuman::inference::provider::thread_context::current_thread_id().is_some();
+            crate::openhuman::tinyagents::thread_context::current_thread_id().is_some();
         if has_parent_turn && has_delivery_thread {
             let mut async_args = serde_json::json!({
                 "agent_id": definition.id.clone(),

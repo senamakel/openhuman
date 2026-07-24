@@ -525,7 +525,7 @@ mod tests {
     /// tests so they don't race each other under Rust's default parallel
     /// runner. Process-global env state means one test's restore can land
     /// in another test's read window without this. Same pattern used in
-    /// `webview_accounts/ops.rs` and `tools/impl/system/lsp.rs`.
+    /// `tools/impl/system/lsp.rs`.
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn reserve_port() -> std::net::TcpListener {

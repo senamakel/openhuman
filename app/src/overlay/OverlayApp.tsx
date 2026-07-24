@@ -23,6 +23,7 @@
  *
  * There is **no** demo loop — the overlay is entirely event-driven.
  */
+import { listen } from '@tauri-apps/api/event';
 import {
   currentMonitor,
   getCurrentWindow,
@@ -96,10 +97,9 @@ interface OverlayAttentionPayload {
 }
 
 interface CompanionStateChangedPayload {
-  session_id?: string;
+  sessionId?: string;
   state?: string;
-  previous_state?: string;
-  message?: string;
+  previousState?: string;
 }
 
 /**
@@ -327,10 +327,9 @@ export default function OverlayApp() {
       }
       if (state === 'error') {
         setMode('companion');
-        const trimmed = payload?.message?.trim();
         setBubble({
           id: `companion-error-${Date.now()}`,
-          text: trimmed ? `\u201C${trimmed}\u201D` : `\u201C${t('overlay.companion.error')}\u201D`,
+          text: `\u201C${t('overlay.companion.error')}\u201D`,
           tone: 'neutral',
           compact: true,
         });
@@ -385,7 +384,6 @@ export default function OverlayApp() {
         socket.on('dictation:toggle', handleDictationToggle);
         socket.on('dictation:transcription', handleDictationTranscription);
         socket.on('overlay:attention', handleAttention);
-        socket.on('companion:state_changed', handleCompanionStateChanged);
 
         socket.connect();
       } catch (err) {
@@ -403,13 +401,29 @@ export default function OverlayApp() {
       }
       clearDismissTimer();
     };
-  }, [
-    clearDismissTimer,
-    handleAttention,
-    handleCompanionStateChanged,
-    handleDictationToggle,
-    handleDictationTranscription,
-  ]);
+  }, [clearDismissTimer, handleAttention, handleDictationToggle, handleDictationTranscription]);
+
+  // ── Companion state via Tauri event ────────────────────────────────────
+  // The desktop companion now lives shell-side and emits a
+  // `companion://state_changed` Tauri event (camelCase payload) rather than the
+  // old core Socket.IO `companion:state_changed` broadcast.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void listen<CompanionStateChangedPayload>('companion://state_changed', event => {
+      handleCompanionStateChanged(event.payload);
+    }).then(fn => {
+      if (disposed) {
+        fn();
+        return;
+      }
+      unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [handleCompanionStateChanged]);
 
   // ── Poll voice server status as fallback sync ─────────────────────────
   // Socket events are the primary state driver, but if an event is missed

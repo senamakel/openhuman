@@ -328,17 +328,23 @@ pub struct FlowRun {
     /// `"running"` | `"completed"` | `"completed_with_warnings"` |
     /// `"pending_approval"` | `"failed"` | `"cancelled"` (issue G4 — a run
     /// cancelled via `flows_cancel_run`, or a parked `pending_approval` run
-    /// swept by the TTL expiry). `"completed_with_warnings"` (run honesty,
+    /// swept by the TTL expiry) | `"interrupted"` (bug B42 — a run whose future
+    /// was dropped mid-flight, reconciled either by the in-process
+    /// `RunRowFinalizer` drop-guard or the boot-time orphan sweep, so a
+    /// cancelled/timed-out/crashed run always settles to a terminal row instead
+    /// of wedging at `running`). `"completed_with_warnings"` (run honesty,
     /// PR2) is a terminal status like `"completed"`, but at least one settled
     /// [`FlowRunStep`] carries non-empty `diagnostics` (a `=`-binding that
     /// resolved to `null`) even though no step outright errored. All of
-    /// `completed` / `completed_with_warnings` / `failed` / `cancelled` are
-    /// terminal.
+    /// `completed` / `completed_with_warnings` / `failed` / `cancelled` /
+    /// `interrupted` are terminal.
     pub status: String,
     /// RFC3339 timestamp when the run started.
     pub started_at: String,
-    /// RFC3339 timestamp when the run last settled (completed/paused/failed).
-    /// `None` while a run row is still `"running"`.
+    /// RFC3339 timestamp when the run last settled — stamped for every terminal
+    /// status (completed/paused/failed/cancelled/`"interrupted"`; the B42
+    /// drop-guard and boot sweep stamp it exactly like a normal terminal
+    /// write). `None` only while a run row is still `"running"`.
     pub finished_at: Option<String>,
     /// Reconstructed per-node steps (see [`FlowRunStep`]).
     #[serde(default)]
@@ -347,7 +353,11 @@ pub struct FlowRun {
     /// "pending_approval"`; empty otherwise.
     #[serde(default)]
     pub pending_approvals: Vec<String>,
-    /// Error message when `status == "failed"`.
+    /// Human-readable failure reason. Set when `status == "failed"`, and also
+    /// when `status == "interrupted"` (bug B42) — there it carries the
+    /// reconciliation reason (tool abort / chat turn end / app restart) so the
+    /// run-details sidebar can explain *why* the run stopped instead of
+    /// rendering a bare terminal state.
     #[serde(default)]
     pub error: Option<String>,
 }

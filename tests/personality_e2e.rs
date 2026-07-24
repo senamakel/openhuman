@@ -64,6 +64,8 @@ fn make_profile(id: &str, name: &str) -> AgentProfile {
         memory_dir_suffix: None,
         is_master: false,
         sort_order: None,
+        dedicated_memory: false,
+        dedicated_workspace: false,
     }
 }
 

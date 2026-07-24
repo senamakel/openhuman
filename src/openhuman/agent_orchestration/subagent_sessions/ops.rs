@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::openhuman::agent::harness::subagent_runner::SubagentRunStatus;
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 
 use super::types::{
     DurableSubagentSession, DurableSubagentStatus, ReuseDecision, SubagentSessionSelector,

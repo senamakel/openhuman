@@ -9,7 +9,7 @@ use thiserror::Error;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 use crate::openhuman::agent::harness::definition::AgentTier;
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 
 /// Per-spawn options that override or augment what the
 /// [`AgentDefinition`] specifies. Built by `SpawnSubagentTool::execute`

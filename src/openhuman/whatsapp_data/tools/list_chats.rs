@@ -1,6 +1,8 @@
+use crate::core::event_bus::request_native_global;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
-use crate::openhuman::whatsapp_data::rpc as whatsapp_rpc;
-use crate::openhuman::whatsapp_data::types::ListChatsRequest;
+use crate::openhuman::whatsapp_data::methods;
+use crate::openhuman::whatsapp_data::tools::{is_handler_absent, UNAVAILABLE_NOTE};
+use crate::openhuman::whatsapp_data::types::{ListChatsRequest, WhatsAppChat};
 use async_trait::async_trait;
 use serde_json::json;
 
@@ -60,13 +62,25 @@ impl Tool for WhatsAppDataListChatsTool {
             req.limit,
             req.offset,
         );
-        let outcome = whatsapp_rpc::whatsapp_data_list_chats(req)
-            .await
-            .map_err(|e| {
-                log::warn!("[tool][whatsapp_data] list_chats rpc_error error={e}");
-                anyhow::anyhow!("whatsapp_data_list_chats: {e}")
-            })?;
-        let chats = outcome.value;
+        let chats: Vec<WhatsAppChat> = match request_native_global(methods::LIST_CHATS, req).await {
+            Ok(chats) => chats,
+            Err(e) if is_handler_absent(&e) => {
+                // Headless / CLI / docker: no desktop shell handler is
+                // registered. Degrade gracefully to an empty result.
+                log::debug!("[tool][whatsapp_data] list_chats handler_absent — degrading ({e})");
+                let body = serde_json::to_string(&json!({
+                    "provider": "whatsapp",
+                    "count": 0,
+                    "chats": [],
+                    "note": UNAVAILABLE_NOTE,
+                }))?;
+                return Ok(ToolResult::success(body));
+            }
+            Err(e) => {
+                log::warn!("[tool][whatsapp_data] list_chats bridge_error error={e}");
+                return Err(anyhow::anyhow!("whatsapp_data_list_chats: {e}"));
+            }
+        };
         log::debug!(
             "[tool][whatsapp_data] list_chats returning count={}",
             chats.len()
@@ -119,5 +133,22 @@ mod tests {
             .await
             .expect_err("expected invalid-args error");
         assert!(err.to_string().contains("whatsapp_data_list_chats"));
+    }
+
+    #[tokio::test]
+    async fn execute_degrades_gracefully_without_shell_handler() {
+        // No shell handler registered in-crate → the native dispatch reports
+        // the handler absent and the tool returns an empty, well-formed result
+        // carrying the desktop-only note rather than erroring.
+        let tool = WhatsAppDataListChatsTool;
+        let result = tool
+            .execute(json!({}))
+            .await
+            .expect("degradation must succeed, not error");
+        let body: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("tool body is JSON");
+        assert_eq!(body["provider"], "whatsapp");
+        assert_eq!(body["count"], 0);
+        assert_eq!(body["note"], UNAVAILABLE_NOTE);
     }
 }

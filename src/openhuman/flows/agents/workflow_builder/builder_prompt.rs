@@ -639,6 +639,207 @@ mod tests {
         }
     }
 
+    /// B37 (Gap 1): the standing prompt must actually teach the builder to
+    /// reach for a specialist `agent_ref` — ground the id via
+    /// `list_agent_profiles`, understand that `agent_ref` runs a real agent
+    /// turn with its own tool loop (not just a persona-flavored completion),
+    /// and see concrete examples of when a plain agent node isn't enough.
+    #[test]
+    fn standing_prompt_teaches_specialist_agent_ref_selection() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        for rule in [
+            "list_agent_profiles",
+            "Picking a specialist via `agent_ref`",
+            "code_executor",
+            "researcher",
+        ] {
+            assert!(
+                STANDING_PROMPT.contains(rule),
+                "standing prompt must teach specialist selection via `{rule}` — the \
+                 builder needs to know it can ground a real agent_ref with \
+                 list_agent_profiles instead of hallucinating one"
+            );
+        }
+    }
+
+    /// The runtime already gives an `agent_ref` step the selected specialist's
+    /// full persona/model/tool loop/iteration cap (`run_via_harness` in
+    /// `tinyflows/caps.rs`) — the prompt must say so, not describe it as a
+    /// future capability.
+    #[test]
+    fn standing_prompt_links_agent_ref_to_the_full_tool_loop() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        assert!(
+            STANDING_PROMPT.contains("specialist")
+                && (STANDING_PROMPT.contains("tool loop")
+                    || STANDING_PROMPT.contains("full persona")),
+            "standing prompt must link agent_ref to the specialist's full tool loop \
+             (the harness path), not just a persona/model swap"
+        );
+    }
+
+    /// Regression guard: the old `list_agent_profiles` description (and any
+    /// prompt copy that echoed it) claimed the per-agent tool loop was "a
+    /// follow-up" and that a step "still gets tools from the node's own
+    /// inline `tools` list for now". That's false — `run_via_harness` already
+    /// gives an `agent_ref` step its selected specialist's real tool loop —
+    /// and the stale wording actively discouraged using `agent_ref` at all.
+    #[test]
+    fn standing_prompt_has_no_stale_agent_ref_followup_language() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        for banned in [
+            "is a follow-up",
+            "for now",
+            "still gets tools from the node's own",
+        ] {
+            assert!(
+                !STANDING_PROMPT.contains(banned),
+                "standing prompt must not carry the stale agent_ref-tool-loop \
+                 phrasing `{banned}` — the harness path already gives agent_ref \
+                 its full tool loop"
+            );
+        }
+    }
+
+    /// `list_agent_profiles`'s own tool description used to discourage
+    /// `agent_ref` with stale "follow-up"/"for now" wording (issue B37, Gap
+    /// 1) — pin that it now correctly describes the harness's full tool
+    /// loop instead.
+    #[test]
+    fn list_agent_profiles_tool_description_has_no_stale_followup_language() {
+        use crate::openhuman::flows::builder_tools::ListAgentProfilesTool;
+        use crate::openhuman::tools::traits::Tool;
+
+        let description = ListAgentProfilesTool::new().description().to_string();
+
+        for banned in ["is a follow-up", "for now"] {
+            assert!(
+                !description.contains(banned),
+                "list_agent_profiles description must not carry the stale \
+                 phrasing `{banned}` — an agent_ref step already gets the \
+                 selected specialist's full tool loop"
+            );
+        }
+        assert!(
+            description.contains("tool loop"),
+            "list_agent_profiles description must describe agent_ref as running \
+             the specialist's full tool loop"
+        );
+    }
+
+    /// Guard against over-fragmentation: the minimal-graph rule (don't chain
+    /// agents doing the same kind of work) must survive alongside the new
+    /// specialist guidance (do pick a specialist when the step needs tools
+    /// the plain agent lacks) — neither should crowd the other out.
+    #[test]
+    fn standing_prompt_keeps_minimal_graph_warning_alongside_specialist_guidance() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        assert!(
+            STANDING_PROMPT.contains("minimal viable graph"),
+            "standing prompt must still warn to prefer the minimal viable graph"
+        );
+        assert!(
+            STANDING_PROMPT.contains("3–6 nodes") || STANDING_PROMPT.contains("3-6 nodes"),
+            "standing prompt must still carry the 3-6 node sizing guidance"
+        );
+        assert!(
+            STANDING_PROMPT.contains("SAME kind of work"),
+            "standing prompt must still warn against chaining agents doing the \
+             same kind of work, even after adding specialist-selection guidance"
+        );
+    }
+
+    /// Regression guard for the shipped prompt bug this test was added with:
+    /// the standing prompt used to claim an `agent` node "can also **read and
+    /// write the user's memory at run time**". Both halves were false. A plain
+    /// `agent` node is a single completion through `OpenHumanLlm::complete`
+    /// (`tinyflows/caps.rs`) — no tool loop, so it can neither read nor write
+    /// memory. Told otherwise, the builder authored a plain agent node
+    /// prompted to "recall the user's preference", and the model FABRICATED
+    /// one: the step silently invented context instead of failing, which is
+    /// strictly worse than not working. The banned strings below are the exact
+    /// wording that produced that, so it can never be reintroduced verbatim.
+    #[test]
+    fn standing_prompt_does_not_claim_plain_agent_nodes_reach_memory() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        for banned in [
+            "read and write the user's\n   memory at run time",
+            "wire\n   an `agent` node that uses memory",
+        ] {
+            assert!(
+                !STANDING_PROMPT.contains(banned),
+                "standing prompt must not tell the builder a plain `agent` node can \
+                 reach memory ({banned:?}) — it has no tool loop, so the model \
+                 fabricates the recalled value instead of looking it up"
+            );
+        }
+
+        assert!(
+            STANDING_PROMPT.contains("A plain `agent` node has NO\n   memory access"),
+            "standing prompt must state outright that a plain agent node has no \
+             memory access, so the builder never authors a no-op recall step"
+        );
+    }
+
+    /// The two mechanisms that DO reach memory from inside a running flow must
+    /// both be taught, with the correct binding path for the deterministic one.
+    /// A native `oh:` tool result is a `ToolResult` — `{ content: [{ type,
+    /// text }], is_error }` — so a downstream binding dereferences
+    /// `.item.json.content[0].text`, not the bare `.item.json.<field>` an
+    /// agent/`http_request` output would use. Getting that path wrong is the
+    /// same class of silent-null failure the `=`-binding rules exist to stop.
+    #[test]
+    fn standing_prompt_teaches_the_two_working_memory_read_paths() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        for rule in [
+            "oh:memory_recall",
+            "oh:memory_hybrid_search",
+            "context_scout",
+            "=nodes.<id>.item.json.content[0].text",
+        ] {
+            assert!(
+                STANDING_PROMPT.contains(rule),
+                "standing prompt must teach `{rule}` — it is one of the only two \
+                 mechanisms that actually read memory at flow run time, or the \
+                 binding path needed to consume one"
+            );
+        }
+    }
+
+    /// Flows run on trigger data a third party can influence (an inbound
+    /// email, a webhook payload), so writing that into the user's personal
+    /// memory is deliberately not offered. `agent_memory` is NOT an escape
+    /// hatch here despite being a registered, `read_only` builtin: its
+    /// `memory_tree` tool inherits the trait-default `PermissionLevel::ReadOnly`
+    /// while dispatching an `ingest_document` WRITE mode, so it survives the
+    /// read-only tool filter in `session/builder/factory.rs` (which consults
+    /// the argless `permission_level()`). Steering the builder there would
+    /// hand prompt-injected trigger content a memory-write foothold — exactly
+    /// the hole `context_scout`'s own agent.toml documents refusing.
+    #[test]
+    fn standing_prompt_states_flows_cannot_write_memory_and_avoids_agent_memory() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        assert!(
+            STANDING_PROMPT.contains("can never WRITE the user's memory"),
+            "standing prompt must state plainly that a workflow cannot write the \
+             user's memory, so the builder stops authoring remember/store steps"
+        );
+        assert!(
+            !STANDING_PROMPT.contains("agent_memory"),
+            "standing prompt must not steer the builder to `agent_memory` as a \
+             flow agent_ref: its `memory_tree` tool declares ReadOnly but exposes \
+             an ingest_document write mode, so it would give prompt-injectable \
+             trigger data a memory-write path"
+        );
+    }
+
     #[test]
     fn repair_includes_run_id_error_and_failing_nodes() {
         let mut r = req(BuildMode::Repair);

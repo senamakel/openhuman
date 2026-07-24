@@ -27,7 +27,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 
-use tinyagents::error::{Result as TaResult, TinyAgentsError};
+use tinyagents::error::Result as TaResult;
 use tinyagents::harness::context::RunContext;
 use tinyagents::harness::events::AgentEvent;
 use tinyagents::harness::message::{ContentBlock, Message as TaMessage};
@@ -36,7 +36,9 @@ use tinyagents::harness::middleware::{
     MiddlewareToolOutcome, ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
 };
 use tinyagents::harness::model::{ModelRequest, ModelResponse, PromptSegment, SegmentRole};
-use tinyagents::harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
+use tinyagents::harness::no_progress::{
+    NoProgress, NoProgressTracker, SuccessfulRepeat, SuccessfulRepeatTracker, ToolAttempt,
+};
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
@@ -108,7 +110,7 @@ pub(crate) struct TurnContextMiddleware {
 /// conversation into, so the caller can persist completed rounds even when the
 /// harness run ends in `Err` (#4466).
 pub(crate) type TranscriptSnapshotSink =
-    Arc<std::sync::Mutex<Vec<crate::openhuman::inference::provider::ChatMessage>>>;
+    Arc<std::sync::Mutex<Vec<crate::openhuman::agent::messages::ChatMessage>>>;
 
 /// Observation-only middleware that snapshots the running transcript into a
 /// shared [`TranscriptSnapshotSink`] before each model call (#4466).
@@ -138,7 +140,8 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
-        let history = super::convert::messages_to_history(&request.messages);
+        let history =
+            crate::openhuman::agent::message_convert::messages_to_history(&request.messages);
         if let Ok(mut guard) = self.sink.lock() {
             *guard = history;
         }
@@ -1045,8 +1048,18 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
         // Resolve external-effect up front so no tool borrow is held across the
         // approval await.
         let mut audit_id: Option<String> = None;
-        if self.has_external_effect(&call.name, &call.arguments) {
+        let has_ext = self.has_external_effect(&call.name, &call.arguments);
+        tracing::debug!(
+            tool = %call.name,
+            has_external_effect = has_ext,
+            "[tinyagents::mw] checking tool for approval"
+        );
+        if has_ext {
             if let Some(gate) = ApprovalGate::try_global() {
+                tracing::debug!(
+                    tool = %call.name,
+                    "[tinyagents::mw] routing external-effect tool through approval gate"
+                );
                 let summary = summarize_action(&call.name, &call.arguments);
                 let redacted = redact_args(&call.arguments);
                 let (outcome, request_id) =
@@ -1069,6 +1082,11 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
                     }
                     GateOutcome::Allow => audit_id = request_id,
                 }
+            } else {
+                tracing::warn!(
+                    tool = %call.name,
+                    "[tinyagents::mw] approval gate unavailable; external-effect tool will run without interactive approval"
+                );
             }
         }
 
@@ -1569,10 +1587,9 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
 ///    coerce to `{}` (legacy-engine parity: the tool runs and produces its own
 ///    recoverable error).
 /// 4. Otherwise (non-object + schema has required fields) → leave the arguments
-///    untouched so [`SchemaGuardMiddleware`] converts the schema-validation
-///    failure into a model-visible tool error rather than a turn abort. The old
-///    behaviour (coerce to `{}`) *guaranteed* a `"<field> is required"` fatal
-///    abort for those tools, so it is exactly the case that must fall through.
+///    untouched so the crate's `InvalidArgsPolicy::ReturnToolError` path reports
+///    the original validation failure. Coercing to `{}` would discard the raw
+///    malformed value without improving recovery.
 pub(crate) struct ArgRecoveryMiddleware {
     /// The same `Arc`-shared tool sets the runner registers, used to resolve a
     /// call's schema so we can tell whether coercing to `{}` is safe.
@@ -1636,150 +1653,15 @@ impl Middleware<()> for ArgRecoveryMiddleware {
             return Ok(());
         }
 
-        // (4) Non-object + schema has required fields: leave untouched. Coercing
-        // to `{}` here would guarantee a fatal `"<field> is required"` abort;
-        // instead `SchemaGuardMiddleware` surfaces a descriptive, recoverable
-        // tool error.
+        // (4) Non-object + schema has required fields: leave untouched. The
+        // crate admission policy surfaces a descriptive, recoverable tool
+        // result without executing the real tool.
         tracing::debug!(
             tool = call.name.as_str(),
             args_kind = json_value_kind(&call.arguments),
-            "[tinyagents::mw] arg_recovery: leaving non-object tool arguments for the schema-guard tool-error path"
+            "[tinyagents::mw] arg_recovery: leaving non-object tool arguments for crate invalid-args recovery"
         );
         Ok(())
-    }
-}
-
-/// `before_tool` + `wrap_tool`: convert the harness's **fatal** pre-execution
-/// JSON-schema gate into a model-visible tool error instead of a turn abort
-/// (issue #4451).
-///
-/// The tinyagents agent loop validates every tool call against its schema
-/// (`ToolSchema::validate_call`) *between* `before_tool` and the tool-wrap onion;
-/// any `required`/type/`enum` violation returns `TinyAgentsError::Validation`,
-/// which propagates out of `run_loop` and fails the entire turn
-/// (`"tinyagents harness run failed: Validation(...)"`). The legacy engine had no
-/// such gate — bad arguments came back as recoverable tool *results* the model
-/// self-corrected on the next iteration.
-///
-/// This middleware restores that behaviour entirely seam-side (the crate is
-/// upstream/read-only):
-/// - `before_tool` runs the *same* validation itself; on failure it records a
-///   descriptive error keyed by the call id and rewrites the arguments to a
-///   schema-satisfying **stub** so the crate's own fatal gate passes.
-/// - `wrap_tool` then short-circuits the flagged call with a synthetic failed
-///   [`TaToolResult`] **without** executing the real tool (the stub args never
-///   reach it), so the loop continues and the model self-corrects.
-///
-/// Installed as the outermost tool-wrap middleware so an invalid call is turned
-/// into a tool error before approval/policy wraps ever see the stub arguments.
-pub(super) struct SchemaGuardMiddleware {
-    /// The same `Arc`-shared tool sets the runner registers, used to resolve a
-    /// call's schema for validation.
-    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
-    /// call id → synthetic tool-error message, written in `before_tool` when a
-    /// call fails validation and consumed in `wrap_tool` to short-circuit it.
-    /// A flagged call always reaches `wrap_tool` (its stub args pass the crate
-    /// gate), so entries never accumulate across a turn.
-    pending: Arc<std::sync::Mutex<std::collections::HashMap<String, String>>>,
-}
-
-impl SchemaGuardMiddleware {
-    /// Build the middleware over the runner's shared tool sets.
-    pub(super) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
-        Self {
-            tool_sets,
-            pending: Arc::default(),
-        }
-    }
-
-    fn schema_for(&self, name: &str) -> Option<ToolSchema> {
-        schema_for_tool(&self.tool_sets, name)
-    }
-}
-
-#[async_trait]
-impl Middleware<()> for SchemaGuardMiddleware {
-    fn name(&self) -> &str {
-        "schema_guard"
-    }
-
-    async fn before_tool(
-        &self,
-        _ctx: &mut RunContext<()>,
-        _state: &(),
-        call: &mut TaToolCall,
-    ) -> TaResult<()> {
-        // Unknown tool → let the crate's `UnknownToolPolicy` handle it (it
-        // already returns a recoverable tool error).
-        let Some(schema) = self.schema_for(&call.name) else {
-            return Ok(());
-        };
-
-        let probe = TaToolCall {
-            id: call.id.clone(),
-            name: call.name.clone(),
-            arguments: call.arguments.clone(),
-            invalid: None,
-        };
-        let Err(err) = schema.validate_call(&probe) else {
-            return Ok(());
-        };
-
-        let detail = match err {
-            TinyAgentsError::Validation(message) => message,
-            other => other.to_string(),
-        };
-        let schema_json = serde_json::to_string(&schema.parameters)
-            .unwrap_or_else(|_| "<unavailable>".to_string());
-        let message = format!(
-            "invalid arguments for {}: {}. Expected schema: {}",
-            call.name, detail, schema_json
-        );
-        tracing::warn!(
-            tool = call.name.as_str(),
-            detail = detail.as_str(),
-            "[tinyagents::mw] schema_guard: tool-arg validation failed; converting fatal gate into a model-visible tool error"
-        );
-
-        if let Ok(mut pending) = self.pending.lock() {
-            pending.insert(call.id.clone(), message);
-        }
-        // Rewrite to a schema-satisfying stub so the crate's fatal
-        // `validate_call` gate passes; `wrap_tool` short-circuits the call
-        // before these stub args can reach the real tool.
-        call.arguments = synthesize_valid_arguments(&schema.parameters);
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl ToolMiddleware<()> for SchemaGuardMiddleware {
-    fn name(&self) -> &str {
-        "schema_guard"
-    }
-
-    async fn wrap_tool(
-        &self,
-        ctx: &mut RunContext<()>,
-        state: &(),
-        call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
-    ) -> TaResult<MiddlewareToolOutcome> {
-        let flagged = self
-            .pending
-            .lock()
-            .ok()
-            .and_then(|mut pending| pending.remove(&call.id));
-        if let Some(message) = flagged {
-            tracing::debug!(
-                tool = call.name.as_str(),
-                "[tinyagents::mw] schema_guard: short-circuiting invalid tool call with a synthetic error result"
-            );
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(
-                call.id, call.name, message,
-            )));
-        }
-        next.run(ctx, state, call).await
     }
 }
 
@@ -1852,69 +1734,6 @@ fn json_value_kind(value: &serde_json::Value) -> &'static str {
         serde_json::Value::Array(_) => "array",
         serde_json::Value::Object(_) => "object",
     }
-}
-
-/// Synthesizes a minimal value that satisfies the JSON-schema subset the
-/// tinyagents gate (`ToolSchema::validate_call`) enforces — `enum`, `type`,
-/// object `properties`/`required`, and array `items`. Used to rewrite a
-/// validation-failed call's arguments so the crate's fatal gate passes; the call
-/// is then short-circuited in `wrap_tool`, so this stub never reaches the tool.
-fn synthesize_valid_arguments(schema: &serde_json::Value) -> serde_json::Value {
-    use serde_json::Value;
-
-    // `enum` constrains the value to a fixed set — the first option always
-    // satisfies the gate (and any co-declared `type`).
-    if let Some(values) = schema.get("enum").and_then(Value::as_array) {
-        return values.first().cloned().unwrap_or(Value::Null);
-    }
-
-    // `type` may be a string or an array of strings; pick the first known kind.
-    let kind = schema.get("type").and_then(|type_spec| {
-        type_spec.as_str().map(str::to_string).or_else(|| {
-            type_spec
-                .as_array()?
-                .iter()
-                .filter_map(Value::as_str)
-                .next()
-                .map(str::to_string)
-        })
-    });
-
-    match kind.as_deref() {
-        Some("object") => synthesize_valid_object(schema),
-        Some("array") => Value::Array(Vec::new()),
-        Some("string") => Value::String(String::new()),
-        Some("integer") | Some("number") => serde_json::json!(0),
-        Some("boolean") => Value::Bool(false),
-        Some("null") => Value::Null,
-        _ => {
-            if schema.get("properties").is_some() {
-                synthesize_valid_object(schema)
-            } else {
-                // No understood constraints → an empty object trivially passes.
-                Value::Object(serde_json::Map::new())
-            }
-        }
-    }
-}
-
-/// Builds an object populated with every `required` field (recursively) so it
-/// satisfies the gate's object/`required` checks.
-fn synthesize_valid_object(schema: &serde_json::Value) -> serde_json::Value {
-    use serde_json::Value;
-
-    let mut object = serde_json::Map::new();
-    if let Some(required) = schema.get("required").and_then(Value::as_array) {
-        let properties = schema.get("properties").and_then(Value::as_object);
-        for field in required.iter().filter_map(Value::as_str) {
-            let field_schema = properties
-                .and_then(|props| props.get(field))
-                .cloned()
-                .unwrap_or(Value::Null);
-            object.insert(field.to_string(), synthesize_valid_arguments(&field_schema));
-        }
-    }
-    Value::Object(object)
 }
 
 /// Agents are told to follow a **read-index → dedupe → write → update-index**
@@ -2630,18 +2449,6 @@ const RECOVERABLE_REPEAT_FAILURE_THRESHOLD: u32 = 8;
 /// `RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD`.
 const RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD: u32 = 12;
 
-/// The model re-emitting the IDENTICAL assistant output (narration + the same
-/// tool call) this many times in a row is a no-progress narration loop — halt.
-/// Mirrors the legacy `REPEAT_OUTPUT_THRESHOLD` (#4095).
-const REPEAT_OUTPUT_THRESHOLD: u32 = 4;
-
-/// The model re-issuing the IDENTICAL `(tool, args)` batch this many times in a
-/// row — regardless of whether each call *succeeds* — is spinning one action
-/// with no new information. Set just below [`REPEAT_OUTPUT_THRESHOLD`] so a
-/// verbatim call loop is caught a step earlier than the broader narration loop.
-/// Mirrors the legacy `REPEAT_CALL_THRESHOLD` (#4088).
-const REPEAT_CALL_THRESHOLD: u32 = 3;
-
 /// Clamp the last-error text embedded in a circuit-breaker halt summary so a huge
 /// tool error (already capped at 1MB upstream) can't blow up the agent's result.
 /// Mirrors the legacy `tool_loop::truncate_for_halt`.
@@ -2823,41 +2630,6 @@ fn assistant_visible_text(message: &tinyagents::harness::message::AssistantMessa
     out
 }
 
-/// A back-to-back identical-signature streak counter. Trips (`record` returns the
-/// new consecutive count) once the same hashed signature repeats; a different
-/// signature resets the run. Backs both the repeat-output and repeat-call guards.
-#[derive(Default)]
-struct StreakGuard {
-    last_hash: Option<u64>,
-    consecutive: u32,
-}
-
-impl StreakGuard {
-    /// Record one signature; returns the new consecutive count for that signature
-    /// (1 after a reset). A different signature resets the streak to 1.
-    fn record(&mut self, signature: &str) -> u32 {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        signature.hash(&mut hasher);
-        let h = hasher.finish();
-        if self.last_hash == Some(h) {
-            self.consecutive += 1;
-        } else {
-            self.last_hash = Some(h);
-            self.consecutive = 1;
-        }
-        self.consecutive
-    }
-
-    /// Clear the streak — used when an iteration is a legitimately-repeating
-    /// poll/wait (see [`is_repeat_call_exempt`]) or a failing batch that another
-    /// guard owns, so it counts as a distinct action rather than a repeat.
-    fn reset(&mut self) {
-        self.last_hash = None;
-        self.consecutive = 0;
-    }
-}
-
 /// Per-batch state the repeat-CALL guard needs but can only fully evaluate once
 /// every tool result in the assistant's batch has come back: the canonical
 /// `(tool, args)` signature captured at `after_model`, plus the running
@@ -2874,19 +2646,19 @@ struct PendingCallBatch {
     exempt: bool,
 }
 
-/// Restores the deleted successful-repeat / identical-output loop breakers
-/// (#4088 / #4095) as a seam middleware. The crate `no_progress` ladder (driving
-/// [`RepeatedToolFailureMiddleware`]) resets on every success, so a model looping
-/// on a *successful* no-op tool or re-emitting an identical narration+call never
-/// trips it and burns the whole iteration budget. This guard closes both gaps:
+/// Host adapter for the crate's successful-repeat tracker (#4088 / #4095).
+/// [`SuccessfulRepeatTracker`] owns the generic streak accounting; this adapter
+/// builds canonical OpenHuman tool signatures, applies the product polling-tool
+/// exemption, and maps a crate halt verdict into the shared halt summary and
+/// steering pause:
 ///
 /// - **Repeat-output** (`after_model`, checked before the tools run): halts when
 ///   the assistant's visible text + tool-call `(name, args)` batch is byte
-///   identical [`REPEAT_OUTPUT_THRESHOLD`] iterations in a row.
+///   identical [`DEFAULT_REPEAT_OUTPUT_THRESHOLD`] iterations in a row.
 /// - **Repeat-call** (evaluated once the batch's tool results are all back, gated
 ///   on every call succeeding): halts when the `(tool, args)` batch alone repeats
-///   [`REPEAT_CALL_THRESHOLD`] times — catching successful no-op loops that vary
-///   only their narration.
+///   [`DEFAULT_REPEAT_CALL_THRESHOLD`] times — catching successful no-op loops
+///   that vary only their narration.
 ///
 /// Polling/wait tools ([`is_repeat_call_exempt`]) are exempt from both: their
 /// contract is to be re-invoked identically, so an all-poll batch resets the
@@ -2897,12 +2669,7 @@ struct PendingCallBatch {
 pub(crate) struct RepeatProgressMiddleware {
     handle: SteeringHandle,
     halt_summary: super::HaltSummarySlot,
-    /// Narration+call identical-output streak (#4095), threshold
-    /// [`REPEAT_OUTPUT_THRESHOLD`].
-    output_guard: std::sync::Mutex<StreakGuard>,
-    /// `(tool, args)`-only successful-batch streak (#4088), threshold
-    /// [`REPEAT_CALL_THRESHOLD`].
-    call_guard: std::sync::Mutex<StreakGuard>,
+    tracker: SuccessfulRepeatTracker,
     /// Batch bookkeeping bridging `after_model` → `after_tool` for the call guard.
     pending: std::sync::Mutex<Option<PendingCallBatch>>,
 }
@@ -2912,8 +2679,7 @@ impl RepeatProgressMiddleware {
         Self {
             handle,
             halt_summary,
-            output_guard: std::sync::Mutex::new(StreakGuard::default()),
-            call_guard: std::sync::Mutex::new(StreakGuard::default()),
+            tracker: SuccessfulRepeatTracker::default(),
             pending: std::sync::Mutex::new(None),
         }
     }
@@ -2972,32 +2738,9 @@ impl Middleware<()> for RepeatProgressMiddleware {
             call_sig
         );
 
-        // Repeat-OUTPUT guard, checked BEFORE the (repeated) tools run so we don't
-        // burn another no-op iteration.
-        if all_exempt {
-            if let Ok(mut g) = self.output_guard.lock() {
-                g.reset();
-            }
-        } else {
-            let consecutive = self
-                .output_guard
-                .lock()
-                .map(|mut g| g.record(&output_sig))
-                .unwrap_or(0);
-            if consecutive >= REPEAT_OUTPUT_THRESHOLD {
-                tracing::warn!(
-                    consecutive,
-                    "[tinyagents::mw] repeat-output circuit breaker tripped — identical response+tool-call repeated; halting"
-                );
-                self.halt(format!(
-                    "Stopping: the last {consecutive} iterations produced the IDENTICAL response \
-                     and tool call with no change — the run is stuck repeating the same step \
-                     without making progress. Re-issuing it will not help. Summarise what (if \
-                     anything) was actually accomplished and report that the task could not \
-                     progress, or take a genuinely different approach.",
-                ));
-            }
-        }
+        // Stage output with the crate tracker. Its halt verdict is intentionally
+        // deferred until the matching tool batch is confirmed successful.
+        let _ = self.tracker.record_output(&output_sig, all_exempt);
 
         // Stage the batch for the repeat-CALL guard, evaluated once every result
         // is back (gated on success) in `after_tool`.
@@ -3041,34 +2784,12 @@ impl Middleware<()> for RepeatProgressMiddleware {
             return Ok(());
         };
 
-        // Repeat-CALL breaker for SUCCESSFUL no-op loops (#4088): the failure
-        // breaker owns repeated *failures* and resets on success, so an identical
-        // call that keeps SUCCEEDING slips past it. A failing batch (its domain)
-        // or an all-poll exemption resets the streak instead of recording.
-        if batch.exempt || !batch.all_ok {
-            if let Ok(mut g) = self.call_guard.lock() {
-                g.reset();
-            }
-            return Ok(());
-        }
-        let consecutive = self
-            .call_guard
-            .lock()
-            .map(|mut g| g.record(&batch.call_sig))
-            .unwrap_or(0);
-        if consecutive >= REPEAT_CALL_THRESHOLD {
-            tracing::warn!(
-                consecutive,
-                "[tinyagents::mw] repeat-call circuit breaker tripped — identical successful (tool,args) batch repeated; halting"
-            );
-            self.halt(format!(
-                "Stopping: the same tool call was issued {consecutive} times in a row with \
-                 identical arguments and no new information — the run is stuck repeating one \
-                 action without making progress. Re-issuing it will not help. Summarise what (if \
-                 anything) was actually accomplished and report that the task could not progress, \
-                 or take a genuinely different action (a different tool, different arguments, or \
-                 hand back).",
-            ));
+        if let SuccessfulRepeat::Halt(summary) =
+            self.tracker
+                .record_call_batch(&batch.call_sig, batch.all_ok, batch.exempt)
+        {
+            tracing::warn!("[tinyagents::mw] crate successful-repeat tracker halted the run");
+            self.halt(summary);
         }
         Ok(())
     }
@@ -3290,6 +3011,9 @@ impl Middleware<()> for ImageAwareMessageTrimMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tinyagents::harness::no_progress::{
+        DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
+    };
 
     // #4462: image-aware token estimation. A base64 image marker must be priced
     // at the flat IMAGE_MARKER_TOKEN_COST, not chars/4 of its payload — otherwise
@@ -3750,9 +3474,10 @@ mod tests {
     // ── ToolOutputMiddleware: COMPACTION_EXEMPT_TOOLS (workflow proposals) ───
 
     /// A `workflow_proposal` payload with enough uniform-object rows to clear
-    /// tinyjuice's `MIN_ROWS` (3) and default ~512-byte tabulation floor —
-    /// i.e. exactly the shape that used to get its `"type"` marker stripped by
-    /// the `[json table: …]` rewrite before the middleware exemption existed.
+    /// tinyjuice's `MIN_ROWS` (3) and OpenHuman's default 2 KiB compaction
+    /// floor — i.e. exactly the shape that used to get its `"type"` marker
+    /// stripped by the `[json table: …]` rewrite before the middleware
+    /// exemption existed.
     fn large_workflow_proposal_json() -> String {
         let nodes: Vec<serde_json::Value> = (0..20)
             .map(|i| {
@@ -3809,6 +3534,13 @@ mod tests {
         // NOT in COMPACTION_EXEMPT_TOOLS loses the `"type"` marker.
         let mw = compaction_enabled_mw();
         let payload = large_workflow_proposal_json();
+        assert!(
+            payload.len()
+                >= crate::openhuman::config::Config::default()
+                    .tokenjuice
+                    .min_bytes_to_compress,
+            "baseline payload must clear OpenHuman's configured compaction floor"
+        );
         let mut result = tool_result("some_other_tool", &payload);
         mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
         assert_ne!(
@@ -4510,6 +4242,94 @@ mod tests {
             drain_pause_count(&handle2),
             1,
             "the third identical error+ok:false result halts, same as a plain error"
+        );
+    }
+
+    // ── RepeatProgressMiddleware / crate SuccessfulRepeatTracker ───────────
+
+    fn repeated_success_response(tool: &str, args: serde_json::Value) -> ModelResponse {
+        ModelResponse {
+            message: tinyagents::harness::message::AssistantMessage {
+                id: None,
+                content: vec![ContentBlock::Text("working".to_string())],
+                tool_calls: vec![TaToolCall::new("repeat-1", tool, args)],
+                usage: None,
+            },
+            usage: None,
+            finish_reason: Some("tool_calls".to_string()),
+            raw: None,
+            resolved_model: None,
+            continue_turn: None,
+        }
+    }
+
+    async fn run_successful_repeat_cycle(
+        mw: &RepeatProgressMiddleware,
+        tool: &str,
+        args: serde_json::Value,
+        error: Option<&str>,
+    ) {
+        let mut response = repeated_success_response(tool, args);
+        mw.after_model(&mut ctx(), &(), &mut response)
+            .await
+            .unwrap();
+        let mut result = tool_result(tool, "ok");
+        result.error = error.map(str::to_string);
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn successful_repeat_tracker_halt_maps_to_summary_and_pause() {
+        let handle = SteeringHandle::allow_all();
+        let summary = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let mw = RepeatProgressMiddleware::new(handle.clone(), summary.clone());
+
+        for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+            run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+            assert_eq!(drain_pause_count(&handle), 0);
+        }
+        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+
+        assert_eq!(drain_pause_count(&handle), 1);
+        assert!(
+            summary
+                .lock()
+                .unwrap()
+                .as_deref()
+                .is_some_and(|text| text.contains("successful tool-call batch")),
+            "crate halt summary should be preserved for the host turn result"
+        );
+    }
+
+    #[tokio::test]
+    async fn successful_repeat_tracker_resets_failed_and_exempt_batches() {
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatProgressMiddleware::new(
+            handle.clone(),
+            std::sync::Arc::new(std::sync::Mutex::new(None)),
+        );
+
+        for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+            run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+        }
+        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), Some("temporary failure"))
+            .await;
+        for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+            run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+        }
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "a failed batch resets the successful-repeat streak"
+        );
+
+        for _ in 0..DEFAULT_REPEAT_OUTPUT_THRESHOLD + 1 {
+            run_successful_repeat_cycle(&mw, "wait_subagent", json!({"task_id": "t"}), None).await;
+        }
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "polling tools remain exempt from successful-repeat halts"
         );
     }
 

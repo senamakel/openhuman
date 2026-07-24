@@ -3,14 +3,7 @@
 //! The listener runs as a tiny Swift process that monitors `flagsChanged`
 //! events globally and reports `FN_DOWN` / `FN_UP` lines over stdout.
 
-use super::detect_permissions;
-// `PermissionState` (the type) is named only by the macOS listener's permission
-// check; the non-macOS stubs read `detect_permissions().input_monitoring` without
-// naming the type. Gating the import keeps the Linux/Windows build warning-clean
-// (the `GlobeHotkey*` structs that referenced it unconditionally now live in
-// `super::types`).
-#[cfg(target_os = "macos")]
-use super::PermissionState;
+use super::{detect_permissions, PermissionState};
 #[cfg(target_os = "macos")]
 use std::collections::VecDeque;
 
@@ -30,11 +23,20 @@ use std::sync::{Arc, Mutex as StdMutex};
 const LOG_PREFIX: &str = "[globe_hotkey]";
 const MAX_PENDING_EVENTS: usize = 64;
 
-// The inert status/result structs live in `types.rs` (dep-free, no FFI) so they
-// stay compiled when `desktop-automation` is off. Re-export here so existing
-// `accessibility::globe::{GlobeHotkeyStatus, GlobeHotkeyPollResult}` paths and
-// the `accessibility::mod.rs` re-export keep resolving.
-pub use super::types::{GlobeHotkeyPollResult, GlobeHotkeyStatus};
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GlobeHotkeyStatus {
+    pub supported: bool,
+    pub running: bool,
+    pub input_monitoring_permission: PermissionState,
+    pub last_error: Option<String>,
+    pub events_pending: usize,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GlobeHotkeyPollResult {
+    pub status: GlobeHotkeyStatus,
+    pub events: Vec<String>,
+}
 
 #[cfg(target_os = "macos")]
 struct GlobeListenerProcess {

@@ -57,6 +57,5 @@ pub use traits::{Memory, MemoryCategory, MemoryEntry, MemoryTaint, NamespaceSumm
 // Re-export types that external tests and consumers historically imported
 // from `memory::*`. The definitions moved to sibling crates during the
 // memory refactor; these aliases keep the public surface stable.
-pub use crate::openhuman::memory_queue as jobs;
 pub use crate::openhuman::memory_store::types::NamespaceDocumentInput;
 pub use crate::openhuman::memory_store::{MemoryClient, UnifiedMemory};

@@ -1,6 +1,9 @@
 # TinyCortex Memory Migration — Plan & Audit
 
-**Status:** W1–W2 landed; W3 partial (chunks sub-store flipped). Amended 2026-07-09 (see §8) to a **sync-inclusive** scope.
+**Status:** Historical execution plan. W1–W8 and the engine test port are landed
+(OpenHuman #4794/#4820); persona/coding-session ingest followed in #4863. The
+remaining consolidation work is tracked in
+[`tinycortex-migration-plan-2026-07-22.md`](tinycortex-migration-plan-2026-07-22.md).
 **Anchor precedent:** the TinyAgents harness migration (#4249 / #4399 / #4473 and follow-ups).
 **Target:** migrate large portions of the OpenHuman memory subsystem onto the `tinycortex` crate, vendored as a git submodule at **`vendor/tinycortex`** (`https://github.com/tinyhumansai/tinycortex`).
 
@@ -83,8 +86,8 @@ New sibling module mirroring `src/openhuman/tinyagents/`, holding every impl of 
 - `chat.rs` — `impl ChatProvider` + `impl Summariser` over `memory::chat::build_chat_provider` / `inference::provider`.
 - `queue_driver.rs` — tokio worker loop calling `queue::run_once`/`drain_until_idle`, owned by `memory/global.rs`, with event-bus progress emission and Sentry hooks (host-side, since TinyCortex dropped its scheduler).
 - `config.rs` — `Config` → `MemoryConfig` (workspace roots, `EmbeddingConfig`, `TreeConfig`, `WeightProfile`, `SyncBudgetConfig`) with `tree_policy.rs` flavour overlays.
-- `sinks.rs` — `TreeJobSink`, `SnapshotItemSource` impls bridging to host state.
-- `bus.rs` — translate engine outcomes into `core::event_bus` `DomainEvent`s (host-side only; the crate stays bus-free).
+- `ingest.rs` / `seal.rs` — `TreeJobSink`, seal observer, and host state bridges.
+- `sync.rs` — sync persistence/policy plus translation into host `DomainEvent`s (the crate stays bus-free).
 - `mod.rs` — facade re-exports (`pub use tinycortex::memory::{…}`) so the rest of the host imports through one seam, plus module-doc explaining the boundary (the tinyagents seam's `mod.rs` header is the template).
 
 ---
@@ -103,7 +106,7 @@ This phase produces documents and upstream issues only; it is the gate for every
 
 **0.5 Type-unification decision.** Host `memory::traits` types and crate types are wire-compatible twins. Decide: host re-exports crate types (preferred — one source of truth, 30+ consumer sites unchanged via `pub use`), vs. keeping host types + `From` conversions (fallback if serde/API divergence is found in 0.3). Special care: `MemoryTaint` is **security-critical provenance** (fails closed to `ExternalSync`, drives external-effect-tool gating) — its semantics, serde representation, and fail-closed defaults must be proven identical before re-exporting.
 
-**0.6 Spec doc.** Write `docs/tinycortex-migration-spec.md` version-anchored to exact reviewed SHAs (host + tinycortex), with the ownership lists above, the drift/gap/parity ledgers, and a **deletion ledger** skeleton (every legacy file, with preconditions for deletion) — directly modeled on `docs/tinyagents-migration-spec.md` + `99-deletion-ledger.md`.
+**0.6 Spec doc.** Write `docs/tinycortex-migration-spec.md` version-anchored to exact reviewed SHAs (host + tinycortex), with the ownership lists above, the drift/gap/parity ledgers, and a **deletion ledger** skeleton (every legacy file, with preconditions for deletion) — coordinated with `docs/tinyagents-migration-plan-2026-07-22.md`; the TinyCortex deletion ledger lives in §2 of the spec.
 
 ---
 
@@ -146,7 +149,7 @@ W3–W5 are the risky core (user data on disk). W1–W2 can land quickly; W6–W
 
 Ordering rule for this migration: **within each workstream, the implementation (adapter + cutover + deletion) lands first; the test work follows as the second slice.** Tests are not skipped — they are sequenced after the implementation is proven to compile and pass the *existing* suites. Concretely:
 
-1. **Slice A (impl):** adapters + cutover + legacy deletion. Gate: `cargo check` both worlds, existing crate-level integration tests (`tests/memory_roundtrip_e2e.rs`, `memory_tree_sync_deep_raw_coverage_e2e.rs`, etc.) still green — these exercise the public `openhuman::memory::` surface and act as the built-in parity harness for every flip.
+1. **Slice A (impl):** adapters + cutover + legacy deletion. Gate: `cargo check` both worlds, existing crate-level integration tests (`tests/memory_roundtrip_e2e.rs`, `tests/raw_coverage/memory_tree_sync_deep_raw_coverage_e2e.rs`, etc.) still green — these exercise the public `openhuman::memory::` surface and act as the built-in parity harness for every flip.
 2. **Slice B (tests):** port and extend the test estate for the new boundary:
    - **Engine-internal tests move upstream.** The host's `#[path]`-included sibling tests (`ops_tests.rs` pattern) that poke engine internals migrate into `vendor/tinycortex` as crate tests (via tinycortex PRs), following the crate's own `*_tests.rs` sibling convention.
    - **Host keeps boundary tests:** RPC schema/handler tests, tool gating tests, seam adapter tests (config mapping, embedding signature, taint fail-closed, source-scope enforcement), and the E2E files under `tests/`.

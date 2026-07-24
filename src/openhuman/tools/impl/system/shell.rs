@@ -349,6 +349,20 @@ impl ShellTool {
             return (false, ToolResult::error(reason));
         }
 
+        // Cross-profile write guard (1b), shell call site. File tools enforce
+        // the same boundary per-path in `SecurityPolicy::validate_path`; shell
+        // commands never funnel through that, so scan the command's path-shaped
+        // tokens against the profile's own workspace (its cwd). No-op unless the
+        // session runs under a dedicated-workspace profile. See
+        // `profiles::guard::scan_command_for_cross_profile` for the containment
+        // rationale (the cwd is already rooted at the profile's own dir).
+        let cwd = self.effective_action_dir_for_context(context);
+        if let Err(reason) =
+            super::check_cross_profile_command(self.security.as_ref(), command, &cwd, "shell")
+        {
+            return (false, ToolResult::error(reason));
+        }
+
         if self.security.is_rate_limited() {
             return (
                 false,

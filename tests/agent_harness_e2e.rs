@@ -2355,25 +2355,25 @@ async fn multi_hop_delegation_chain_inner() {
 //   let (display_text, calls) = parser.parse(&resp);
 //   let native_calls = resp.tool_calls;   // ← DISPATCH IS FROM THIS FIELD
 //
-// The `ProviderDelta::ToolCallArgsDelta` stream events flow into
+// The `ModelStreamItem::ToolCallDelta` stream events flow into
 // `spawn_delta_forwarder` (progress.rs:329-370), which maps them to
 // `AgentProgress::ToolCallArgsDelta` for the UI/progress sink.  They do NOT
 // participate in dispatch: tool arguments used for execution come from
-// `ChatResponse.tool_calls[i].arguments` which the provider returned as a
+// `ModelResponse.message.tool_calls[i].arguments` which the provider returned as a
 // complete, already-assembled string.
 //
 // In the REAL HTTP providers (compatible_stream_native.rs:322,405-425) the
 // accumulation buffer (`entry.arguments.push_str(args)`) IS what builds
-// `ChatResponse.tool_calls[i].arguments` before it is returned.  Accumulation
-// happens inside the provider before returning the final `ChatResponse`; the
+// `ModelResponse.message.tool_calls[i].arguments` before it is returned.  Accumulation
+// happens inside the provider before returning the final `ModelResponse`; the
 // engine loop consumes only the finished product.
 //
 // ScriptedProvider injects stream_events directly then returns the
-// pre-assembled ChatResponse — so the progress-channel deltas are
+// pre-assembled ModelResponse — so the progress-channel deltas are
 // independent of dispatch in this test.
 //
 // What this test asserts:
-//   1. The tool receives the FULL argument set (from ChatResponse.tool_calls).
+//   1. The tool receives the FULL argument set (from ModelResponse.message.tool_calls).
 //   2. The progress channel carries ToolCallArgsDelta events whose concatenated
 //      deltas form the full args JSON — proves the UI path receives the chunks.
 //   3. ToolCallCompleted fires exactly once with success=true.
@@ -2385,9 +2385,6 @@ mod streaming_support {
     use openhuman_core::openhuman::agent::Agent;
     use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
     use openhuman_core::openhuman::config::{AgentConfig, ContextConfig, MemoryConfig};
-    use openhuman_core::openhuman::inference::provider::{
-        ChatRequest, ChatResponse, Provider, ProviderDelta, ToolCall, UsageInfo,
-    };
     use openhuman_core::openhuman::memory::Memory;
     use openhuman_core::openhuman::memory_store;
     use openhuman_core::openhuman::tools::traits::ToolCallOptions;
@@ -2400,53 +2397,57 @@ mod streaming_support {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use tempfile::TempDir;
+    use tinyagents::harness::message::{AssistantMessage, ContentBlock};
+    use tinyagents::harness::model::{
+        ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
+    };
+    use tinyagents::harness::tool::ToolCall;
+    use tinyagents::harness::usage::Usage;
 
     // ── ScriptedProvider ────────────────────────────────────────────────────
     // Copied (minimal) from tests/agent_session_turn_raw_coverage_e2e.rs:76-152.
 
     pub struct ScriptedProvider {
-        pub responses: Mutex<VecDeque<anyhow::Result<ChatResponse>>>,
-        pub stream_events: Vec<ProviderDelta>,
-        pub native_tools: bool,
+        pub responses: Mutex<VecDeque<anyhow::Result<ModelResponse>>>,
+        pub stream_events: Vec<ModelStreamItem>,
+        pub profile: ModelProfile,
     }
 
-    #[async_trait]
-    impl Provider for ScriptedProvider {
-        fn capabilities(
-            &self,
-        ) -> openhuman_core::openhuman::inference::provider::traits::ProviderCapabilities {
-            openhuman_core::openhuman::inference::provider::traits::ProviderCapabilities {
-                native_tool_calling: self.native_tools,
-                vision: false,
-            }
-        }
-
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(format!("summary: {message}"))
-        }
-
-        async fn chat(
-            &self,
-            request: ChatRequest<'_>,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<ChatResponse> {
-            if let Some(stream) = request.stream {
-                for event in &self.stream_events {
-                    stream.send(event.clone()).await.ok();
-                }
-            }
+    impl ScriptedProvider {
+        fn pop_response(&self) -> tinyagents::Result<ModelResponse> {
             self.responses
                 .lock()
                 .unwrap()
                 .pop_front()
                 .unwrap_or_else(|| Ok(text_response_s("default scripted final")))
+                .map_err(|error| tinyagents::TinyAgentsError::Model(error.to_string()))
+        }
+    }
+
+    #[async_trait]
+    impl ChatModel<()> for ScriptedProvider {
+        fn profile(&self) -> Option<&ModelProfile> {
+            Some(&self.profile)
+        }
+
+        async fn invoke(
+            &self,
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyagents::Result<ModelResponse> {
+            self.pop_response()
+        }
+
+        async fn stream(
+            &self,
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyagents::Result<ModelStream> {
+            let response = self.pop_response()?;
+            let mut items = vec![ModelStreamItem::Started];
+            items.extend(self.stream_events.iter().cloned());
+            items.push(ModelStreamItem::Completed(response));
+            Ok(Box::pin(futures::stream::iter(items)))
         }
     }
 
@@ -2454,42 +2455,27 @@ mod streaming_support {
     // Distinct names (suffix `_s`) to avoid shadowing the HTTP-level helpers
     // defined in the parent module.
 
-    pub fn text_response_s(text: &str) -> ChatResponse {
-        ChatResponse {
-            text: Some(text.to_string()),
-            tool_calls: vec![],
-            usage: Some(UsageInfo {
-                input_tokens: 10,
-                output_tokens: 5,
-                context_window: 16_000,
-                cached_input_tokens: 2,
-                cache_creation_tokens: 0,
-                reasoning_tokens: 0,
-                charged_amount_usd: 0.0002,
-            }),
-            reasoning_content: None,
-        }
+    pub fn text_response_s(text: &str) -> ModelResponse {
+        let mut usage = Usage::new(10, 5);
+        usage.cache_read_tokens = 2;
+        ModelResponse::assistant(text).with_usage(usage)
     }
 
-    pub fn native_tool_response_s(id: &str, name: &str, args: serde_json::Value) -> ChatResponse {
-        ChatResponse {
-            text: Some(String::new()),
-            tool_calls: vec![ToolCall {
-                id: id.to_string(),
-                name: name.to_string(),
-                arguments: args.to_string(),
-                extra_content: None,
-            }],
-            usage: Some(UsageInfo {
-                input_tokens: 15,
-                output_tokens: 4,
-                context_window: 16_000,
-                cached_input_tokens: 3,
-                cache_creation_tokens: 0,
-                reasoning_tokens: 0,
-                charged_amount_usd: 0.0003,
-            }),
-            reasoning_content: None,
+    pub fn native_tool_response_s(id: &str, name: &str, args: serde_json::Value) -> ModelResponse {
+        let mut usage = Usage::new(15, 4);
+        usage.cache_read_tokens = 3;
+        ModelResponse {
+            message: AssistantMessage {
+                id: None,
+                content: Vec::<ContentBlock>::new(),
+                tool_calls: vec![ToolCall::new(id, name, args)],
+                usage: Some(usage),
+            },
+            usage: Some(usage),
+            finish_reason: Some("tool_calls".to_string()),
+            raw: None,
+            resolved_model: None,
+            continue_turn: None,
         }
     }
 
@@ -2533,13 +2519,13 @@ mod streaming_support {
     }
 
     pub fn agent_with_s(
-        provider: Arc<dyn Provider>,
+        provider: Arc<dyn ChatModel<()>>,
         tools: Vec<Box<dyn Tool>>,
         workspace_path: PathBuf,
         config: AgentConfig,
     ) -> Agent {
         Agent::builder()
-            .provider_arc(provider)
+            .chat_model(provider)
             .tools(tools)
             .memory(memory_for_workspace_s(&workspace_path))
             .memory_loader(Box::new(NullMemoryLoader))
@@ -2615,7 +2601,7 @@ mod streaming_support {
             assert_eq!(
                 got, "STREAMED_ARG_CANARY",
                 "EchoTool received wrong args — dispatch must use the FULL assembled argument \
-                 string from ChatResponse.tool_calls, not partial delta fragments.\n\
+                 string from ModelResponse.message.tool_calls, not partial delta fragments.\n\
                  Expected: \"STREAMED_ARG_CANARY\"\n\
                  Got: \"{got}\"\n\
                  Full args: {args}"
@@ -2639,31 +2625,31 @@ mod streaming_support {
     }
 }
 
-/// Tool-call arguments streamed in chunks (ProviderDelta::ToolCallArgsDelta)
+/// Tool-call arguments streamed in chunks (ModelStreamItem::ToolCallDelta)
 /// arrive on the progress channel as UI deltas; the tool executes with the
-/// FULL argument set from ChatResponse.tool_calls (assembled by the provider).
+/// FULL argument set from ModelResponse.message.tool_calls (assembled by the provider).
 ///
 /// IMPORTANT — dispatch path (verified in engine/core.rs:440-448):
 ///
-///   Dispatch uses `resp.tool_calls` from the final `ChatResponse`, NOT from
-///   accumulated stream deltas.  The `ProviderDelta::ToolCallArgsDelta` events
+///   Dispatch uses `resp.tool_calls` from the final `ModelResponse`, NOT from
+///   accumulated stream deltas.  The `ModelStreamItem::ToolCallDelta` events
 ///   flow only to the progress channel (UI streaming) via `spawn_delta_forwarder`
 ///   (src/openhuman/agent/harness/engine/progress.rs:329-370).
 ///
 ///   In the real HTTP providers (compatible_stream_native.rs:322,405-425) the
 ///   fragment accumulation buffer (`entry.arguments.push_str(args)`) IS what
-///   builds `ChatResponse.tool_calls[i].arguments`.  Accumulation happens inside
-///   the provider before returning the final `ChatResponse`; the engine loop
+///   builds `ModelResponse.message.tool_calls[i].arguments`.  Accumulation happens inside
+///   the provider before returning the final `ModelResponse`; the engine loop
 ///   consumes only the finished product.
 ///
 ///   ScriptedProvider injects stream_events directly then returns the
-///   pre-assembled ChatResponse — so the progress-channel deltas are
+///   pre-assembled ModelResponse — so the progress-channel deltas are
 ///   independent of dispatch in this test.
 ///
 /// What this test asserts:
 ///   1. Tool executes exactly once — no double-dispatch.
 ///   2. Tool receives `args["value"] == "STREAMED_ARG_CANARY"` — the full,
-///      assembled argument from ChatResponse.tool_calls (EchoTool panics on mismatch).
+///      assembled argument from ModelResponse.message.tool_calls (EchoTool panics on mismatch).
 ///   3. Progress channel carries 4 ToolCallArgsDelta events whose concatenated
 ///      delta strings reassemble to the original full_args JSON.
 ///   4. ToolCallCompleted fires with tool_name == "echo_tool" and success == true.
@@ -2671,19 +2657,20 @@ mod streaming_support {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn streaming_tool_call_accumulation() {
     use openhuman_core::openhuman::agent::progress::AgentProgress;
-    use openhuman_core::openhuman::inference::provider::ProviderDelta;
     use std::sync::Mutex;
     use streaming_support::{
         agent_with_s, native_tool_response_s, text_response_s, workspace_s, EchoTool,
         ScriptedProvider,
     };
+    use tinyagents::harness::model::{ModelProfile, ModelStreamItem};
+    use tinyagents::harness::tool::ToolDelta;
 
     let _lock = env_lock();
     let (_temp, workspace_path) = workspace_s("stream-accum");
     let _ws = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace_path);
     let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
-    // The full args JSON to be split into 4 ProviderDelta::ToolCallArgsDelta chunks.
+    // The full args JSON to be split into 4 ModelStreamItem::ToolCallDelta chunks.
     // Chunks cut at arbitrary byte offsets including mid-key ("{"value / ":"STREA")
     // to exercise accumulation logic in real streaming providers.
     let full_args = r#"{"value":"STREAMED_ARG_CANARY"}"#;
@@ -2714,29 +2701,41 @@ async fn streaming_tool_call_accumulation() {
         ),
         stream_events: vec![
             // ToolCallStart arrives first so the UI can open the live row.
-            ProviderDelta::ToolCallStart {
+            ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
-                tool_name: "echo_tool".to_string(),
-            },
+                content: String::new(),
+                tool_name: Some("echo_tool".to_string()),
+            }),
             // Four argument fragments — mid-key / mid-value splits.
-            ProviderDelta::ToolCallArgsDelta {
+            ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
-                delta: chunk0,
-            },
-            ProviderDelta::ToolCallArgsDelta {
+                content: chunk0,
+                tool_name: None,
+            }),
+            ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
-                delta: chunk1,
-            },
-            ProviderDelta::ToolCallArgsDelta {
+                content: chunk1,
+                tool_name: None,
+            }),
+            ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
-                delta: chunk2,
-            },
-            ProviderDelta::ToolCallArgsDelta {
+                content: chunk2,
+                tool_name: None,
+            }),
+            ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
-                delta: chunk3,
-            },
+                content: chunk3,
+                tool_name: None,
+            }),
         ],
-        native_tools: true,
+        profile: ModelProfile {
+            provider: Some("scripted-stream".to_string()),
+            tool_calling: true,
+            parallel_tool_calls: true,
+            streaming: true,
+            streaming_tool_chunks: true,
+            ..ModelProfile::default()
+        },
     });
 
     let mut agent = agent_with_s(
@@ -2752,7 +2751,7 @@ async fn streaming_tool_call_accumulation() {
     agent.set_on_progress(Some(progress_tx));
 
     // Run the turn. EchoTool::execute panics with context if it receives wrong
-    // args, validating that dispatch used the full assembled ChatResponse.tool_calls.
+    // args, validating that dispatch used the full assembled ModelResponse.message.tool_calls.
     let answer = agent.turn("stream the tool call").await.unwrap();
     assert_eq!(
         answer, "stream final",
@@ -2786,9 +2785,9 @@ async fn streaming_tool_call_accumulation() {
     );
 
     // ── Assert 3: ToolCallArgsDelta events carry the 4 fragments ────────────
-    // progress.rs:spawn_delta_forwarder maps ProviderDelta::ToolCallArgsDelta
+    // progress.rs:spawn_delta_forwarder maps ModelStreamItem::ToolCallDelta
     // → AgentProgress::ToolCallArgsDelta{tool_name: "", delta, ...}.
-    // ProviderDelta::ToolCallStart → AgentProgress::ToolCallArgsDelta{tool_name: "echo_tool", delta: ""}.
+    // ModelStreamItem::ToolCallDelta → AgentProgress::ToolCallArgsDelta{tool_name: "echo_tool", delta: ""}.
     // Filter to iteration 1 only (tool-call dispatch iteration).
     // ScriptedProvider fires stream_events on every chat() call, so iteration 2
     // (the final-text response) also emits the same delta sequence — we want
@@ -2831,7 +2830,7 @@ async fn streaming_tool_call_accumulation() {
     );
 
     // Sanity: ToolCallStart fires as a ToolCallArgsDelta{delta:""} marker
-    // (progress.rs:347-353 maps ProviderDelta::ToolCallStart this way).
+    // (progress.rs:347-353 maps ModelStreamItem::ToolCallDelta this way).
     let has_start_marker = all_progress.iter().any(|ev| {
         matches!(
             ev,
@@ -2847,7 +2846,7 @@ async fn streaming_tool_call_accumulation() {
     assert!(
         has_start_marker,
         "expected a ToolCallArgsDelta{{call_id=stream-1, tool_name=echo_tool, delta=''}} \
-         start-marker (from ProviderDelta::ToolCallStart mapping in progress.rs:347-353);\n\
+         start-marker (from ModelStreamItem::ToolCallDelta mapping in progress.rs:347-353);\n\
          got: {all_progress:?}"
     );
 }
@@ -2861,9 +2860,8 @@ use openhuman_core::openhuman::config::AgentConfig;
 // delta forwarding through a ScriptedProvider that returns a *pre-assembled*
 // ChatResponse — it never exercises the real provider's chunk-by-chunk
 // accumulation. The accumulation that issue #3471 case 13 targets lives in
-// `OpenAiCompatibleProvider::stream_native_chat`
-// (src/openhuman/inference/provider/compatible_stream_native.rs:~320 and
-// ~405-425): `entry.arguments.push_str(args)` glues partial `function.arguments`
+// TinyAgents' `OpenAiModel` SSE transport: its accumulator glues partial
+// `function.arguments`
 // fragments from successive SSE chunks into one JSON string, which only parses
 // once the stream completes. Nothing else covers that path beyond its error-frame
 // unit tests.
@@ -2871,12 +2869,12 @@ use openhuman_core::openhuman::config::AgentConfig;
 // This test stands up a real axum SSE upstream that emits OpenAI-style
 // `chat.completion.chunk` frames whose `function.arguments` fragments are split
 // at awkward byte offsets (mid-key, mid-value), points a real
-// `OpenAiCompatibleProvider` at it, and drives `provider.chat()` with a live
-// delta receiver. It asserts the provider:
+// crate-native `OpenAiModel` at it, and drives `ChatModel::stream`. It asserts
+// the model:
 //   - reassembles exactly one tool call with `name == "echo_tool"`,
 //   - produces an `arguments` string that parses AND equals the canonical JSON,
-//   - forwards a `ToolCallStart` + ≥3 `ToolCallArgsDelta` whose concatenation
-//     is the full JSON.
+//   - forwards ≥3 correlated `ToolCallDelta`s whose concatenation is the full
+//     JSON and whose tool name remains available to streaming consumers.
 
 /// The JSON the upstream streams back, split across SSE chunks. Chosen so the
 /// splits land mid-key and mid-value, the worst case for naive accumulation.
@@ -2997,24 +2995,20 @@ fn sse_tool_args_router() -> Router {
 }
 
 /// Provider-level coverage for issue #3471 case 13: the real
-/// `OpenAiCompatibleProvider` accumulates `function.arguments` fragments split
+/// TinyAgents' `OpenAiModel` accumulates `function.arguments` fragments split
 /// across SSE chunks into one valid JSON string, and forwards the ordered
 /// `ToolCallStart` → `ToolCallArgsDelta*` events to the live receiver.
 ///
 /// Unlike `streaming_tool_call_accumulation` (which uses a ScriptedProvider that
 /// returns a pre-assembled response), this drives the actual provider HTTP +
 /// SSE-parse path against an in-test upstream, so the `entry.arguments.push_str`
-/// accumulation in compatible_stream_native.rs is what assembles the final
-/// `ChatResponse.tool_calls[0].arguments`.
+/// accumulation in its SSE transport is what assembles the final tool call.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn provider_sse_tool_args_accumulation() {
-    use openhuman_core::openhuman::inference::provider::compatible::{
-        AuthStyle, OpenAiCompatibleProvider,
-    };
-    use openhuman_core::openhuman::inference::provider::{
-        ChatMessage, ChatRequest, Provider, ProviderDelta,
-    };
-    use openhuman_core::openhuman::tools::ToolSpec;
+    use tinyagents::harness::message::Message;
+    use tinyagents::harness::model::{ChatModel, ModelRequest, ModelStreamItem};
+    use tinyagents::harness::providers::openai::{AuthStyle, OpenAiModel};
+    use tinyagents::harness::tool::ToolSchema;
 
     let _lock = env_lock();
 
@@ -3026,61 +3020,54 @@ async fn provider_sse_tool_args_accumulation() {
     // credential_for_request() does not short-circuit. base_url has no path, so
     // chat_completions_url() targets `<base_url>/chat/completions` — the route
     // the upstream serves.
-    let provider = OpenAiCompatibleProvider::new(
-        "e2e-sse-canary",
-        &base_url,
-        Some("test-key"),
-        AuthStyle::Bearer,
-    );
+    let model = OpenAiModel::new("test-key")
+        .with_provider("e2e-sse-canary")
+        .with_base_url(&base_url)
+        .with_auth_style(AuthStyle::Bearer);
 
     // A native tool spec so the streaming request carries `tools` (and the
     // handler's assertion that the provider forwarded echo_tool passes).
-    let tools = vec![ToolSpec {
-        name: "echo_tool".to_string(),
-        description: "Echo the provided value back.".to_string(),
-        parameters: json!({
+    let tools = vec![ToolSchema::new(
+        "echo_tool",
+        "Echo the provided value back.",
+        json!({
             "type": "object",
             "properties": { "value": { "type": "string" }, "n": { "type": "number" } },
             "required": ["value"],
         }),
-    }];
-    let messages = vec![ChatMessage::user("call echo_tool")];
-
-    // Drain the delta receiver concurrently — the provider sends on it while the
-    // chat() future is still in flight, so a non-concurrent recv would deadlock.
-    let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel::<ProviderDelta>(64);
-    let collector = tokio::spawn(async move {
-        let mut deltas = Vec::new();
-        while let Some(delta) = delta_rx.recv().await {
-            deltas.push(delta);
-        }
-        deltas
-    });
-
-    let request = ChatRequest {
-        messages: &messages,
-        tools: Some(&tools),
-        stream: Some(&delta_tx),
-        max_tokens: None,
-    };
-    let response = provider
-        .chat(request, "e2e-sse-model", 0.0)
+    )];
+    let request = ModelRequest::new(vec![Message::user("call echo_tool")])
+        .with_tools(tools)
+        .with_model("e2e-sse-model")
+        .with_temperature(0.0);
+    let mut stream = model
+        .stream(&(), request)
         .await
-        .unwrap_or_else(|e| panic!("provider.chat() over SSE failed: {e:#}"));
-
-    // Dropping the sender lets the collector task finish and yield the deltas.
-    drop(delta_tx);
-    let deltas = collector.await.expect("delta collector task panicked");
+        .unwrap_or_else(|e| panic!("model stream over SSE failed: {e:#}"));
+    let mut deltas = Vec::new();
+    let mut response = None;
+    while let Some(item) = stream.next().await {
+        match item {
+            ModelStreamItem::ToolCallDelta(delta) => deltas.push(delta),
+            ModelStreamItem::Completed(completed) => response = Some(completed),
+            ModelStreamItem::Failed(error) => panic!("model stream failed: {error}"),
+            ModelStreamItem::ProviderFailed(error) => {
+                panic!("provider stream failed: {}", error.message)
+            }
+            _ => {}
+        }
+    }
+    let response = response.expect("stream must emit its completed response");
 
     // ── Assert 1: exactly one tool call, name echo_tool ───────────────────────
     assert_eq!(
-        response.tool_calls.len(),
+        response.message.tool_calls.len(),
         1,
         "expected exactly one accumulated tool call; got {}: {:?}",
-        response.tool_calls.len(),
-        response.tool_calls
+        response.message.tool_calls.len(),
+        response.message.tool_calls
     );
-    let tool_call = &response.tool_calls[0];
+    let tool_call = &response.message.tool_calls[0];
     assert_eq!(
         tool_call.name, "echo_tool",
         "accumulated tool call must be echo_tool; got {:?}",
@@ -3089,13 +3076,7 @@ async fn provider_sse_tool_args_accumulation() {
 
     // ── Assert 2: accumulated arguments parse AND equal the canonical JSON ─────
     let expected: Value = json!({ "value": "SSE_STREAM_CANARY", "n": 42 });
-    let parsed: Value = serde_json::from_str(&tool_call.arguments).unwrap_or_else(|e| {
-        panic!(
-            "accumulated tool-call arguments must be valid JSON (proves SSE fragments were glued, \
-             not mangled); parse error: {e}; raw arguments: {:?}",
-            tool_call.arguments
-        )
-    });
+    let parsed = tool_call.arguments.clone();
     assert_eq!(
         parsed, expected,
         "accumulated arguments must equal the canonical JSON exactly; \
@@ -3103,31 +3084,26 @@ async fn provider_sse_tool_args_accumulation() {
         tool_call.arguments
     );
 
-    // ── Assert 3: ToolCallStart + ≥3 ToolCallArgsDelta, concatenation == JSON ──
-    let start_count = deltas
+    // ── Assert 3: correlated ToolCallDelta stream concatenates to the JSON ────
+    let named_delta_count = deltas
         .iter()
-        .filter(|d| {
-            matches!(
-                d,
-                ProviderDelta::ToolCallStart { tool_name, .. } if tool_name == "echo_tool"
-            )
-        })
+        .filter(|d| d.tool_name.as_deref() == Some("echo_tool"))
         .count();
-    assert_eq!(
-        start_count, 1,
-        "expected exactly one ToolCallStart for echo_tool; got {start_count}; deltas: {deltas:?}"
+    assert!(
+        named_delta_count >= 1,
+        "expected the streamed tool name to be available; deltas: {deltas:?}"
+    );
+    assert!(
+        deltas
+            .iter()
+            .all(|delta| delta.call_id == "call_sse_canary"),
+        "every argument fragment must retain the provider call id; deltas: {deltas:?}"
     );
 
-    let arg_deltas: Vec<String> = deltas
-        .iter()
-        .filter_map(|d| match d {
-            ProviderDelta::ToolCallArgsDelta { delta, .. } => Some(delta.clone()),
-            _ => None,
-        })
-        .collect();
+    let arg_deltas: Vec<String> = deltas.iter().map(|delta| delta.content.clone()).collect();
     assert!(
         arg_deltas.len() >= 3,
-        "expected ≥3 ToolCallArgsDelta events (split fragments); got {}: {arg_deltas:?}",
+        "expected ≥3 ToolCallDelta events (split fragments); got {}: {arg_deltas:?}",
         arg_deltas.len()
     );
     let concatenated: String = arg_deltas.concat();

@@ -226,6 +226,26 @@ export const LATEST_APP_DOWNLOAD_URL =
   (import.meta.env.VITE_LATEST_APP_DOWNLOAD_URL as string | undefined)?.trim() ||
   'https://github.com/tinyhumansai/openhuman/releases/latest';
 
+/**
+ * Public GitHub repository URL. Target of the in-app "Star us on GitHub" CTA
+ * (#5005). Override via VITE_OPENHUMAN_GITHUB_REPO_URL for forks.
+ *
+ * The override is accepted only when it parses as an `https:` URL. This value is
+ * handed straight to `openUrl` by the CTA, so a malformed string or a
+ * custom-scheme override could break the button or invoke an unintended
+ * protocol handler; anything that is not valid HTTPS falls back to the default.
+ */
+export const OPENHUMAN_GITHUB_REPO_URL = ((): string => {
+  const fallback = 'https://github.com/tinyhumansai/openhuman';
+  const override = (import.meta.env.VITE_OPENHUMAN_GITHUB_REPO_URL as string | undefined)?.trim();
+  if (!override) return fallback;
+  try {
+    return new URL(override).protocol === 'https:' ? override : fallback;
+  } catch {
+    return fallback;
+  }
+})();
+
 /** Support page base URL. The crash screen appends `?ref=<sentryEventId>` so support can correlate a user's pasted Error ID to the exact Sentry event. Override via VITE_SUPPORT_URL for deployment-specific support endpoints. */
 export const SUPPORT_URL =
   (import.meta.env.VITE_SUPPORT_URL as string | undefined)?.trim() ||

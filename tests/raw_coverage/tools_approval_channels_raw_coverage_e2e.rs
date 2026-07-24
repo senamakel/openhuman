@@ -1391,7 +1391,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         "example.com".to_string(),
     ];
     config.gitbooks.enabled = true;
-    config.computer_control.enabled = true;
     config.learning.enabled = true;
     config.learning.tool_tracking_enabled = true;
     config.mcp_client.enabled = true;
@@ -1425,8 +1424,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         "curl",
         "gitbooks_search",
         "gitbooks_get_page",
-        "mouse",
-        "keyboard",
         "tool_stats",
         "screenshot",
         "image_info",
@@ -1436,6 +1433,8 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
             "missing tool {expected}; got {names:?}"
         );
     }
+    assert!(!names.contains(&"mouse"));
+    assert!(!names.contains(&"keyboard"));
     assert!(!names.contains(&"node_exec"));
     assert!(!names.contains(&"npm_exec"));
 
@@ -3587,7 +3586,16 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
         reqwest::Client::new(),
     ));
 
-    let node = NodeExecTool::new(full_security.clone(), runtime.clone(), bootstrap.clone());
+    let node = NodeExecTool::new(
+        full_security.clone(),
+        runtime.clone(),
+        bootstrap.clone(),
+        openhuman_core::openhuman::config::RuntimePoolConfig {
+            enabled: false,
+            ..Default::default()
+        },
+        config.workspace_dir.clone(),
+    );
     assert_eq!(node.name(), "node_exec");
     assert_eq!(node.permission_level(), PermissionLevel::Execute);
     assert!(node.description().contains("Execute JavaScript"));
@@ -3614,6 +3622,11 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
         readonly_security.clone(),
         runtime.clone(),
         bootstrap.clone(),
+        openhuman_core::openhuman::config::RuntimePoolConfig {
+            enabled: false,
+            ..Default::default()
+        },
+        config.workspace_dir.clone(),
     );
     let blocked = readonly_node
         .execute(json!({ "inline_code": "console.log('blocked')" }))

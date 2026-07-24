@@ -21,8 +21,10 @@ import {
 } from '../../../services/api/voiceSettingsApi';
 import {
   openhumanGetVoiceServerSettings,
+  openhumanUpdateVoiceServerSettings,
   openhumanVoiceSetProviders,
   openhumanVoiceStatus,
+  syncNotchVisibility,
   type VoiceProvidersSnapshot,
   type VoiceServerSettings,
   type VoiceStatus,
@@ -35,6 +37,7 @@ import {
   SettingsSection,
   SettingsSelect,
   SettingsStatusLine,
+  SettingsSwitch,
   SettingsTextField,
 } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -111,6 +114,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   const [savedSttProvider, setSavedSttProvider] = useState<string>('');
   const [savedTtsProvider, setSavedTtsProvider] = useState<string>('');
   const [isSavingRouting, setIsSavingRouting] = useState(false);
+  const [isUpdatingAlwaysOn, setIsUpdatingAlwaysOn] = useState(false);
   const [sttModel, setSttModel] = useState<string>('');
   const [ttsVoice, setTtsVoice] = useState<string>('');
   const [elevenlabsVoiceId, setElevenlabsVoiceId] = useState<string>('JBFqnCBsd6RMkjVDRZzb');
@@ -359,6 +363,40 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
     }
   }, [sttProvider, ttsProvider, persistProviders, t]);
 
+  const toggleAlwaysOn = useCallback(
+    async (next: boolean) => {
+      if (!settings || isUpdatingAlwaysOn) return;
+
+      const previous = settings.always_on_enabled;
+      setIsUpdatingAlwaysOn(true);
+      setError(null);
+      setNotice(null);
+      setSettings(current => (current ? { ...current, always_on_enabled: next } : current));
+
+      try {
+        await openhumanUpdateVoiceServerSettings({ always_on_enabled: next });
+        setSavedSettings(current => (current ? { ...current, always_on_enabled: next } : current));
+        setNotice(t('voice.settingsSaved'));
+      } catch (err) {
+        setSettings(current => (current ? { ...current, always_on_enabled: previous } : current));
+        setError(err instanceof Error ? err.message : t('voice.failedToSaveSettings'));
+        setIsUpdatingAlwaysOn(false);
+        return;
+      }
+
+      try {
+        // The notch is the always-on listening HUD. Persistence has already
+        // succeeded, so a window-sync error must not roll the setting back.
+        await syncNotchVisibility(next);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('voice.failedToSaveSettings'));
+      } finally {
+        setIsUpdatingAlwaysOn(false);
+      }
+    },
+    [isUpdatingAlwaysOn, settings, t]
+  );
+
   /**
    * Enable an external voice provider chip using the inline key form.
    * Called after the user enters an API key and clicks Save.
@@ -567,7 +605,23 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
       description={embedded ? undefined : t('pages.settings.ai.voiceDesc')}
       leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
       <div className={embedded ? 'space-y-5' : 'p-4 space-y-5'}>
-        {/* Always-on listening moved to Settings → Features → Desktop Agent. */}
+        <SettingsSection title={t('voice.debug.alwaysOn')}>
+          <SettingsRow
+            htmlFor="voice-always-on"
+            label={t('voice.debug.alwaysOn')}
+            description={t('voice.debug.alwaysOnDesc')}
+            control={
+              <SettingsSwitch
+                id="voice-always-on"
+                data-testid="voice-always-on-toggle"
+                checked={settings?.always_on_enabled ?? false}
+                disabled={!settings || isUpdatingAlwaysOn}
+                onCheckedChange={next => void toggleAlwaysOn(next)}
+                aria-label={t('voice.debug.alwaysOn')}
+              />
+            }
+          />
+        </SettingsSection>
 
         {/* ─── Section 1: Voice Provider Chips ─────────────────────────── */}
         {/* Provider chips are intentional bespoke UI — kept as-is. */}
@@ -1319,7 +1373,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
 
         {/* Status line */}
         <SettingsStatusLine
-          saving={isSavingProviders || isSavingRouting}
+          saving={isSavingProviders || isSavingRouting || isUpdatingAlwaysOn}
           savedNote={notice}
           error={error}
           savingLabel={t('common.loading')}

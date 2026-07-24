@@ -149,6 +149,88 @@ fn all_tools_includes_spawn_subagent() {
     );
 }
 
+/// The three read-only WhatsApp-data agent tools are registered when the
+/// `channels` feature is on (#4801). Paired with the absent-variant below to
+/// pin both directions of the compile-time gate.
+#[cfg(feature = "channels")]
+#[test]
+fn whatsapp_data_tools_present_when_channels_on() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem = test_memory(&tmp);
+    let browser = BrowserConfig {
+        enabled: false,
+        allowed_domains: vec![],
+        session_name: None,
+        ..BrowserConfig::default()
+    };
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names = tool_names(&tools);
+    for expected in [
+        "whatsapp_data_list_chats",
+        "whatsapp_data_list_messages",
+        "whatsapp_data_search_messages",
+    ] {
+        assert!(
+            names.iter().any(|n| n == expected),
+            "`{expected}` must be registered when the `channels` feature is on; got: {names:?}"
+        );
+    }
+}
+
+/// With `channels` compiled out the three WhatsApp-data agent tools are absent
+/// from the registry (not degraded to an error) — the tool types live in the
+/// gated `whatsapp_data` domain (#4801).
+#[cfg(not(feature = "channels"))]
+#[test]
+fn whatsapp_data_tools_absent_when_channels_off() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem = test_memory(&tmp);
+    let browser = BrowserConfig {
+        enabled: false,
+        allowed_domains: vec![],
+        session_name: None,
+        ..BrowserConfig::default()
+    };
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names = tool_names(&tools);
+    for absent in [
+        "whatsapp_data_list_chats",
+        "whatsapp_data_list_messages",
+        "whatsapp_data_search_messages",
+    ] {
+        assert!(
+            !names.iter().any(|n| n == absent),
+            "`{absent}` must be absent when the `channels` feature is off; got: {names:?}"
+        );
+    }
+}
+
 #[test]
 fn all_tools_includes_spawn_async_subagent() {
     let tmp = TempDir::new().unwrap();
@@ -967,6 +1049,41 @@ fn all_tools_registers_node_exec_when_node_enabled() {
 }
 
 #[test]
+fn all_tools_registers_python_exec_when_python_enabled() {
+    // Default RuntimePythonConfig has `enabled = true`, so `python_exec` must
+    // appear in the registry (routes inline code through the runtime pool, #5106).
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem_cfg = MemoryConfig {
+        backend: "markdown".into(),
+        ..MemoryConfig::default()
+    };
+    let mem: Arc<dyn Memory> =
+        Arc::from(crate::openhuman::memory_store::create_memory(&mem_cfg, tmp.path()).unwrap());
+
+    let browser = BrowserConfig::default();
+    let http = crate::openhuman::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        mem,
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+    assert!(
+        names.contains(&"python_exec"),
+        "python_exec must be registered when runtime_python.enabled=true; got: {names:?}"
+    );
+}
+
+#[test]
 fn all_tools_excludes_node_exec_when_node_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
@@ -1001,85 +1118,6 @@ fn all_tools_excludes_node_exec_when_node_disabled() {
     assert!(
         !names.contains(&"npm_exec"),
         "npm_exec must NOT be registered when node.enabled=false; got: {names:?}"
-    );
-}
-
-#[test]
-fn all_tools_excludes_computer_control_when_disabled() {
-    let tmp = TempDir::new().unwrap();
-    let security = Arc::new(SecurityPolicy::default());
-    let mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
-    let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&mem_cfg, tmp.path()).unwrap());
-
-    let browser = BrowserConfig::default();
-    let http = crate::openhuman::config::HttpRequestConfig::default();
-    let cfg = test_config(&tmp);
-
-    // Default config has computer_control.enabled = false
-    let tools = all_tools(
-        Arc::new(Config::default()),
-        &security,
-        AuditLogger::disabled(),
-        mem,
-        &browser,
-        &http,
-        tmp.path(),
-        &HashMap::new(),
-        &cfg,
-    );
-    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-    assert!(
-        !names.contains(&"mouse"),
-        "mouse tool should not be registered when computer_control.enabled=false"
-    );
-    assert!(
-        !names.contains(&"keyboard"),
-        "keyboard tool should not be registered when computer_control.enabled=false"
-    );
-}
-
-// The `mouse` / `keyboard` computer-control tools are gated behind
-// `desktop-automation` (#5049), so this test only applies when the feature is on.
-#[cfg(feature = "desktop-automation")]
-#[test]
-fn all_tools_includes_computer_control_when_enabled() {
-    let tmp = TempDir::new().unwrap();
-    let security = Arc::new(SecurityPolicy::default());
-    let mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
-    let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&mem_cfg, tmp.path()).unwrap());
-
-    let browser = BrowserConfig::default();
-    let http = crate::openhuman::config::HttpRequestConfig::default();
-    let mut cfg = test_config(&tmp);
-    cfg.computer_control.enabled = true;
-
-    let tools = all_tools(
-        Arc::new(Config::default()),
-        &security,
-        AuditLogger::disabled(),
-        mem,
-        &browser,
-        &http,
-        tmp.path(),
-        &HashMap::new(),
-        &cfg,
-    );
-    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-    assert!(
-        names.contains(&"mouse"),
-        "mouse tool must be registered when computer_control.enabled=true; got: {names:?}"
-    );
-    assert!(
-        names.contains(&"keyboard"),
-        "keyboard tool must be registered when computer_control.enabled=true; got: {names:?}"
     );
 }
 
@@ -1693,13 +1731,6 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
         // The `computer`-family tools are compiled out with the
         // `desktop-automation` feature; gate these two cases per-element so the
         // rest of the read-only policy assertions still run in the slim build.
-        #[cfg(feature = "desktop-automation")]
-        (
-            Box::new(KeyboardTool::new(sec.clone())),
-            serde_json::json!({}),
-        ),
-        #[cfg(feature = "desktop-automation")]
-        (Box::new(MouseTool::new(sec.clone())), serde_json::json!({})),
         (
             Box::new(BrowserOpenTool::new(sec.clone(), vec![])),
             serde_json::json!({ "url": "https://example.com" }),
@@ -2242,35 +2273,20 @@ const DESKTOP_TOOLS: &[&str] = &[
     // `desktop-automation` feature, so these expectations are gated per-element
     // (same idiom as the `mcp_registry_*` block below) rather than gating the
     // `desktop_tools_are_registered` test away wholesale.
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_status",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_capture_image_ref",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_vision_recent",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_vision_flush",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_refresh_permissions",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_capture_now",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_capture_test",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_session_start",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_session_stop",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_input_action",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_globe_listener_start",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_globe_listener_poll",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_globe_listener_stop",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_request_permissions",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_request_permission",
     // The `mcp_registry_*` desktop surface is compiled out with the `mcp`
     // feature, so these expectations are gated per-element rather than gating
@@ -2303,9 +2319,7 @@ const DESKTOP_TOOLS: &[&str] = &[
 ];
 
 const DESKTOP_DEFAULT_OFF: &[&str] = &[
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_request_permissions",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_request_permission",
     #[cfg(feature = "mcp")]
     "mcp_registry_install",
@@ -2317,9 +2331,7 @@ const DESKTOP_DEFAULT_OFF: &[&str] = &[
 ];
 
 const DESKTOP_ALWAYS_ON: &[&str] = &[
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_status",
-    #[cfg(feature = "desktop-automation")]
     "screen_intelligence_capture_now",
     #[cfg(feature = "mcp")]
     "mcp_registry_search",
@@ -2335,30 +2347,6 @@ fn desktop_tools_are_registered() {
     let tmp = TempDir::new().unwrap();
     let names = tool_names(&expansion_tools_for(&tmp));
     assert_contains_all(&names, DESKTOP_TOOLS);
-}
-
-/// Negative half of the `desktop-automation` gate (#5049): with the cluster
-/// compiled out, no `screen_intelligence_*` tool and none of the `computer`
-/// family (`ax_interact` / `automate` / `mouse` / `keyboard`) may be advertised —
-/// they must be *absent*, not degraded to a runtime error. Pairs with
-/// `desktop_tools_are_registered` above.
-#[cfg(not(feature = "desktop-automation"))]
-#[test]
-fn screen_intelligence_tools_absent_when_feature_off() {
-    let tmp = TempDir::new().unwrap();
-    let names = tool_names(&expansion_tools_for(&tmp));
-    assert!(
-        !names.iter().any(|n| n.starts_with("screen_intelligence_")),
-        "no `screen_intelligence_*` tool may be advertised when \
-         `desktop-automation` is off; got: {names:?}"
-    );
-    for computer_tool in ["ax_interact", "automate", "mouse", "keyboard"] {
-        assert!(
-            !names.iter().any(|n| n == computer_tool),
-            "`computer` tool `{computer_tool}` must be absent when \
-             `desktop-automation` is off; got: {names:?}"
-        );
-    }
 }
 
 #[test]

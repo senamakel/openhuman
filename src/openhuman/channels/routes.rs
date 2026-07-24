@@ -5,7 +5,7 @@ use super::context::{
 };
 use super::traits;
 use super::{Channel, ChannelSendExt, SendMessage};
-use crate::openhuman::inference::provider::{self, Provider};
+use crate::openhuman::inference::provider;
 use serde::Deserialize;
 use std::fmt::Write;
 use std::path::Path;
@@ -166,20 +166,18 @@ fn load_cached_model_preview(workspace_dir: &Path, provider_name: &str) -> Vec<S
         .unwrap_or_default()
 }
 
-pub(crate) async fn get_or_create_provider(
+pub(crate) async fn get_or_create_turn_model_source(
     ctx: &ChannelRuntimeContext,
     provider_name: &str,
-) -> anyhow::Result<Arc<dyn Provider>> {
+) -> anyhow::Result<crate::openhuman::tinyagents::TurnModelSource> {
     if provider_name == ctx.default_provider.as_str() {
-        return ctx
-            .provider
-            .as_ref()
-            .map(Arc::clone)
-            .ok_or_else(|| anyhow::anyhow!("no injected channel provider for '{provider_name}'"));
+        return ctx.turn_model_source.as_ref().cloned().ok_or_else(|| {
+            anyhow::anyhow!("no injected channel model source for '{provider_name}'")
+        });
     }
 
     if let Some(existing) = ctx
-        .provider_cache
+        .turn_model_source_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .get(provider_name)
@@ -189,7 +187,7 @@ pub(crate) async fn get_or_create_provider(
     }
 
     anyhow::bail!(
-        "no injected channel provider for '{provider_name}'; production routes use crate-native model sources"
+        "no injected channel model source for '{provider_name}'; production routes use crate-native model sources"
     )
 }
 

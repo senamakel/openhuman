@@ -59,7 +59,9 @@ pub fn metadata_from_definition(def: &AgentDefinition) -> AgentDefinitionDisplay
         write_capable: is_write_capable(def),
         source: match &def.source {
             DefinitionSource::Builtin => AgentDefinitionSource::Builtin,
-            DefinitionSource::File(_) => AgentDefinitionSource::Custom,
+            DefinitionSource::File(_) | DefinitionSource::CustomRegistry => {
+                AgentDefinitionSource::Custom
+            }
         },
     }
 }

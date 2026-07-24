@@ -153,9 +153,8 @@ impl Tool for SpawnWorkerThreadTool {
 
         // ── Depth Guard ────────────────────────────────────────────────
         // Check if the current thread is already a worker thread.
-        let current_thread_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id()
-                .unwrap_or_else(|| "unknown".to_string());
+        let current_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id()
+            .unwrap_or_else(|| "unknown".to_string());
 
         tracing::info!(
             agent_id = %agent_id,
@@ -312,36 +311,6 @@ mod tests {
     use std::sync::Arc;
     use tempfile::TempDir;
 
-    struct MockProvider;
-    #[async_trait]
-    impl crate::openhuman::inference::provider::Provider for MockProvider {
-        async fn chat_with_system(
-            &self,
-            _: Option<&str>,
-            _: &str,
-            _: &str,
-            _: f64,
-        ) -> anyhow::Result<String> {
-            Ok("".into())
-        }
-        async fn chat(
-            &self,
-            _: crate::openhuman::inference::provider::ChatRequest<'_>,
-            _: &str,
-            _: f64,
-        ) -> anyhow::Result<crate::openhuman::inference::provider::ChatResponse> {
-            Ok(crate::openhuman::inference::provider::ChatResponse {
-                text: Some("done".into()),
-                tool_calls: vec![],
-                usage: None,
-                reasoning_content: None,
-            })
-        }
-        fn supports_native_tools(&self) -> bool {
-            true
-        }
-    }
-
     struct MockMemory;
     #[async_trait]
     impl crate::openhuman::memory::Memory for MockMemory {
@@ -398,6 +367,10 @@ mod tests {
     }
 
     fn test_parent_ctx(workspace_dir: PathBuf) -> ParentExecutionContext {
+        let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+            Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+                "done",
+            ]));
         ParentExecutionContext {
             workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
@@ -408,14 +381,13 @@ mod tests {
             model_name: "test".into(),
             temperature: 0.4,
             workspace_dir,
-            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-                MockProvider,
-            )),
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
             memory: Arc::new(MockMemory),
             channel: "test".into(),
             all_tools: Arc::new(vec![]),
             all_tool_specs: Arc::new(vec![]),
             visible_tool_names: std::collections::HashSet::new(),
+            subagent_tool_ceiling_names: std::collections::HashSet::new(),
             workflows: Arc::new(vec![]),
             memory_context: std::sync::Arc::new(None),
             connected_integrations: vec![],
@@ -443,7 +415,7 @@ mod tests {
         )
         .unwrap();
 
-        crate::openhuman::inference::provider::thread_context::with_thread_id(
+        crate::openhuman::tinyagents::thread_context::with_thread_id(
             thread_id.to_string(),
             async {
                 let parent = test_parent_ctx(temp.path().to_path_buf());
@@ -486,7 +458,7 @@ mod tests {
         )
         .unwrap();
 
-        crate::openhuman::inference::provider::thread_context::with_thread_id(
+        crate::openhuman::tinyagents::thread_context::with_thread_id(
             thread_id.to_string(),
             async {
                 let parent = test_parent_ctx(temp.path().to_path_buf());

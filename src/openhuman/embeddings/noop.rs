@@ -1,6 +1,7 @@
 //! No-op embedding provider for keyword-only search fallback.
 
 use async_trait::async_trait;
+use tinyagents::harness::embeddings::{EmbeddingModel, NoopEmbeddingModel};
 
 use super::EmbeddingProvider;
 
@@ -22,7 +23,14 @@ impl EmbeddingProvider for NoopEmbedding {
         0
     }
 
-    async fn embed(&self, _texts: &[&str]) -> anyhow::Result<Vec<Vec<f32>>> {
-        Ok(Vec::new())
+    async fn embed(&self, texts: &[&str]) -> anyhow::Result<Vec<Vec<f32>>> {
+        let texts = texts
+            .iter()
+            .map(|text| (*text).to_owned())
+            .collect::<Vec<_>>();
+        NoopEmbeddingModel
+            .embed(&texts)
+            .await
+            .map_err(|error| anyhow::anyhow!(error))
     }
 }

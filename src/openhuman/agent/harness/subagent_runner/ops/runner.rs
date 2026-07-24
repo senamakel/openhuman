@@ -643,6 +643,15 @@ async fn run_typed_mode(
     if definition.id == "tools_agent" {
         allowed_indices.retain(|&i| parent.all_tools[i].category() != ToolCategory::Workflow);
     }
+    // A child may only narrow an explicit profile/channel ceiling, never widen
+    // it back to `all_tools`. The parent's own role-specific prompt surface is
+    // intentionally not a ceiling: coordinators delegate effectful work to
+    // specialists whose tools they do not advertise directly.
+    super::super::tool_prep::retain_parent_visible_tool_indices(
+        &mut allowed_indices,
+        &parent.all_tools,
+        &parent.subagent_tool_ceiling_names,
+    );
 
     if is_integrations_agent_with_toolkit {
         if let Some(tk) = toolkit_filter {
@@ -780,6 +789,7 @@ async fn run_typed_mode(
                 lazy_resolver = Some(LazyToolkitResolver {
                     config: arc_config.clone(),
                     actions: integration.tools.clone(),
+                    resolved: std::sync::Mutex::default(),
                 });
             } else {
                 tracing::warn!(
@@ -789,6 +799,14 @@ async fn run_typed_mode(
                 );
             }
         }
+    }
+
+    // Dynamic Composio action tools are effectful too. Do not let delegation
+    // synthesize one that the parent profile/policy did not expose. Internal
+    // runner-only tools (such as extract_from_result below) are added after
+    // this intersection and cannot access the filesystem/process surface.
+    if !parent.subagent_tool_ceiling_names.is_empty() {
+        dynamic_tools.retain(|tool| parent.subagent_tool_ceiling_names.contains(tool.name()));
     }
 
     // ── Progressive-disclosure handoff cache ───────────────────────────
@@ -1068,7 +1086,7 @@ async fn run_typed_mode(
     if let Some(ref ctx) = options.context {
         context_parts.push(ctx);
     }
-    let mut history: Vec<crate::openhuman::inference::provider::ChatMessage> =
+    let mut history: Vec<crate::openhuman::agent::messages::ChatMessage> =
         if let Some(ref initial) = options.initial_history {
             tracing::info!(
                 agent_id = %definition.id,
@@ -1084,8 +1102,8 @@ async fn run_typed_mode(
                 format!("[Context]\n{}\n\n{task_prompt}", context_parts.join("\n\n"))
             };
             vec![
-                crate::openhuman::inference::provider::ChatMessage::system(system_prompt),
-                crate::openhuman::inference::provider::ChatMessage::user(user_message),
+                crate::openhuman::agent::messages::ChatMessage::system(system_prompt),
+                crate::openhuman::agent::messages::ChatMessage::user(user_message),
             ]
         };
 

@@ -48,6 +48,12 @@ const EXPECTED_STATUS_PRESENTATION: Record<
     dot: 'bg-surface-strong',
     key: 'flowRuns.status.cancelled',
   },
+  interrupted: {
+    accent:
+      'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
+    dot: 'bg-amber-500',
+    key: 'flowRuns.status.interrupted',
+  },
 };
 
 describe('FlowRunStatus', () => {

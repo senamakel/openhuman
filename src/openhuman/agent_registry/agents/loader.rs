@@ -156,12 +156,6 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         graph_fn: None,
     },
     BuiltinAgent {
-        id: "desktop_control_agent",
-        toml: include_str!("desktop_control_agent/agent.toml"),
-        prompt_fn: super::desktop_control_agent::prompt::build,
-        graph_fn: None,
-    },
-    BuiltinAgent {
         id: "tool_maker",
         toml: include_str!("tool_maker/agent.toml"),
         prompt_fn: super::tool_maker::prompt::build,
@@ -1371,23 +1365,6 @@ mod tests {
             // Memory pre-fetch is no longer eager; `omit_memory_context = false`
             // still gives the deck builder the cheap per-turn recall.
             assert_eq!(presentation.trigger_memory_agent, TriggerMemoryAgent::Never);
-        }
-
-        let desktop = find("desktop_control_agent");
-        match &desktop.tools {
-            ToolScope::Named(names) => {
-                for required in [
-                    "launch_app",
-                    "ax_interact",
-                    "automate",
-                    "screenshot",
-                    "mouse",
-                    "keyboard",
-                ] {
-                    assert!(names.iter().any(|name| name == required));
-                }
-            }
-            other => panic!("desktop_control_agent must use Named tool scope, got {other:?}"),
         }
     }
 

@@ -449,6 +449,33 @@ impl Config {
             self.runtime_python.preferred_command = command.trim().to_string();
         }
 
+        // --- Shared language-runtime pool (#5106) --------------------------
+        if let Some(flag) = env.get("OPENHUMAN_RUNTIME_POOL_ENABLED") {
+            if let Some(enabled) = parse_env_bool("OPENHUMAN_RUNTIME_POOL_ENABLED", &flag) {
+                self.runtime_pool.enabled = enabled;
+            }
+        }
+        if let Some(raw) = env.get("OPENHUMAN_RUNTIME_POOL_NODE_MAX_WORKERS") {
+            match raw.trim().parse::<usize>() {
+                Ok(n) => self.runtime_pool.node.max_workers = n,
+                Err(e) => tracing::warn!(
+                    value = %raw,
+                    error = %e,
+                    "[config] ignoring invalid OPENHUMAN_RUNTIME_POOL_NODE_MAX_WORKERS"
+                ),
+            }
+        }
+        if let Some(raw) = env.get("OPENHUMAN_RUNTIME_POOL_PYTHON_MAX_WORKERS") {
+            match raw.trim().parse::<usize>() {
+                Ok(n) => self.runtime_pool.python.max_workers = n,
+                Err(e) => tracing::warn!(
+                    value = %raw,
+                    error = %e,
+                    "[config] ignoring invalid OPENHUMAN_RUNTIME_POOL_PYTHON_MAX_WORKERS"
+                ),
+            }
+        }
+
         // --- TokenJuice content router -------------------------------------
         if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_ENABLED") {
             if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_ENABLED", &flag) {

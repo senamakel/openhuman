@@ -434,31 +434,10 @@ mod tests {
         assert!(err.contains("no usable turns"), "unexpected error: {err}");
     }
 
-    /// Scripted provider that returns a fixed reply, so the full
-    /// generate → parse → map path can be exercised without any network.
-    struct ScriptedProvider {
-        reply: String,
-    }
-
-    #[async_trait::async_trait]
-    impl crate::openhuman::inference::provider::Provider for ScriptedProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(self.reply.clone())
-        }
-    }
-
     #[tokio::test]
     async fn generate_meeting_summary_parses_and_maps_provider_reply() {
-        // Inject a scripted provider via the factory test override so
-        // `create_chat_provider` hands back our mock instead of resolving a
-        // real provider — the call stays network-free. The guard clears the
-        // override on drop.
+        // Inject a scripted crate model via the factory test override so the
+        // call stays network-free. The guard clears the override on drop.
         let reply = "Here you go:\n```json\n{\"label\":\"Q3 Roadmap\",\
             \"headline\":\"Agreed to ship Friday.\",\
             \"key_points\":[\"Ship Friday\",\"QA owns sign-off\"],\
@@ -467,10 +446,10 @@ mod tests {
             {\"description\":\"Book retro\",\"kind\":\"advisory\",\
             \"tool_name\":null,\"assignee\":null}]}\n```";
         let _guard =
-            crate::openhuman::inference::provider::factory::test_provider_override::install(
-                std::sync::Arc::new(ScriptedProvider {
-                    reply: reply.to_string(),
-                }),
+            crate::openhuman::inference::provider::factory::test_provider_override::install_model(
+                std::sync::Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+                    reply,
+                ])),
             );
 
         let turns = vec![

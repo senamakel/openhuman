@@ -12,10 +12,10 @@ use std::sync::Arc;
 
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::embeddings::{provider_from_config, EmbeddingProvider};
-use crate::openhuman::memory_search::scoring::WeightProfile;
 use crate::openhuman::memory_store::types::MemoryItemKind;
 use crate::openhuman::memory_store::UnifiedMemory;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
+use tinycortex::memory::WeightProfile;
 
 pub struct MemoryHybridSearchTool;
 
@@ -151,8 +151,7 @@ impl Tool for MemoryHybridSearchTool {
         // the web channel around the turn) so a search issued mid-turn
         // never retrieves the very request that triggered it. `None`
         // outside a chat turn — unchanged behavior for cron/CLI/tests.
-        let exclude_session_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id();
+        let exclude_session_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
         if let Some(ref excluded) = exclude_session_id {
             log::debug!(
                 "[tool][memory_hybrid_search] applying same-session exclusion exclude_session_id={excluded}"
@@ -178,13 +177,14 @@ impl Tool for MemoryHybridSearchTool {
             .enumerate()
             .map(|(i, hit)| {
                 let bd = &hit.score_breakdown;
-                let score = crate::openhuman::memory_search::scoring::compose_score(
+                let score = tinycortex::memory::retrieval::scoring::hybrid_score(
                     &profile,
                     bd.graph_relevance,
                     bd.vector_similarity,
                     bd.keyword_relevance,
                     bd.freshness,
-                );
+                )
+                .final_score;
                 (i, score)
             })
             .filter(|(_, score)| *score > 0.0)

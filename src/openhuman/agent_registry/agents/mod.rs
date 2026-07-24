@@ -10,7 +10,6 @@ pub mod code_executor;
 pub mod context_scout;
 pub mod critic;
 pub mod crypto_agent;
-pub mod desktop_control_agent;
 pub mod goals_agent;
 pub mod help;
 pub mod image_agent;

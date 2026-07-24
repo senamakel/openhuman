@@ -1,6 +1,6 @@
 //! Unit tests for the Linear provider.
 
-use super::sync::{
+use super::normalization::{
     extract_issue_title, extract_issue_updated, extract_issues, extract_pagination_cursor,
     extract_viewer, extract_viewer_id,
 };

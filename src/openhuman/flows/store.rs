@@ -819,6 +819,61 @@ pub fn expire_parked_runs(
     })
 }
 
+/// Lists the `(id, flow_id)` of every run persisted at `status = 'running'`
+/// whose `started_at` is strictly **before** `started_before` (RFC3339). Used by
+/// the boot-time orphan sweep (bug B42): after a crash/restart no in-process
+/// task is executing these rows, so
+/// [`crate::openhuman::flows::ops::sweep_orphaned_running_runs_on_boot`]
+/// reconciles each one that isn't backed by a live in-flight run to a terminal
+/// `'interrupted'` via [`mark_run_interrupted`].
+///
+/// The `started_before` floor is what makes the sweep provably unable to touch
+/// a run **this** process started: the sweep passes the instant this process
+/// first entered the flow-run lifecycle, and every row this process inserts is
+/// stamped at or after that instant. Without it, the sweep's only guard is the
+/// in-flight registry, which a row briefly escapes between `start_flow_run_row`
+/// and `run_registry::register`. `started_at` is a fixed-shape UTC RFC3339
+/// string, so the lexicographic `<` matches chronological order (same
+/// comparison the parked-run TTL sweep already relies on).
+pub fn list_running_run_ids(
+    config: &Config,
+    started_before: &str,
+) -> Result<Vec<(String, String)>> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, flow_id FROM flow_runs WHERE status = 'running' AND started_at < ?1",
+        )?;
+        let rows: Vec<(String, String)> = stmt
+            .query_map(params![started_before], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(rows)
+    })
+}
+
+/// Reconciles a single orphaned `'running'` run row to a terminal
+/// `'interrupted'` status stamped `now` (RFC3339) with `reason`, guarded by a
+/// `status = 'running'` predicate so a run that settled or was resumed
+/// concurrently is never clobbered. Returns `true` when a row was actually
+/// flipped (bug B42 — cancellation-safe finalizer + boot sweep). Best-effort by
+/// contract at the call site.
+pub fn mark_run_interrupted(config: &Config, id: &str, now: &str, reason: &str) -> Result<bool> {
+    with_connection(config, |conn| {
+        let changed = conn
+            .execute(
+                "UPDATE flow_runs SET status = 'interrupted', finished_at = ?1, error = ?2 \
+                 WHERE id = ?3 AND status = 'running'",
+                params![now, reason, id],
+            )
+            .context("Failed to reconcile orphaned running flow run")?;
+        if changed > 0 {
+            tracing::info!(target: "flows", run_id = id, "[flows] reconciled orphaned 'running' flow run to 'interrupted'");
+        }
+        Ok(changed > 0)
+    })
+}
+
 /// Loads one flow run by id (== thread_id).
 pub fn get_flow_run(config: &Config, id: &str) -> Result<Option<FlowRun>> {
     with_connection(config, |conn| {

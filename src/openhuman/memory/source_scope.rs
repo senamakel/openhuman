@@ -10,15 +10,15 @@
 //! Semantics:
 //! - `None` scope (outside any [`with_source_scope`], or `with_source_scope(None, …)`)
 //!   means **unrestricted** — every source tree is visible. This is the default
-//!   for cron, sub-agents, the CLI, and any profile that left `memory_sources`
-//!   unset.
+//!   for profile-less cron, sub-agents, the CLI, and any profile that left
+//!   `memory_sources` unset.
 //! - `Some(set)` restricts recall to source trees whose `scope` string is in the
 //!   set. An empty set surfaces nothing (the profile selected no sources).
 //!
 //! The allowlist entries are matched against tree `scope` strings — the same
 //! identifiers the `memory_tree_query_source` tool accepts as `source_id`.
 //!
-//! [`thread_context`]: crate::openhuman::inference::provider::thread_context
+//! [`thread_context`]: crate::openhuman::tinyagents::thread_context
 //!
 //! ```ignore
 //! use crate::openhuman::memory::source_scope::{with_source_scope, current_source_scope};

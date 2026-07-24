@@ -1028,8 +1028,7 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[tools::ops] registered python_exec");
     }
 
-    // Vision tools are always available
-    tools.push(Box::new(ScreenshotTool::new(security.clone())));
+    // Image metadata is always available for user-provided images.
     tools.push(Box::new(ImageInfoTool::new(security.clone())));
 
     // Tool effectiveness stats (enabled when learning is on)

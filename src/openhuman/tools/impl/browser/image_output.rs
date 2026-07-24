@@ -1,4 +1,4 @@
-//! Parse screenshot tool stdout (saved path / data URLs) and write decoded images.
+//! Parse saved-image output (paths / data URLs) and write decoded images.
 
 use std::path::{Path, PathBuf};
 

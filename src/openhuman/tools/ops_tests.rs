@@ -712,7 +712,6 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
             "web_search_tool",
             "node_exec",
             "npm_exec",
-            "screenshot",
             "image_info",
         ],
     );

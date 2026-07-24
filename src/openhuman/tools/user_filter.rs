@@ -56,11 +56,6 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
         default_enabled: true,
     },
     ToolFamily {
-        id: "screenshot",
-        rust_names: &["screenshot"],
-        default_enabled: true,
-    },
-    ToolFamily {
         id: "image_info",
         rust_names: &["image_info"],
         default_enabled: true,

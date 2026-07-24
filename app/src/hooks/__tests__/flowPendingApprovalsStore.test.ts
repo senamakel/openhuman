@@ -103,6 +103,63 @@ describe('flowPendingApprovalsStore', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('isolates a disabled source from live snapshots and reconnects when enabled', async () => {
+    fetchPendingApprovals.mockResolvedValueOnce([
+      makeApproval({ request_id: 'req-seed', action_summary: 'Seed approval' }),
+    ]);
+    await refreshFlowPendingApprovals();
+
+    let renderCount = 0;
+    const source = renderHook(
+      ({ enabled }: { enabled: boolean }) => {
+        renderCount += 1;
+        return useFlowPendingApprovalsSource(enabled);
+      },
+      { initialProps: { enabled: false } }
+    );
+    const disabledSnapshot = source.result.current;
+    expect(disabledSnapshot).toEqual({ approvals: [], error: null, polling: false });
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(1);
+
+    const disabledRenderCount = renderCount;
+    fetchPendingApprovals.mockResolvedValueOnce([
+      makeApproval({ request_id: 'req-live', action_summary: 'Live approval' }),
+    ]);
+    await act(async () => {
+      await refreshFlowPendingApprovals();
+    });
+
+    expect(renderCount).toBe(disabledRenderCount);
+    expect(source.result.current).toBe(disabledSnapshot);
+
+    let resolveEnabledRefresh!: (approvals: PendingApproval[]) => void;
+    fetchPendingApprovals.mockReturnValueOnce(
+      new Promise<PendingApproval[]>(resolve => {
+        resolveEnabledRefresh = resolve;
+      })
+    );
+    source.rerender({ enabled: true });
+    expect(source.result.current.approvals[0]?.request_id).toBe('req-live');
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      resolveEnabledRefresh([makeApproval({ request_id: 'req-enabled' })]);
+      await Promise.resolve();
+    });
+    expect(source.result.current).toMatchObject({
+      approvals: [expect.objectContaining({ request_id: 'req-enabled' })],
+      polling: true,
+    });
+
+    source.rerender({ enabled: false });
+    expect(source.result.current).toBe(disabledSnapshot);
+    expect(getFlowPendingApprovalsSnapshot()).toMatchObject({
+      approvals: [expect.objectContaining({ request_id: 'req-enabled' })],
+      polling: false,
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('deeply clones and freezes fetched approvals without mutating API-owned objects', async () => {
     const sourceContext = {
       kind: 'flow' as const,

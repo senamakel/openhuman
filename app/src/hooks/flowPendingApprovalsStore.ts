@@ -1,5 +1,5 @@
 import debug from 'debug';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
 import { fetchPendingApprovals, type PendingApproval } from '../services/api/approvalApi';
 
@@ -157,11 +157,15 @@ export function retainFlowPendingApprovalsPolling(): () => void {
 }
 
 export function useFlowPendingApprovalsSource(enabled: boolean): FlowPendingApprovalsSnapshot {
-  const current = useSyncExternalStore(
-    subscribeFlowPendingApprovals,
-    getFlowPendingApprovalsSnapshot,
-    getFlowPendingApprovalsSnapshot
+  const subscribe = useCallback(
+    (listener: () => void) => (enabled ? subscribeFlowPendingApprovals(listener) : () => undefined),
+    [enabled]
   );
+  const getSnapshot = useCallback(
+    () => (enabled ? getFlowPendingApprovalsSnapshot() : INITIAL_SNAPSHOT),
+    [enabled]
+  );
+  const current = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   useEffect(() => {
     if (!enabled) return;

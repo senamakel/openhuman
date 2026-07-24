@@ -33,6 +33,9 @@ export function useFlowRunsQuery({
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(false);
   const requestGenerationRef = useRef(0);
+  const latestForegroundGenerationRef = useRef(0);
+  const latestSilentGenerationRef = useRef(0);
+  const publishedGenerationRef = useRef(0);
 
   const scopeKind = scope.kind;
   const flowId = scope.kind === 'flow' ? scope.flowId : null;
@@ -47,6 +50,7 @@ export function useFlowRunsQuery({
     if (!canFetch) return;
 
     const generation = ++requestGenerationRef.current;
+    latestForegroundGenerationRef.current = generation;
     if (mountedRef.current) {
       setLoading(true);
       setError(null);
@@ -54,13 +58,26 @@ export function useFlowRunsQuery({
 
     try {
       const result = await requestRuns();
-      if (!mountedRef.current || generation !== requestGenerationRef.current) return;
+      if (
+        !mountedRef.current ||
+        generation !== latestForegroundGenerationRef.current ||
+        generation < publishedGenerationRef.current
+      ) {
+        return;
+      }
+      publishedGenerationRef.current = generation;
       setRuns(result);
     } catch (requestError) {
-      if (!mountedRef.current || generation !== requestGenerationRef.current) return;
+      if (
+        !mountedRef.current ||
+        generation !== latestForegroundGenerationRef.current ||
+        generation < publishedGenerationRef.current
+      ) {
+        return;
+      }
       setError(normalizeError(requestError));
     } finally {
-      if (mountedRef.current && generation === requestGenerationRef.current) {
+      if (mountedRef.current && generation === latestForegroundGenerationRef.current) {
         setLoading(false);
       }
     }
@@ -70,17 +87,28 @@ export function useFlowRunsQuery({
     if (!canFetch) return;
 
     const generation = ++requestGenerationRef.current;
+    latestSilentGenerationRef.current = generation;
     try {
       const result = await requestRuns();
-      if (!mountedRef.current || generation !== requestGenerationRef.current) return;
-      setRuns(result);
-    } catch {
-      if (!mountedRef.current || generation !== requestGenerationRef.current) return;
-      log('silent refresh failed: scope=%s', scopeKind);
-    } finally {
-      if (mountedRef.current && generation === requestGenerationRef.current) {
-        setLoading(false);
+      if (
+        !mountedRef.current ||
+        generation !== latestSilentGenerationRef.current ||
+        generation < latestForegroundGenerationRef.current
+      ) {
+        return;
       }
+      publishedGenerationRef.current = generation;
+      setRuns(result);
+      setLoading(false);
+    } catch {
+      if (
+        !mountedRef.current ||
+        generation !== latestSilentGenerationRef.current ||
+        generation < latestForegroundGenerationRef.current
+      ) {
+        return;
+      }
+      log('silent refresh failed: scope=%s', scopeKind);
     }
   }, [canFetch, requestRuns, scopeKind]);
 
@@ -88,12 +116,18 @@ export function useFlowRunsQuery({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      requestGenerationRef.current += 1;
+      const generation = ++requestGenerationRef.current;
+      latestForegroundGenerationRef.current = generation;
+      latestSilentGenerationRef.current = generation;
+      publishedGenerationRef.current = generation;
     };
   }, []);
 
   useEffect(() => {
-    requestGenerationRef.current += 1;
+    const generation = ++requestGenerationRef.current;
+    latestForegroundGenerationRef.current = generation;
+    latestSilentGenerationRef.current = generation;
+    publishedGenerationRef.current = generation;
     setRuns([]);
     setLoading(false);
     setError(null);
@@ -101,7 +135,10 @@ export function useFlowRunsQuery({
     if (canFetch) void refresh();
 
     return () => {
-      requestGenerationRef.current += 1;
+      const cleanupGeneration = ++requestGenerationRef.current;
+      latestForegroundGenerationRef.current = cleanupGeneration;
+      latestSilentGenerationRef.current = cleanupGeneration;
+      publishedGenerationRef.current = cleanupGeneration;
     };
   }, [canFetch, flowId, refresh, scopeKind]);
 

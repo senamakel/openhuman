@@ -258,7 +258,7 @@ describe('useFlowRunsQuery', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('retires foreground loading when the superseding silent request fails', async () => {
+  it('keeps the foreground request active when a newer silent request fails', async () => {
     const initial = deferred<FlowRun[]>();
     const latest = deferred<FlowRun[]>();
     listFlowRuns.mockReturnValueOnce(initial.promise).mockReturnValueOnce(latest.promise);
@@ -275,13 +275,17 @@ describe('useFlowRunsQuery', () => {
       latest.reject(new Error('offline'));
       await silentPromise;
     });
-    expect(result.current).toMatchObject({ runs: [], loading: false, error: null });
+    expect(result.current).toMatchObject({ runs: [], loading: true, error: null });
 
     await act(async () => {
-      initial.resolve([makeRun('stale')]);
+      initial.resolve([makeRun('foreground')]);
       await initial.promise;
     });
-    expect(result.current).toMatchObject({ runs: [], loading: false, error: null });
+    expect(result.current).toMatchObject({
+      runs: [makeRun('foreground')],
+      loading: false,
+      error: null,
+    });
   });
 
   it('lets the latest foreground request win over an older silent request', async () => {

@@ -48,6 +48,7 @@ export function ConfirmDialog({
             variant="primary"
             size="sm"
             tone={destructive ? 'danger' : undefined}
+            data-testid="confirm-dialog-confirm"
             onClick={onConfirm}
             disabled={busy || confirmDisabled}>
             {busy ? busyLabel : confirmLabel}

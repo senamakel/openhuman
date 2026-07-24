@@ -50,6 +50,9 @@ describe('ConfirmDialog', () => {
     const user = userEvent.setup();
     render(<ConfirmDialog {...props} />);
 
+    expect(screen.getByTestId('confirm-dialog-confirm')).toBe(
+      screen.getByRole('button', { name: 'Confirm' })
+    );
     await user.click(screen.getByRole('button', { name: 'Confirm' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 

@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { FlowRunStatus } from '../components/flows/FlowRunStatus';
 import PanelPage from '../components/layout/PanelPage';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { useFlowRunsLiveRefresh } from '../hooks/useFlowRunsLiveRefresh';
@@ -19,16 +20,11 @@ import {
   useRunsPendingApprovalSet,
 } from '../hooks/useRunsPendingApprovalSet';
 import { useT } from '../lib/i18n/I18nContext';
-import { type Flow, type FlowRunStatus, listFlows } from '../services/api/flowsApi';
-
-const STATUS_CLASS: Record<FlowRunStatus, string> = {
-  running: 'bg-primary-500/15 text-primary-600 dark:text-primary-300',
-  completed: 'bg-sage-500/15 text-sage-700 dark:text-sage-300',
-  completed_with_warnings: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  pending_approval: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  failed: 'bg-coral-500/15 text-coral-700 dark:text-coral-300',
-  cancelled: 'bg-content-faint/15 text-content-secondary',
-};
+import {
+  type Flow,
+  type FlowRunStatus as FlowRunStatusValue,
+  listFlows,
+} from '../services/api/flowsApi';
 
 export default function WorkflowRunsPage() {
   const { t } = useT();
@@ -75,7 +71,7 @@ export default function WorkflowRunsPage() {
   const pageLoading = loading || flowNamesLoading;
   const pageError = error ?? flowNamesError;
 
-  const statusLabel = (status: FlowRunStatus) =>
+  const statusLabel = (status: FlowRunStatusValue) =>
     t(`flows.allRuns.status.${status}`, status.replace(/_/g, ' '));
 
   return (
@@ -107,10 +103,11 @@ export default function WorkflowRunsPage() {
                     data-testid={`workflow-run-${run.id}`}
                     onClick={() => navigate(`/flows/${run.flow_id}`)}
                     className="flex w-full items-center gap-3 p-3 text-left hover:bg-surface-hover">
-                    <span
-                      className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_CLASS[displayStatus]}`}>
-                      {statusLabel(displayStatus)}
-                    </span>
+                    <FlowRunStatus
+                      status={displayStatus}
+                      label={statusLabel(displayStatus)}
+                      className="flex-shrink-0 text-[11px]"
+                    />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">
                       {flowNames[run.flow_id] ?? t('flows.allRuns.unknownWorkflow')}
                     </span>

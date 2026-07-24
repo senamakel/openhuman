@@ -41,18 +41,31 @@ describe('WorkflowRunsPage', () => {
 
   it('renders aggregate runs with their workflow name and status', async () => {
     listAllFlowRuns.mockResolvedValue([
-      { id: 'r1', flow_id: 'f1', status: 'completed', started_at: '2026-01-01T00:00:00Z' },
+      { id: 'r1', flow_id: 'f1', status: 'running', started_at: '2026-01-01T00:00:00Z' },
+      { id: 'r2', flow_id: 'f2', status: 'completed', started_at: '2026-01-02T00:00:00Z' },
       {
-        id: 'r2',
-        flow_id: 'f2',
+        id: 'r3',
+        flow_id: 'f3',
+        status: 'completed_with_warnings',
+        started_at: '2026-01-03T00:00:00Z',
+      },
+      { id: 'r4', flow_id: 'f4', status: 'pending_approval', started_at: '2026-01-04T00:00:00Z' },
+      {
+        id: 'r5',
+        flow_id: 'f5',
         status: 'failed',
-        started_at: '2026-01-02T00:00:00Z',
+        started_at: '2026-01-05T00:00:00Z',
         error: 'boom',
       },
+      { id: 'r6', flow_id: 'f6', status: 'cancelled', started_at: '2026-01-06T00:00:00Z' },
     ]);
     listFlows.mockResolvedValue([
       { id: 'f1', name: 'Daily digest' },
       { id: 'f2', name: 'Auto reply' },
+      { id: 'f3', name: 'Warned flow' },
+      { id: 'f4', name: 'Approval flow' },
+      { id: 'f5', name: 'Failed flow' },
+      { id: 'f6', name: 'Cancelled flow' },
     ]);
 
     render(<WorkflowRunsPage />);
@@ -62,6 +75,22 @@ describe('WorkflowRunsPage', () => {
     await waitFor(() => expect(screen.getByTestId('workflow-runs-list')).toBeInTheDocument());
     expect(screen.getByText('Daily digest')).toBeInTheDocument();
     expect(screen.getByText('Auto reply')).toBeInTheDocument();
+    expect(screen.getByTestId('workflow-run-r1').querySelector('span')).toHaveTextContent(
+      'running'
+    );
+    expect(screen.getByTestId('workflow-run-r2').querySelector('span')).toHaveTextContent(
+      'completed'
+    );
+    expect(screen.getByTestId('workflow-run-r3').querySelector('span')).toHaveTextContent(
+      'completed with warnings'
+    );
+    expect(screen.getByTestId('workflow-run-r4').querySelector('span')).toHaveTextContent(
+      'pending approval'
+    );
+    expect(screen.getByTestId('workflow-run-r5').querySelector('span')).toHaveTextContent('failed');
+    expect(screen.getByTestId('workflow-run-r6').querySelector('span')).toHaveTextContent(
+      'cancelled'
+    );
     // A failed run surfaces its error inline.
     expect(screen.getByText('boom')).toBeInTheDocument();
   });
@@ -115,6 +144,7 @@ describe('WorkflowRunsPage', () => {
 
     const row = await screen.findByTestId('workflow-run-r1');
     await waitFor(() => expect(row).toHaveTextContent('pending approval'));
+    expect(row.querySelector('span')).toHaveClass('bg-amber-50');
   });
 
   it('leaves a running run without a matching flow approval labeled "running"', async () => {

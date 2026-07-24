@@ -23,13 +23,8 @@ import {
 } from '../../hooks/useRunsPendingApprovalSet';
 import { useT } from '../../lib/i18n/I18nContext';
 import { CenteredLoadingState, ErrorBanner } from '../ui/LoadingState';
-import {
-  FLOW_RUN_STATUS_ACCENT,
-  FLOW_RUN_STATUS_DOT,
-  FLOW_RUN_STATUS_KEY,
-  type FlowRepairRequest,
-  FlowRunInspectorDrawer,
-} from './FlowRunInspectorDrawer';
+import { type FlowRepairRequest, FlowRunInspectorDrawer } from './FlowRunInspectorDrawer';
+import { FLOW_RUN_STATUS_KEY, FlowRunStatus } from './FlowRunStatus';
 
 /** Matches `useT()`'s `t` signature. */
 type TFn = (key: string, fallback?: string) => string;
@@ -155,15 +150,17 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
                   className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-hover ${
                     selectedRunId === run.id ? 'bg-surface-hover' : ''
                   }`}>
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${FLOW_RUN_STATUS_DOT[displayStatus]}`}
-                    aria-hidden="true"
+                  <FlowRunStatus
+                    status={displayStatus}
+                    label={t(FLOW_RUN_STATUS_KEY[displayStatus])}
+                    presentation="dot"
                   />
                   <span className="min-w-0 flex-1">
-                    <span
-                      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FLOW_RUN_STATUS_ACCENT[displayStatus]}`}>
-                      {t(FLOW_RUN_STATUS_KEY[displayStatus])}
-                    </span>
+                    <FlowRunStatus
+                      status={displayStatus}
+                      label={t(FLOW_RUN_STATUS_KEY[displayStatus])}
+                      className="px-1.5 text-[10px]"
+                    />
                     <span className="mt-0.5 block truncate text-[11px] text-content-faint">
                       {relativeTime(run.started_at, t)}
                     </span>

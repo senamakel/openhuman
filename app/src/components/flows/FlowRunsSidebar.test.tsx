@@ -43,30 +43,6 @@ const inspectorDrawerProps = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
 }));
 vi.mock('./FlowRunInspectorDrawer', () => ({
-  FLOW_RUN_STATUS_ACCENT: {
-    running: '',
-    completed: '',
-    completed_with_warnings: '',
-    pending_approval: '',
-    failed: '',
-    cancelled: '',
-  },
-  FLOW_RUN_STATUS_DOT: {
-    running: '',
-    completed: '',
-    completed_with_warnings: '',
-    pending_approval: '',
-    failed: '',
-    cancelled: '',
-  },
-  FLOW_RUN_STATUS_KEY: {
-    running: 'flowRuns.status.running',
-    completed: 'flowRuns.status.completed',
-    completed_with_warnings: 'flowRuns.status.completed_with_warnings',
-    pending_approval: 'flowRuns.status.pending_approval',
-    failed: 'flowRuns.status.failed',
-    cancelled: 'flowRuns.status.cancelled',
-  },
   FlowRunInspectorDrawer: (props: Record<string, unknown>) => {
     inspectorDrawerProps.current = props;
     return props.runId ? (
@@ -215,6 +191,11 @@ describe('FlowRunsSidebar', () => {
 
     const runRow = await screen.findByTestId('flow-runs-sidebar-run-run-1');
     await waitFor(() => expect(runRow).toHaveTextContent('Awaiting approval'));
+    expect(runRow.querySelector('[aria-hidden="true"]')).toHaveClass(
+      'bg-amber-500',
+      'animate-pulse'
+    );
+    expect(screen.getByText('Awaiting approval')).toHaveClass('bg-amber-50');
   });
 
   it('leaves a running run without a matching approval labeled "Running"', async () => {

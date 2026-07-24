@@ -35,30 +35,6 @@ vi.mock('../../services/api/approvalApi', () => ({ fetchPendingApprovals }));
 
 const FlowRunInspectorDrawer = vi.hoisted(() => vi.fn());
 vi.mock('./FlowRunInspectorDrawer', () => ({
-  FLOW_RUN_STATUS_ACCENT: {
-    running: 'accent-running',
-    completed: 'accent-completed',
-    completed_with_warnings: 'accent-completed-with-warnings',
-    pending_approval: 'accent-pending',
-    failed: 'accent-failed',
-    cancelled: 'accent-cancelled',
-  },
-  FLOW_RUN_STATUS_DOT: {
-    running: 'dot-running',
-    completed: 'dot-completed',
-    completed_with_warnings: 'dot-completed-with-warnings',
-    pending_approval: 'dot-pending',
-    failed: 'dot-failed',
-    cancelled: 'dot-cancelled',
-  },
-  FLOW_RUN_STATUS_KEY: {
-    running: 'flowRuns.status.running',
-    completed: 'flowRuns.status.completed',
-    completed_with_warnings: 'flowRuns.status.completed_with_warnings',
-    pending_approval: 'flowRuns.status.pending_approval',
-    failed: 'flowRuns.status.failed',
-    cancelled: 'flowRuns.status.cancelled',
-  },
   FlowRunInspectorDrawer: (props: { runId: string | null; onClose: () => void }) => {
     FlowRunInspectorDrawer(props);
     if (!props.runId) return null;
@@ -193,8 +169,9 @@ describe('FlowRunsDrawer', () => {
 
     const row = await screen.findByTestId('flow-run-row-run-1');
     await waitFor(() => expect(row).toHaveTextContent('Awaiting approval'));
-    expect(screen.getByTestId('flow-run-row-dot-run-1').className.includes('dot-pending')).toBe(
-      true
+    expect(screen.getByTestId('flow-run-row-dot-run-1')).toHaveClass(
+      'bg-amber-500',
+      'animate-pulse'
     );
   });
 
@@ -205,8 +182,9 @@ describe('FlowRunsDrawer', () => {
 
     const row = await screen.findByTestId('flow-run-row-run-1');
     await waitFor(() => expect(row).toHaveTextContent('Running'));
-    expect(screen.getByTestId('flow-run-row-dot-run-1').className.includes('dot-running')).toBe(
-      true
+    expect(screen.getByTestId('flow-run-row-dot-run-1')).toHaveClass(
+      'bg-ocean-500',
+      'animate-pulse'
     );
   });
 

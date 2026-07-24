@@ -37,13 +37,8 @@ import {
 } from '../../hooks/useRunsPendingApprovalSet';
 import { useT } from '../../lib/i18n/I18nContext';
 import { CenteredLoadingState, ErrorBanner } from '../ui/LoadingState';
-import {
-  FLOW_RUN_STATUS_ACCENT,
-  FLOW_RUN_STATUS_DOT,
-  FLOW_RUN_STATUS_KEY,
-  type FlowRepairRequest,
-  FlowRunInspectorDrawer,
-} from './FlowRunInspectorDrawer';
+import { type FlowRepairRequest, FlowRunInspectorDrawer } from './FlowRunInspectorDrawer';
+import { FLOW_RUN_STATUS_KEY, FlowRunStatus } from './FlowRunStatus';
 
 const log = debug('flows:runs-drawer');
 
@@ -181,15 +176,17 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
                         data-testid={`flow-run-row-${run.id}`}
                         onClick={() => setSelectedRunId(run.id)}
                         className="flex w-full items-center gap-2 rounded-lg border border-line bg-surface-muted px-3 py-2 text-left text-xs hover:bg-surface-hover">
-                        <span
-                          data-testid={`flow-run-row-dot-${run.id}`}
-                          className={`h-2 w-2 shrink-0 rounded-full ${FLOW_RUN_STATUS_DOT[displayStatus]}`}
-                          aria-hidden
+                        <FlowRunStatus
+                          status={displayStatus}
+                          label={t(FLOW_RUN_STATUS_KEY[displayStatus])}
+                          presentation="dot"
+                          testId={`flow-run-row-dot-${run.id}`}
                         />
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 font-medium ${FLOW_RUN_STATUS_ACCENT[displayStatus]}`}>
-                          {t(FLOW_RUN_STATUS_KEY[displayStatus])}
-                        </span>
+                        <FlowRunStatus
+                          status={displayStatus}
+                          label={t(FLOW_RUN_STATUS_KEY[displayStatus])}
+                          className="shrink-0"
+                        />
                         {startedAt && (
                           <span className="truncate text-content-muted">{startedAt}</span>
                         )}

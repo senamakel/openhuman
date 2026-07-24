@@ -18,6 +18,7 @@ import { useParams } from 'react-router-dom';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import Button from '../../components/ui/Button';
+import { useClipboardFeedback } from '../../hooks/useClipboardFeedback';
 import {
   type AgentCard,
   type FollowStats,
@@ -266,7 +267,7 @@ function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandl
     setFollowerDelta(d => d + (next === 'following' ? 1 : -1))
   );
   const followStats = useFollowStats(cryptoId);
-  const [copied, setCopied] = useState(false);
+  const clipboard = useClipboardFeedback();
   // Fall back to the initials monogram if the avatar image fails to load.
   const [avatarBroken, setAvatarBroken] = useState(false);
 
@@ -286,23 +287,19 @@ function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandl
   // Read-only agent-card summary (only when it adds something over the profile).
   const cardDescription = (agentCard?.description ?? '').trim();
 
-  const copyLink = useCallback(() => {
+  const copyLink = useCallback(async () => {
     // Build the deep link from the ROUTE handle (what the user actually
     // navigated to), not from `identities`/`displayName` — those may be null or
     // differ from the selected route, producing a link that does not resolve.
     const { origin, pathname } = window.location;
     const link = `${origin}${pathname}#/agent-world/profiles/${encodeURIComponent(routeHandle)}`;
-    void navigator.clipboard
-      ?.writeText(link)
-      .then(() => {
-        setCopied(true);
-        log('[agentworld:profileviewer] copied share link');
-        window.setTimeout(() => setCopied(false), 2000);
-      })
-      .catch((err: unknown) => {
-        log('[agentworld:profileviewer] copy link failed: %s', errorKind(err));
-      });
-  }, [routeHandle]);
+    const succeeded = await clipboard.copy(link);
+    log(
+      succeeded
+        ? '[agentworld:profileviewer] copied share link'
+        : '[agentworld:profileviewer] copy link failed'
+    );
+  }, [clipboard.copy, routeHandle]);
 
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
@@ -368,8 +365,12 @@ function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandl
                 : t('agentWorld.profileViewer.follow')}
             </Button>
           ) : null}
-          <Button variant="tertiary" size="sm" onClick={copyLink} data-testid="profile-copy-link">
-            {copied
+          <Button
+            variant="tertiary"
+            size="sm"
+            onClick={() => void copyLink()}
+            data-testid="profile-copy-link">
+            {clipboard.status === 'copied'
               ? t('agentWorld.profileViewer.linkCopied')
               : t('agentWorld.profileViewer.copyLink')}
           </Button>

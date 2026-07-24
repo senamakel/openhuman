@@ -4,7 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 import { settingsRouteElements } from './settingsRouteElements';
 
-describe.each(['/settings/screen-intelligence', '/settings/screen-awareness-debug'])(
+describe.each([
+  '/settings/features',
+  '/settings/screen-intelligence',
+  '/settings/screen-awareness-debug',
+])(
   'retired screen settings route %s',
   route => {
     it('normalizes to the settings index without rendering removed content', async () => {

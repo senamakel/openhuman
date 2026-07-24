@@ -59,7 +59,12 @@ Tests and checks:
 1. First add the method-not-found and unknown-TOML-table assertions; confirm
    they fail against the current registered surface.
 2. Run `cargo fmt --check`.
-3. Run `GGML_NATIVE=OFF cargo test --lib core::all::tests config::schemas_tests config::ops_tests app_state::ops_tests credentials::ops_tests`.
+3. Run these focused library test commands separately:
+   - `GGML_NATIVE=OFF cargo test --lib core::all::tests`
+   - `GGML_NATIVE=OFF cargo test --lib config::schemas_tests`
+   - `GGML_NATIVE=OFF cargo test --lib config::ops_tests`
+   - `GGML_NATIVE=OFF cargo test --lib app_state::ops_tests`
+   - `GGML_NATIVE=OFF cargo test --lib credentials::ops_tests`
 4. Run `bash scripts/test-rust-with-mock.sh --test json_rpc_e2e` and
    `bash scripts/test-rust-with-mock.sh --test config_auth_app_state_connectivity_e2e`.
 5. Run `GGML_NATIVE=OFF cargo check --manifest-path Cargo.toml`.
@@ -99,7 +104,10 @@ Tests and checks:
    capability category are absent while `vision_agent` still resolves with the
    image-capable hint; confirm they fail before removal.
 2. Run `cargo fmt --check`.
-3. Run `GGML_NATIVE=OFF cargo test --lib agent_registry::agents::loader agent::harness::definition_tests about_app::`.
+3. Run these focused library test commands separately:
+   - `GGML_NATIVE=OFF cargo test --lib agent_registry::agents::loader`
+   - `GGML_NATIVE=OFF cargo test --lib agent::harness::definition_tests`
+   - `GGML_NATIVE=OFF cargo test --lib about_app::`
 4. Run `GGML_NATIVE=OFF cargo check --manifest-path Cargo.toml`.
 
 Commit:
@@ -131,7 +139,8 @@ Tests and checks:
    are unsupported and that `snapshot` still parses; these assertions must fail
    before the removal.
 2. Run `cargo fmt --check`.
-3. Run `GGML_NATIVE=OFF cargo test --lib tools::impl::browser tools::ops_tests`.
+3. Run `GGML_NATIVE=OFF cargo test --lib tools::impl::browser` and
+   `GGML_NATIVE=OFF cargo test --lib tools::ops_tests` separately.
 4. Run `GGML_NATIVE=OFF cargo test --test tools_approval_channels_raw_coverage_e2e --test tools_channels_raw_coverage_e2e`.
 5. Run `GGML_NATIVE=OFF cargo check --manifest-path Cargo.toml`.
 

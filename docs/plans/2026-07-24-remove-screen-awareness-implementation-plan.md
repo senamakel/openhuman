@@ -270,6 +270,8 @@ Tests and checks:
    `app/test/{e2e,playwright}/specs/screen-intelligence.spec.ts`; revise
    `app/test/{e2e,playwright}/specs/settings-feature-preferences.spec.ts` and
    `app/test/playwright/specs/mcp-tab-flow.spec.ts` fixtures.
+   Remove the deleted WDIO spec from the suite inventory in
+   `app/scripts/e2e-run-all-flows.sh`.
 2. Run `pnpm debug unit app/src/services/__tests__/rpcMethods.test.ts app/src/lib/coreState/__tests__/store.test.ts app/src/providers/__tests__/CoreStateProvider.test.tsx app/src/components/settings/panels/__tests__/DeveloperOptionsPanel.test.tsx`.
 3. Run `pnpm i18n:check`, `pnpm i18n:english:check`, `pnpm typecheck`,
    `pnpm lint`, and `pnpm format:check`.

@@ -288,14 +288,33 @@ describe('FlowRunsDrawer', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onClose when the backdrop is clicked', async () => {
+  it('keeps the backdrop as an accessible close button', async () => {
+    listFlowRuns.mockResolvedValue([]);
+    renderDrawer('flow-1', vi.fn());
+    await waitFor(() => expect(screen.getByTestId('flow-runs-empty')).toBeInTheDocument());
+
+    expect(screen.getByTestId('flow-runs-backdrop')).toHaveAttribute('type', 'button');
+    expect(screen.getByTestId('flow-runs-backdrop')).toHaveAccessibleName('Close');
+  });
+
+  it('calls onClose when a pointer lands on the backdrop', async () => {
     listFlowRuns.mockResolvedValue([]);
     const onClose = vi.fn();
     renderDrawer('flow-1', onClose);
     await waitFor(() => expect(screen.getByTestId('flow-runs-empty')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByTestId('flow-runs-backdrop'));
+    fireEvent.pointerDown(screen.getByTestId('flow-runs-backdrop'));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not close when a pointer lands inside the drawer', async () => {
+    listFlowRuns.mockResolvedValue([]);
+    const onClose = vi.fn();
+    renderDrawer('flow-1', onClose);
+    await waitFor(() => expect(screen.getByTestId('flow-runs-empty')).toBeInTheDocument());
+
+    fireEvent.pointerDown(screen.getByTestId('flow-runs-empty'));
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('calls onClose when Escape is pressed and no run is selected', async () => {
@@ -317,6 +336,18 @@ describe('FlowRunsDrawer', () => {
     expect(await screen.findByTestId('mock-inspector')).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not close the runs drawer from its backdrop while the inspector is open', async () => {
+    listFlowRuns.mockResolvedValue([makeRun({ id: 'run-1' })]);
+    const onClose = vi.fn();
+    renderDrawer('flow-1', onClose);
+
+    fireEvent.click(await screen.findByTestId('flow-run-row-run-1'));
+    expect(await screen.findByTestId('mock-inspector')).toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByTestId('flow-runs-backdrop'));
     expect(onClose).not.toHaveBeenCalled();
   });
 

@@ -5,7 +5,7 @@
  * Right-side drawer listing a flow's run history, opened from the
  * "View runs" action on {@link FlowListRow}. Drawer chrome mirrors
  * `FlowRunInspectorDrawer`/`SubagentDrawer` (fixed overlay + backdrop-click-
- * to-close + Escape-to-close via `useEscapeKey`) so it renders as a fixed
+ * to-close + Escape-to-close via `useDismissLayer`) so it renders as a fixed
  * overlay regardless of where the parent mounts it.
  *
  * Data loads via `useFlowRunsQuery` on open, then stays live via
@@ -27,7 +27,7 @@
 import debug from 'debug';
 import { useEffect, useState } from 'react';
 
-import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useDismissLayer } from '../../hooks/useDismissLayer';
 import { useFlowRunsLiveRefresh } from '../../hooks/useFlowRunsLiveRefresh';
 import { useFlowRunsQuery } from '../../hooks/useFlowRunsQuery';
 import { useFlowRunStarted } from '../../hooks/useFlowRunStarted';
@@ -93,13 +93,13 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
   useFlowRunStarted(() => void refreshSilently(), flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
-  useEscapeKey(
-    () => {
-      log('escape: closing flowId=%s', flowId);
+  const { layerRef, onPointerDownCapture } = useDismissLayer({
+    onDismiss: () => {
+      log('dismiss: closing flowId=%s', flowId);
       onClose();
     },
-    flowId !== null && selectedRunId === null
-  );
+    enabled: flowId !== null && selectedRunId === null,
+  });
 
   if (!flowId) return null;
 
@@ -109,16 +109,22 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex justify-end" data-testid="flow-runs-drawer">
+      <div
+        className="fixed inset-0 z-50 flex justify-end"
+        data-testid="flow-runs-drawer"
+        onPointerDownCapture={onPointerDownCapture}>
         {/* Backdrop */}
         <button
           type="button"
           aria-label={t('conversations.subagent.close')}
           data-testid="flow-runs-backdrop"
           className="absolute inset-0 bg-stone-900/30 dark:bg-black/50"
-          onClick={onClose}
         />
-        <aside className="relative flex h-full w-full max-w-md flex-col bg-surface shadow-xl">
+        <aside
+          ref={element => {
+            layerRef.current = element;
+          }}
+          className="relative flex h-full w-full max-w-md flex-col bg-surface shadow-xl">
           {/* Header */}
           <header className="flex items-center gap-2.5 border-b border-line px-4 py-3">
             <span className="min-w-0 flex-1 truncate font-semibold text-content">{title}</span>

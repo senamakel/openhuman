@@ -1,7 +1,7 @@
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useDismissLayer } from '../../hooks/useDismissLayer';
 import { useT } from '../../lib/i18n/I18nContext';
 import Button from './Button';
 import { CloseIcon } from './icons';
@@ -44,27 +44,29 @@ export function ModalShell({
   closePolicy,
 }: ModalShellProps) {
   const { t } = useT();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const allowEscapeClose = closePolicy?.escape ?? true;
   const allowBackdropClose = closePolicy?.backdrop ?? true;
   const allowButtonClose = closePolicy?.button ?? true;
-
-  useEscapeKey(onClose, allowEscapeClose);
+  const { layerRef, onPointerDownCapture } = useDismissLayer({
+    onDismiss: onClose,
+    dismissOnEscape: allowEscapeClose,
+    dismissOnOutsidePointer: allowBackdropClose,
+  });
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
-    dialogRef.current?.focus();
+    layerRef.current?.focus();
     return () => previousFocus?.focus?.();
-  }, []);
+  }, [layerRef]);
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={event => {
-        if (allowBackdropClose && event.target === event.currentTarget) onClose();
-      }}>
+      onPointerDownCapture={onPointerDownCapture}>
       <div
-        ref={dialogRef}
+        ref={element => {
+          layerRef.current = element;
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy ?? titleId}
@@ -98,9 +100,7 @@ export function ModalShell({
           ) : null}
         </div>
         <div className={contentClassName}>{children}</div>
-        {footer ? (
-          <div className="border-t border-line-subtle px-5 py-4">{footer}</div>
-        ) : null}
+        {footer ? <div className="border-t border-line-subtle px-5 py-4">{footer}</div> : null}
       </div>
     </div>,
     document.body

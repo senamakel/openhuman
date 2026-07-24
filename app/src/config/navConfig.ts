@@ -66,9 +66,9 @@ export const NAV_TABS: NavTab[] = [
  * - `navigate` — internal `react-router-dom` navigation to `target`.
  * - `openUrl`  — opens `target` in the system browser via `openUrl()`.
  */
-export type AvatarMenuItemKind = 'navigate' | 'openUrl';
+type AvatarMenuItemKind = 'navigate' | 'openUrl';
 
-export interface AvatarMenuItem {
+interface AvatarMenuItem {
   /** Stable identifier. */
   id: string;
   /** i18n key resolved by the consuming component. */

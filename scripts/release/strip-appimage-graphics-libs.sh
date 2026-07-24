@@ -23,8 +23,15 @@
 #   APPIMAGETOOL_SHA256                  — expected SHA256 of the download
 #                                          (verified before use when set; rotate
 #                                          alongside APPIMAGETOOL_URL)
+#   APPIMAGE_RUNTIME_SMOKE               — set to 1 to run the final AppRun
+#                                          startup smoke after static validation
+#   APPIMAGE_RUNTIME_VALIDATOR           — override the final-artifact validator
+#                                          command (intended for regression tests)
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APPIMAGE_RUNTIME_VALIDATOR="${APPIMAGE_RUNTIME_VALIDATOR:-$SCRIPT_DIR/validate-appimage-runtime.sh}"
 
 EXCLUDE_PATTERNS=(
   'libGL.so.*'
@@ -293,58 +300,105 @@ rewrite_sharun_lib_path() {
   local lib_path="$appdir/shared/lib/lib.path"
   [ -s "$lib_path" ] || return 1
 
-  if ! grep -E '(^|[+:])/home/runner/|(^|[+:])/__w/' "$lib_path" >/dev/null; then
+  local -a normalized_entries=()
+  local entry normalized suffix existing duplicate index
+  local normalized_count=0
+  while IFS= read -r entry || [ -n "$entry" ]; do
+    if [ -z "$entry" ]; then
+      echo "[strip-libs] ERROR: shared/lib/lib.path contains an empty entry" >&2
+      return 1
+    fi
+    case "$entry" in
+      *$'\r'*|*:*)
+        echo "[strip-libs] ERROR: shared/lib/lib.path contains a malformed entry: '$entry'" >&2
+        return 1
+        ;;
+      [[:space:]]*|*[[:space:]])
+        echo "[strip-libs] ERROR: shared/lib/lib.path contains a malformed entry: '$entry'" >&2
+        return 1
+        ;;
+    esac
+
+    case "$entry" in
+      +)
+        normalized="+"
+        ;;
+      +/*)
+        normalized="$entry"
+        ;;
+      /*)
+        case "$entry" in
+          */squashfs-root/shared/lib)
+            normalized="+"
+            ;;
+          */squashfs-root/shared/lib/*)
+            suffix="${entry#*/squashfs-root/shared/lib/}"
+            normalized="+/$suffix"
+            ;;
+          */appimage_deb/data/usr/lib)
+            normalized="+"
+            ;;
+          */appimage_deb/data/usr/lib/*)
+            suffix="${entry#*/appimage_deb/data/usr/lib/}"
+            normalized="+/$suffix"
+            ;;
+          */data/usr/lib)
+            normalized="+"
+            ;;
+          */data/usr/lib/*)
+            suffix="${entry#*/data/usr/lib/}"
+            normalized="+/$suffix"
+            ;;
+          *)
+            continue
+            ;;
+        esac
+        ;;
+      *)
+        continue
+        ;;
+    esac
+
+    case "${normalized#+}" in
+      *+*)
+        echo "[strip-libs] ERROR: shared/lib/lib.path contains a malformed entry: '$entry'" >&2
+        return 1
+        ;;
+    esac
+
+    duplicate=0
+    index=0
+    while [ "$index" -lt "$normalized_count" ]; do
+      existing="${normalized_entries[$index]}"
+      if [ "$existing" = "$normalized" ]; then
+        duplicate=1
+        break
+      fi
+      index=$((index + 1))
+    done
+    if [ "$duplicate" -eq 0 ]; then
+      normalized_entries[$normalized_count]="$normalized"
+      normalized_count=$((normalized_count + 1))
+    fi
+  done <"$lib_path"
+
+  if [ "$normalized_count" -eq 0 ]; then
+    echo "[strip-libs] ERROR: shared/lib/lib.path contains no valid AppDir library entries" >&2
     return 1
   fi
 
-  echo "[strip-libs]   rewriting CI runner paths in shared/lib/lib.path"
-
-  local raw
-  raw="$(cat "$lib_path")"
-
-  local -a entries=()
-  local entry
-  while IFS= read -r entry; do
-    [ -n "$entry" ] || continue
-    entries+=("$entry")
-  done < <(printf '%s' "$raw" | tr '+:' '\n\n')
-
-  local -a cleaned=()
-  local rel seen_set=""
-  for entry in "${entries[@]}"; do
-    case "$entry" in
-      /home/runner/*|/__w/*)
-        rel="${entry##*/squashfs-root/}"
-        if [ "$rel" = "$entry" ]; then
-          rel="${entry##*/data/}"
-          [ "$rel" != "$entry" ] || continue
-        fi
-        ;;
-      /*)
-        continue
-        ;;
-      *)
-        rel="$entry"
-        ;;
-    esac
-
-    [ -d "$appdir/$rel" ] || continue
-
-    case "+${seen_set}+" in
-      *"+${rel}+"*) continue ;;
-    esac
-    seen_set="${seen_set}+${rel}"
-    cleaned+=("$rel")
-  done
-
-  if [ "${#cleaned[@]}" -eq 0 ]; then
-    cleaned=("shared/lib")
+  local normalized_file
+  normalized_file="$(mktemp "$lib_path.tmp.XXXXXX")"
+  printf '%s\n' "${normalized_entries[@]}" >"$normalized_file"
+  if cmp -s "$normalized_file" "$lib_path"; then
+    rm -f "$normalized_file"
+    return 1
   fi
 
-  local joined
-  joined="$(IFS='+'; echo "${cleaned[*]}")"
-  printf '%s' "$joined" > "$lib_path"
-  echo "[strip-libs]   lib.path rewritten to: $joined"
+  mv "$normalized_file" "$lib_path"
+  echo "[strip-libs]   normalized shared/lib/lib.path entries:"
+  printf '[strip-libs]     %s\n' "${normalized_entries[@]}"
+  return 0
 }
 
 validate_sharun_lib_path() {
@@ -356,13 +410,89 @@ validate_sharun_lib_path() {
   local lib_path="$appdir/shared/lib/lib.path"
   if [ ! -s "$lib_path" ]; then
     echo "[strip-libs] ERROR: sharun AppImage is missing shared/lib/lib.path; refusing to ship an AppImage that exits with 'Interpreter not found!'" >&2
-    exit 1
+    return 1
   fi
 
-  if grep -E '(^|[+:])/home/runner/|(^|[+:])/__w/' "$lib_path" >/dev/null; then
-    echo "[strip-libs] ERROR: shared/lib/lib.path contains CI runner paths; regenerate it with bundle-relative entries before release." >&2
-    exit 1
+  local library_root="$appdir/shared/lib"
+  local canonical_root
+  if [ ! -d "$library_root" ] || ! canonical_root="$(realpath "$library_root")"; then
+    echo "[strip-libs] ERROR: sharun AppImage is missing shared/lib; refusing to validate library paths" >&2
+    return 1
   fi
+
+  local entry suffix resolved canonical_resolved
+  local entry_count=0
+  while IFS= read -r entry || [ -n "$entry" ]; do
+    entry_count=$((entry_count + 1))
+
+    if [ -z "$entry" ]; then
+      echo "[strip-libs] ERROR: invalid sharun lib.path entry '': empty entries are not allowed" >&2
+      return 1
+    fi
+    case "$entry" in
+      *$'\r'*)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': carriage returns are not allowed" >&2
+        return 1
+        ;;
+      *:*)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': loader separators are not allowed" >&2
+        return 1
+        ;;
+      [[:space:]]*|*[[:space:]])
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': surrounding whitespace is not allowed" >&2
+        return 1
+        ;;
+    esac
+
+    case "$entry" in
+      +)
+        suffix=""
+        resolved="$library_root"
+        ;;
+      +/*)
+        suffix="${entry#+/}"
+        case "$suffix" in
+          *+*)
+            echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': extra '+' markers are not allowed" >&2
+            return 1
+            ;;
+          ""|/*|*/|*//*|.|..|./*|../*|*/./*|*/../*|*/.|*/..)
+            echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': path components must be non-empty descendants" >&2
+            return 1
+            ;;
+        esac
+        resolved="$library_root/$suffix"
+        ;;
+      *)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': expected '+' or '+/suffix'" >&2
+        return 1
+        ;;
+    esac
+
+    if [ ! -d "$resolved" ]; then
+      echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': resolved directory does not exist" >&2
+      return 1
+    fi
+    if ! canonical_resolved="$(realpath "$resolved")"; then
+      echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': could not canonicalize resolved directory" >&2
+      return 1
+    fi
+    case "$canonical_resolved" in
+      "$canonical_root"|"$canonical_root"/*)
+        ;;
+      *)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': resolved directory escapes shared/lib" >&2
+        return 1
+        ;;
+    esac
+  done <"$lib_path"
+
+  if [ "$entry_count" -eq 0 ]; then
+    echo "[strip-libs] ERROR: invalid sharun lib.path entry '': at least one entry is required" >&2
+    return 1
+  fi
+
+  return 0
 }
 
 # is_elf — true if the file begins with the ELF magic, regardless of the +x
@@ -476,9 +606,9 @@ sanitize_elf_rpaths() {
   return $rewrote
 }
 
-# validate_appimage_required_libs — fail the build loudly if a library the app
-# binary hard-links (NEEDED) but which MUST travel inside the AppImage is absent
-# from the bundle.
+# validate_appimage_required_libs — fail the build loudly if the sharun preload
+# library or a runtime library the app hard-links (NEEDED) is absent from the
+# bundle.
 #
 # Problem (issues #3224 and #4020): the app links libxdo.so.3 via enigo
 # (`#[link(name = "xdo")]`, used by src/openhuman/tools/impl/computer for Linux
@@ -490,6 +620,8 @@ sanitize_elf_rpaths() {
 # linux_cef_deb_runtime_e2e; the AppImage path had no equivalent. This turns a
 # silent runtime segfault into a loud build failure. CEF is staged separately
 # from the ldd walk, so verify its runtime library survived bundling as well.
+# anylinux.so establishes sharun's portable runtime before either dependency
+# can load, so it is part of the same release contract.
 validate_appimage_required_libs() {
   local appdir="$1"
   if ! uses_sharun_launcher "$appdir"; then
@@ -497,7 +629,7 @@ validate_appimage_required_libs() {
   fi
 
   local root pattern found
-  for pattern in 'libxdo.so*' 'libcef.so*'; do
+  for pattern in 'anylinux.so' 'libxdo.so*' 'libcef.so*'; do
     found=0
     for root in "$appdir/shared/lib" "$appdir/usr/lib" "$appdir/lib"; do
       [ -d "$root" ] || continue
@@ -509,6 +641,9 @@ validate_appimage_required_libs() {
     [ "$found" -eq 1 ] && continue
 
     case "$pattern" in
+      anylinux.so)
+        echo "[strip-libs] ERROR: AppImage is missing anylinux.so — the sharun preload library was not copied into the final bundle. The AppImage launcher cannot establish its portable runtime without it." >&2
+        ;;
       libxdo.so\*)
         echo "[strip-libs] ERROR: AppImage is missing libxdo.so.* — the enigo NEEDED dependency was not bundled (issue #3224). The app would segfault on launch on hosts without the legacy libxdo soname (e.g. Arch). Ensure libxdo-dev is installed on the build runner so lib4bin's ldd-walk bundles it." >&2
         ;;
@@ -520,21 +655,15 @@ validate_appimage_required_libs() {
   done
 }
 
-# patch_apprun_sharun_cwd — inject `cd "$APPDIR"` into AppRun before the final
-# exec call so sharun resolves preload/library paths relative to the AppDir
-# rather than the caller's CWD.
+# patch_apprun_sharun_cwd — retain historical shell-AppRun CWD hardening.
 #
-# Problem (issue #2822): sharun reads its `.preload` entry and library search
-# paths relative to the process CWD.  When a user launches the AppImage from
-# any directory other than the AppDir itself (e.g. double-click from ~/Downloads)
-# CWD != AppDir, so ld.so can't find `anylinux.so` (preload) or `libcef.so`
-# (LD_LIBRARY_PATH entry).  SHARUN_DIR is set correctly — the AppDir IS known —
-# but sharun doesn't use it to anchor the preload/library arguments it hands to
-# ld.so.
+# Canonical `+` entries in shared/lib/lib.path are the primary fix for released
+# layouts, where AppRun is the sharun ELF launcher itself.  sharun expands `+`
+# relative to the AppDir regardless of the caller's CWD.
 #
-# Fix: prepend `cd "$APPDIR"` to the exec line in AppRun so the working
-# directory is always the AppDir by the time sharun/the binary runs.  This
-# mirrors the verified manual workaround from the bug report.
+# Older layouts may instead have a shell AppRun that ultimately execs sharun.
+# Keep prepending `cd "$APPDIR"` there as compatibility hardening, without
+# treating it as the released ELF launcher's library-path repair.
 #
 # Returns 0 (true) if the AppRun was modified, 1 if no change was needed.
 patch_apprun_sharun_cwd() {
@@ -585,13 +714,18 @@ patch_apprun_sharun_cwd() {
      && grep -Eq "$patched_line_re" "$tmp_apprun"; then
     chmod --reference="$apprun" "$tmp_apprun"
     mv "$tmp_apprun" "$apprun"
-    echo "[strip-libs]   patched AppRun: added 'cd \"\$APPDIR\"' before exec to fix sharun CWD preload resolution (issue #2822)"
+    echo "[strip-libs]   patched historical shell AppRun: added 'cd \"\$APPDIR\"' before exec"
     return 0
   else
     rm -f "$tmp_apprun"
-    echo "[strip-libs] WARNING: could not locate 'exec \"\$@\"' in AppRun — sharun CWD fix not applied; AppImage may fail to launch from non-AppDir CWDs" >&2
+    echo "[strip-libs] WARNING: could not locate 'exec \"\$@\"' in historical shell AppRun; canonical '+' lib.path entries remain the released-layout fix" >&2
     return 1
   fi
+}
+
+validate_rebuilt_appimage() {
+  local rebuilt_path="$1"
+  "$APPIMAGE_RUNTIME_VALIDATOR" "$rebuilt_path" || return 1
 }
 
 strip_one_appimage() {
@@ -667,6 +801,10 @@ strip_one_appimage() {
 
   if [ "$removed" -eq 0 ] && [ "$added_loader" -eq 0 ] && [ "$rewrote_libpath" -eq 0 ] && [ "$patched_apprun" -eq 0 ] && [ "$rewrote_rpaths" -eq 0 ]; then
     echo "[strip-libs] No graphics libs, missing sharun interpreter, or build-machine RPATHs found in $original; leaving unchanged."
+    if ! validate_rebuilt_appimage "$original"; then
+      rm -rf "$workdir"
+      return 1
+    fi
     rm -rf "$workdir"
     return
   fi
@@ -681,6 +819,10 @@ strip_one_appimage() {
       --no-appstream squashfs-root "$rebuilt" >/dev/null
   )
   mv "$rebuilt" "$original"
+  if ! validate_rebuilt_appimage "$original"; then
+    rm -rf "$workdir"
+    return 1
+  fi
   rm -rf "$workdir"
   MODIFIED_PATHS+=("$original")
 }

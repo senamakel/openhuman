@@ -4,8 +4,11 @@
 #   1. sanitize_elf_rpaths        — strips /home/runner|/__w build-machine
 #                                    RPATHs from bundled ELFs, rewriting to
 #                                    $ORIGIN-relative.
-#   2. validate_appimage_required_libs — hard-fails when libxdo.so.* or
-#                                    libcef.so is missing from a sharun AppDir.
+#   2. validate_appimage_required_libs — hard-fails when anylinux.so,
+#                                    libxdo.so.*, or libcef.so is missing from
+#                                    a sharun AppDir.
+#   3. validate-appimage-runtime.sh — checks the final extracted sharun layout
+#                                    and the pre-signing validation seam.
 #
 # Linux-only: needs `patchelf` and a host ELF to mutate. Skips cleanly (exit 0)
 # on macOS / any host without patchelf so it is a no-op on dev boxes and a real
@@ -42,10 +45,608 @@ done
 # shellcheck source=/dev/null
 source "$TARGET"
 
+RUNTIME_VALIDATOR="$SCRIPT_DIR/validate-appimage-runtime.sh"
+[ -f "$RUNTIME_VALIDATOR" ] \
+  || { echo "[test-rpaths] FAIL: $RUNTIME_VALIDATOR not found" >&2; exit 1; }
+# shellcheck source=/dev/null
+source "$RUNTIME_VALIDATOR"
+
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 fail() { echo "[test-rpaths] FAIL: $1" >&2; exit 1; }
+
+make_sharun_appdir() {
+  local appdir="$1"
+  mkdir -p "$appdir/shared/bin" "$appdir/shared/lib/plugins" "$appdir/bin"
+
+  cp "$HOST_ELF" "$appdir/sharun"
+  printf 'Interpreter not found!' >> "$appdir/sharun"
+  chmod +x "$appdir/sharun"
+  ln "$appdir/sharun" "$appdir/AppRun"
+  ln "$appdir/sharun" "$appdir/bin/OpenHuman"
+
+  cp "$HOST_ELF" "$appdir/shared/bin/OpenHuman"
+  chmod +x "$appdir/shared/bin/OpenHuman"
+}
+
+assert_lib_path_contents() {
+  local fixture="$1"
+  local expected="$2"
+  local expected_file="$fixture/expected-lib.path"
+  printf '%s\n' "$expected" >"$expected_file"
+  cmp -s "$expected_file" "$fixture/shared/lib/lib.path" \
+    || fail "unexpected normalized lib.path for ${fixture##*/}"
+}
+
+# --- Case 0: rewrite_sharun_lib_path emits sharun-native marker entries -----
+REWRITE_SQUASHFS="$WORK/rewrite-squashfs"
+make_sharun_appdir "$REWRITE_SQUASHFS"
+printf '%s\n' "$WORK/squashfs-root/shared/lib" >"$REWRITE_SQUASHFS/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_SQUASHFS" \
+  || fail "squashfs-root shared/lib was not normalized"
+assert_lib_path_contents "$REWRITE_SQUASHFS" '+'
+
+REWRITE_STAGING="$WORK/rewrite-staging"
+make_sharun_appdir "$REWRITE_STAGING"
+printf '%s\n' "$WORK/appimage_deb/data/usr/lib" >"$REWRITE_STAGING/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_STAGING" \
+  || fail "appimage_deb data/usr/lib was not normalized"
+assert_lib_path_contents "$REWRITE_STAGING" '+'
+
+REWRITE_DESCENDANTS="$WORK/rewrite-descendants"
+make_sharun_appdir "$REWRITE_DESCENDANTS"
+printf '%s\n%s\n' \
+  "$WORK/squashfs-root/shared/lib/plugins" \
+  "$WORK/appimage_deb/data/usr/lib/plugins" \
+  >"$REWRITE_DESCENDANTS/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_DESCENDANTS" \
+  || fail "AppDir library descendants were not normalized"
+assert_lib_path_contents "$REWRITE_DESCENDANTS" '+/plugins'
+
+REWRITE_MIXED="$WORK/rewrite-mixed"
+make_sharun_appdir "$REWRITE_MIXED"
+printf '%s\n' '+' '+/plugins' '+' '/opt/unrelated/lib' \
+  >"$REWRITE_MIXED/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_MIXED" \
+  || fail "mixed marker entries were not normalized"
+assert_lib_path_contents "$REWRITE_MIXED" "$(printf '+\n+/plugins')"
+
+cp "$REWRITE_MIXED/shared/lib/lib.path" "$REWRITE_MIXED/lib.path.before"
+if rewrite_sharun_lib_path "$REWRITE_MIXED"; then
+  fail "rewrite_sharun_lib_path was not idempotent"
+fi
+cmp -s "$REWRITE_MIXED/lib.path.before" "$REWRITE_MIXED/shared/lib/lib.path" \
+  || fail "idempotent rewrite changed lib.path bytes"
+
+REWRITE_INVALID="$WORK/rewrite-invalid"
+make_sharun_appdir "$REWRITE_INVALID"
+printf '%s\n' '/opt/unrelated/lib' >"$REWRITE_INVALID/shared/lib/lib.path"
+if ( rewrite_sharun_lib_path "$REWRITE_INVALID" ) 2>"$WORK/rewrite.err"; then
+  fail "rewrite accepted a lib.path with no AppDir library root"
+fi
+grep -F "no valid AppDir library entries" "$WORK/rewrite.err" >/dev/null \
+  || fail "rewrite failure did not explain why lib.path was rejected"
+assert_lib_path_contents "$REWRITE_INVALID" '/opt/unrelated/lib'
+
+REWRITE_MARKER_INJECTION="$WORK/rewrite-marker-injection"
+make_sharun_appdir "$REWRITE_MARKER_INJECTION"
+mkdir -p "$REWRITE_MARKER_INJECTION/shared/lib/plugins+extra"
+printf '%s\n' '+/plugins+extra' \
+  >"$REWRITE_MARKER_INJECTION/shared/lib/lib.path"
+if ( rewrite_sharun_lib_path "$REWRITE_MARKER_INJECTION" ) \
+  2>"$REWRITE_MARKER_INJECTION/error.log"; then
+  fail "rewrite accepted an extra marker in a canonical suffix"
+fi
+grep -F "malformed entry: '+/plugins+extra'" \
+  "$REWRITE_MARKER_INJECTION/error.log" >/dev/null \
+  || fail "rewrite marker-injection error did not identify '+/plugins+extra'"
+
+REWRITE_DERIVED_MARKER="$WORK/rewrite-derived-marker"
+make_sharun_appdir "$REWRITE_DERIVED_MARKER"
+derived_marker_path="$WORK/squashfs-root/shared/lib/plugins+extra"
+printf '%s\n' "$derived_marker_path" \
+  >"$REWRITE_DERIVED_MARKER/shared/lib/lib.path"
+if ( rewrite_sharun_lib_path "$REWRITE_DERIVED_MARKER" ) \
+  2>"$REWRITE_DERIVED_MARKER/error.log"; then
+  fail "rewrite accepted an extra marker in a derived suffix"
+fi
+grep -F "malformed entry: '$derived_marker_path'" \
+  "$REWRITE_DERIVED_MARKER/error.log" >/dev/null \
+  || fail "derived marker-injection error did not identify '$derived_marker_path'"
+echo "[test-rpaths] ok: sharun lib.path normalization is canonical and idempotent"
+
+# --- Case 0b: validate_sharun_lib_path rejects unsafe loader entries --------
+assert_lib_path_rejected() {
+  local label="$1"
+  local value="$2"
+  local expected_entry="$3"
+  local fixture="$WORK/reject-$label"
+  make_sharun_appdir "$fixture"
+  printf '%s\n' "$value" >"$fixture/shared/lib/lib.path"
+
+  if ( validate_sharun_lib_path "$fixture" ) 2>"$fixture/error.log"; then
+    fail "validate_sharun_lib_path accepted $label"
+  fi
+  grep -F "invalid sharun lib.path entry '$expected_entry':" \
+    "$fixture/error.log" >/dev/null \
+    || fail "$label error did not identify offending entry '$expected_entry'"
+}
+
+assert_lib_path_rejected bare-relative 'shared/lib' 'shared/lib'
+assert_lib_path_rejected runner-absolute \
+  '/home/runner/work/openhuman/squashfs-root/shared/lib' \
+  '/home/runner/work/openhuman/squashfs-root/shared/lib'
+assert_lib_path_rejected actions-absolute \
+  '/__w/openhuman/openhuman/appimage_deb/data/usr/lib' \
+  '/__w/openhuman/openhuman/appimage_deb/data/usr/lib'
+assert_lib_path_rejected parent-traversal '+/../outside' '+/../outside'
+assert_lib_path_rejected nested-traversal \
+  '+/plugins/../../outside' '+/plugins/../../outside'
+assert_lib_path_rejected missing-directory '+/missing' '+/missing'
+assert_lib_path_rejected loader-separator \
+  '+/plugins:shared/lib' '+/plugins:shared/lib'
+assert_lib_path_rejected leading-whitespace ' +' ' +'
+assert_lib_path_rejected trailing-whitespace '+ ' '+ '
+
+VALID_ROOT="$WORK/valid-root"
+make_sharun_appdir "$VALID_ROOT"
+printf '%s\n' '+' >"$VALID_ROOT/shared/lib/lib.path"
+validate_sharun_lib_path "$VALID_ROOT" \
+  || fail "validate_sharun_lib_path rejected canonical root marker"
+
+VALID_DESCENDANT="$WORK/valid-descendant"
+make_sharun_appdir "$VALID_DESCENDANT"
+printf '%s\n' '+' '+/plugins' >"$VALID_DESCENDANT/shared/lib/lib.path"
+cp "$VALID_DESCENDANT/shared/lib/lib.path" "$VALID_DESCENDANT/lib.path.before"
+validate_sharun_lib_path "$VALID_DESCENDANT" \
+  || fail "validate_sharun_lib_path rejected canonical descendant marker"
+validate_sharun_lib_path "$VALID_DESCENDANT" \
+  || fail "validate_sharun_lib_path rejected a second validation pass"
+cmp -s \
+  "$VALID_DESCENDANT/lib.path.before" \
+  "$VALID_DESCENDANT/shared/lib/lib.path" \
+  || fail "validate_sharun_lib_path mutated a normalized file"
+
+MARKER_INJECTION="$WORK/marker-injection"
+make_sharun_appdir "$MARKER_INJECTION"
+mkdir -p "$MARKER_INJECTION/shared/lib/plugins+extra"
+printf '%s\n' '+/plugins+extra' >"$MARKER_INJECTION/shared/lib/lib.path"
+if ( validate_sharun_lib_path "$MARKER_INJECTION" ) \
+  2>"$MARKER_INJECTION/error.log"; then
+  fail "validate_sharun_lib_path accepted an extra marker in a suffix"
+fi
+grep -F "invalid sharun lib.path entry '+/plugins+extra':" \
+  "$MARKER_INJECTION/error.log" >/dev/null \
+  || fail "marker-injection error did not identify '+/plugins+extra'"
+
+ESCAPE_DIR="$WORK/escape-symlink"
+make_sharun_appdir "$ESCAPE_DIR"
+mkdir -p "$WORK/outside"
+ln -s "$WORK/outside" "$ESCAPE_DIR/shared/lib/escape"
+printf '%s\n' '+/escape' >"$ESCAPE_DIR/shared/lib/lib.path"
+if ( validate_sharun_lib_path "$ESCAPE_DIR" ) 2>"$ESCAPE_DIR/error.log"; then
+  fail "validate_sharun_lib_path accepted a symlink escaping shared/lib"
+fi
+grep -F "invalid sharun lib.path entry '+/escape':" \
+  "$ESCAPE_DIR/error.log" >/dev/null \
+  || fail "symlink escape error did not identify offending entry '+/escape'"
+
+RELEASED_LAYOUT="$WORK/released-layout"
+make_sharun_appdir "$RELEASED_LAYOUT"
+printf '%s\n' '+' >"$RELEASED_LAYOUT/shared/lib/lib.path"
+[ "$RELEASED_LAYOUT/AppRun" -ef "$RELEASED_LAYOUT/sharun" ] \
+  || fail "AppRun fixture is not hard-linked to sharun"
+[ "$RELEASED_LAYOUT/bin/OpenHuman" -ef "$RELEASED_LAYOUT/sharun" ] \
+  || fail "bin/OpenHuman fixture is not hard-linked to sharun"
+is_executable_elf "$RELEASED_LAYOUT/AppRun" \
+  || fail "released-style AppRun fixture is not ELF"
+uses_sharun_launcher "$RELEASED_LAYOUT" \
+  || fail "released-style hard-linked ELF launcher was not detected"
+validate_sharun_lib_path "$RELEASED_LAYOUT" \
+  || fail "released-style AppDir has an invalid canonical lib.path"
+
+CALLER="$WORK/caller"
+mkdir -p "$CALLER"
+(
+  cd "$CALLER"
+  expanded="$(
+    sed "s|+|$RELEASED_LAYOUT/shared/lib|g" \
+      "$RELEASED_LAYOUT/shared/lib/lib.path" |
+      paste -sd ':' -
+  )"
+  [ "$expanded" = "$RELEASED_LAYOUT/shared/lib" ] \
+    || fail "sharun marker did not expand beneath the fixture AppDir"
+)
+
+released_apprun_inode="$(ls -di "$RELEASED_LAYOUT/AppRun")"
+if patch_apprun_sharun_cwd "$RELEASED_LAYOUT"; then
+  fail "patch_apprun_sharun_cwd modified a released-style ELF AppRun"
+fi
+[ "$released_apprun_inode" = "$(ls -di "$RELEASED_LAYOUT/AppRun")" ] \
+  || fail "patch_apprun_sharun_cwd changed the released-style ELF AppRun inode"
+echo "[test-rpaths] ok: sharun lib.path validation is fail-closed for the released ELF launcher"
+
+# --- Case 0c: final extracted runtime layout is validated before signing ----
+make_runtime_appdir() {
+  local appdir="$1"
+  make_sharun_appdir "$appdir"
+  printf '%s\n' '+' >"$appdir/shared/lib/lib.path"
+
+  cp "$HOST_ELF" "$appdir/shared/lib/anylinux.so"
+  cp "$HOST_ELF" "$appdir/shared/lib/libxdo.so.3"
+  cp "$HOST_ELF" "$appdir/shared/lib/libcef.so"
+
+  local elf
+  for elf in \
+    "$appdir/AppRun" \
+    "$appdir/sharun" \
+    "$appdir/bin/OpenHuman" \
+    "$appdir/shared/bin/OpenHuman" \
+    "$appdir/shared/lib/anylinux.so" \
+    "$appdir/shared/lib/libxdo.so.3" \
+    "$appdir/shared/lib/libcef.so"; do
+    patchelf --remove-rpath "$elf"
+  done
+}
+
+assert_runtime_layout_rejected() {
+  local label="$1"
+  local expected="$2"
+  shift 2
+  local fixture="$WORK/runtime-$label"
+  make_runtime_appdir "$fixture"
+  "$@" "$fixture"
+  if ( APPIMAGE_EXPECTED_NEEDED="" validate_extracted_appdir "$fixture" ) \
+    >"$fixture/output.log" 2>&1; then
+    fail "validate_extracted_appdir accepted $label"
+  fi
+  grep -F "$expected" "$fixture/output.log" >/dev/null \
+    || fail "$label failure did not report '$expected'"
+}
+
+remove_anylinux() { rm -f "$1/shared/lib/anylinux.so"; }
+remove_libxdo() { rm -f "$1/shared/lib/libxdo.so.3"; }
+remove_libcef() { rm -f "$1/shared/lib/libcef.so"; }
+remove_real_app() { rm -f "$1/shared/bin/OpenHuman"; }
+replace_real_app_with_text() {
+  rm -f "$1/shared/bin/OpenHuman"
+  printf '%s\n' 'not an ELF' >"$1/shared/bin/OpenHuman"
+  chmod +x "$1/shared/bin/OpenHuman"
+}
+replace_apprun() {
+  rm -f "$1/AppRun"
+  cp "$HOST_ELF" "$1/AppRun"
+  chmod +x "$1/AppRun"
+}
+replace_bin_launcher() {
+  rm -f "$1/bin/OpenHuman"
+  cp "$HOST_ELF" "$1/bin/OpenHuman"
+  chmod +x "$1/bin/OpenHuman"
+}
+inject_runner_rpath() {
+  patchelf --set-rpath \
+    '/home/runner/work/openhuman/openhuman/shared/lib' \
+    "$1/shared/lib/libcef.so"
+}
+inject_actions_rpath() {
+  patchelf --set-rpath \
+    '/__w/openhuman/openhuman/shared/lib' \
+    "$1/shared/lib/libcef.so"
+}
+
+RUNTIME_COMPLETE="$WORK/runtime-complete"
+make_runtime_appdir "$RUNTIME_COMPLETE"
+APPIMAGE_EXPECTED_NEEDED="" validate_extracted_appdir "$RUNTIME_COMPLETE" \
+  || fail "validate_extracted_appdir rejected a complete runtime fixture"
+
+RUNTIME_EQUIVALENT="$WORK/runtime-equivalent-launchers"
+make_runtime_appdir "$RUNTIME_EQUIVALENT"
+rm "$RUNTIME_EQUIVALENT/AppRun" "$RUNTIME_EQUIVALENT/bin/OpenHuman"
+cp "$RUNTIME_EQUIVALENT/sharun" "$RUNTIME_EQUIVALENT/AppRun"
+cp "$RUNTIME_EQUIVALENT/sharun" "$RUNTIME_EQUIVALENT/bin/OpenHuman"
+chmod +x "$RUNTIME_EQUIVALENT/AppRun" "$RUNTIME_EQUIVALENT/bin/OpenHuman"
+APPIMAGE_EXPECTED_NEEDED="" validate_extracted_appdir "$RUNTIME_EQUIVALENT" \
+  || fail "validate_extracted_appdir rejected byte-equivalent launchers"
+
+FAKE_APPIMAGE="$WORK/final-fixture.AppImage"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  '[ "$1" = "--appimage-extract" ] || exit 9' \
+  'cp -R "$EXTRACT_SOURCE" squashfs-root' \
+  >"$FAKE_APPIMAGE"
+chmod +x "$FAKE_APPIMAGE"
+export EXTRACT_SOURCE="$RUNTIME_COMPLETE"
+APPIMAGE_EXPECTED_NEEDED="" validate_final_appimage "$FAKE_APPIMAGE" \
+  || fail "validate_final_appimage rejected a complete extracted fixture"
+
+if APPIMAGE_EXPECTED_NEEDED="" \
+  "$RUNTIME_VALIDATOR" "$FAKE_APPIMAGE" \
+  >"$WORK/direct-validator.log" 2>&1; then
+  fail "direct validator allowed a fixture override to disable production NEEDED checks"
+fi
+grep -F "missing NEEDED entry 'libxdo.so.3'" \
+  "$WORK/direct-validator.log" >/dev/null \
+  || fail "direct validator did not enforce the production NEEDED contract"
+
+RUNTIME_BAD_LIBPATH="$WORK/runtime-bad-libpath"
+cp -R "$RUNTIME_COMPLETE" "$RUNTIME_BAD_LIBPATH"
+printf '%s\n' 'shared/lib' >"$RUNTIME_BAD_LIBPATH/shared/lib/lib.path"
+if ( APPIMAGE_EXPECTED_NEEDED="" \
+  validate_extracted_appdir "$RUNTIME_BAD_LIBPATH" ) \
+  >"$RUNTIME_BAD_LIBPATH/conditional.log" 2>&1; then
+  fail "conditional validate_extracted_appdir suppressed lib.path validation failure"
+fi
+
+RUNTIME_FINAL_INVALID="$WORK/runtime-final-invalid"
+cp -R "$RUNTIME_COMPLETE" "$RUNTIME_FINAL_INVALID"
+rm -f "$RUNTIME_FINAL_INVALID/shared/lib/anylinux.so"
+if ( EXTRACT_SOURCE="$RUNTIME_FINAL_INVALID" APPIMAGE_EXPECTED_NEEDED="" \
+  validate_final_appimage "$FAKE_APPIMAGE" ) \
+  >"$WORK/conditional-final.log" 2>&1; then
+  fail "conditional validate_final_appimage suppressed extracted-layout failure"
+fi
+
+REAL_PATCHELF="$(command -v patchelf)"
+PATCHELF_FAIL_BIN="$WORK/patchelf-fail-bin"
+mkdir -p "$PATCHELF_FAIL_BIN"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'if [ "$1" = "--print-needed" ]; then exit 42; fi' \
+  'exec "$REAL_PATCHELF" "$@"' \
+  >"$PATCHELF_FAIL_BIN/patchelf"
+chmod +x "$PATCHELF_FAIL_BIN/patchelf"
+export REAL_PATCHELF
+if ( PATH="$PATCHELF_FAIL_BIN:$PATH" APPIMAGE_EXPECTED_NEEDED="" \
+  validate_extracted_appdir "$RUNTIME_COMPLETE" ) \
+  >"$WORK/patchelf-failure.log" 2>&1; then
+  fail "conditional validate_extracted_appdir suppressed patchelf failure"
+fi
+
+SMOKE_BIN="$WORK/smoke-bin"
+mkdir -p "$SMOKE_BIN"
+SMOKE_RECORD="$WORK/smoke-command-record"
+SMOKE_PROBE="$WORK/smoke-probe-record"
+REAL_ENV="$(command -v env)"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "timeout-cwd=%s\n" "$PWD" >>"$SMOKE_RECORD"' \
+  'while [ "$#" -gt 0 ]; do' \
+  '  case "$1" in' \
+  '    --signal=*|--kill-after=*|15s) shift ;;' \
+  '    *) break ;;' \
+  '  esac' \
+  'done' \
+  '"$@"' \
+  '[ -n "${SMOKE_TIMEOUT_MESSAGE:-}" ] && printf "%s\n" "$SMOKE_TIMEOUT_MESSAGE" >&2' \
+  'exit "${SMOKE_TIMEOUT_STATUS:-124}"' \
+  >"$SMOKE_BIN/timeout"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "xvfb-invoked\n" >>"$SMOKE_RECORD"' \
+  'while [ "$#" -gt 0 ]; do' \
+  '  case "$1" in' \
+  '    -a|--server-args=*) shift ;;' \
+  '    *) break ;;' \
+  '  esac' \
+  'done' \
+  'exec "$@"' \
+  >"$SMOKE_BIN/xvfb-run"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'args=("$@")' \
+  'index=0' \
+  'while [ "$index" -lt "${#args[@]}" ]; do' \
+  '  arg="${args[$index]}"' \
+  '  case "$arg" in' \
+  '    -u)' \
+  '      next=$((index + 1))' \
+  '      printf "env-unset=%s\n" "${args[$next]}" >>"$SMOKE_RECORD"' \
+  '      index=$((index + 2))' \
+  '      ;;' \
+  '    HOME=*|XDG_CONFIG_HOME=*|XDG_DATA_HOME=*|XDG_CACHE_HOME=*)' \
+  '      printf "env-assignment=%s\n" "$arg" >>"$SMOKE_RECORD"' \
+  '      index=$((index + 1))' \
+  '      ;;' \
+  '    OPENHUMAN_CEF_PREWARM=*|OPENHUMAN_DISABLE_GPU=*) index=$((index + 1)) ;;' \
+  '    *) break ;;' \
+  '  esac' \
+  'done' \
+  'exec "$REAL_ENV" "${args[@]}"' \
+  >"$SMOKE_BIN/env"
+chmod +x "$SMOKE_BIN/timeout" "$SMOKE_BIN/xvfb-run" "$SMOKE_BIN/env"
+SMOKE_APPDIR="$WORK/smoke-appdir"
+mkdir -p "$SMOKE_APPDIR"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "apprun-cwd=%s\n" "$PWD" >>"$SMOKE_PROBE"' \
+  'printf "home=%s\n" "$HOME" >>"$SMOKE_PROBE"' \
+  'printf "config=%s\n" "$XDG_CONFIG_HOME" >>"$SMOKE_PROBE"' \
+  'printf "data=%s\n" "$XDG_DATA_HOME" >>"$SMOKE_PROBE"' \
+  'printf "cache=%s\n" "$XDG_CACHE_HOME" >>"$SMOKE_PROBE"' \
+  '[ -z "${GITHUB_TOKEN+x}" ] || exit 71' \
+  '[ -z "${GH_TOKEN+x}" ] || exit 72' \
+  '[ -z "${TAURI_SIGNING_PRIVATE_KEY+x}" ] || exit 73' \
+  '[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD+x}" ] || exit 74' \
+  '[ -z "${SENTRY_AUTH_TOKEN+x}" ] || exit 75' \
+  '[ -z "${OPENAI_API_KEY+x}" ] || exit 76' \
+  'printf "probe-executed\n" >>"$SMOKE_PROBE"' \
+  >"$SMOKE_APPDIR/AppRun"
+chmod +x "$SMOKE_APPDIR/AppRun"
+export SMOKE_RECORD SMOKE_PROBE REAL_ENV
+SMOKE_ROOT="$WORK/smoke-runtime"
+mkdir -p "$SMOKE_ROOT/foreign-cwd"
+GITHUB_TOKEN='secret-github-value' \
+GH_TOKEN='secret-gh-value' \
+TAURI_SIGNING_PRIVATE_KEY='secret-signing-value' \
+TAURI_SIGNING_PRIVATE_KEY_PASSWORD='secret-password-value' \
+SENTRY_AUTH_TOKEN='secret-sentry-value' \
+OPENAI_API_KEY='secret-openai-value' \
+PATH="$SMOKE_BIN:$PATH" smoke_extracted_apprun \
+  "$SMOKE_APPDIR" \
+  "$SMOKE_ROOT/foreign-cwd" \
+  "$SMOKE_ROOT/success.log" \
+  || fail "smoke_extracted_apprun did not accept timeout status 124"
+grep -Fx "timeout-cwd=$SMOKE_ROOT/foreign-cwd" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke did not invoke timeout from the foreign CWD"
+grep -Fx "xvfb-invoked" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke did not invoke xvfb-run"
+for secret_name in \
+  GITHUB_TOKEN \
+  GH_TOKEN \
+  TAURI_SIGNING_PRIVATE_KEY \
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
+  SENTRY_AUTH_TOKEN \
+  OPENAI_API_KEY; do
+  grep -Fx "env-unset=$secret_name" "$SMOKE_RECORD" >/dev/null \
+    || fail "smoke env did not unset $secret_name"
+done
+grep -Fx "env-assignment=HOME=$SMOKE_ROOT/home" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke HOME was not isolated"
+grep -Fx "env-assignment=XDG_CONFIG_HOME=$SMOKE_ROOT/config" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke XDG_CONFIG_HOME was not isolated"
+grep -Fx "env-assignment=XDG_DATA_HOME=$SMOKE_ROOT/data" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke XDG_DATA_HOME was not isolated"
+grep -Fx "env-assignment=XDG_CACHE_HOME=$SMOKE_ROOT/cache" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke XDG_CACHE_HOME was not isolated"
+grep -Fx "apprun-cwd=$SMOKE_ROOT/foreign-cwd" "$SMOKE_PROBE" >/dev/null \
+  || fail "smoke AppRun did not execute from the foreign CWD"
+grep -Fx "probe-executed" "$SMOKE_PROBE" >/dev/null \
+  || fail "smoke AppRun probe did not execute"
+if grep -F 'secret-' "$SMOKE_RECORD" "$SMOKE_PROBE" >/dev/null; then
+  fail "smoke command records exposed a secret value"
+fi
+if ( PATH="$SMOKE_BIN:$PATH" SMOKE_TIMEOUT_STATUS=0 \
+  smoke_extracted_apprun \
+    "$SMOKE_APPDIR" \
+    "$SMOKE_ROOT/foreign-cwd" \
+    "$SMOKE_ROOT/early-exit.log" ) >/dev/null 2>&1; then
+  fail "smoke_extracted_apprun accepted an immediate clean exit"
+fi
+if ( PATH="$SMOKE_BIN:$PATH" \
+  SMOKE_TIMEOUT_MESSAGE='libcef.so: cannot open shared object file' \
+  smoke_extracted_apprun \
+    "$SMOKE_APPDIR" \
+    "$SMOKE_ROOT/foreign-cwd" \
+    "$SMOKE_ROOT/loader-error.log" ) >/dev/null 2>&1; then
+  fail "smoke_extracted_apprun accepted a forbidden loader diagnostic"
+fi
+(
+  set +e
+  PATH="$SMOKE_BIN:$PATH" smoke_extracted_apprun \
+    "$SMOKE_APPDIR" \
+    "$SMOKE_ROOT/foreign-cwd" \
+    "$SMOKE_ROOT/errexit-disabled.log" \
+    || exit 81
+  case "$-" in
+    *e*) exit 82 ;;
+  esac
+) || fail "smoke_extracted_apprun changed a sourced caller's disabled errexit state"
+
+assert_runtime_layout_rejected missing-anylinux \
+  "missing anylinux.so" remove_anylinux
+assert_runtime_layout_rejected missing-libxdo \
+  "missing libxdo.so.*" remove_libxdo
+assert_runtime_layout_rejected missing-libcef \
+  "missing libcef.so" remove_libcef
+assert_runtime_layout_rejected missing-real-app \
+  "shared/bin/OpenHuman is not an executable ELF" remove_real_app
+assert_runtime_layout_rejected text-real-app \
+  "shared/bin/OpenHuman is not an executable ELF" replace_real_app_with_text
+assert_runtime_layout_rejected mismatched-apprun \
+  "AppRun does not match sharun" replace_apprun
+assert_runtime_layout_rejected mismatched-bin-launcher \
+  "bin/OpenHuman does not match sharun" replace_bin_launcher
+assert_runtime_layout_rejected runner-rpath \
+  "/home/runner/work/openhuman/openhuman/shared/lib" inject_runner_rpath
+assert_runtime_layout_rejected actions-rpath \
+  "/__w/openhuman/openhuman/shared/lib" inject_actions_rpath
+
+RUNTIME_NEEDED="$WORK/runtime-needed"
+make_runtime_appdir "$RUNTIME_NEEDED"
+if ( APPIMAGE_EXPECTED_NEEDED="libxdo.so.3" \
+  validate_extracted_appdir "$RUNTIME_NEEDED" ) \
+  >"$RUNTIME_NEEDED/missing-xdo.log" 2>&1; then
+  fail "validate_extracted_appdir accepted a missing libxdo NEEDED entry"
+fi
+grep -F "missing NEEDED entry 'libxdo.so.3'" \
+  "$RUNTIME_NEEDED/missing-xdo.log" >/dev/null \
+  || fail "missing libxdo NEEDED diagnostic was not specific"
+
+patchelf --add-needed libxdo.so.3 "$RUNTIME_NEEDED/shared/bin/OpenHuman"
+if ( APPIMAGE_EXPECTED_NEEDED="libcef.so" \
+  validate_extracted_appdir "$RUNTIME_NEEDED" ) \
+  >"$RUNTIME_NEEDED/missing-cef.log" 2>&1; then
+  fail "validate_extracted_appdir accepted a missing libcef NEEDED entry"
+fi
+grep -F "missing NEEDED entry 'libcef.so'" \
+  "$RUNTIME_NEEDED/missing-cef.log" >/dev/null \
+  || fail "missing libcef NEEDED diagnostic was not specific"
+
+patchelf --add-needed libcef.so "$RUNTIME_NEEDED/shared/bin/OpenHuman"
+APPIMAGE_EXPECTED_NEEDED="libxdo.so.3 libcef.so" \
+  validate_extracted_appdir "$RUNTIME_NEEDED" \
+  || fail "validate_extracted_appdir rejected complete NEEDED entries"
+
+VALIDATOR_RECORD="$WORK/runtime-validator-record"
+runtime_validator_stub() {
+  [ -f "$1" ] || return 10
+  [ "${#MODIFIED_PATHS[@]}" -eq 0 ] || return 11
+  printf '%s\n' "$1" >"$VALIDATOR_RECORD"
+}
+REBUILT_FIXTURE="$WORK/rebuilt.AppImage"
+: >"$REBUILT_FIXTURE"
+MODIFIED_PATHS=()
+APPIMAGE_RUNTIME_VALIDATOR=runtime_validator_stub \
+  validate_rebuilt_appimage "$REBUILT_FIXTURE" \
+  || fail "validate_rebuilt_appimage did not forward to its configured command"
+[ "$(cat "$VALIDATOR_RECORD")" = "$REBUILT_FIXTURE" ] \
+  || fail "validate_rebuilt_appimage forwarded the wrong artifact path"
+runtime_validator_failure_stub() { return 37; }
+if APPIMAGE_RUNTIME_VALIDATOR=runtime_validator_failure_stub \
+  validate_rebuilt_appimage "$REBUILT_FIXTURE"; then
+  fail "conditional validate_rebuilt_appimage suppressed validator failure"
+fi
+
+NOOP_IMAGE="$WORK/noop-final.AppImage"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  '[ "$1" = "--appimage-extract" ] || exit 9' \
+  'mkdir -p squashfs-root' \
+  >"$NOOP_IMAGE"
+chmod +x "$NOOP_IMAGE"
+NOOP_IMAGE_BEFORE="$(sha256sum "$NOOP_IMAGE" | awk '{print $1}')"
+NOOP_VALIDATOR_RECORD="$WORK/noop-validator-record"
+noop_runtime_validator_stub() {
+  [ -f "$1" ] || return 20
+  [ "${#MODIFIED_PATHS[@]}" -eq 0 ] || return 21
+  printf '%s\n' "$1" >>"$NOOP_VALIDATOR_RECORD"
+}
+MODIFIED_PATHS=()
+APPIMAGE_RUNTIME_VALIDATOR=noop_runtime_validator_stub \
+  strip_one_appimage "$NOOP_IMAGE" \
+  || fail "strip_one_appimage rejected a valid no-change final artifact"
+[ "$(wc -l <"$NOOP_VALIDATOR_RECORD" | tr -d ' ')" -eq 1 ] \
+  || fail "no-change AppImage was not validated exactly once"
+[ "$(cat "$NOOP_VALIDATOR_RECORD")" = "$(realpath "$NOOP_IMAGE")" ] \
+  || fail "no-change validation did not inspect the original final AppImage"
+[ "${#MODIFIED_PATHS[@]}" -eq 0 ] \
+  || fail "no-change AppImage was incorrectly registered for re-signing"
+[ "$NOOP_IMAGE_BEFORE" = "$(sha256sum "$NOOP_IMAGE" | awk '{print $1}')" ] \
+  || fail "no-change AppImage bytes were unexpectedly replaced"
+
+mv_line="$(grep -nF 'mv "$rebuilt" "$original"' "$TARGET" | cut -d: -f1)"
+validate_line="$(
+  grep -nF 'validate_rebuilt_appimage "$original"' "$TARGET" \
+    | tail -n 1 \
+    | cut -d: -f1
+)"
+modified_line="$(grep -nF 'MODIFIED_PATHS+=("$original")' "$TARGET" | cut -d: -f1)"
+[ -n "$mv_line" ] && [ -n "$validate_line" ] && [ -n "$modified_line" ] \
+  || fail "post-repack validation ordering statements are missing"
+[ "$mv_line" -lt "$validate_line" ] && [ "$validate_line" -lt "$modified_line" ] \
+  || fail "final artifact validation does not run after mv and before signing registration"
+echo "[test-rpaths] ok: final runtime layout and pre-signing handoff are fail-closed"
 
 # --- Case 1: sanitize_elf_rpaths strips a CI build-machine RPATH ------------
 APPDIR="$WORK/squashfs-root"
@@ -130,20 +731,28 @@ chmod +x "$GUARD_DIR/sharun"
 # guard's early return would make this case vacuously pass.
 uses_sharun_launcher "$GUARD_DIR" || fail "fixture did not register as sharun launcher"
 
-# 2a — libxdo absent → must exit non-zero.
+# 2a — the sharun preload library absent → must exit non-zero.
+if ( validate_appimage_required_libs "$GUARD_DIR" ) 2>/dev/null; then
+  fail "validate_appimage_required_libs passed despite missing anylinux.so"
+fi
+echo "[test-rpaths] ok: guard fails when anylinux.so is absent"
+
+: > "$GUARD_DIR/shared/lib/anylinux.so"
+
+# 2b — libxdo absent → must exit non-zero.
 if ( validate_appimage_required_libs "$GUARD_DIR" ) 2>/dev/null; then
   fail "validate_appimage_required_libs passed despite missing libxdo.so.*"
 fi
 echo "[test-rpaths] ok: guard fails when libxdo.so.* is absent"
 
-# 2b — libxdo present but libcef absent → must still fail.
+# 2c — libxdo present but libcef absent → must still fail.
 : > "$GUARD_DIR/shared/lib/libxdo.so.3"
 if ( validate_appimage_required_libs "$GUARD_DIR" ) 2>/dev/null; then
   fail "validate_appimage_required_libs passed despite missing libcef.so"
 fi
 echo "[test-rpaths] ok: guard fails when libcef.so is absent"
 
-# 2c — both required runtime libraries present → must pass.
+# 2d — all required runtime libraries present → must pass.
 mkdir -p "$GUARD_DIR/usr/lib"
 : > "$GUARD_DIR/shared/lib/libxdo.so.3"
 : > "$GUARD_DIR/usr/lib/libcef.so"

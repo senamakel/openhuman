@@ -23,6 +23,13 @@ import { FlowRunsDrawer } from './FlowRunsDrawer';
 const listFlowRuns = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns, listAllFlowRuns: vi.fn() }));
 
+const runStarted = vi.hoisted(() => ({ callback: undefined as (() => void) | undefined }));
+vi.mock('../../hooks/useFlowRunStarted', () => ({
+  useFlowRunStarted: (callback: () => void) => {
+    runStarted.callback = callback;
+  },
+}));
+
 const fetchPendingApprovals = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/approvalApi', () => ({ fetchPendingApprovals }));
 
@@ -79,6 +86,14 @@ function makeRun(overrides: Partial<FlowRun> = {}): FlowRun {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function renderDrawer(flowId: string | null, onClose: () => void, flowName?: string) {
   return render(
     <Provider store={store}>
@@ -90,6 +105,7 @@ function renderDrawer(flowId: string | null, onClose: () => void, flowName?: str
 describe('FlowRunsDrawer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    runStarted.callback = undefined;
     fetchPendingApprovals.mockResolvedValue([]);
   });
 
@@ -105,6 +121,36 @@ describe('FlowRunsDrawer', () => {
     const loading = screen.getByTestId('flow-runs-loading');
     expect(loading).toHaveTextContent('Loading runs…');
     expect(loading.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('retires initial loading when a run-start refresh supersedes the initial request', async () => {
+    const initial = deferred<FlowRun[]>();
+    const latest = deferred<FlowRun[]>();
+    listFlowRuns.mockReturnValueOnce(initial.promise).mockReturnValueOnce(latest.promise);
+    renderDrawer('flow-1', vi.fn());
+
+    expect(screen.getByTestId('flow-runs-loading')).toBeInTheDocument();
+    expect(runStarted.callback).toBeTypeOf('function');
+
+    act(() => {
+      runStarted.callback?.();
+    });
+    await act(async () => {
+      latest.resolve([makeRun({ id: 'latest' })]);
+      await latest.promise;
+    });
+
+    expect(screen.queryByTestId('flow-runs-loading')).not.toBeInTheDocument();
+    expect(screen.getByTestId('flow-run-row-latest')).toBeInTheDocument();
+
+    await act(async () => {
+      initial.resolve([makeRun({ id: 'stale' })]);
+      await initial.promise;
+    });
+
+    expect(screen.queryByTestId('flow-runs-loading')).not.toBeInTheDocument();
+    expect(screen.getByTestId('flow-run-row-latest')).toBeInTheDocument();
+    expect(screen.queryByTestId('flow-run-row-stale')).not.toBeInTheDocument();
   });
 
   it('fetches and lists runs for the flow', async () => {

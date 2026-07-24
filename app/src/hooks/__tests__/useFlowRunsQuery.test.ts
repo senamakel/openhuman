@@ -211,14 +211,40 @@ describe('useFlowRunsQuery', () => {
       await silentPromise;
     });
     expect(result.current.runs).toEqual([makeRun('latest')]);
-    expect(result.current.loading).toBe(true);
+    expect(result.current.loading).toBe(false);
 
     await act(async () => {
       initial.resolve([makeRun('stale')]);
       await initial.promise;
     });
     expect(result.current.runs).toEqual([makeRun('latest')]);
-    expect(result.current.loading).toBe(true);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('retires foreground loading when the superseding silent request fails', async () => {
+    const initial = deferred<FlowRun[]>();
+    const latest = deferred<FlowRun[]>();
+    listFlowRuns.mockReturnValueOnce(initial.promise).mockReturnValueOnce(latest.promise);
+    const { result } = renderHook(() =>
+      useFlowRunsQuery({ scope: { kind: 'flow', flowId: 'flow-1' } })
+    );
+    await waitFor(() => expect(result.current.loading).toBe(true));
+
+    let silentPromise!: Promise<void>;
+    act(() => {
+      silentPromise = result.current.refreshSilently();
+    });
+    await act(async () => {
+      latest.reject(new Error('offline'));
+      await silentPromise;
+    });
+    expect(result.current).toMatchObject({ runs: [], loading: false, error: null });
+
+    await act(async () => {
+      initial.resolve([makeRun('stale')]);
+      await initial.promise;
+    });
+    expect(result.current).toMatchObject({ runs: [], loading: false, error: null });
   });
 
   it('lets the latest foreground request win over an older silent request', async () => {

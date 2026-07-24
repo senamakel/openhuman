@@ -77,6 +77,10 @@ export function useFlowRunsQuery({
     } catch {
       if (!mountedRef.current || generation !== requestGenerationRef.current) return;
       log('silent refresh failed: scope=%s', scopeKind);
+    } finally {
+      if (mountedRef.current && generation === requestGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [canFetch, requestRuns, scopeKind]);
 

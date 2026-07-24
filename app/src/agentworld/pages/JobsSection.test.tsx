@@ -187,6 +187,18 @@ describe('JobStatusBadge colors', () => {
 // ── Inline expand ─────────────────────────────────────────────────────────────
 
 describe('Inline expand', () => {
+  test('stacks the timestamp above the shared disclosure chevron', async () => {
+    vi.mocked(apiClient.graphql.jobs).mockResolvedValue({ jobs: [sampleJob], count: 1 });
+    render(<JobsSection />);
+
+    const toggle = await screen.findByRole('button', { name: /build a dashboard widget/i });
+    const timestamp = toggle.querySelector('.whitespace-nowrap.text-xs.text-content-faint');
+    const metaColumn = timestamp?.parentElement;
+
+    expect(metaColumn).toHaveClass('flex', 'shrink-0', 'flex-col', 'items-end', 'gap-2');
+    expect(metaColumn?.lastElementChild).toBe(toggle.querySelector('svg[aria-hidden="true"]'));
+  });
+
   test('uses unique disclosure IDs and supports keyboard activation', async () => {
     const user = userEvent.setup();
     const secondJob = { ...sampleJob, jobId: 'job-002', title: 'Build another dashboard widget' };

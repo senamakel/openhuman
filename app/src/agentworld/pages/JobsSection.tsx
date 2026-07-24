@@ -554,6 +554,11 @@ function JobRow({
       className="border-b border-line-subtle last:border-0"
       summaryClassName="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50"
       detailClassName="border-t border-line-subtle bg-surface-muted px-4 py-3"
+      trailingContent={
+        <span className="whitespace-nowrap text-xs text-content-faint">
+          {relativeTime(job.createdAt)}
+        </span>
+      }
       summary={
         <>
           <ClientAvatar
@@ -595,10 +600,6 @@ function JobRow({
               </span>
             </div>
           </div>
-
-          <span className="shrink-0 whitespace-nowrap text-xs text-content-faint">
-            {relativeTime(job.createdAt)}
-          </span>
         </>
       }>
       {/* Description */}

@@ -5,6 +5,7 @@ export interface ExpandableResourceRowProps {
   expanded: boolean;
   onToggle: () => void;
   summary: ReactNode;
+  trailingContent?: ReactNode;
   children: ReactNode;
   className?: string;
   expandedClassName?: string;
@@ -17,6 +18,7 @@ export default function ExpandableResourceRow({
   expanded,
   onToggle,
   summary,
+  trailingContent,
   children,
   className,
   expandedClassName,
@@ -28,6 +30,18 @@ export default function ExpandableResourceRow({
   const rowClassName = [className, expanded ? expandedClassName : undefined]
     .filter(Boolean)
     .join(' ');
+  const chevron = (
+    <svg
+      aria-hidden="true"
+      className={`mt-0.5 h-4 w-4 shrink-0 text-content-faint transition-transform ${
+        expanded ? 'rotate-180' : ''
+      }`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  );
 
   return (
     <div className={rowClassName || undefined}>
@@ -39,16 +53,14 @@ export default function ExpandableResourceRow({
         onClick={onToggle}
         className={summaryClassName}>
         {summary}
-        <svg
-          aria-hidden="true"
-          className={`mt-0.5 h-4 w-4 shrink-0 text-content-faint transition-transform ${
-            expanded ? 'rotate-180' : ''
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        {trailingContent ? (
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            {trailingContent}
+            {chevron}
+          </div>
+        ) : (
+          chevron
+        )}
       </button>
 
       {expanded && (

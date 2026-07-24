@@ -71,4 +71,28 @@ describe('ExpandableResourceRow', () => {
     await user.click(toggle);
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
+
+  test('stacks optional trailing content above its chevron', () => {
+    render(
+      <ExpandableResourceRow
+        id="resource-four"
+        expanded={false}
+        onToggle={vi.fn()}
+        summary={<span>Resource four</span>}
+        trailingContent={<span>Updated recently</span>}>
+        <p>Resource details</p>
+      </ExpandableResourceRow>
+    );
+
+    const toggle = screen.getByRole('button', { name: 'Resource four Updated recently' });
+    const trailingContent = screen.getByText('Updated recently');
+    expect(trailingContent.parentElement).toHaveClass(
+      'flex',
+      'shrink-0',
+      'flex-col',
+      'items-end',
+      'gap-2'
+    );
+    expect(trailingContent.nextElementSibling).toBe(toggle.querySelector('svg'));
+  });
 });

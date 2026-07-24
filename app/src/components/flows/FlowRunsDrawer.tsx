@@ -93,12 +93,14 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
   useFlowRunStarted(() => void refreshSilently(), flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
+  const dismissalEnabled = flowId !== null && selectedRunId === null;
+  const dismiss = () => {
+    log('dismiss: closing flowId=%s', flowId);
+    onClose();
+  };
   const { layerRef, onPointerDownCapture } = useDismissLayer({
-    onDismiss: () => {
-      log('dismiss: closing flowId=%s', flowId);
-      onClose();
-    },
-    enabled: flowId !== null && selectedRunId === null,
+    onDismiss: dismiss,
+    enabled: dismissalEnabled,
   });
 
   if (!flowId) return null;
@@ -119,6 +121,12 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
           aria-label={t('conversations.subagent.close')}
           data-testid="flow-runs-backdrop"
           className="absolute inset-0 bg-stone-900/30 dark:bg-black/50"
+          onClick={event => {
+            // Keyboard and assistive activation produces a click without a
+            // preceding pointer event. Pointer clicks were already handled
+            // during capture and carry a non-zero detail.
+            if (event.detail === 0 && dismissalEnabled) dismiss();
+          }}
         />
         <aside
           ref={element => {

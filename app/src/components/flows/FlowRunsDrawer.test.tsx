@@ -307,6 +307,28 @@ describe('FlowRunsDrawer', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('calls onClose exactly once for native keyboard or assistive backdrop activation', async () => {
+    listFlowRuns.mockResolvedValue([]);
+    const onClose = vi.fn();
+    renderDrawer('flow-1', onClose);
+    await waitFor(() => expect(screen.getByTestId('flow-runs-empty')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('flow-runs-backdrop'), { detail: 0 });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not double-dismiss for a pointerdown followed by its click', async () => {
+    listFlowRuns.mockResolvedValue([]);
+    const onClose = vi.fn();
+    renderDrawer('flow-1', onClose);
+    await waitFor(() => expect(screen.getByTestId('flow-runs-empty')).toBeInTheDocument());
+
+    const backdrop = screen.getByTestId('flow-runs-backdrop');
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop, { detail: 1 });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('does not close when a pointer lands inside the drawer', async () => {
     listFlowRuns.mockResolvedValue([]);
     const onClose = vi.fn();
@@ -348,6 +370,18 @@ describe('FlowRunsDrawer', () => {
     expect(await screen.findByTestId('mock-inspector')).toBeInTheDocument();
 
     fireEvent.pointerDown(screen.getByTestId('flow-runs-backdrop'));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not close the runs drawer from keyboard or assistive backdrop activation while the inspector is open', async () => {
+    listFlowRuns.mockResolvedValue([makeRun({ id: 'run-1' })]);
+    const onClose = vi.fn();
+    renderDrawer('flow-1', onClose);
+
+    fireEvent.click(await screen.findByTestId('flow-run-row-run-1'));
+    expect(await screen.findByTestId('mock-inspector')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('flow-runs-backdrop'), { detail: 0 });
     expect(onClose).not.toHaveBeenCalled();
   });
 

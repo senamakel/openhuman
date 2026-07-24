@@ -28,29 +28,41 @@ describe('McpCatalogBrowser', () => {
     expect(search).toHaveClass('h-9');
   });
 
-  it('fires debounced search on input change', async () => {
-    mockRegistrySearch.mockResolvedValue({ servers: [], page: 1, total_pages: 1 });
+  it('fetches only the latest debounced query and resets pagination', async () => {
+    mockRegistrySearch.mockImplementation(({ page }: { page: number }) =>
+      Promise.resolve({
+        servers: [{ qualified_name: `acme/page-${page}`, display_name: `Page ${page}` }],
+        page,
+        total_pages: 2,
+      })
+    );
     render(<McpCatalogBrowser onSelectInstall={() => {}} />);
 
-    const input = screen.getByPlaceholderText('Search MCP servers...');
-
-    // Advance past the initial debounce
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(mockRegistrySearch).toHaveBeenLastCalledWith({
+      query: undefined,
+      page: 2,
+      page_size: 20,
     });
     mockRegistrySearch.mockClear();
 
-    // Type in the search box
+    const input = screen.getByPlaceholderText('Search MCP servers...');
+    fireEvent.change(input, { target: { value: 'git' } });
+    act(() => vi.advanceTimersByTime(100));
     fireEvent.change(input, { target: { value: 'github' } });
 
     // Before debounce fires, no new call
+    act(() => vi.advanceTimersByTime(249));
     expect(mockRegistrySearch).not.toHaveBeenCalled();
 
-    // Advance past the 250ms debounce
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      await vi.advanceTimersByTimeAsync(1);
     });
 
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(1);
     expect(mockRegistrySearch).toHaveBeenCalledWith({ query: 'github', page: 1, page_size: 20 });
   });
 

@@ -8,6 +8,7 @@
 import debug from 'debug';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import { openUrl } from '../../../utils/openUrl';
@@ -265,6 +266,11 @@ const McpServersTab = () => {
   const [activeChip, setActiveChip] = useState<FilterChip>('all');
   // Secondary classification filter over catalog rows: by transport.
   const [transportFilter, setTransportFilter] = useState<'all' | Transport>('all');
+  const catalogFilters = useMemo(
+    () => ({ query: searchQuery, transport: transportFilter }),
+    [searchQuery, transportFilter]
+  );
+  const debouncedCatalogFilters = useDebouncedValue(catalogFilters, DEBOUNCE_MS);
 
   // Registry catalog results
   const [catalogServers, setCatalogServers] = useState<SmitheryServer[]>([]);
@@ -276,7 +282,6 @@ const McpServersTab = () => {
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSeqRef = useRef(0);
 
   const loadInstalled = useCallback(async () => {
@@ -340,14 +345,8 @@ const McpServersTab = () => {
   // changes. Search + transport now run in the core over the cached full
   // catalog, so changing either re-queries from the top.
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      void fetchCatalog(searchQuery, transportFilter, 1, false);
-    }, DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchQuery, transportFilter, fetchCatalog]);
+    void fetchCatalog(debouncedCatalogFilters.query, debouncedCatalogFilters.transport, 1, false);
+  }, [debouncedCatalogFilters, fetchCatalog]);
 
   // Poll status
   useEffect(() => {
@@ -419,7 +418,12 @@ const McpServersTab = () => {
   );
 
   const handleLoadMore = () => {
-    void fetchCatalog(searchQuery, transportFilter, catalogPage + 1, true);
+    void fetchCatalog(
+      debouncedCatalogFilters.query,
+      debouncedCatalogFilters.transport,
+      catalogPage + 1,
+      true
+    );
   };
 
   // Bulk lifecycle actions for the health toolbar. One failure doesn't abort the

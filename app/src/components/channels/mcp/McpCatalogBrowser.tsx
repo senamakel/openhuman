@@ -5,6 +5,7 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import Button from '../../ui/Button';
@@ -29,7 +30,7 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedQuery = useDebouncedValue(query, DEBOUNCE_MS);
   // Monotonically-increasing counter used to discard stale registrySearch
   // responses when a newer request has already been issued.
   const requestSeqRef = useRef(0);
@@ -71,19 +72,13 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
     [t]
   );
 
-  // Debounce the query and reset to page 1 whenever it changes.
+  // Reset to page 1 whenever the debounced query changes.
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      void fetchPage(query, 1, false);
-    }, DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, fetchPage]);
+    void fetchPage(debouncedQuery, 1, false);
+  }, [debouncedQuery, fetchPage]);
 
   const handleLoadMore = () => {
-    void fetchPage(query, page + 1, true);
+    void fetchPage(debouncedQuery, page + 1, true);
   };
 
   return (

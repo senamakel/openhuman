@@ -409,9 +409,6 @@ atomic-commit "refactor(agentworld): share status block presentation" -- app/src
 - Modify: `app/src/agentworld/pages/BountiesSection.tsx`
 - Modify: `app/src/agentworld/pages/MessagingSection.tsx`
 - Modify: `app/src/agentworld/pages/ProfileViewer.tsx`
-- Modify: `app/src/agentworld/pages/ProfilesSection.tsx`
-- Modify: `app/src/agentworld/pages/FeedSection.tsx`
-- Modify: `app/src/agentworld/components/WalletAddressChip.tsx`
 
 ### Red
 
@@ -451,16 +448,17 @@ const myAgent = useMyAgentId();
 const myAgentId = myAgent.status === "ready" ? myAgent.agentId : null;
 ```
 
-Also route the existing wallet resolution in Profiles, Feed, and
-`WalletAddressChip` through the same hook. These consumers may map the shared state
-to their existing screen-specific copy, but must not call `fetchWalletStatus`
-directly afterward. Preserve each consumer's current loading, disconnected, and
-error presentation; do not collapse errors into disconnected.
+Leave Profiles, Feed, and `WalletAddressChip` on their existing richer resource
+flows. Profiles chains wallet resolution into profile and directory fallbacks,
+Feed distinguishes an unknown transport failure from a proven missing wallet, and
+`WalletAddressChip` owns retry behavior. Forcing those behaviors through this
+identity-only hook would change their state contracts. They can be reconsidered
+later behind a richer wallet-resource abstraction.
 
 ### Verify
 
 ```bash
-pnpm test -- app/src/agentworld/hooks/useMyAgentId.test.ts app/src/agentworld/pages/DirectorySection.test.tsx app/src/agentworld/pages/JobsSection.test.tsx app/src/agentworld/pages/BountiesSection.test.tsx app/src/agentworld/pages/MessagingSection.test.tsx app/src/agentworld/pages/ProfileViewer.test.tsx app/src/agentworld/pages/ProfilesSection.test.tsx app/src/agentworld/pages/FeedSection.test.tsx app/src/agentworld/components/WalletAddressChip.test.tsx
+pnpm test -- app/src/agentworld/hooks/useMyAgentId.test.ts app/src/agentworld/pages/DirectorySection.test.tsx app/src/agentworld/pages/JobsSection.test.tsx app/src/agentworld/pages/BountiesSection.test.tsx app/src/agentworld/pages/MessagingSection.test.tsx app/src/agentworld/pages/ProfileViewer.test.tsx
 pnpm typecheck
 git diff --check
 ```
@@ -468,7 +466,7 @@ git diff --check
 ### Commit
 
 ```bash
-atomic-commit "refactor(agentworld): centralize wallet identity resolution" -- app/src/agentworld/hooks/useMyAgentId.ts app/src/agentworld/hooks/useMyAgentId.test.ts app/src/agentworld/pages/DirectorySection.tsx app/src/agentworld/pages/JobsSection.tsx app/src/agentworld/pages/BountiesSection.tsx app/src/agentworld/pages/MessagingSection.tsx app/src/agentworld/pages/ProfileViewer.tsx app/src/agentworld/pages/ProfilesSection.tsx app/src/agentworld/pages/FeedSection.tsx app/src/agentworld/components/WalletAddressChip.tsx
+atomic-commit "refactor(agentworld): centralize wallet identity resolution" -- app/src/agentworld/hooks/useMyAgentId.ts app/src/agentworld/hooks/useMyAgentId.test.ts app/src/agentworld/pages/DirectorySection.tsx app/src/agentworld/pages/JobsSection.tsx app/src/agentworld/pages/BountiesSection.tsx app/src/agentworld/pages/MessagingSection.tsx app/src/agentworld/pages/ProfileViewer.tsx
 ```
 
 ## Task 6: Extract Agent World form layout primitives
@@ -1258,8 +1256,9 @@ git status --short
 The branch is ready for review only when:
 
 - all eight former Agent World `StatusBlock` definitions are gone;
-- no Agent World consumer calls `fetchWalletStatus` directly except the shared
-  `useMyAgentId` hook;
+- the five former page-local `useMyAgentId` implementations use the shared hook;
+- the richer Feed, Profiles, and WalletAddressChip wallet-resource flows remain
+  behaviorally unchanged;
 - Sidebar, Drawer, and All Runs Page use `useFlowRunsQuery`;
 - pending approvals issue one poll for concurrent list/detail consumers;
 - the duplicated mapper body is absent from `flowsApi.ts`;

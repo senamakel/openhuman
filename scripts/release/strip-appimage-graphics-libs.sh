@@ -352,6 +352,13 @@ rewrite_sharun_lib_path() {
         ;;
     esac
 
+    case "${normalized#+}" in
+      *+*)
+        echo "[strip-libs] ERROR: shared/lib/lib.path contains a malformed entry: '$entry'" >&2
+        return 1
+        ;;
+    esac
+
     duplicate=0
     index=0
     while [ "$index" -lt "$normalized_count" ]; do
@@ -438,6 +445,10 @@ validate_sharun_lib_path() {
       +/*)
         suffix="${entry#+/}"
         case "$suffix" in
+          *+*)
+            echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': extra '+' markers are not allowed" >&2
+            return 1
+            ;;
           ""|/*|*/|*//*|.|..|./*|../*|*/./*|*/../*|*/.|*/..)
             echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': path components must be non-empty descendants" >&2
             return 1

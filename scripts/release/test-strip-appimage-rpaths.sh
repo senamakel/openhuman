@@ -119,6 +119,32 @@ fi
 grep -F "no valid AppDir library entries" "$WORK/rewrite.err" >/dev/null \
   || fail "rewrite failure did not explain why lib.path was rejected"
 assert_lib_path_contents "$REWRITE_INVALID" '/opt/unrelated/lib'
+
+REWRITE_MARKER_INJECTION="$WORK/rewrite-marker-injection"
+make_sharun_appdir "$REWRITE_MARKER_INJECTION"
+mkdir -p "$REWRITE_MARKER_INJECTION/shared/lib/plugins+extra"
+printf '%s\n' '+/plugins+extra' \
+  >"$REWRITE_MARKER_INJECTION/shared/lib/lib.path"
+if ( rewrite_sharun_lib_path "$REWRITE_MARKER_INJECTION" ) \
+  2>"$REWRITE_MARKER_INJECTION/error.log"; then
+  fail "rewrite accepted an extra marker in a canonical suffix"
+fi
+grep -F "malformed entry: '+/plugins+extra'" \
+  "$REWRITE_MARKER_INJECTION/error.log" >/dev/null \
+  || fail "rewrite marker-injection error did not identify '+/plugins+extra'"
+
+REWRITE_DERIVED_MARKER="$WORK/rewrite-derived-marker"
+make_sharun_appdir "$REWRITE_DERIVED_MARKER"
+derived_marker_path="$WORK/squashfs-root/shared/lib/plugins+extra"
+printf '%s\n' "$derived_marker_path" \
+  >"$REWRITE_DERIVED_MARKER/shared/lib/lib.path"
+if ( rewrite_sharun_lib_path "$REWRITE_DERIVED_MARKER" ) \
+  2>"$REWRITE_DERIVED_MARKER/error.log"; then
+  fail "rewrite accepted an extra marker in a derived suffix"
+fi
+grep -F "malformed entry: '$derived_marker_path'" \
+  "$REWRITE_DERIVED_MARKER/error.log" >/dev/null \
+  || fail "derived marker-injection error did not identify '$derived_marker_path'"
 echo "[test-rpaths] ok: sharun lib.path normalization is canonical and idempotent"
 
 # --- Case 0b: validate_sharun_lib_path rejects unsafe loader entries --------
@@ -172,6 +198,18 @@ cmp -s \
   "$VALID_DESCENDANT/lib.path.before" \
   "$VALID_DESCENDANT/shared/lib/lib.path" \
   || fail "validate_sharun_lib_path mutated a normalized file"
+
+MARKER_INJECTION="$WORK/marker-injection"
+make_sharun_appdir "$MARKER_INJECTION"
+mkdir -p "$MARKER_INJECTION/shared/lib/plugins+extra"
+printf '%s\n' '+/plugins+extra' >"$MARKER_INJECTION/shared/lib/lib.path"
+if ( validate_sharun_lib_path "$MARKER_INJECTION" ) \
+  2>"$MARKER_INJECTION/error.log"; then
+  fail "validate_sharun_lib_path accepted an extra marker in a suffix"
+fi
+grep -F "invalid sharun lib.path entry '+/plugins+extra':" \
+  "$MARKER_INJECTION/error.log" >/dev/null \
+  || fail "marker-injection error did not identify '+/plugins+extra'"
 
 ESCAPE_DIR="$WORK/escape-symlink"
 make_sharun_appdir "$ESCAPE_DIR"

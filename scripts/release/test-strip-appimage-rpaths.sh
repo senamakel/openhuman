@@ -608,6 +608,52 @@ if APPIMAGE_RUNTIME_VALIDATOR=runtime_validator_failure_stub \
   fail "conditional validate_rebuilt_appimage suppressed validator failure"
 fi
 
+CLEANUP_IMAGE="$WORK/cleanup-invalid.AppImage"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  '[ "$1" = "--appimage-extract" ] || exit 9' \
+  'mkdir -p squashfs-root/shared/lib' \
+  >"$CLEANUP_IMAGE"
+chmod +x "$CLEANUP_IMAGE"
+CLEANUP_WORKDIR="$WORK/cleanup-invalid-workdir"
+CLEANUP_LOG="$WORK/cleanup-invalid.log"
+set +e
+TARGET="$TARGET" \
+CLEANUP_IMAGE="$CLEANUP_IMAGE" \
+CLEANUP_WORKDIR="$CLEANUP_WORKDIR" \
+  bash -c '
+    set -euo pipefail
+    # shellcheck source=/dev/null
+    source "$TARGET"
+    mktemp() {
+      if [ "${1:-}" = "-d" ]; then
+        mkdir -p "$CLEANUP_WORKDIR"
+        printf "%s\n" "$CLEANUP_WORKDIR"
+      else
+        command mktemp "$@"
+      fi
+    }
+    ensure_sharun_interpreter() { return 1; }
+    rewrite_sharun_lib_path() { return 1; }
+    patch_apprun_sharun_cwd() { return 1; }
+    sanitize_elf_rpaths() { return 1; }
+    validate_sharun_lib_path() {
+      echo "intentional lib.path validation failure" >&2
+      return 47
+    }
+    validate_appimage_required_libs() { return 0; }
+    validate_rebuilt_appimage() { return 0; }
+    strip_one_appimage "$CLEANUP_IMAGE"
+  ' >"$CLEANUP_LOG" 2>&1
+cleanup_status=$?
+set -e
+[ "$cleanup_status" -ne 0 ] \
+  || fail "strip_one_appimage accepted a failing lib.path validation"
+grep -F "intentional lib.path validation failure" "$CLEANUP_LOG" >/dev/null \
+  || fail "strip_one_appimage hid the original lib.path validation error"
+[ ! -e "$CLEANUP_WORKDIR" ] \
+  || fail "strip_one_appimage leaked its workdir after lib.path validation failed"
+
 NOOP_IMAGE="$WORK/noop-final.AppImage"
 printf '%s\n' \
   '#!/usr/bin/env bash' \

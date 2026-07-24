@@ -3,32 +3,48 @@
 //! parsing. These paths need no backend, so they run in the plain integration
 //! crate (the root crate's `cfg(test)` build is gated elsewhere).
 
+use openhuman_core::api::rest::BackendOAuthClient;
+use openhuman_core::openhuman::config::Config;
+use openhuman_core::openhuman::orchestration::cloud::ReadPass;
 use openhuman_core::openhuman::orchestration::effect_executor::{
     effect_result_frame, is_duplicate_call, parse_evict, release_call,
 };
 use openhuman_core::openhuman::orchestration::store;
+use openhuman_core::openhuman::orchestration::sync::sync_reads_with_pass;
 use openhuman_core::openhuman::orchestration::wire::OrchestrationEventEnvelopeWire;
 use openhuman_core::openhuman::orchestration::world_model::observe_ingest_note;
+use wiremock::matchers::{header, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 // ── hosted read contract ──────────────────────────────────────────────────────
 
-#[test]
-fn hosted_sync_does_not_poll_retired_steering_route() {
-    let cloud = include_str!("../src/openhuman/orchestration/cloud.rs");
-    let sync = include_str!("../src/openhuman/orchestration/sync.rs");
+#[tokio::test]
+async fn hosted_sync_only_reads_the_supported_session_surface() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/orchestration/v1/sessions"))
+        .and(header("authorization", "Bearer test-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "success": true,
+            "data": []
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
 
-    assert!(
-        !cloud.contains("/orchestration/v1/steering"),
-        "the backend retired GET /orchestration/v1/steering"
-    );
-    assert!(
-        !sync.contains("fetch_steering"),
-        "the periodic hosted sync must not call the retired steering endpoint"
-    );
-    assert!(
-        !sync.contains("orch:steering"),
-        "the retired hosted steering response must not remain cached"
-    );
+    let workspace = tempfile::tempdir().expect("temporary workspace");
+    let mut config = Config::default();
+    config.workspace_dir = workspace.path().to_path_buf();
+    let client = BackendOAuthClient::new(&server.uri()).expect("mock backend client");
+    let pass = ReadPass::injected(client, "test-token");
+
+    assert!(sync_reads_with_pass(&config, &pass).await);
+    let requests = server.received_requests().await.expect("recorded requests");
+    let paths: Vec<_> = requests
+        .iter()
+        .map(|request| request.url.path().to_string())
+        .collect();
+    assert_eq!(paths, ["/orchestration/v1/sessions"]);
 }
 
 // ── world_model: bounded, single-line, never leaks the body ───────────────────

@@ -93,6 +93,15 @@ pub async fn sync_reads(config: &Config) -> bool {
             return false;
         }
     };
+    sync_reads_with_pass(config, &pass).await
+}
+
+/// Run one read-sync pass with an injected hosted transport.
+///
+/// This is the same production path as [`sync_reads`] after authentication,
+/// exposed so integration coverage can assert the exact hosted routes requested.
+#[doc(hidden)]
+pub async fn sync_reads_with_pass(config: &Config, pass: &super::cloud::ReadPass) -> bool {
     let sessions_raw = match pass.fetch_sessions().await {
         Ok(v) => v,
         Err(e) => {

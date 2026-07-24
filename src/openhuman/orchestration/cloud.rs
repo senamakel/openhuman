@@ -183,6 +183,20 @@ pub struct ReadPass {
     token: String,
 }
 
+impl ReadPass {
+    /// Construct an injected read pass for transport-level integration tests.
+    ///
+    /// Production callers should use [`read_pass`], which resolves the live
+    /// session token and configured backend URL.
+    #[doc(hidden)]
+    pub fn injected(client: BackendOAuthClient, token: impl Into<String>) -> Self {
+        Self {
+            client,
+            token: token.into(),
+        }
+    }
+}
+
 /// Resolve the token + client for one sync read pass. `Err` (no live session) → the
 /// caller degrades the whole pass to the local render cache.
 pub fn read_pass(config: &Config) -> Result<ReadPass, String> {

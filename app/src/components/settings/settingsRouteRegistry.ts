@@ -460,23 +460,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: ['screen', 'awareness', 'vision', 'capture'],
   },
   {
-    // Surfaced on the Connections page (Desktop group); route redirects there.
-    id: 'desktop-agent',
-    titleKey: 'settings.desktopAgent.title',
-    descriptionKey: 'settings.desktopAgent.description',
-    section: 'features',
-    searchKeywords: [
-      'desktop',
-      'agent',
-      'automation',
-      'permissions',
-      'microphone',
-      'accessibility',
-      'screen recording',
-      'input monitoring',
-    ],
-  },
-  {
     id: 'tools',
     titleKey: 'pages.settings.features.tools',
     descriptionKey: 'pages.settings.features.toolsDesc',
@@ -640,14 +623,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
     navGroup: 'agentsAutonomy',
   },
-  {
-    id: 'autocomplete-debug',
-    titleKey: 'settings.developerMenu.autocomplete.title',
-    descriptionKey: 'settings.developerMenu.autocomplete.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'modelsInference',
-  },
   // Build Info (about page alias in dev menu)
   {
     id: 'build-info',
@@ -675,14 +650,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'general',
     navOrder: 4,
     highlight: true,
-  },
-  {
-    // autocomplete: hidden per #717 (route retained for re-enable).
-    id: 'autocomplete',
-    titleKey: 'settings.developerMenu.autocomplete.title',
-    section: 'developer',
-    hiddenDeepLink: true,
-    devOnly: true,
   },
   {
     // search: web search engine settings (Brave / Google / Tavily provider).

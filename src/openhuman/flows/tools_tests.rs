@@ -323,6 +323,78 @@ async fn propose_workflow_rejects_unschemad_agent_binding() {
     );
 }
 
+#[tokio::test]
+async fn propose_workflow_rejects_an_incompatible_saved_child_reference() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let tool = ProposeWorkflowTool::new(Arc::clone(&config));
+
+    // Simulate a legacy child saved before the current TinyFlows engine
+    // rejected nested conditional fan-in. The parent itself is structurally
+    // valid, so only the config-aware shared builder gate can catch this.
+    let legacy_child = json!({
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "to_node": "outer" },
+            { "from_node": "start", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+            { "from_node": "a", "to_node": "m" },
+            { "from_node": "c", "to_node": "m" }
+        ]
+    });
+    let child_graph = crate::openhuman::flows::ops::migrate_and_deserialize_graph(legacy_child)
+        .expect("legacy child should deserialize");
+    tinyflows::validate::validate(&child_graph)
+        .expect("legacy child should remain structurally valid");
+    let child = crate::openhuman::flows::store::create_flow(
+        &config,
+        "Legacy unsafe child".to_string(),
+        child_graph,
+        false,
+        false,
+    )
+    .unwrap();
+    let parent = json!({
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "saved-child",
+                "kind": "sub_workflow",
+                "name": "Saved child",
+                "config": { "workflow_id": child.id }
+            }
+        ],
+        "edges": [{ "from_node": "start", "to_node": "saved-child" }]
+    });
+
+    let result = tool
+        .execute(json!({ "name": "Parent", "graph": parent }))
+        .await
+        .unwrap();
+
+    assert!(result.is_error, "must reject unsafe saved child");
+    let output = result.output();
+    assert!(
+        output.contains("unsupported_nested_conditional_fan_in"),
+        "{output}"
+    );
+    assert!(output.contains(&child.id), "{output}");
+    assert!(output.contains("saved-child"), "{output}");
+    assert!(output.contains("call propose_workflow again"), "{output}");
+}
+
 /// Docs-drift guard (F2): `propose_workflow`'s hand-written description and the
 /// typed node-kind contracts are two views of the SAME DSL, and they must not
 /// diverge. If a node kind is added/renamed or a required config field changes

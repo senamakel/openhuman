@@ -94,6 +94,23 @@ exit or missing/invalid JSON); default is report-only. See
 [`docs/library-benchmarking.md`](../../docs/library-benchmarking.md#fleet-one-process-vs-instances-many-processes)
 for the fleet-vs-instances framing.
 
+### `library-pool-gate.sh` — runtime pool regression gate (#5106)
+
+Drives the `skill-run` scenario with K parallel skill runs and asserts the DoD:
+with the shared runtime pool ON, the process tree grows by ~one pooled worker,
+**not** K interpreters. The scenario hard-asserts `tree.child_count <= max_workers`
+for K > 1 (nonzero exit); this script runs it and reports a pooled-vs-unpooled
+comparison. A regression that reintroduces per-run forking fails the gate.
+
+```bash
+./scripts/profile/library-pool-gate.sh                     # K=8, max_workers=1
+./scripts/profile/library-pool-gate.sh --concurrency 16 --skip-build
+```
+
+Exits 0 = pass, 1 = regression. SKIPs (exit 0) when no system `node` is on
+`PATH` (the scenario must never download an interpreter), so node-less CI
+runners don't false-fail.
+
 ## Quick start
 
 ```bash

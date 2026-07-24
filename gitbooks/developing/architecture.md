@@ -291,10 +291,10 @@ Every layer is async and non-blocking. The Rust core processes thousands of conc
 
 ## Vendored crate family & recent shifts
 
-Core subsystems are being re-platformed onto published `tiny*` crates, vendored as git submodules under `vendor/` (`tinyagents`, `tinyflows`, `tinycortex`, `tinychannels`, `tinyjuice`, `tinyplace`) so crate changes can be tested in-tree before publishing. The major ongoing shifts:
+Core subsystems run on published `tiny*` crates, vendored as git submodules under `vendor/` (`tinyagents`, `tinyflows`, `tinycortex`, `tinychannels`, `tinyjuice`, `tinyplace`) so crate changes can be tested in-tree before publishing. The major ownership boundaries are:
 
 - **Agent engine on tinyagents** — every agent turn runs through the `tinyagents` crate harness via the seam in `src/openhuman/tinyagents/`; see [Agent Harness](architecture/agent-harness.md).
-- **Memory on tinycortex** — memory modules (`memory_diff`, `memory_conversations`, `memory_queue`, …) are being deleted or shimmed onto the `tinycortex` crate engine (W7 migration; #4785–#4788).
+- **Memory on tinycortex** — the generic store/tree/queue/retrieval/sync engine is crate-owned. OpenHuman keeps RPC, tools, scheduling, credentials, security/event policy, worker orchestration, and the host namespace-document store; `src/openhuman/tinycortex/` implements those seams. Concrete embedding transports are shared through `tinyagents::harness::embeddings`.
 - **Inference on the crate ModelRouter** — host workload-tier model routing and cloud provider slugs now use the crate-native `ModelRouter`/`OpenAiModel` (#4782, #4783).
 - **Hosted-only brain** — the client-local orchestration graph engine (`src/openhuman/orchestration/graph/`) was retired (#4738); the client is a thin hosted-brain participant (pushers, effect/tool executors, wire allowlist — #4725) surfaced in the `/orchestration` and `/brain/tinyplace-orchestration` routes.
 

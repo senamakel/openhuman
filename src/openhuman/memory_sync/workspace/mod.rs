@@ -6,7 +6,7 @@
 //! | Submodule | Source | Notes |
 //! | --- | --- | --- |
 //! | `folder`    | Files under a user-added folder memory source          | Watch + diff |
-//! | `harness`   | Agent harness turns (memory_archivist's caller side)   | Push-based |
+//! | `harness`   | Agent harness turns (TinyCortex archivist caller side) | Push-based |
 //! | `dictation` | Local audio capture transcripts                        | Push-based |
 //!
 //! ## Status

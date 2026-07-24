@@ -3,10 +3,11 @@
 use super::super::transcript;
 use super::super::types::Agent;
 use crate::openhuman::agent::harness;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::context::ARCHIVIST_EXTRACTION_PROMPT;
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
+    ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
 };
 use futures::StreamExt;
 use tinyagents::harness::model::{ModelRequest, ModelStreamItem};
@@ -20,7 +21,11 @@ impl Agent {
     ///
     /// Best-effort: failures are logged and silently ignored.
     pub(in super::super) fn try_load_session_transcript(&mut self) {
-        match transcript::find_latest_transcript(&self.workspace_dir, &self.agent_definition_name) {
+        match transcript::find_latest_transcript_in_subdir(
+            &self.workspace_dir,
+            &self.session_raw_subdir,
+            &self.agent_definition_name,
+        ) {
             Some(path) => {
                 log::info!(
                     "[transcript] found previous transcript path={}",
@@ -502,7 +507,8 @@ impl Agent {
                 Some(prefix) => format!("{}__{}", prefix, self.session_key),
                 None => self.session_key.clone(),
             };
-            match transcript::resolve_keyed_transcript_path(&self.workspace_dir, &stem) {
+            let session_raw_dir = self.workspace_dir.join(&self.session_raw_subdir);
+            match transcript::resolve_keyed_transcript_path_in_dir(&session_raw_dir, &stem) {
                 Ok(path) => {
                     log::info!(
                         "[transcript] new session transcript path={}",
@@ -542,7 +548,7 @@ impl Agent {
             output_tokens,
             cached_input_tokens,
             charged_amount_usd,
-            thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
+            thread_id: crate::openhuman::tinyagents::thread_context::current_thread_id(),
             task_id: None,
         };
 

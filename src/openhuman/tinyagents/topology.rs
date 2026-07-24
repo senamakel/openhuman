@@ -72,9 +72,8 @@ pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("spawn_parallel_agents", &t));
     }
 
-    // Not exported: generic item-count-driven `map_reduce` fan-outs such as
-    // `model_council`, whose node set is determined per run rather than by a
-    // fixed named topology.
+    // Not exported: generic item-count-driven `map_reduce` fan-outs whose node
+    // set is determined per run rather than by a fixed named topology.
 
     out
 }

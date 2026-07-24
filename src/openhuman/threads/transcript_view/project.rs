@@ -46,7 +46,14 @@ pub fn project_thread(workspace_dir: &Path, thread_id: &str) -> Option<Projected
 pub fn resolve_files(workspace_dir: &Path, thread_id: &str) -> Option<(PathBuf, Vec<PathBuf>)> {
     let root_path = transcript::find_root_transcript_for_thread(workspace_dir, thread_id)?;
     let root_stem = root_path.file_stem()?.to_str()?.to_string();
-    let sub_paths = discover_subagent_files(workspace_dir, &root_stem);
+    let Some(raw_dir) = root_path.parent() else {
+        log::warn!(
+            "{LOG_PREFIX} resolved root has no parent thread={thread_id} root={}",
+            root_path.display()
+        );
+        return None;
+    };
+    let sub_paths = discover_subagent_files(raw_dir, &root_stem);
     Some((root_path, sub_paths))
 }
 
@@ -96,14 +103,20 @@ pub fn project_from_files(
     }
 }
 
-/// Discover every sub-agent transcript file for `root_stem` under
-/// `session_raw/`. Sub-agent stems are `{root_stem}__…`; results are sorted so
-/// the timestamp-prefixed suffixes order by creation time.
-fn discover_subagent_files(workspace_dir: &Path, root_stem: &str) -> Vec<PathBuf> {
-    let raw_dir = workspace_dir.join("session_raw");
+/// Discover every sub-agent transcript file beside the resolved root.
+/// Sub-agent stems are `{root_stem}__…`; results are sorted so the
+/// timestamp-prefixed suffixes order by creation time.
+fn discover_subagent_files(raw_dir: &Path, root_stem: &str) -> Vec<PathBuf> {
     let prefix = format!("{root_stem}__");
-    let Ok(entries) = fs::read_dir(&raw_dir) else {
-        return Vec::new();
+    let entries = match fs::read_dir(raw_dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            log::debug!(
+                "{LOG_PREFIX} subagent discovery read_dir failed dir={} error={error}",
+                raw_dir.display()
+            );
+            return Vec::new();
+        }
     };
     let mut paths: Vec<PathBuf> = entries
         .flatten()

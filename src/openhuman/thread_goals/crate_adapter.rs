@@ -1,38 +1,26 @@
-//! Adapter seam: mirror OpenHuman `thread_goals` onto the tinyagents
-//! `graph::goals` crate store (issue #4249, plan §C2).
+//! Adapter seam onto the tinyagents `graph::goals` crate store (issue #4249).
 //!
-//! **Adapter-first, dual-write.** The legacy per-thread file-JSON store
-//! ([`super::store`]) stays **authoritative for reads**; this module *also*
-//! mirrors every goal mutation into the crate's `graph::goals` store so a later
-//! slice can flip reads over to the crate with zero data migration. The mirror
-//! is a **faithful copy**: the crate row carries the *same* `goal_id`,
-//! timestamps, and counters as the legacy row (we `put` the converted value
-//! directly rather than calling the crate's `store::set`, which would re-mint a
-//! `goal-<n>` id and reset counters).
+//! The crate store is now **authoritative** for thread goals — [`super::store`]
+//! delegates every operation to it. This module supplies the conversion helpers
+//! (local ↔ crate [`ThreadGoal`]/[`ThreadGoalStatus`]), the store-handle opener
+//! ([`crate_goals_store`]), raw mirror helpers used by migration tests, and the idempotent
+//! [`migrate_legacy_goals_into_crate_store`] boot helper that copies goals left
+//! in the retired `{workspace}/thread_goals/` file-JSON tree only when the crate
+//! store has no value for that thread, then removes the retired row.
 //!
-//! Persistence target: the crate [`Store`] rooted at the same workspace KV tree
-//! as the 04-sessions journal (`{workspace}/tinyagents_store/kv`), namespace
-//! [`GOALS_NAMESPACE`] (`graph.goals`), keyed by `hex(thread_id)` — byte-for-byte
-//! the key the crate's own `graph::goals::store` computes, so the crate reader
-//! finds exactly what we wrote.
+//! Persistence target: the crate [`Store`] rooted at the shared workspace KV
+//! tree (`{workspace}/tinyagents_store/kv`), namespace [`GOALS_NAMESPACE`]
+//! (`graph.goals`), keyed by `hex(thread_id)` — byte-for-byte the key the
+//! crate's own `graph::goals::store` computes.
 //!
 //! # Single-writer constraint
 //!
-//! The crate `Store` has **no compare-and-set and no cross-key transaction**
-//! (see the crate `graph::goals::store` docs). Its per-thread atomicity is a
-//! *process-local* async mutex, and the legacy store uses a process-wide mutex.
-//! Neither is safe across processes. This is acceptable here because **the
-//! OpenHuman core is the single writer** of thread goals — RPC handlers, agent
-//! tools, and the heartbeat continuation runtime all run inside one core
-//! process. Do not add a second mutating writer (a sidecar, a second core, a
-//! cron in another process) without introducing a real CAS first.
-//!
-//! # Shadow mode
-//!
-//! The tool/host surface mirror is gated OFF by default behind
-//! [`crate_goals_shadow_enabled`] (`OPENHUMAN_THREAD_GOALS_CRATE_SHADOW`). When
-//! ON it acts on the legacy result and merely *logs* any crate-vs-legacy
-//! divergence — it never changes what a caller observes.
+//! The crate `Store` has **no compare-and-set and no cross-key transaction**;
+//! its per-thread atomicity is a *process-local* async mutex. This is acceptable
+//! because **the OpenHuman core is the single writer** of thread goals — RPC
+//! handlers, agent tools, and the heartbeat continuation runtime all run inside
+//! one core process. Do not add a second mutating writer (a sidecar, a second
+//! core, a cron in another process) without introducing a real CAS first.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -44,22 +32,8 @@ use tinyagents::harness::store::Store;
 use super::types::{ThreadGoal, ThreadGoalStatus};
 use crate::openhuman::session_import::ops::open_session_stores;
 
-/// Env flag gating the crate-goals **shadow** mirror on the tool/host surface.
-/// Defaults **OFF**; any of `1`/`true`/`yes`/`on` (case-insensitive) enables it.
-const SHADOW_ENV: &str = "OPENHUMAN_THREAD_GOALS_CRATE_SHADOW";
-
-/// Whether the crate-goals shadow mirror is enabled (defaults OFF).
-///
-/// Shadow mode mirrors legacy mutations into the crate store and logs any
-/// divergence; it never changes the caller-observed (legacy) result.
-pub fn crate_goals_shadow_enabled() -> bool {
-    std::env::var(SHADOW_ENV)
-        .map(|v| {
-            let v = v.trim().to_ascii_lowercase();
-            matches!(v.as_str(), "1" | "true" | "yes" | "on")
-        })
-        .unwrap_or(false)
-}
+const LEGACY_GOALS_DIR: &str = "thread_goals";
+const LEGACY_GOALS_EXTENSION: &str = "json";
 
 /// Open the crate [`Store`] handle used for the goals mirror, rooted at the
 /// shared workspace KV tree (`{workspace}/tinyagents_store/kv`). Same layout the
@@ -78,6 +52,34 @@ fn goal_key(thread_id: &str) -> String {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect()
+}
+
+fn legacy_goal_path(workspace_dir: &Path, thread_id: &str) -> Result<std::path::PathBuf, String> {
+    let thread_id = thread_id.trim();
+    if thread_id.is_empty() {
+        return Err("invalid thread goal thread_id: empty or whitespace".to_string());
+    }
+    Ok(workspace_dir.join(LEGACY_GOALS_DIR).join(format!(
+        "{}.{LEGACY_GOALS_EXTENSION}",
+        hex::encode(thread_id.as_bytes())
+    )))
+}
+
+/// Remove a retired file-store row for `thread_id`, if present.
+///
+/// Clears call this before deleting the authoritative crate row so a failed
+/// legacy cleanup can never leave an absent crate row that migration would
+/// resurrect on the next boot.
+pub(crate) async fn delete_legacy_goal_file(
+    workspace_dir: &Path,
+    thread_id: &str,
+) -> Result<bool, String> {
+    let path = legacy_goal_path(workspace_dir, thread_id)?;
+    match tokio::fs::remove_file(&path).await {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(format!("delete legacy thread goal {}: {e}", path.display())),
+    }
 }
 
 /// Map a legacy [`ThreadGoalStatus`] onto the crate [`CrateStatus`]. The two
@@ -123,7 +125,8 @@ pub(crate) fn to_crate_goal(goal: &ThreadGoal) -> CrateThreadGoal {
 }
 
 /// Convert a crate [`CrateThreadGoal`] back into a legacy [`ThreadGoal`] (the
-/// inverse of [`to_crate_goal`]), used by the shadow-divergence comparison.
+/// inverse of [`to_crate_goal`]), used by the store adapter to return
+/// local goals from the crate store.
 pub(crate) fn from_crate_goal(goal: &CrateThreadGoal) -> ThreadGoal {
     ThreadGoal {
         thread_id: goal.thread_id.clone(),
@@ -188,98 +191,79 @@ pub(crate) async fn delete_mirror(store: &Arc<dyn Store>, thread_id: &str) -> Re
         .map_err(|e| format!("delete crate goal mirror: {e}"))
 }
 
-// ── Shadow-mode surface (flag-gated; acts on legacy, logs divergence) ─────────
-
-/// Shadow-mirror a legacy mutation result into the crate store, logging any
-/// crate-vs-legacy divergence. No-op (and no store I/O) when the shadow flag is
-/// OFF. Best-effort: a mirror error is logged, never propagated — the shadow
-/// path must never change caller-observed behavior.
-pub async fn shadow_mirror_goal(workspace_dir: &Path, legacy_goal: &ThreadGoal) {
-    if !crate_goals_shadow_enabled() {
-        return;
-    }
-    let store = crate_goals_store(workspace_dir);
-    // Log divergence against the pre-write crate state (status/counter drift).
-    match get_mirror(&store, &legacy_goal.thread_id).await {
-        Ok(Some(prior)) if prior != *legacy_goal => {
-            tracing::debug!(
-                thread_id = %legacy_goal.thread_id,
-                goal_id = %legacy_goal.goal_id,
-                crate_status = prior.status.as_str(),
-                legacy_status = legacy_goal.status.as_str(),
-                crate_tokens = prior.tokens_used,
-                legacy_tokens = legacy_goal.tokens_used,
-                "[thread_goals][crate-shadow] mirror diverges from prior crate row; overwriting with legacy"
-            );
-        }
-        Ok(_) => {}
-        Err(e) => {
-            tracing::debug!(error = %e, "[thread_goals][crate-shadow] prior-read failed");
-        }
-    }
-    if let Err(e) = put_mirror(&store, legacy_goal).await {
-        tracing::debug!(
-            thread_id = %legacy_goal.thread_id,
-            error = %e,
-            "[thread_goals][crate-shadow] mirror write failed (ignored)"
-        );
-    } else {
-        tracing::debug!(
-            thread_id = %legacy_goal.thread_id,
-            goal_id = %legacy_goal.goal_id,
-            status = legacy_goal.status.as_str(),
-            "[thread_goals][crate-shadow] mirrored goal into graph.goals"
-        );
-    }
-}
-
-/// Shadow-mirror a legacy clear into the crate store. No-op when the shadow flag
-/// is OFF. Best-effort (errors logged, never propagated).
-pub async fn shadow_mirror_clear(workspace_dir: &Path, thread_id: &str) {
-    if !crate_goals_shadow_enabled() {
-        return;
-    }
-    let store = crate_goals_store(workspace_dir);
-    if let Err(e) = delete_mirror(&store, thread_id).await {
-        tracing::debug!(
-            thread_id = %thread_id,
-            error = %e,
-            "[thread_goals][crate-shadow] mirror clear failed (ignored)"
-        );
-    } else {
-        tracing::debug!(
-            thread_id = %thread_id,
-            "[thread_goals][crate-shadow] cleared goal mirror in graph.goals"
-        );
-    }
-}
-
-// ── One-time migration helper (callable, logged, NOT wired to boot) ───────────
+// ── Idempotent legacy→crate migration helper (run on each core boot) ──────────
 
 /// Outcome of a [`migrate_legacy_goals_into_crate_store`] run.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct GoalMigrationReport {
     /// Legacy goal rows examined.
     pub total: usize,
-    /// Rows written into the crate store (absent or divergent mirror).
+    /// Rows written into the crate store because no crate value existed.
     pub copied: usize,
-    /// Rows already present in the crate store with an identical value.
+    /// Rows already present in the crate store and left authoritative.
     pub skipped: usize,
 }
 
-/// Copy every existing legacy thread-goal row into the crate `graph.goals`
-/// store. **Idempotent**: a row whose crate mirror already equals the legacy
-/// value is skipped, so re-running does no writes and reports everything under
-/// `skipped`.
+/// Copy legacy thread-goal rows missing from the crate `graph.goals` store.
 ///
-/// Callable + logged; deliberately **not wired into boot** in this slice (a
-/// later slice schedules it behind a one-shot marker, mirroring the
-/// session-import global marker). Honors the single-writer constraint: run it
-/// only inside the core process.
+/// **Idempotent**: any existing crate value is authoritative and skipped, even
+/// when it differs from the stale legacy file. After a row is copied or
+/// skipped, its retired file is removed so clearing the crate row later cannot
+/// resurrect stale state on the next boot.
+///
+/// Wired into `core::runtime::services::start_boot_once_jobs` on every core
+/// boot. Honors the single-writer constraint: run it only inside the core
+/// process.
+/// Read any goals left in the retired legacy `{workspace}/thread_goals/` file-
+/// JSON tree. Returns an empty vec when the directory is absent (the common
+/// case after the first migration). Undecodable/unreadable files are skipped —
+/// a stray file can't wedge the idempotent copy.
+struct LegacyGoalRow {
+    path: std::path::PathBuf,
+    goal: ThreadGoal,
+}
+
+async fn read_legacy_file_goals(workspace_dir: &Path) -> Result<Vec<LegacyGoalRow>, String> {
+    let dir = workspace_dir.join(LEGACY_GOALS_DIR);
+    let mut entries = match tokio::fs::read_dir(&dir).await {
+        Ok(rd) => rd,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => {
+            return Err(format!(
+                "read legacy thread goals dir {}: {e}",
+                dir.display()
+            ))
+        }
+    };
+    let mut goals = Vec::new();
+    while let Some(entry) = entries
+        .next_entry()
+        .await
+        .map_err(|e| format!("iterate legacy thread goals dir: {e}"))?
+    {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some(LEGACY_GOALS_EXTENSION) {
+            continue;
+        }
+        match tokio::fs::read_to_string(&path).await {
+            Ok(body) => match serde_json::from_str::<ThreadGoal>(&body) {
+                Ok(goal) => goals.push(LegacyGoalRow { path, goal }),
+                Err(e) => {
+                    tracing::debug!(path = %path.display(), error = %e, "[thread_goals][crate-migrate] skip parse error");
+                }
+            },
+            Err(e) => {
+                tracing::debug!(path = %path.display(), error = %e, "[thread_goals][crate-migrate] skip read error");
+            }
+        }
+    }
+    Ok(goals)
+}
+
 pub async fn migrate_legacy_goals_into_crate_store(
     workspace_dir: &Path,
 ) -> Result<GoalMigrationReport, String> {
-    let legacy = super::store::list_all(workspace_dir).await?;
+    let legacy = read_legacy_file_goals(workspace_dir).await?;
     let store = crate_goals_store(workspace_dir);
     let mut report = GoalMigrationReport {
         total: legacy.len(),
@@ -290,34 +274,39 @@ pub async fn migrate_legacy_goals_into_crate_store(
         total = report.total,
         "[thread_goals][crate-migrate] start copy legacy goals → graph.goals"
     );
-    for goal in &legacy {
-        match get_mirror(&store, &goal.thread_id).await {
-            Ok(Some(existing)) if existing == *goal => {
+    for row in &legacy {
+        let goal = &row.goal;
+        match store.get(GOALS_NAMESPACE, &goal_key(&goal.thread_id)).await {
+            Ok(Some(_)) => {
                 report.skipped += 1;
                 tracing::debug!(
                     thread_id = %goal.thread_id,
                     goal_id = %goal.goal_id,
-                    "[thread_goals][crate-migrate] skip (already mirrored)"
+                    "[thread_goals][crate-migrate] skip (crate goal already authoritative)"
                 );
-                continue;
             }
-            Ok(_) => {}
-            Err(e) => {
-                // Read failure → attempt the write anyway (fail-forward copy).
+            Ok(None) => {
+                put_mirror(&store, goal).await?;
+                report.copied += 1;
                 tracing::debug!(
                     thread_id = %goal.thread_id,
-                    error = %e,
-                    "[thread_goals][crate-migrate] mirror pre-read failed; copying anyway"
+                    goal_id = %goal.goal_id,
+                    "[thread_goals][crate-migrate] copied"
                 );
             }
+            Err(e) => {
+                return Err(format!(
+                    "check crate goal before migrating thread {}: {e}",
+                    goal.thread_id
+                ))
+            }
         }
-        put_mirror(&store, goal).await?;
-        report.copied += 1;
-        tracing::debug!(
-            thread_id = %goal.thread_id,
-            goal_id = %goal.goal_id,
-            "[thread_goals][crate-migrate] copied"
-        );
+        tokio::fs::remove_file(&row.path).await.map_err(|e| {
+            format!(
+                "remove migrated legacy thread goal {}: {e}",
+                row.path.display()
+            )
+        })?;
     }
     tracing::info!(
         total = report.total,
@@ -331,7 +320,6 @@ pub async fn migrate_legacy_goals_into_crate_store(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::thread_goals::store as legacy_store;
 
     fn sample_goal(status: ThreadGoalStatus) -> ThreadGoal {
         ThreadGoal {
@@ -442,26 +430,50 @@ mod tests {
         assert_eq!(via_crate.tokens_used, g.tokens_used);
     }
 
+    /// Write a goal into the retired legacy `{workspace}/thread_goals/` file-JSON
+    /// tree (the shape `read_legacy_file_goals` reads), so the migration has
+    /// something to copy.
+    fn legacy_goal_file(dir: &std::path::Path, thread_id: &str) -> std::path::PathBuf {
+        legacy_goal_path(dir, thread_id).unwrap()
+    }
+
+    fn write_legacy_goal(dir: &std::path::Path, goal: &ThreadGoal) {
+        let legacy_dir = dir.join("thread_goals");
+        std::fs::create_dir_all(&legacy_dir).unwrap();
+        let path = legacy_goal_file(dir, &goal.thread_id);
+        std::fs::write(&path, serde_json::to_string(goal).unwrap()).unwrap();
+    }
+
+    fn legacy_goal(thread_id: &str, objective: &str, tokens_used: u64) -> ThreadGoal {
+        ThreadGoal {
+            thread_id: thread_id.into(),
+            goal_id: format!("goal-{thread_id}"),
+            objective: objective.into(),
+            status: ThreadGoalStatus::Active,
+            token_budget: None,
+            tokens_used,
+            time_used_seconds: 0,
+            created_at_ms: 1_000,
+            updated_at_ms: 2_000,
+            continuation_suppressed: false,
+        }
+    }
+
     #[tokio::test]
     async fn migration_copies_then_is_idempotent() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path();
-        // Seed two legacy goals via the authoritative legacy store.
-        legacy_store::set(dir, "t1", "objective one", Some(1_000))
-            .await
-            .unwrap();
-        let g2 = legacy_store::set(dir, "t2", "objective two", None)
-            .await
-            .unwrap();
-        legacy_store::account_usage(dir, "t2", &g2.goal_id, 50, 3)
-            .await
-            .unwrap();
+        // Seed two goals into the legacy file-JSON tree.
+        write_legacy_goal(dir, &legacy_goal("t1", "objective one", 0));
+        write_legacy_goal(dir, &legacy_goal("t2", "objective two", 50));
 
         // First run copies both.
         let r1 = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
         assert_eq!(r1.total, 2);
         assert_eq!(r1.copied, 2);
         assert_eq!(r1.skipped, 0);
+        assert!(!legacy_goal_file(dir, "t1").exists());
+        assert!(!legacy_goal_file(dir, "t2").exists());
 
         // Crate rows now match legacy rows exactly.
         let store = crate_goals_store(dir);
@@ -469,42 +481,58 @@ mod tests {
         assert_eq!(m2.tokens_used, 50);
         assert_eq!(m2.objective, "objective two");
 
-        // Second run is a no-op (idempotent) — everything already mirrored.
+        // Simulate live usage/status updates after migration.
+        let mut advanced = m2;
+        advanced.tokens_used = 999;
+        advanced.status = ThreadGoalStatus::Complete;
+        advanced.updated_at_ms = 3_000;
+        put_mirror(&store, &advanced).await.unwrap();
+
+        // Second run has no retired rows left and preserves the newer state.
         let r2 = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
-        assert_eq!(r2.total, 2);
+        assert_eq!(r2.total, 0);
         assert_eq!(r2.copied, 0, "idempotent: nothing re-copied");
-        assert_eq!(r2.skipped, 2);
+        assert_eq!(r2.skipped, 0);
+        let preserved = get_mirror(&store, "t2").await.unwrap().unwrap();
+        assert_eq!(preserved.tokens_used, 999);
+        assert_eq!(preserved.status, ThreadGoalStatus::Complete);
+        assert_eq!(preserved.updated_at_ms, 3_000);
     }
 
     #[tokio::test]
-    async fn migration_recopies_a_diverged_row() {
+    async fn migration_discards_stale_legacy_row_when_crate_is_authoritative() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path();
-        let g = legacy_store::set(dir, "t", "obj", None).await.unwrap();
-        migrate_legacy_goals_into_crate_store(dir).await.unwrap();
+        let stale = legacy_goal("t1", "stale objective", 1);
+        write_legacy_goal(dir, &stale);
 
-        // Legacy advances (usage accounted) → crate mirror is now stale.
-        legacy_store::account_usage(dir, "t", &g.goal_id, 99, 1)
-            .await
-            .unwrap();
-
-        let r = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
-        assert_eq!(r.copied, 1, "diverged row re-copied");
-        assert_eq!(r.skipped, 0);
         let store = crate_goals_store(dir);
-        assert_eq!(
-            get_mirror(&store, "t").await.unwrap().unwrap().tokens_used,
-            99
-        );
+        let current = legacy_goal("t1", "current objective", 99);
+        put_mirror(&store, &current).await.unwrap();
+
+        let report = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
+        assert_eq!(report.total, 1);
+        assert_eq!(report.copied, 0);
+        assert_eq!(report.skipped, 1);
+        assert!(!legacy_goal_file(dir, "t1").exists());
+        assert_eq!(get_mirror(&store, "t1").await.unwrap(), Some(current));
     }
 
-    #[test]
-    fn shadow_flag_defaults_off() {
-        // Not asserting env mutation (process-global); just the default parse.
-        // An unset/empty value must read as OFF.
-        assert!(!matches!(
-            "".trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        ));
+    #[tokio::test]
+    async fn clear_does_not_allow_migrated_goal_to_resurrect() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let goal = legacy_goal("t1", "retired objective", 5);
+        write_legacy_goal(dir, &goal);
+        let store = crate_goals_store(dir);
+        put_mirror(&store, &goal).await.unwrap();
+
+        assert!(super::super::store::clear(dir, "t1").await.unwrap());
+        assert!(!legacy_goal_file(dir, "t1").exists());
+        assert!(get_mirror(&store, "t1").await.unwrap().is_none());
+
+        let report = migrate_legacy_goals_into_crate_store(dir).await.unwrap();
+        assert_eq!(report.total, 0);
+        assert!(get_mirror(&store, "t1").await.unwrap().is_none());
     }
 }

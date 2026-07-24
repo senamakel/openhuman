@@ -168,7 +168,38 @@ impl SecurityPolicy {
             auto_approve_all: autonomy_config.auto_approve_all,
             tracker: ActionTracker::new(),
             canonical_workspace: Arc::new(OnceCell::new()),
+            // No active profile by default — armed explicitly by the session
+            // builder via [`with_active_profile`] when any profile is in play.
+            // Keeps every existing profile-less `from_config` caller on
+            // the byte-identical, guard-off path.
+            active_profile: None,
         }
+    }
+
+    /// Return a copy of this policy with the cross-profile write guard armed for
+    /// `profile_id`, whose sibling workspaces live under
+    /// `<action_dir>/profiles/<id>/` (1b).
+    ///
+    /// Builder-style so the session builder reads as
+    /// `SecurityPolicy::from_config(..).with_active_profile(id, action_dir)`.
+    /// Every profiled session calls this; a profile-less session never does, so
+    /// the guard stays dormant and path validation is unchanged.
+    #[must_use]
+    pub fn with_active_profile(
+        mut self,
+        profile_id: String,
+        action_dir: std::path::PathBuf,
+    ) -> Self {
+        tracing::debug!(
+            profile_id = %profile_id,
+            action_dir = %action_dir.display(),
+            "[profiles][security] cross-profile write guard armed for session"
+        );
+        self.active_profile = Some(super::types::ActiveProfileGuard {
+            profile_id,
+            action_dir,
+        });
+        self
     }
 
     /// Return a copy of this policy with `privacy_mode` set. Used by the live-

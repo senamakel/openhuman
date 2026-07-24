@@ -62,7 +62,7 @@ Namespace `learning` (wired into `src/core/all.rs`; 11 controllers). Methods:
 | `learning.rebuild_cache` | Manually trigger a `StabilityDetector` rebuild; returns added/evicted/kept/total_size. |
 | `learning.cache_stats` | Cache totals + per-state and per-class breakdown. |
 | `learning.list_facets` | List Active + Provisional facets, optional `class` filter. |
-| `learning.get_facet` | Fetch one facet by `class` + `key` suffix. |
+| `learning.get_facet` | Fetch one facet by `class` + `key` suffix. Each returned facet carries its provenance (`evidence_refs`, `cue_families`) alongside the value/state fields. |
 | `learning.update_facet` | Set a facet value and pin it (`user_state = Pinned`). |
 | `learning.pin_facet` / `learning.unpin_facet` | Toggle `user_state` Pinned ↔ Auto. |
 | `learning.forget_facet` | Mark `Dropped` + `user_state = Forgotten` (blocks re-promotion). |
@@ -111,7 +111,7 @@ These are subscriber registrations rather than a single `bus.rs`; subscriptions 
 - `src/core/all.rs` — registers the `learning.*` controllers + schemas.
 - `src/openhuman/agent/harness/session/{builder,turn}.rs` and `agent_memory/memory_loader.rs` — wire the post-turn hooks, prompt sections, and learned-context loading into the agent loop.
 - `src/openhuman/channels/runtime/startup.rs` — likely registers schedulers/subscribers at startup.
-- `src/openhuman/memory_store/unified/profile.rs`, `memory_sync/composio/providers/profile.rs`, `memory_tools/{capture,mod}.rs`, `tools/impl/system/tool_stats.rs`, `tools/schemas.rs` — consume facet/learning types.
+- `src/openhuman/memory_store/namespace_store/profile.rs`, `memory_sync/composio/providers/profile.rs`, `memory_tools/{capture,mod}.rs`, `tools/impl/system/tool_stats.rs`, `tools/schemas.rs` — consume facet/learning types.
 
 ## Notes / gotchas
 

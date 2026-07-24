@@ -13,7 +13,9 @@ pub use schemas::{
     all_controller_schemas as all_agent_experience_controller_schemas,
     all_registered_controllers as all_agent_experience_registered_controllers,
 };
-pub use store::{AgentExperienceStore, ExperienceQuery, AGENT_EXPERIENCE_NAMESPACE};
+pub use store::{
+    retrieve_across_stores, AgentExperienceStore, ExperienceQuery, AGENT_EXPERIENCE_NAMESPACE,
+};
 pub use types::{
     redact_text, stable_experience_id, AgentExperience, ExperienceHit, ExperienceOutcome,
     ExperienceSource,

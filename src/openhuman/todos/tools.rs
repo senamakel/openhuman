@@ -132,7 +132,9 @@ impl Tool for TodoListTool {
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         log::debug!("[tool][todos] list invoked");
         let location = board_location(&self.config, &args);
-        let snapshot = ops::list(&location).map_err(|e| anyhow::anyhow!("todo_list: {e}"))?;
+        let snapshot = ops::list(&location)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_list: {e}"))?;
         snapshot_to_result(snapshot)
     }
 
@@ -195,8 +197,9 @@ impl Tool for TodoAddTool {
         let content = read_required_str(&args, "content")?;
         let location = board_location(&self.config, &args);
         let patch = card_patch(&args)?;
-        let snapshot =
-            ops::add(&location, &content, patch).map_err(|e| anyhow::anyhow!("todo_add: {e}"))?;
+        let snapshot = ops::add(&location, &content, patch)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_add: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }
@@ -254,8 +257,9 @@ impl Tool for TodoEditTool {
         let id = read_required_str(&args, "id")?;
         let location = board_location(&self.config, &args);
         let patch = card_patch(&args)?;
-        let snapshot =
-            ops::edit(&location, &id, patch).map_err(|e| anyhow::anyhow!("todo_edit: {e}"))?;
+        let snapshot = ops::edit(&location, &id, patch)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_edit: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }
@@ -306,6 +310,7 @@ impl Tool for TodoUpdateStatusTool {
         let status = ops::parse_status(&status_raw).map_err(|e| anyhow::anyhow!(e))?;
         let location = board_location(&self.config, &args);
         let snapshot = ops::update_status(&location, &id, status)
+            .await
             .map_err(|e| anyhow::anyhow!("todo_update_status: {e}"))?;
         snapshot_to_result(snapshot)
     }
@@ -359,6 +364,7 @@ impl Tool for TodoDecidePlanTool {
             .ok_or_else(|| anyhow::anyhow!("missing required boolean argument `approve`"))?;
         let location = board_location(&self.config, &args);
         let snapshot = ops::decide_plan(&location, &id, approve)
+            .await
             .map_err(|e| anyhow::anyhow!("todo_decide_plan: {e}"))?;
         snapshot_to_result(snapshot)
     }
@@ -406,8 +412,9 @@ impl Tool for TodoRemoveTool {
         log::debug!("[tool][todos] remove invoked");
         let id = read_required_str(&args, "id")?;
         let location = board_location(&self.config, &args);
-        let snapshot =
-            ops::remove(&location, &id).map_err(|e| anyhow::anyhow!("todo_remove: {e}"))?;
+        let snapshot = ops::remove(&location, &id)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_remove: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }
@@ -464,8 +471,9 @@ impl Tool for TodoReplaceTool {
         let cards = serde_json::from_value(cards_val)
             .map_err(|e| anyhow::anyhow!("todo_replace: invalid cards: {e}"))?;
         let location = board_location(&self.config, &args);
-        let snapshot =
-            ops::replace(&location, cards).map_err(|e| anyhow::anyhow!("todo_replace: {e}"))?;
+        let snapshot = ops::replace(&location, cards)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_replace: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }
@@ -503,7 +511,9 @@ impl Tool for TodoClearTool {
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         log::debug!("[tool][todos] clear invoked");
         let location = board_location(&self.config, &args);
-        let snapshot = ops::clear(&location).map_err(|e| anyhow::anyhow!("todo_clear: {e}"))?;
+        let snapshot = ops::clear(&location)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_clear: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }

@@ -31,7 +31,7 @@ describe('companionSlice', () => {
   it('setCompanionState updates state, sessionId, and sessionActive', () => {
     const state = companionReducer(
       initialState,
-      setCompanionState({ session_id: 'sess-1', state: 'listening', previous_state: 'idle' })
+      setCompanionState({ sessionId: 'sess-1', state: 'listening', previousState: 'idle' })
     );
     expect(state.state).toBe('listening');
     expect(state.sessionId).toBe('sess-1');
@@ -47,24 +47,18 @@ describe('companionSlice', () => {
     };
     const state = companionReducer(
       active,
-      setCompanionState({ session_id: 'sess-1', state: 'idle', previous_state: 'speaking' })
+      setCompanionState({ sessionId: 'sess-1', state: 'idle', previousState: 'speaking' })
     );
     expect(state.sessionActive).toBe(false);
     expect(state.state).toBe('idle');
   });
 
-  it('setCompanionState to error stores message', () => {
+  it('setCompanionState to error clears sessionActive and keeps state', () => {
     const state = companionReducer(
       initialState,
-      setCompanionState({
-        session_id: 'sess-1',
-        state: 'error',
-        previous_state: 'thinking',
-        message: 'LLM timeout',
-      })
+      setCompanionState({ sessionId: 'sess-1', state: 'error', previousState: 'thinking' })
     );
     expect(state.state).toBe('error');
-    expect(state.lastError).toBe('LLM timeout');
     expect(state.sessionActive).toBe(false);
   });
 
@@ -72,7 +66,7 @@ describe('companionSlice', () => {
     const withError: CompanionSliceState = { ...initialState, lastError: 'old failure' };
     const state = companionReducer(
       withError,
-      setCompanionState({ session_id: 'sess-1', state: 'listening', previous_state: 'error' })
+      setCompanionState({ sessionId: 'sess-1', state: 'listening', previousState: 'error' })
     );
     expect(state.lastError).toBeNull();
     expect(state.state).toBe('listening');

@@ -59,8 +59,7 @@ impl Tool for ListSubagentsTool {
                 ));
             }
         };
-        let parent_thread_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id();
+        let parent_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
         match subagent_sessions::list_for_parent(
             &store,

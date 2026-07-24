@@ -23,7 +23,6 @@ use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::inference::provider::Provider;
 use openhuman_core::openhuman::proc_metrics;
 
 use crate::harness::{fixture, measure, FleetBudget, ProfileResult, Recorder, TurnLatency};
@@ -149,8 +148,7 @@ pub async fn run() -> Result<ProfileResult> {
     openhuman_core::openhuman::agent::bus::register_agent_handlers();
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let mock = LatencyMock::from_env("Fleet agent: nothing needs your attention.");
-    let provider: Arc<dyn Provider> = mock.clone();
-    let _provider = test_provider_override::install(provider);
+    let _provider = test_provider_override::install_model(mock.clone());
     eprintln!(
         "[library-profile] fleet: agents={agents_requested} turns={turns} \
          target={target_agents} budget_mib={ram_budget_mib}"

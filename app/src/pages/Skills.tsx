@@ -20,7 +20,6 @@ import MeetingsPage from '../components/meetings/MeetingsPage';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
 import CompanionPanel from '../components/settings/panels/CompanionPanel';
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
-import DesktopAgentPanel from '../components/settings/panels/DesktopAgentPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import LlmConnectionsPanel from '../components/settings/panels/LlmConnectionsPanel';
 import MeetingSettingsPanel from '../components/settings/panels/MeetingSettingsPanel';
@@ -29,7 +28,6 @@ import SearchPanel from '../components/settings/panels/SearchPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletPanel from '../components/settings/panels/WalletPanel';
-import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
 import UnifiedSkillCard from '../components/skills/SkillCard';
 import { SKILL_CATEGORY_ORDER, type SkillCategory } from '../components/skills/skillCategories';
@@ -43,7 +41,6 @@ import SkillSearchBar from '../components/skills/SkillSearchBar';
 import SkillsExplorerTab from '../components/skills/SkillsExplorerTab';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import BetaBanner from '../components/ui/BetaBanner';
-import { useAutocompleteSkillStatus } from '../features/autocomplete/useAutocompleteSkillStatus';
 import { useScreenIntelligenceSkillStatus } from '../features/screen-intelligence/useScreenIntelligenceSkillStatus';
 import { useVoiceSkillStatus } from '../features/voice/useVoiceSkillStatus';
 import { useChannelDefinitions } from '../hooks/useChannelDefinitions';
@@ -459,7 +456,6 @@ type ConnectionsTab =
   | 'composio-key'
   | 'wallet'
   | 'screen-intelligence'
-  | 'desktop-agent'
   | 'companion';
 
 /**
@@ -495,10 +491,6 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
       titleKey: 'pages.settings.features.screenAwareness',
       descKey: 'connections.header.screen',
     },
-    'desktop-agent': {
-      titleKey: 'settings.desktopAgent.title',
-      descKey: 'connections.header.desktopAgent',
-    },
     companion: {
       titleKey: 'pages.settings.features.desktopCompanion',
       descKey: 'connections.header.companion',
@@ -518,7 +510,6 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'composio-key',
   'wallet',
   'screen-intelligence',
-  'desktop-agent',
   'companion',
 ]);
 
@@ -550,7 +541,6 @@ export default function Skills() {
       raw === 'composio-key' ||
       raw === 'wallet' ||
       raw === 'screen-intelligence' ||
-      raw === 'desktop-agent' ||
       raw === 'companion'
     )
       return raw;
@@ -620,10 +610,8 @@ export default function Skills() {
     null
   );
   const [screenIntelligenceModalOpen, setScreenIntelligenceModalOpen] = useState(false);
-  const [autocompleteModalOpen, setAutocompleteModalOpen] = useState(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const screenIntelligenceStatus = useScreenIntelligenceSkillStatus();
-  const autocompleteStatus = useAutocompleteSkillStatus();
   const voiceStatus = useVoiceSkillStatus();
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -917,33 +905,6 @@ export default function Skills() {
                 />
               );
             }
-            if (item.id === 'text-autocomplete') {
-              return (
-                <UnifiedSkillCard
-                  key={item.id}
-                  icon={item.icon}
-                  title={item.name}
-                  description={item.description}
-                  statusLabel={autocompleteStatus.statusLabel}
-                  statusColor={autocompleteStatus.statusColor}
-                  ctaLabel={autocompleteStatus.ctaLabel}
-                  ctaVariant={autocompleteStatus.ctaVariant}
-                  testId={`skill-row-${item.id}`}
-                  ctaTestId={`skill-install-${item.id}`}
-                  onCtaClick={() => {
-                    if (
-                      autocompleteStatus.platformUnsupported ||
-                      autocompleteStatus.connectionStatus === 'connected' ||
-                      autocompleteStatus.connectionStatus === 'disconnected'
-                    ) {
-                      navigate(item.route!);
-                      return;
-                    }
-                    setAutocompleteModalOpen(true);
-                  }}
-                />
-              );
-            }
             if (item.id === 'voice-stt') {
               return (
                 <UnifiedSkillCard
@@ -1063,13 +1024,6 @@ export default function Skills() {
                     value: 'screen-intelligence',
                     label: t('pages.settings.features.screenAwareness'),
                     icon: navIcon('M3 5h18v12H3zM8 21h8m-4-4v4'),
-                  },
-                  {
-                    value: 'desktop-agent',
-                    label: t('settings.desktopAgent.title'),
-                    icon: navIcon(
-                      'M9 17v2m6-2v2M5 5h14a1 1 0 011 1v8a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1zm4 4l-2 2 2 2m6-4l2 2-2 2'
-                    ),
                   },
                   {
                     value: 'companion',
@@ -1213,7 +1167,6 @@ export default function Skills() {
                     {activeTab === 'usage' && <UsagePanel />}
                     {activeTab === 'composio-key' && <ComposioPanel />}
                     {activeTab === 'screen-intelligence' && <ScreenIntelligencePanel />}
-                    {activeTab === 'desktop-agent' && <DesktopAgentPanel />}
                     {activeTab === 'companion' && <CompanionPanel />}
                   </SettingsLayoutProvider>
                 </div>
@@ -1485,10 +1438,6 @@ export default function Skills() {
           onClose={() => setScreenIntelligenceModalOpen(false)}
           initialStep={screenIntelligenceStatus.allPermissionsGranted ? 'enable' : 'permissions'}
         />
-      )}
-
-      {autocompleteModalOpen && (
-        <AutocompleteSetupModal onClose={() => setAutocompleteModalOpen(false)} />
       )}
 
       {voiceModalOpen && (

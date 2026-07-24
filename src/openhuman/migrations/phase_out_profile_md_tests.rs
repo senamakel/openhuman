@@ -2,7 +2,7 @@ use super::*;
 use crate::openhuman::agent::harness::session::transcript::{
     read_transcript, write_transcript, TranscriptMeta,
 };
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 use std::fs;
 use tempfile::TempDir;
 

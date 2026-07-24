@@ -1,5 +1,10 @@
 # Plan: `openhuman tui` — feature-gated terminal chat UI
 
+> Historical v1 plan. The shipped CLI now extends this foundation into a Logs-first four-tab UI
+> (Logs, Chat, Config, Settings). Bare `openhuman` auto-launches only with terminal stdin/stdout on
+> a non-container host; `--no-tui` suppresses that default and explicit `openhuman tui` still forces
+> the UI. Config uses curated safe getters/updaters, and Settings uses registered auth controllers.
+
 ## Goal
 
 Running `openhuman-core tui` (alias `chat`) opens a ratatui-based terminal UI that is an

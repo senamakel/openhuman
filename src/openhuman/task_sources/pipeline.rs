@@ -192,12 +192,12 @@ async fn run_inner(
         outcome.routed += 1;
     }
 
-    outcome.pruned = reconcile_missing_tasks(config, source, &current_external_ids)?;
+    outcome.pruned = reconcile_missing_tasks(config, source, &current_external_ids).await?;
 
     Ok(())
 }
 
-fn reconcile_missing_tasks(
+async fn reconcile_missing_tasks(
     config: &Config,
     source: &TaskSource,
     current_external_ids: &HashSet<String>,
@@ -212,7 +212,7 @@ fn reconcile_missing_tasks(
         }
 
         if let Some(card_id) = item.card_id.as_deref().filter(|id| !id.trim().is_empty()) {
-            route::remove_card(config, card_id).map_err(|e| {
+            route::remove_card(config, card_id).await.map_err(|e| {
                 format!(
                     "remove stale card '{}' for source '{}' external task '{}': {e}",
                     card_id, source.id, item.external_id

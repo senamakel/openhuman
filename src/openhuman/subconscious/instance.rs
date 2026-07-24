@@ -252,6 +252,17 @@ impl SubconsciousInstance {
     /// The tick body given a loaded config. Split out so tests can drive it with
     /// a crafted `Config` without hitting disk (`Config::load_or_init`).
     async fn run_tick(&self, config: Config) -> Result<TickResult> {
+        // Subconscious-replacement draft (plan §5.2): when
+        // `subconscious.engine = "medulla"`, route observe→reflect→commit
+        // through one local `medulla-serve` instruct instead of the local
+        // tinyagents graph. The default (`local`) falls through to the
+        // unchanged body below, so default behaviour is byte-identical — the
+        // branch compiles out entirely when the `medulla-local` feature is off.
+        #[cfg(feature = "medulla-local")]
+        if config.subconscious.engine.is_medulla() {
+            return self.run_tick_medulla(config).await;
+        }
+
         let prefix = self.log_prefix();
         let started = std::time::Instant::now();
         let tick_at = now_secs();
@@ -330,6 +341,105 @@ impl SubconsciousInstance {
             state.last_tick_at = tick_at;
             persist_last_tick_at(&self.workspace_dir, self.profile.id(), tick_at);
         }
+
+        Ok(TickResult {
+            tick_at,
+            duration_ms: started.elapsed().as_millis() as u64,
+            response_chars,
+        })
+    }
+
+    /// The medulla-engine tick body (plan §5.2 draft). Observes the world the
+    /// same way the local graph does, then — instead of the local reflect turn
+    /// — enqueues ONE `instruct` on the supervised `medulla-serve` child
+    /// summarising the tick context, and advances the baseline via the
+    /// profile's own `commit`. Quiet windows short-circuit exactly like the
+    /// local path (no instruct, still commit). The hosted cycle runs async and
+    /// is observed via the serve event stream; this method only awaits the
+    /// synchronous receipt.
+    #[cfg(feature = "medulla-local")]
+    async fn run_tick_medulla(&self, config: Config) -> Result<TickResult> {
+        use crate::openhuman::medulla_local::ops::instruct_tick;
+        use serde_json::json;
+
+        let prefix = self.log_prefix();
+        let started = std::time::Instant::now();
+        let tick_at = now_secs();
+        let my_generation = self.tick_generation.fetch_add(1, Ordering::SeqCst) + 1;
+
+        let observation = self.profile.observe(&config).await;
+        debug!(
+            "{prefix} medulla tick observe has_changes={} external={}",
+            observation.has_changes, observation.has_external_content
+        );
+
+        if !observation.has_changes {
+            // Superseded-generation discard (mirrors the local graph path):
+            // a newer tick owns the baseline now, so committing this stale
+            // observation would clobber it.
+            if self.tick_generation.load(Ordering::SeqCst) != my_generation {
+                info!("{prefix} medulla quiet tick superseded by newer tick, discarding");
+                let mut state = self.state.lock().await;
+                state.total_ticks += 1;
+                return Ok(self.quiet_result(tick_at, started));
+            }
+            // Quiet window: no billed cycle, but still advance the baseline so
+            // the next tick observes only genuinely-new content (mirrors the
+            // local observe→commit quiet edge).
+            self.profile.commit(&config, &observation).await;
+            let mut state = self.state.lock().await;
+            state.total_ticks += 1;
+            state.consecutive_failures = 0;
+            state.last_tick_at = tick_at;
+            persist_last_tick_at(&self.workspace_dir, self.profile.id(), tick_at);
+            return Ok(self.quiet_result(tick_at, started));
+        }
+
+        let message = format!(
+            "Subconscious wake for world `{}`. Reconcile the following changes:\n\n{}",
+            self.profile.id(),
+            observation.rendered
+        );
+        let meta = json!({
+            "origin": "wake",
+            "world": self.profile.id(),
+            "tickId": tick_at as u64,
+        });
+
+        let response_chars = match instruct_tick(&config, &message, meta).await {
+            Ok(receipt) => {
+                info!(
+                    "{prefix} medulla instruct enqueued instruction_id={} cycle_id={}",
+                    receipt.instruction_id, receipt.cycle_id
+                );
+                // Superseded-generation discard (mirrors the local graph
+                // path): the instruction is already enqueued serve-side, but a
+                // newer tick owns the baseline now, so this stale observation
+                // must not commit or advance last_tick_at.
+                if self.tick_generation.load(Ordering::SeqCst) != my_generation {
+                    info!("{prefix} medulla tick superseded by newer tick, discarding");
+                    let mut state = self.state.lock().await;
+                    state.total_ticks += 1;
+                    return Ok(self.quiet_result(tick_at, started));
+                }
+                // Baseline advances on a successful enqueue; the cycle itself is
+                // observed via events (a failed cycle does not re-observe here).
+                self.profile.commit(&config, &observation).await;
+                let mut state = self.state.lock().await;
+                state.total_ticks += 1;
+                state.consecutive_failures = 0;
+                state.last_tick_at = tick_at;
+                persist_last_tick_at(&self.workspace_dir, self.profile.id(), tick_at);
+                observation.rendered.chars().count()
+            }
+            Err(error) => {
+                warn!("{prefix} medulla instruct failed: {error:#}");
+                let mut state = self.state.lock().await;
+                state.consecutive_failures += 1;
+                state.total_ticks += 1;
+                0
+            }
+        };
 
         Ok(TickResult {
             tick_at,

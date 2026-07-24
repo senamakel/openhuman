@@ -26,6 +26,7 @@ import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
 import { ShareMessageButton } from '../../share/ShareMessageButton';
 import { buildThreadTimeline } from '../timeline/selectors';
 import { type AgentBubblePosition, formatRelativeTime } from '../utils/format';
+import { supersededInterimIndexes } from '../utils/interimNarration';
 import { AgentMessageBubble, AgentMessageText, BubbleMarkdown } from './AgentMessageBubble';
 import { AgentProcessSourcePanel } from './AgentProcessSourcePanel';
 import { BackgroundProcessesPanel, selectBackgroundProcesses } from './BackgroundProcessesPanel';
@@ -265,7 +266,19 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
     const openSubagentEntry = openSubagentTaskId
       ? selectedThreadToolTimeline.find(entry => entry.subagent?.taskId === openSubagentTaskId)
       : undefined;
-    const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
+    // Interim narration bubbles ("Let me get the data for both.", "The HTML is
+    // hard to parse. Let me search for a clean table.") are live progress, not
+    // content: once the turn delivers its real answer they are superseded, and
+    // because they were never filtered they piled up permanently between the
+    // question and the answer. Hidden once their own turn produced a final,
+    // non-interim agent message — so a turn in flight keeps them visible, an
+    // answered turn drops them, and a turn that died before answering keeps
+    // them (they are its only record). They remain reachable via "View full
+    // agent process Source"; the Flows copilot drops them outright.
+    const supersededInterim = useMemo(() => supersededInterimIndexes(messages), [messages]);
+    const visibleMessages = messages.filter(
+      (msg, index) => !msg.extraMetadata?.hidden && !supersededInterim.has(index)
+    );
     const hasVisibleMessages = visibleMessages.length > 0;
     const latestVisibleMessage = visibleMessages[visibleMessages.length - 1] ?? null;
     const latestVisibleAgentMessage = [...visibleMessages]
@@ -441,6 +454,11 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
               // retry. `isSending` already excludes it (only `'started'` /
               // `'streaming'`, same as this component's own live-turn checks).
               turnActive={isSending}
+              // Interleaved narration + thinking + tool steps in stream order.
+              // Renders through the same `ProcessingTranscriptView` the Agent
+              // Process Source panel uses, so the rail IS a windowed view of the
+              // panel rather than a second, divergent rendering of the turn.
+              transcript={selectedThreadProcessing}
             />
           ) : (
             // Transcript-only turn: reasoning/narration was streamed but no tool
@@ -954,37 +972,29 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                     in-flight response. Rendered as plain text (not Markdown) to
                     avoid jitter from partially-parsed fences. The final bubble
                     replaces this via addInferenceResponse on chat_done. */}
-              {selectedStreamingAssistant &&
-                (selectedStreamingAssistant.thinking.length > 0 ||
-                  selectedStreamingAssistant.content.length > 0) && (
-                  <div className="flex justify-start">
-                    <div className="relative w-fit max-w-[75%]">
-                      {selectedStreamingAssistant.thinking.length > 0 && (
-                        <details className="mb-1.5 bg-surface-subtle rounded-lg px-3 py-1.5 text-xs text-content-secondary open:bg-stone-100 dark:bg-surface-muted dark:open:bg-neutral-800">
-                          <summary className="cursor-pointer select-none flex items-center gap-1.5">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
-                            <span>{t('chat.thinking')}</span>
-                          </summary>
-                          <pre className="whitespace-pre-wrap break-words mt-1.5 font-sans text-[11px] text-content-muted">
-                            {selectedStreamingAssistant.thinking.slice(-STREAMING_PREVIEW_CHARS)}
-                          </pre>
-                        </details>
-                      )}
-                      {selectedStreamingAssistant.content.length > 0 && (
-                        <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-surface-strong/80 dark:bg-surface-muted text-content">
-                          <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
-                            {selectedStreamingAssistant.content.length >
-                              STREAMING_PREVIEW_CHARS && (
-                              <span className="text-content-faint">…</span>
-                            )}
-                            {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
-                            <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
-                          </p>
-                        </div>
-                      )}
-                    </div>
+              {selectedStreamingAssistant && selectedStreamingAssistant.content.length > 0 && (
+                <div className="flex justify-start">
+                  <div className="relative w-fit max-w-[75%]">
+                    {/* Reasoning is not rendered here — the rail above renders
+                          the same reasoning through `ProcessingTranscriptView`,
+                          interleaved with the narration and tool steps it
+                          happened between. A separate bubble would show it twice
+                          with two lifetimes. The in-flight ANSWER preview below
+                          stays: that is the terminal response streaming in. */}
+                    {selectedStreamingAssistant.content.length > 0 && (
+                      <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-surface-strong/80 dark:bg-surface-muted text-content">
+                        <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
+                          {selectedStreamingAssistant.content.length > STREAMING_PREVIEW_CHARS && (
+                            <span className="text-content-faint">…</span>
+                          )}
+                          {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
+                          <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              )}
               {/* Interrupted turn's partial answer (restore-fidelity fix 2):
                     a settled, marked-interrupted bubble surfaced on restore. Only
                     when NOT streaming live (the buffer is cleared by any live turn

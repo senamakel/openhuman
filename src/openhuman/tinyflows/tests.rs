@@ -539,8 +539,8 @@ async fn preflight_invoker_gates_the_mock_tool_path() {
 
 use super::caps::{
     build_agent_result, clamp_run_timeout_secs, harness_model_default_override,
-    node_request_to_prompt, resolve_node_model, route_for_agent_ref, structured_output_instruction,
-    AgentRoute,
+    node_request_to_prompt, resolve_node_model, route_custom_entry_lookup, route_for_agent_ref,
+    structured_output_instruction, AgentRoute,
 };
 
 #[test]
@@ -695,5 +695,58 @@ fn route_for_agent_ref_selects_harness_for_definitions_else_fallback() {
     assert_eq!(
         route_for_agent_ref("totally_unknown_custom_agent_xyz"),
         AgentRoute::RegistryFallback
+    );
+}
+
+// ── B38 (Gap 2): a custom agent_ref must route to the harness (real tools),
+// not the persona-only completion fallback ─────────────────────────────────
+
+fn custom_registry_entry(enabled: bool) -> crate::openhuman::agent_registry::AgentRegistryEntry {
+    use crate::openhuman::agent_registry::types::{AgentRegistrySource, AgentSubagentPolicy};
+    crate::openhuman::agent_registry::AgentRegistryEntry {
+        id: "finance_analyst".to_string(),
+        name: "Finance Analyst".to_string(),
+        description: "Reviews spend and drafts finance summaries.".to_string(),
+        source: AgentRegistrySource::Custom,
+        enabled,
+        model: Some("hint:reasoning".to_string()),
+        system_prompt: Some("You are a meticulous finance analyst.".to_string()),
+        tool_allowlist: vec!["memory_search".to_string()],
+        tool_denylist: Vec::new(),
+        subagents: AgentSubagentPolicy::default(),
+        tags: Vec::new(),
+        metadata: json!(null),
+    }
+}
+
+#[test]
+fn route_custom_entry_lookup_routes_enabled_custom_entry_to_harness() {
+    let entry = custom_registry_entry(true);
+    assert_eq!(
+        route_custom_entry_lookup(Some(&entry)),
+        AgentRoute::Harness,
+        "a known, enabled custom-registry agent must run through the harness (real tools), \
+         not the persona-only completion fallback"
+    );
+}
+
+#[test]
+fn route_custom_entry_lookup_falls_back_for_disabled_custom_entry() {
+    let entry = custom_registry_entry(false);
+    assert_eq!(
+        route_custom_entry_lookup(Some(&entry)),
+        AgentRoute::RegistryFallback,
+        "a disabled custom entry must still go through run_via_registry_fallback, which \
+         rejects it with a clear \"is disabled\" error"
+    );
+}
+
+#[test]
+fn route_custom_entry_lookup_falls_back_when_no_entry_exists() {
+    assert_eq!(
+        route_custom_entry_lookup(None),
+        AgentRoute::RegistryFallback,
+        "an agent_ref unknown to both the harness registry and the custom config registry \
+         must still resolve through the fallback (which reports \"unknown agent_ref\")"
     );
 }

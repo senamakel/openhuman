@@ -351,40 +351,16 @@ async fn persist_reflection_writes_to_dedicated_namespace_and_category() {
 
 #[tokio::test]
 async fn on_turn_complete_dedupes_reflections_across_heuristic_and_llm_paths() {
-    use crate::openhuman::inference::provider::Provider;
-    use async_trait::async_trait;
-
-    // Stub provider returning a reflection LLM response whose
+    // Stub model returning a reflection LLM response whose
     // `user_reflections` array repeats the same sentence the heuristic
-    // would also lift out of the user message. Only `chat_with_system`
-    // needs implementing — `simple_chat` (the call-site used by
-    // `ReflectionHook::run_reflection` for the cloud path) has a
-    // default trait impl that delegates here.
-    struct StubProvider;
-    #[async_trait]
-    impl Provider for StubProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(r#"{"observations":[],"patterns":[],"user_preferences":[],
-                "user_reflections":["Going forward I want concise replies"]}"#
-                .into())
-        }
-    }
+    // would also lift out of the user message.
 
     let memory_impl = Arc::new(MockMemory::default());
     let memory: Arc<dyn Memory> = memory_impl.clone();
-    // Wrap the stub provider as a `ChatModel` (the field's type after the Phase 1
-    // migration); the hint/temperature baked here are inert for the stub.
-    let stub_model = crate::openhuman::inference::provider::chat_model_from_provider(
-        Box::new(StubProvider),
-        "hint:reasoning".to_string(),
-        0.3,
-    );
+    let stub_model = Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+        r#"{"observations":[],"patterns":[],"user_preferences":[],
+                "user_reflections":["Going forward I want concise replies"]}"#,
+    ]));
     let hook = ReflectionHook::new(
         reflection_config(),
         Arc::new(Config::default()),
@@ -556,29 +532,12 @@ async fn on_turn_complete_emits_candidates_to_buffer_for_heuristic_cues() {
 
 #[tokio::test]
 async fn on_turn_complete_emits_style_candidates_from_llm_preferences() {
-    use crate::openhuman::inference::provider::Provider;
     use crate::openhuman::learning::candidate::{self, FacetClass};
 
-    struct StubPrefProvider;
-    #[async_trait]
-    impl Provider for StubPrefProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(r#"{"observations":[],"patterns":[],"user_preferences":["verbosity=terse"],"user_reflections":[]}"#.into())
-        }
-    }
-
     let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
-    let stub_model = crate::openhuman::inference::provider::chat_model_from_provider(
-        Box::new(StubPrefProvider),
-        "hint:reasoning".to_string(),
-        0.3,
-    );
+    let stub_model = Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+        r#"{"observations":[],"patterns":[],"user_preferences":["verbosity=terse"],"user_reflections":[]}"#,
+    ]));
     let hook = ReflectionHook::new(
         reflection_config(),
         Arc::new(Config::default()),

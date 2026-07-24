@@ -504,10 +504,16 @@ pub async fn get_composio_trigger_settings() -> Result<RpcOutcome<serde_json::Va
     ))
 }
 
-/// Resolves the effective API URL from configuration or defaults.
+/// Resolve the hosted backend URL, excluding local or third-party inference
+/// overrides that must never receive OpenHuman session credentials.
+pub(crate) fn resolve_backend_api_url(config: &Config) -> String {
+    crate::api::config::effective_backend_api_url(&config.api_url)
+}
+
+/// Resolves the effective backend API URL from configuration or defaults.
 pub async fn load_and_resolve_api_url() -> Result<RpcOutcome<serde_json::Value>, String> {
     let config = load_config_with_timeout().await?;
-    let resolved = crate::api::config::effective_api_url(&config.api_url);
+    let resolved = resolve_backend_api_url(&config);
     Ok(RpcOutcome::new(
         serde_json::json!({ "api_url": resolved }),
         Vec::new(),

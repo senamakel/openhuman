@@ -17,10 +17,10 @@ use crate::openhuman::memory::ingestion::{
     IngestionJob, IngestionQueue, IngestionState, MemoryIngestionConfig, MemoryIngestionRequest,
     MemoryIngestionResult,
 };
+use crate::openhuman::memory_store::namespace_store::UnifiedMemory;
 use crate::openhuman::memory_store::types::{
     NamespaceDocumentInput, NamespaceMemoryHit, NamespaceRetrievalContext,
 };
-use crate::openhuman::memory_store::unified::UnifiedMemory;
 
 /// Reference-counted handle to a `MemoryClient`.
 pub type MemoryClientRef = Arc<MemoryClient>;
@@ -56,7 +56,7 @@ pub struct MemoryClient {
 impl MemoryClient {
     /// Returns a handle to the underlying SQLite connection for direct
     /// profile-facet writes via
-    /// [`crate::openhuman::memory_store::unified::profile::profile_upsert`].
+    /// [`crate::openhuman::memory_store::namespace_store::profile::profile_upsert`].
     ///
     /// Intentionally `pub(crate)` — external consumers should use the
     /// higher-level `MemoryClient` API; this escape hatch exists so

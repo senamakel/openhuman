@@ -293,7 +293,6 @@ if should_run_suite "notifications"; then
   run "test/e2e/specs/memory-roundtrip.spec.ts"               "memory-roundtrip"          "notifications"
   run "test/e2e/specs/coding-session-memory.spec.ts"           "coding-session-memory"     "notifications"
   run "test/e2e/specs/cron-jobs-flow.spec.ts"                 "cron-jobs"                 "notifications"
-  run "test/e2e/specs/autocomplete-flow.spec.ts"              "autocomplete"              "notifications"
   _mini_summary "notifications"
 fi
 

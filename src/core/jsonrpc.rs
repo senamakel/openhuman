@@ -2092,6 +2092,12 @@ fn register_domain_subscribers(
     }
 
     // Channels: inbound dispatch + web-only proactive messaging.
+    // The `plan.channels` runtime guard cannot stand in for the compile-time
+    // gate: the `channels::bus::ChannelInboundSubscriber` +
+    // `channels::proactive` type paths below must still resolve for this to
+    // compile, so the whole block is `#[cfg]`-gated too (mirrors the flows
+    // dual-gate below).
+    #[cfg(feature = "channels")]
     if plan.channels {
         if group_first_time(DomainGroup::Channels) {
             if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
@@ -2112,6 +2118,10 @@ fn register_domain_subscribers(
             "[event_bus] Channels subscribers (inbound + web-only proactive) SKIPPED — Channels domain disabled"
         );
     }
+    #[cfg(not(feature = "channels"))]
+    log::debug!(
+        "[event_bus] Channels subscribers (inbound + web-only proactive) SKIPPED — channels feature disabled at compile time"
+    );
 
     // Flows trigger dispatch (issue B2): maps FlowScheduleTick /
     // ComposioTriggerReceived / WebhookIncomingRequest onto enabled flows and
@@ -2506,7 +2516,7 @@ pub async fn bootstrap_core_runtime(
 /// `CoreBuilder::build()` only to use in-process RPC, and a failed listener bind
 /// must not leave pollers, one-shot jobs, MCP processes, or socket reconnect work
 /// running without a live runtime.
-pub fn start_core_runtime_services(
+pub async fn start_core_runtime_services(
     services: crate::core::runtime::ServiceSet,
     config: Option<&crate::openhuman::config::Config>,
 ) {
@@ -2518,15 +2528,17 @@ pub fn start_core_runtime_services(
     };
 
     // Long-lived bootstrap loops selected by ServiceSet.
-    crate::core::runtime::services::start_bootstrap_jobs(services, cfg);
-
     // One-time first-run initialization (managed Python runtime, spaCy model,
     // managed Node runtime). Spawned AFTER subscribers are live but does NOT
     // block the ready signal — the core becomes RPC-ready immediately and the
     // frontend watches per-step progress via `openhuman.harness_init_status`.
     // On a warm host every step's `is_done` probe passes and this settles
     // instantly. See `crate::openhuman::harness_init`.
-    crate::core::runtime::services::start_boot_once_jobs(services, cfg);
+    crate::core::runtime::services::start_boot_once_jobs(services, cfg).await;
+
+    // Long-lived bootstrap loops selected by ServiceSet. These start only
+    // after the legacy goal/task-board migrations above have completed.
+    crate::core::runtime::services::start_bootstrap_jobs(services, cfg);
 
     match crate::openhuman::socket::global_socket_manager() {
         Some(socket_mgr) => {

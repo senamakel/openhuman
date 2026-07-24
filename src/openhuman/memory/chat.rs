@@ -53,7 +53,7 @@ pub trait ChatProvider: Send + Sync {
     /// that don't thread usage keep compiling unchanged. The production
     /// `InferenceChatProvider` overrides this to route through the
     /// inference `Provider::chat` API, which already parses usage out of
-    /// the backend response (see `compatible::extract_usage`).
+    /// the backend response.
     async fn chat_for_text_with_usage(
         &self,
         prompt: &ChatPrompt,

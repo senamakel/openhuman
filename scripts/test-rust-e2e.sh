@@ -32,7 +32,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # `-- --ignored`.
 ALL_E2E_SUITES=(
   agent_retrieval_e2e
-  autocomplete_memory_e2e
   calendar_grounding_e2e
   config_auth_app_state_connectivity_e2e
   composio_post_oauth_retry_e2e

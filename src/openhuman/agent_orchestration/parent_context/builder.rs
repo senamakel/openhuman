@@ -99,6 +99,7 @@ pub(crate) async fn build_root_parent(
         // No visibility filter for this spawned/background builder — empty means
         // "unknown" and callers fall back to the full registry (see field doc).
         visible_tool_names: HashSet::new(),
+        subagent_tool_ceiling_names: HashSet::new(),
         model_name: agent.model_name().to_string(),
         temperature: agent.temperature(),
         workspace_dir: agent.workspace_dir().to_path_buf(),

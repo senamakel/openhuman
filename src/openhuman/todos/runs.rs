@@ -341,7 +341,7 @@ fn check_staleness(run: &TaskRun, now: &DateTime<Utc>, limits: &RunLimits) -> Op
 /// Reclaim stale runs: mark the run as `Reclaimed`, then move the card
 /// back to `todo` (re-dispatchable) or `blocked` (if reclaim count
 /// exceeds `max_reclaim_count`).
-pub fn reclaim_stale(
+pub async fn reclaim_stale(
     location: &BoardLocation,
     limits: &RunLimits,
 ) -> Result<ReclaimResult, String> {
@@ -403,7 +403,7 @@ pub fn reclaim_stale(
             ..Default::default()
         };
 
-        match ops::edit(location, &stale_run.card_id, patch) {
+        match ops::edit(location, &stale_run.card_id, patch).await {
             Ok(_) => {
                 tracing::info!(
                     run_id = %stale_run.run_id,
@@ -680,14 +680,18 @@ mod tests {
         assert!(check_staleness(&run, &now, &limits).is_none());
     }
 
-    #[test]
-    fn reclaim_stale_moves_card_to_todo() {
+    #[tokio::test]
+    async fn reclaim_stale_moves_card_to_todo() {
         let dir = tempdir().unwrap();
         let loc = thread_loc(dir.path(), "reclaim-test-1");
 
-        let snap = ops::add(&loc, "reclaimable task", CardPatch::default()).unwrap();
+        let snap = ops::add(&loc, "reclaimable task", CardPatch::default())
+            .await
+            .unwrap();
         let card_id = snap.cards[0].id.clone();
-        ops::update_status(&loc, &card_id, TaskCardStatus::InProgress).unwrap();
+        ops::update_status(&loc, &card_id, TaskCardStatus::InProgress)
+            .await
+            .unwrap();
 
         // Create a run with an old heartbeat
         {
@@ -709,23 +713,27 @@ mod tests {
             save_runs(&loc, &[run]).unwrap();
         }
 
-        let result = reclaim_stale(&loc, &RunLimits::default()).unwrap();
+        let result = reclaim_stale(&loc, &RunLimits::default()).await.unwrap();
         assert_eq!(result.reclaimed_count, 1);
         assert_eq!(result.blocked_count, 0);
         assert_eq!(result.details[0].new_card_status, "todo");
 
-        let snap = ops::list(&loc).unwrap();
+        let snap = ops::list(&loc).await.unwrap();
         assert_eq!(snap.cards[0].status, TaskCardStatus::Todo);
     }
 
-    #[test]
-    fn reclaim_blocks_after_max_reclaims() {
+    #[tokio::test]
+    async fn reclaim_blocks_after_max_reclaims() {
         let dir = tempdir().unwrap();
         let loc = thread_loc(dir.path(), "reclaim-block-test");
 
-        let snap = ops::add(&loc, "troublesome task", CardPatch::default()).unwrap();
+        let snap = ops::add(&loc, "troublesome task", CardPatch::default())
+            .await
+            .unwrap();
         let card_id = snap.cards[0].id.clone();
-        ops::update_status(&loc, &card_id, TaskCardStatus::InProgress).unwrap();
+        ops::update_status(&loc, &card_id, TaskCardStatus::InProgress)
+            .await
+            .unwrap();
 
         // Seed prior reclaimed runs (3 = at the limit)
         {
@@ -763,12 +771,12 @@ mod tests {
             save_runs(&loc, &runs).unwrap();
         }
 
-        let result = reclaim_stale(&loc, &RunLimits::default()).unwrap();
+        let result = reclaim_stale(&loc, &RunLimits::default()).await.unwrap();
         assert_eq!(result.reclaimed_count, 0);
         assert_eq!(result.blocked_count, 1);
         assert_eq!(result.details[0].new_card_status, "blocked");
 
-        let snap = ops::list(&loc).unwrap();
+        let snap = ops::list(&loc).await.unwrap();
         assert_eq!(snap.cards[0].status, TaskCardStatus::Blocked);
         assert!(snap.cards[0]
             .blocker
@@ -777,18 +785,22 @@ mod tests {
             .contains("Reclaimed"));
     }
 
-    #[test]
-    fn reclaim_skips_healthy_runs() {
+    #[tokio::test]
+    async fn reclaim_skips_healthy_runs() {
         let dir = tempdir().unwrap();
         let loc = thread_loc(dir.path(), "healthy-test");
 
-        let snap = ops::add(&loc, "healthy task", CardPatch::default()).unwrap();
+        let snap = ops::add(&loc, "healthy task", CardPatch::default())
+            .await
+            .unwrap();
         let card_id = snap.cards[0].id.clone();
-        ops::update_status(&loc, &card_id, TaskCardStatus::InProgress).unwrap();
+        ops::update_status(&loc, &card_id, TaskCardStatus::InProgress)
+            .await
+            .unwrap();
 
         create_run(&loc, "healthy-run", &card_id, "default").unwrap();
 
-        let result = reclaim_stale(&loc, &RunLimits::default()).unwrap();
+        let result = reclaim_stale(&loc, &RunLimits::default()).await.unwrap();
         assert_eq!(result.reclaimed_count, 0);
         assert_eq!(result.blocked_count, 0);
     }

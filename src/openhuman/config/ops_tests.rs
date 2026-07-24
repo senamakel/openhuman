@@ -1457,6 +1457,21 @@ async fn load_and_resolve_api_url_returns_api_url_in_response() {
     }
 }
 
+#[test]
+fn resolve_api_url_keeps_inference_overrides_away_from_backend_credentials() {
+    let mut config = Config::default();
+
+    for inference_url in ["http://localhost:11434/v1", "https://openrouter.ai/api/v1"] {
+        config.api_url = Some(inference_url.to_string());
+        let resolved = resolve_backend_api_url(&config);
+        assert_ne!(resolved, inference_url);
+        assert!(
+            resolved.contains("tinyhumans.ai"),
+            "expected hosted backend fallback, got {resolved}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn workspace_onboarding_flag_resolve_rejects_invalid_and_defaults() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());

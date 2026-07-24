@@ -18,12 +18,10 @@
 //! reproduces it exactly. It is a pure function so the policy is unit-tested
 //! without spinning a live loop.
 //!
-//! Still to land in W4 (tracked in the migration spec): the real
-//! `HostQueueDelegates` that bridges the 8 delegate methods to the host
-//! `memory_tree` engine (paired with W5), the tokio worker-loop + scheduler that
-//! applies this policy while driving `run_once`, re-pointing `memory/global.rs`
-//! and the enqueue call sites onto `queue::store`, and deleting the legacy
-//! `memory_queue` engine. This brick is additive: nothing is flipped yet.
+//! The host worker is flipped to `tinycortex::memory::queue::run_once` through
+//! `HostQueueDelegates`. The adapter preserves host-owned scheduling, health
+//! reporting, event-bus publishing, and product-policy hooks while the crate
+//! owns claim/dispatch/settle.
 
 use std::time::Duration;
 

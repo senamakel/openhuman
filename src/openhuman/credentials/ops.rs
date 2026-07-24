@@ -151,22 +151,6 @@ pub async fn start_login_gated_services(config: &Config) {
         ));
     }
 
-    // 5. Autocomplete (text suggestions + Swift overlay helper).
-    {
-        let config = config.clone();
-        tasks.push((
-            "autocomplete",
-            tokio::spawn(async move {
-                let step = std::time::Instant::now();
-                crate::openhuman::autocomplete::start_if_enabled(&config).await;
-                log::debug!(
-                    "[services] autocomplete started ({} ms)",
-                    step.elapsed().as_millis()
-                );
-            }),
-        ));
-    }
-
     // 6. Orchestration hosted-client: read-sync loop + world-diff uploader +
     //    one-shot history migration. Idempotent (aborts a prior session's loops
     //    first); no-op when orchestration is disabled. Runs here so both startup
@@ -209,16 +193,6 @@ pub async fn start_login_gated_services(config: &Config) {
 /// Stop all login-gated background services.  Called from `clear_session()`
 /// on logout so orphan processes don't consume resources.
 pub async fn stop_login_gated_services(config: &Config) {
-    // 1. Autocomplete — stop engine + Swift overlay helper.
-    {
-        let engine = crate::openhuman::autocomplete::global_engine();
-        let status = engine.status().await;
-        if status.running {
-            engine.stop(None).await;
-            log::info!("[services] autocomplete engine stopped on logout");
-        }
-    }
-
     // 2. Voice server
     if let Some(server) = crate::openhuman::voice::server::try_global_server() {
         server.stop().await;
@@ -739,6 +713,7 @@ fn normalize_local_session_user(user: serde_json::Value, local_user_id: &str) ->
 }
 
 pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Value>, String> {
+    let mut logs = Vec::new();
     // Flip the scheduler-gate override first so any background worker that
     // is mid-iteration (or wakes up while we tear down) stalls at its next
     // `wait_for_capacity()` call instead of firing requests at a backend
@@ -769,15 +744,45 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
     // different user signs in to the same sidecar process.
     crate::openhuman::subconscious::registry::reset_engine_for_user_switch().await;
 
+    // The process stays alive after desktop/TUI logout, so every process-global
+    // store must follow the now-active pre-login workspace. Without this, a
+    // signed-out caller can keep reading the previous account's context until
+    // the process restarts.
+    match crate::openhuman::config::load_config_with_timeout().await {
+        Ok(signed_out_config) => {
+            let workspace = signed_out_config.workspace_dir.clone();
+            if let Err(error) = crate::openhuman::memory::global::init(workspace.clone()) {
+                tracing::warn!(%error, "failed to rebind memory after logout");
+            }
+            if let Err(error) =
+                crate::core::runtime::context::CoreContext::rebind_default_workspace_dir(&workspace)
+            {
+                tracing::warn!(%error, "failed to rebind core context after logout");
+            }
+            if let Err(error) = crate::openhuman::people::store::init_from_workspace(&workspace) {
+                tracing::warn!(%error, "failed to rebind people store after logout");
+            }
+            crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
+                workspace.clone(),
+            );
+            logs.push(format!(
+                "process globals rebound to signed-out workspace {}",
+                workspace.display()
+            ));
+        }
+        Err(error) => {
+            tracing::warn!(%error, "failed to resolve signed-out workspace after logout");
+            logs.push(format!("signed-out workspace rebind warning: {error}"));
+        }
+    }
+
     // Drop the Sentry scope user so events surfaced during/after teardown
     // (and before the next login) are no longer attributed to the
     // signed-out account — issue #3135.
     super::sentry_scope::clear();
 
-    Ok(RpcOutcome::single_log(
-        json!({ "removed": removed }),
-        "session cleared",
-    ))
+    logs.push("session cleared".to_string());
+    Ok(RpcOutcome::new(json!({ "removed": removed }), logs))
 }
 
 pub async fn auth_get_state(
@@ -926,7 +931,7 @@ pub async fn store_provider_credentials(
 /// bare slug (`openrouter`) the inference classifier records under.
 fn clear_provider_auth_error(provider: &str) {
     let slug = provider.strip_prefix("provider:").unwrap_or(provider);
-    crate::openhuman::inference::provider::auth_error_registry::clear(slug);
+    crate::openhuman::inference::auth_error_registry::clear(slug);
 }
 
 pub async fn remove_provider_credentials(

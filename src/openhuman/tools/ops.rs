@@ -78,6 +78,9 @@ pub fn all_tools(
         root_config,
         None,
         None,
+        None,
+        None,
+        None,
     )
 }
 
@@ -98,13 +101,17 @@ pub fn all_tools_with_runtime(
     action_dir: &std::path::Path,
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::openhuman::config::Config,
+    active_profile: Option<&crate::openhuman::profiles::AgentProfile>,
     skill_allowlist: Option<&std::collections::HashSet<String>>,
     mcp_allowlist: Option<&[String]>,
+    profile_skills_root: Option<&std::path::Path>,
+    approval_workspace_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
-    // `skill_allowlist` scopes only the `skills`-gated tool registrations
-    // below, so it is genuinely unread when that feature is compiled out.
+    // `skill_allowlist` / `profile_skills_root` scope only the `skills`-gated
+    // tool registrations below, so they are genuinely unread when that feature
+    // is compiled out.
     #[cfg(not(feature = "skills"))]
-    let _ = skill_allowlist;
+    let _ = (active_profile, skill_allowlist, profile_skills_root);
 
     // Build a session-scoped managed Node.js bootstrap once, so ShellTool,
     // NodeExecTool, and NpmExecTool all share the same memoised resolution
@@ -151,10 +158,18 @@ pub fn all_tools_with_runtime(
         python_bootstrap.as_ref().map(Arc::clone),
     ));
 
+    let file_write: Box<dyn Tool> = match approval_workspace_root {
+        Some(root) => Box::new(FileWriteTool::with_approval_workspace_root(
+            security.clone(),
+            root.to_path_buf(),
+        )),
+        None => Box::new(FileWriteTool::new(security.clone())),
+    };
+
     let mut tools: Vec<Box<dyn Tool>> = vec![
         shell,
         Box::new(FileReadTool::new(security.clone())),
-        Box::new(FileWriteTool::new(security.clone())),
+        file_write,
         // Coding-harness baseline tools (issue #1205): file navigation
         // + atomic editing primitives. Use these instead of falling
         // through to `shell` for grep/find/sed work.
@@ -226,9 +241,19 @@ pub fn all_tools_with_runtime(
         // `await_run_outcome` — the same spawn path `openhuman.skills_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
         #[cfg(feature = "skills")]
-        Box::new(RunWorkflowTool::new().with_skill_allowlist(skill_allowlist.cloned())),
+        Box::new(
+            RunWorkflowTool::new()
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
-        Box::new(AwaitWorkflowTool::new()),
+        Box::new(
+            AwaitWorkflowTool::new()
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         Box::new(CurrentTimeTool::new()),
         // Reversibility for native tool-output compaction (Stage 1a): when a
         // large result is compacted with a `retrieve_tool_output("<hash>")`
@@ -245,29 +270,6 @@ pub fn all_tools_with_runtime(
         // latest messages). `resolve_time` does the conversion and returns the
         // value ready to paste into a tool argument.
         Box::new(ResolveTimeTool::new()),
-        Box::new(LaunchAppTool::new()),
-        // `ax_interact` + `automate` are the `computer`-family tools — compiled
-        // out with the `desktop-automation` feature (same idiom as the
-        // `screen_intelligence_*` block below).
-        #[cfg(feature = "desktop-automation")]
-        Box::new(AxInteractTool::new(
-            root_config.computer_control.ax_interact_mutations,
-        )),
-        // Multi-step UI automation in one call. Shares the ax_interact opt-in
-        // (mutations) and sensitive-app denylist; runs a Rust perceive→act→verify
-        // loop with a fast model so the chat model stays out of the click loop.
-        #[cfg(feature = "desktop-automation")]
-        Box::new(AutomateTool::new(
-            root_config.computer_control.ax_interact_mutations,
-        )),
-        Box::new(CodegraphIndexTool::new(
-            config.clone(),
-            action_dir.to_path_buf(),
-        )),
-        Box::new(CodegraphSearchTool::new(
-            config.clone(),
-            action_dir.to_path_buf(),
-        )),
         Box::new(DetectToolsTool::new()),
         Box::new(InstallToolTool::new(security.clone())),
         // Orchestration session-history read tools — browse persisted
@@ -459,12 +461,15 @@ pub fn all_tools_with_runtime(
         Box::new(MonitorListTool),
         Box::new(MonitorStopTool),
         Box::new(MonitorReadTool),
-        // WhatsApp data store — read-only agent surface (issue #1341).
-        // The matching `whatsapp_data_ingest` write-path stays internal-only
-        // (registered in `src/core/all.rs::build_internal_only_controllers`)
-        // and is intentionally NOT wrapped here.
+        // WhatsApp data store — read-only agent surface (issue #1341). The
+        // store lives in the Tauri shell; these tools reach it over the
+        // in-process native request bus. The matching ingest write-path is
+        // scanner-only (dispatched by the shell) and intentionally NOT a tool.
+        #[cfg(feature = "channels")]
         Box::new(WhatsAppDataListChatsTool),
+        #[cfg(feature = "channels")]
         Box::new(WhatsAppDataListMessagesTool),
+        #[cfg(feature = "channels")]
         Box::new(WhatsAppDataSearchMessagesTool),
         Box::new(ScheduleTool::new(security.clone(), root_config.clone())),
         Box::new(ProxyConfigTool::new(config.clone(), security.clone())),
@@ -511,12 +516,15 @@ pub fn all_tools_with_runtime(
         // `tools::user_filter` (install also fetches remote content).
         #[cfg(feature = "skills")]
         Box::new(
-            WorkflowListTool::new(config.clone()).with_skill_allowlist(skill_allowlist.cloned()),
+            WorkflowListTool::new(config.clone())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         #[cfg(feature = "skills")]
         Box::new(
             WorkflowDescribeTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned()),
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
@@ -538,12 +546,23 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "skills")]
         Box::new(
             WorkflowReadResourceTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned()),
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         #[cfg(feature = "skills")]
-        Box::new(WorkflowRecentRunsTool::new(config.clone())),
+        Box::new(
+            WorkflowRecentRunsTool::new(config.clone())
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
-        Box::new(WorkflowReadRunLogTool::new(config.clone())),
+        Box::new(
+            WorkflowReadRunLogTool::new(config.clone())
+                .with_active_profile(active_profile.cloned())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
         Box::new(WorkflowCreateTool::new(config.clone())),
         #[cfg(feature = "skills")]
@@ -691,38 +710,21 @@ pub fn all_tools_with_runtime(
         // MCP install/uninstall (mcp_manage), and persona/workspace writers
         // (workspace_manage) ship default-OFF via `tools::user_filter`.
         //
-        // The 15 `screen_intelligence_*` tools are compiled out with the
-        // `desktop-automation` feature — the per-element attrs inside the
-        // `vec![]` mirror the `mcp` idiom below.
-        #[cfg(feature = "desktop-automation")]
+        // Screen intelligence tools (always-on Platform family).
         Box::new(ScreenStatusTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenCaptureImageRefTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenVisionRecentTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenVisionFlushTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenRefreshPermissionsTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenCaptureNowTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenCaptureTestTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenSessionStartTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenSessionStopTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenInputActionTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenGlobeStartTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenGlobePollTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenGlobeStopTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenRequestPermissionsTool),
-        #[cfg(feature = "desktop-automation")]
         Box::new(ScreenRequestPermissionTool),
         // MCP registry (dynamic, user-installed servers) — compiled out with
         // the `mcp` feature. Per-element attrs inside the `vec![]` mirror the
@@ -1018,6 +1020,8 @@ pub fn all_tools_with_runtime(
             security.clone(),
             Arc::clone(&runtime),
             Arc::clone(bootstrap),
+            root_config.runtime_pool.clone(),
+            root_config.workspace_dir.clone(),
         )));
         tools.push(Box::new(NpmExecTool::new(
             security.clone(),
@@ -1027,19 +1031,23 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[tools::ops] registered node_exec + npm_exec");
     }
 
+    // Managed Python exec tool — gated on `root_config.runtime_python.enabled`.
+    // Shares the same `PythonBootstrap` as ShellTool. Inline code routes through
+    // the shared runtime pool (#5106) when enabled.
+    if let Some(bootstrap) = python_bootstrap.as_ref() {
+        tools.push(Box::new(PythonExecTool::new(
+            security.clone(),
+            Arc::clone(&runtime),
+            Arc::clone(bootstrap),
+            root_config.runtime_pool.clone(),
+            root_config.workspace_dir.clone(),
+        )));
+        tracing::debug!("[tools::ops] registered python_exec");
+    }
+
     // Vision tools are always available
     tools.push(Box::new(ScreenshotTool::new(security.clone())));
     tools.push(Box::new(ImageInfoTool::new(security.clone())));
-
-    // Native mouse + keyboard control (disabled by default). The `MouseTool` /
-    // `KeyboardTool` are `computer`-family tools — compiled out with the
-    // `desktop-automation` feature.
-    #[cfg(feature = "desktop-automation")]
-    if root_config.computer_control.enabled {
-        tools.push(Box::new(MouseTool::new(security.clone())));
-        tools.push(Box::new(KeyboardTool::new(security.clone())));
-        tracing::debug!("[computer] mouse and keyboard tools registered");
-    }
 
     // Tool effectiveness stats (enabled when learning is on)
     tracing::debug!(
@@ -1381,16 +1389,6 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     // Threads family (harness-kept): thread_* + todo_* + per-thread goal + search.
     if name.starts_with("thread_") || name.starts_with("todo_") || THREADS_EXTRA.contains(&name) {
         return DomainGroup::Threads;
-    }
-    // Desktop-automation family: the 15 `screen_intelligence_*` tools plus the
-    // four `computer`-family tools (`ax_interact`, `automate`, `mouse`,
-    // `keyboard`). Compiled out with the `desktop-automation` feature; tagged so
-    // the runtime `DomainSet::desktop_automation` axis gates them consistently
-    // with the autocomplete/screen_intelligence/desktop_companion controllers.
-    if name.starts_with("screen_intelligence_")
-        || matches!(name, "ax_interact" | "automate" | "mouse" | "keyboard")
-    {
-        return DomainGroup::DesktopAutomation;
     }
     // Everything else — shell/file/config/security/agent/billing/… — is
     // Platform: present under full(), absent under harness()/none().

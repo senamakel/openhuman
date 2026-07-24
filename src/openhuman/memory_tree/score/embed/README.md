@@ -1,18 +1,17 @@
-# Memory tree — score embed (Phase 4 / #710)
+# Memory tree embedding bridge
 
-Vector embedder for chunks and summaries. Produces a fixed-dimension (`EMBEDDING_DIM = 768`) `Vec<f32>` per text so retrieval can rerank candidates by semantic similarity. Default backend is local Ollama running `nomic-embed-text`; tests use the deterministic `InertEmbedder` so no network is required.
+The memory tree stores fixed 1024-dimensional vectors. Concrete provider
+transports live in TinyAgents; this directory keeps only memory-tree policy and
+compatibility:
 
-## Public surface
+- `factory.rs`: read/write provider resolution, cloud-session policy, and
+  degraded-state behavior;
+- `openai_compat.rs`: OpenHuman config/credential and custom-slug resolution;
+- `inert.rs`: deterministic 1024-element zero vectors for opt-out/tests;
+- `mod.rs`: the legacy `Embedder` contract, `ProviderEmbedder` bridge, batch
+  fallback/dimension checks, cosine math, and SQLite f32 packing helpers.
 
-- `pub trait Embedder` — `mod.rs` — `embed(text) -> Vec<f32>` contract; impls must return exactly `EMBEDDING_DIM` floats.
-- `pub fn build_embedder_from_config` — `factory.rs` — returns `OllamaEmbedder` when configured, otherwise `InertEmbedder` (or bails when `embedding_strict = true`).
-- `pub struct OllamaEmbedder` — `ollama.rs` — HTTP client posting to `{endpoint}/api/embeddings`.
-- `pub struct InertEmbedder` — `inert.rs` — zero-vector embedder for tests.
-- `pub fn cosine_similarity` / `pack_embedding` / `unpack_embedding` / `pack_checked` / `decode_optional_blob` — `mod.rs` — math + SQLite BLOB packing helpers.
-
-## Files
-
-- `mod.rs` — trait, `EMBEDDING_DIM`, math + pack/unpack helpers, write-time / read-time semantics.
-- `factory.rs` — `Config::memory_tree`-driven embedder selection with `embedding_strict` opt-in.
-- `ollama.rs` — Ollama `/api/embeddings` client; defaults at `http://localhost:11434` / `nomic-embed-text` / 10s timeout.
-- `inert.rs` — zero-vector embedder; cosine similarity between any two inert vectors is 0.0 (zero-magnitude short-circuit), so retrieval tests that need real reranking should hand-stitch embeddings instead of relying on this path.
+Ollama uses TinyAgents `OllamaEmbeddingModel` and `/api/embed`, with the shared
+8192-token context and batch window. Managed cloud uses the host credential and
+privacy wrapper around TinyAgents `CloudEmbeddingModel`. Do not add provider
+HTTP clients in this directory.

@@ -133,3 +133,5 @@ distribution.cer
 CHANGELOG.preview.md
 *.profraw
 *.diff
+
+.claude/worktrees/

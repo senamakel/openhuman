@@ -1,10 +1,10 @@
 use anyhow::Result;
+use openhuman_core::openhuman::agent::messages::ChatMessage;
 use openhuman_core::openhuman::agent::multimodal::{
     contains_image_markers, count_image_markers, extract_ollama_image_payload, parse_image_markers,
     prepare_messages_for_provider,
 };
 use openhuman_core::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
-use openhuman_core::openhuman::inference::provider::ChatMessage;
 
 #[test]
 fn marker_helpers_cover_mixed_content_and_payload_extraction() {

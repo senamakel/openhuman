@@ -25,6 +25,7 @@ use tinyflows::error::{EngineError, Result};
 use tinyflows::model::WorkflowGraph;
 
 use crate::openhuman::agent::harness::definition::SandboxMode;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::composio::client::{
     create_composio_client, direct_execute, direct_list_tools, ComposioClientKind,
 };
@@ -32,8 +33,7 @@ use crate::openhuman::config::{Config, HttpRequestConfig};
 use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;
 use crate::openhuman::inference::provider::{
-    create_chat_model_with_model_id, is_raw_passthrough_model, role_for_model_tier, ChatMessage,
-    UsageInfo,
+    create_chat_model_with_model_id, is_raw_passthrough_model, role_for_model_tier, UsageInfo,
 };
 use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
 use crate::openhuman::security::{
@@ -431,6 +431,67 @@ pub(crate) fn parse_llm_json(text: &str) -> Option<Value> {
     };
     let parsed = serde_json::from_str::<Value>(candidate).ok()?;
     matches!(parsed, Value::Object(_) | Value::Array(_)).then_some(parsed)
+}
+
+/// Find and parse a fenced JSON block (```json … ``` or ``` … ```) anywhere
+/// in `text`, not just when the whole text starts with it. Returns `None` when
+/// no fenced block parses to an object or array.
+fn extract_fenced_json_block(text: &str) -> Option<Value> {
+    let text = text.trim();
+    // Look for the first opening ``` fence
+    let fence_start = text.find("```")?;
+    let after_fence = text[fence_start + 3..].trim();
+    // Skip optional "json" after the opening fence
+    let content = after_fence
+        .strip_prefix("json")
+        .unwrap_or(after_fence)
+        .trim();
+    // Find the *last* closing ``` (preferring the outermost fence, which
+    // matches how Markdown renderers treat nested fences — the last ``` is
+    // the one that closes the block the LLM opened).
+    let close = content.rfind("```")?;
+    let inner = content[..close].trim();
+    let parsed = serde_json::from_str::<Value>(inner).ok()?;
+    matches!(parsed, Value::Object(_) | Value::Array(_)).then_some(parsed)
+}
+
+/// Find and parse the first balanced `{…}` or `[…}` span in `text`. Walks
+/// through the text character by character tracking brace depth; when a span
+/// is found and parses as JSON, it is returned. `None` when no span parses.
+fn extract_balanced_json(text: &str) -> Option<Value> {
+    let text = text.trim();
+    let bytes = text.as_bytes();
+    let len = bytes.len();
+    for start in 0..len {
+        let open_byte = bytes[start];
+        let (open, close) = match open_byte {
+            b'{' => (b'{', b'}'),
+            b'[' => (b'[', b']'),
+            _ => continue,
+        };
+        let mut depth = 0u32;
+        for end in start..len {
+            let b = bytes[end];
+            if b == open {
+                depth = depth.checked_add(1)?;
+            } else if b == close {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    // Found a balanced span — try to parse it.
+                    let candidate = &text[start..=end];
+                    if let Ok(parsed) = serde_json::from_str::<Value>(candidate) {
+                        if matches!(parsed, Value::Object(_) | Value::Array(_)) {
+                            return Some(parsed);
+                        }
+                    }
+                    // Span didn't parse; continue scanning from the position
+                    // after this false-positive open byte.
+                    break;
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Select the model an `agent` node completion actually runs on.
@@ -841,20 +902,40 @@ pub(crate) fn build_harness_run_prompt(request: &Value) -> String {
 /// still applies.
 pub(crate) fn build_agent_result(agent_ref: &str, final_text: &str, request: &Value) -> Value {
     if structured_output_requested(request) {
+        // Try 1: bare JSON parsing and full-text fence blocks (existing).
         if let Some(parsed) = parse_llm_json(final_text) {
             tracing::debug!(
                 target: "flows",
                 agent_ref,
-                "[flows] agent_runner: structured output parsed from harness turn"
+                "[flows] agent_runner: structured output parsed from harness turn (parse_llm_json)"
+            );
+            return parsed;
+        }
+        // Try 2: find a fenced ```json … ``` block anywhere in the text.
+        if let Some(parsed) = extract_fenced_json_block(final_text) {
+            tracing::debug!(
+                target: "flows",
+                agent_ref,
+                "[flows] agent_runner: structured output extracted from fenced JSON block in prose"
+            );
+            return parsed;
+        }
+        // Try 3: find the first balanced {…} / […} span in the text (handles
+        // cases where the LLM wraps JSON in prose without fence blocks).
+        if let Some(parsed) = extract_balanced_json(final_text) {
+            tracing::debug!(
+                target: "flows",
+                agent_ref,
+                "[flows] agent_runner: structured output extracted from balanced brace/bracket span in prose"
             );
             return parsed;
         }
         tracing::warn!(
             target: "flows",
             agent_ref,
-            "[flows] agent_runner: structured output requested but the harness turn did not parse \
-             as JSON — falling back to the {{text}} shape (the output_parser sub-port may still \
-             coerce it)"
+            "[flows] agent_runner: structured output requested but none of the extraction strategies \
+             produced valid JSON — falling back to the {{text}} shape (the output_parser sub-port may \
+             still coerce it)"
         );
     }
     json!({ "text": final_text, "agent_ref": agent_ref })
@@ -893,19 +974,86 @@ impl AgentRunner for OpenHumanAgentRunner {
                     agent_ref,
                     "[flows] agent_runner: HARNESS path — running the full agent tool loop"
                 );
-                self.run_via_harness(agent_ref, request, conn).await
+                // A shipped/TOML harness definition has no `entry.model` — the
+                // definition's own `ModelSpec` (already applied by the session
+                // builder) is the only model pin in play here.
+                self.run_via_harness(agent_ref, request, conn, None).await
             }
             AgentRoute::RegistryFallback => {
-                tracing::info!(
-                    target: "flows",
+                // `route_for_agent_ref` only consults the harness
+                // `AgentDefinitionRegistry`, so a miss there used to mean
+                // "run the persona-only completion fallback" unconditionally
+                // — even for a user-created custom agent, which has real
+                // `tool_allowlist`/`model` settings that fallback ignores.
+                //
+                // The agent factory (`Agent::from_config_for_agent`) now
+                // also consults `config.agent_registry.entries` on a
+                // harness-registry miss and synthesizes a real
+                // `AgentDefinition` for any `AgentRegistrySource::Custom`
+                // entry it finds (issue B38/Gap 2). So: route a *known,
+                // enabled* custom entry through the harness turn — it gets
+                // its real tool belt — and reserve the persona-only
+                // completion for `agent_ref`s that are unknown to both the
+                // harness registry AND the custom config registry (or that
+                // are disabled, which `run_via_registry_fallback` already
+                // rejects with a clear error).
+                let custom_entry = crate::openhuman::agent_registry::find_custom_in_config(
+                    &self.config,
                     agent_ref,
-                    "[flows] agent_runner: FALLBACK path — persona-shaping single completion for a \
-                     custom registry entry"
                 );
-                self.run_via_registry_fallback(agent_ref, request, conn)
-                    .await
+                let entry_model = custom_entry.as_ref().and_then(|e| e.model.clone());
+                match route_custom_entry_lookup(custom_entry.as_ref()) {
+                    AgentRoute::Harness => {
+                        tracing::info!(
+                            target: "flows",
+                            agent_ref,
+                            "[flows] agent_runner: CUSTOM-REGISTRY path — routing through the \
+                             harness so the custom agent runs with its real tool belt instead of \
+                             the persona-only completion fallback"
+                        );
+                        // Preserve the custom entry's own `model` pin (e.g.
+                        // `hint:reasoning` or a raw BYOK model id) as the
+                        // fallback below the node's own override — same
+                        // precedence `run_via_registry_fallback` already gave
+                        // it, now honored on the harness path too (P2 review
+                        // comment on this PR: this previously regressed to the
+                        // default chat model for a custom flow agent with no
+                        // per-node override).
+                        self.run_via_harness(agent_ref, request, conn, entry_model.as_deref())
+                            .await
+                    }
+                    AgentRoute::RegistryFallback => {
+                        tracing::info!(
+                            target: "flows",
+                            agent_ref,
+                            "[flows] agent_runner: FALLBACK path — persona-shaping single \
+                             completion for a custom registry entry"
+                        );
+                        self.run_via_registry_fallback(agent_ref, request, conn)
+                            .await
+                    }
+                }
             }
         }
+    }
+}
+
+/// Decides how to run an `agent_ref` that has no harness definition, given
+/// the (already-performed) config-backed custom registry lookup: an
+/// [`AgentRoute::Harness`] for a known, *enabled* custom entry — the factory
+/// synthesizes a real `AgentDefinition` for it (issue B38/Gap 2), so it can
+/// run the full tool loop — and [`AgentRoute::RegistryFallback`] for
+/// anything else (no entry at all, or a disabled one, which
+/// [`OpenHumanAgentRunner::run_via_registry_fallback`] itself rejects with a
+/// clear "is disabled" error rather than silently skipping it here). Pure
+/// over the lookup result so the decision is unit-testable without a live
+/// `Config`/registry.
+pub(crate) fn route_custom_entry_lookup(
+    entry: Option<&crate::openhuman::agent_registry::AgentRegistryEntry>,
+) -> AgentRoute {
+    match entry {
+        Some(e) if e.enabled => AgentRoute::Harness,
+        _ => AgentRoute::RegistryFallback,
     }
 }
 
@@ -913,11 +1061,34 @@ impl OpenHumanAgentRunner {
     /// Full harness turn: build a real session agent for `agent_ref` and drive
     /// one `run_single` under the node's model override + timeout. See
     /// [`OpenHumanAgentRunner`] for the security/origin contract.
+    ///
+    /// `entry_model` is the custom `AgentRegistryEntry`'s own `model` pin (a
+    /// `hint:<role>` or raw BYOK model id), when `agent_ref` resolved to one —
+    /// `None` for a shipped/TOML harness definition, which has no such entry.
+    /// It is the fallback below the node's own `config.model` override (see
+    /// `resolve_node_model`), matching the precedence
+    /// `run_via_registry_fallback` already gave `entry.model` — without this,
+    /// a custom flow agent's model pin (e.g. `hint:reasoning`) silently
+    /// dropped to the default chat model once routed through the harness.
+    ///
+    /// **Synchronous only (B40 / Gap 4).** A flow `agent` node runs here with
+    /// no chat thread bound via `thread_context::current_thread_id()`. If the
+    /// agent it runs is a delegating agent (orchestrator/subconscious) and
+    /// calls `spawn_async_subagent` directly, the tool now refuses (see the
+    /// `parent_thread_id.is_none()` guard in
+    /// `agent_orchestration::tools::spawn_async_subagent`) rather than
+    /// silently discarding the background result once it finishes —
+    /// `background_delivery` has nowhere to deliver it without a thread id.
+    /// This module does not bridge async subagent delivery into flow runs.
+    /// For work that needs to happen in parallel, model it as parallel flow
+    /// nodes (the tinyflows engine already fans those out) instead of
+    /// reaching for a background sub-agent from inside a single node.
     async fn run_via_harness(
         &self,
         agent_ref: &str,
         request: Value,
         conn: Option<&str>,
+        entry_model: Option<&str>,
     ) -> Result<Value> {
         use crate::openhuman::agent::Agent;
 
@@ -931,9 +1102,9 @@ impl OpenHumanAgentRunner {
         }
 
         // Model precedence for a harness node: node `config.model` > the
-        // definition's own default. There is no custom registry `entry_model` on
-        // this path.
-        let node_model = resolve_node_model(&request, None);
+        // custom registry entry's own `model` pin (if any) > the definition's
+        // own default.
+        let node_model = resolve_node_model(&request, entry_model);
 
         // Apply the override the cron way (`run_agent_job`): a cloned `Config`
         // with a new `default_model`, so we never mutate the shared config or
@@ -3291,7 +3462,7 @@ impl WorkflowResolver for OpenHumanWorkflowResolver {
             %workflow_id,
             "[flows] sub_workflow resolver: resolving workflow_id to a saved flow graph"
         );
-        match flows::ops::load_flow_graph(&self.config, workflow_id) {
+        match flows::ops::load_engine_compatible_flow_graph(&self.config, workflow_id) {
             Ok(Some(graph)) => {
                 tracing::debug!(
                     target: "flows",
@@ -4714,6 +4885,63 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn resolver_rejects_an_engine_incompatible_saved_graph() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = Arc::new(resolver_test_config(&tmp));
+        let flow = flows::ops::flows_create(
+            &config,
+            "legacy child".to_string(),
+            serde_json::to_value(trigger_only_graph()).unwrap(),
+            false,
+        )
+        .await
+        .unwrap()
+        .value;
+        let unsafe_graph = json!({
+            "nodes": [
+                { "id": "t", "kind": "trigger", "name": "Trigger" },
+                { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+                { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+                { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+                { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+                { "id": "a", "kind": "output_parser", "name": "A" },
+                { "id": "c", "kind": "output_parser", "name": "C" },
+                { "id": "m", "kind": "merge", "name": "Merge" }
+            ],
+            "edges": [
+                { "from_node": "t", "from_port": "main", "to_node": "outer" },
+                { "from_node": "t", "from_port": "main", "to_node": "c" },
+                { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+                { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+                { "from_node": "inner", "from_port": "true", "to_node": "a" },
+                { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+                { "from_node": "a", "from_port": "main", "to_node": "m" },
+                { "from_node": "c", "from_port": "main", "to_node": "m" }
+            ]
+        });
+        let db = config.workspace_dir.join("flows").join("flows.db");
+        rusqlite::Connection::open(db)
+            .unwrap()
+            .execute(
+                "UPDATE flow_definitions SET graph_json = ?1 WHERE id = ?2",
+                rusqlite::params![unsafe_graph.to_string(), flow.id],
+            )
+            .unwrap();
+
+        let error = OpenHumanWorkflowResolver { config }
+            .resolve(&flow.id)
+            .await
+            .expect_err("resolver must reject an incompatible legacy child");
+        match error {
+            EngineError::Capability(message) => assert!(
+                message.contains("unsupported_nested_conditional_fan_in"),
+                "{message}"
+            ),
+            other => panic!("expected a capability error, got: {other:?}"),
+        }
+    }
+
     // ── response_fields_from_schema ─────────────────────────────────────────
     // Direct unit tests for the pure schema-extraction step inside
     // `composio_response_fields`'s live-fetch loop — cheaper and more
@@ -5389,6 +5617,7 @@ mod tests {
                 None, 0.125, 128_000,
             ),
             resolved_model: None,
+            continue_turn: None,
         };
 
         let value = model_response_to_completion_value(&response);
@@ -5404,5 +5633,75 @@ mod tests {
         assert_eq!(value["usage"]["context_window"], 128_000);
         assert_eq!(value["usage"]["charged_amount_usd"], 0.125);
         assert_eq!(value["reasoning_content"], "private chain");
+    }
+
+    // ── build_agent_result improvements (issue #5151) ────────────────────
+
+    #[test]
+    fn build_agent_result_extracts_embedded_json_from_prose_text() {
+        // When the agent's final text wraps JSON in prose without fence
+        // blocks (e.g. the LLM explains the result before outputting the
+        // data), build_agent_result must still extract the object rather than
+        // falling back to {text, agent_ref} which kills the downstream
+        // output_parser.
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "object", "required": ["name"] }
+            }
+        });
+        let result = build_agent_result(
+            "agent-1",
+            "The result is: { \"name\": \"Alice\", \"age\": 30 }",
+            &request,
+        );
+        assert_eq!(result, json!({ "name": "Alice", "age": 30 }));
+    }
+
+    #[test]
+    fn build_agent_result_extracts_embedded_array_from_prose_text() {
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "array" }
+            }
+        });
+        let result = build_agent_result("agent-1", "Here is the list: [1, 2, 3]", &request);
+        assert_eq!(result, json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn build_agent_result_falls_back_to_text_when_no_json_found_in_prose() {
+        // Pure prose with no JSON-like content must still fall back to the
+        // safe {text, agent_ref} shape.
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "object", "required": ["name"] }
+            }
+        });
+        let result = build_agent_result(
+            "agent-1",
+            "I searched for the information but could not find it.",
+            &request,
+        );
+        assert_eq!(
+            result,
+            json!({ "text": "I searched for the information but could not find it.",
+                    "agent_ref": "agent-1" })
+        );
+    }
+
+    #[test]
+    fn build_agent_result_prefers_fenced_json_over_balanced_brace_extraction() {
+        // When both a fenced block and loose prose-with-JSON are present,
+        // the fenced block wins (it's the canonical / better-specified
+        // format).
+        let request = json!({
+            "output_parser": {
+                "schema": { "type": "object" }
+            }
+        });
+        let text =
+            "Some text\n```json\n{\"from_fence\": true}\n```\nmore text { \"from_brace\": true }";
+        let result = build_agent_result("agent-1", text, &request);
+        assert_eq!(result, json!({ "from_fence": true }));
     }
 }

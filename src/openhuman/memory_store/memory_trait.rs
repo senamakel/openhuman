@@ -17,11 +17,11 @@ use serde_json::json;
 use crate::openhuman::memory::traits::{
     Memory, MemoryCategory, MemoryEntry, MemoryTaint, NamespaceSummary, RecallOpts,
 };
+use crate::openhuman::memory_store::namespace_store::fts5;
 use crate::openhuman::memory_store::types::{NamespaceDocumentInput, GLOBAL_NAMESPACE};
-use crate::openhuman::memory_store::unified::fts5;
 use anyhow::Context;
 
-use super::unified::UnifiedMemory;
+use super::namespace_store::UnifiedMemory;
 
 /// Convert a UNIX timestamp (f64) to RFC3339 string.
 fn timestamp_to_rfc3339(ts: f64) -> String {
@@ -136,15 +136,14 @@ impl Memory for UnifiedMemory {
         // Self-echo guard (agent-agnostic): when this recall runs inside a
         // live chat turn, the harness has an ambient "current thread" id
         // (set by the web channel around `agent.run_single`, see
-        // `inference::provider::thread_context`) and the turn's own user
+        // `tinyagents::thread_context`) and the turn's own user
         // message was just auto-saved as a `[conversation]` document tagged
         // with that same id (`agent::harness::session::turn::core`). Exclude
         // it here so the agent's own on-demand `memory_recall` never surfaces
         // the very request that triggered it. Outside a chat turn (cron,
         // CLI, tests, standalone) the ambient id is `None` and this is a
         // no-op — behavior is byte-for-byte unchanged.
-        let exclude_session_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id();
+        let exclude_session_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
         if let Some(ref excluded) = exclude_session_id {
             tracing::debug!(
                 "[memory-trait] recall applying same-session exclusion namespace={namespace} \
@@ -919,7 +918,7 @@ mod tests {
     // ── Same-session self-echo exclusion, via the ambient thread scope ────
     //
     // `Memory::recall` (backing the agent's `memory_recall` tool) reads the
-    // ambient chat-thread id set by `inference::provider::thread_context`
+    // ambient chat-thread id set by `tinyagents::thread_context`
     // around a live turn, and excludes documents tagged with that same id —
     // guarding against the harness's own `user_msg:<uuid>` autosave being
     // recalled as the top "relevant" result for the very request that
@@ -929,7 +928,7 @@ mod tests {
 
     #[tokio::test]
     async fn recall_excludes_document_from_ambient_current_thread() {
-        use crate::openhuman::inference::provider::thread_context::with_thread_id;
+        use crate::openhuman::tinyagents::thread_context::with_thread_id;
 
         let (_tmp, mem) = fresh_mem();
         mem.store(

@@ -64,6 +64,18 @@ pub(crate) fn cancel(run_id: &str) -> bool {
     }
 }
 
+/// Returns `true` when `run_id` is currently registered as an in-flight run in
+/// THIS process. Used by the boot-time orphan sweep (bug B42) to distinguish a
+/// genuinely orphaned `running` row (left by a prior process — not in flight)
+/// from one a freshly-started run in this process legitimately owns, so the
+/// sweep never reconciles a live run out from under itself.
+pub(crate) fn is_in_flight(run_id: &str) -> bool {
+    IN_FLIGHT
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains_key(run_id)
+}
+
 /// RAII guard that removes a run's entry from the in-flight registry on drop.
 pub(crate) struct RunGuard {
     run_id: String,

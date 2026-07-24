@@ -78,8 +78,7 @@ allowlist = [
     # OAuth/credential/session, and referral requests here.
     "account_admin_agent",
     # Screen-awareness specialist. Route screen-intelligence permissions,
-    # capture/session/listener state, and "what can you see" requests here;
-    # desktop app operation still goes to desktop_control_agent.
+    # capture/session/listener state, and "what can you see" requests here.
     "screen_awareness_agent",
     # Image-understanding specialist. Route anything that hinges on the content
     # of an attached image / screenshot / on-disk image file here — it rides the
@@ -106,9 +105,6 @@ allowlist = [
     # Deck specialist. Owns presentation grounding, citations, image
     # verification, and generate_presentation warning handling.
     "presentation_agent",
-    # Desktop-control specialist. Owns launch_app and accessibility
-    # interaction policy, including list-before-press behavior.
-    "desktop_control_agent",
     # Crypto wallet & market specialist (#1397). Synthesised into a
     # `delegate_do_crypto` tool at agent-build time. Route any wallet,
     # transfer, swap, contract-call, or exchange trading request here —

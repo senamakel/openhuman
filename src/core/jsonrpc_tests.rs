@@ -372,22 +372,6 @@ async fn invoke_config_get_runtime_flags_via_registry() {
     assert!(result.get("result").is_some());
 }
 
-// `autocomplete_*` is gated behind `desktop-automation` (#5049); with the gate
-// off the controller is unregistered, so this param-validation test only applies
-// when the feature is enabled (it is in the default/shipped build).
-#[cfg(feature = "desktop-automation")]
-#[tokio::test]
-async fn invoke_autocomplete_status_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.autocomplete_status",
-        json!({ "extra": true }),
-    )
-    .await
-    .expect_err("unknown param should fail");
-    assert!(err.contains("unknown param 'extra'"));
-}
-
 #[tokio::test]
 async fn invoke_auth_store_session_missing_token_fails_validation() {
     let err = invoke_method(default_state(), "openhuman.auth_store_session", json!({}))

@@ -436,6 +436,33 @@ pub fn visible_message_counts_by_session(conn: &Connection) -> Result<HashMap<St
     Ok(rows)
 }
 
+/// Unread message counts keyed by `session_id`: the batched form of
+/// [`unread_count`], collapsing its per-session cursor lookup + `COUNT(*)` into a
+/// single query so a caller iterating N sessions runs one statement instead of
+/// 2N. `LEFT JOIN kv ON kv.k = 'read:' || m.session_id` reproduces
+/// `kv_get(&read_cursor_key(..))` — `kv.k` is `PRIMARY KEY`, so the join matches
+/// at most one cursor row per session (no fan-out) — and `COALESCE(kv.v, '')`
+/// reproduces the scalar path's `.unwrap_or_default()` empty cursor, so a session
+/// that was never marked read counts all of its visible messages. Sessions with
+/// zero unread are absent from the map; callers default missing entries to 0.
+pub fn unread_counts(conn: &Connection) -> Result<HashMap<String, i64>> {
+    let mut stmt = conn.prepare(
+        "SELECT m.session_id, COUNT(*)
+           FROM messages m
+           LEFT JOIN kv ON kv.k = 'read:' || m.session_id
+          WHERE m.timestamp > COALESCE(kv.v, '')
+            AND (m.event_kind IS NULL
+                 OR m.event_kind NOT IN ('status', 'lifecycle', 'unknown', 'session_info'))
+          GROUP BY m.session_id",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .collect::<std::result::Result<HashMap<_, _>, _>>()?;
+    Ok(rows)
+}
+
 /// The next monotonic per-session ingest ordinal: `MAX(seq) + 1` over the
 /// session's messages (`1` for the first message). Stamped at persist time so
 /// the wake idempotence cursor rides a strictly-increasing value instead of the
@@ -1192,6 +1219,64 @@ mod tests {
             let older = list_messages_by_session(conn, "h1", 100, Some("2026-07-02T00:05:00Z"))?;
             assert_eq!(older.len(), 1);
             assert_eq!(older[0].id, "m1");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn unread_counts_batches_and_matches_scalar_unread_count() {
+        // The batched unread_counts() must equal the per-session scalar
+        // unread_count() for every session, across: no cursor (all unread), a
+        // mid-stream cursor (partial), fully read (zero), a hidden (excluded
+        // event_kind) row, and a session with no messages.
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            // h1: two messages, never marked read -> 2 unread.
+            upsert_session(conn, &session("@a", "h1", 2))?;
+            insert_message(conn, &msg("a1", "@a", "h1", 1))?;
+            insert_message(conn, &msg("a2", "@a", "h1", 2))?;
+
+            // h2: read up to the first message, then a newer one arrives -> 1 unread.
+            upsert_session(conn, &session("@b", "h2", 2))?;
+            insert_message(conn, &msg("b1", "@b", "h2", 1))?;
+            mark_chat_read(conn, "h2")?;
+            let mut b2 = msg("b2", "@b", "h2", 2);
+            b2.timestamp = "2026-07-02T00:05:00Z".into();
+            insert_message(conn, &b2)?;
+
+            // h3: fully read -> 0 unread (absent from the map).
+            upsert_session(conn, &session("@c", "h3", 1))?;
+            insert_message(conn, &msg("c1", "@c", "h3", 1))?;
+            mark_chat_read(conn, "h3")?;
+
+            // h4: one visible + one hidden (excluded event_kind) -> 1 unread.
+            upsert_session(conn, &session("@d", "h4", 2))?;
+            insert_message(conn, &msg("d1", "@d", "h4", 1))?;
+            let hidden = OrchestrationMessage {
+                event_kind: Some("lifecycle".into()),
+                ..msg("d2", "@d", "h4", 2)
+            };
+            insert_message(conn, &hidden)?;
+
+            // h5: session with no messages -> 0 unread (absent from the map).
+            upsert_session(conn, &session("@e", "h5", 0))?;
+
+            let batched = unread_counts(conn)?;
+            for sid in ["h1", "h2", "h3", "h4", "h5"] {
+                assert_eq!(
+                    batched.get(sid).copied().unwrap_or(0),
+                    unread_count(conn, sid)?,
+                    "batched unread mismatch for {sid}"
+                );
+            }
+
+            // Concrete expectations, and zero-unread sessions dropped from the map.
+            assert_eq!(batched.get("h1").copied(), Some(2));
+            assert_eq!(batched.get("h2").copied(), Some(1));
+            assert_eq!(batched.get("h4").copied(), Some(1));
+            assert_eq!(batched.get("h3"), None);
+            assert_eq!(batched.get("h5"), None);
             Ok(())
         })
         .unwrap();

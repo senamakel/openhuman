@@ -1,7 +1,7 @@
 //! Tests for `ContextManager`.
 //!
 //! History reduction/summarization moved to the tinyagents graph in #4249
-//! (`ContextCompressionMiddleware` + `tinyagents::summarize::ProviderModelSummarizer`),
+//! (`ContextCompressionMiddleware` + `tinyagents::summarize::ModelSummarizer`),
 //! so the old `reduce_before_call` / `Summarizer` / `ReductionOutcome` suite is
 //! gone. `ContextManager` is now a pure state-tracking handle: utilisation
 //! stats, tool-result budget config, microcompact knobs, and session-memory

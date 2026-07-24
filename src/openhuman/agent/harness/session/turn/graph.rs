@@ -30,8 +30,9 @@ use anyhow::Result;
 use tokio::sync::mpsc::Sender;
 
 use crate::openhuman::agent::harness::run_queue::RunQueue;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::inference::provider::{ChatMessage, AGENT_TURN_MAX_OUTPUT_TOKENS};
+use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::openhuman::tinyagents::{
     run_turn_via_tinyagents_shared, TinyagentsTurnOutcome, TurnContextMiddleware,
 };
@@ -72,6 +73,12 @@ pub(crate) struct ChatTurnGraph {
     /// The agent's builder-configured tool policy + session context, enforced at
     /// the tool boundary. `None` when the session has no explicit policy.
     pub tool_policy: Option<crate::openhuman::tinyagents::ToolPolicyEnforcement>,
+    /// Optional per-profile workspace descriptor (section D of agent-profile
+    /// homes). `Some` when the session's active profile opted into a dedicated
+    /// workspace — acting tools then resolve their default cwd to
+    /// `<action_dir>/profiles/<id>` via `ToolExecutionContext.workspace`. `None`
+    /// (the common case) keeps the shared-`action_dir` cwd behaviour.
+    pub workspace_descriptor: Option<tinyagents::harness::workspace::WorkspaceDescriptor>,
 }
 
 /// Drive the chat turn graph: a thin wrapper over the shared tinyagents seam
@@ -121,8 +128,10 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         graph.context_mw,
         // Builder-configured tool policy enforcement (session chat path).
         graph.tool_policy,
-        // Top-level chat turns do not yet carry SDK workspace descriptors.
-        None,
+        // Per-profile dedicated workspace descriptor (section D). `None` for the
+        // common shared-`action_dir` case; `Some` binds acting tools' default
+        // cwd to `<action_dir>/profiles/<id>` for a `dedicated_workspace` profile.
+        graph.workspace_descriptor,
         // Interactive chat turn — response caching MUST stay off so a live user
         // turn is never served a cached model response (correctness/safety).
         false,

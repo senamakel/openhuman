@@ -14,7 +14,7 @@
 //! compatibility events, and JSON-RPC/tool response formatting.
 //! [`running_subagents`] mirrors detached-sub-agent lifecycle into a
 //! TinyAgents task store; porting more of that lifecycle upstream is tracked
-//! in `docs/tinyagents-full-migration-plan/07-subagents/02-detached-taskstore.md`.
+//! in WP-5 of `docs/tinyagents-migration-plan-2026-07-22.md`.
 
 pub mod agent_teams;
 pub(crate) mod background_completions;

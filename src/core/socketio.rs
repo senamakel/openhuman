@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 // `json!` + socketioxide are used only by the socketioxide event-transport
 // bodies below, all gated with the `http-server` feature (#5048). The inert
 // event payload types further down (`WebChannelEvent`, `TurnUsagePayload`,
@@ -14,6 +15,29 @@ use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, TryData};
 #[cfg(feature = "http-server")]
 use socketioxide::SocketIo;
+
+/// Shell-originated companion lifecycle events that still need to reach
+/// Socket.IO-only surfaces such as the native macOS notch WKWebView.
+static COMPANION_STATE_BUS: once_cell::sync::Lazy<tokio::sync::broadcast::Sender<Value>> =
+    once_cell::sync::Lazy::new(|| {
+        let (tx, _rx) = tokio::sync::broadcast::channel(64);
+        tx
+    });
+
+/// Publish a shell-side companion state payload for Socket.IO clients.
+///
+/// The companion implementation lives in the Tauri shell, but the notch
+/// WKWebView has no Tauri IPC bridge and connects directly to the embedded
+/// core's Socket.IO endpoint. Keeping this transport-only seam here avoids
+/// reintroducing the removed core companion domain.
+pub fn publish_companion_state_changed(payload: Value) -> usize {
+    COMPANION_STATE_BUS.send(payload).unwrap_or_default()
+}
+
+#[cfg(feature = "http-server")]
+fn subscribe_companion_state_changed() -> tokio::sync::broadcast::Receiver<Value> {
+    COMPANION_STATE_BUS.subscribe()
+}
 
 /// Marker stored in [`SocketRef::extensions`] once a connection has presented a
 /// bearer token that matches the active per-process RPC token.
@@ -627,7 +651,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
 
 /// Spawns background bridges to forward various system events to Socket.IO clients.
 ///
-/// This function sets up five bridges:
+/// This function sets up event bridges:
 /// 1. **Web Channel Bridge**: Forwards chat-related events (messages, tool calls) to specific clients.
 /// 2. **Dictation Bridge**: Forwards hotkey events to all clients.
 /// 3. **Overlay Bridge**: Forwards attention bubble events to all clients.
@@ -661,13 +685,13 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     let io_notify = io.clone();
     let io_transcription = io.clone();
     let io_auth = io.clone();
-    let io_companion = io.clone();
     let io_mcp_setup = io.clone();
     let io_memory_sync = io.clone();
     let io_agent_meetings = io.clone();
     let io_tinyplace = io.clone();
     let io_channel_status = io.clone();
     let io_orchestration = io.clone();
+    let io_companion = io.clone();
 
     // 2. Dictation hotkey events → broadcast to all connected clients.
     tokio::spawn(async move {
@@ -693,6 +717,30 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             }
         }
         log::debug!("[socketio] dictation bridge stopped");
+    });
+
+    // Shell companion state → broadcast to all clients. The main renderer also
+    // receives a Tauri event directly; this path preserves the Socket.IO-only
+    // native notch surface.
+    tokio::spawn(async move {
+        let mut rx = subscribe_companion_state_changed();
+        loop {
+            let payload = match rx.recv().await {
+                Ok(payload) => payload,
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    log::warn!(
+                        "[socketio] dropped {} companion state_changed events due to lag",
+                        skipped
+                    );
+                    continue;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            };
+            log::debug!("[socketio] broadcast companion:state_changed");
+            let _ = io_companion.emit("companion:state_changed", &payload);
+            let _ = io_companion.emit("companion_state_changed", &payload);
+        }
+        log::debug!("[socketio] companion state bridge stopped");
     });
 
     // 3. Overlay attention events → broadcast to all clients.
@@ -929,38 +977,6 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
         log::debug!("[socketio] transcription bridge stopped");
     });
 
-    // 7. Companion state change events → broadcast to all clients so the
-    //    overlay and settings panel can react to session lifecycle and
-    //    state transitions (Idle → Listening → Thinking → Speaking → …).
-    tokio::spawn(async move {
-        let mut rx = crate::openhuman::desktop_companion::bus::subscribe_state_changed();
-        loop {
-            let event = match rx.recv().await {
-                Ok(event) => event,
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                    log::warn!(
-                        "[socketio] dropped {} companion state_changed events due to lag",
-                        skipped
-                    );
-                    continue;
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-            };
-
-            if let Ok(payload) = serde_json::to_value(&event) {
-                log::debug!(
-                    "[socketio] broadcast companion:state_changed session={} {} -> {}",
-                    event.session_id,
-                    event.previous_state,
-                    event.state,
-                );
-                let _ = io_companion.emit("companion:state_changed", &payload);
-                let _ = io_companion.emit("companion_state_changed", &payload);
-            }
-        }
-        log::debug!("[socketio] companion state bridge stopped");
-    });
-
     // 8. Memory sync stage + tree-build progress → broadcast to all clients
     //    so the UI can show real-time progress bars and refresh the graph.
     tokio::spawn(async move {
@@ -1127,6 +1143,31 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     );
                     let _ = io_memory_sync.emit("flow:run_started", &payload);
                     let _ = io_memory_sync.emit("flow_run_started", &payload);
+                }
+                // The terminal companion to `FlowRunStarted` above (issue B35
+                // follow-up). Published once `flows::ops::finish_flow_run_row`
+                // persists the settled `flow_runs` row, so an open Workflows
+                // canvas/sidebar can flip a run to Completed/Failed live
+                // instead of relying on a poll to notice. Best-effort, same
+                // rationale as the other `flow:*` bridges.
+                crate::core::event_bus::DomainEvent::FlowRunFinished {
+                    flow_id,
+                    run_id,
+                    status,
+                } => {
+                    let payload = serde_json::json!({
+                        "flow_id": flow_id,
+                        "run_id": run_id,
+                        "status": status,
+                    });
+                    log::debug!(
+                        "[socketio] broadcast flow_run_finished flow_id={} run_id={} status={}",
+                        flow_id,
+                        run_id,
+                        status
+                    );
+                    let _ = io_memory_sync.emit("flow:run_finished", &payload);
+                    let _ = io_memory_sync.emit("flow_run_finished", &payload);
                 }
                 // A saved flow's definition changed (create/update/delete/
                 // enable). Broadcast so an open Workflows list/canvas refetches
@@ -1615,7 +1656,22 @@ fn emit_with_aliases(socket: &SocketRef, name: &str, payload: &serde_json::Value
 // `event_alias`, `origin_is_allowed`), so the module gates in lockstep (#5048).
 #[cfg(all(test, feature = "http-server"))]
 mod tests {
-    use super::{channel_connection_update_payload, event_alias, origin_is_allowed};
+    use super::{
+        channel_connection_update_payload, event_alias, origin_is_allowed,
+        publish_companion_state_changed, subscribe_companion_state_changed,
+    };
+
+    #[test]
+    fn companion_state_transport_delivers_payload_to_bridge() {
+        let mut rx = subscribe_companion_state_changed();
+        let payload = serde_json::json!({
+            "session_id": "session-1",
+            "state": "thinking",
+            "previous_state": "listening",
+        });
+        assert!(publish_companion_state_changed(payload.clone()) >= 1);
+        assert_eq!(rx.try_recv().expect("payload delivered"), payload);
+    }
 
     #[test]
     fn channel_connection_update_payload_connected_omits_error() {

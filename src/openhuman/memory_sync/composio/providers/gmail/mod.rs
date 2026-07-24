@@ -1,6 +1,5 @@
 mod post_process;
 mod provider;
-mod sync;
 #[cfg(test)]
 mod tests;
 pub mod tools;

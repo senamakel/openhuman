@@ -212,6 +212,9 @@ Files:
   independently used focused-text helpers in the same files.
 - In `app/src/store/{companionSlice.ts,companionSlice.test.ts}`, remove the
   `pointing` state and the two removed configuration fields.
+- Remove the pointing-only frontend event/pointer surface from
+  `app/src/services/{companionEvents.ts,__tests__/companionPayload.test.ts}` and
+  `app/src/overlay/{CompanionPointer.tsx,OverlayApp.tsx,__tests__/CompanionPointer.test.tsx,__tests__/companionStateLabel.test.ts}`.
 - In `app/src/components/settings/panels/{CompanionPanel.tsx,__tests__/CompanionPanel.test.tsx}`, remove the two screen-derived status rows and replace
   the old disabled-state test with coverage for the retained hotkey, activation
   mode, TTL, and session controls.

@@ -21,6 +21,9 @@ import { PaymentRequiredError } from '../../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../../AgentWorldShell';
 import ExploreSection from './index';
 
+const debugLog = vi.hoisted(() => vi.fn());
+vi.mock('debug', () => ({ default: () => debugLog }));
+
 // ── Mock apiClient ────────────────────────────────────────────────────────────
 
 vi.mock('../../AgentWorldShell', () => ({
@@ -145,6 +148,12 @@ function deferred<T>() {
     resolve = resolvePromise;
   });
   return { promise, resolve };
+}
+
+function sensitiveFailure(): TypeError {
+  return Object.assign(new TypeError('private resource response'), {
+    payload: 'do-not-log-this-payload',
+  });
 }
 
 // ── beforeEach: resolve all calls with success data ───────────────────────────
@@ -457,6 +466,45 @@ describe('section error: graceful degrade', () => {
       expect(screen.queryByText('Featured Bounties')).not.toBeInTheDocument();
       expect(screen.queryByText('New Agents')).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('section error: private diagnostics', () => {
+  test.each([
+    [
+      'communities',
+      () => mockGroupsList.mockRejectedValue(sensitiveFailure()),
+      'communities fetch failed error_type=%s',
+    ],
+    [
+      'jobs',
+      () => mockGraphqlJobs.mockRejectedValue(sensitiveFailure()),
+      'jobs fetch failed error_type=%s',
+    ],
+    [
+      'bounties',
+      () => mockBountiesList.mockRejectedValue(sensitiveFailure()),
+      'bounties fetch failed error_type=%s',
+    ],
+    [
+      'agents',
+      () => mockListAgents.mockRejectedValue(sensitiveFailure()),
+      'agents fetch failed error_type=%s',
+    ],
+  ] as const)('logs only the safe error type for %s failures', async (_, reject, format) => {
+    reject();
+
+    renderExplore();
+
+    await waitFor(() => {
+      const failureCalls = debugLog.mock.calls.filter(
+        ([message]) => typeof message === 'string' && message.includes('fetch failed')
+      );
+      expect(failureCalls).toEqual([[format, 'TypeError']]);
+    });
+    const logged = JSON.stringify(debugLog.mock.calls);
+    expect(logged).not.toContain('private resource response');
+    expect(logged).not.toContain('do-not-log-this-payload');
   });
 });
 

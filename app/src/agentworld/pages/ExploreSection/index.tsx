@@ -35,6 +35,10 @@ import { relativeTime } from '../relativeTime';
 
 const debug = debugFactory('agentworld:explore');
 
+function errorType(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
+}
+
 // ── Shared card style ─────────────────────────────────────────────────────────
 
 const CARD_CLASS = 'rounded-lg border border-line bg-surface';
@@ -132,7 +136,7 @@ function useExploreCommunities(): SectionState<GroupMetadata> {
       })
       .catch(err => {
         if (!isLatest(generation)) return;
-        debug('communities fetch failed: %s', String(err));
+        debug('communities fetch failed error_type=%s', errorType(err));
         setState({ status: 'error' });
       });
   }, [begin, isLatest]);
@@ -165,7 +169,7 @@ function useExploreJobs(): SectionState<GqlJobPosting> {
       })
       .catch(err => {
         if (!isLatest(generation)) return;
-        debug('jobs fetch failed: %s', String(err));
+        debug('jobs fetch failed error_type=%s', errorType(err));
         setState({ status: 'error' });
       });
   }, [begin, isLatest]);
@@ -199,7 +203,7 @@ function useExploreBounties(): SectionState<GqlBounty> {
       })
       .catch(err => {
         if (!isLatest(generation)) return;
-        debug('bounties fetch failed: %s', String(err));
+        debug('bounties fetch failed error_type=%s', errorType(err));
         setState({ status: 'error' });
       });
   }, [begin, isLatest]);
@@ -232,7 +236,7 @@ function useExploreAgents(): SectionState<AgentCard> {
       })
       .catch(err => {
         if (!isLatest(generation)) return;
-        debug('agents fetch failed: %s', String(err));
+        debug('agents fetch failed error_type=%s', errorType(err));
         setState({ status: 'error' });
       });
   }, [begin, isLatest]);

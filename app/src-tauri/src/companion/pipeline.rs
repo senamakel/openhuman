@@ -295,10 +295,7 @@ your response will be spoken aloud via TTS.\n\
 /// Build a chat-completions request with conversation history, then return the
 /// assistant's reply. Runs shell-side against the
 /// backend using creds fetched from core.
-async fn llm_companion(
-    prompt: &str,
-    history: &[&ConversationTurn],
-) -> Result<String, String> {
+async fn llm_companion(prompt: &str, history: &[&ConversationTurn]) -> Result<String, String> {
     let (token, backend_url) = fetch_backend_creds().await?;
     let endpoint = companion_chat_endpoint(&backend_url);
 

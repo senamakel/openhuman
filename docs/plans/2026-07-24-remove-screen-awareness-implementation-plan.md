@@ -134,8 +134,9 @@ Files:
   `src/openhuman/tools/impl/browser/{native_backend.rs,playwright_backend.rs,playwright_runner.mjs}`. Ensure every backend rejects `screenshot` and
   `screen_capture` as unsupported before sidecar dispatch.
 - Remove browser screenshot expectations from
-  `tests/raw_coverage/{tools_approval_channels_raw_coverage_e2e.rs,tools_channels_raw_coverage_e2e.rs}` and retain only assertions for the remaining
-  browser API/data-url helpers that do not capture pixels.
+  `tests/raw_coverage/{tools_agent_credentials_state_raw_coverage_e2e.rs,tools_approval_channels_raw_coverage_e2e.rs,tools_channels_raw_coverage_e2e.rs}`
+  and retain only assertions for the remaining browser API/data-url helpers
+  that do not capture pixels.
 
 Tests and checks:
 

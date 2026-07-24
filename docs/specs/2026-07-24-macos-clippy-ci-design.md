@@ -4,9 +4,11 @@
 
 Issue #5019 identifies a platform gap in Rust lint coverage. CI Lite runs the
 root-core and Tauri clippy commands on Ubuntu, so code compiled only on macOS is
-not checked with warnings denied. The existing `build-macos-full` job already
-builds both Cargo dependency graphs on `macos-latest` and feeds its result into
-the blocking CI Full gate.
+not checked with warnings denied. The existing `build-macos-full` job builds the
+Tauri app on `macos-latest`, warming `app/src-tauri/target` (including the
+path-dependent core in that Cargo graph), and feeds its result into the blocking
+CI Full gate. Its Rust cache covers both Cargo workspaces, but the independent
+root `target/` can remain cold on a cache miss.
 
 The repository already owns the authoritative aggregate lint command:
 
@@ -21,14 +23,16 @@ with `-D warnings` configured by the existing package scripts.
 
 - Compile and lint macOS-gated Rust with warnings denied.
 - Cover both the root-core and Tauri Cargo worlds.
-- Reuse the existing macOS build job and its warm Cargo artifacts.
+- Reuse the existing macOS build job, two-workspace Rust cache, and warmed Tauri
+  artifacts.
 - Preserve cancellation-aware behavior for the long-running command.
 - Make lint failures block CI Full through its existing gate topology.
 
 ## Non-goals
 
 - Adding macOS runners to CI Lite.
-- Creating a separate macOS lint job with another cold Cargo build.
+- Creating a separate macOS lint job that repeats setup and can cold-build both
+  Cargo graphs on a cache miss.
 - Changing Rust lint flags or package scripts.
 - Fixing warnings that the new CI step may discover.
 - Changing the existing 60-minute job timeout without runtime evidence.
@@ -44,8 +48,10 @@ Add one step after `Build E2E app`:
   run: bash scripts/ci-cancel-aware.sh pnpm rust:clippy
 ```
 
-This reuses the dependency graphs compiled by the preceding build, adds no new
-job dependency, and naturally blocks the existing macOS build and CI Full gates.
+This reuses the existing runner setup and two-workspace Rust cache. The
+preceding build warms the Tauri target, while the independent root target may
+still require compilation on a cache miss. The step adds no new job dependency
+and naturally blocks the existing macOS build and CI Full gates.
 
 This is the selected approach.
 
@@ -77,9 +83,11 @@ The step must:
 - leave `timeout-minutes: 60` unchanged initially.
 
 Running after the build is deliberate: the build is the job's primary artifact
-producer, and it warms the root and Tauri targets before clippy recompiles their
-lint-specific units. Running before artifact packaging also prevents a failed
-lint from publishing an artifact that downstream shards cannot consume.
+producer, and it warms the Tauri target before clippy recompiles its
+lint-specific units. The independent root target benefits from the existing
+two-workspace cache but may still be cold on a cache miss. Running before
+artifact packaging also prevents a failed lint from publishing an artifact that
+downstream shards cannot consume.
 
 ## Failure behavior
 

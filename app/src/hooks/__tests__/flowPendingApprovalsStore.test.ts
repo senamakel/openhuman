@@ -220,6 +220,34 @@ describe('flowPendingApprovalsStore', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('cancels a queued retained refresh when the final consumer releases', async () => {
+    let resolveActiveRequest!: (approvals: PendingApproval[]) => void;
+    fetchPendingApprovals
+      .mockImplementationOnce(
+        () =>
+          new Promise<PendingApproval[]>(resolve => {
+            resolveActiveRequest = resolve;
+          })
+      )
+      .mockResolvedValueOnce([]);
+    const release = retainFlowPendingApprovalsPolling();
+    const queuedRefresh = refreshFlowPendingApprovals();
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(1);
+
+    release();
+    const releasedSnapshot = getFlowPendingApprovalsSnapshot();
+
+    await act(async () => {
+      resolveActiveRequest([makeApproval()]);
+      await queuedRefresh;
+    });
+
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(1);
+    expect(getFlowPendingApprovalsSnapshot()).toBe(releasedSnapshot);
+    expect(getFlowPendingApprovalsSnapshot()).toMatchObject({ approvals: [], polling: false });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('logs only safe failure metadata, without approval payloads or error text', async () => {
     fetchPendingApprovals
       .mockResolvedValueOnce([makeApproval({ action_summary: 'private user-authored text' })])

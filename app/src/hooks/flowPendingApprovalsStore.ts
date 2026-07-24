@@ -124,10 +124,13 @@ export function refreshFlowPendingApprovals(): Promise<void> {
   clearPollTimer();
   const generation = requestGeneration;
   const activeRequest = inFlight;
+  const queuedWhileRetained = retainCount > 0;
   let queued!: Promise<void>;
   queued = activeRequest.then(() => {
     if (queuedRefresh === queued) queuedRefresh = null;
-    if (generation !== requestGeneration) return;
+    if (generation !== requestGeneration || (queuedWhileRetained && retainCount === 0)) {
+      return;
+    }
     return startRefresh();
   });
   queuedRefresh = queued;

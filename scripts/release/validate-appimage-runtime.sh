@@ -10,6 +10,9 @@
 # Env:
 #   APPIMAGE_RUNTIME_SMOKE — set to 1 to require the bounded Xvfb startup smoke;
 #                            otherwise only static final-artifact checks run
+#   APPIMAGE_RUNTIME_APPARMOR_USERNS — set to 1 on Ubuntu 24.04 CI to load a
+#                            temporary, per-executable AppArmor profile granting
+#                            Chromium's sandbox access to user namespaces
 
 set -euo pipefail
 
@@ -142,6 +145,7 @@ smoke_extracted_apprun() {
   for secret_name in \
     GITHUB_TOKEN \
     GH_TOKEN \
+    OPENHUMAN_CEF_NO_SANDBOX \
     TAURI_SIGNING_PRIVATE_KEY \
     TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
     SENTRY_AUTH_TOKEN; do
@@ -204,6 +208,79 @@ smoke_extracted_apprun() {
   echo "[appimage-runtime] Application remained alive for the 15-second startup window"
 }
 
+install_smoke_userns_profile() {
+  local appdir="$1"
+  local profile_file="$2"
+  local executable="$appdir/shared/bin/OpenHuman"
+
+  [ -x "$executable" ] \
+    || { runtime_validation_error "AppArmor target is not executable: $executable"; return 1; }
+  command -v sudo >/dev/null 2>&1 \
+    || { runtime_validation_error "sudo is required for the AppImage smoke AppArmor profile"; return 1; }
+  command -v apparmor_parser >/dev/null 2>&1 \
+    || { runtime_validation_error "apparmor_parser is required for the AppImage smoke AppArmor profile"; return 1; }
+
+  local profile_name="openhuman_appimage_runtime_smoke_$$"
+  printf '%s\n' \
+    'abi <abi/4.0>,' \
+    'include <tunables/global>' \
+    '' \
+    "profile $profile_name \"$executable\" flags=(unconfined) {" \
+    '  userns,' \
+    '}' \
+    >"$profile_file"
+
+  sudo --non-interactive apparmor_parser --replace "$profile_file" >/dev/null \
+    || { runtime_validation_error "could not load the AppImage smoke AppArmor profile"; return 1; }
+  echo "[appimage-runtime] Loaded temporary AppArmor userns profile for: $executable"
+}
+
+remove_smoke_userns_profile() {
+  local profile_file="$1"
+  sudo --non-interactive apparmor_parser --remove "$profile_file" >/dev/null \
+    || { runtime_validation_error "could not remove the AppImage smoke AppArmor profile"; return 1; }
+  echo "[appimage-runtime] Removed temporary AppArmor userns profile: $profile_file"
+}
+
+smoke_extracted_apprun_with_userns() (
+  local appdir="$1"
+  local foreign_cwd="$2"
+  local log_file="$3"
+  local profile_file="$4"
+  local profile_loaded=0
+
+  cleanup_smoke_userns_profile() {
+    if [ "$profile_loaded" -eq 1 ]; then
+      profile_loaded=0
+      remove_smoke_userns_profile "$profile_file" \
+        || echo "[appimage-runtime] ERROR: AppArmor cleanup failed after smoke interruption" >&2
+    fi
+  }
+  trap cleanup_smoke_userns_profile EXIT HUP INT TERM
+
+  install_smoke_userns_profile "$appdir" "$profile_file" || return 1
+  profile_loaded=1
+
+  local smoke_status
+  if smoke_extracted_apprun "$appdir" "$foreign_cwd" "$log_file"; then
+    smoke_status=0
+  else
+    smoke_status=$?
+  fi
+
+  profile_loaded=0
+  local remove_status
+  if remove_smoke_userns_profile "$profile_file"; then
+    remove_status=0
+  else
+    remove_status=$?
+  fi
+
+  # Preserve the original smoke failure even if profile cleanup also fails.
+  [ "$smoke_status" -eq 0 ] || return "$smoke_status"
+  return "$remove_status"
+)
+
 validate_final_appimage() (
   local image="$1"
   if ! image="$(realpath "$image")"; then
@@ -242,7 +319,16 @@ validate_final_appimage() (
   validate_extracted_appdir "$appdir" || return 1
 
   if [ "${APPIMAGE_RUNTIME_SMOKE:-0}" = "1" ]; then
-    smoke_extracted_apprun "$appdir" "$foreign_cwd" "$smoke_log" || return 1
+    if [ "${APPIMAGE_RUNTIME_APPARMOR_USERNS:-0}" = "1" ]; then
+      smoke_extracted_apprun_with_userns \
+        "$appdir" \
+        "$foreign_cwd" \
+        "$smoke_log" \
+        "$temp_root/openhuman-appimage-smoke.profile" \
+        || return 1
+    else
+      smoke_extracted_apprun "$appdir" "$foreign_cwd" "$smoke_log" || return 1
+    fi
   else
     echo "[appimage-runtime] Static validation complete; executable smoke disabled for this architecture"
   fi

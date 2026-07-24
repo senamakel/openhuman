@@ -129,6 +129,19 @@ grep -F "no valid AppDir library entries" "$WORK/rewrite.err" >/dev/null \
   || fail "rewrite failure did not explain why lib.path was rejected"
 assert_lib_path_contents "$REWRITE_INVALID" '/opt/unrelated/lib'
 
+REWRITE_BARE_RELATIVE="$WORK/rewrite-bare-relative"
+make_sharun_appdir "$REWRITE_BARE_RELATIVE"
+printf '%s\n' '+' 'shared/lib' \
+  >"$REWRITE_BARE_RELATIVE/shared/lib/lib.path"
+if ( rewrite_sharun_lib_path "$REWRITE_BARE_RELATIVE" ) \
+  2>"$REWRITE_BARE_RELATIVE/error.log"; then
+  fail "rewrite accepted a mixed lib.path containing a bare-relative entry"
+fi
+grep -F "malformed entry: 'shared/lib'" \
+  "$REWRITE_BARE_RELATIVE/error.log" >/dev/null \
+  || fail "rewrite bare-relative error did not identify 'shared/lib'"
+assert_lib_path_contents "$REWRITE_BARE_RELATIVE" "$(printf '+\nshared/lib')"
+
 REWRITE_MARKER_INJECTION="$WORK/rewrite-marker-injection"
 make_sharun_appdir "$REWRITE_MARKER_INJECTION"
 mkdir -p "$REWRITE_MARKER_INJECTION/shared/lib/plugins+extra"

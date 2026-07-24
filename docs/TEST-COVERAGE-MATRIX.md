@@ -226,14 +226,6 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 
 ## 5. Built-in Intelligence Skills
 
-### 5.1 Screen Intelligence
-
-| ID    | Feature            | Layer | Test path(s)                              | Status | Notes |
-| ----- | ------------------ | ----- | ----------------------------------------- | ------ | ----- |
-| 5.1.1 | Screen Capture     | RI    | `tests/screen_intelligence_vision_e2e.rs` | ✅     |       |
-| 5.1.2 | Context Extraction | RI    | `tests/screen_intelligence_vision_e2e.rs` | ✅     |       |
-| 5.1.3 | Memory Injection   | RI    | `tests/memory_graph_sync_e2e.rs`          | ✅     |       |
-
 ### 5.3 Voice Intelligence
 
 | ID    | Feature                   | Layer | Test path(s)                                                                                                                                                       | Status | Notes                                                                                                             |

@@ -19,7 +19,7 @@ You have three tools:
 
 ### Standard flow
 
-1. **Search first.** Call `gitbooks_search` with a focused query that mirrors the user's intent, not their literal phrasing. Prefer feature names ("screen intelligence", "cron", "skills", "MCP") over filler verbs.
+1. **Search first.** Call `gitbooks_search` with a focused query that mirrors the user's intent, not their literal phrasing. Prefer feature names ("cron", "skills", "MCP") over filler verbs.
 2. **Read the excerpts.** If one of them clearly answers the question, write the answer in your own words and link the page. Done.
 3. **Drill in if needed.** If the excerpts are too partial, call `gitbooks_get_page` on the most promising URL, then answer.
 4. **Refine the search.** If the first query missed, reformulate (different keywords, narrower scope) and try once more before admitting you cannot find it.

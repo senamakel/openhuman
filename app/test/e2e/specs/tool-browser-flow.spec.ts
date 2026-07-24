@@ -29,8 +29,9 @@ const USER_ID = 'e2e-tool-browser';
  *    over JSON-RPC. Plus: the mock backend correctly records arbitrary HTTP
  *    requests (proving the side-channel browser-automation flows would emit
  *    against the mocked services is intact).
- *  - 7.1.2 — `BrowserTool::parameters_schema` enumerates the automation
- *    surface (open / snapshot / click / fill / type / get_text / etc.).
+ *  - 7.1.2 — `BrowserTool::parameters_schema` enumerates the DOM-snapshot
+ *    automation surface (open / snapshot / click / fill / type / get_text /
+ *    etc.).
  *    Asserting that `tools_agent`'s tool scope is wildcard (which would
  *    surface `browser` to the LLM) ensures the schema-driven tool surface is
  *    intact for the agent path.
@@ -137,12 +138,13 @@ describe('System tools — Browser (open URL + automation registry)', () => {
     expect(Array.isArray(log)).toBe(true);
   });
 
-  it('7.1.2 browser-automation registry surface is reachable via the agent registry', async () => {
-    // BrowserTool's parameters_schema enumerates 22 actions (open, snapshot,
-    // click, fill, type, get_text, screenshot, …). Asserting tools_agent's
-    // wildcard scope is present means the LLM-facing tool surface that
-    // would expose this schema to a model is intact. The schema content
-    // itself is unit-tested in `browser_tests.rs::browser_tool_schema_*`.
+  it('7.1.2 browser DOM-snapshot automation registry surface is reachable via the agent registry', async () => {
+    // BrowserTool's parameters_schema includes the DOM/accessibility
+    // `snapshot` action alongside open, click, fill, type, and get_text.
+    // Asserting tools_agent's wildcard scope is present means the LLM-facing
+    // tool surface that would expose this schema to a model is intact. The
+    // schema content itself is unit-tested in
+    // `browser_tests.rs::browser_tool_schema_*`.
     const list = await callOpenhumanRpc<ListDefinitionsResult>(
       'openhuman.agent_list_definitions',
       {}

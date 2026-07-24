@@ -5,7 +5,7 @@ Signals pushed from the core to the desktop **overlay window** — a separate Ta
 ## Responsibilities
 
 - Define the `OverlayAttentionEvent` payload and its `OverlayAttentionTone` visual hint.
-- Provide a process-global broadcast channel so any core caller (subconscious loop, heartbeat, screen intelligence, …) can surface a transient overlay message without threading a sender around.
+- Provide a process-global broadcast channel so any core caller (subconscious loop, heartbeat, …) can surface a transient overlay message without threading a sender around.
 - Expose `publish_attention` (fire-and-forget producer) and `subscribe_attention_events` (consumed by the Socket.IO bridge).
 - (STT/dictation overlay activation is driven separately by `voice::dictation_listener`'s `dictation:toggle` / `dictation:transcription` events — not by this module.)
 
@@ -40,7 +40,7 @@ None. State is purely an in-memory broadcast channel; events not consumed when p
 
 - `src/core/socketio.rs` — subscribes to the bus and forwards events to the overlay WebView over Socket.IO.
 - `src/openhuman/notifications/bus.rs` — references this module's bus only as a documented pattern to mirror (no code dependency).
-- Per the module docstring, intended publishers include the subconscious loop, heartbeat, and screen-intelligence domains via `publish_attention`.
+- Per the module docstring, intended publishers include the subconscious loop and heartbeat via `publish_attention`.
 
 ## Notes / gotchas
 

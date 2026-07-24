@@ -205,7 +205,7 @@ Implement the following exact algorithm:
    - an absolute path containing `/appimage_deb/data/usr/lib` or `/data/usr/lib`
      maps that root to `+` and its suffix to `+/suffix`;
    - another absolute path is dropped;
-   - a bare relative path is not converted.
+   - a bare relative path is malformed and causes normalization to fail.
 5. For derived suffixes, remove one leading slash and no other content. A root
    with an empty suffix becomes `+`.
 6. Deduplicate using exact whole-entry equality while preserving first-seen

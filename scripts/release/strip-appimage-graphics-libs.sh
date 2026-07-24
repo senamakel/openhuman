@@ -360,7 +360,8 @@ rewrite_sharun_lib_path() {
         esac
         ;;
       *)
-        continue
+        echo "[strip-libs] ERROR: shared/lib/lib.path contains a malformed entry: '$entry'" >&2
+        return 1
         ;;
     esac
 

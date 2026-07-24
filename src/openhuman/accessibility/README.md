@@ -1,6 +1,6 @@
 # Accessibility
 
-Cross-platform accessibility middleware. Owns macOS AX / CGEvent / IOKit FFI, the unified Swift helper-process bridge, focused-text inspection, system-permission detection (Accessibility, Input Monitoring, Microphone), the Globe-key listener, the floating overlay window, paste / backspace key synthesis, terminal heuristics, and AX-string normalization. Centralises platform-specific code so that `autocomplete` and `voice` never touch FFI directly.
+Cross-platform accessibility middleware. Owns macOS AX / CGEvent / IOKit FFI, the unified Swift helper-process bridge, focused-text inspection, system-permission detection (Accessibility, Input Monitoring, Microphone), the Globe-key listener, the floating overlay window, paste / backspace key synthesis, terminal heuristics, and AX-string normalization. Centralises platform-specific code so that `voice` never touches FFI directly.
 
 ## Public surface
 
@@ -23,11 +23,9 @@ Cross-platform accessibility middleware. Owns macOS AX / CGEvent / IOKit FFI, th
 
 ## Called by
 
-- `src/openhuman/autocomplete/core/{terminal,text,overlay,types,focus}.rs` — focus-driven autocomplete needs every accessibility primitive.
 - `src/openhuman/voice/` — microphone permission and focused-text helpers (indirect, via re-exports).
-- `src/core/` — surfaces `AccessibilityStatus` snapshots for the shell.
 
 ## Tests
 
-- Permission and focus coverage runs through the module test files and retained consumers.
+- Permission and focus coverage runs through `permissions_tests.rs`, inline module tests, and retained consumers.
 - AX FFI surface is best validated end-to-end on a real macOS host — most CI runs are Linux and skip platform-gated paths.

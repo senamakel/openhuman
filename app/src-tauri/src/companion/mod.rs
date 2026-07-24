@@ -2,8 +2,7 @@
 //!
 //! Migrated out of the Rust core (`src/openhuman/desktop_companion`) into the
 //! Tauri shell. Ties hotkey activation, **native** microphone capture, LLM
-//! reasoning, and speech synthesis into one
-//! product experience:
+//! reasoning, and speech synthesis into one product experience:
 //!
 //! - `audio`    — native `cpal` mic capture (mono i16 PCM ~16 kHz)
 //! - `session`  — session lifecycle + state machine (idle→listening→…→idle)

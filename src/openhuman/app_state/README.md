@@ -30,4 +30,4 @@ Aggregator that the React shell polls every few seconds to render the OS-level c
 
 ## Tests
 
-- This domain has no `*_tests.rs` siblings; coverage is exercised indirectly through controller-registry tests in `src/core/` and through the JSON-RPC harness `tests/json_rpc_e2e.rs`.
+- Snapshot behavior is covered by `ops_tests.rs` and schema tests in `schemas.rs`; integration coverage runs through the JSON-RPC harness in `tests/json_rpc_e2e.rs`.

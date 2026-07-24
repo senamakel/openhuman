@@ -1,8 +1,8 @@
 //! Platform accessibility middleware: focus queries and permission management.
 //!
 //! Centralises macOS AX/IOKit FFI and the unified Swift helper process.
-//! Consumer modules (autocomplete, voice, and companion) call into this module
-//! instead of owning platform-specific code directly.
+//! Voice services call into this module instead of owning platform-specific
+//! code directly.
 
 mod automation_state;
 mod focus;

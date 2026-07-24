@@ -86,7 +86,7 @@ export const RIVE_VISEME_SET = [
   'oh',
   'ou',
 ] as const;
-export type RiveVisemeCode = (typeof RIVE_VISEME_SET)[number];
+type RiveVisemeCode = (typeof RIVE_VISEME_SET)[number];
 
 /**
  * Lowercased-alias → canonical `visme_codes` token.

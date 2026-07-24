@@ -57,7 +57,7 @@ export type MascotFace =
   | 'drinking_boba'
   | 'normal';
 
-export interface GhostyProps {
+interface GhostyProps {
   bodyColor?: string;
   blushColor?: string;
   arm?: 'wave' | 'none';

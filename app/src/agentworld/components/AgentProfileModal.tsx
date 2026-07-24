@@ -37,7 +37,7 @@ function formatJoined(iso: string): string {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-export interface AgentProfileModalProps {
+interface AgentProfileModalProps {
   agent: AgentCard;
   onClose: () => void;
 }

@@ -49,7 +49,7 @@ const RENDERER_PREFERENCE = 'webgl' as const;
 const INIT_TIMEOUT_MS = 10_000;
 
 /** Thrown when renderer init rejects or exceeds {@link INIT_TIMEOUT_MS}. */
-export class RendererInitError extends Error {
+class RendererInitError extends Error {
   public constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = 'RendererInitError';
@@ -191,7 +191,7 @@ function boxRelation(pointX: number, pointY: number, box: DepthObstacle): number
 // several worlds mount over a session (e.g. React strict-mode double-mounts).
 let fontsInstalled = false;
 
-export interface AgentSummary {
+interface AgentSummary {
   id: string;
   label: string;
 }

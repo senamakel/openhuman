@@ -65,5 +65,3 @@ export const MascotChipAvatar: FC<MascotChipAvatarProps> = ({
     </span>
   );
 };
-
-export default MascotChipAvatar;

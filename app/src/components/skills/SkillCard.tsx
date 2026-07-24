@@ -34,7 +34,7 @@ const CTA_STYLES: Record<string, string> = {
   amber: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
 };
 
-export function UnifiedSkillCard({
+function UnifiedSkillCard({
   icon,
   title,
   description,

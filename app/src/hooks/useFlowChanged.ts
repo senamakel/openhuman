@@ -81,5 +81,3 @@ export function useFlowChanged(
     };
   }, [handle]);
 }
-
-export default useFlowChanged;

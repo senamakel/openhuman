@@ -100,5 +100,3 @@ export function LiveTranscriptPanel({ turns = [], partialIndex }: LiveTranscript
     </div>
   );
 }
-
-export default LiveTranscriptPanel;

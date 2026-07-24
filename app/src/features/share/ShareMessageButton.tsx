@@ -66,5 +66,3 @@ export function ShareMessageButton({
     </>
   );
 }
-
-export default ShareMessageButton;

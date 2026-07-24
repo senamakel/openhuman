@@ -96,5 +96,3 @@ export function useFlowRunsLiveRefresh(runs: FlowRun[], refetch: () => void): vo
     };
   }, [hasActive]);
 }
-
-export default useFlowRunsLiveRefresh;

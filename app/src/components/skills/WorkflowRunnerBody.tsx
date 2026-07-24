@@ -239,7 +239,7 @@ export interface SkillsRunnerBodyProps {
   className?: string;
 }
 
-export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyProps) => {
+const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyProps) => {
   const { t } = useT();
 
   // Skill catalog (loaded once on mount)

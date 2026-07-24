@@ -267,5 +267,3 @@ function downloadBlob(blob: Blob, filename: string): void {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
-
-export default ShareCardModal;

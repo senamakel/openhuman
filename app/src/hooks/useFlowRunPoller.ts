@@ -120,5 +120,3 @@ export function useFlowRunPoller(runId: string | null): UseFlowRunPollerResult {
 
   return { run, loading, error };
 }
-
-export default useFlowRunPoller;

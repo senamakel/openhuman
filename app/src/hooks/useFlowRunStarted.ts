@@ -110,5 +110,3 @@ export function useFlowRunStarted(
     };
   }, [handle]);
 }
-
-export default useFlowRunStarted;

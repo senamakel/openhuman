@@ -122,5 +122,3 @@ export function useFlowRunProgress(runId: string | null): FlowRunProgressMap {
 
   return statuses;
 }
-
-export default useFlowRunProgress;

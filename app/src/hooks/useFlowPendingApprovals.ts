@@ -133,5 +133,3 @@ export function useFlowPendingApprovals(
 
   return { approvals, decidingId, error, decide };
 }
-
-export default useFlowPendingApprovals;

@@ -106,5 +106,3 @@ export function useFlowApprovalRequests(): UseFlowApprovalRequestsResult {
 
   return { requests, dismiss };
 }
-
-export default useFlowApprovalRequests;

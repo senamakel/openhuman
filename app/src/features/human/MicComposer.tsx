@@ -144,7 +144,7 @@ export { STT_MAX_RETRIES };
  * Single button, single decision: tap once to start recording, tap again to
  * stop and send. No textarea — that's the whole point of the mascot tab.
  */
-export function MicComposer({
+function MicComposer({
   disabled,
   onSubmit,
   onError,

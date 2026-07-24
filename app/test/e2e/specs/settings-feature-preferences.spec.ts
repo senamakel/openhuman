@@ -74,14 +74,24 @@ describe('Settings - Feature Preferences', function () {
   });
 
   it('falls through removed feature routes to settings home', async () => {
-    await navigateViaHash('/settings/features');
-    await browser.waitUntil(
-      async () => {
-        const hash = await browser.execute(() => window.location.hash);
-        return hash === '#/settings';
-      },
-      { timeout: 15_000 }
-    );
+    for (const route of [
+      '/settings/features',
+      '/settings/screen-intelligence',
+      '/settings/screen-awareness-debug',
+    ]) {
+      await navigateViaHash(route);
+      await browser.waitUntil(
+        async () => {
+          const hash = await browser.execute(() => window.location.hash);
+          return hash === '#/settings';
+        },
+        { timeout: 15_000, timeoutMsg: `${route} did not normalize to #/settings` }
+      );
+
+      const bodyText = await browser.$('body').getText();
+      expect(bodyText).not.toContain('Screen Intelligence');
+      expect(bodyText).not.toContain('Screen Awareness Debug');
+    }
   });
 
   it('persists the default messaging channel through redux state', async () => {

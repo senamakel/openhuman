@@ -200,6 +200,11 @@ export function settingsRouteElements(): ReactNode {
       <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />
 
       {/* ── Legacy slugs → redirects (deep-link compatibility) ──── */}
+      {/* Screen-awareness settings were removed with the underlying capture
+          capability. Pin the retired deep links to the settings index instead
+          of relying on the generic wildcard fallback. */}
+      <Route path="screen-intelligence" element={<SettingsRedirect to="/settings" />} />
+      <Route path="screen-awareness-debug" element={<SettingsRedirect to="/settings" />} />
       {/* Old hub pages */}
       <Route path="ai" element={<Navigate to="/connections?tab=llm" replace />} />
       <Route path="agents-settings" element={<SettingsRedirect to="/settings/agents" />} />

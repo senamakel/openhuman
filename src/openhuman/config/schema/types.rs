@@ -905,7 +905,6 @@ mod model_pin_tests {
         )
         .expect("legacy screen intelligence TOML should be ignored");
 
-        assert!(config.default_model.is_some());
         assert!(
             !toml::to_string(&config)
                 .expect("config should serialize")

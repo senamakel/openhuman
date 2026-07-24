@@ -78,6 +78,24 @@ describe('useDebouncedValue', () => {
     expect(result.current).toBe(next);
   });
 
+  it('preserves callable values without invoking them', () => {
+    const initial = vi.fn(() => 'initial result');
+    const next = vi.fn(() => 'next result');
+    const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 100), {
+      initialProps: { value: initial },
+    });
+
+    expect(result.current).toBe(initial);
+    expect(initial).not.toHaveBeenCalled();
+
+    rerender({ value: next });
+    act(() => vi.advanceTimersByTime(100));
+
+    expect(result.current).toBe(next);
+    expect(initial).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('cleans up a pending update on unmount', () => {
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
     const { rerender, unmount } = renderHook(({ value }) => useDebouncedValue(value, 100), {

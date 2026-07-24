@@ -336,6 +336,10 @@ const McpServersTab = () => {
     },
     [t]
   );
+  const lastEffectFetchRef = useRef<{
+    filters: typeof debouncedCatalogFilters;
+    fetchCatalog: typeof fetchCatalog;
+  } | null>(null);
 
   useEffect(() => {
     Promise.all([loadInstalled(), fetchStatuses()]).finally(() => setLoading(false));
@@ -345,6 +349,11 @@ const McpServersTab = () => {
   // changes. Search + transport now run in the core over the cached full
   // catalog, so changing either re-queries from the top.
   useEffect(() => {
+    const lastFetch = lastEffectFetchRef.current;
+    if (lastFetch?.filters === debouncedCatalogFilters && lastFetch.fetchCatalog === fetchCatalog) {
+      return;
+    }
+    lastEffectFetchRef.current = { filters: debouncedCatalogFilters, fetchCatalog };
     void fetchCatalog(debouncedCatalogFilters.query, debouncedCatalogFilters.transport, 1, false);
   }, [debouncedCatalogFilters, fetchCatalog]);
 

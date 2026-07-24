@@ -71,9 +71,15 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
     },
     [t]
   );
+  const lastEffectFetchRef = useRef<{ query: string; fetchPage: typeof fetchPage } | null>(null);
 
   // Reset to page 1 whenever the debounced query changes.
   useEffect(() => {
+    const lastFetch = lastEffectFetchRef.current;
+    if (lastFetch?.query === debouncedQuery && lastFetch.fetchPage === fetchPage) {
+      return;
+    }
+    lastEffectFetchRef.current = { query: debouncedQuery, fetchPage };
     void fetchPage(debouncedQuery, 1, false);
   }, [debouncedQuery, fetchPage]);
 

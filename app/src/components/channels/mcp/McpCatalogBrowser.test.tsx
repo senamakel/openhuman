@@ -1,10 +1,19 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Static import — follows project no-dynamic-import rule for test files.
 import McpCatalogBrowser from './McpCatalogBrowser';
 
 const mockRegistrySearch = vi.fn();
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
 
 vi.mock('../../../services/api/mcpClientsApi', () => ({
   mcpClientsApi: { registrySearch: (...args: unknown[]) => mockRegistrySearch(...args) },
@@ -64,6 +73,47 @@ describe('McpCatalogBrowser', () => {
 
     expect(mockRegistrySearch).toHaveBeenCalledTimes(1);
     expect(mockRegistrySearch).toHaveBeenCalledWith({ query: 'github', page: 1, page_size: 20 });
+  });
+
+  it('coalesces StrictMode fetches for each stable debounced query', async () => {
+    const initialRequest = deferred<{ servers: never[]; page: number; total_pages: number }>();
+    const changedRequest = deferred<{ servers: never[]; page: number; total_pages: number }>();
+    mockRegistrySearch.mockImplementation(({ query }: { query?: string }) =>
+      query === 'github' ? changedRequest.promise : initialRequest.promise
+    );
+
+    render(
+      <StrictMode>
+        <McpCatalogBrowser onSelectInstall={() => {}} />
+      </StrictMode>
+    );
+
+    initialRequest.resolve({ servers: [], page: 1, total_pages: 1 });
+    await act(async () => {
+      await initialRequest.promise;
+    });
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByPlaceholderText('Search MCP servers...'), {
+      target: { value: 'github' },
+    });
+    act(() => vi.advanceTimersByTime(249));
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(2);
+    expect(mockRegistrySearch).toHaveBeenLastCalledWith({
+      query: 'github',
+      page: 1,
+      page_size: 20,
+    });
+
+    changedRequest.resolve({ servers: [], page: 1, total_pages: 1 });
+    await act(async () => {
+      await changedRequest.promise;
+    });
   });
 
   it('renders server cards from search results', async () => {

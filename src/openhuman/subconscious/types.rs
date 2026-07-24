@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 /// Summary of a subconscious instance's status.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubconsciousStatus {
-    /// Which world this row describes (`"memory"` | `"tinyplace"`). Defaulted to
-    /// `"memory"` when absent so older callers/serialized rows keep parsing.
+    /// Which world this row describes (`"memory"`). Defaulted when absent so
+    /// older callers/serialized rows keep parsing.
     #[serde(default = "default_instance")]
     pub instance: String,
     pub enabled: bool,

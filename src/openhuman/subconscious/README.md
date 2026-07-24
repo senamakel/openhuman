@@ -1,18 +1,18 @@
 # subconscious
 
-The subconscious is OpenHuman's **Deep Reflection Layer**: an offline, cron-driven
-loop that consumes a compressed view of how a *world* changed and emits short,
-dense outputs that steer the rest of the system. It is a **factory** — one generic
-reflection runner instantiated once per world:
+The subconscious is OpenHuman's **Deep Reflection Layer**: a scheduled loop
+that observes how the user's connected memory changed, prepares local context,
+and decides whether to act.
 
 - **`memory`** — the user's connected memory sources (Gmail / Slack / Notion /
-  folders). Observes a `memory_diff` against a baseline checkpoint; reflects with
-  the slim decision agent (to-dos, goals, `notify_user`, delegation).
-- **`tinyplace`** — the tiny.place orchestration world. Observes the 20:1-compressed
-  execution history + cumulative world-state diff; reflects with a **tool-free**
-  steering synthesis that emits `STEERING_DIRECTIVE`s for the reasoning core.
+  folders). It observes a `memory_diff` against a baseline checkpoint. Changed
+  windows prefer hosted Medulla reflection and execute a bounded set of local
+  actions (to-dos, goals, `notify_user`, blocking delegation).
 
-Adding a world is a new profile file + one factory arm — not another engine.
+`subconscious.engine = "auto"` is the default. It tries hosted Medulla and falls
+back to the local decision agent only when unavailability is known before the
+initial run request is submitted. `engine = "local"` bypasses hosted execution.
+The legacy draft value `"medulla"` deserializes as `"auto"`.
 
 ## The generic tick (`instance.rs`)
 
@@ -33,33 +33,40 @@ runner **once**, so every world gets it for free:
 - generation/supersede counter (checked in the `commit` node **and** post-run, so a
   superseded tick never advances state or commits),
 - `TICK_TIMEOUT` (30 min) wall clock,
-- provider gate + per-instance rate-cap halt (signature `"<id>|<provider-sig>"`, so
-  one world's 413/TPM halt never silences another — TAURI-RUST-HXF),
+- local-provider gate + rate-cap halt when `engine = "local"`,
 - tool-capability classifier (TAURI-RUST-ADC),
 - advance-baseline-only-on-success, quiet-tick short-circuit,
 - `SqliteCheckpointer` resume of an interrupted tick.
 
-## Profiles (`profiles/`)
+## Memory profile (`profiles/memory.rs`)
 
 A profile implements `observe → prepare_context → reflect → commit` + `origin`:
 
-| Method | `memory` | `tinyplace` |
-| --- | --- | --- |
-| `observe` | diff connected sources vs the baseline checkpoint | load the unreviewed compressed history + world-diff window |
-| `prepare_context` | read-only `context_scout` over the diff | none (steering is deliberately tool-free) |
-| `reflect` | slim decision agent (`hint:subconscious`, Full autonomy) → `Acted` | tool-free provider chat → `Steered`/`Idle` |
-| `commit` | re-checkpoint the world baseline | advance the review cursor to the observed window |
-| `origin` | tainted iff the diff carried external content | always `SubconsciousTainted` |
+| Method | Memory behavior |
+| --- | --- |
+| `observe` | diff connected sources vs the baseline checkpoint |
+| `prepare_context` | run the read-only local `context_scout` over the diff |
+| `reflect` | hosted Medulla (`flavor: "openhuman"`) or safe local fallback → `Acted` |
+| `commit` | re-checkpoint the world baseline after quiet or successful reflection |
+| `origin` | tainted iff the diff carried external content |
+
+Hosted Medulla receives exactly `notify_user`, `update_task`, `goals_list`,
+`goals_add`, `goals_edit`, and `spawn_subagent`. These tools execute on-device.
+Delegation is forced blocking and runs with a root parent context.
+
+The submission boundary is deliberately strict: missing credentials, disabled
+or unreachable hosted orchestration, and plan ineligibility are preflight
+failures and may fall back locally. Once `/orchestration/v1/run` is submitted,
+any transport, continuation, timeout, or terminal-cycle error holds the
+baseline and does not run the same window locally.
 
 ## Persistence
 
 SQLite at `<workspace>/subconscious/subconscious.db` (per-user workspace). State
 keys are **namespaced per instance** (`"<instance>:<key>"`):
 
-- `subconscious_state` — REAL KV: `memory:last_tick_at`, `tinyplace:last_tick_at`.
+- `subconscious_state` — REAL KV: `memory:last_tick_at`.
 - `subconscious_state_text` — TEXT KV: `memory:baseline_checkpoint_id`.
-- The tinyplace **review cursor** lives in the orchestration store, not here — the
-  profile owns it via `commit`.
 - Legacy single-engine keys (`last_tick_at`, `baseline_checkpoint_id`) migrate to
   the `memory:`-namespace via an idempotent, old-version-tolerant UPDATE in the DDL
   batch.
@@ -76,8 +83,8 @@ existing DBs but are no longer written or read.
 | `mod.rs` | Export-focused; re-exports the factory, instance, profile types, session, source_chunk, schemas. |
 | `profile.rs` | `SubconsciousProfile` trait + serde `Observation`/`Reflection`. |
 | `instance.rs` | `SubconsciousInstance` — the generic tinyagents-graph runner + scheduler/circuit-breaker shell + `status()`/`is_due()`. |
-| `profiles/memory.rs` | `MemoryProfile` + `memory_instance()` — the memory world (world-diff render, decision agent, baseline). |
-| `profiles/tinyplace.rs` | `TinyPlaceProfile` + `tinyplace_instance()` — orchestration steering (wraps `orchestration::ops::load_review_window` / `synthesize_and_persist`). |
+| `hosted.rs` | Hosted Medulla reflection, bounded on-device tool catalogue, trusted origin, and blocking delegation wrapper. |
+| `profiles/memory.rs` | `MemoryProfile` + `memory_instance()` — world-diff render, engine selection, local fallback, and baseline. |
 | `provider.rs` | Shared subconscious provider routing, rate-cap halt signature, and permanent-error classifiers (world-agnostic). |
 | `factory.rs` | `SubconsciousKind` + `make_subconscious` + `enabled_kinds` — the bootstrap set. |
 | `registry.rs` | Keyed `HashMap<Kind, Arc<SubconsciousInstance>>`; `get_or_init_instance`, `registered_instances`, `bootstrap_after_login`, user-switch reset. Spawns the heartbeat loop + opt-in trigger orchestrator. |
@@ -93,7 +100,7 @@ Namespace `subconscious` (`openhuman.subconscious_<function>`):
 | Function | Purpose |
 | --- | --- |
 | `status` | Legacy top-level fields mirror the **memory** instance; `instances[]` lists every registered world (each tagged with `instance`). Read entirely from SQLite / the small state mutex — never the tick lock. |
-| `trigger` | Fire a tick for a world: optional `kind` (`"memory"` default, `"tinyplace"`, `"all"`). Spawned; returns immediately. |
+| `trigger` | Fire the memory tick; `"all"` remains a compatibility alias. Spawned; returns immediately. |
 
 ## Notes / gotchas
 
@@ -106,9 +113,7 @@ Namespace `subconscious` (`openhuman.subconscious_<function>`):
   discards its result and skips commit.
 - **Quiet ticks short-circuit before reflect** — no LLM call when `observe` is empty;
   the baseline is still refreshed via `commit`.
-- **Taint:** the memory decision agent's toolset is internal-only, the tinyplace
-  reflect path is a tool-free provider chat (source-scan test enforces no
-  Agent/channel/send-message symbols); external effects stay gated by the approval
-  gate. A tick that reacted to external content runs `SubconsciousTainted`.
-- **One world's rate-cap halt never silences another** — the halt signature is
-  prefixed with the instance id.
+- **Taint:** hosted and local reflection use `SubconsciousTainted` for windows
+  containing external content. Delegated agent turns inherit that origin.
+- **The local Medulla child is separate.** `medulla_local` remains a developer
+  diagnostic/RPC surface and does not drive subconscious ticks.

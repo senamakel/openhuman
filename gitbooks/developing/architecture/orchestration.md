@@ -1,11 +1,10 @@
 # Subconscious orchestration layer
 
-The orchestration layer is OpenHuman's **split-brain** coordinator for wrapped
-Claude Code / Codex sessions that talk to the owner agent over tiny.place
-Signal-encrypted DMs. It turns each inbound session DM into one autonomous
-**wake cycle** driven by a single `tinyagents` graph, keeps a durable per-session
-chat model, and runs an offline **subconscious** that reflects on how the world
-is trending and steers later cycles.
+The orchestration layer is OpenHuman's device-side client for the hosted
+orchestration brain. Wrapped Claude Code / Codex sessions talk to the owner
+agent over tiny.place Signal-encrypted DMs. OpenHuman decrypts and caches those
+messages, forwards events and world diffs to the backend, renders hosted
+sessions, and executes explicitly requested local effects.
 
 Domain root: [`src/openhuman/orchestration/`](../../../src/openhuman/orchestration).
 Design spec: [`docs/arch-subconscious.md`](../../../docs/arch-subconscious.md) and
@@ -17,66 +16,44 @@ the staged plan under [`docs/plans/subconscious-orchestration/`](../../../docs/p
 Claude Code / Codex session
   └─ tinyplace harness wrapper — tails the session JSONL → SessionEnvelopeV1
        └─ Signal E2E DM → owner agent's tiny.place inbox   [tagged sessionId, source, role]
-            └─ ingest (decrypt-once → classify → persist → ack)     orchestration/ingest.rs
-                 └─ OrchestrationSessionMessage event → debounced wake
-                      └─ THE WAKE GRAPH (one tinyagents CompiledGraph)  orchestration/graph/
-                           normalize → frontend(1) → execute → compress → world_diff
-                                          ▲                                   │
-                                          └───────────────────────────────────┘
-                                          │
-                                          └─(channel_response)─► send_dm ─► context_guard ─► done
-            └─ subconscious tick (offline, cron/heartbeat) — reviews compressed history +
-               cumulative world diff → emits a steering directive that later cycles inject
+            └─ ingest (decrypt-once → classify → cache → hosted event → ack)
+                 └─ hosted brain runs the orchestration cycle
+                      └─ pushed effects → local effect executor
+            └─ world-diff uploader → hosted subconscious tier
   UI: Brain → Orchestration tab (orchestration.* RPC + orchestration:message socket)
 ```
 
-## The wake graph (stages 4 to 5)
+## Hosted boundary
 
-One `OrchestrationState` (`graph/state.rs`) flows through the whole cycle and is
-checkpointed at every super-step boundary under thread `orchestration:<session_id>`
-by `SqlRunLedgerCheckpointer`. `frontend` is the router (command-routing): when
-`channel_response` is present it wraps up (`send_dm`), otherwise it hands macro
-instructions to `execute` and loops back. The reasoning core always sets
-`agent_reply`, so the second front-end pass compiles a `channel_response`; a hard
-`max_supersteps` backstop guarantees termination (spec §5 loop continuity).
+The reasoning/wake graph is owned by `tinyhumansai/backend`. OpenHuman owns:
 
-Every behaviour-bearing node is bundled behind one injected `OrchestrationRuntime`
-(`graph/mod.rs`): the two-pass front end (Quick LLM, `hint:chat`), the reasoning
-core (`hint:reasoning`, spawns worker sub-agents), 20:1 compression, the
-append-only world-state diff, utilization + eviction, and the DM reply. As a
-result, the graph mechanics are hermetically unit-testable with a single stub
-while production wires the real agents / store / memory in `ops.rs`.
+- E2E DM decrypt, classification, dedupe, local render caching, and ack order;
+- `POST /orchestration/v1/events` and world-diff uploads;
+- hosted session/message read synchronization and reachability;
+- pushed-effect validation and execution; and
+- direct Medulla request/response tool loops.
 
-Memory mechanics (spec §3 to §4):
+The retired `GET /orchestration/v1/steering` route is not part of this boundary.
+OpenHuman neither polls nor caches a current steering directive.
 
-- **`compress`** condenses the cycle's execution trace to a strict `input/20` token
-  budget (200-token floor only when still compressive), retry-once-then-truncate,
-  persisted idempotently by `cycle_id` to the `compressed_history` table.
-- **`world_diff`** appends one entry to an append-only timeline (monotonic `seq`
-  from genesis, `terminal_state` kv), idempotent by `cycle_id`.
-- **`context_guard`** runs after all mutations, before END: at ≥
-  `context_evict_threshold` (clamped 0.8 to 0.9) it evicts the oldest compressed
-  entries to memory RAG under `path_scope = orchestration/<session>` and resets
-  utilization.
+## Memory subconscious
 
-## The subconscious steering loop (stage 6)
-
-The existing `SubconsciousEngine` tick gains an `orchestration_review` stage that
-runs **fully offline**: a single tool-free provider chat on the `subconscious`
-route under `SubconsciousTainted` origin. It reads unreviewed `compressed_history`
-plus the cumulative world-diff timeline and emits at most one dense
-`STEERING_DIRECTIVE` (with `expires_after_cycles`) into the append-only
-`steering_directives` store (supersede chain + cycle-count expiry). At the start of
-each wake cycle `ops::seed_state` bumps a global reasoning-cycle counter and loads
-the current non-expired directive into `state.subconscious_steering`, which the
-`execute` node weaves into its system prompt via a task-local. The subconscious is
-a decoupled writer: never an edge in the wake graph, never a channel/effect.
+The device memory subconscious remains a local
+`observe → prepare_context → reflect → commit` pipeline. Observation, context
+scouting, scheduling, checkpointing, and tools stay on-device. With
+`subconscious.engine = "auto"` (the default), changed windows use
+`POST /orchestration/v1/run` with `flavor: "openhuman"` and the bounded
+subconscious tool catalogue. Preflight unavailability can fall back to the local
+decision agent. Once the run request is submitted, failures do not fall back,
+which prevents duplicate notifications or state writes. `engine = "local"`
+bypasses hosted reflection.
 
 ## RPC + UI (stage 7)
 
 Renderer-only controllers (internal registry) in `orchestration/schemas.rs`:
 `openhuman.orchestration_{sessions_list, messages_list, send_master_message,
-mark_read, status}`. Live updates ride an `orchestration:message` socket event
+mark_read, status}`. Status reports reachability and tick/ingest health, not a
+steering directive. Live updates ride an `orchestration:message` socket event
 (`bus.rs` broadcast → `core/socketio.rs` bridge) fanned out for every persisted
 chat message. The Brain → Orchestration tab (`TinyPlaceOrchestrationTab.tsx` +
 `useOrchestrationChats.ts`) reads real store classification, live-updates, and lets
@@ -90,24 +67,18 @@ are returned through `/orchestration/v1/run/continue` until Medulla produces a
 final reply. The backend repeats authentication, entitlement, and resource
 limit enforcement on every cycle.
 
-## Running unattended (stage 8)
+## Running unattended
 
 - **No message loss**: ingest dedupes by relay `message_id` *before* decrypt (the
   Signal ratchet is never advanced twice); a relay/decrypt error leaves the message
   un-acked for a clean retry.
-- **No duplicate DM**: the idempotence cursor advances only after a completed,
-  DM-sent cycle; `dm_sent` is checkpointed and the deterministic `cycle_id` keeps
-  the `compressed_history` / `world_diff` store writes idempotent across a
-  checkpoint resume.
-- **Backpressure**: each cycle awaits `scheduler_gate::wait_for_capacity()`, so a
-  `Paused`/`Throttled` gate defers the cycle rather than dropping it.
 - **Malformed input**: any non-envelope / malformed DM body falls back to the peer's
   Master window; the parser never panics.
-- **Observability**: nodes log entry/exit with `session_id` / `cycle_id` /
-  `tick_id` correlation ids; `orchestration.status` exposes the current steering
-  directive, last subconscious tick, ingest-cursor lag, and last error. Message
-  bodies / decrypted plaintext / seeds are never logged (guarded by a source-scan
-  test).
+- **No duplicate reflection actions**: local fallback is allowed only for typed
+  preflight failures. Submitted-cycle failures hold the memory baseline.
+- **Observability**: logs carry counts, phase, and correlation ids without
+  message bodies, decrypted plaintext, tool arguments, or backend response
+  bodies.
 
 ## Configuration
 

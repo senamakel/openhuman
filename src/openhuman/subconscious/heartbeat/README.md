@@ -1,6 +1,6 @@
 # heartbeat
 
-Periodic background scheduler that wakes on a configurable interval to do two things: (1) run the **planner** — evaluate upcoming meetings, cron reminders, and urgent notifications and dispatch deduplicated proactive notifications; and (2) optionally drive the **subconscious** engine for task-driven evaluation via local model inference. The loop reloads config before every tick so UI setting changes apply without an app restart, and it sleeps before the first tick so a fresh login never burns budget immediately.
+Periodic background scheduler that wakes on a configurable interval to do two things: (1) run the **planner** — evaluate upcoming meetings, cron reminders, and urgent notifications and dispatch deduplicated proactive notifications; and (2) optionally drive the **subconscious** engine for task-driven evaluation via hosted Medulla or its local fallback. The loop reloads config before every tick so UI setting changes apply without an app restart, and it sleeps before the first tick so a fresh login never burns budget immediately.
 
 ## Responsibilities
 

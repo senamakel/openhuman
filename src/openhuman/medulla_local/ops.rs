@@ -2,8 +2,8 @@
 //!
 //! Thin surface over [`super::server`]: `status` reports the supervised serve
 //! child's handshake state; `instruct` enqueues one instruction and returns the
-//! synchronous receipt (§4.1). The subconscious tick path (§5.2) calls
-//! [`instruct_tick`] directly rather than over RPC.
+//! synchronous receipt. This developer surface is independent of subconscious
+//! reflection.
 
 use serde::Deserialize;
 use serde_json::{json, Value};

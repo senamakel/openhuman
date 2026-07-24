@@ -8,12 +8,8 @@
 //! profile owns only what differs between worlds. Adding a new world is a new
 //! profile file, not another engine.
 //!
-//! Two profiles ship today (phases 2–3):
-//! - `memory` — the user's connected sources; observes a memory_diff, reflects
-//!   with the slim decision agent (to-dos, goals, `notify_user`, delegation).
-//! - `tinyplace` — the tiny.place orchestration world; observes the compressed
-//!   execution history + world-diff, reflects with a tool-free steering
-//!   synthesis that emits `STEERING_DIRECTIVE`s.
+//! The shipped `memory` profile observes the user's connected sources and
+//! reflects through hosted Medulla or its local decision-agent fallback.
 
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -33,9 +29,8 @@ pub struct Observation {
     /// Whether the change window contains third-party content — the taint input
     /// for [`SubconsciousProfile::origin`].
     pub has_external_content: bool,
-    /// Opaque token `commit` uses to advance exactly the observed window
-    /// (memory: none — it re-checkpoints the whole world; tinyplace: the newest
-    /// reviewed compressed-row `created_at` for the review cursor).
+    /// Opaque token `commit` can use to advance exactly the observed window.
+    /// The memory profile currently re-checkpoints the whole world instead.
     pub commit_token: Option<String>,
 }
 
@@ -45,8 +40,6 @@ pub struct Observation {
 pub enum Reflection {
     /// The decision agent acted through tools (memory profile).
     Acted { response_chars: usize },
-    /// A steering directive was emitted (tinyplace profile).
-    Steered { directive_id: i64 },
     /// The model looked and correctly chose to do nothing.
     Idle,
 }
@@ -55,7 +48,7 @@ pub enum Reflection {
 #[async_trait::async_trait]
 pub trait SubconsciousProfile: Send + Sync {
     /// Stable instance id — store-key namespace, log prefix, RPC name.
-    /// (`"memory"` | `"tinyplace"`.)
+    /// (`"memory"`.)
     fn id(&self) -> &'static str;
 
     /// Tick cadence for this world (the heartbeat fans out on this).
@@ -69,8 +62,7 @@ pub trait SubconsciousProfile: Send + Sync {
     async fn observe(&self, config: &Config) -> Observation;
 
     /// Stage 2 (optional): grounding context for the reflection turn. The
-    /// default returns `""` (the tinyplace profile skips this — steering is
-    /// deliberately tool-free). Runs only when `obs.has_changes`.
+    /// default returns `""`. Runs only when `obs.has_changes`.
     async fn prepare_context(&self, _config: &Config, _obs: &Observation) -> String {
         String::new()
     }
@@ -92,7 +84,6 @@ pub trait SubconsciousProfile: Send + Sync {
     /// a failed or superseded one.
     async fn commit(&self, config: &Config, obs: &Observation);
 
-    /// Turn-origin taint for this observation (memory: tainted iff the diff
-    /// carried external content; tinyplace: always tainted).
+    /// Turn-origin taint for this observation.
     fn origin(&self, obs: &Observation) -> TrustedAutomationSource;
 }

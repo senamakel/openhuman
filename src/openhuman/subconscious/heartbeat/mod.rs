@@ -1,5 +1,5 @@
 //! Heartbeat loop — periodic scheduler that delegates to the subconscious
-//! engine for task-driven evaluation via local model inference.
+//! engine for task-driven evaluation via hosted Medulla or local fallback.
 //!
 //! HEARTBEAT.md in the workspace defines the task checklist.
 //! The subconscious engine evaluates tasks against workspace state

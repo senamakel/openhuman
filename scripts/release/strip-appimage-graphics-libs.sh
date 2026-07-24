@@ -293,58 +293,98 @@ rewrite_sharun_lib_path() {
   local lib_path="$appdir/shared/lib/lib.path"
   [ -s "$lib_path" ] || return 1
 
-  if ! grep -E '(^|[+:])/home/runner/|(^|[+:])/__w/' "$lib_path" >/dev/null; then
+  local -a normalized_entries=()
+  local entry normalized suffix existing duplicate index
+  local normalized_count=0
+  while IFS= read -r entry || [ -n "$entry" ]; do
+    if [ -z "$entry" ]; then
+      echo "[strip-libs] ERROR: shared/lib/lib.path contains an empty entry" >&2
+      return 1
+    fi
+    case "$entry" in
+      *$'\r'*|*:*)
+        echo "[strip-libs] ERROR: shared/lib/lib.path contains a malformed entry: '$entry'" >&2
+        return 1
+        ;;
+      [[:space:]]*|*[[:space:]])
+        echo "[strip-libs] ERROR: shared/lib/lib.path contains a malformed entry: '$entry'" >&2
+        return 1
+        ;;
+    esac
+
+    case "$entry" in
+      +)
+        normalized="+"
+        ;;
+      +/*)
+        normalized="$entry"
+        ;;
+      /*)
+        case "$entry" in
+          */squashfs-root/shared/lib)
+            normalized="+"
+            ;;
+          */squashfs-root/shared/lib/*)
+            suffix="${entry#*/squashfs-root/shared/lib/}"
+            normalized="+/$suffix"
+            ;;
+          */appimage_deb/data/usr/lib)
+            normalized="+"
+            ;;
+          */appimage_deb/data/usr/lib/*)
+            suffix="${entry#*/appimage_deb/data/usr/lib/}"
+            normalized="+/$suffix"
+            ;;
+          */data/usr/lib)
+            normalized="+"
+            ;;
+          */data/usr/lib/*)
+            suffix="${entry#*/data/usr/lib/}"
+            normalized="+/$suffix"
+            ;;
+          *)
+            continue
+            ;;
+        esac
+        ;;
+      *)
+        continue
+        ;;
+    esac
+
+    duplicate=0
+    index=0
+    while [ "$index" -lt "$normalized_count" ]; do
+      existing="${normalized_entries[$index]}"
+      if [ "$existing" = "$normalized" ]; then
+        duplicate=1
+        break
+      fi
+      index=$((index + 1))
+    done
+    if [ "$duplicate" -eq 0 ]; then
+      normalized_entries[$normalized_count]="$normalized"
+      normalized_count=$((normalized_count + 1))
+    fi
+  done <"$lib_path"
+
+  if [ "$normalized_count" -eq 0 ]; then
+    echo "[strip-libs] ERROR: shared/lib/lib.path contains no valid AppDir library entries" >&2
     return 1
   fi
 
-  echo "[strip-libs]   rewriting CI runner paths in shared/lib/lib.path"
-
-  local raw
-  raw="$(cat "$lib_path")"
-
-  local -a entries=()
-  local entry
-  while IFS= read -r entry; do
-    [ -n "$entry" ] || continue
-    entries+=("$entry")
-  done < <(printf '%s' "$raw" | tr '+:' '\n\n')
-
-  local -a cleaned=()
-  local rel seen_set=""
-  for entry in "${entries[@]}"; do
-    case "$entry" in
-      /home/runner/*|/__w/*)
-        rel="${entry##*/squashfs-root/}"
-        if [ "$rel" = "$entry" ]; then
-          rel="${entry##*/data/}"
-          [ "$rel" != "$entry" ] || continue
-        fi
-        ;;
-      /*)
-        continue
-        ;;
-      *)
-        rel="$entry"
-        ;;
-    esac
-
-    [ -d "$appdir/$rel" ] || continue
-
-    case "+${seen_set}+" in
-      *"+${rel}+"*) continue ;;
-    esac
-    seen_set="${seen_set}+${rel}"
-    cleaned+=("$rel")
-  done
-
-  if [ "${#cleaned[@]}" -eq 0 ]; then
-    cleaned=("shared/lib")
+  local normalized_file
+  normalized_file="$(mktemp "$lib_path.tmp.XXXXXX")"
+  printf '%s\n' "${normalized_entries[@]}" >"$normalized_file"
+  if cmp -s "$normalized_file" "$lib_path"; then
+    rm -f "$normalized_file"
+    return 1
   fi
 
-  local joined
-  joined="$(IFS='+'; echo "${cleaned[*]}")"
-  printf '%s' "$joined" > "$lib_path"
-  echo "[strip-libs]   lib.path rewritten to: $joined"
+  mv "$normalized_file" "$lib_path"
+  echo "[strip-libs]   normalized shared/lib/lib.path entries:"
+  printf '[strip-libs]     %s\n' "${normalized_entries[@]}"
+  return 0
 }
 
 validate_sharun_lib_path() {

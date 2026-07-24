@@ -47,6 +47,80 @@ trap 'rm -rf "$WORK"' EXIT
 
 fail() { echo "[test-rpaths] FAIL: $1" >&2; exit 1; }
 
+make_sharun_appdir() {
+  local appdir="$1"
+  mkdir -p "$appdir/shared/bin" "$appdir/shared/lib/plugins" "$appdir/bin"
+
+  cp "$HOST_ELF" "$appdir/sharun"
+  printf 'Interpreter not found!' >> "$appdir/sharun"
+  chmod +x "$appdir/sharun"
+  ln "$appdir/sharun" "$appdir/AppRun"
+  ln "$appdir/sharun" "$appdir/bin/OpenHuman"
+
+  cp "$HOST_ELF" "$appdir/shared/bin/OpenHuman"
+  chmod +x "$appdir/shared/bin/OpenHuman"
+}
+
+assert_lib_path_contents() {
+  local fixture="$1"
+  local expected="$2"
+  local expected_file="$fixture/expected-lib.path"
+  printf '%s\n' "$expected" >"$expected_file"
+  cmp -s "$expected_file" "$fixture/shared/lib/lib.path" \
+    || fail "unexpected normalized lib.path for ${fixture##*/}"
+}
+
+# --- Case 0: rewrite_sharun_lib_path emits sharun-native marker entries -----
+REWRITE_SQUASHFS="$WORK/rewrite-squashfs"
+make_sharun_appdir "$REWRITE_SQUASHFS"
+printf '%s\n' "$WORK/squashfs-root/shared/lib" >"$REWRITE_SQUASHFS/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_SQUASHFS" \
+  || fail "squashfs-root shared/lib was not normalized"
+assert_lib_path_contents "$REWRITE_SQUASHFS" '+'
+
+REWRITE_STAGING="$WORK/rewrite-staging"
+make_sharun_appdir "$REWRITE_STAGING"
+printf '%s\n' "$WORK/appimage_deb/data/usr/lib" >"$REWRITE_STAGING/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_STAGING" \
+  || fail "appimage_deb data/usr/lib was not normalized"
+assert_lib_path_contents "$REWRITE_STAGING" '+'
+
+REWRITE_DESCENDANTS="$WORK/rewrite-descendants"
+make_sharun_appdir "$REWRITE_DESCENDANTS"
+printf '%s\n%s\n' \
+  "$WORK/squashfs-root/shared/lib/plugins" \
+  "$WORK/appimage_deb/data/usr/lib/plugins" \
+  >"$REWRITE_DESCENDANTS/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_DESCENDANTS" \
+  || fail "AppDir library descendants were not normalized"
+assert_lib_path_contents "$REWRITE_DESCENDANTS" '+/plugins'
+
+REWRITE_MIXED="$WORK/rewrite-mixed"
+make_sharun_appdir "$REWRITE_MIXED"
+printf '%s\n' '+' '+/plugins' '+' '/opt/unrelated/lib' \
+  >"$REWRITE_MIXED/shared/lib/lib.path"
+rewrite_sharun_lib_path "$REWRITE_MIXED" \
+  || fail "mixed marker entries were not normalized"
+assert_lib_path_contents "$REWRITE_MIXED" "$(printf '+\n+/plugins')"
+
+cp "$REWRITE_MIXED/shared/lib/lib.path" "$REWRITE_MIXED/lib.path.before"
+if rewrite_sharun_lib_path "$REWRITE_MIXED"; then
+  fail "rewrite_sharun_lib_path was not idempotent"
+fi
+cmp -s "$REWRITE_MIXED/lib.path.before" "$REWRITE_MIXED/shared/lib/lib.path" \
+  || fail "idempotent rewrite changed lib.path bytes"
+
+REWRITE_INVALID="$WORK/rewrite-invalid"
+make_sharun_appdir "$REWRITE_INVALID"
+printf '%s\n' '/opt/unrelated/lib' >"$REWRITE_INVALID/shared/lib/lib.path"
+if ( rewrite_sharun_lib_path "$REWRITE_INVALID" ) 2>"$WORK/rewrite.err"; then
+  fail "rewrite accepted a lib.path with no AppDir library root"
+fi
+grep -F "no valid AppDir library entries" "$WORK/rewrite.err" >/dev/null \
+  || fail "rewrite failure did not explain why lib.path was rejected"
+assert_lib_path_contents "$REWRITE_INVALID" '/opt/unrelated/lib'
+echo "[test-rpaths] ok: sharun lib.path normalization is canonical and idempotent"
+
 # --- Case 1: sanitize_elf_rpaths strips a CI build-machine RPATH ------------
 APPDIR="$WORK/squashfs-root"
 mkdir -p "$APPDIR/usr/lib" "$APPDIR/shared/lib"

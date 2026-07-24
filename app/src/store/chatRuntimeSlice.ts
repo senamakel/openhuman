@@ -33,7 +33,11 @@ const turnStateLog = debug('chatRuntime.turnState');
 export type ProcessingTranscriptItem = PersistedTranscriptItem;
 
 export type ToolTimelineEntryStatus =
-  'running' | 'success' | 'error' | 'awaiting_user' | 'cancelled';
+  | 'running'
+  | 'success'
+  | 'error'
+  | 'awaiting_user'
+  | 'cancelled';
 
 export interface InferenceStatus {
   phase: 'thinking' | 'tool_use' | 'subagent';

@@ -15,9 +15,9 @@ type ThreadStateShape = {
 };
 const storeMock = {
   dispatch: vi.fn(),
-  getState: vi.fn((): ThreadStateShape => ({
-    thread: { selectedThreadId: null, activeThreadId: null },
-  })),
+  getState: vi.fn(
+    (): ThreadStateShape => ({ thread: { selectedThreadId: null, activeThreadId: null } })
+  ),
 };
 vi.mock('../../store', () => ({ store: storeMock }));
 

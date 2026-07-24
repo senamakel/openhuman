@@ -230,7 +230,11 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(getCurrent).mockResolvedValue([url]);
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
 
     // Replay the exact same deep link — the nonce was consumed, so it fails.
     vi.mocked(storeSession).mockClear();
@@ -276,7 +280,11 @@ describe('desktopDeepLinkListener', () => {
       await waitForAuthSettled();
 
       // store WAS attempted (we reached the persistence call)...
-      expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
+      expect(storeSession).toHaveBeenCalledWith(
+        'abc',
+        {},
+        { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+      );
       // ...but it FAILED, so the session-applied event was never dispatched...
       expect(sessionTokenUpdated).not.toHaveBeenCalled();
       // ...and we never navigated to /home (ProtectedRoute/PublicRoute keep signin).
@@ -316,7 +324,11 @@ describe('desktopDeepLinkListener', () => {
     resolveReadiness({ ready: true });
     await waitForAuthSettled();
 
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
     expect(getDeepLinkAuthState().isProcessing).toBe(false);
   });
 
@@ -349,7 +361,11 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).toHaveBeenCalledTimes(1);
     expect(clearCoreRpcTokenCache).toHaveBeenCalledTimes(1);
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
   });
 
   it('does NOT bust RPC caches before storeSession in local mode', async () => {
@@ -361,7 +377,11 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).not.toHaveBeenCalled();
     expect(clearCoreRpcTokenCache).not.toHaveBeenCalled();
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true, timeoutMs: 25_000 });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
   });
 
   it('dispatches suppress-reauth before storeSession and clears it after in cloud mode', async () => {

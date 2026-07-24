@@ -69,7 +69,8 @@ function toLabel(value: unknown): string {
  * The 'directory' source carries a bare OwnedIdentity with username + registeredAt only.
  */
 type ProfileData =
-  { source: 'graphql'; profile: GqlProfile } | { source: 'directory'; identity: OwnedIdentity };
+  | { source: 'graphql'; profile: GqlProfile }
+  | { source: 'directory'; identity: OwnedIdentity };
 
 type ProfileState =
   | { status: 'loading' }

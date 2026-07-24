@@ -6,7 +6,10 @@ import { CommandResponse, isTauri } from './common';
 
 export type AccessibilityPermissionState = 'granted' | 'denied' | 'unknown' | 'unsupported';
 export type AccessibilityPermissionKind =
-  'screen_recording' | 'accessibility' | 'input_monitoring' | 'microphone';
+  | 'screen_recording'
+  | 'accessibility'
+  | 'input_monitoring'
+  | 'microphone';
 
 export interface AccessibilityPermissionStatus {
   screen_recording: AccessibilityPermissionState;

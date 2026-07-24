@@ -36,7 +36,13 @@ import {
 } from '../utils/tauriCommands';
 
 type BrainTab =
-  'welcome' | 'graph' | 'goals' | 'sources' | 'sync' | 'subconscious' | 'orchestration';
+  | 'welcome'
+  | 'graph'
+  | 'goals'
+  | 'sources'
+  | 'sync'
+  | 'subconscious'
+  | 'orchestration';
 
 /** Small inline icon helper for the Brain sidebar nav. */
 const navIcon = (d: string) => (

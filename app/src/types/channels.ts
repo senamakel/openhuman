@@ -1,5 +1,12 @@
 export type ChannelType =
-  'telegram' | 'discord' | 'web' | 'lark' | 'dingtalk' | 'email' | 'mcp' | 'yuanbao';
+  | 'telegram'
+  | 'discord'
+  | 'web'
+  | 'lark'
+  | 'dingtalk'
+  | 'email'
+  | 'mcp'
+  | 'yuanbao';
 
 /** Every valid {@link ChannelType}, for runtime validation of values that arrive
  *  from the core (which is typed `string`). `satisfies` keeps this list in

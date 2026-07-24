@@ -25,7 +25,9 @@ const debug = debugFactory('agentworld:directory');
 
 /** Enrichment fetch state for the full GraphQL profile. */
 type ProfileFetch =
-  { status: 'loading' } | { status: 'ok'; profile: GqlProfile } | { status: 'unavailable' };
+  | { status: 'loading' }
+  | { status: 'ok'; profile: GqlProfile }
+  | { status: 'unavailable' };
 
 /** Format an ISO timestamp as a short human date; fall back to the raw value. */
 function formatJoined(iso: string): string {

@@ -12,7 +12,13 @@ export type PersistedTurnPhase = 'thinking' | 'tool_use' | 'subagent';
 export type PersistedToolStatus = 'running' | 'success' | 'error';
 
 export type TaskBoardCardStatus =
-  'todo' | 'awaiting_approval' | 'ready' | 'in_progress' | 'blocked' | 'done' | 'rejected';
+  | 'todo'
+  | 'awaiting_approval'
+  | 'ready'
+  | 'in_progress'
+  | 'blocked'
+  | 'done'
+  | 'rejected';
 export type TaskApprovalMode = 'required' | 'not_required';
 
 export interface TaskBoardCard {
@@ -191,7 +197,11 @@ export interface ClearTurnStateResponse {
 }
 
 export type AgentRunKind =
-  'subagent' | 'worker_thread' | 'background_agent' | 'team_member' | 'workflow_child';
+  | 'subagent'
+  | 'worker_thread'
+  | 'background_agent'
+  | 'team_member'
+  | 'workflow_child';
 
 export type AgentRunStatus =
   | 'pending'

@@ -43,7 +43,9 @@ export const ALLOWED_VIDEO_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/
 
 export type AllowedVideoMimeType = (typeof ALLOWED_VIDEO_MIME_TYPES)[number];
 export type AllowedAttachmentMimeType =
-  AllowedImageMimeType | AllowedFileMimeType | AllowedVideoMimeType;
+  | AllowedImageMimeType
+  | AllowedFileMimeType
+  | AllowedVideoMimeType;
 export type AttachmentKind = 'image' | 'file' | 'video';
 
 export const ALLOWED_ATTACHMENT_MIME_TYPES = [
@@ -121,7 +123,9 @@ export function isAllowedAttachmentMimeType(mime: string): mime is AllowedAttach
  * (which also lists reference-only types like CSV/DOCX/ZIP that we reject).
  */
 export type SupportedAttachmentMimeType =
-  AllowedImageMimeType | AllowedVideoMimeType | (typeof EXTRACTABLE_FILE_MIME_TYPES)[number];
+  | AllowedImageMimeType
+  | AllowedVideoMimeType
+  | (typeof EXTRACTABLE_FILE_MIME_TYPES)[number];
 
 /**
  * Stricter gate than {@link isAllowedAttachmentMimeType}: only the formats the

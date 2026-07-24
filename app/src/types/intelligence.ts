@@ -3,7 +3,13 @@
 import type React from 'react';
 
 export type ActionableItemSource =
-  'email' | 'calendar' | 'telegram' | 'ai_insight' | 'system' | 'trading' | 'security';
+  | 'email'
+  | 'calendar'
+  | 'telegram'
+  | 'ai_insight'
+  | 'system'
+  | 'trading'
+  | 'security';
 
 export type ActionableItemPriority = 'critical' | 'important' | 'normal';
 

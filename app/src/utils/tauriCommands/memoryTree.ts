@@ -774,7 +774,12 @@ export async function memoryTreeBackfillStatus(): Promise<BackfillStatus> {
  * state the toggle directly influences.
  */
 export type MemoryTreePipelineStatusKind =
-  'running' | 'paused' | 'syncing' | 'error' | 'idle' | 'degraded';
+  | 'running'
+  | 'paused'
+  | 'syncing'
+  | 'error'
+  | 'idle'
+  | 'degraded';
 
 /**
  * Stable typed failure codes the Rust `health::FailureCode` emits (#002). The

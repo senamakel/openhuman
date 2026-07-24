@@ -1865,7 +1865,9 @@ interface CustomRoutingDialogProps {
 }
 
 type CustomDialogSource =
-  { kind: 'cloud'; providerSlug: string } | { kind: 'local' } | { kind: 'claude-code' };
+  | { kind: 'cloud'; providerSlug: string }
+  | { kind: 'local' }
+  | { kind: 'claude-code' };
 
 /** Default model identifier presented when the user first picks the Claude
  * Code CLI source. This string is passed verbatim to `claude --model`, so it
@@ -2941,7 +2943,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
        */
       endpoint?: string | null;
       credentialMode:
-        'api_key' | 'oauth' | 'codex_oauth' | 'endpoint' | 'endpoint_key' | 'cli_login';
+        | 'api_key'
+        | 'oauth'
+        | 'codex_oauth'
+        | 'endpoint'
+        | 'endpoint_key'
+        | 'cli_login';
     }) => {
       const isLocalRuntime = credentialMode === 'endpoint' || credentialMode === 'endpoint_key';
       // `endpoint_key` (OMLX) carries the API key in `value` and the endpoint

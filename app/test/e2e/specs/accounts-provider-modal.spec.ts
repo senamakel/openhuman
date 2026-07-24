@@ -52,7 +52,8 @@ async function registeredProviders(): Promise<string[]> {
   return browser.execute(() => {
     const winAny = window as unknown as { __OPENHUMAN_STORE__?: { getState: () => unknown } };
     const state = winAny.__OPENHUMAN_STORE__?.getState() as
-      { accounts?: { accounts?: Record<string, { provider?: string }> } } | undefined;
+      | { accounts?: { accounts?: Record<string, { provider?: string }> } }
+      | undefined;
     const accounts = state?.accounts?.accounts ?? {};
     return Object.values(accounts)
       .map(a => a.provider)

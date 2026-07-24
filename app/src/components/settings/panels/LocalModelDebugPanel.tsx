@@ -175,7 +175,8 @@ const LocalModelDebugPanel = ({ embedded = false }: LocalModelDebugPanelProps = 
       try {
         const configResponse = await openhumanGetConfig();
         const localAi = configResponse.result?.config?.local_ai as
-          Record<string, unknown> | undefined;
+          | Record<string, unknown>
+          | undefined;
         const saved = localAi?.base_url as string | undefined | null;
         if (saved && saved.trim()) {
           setOllamaBaseUrlInput(saved.trim());

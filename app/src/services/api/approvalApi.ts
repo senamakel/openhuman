@@ -21,7 +21,10 @@ import { callCoreRpc } from '../coreRpcClient';
  * flow-scoped analogue of `approve_always_for_tool`'s session-scoped allowlist.
  */
 export type ApprovalDecision =
-  'approve_once' | 'approve_always_for_tool' | 'approve_always_for_flow' | 'deny';
+  | 'approve_once'
+  | 'approve_always_for_tool'
+  | 'approve_always_for_flow'
+  | 'deny';
 
 /**
  * Origin hint attached to a pending approval that was raised from inside a

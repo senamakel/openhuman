@@ -32,7 +32,12 @@ export type WorkflowSafetyTier = 'read_only' | 'standard' | 'edit_capable';
 
 /** Lifecycle status of a durable run. (`snake_case` on wire.) */
 export type WorkflowRunStatus =
-  'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'interrupted';
 
 /** Per-phase progress status inside `WorkflowRun.phaseStates`. */
 export type WorkflowPhaseStatus = 'pending' | 'running' | 'completed' | 'failed';

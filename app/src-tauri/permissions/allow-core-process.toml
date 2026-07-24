@@ -121,13 +121,6 @@ allow = [
     "notch_window_hide",
 
     # =========================
-    # SCREEN SHARE
-    # =========================
-    "screen_share_begin_session",
-    "screen_share_thumbnail",
-    "screen_share_finalize_session",
-
-    # =========================
     # NOTIFICATIONS
     # =========================
     # Native notification surface (see src/native_notifications/). The

@@ -94,7 +94,6 @@ mod ptt_hotkeys;
 mod ptt_overlay;
 #[cfg(target_os = "windows")]
 mod reset_reboot_schedule;
-mod screen_capture;
 mod slack_scanner;
 mod stderr_panic_hook;
 mod telegram_scanner;
@@ -3111,7 +3110,6 @@ pub fn run() {
     let builder = builder.manage(discord_scanner::ScannerRegistry::new());
     let builder = builder.manage(telegram_scanner::ScannerRegistry::new());
     let builder = builder.manage(wechat_scanner::ScannerRegistry::new());
-    let builder = builder.manage(screen_capture::ScreenShareState::new());
     let builder = builder.manage(meet_call::MeetCallState::new());
     let builder = builder.manage(meet_audio::MeetAudioState::new());
     let builder = builder.manage(meet_video::frame_bus::MeetVideoFrameBusState::new());
@@ -3856,9 +3854,6 @@ pub fn run() {
             webview_accounts::webview_set_focused_account,
             notification_settings::notification_settings_get,
             notification_settings::notification_settings_set,
-            screen_capture::screen_share_begin_session,
-            screen_capture::screen_share_thumbnail,
-            screen_capture::screen_share_finalize_session,
             native_notifications::notification_permission_state,
             native_notifications::notification_permission_request,
             activate_main_window,

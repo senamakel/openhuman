@@ -24,7 +24,7 @@ jobs:
       short_sha: 3c4fe284261
       base_url: https://api.openhuman.ai
       app_env: staging
-      build_profile: debug
+      build_profile: release
       telegram_bot_username: openhuman_bot
       with_macos_signing: false
       with_release_upload: false

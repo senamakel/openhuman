@@ -122,6 +122,16 @@ jobs:
           ref: ${{ inputs.build_ref }}
           fetch-depth: 1
           submodules: recursive
+      - name: Reclaim runner space for exact-head release validation
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          df -h /
+          sudo rm -rf \
+            /opt/ghc \
+            /usr/local/lib/android \
+            /usr/share/dotnet
+          df -h /
       - name: Log build policy
         shell: bash
         run: |

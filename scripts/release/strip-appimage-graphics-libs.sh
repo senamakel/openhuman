@@ -721,7 +721,7 @@ patch_apprun_sharun_cwd() {
 
 validate_rebuilt_appimage() {
   local rebuilt_path="$1"
-  "$APPIMAGE_RUNTIME_VALIDATOR" "$rebuilt_path"
+  "$APPIMAGE_RUNTIME_VALIDATOR" "$rebuilt_path" || return 1
 }
 
 strip_one_appimage() {

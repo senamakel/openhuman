@@ -56,12 +56,16 @@ validate_extracted_appdir() {
     return 1
   done
 
-  validate_sharun_lib_path "$appdir"
-  validate_appimage_required_libs "$appdir"
+  validate_sharun_lib_path "$appdir" || return 1
+  validate_appimage_required_libs "$appdir" || return 1
 
   local real_app="$appdir/shared/bin/OpenHuman"
   local needed
-  needed="$(patchelf --print-needed "$real_app")"
+  if ! needed="$(patchelf --print-needed "$real_app")"; then
+    runtime_validation_error \
+      "could not read NEEDED entries from shared/bin/OpenHuman"
+    return 1
+  fi
   echo "[appimage-runtime] shared/bin/OpenHuman NEEDED entries:"
   if [ -n "$needed" ]; then
     printf '%s\n' "$needed" | sed 's/^/[appimage-runtime]   /'
@@ -142,8 +146,7 @@ smoke_extracted_apprun() {
   done < <(compgen -v OPENAI_ || true)
 
   local status
-  set +e
-  (
+  if (
     cd "$foreign_cwd"
     timeout --signal=TERM --kill-after=5s 15s \
       xvfb-run -a --server-args="-screen 0 1280x960x24" \
@@ -155,9 +158,11 @@ smoke_extracted_apprun() {
         OPENHUMAN_CEF_PREWARM=0 \
         OPENHUMAN_DISABLE_GPU=1 \
         "$appdir/AppRun"
-  ) >"$log_file" 2>&1
-  status=$?
-  set -e
+  ) >"$log_file" 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
 
   local forbidden=0
   if grep -Eiq \
@@ -226,10 +231,10 @@ validate_final_appimage() (
     runtime_validation_error "extraction did not create $appdir"
     return 1
   fi
-  validate_extracted_appdir "$appdir"
+  validate_extracted_appdir "$appdir" || return 1
 
   if [ "${APPIMAGE_RUNTIME_SMOKE:-0}" = "1" ]; then
-    smoke_extracted_apprun "$appdir" "$foreign_cwd" "$smoke_log"
+    smoke_extracted_apprun "$appdir" "$foreign_cwd" "$smoke_log" || return 1
   else
     echo "[appimage-runtime] Static validation complete; executable smoke disabled for this architecture"
   fi
@@ -240,5 +245,6 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     echo "Usage: $0 <final.AppImage>" >&2
     exit 2
   }
-  validate_final_appimage "$1"
+  APPIMAGE_EXPECTED_NEEDED="libxdo.so.3 libcef.so" \
+    validate_final_appimage "$1"
 fi

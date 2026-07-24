@@ -360,25 +360,165 @@ export EXTRACT_SOURCE="$RUNTIME_COMPLETE"
 APPIMAGE_EXPECTED_NEEDED="" validate_final_appimage "$FAKE_APPIMAGE" \
   || fail "validate_final_appimage rejected a complete extracted fixture"
 
-SMOKE_BIN="$WORK/smoke-bin"
-mkdir -p "$SMOKE_BIN"
+if APPIMAGE_EXPECTED_NEEDED="" \
+  "$RUNTIME_VALIDATOR" "$FAKE_APPIMAGE" \
+  >"$WORK/direct-validator.log" 2>&1; then
+  fail "direct validator allowed a fixture override to disable production NEEDED checks"
+fi
+grep -F "missing NEEDED entry 'libxdo.so.3'" \
+  "$WORK/direct-validator.log" >/dev/null \
+  || fail "direct validator did not enforce the production NEEDED contract"
+
+RUNTIME_BAD_LIBPATH="$WORK/runtime-bad-libpath"
+cp -R "$RUNTIME_COMPLETE" "$RUNTIME_BAD_LIBPATH"
+printf '%s\n' 'shared/lib' >"$RUNTIME_BAD_LIBPATH/shared/lib/lib.path"
+if ( APPIMAGE_EXPECTED_NEEDED="" \
+  validate_extracted_appdir "$RUNTIME_BAD_LIBPATH" ) \
+  >"$RUNTIME_BAD_LIBPATH/conditional.log" 2>&1; then
+  fail "conditional validate_extracted_appdir suppressed lib.path validation failure"
+fi
+
+RUNTIME_FINAL_INVALID="$WORK/runtime-final-invalid"
+cp -R "$RUNTIME_COMPLETE" "$RUNTIME_FINAL_INVALID"
+rm -f "$RUNTIME_FINAL_INVALID/shared/lib/anylinux.so"
+if ( EXTRACT_SOURCE="$RUNTIME_FINAL_INVALID" APPIMAGE_EXPECTED_NEEDED="" \
+  validate_final_appimage "$FAKE_APPIMAGE" ) \
+  >"$WORK/conditional-final.log" 2>&1; then
+  fail "conditional validate_final_appimage suppressed extracted-layout failure"
+fi
+
+REAL_PATCHELF="$(command -v patchelf)"
+PATCHELF_FAIL_BIN="$WORK/patchelf-fail-bin"
+mkdir -p "$PATCHELF_FAIL_BIN"
 printf '%s\n' \
   '#!/usr/bin/env bash' \
+  'if [ "$1" = "--print-needed" ]; then exit 42; fi' \
+  'exec "$REAL_PATCHELF" "$@"' \
+  >"$PATCHELF_FAIL_BIN/patchelf"
+chmod +x "$PATCHELF_FAIL_BIN/patchelf"
+export REAL_PATCHELF
+if ( PATH="$PATCHELF_FAIL_BIN:$PATH" APPIMAGE_EXPECTED_NEEDED="" \
+  validate_extracted_appdir "$RUNTIME_COMPLETE" ) \
+  >"$WORK/patchelf-failure.log" 2>&1; then
+  fail "conditional validate_extracted_appdir suppressed patchelf failure"
+fi
+
+SMOKE_BIN="$WORK/smoke-bin"
+mkdir -p "$SMOKE_BIN"
+SMOKE_RECORD="$WORK/smoke-command-record"
+SMOKE_PROBE="$WORK/smoke-probe-record"
+REAL_ENV="$(command -v env)"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "timeout-cwd=%s\n" "$PWD" >>"$SMOKE_RECORD"' \
+  'while [ "$#" -gt 0 ]; do' \
+  '  case "$1" in' \
+  '    --signal=*|--kill-after=*|15s) shift ;;' \
+  '    *) break ;;' \
+  '  esac' \
+  'done' \
+  '"$@"' \
   '[ -n "${SMOKE_TIMEOUT_MESSAGE:-}" ] && printf "%s\n" "$SMOKE_TIMEOUT_MESSAGE" >&2' \
   'exit "${SMOKE_TIMEOUT_STATUS:-124}"' \
   >"$SMOKE_BIN/timeout"
-printf '%s\n' '#!/usr/bin/env bash' 'exit 99' >"$SMOKE_BIN/xvfb-run"
-chmod +x "$SMOKE_BIN/timeout" "$SMOKE_BIN/xvfb-run"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "xvfb-invoked\n" >>"$SMOKE_RECORD"' \
+  'while [ "$#" -gt 0 ]; do' \
+  '  case "$1" in' \
+  '    -a|--server-args=*) shift ;;' \
+  '    *) break ;;' \
+  '  esac' \
+  'done' \
+  'exec "$@"' \
+  >"$SMOKE_BIN/xvfb-run"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'args=("$@")' \
+  'index=0' \
+  'while [ "$index" -lt "${#args[@]}" ]; do' \
+  '  arg="${args[$index]}"' \
+  '  case "$arg" in' \
+  '    -u)' \
+  '      next=$((index + 1))' \
+  '      printf "env-unset=%s\n" "${args[$next]}" >>"$SMOKE_RECORD"' \
+  '      index=$((index + 2))' \
+  '      ;;' \
+  '    HOME=*|XDG_CONFIG_HOME=*|XDG_DATA_HOME=*|XDG_CACHE_HOME=*)' \
+  '      printf "env-assignment=%s\n" "$arg" >>"$SMOKE_RECORD"' \
+  '      index=$((index + 1))' \
+  '      ;;' \
+  '    OPENHUMAN_CEF_PREWARM=*|OPENHUMAN_DISABLE_GPU=*) index=$((index + 1)) ;;' \
+  '    *) break ;;' \
+  '  esac' \
+  'done' \
+  'exec "$REAL_ENV" "${args[@]}"' \
+  >"$SMOKE_BIN/env"
+chmod +x "$SMOKE_BIN/timeout" "$SMOKE_BIN/xvfb-run" "$SMOKE_BIN/env"
+SMOKE_APPDIR="$WORK/smoke-appdir"
+mkdir -p "$SMOKE_APPDIR"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "apprun-cwd=%s\n" "$PWD" >>"$SMOKE_PROBE"' \
+  'printf "home=%s\n" "$HOME" >>"$SMOKE_PROBE"' \
+  'printf "config=%s\n" "$XDG_CONFIG_HOME" >>"$SMOKE_PROBE"' \
+  'printf "data=%s\n" "$XDG_DATA_HOME" >>"$SMOKE_PROBE"' \
+  'printf "cache=%s\n" "$XDG_CACHE_HOME" >>"$SMOKE_PROBE"' \
+  '[ -z "${GITHUB_TOKEN+x}" ] || exit 71' \
+  '[ -z "${GH_TOKEN+x}" ] || exit 72' \
+  '[ -z "${TAURI_SIGNING_PRIVATE_KEY+x}" ] || exit 73' \
+  '[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD+x}" ] || exit 74' \
+  '[ -z "${SENTRY_AUTH_TOKEN+x}" ] || exit 75' \
+  '[ -z "${OPENAI_API_KEY+x}" ] || exit 76' \
+  'printf "probe-executed\n" >>"$SMOKE_PROBE"' \
+  >"$SMOKE_APPDIR/AppRun"
+chmod +x "$SMOKE_APPDIR/AppRun"
+export SMOKE_RECORD SMOKE_PROBE REAL_ENV
 SMOKE_ROOT="$WORK/smoke-runtime"
 mkdir -p "$SMOKE_ROOT/foreign-cwd"
+GITHUB_TOKEN='secret-github-value' \
+GH_TOKEN='secret-gh-value' \
+TAURI_SIGNING_PRIVATE_KEY='secret-signing-value' \
+TAURI_SIGNING_PRIVATE_KEY_PASSWORD='secret-password-value' \
+SENTRY_AUTH_TOKEN='secret-sentry-value' \
+OPENAI_API_KEY='secret-openai-value' \
 PATH="$SMOKE_BIN:$PATH" smoke_extracted_apprun \
-  "$RUNTIME_COMPLETE" \
+  "$SMOKE_APPDIR" \
   "$SMOKE_ROOT/foreign-cwd" \
   "$SMOKE_ROOT/success.log" \
   || fail "smoke_extracted_apprun did not accept timeout status 124"
+grep -Fx "timeout-cwd=$SMOKE_ROOT/foreign-cwd" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke did not invoke timeout from the foreign CWD"
+grep -Fx "xvfb-invoked" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke did not invoke xvfb-run"
+for secret_name in \
+  GITHUB_TOKEN \
+  GH_TOKEN \
+  TAURI_SIGNING_PRIVATE_KEY \
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
+  SENTRY_AUTH_TOKEN \
+  OPENAI_API_KEY; do
+  grep -Fx "env-unset=$secret_name" "$SMOKE_RECORD" >/dev/null \
+    || fail "smoke env did not unset $secret_name"
+done
+grep -Fx "env-assignment=HOME=$SMOKE_ROOT/home" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke HOME was not isolated"
+grep -Fx "env-assignment=XDG_CONFIG_HOME=$SMOKE_ROOT/config" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke XDG_CONFIG_HOME was not isolated"
+grep -Fx "env-assignment=XDG_DATA_HOME=$SMOKE_ROOT/data" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke XDG_DATA_HOME was not isolated"
+grep -Fx "env-assignment=XDG_CACHE_HOME=$SMOKE_ROOT/cache" "$SMOKE_RECORD" >/dev/null \
+  || fail "smoke XDG_CACHE_HOME was not isolated"
+grep -Fx "apprun-cwd=$SMOKE_ROOT/foreign-cwd" "$SMOKE_PROBE" >/dev/null \
+  || fail "smoke AppRun did not execute from the foreign CWD"
+grep -Fx "probe-executed" "$SMOKE_PROBE" >/dev/null \
+  || fail "smoke AppRun probe did not execute"
+if grep -F 'secret-' "$SMOKE_RECORD" "$SMOKE_PROBE" >/dev/null; then
+  fail "smoke command records exposed a secret value"
+fi
 if ( PATH="$SMOKE_BIN:$PATH" SMOKE_TIMEOUT_STATUS=0 \
   smoke_extracted_apprun \
-    "$RUNTIME_COMPLETE" \
+    "$SMOKE_APPDIR" \
     "$SMOKE_ROOT/foreign-cwd" \
     "$SMOKE_ROOT/early-exit.log" ) >/dev/null 2>&1; then
   fail "smoke_extracted_apprun accepted an immediate clean exit"
@@ -386,11 +526,22 @@ fi
 if ( PATH="$SMOKE_BIN:$PATH" \
   SMOKE_TIMEOUT_MESSAGE='libcef.so: cannot open shared object file' \
   smoke_extracted_apprun \
-    "$RUNTIME_COMPLETE" \
+    "$SMOKE_APPDIR" \
     "$SMOKE_ROOT/foreign-cwd" \
     "$SMOKE_ROOT/loader-error.log" ) >/dev/null 2>&1; then
   fail "smoke_extracted_apprun accepted a forbidden loader diagnostic"
 fi
+(
+  set +e
+  PATH="$SMOKE_BIN:$PATH" smoke_extracted_apprun \
+    "$SMOKE_APPDIR" \
+    "$SMOKE_ROOT/foreign-cwd" \
+    "$SMOKE_ROOT/errexit-disabled.log" \
+    || exit 81
+  case "$-" in
+    *e*) exit 82 ;;
+  esac
+) || fail "smoke_extracted_apprun changed a sourced caller's disabled errexit state"
 
 assert_runtime_layout_rejected missing-anylinux \
   "missing anylinux.so" remove_anylinux
@@ -451,6 +602,11 @@ APPIMAGE_RUNTIME_VALIDATOR=runtime_validator_stub \
   || fail "validate_rebuilt_appimage did not forward to its configured command"
 [ "$(cat "$VALIDATOR_RECORD")" = "$REBUILT_FIXTURE" ] \
   || fail "validate_rebuilt_appimage forwarded the wrong artifact path"
+runtime_validator_failure_stub() { return 37; }
+if APPIMAGE_RUNTIME_VALIDATOR=runtime_validator_failure_stub \
+  validate_rebuilt_appimage "$REBUILT_FIXTURE"; then
+  fail "conditional validate_rebuilt_appimage suppressed validator failure"
+fi
 
 mv_line="$(grep -nF 'mv "$rebuilt" "$original"' "$TARGET" | cut -d: -f1)"
 validate_line="$(grep -nF 'validate_rebuilt_appimage "$original"' "$TARGET" | cut -d: -f1)"

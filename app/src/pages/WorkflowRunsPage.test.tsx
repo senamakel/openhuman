@@ -14,6 +14,7 @@ const listAllFlowRuns = vi.hoisted(() => vi.fn());
 const listFlows = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/flowsApi', () => ({
   listAllFlowRuns: (...a: unknown[]) => listAllFlowRuns(...a),
+  listFlowRuns: vi.fn(),
   listFlows: (...a: unknown[]) => listFlows(...a),
 }));
 
@@ -56,6 +57,8 @@ describe('WorkflowRunsPage', () => {
 
     render(<WorkflowRunsPage />);
 
+    expect(listAllFlowRuns).toHaveBeenCalledTimes(1);
+    expect(listFlows).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.getByTestId('workflow-runs-list')).toBeInTheDocument());
     expect(screen.getByText('Daily digest')).toBeInTheDocument();
     expect(screen.getByText('Auto reply')).toBeInTheDocument();
@@ -79,6 +82,15 @@ describe('WorkflowRunsPage', () => {
     render(<WorkflowRunsPage />);
 
     await waitFor(() => expect(screen.getByText('rpc down')).toBeInTheDocument());
+  });
+
+  it('shows an error banner when the separate workflow-name lookup fails', async () => {
+    listAllFlowRuns.mockResolvedValue([]);
+    listFlows.mockRejectedValue(new Error('name lookup down'));
+
+    render(<WorkflowRunsPage />);
+
+    await waitFor(() => expect(screen.getByText('name lookup down')).toBeInTheDocument());
   });
 
   it('shows "pending approval" for a running run halted at a matching flow approval gate', async () => {

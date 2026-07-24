@@ -8,7 +8,7 @@
  * to-close + Escape-to-close via `useEscapeKey`) so it renders as a fixed
  * overlay regardless of where the parent mounts it.
  *
- * Data loads via `listFlowRuns` on open, then stays live via
+ * Data loads via `useFlowRunsQuery` on open, then stays live via
  * {@link useFlowRunsLiveRefresh} while any run in the list is still active —
  * so a run stuck on "Running" here updates without the user having to close
  * and reopen the drawer. The run inspector separately polls a single run's
@@ -25,17 +25,17 @@
  * single Escape press closes only the topmost overlay (the inspector) first.
  */
 import debug from 'debug';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useFlowRunsLiveRefresh } from '../../hooks/useFlowRunsLiveRefresh';
+import { useFlowRunsQuery } from '../../hooks/useFlowRunsQuery';
 import { useFlowRunStarted } from '../../hooks/useFlowRunStarted';
 import {
   resolveDisplayStatus,
   useRunsPendingApprovalSet,
 } from '../../hooks/useRunsPendingApprovalSet';
 import { useT } from '../../lib/i18n/I18nContext';
-import { type FlowRun, listFlowRuns } from '../../services/api/flowsApi';
 import { CenteredLoadingState, ErrorBanner } from '../ui/LoadingState';
 import {
   FLOW_RUN_STATUS_ACCENT,
@@ -76,98 +76,21 @@ interface Props {
  */
 export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Props) {
   const { t } = useT();
-  const [runs, setRuns] = useState<FlowRun[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { runs, loading, error, refreshSilently } = useFlowRunsQuery({
+    scope: { kind: 'flow', flowId },
+  });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  // Tracks the flowId this drawer instance is *currently* showing, so an
-  // in-flight `refetch()` started for a previous flow (see below) can detect
-  // it's stale once the drawer flips to a new flowId and bail instead of
-  // clobbering the new flow's already-loaded runs.
-  const currentFlowIdRef = useRef(flowId);
-  // Per-request generation counter, shared by the initial load effect and
-  // `refetch` below: a request started before a run-started event (or before
-  // a newer refetch) can resolve AFTER it and, without this guard, clobber a
-  // fresh "Running" row with stale data — even for the SAME flowId, where the
-  // `currentFlowIdRef` check alone can't tell requests apart. Only the
-  // most-recently-issued request for the current flow may apply its result.
-  const requestGenRef = useRef(0);
 
   useEffect(() => {
-    currentFlowIdRef.current = flowId;
-
-    // Reset for the new target so a previous flow's runs/error can't linger
-    // under a different flowId while the new fetch is in flight.
     setSelectedRunId(null);
-    setError(null);
-
-    if (!flowId) {
-      setRuns([]);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const requestGen = ++requestGenRef.current;
-    setLoading(true);
-    log('loading runs: flowId=%s', flowId);
-    listFlowRuns(flowId)
-      .then(result => {
-        if (cancelled || requestGen !== requestGenRef.current) return;
-        setRuns(result);
-        log('loaded runs: flowId=%s count=%d', flowId, result.length);
-      })
-      .catch(err => {
-        if (cancelled || requestGen !== requestGenRef.current) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        log('load failed: flowId=%s err=%s', flowId, msg);
-        setError(msg);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
   }, [flowId]);
 
-  // Background refresh for the live-update hook below — deliberately doesn't
-  // touch `loading`/`error` so a poll tick or progress event never flashes
-  // the loading state or clobbers a real load error with a transient one.
-  // Guards against a stale response two ways: if the drawer flips from flow A
-  // to flow B while an A refetch is still in flight, the late A response must
-  // not overwrite B's already-loaded runs (`currentFlowIdRef`); and if two
-  // requests for the SAME flow race (e.g. the initial load and an
-  // event-driven refetch, or two refetches back to back), only the response
-  // to the most-recently-issued one may apply (`requestGenRef`).
-  const refetch = useCallback(() => {
-    if (!flowId) return;
-    const requestFlowId = flowId;
-    const requestGen = ++requestGenRef.current;
-    listFlowRuns(requestFlowId)
-      .then(result => {
-        if (currentFlowIdRef.current !== requestFlowId || requestGen !== requestGenRef.current) {
-          return;
-        }
-        setRuns(result);
-        log('refetched runs: flowId=%s count=%d', requestFlowId, result.length);
-      })
-      .catch(err => {
-        if (currentFlowIdRef.current !== requestFlowId || requestGen !== requestGenRef.current) {
-          return;
-        }
-        const msg = err instanceof Error ? err.message : String(err);
-        log('refetch failed: flowId=%s err=%s', requestFlowId, msg);
-      });
-  }, [flowId]);
-
-  useFlowRunsLiveRefresh(runs, refetch);
+  useFlowRunsLiveRefresh(runs, refreshSilently);
   // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
   // already-active run) — fills the empty-list gap ("No runs yet") that hook
   // can't reach, so the very first run shows up as "Running" instantly
   // instead of waiting for a manual refresh (issue B35).
-  useFlowRunStarted(() => void refetch(), flowId);
+  useFlowRunStarted(() => void refreshSilently(), flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   useEscapeKey(

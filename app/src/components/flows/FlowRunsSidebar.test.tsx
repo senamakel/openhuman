@@ -19,7 +19,7 @@ import { store } from '../../store';
 import FlowRunsSidebar from './FlowRunsSidebar';
 
 const listFlowRuns = vi.hoisted(() => vi.fn());
-vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns }));
+vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns, listAllFlowRuns: vi.fn() }));
 
 const fetchPendingApprovals = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/approvalApi', () => ({ fetchPendingApprovals }));

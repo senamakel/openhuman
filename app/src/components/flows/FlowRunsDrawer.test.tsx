@@ -21,7 +21,7 @@ import { store } from '../../store';
 import { FlowRunsDrawer } from './FlowRunsDrawer';
 
 const listFlowRuns = vi.hoisted(() => vi.fn());
-vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns }));
+vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns, listAllFlowRuns: vi.fn() }));
 
 const fetchPendingApprovals = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/approvalApi', () => ({ fetchPendingApprovals }));
@@ -207,6 +207,29 @@ describe('FlowRunsDrawer', () => {
     fireEvent.click(screen.getByTestId('mock-inspector-close'));
     expect(screen.queryByTestId('mock-inspector')).not.toBeInTheDocument();
     expect(screen.getByTestId('flow-runs-list')).toBeInTheDocument();
+  });
+
+  it('clears the selected run when the drawer changes to another flow', async () => {
+    listFlowRuns.mockImplementation((flowId: string) =>
+      Promise.resolve([makeRun({ id: flowId === 'flow-1' ? 'run-1' : 'run-2', flow_id: flowId })])
+    );
+    const { rerender } = render(
+      <Provider store={store}>
+        <FlowRunsDrawer flowId="flow-1" onClose={vi.fn()} />
+      </Provider>
+    );
+
+    fireEvent.click(await screen.findByTestId('flow-run-row-run-1'));
+    expect(screen.getByTestId('mock-inspector')).toHaveTextContent('run-1');
+
+    rerender(
+      <Provider store={store}>
+        <FlowRunsDrawer flowId="flow-2" onClose={vi.fn()} />
+      </Provider>
+    );
+
+    await waitFor(() => expect(screen.queryByTestId('mock-inspector')).not.toBeInTheDocument());
+    expect(await screen.findByTestId('flow-run-row-run-2')).toBeInTheDocument();
   });
 
   it('calls onClose when the close button is clicked', async () => {

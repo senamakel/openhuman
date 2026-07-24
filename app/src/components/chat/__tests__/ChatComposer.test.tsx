@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { createRef, useState } from 'react';
+import { createRef, useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Attachment } from '../../../lib/attachments';
@@ -258,14 +258,17 @@ describe('ChatComposer', () => {
       const fileInputRef = createRef<HTMLInputElement | null>();
       const isComposingTextRef = { current: false };
       // This test harness simulates a render loop by calling setState
-      // during its render phase, exceeding the guard's threshold.
+      // from a useEffect, exceeding the guard's 30-render threshold
+      // without triggering React's native "too many re-renders" error.
       function LoopHarness() {
         const [count, setCount] = useState(0);
         const [text, setText] = useState('');
 
-        if (count < 35) {
-          setCount(count + 1);
-        }
+        useEffect(() => {
+          if (count < 35) {
+            setCount(count + 1);
+          }
+        }, [count, setCount]);
 
         return (
           <ChatComposer
@@ -291,11 +294,7 @@ describe('ChatComposer', () => {
         );
       }
 
-      try {
-        render(<LoopHarness />);
-      } catch {
-        // React may throw about nested updates; the guard should fire first.
-      }
+      render(<LoopHarness />);
 
       const loopCalls = warnSpy.mock.calls.filter(
         args => typeof args[0] === 'string' && args[0].includes('Render-loop detected')

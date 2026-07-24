@@ -33,7 +33,7 @@ export interface ModelCouncilResult {
   synthesis: string;
 }
 
-export interface RunCouncilParams {
+interface RunCouncilParams {
   question: string;
   /** Member model ids or "default" seats to consult (repeated seats preserved; capped server-side). */
   member_models: string[];
@@ -43,13 +43,13 @@ export interface RunCouncilParams {
   temperature?: number;
 }
 
-export interface RunCouncilMemberParams {
+interface RunCouncilMemberParams {
   question: string;
   model: string;
   temperature?: number;
 }
 
-export interface SynthesizeCouncilParams {
+interface SynthesizeCouncilParams {
   question: string;
   members: CouncilMemberResult[];
   chair_model: string;

@@ -1,4 +1,4 @@
-export type McpRegistryErrorKind = 'not_found' | 'network' | 'unavailable';
+type McpRegistryErrorKind = 'not_found' | 'network' | 'unavailable';
 
 const FALLBACK_MESSAGES: Record<McpRegistryErrorKind, string> = {
   not_found:

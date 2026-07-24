@@ -1211,9 +1211,9 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
   };
 }
 
-export type QueueMode = 'interrupt' | 'steer' | 'followup' | 'collect' | 'parallel';
+type QueueMode = 'interrupt' | 'steer' | 'followup' | 'collect' | 'parallel';
 
-export interface ChatSendParams {
+interface ChatSendParams {
   threadId: string;
   message: string;
   model?: string;

@@ -86,9 +86,6 @@ export const unwrapRows = <T>(raw: unknown): T[] => {
   return [];
 };
 
-/** Default page size matching the core's `list_recent_decisions` default. */
-export const DEFAULT_APPROVAL_HISTORY_LIMIT = 50;
-
 /**
  * Fetch recently decided approval rows for the audit/history surface.
  * `limit` is clamped core-side; omit to use the core default (50).

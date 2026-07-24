@@ -3114,7 +3114,7 @@ const messages: TranslationMap = {
     'रैप किए गए सत्रों को नियंत्रित करने के लिए ऑर्केस्ट्रेशन सक्षम करें।',
   'subconscious.instance.tinyplace.viewDirectives': 'निर्देश देखें →',
   'subconscious.runReviewNow': 'अभी समीक्षा चलाएँ',
-  'tinyplaceOrchestration.subconsciousBadge': 'अवचेतन · स्टीयरिंग',
+  'tinyplaceOrchestration.subconsciousBadge': 'अवचेतन',
   'subconscious.providerUnavailableTitle': 'Subconscious रुका हुआ है',
   'subconscious.providerSettings': 'AI सेटिंग्स',
   'subconscious.scratchpadInfo':

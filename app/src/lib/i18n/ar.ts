@@ -3046,7 +3046,7 @@ const messages: TranslationMap = {
   'subconscious.instance.tinyplace.disabledHint': 'فعّل التنسيق لتوجيه الجلسات المُدارة.',
   'subconscious.instance.tinyplace.viewDirectives': 'عرض التوجيهات ←',
   'subconscious.runReviewNow': 'شغّل المراجعة الآن',
-  'tinyplaceOrchestration.subconsciousBadge': 'اللاوعي · التوجيه',
+  'tinyplaceOrchestration.subconsciousBadge': 'اللاوعي',
   'subconscious.providerUnavailableTitle': 'تم إيقاف اللاوعي مؤقتًا',
   'subconscious.providerSettings': 'إعدادات الذكاء الاصطناعي',
   'subconscious.scratchpadInfo':

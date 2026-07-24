@@ -3143,7 +3143,7 @@ const messages: TranslationMap = {
     'Включите Оркестрацию, чтобы управлять обёрнутыми сессиями.',
   'subconscious.instance.tinyplace.viewDirectives': 'Показать директивы →',
   'subconscious.runReviewNow': 'Запустить обзор',
-  'tinyplaceOrchestration.subconsciousBadge': 'Подсознание · управление',
+  'tinyplaceOrchestration.subconsciousBadge': 'Подсознание',
   'subconscious.providerUnavailableTitle': 'Подсознание приостановлено',
   'subconscious.providerSettings': 'Настройки ИИ',
   'subconscious.scratchpadInfo':

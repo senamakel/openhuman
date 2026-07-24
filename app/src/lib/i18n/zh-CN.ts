@@ -2953,7 +2953,7 @@ const messages: TranslationMap = {
   'subconscious.instance.tinyplace.disabledHint': '启用编排以引导封装的会话。',
   'subconscious.instance.tinyplace.viewDirectives': '查看指令 →',
   'subconscious.runReviewNow': '立即运行审查',
-  'tinyplaceOrchestration.subconsciousBadge': '潜意识 · 引导',
+  'tinyplaceOrchestration.subconsciousBadge': '潜意识',
   'subconscious.providerUnavailableTitle': '潜意识已暂停',
   'subconscious.providerSettings': 'AI 设置',
   'subconscious.scratchpadInfo':

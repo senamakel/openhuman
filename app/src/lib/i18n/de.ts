@@ -3206,7 +3206,7 @@ const messages: TranslationMap = {
     'Aktiviere die Orchestrierung, um umschlossene Sitzungen zu steuern.',
   'subconscious.instance.tinyplace.viewDirectives': 'Anweisungen ansehen →',
   'subconscious.runReviewNow': 'Prüfung jetzt ausführen',
-  'tinyplaceOrchestration.subconsciousBadge': 'Unterbewusstsein · Steuerung',
+  'tinyplaceOrchestration.subconsciousBadge': 'Unterbewusstsein',
   'subconscious.providerUnavailableTitle': 'Unterbewusstsein ist pausiert',
   'subconscious.providerSettings': 'KI-Einstellungen',
   'subconscious.scratchpadInfo':

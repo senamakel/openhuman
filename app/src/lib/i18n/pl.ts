@@ -3155,7 +3155,7 @@ const messages: TranslationMap = {
     'Włącz Orkiestrację, aby sterować opakowanymi sesjami.',
   'subconscious.instance.tinyplace.viewDirectives': 'Zobacz dyrektywy →',
   'subconscious.runReviewNow': 'Uruchom przegląd teraz',
-  'tinyplaceOrchestration.subconsciousBadge': 'Podświadomość · sterowanie',
+  'tinyplaceOrchestration.subconsciousBadge': 'Podświadomość',
   'subconscious.providerUnavailableTitle': 'Podświadomość wstrzymana',
   'subconscious.providerSettings': 'Ustawienia AI',
   'subconscious.scratchpadInfo':

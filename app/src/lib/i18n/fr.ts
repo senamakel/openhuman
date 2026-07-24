@@ -3201,7 +3201,7 @@ const messages: TranslationMap = {
     'Activez l’Orchestration pour piloter les sessions encapsulées.',
   'subconscious.instance.tinyplace.viewDirectives': 'Voir les directives →',
   'subconscious.runReviewNow': 'Lancer la revue',
-  'tinyplaceOrchestration.subconsciousBadge': 'Subconscient · pilotage',
+  'tinyplaceOrchestration.subconsciousBadge': 'Subconscient',
   'subconscious.providerUnavailableTitle': 'Subconscient en pause',
   'subconscious.providerSettings': 'Paramètres IA',
   'subconscious.scratchpadInfo':

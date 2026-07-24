@@ -3361,7 +3361,7 @@ const en: TranslationMap = {
   'subconscious.instance.tinyplace.disabledHint': 'Enable Orchestration to steer wrapped sessions.',
   'subconscious.instance.tinyplace.viewDirectives': 'View directives →',
   'subconscious.runReviewNow': 'Run review now',
-  'tinyplaceOrchestration.subconsciousBadge': 'Subconscious · steering',
+  'tinyplaceOrchestration.subconsciousBadge': 'Subconscious',
   'subconscious.providerUnavailableTitle': 'Subconscious is paused',
   'subconscious.providerSettings': 'AI settings',
   'subconscious.scratchpadInfo':

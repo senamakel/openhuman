@@ -3128,7 +3128,7 @@ const messages: TranslationMap = {
     'Aktifkan Orkestrasi untuk mengarahkan sesi terbungkus.',
   'subconscious.instance.tinyplace.viewDirectives': 'Lihat arahan →',
   'subconscious.runReviewNow': 'Jalankan tinjauan sekarang',
-  'tinyplaceOrchestration.subconsciousBadge': 'Bawah sadar · pengarahan',
+  'tinyplaceOrchestration.subconsciousBadge': 'Bawah sadar',
   'subconscious.providerUnavailableTitle': 'Subconscious dijeda',
   'subconscious.providerSettings': 'Pengaturan AI',
   'subconscious.scratchpadInfo':

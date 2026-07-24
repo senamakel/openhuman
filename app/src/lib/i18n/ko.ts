@@ -3082,7 +3082,7 @@ const messages: TranslationMap = {
     '래핑된 세션을 조정하려면 오케스트레이션을 활성화하세요.',
   'subconscious.instance.tinyplace.viewDirectives': '지시문 보기 →',
   'subconscious.runReviewNow': '지금 검토 실행',
-  'tinyplaceOrchestration.subconsciousBadge': '잠재의식 · 조정',
+  'tinyplaceOrchestration.subconsciousBadge': '잠재의식',
   'subconscious.providerUnavailableTitle': 'Subconscious 일시 중지됨',
   'subconscious.providerSettings': 'AI 설정',
   'subconscious.scratchpadInfo':

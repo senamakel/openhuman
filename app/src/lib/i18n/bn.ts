@@ -3118,7 +3118,7 @@ const messages: TranslationMap = {
     'র‍্যাপড সেশন পরিচালনায় অর্কেস্ট্রেশন সক্ষম করুন।',
   'subconscious.instance.tinyplace.viewDirectives': 'নির্দেশাবলী দেখুন →',
   'subconscious.runReviewNow': 'এখন পর্যালোচনা চালান',
-  'tinyplaceOrchestration.subconsciousBadge': 'অবচেতন · স্টিয়ারিং',
+  'tinyplaceOrchestration.subconsciousBadge': 'অবচেতন',
   'subconscious.providerUnavailableTitle': 'Subconscious বিরত আছে',
   'subconscious.providerSettings': 'AI সেটিংস',
   'subconscious.scratchpadInfo':

@@ -3176,7 +3176,7 @@ const messages: TranslationMap = {
     'Abilita l’Orchestrazione per guidare le sessioni incapsulate.',
   'subconscious.instance.tinyplace.viewDirectives': 'Vedi direttive →',
   'subconscious.runReviewNow': 'Esegui revisione ora',
-  'tinyplaceOrchestration.subconsciousBadge': 'Subconscio · guida',
+  'tinyplaceOrchestration.subconsciousBadge': 'Subconscio',
   'subconscious.providerUnavailableTitle': 'Subconscio in pausa',
   'subconscious.providerSettings': 'Impostazioni IA',
   'subconscious.scratchpadInfo':

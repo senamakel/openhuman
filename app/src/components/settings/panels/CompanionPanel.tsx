@@ -101,7 +101,7 @@ const CompanionPanel = () => {
   const sessionActive = status?.active ?? false;
 
   return (
-    <SettingsPanel description={t('pages.settings.features.desktopCompanionDesc')}>
+    <SettingsPanel description={t('settings.assistant.desktopCompanionDesc')}>
       {/* Session status + controls */}
       <SettingsSection>
         <SettingsRow

@@ -463,7 +463,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     // Surfaced on the Connections page (Desktop group); route redirects there.
     id: 'companion',
     titleKey: 'pages.settings.features.desktopCompanion',
-    descriptionKey: 'pages.settings.features.desktopCompanionDesc',
+    descriptionKey: 'settings.assistant.desktopCompanionDesc',
     section: 'features',
     searchKeywords: ['desktop', 'overlay', 'companion'],
   },

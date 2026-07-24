@@ -226,9 +226,7 @@ describe('desktopDeepLinkListener', () => {
   });
 
   it('does NOT retry storeSession on non-timeout error', async () => {
-    vi.mocked(storeSession)
-      .mockReset()
-      .mockRejectedValueOnce(new Error('network down'));
+    vi.mocked(storeSession).mockReset().mockRejectedValueOnce(new Error('network down'));
 
     const state = registerAuthDeepLinkState();
     const url = `openhuman://auth?token=no-retry-token&key=auth&state=${state}`;

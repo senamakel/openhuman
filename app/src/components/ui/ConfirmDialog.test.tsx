@@ -4,9 +4,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import { ConfirmDialog } from './ConfirmDialog';
 
-vi.mock('../../lib/i18n/I18nContext', () => ({
-  useT: () => ({ t: (key: string) => key }),
-}));
+vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 
 function baseProps() {
   return {
@@ -32,9 +30,7 @@ describe('ConfirmDialog', () => {
         }
       />
     );
-    expect(screen.getByText('Rich', { exact: false })).toContainElement(
-      screen.getByText('body')
-    );
+    expect(screen.getByText('Rich', { exact: false })).toContainElement(screen.getByText('body'));
   });
 
   test('uses neutral confirmation tone by default and danger tone when destructive', () => {

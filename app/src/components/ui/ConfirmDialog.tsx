@@ -36,9 +36,7 @@ export function ConfirmDialog({
       titleId={titleId}
       onClose={onCancel}
       maxWidthClassName="max-w-sm"
-      closePolicy={
-        busy ? { escape: false, backdrop: false, button: false } : undefined
-      }
+      closePolicy={busy ? { escape: false, backdrop: false, button: false } : undefined}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>

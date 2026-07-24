@@ -161,6 +161,60 @@ describe('useFlowPendingApprovals', () => {
     expect(result.current.decidingId).toBeNull();
   });
 
+  it('decide() queues and awaits one post-decision refresh when a poll is already in flight', async () => {
+    let resolvePreDecisionPoll!: (approvals: PendingApproval[]) => void;
+    let resolvePostDecisionPoll!: (approvals: PendingApproval[]) => void;
+    fetchPendingApprovals
+      .mockImplementationOnce(
+        () =>
+          new Promise<PendingApproval[]>(resolve => {
+            resolvePreDecisionPoll = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<PendingApproval[]>(resolve => {
+            resolvePostDecisionPoll = resolve;
+          })
+      );
+    decideApproval.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useFlowPendingApprovals('flow-1', 'run-1'));
+
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(1);
+
+    let decisionSettled = false;
+    let decisionPromise!: Promise<void>;
+    await act(async () => {
+      decisionPromise = result.current.decide('req-a', 'approve_once');
+      void decisionPromise.finally(() => {
+        decisionSettled = true;
+      });
+      await Promise.resolve();
+    });
+
+    expect(decideApproval).toHaveBeenCalledWith('req-a', 'approve_once');
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePreDecisionPoll([makeApproval({ request_id: 'req-a' })]);
+      await Promise.resolve();
+    });
+
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(2);
+    expect(decisionSettled).toBe(false);
+    expect(result.current.decidingId).toBe('req-a');
+
+    await act(async () => {
+      resolvePostDecisionPoll([]);
+      await decisionPromise;
+    });
+
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(2);
+    expect(decisionSettled).toBe(true);
+    expect(result.current.approvals).toEqual([]);
+    expect(result.current.decidingId).toBeNull();
+  });
+
   it('decide() surfaces an error and keeps the request when the RPC fails', async () => {
     fetchPendingApprovals.mockResolvedValue([makeApproval({ request_id: 'req-a' })]);
     decideApproval.mockRejectedValue(new Error('gate not installed'));

@@ -12,8 +12,23 @@ export interface FlowPendingApprovalsSnapshot {
   polling: boolean;
 }
 
+function cloneAndFreeze<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map(item => cloneAndFreeze(item))) as T;
+  }
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        cloneAndFreeze(item),
+      ])
+    )
+  ) as T;
+}
+
 const freezeApprovals = (approvals: PendingApproval[]): PendingApproval[] =>
-  Object.freeze([...approvals]) as PendingApproval[];
+  cloneAndFreeze(approvals);
 
 const makeSnapshot = (
   approvals: PendingApproval[],
@@ -31,6 +46,7 @@ let requestGeneration = 0;
 let nextRequestId = 0;
 let activeRequestId: number | null = null;
 let inFlight: Promise<void> | null = null;
+let queuedRefresh: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 function emit(next: FlowPendingApprovalsSnapshot): void {
@@ -40,8 +56,8 @@ function emit(next: FlowPendingApprovalsSnapshot): void {
 
 function normalizeError(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message;
-  const message = String(error);
-  return message.trim() ? message : 'Unable to load pending approvals';
+  if (typeof error === 'string' && error.trim()) return error;
+  return 'Unable to load pending approvals';
 }
 
 function clearPollTimer(): void {
@@ -54,7 +70,7 @@ function scheduleNextPoll(generation: number): void {
   if (retainCount === 0 || generation !== requestGeneration || pollTimer !== undefined) return;
   pollTimer = window.setTimeout(() => {
     pollTimer = undefined;
-    void refreshFlowPendingApprovals();
+    void startRefresh(true);
   }, POLL_INTERVAL_MS);
 }
 
@@ -69,9 +85,7 @@ export function getFlowPendingApprovalsSnapshot(): FlowPendingApprovalsSnapshot 
   return snapshot;
 }
 
-export function refreshFlowPendingApprovals(): Promise<void> {
-  if (inFlight) return inFlight;
-
+function startRefresh(publishOnlyWhenRetained = false): Promise<void> {
   clearPollTimer();
   const generation = requestGeneration;
   const requestId = ++nextRequestId;
@@ -79,11 +93,15 @@ export function refreshFlowPendingApprovals(): Promise<void> {
   const request = (async () => {
     try {
       const approvals = await fetchPendingApprovals();
-      if (generation !== requestGeneration) return;
+      if (generation !== requestGeneration || (publishOnlyWhenRetained && retainCount === 0)) {
+        return;
+      }
       emit(makeSnapshot(approvals, null, retainCount > 0));
       log('refresh succeeded approval_count=%d', approvals.length);
     } catch (error) {
-      if (generation !== requestGeneration) return;
+      if (generation !== requestGeneration || (publishOnlyWhenRetained && retainCount === 0)) {
+        return;
+      }
       emit(makeSnapshot(snapshot.approvals, normalizeError(error), retainCount > 0));
       const errorType = error instanceof Error ? error.name : typeof error;
       log('refresh failed error_type=%s', errorType);
@@ -99,11 +117,28 @@ export function refreshFlowPendingApprovals(): Promise<void> {
   return request;
 }
 
+export function refreshFlowPendingApprovals(): Promise<void> {
+  if (!inFlight) return startRefresh();
+  if (queuedRefresh) return queuedRefresh;
+
+  clearPollTimer();
+  const generation = requestGeneration;
+  const activeRequest = inFlight;
+  let queued!: Promise<void>;
+  queued = activeRequest.then(() => {
+    if (queuedRefresh === queued) queuedRefresh = null;
+    if (generation !== requestGeneration) return;
+    return startRefresh();
+  });
+  queuedRefresh = queued;
+  return queued;
+}
+
 export function retainFlowPendingApprovalsPolling(): () => void {
   retainCount += 1;
   if (retainCount === 1) {
     emit(makeSnapshot(snapshot.approvals, snapshot.error, true));
-    void refreshFlowPendingApprovals();
+    if (!inFlight) void startRefresh(true);
   }
 
   let released = false;
@@ -114,9 +149,6 @@ export function retainFlowPendingApprovalsPolling(): () => void {
     if (retainCount > 0) return;
 
     clearPollTimer();
-    requestGeneration += 1;
-    activeRequestId = null;
-    inFlight = null;
     emit(makeSnapshot(snapshot.approvals, snapshot.error, false));
   };
 }
@@ -142,6 +174,7 @@ export function resetFlowPendingApprovalsStoreForTests(): void {
   activeRequestId = null;
   retainCount = 0;
   inFlight = null;
+  queuedRefresh = null;
   snapshot = INITIAL_SNAPSHOT;
   listeners.clear();
 }

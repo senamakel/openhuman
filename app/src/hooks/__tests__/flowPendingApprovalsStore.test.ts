@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PendingApproval } from '../../services/api/approvalApi';
@@ -67,8 +68,50 @@ describe('flowPendingApprovalsStore', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('returns stable frozen snapshots and does not expose the fetched array for mutation', async () => {
-    const fetched = [makeApproval()];
+  it('shares a deferred request across the StrictMode retain cycle and cleans up safely', async () => {
+    let resolveRequest!: (approvals: PendingApproval[]) => void;
+    let activeRequests = 0;
+    let maxActiveRequests = 0;
+    fetchPendingApprovals.mockImplementation(
+      () =>
+        new Promise<PendingApproval[]>(resolve => {
+          activeRequests += 1;
+          maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+          resolveRequest = approvals => {
+            activeRequests -= 1;
+            resolve(approvals);
+          };
+        })
+    );
+
+    const source = renderHook(() => useFlowPendingApprovalsSource(true), { wrapper: StrictMode });
+
+    expect(fetchPendingApprovals).toHaveBeenCalledTimes(1);
+    expect(maxActiveRequests).toBe(1);
+
+    await act(async () => {
+      resolveRequest([makeApproval()]);
+      await Promise.resolve();
+    });
+
+    expect(source.result.current.approvals).toHaveLength(1);
+    expect(source.result.current.polling).toBe(true);
+    expect(vi.getTimerCount()).toBe(1);
+
+    source.unmount();
+    expect(getFlowPendingApprovalsSnapshot().polling).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('deeply clones and freezes fetched approvals without mutating API-owned objects', async () => {
+    const sourceContext = {
+      kind: 'flow' as const,
+      flow_id: 'flow-1',
+      run_id: 'run-1',
+      node_id: 'node-1',
+    };
+    const argsRedacted = { command: { length: 42 }, flags: ['safe'] };
+    const fetched = [makeApproval({ source_context: sourceContext, args_redacted: argsRedacted })];
     fetchPendingApprovals.mockResolvedValue(fetched);
 
     const initial = getFlowPendingApprovalsSnapshot();
@@ -80,9 +123,50 @@ describe('flowPendingApprovalsStore', () => {
     const successful = getFlowPendingApprovalsSnapshot();
     expect(successful).toBe(getFlowPendingApprovalsSnapshot());
     expect(successful.approvals).not.toBe(fetched);
+    expect(successful.approvals[0]).not.toBe(fetched[0]);
+    expect(successful.approvals[0].source_context).not.toBe(sourceContext);
+    expect(successful.approvals[0].args_redacted).not.toBe(argsRedacted);
     expect(Object.isFrozen(successful)).toBe(true);
     expect(Object.isFrozen(successful.approvals)).toBe(true);
+    expect(Object.isFrozen(successful.approvals[0])).toBe(true);
+    expect(Object.isFrozen(successful.approvals[0].source_context)).toBe(true);
+    expect(Object.isFrozen(successful.approvals[0].args_redacted)).toBe(true);
+    expect(
+      Object.isFrozen((successful.approvals[0].args_redacted as typeof argsRedacted).command)
+    ).toBe(true);
+    expect(
+      Object.isFrozen((successful.approvals[0].args_redacted as typeof argsRedacted).flags)
+    ).toBe(true);
+
+    expect(() => {
+      successful.approvals[0].action_summary = 'consumer mutation';
+    }).toThrow();
+    expect(() => {
+      (successful.approvals[0].source_context as typeof sourceContext).run_id = 'changed';
+    }).toThrow();
+    expect(() => {
+      (successful.approvals[0].args_redacted as typeof argsRedacted).command.length = 0;
+    }).toThrow();
+
+    expect(fetched[0].action_summary).toBe('Run a private command');
+    expect(sourceContext.run_id).toBe('run-1');
+    expect(argsRedacted.command.length).toBe(42);
+    expect(Object.isFrozen(fetched[0])).toBe(false);
+    expect(Object.isFrozen(sourceContext)).toBe(false);
+    expect(Object.isFrozen(argsRedacted)).toBe(false);
+    expect(getFlowPendingApprovalsSnapshot()).toBe(successful);
   });
+
+  it.each([null, undefined, {}, { reason: 'opaque failure' }])(
+    'uses the safe fallback for an unusable rejection value: %j',
+    async rejection => {
+      fetchPendingApprovals.mockRejectedValue(rejection);
+
+      await refreshFlowPendingApprovals();
+
+      expect(getFlowPendingApprovalsSnapshot().error).toBe('Unable to load pending approvals');
+    }
+  );
 
   it('keeps the last good approvals, normalizes an error, and retries on the next tick', async () => {
     fetchPendingApprovals
@@ -116,7 +200,7 @@ describe('flowPendingApprovalsStore', () => {
     release();
   });
 
-  it('invalidates an in-flight request and clears its timer on final release', async () => {
+  it('suppresses an in-flight request publish and timer after final release', async () => {
     let resolveRequest!: (approvals: PendingApproval[]) => void;
     fetchPendingApprovals.mockReturnValue(
       new Promise<PendingApproval[]>(resolve => {

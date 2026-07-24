@@ -208,6 +208,40 @@ describe('desktopDeepLinkListener', () => {
     );
   });
 
+  it('retries storeSession on timeout then succeeds on second attempt', async () => {
+    vi.mocked(storeSession)
+      .mockReset()
+      .mockRejectedValueOnce(new Error('timed out'))
+      .mockResolvedValueOnce(undefined);
+
+    const state = registerAuthDeepLinkState();
+    const url = `openhuman://auth?token=retry-token&key=auth&state=${state}`;
+
+    vi.mocked(getCurrent).mockResolvedValue([url]);
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    expect(storeSession).toHaveBeenCalledTimes(2);
+    expect(getDeepLinkAuthState().errorMessage).toBeNull();
+  });
+
+  it('does NOT retry storeSession on non-timeout error', async () => {
+    vi.mocked(storeSession)
+      .mockReset()
+      .mockRejectedValueOnce(new Error('network down'));
+
+    const state = registerAuthDeepLinkState();
+    const url = `openhuman://auth?token=no-retry-token&key=auth&state=${state}`;
+
+    vi.mocked(getCurrent).mockResolvedValue([url]);
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    // Non-timeout errors should not be retried — only one call expected.
+    expect(storeSession).toHaveBeenCalledTimes(1);
+    expect(getDeepLinkAuthState().errorMessage).not.toBeNull();
+  });
+
   it('rejects an auth deep link whose state nonce does not match a pending one', async () => {
     registerAuthDeepLinkState('the-real-nonce');
     vi.mocked(getCurrent).mockResolvedValue([

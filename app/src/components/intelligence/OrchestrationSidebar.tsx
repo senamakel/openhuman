@@ -25,7 +25,7 @@ import type { ChatWindow } from '../../lib/orchestration/useOrchestrationChats';
 import Button from '../ui/Button';
 import AttentionQueueView from './AttentionQueue';
 import { ChatListButton } from './OrchestrationChatPrimitives';
-import { contactAddress, contactBadgeKey, truncate } from './orchestrationTabHelpers';
+import { contactAddress, contactBadgeKey } from './orchestrationTabHelpers';
 import RelayBadge from './RelayBadge';
 import SelfIdentityCard from './SelfIdentityCard';
 
@@ -35,7 +35,6 @@ export interface OrchestrationSidebarProps {
   relayInfo: RelayInfo | null;
   onRefreshAll: () => void;
   refreshDisabled: boolean;
-  steeringText: string | null;
   selfIdentity: SelfIdentity | null;
   identityLoading: boolean;
   onPublishIdentity: () => void;
@@ -72,7 +71,6 @@ export default function OrchestrationSidebar({
   relayInfo,
   onRefreshAll,
   refreshDisabled,
-  steeringText,
   selfIdentity,
   identityLoading,
   onPublishIdentity,
@@ -140,16 +138,6 @@ export default function OrchestrationSidebar({
             </Button>
           </div>
         </div>
-        {steeringText ? (
-          <div
-            data-testid="tinyplace-steering-chip"
-            className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-            <span className="flex-none font-semibold uppercase tracking-wide">
-              {t('tinyplaceOrchestration.steering.label')}
-            </span>
-            <span className="min-w-0 flex-1 truncate">{truncate(steeringText, 72)}</span>
-          </div>
-        ) : null}
       </div>
 
       <SelfIdentityCard

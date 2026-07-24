@@ -101,14 +101,7 @@ export interface OrchestrationMessage {
   exitCode?: number;
 }
 
-export interface OrchestrationSteering {
-  text: string;
-  createdAt: string;
-  expiresAfterCycles: number;
-}
-
 export interface OrchestrationStatus {
-  steering?: OrchestrationSteering;
   lastTickAt?: number;
   ingestLastMessageAt?: string;
   /** Whether the hosted brain was reachable at the last health sync. `false`

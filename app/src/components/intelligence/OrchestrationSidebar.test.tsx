@@ -34,7 +34,6 @@ const props = (over: Partial<OrchestrationSidebarProps>): OrchestrationSidebarPr
     relayInfo: null,
     onRefreshAll: vi.fn(),
     refreshDisabled: false,
-    steeringText: null,
     selfIdentity: null,
     identityLoading: false,
     onPublishIdentity: vi.fn(),

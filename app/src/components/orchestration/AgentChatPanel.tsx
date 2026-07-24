@@ -7,7 +7,7 @@
  * three views via {@link ChatPageScaffold}:
  *
  *   - the **conscious** master session (composer + welcome hero when empty),
- *   - the **subconscious** steering loop (steering header, no composer),
+ *   - the **subconscious** activity stream (no composer),
  *   - a **peer session subpage** — opened from the sidebar's active sub-agents
  *     list or an inline "needs you" card, it takes over the whole pane (not a
  *     side drawer) so the session's chat renders full-size, with a back link.
@@ -41,7 +41,6 @@ import {
   useContactSessions,
   useSessionTranscript,
 } from '../../lib/orchestration/useOrchestrationSessions';
-import { subconsciousTrigger } from '../../utils/tauriCommands/subconscious';
 import ChatComposer from '../chat/ChatComposer';
 import ChatNewWindowHero from '../chat/ChatNewWindowHero';
 import Button from '../ui/Button';
@@ -386,7 +385,6 @@ export default function AgentChatPanel({
     chats,
     selectedId,
     selected,
-    status,
     masterError,
     selectChat,
     refresh,
@@ -404,7 +402,6 @@ export default function AgentChatPanel({
 
   const [composerBody, setComposerBody] = useState('');
   const [sending, setSending] = useState(false);
-  const [runningReview, setRunningReview] = useState(false);
   // Controlled by the parent when `onOpenSession` is wired (OrchestrationView
   // drives it from the URL + active sub-agents rail); local state otherwise.
   const [localOpenSessionId, setLocalOpenSessionId] = useState<string | null>(null);
@@ -433,23 +430,7 @@ export default function AgentChatPanel({
     [composerBody, sending, sendMessage, selected]
   );
 
-  const runSteeringReview = useCallback(async () => {
-    debug('steering review: trigger');
-    setRunningReview(true);
-    try {
-      // Steering review runs on the hosted brain now; nudge the device
-      // subconscious (memory) so a manual tick still works locally.
-      await subconsciousTrigger('all');
-    } catch (err) {
-      debug('steering review trigger failed: %o', err);
-    } finally {
-      setRunningReview(false);
-    }
-  }, []);
-
-  const steeringText = status?.steering?.text?.trim() || null;
   const isMasterSelected = selectedId === MASTER_CHAT_KEY;
-  const isSubconscious = selectedId === SUBCONSCIOUS_CHAT_KEY;
 
   const rail = chats.filter(c => c.id === MASTER_CHAT_KEY || c.id === SUBCONSCIOUS_CHAT_KEY);
   // Sessions the agent has engaged that are parked on an approval → "needs you".
@@ -511,8 +492,7 @@ export default function AgentChatPanel({
 
   return (
     // The main agent chat has no top header — just the conscious/subconscious
-    // switching chip in the footer. When subconscious is active, the steering
-    // directive + "Run review" ride alongside the chip (no header bar).
+    // switching chip in the footer.
     <ChatPageScaffold
       scrollRef={masterScrollRef}
       footer={
@@ -533,27 +513,7 @@ export default function AgentChatPanel({
               />
             </>
           ) : null}
-          <div className="flex items-center justify-between gap-2">
-            {modeToggle}
-            {isSubconscious ? (
-              <div className="flex min-w-0 items-center gap-2" data-testid="orch-agent-steering">
-                {steeringText ? (
-                  <span className="hidden min-w-0 truncate text-[11px] text-content-muted sm:inline">
-                    {steeringText}
-                  </span>
-                ) : null}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void runSteeringReview()}
-                  disabled={runningReview}>
-                  {runningReview
-                    ? t('tinyplaceOrchestration.steeringHeader.running')
-                    : t('tinyplaceOrchestration.steeringHeader.runReview')}
-                </Button>
-              </div>
-            ) : null}
-          </div>
+          <div className="flex items-center justify-between gap-2">{modeToggle}</div>
         </div>
       }>
       {loading ? (

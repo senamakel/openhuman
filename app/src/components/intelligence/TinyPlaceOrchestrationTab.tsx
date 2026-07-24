@@ -16,7 +16,6 @@ import {
   MASTER_CHAT_KEY,
   useOrchestrationChats,
 } from '../../lib/orchestration/useOrchestrationChats';
-import { subconsciousTrigger } from '../../utils/tauriCommands/subconscious';
 import OrchestrationFocusPane from './OrchestrationFocusPane';
 import OrchestrationSidebar from './OrchestrationSidebar';
 import {
@@ -348,20 +347,6 @@ export default function TinyPlaceOrchestrationTab() {
     };
   }, [directoryIdsKey]);
 
-  const steeringText = status?.steering?.text?.trim() || null;
-  const [runningReview, setRunningReview] = useState(false);
-  const runSteeringReview = useCallback(async () => {
-    setRunningReview(true);
-    try {
-      // Steering review runs on the hosted brain now; this nudges the device
-      // subconscious worlds (memory) so a manual tick still works locally.
-      await subconsciousTrigger('all');
-    } catch (err) {
-      debug('steering review trigger failed: %o', err);
-    } finally {
-      setRunningReview(false);
-    }
-  }, []);
   const isMasterSelected = selected?.id === MASTER_CHAT_KEY;
   // The composer is available for the Master chat and for any per-contact
   // session (session sends thread under that session id).
@@ -381,7 +366,6 @@ export default function TinyPlaceOrchestrationTab() {
           relayInfo={relayInfo}
           onRefreshAll={refreshAll}
           refreshDisabled={sessionsState.status === 'loading'}
-          steeringText={steeringText}
           selfIdentity={selfIdentity}
           identityLoading={identityLoading}
           onPublishIdentity={publishIdentity}
@@ -418,12 +402,8 @@ export default function TinyPlaceOrchestrationTab() {
           selected={selected}
           sessionsState={sessionsState}
           messagesState={messagesState}
-          status={status}
           masterError={masterError}
           refresh={refresh}
-          steeringText={steeringText}
-          runningReview={runningReview}
-          onRunSteeringReview={() => void runSteeringReview()}
           canCompose={canCompose}
           composerBody={composerBody}
           onComposerChange={setComposerBody}

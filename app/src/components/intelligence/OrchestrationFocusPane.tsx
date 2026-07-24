@@ -1,9 +1,8 @@
 /**
  * OrchestrationFocusPane — the right-hand focus column of the TinyPlace
- * Orchestration tab: the selected chat's header, the subconscious steering
- * status header, the message transcript (with load/error/empty states), and the
- * Master/session composer. Presentational: all state + handlers come from the
- * tab container.
+ * Orchestration tab: the selected chat's header, message transcript (with
+ * load/error/empty states), and the Master/session composer. Presentational:
+ * all state + handlers come from the tab container.
  */
 import type { FormEvent, ReactElement } from 'react';
 
@@ -18,12 +17,8 @@ export interface OrchestrationFocusPaneProps {
   selected: ChatsApi['selected'];
   sessionsState: ChatsApi['sessionsState'];
   messagesState: ChatsApi['messagesState'];
-  status: ChatsApi['status'];
   masterError: ChatsApi['masterError'];
   refresh: ChatsApi['refresh'];
-  steeringText: string | null;
-  runningReview: boolean;
-  onRunSteeringReview: () => void;
   canCompose: boolean;
   composerBody: string;
   onComposerChange: (value: string) => void;
@@ -35,12 +30,8 @@ export default function OrchestrationFocusPane({
   selected,
   sessionsState,
   messagesState,
-  status,
   masterError,
   refresh,
-  steeringText,
-  runningReview,
-  onRunSteeringReview,
   canCompose,
   composerBody,
   onComposerChange,
@@ -68,46 +59,6 @@ export default function OrchestrationFocusPane({
           </span>
         ) : null}
       </div>
-
-      {/* Steering status header — the tinyplace subconscious instance's output. */}
-      {selected?.kind === 'subconscious' ? (
-        <div
-          data-testid="tinyplace-steering-header"
-          className="flex items-center justify-between gap-3 border-b border-line bg-amber-50/40 px-5 py-3 dark:bg-amber-500/5">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-content">
-              {steeringText
-                ? t('tinyplaceOrchestration.steeringHeader.current')
-                : t('tinyplaceOrchestration.steeringHeader.none')}
-            </p>
-            {steeringText ? (
-              <p className="mt-0.5 truncate text-xs text-content-muted">{steeringText}</p>
-            ) : null}
-            <p className="mt-0.5 text-[11px] text-content-faint">
-              {status?.steering
-                ? t('tinyplaceOrchestration.steeringHeader.expires').replace(
-                    '{n}',
-                    String(status.steering.expiresAfterCycles)
-                  )
-                : ''}
-              {status?.lastTickAt
-                ? `${status?.steering ? ' · ' : ''}${t(
-                    'tinyplaceOrchestration.steeringHeader.lastReview'
-                  )}: ${new Date(status.lastTickAt * 1000).toLocaleTimeString()}`
-                : ''}
-            </p>
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void onRunSteeringReview()}
-            disabled={runningReview}>
-            {runningReview
-              ? t('tinyplaceOrchestration.steeringHeader.running')
-              : t('tinyplaceOrchestration.steeringHeader.runReview')}
-          </Button>
-        </div>
-      ) : null}
 
       {sessionsState.status === 'loading' ? (
         <div className="flex flex-1 items-center justify-center text-sm text-content-muted">

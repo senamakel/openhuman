@@ -17,11 +17,11 @@ jobs:
   build-desktop:
     uses: ./.github/workflows/build-desktop.yml
     with:
-      build_ref: 98e98c271e02b1d096e6d804408a84c5a7e74305
+      build_ref: 3c4fe284261d4ea017973b0ceaa3af0b463b2b56
       tag: pr-5189-runtime-validation
       version: 0.0.0
-      sha: 98e98c271e02b1d096e6d804408a84c5a7e74305
-      short_sha: 98e98c271e02
+      sha: 3c4fe284261d4ea017973b0ceaa3af0b463b2b56
+      short_sha: 3c4fe284261
       base_url: https://api.openhuman.ai
       app_env: staging
       build_profile: debug

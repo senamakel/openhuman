@@ -55,7 +55,7 @@ describe('parseCompanionStateChangedEvent', () => {
   });
 
   it('accepts every valid state value', () => {
-    for (const state of ['idle', 'listening', 'thinking', 'speaking', 'pointing', 'error']) {
+    for (const state of ['idle', 'listening', 'thinking', 'speaking', 'error']) {
       const event = parseCompanionStateChangedEvent({ sessionId: 's', state });
       expect(event?.state).toBe(state);
     }

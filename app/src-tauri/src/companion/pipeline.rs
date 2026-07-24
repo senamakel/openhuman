@@ -1,4 +1,4 @@
-//! Companion interaction pipeline: STT → screen context → LLM → TTS → pointing.
+//! Companion interaction pipeline: STT → LLM → TTS.
 //!
 //! Orchestrates a single interaction turn for the desktop companion. Migrated
 //! from the former core `desktop_companion::pipeline`, re-plumbed for the shell:
@@ -26,7 +26,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use super::pointing::{self, PointTarget, PointingParseResult, ScreenGeometry};
 use super::session;
 use super::types::*;
 
@@ -43,10 +42,8 @@ const CONTEXT_WINDOW: usize = 20;
 pub struct TurnResult {
     /// The user's transcribed speech (or typed input).
     pub transcript: String,
-    /// The LLM's response text (POINT tags stripped).
+    /// The LLM's response text.
     pub response_text: String,
-    /// Parsed pointing targets from the LLM response.
-    pub targets: Vec<PointTarget>,
     /// Whether TTS audio was synthesized.
     pub tts_synthesized: bool,
     /// Whether the turn was cancelled before completion.
@@ -58,12 +55,8 @@ pub struct TurnResult {
 /// **Precondition**: the session must already be in `Listening` state. The
 /// caller is responsible for the `Idle → Listening` transition before invoking.
 ///
-/// Transitions: Listening → Thinking → Speaking/Pointing → Idle.
-pub async fn run_text_turn(
-    text: &str,
-    screens: &[ScreenGeometry],
-    cancel: CancellationToken,
-) -> Result<TurnResult, String> {
+/// Transitions: Listening → Thinking → Speaking → Idle.
+pub async fn run_text_turn(text: &str, cancel: CancellationToken) -> Result<TurnResult, String> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return Err("empty input".into());
@@ -82,19 +75,8 @@ pub async fn run_text_turn(
     let history = session::conversation_history();
     let history_window = tail_history(&history, CONTEXT_WINDOW);
 
-    // Foreground app/window context (best-effort and user-configurable).
-    let screen_context = if super::current_config().include_app_context {
-        gather_screen_context().await
-    } else {
-        None
-    };
-
-    if cancel.is_cancelled() {
-        return Ok(cancelled_result(trimmed));
-    }
-
     // LLM call.
-    let raw_reply = match llm_companion(trimmed, &history_window, screen_context.as_deref()).await {
+    let response_text = match llm_companion(trimmed, &history_window).await {
         Ok(reply) => reply,
         Err(err) => {
             if cancel.is_cancelled() {
@@ -110,17 +92,7 @@ pub async fn run_text_turn(
         return Ok(cancelled_result(trimmed));
     }
 
-    // Parse POINT tags.
-    let PointingParseResult {
-        targets,
-        clean_text,
-    } = pointing::parse_and_map(&raw_reply, screens);
-
-    debug!(
-        "{LOG_PREFIX} LLM reply chars={} targets={}",
-        clean_text.len(),
-        targets.len()
-    );
+    debug!("{LOG_PREFIX} LLM reply chars={}", response_text.len());
 
     // Record conversation turns.
     let now_ms = chrono::Utc::now().timestamp_millis();
@@ -129,18 +101,18 @@ pub async fn run_text_turn(
         content: trimmed.to_string(),
         timestamp_ms: now_ms,
     });
-    if !clean_text.is_empty() {
+    if !response_text.is_empty() {
         let _ = session::push_conversation_turn(ConversationTurn {
             role: "assistant".into(),
-            content: clean_text.clone(),
+            content: response_text.clone(),
             timestamp_ms: now_ms,
         });
     }
 
     // TTS (skip if response is empty).
-    let tts_ok = if !clean_text.is_empty() && !cancel.is_cancelled() {
+    let tts_ok = if !response_text.is_empty() && !cancel.is_cancelled() {
         session::transition_state(CompanionState::Speaking, None)?;
-        match tts(&clean_text).await {
+        match tts(&response_text).await {
             Ok(()) => {
                 debug!("{LOG_PREFIX} TTS synthesized");
                 true
@@ -158,18 +130,12 @@ pub async fn run_text_turn(
         return Ok(cancelled_result(trimmed));
     }
 
-    // Pointing phase.
-    if !targets.is_empty() {
-        let _ = session::transition_state(CompanionState::Pointing, None);
-    }
-
     // Back to idle.
     session::finish_turn();
 
     let result = TurnResult {
         transcript: trimmed.to_string(),
-        response_text: clean_text,
-        targets,
+        response_text,
         tts_synthesized: tts_ok,
         cancelled: false,
     };
@@ -178,15 +144,14 @@ pub async fn run_text_turn(
     Ok(result)
 }
 
-/// Run a full audio-input companion turn: STT → screen context → LLM → TTS → pointing.
+/// Run a full audio-input companion turn: STT → LLM → TTS.
 ///
 /// **Precondition**: the session must already be in `Listening` state.
 ///
-/// Transitions: Listening → Thinking → Speaking/Pointing → Idle.
+/// Transitions: Listening → Thinking → Speaking → Idle.
 pub async fn run_audio_turn(
     audio_samples: &[i16],
     sample_rate: u32,
-    screens: &[ScreenGeometry],
     cancel: CancellationToken,
 ) -> Result<TurnResult, String> {
     if audio_samples.is_empty() {
@@ -219,7 +184,6 @@ pub async fn run_audio_turn(
             return Ok(TurnResult {
                 transcript: String::new(),
                 response_text: String::new(),
-                targets: Vec::new(),
                 tts_synthesized: false,
                 cancelled: false,
             });
@@ -238,7 +202,7 @@ pub async fn run_audio_turn(
     debug!("{LOG_PREFIX} STT transcript chars={}", transcript.len());
 
     // Hand off to the text pipeline for the rest.
-    run_text_turn(&transcript, screens, cancel).await
+    run_text_turn(&transcript, cancel).await
 }
 
 // ─── Core-RPC / backend adapters ────────────────────────────────────
@@ -319,41 +283,28 @@ async fn fetch_backend_creds() -> Result<(String, String), String> {
 /// System prompt for the desktop companion LLM.
 const COMPANION_SYSTEM_PROMPT: &str = "\
 You are OpenHuman, a helpful desktop AI companion. The user is talking to you \
-via voice or text while using their computer. You can see their screen \
-(a screenshot and foreground app info may be provided).\n\
+via voice or text while using their computer.\n\
 \n\
 Guidelines:\n\
 - Be concise and conversational. 1-3 sentences unless the question demands more.\n\
-- When you want to point the user to a UI element on screen, embed a \
-`[POINT:x,y:label:screenN]` tag in your response where x,y are pixel \
-coordinates relative to the screen, label describes the element, and N is \
-the zero-based screen index.\n\
 - Do not use markdown formatting (no asterisks, backticks, or bullet markers) — \
 your response will be spoken aloud via TTS.\n\
-- If screen context is provided, reference what you see when relevant.\n\
 - If you don't know or can't help, say so briefly.\n\
 ";
 
-/// Build a chat-completions request with screen context and conversation
-/// history, then return the assistant's reply. Runs shell-side against the
+/// Build a chat-completions request with conversation history, then return the
+/// assistant's reply. Runs shell-side against the
 /// backend using creds fetched from core.
 async fn llm_companion(
     prompt: &str,
     history: &[&ConversationTurn],
-    screen_context: Option<&str>,
 ) -> Result<String, String> {
     let (token, backend_url) = fetch_backend_creds().await?;
     let endpoint = companion_chat_endpoint(&backend_url);
 
     let mut messages: Vec<Value> = Vec::with_capacity(history.len() + 2);
 
-    // System prompt with optional screen context.
-    let system = if let Some(ctx) = screen_context {
-        format!("{COMPANION_SYSTEM_PROMPT}\nCurrent screen context:\n{ctx}")
-    } else {
-        COMPANION_SYSTEM_PROMPT.to_string()
-    };
-    messages.push(json!({ "role": "system", "content": system }));
+    messages.push(json!({ "role": "system", "content": COMPANION_SYSTEM_PROMPT }));
 
     // Rolling conversation history.
     for turn in history {
@@ -405,33 +356,6 @@ fn companion_chat_endpoint(backend_url: &str) -> String {
     )
 }
 
-/// Gather foreground app/window context as a text summary for the LLM.
-///
-/// The accessibility backbone remains in the embedded core after desktop
-/// controls moved out, so the shell can reuse its public, read-only foreground
-/// query without restoring any automation commands.
-async fn gather_screen_context() -> Option<String> {
-    #[cfg(target_os = "macos")]
-    {
-        openhuman_core::openhuman::accessibility::foreground_context().map(|ctx| {
-            format_foreground_context(ctx.app_name.as_deref(), ctx.window_title.as_deref())
-        })
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        None
-    }
-}
-
-#[cfg(any(target_os = "macos", test))]
-fn format_foreground_context(app_name: Option<&str>, window_title: Option<&str>) -> String {
-    format!(
-        "App: {} | Window: {}",
-        app_name.unwrap_or("unknown"),
-        window_title.unwrap_or("unknown"),
-    )
-}
-
 fn extract_chat_completion_text(raw: &Value) -> Option<String> {
     raw.get("choices")
         .and_then(|c| c.as_array())
@@ -455,7 +379,6 @@ fn cancelled_result(transcript: &str) -> TurnResult {
     TurnResult {
         transcript: transcript.to_string(),
         response_text: String::new(),
-        targets: Vec::new(),
         tts_synthesized: false,
         cancelled: true,
     }

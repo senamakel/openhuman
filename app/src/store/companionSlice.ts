@@ -5,15 +5,13 @@ import { resetUserScopedState } from './resetActions';
 // ── Types matching the Tauri-side companion module ───────────────────
 
 /** Matches `CompanionState` enum (serde rename_all = "snake_case"). */
-export type CompanionState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'pointing' | 'error';
+export type CompanionState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
 
 /** Matches `CompanionConfig` struct. */
 export interface CompanionConfig {
   hotkey: string;
   activation_mode: string;
   ttl_secs: number;
-  capture_screen: boolean;
-  include_app_context: boolean;
 }
 
 /**

@@ -119,8 +119,6 @@ export function companionStateLabel(state: string, t: (key: string) => string): 
         return t('overlay.companion.thinking');
       case 'speaking':
         return t('overlay.companion.speaking');
-      case 'pointing':
-        return t('overlay.companion.pointing');
       default:
         return state;
     }

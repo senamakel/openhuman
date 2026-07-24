@@ -98,8 +98,6 @@ describe('companionSlice', () => {
       hotkey: 'ctrl+space',
       activation_mode: 'push',
       ttl_secs: 3600,
-      capture_screen: true,
-      include_app_context: true,
     };
     const state = companionReducer(initialState, setConfig(config));
     expect(state.config).toEqual(config);
@@ -125,8 +123,6 @@ describe('companionSlice', () => {
         hotkey: 'ctrl+space',
         activation_mode: 'push',
         ttl_secs: 3600,
-        capture_screen: true,
-        include_app_context: true,
       },
       lastError: 'some error',
     };
@@ -155,8 +151,6 @@ describe('companion selectors', () => {
         hotkey: 'ctrl+space',
         activation_mode: 'push',
         ttl_secs: 3600,
-        capture_screen: true,
-        include_app_context: true,
       },
       lastError: 'err',
     },

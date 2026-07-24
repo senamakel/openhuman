@@ -1,5 +1,4 @@
-//! Platform accessibility middleware: focus queries, foreground context,
-//! foreground context, and permission management.
+//! Platform accessibility middleware: focus queries and permission management.
 //!
 //! Centralises macOS AX/IOKit FFI and the unified Swift helper process.
 //! Consumer modules (autocomplete, voice, and companion) call into this module
@@ -17,10 +16,7 @@ mod types;
 pub use automation_state::{
     clear as clear_automation_denial, mark_system_events_denied, system_events_denied,
 };
-pub use focus::{
-    focused_text_context, focused_text_context_verbose, foreground_context,
-    parse_foreground_output, validate_focused_target,
-};
+pub use focus::{focused_text_context, focused_text_context_verbose, validate_focused_target};
 pub use globe::{
     globe_listener_poll, globe_listener_start, globe_listener_stop, GlobeHotkeyPollResult,
     GlobeHotkeyStatus,
@@ -40,6 +36,5 @@ pub use terminal::{
 };
 pub use text_util::{normalize_ax_value, parse_ax_number, truncate_tail};
 pub use types::{
-    AppContext, ElementBounds, FocusedTextContext, PermissionKind, PermissionState,
-    PermissionStatus,
+    ElementBounds, FocusedTextContext, PermissionKind, PermissionState, PermissionStatus,
 };

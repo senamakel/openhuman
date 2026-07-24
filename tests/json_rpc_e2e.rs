@@ -974,12 +974,18 @@ fn assert_jsonrpc_error<'a>(v: &'a Value, context: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("{context}: expected JSON-RPC error, got: {v}"))
 }
 
-fn assert_method_not_found(v: &Value, method: &str) {
+fn assert_unknown_method(v: &Value, method: &str) {
     let error = assert_jsonrpc_error(v, method);
+    let expected_message = format!("unknown method: {method}");
     assert_eq!(
         error.get("code").and_then(Value::as_i64),
-        Some(-32601),
-        "{method}: expected JSON-RPC method-not-found error: {v}"
+        Some(-32000),
+        "{method}: expected unknown-method server error: {v}"
+    );
+    assert_eq!(
+        error.get("message").and_then(Value::as_str),
+        Some(expected_message.as_str()),
+        "{method}: expected unknown-method message: {v}"
     );
 }
 
@@ -5408,7 +5414,7 @@ async fn json_rpc_removed_screen_intelligence_methods_are_not_found() {
         (1004, "openhuman.config_update_screen_intelligence_settings"),
     ] {
         let response = post_json_rpc(&rpc_base, id, method, json!({})).await;
-        assert_method_not_found(&response, method);
+        assert_unknown_method(&response, method);
     }
 
     mock_join.abort();

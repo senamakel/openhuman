@@ -6,7 +6,7 @@ import type { ThreadMessagesData, ThreadsListData } from '../types/thread';
 
 const log = debug('hooks:threadQueries');
 
-export interface ThreadQueryState<T> {
+interface ThreadQueryState<T> {
   data: T | null;
   loading: boolean;
   error: Error | null;

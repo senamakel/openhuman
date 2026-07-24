@@ -22,7 +22,7 @@ import type {
 
 export type TriggerKind = SubconsciousKind | 'all';
 
-export interface UseSubconsciousResult {
+interface UseSubconsciousResult {
   status: SubconsciousStatus | null;
   /** One row per registered world, tolerant of an older core (falls back to
    * the top-level memory fields when `instances` is absent). */

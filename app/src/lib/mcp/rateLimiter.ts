@@ -31,7 +31,7 @@ export const RATE_LIMIT_CONFIG = {
 // Tool classification
 // ---------------------------------------------------------------------------
 
-export type ToolTier = 'state_only' | 'api_read' | 'api_write';
+type ToolTier = 'state_only' | 'api_read' | 'api_write';
 
 /**
  * Tools that ONLY read from cached Redux state — zero Telegram API calls.

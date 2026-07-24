@@ -48,8 +48,6 @@ vi.mock('../../hooks/useSettingsNavigation', () => ({
   useSettingsNavigation: () => ({ navigateBack: vi.fn(), breadcrumbs: [] }),
 }));
 
-vi.mock('../components/SettingsHeader', () => ({ default: () => null }));
-
 vi.mock('../../../../utils/tauriCommands', () => ({
   isTauri: mockIsTauri,
   openhumanAutocompleteStatus: mockAutocompleteStatus,

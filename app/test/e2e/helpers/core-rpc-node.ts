@@ -138,7 +138,7 @@ async function tryPingRpc(url: string): Promise<boolean> {
  * Resolve the sidecar JSON-RPC URL: full `OPENHUMAN_CORE_RPC_URL`, or
  * `OPENHUMAN_CORE_HOST` + `OPENHUMAN_CORE_PORT`, then probe host:port until core.ping succeeds.
  */
-export async function resolveCoreRpcUrl(): Promise<string> {
+async function resolveCoreRpcUrl(): Promise<string> {
   if (cachedRpcUrl) {
     if (await tryPingRpc(cachedRpcUrl)) return cachedRpcUrl;
     cachedRpcUrl = null;

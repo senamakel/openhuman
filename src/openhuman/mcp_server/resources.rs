@@ -236,12 +236,6 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         content: include_str!("../agent_registry/agents/account_admin_agent/prompt.md"),
     },
     PromptResource {
-        uri: "openhuman://prompts/agents/screen_awareness_agent",
-        name: "screen_awareness_agent",
-        description: "Specialist worker for screen context and desktop state inspection.",
-        content: include_str!("../agent_registry/agents/screen_awareness_agent/prompt.md"),
-    },
-    PromptResource {
         uri: "openhuman://prompts/agents/flow_discovery",
         name: "flow_discovery",
         description: "Flow Scout — read-only workflow discovery agent that suggests automations from memory, threads, and integrations.",

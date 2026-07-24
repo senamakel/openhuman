@@ -402,7 +402,6 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("morning_briefing", 8),
         ("profile_memory_agent", 8),
         ("scheduler_agent", 8),
-        ("screen_awareness_agent", 8),
         ("settings_agent", 8),
         ("summarizer", 1),
         ("tool_maker", 2),

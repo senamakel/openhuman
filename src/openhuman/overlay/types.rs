@@ -36,7 +36,7 @@ pub struct OverlayAttentionEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ttl_ms: Option<u32>,
     /// Free-form source label for logging / debugging ("subconscious",
-    /// "heartbeat", "screen_intelligence", …). Optional.
+    /// "heartbeat", "subconscious", …). Optional.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 }

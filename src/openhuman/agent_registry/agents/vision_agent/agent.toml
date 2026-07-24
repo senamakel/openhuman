@@ -1,7 +1,7 @@
 id = "vision_agent"
 display_name = "Vision"
 delegate_name = "analyze_image"
-when_to_use = "Image / screenshot understanding specialist — describe, OCR, read charts/diagrams, compare images, or locate UI elements in attached images. Route here whenever the task hinges on the *content of an image* (attachments the user sent, a captured screenshot, or an on-disk image file). Rides the multimodal `vision-v1` tier, so it is always image-capable. Read-only — it inspects images and reports back; it does not edit files or run commands."
+when_to_use = "Image understanding specialist — describe, OCR, read charts/diagrams, compare images, or locate UI elements in user-provided images. Route here whenever the task hinges on the *content of an image* attached by the user or supplied as an on-disk image file. Rides the multimodal `vision-v1` tier, so it is always image-capable. Read-only — it inspects images and reports back; it does not edit files or run commands."
 temperature = 0.3
 max_iterations = 6
 max_result_chars = 16000
@@ -21,13 +21,9 @@ hint = "vision"
 [tools]
 # Attached images arrive inline in the sub-agent's context via the multimodal
 # pipeline (no tool call needed to "see" them). These tools cover the extra
-# actions a vision task may need: pulling another image file in, inspecting
-# image metadata, and grabbing/reviewing a screen capture. Unknown names are
-# dropped silently at spawn, so the screen tools are harmless when the screen
-# intelligence surface is disabled.
+# actions a vision task may need: loading another user-provided image file and
+# inspecting image metadata.
 named = [
     "file_read",
     "image_info",
-    "screen_intelligence_capture_image_ref",
-    "screen_intelligence_vision_recent",
 ]

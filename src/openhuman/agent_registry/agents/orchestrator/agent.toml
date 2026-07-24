@@ -77,11 +77,8 @@ allowlist = [
     # Account/admin specialist. Route billing, team membership/invites/roles,
     # OAuth/credential/session, and referral requests here.
     "account_admin_agent",
-    # Screen-awareness specialist. Route screen-intelligence permissions,
-    # capture/session/listener state, and "what can you see" requests here.
-    "screen_awareness_agent",
     # Image-understanding specialist. Route anything that hinges on the content
-    # of an attached image / screenshot / on-disk image file here — it rides the
+    # of an attached or on-disk user-provided image file here — it rides the
     # multimodal `vision-v1` tier, so it can actually see the image.
     "vision_agent",
     # Image-generation specialist. Synthesised into a `delegate_create_image`

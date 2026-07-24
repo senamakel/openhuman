@@ -138,12 +138,6 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         graph_fn: None,
     },
     BuiltinAgent {
-        id: "screen_awareness_agent",
-        toml: include_str!("screen_awareness_agent/agent.toml"),
-        prompt_fn: super::screen_awareness_agent::prompt::build,
-        graph_fn: None,
-    },
-    BuiltinAgent {
         id: "scheduler_agent",
         toml: include_str!("scheduler_agent/agent.toml"),
         prompt_fn: super::scheduler_agent::prompt::build,
@@ -725,6 +719,38 @@ mod tests {
                 .any(|s| matches!(s, SubagentEntry::AgentId(id) if id == "vision_agent")),
             "orchestrator must list vision_agent in its subagents allowlist"
         );
+
+        assert!(
+            !BUILTINS
+                .iter()
+                .any(|builtin| builtin.id == "screen_awareness_agent"),
+            "screen_awareness_agent must not remain a discoverable built-in"
+        );
+        assert!(
+            !orchestrator
+                .subagents
+                .iter()
+                .any(|entry| matches!(entry, SubagentEntry::AgentId(id) if id == "screen_awareness_agent")),
+            "orchestrator must not expose a screen_awareness_agent delegate"
+        );
+        assert!(
+            load_builtins()
+                .expect("built-in TOML must parse")
+                .iter()
+                .all(|definition| definition.id != "screen_awareness_agent"),
+            "screen_awareness_agent must not load into the built-in registry"
+        );
+
+        match def.tools {
+            ToolScope::Named(ref tools) => assert_eq!(
+                tools,
+                &vec!["file_read".to_string(), "image_info".to_string()],
+                "vision_agent must only inspect user-provided attached or on-disk images"
+            ),
+            ToolScope::Wildcard => {
+                panic!("vision_agent must keep a narrow user-image tool allowlist")
+            }
+        }
     }
 
     #[test]
@@ -2078,7 +2104,6 @@ mod tests {
             "settings_agent",
             "profile_memory_agent",
             "account_admin_agent",
-            "screen_awareness_agent",
         ] {
             assert!(
                 subagents.contains(expected),
@@ -2096,7 +2121,6 @@ mod tests {
             "settings_agent",
             "profile_memory_agent",
             "account_admin_agent",
-            "screen_awareness_agent",
         ] {
             let def = find(expected);
             assert_eq!(def.agent_tier, AgentTier::Worker);

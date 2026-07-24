@@ -608,8 +608,39 @@ if APPIMAGE_RUNTIME_VALIDATOR=runtime_validator_failure_stub \
   fail "conditional validate_rebuilt_appimage suppressed validator failure"
 fi
 
+NOOP_IMAGE="$WORK/noop-final.AppImage"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  '[ "$1" = "--appimage-extract" ] || exit 9' \
+  'mkdir -p squashfs-root' \
+  >"$NOOP_IMAGE"
+chmod +x "$NOOP_IMAGE"
+NOOP_IMAGE_BEFORE="$(sha256sum "$NOOP_IMAGE" | awk '{print $1}')"
+NOOP_VALIDATOR_RECORD="$WORK/noop-validator-record"
+noop_runtime_validator_stub() {
+  [ -f "$1" ] || return 20
+  [ "${#MODIFIED_PATHS[@]}" -eq 0 ] || return 21
+  printf '%s\n' "$1" >>"$NOOP_VALIDATOR_RECORD"
+}
+MODIFIED_PATHS=()
+APPIMAGE_RUNTIME_VALIDATOR=noop_runtime_validator_stub \
+  strip_one_appimage "$NOOP_IMAGE" \
+  || fail "strip_one_appimage rejected a valid no-change final artifact"
+[ "$(wc -l <"$NOOP_VALIDATOR_RECORD" | tr -d ' ')" -eq 1 ] \
+  || fail "no-change AppImage was not validated exactly once"
+[ "$(cat "$NOOP_VALIDATOR_RECORD")" = "$(realpath "$NOOP_IMAGE")" ] \
+  || fail "no-change validation did not inspect the original final AppImage"
+[ "${#MODIFIED_PATHS[@]}" -eq 0 ] \
+  || fail "no-change AppImage was incorrectly registered for re-signing"
+[ "$NOOP_IMAGE_BEFORE" = "$(sha256sum "$NOOP_IMAGE" | awk '{print $1}')" ] \
+  || fail "no-change AppImage bytes were unexpectedly replaced"
+
 mv_line="$(grep -nF 'mv "$rebuilt" "$original"' "$TARGET" | cut -d: -f1)"
-validate_line="$(grep -nF 'validate_rebuilt_appimage "$original"' "$TARGET" | cut -d: -f1)"
+validate_line="$(
+  grep -nF 'validate_rebuilt_appimage "$original"' "$TARGET" \
+    | tail -n 1 \
+    | cut -d: -f1
+)"
 modified_line="$(grep -nF 'MODIFIED_PATHS+=("$original")' "$TARGET" | cut -d: -f1)"
 [ -n "$mv_line" ] && [ -n "$validate_line" ] && [ -n "$modified_line" ] \
   || fail "post-repack validation ordering statements are missing"

@@ -797,6 +797,10 @@ strip_one_appimage() {
 
   if [ "$removed" -eq 0 ] && [ "$added_loader" -eq 0 ] && [ "$rewrote_libpath" -eq 0 ] && [ "$patched_apprun" -eq 0 ] && [ "$rewrote_rpaths" -eq 0 ]; then
     echo "[strip-libs] No graphics libs, missing sharun interpreter, or build-machine RPATHs found in $original; leaving unchanged."
+    if ! validate_rebuilt_appimage "$original"; then
+      rm -rf "$workdir"
+      return 1
+    fi
     rm -rf "$workdir"
     return
   fi
@@ -811,7 +815,10 @@ strip_one_appimage() {
       --no-appstream squashfs-root "$rebuilt" >/dev/null
   )
   mv "$rebuilt" "$original"
-  validate_rebuilt_appimage "$original"
+  if ! validate_rebuilt_appimage "$original"; then
+    rm -rf "$workdir"
+    return 1
+  fi
   rm -rf "$workdir"
   MODIFIED_PATHS+=("$original")
 }

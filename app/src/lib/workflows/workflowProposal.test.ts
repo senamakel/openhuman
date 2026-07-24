@@ -53,6 +53,25 @@ describe('parseWorkflowProposal / coerceWorkflowProposal', () => {
     expect(omitted?.requireApproval).toBe(true);
   });
 
+  it('normalizes invalid summary steps without rejecting the proposal', () => {
+    const proposal = coerceWorkflowProposal({
+      ...proposalPayload('Mixed steps'),
+      summary: {
+        trigger: 42,
+        steps: [
+          null,
+          'not an object',
+          { kind: 7, name: false, config_hint: ['not', 'a', 'string'] },
+        ],
+      },
+    });
+
+    expect(proposal?.summary).toEqual({
+      trigger: '',
+      steps: [{ kind: 'unknown', name: '', config_hint: undefined }],
+    });
+  });
+
   it('rejects non-proposal payloads, malformed JSON, and missing fields', () => {
     expect(parseWorkflowProposal('not json')).toBeNull();
     expect(coerceWorkflowProposal(null)).toBeNull();

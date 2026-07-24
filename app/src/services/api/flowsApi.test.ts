@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { coerceWorkflowProposal } from '../../lib/workflows/workflowProposal';
 import {
   buildWorkflow,
   discoverWorkflows,
@@ -18,6 +19,10 @@ import {
 
 const mockCallCoreRpc = vi.fn();
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a) }));
+vi.mock('../../lib/workflows/workflowProposal', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../lib/workflows/workflowProposal')>();
+  return { ...actual, coerceWorkflowProposal: vi.fn(actual.coerceWorkflowProposal) };
+});
 
 /** Every `flows_*` handler wraps its payload via `RpcOutcome::single_log`. */
 function cliEnvelope<T>(
@@ -30,6 +35,7 @@ function cliEnvelope<T>(
 describe('flowsApi', () => {
   beforeEach(() => {
     mockCallCoreRpc.mockReset();
+    vi.mocked(coerceWorkflowProposal).mockClear();
   });
 
   describe('resumeFlow', () => {
@@ -466,6 +472,57 @@ describe('flowsApi', () => {
         },
         timeoutMs: 610_000,
       });
+    });
+
+    it.each([
+      ['a malformed payload', { type: 'not_a_workflow_proposal' }, null],
+      [
+        'missing require_approval',
+        { type: 'workflow_proposal', name: 'Default approval', graph: {} },
+        {
+          name: 'Default approval',
+          graph: {},
+          requireApproval: true,
+          summary: { trigger: '', steps: [] },
+        },
+      ],
+      [
+        'invalid summary steps',
+        {
+          type: 'workflow_proposal',
+          name: 'Mixed steps',
+          graph: {},
+          summary: {
+            trigger: 42,
+            steps: [null, 'invalid', { kind: 7, name: false, config_hint: [] }],
+          },
+        },
+        {
+          name: 'Mixed steps',
+          graph: {},
+          requireApproval: true,
+          summary: { trigger: '', steps: [{ kind: 'unknown', name: '', config_hint: undefined }] },
+        },
+      ],
+      [
+        'explicit false approval',
+        { type: 'workflow_proposal', name: 'No approval', graph: {}, require_approval: false },
+        {
+          name: 'No approval',
+          graph: {},
+          requireApproval: false,
+          summary: { trigger: '', steps: [] },
+        },
+      ],
+    ])('coerces %s through the canonical proposal mapper', async (_label, raw, expected) => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ proposal: raw, assistant_text: '', error: null })
+      );
+
+      const result = await buildWorkflow({ mode: 'create', instruction: 'build it' });
+
+      expect(coerceWorkflowProposal).toHaveBeenCalledWith(raw);
+      expect(result.proposal).toEqual(expected);
     });
   });
 });

@@ -29,6 +29,7 @@
 import debug from 'debug';
 
 import type { WorkflowGraph } from '../../lib/flows/types';
+import { coerceWorkflowProposal } from '../../lib/workflows/workflowProposal';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import { trackAnalyticsEvent } from '../analytics';
 import { callCoreRpc } from '../coreRpcClient';
@@ -904,38 +905,6 @@ export interface BuilderTurnResult {
 const FLOW_BUILD_TIMEOUT_MS = 610_000;
 
 /**
- * Map a raw `{ type: 'workflow_proposal', … }` payload (from the agent's
- * propose/revise/save tool) to the store {@link WorkflowProposal} shape. Kept in
- * lockstep with `parseWorkflowProposal` in `ChatRuntimeProvider` (the streamed
- * path); returns null if the payload isn't a valid proposal.
- */
-export function mapWorkflowProposal(payload: unknown): WorkflowProposal | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const obj = payload as Record<string, unknown>;
-  if (obj.type !== 'workflow_proposal') return null;
-  if (typeof obj.name !== 'string' || obj.graph == null) return null;
-
-  const summary = (obj.summary ?? {}) as Record<string, unknown>;
-  const rawSteps = Array.isArray(summary.steps) ? summary.steps : [];
-  const steps = rawSteps
-    .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
-    .map(s => ({
-      kind: typeof s.kind === 'string' ? s.kind : 'unknown',
-      name: typeof s.name === 'string' ? s.name : '',
-      config_hint: typeof s.config_hint === 'string' ? s.config_hint : undefined,
-    }));
-
-  return {
-    name: obj.name,
-    graph: obj.graph,
-    // The Rust tool defaults `require_approval` to true when omitted, so treat
-    // anything other than an explicit false as true — in lockstep with the server.
-    requireApproval: obj.require_approval !== false,
-    summary: { trigger: typeof summary.trigger === 'string' ? summary.trigger : '', steps },
-  };
-}
-
-/**
  * Run one `workflow_builder` authoring turn via `openhuman.flows_build`. The
  * server renders the agent's brief from `request`, runs the agent to completion,
  * and returns its proposal + final assistant text. This is the backend-agent
@@ -985,7 +954,7 @@ export async function buildWorkflow(
     result.capped ?? false
   );
   return {
-    proposal: mapWorkflowProposal(result.proposal),
+    proposal: coerceWorkflowProposal(result.proposal),
     assistantText: result.assistant_text ?? '',
     error: result.error ?? null,
     capped: result.capped ?? false,

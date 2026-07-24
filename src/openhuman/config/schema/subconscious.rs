@@ -1,16 +1,13 @@
-//! Subconscious engine selection (plan §5.2 — the openhuman subconscious
-//! replacement draft).
+//! Subconscious reflection-engine selection.
 //!
 //! `subconscious.engine` chooses which cognition drives the heartbeat tick's
 //! observe/reflect/commit cycle:
 //!
-//! * `local` (default) — the existing local tinyagents graph. Unchanged.
-//! * `medulla` — route each tick through a supervised local `medulla-serve`
-//!   child via `openhuman::medulla_local`. Draft; only wired when the crate is
-//!   built with the `medulla-local` feature.
+//! * `auto` (default) — prefer hosted Medulla and fall back locally only before
+//!   a hosted cycle is submitted.
+//! * `local` — always use the existing local tinyagents decision agent.
 //!
-//! The default is `local`, so a config that omits the `[subconscious]` block —
-//! every config today — behaves exactly as before.
+//! The legacy draft value `medulla` is accepted as an alias for `auto`.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -19,17 +16,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SubconsciousEngine {
-    /// The local tinyagents subconscious graph (unchanged default).
+    /// Prefer hosted Medulla with safe pre-submission local fallback.
     #[default]
+    #[serde(alias = "medulla")]
+    Auto,
+    /// Always use the local tinyagents decision agent.
     Local,
-    /// Route ticks through a local `medulla-serve` child (draft).
-    Medulla,
 }
 
 impl SubconsciousEngine {
-    /// Whether ticks should route through the local medulla brain.
-    pub fn is_medulla(self) -> bool {
-        matches!(self, Self::Medulla)
+    /// Whether hosted reflection must be bypassed.
+    pub fn is_local(self) -> bool {
+        matches!(self, Self::Local)
     }
 }
 
@@ -138,10 +136,10 @@ impl MedullaLocalConfig {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct SubconsciousConfig {
-    /// Which engine drives the subconscious tick. Default `local`.
+    /// Which engine drives subconscious reflection. Default `auto`.
     #[serde(default)]
     pub engine: SubconsciousEngine,
-    /// Local `medulla-serve` child settings (only used when `engine = medulla`).
+    /// Local `medulla-serve` diagnostic/RPC settings.
     #[serde(default)]
     pub medulla_local: MedullaLocalConfig,
 }
@@ -151,29 +149,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_engine_is_local() {
+    fn default_engine_is_auto() {
         assert_eq!(
             SubconsciousConfig::default().engine,
-            SubconsciousEngine::Local
+            SubconsciousEngine::Auto
         );
-        assert!(!SubconsciousConfig::default().engine.is_medulla());
+        assert!(!SubconsciousConfig::default().engine.is_local());
     }
 
     #[test]
-    fn missing_block_deserializes_to_local() {
+    fn missing_block_deserializes_to_auto() {
         let config: SubconsciousConfig = serde_json::from_str("{}").unwrap();
-        assert_eq!(config.engine, SubconsciousEngine::Local);
+        assert_eq!(config.engine, SubconsciousEngine::Auto);
     }
 
     #[test]
     fn engine_serde_round_trip() {
         assert_eq!(
-            serde_json::to_string(&SubconsciousEngine::Medulla).unwrap(),
-            r#""medulla""#
+            serde_json::to_string(&SubconsciousEngine::Auto).unwrap(),
+            r#""auto""#
         );
         assert_eq!(
             serde_json::from_str::<SubconsciousEngine>(r#""local""#).unwrap(),
             SubconsciousEngine::Local
+        );
+        assert_eq!(
+            serde_json::from_str::<SubconsciousEngine>(r#""medulla""#).unwrap(),
+            SubconsciousEngine::Auto
         );
     }
 

@@ -352,17 +352,10 @@ async fn superseded_tick_discards_result_and_skips_commit() {
     );
 }
 
-// ── Subconscious-replacement draft (plan §5.2): default path is untouched ────
-
-/// The subconscious engine defaults to `local` when the `[subconscious]` block
-/// (or its `engine` field) is unset. This test pins that a default-config tick
-/// runs the LOCAL tinyagents graph — proven by `reflect` executing — rather
-/// than the medulla instruct path (which observes → instructs → commits and
-/// never calls `reflect`). It is the "byte-identical when the flag is unset"
-/// guarantee for the draft: whether or not the `medulla-local` feature is
-/// compiled in, an unset flag routes exactly as before.
+/// Engine selection belongs to the memory profile's reflect node. The generic
+/// instance always drives one observe → reflect → commit graph.
 #[tokio::test]
-async fn default_engine_runs_local_graph_not_medulla() {
+async fn default_engine_runs_the_profile_graph() {
     let dir = tempfile::tempdir().unwrap();
     let profile = Arc::new(FakeProfile::new(
         FakeProfile::changed(),
@@ -371,93 +364,18 @@ async fn default_engine_runs_local_graph_not_medulla() {
     let instance = build(profile.clone(), dir.path());
 
     let config = test_config(dir.path());
-    // Precondition: the flag is unset, so the engine is the default `local`.
-    assert!(
-        !config.subconscious.engine.is_medulla(),
-        "default config must select the local engine"
+    assert_eq!(
+        config.subconscious.engine,
+        crate::openhuman::config::schema::SubconsciousEngine::Auto
     );
 
     let result = instance.run_tick_for_test(config).await.unwrap();
 
-    // The local graph's reflect stage ran — the medulla path never calls it.
     assert_eq!(
         profile.reflect_calls.load(Ordering::SeqCst),
         1,
-        "default engine must drive the local reflect graph"
+        "the profile owns reflection-engine selection"
     );
     assert_eq!(profile.commit_calls.load(Ordering::SeqCst), 1);
     assert_eq!(result.response_chars, 7);
-}
-
-/// A medulla-engine config for the hermetic quiet-path tests: the quiet edge
-/// commits the baseline without ever touching the serve supervisor, so no
-/// child process or socket is involved.
-#[cfg(feature = "medulla-local")]
-fn medulla_config(workspace: &std::path::Path) -> Config {
-    use crate::openhuman::config::schema::SubconsciousEngine;
-    let mut cfg = test_config(workspace);
-    cfg.subconscious.engine = SubconsciousEngine::Medulla;
-    cfg
-}
-
-/// The medulla quiet edge mirrors the local one: no reflect, no instruct,
-/// baseline committed and `last_tick_at` advanced.
-#[cfg(feature = "medulla-local")]
-#[tokio::test]
-async fn medulla_quiet_tick_commits_and_advances() {
-    let dir = tempfile::tempdir().unwrap();
-    let profile = Arc::new(FakeProfile::new(FakeProfile::quiet(), Ok(Reflection::Idle)));
-    let instance = build(profile.clone(), dir.path());
-
-    let result = instance
-        .run_tick_for_test(medulla_config(dir.path()))
-        .await
-        .unwrap();
-
-    assert_eq!(profile.observe_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(
-        profile.reflect_calls.load(Ordering::SeqCst),
-        0,
-        "the medulla engine never runs the local reflect graph"
-    );
-    assert_eq!(profile.commit_calls.load(Ordering::SeqCst), 1, "committed");
-    let status = instance.status().await;
-    assert!(status.last_tick_at.is_some());
-    assert_eq!(status.total_ticks, 1);
-    assert_eq!(result.response_chars, 0);
-}
-
-/// A superseded medulla tick must not commit its stale observation — the same
-/// generation guard the local graph path applies before its commit.
-#[cfg(feature = "medulla-local")]
-#[tokio::test]
-async fn medulla_superseded_tick_skips_commit() {
-    let dir = tempfile::tempdir().unwrap();
-    let profile = Arc::new(FakeProfile::new(FakeProfile::quiet(), Ok(Reflection::Idle)));
-    let instance = build(profile.clone(), dir.path());
-    // Wire the profile to bump the instance's generation during observe — the
-    // medulla path's only pre-commit await point.
-    *profile.supersede.lock().unwrap() = Some(instance.generation_handle());
-    profile.supersede_in_observe.store(1, Ordering::SeqCst);
-
-    let result = instance
-        .run_tick_for_test(medulla_config(dir.path()))
-        .await
-        .unwrap();
-
-    assert_eq!(profile.observe_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(
-        profile.commit_calls.load(Ordering::SeqCst),
-        0,
-        "a superseded medulla tick must not commit"
-    );
-    assert_eq!(result.response_chars, 0);
-    let status = instance.status().await;
-    assert!(status.last_tick_at.is_none(), "no baseline advance");
-    assert_eq!(status.total_ticks, 1, "the discarded tick is still counted");
-    assert_eq!(
-        instance.snapshot_failures().await,
-        0,
-        "not counted a failure"
-    );
 }

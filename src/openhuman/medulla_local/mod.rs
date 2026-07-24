@@ -4,10 +4,8 @@
 //! This is Flavor A of the Medulla flavors plan (§3.1–§3.2): openhuman runs
 //! medulla-v1's agent-harness facade in a supervised child and answers its port
 //! callbacks against the local capability surface (inference routing, curated
-//! read-only tools). It also backs the subconscious-replacement draft (§5.2):
-//! with `subconscious.engine = "medulla"`, each heartbeat tick routes its
-//! observe/reflect/commit cycle through one `instruct` instead of the local
-//! tinyagents graph. The default (`local`) is untouched.
+//! read-only tools). It remains a developer diagnostic/RPC surface; subconscious
+//! reflection uses the hosted Medulla API or its local decision-agent fallback.
 //!
 //! Module shape (canonical `mod/types/…/ops/schemas`):
 //! * [`protocol`]   — wire frame envelopes (`ready`/`req`/`res`/`call`/`ret`/`event`).

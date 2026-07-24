@@ -8,7 +8,7 @@ import { findEntryById } from '../settingsRouteRegistry';
 import { useSettingsLayout } from './SettingsLayoutContext';
 import SettingsSubNav from './SettingsSubNav';
 
-export interface SettingsPanelProps<T extends string = string> {
+interface SettingsPanelProps<T extends string = string> {
   /**
    * Override the panel title. Defaults to the active route's registry title, so
    * most panels omit it. Supply it for dynamic sub-pages (profile/agent

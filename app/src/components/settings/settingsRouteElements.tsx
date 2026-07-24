@@ -51,7 +51,7 @@ import WorkflowRunnerPanel from './panels/WorkflowRunnerPanel';
  * internal scroll; legacy panels that overflow scroll here. Either way there's
  * exactly one scrollbar.
  */
-export const WrappedSettingsPage = ({ children }: { children: ReactNode }) => {
+const WrappedSettingsPage = ({ children }: { children: ReactNode }) => {
   return <div className="h-full min-h-0 overflow-y-auto">{children}</div>;
 };
 

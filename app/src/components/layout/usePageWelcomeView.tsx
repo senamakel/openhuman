@@ -15,10 +15,10 @@ const navIcon = (d: string) => (
 const WELCOME_ICON = navIcon('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z');
 
 /** `'welcome'` / `'main'`, plus any extra sub-page value the caller declares. */
-export type PageWelcomeViewId = string;
+type PageWelcomeViewId = string;
 
 /** An additional sub-page beyond Welcome · Main (e.g. Workflows' Runs / Discoveries). */
-export interface PageWelcomeExtraItem {
+interface PageWelcomeExtraItem {
   /** `?view=` value + nav selection id. */
   value: string;
   /** Sidebar label. */
@@ -27,7 +27,7 @@ export interface PageWelcomeExtraItem {
   iconPath: string;
 }
 
-export interface UsePageWelcomeViewOptions {
+interface UsePageWelcomeViewOptions {
   /** Accessible label for the sidebar nav. */
   ariaLabel: string;
   /** Label for the Welcome entry. */
@@ -42,7 +42,7 @@ export interface UsePageWelcomeViewOptions {
   extraItems?: PageWelcomeExtraItem[];
 }
 
-export interface PageWelcomeView {
+interface PageWelcomeView {
   /** Current view — `welcome` (default landing) or `main`. */
   view: PageWelcomeViewId;
   /** Switch views (updates `?view=`). */

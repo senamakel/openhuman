@@ -20,7 +20,7 @@ export interface ChipTabItem<T extends string> {
   testId?: string;
 }
 
-export interface ChipTabsProps<T extends string> {
+interface ChipTabsProps<T extends string> {
   /** Chips to render, left to right. */
   items: ChipTabItem<T>[];
   /** Currently active chip id. */

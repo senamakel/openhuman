@@ -13,8 +13,6 @@
   "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}", "*.config.{js,ts}"],
   "tags": ["-knipignore"],
   "ignoreDependencies": [
-    "@tauri-apps/cli",
-    "@testing-library/dom",
     "@wdio/appium-service",
     "@wdio/cli",
     "@wdio/local-runner",
@@ -26,5 +24,5 @@
     "process",
     "util"
   ],
-  "ignoreBinaries": ["open", "tauri"]
+  "ignoreBinaries": ["open"]
 }

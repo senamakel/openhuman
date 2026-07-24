@@ -494,6 +494,7 @@ grep -Fx "xvfb-invoked" "$SMOKE_RECORD" >/dev/null \
 for secret_name in \
   GITHUB_TOKEN \
   GH_TOKEN \
+  OPENHUMAN_CEF_NO_SANDBOX \
   TAURI_SIGNING_PRIVATE_KEY \
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
   SENTRY_AUTH_TOKEN \
@@ -577,6 +578,31 @@ grep -Fx -- \
   "--non-interactive apparmor_parser --remove $APPARMOR_PROFILE" \
   "$APPARMOR_RECORD" >/dev/null \
   || fail "AppArmor profile was not removed after the smoke"
+
+: >"$APPARMOR_RECORD"
+set +e
+(
+  smoke_extracted_apprun() {
+    printf '%s\n' "smoke" >>"$APPARMOR_RECORD"
+    return 37
+  }
+  PATH="$APPARMOR_BIN:$PATH" smoke_extracted_apprun_with_userns \
+    "$RUNTIME_COMPLETE" \
+    "$SMOKE_ROOT/foreign-cwd" \
+    "$SMOKE_ROOT/apparmor-failure.log" \
+    "$APPARMOR_PROFILE"
+)
+apparmor_smoke_status=$?
+set -e
+[ "$apparmor_smoke_status" -eq 37 ] \
+  || fail "AppArmor wrapper did not preserve smoke failure status 37"
+printf '%s\n' \
+  "--non-interactive apparmor_parser --replace $APPARMOR_PROFILE" \
+  "smoke" \
+  "--non-interactive apparmor_parser --remove $APPARMOR_PROFILE" \
+  >"$WORK/apparmor-expected-order"
+cmp -s "$WORK/apparmor-expected-order" "$APPARMOR_RECORD" \
+  || fail "AppArmor profile was not loaded before and removed after a failing smoke"
 echo "[test-rpaths] ok: CI smoke grants userns only to the extracted executable"
 
 assert_runtime_layout_rejected missing-anylinux \

@@ -182,6 +182,9 @@ jobs:
             libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
             libgbm1 libpango-1.0-0 libcairo2 libatspi2.0-0 libxshmfence1 libu2f-udev \
             xvfb
+          if ! command -v apparmor_parser >/dev/null 2>&1; then
+            sudo apt-get install -y apparmor
+          fi
       # NOTE: The post-build dump lives further down (after `cargo tauri build`)
       # so the binary actually exists when ldd runs. Running it here pre-build
       # silently no-op'd and gave us no signal during the
@@ -541,6 +544,7 @@ jobs:
           MATRIX_TARGET: ${{ matrix.settings.target }}
           PROFILE: ${{ inputs.build_profile }}
           APPIMAGE_RUNTIME_SMOKE: ${{ matrix.settings.target == 'x86_64-unknown-linux-gnu' && '1' || '0' }}
+          APPIMAGE_RUNTIME_APPARMOR_USERNS: ${{ matrix.settings.target == 'x86_64-unknown-linux-gnu' && '1' || '0' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.UPDATER_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.UPDATER_PRIVATE_KEY_PASSWORD }}
         run: |

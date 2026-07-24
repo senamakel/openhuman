@@ -21,6 +21,48 @@ const CONTINUE_PATH: &str = "/orchestration/v1/run/continue";
 const PLAN_PATH: &str = "/payments/stripe/currentPlan";
 const MAX_LOOP_EVENTS: usize = 128;
 
+/// The point at which a hosted Medulla failure occurred.
+///
+/// Local fallback is safe only before the initial run request is submitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MedullaFailurePhase {
+    Preflight,
+    Submitted,
+}
+
+/// A hosted Medulla failure annotated with its submission boundary.
+#[derive(Debug, thiserror::Error)]
+#[error("{message}")]
+pub struct MedullaRunError {
+    phase: MedullaFailurePhase,
+    message: String,
+}
+
+impl MedullaRunError {
+    fn preflight(message: impl Into<String>) -> Self {
+        Self {
+            phase: MedullaFailurePhase::Preflight,
+            message: message.into(),
+        }
+    }
+
+    fn submitted(message: impl Into<String>) -> Self {
+        Self {
+            phase: MedullaFailurePhase::Submitted,
+            message: message.into(),
+        }
+    }
+
+    pub fn phase(&self) -> MedullaFailurePhase {
+        self.phase
+    }
+
+    /// Whether a caller may safely execute the same workload locally.
+    pub fn safe_to_fallback(&self) -> bool {
+        self.phase == MedullaFailurePhase::Preflight
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MedullaRunResult {
@@ -80,40 +122,62 @@ pub async fn run(
     input: &str,
     session_id: Option<&str>,
 ) -> Result<MedullaRunResult, String> {
-    if !config.orchestration.enabled {
-        return Err("hosted orchestration is disabled in config".to_string());
-    }
-    let input = input.trim();
-    if input.is_empty() {
-        return Err("input is required".to_string());
-    }
-
-    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
-    let api_url = effective_backend_api_url(&config.api_url);
-    let client = BackendOAuthClient::new(&api_url).map_err(|err| err.to_string())?;
-    ensure_paid_plan(&client, &token).await?;
-
-    let tuning = config.orchestration.medulla.clone();
     let config = Arc::new(config.clone());
     let tools: Vec<Box<dyn Tool>> = vec![
         Box::new(super::tools::ListContactsTool),
         Box::new(super::tools::ListSessionsTool::new(Arc::clone(&config))),
         Box::new(super::tools::ReadSessionTool::new(Arc::clone(&config))),
-        Box::new(super::tools::SendToAgentTool::new(config)),
+        Box::new(super::tools::SendToAgentTool::new(Arc::clone(&config))),
     ];
 
-    run_with_client(&client, &token, input, session_id, &tools, &tuning).await
+    run_scoped(&config, input, session_id, None, &tools)
+        .await
+        .map_err(|err| err.to_string())
 }
 
-async fn ensure_paid_plan(client: &BackendOAuthClient, token: &str) -> Result<(), String> {
+/// Run a hosted Medulla cycle with a caller-owned flavor and local tool
+/// catalogue. Callers may use [`MedullaRunError::safe_to_fallback`] to avoid
+/// duplicating a cycle that may already have been accepted.
+pub async fn run_scoped(
+    config: &Config,
+    input: &str,
+    session_id: Option<&str>,
+    flavor: Option<&str>,
+    tools: &[Box<dyn Tool>],
+) -> Result<MedullaRunResult, MedullaRunError> {
+    if !config.orchestration.enabled {
+        return Err(MedullaRunError::preflight(
+            "hosted orchestration is disabled in config",
+        ));
+    }
+    let input = input.trim();
+    if input.is_empty() {
+        return Err(MedullaRunError::preflight("input is required"));
+    }
+
+    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)
+        .map_err(MedullaRunError::preflight)?;
+    let api_url = effective_backend_api_url(&config.api_url);
+    let client = BackendOAuthClient::new(&api_url)
+        .map_err(|err| MedullaRunError::preflight(err.to_string()))?;
+    ensure_paid_plan(&client, &token).await?;
+
+    let tuning = config.orchestration.medulla.clone();
+    run_with_client(&client, &token, input, session_id, flavor, tools, &tuning).await
+}
+
+async fn ensure_paid_plan(client: &BackendOAuthClient, token: &str) -> Result<(), MedullaRunError> {
     let data = client
         .authed_json(token, Method::GET, PLAN_PATH, None)
         .await
-        .map_err(crate::api::flatten_authed_error)?;
+        .map_err(crate::api::flatten_authed_error)
+        .map_err(MedullaRunError::preflight)?;
     if paid_plan_active(&data) {
         return Ok(());
     }
-    Err("Medulla orchestration requires an active Basic or Pro plan".to_string())
+    Err(MedullaRunError::preflight(
+        "Medulla orchestration requires an active Basic or Pro plan",
+    ))
 }
 
 fn paid_plan_active(data: &Value) -> bool {
@@ -130,9 +194,10 @@ async fn run_with_client(
     token: &str,
     input: &str,
     session_id: Option<&str>,
+    flavor: Option<&str>,
     tools: &[Box<dyn Tool>],
     tuning: &MedullaClientConfig,
-) -> Result<MedullaRunResult, String> {
+) -> Result<MedullaRunResult, MedullaRunError> {
     let mut body = Map::new();
     body.insert("input".to_string(), Value::String(input.to_string()));
     if let Some(session_id) = session_id.map(str::trim).filter(|id| !id.is_empty()) {
@@ -140,6 +205,9 @@ async fn run_with_client(
             "sessionId".to_string(),
             Value::String(session_id.to_string()),
         );
+    }
+    if let Some(flavor) = flavor.map(str::trim).filter(|value| !value.is_empty()) {
+        body.insert("flavor".to_string(), Value::String(flavor.to_string()));
     }
     if !tools.is_empty() {
         body.insert(
@@ -155,17 +223,23 @@ async fn run_with_client(
         input_bytes = input.len(),
         tool_count = tools.len(),
         has_session = session_id.is_some(),
+        has_flavor = flavor.is_some(),
         "[orchestration] medulla.run.start"
     );
-    let first = post(client, token, RUN_PATH, Value::Object(body)).await?;
+    let first = post(client, token, RUN_PATH, Value::Object(body))
+        .await
+        .map_err(MedullaRunError::submitted)?;
     if tools.is_empty() {
-        let result = serde_json::from_value(first)
-            .map_err(|err| format!("parse Medulla run response: {err}"))?;
+        let result = serde_json::from_value(first).map_err(|err| {
+            MedullaRunError::submitted(format!("parse Medulla run response: {err}"))
+        })?;
         tracing::debug!("[orchestration] medulla.run.end direct=true");
         return Ok(result);
     }
 
-    drive_tool_loop(client, token, tools, first).await
+    drive_tool_loop(client, token, tools, first)
+        .await
+        .map_err(MedullaRunError::submitted)
 }
 
 async fn drive_tool_loop(
@@ -559,6 +633,7 @@ mod tests {
             "test-token",
             "direct",
             Some(" session-1 "),
+            None,
             &[],
             &tuning,
         )
@@ -571,6 +646,69 @@ mod tests {
         assert_eq!(body["sessionId"], "session-1");
         assert_eq!(body["options"]["config"]["maxPasses"], 4);
         assert!(body.get("tools").is_none());
+        assert!(body.get("flavor").is_none());
+    }
+
+    #[tokio::test]
+    async fn scoped_run_forwards_flavor_and_only_caller_tools() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(RUN_PATH))
+            .respond_with(ResponseTemplate::new(200).set_body_json(envelope(end_event())))
+            .mount(&server)
+            .await;
+        let client = BackendOAuthClient::new(&server.uri()).unwrap();
+        let tools: Vec<Box<dyn Tool>> = vec![Box::new(EchoTool)];
+
+        run_with_client(
+            &client,
+            "test-token",
+            "reflect",
+            None,
+            Some(" openhuman "),
+            &tools,
+            &MedullaClientConfig::default(),
+        )
+        .await
+        .unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+        assert_eq!(body["flavor"], "openhuman");
+        assert_eq!(body["tools"].as_array().unwrap().len(), 1);
+        assert_eq!(body["tools"][0]["name"], "echo");
+    }
+
+    #[tokio::test]
+    async fn errors_expose_the_submission_boundary_for_safe_fallback() {
+        let mut config = Config::default();
+        config.orchestration.enabled = false;
+        let preflight = run_scoped(&config, "reflect", None, Some("openhuman"), &[])
+            .await
+            .unwrap_err();
+        assert_eq!(preflight.phase(), MedullaFailurePhase::Preflight);
+        assert!(preflight.safe_to_fallback());
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(RUN_PATH))
+            .respond_with(ResponseTemplate::new(503))
+            .mount(&server)
+            .await;
+        let client = BackendOAuthClient::new(&server.uri()).unwrap();
+        let submitted = run_with_client(
+            &client,
+            "test-token",
+            "reflect",
+            None,
+            Some("openhuman"),
+            &[],
+            &MedullaClientConfig::default(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(submitted.phase(), MedullaFailurePhase::Submitted);
+        assert!(!submitted.safe_to_fallback());
     }
 
     #[tokio::test]
@@ -683,6 +821,7 @@ mod tests {
             &client,
             "test-token",
             "use echo",
+            None,
             None,
             &tools,
             &MedullaClientConfig::default(),

@@ -121,6 +121,105 @@ grep -F "no valid AppDir library entries" "$WORK/rewrite.err" >/dev/null \
 assert_lib_path_contents "$REWRITE_INVALID" '/opt/unrelated/lib'
 echo "[test-rpaths] ok: sharun lib.path normalization is canonical and idempotent"
 
+# --- Case 0b: validate_sharun_lib_path rejects unsafe loader entries --------
+assert_lib_path_rejected() {
+  local label="$1"
+  local value="$2"
+  local expected_entry="$3"
+  local fixture="$WORK/reject-$label"
+  make_sharun_appdir "$fixture"
+  printf '%s\n' "$value" >"$fixture/shared/lib/lib.path"
+
+  if ( validate_sharun_lib_path "$fixture" ) 2>"$fixture/error.log"; then
+    fail "validate_sharun_lib_path accepted $label"
+  fi
+  grep -F "invalid sharun lib.path entry '$expected_entry':" \
+    "$fixture/error.log" >/dev/null \
+    || fail "$label error did not identify offending entry '$expected_entry'"
+}
+
+assert_lib_path_rejected bare-relative 'shared/lib' 'shared/lib'
+assert_lib_path_rejected runner-absolute \
+  '/home/runner/work/openhuman/squashfs-root/shared/lib' \
+  '/home/runner/work/openhuman/squashfs-root/shared/lib'
+assert_lib_path_rejected actions-absolute \
+  '/__w/openhuman/openhuman/appimage_deb/data/usr/lib' \
+  '/__w/openhuman/openhuman/appimage_deb/data/usr/lib'
+assert_lib_path_rejected parent-traversal '+/../outside' '+/../outside'
+assert_lib_path_rejected nested-traversal \
+  '+/plugins/../../outside' '+/plugins/../../outside'
+assert_lib_path_rejected missing-directory '+/missing' '+/missing'
+assert_lib_path_rejected loader-separator \
+  '+/plugins:shared/lib' '+/plugins:shared/lib'
+assert_lib_path_rejected leading-whitespace ' +' ' +'
+assert_lib_path_rejected trailing-whitespace '+ ' '+ '
+
+VALID_ROOT="$WORK/valid-root"
+make_sharun_appdir "$VALID_ROOT"
+printf '%s\n' '+' >"$VALID_ROOT/shared/lib/lib.path"
+validate_sharun_lib_path "$VALID_ROOT" \
+  || fail "validate_sharun_lib_path rejected canonical root marker"
+
+VALID_DESCENDANT="$WORK/valid-descendant"
+make_sharun_appdir "$VALID_DESCENDANT"
+printf '%s\n' '+' '+/plugins' >"$VALID_DESCENDANT/shared/lib/lib.path"
+cp "$VALID_DESCENDANT/shared/lib/lib.path" "$VALID_DESCENDANT/lib.path.before"
+validate_sharun_lib_path "$VALID_DESCENDANT" \
+  || fail "validate_sharun_lib_path rejected canonical descendant marker"
+validate_sharun_lib_path "$VALID_DESCENDANT" \
+  || fail "validate_sharun_lib_path rejected a second validation pass"
+cmp -s \
+  "$VALID_DESCENDANT/lib.path.before" \
+  "$VALID_DESCENDANT/shared/lib/lib.path" \
+  || fail "validate_sharun_lib_path mutated a normalized file"
+
+ESCAPE_DIR="$WORK/escape-symlink"
+make_sharun_appdir "$ESCAPE_DIR"
+mkdir -p "$WORK/outside"
+ln -s "$WORK/outside" "$ESCAPE_DIR/shared/lib/escape"
+printf '%s\n' '+/escape' >"$ESCAPE_DIR/shared/lib/lib.path"
+if ( validate_sharun_lib_path "$ESCAPE_DIR" ) 2>"$ESCAPE_DIR/error.log"; then
+  fail "validate_sharun_lib_path accepted a symlink escaping shared/lib"
+fi
+grep -F "invalid sharun lib.path entry '+/escape':" \
+  "$ESCAPE_DIR/error.log" >/dev/null \
+  || fail "symlink escape error did not identify offending entry '+/escape'"
+
+RELEASED_LAYOUT="$WORK/released-layout"
+make_sharun_appdir "$RELEASED_LAYOUT"
+printf '%s\n' '+' >"$RELEASED_LAYOUT/shared/lib/lib.path"
+[ "$RELEASED_LAYOUT/AppRun" -ef "$RELEASED_LAYOUT/sharun" ] \
+  || fail "AppRun fixture is not hard-linked to sharun"
+[ "$RELEASED_LAYOUT/bin/OpenHuman" -ef "$RELEASED_LAYOUT/sharun" ] \
+  || fail "bin/OpenHuman fixture is not hard-linked to sharun"
+is_executable_elf "$RELEASED_LAYOUT/AppRun" \
+  || fail "released-style AppRun fixture is not ELF"
+uses_sharun_launcher "$RELEASED_LAYOUT" \
+  || fail "released-style hard-linked ELF launcher was not detected"
+validate_sharun_lib_path "$RELEASED_LAYOUT" \
+  || fail "released-style AppDir has an invalid canonical lib.path"
+
+CALLER="$WORK/caller"
+mkdir -p "$CALLER"
+(
+  cd "$CALLER"
+  expanded="$(
+    sed "s|+|$RELEASED_LAYOUT/shared/lib|g" \
+      "$RELEASED_LAYOUT/shared/lib/lib.path" |
+      paste -sd ':' -
+  )"
+  [ "$expanded" = "$RELEASED_LAYOUT/shared/lib" ] \
+    || fail "sharun marker did not expand beneath the fixture AppDir"
+)
+
+released_apprun_inode="$(ls -di "$RELEASED_LAYOUT/AppRun")"
+if patch_apprun_sharun_cwd "$RELEASED_LAYOUT"; then
+  fail "patch_apprun_sharun_cwd modified a released-style ELF AppRun"
+fi
+[ "$released_apprun_inode" = "$(ls -di "$RELEASED_LAYOUT/AppRun")" ] \
+  || fail "patch_apprun_sharun_cwd changed the released-style ELF AppRun inode"
+echo "[test-rpaths] ok: sharun lib.path validation is fail-closed for the released ELF launcher"
+
 # --- Case 1: sanitize_elf_rpaths strips a CI build-machine RPATH ------------
 APPDIR="$WORK/squashfs-root"
 mkdir -p "$APPDIR/usr/lib" "$APPDIR/shared/lib"

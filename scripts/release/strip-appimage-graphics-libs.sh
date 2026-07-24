@@ -396,13 +396,85 @@ validate_sharun_lib_path() {
   local lib_path="$appdir/shared/lib/lib.path"
   if [ ! -s "$lib_path" ]; then
     echo "[strip-libs] ERROR: sharun AppImage is missing shared/lib/lib.path; refusing to ship an AppImage that exits with 'Interpreter not found!'" >&2
-    exit 1
+    return 1
   fi
 
-  if grep -E '(^|[+:])/home/runner/|(^|[+:])/__w/' "$lib_path" >/dev/null; then
-    echo "[strip-libs] ERROR: shared/lib/lib.path contains CI runner paths; regenerate it with bundle-relative entries before release." >&2
-    exit 1
+  local library_root="$appdir/shared/lib"
+  local canonical_root
+  if [ ! -d "$library_root" ] || ! canonical_root="$(realpath "$library_root")"; then
+    echo "[strip-libs] ERROR: sharun AppImage is missing shared/lib; refusing to validate library paths" >&2
+    return 1
   fi
+
+  local entry suffix resolved canonical_resolved
+  local entry_count=0
+  while IFS= read -r entry || [ -n "$entry" ]; do
+    entry_count=$((entry_count + 1))
+
+    if [ -z "$entry" ]; then
+      echo "[strip-libs] ERROR: invalid sharun lib.path entry '': empty entries are not allowed" >&2
+      return 1
+    fi
+    case "$entry" in
+      *$'\r'*)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': carriage returns are not allowed" >&2
+        return 1
+        ;;
+      *:*)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': loader separators are not allowed" >&2
+        return 1
+        ;;
+      [[:space:]]*|*[[:space:]])
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': surrounding whitespace is not allowed" >&2
+        return 1
+        ;;
+    esac
+
+    case "$entry" in
+      +)
+        suffix=""
+        resolved="$library_root"
+        ;;
+      +/*)
+        suffix="${entry#+/}"
+        case "$suffix" in
+          ""|/*|*/|*//*|.|..|./*|../*|*/./*|*/../*|*/.|*/..)
+            echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': path components must be non-empty descendants" >&2
+            return 1
+            ;;
+        esac
+        resolved="$library_root/$suffix"
+        ;;
+      *)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': expected '+' or '+/suffix'" >&2
+        return 1
+        ;;
+    esac
+
+    if [ ! -d "$resolved" ]; then
+      echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': resolved directory does not exist" >&2
+      return 1
+    fi
+    if ! canonical_resolved="$(realpath "$resolved")"; then
+      echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': could not canonicalize resolved directory" >&2
+      return 1
+    fi
+    case "$canonical_resolved" in
+      "$canonical_root"|"$canonical_root"/*)
+        ;;
+      *)
+        echo "[strip-libs] ERROR: invalid sharun lib.path entry '$entry': resolved directory escapes shared/lib" >&2
+        return 1
+        ;;
+    esac
+  done <"$lib_path"
+
+  if [ "$entry_count" -eq 0 ]; then
+    echo "[strip-libs] ERROR: invalid sharun lib.path entry '': at least one entry is required" >&2
+    return 1
+  fi
+
+  return 0
 }
 
 # is_elf — true if the file begins with the ELF magic, regardless of the +x
@@ -560,21 +632,15 @@ validate_appimage_required_libs() {
   done
 }
 
-# patch_apprun_sharun_cwd — inject `cd "$APPDIR"` into AppRun before the final
-# exec call so sharun resolves preload/library paths relative to the AppDir
-# rather than the caller's CWD.
+# patch_apprun_sharun_cwd — retain historical shell-AppRun CWD hardening.
 #
-# Problem (issue #2822): sharun reads its `.preload` entry and library search
-# paths relative to the process CWD.  When a user launches the AppImage from
-# any directory other than the AppDir itself (e.g. double-click from ~/Downloads)
-# CWD != AppDir, so ld.so can't find `anylinux.so` (preload) or `libcef.so`
-# (LD_LIBRARY_PATH entry).  SHARUN_DIR is set correctly — the AppDir IS known —
-# but sharun doesn't use it to anchor the preload/library arguments it hands to
-# ld.so.
+# Canonical `+` entries in shared/lib/lib.path are the primary fix for released
+# layouts, where AppRun is the sharun ELF launcher itself.  sharun expands `+`
+# relative to the AppDir regardless of the caller's CWD.
 #
-# Fix: prepend `cd "$APPDIR"` to the exec line in AppRun so the working
-# directory is always the AppDir by the time sharun/the binary runs.  This
-# mirrors the verified manual workaround from the bug report.
+# Older layouts may instead have a shell AppRun that ultimately execs sharun.
+# Keep prepending `cd "$APPDIR"` there as compatibility hardening, without
+# treating it as the released ELF launcher's library-path repair.
 #
 # Returns 0 (true) if the AppRun was modified, 1 if no change was needed.
 patch_apprun_sharun_cwd() {
@@ -625,11 +691,11 @@ patch_apprun_sharun_cwd() {
      && grep -Eq "$patched_line_re" "$tmp_apprun"; then
     chmod --reference="$apprun" "$tmp_apprun"
     mv "$tmp_apprun" "$apprun"
-    echo "[strip-libs]   patched AppRun: added 'cd \"\$APPDIR\"' before exec to fix sharun CWD preload resolution (issue #2822)"
+    echo "[strip-libs]   patched historical shell AppRun: added 'cd \"\$APPDIR\"' before exec"
     return 0
   else
     rm -f "$tmp_apprun"
-    echo "[strip-libs] WARNING: could not locate 'exec \"\$@\"' in AppRun — sharun CWD fix not applied; AppImage may fail to launch from non-AppDir CWDs" >&2
+    echo "[strip-libs] WARNING: could not locate 'exec \"\$@\"' in historical shell AppRun; canonical '+' lib.path entries remain the released-layout fix" >&2
     return 1
   fi
 }

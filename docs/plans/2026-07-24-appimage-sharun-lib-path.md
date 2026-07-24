@@ -487,8 +487,9 @@ assert rejection when:
 - `shared/bin/OpenHuman` is absent or is not ELF;
 - `AppRun` is neither the same inode nor byte-equivalent to `sharun`;
 - `bin/OpenHuman` is neither the same inode nor byte-equivalent to `sharun`;
-- an ELF RPATH contains `/home/runner/...`;
-- an ELF RPATH contains `/__w/...`;
+- an ELF RPATH contains
+  `/home/runner/work/openhuman/openhuman/shared/lib`;
+- an ELF RPATH contains `/__w/openhuman/openhuman/shared/lib`;
 - the real app's `NEEDED` list lacks `libxdo.so.3`;
 - the real app's `NEEDED` list lacks `libcef.so`.
 
@@ -536,16 +537,19 @@ exist.
 
 ### Step 3.2: Implement the sourceable final-artifact validator
 
-Create `scripts/release/validate-appimage-runtime.sh` with:
+Create `scripts/release/validate-appimage-runtime.sh` with `set -euo pipefail`,
+three shell functions, and a direct-execution guard. The exact interfaces are:
+
+- `validate_extracted_appdir "$appdir"` performs the eight ordered static checks
+  immediately below.
+- `smoke_extracted_apprun "$appdir" "$foreign_cwd" "$log_file"` performs the
+  eight ordered launch checks immediately below.
+- `validate_final_appimage "$image"` performs the five ordered extraction
+  checks immediately below.
+
+Use this direct-execution guard:
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-validate_extracted_appdir() { ...; }
-smoke_extracted_apprun() { ...; }
-validate_final_appimage() { ...; }
-
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   [ "$#" -eq 1 ] || {
     echo "Usage: $0 <final.AppImage>" >&2

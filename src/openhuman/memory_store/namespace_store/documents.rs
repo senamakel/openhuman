@@ -229,8 +229,8 @@ impl UnifiedMemory {
     }
 
     /// Store a document (DB row + markdown file) without chunking, embedding,
-    /// or graph extraction.  Suitable for high-frequency, low-value writes
-    /// (e.g. screen-intelligence snapshots) where the full ingestion pipeline
+    /// or graph extraction. Suitable for high-frequency, low-value writes
+    /// (e.g. transient sync checkpoints) where the full ingestion pipeline
     /// would be too expensive.
     pub async fn upsert_document_metadata_only(
         &self,

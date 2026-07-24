@@ -24,10 +24,9 @@ use crate::openhuman::memory_conversations as conversations;
 const AUTH_ME_STORE_RETRY_DELAY: Duration = Duration::from_millis(150);
 const AUTH_ME_STORE_TRANSIENT_STATUSES: &[u16] = &[408, 429, 500, 502, 503, 504, 520];
 
-/// Start all login-gated background services (local AI, voice, screen
-/// intelligence, autocomplete).  Called both from the initial boot path
-/// (when an existing session is detected) and from `store_session()` on
-/// fresh login.
+/// Start all login-gated background services (local AI, voice, and
+/// orchestration). Called both from the initial boot path (when an existing
+/// session is detected) and from `store_session()` on fresh login.
 pub async fn start_login_gated_services(config: &Config) {
     // These login-gated services are mutually independent — the ONLY ordering
     // constraint is voice-server → standalone-dictation-listener (they contend
@@ -35,9 +34,9 @@ pub async fn start_login_gated_services(config: &Config) {
     // `.await`ed in series, so their cold-start costs SUMMED: the local-AI
     // bootstrap (Ollama/whisper/embeddings) + the Windows WASAPI microphone init
     // (a synchronous readiness handshake in `always_on::spawn_capture_thread`) +
-    // the screen-capture server + the hosted-client network sync stacked into
-    // the ~10s stall users hit before hotkeys/commands were usable — worst on
-    // Windows (#3490). Worse, the hotkey/command registration (steps 2–3) sat
+    // the hosted-client network sync stacked into the ~10s stall users hit
+    // before hotkeys/commands were usable — worst on Windows (#3490). Worse,
+    // the hotkey/command registration (steps 2–3) sat
     // *after* the local-AI bootstrap in the series, so commands could not
     // register until Ollama/whisper finished warming.
     //
@@ -49,8 +48,8 @@ pub async fn start_login_gated_services(config: &Config) {
 
     // Unit tests must not launch the real login-gated background services: they
     // are detached, long-lived loops (hosted-client read-sync + world-diff
-    // uploader + one-shot history migration, continuous audio capture, screen
-    // capture) that outlive the test that spawned them and interleave with the
+    // uploader + one-shot history migration, continuous audio capture) that
+    // outlive the test that spawned them and interleave with the
     // shared process state (HOME / active_user.toml) of the parallel `cargo
     // test` run. Once startup became concurrent (#3490) that interleaving made
     // the session-isolation tests order-dependent. `cfg!(test)` is compiled out
@@ -578,9 +577,9 @@ async fn store_session_inner(
         logs.push("subconscious engine bootstrapped".to_string());
     }
 
-    // Start all login-gated services (voice, autocomplete, screen
-    // intelligence, local AI). Uses the effective config so services see
-    // the user-scoped workspace directory.
+    // Start all login-gated services (voice, orchestration, and local AI).
+    // Uses the effective config so services see the user-scoped workspace
+    // directory.
     start_login_gated_services(&effective_config).await;
     logs.push("login-gated services started".to_string());
 
@@ -711,9 +710,9 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
         }
     }
 
-    // Stop all login-gated services (voice, autocomplete, screen
-    // intelligence, local AI) so they don't run as orphan processes after
-    // logout, consuming RAM/CPU with no user context to operate against.
+    // Stop all login-gated services (voice, orchestration, and local AI) so
+    // they don't run as orphan processes after logout, consuming RAM/CPU with
+    // no user context to operate against.
     stop_login_gated_services(config).await;
 
     // Tear down the subconscious engine + heartbeat loop. Without this the

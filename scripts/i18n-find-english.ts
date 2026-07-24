@@ -72,7 +72,6 @@ const INTENTIONAL_ENGLISH = new Set([
   "memorySources.searchQueryPlaceholder",
   "migration.vendor.hermes",
   "namespaceOverview.entitiesShort",
-  "screenAwareness.debug.defaultPanicHotkey",
   "settings.ai.connectionsPerTick",
   "settings.ai.claudeCode.button", // Claude Code is a product name
   "settings.ai.claudeCode.modalTitle", // Claude Code CLI is a product name

@@ -144,7 +144,8 @@ Tests and checks:
    are unsupported and that `snapshot` still parses; these assertions must fail
    before the removal.
 2. Run `cargo fmt --check`.
-3. Run `GGML_NATIVE=OFF cargo test --lib tools::impl::browser` and
+3. Run `GGML_NATIVE=OFF cargo test --lib
+   openhuman::tools::implementations::browser::browser::tests` and
    `GGML_NATIVE=OFF cargo test --lib tools::ops_tests` separately.
 4. Run `GGML_NATIVE=OFF cargo test --test tools_approval_channels_raw_coverage_e2e --test tools_channels_raw_coverage_e2e`.
 5. Run `GGML_NATIVE=OFF cargo check --manifest-path Cargo.toml`.

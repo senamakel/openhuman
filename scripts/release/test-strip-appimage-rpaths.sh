@@ -4,8 +4,11 @@
 #   1. sanitize_elf_rpaths        — strips /home/runner|/__w build-machine
 #                                    RPATHs from bundled ELFs, rewriting to
 #                                    $ORIGIN-relative.
-#   2. validate_appimage_required_libs — hard-fails when libxdo.so.* or
-#                                    libcef.so is missing from a sharun AppDir.
+#   2. validate_appimage_required_libs — hard-fails when anylinux.so,
+#                                    libxdo.so.*, or libcef.so is missing from
+#                                    a sharun AppDir.
+#   3. validate-appimage-runtime.sh — checks the final extracted sharun layout
+#                                    and the pre-signing validation seam.
 #
 # Linux-only: needs `patchelf` and a host ELF to mutate. Skips cleanly (exit 0)
 # on macOS / any host without patchelf so it is a no-op on dev boxes and a real
@@ -41,6 +44,12 @@ done
 # running here.
 # shellcheck source=/dev/null
 source "$TARGET"
+
+RUNTIME_VALIDATOR="$SCRIPT_DIR/validate-appimage-runtime.sh"
+[ -f "$RUNTIME_VALIDATOR" ] \
+  || { echo "[test-rpaths] FAIL: $RUNTIME_VALIDATOR not found" >&2; exit 1; }
+# shellcheck source=/dev/null
+source "$RUNTIME_VALIDATOR"
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -258,6 +267,200 @@ fi
   || fail "patch_apprun_sharun_cwd changed the released-style ELF AppRun inode"
 echo "[test-rpaths] ok: sharun lib.path validation is fail-closed for the released ELF launcher"
 
+# --- Case 0c: final extracted runtime layout is validated before signing ----
+make_runtime_appdir() {
+  local appdir="$1"
+  make_sharun_appdir "$appdir"
+  printf '%s\n' '+' >"$appdir/shared/lib/lib.path"
+
+  cp "$HOST_ELF" "$appdir/shared/lib/anylinux.so"
+  cp "$HOST_ELF" "$appdir/shared/lib/libxdo.so.3"
+  cp "$HOST_ELF" "$appdir/shared/lib/libcef.so"
+
+  local elf
+  for elf in \
+    "$appdir/AppRun" \
+    "$appdir/sharun" \
+    "$appdir/bin/OpenHuman" \
+    "$appdir/shared/bin/OpenHuman" \
+    "$appdir/shared/lib/anylinux.so" \
+    "$appdir/shared/lib/libxdo.so.3" \
+    "$appdir/shared/lib/libcef.so"; do
+    patchelf --remove-rpath "$elf"
+  done
+}
+
+assert_runtime_layout_rejected() {
+  local label="$1"
+  local expected="$2"
+  shift 2
+  local fixture="$WORK/runtime-$label"
+  make_runtime_appdir "$fixture"
+  "$@" "$fixture"
+  if ( APPIMAGE_EXPECTED_NEEDED="" validate_extracted_appdir "$fixture" ) \
+    >"$fixture/output.log" 2>&1; then
+    fail "validate_extracted_appdir accepted $label"
+  fi
+  grep -F "$expected" "$fixture/output.log" >/dev/null \
+    || fail "$label failure did not report '$expected'"
+}
+
+remove_anylinux() { rm -f "$1/shared/lib/anylinux.so"; }
+remove_libxdo() { rm -f "$1/shared/lib/libxdo.so.3"; }
+remove_libcef() { rm -f "$1/shared/lib/libcef.so"; }
+remove_real_app() { rm -f "$1/shared/bin/OpenHuman"; }
+replace_real_app_with_text() {
+  rm -f "$1/shared/bin/OpenHuman"
+  printf '%s\n' 'not an ELF' >"$1/shared/bin/OpenHuman"
+  chmod +x "$1/shared/bin/OpenHuman"
+}
+replace_apprun() {
+  rm -f "$1/AppRun"
+  cp "$HOST_ELF" "$1/AppRun"
+  chmod +x "$1/AppRun"
+}
+replace_bin_launcher() {
+  rm -f "$1/bin/OpenHuman"
+  cp "$HOST_ELF" "$1/bin/OpenHuman"
+  chmod +x "$1/bin/OpenHuman"
+}
+inject_runner_rpath() {
+  patchelf --set-rpath \
+    '/home/runner/work/openhuman/openhuman/shared/lib' \
+    "$1/shared/lib/libcef.so"
+}
+inject_actions_rpath() {
+  patchelf --set-rpath \
+    '/__w/openhuman/openhuman/shared/lib' \
+    "$1/shared/lib/libcef.so"
+}
+
+RUNTIME_COMPLETE="$WORK/runtime-complete"
+make_runtime_appdir "$RUNTIME_COMPLETE"
+APPIMAGE_EXPECTED_NEEDED="" validate_extracted_appdir "$RUNTIME_COMPLETE" \
+  || fail "validate_extracted_appdir rejected a complete runtime fixture"
+
+RUNTIME_EQUIVALENT="$WORK/runtime-equivalent-launchers"
+make_runtime_appdir "$RUNTIME_EQUIVALENT"
+rm "$RUNTIME_EQUIVALENT/AppRun" "$RUNTIME_EQUIVALENT/bin/OpenHuman"
+cp "$RUNTIME_EQUIVALENT/sharun" "$RUNTIME_EQUIVALENT/AppRun"
+cp "$RUNTIME_EQUIVALENT/sharun" "$RUNTIME_EQUIVALENT/bin/OpenHuman"
+chmod +x "$RUNTIME_EQUIVALENT/AppRun" "$RUNTIME_EQUIVALENT/bin/OpenHuman"
+APPIMAGE_EXPECTED_NEEDED="" validate_extracted_appdir "$RUNTIME_EQUIVALENT" \
+  || fail "validate_extracted_appdir rejected byte-equivalent launchers"
+
+FAKE_APPIMAGE="$WORK/final-fixture.AppImage"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  '[ "$1" = "--appimage-extract" ] || exit 9' \
+  'cp -R "$EXTRACT_SOURCE" squashfs-root' \
+  >"$FAKE_APPIMAGE"
+chmod +x "$FAKE_APPIMAGE"
+export EXTRACT_SOURCE="$RUNTIME_COMPLETE"
+APPIMAGE_EXPECTED_NEEDED="" validate_final_appimage "$FAKE_APPIMAGE" \
+  || fail "validate_final_appimage rejected a complete extracted fixture"
+
+SMOKE_BIN="$WORK/smoke-bin"
+mkdir -p "$SMOKE_BIN"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  '[ -n "${SMOKE_TIMEOUT_MESSAGE:-}" ] && printf "%s\n" "$SMOKE_TIMEOUT_MESSAGE" >&2' \
+  'exit "${SMOKE_TIMEOUT_STATUS:-124}"' \
+  >"$SMOKE_BIN/timeout"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 99' >"$SMOKE_BIN/xvfb-run"
+chmod +x "$SMOKE_BIN/timeout" "$SMOKE_BIN/xvfb-run"
+SMOKE_ROOT="$WORK/smoke-runtime"
+mkdir -p "$SMOKE_ROOT/foreign-cwd"
+PATH="$SMOKE_BIN:$PATH" smoke_extracted_apprun \
+  "$RUNTIME_COMPLETE" \
+  "$SMOKE_ROOT/foreign-cwd" \
+  "$SMOKE_ROOT/success.log" \
+  || fail "smoke_extracted_apprun did not accept timeout status 124"
+if ( PATH="$SMOKE_BIN:$PATH" SMOKE_TIMEOUT_STATUS=0 \
+  smoke_extracted_apprun \
+    "$RUNTIME_COMPLETE" \
+    "$SMOKE_ROOT/foreign-cwd" \
+    "$SMOKE_ROOT/early-exit.log" ) >/dev/null 2>&1; then
+  fail "smoke_extracted_apprun accepted an immediate clean exit"
+fi
+if ( PATH="$SMOKE_BIN:$PATH" \
+  SMOKE_TIMEOUT_MESSAGE='libcef.so: cannot open shared object file' \
+  smoke_extracted_apprun \
+    "$RUNTIME_COMPLETE" \
+    "$SMOKE_ROOT/foreign-cwd" \
+    "$SMOKE_ROOT/loader-error.log" ) >/dev/null 2>&1; then
+  fail "smoke_extracted_apprun accepted a forbidden loader diagnostic"
+fi
+
+assert_runtime_layout_rejected missing-anylinux \
+  "missing anylinux.so" remove_anylinux
+assert_runtime_layout_rejected missing-libxdo \
+  "missing libxdo.so.*" remove_libxdo
+assert_runtime_layout_rejected missing-libcef \
+  "missing libcef.so" remove_libcef
+assert_runtime_layout_rejected missing-real-app \
+  "shared/bin/OpenHuman is not an executable ELF" remove_real_app
+assert_runtime_layout_rejected text-real-app \
+  "shared/bin/OpenHuman is not an executable ELF" replace_real_app_with_text
+assert_runtime_layout_rejected mismatched-apprun \
+  "AppRun does not match sharun" replace_apprun
+assert_runtime_layout_rejected mismatched-bin-launcher \
+  "bin/OpenHuman does not match sharun" replace_bin_launcher
+assert_runtime_layout_rejected runner-rpath \
+  "/home/runner/work/openhuman/openhuman/shared/lib" inject_runner_rpath
+assert_runtime_layout_rejected actions-rpath \
+  "/__w/openhuman/openhuman/shared/lib" inject_actions_rpath
+
+RUNTIME_NEEDED="$WORK/runtime-needed"
+make_runtime_appdir "$RUNTIME_NEEDED"
+if ( APPIMAGE_EXPECTED_NEEDED="libxdo.so.3" \
+  validate_extracted_appdir "$RUNTIME_NEEDED" ) \
+  >"$RUNTIME_NEEDED/missing-xdo.log" 2>&1; then
+  fail "validate_extracted_appdir accepted a missing libxdo NEEDED entry"
+fi
+grep -F "missing NEEDED entry 'libxdo.so.3'" \
+  "$RUNTIME_NEEDED/missing-xdo.log" >/dev/null \
+  || fail "missing libxdo NEEDED diagnostic was not specific"
+
+patchelf --add-needed libxdo.so.3 "$RUNTIME_NEEDED/shared/bin/OpenHuman"
+if ( APPIMAGE_EXPECTED_NEEDED="libcef.so" \
+  validate_extracted_appdir "$RUNTIME_NEEDED" ) \
+  >"$RUNTIME_NEEDED/missing-cef.log" 2>&1; then
+  fail "validate_extracted_appdir accepted a missing libcef NEEDED entry"
+fi
+grep -F "missing NEEDED entry 'libcef.so'" \
+  "$RUNTIME_NEEDED/missing-cef.log" >/dev/null \
+  || fail "missing libcef NEEDED diagnostic was not specific"
+
+patchelf --add-needed libcef.so "$RUNTIME_NEEDED/shared/bin/OpenHuman"
+APPIMAGE_EXPECTED_NEEDED="libxdo.so.3 libcef.so" \
+  validate_extracted_appdir "$RUNTIME_NEEDED" \
+  || fail "validate_extracted_appdir rejected complete NEEDED entries"
+
+VALIDATOR_RECORD="$WORK/runtime-validator-record"
+runtime_validator_stub() {
+  [ -f "$1" ] || return 10
+  [ "${#MODIFIED_PATHS[@]}" -eq 0 ] || return 11
+  printf '%s\n' "$1" >"$VALIDATOR_RECORD"
+}
+REBUILT_FIXTURE="$WORK/rebuilt.AppImage"
+: >"$REBUILT_FIXTURE"
+MODIFIED_PATHS=()
+APPIMAGE_RUNTIME_VALIDATOR=runtime_validator_stub \
+  validate_rebuilt_appimage "$REBUILT_FIXTURE" \
+  || fail "validate_rebuilt_appimage did not forward to its configured command"
+[ "$(cat "$VALIDATOR_RECORD")" = "$REBUILT_FIXTURE" ] \
+  || fail "validate_rebuilt_appimage forwarded the wrong artifact path"
+
+mv_line="$(grep -nF 'mv "$rebuilt" "$original"' "$TARGET" | cut -d: -f1)"
+validate_line="$(grep -nF 'validate_rebuilt_appimage "$original"' "$TARGET" | cut -d: -f1)"
+modified_line="$(grep -nF 'MODIFIED_PATHS+=("$original")' "$TARGET" | cut -d: -f1)"
+[ -n "$mv_line" ] && [ -n "$validate_line" ] && [ -n "$modified_line" ] \
+  || fail "post-repack validation ordering statements are missing"
+[ "$mv_line" -lt "$validate_line" ] && [ "$validate_line" -lt "$modified_line" ] \
+  || fail "final artifact validation does not run after mv and before signing registration"
+echo "[test-rpaths] ok: final runtime layout and pre-signing handoff are fail-closed"
+
 # --- Case 1: sanitize_elf_rpaths strips a CI build-machine RPATH ------------
 APPDIR="$WORK/squashfs-root"
 mkdir -p "$APPDIR/usr/lib" "$APPDIR/shared/lib"
@@ -341,20 +544,28 @@ chmod +x "$GUARD_DIR/sharun"
 # guard's early return would make this case vacuously pass.
 uses_sharun_launcher "$GUARD_DIR" || fail "fixture did not register as sharun launcher"
 
-# 2a — libxdo absent → must exit non-zero.
+# 2a — the sharun preload library absent → must exit non-zero.
+if ( validate_appimage_required_libs "$GUARD_DIR" ) 2>/dev/null; then
+  fail "validate_appimage_required_libs passed despite missing anylinux.so"
+fi
+echo "[test-rpaths] ok: guard fails when anylinux.so is absent"
+
+: > "$GUARD_DIR/shared/lib/anylinux.so"
+
+# 2b — libxdo absent → must exit non-zero.
 if ( validate_appimage_required_libs "$GUARD_DIR" ) 2>/dev/null; then
   fail "validate_appimage_required_libs passed despite missing libxdo.so.*"
 fi
 echo "[test-rpaths] ok: guard fails when libxdo.so.* is absent"
 
-# 2b — libxdo present but libcef absent → must still fail.
+# 2c — libxdo present but libcef absent → must still fail.
 : > "$GUARD_DIR/shared/lib/libxdo.so.3"
 if ( validate_appimage_required_libs "$GUARD_DIR" ) 2>/dev/null; then
   fail "validate_appimage_required_libs passed despite missing libcef.so"
 fi
 echo "[test-rpaths] ok: guard fails when libcef.so is absent"
 
-# 2c — both required runtime libraries present → must pass.
+# 2d — all required runtime libraries present → must pass.
 mkdir -p "$GUARD_DIR/usr/lib"
 : > "$GUARD_DIR/shared/lib/libxdo.so.3"
 : > "$GUARD_DIR/usr/lib/libcef.so"

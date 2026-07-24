@@ -19,6 +19,28 @@ fn tick_origin_with_external_sync_chunk_uses_tainted_source() {
     ));
 }
 
+#[tokio::test]
+async fn off_mode_skips_hosted_reflection() {
+    let mut config = Config::default();
+    config.subconscious.engine = crate::openhuman::config::schema::SubconsciousEngine::Auto;
+    let profile = MemoryProfile {
+        mode: SubconsciousMode::Off,
+    };
+    let observation = Observation {
+        rendered: "changed external content".to_string(),
+        has_changes: true,
+        has_external_content: true,
+        commit_token: None,
+    };
+
+    let result = profile
+        .reflect(&config, &observation, "")
+        .await
+        .expect("off mode must skip without contacting hosted Medulla");
+
+    assert_eq!(result, Reflection::Idle);
+}
+
 // ── World-diff rendering (Stage 1) ──────────────────────────────────────
 
 use crate::openhuman::memory_diff::types::{

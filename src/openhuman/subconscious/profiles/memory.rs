@@ -318,6 +318,11 @@ impl SubconsciousProfile for MemoryProfile {
         obs: &Observation,
         prepared_context: &str,
     ) -> Result<Reflection, String> {
+        if self.mode == SubconsciousMode::Off {
+            debug!("[subconscious:memory] reflection skipped because mode=off");
+            return Ok(Reflection::Idle);
+        }
+
         let mut agent_prompt =
             String::with_capacity(obs.rendered.len() + prepared_context.len() + 256);
         agent_prompt.push_str("## What changed in your world since the last check\n\n");

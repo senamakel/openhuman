@@ -4,6 +4,12 @@
 # This file is sourceable for fixture tests. When executed directly it extracts
 # exactly one AppImage from a foreign working directory, validates the released
 # sharun layout, and optionally performs a bounded Xvfb startup smoke.
+#
+# Usage: validate-appimage-runtime.sh <final.AppImage>
+#
+# Env:
+#   APPIMAGE_RUNTIME_SMOKE — set to 1 to require the bounded Xvfb startup smoke;
+#                            otherwise only static final-artifact checks run
 
 set -euo pipefail
 
@@ -184,6 +190,8 @@ smoke_extracted_apprun() {
     forbidden=1
   fi
 
+  # The desktop process is expected to remain alive until timeout ends the
+  # startup window. An earlier clean exit is a failure as well as loader output.
   if [ "$forbidden" -ne 0 ] || [ "$status" -ne 124 ]; then
     echo "[appimage-runtime] AppImage startup smoke failed (status $status):" >&2
     sed 's/^/[appimage-runtime]   /' "$log_file" >&2

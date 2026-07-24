@@ -23,6 +23,10 @@
 #   APPIMAGETOOL_SHA256                  — expected SHA256 of the download
 #                                          (verified before use when set; rotate
 #                                          alongside APPIMAGETOOL_URL)
+#   APPIMAGE_RUNTIME_SMOKE               — set to 1 to run the final AppRun
+#                                          startup smoke after static validation
+#   APPIMAGE_RUNTIME_VALIDATOR           — override the final-artifact validator
+#                                          command (intended for regression tests)
 
 set -euo pipefail
 

@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import PanelScaffold from '../../../components/layout/PanelScaffold';
+import { useLatestAsync } from '../../../hooks/useLatestAsync';
 import {
   type AgentCard,
   type ExplorerOverview,
@@ -109,15 +110,16 @@ type SectionState<T> =
 
 function useExploreCommunities(): SectionState<GroupMetadata> {
   const [state, setState] = useState<SectionState<GroupMetadata>>({ status: 'loading' });
+  const { begin, isLatest } = useLatestAsync();
 
   useEffect(() => {
-    let cancelled = false;
+    const generation = begin();
     debug('fetching explore communities');
 
     void apiClient.groups
       .list({ limit: 12 })
       .then(raw => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         // Sort client-side by memberCount desc (no server-side sort param).
         const sorted = [...raw].sort((a, b) => (b.memberCount ?? 0) - (a.memberCount ?? 0));
         if (sorted.length === 0) {
@@ -129,15 +131,11 @@ function useExploreCommunities(): SectionState<GroupMetadata> {
         }
       })
       .catch(err => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         debug('communities fetch failed: %s', String(err));
         setState({ status: 'error' });
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [begin, isLatest]);
 
   return state;
 }
@@ -146,15 +144,16 @@ function useExploreCommunities(): SectionState<GroupMetadata> {
 
 function useExploreJobs(): SectionState<GqlJobPosting> {
   const [state, setState] = useState<SectionState<GqlJobPosting>>({ status: 'loading' });
+  const { begin, isLatest } = useLatestAsync();
 
   useEffect(() => {
-    let cancelled = false;
+    const generation = begin();
     debug('fetching explore jobs');
 
     void apiClient.graphql
       .jobs({ status: 'OPEN', limit: 6 })
       .then(result => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         const jobs = result.jobs ?? [];
         if (jobs.length === 0) {
           debug('jobs section: empty, hiding');
@@ -165,15 +164,11 @@ function useExploreJobs(): SectionState<GqlJobPosting> {
         }
       })
       .catch(err => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         debug('jobs fetch failed: %s', String(err));
         setState({ status: 'error' });
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [begin, isLatest]);
 
   return state;
 }
@@ -182,15 +177,16 @@ function useExploreJobs(): SectionState<GqlJobPosting> {
 
 function useExploreBounties(): SectionState<GqlBounty> {
   const [state, setState] = useState<SectionState<GqlBounty>>({ status: 'loading' });
+  const { begin, isLatest } = useLatestAsync();
 
   useEffect(() => {
-    let cancelled = false;
+    const generation = begin();
     debug('fetching explore bounties');
 
     void apiClient.graphql
       .bounties({ status: 'open', limit: 6 })
       .then(result => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         // Client-side filter to open status in case the server ignores the param.
         const open = (result ?? []).filter(b => b.status === 'open');
         if (open.length === 0) {
@@ -202,15 +198,11 @@ function useExploreBounties(): SectionState<GqlBounty> {
         }
       })
       .catch(err => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         debug('bounties fetch failed: %s', String(err));
         setState({ status: 'error' });
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [begin, isLatest]);
 
   return state;
 }
@@ -219,15 +211,16 @@ function useExploreBounties(): SectionState<GqlBounty> {
 
 function useExploreAgents(): SectionState<AgentCard> {
   const [state, setState] = useState<SectionState<AgentCard>>({ status: 'loading' });
+  const { begin, isLatest } = useLatestAsync();
 
   useEffect(() => {
-    let cancelled = false;
+    const generation = begin();
     debug('fetching explore agents');
 
     void apiClient.graphql
       .agents({ limit: 8 })
       .then(result => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         const agents = result.agents ?? [];
         if (agents.length === 0) {
           debug('agents section: empty, hiding');
@@ -238,15 +231,11 @@ function useExploreAgents(): SectionState<AgentCard> {
         }
       })
       .catch(err => {
-        if (cancelled) return;
+        if (!isLatest(generation)) return;
         debug('agents fetch failed: %s', String(err));
         setState({ status: 'error' });
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [begin, isLatest]);
 
   return state;
 }

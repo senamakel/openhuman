@@ -12,7 +12,8 @@
  *      Each section independently handles loading (skeleton) / ok / empty / error
  *      (silent degrade — section hidden). Mocks prevent real RPC calls.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -136,6 +137,14 @@ function renderExplore() {
       <ExploreSection />
     </MemoryRouter>
   );
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 // ── beforeEach: resolve all calls with success data ───────────────────────────
@@ -567,6 +576,41 @@ describe('cancellation on unmount', () => {
     unmount();
     resolveGroups(GROUPS_OK);
     await waitFor(() => expect(mockGroupsList).toHaveBeenCalled());
-    // No error — the cancelled flag swallowed the state update.
+    // No error — the latest-only guard swallowed the state update.
+  });
+});
+
+describe('latest request wins', () => {
+  test('does not let an older communities response overwrite a newer response', async () => {
+    const requestA = deferred<typeof GROUPS_OK>();
+    const requestB = deferred<typeof GROUPS_OK>();
+    mockGroupsList.mockReset();
+    mockGroupsList.mockReturnValueOnce(requestA.promise).mockReturnValueOnce(requestB.promise);
+
+    render(
+      <StrictMode>
+        <MemoryRouter>
+          <ExploreSection />
+        </MemoryRouter>
+      </StrictMode>
+    );
+
+    await waitFor(() => expect(mockGroupsList).toHaveBeenCalledTimes(2));
+
+    const newestGroups = [{ ...GROUPS_OK[0], groupId: 'new', name: 'Newest Community' }];
+    await act(async () => {
+      requestB.resolve(newestGroups);
+      await requestB.promise;
+    });
+    expect(await screen.findByText('Newest Community')).toBeInTheDocument();
+
+    const olderGroups = [{ ...GROUPS_OK[0], groupId: 'old', name: 'Older Community' }];
+    await act(async () => {
+      requestA.resolve(olderGroups);
+      await requestA.promise;
+    });
+
+    expect(screen.getByText('Newest Community')).toBeInTheDocument();
+    expect(screen.queryByText('Older Community')).not.toBeInTheDocument();
   });
 });

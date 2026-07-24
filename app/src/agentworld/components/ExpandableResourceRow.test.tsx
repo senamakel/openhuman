@@ -66,6 +66,7 @@ describe('ExpandableResourceRow', () => {
     const toggle = screen.getByRole('button', { name: 'Resource three' });
     const chevron = toggle.querySelector('svg');
     expect(chevron).toHaveAttribute('aria-hidden', 'true');
+    expect(chevron).toHaveClass('mt-0.5');
     expect(chevron).toHaveClass('rotate-180');
 
     await user.click(toggle);
@@ -93,6 +94,8 @@ describe('ExpandableResourceRow', () => {
       'items-end',
       'gap-2'
     );
-    expect(trailingContent.nextElementSibling).toBe(toggle.querySelector('svg'));
+    const chevron = toggle.querySelector('svg');
+    expect(trailingContent.nextElementSibling).toBe(chevron);
+    expect(chevron).not.toHaveClass('mt-0.5');
   });
 });

@@ -30,12 +30,17 @@ export default function ExpandableResourceRow({
   const rowClassName = [className, expanded ? expandedClassName : undefined]
     .filter(Boolean)
     .join(' ');
+  const chevronClassName = [
+    trailingContent ? undefined : 'mt-0.5',
+    'h-4 w-4 shrink-0 text-content-faint transition-transform',
+    expanded ? 'rotate-180' : undefined,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const chevron = (
     <svg
       aria-hidden="true"
-      className={`mt-0.5 h-4 w-4 shrink-0 text-content-faint transition-transform ${
-        expanded ? 'rotate-180' : ''
-      }`}
+      className={chevronClassName}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24">

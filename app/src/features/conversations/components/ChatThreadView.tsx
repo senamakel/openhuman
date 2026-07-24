@@ -111,7 +111,7 @@ export interface ChatThreadViewHandle {
   openBackgroundProcesses(): void;
 }
 
-export interface ChatThreadViewProps {
+interface ChatThreadViewProps {
   /** Thread whose transcript is rendered. `null` renders the empty state
    *  (no thread selected). */
   threadId: string | null;

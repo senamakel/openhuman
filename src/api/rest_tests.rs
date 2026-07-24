@@ -497,6 +497,40 @@ async fn authed_json_surfaces_unauthorized_on_401() {
     assert_eq!(path, "/referral/stats");
 }
 
+#[tokio::test]
+async fn authed_json_types_precycle_medulla_run_rejections() {
+    let app = Router::new().route(
+        "/orchestration/v1/run",
+        post(|| async {
+            (
+                axum::http::StatusCode::FORBIDDEN,
+                Json(json!({"success":false,"errorCode":"FORBIDDEN"})),
+            )
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let client = BackendOAuthClient::new(&format!("http://{addr}")).unwrap();
+    let err = client
+        .authed_json(
+            "mock-jwt",
+            Method::POST,
+            "/orchestration/v1/run",
+            Some(json!({"input":"reflect","flavor":"openhuman"})),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        err.downcast_ref::<BackendApiError>(),
+        Some(BackendApiError::HostedMedullaPreflightRejected { status: 403 })
+    ));
+}
+
 #[test]
 fn backend_api_body_shape_emits_safe_keys_not_values() {
     // PII guard (Codex P1 on #4058): the body SHAPE must expose only schema-like

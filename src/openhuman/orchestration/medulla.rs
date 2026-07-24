@@ -228,7 +228,22 @@ async fn run_with_client(
     );
     let first = post(client, token, RUN_PATH, Value::Object(body))
         .await
-        .map_err(MedullaRunError::submitted)?;
+        .map_err(|error| {
+            let preflight_rejected = error
+                .downcast_ref::<crate::api::BackendApiError>()
+                .is_some_and(|error| {
+                    matches!(
+                        error,
+                        crate::api::BackendApiError::HostedMedullaPreflightRejected { .. }
+                    )
+                });
+            let message = crate::api::flatten_authed_error(error);
+            if preflight_rejected {
+                MedullaRunError::preflight(message)
+            } else {
+                MedullaRunError::submitted(message)
+            }
+        })?;
     if tools.is_empty() {
         let result = serde_json::from_value(first).map_err(|err| {
             MedullaRunError::submitted(format!("parse Medulla run response: {err}"))
@@ -340,6 +355,7 @@ async fn continue_run(
         json!({ "cycleId": cycle_id, "toolResults": tool_results }),
     )
     .await
+    .map_err(crate::api::flatten_authed_error)
 }
 
 async fn post(
@@ -347,11 +363,10 @@ async fn post(
     token: &str,
     path: &str,
     body: Value,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     client
         .authed_json(token, Method::POST, path, Some(body))
         .await
-        .map_err(crate::api::flatten_authed_error)
 }
 
 fn tool_spec(tool: &dyn Tool) -> Value {
@@ -709,6 +724,30 @@ mod tests {
         .unwrap_err();
         assert_eq!(submitted.phase(), MedullaFailurePhase::Submitted);
         assert!(!submitted.safe_to_fallback());
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(RUN_PATH))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "success": false,
+                "errorCode": "FORBIDDEN"
+            })))
+            .mount(&server)
+            .await;
+        let client = BackendOAuthClient::new(&server.uri()).unwrap();
+        let rejected = run_with_client(
+            &client,
+            "test-token",
+            "reflect",
+            None,
+            Some("openhuman"),
+            &[],
+            &MedullaClientConfig::default(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(rejected.phase(), MedullaFailurePhase::Preflight);
+        assert!(rejected.safe_to_fallback());
     }
 
     #[tokio::test]

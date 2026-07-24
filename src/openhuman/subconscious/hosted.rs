@@ -151,9 +151,9 @@ mod tests {
     #[test]
     fn hosted_catalog_is_exactly_the_subconscious_action_surface() {
         let config = Config::default();
-        let names: Vec<&str> = subconscious_tools(&config)
+        let names: Vec<String> = subconscious_tools(&config)
             .iter()
-            .map(|tool| tool.name())
+            .map(|tool| tool.name().to_string())
             .collect();
         assert_eq!(
             names,

@@ -14,6 +14,15 @@ use super::jwt::bearer_authorization_value;
 /// callers should recover from in-flow rather than funnel into Sentry.
 #[derive(Debug, thiserror::Error)]
 pub enum BackendApiError {
+    /// The synchronous Medulla run endpoint rejected the request before it
+    /// created a cycle. Validation (400) and flavor/device authorization (403)
+    /// happen before `beginToolLoopRun`, so callers may safely choose another
+    /// execution engine without duplicating hosted side effects.
+    #[error("hosted Medulla rejected the run before cycle creation ({status})")]
+    HostedMedullaPreflightRejected {
+        /// HTTP status returned by the pre-cycle validation/authz layer.
+        status: u16,
+    },
     /// Edit / delete of a channel message returned 404. Happens when the
     /// user deletes the message on the provider side (Telegram, Discord,
     /// Slack, …) but our local `StreamingState` still has the id, or when
@@ -674,6 +683,26 @@ impl BackendOAuthClient {
                     method: method.as_str().to_string(),
                     path: url.path().to_string(),
                 }));
+            }
+
+            if method == Method::POST
+                && url.path().ends_with("/orchestration/v1/run")
+                && matches!(status_code, 400 | 403)
+            {
+                tracing::info!(
+                    domain = "backend_api",
+                    operation = "authed_json",
+                    method = method.as_str(),
+                    path = url.path(),
+                    status = status_code,
+                    failure = "preflight_rejected",
+                    "[backend_api] hosted Medulla run rejected before cycle creation"
+                );
+                return Err(anyhow::Error::new(
+                    BackendApiError::HostedMedullaPreflightRejected {
+                        status: status_code,
+                    },
+                ));
             }
 
             // 404 on `/channels/<provider>/messages/<id>` is an expected

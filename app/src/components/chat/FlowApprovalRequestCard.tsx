@@ -60,7 +60,6 @@ export const FlowApprovalRequestCard: React.FC<Props> = ({ request, onResolved }
       label: t('chat.flowApproval.deny'),
       busyLabel: t('chat.flowApproval.deciding'),
       variant: 'secondary',
-      tone: 'danger',
     },
   ];
 

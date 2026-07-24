@@ -37,6 +37,8 @@ describe('FlowApprovalRequestCard', () => {
     expect(screen.getByTestId('flow-approval-request-approve')).toHaveTextContent('Approve once');
     expect(screen.getByTestId('flow-approval-request-always')).toHaveTextContent('Approve always');
     expect(screen.getByTestId('flow-approval-request-deny')).toHaveTextContent('Deny');
+    expect(screen.getByTestId('flow-approval-request-deny')).toHaveClass('border-line-strong');
+    expect(screen.getByTestId('flow-approval-request-deny').className).not.toMatch(/coral/);
   });
 
   it('falls back to the generic prompt when summary is empty', () => {

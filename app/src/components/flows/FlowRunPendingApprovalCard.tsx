@@ -53,7 +53,6 @@ export function FlowRunPendingApprovalCard({ approval, deciding, onDecide }: Pro
       label: t('flowRuns.inspector.approval.deny'),
       busyLabel: t('flowRuns.inspector.approval.deciding'),
       variant: 'secondary',
-      tone: 'danger',
     },
   ];
 
@@ -69,16 +68,18 @@ export function FlowRunPendingApprovalCard({ approval, deciding, onDecide }: Pro
     });
   };
 
-  const busyActionId =
-    deciding && localDecision
+  const busyActionId = deciding
+    ? localDecision
       ? actions.find(action => actionDecisions[action.id] === localDecision)?.id
-      : null;
+      : `flow-run-pending-approval-busy-${approval.request_id}`
+    : null;
 
   return (
     <ApprovalDecisionCard
       ariaLabel={t('flowRuns.inspector.pendingApprovals')}
       testId={`flow-run-pending-approval-${approval.request_id}`}
       className="text-xs"
+      density="compact"
       summary={
         <p className="break-words text-amber-800/90 dark:text-amber-200/90">
           {approval.action_summary}

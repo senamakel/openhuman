@@ -20,6 +20,7 @@ export interface ApprovalDecisionCardProps {
   onAction: (actionId: string) => void;
   testId?: string;
   className?: string;
+  density?: 'default' | 'compact';
 }
 
 export function ApprovalDecisionCard({
@@ -31,7 +32,10 @@ export function ApprovalDecisionCard({
   onAction,
   testId,
   className,
+  density = 'default',
 }: ApprovalDecisionCardProps) {
+  const compact = density === 'compact';
+
   return (
     <div
       role="alertdialog"
@@ -45,20 +49,31 @@ export function ApprovalDecisionCard({
         .filter(Boolean)
         .join(' ')}>
       <div className="flex items-start gap-2">
-        <span aria-hidden className="text-base leading-none text-amber-700 dark:text-amber-200">
+        <span
+          aria-hidden
+          className={
+            compact
+              ? 'text-sm leading-none'
+              : 'text-base leading-none text-amber-700 dark:text-amber-200'
+          }>
           🔒
         </span>
         <div className="min-w-0 flex-1">
           {summary}
           {metadata}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div
+            className={
+              compact
+                ? 'mt-2 flex flex-wrap items-center gap-1.5'
+                : 'mt-3 flex flex-wrap items-center gap-2'
+            }>
             {actions.map(action => (
               <Button
                 key={action.id}
                 variant={action.variant}
                 tone={action.tone}
-                size="sm"
+                size={compact ? 'xs' : 'sm'}
                 title={action.title}
                 data-testid={action.id}
                 disabled={busyActionId !== null}

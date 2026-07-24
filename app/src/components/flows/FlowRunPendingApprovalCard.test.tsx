@@ -34,6 +34,18 @@ describe('FlowRunPendingApprovalCard', () => {
     expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toHaveTextContent(
       'Deny'
     );
+    expect(screen.getByText('🔒')).toHaveClass('text-sm');
+    expect(screen.getByText('🔒')).not.toHaveClass('text-amber-700');
+    expect(screen.getByTestId('flow-run-pending-approval-approve-request-1')).toHaveClass('h-6');
+    expect(
+      screen.getByTestId('flow-run-pending-approval-approve-request-1').parentElement
+    ).toHaveClass('mt-2', 'gap-1.5');
+    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toHaveClass(
+      'border-line-strong'
+    );
+    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1').className).not.toMatch(
+      /coral/
+    );
   });
 
   it.each([
@@ -69,5 +81,14 @@ describe('FlowRunPendingApprovalCard', () => {
     expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toHaveTextContent(
       'Deny'
     );
+  });
+
+  it('disables every action without showing a busy label when already deciding on first render', () => {
+    render(<FlowRunPendingApprovalCard approval={APPROVAL} deciding onDecide={vi.fn()} />);
+
+    expect(screen.getByTestId('flow-run-pending-approval-approve-request-1')).toBeDisabled();
+    expect(screen.getByTestId('flow-run-pending-approval-always-request-1')).toBeDisabled();
+    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toBeDisabled();
+    expect(screen.queryByText('Working…')).not.toBeInTheDocument();
   });
 });

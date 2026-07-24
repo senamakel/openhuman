@@ -98,4 +98,38 @@ describe('ApprovalDecisionCard', () => {
     expect(deny).toHaveClass('text-coral-600');
     expect(deny).toHaveClass('border-coral-300/50');
   });
+
+  it('supports compact presentation without changing the default density', () => {
+    const { rerender } = render(
+      <ApprovalDecisionCard
+        ariaLabel="Compact approval"
+        summary="Run the shell command"
+        actions={actions}
+        density="compact"
+        onAction={vi.fn()}
+      />
+    );
+
+    const compactLock = screen.getByText('🔒');
+    const compactActions = screen.getByRole('button', { name: 'Approve once' }).parentElement;
+    expect(compactLock).toHaveClass('text-sm');
+    expect(compactLock).not.toHaveClass('text-amber-700');
+    expect(compactActions).toHaveClass('mt-2', 'gap-1.5');
+    expect(screen.getByRole('button', { name: 'Approve once' })).toHaveClass('h-6');
+
+    rerender(
+      <ApprovalDecisionCard
+        ariaLabel="Default approval"
+        summary="Run the shell command"
+        actions={actions}
+        onAction={vi.fn()}
+      />
+    );
+
+    const defaultLock = screen.getByText('🔒');
+    const defaultActions = screen.getByRole('button', { name: 'Approve once' }).parentElement;
+    expect(defaultLock).toHaveClass('text-base', 'text-amber-700');
+    expect(defaultActions).toHaveClass('mt-3', 'gap-2');
+    expect(screen.getByRole('button', { name: 'Approve once' })).toHaveClass('h-[30px]');
+  });
 });

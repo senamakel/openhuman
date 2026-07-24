@@ -441,7 +441,7 @@ impl Tool for SpawnSubagentTool {
         // `has_delivery_thread` fallback the `delegate_*` tools already do in
         // `dispatch.rs::dispatch_subagent`.
         let has_delivery_thread =
-            crate::openhuman::inference::provider::thread_context::current_thread_id().is_some();
+            crate::openhuman::tinyagents::thread_context::current_thread_id().is_some();
         if !blocking && !has_delivery_thread {
             log::info!(
                 "[spawn_subagent] async delegation requested for '{}' but no delivery thread \

@@ -1324,7 +1324,7 @@ fn build_turn_models_crate(
                     config,
                     tier,
                     temperature,
-                    true,
+                    !force_text_mode,
                 ) {
                     Ok((route_model, provider, resolved_model)) => routes.push((
                         tier.to_string(),

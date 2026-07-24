@@ -391,25 +391,22 @@ mod tests {
     async fn account_turn_clears_suppression_without_losing_usage() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().to_path_buf();
-        crate::openhuman::inference::provider::thread_context::with_thread_id(
-            "t-suppressed",
-            async {
-                let goal = store::set(&dir, "t-suppressed", "obj", Some(1000))
-                    .await
-                    .unwrap();
-                store::set_continuation_suppressed_if(&dir, "t-suppressed", &goal.goal_id, true)
-                    .await
-                    .unwrap();
+        crate::openhuman::tinyagents::thread_context::with_thread_id("t-suppressed", async {
+            let goal = store::set(&dir, "t-suppressed", "obj", Some(1000))
+                .await
+                .unwrap();
+            store::set_continuation_suppressed_if(&dir, "t-suppressed", &goal.goal_id, true)
+                .await
+                .unwrap();
 
-                account_turn_against_goal(&dir, 80, 40, 3).await;
+            account_turn_against_goal(&dir, 80, 40, 3).await;
 
-                let updated = store::get(&dir, "t-suppressed").await.unwrap().unwrap();
-                assert_eq!(updated.goal_id, goal.goal_id);
-                assert!(!updated.continuation_suppressed);
-                assert_eq!(updated.tokens_used, 120);
-                assert_eq!(updated.time_used_seconds, 3);
-            },
-        )
+            let updated = store::get(&dir, "t-suppressed").await.unwrap().unwrap();
+            assert_eq!(updated.goal_id, goal.goal_id);
+            assert!(!updated.continuation_suppressed);
+            assert_eq!(updated.tokens_used, 120);
+            assert_eq!(updated.time_used_seconds, 3);
+        })
         .await;
     }
 

@@ -30,6 +30,47 @@ fn crate_native_text_mode_is_recorded_without_resolving_a_model() {
 }
 
 #[test]
+fn crate_native_text_mode_disables_native_tools_on_workload_fallbacks() {
+    use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let provider = "deepseek:deepseek-chat".to_string();
+    let mut config = crate::openhuman::config::Config::default();
+    config.cloud_providers.push(CloudProviderCreds {
+        id: "p_deepseek".to_string(),
+        slug: "deepseek".to_string(),
+        label: "DeepSeek".to_string(),
+        endpoint: "https://api.deepseek.com/v1".to_string(),
+        auth_style: AuthStyle::Bearer,
+        default_model: Some("deepseek-chat".to_string()),
+        ..Default::default()
+    });
+    config.chat_provider = Some(provider.clone());
+    config.reasoning_provider = Some(provider.clone());
+    config.agentic_provider = Some(provider.clone());
+    config.coding_provider = Some(provider.clone());
+    config.vision_provider = Some(provider.clone());
+    config.memory_provider = Some(provider);
+
+    let models = TurnModelSource::new_crate_native("chat", Arc::new(config))
+        .with_text_mode()
+        .build("chat-v1", 0.0, Some(32_000))
+        .expect("text-mode turn models build");
+
+    assert!(
+        !models.routes.is_empty(),
+        "expected workload fallback models"
+    );
+    assert!(
+        models
+            .routes
+            .iter()
+            .all(|(_, model)| { model.profile().is_some_and(|profile| !profile.tool_calling) }),
+        "every workload fallback must preserve prompt-guided text mode"
+    );
+}
+
+#[test]
 fn direct_model_turn_source_builds_without_provider_adapter() {
     let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
         Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![

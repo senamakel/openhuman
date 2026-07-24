@@ -1078,7 +1078,6 @@ mod tests {
     };
     use crate::openhuman::config::AgentConfig;
     use crate::openhuman::context::prompt::ToolCallFormat;
-    use crate::openhuman::inference::provider::Provider;
     use crate::openhuman::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
     };
@@ -1375,17 +1374,14 @@ mod tests {
         let workspace = tempfile::TempDir::new().expect("workspace");
 
         let result = with_parent_context(parent_context(workspace.path()), async {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
-                "t-parent",
-                async {
-                    SpawnAsyncSubagentTool::new()
-                        .execute(json!({
-                            "agent_id": "researcher",
-                            "prompt": "investigate x",
-                        }))
-                        .await
-                },
-            )
+            crate::openhuman::tinyagents::thread_context::with_thread_id("t-parent", async {
+                SpawnAsyncSubagentTool::new()
+                    .execute(json!({
+                        "agent_id": "researcher",
+                        "prompt": "investigate x",
+                    }))
+                    .await
+            })
             .await
         })
         .await
@@ -1403,8 +1399,8 @@ mod tests {
             workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
             allowed_subagent_ids: HashSet::from(["researcher".to_string()]),
-            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-                NoopProvider,
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::new(
+                tinyagents::harness::testkit::ScriptedModel::replies(vec!["done"]),
             )),
             all_tools: Arc::new(Vec::new()),
             all_tool_specs: Arc::new(Vec::new()),
@@ -1425,21 +1421,6 @@ mod tests {
             session_parent_prefix: None,
             on_progress: None,
             run_queue: None,
-        }
-    }
-
-    struct NoopProvider;
-
-    #[async_trait::async_trait]
-    impl Provider for NoopProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
         }
     }
 

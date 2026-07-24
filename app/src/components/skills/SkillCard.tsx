@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import Button from '../ui/Button';
 
-export interface UnifiedSkillCardProps {
+interface UnifiedSkillCardProps {
   icon: ReactNode;
   title: string;
   description: string;

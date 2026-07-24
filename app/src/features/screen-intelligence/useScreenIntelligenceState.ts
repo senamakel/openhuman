@@ -47,7 +47,7 @@ export interface ScreenIntelligenceState {
   clearError: () => void;
 }
 
-export interface UseScreenIntelligenceStateOptions {
+interface UseScreenIntelligenceStateOptions {
   pollMs?: number;
   visionLimit?: number;
   loadVision?: boolean;

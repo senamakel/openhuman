@@ -41,7 +41,7 @@ const formatCoreIdentity = (status: AccessibilityStatus | null | undefined): str
   return startedAt ? `PID ${process.pid} at ${startedAt}` : `PID ${process.pid}`;
 };
 
-export interface RefreshPermissionsResult {
+interface RefreshPermissionsResult {
   status: AccessibilityStatus;
   restartSummary: string;
 }

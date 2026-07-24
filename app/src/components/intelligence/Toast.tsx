@@ -57,7 +57,7 @@ const TOAST_ICON_STYLES = {
   info: 'text-primary-500',
 };
 
-export function Toast({ notification, onRemove }: ToastProps) {
+function Toast({ notification, onRemove }: ToastProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 

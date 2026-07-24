@@ -14,7 +14,7 @@ import {
   unsupportedStatus,
 } from '../skills/skillCardStatus';
 
-export interface AutocompleteSkillStatus extends SkillCardStatusDescriptor {
+interface AutocompleteSkillStatus extends SkillCardStatusDescriptor {
   /** True when the platform doesn't support autocomplete. */
   platformUnsupported: boolean;
 }

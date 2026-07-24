@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import { ShareCardModal } from './ShareCardModal';
 
-export interface ShareMessageButtonProps {
+interface ShareMessageButtonProps {
   /** Plain-text agent output to turn into a share card. */
   content: string;
   /** Display name of the agent/profile that produced the output. */

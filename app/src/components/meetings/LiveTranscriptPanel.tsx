@@ -32,7 +32,7 @@ function parseLiveLine(content: string): { speaker: string | null; text: string 
   return { speaker: null, text: content };
 }
 
-export interface LiveTranscriptPanelProps {
+interface LiveTranscriptPanelProps {
   turns: BackendMeetTurn[];
   partialIndex: number | null;
 }

@@ -221,7 +221,7 @@ function inferRuntimeRequirement(skill?: WorkflowSummary): 'node' | 'python' | '
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export interface SkillsRunnerBodyProps {
+interface SkillsRunnerBodyProps {
   /**
    * Optional override for the descriptive header text rendered above
    * the skill picker. Defaults to the Settings-panel description so

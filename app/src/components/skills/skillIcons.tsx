@@ -22,7 +22,7 @@ function iconClasses(...parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join(' ');
 }
 
-export function SkillIconBadge({
+function SkillIconBadge({
   icon: Icon,
   label,
   bgClassName,

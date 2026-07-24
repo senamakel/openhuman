@@ -105,7 +105,7 @@ function pickRecorderMime(): string {
   return '';
 }
 
-export interface MicComposerProps {
+interface MicComposerProps {
   /** Disabled while a turn is in flight or the welcome message is pending. */
   disabled: boolean;
   /** Receives the transcribed text — same callback the textarea send uses. */

@@ -205,7 +205,7 @@ function statusDotClass(kind: MemoryTreePipelineStatus['status']): string {
  * current data; per-provider failure attribution needs new core work and
  * is filed as a follow-up to issue #2763.
  */
-export type IntegrationHealth = 'active' | 'stale';
+type IntegrationHealth = 'active' | 'stale';
 
 /** Map the wire `freshness` enum to the two-state UI classification. */
 export function classifyIntegration(
@@ -551,7 +551,3 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
     </div>
   );
 }
-
-// Re-export the hook so unit tests can opt into the polling subscription
-// directly without re-implementing it.
-export { useMemoryTreeStatus };

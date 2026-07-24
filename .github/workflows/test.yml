@@ -1,22 +1,33 @@
 ---
-# PR/push test gate. Delegates to the reusable `test-reusable.yml`
-# (frontend Vitest + Rust core + Rust Tauri shell). The same reusable
-# workflow is called by `release-staging.yml` and `release-production.yml`
-# as part of the pretest gate before any build-desktop matrix runs.
-name: Test
+name: PR 5189 AppImage runtime validation
 
 on:
   workflow_dispatch: {}
 
 permissions:
+  actions: read
   contents: read
   packages: read
-  pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}
+  group: pr-5189-appimage-runtime-validation
   cancel-in-progress: true
 
 jobs:
-  test:
-    uses: ./.github/workflows/test-reusable.yml
+  build-desktop:
+    uses: ./.github/workflows/build-desktop.yml
+    with:
+      build_ref: d7765f25b623c8e2d11d9a6244bbd50a3e3eedb2
+      tag: pr-5189-runtime-validation
+      version: 0.0.0
+      sha: d7765f25b623c8e2d11d9a6244bbd50a3e3eedb2
+      short_sha: d7765f25b623
+      base_url: https://api.openhuman.ai
+      app_env: staging
+      build_profile: debug
+      telegram_bot_username: openhuman_bot
+      with_macos_signing: false
+      with_release_upload: false
+      build_sidecar: false
+      with_updater: false
+    secrets: inherit

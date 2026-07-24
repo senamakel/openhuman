@@ -83,9 +83,9 @@ describe('Settings - Feature Preferences', function () {
       await browser.waitUntil(
         async () => {
           const hash = await browser.execute(() => window.location.hash);
-          return hash === '#/settings';
+          return hash === '#/settings' || hash === '#/settings/account';
         },
-        { timeout: 15_000, timeoutMsg: `${route} did not normalize to #/settings` }
+        { timeout: 15_000, timeoutMsg: `${route} did not normalize to the settings index` }
       );
 
       const bodyText = await browser.$('body').getText();

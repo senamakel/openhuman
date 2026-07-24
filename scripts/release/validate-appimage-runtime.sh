@@ -242,12 +242,23 @@ remove_smoke_userns_profile() {
   echo "[appimage-runtime] Removed temporary AppArmor userns profile: $profile_file"
 }
 
-smoke_extracted_apprun_with_userns() (
+smoke_extracted_apprun_with_userns() {
   local appdir="$1"
   local foreign_cwd="$2"
   local log_file="$3"
   local profile_file="$4"
   local profile_loaded=0
+  local previous_hup_trap previous_int_trap previous_term_trap
+  previous_hup_trap="$(trap -p HUP)"
+  previous_int_trap="$(trap -p INT)"
+  previous_term_trap="$(trap -p TERM)"
+
+  restore_smoke_signal_traps() {
+    trap - HUP INT TERM
+    [ -z "$previous_hup_trap" ] || eval "$previous_hup_trap"
+    [ -z "$previous_int_trap" ] || eval "$previous_int_trap"
+    [ -z "$previous_term_trap" ] || eval "$previous_term_trap"
+  }
 
   cleanup_smoke_userns_profile() {
     if [ "$profile_loaded" -eq 1 ]; then
@@ -256,9 +267,21 @@ smoke_extracted_apprun_with_userns() (
         || echo "[appimage-runtime] ERROR: AppArmor cleanup failed after smoke interruption" >&2
     fi
   }
-  trap cleanup_smoke_userns_profile EXIT HUP INT TERM
 
-  install_smoke_userns_profile "$appdir" "$profile_file" || return 1
+  interrupt_smoke_with_userns() {
+    local exit_status="$1"
+    trap - HUP INT TERM
+    cleanup_smoke_userns_profile
+    exit "$exit_status"
+  }
+  trap 'interrupt_smoke_with_userns 129' HUP
+  trap 'interrupt_smoke_with_userns 130' INT
+  trap 'interrupt_smoke_with_userns 143' TERM
+
+  if ! install_smoke_userns_profile "$appdir" "$profile_file"; then
+    restore_smoke_signal_traps
+    return 1
+  fi
   profile_loaded=1
 
   local smoke_status
@@ -276,10 +299,11 @@ smoke_extracted_apprun_with_userns() (
     remove_status=$?
   fi
 
+  restore_smoke_signal_traps
   # Preserve the original smoke failure even if profile cleanup also fails.
   [ "$smoke_status" -eq 0 ] || return "$smoke_status"
   return "$remove_status"
-)
+}
 
 validate_final_appimage() (
   local image="$1"

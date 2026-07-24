@@ -603,6 +603,56 @@ printf '%s\n' \
   >"$WORK/apparmor-expected-order"
 cmp -s "$WORK/apparmor-expected-order" "$APPARMOR_RECORD" \
   || fail "AppArmor profile was not loaded before and removed after a failing smoke"
+
+APPARMOR_TERM_RECORD="$WORK/apparmor-term-command-record"
+APPARMOR_TERM_MARKER="$WORK/apparmor-term-smoke-started"
+APPARMOR_TERM_RUNNER="$WORK/apparmor-term-runner.sh"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  '# shellcheck source=/dev/null' \
+  'source "$RUNTIME_VALIDATOR"' \
+  'smoke_extracted_apprun() {' \
+  '  printf "%s\n" "smoke-start" >>"$APPARMOR_RECORD"' \
+  '  : >"$APPARMOR_TERM_MARKER"' \
+  '  while :; do sleep 1; done' \
+  '}' \
+  'smoke_extracted_apprun_with_userns \' \
+  '  "$RUNTIME_COMPLETE" \' \
+  '  "$SMOKE_ROOT/foreign-cwd" \' \
+  '  "$SMOKE_ROOT/apparmor-term.log" \' \
+  '  "$APPARMOR_PROFILE"' \
+  >"$APPARMOR_TERM_RUNNER"
+chmod +x "$APPARMOR_TERM_RUNNER"
+export APPARMOR_TERM_MARKER RUNTIME_COMPLETE SMOKE_ROOT APPARMOR_PROFILE
+APPARMOR_RECORD="$APPARMOR_TERM_RECORD" \
+PATH="$APPARMOR_BIN:$PATH" \
+  bash "$APPARMOR_TERM_RUNNER" &
+apparmor_term_pid=$!
+for _ in $(seq 1 100); do
+  if [ -s "$APPARMOR_TERM_RECORD" ] && [ -f "$APPARMOR_TERM_MARKER" ]; then
+    break
+  fi
+  sleep 0.05
+done
+[ -s "$APPARMOR_TERM_RECORD" ] && [ -f "$APPARMOR_TERM_MARKER" ] || {
+  kill -TERM "$apparmor_term_pid" 2>/dev/null || true
+  fail "AppArmor TERM fixture did not reach the smoke"
+}
+kill -TERM "$apparmor_term_pid"
+set +e
+wait "$apparmor_term_pid"
+apparmor_term_status=$?
+set -e
+[ "$apparmor_term_status" -eq 143 ] \
+  || fail "AppArmor TERM fixture exited $apparmor_term_status instead of 143"
+printf '%s\n' \
+  "--non-interactive apparmor_parser --replace $APPARMOR_PROFILE" \
+  "smoke-start" \
+  "--non-interactive apparmor_parser --remove $APPARMOR_PROFILE" \
+  >"$WORK/apparmor-term-expected-order"
+cmp -s "$WORK/apparmor-term-expected-order" "$APPARMOR_TERM_RECORD" \
+  || fail "AppArmor profile was not removed exactly once after TERM"
 echo "[test-rpaths] ok: CI smoke grants userns only to the extracted executable"
 
 assert_runtime_layout_rejected missing-anylinux \

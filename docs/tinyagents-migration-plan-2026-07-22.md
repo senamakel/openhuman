@@ -55,17 +55,19 @@ feature gates; the crate stays impossible to gate away (26+ domains consume it).
 | --- | --- | --- |
 | Host requirement | `tinyagents = { version = "2.1", features = ["sqlite"] }` | root `Cargo.toml:107` |
 | Path override | `[patch.crates-io] tinyagents = { path = "vendor/tinyagents" }` | `Cargo.toml:677` |
-| Historical fork patch | Removed in WP-0; no dependency uses the former fork URL | root and Tauri manifests |
+| Historical fork patch | Removed in WP-0; TinyCortex now declares crates.io `2.1`, so the existing host path patch unifies its dependency too | root and Tauri manifests; TinyCortex #121 |
 | Vendored crate | `version = "2.1.0"`, tag `v2.1.0` / `2583fcc`, edition 2024, GPL-3.0-only | `vendor/tinyagents/Cargo.toml`, gitlink |
 | Included since the audit | `bytes` bump (#59), **`BarrierRelief` graph fan-in primitive (#62)**, v2.0/v2.1 release commits | submodule history |
 | TinyFlows requirement | `tinyagents = "2.1"`; prevents Cargo resolving a second 1.9 crate | `vendor/tinyflows/Cargo.toml` |
+| TinyCortex requirement | `tinyagents = "2.1"`; its repo-local patch serves standalone development while host patches select the canonical copy | `vendor/tinycortex/Cargo.toml` |
 | Drift ledger | Current pin `v2.1.0` / `2583fcc` | `docs/tinyagents-drift-ledger.md` §Anchors |
 
 WP-0 bumped the gitlink to the released v2.1.0 manifest, regenerated both Cargo
-worlds, removed the unused fork-source patch, and aligned TinyFlows to 2.1.
-Before that TinyFlows alignment, correct dependency resolution introduced a
-second crates.io TinyAgents 1.9 package; `cargo tree` now proves the root and
-TinyFlows both use the vendored 2.1 package.
+worlds, removed the unused fork-source patch, and aligned TinyFlows and
+TinyCortex to 2.1. Before those transitive alignments, correct dependency
+resolution introduced separate TinyAgents 1.9 and nested-path 2.0 packages;
+the lockfiles now prove the root, TinyFlows, and TinyCortex all use the one
+vendored 2.1 package.
 
 ---
 
@@ -177,8 +179,7 @@ host files (`schemas.rs`, `presets.rs`, `model_ids.rs`, `paths.rs`, `parse.rs`,
 | `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. WP-3 verified that `session/turn/core.rs` is the product turn-preparation shell and `subagent_runner/ops/graph.rs` unconditionally calls `run_turn_via_tinyagents_shared`; the legacy loops and runtime escape hatches were removed before this audit. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
 | `agent_orchestration/` | 64 / 27.9k | Engine already on `tinyagents::graph` (workflow runs, teams, delegation, `map_reduce`); what remains is the product layer (ledgers, RPC). Residual upstream item: detached-subagent `TaskStore` lifecycle — WP-5. 25 files crate-backed. |
 | `routing/` | 8 / 2.7k | **Deleted in WP-2.** A repository-wide reference audit found no consumer outside the module; #4783's crate `ModelRouter` already owns the live path, so retaining the nominally host-specific health/provider files would preserve an unreachable parallel stack. |
-| `model_council/` | 4 / 1.1k | **Already adopted / remainder HOST-OWNED.** `graph.rs` already uses crate `parallel::map_reduce`; `council.rs` is OpenHuman product behavior (read-only `Agent` jurors, configured model resolution, prompts, result contract) and `schemas.rs` is RPC — WP-2 audit closed. |
-| `council_registry/` | 4 / 0.6k | Definitions-as-data + RPC. Stays. |
+| `model_council/` + `council_registry/` | 8 / 1.7k | **Deleted after WP-2 audit.** Generic fan-out already used crate `parallel::map_reduce`; upstream dead-code cleanup removed the remaining unreachable product and registry surfaces. |
 | `tool_timeout/` | 1 / 316 | **HOST-OWNED.** TinyAgents `harness::tool::ToolTimeout` is declarative per-tool metadata; it has no process-global value to receive OpenHuman config. This module owns UI/config + env precedence and the actual `tokio::time::timeout` deadline used by the host-tool adapter — WP-2 audit closed. |
 | `tool_status/` | 3 / 0.7k | **HOST-OWNED.** Its serialized UI/persistence taxonomy, OpenHuman security markers, retry categories, and user-facing remediation copy are product semantics. TinyAgents tool outcomes remain the generic execution input — WP-2 audit closed. |
 | `tools/` | 98 / 40.9k | The `Tool` trait + `ToolSpec` mechanics (`traits.rs:255`), `schema.rs`, `policy.rs`, `orchestrator_tools.rs`, `user_filter.rs` are framework-shaped; all of `tools/impl/*` + RPC (`schemas.rs` 985, `ops.rs` 1,407) are product. **Design-gated** (port-plan §2 blockers still apply) — WP-4. Note: `ToolResult`/`ToolContent` are re-exported from `skills::types` (~236 consumer files) — moving those types is the highest-blast-radius single step in the whole migration and must be its own slice. Security coupling: 49 files. |
@@ -279,7 +280,9 @@ force).
 4. Fix the §4.4 broken references, create the deletion ledger, and replace the
    phantom numbered-plan references with real WP-5/C4 anchors.
 5. Remove the stale fork-source patch after verifying that no dependency uses
-   it.
+   it. Align TinyCortex's nested path dependency through a crates.io `2.1`
+   declaration plus its repo-local development patch, so the host's canonical
+   path patch produces one trait identity (TinyCortex #121).
 
 **Exit:** `Cargo.toml`, submodule, lockfiles, and ledger all agree on one
 version; zero dangling `docs/tinyagents*` references (`grep -rn` clean).
@@ -338,20 +341,18 @@ Independent, individually shippable slices:
    seconds clamping, grace handling, and the adapter's hard deadline. The seam
    already projects host policy into crate `ToolRuntime`; there is no duplicate
    crate implementation to delete.
-3. **`model_council/` — crate graph already adopted (audit closed).** Member
-   fan-out already runs through `tinyagents::graph::parallel::map_reduce` with
-   ordered collection and `CollectAll`. The remaining council code is product
-   behavior: read-only OpenHuman agent jurors, configured model selection,
-   synthesis prompt/result semantics, limits, and RPC. No new upstream graph is
-   required.
+3. **`model_council/` — complete by deletion.** Generic member fan-out already
+   ran through `tinyagents::graph::parallel::map_reduce`; upstream dead-code
+   cleanup removed the remaining unreachable council and registry product
+   surfaces.
 4. **`tool_status/` — HOST-OWNED (audit closed).** The classifier is tied to
    OpenHuman security markers, serialized thread/UI types, retry categories,
    localized-copy keys, and remediation language. TinyAgents owns generic tool
    outcomes; mapping those outcomes into product status remains in the host.
 
-**Exit: complete.** `routing/` is deleted; timeout and status are explicitly
-HOST-OWNED; the council fan-out is already crate-backed and its remainder is
-product code. Ledger rows record the audit evidence.
+**Exit: complete.** `routing/`, `model_council/`, and `council_registry/` are
+deleted; timeout and status are explicitly HOST-OWNED. Ledger rows record the
+audit evidence.
 
 ### WP-3 — Retire the legacy turn engine
 
@@ -482,12 +483,11 @@ changes remain gated on explicit approval of that proposal.
 | `tinyagents/middleware.rs` generic middlewares | UPSTREAM case-by-case (WP-5) |
 | `tinyagents/` remainder (seam) | STAYS, shrinks |
 | `agent/` legacy `run_turn_engine` + escape hatches | ALREADY DELETED; WP-3 corrected the stale audit and runner documentation |
-| `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `council_registry/`, `tool_registry/` | STAYS (product/host) |
+| `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `tool_registry/` | STAYS (product/host) |
 | `routing/` | DELETED; #4783 crate router already owned the only live path (WP-2) |
 | `tool_timeout/` | HOST-OWNED: config/env state + hard-deadline enforcement; crate timeout is metadata only (WP-2 closed) |
 | `tool_status/` classification | HOST-OWNED: OpenHuman UI/security/recovery taxonomy (WP-2 closed) |
-| `model_council/graph.rs` | ALREADY ADOPTED: crate `parallel::map_reduce` (WP-2 closed) |
-| `model_council/council.rs` | HOST-OWNED: product jurors, prompts, limits, model selection, and result contract |
+| `model_council/`, `council_registry/` | DELETED after crate-backed fan-out audit and upstream dead-code cleanup (WP-2 closed) |
 | `tools/` trait mechanics | DESIGN-GATED (WP-4) |
 | `tools/impl/*`, all `schemas.rs` RPC controllers | STAYS |
 | `agent_orchestration/` detached-run mechanics | UPSTREAM to `TaskStore` (WP-5) |

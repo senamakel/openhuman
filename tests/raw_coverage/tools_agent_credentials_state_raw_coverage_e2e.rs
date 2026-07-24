@@ -363,6 +363,7 @@ fn parent_context(workspace: PathBuf, provider: Arc<ScriptedModel>) -> ParentExe
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(tool_specs),
         visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         model_name: "round16-model".to_string(),
         temperature: 0.0,
         workspace_dir: workspace,
@@ -561,7 +562,6 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
     };
     cfg.node.enabled = false;
     cfg.gitbooks.enabled = true;
-    cfg.computer_control.enabled = true;
     cfg.learning.enabled = true;
     cfg.learning.tool_tracking_enabled = true;
     cfg.browser.enabled = true;
@@ -631,8 +631,6 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
         "mcp_list_servers",
         "mcp_list_tools",
         "mcp_call_tool",
-        "mouse",
-        "keyboard",
         "tool_stats",
         "delegate",
         "mcp_setup_search",
@@ -643,6 +641,8 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
             "expected {expected} in {names:?}"
         );
     }
+    assert!(!names.iter().any(|name| name == "mouse"));
+    assert!(!names.iter().any(|name| name == "keyboard"));
     assert!(!names.iter().any(|name| name == "node_exec"));
     assert!(!names.iter().any(|name| name == "npm_exec"));
     assert!(

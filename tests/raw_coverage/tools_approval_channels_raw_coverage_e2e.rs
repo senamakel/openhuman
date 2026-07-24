@@ -1391,7 +1391,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         "example.com".to_string(),
     ];
     config.gitbooks.enabled = true;
-    config.computer_control.enabled = true;
     config.learning.enabled = true;
     config.learning.tool_tracking_enabled = true;
     config.mcp_client.enabled = true;
@@ -1425,8 +1424,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         "curl",
         "gitbooks_search",
         "gitbooks_get_page",
-        "mouse",
-        "keyboard",
         "tool_stats",
         "screenshot",
         "image_info",
@@ -1436,6 +1433,8 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
             "missing tool {expected}; got {names:?}"
         );
     }
+    assert!(!names.contains(&"mouse"));
+    assert!(!names.contains(&"keyboard"));
     assert!(!names.contains(&"node_exec"));
     assert!(!names.contains(&"npm_exec"));
 

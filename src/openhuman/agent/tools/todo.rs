@@ -132,23 +132,23 @@ impl Tool for TodoTool {
                 if patch.approval_mode.is_none() {
                     patch.approval_mode = Some(default_task_approval_mode().await);
                 }
-                ops::add(&location, &content, patch)
+                ops::add(&location, &content, patch).await
             }
             "edit" => {
                 let id = required_string(&args, "id")?;
                 let mut patch = patch_from_args(&args)?;
                 patch.content = optional_string(&args, "content");
-                ops::edit(&location, &id, patch)
+                ops::edit(&location, &id, patch).await
             }
             "update_status" => {
                 let id = required_string(&args, "id")?;
                 let status = required_string(&args, "status")?;
                 let status = ops::parse_status(&status).map_err(anyhow::Error::msg)?;
-                ops::update_status(&location, &id, status)
+                ops::update_status(&location, &id, status).await
             }
             "remove" => {
                 let id = required_string(&args, "id")?;
-                ops::remove(&location, &id)
+                ops::remove(&location, &id).await
             }
             "replace" => {
                 let cards = args
@@ -156,10 +156,10 @@ impl Tool for TodoTool {
                     .ok_or_else(|| anyhow::anyhow!("missing `cards` for op=replace"))?;
                 let cards: Vec<TaskBoardCard> = serde_json::from_value(cards.clone())
                     .map_err(|e| anyhow::anyhow!("invalid `cards`: {e}"))?;
-                ops::replace(&location, cards)
+                ops::replace(&location, cards).await
             }
-            "clear" => ops::clear(&location),
-            "list" => ops::list(&location),
+            "clear" => ops::clear(&location).await,
+            "list" => ops::list(&location).await,
             other => {
                 return Ok(ToolResult::error(format!(
                 "unknown op '{other}' (expected add|edit|update_status|remove|replace|clear|list)"

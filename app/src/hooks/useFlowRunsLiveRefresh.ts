@@ -40,6 +40,9 @@ const TERMINAL_STATUSES = new Set<FlowRunStatus>([
   'completed_with_warnings',
   'failed',
   'cancelled',
+  // Reconciled after its future was dropped mid-flight (bug B42) — settled, so
+  // the list's active-run backstop poll can quiesce once every run is terminal.
+  'interrupted',
 ]);
 
 /** Trailing debounce window for a burst of `flow:run_progress` events. */

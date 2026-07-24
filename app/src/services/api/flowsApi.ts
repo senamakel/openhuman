@@ -56,7 +56,12 @@ export type FlowRunStatus =
   | 'completed_with_warnings'
   | 'pending_approval'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  // A run whose future was dropped mid-flight (harness tool abort, chat turn
+  // end, timeout, or an app restart), reconciled to a terminal state by the
+  // core's `RunRowFinalizer` drop-guard or its boot-time orphan sweep (bug
+  // B42). Carries a human `error` reason; rendered as a settled, non-active run.
+  | 'interrupted';
 
 /** One reconstructed step of a persisted `FlowRun` (`src/openhuman/flows/types.rs::FlowRunStep`). */
 export interface FlowRunStep {
@@ -87,10 +92,22 @@ export interface FlowRun {
   thread_id: string;
   status: FlowRunStatus;
   started_at: string;
+  /**
+   * RFC3339 timestamp stamped when the run settled — set for every terminal
+   * status, including `'interrupted'` (the drop-guard / boot sweep stamps it
+   * exactly like a normal terminal write). `null`/absent only while the run is
+   * still `'running'`.
+   */
   finished_at?: string | null;
   steps: FlowRunStep[];
   /** Node ids paused awaiting approval when `status === 'pending_approval'`. */
   pending_approvals: string[];
+  /**
+   * Human-readable failure reason. Set for `'failed'` runs and for
+   * `'interrupted'` ones (where it carries the reconciliation reason — tool
+   * abort / turn end / app restart), so the UI can surface *why* a run stopped
+   * rather than showing a bare terminal state.
+   */
   error?: string | null;
 }
 

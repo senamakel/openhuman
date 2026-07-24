@@ -62,7 +62,7 @@ Namespace `learning` (wired into `src/core/all.rs`; 11 controllers). Methods:
 | `learning.rebuild_cache` | Manually trigger a `StabilityDetector` rebuild; returns added/evicted/kept/total_size. |
 | `learning.cache_stats` | Cache totals + per-state and per-class breakdown. |
 | `learning.list_facets` | List Active + Provisional facets, optional `class` filter. |
-| `learning.get_facet` | Fetch one facet by `class` + `key` suffix. |
+| `learning.get_facet` | Fetch one facet by `class` + `key` suffix. Each returned facet carries its provenance (`evidence_refs`, `cue_families`) alongside the value/state fields. |
 | `learning.update_facet` | Set a facet value and pin it (`user_state = Pinned`). |
 | `learning.pin_facet` / `learning.unpin_facet` | Toggle `user_state` Pinned ↔ Auto. |
 | `learning.forget_facet` | Mark `Dropped` + `user_state = Forgotten` (blocks re-promotion). |

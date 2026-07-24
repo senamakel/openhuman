@@ -267,6 +267,7 @@ fn parent_context(max_parallel_tools: usize) -> ParentExecutionContext {
         all_tools: Arc::new(Vec::new()),
         all_tool_specs: Arc::new(Vec::new()),
         visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         model_name: "test-model".into(),
         temperature: 0.2,
         workspace_dir: std::env::temp_dir(),
@@ -335,6 +336,10 @@ fn definition_with_tool_scope(
 
 #[tokio::test]
 async fn rejects_more_tasks_than_parent_parallel_limit() {
+    // The parallel-limit check now runs inside the execution graph, which is
+    // reached only after the registry lookup — so this test needs the global
+    // builtins initialised (as its siblings already do) rather than relying on
+    // whichever test happened to initialise them first.
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let tool = SpawnParallelAgentsTool::new();
     let parent = parent_context(2);

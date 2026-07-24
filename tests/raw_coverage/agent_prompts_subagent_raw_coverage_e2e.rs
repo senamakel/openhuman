@@ -289,6 +289,7 @@ fn parent(workspace: PathBuf, model: Arc<ScriptedModel>) -> ParentExecutionConte
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(specs),
         visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         model_name: "round18-model".to_string(),
         temperature: 0.0,
         workspace_dir: workspace,

@@ -299,3 +299,44 @@ async fn unknown_or_mistyped_args_surface() {
         "a wrong-typed arg must surface the contract"
     );
 }
+
+// ── #5119: auto-proceed safety net for re-delegated sub-agents ──────────────
+
+#[tokio::test]
+async fn fresh_gates_eventually_auto_proceed() {
+    // Regression for #5119: when the main agent re-delegates to a fresh
+    // integrations_agent sub-agent, each spawn creates a new ComposioActionTool
+    // with a fresh ContractGate. Without a process-wide safety net, every fresh
+    // gate surfaces the contract again and the action never executes, causing an
+    // infinite loop (51x surfacing in the reported log).
+    //
+    // The safety net tracks how many *fresh gate instances* have been consulted
+    // per slug. After the threshold (3+) of fresh instances have all seen the
+    // slug as "first time" and surfaced the contract, the next instance
+    // auto-proceeds — the model has clearly seen the schema and doesn't need it
+    // surfaced again.
+    let toolkit = "autopkit";
+    let slug = "AUTOPKIT_FETCH_EMAILS";
+    seed_live_catalog_cache(toolkit, vec![full_contract(slug, toolkit)]);
+
+    let config = Config::default();
+
+    // Gates 1-3 each surface the contract (fresh instance, first-time consult).
+    for i in 1..=3 {
+        let gate = ContractGate::new();
+        let decision = consult(&gate, &config, slug, &guessing_args()).await;
+        assert!(
+            matches!(decision, GateDecision::Surface(_)),
+            "fresh gate {i} must surface the contract (count {i})"
+        );
+    }
+
+    // Gate 4: auto-proceeds because 3+ fresh instances have already surfaced
+    // this contract without any of them executing.
+    let gate4 = ContractGate::new();
+    let decision = consult(&gate4, &config, slug, &guessing_args()).await;
+    assert!(
+        matches!(decision, GateDecision::Proceed),
+        "gate 4 must auto-proceed after 3+ fresh instances surfaced the same slug"
+    );
+}

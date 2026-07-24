@@ -124,7 +124,19 @@ fn redact_value(value: &Value) -> Value {
 /// would miss the Windows case in a Unix-built artifact looking at
 /// log payloads that originated on Windows, or vice versa.
 fn scrub_paths(input: &str) -> String {
-    if !input.contains("Users") && !input.contains("home") {
+    // Fast-path bailout: if `input` contains neither "users" nor "home" it holds
+    // no home prefix for `match_home_prefix` to find, so skip the walk. This
+    // guard MUST be case-insensitive to match the matcher below, which folds case
+    // via `eq_ignore_ascii_case`. A case-sensitive check let non-canonical
+    // casings like `c:\users\alice` or `/HOME/alice` short-circuit here and get
+    // returned verbatim, leaking the OS username into the durable approval audit
+    // row instead of redacting it to `<HOME>`. Scan the bytes in place with a
+    // sliding window rather than allocating a full lowercase copy — tool args can
+    // be large (source/file contents), and the common case bails without a match.
+    let bytes = input.as_bytes();
+    let has_users = bytes.windows(5).any(|w| w.eq_ignore_ascii_case(b"users"));
+    let has_home = bytes.windows(4).any(|w| w.eq_ignore_ascii_case(b"home"));
+    if !has_users && !has_home {
         return input.to_string();
     }
     let mut out = String::with_capacity(input.len());
@@ -417,6 +429,47 @@ mod tests {
         assert!(!cwd.contains("jane"), "got {cwd}");
         assert!(cwd.contains("<HOME>"));
         assert!(cwd.ends_with("/project"));
+    }
+
+    #[test]
+    fn lowercase_windows_home_path_is_scrubbed() {
+        // Regression: the fast-path guard was case-sensitive while the matcher is
+        // case-insensitive, so a lowercase drive/`users` casing slipped through
+        // unredacted and leaked the username.
+        let args = json!({ "action": "list", "cwd": "c:\\users\\alice\\work" });
+        let red = redact_args(&args);
+        let cwd = red["cwd"].as_str().unwrap();
+        assert!(!cwd.contains("alice"), "got {cwd}");
+        assert!(cwd.contains("<HOME>"));
+        assert!(cwd.ends_with("\\work"));
+    }
+
+    #[test]
+    fn uppercase_linux_home_path_is_scrubbed() {
+        let args = json!({ "action": "list", "cwd": "/HOME/alice/work" });
+        let red = redact_args(&args);
+        let cwd = red["cwd"].as_str().unwrap();
+        assert!(!cwd.contains("alice"), "got {cwd}");
+        assert!(cwd.contains("<HOME>"));
+        assert!(cwd.ends_with("/work"));
+    }
+
+    #[test]
+    fn mixed_case_home_path_is_scrubbed() {
+        let args = json!({ "action": "list", "cwd": "/Home/alice/work" });
+        let red = redact_args(&args);
+        let cwd = red["cwd"].as_str().unwrap();
+        assert!(!cwd.contains("alice"), "got {cwd}");
+        assert!(cwd.contains("<HOME>"));
+        assert!(cwd.ends_with("/work"));
+    }
+
+    #[test]
+    fn non_path_string_without_home_marker_is_unchanged() {
+        // The guard's fast-path must still return unrelated strings verbatim.
+        let args = json!({ "action": "run", "command": "echo hello world" });
+        let red = redact_args(&args);
+        assert_eq!(red["command"].as_str().unwrap(), "echo hello world");
     }
 
     #[test]

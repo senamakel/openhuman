@@ -83,7 +83,7 @@ pub async fn cancel_session(thread_id: &str) -> bool {
     let Some(run) = take_active_run(thread_id) else {
         return false;
     };
-    cancel_taken_run(thread_id, run);
+    cancel_taken_run(thread_id, run).await;
     true
 }
 
@@ -95,7 +95,7 @@ pub async fn cancel_session(thread_id: &str) -> bool {
 /// Split out of [`cancel_session`] so [`cancel_session_scoped`] can cancel the
 /// exact run it atomically removed via [`take_active_run_if`], rather than
 /// re-acquiring the lock and racing a replacement run (#4760).
-fn cancel_taken_run(thread_id: &str, run: ActiveRun) {
+async fn cancel_taken_run(thread_id: &str, run: ActiveRun) {
     run.abort.abort();
     let _ = run.hb_cancel.send(true);
     // The aborted task never reaches its own write-back — do it here so the
@@ -105,7 +105,8 @@ fn cancel_taken_run(thread_id: &str, run: ActiveRun) {
         &run.card_id,
         &run.run_id,
         Err("Cancelled by user".to_string()),
-    );
+    )
+    .await;
     crate::openhuman::web_chat::publish_web_channel_event(crate::core::socketio::WebChannelEvent {
         event: "chat_error".to_string(),
         client_id: "system".to_string(),
@@ -140,6 +141,6 @@ pub async fn cancel_session_scoped(thread_id: &str, request_id: Option<&str>) ->
     let Some(run) = take_active_run_if(thread_id, request_id) else {
         return false;
     };
-    cancel_taken_run(thread_id, run);
+    cancel_taken_run(thread_id, run).await;
     true
 }

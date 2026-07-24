@@ -79,11 +79,14 @@ async fn cancel_session_scoped_aborts_the_run_when_the_request_matches() {
     let dir = tempfile::tempdir().unwrap();
     let loc = board_loc(dir.path());
     let id = ops::add(&loc, "run me", CardPatch::default())
+        .await
         .unwrap()
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
 
     let (tx, _rx) = tokio::sync::watch::channel(false);
     let handle = tokio::spawn(async { std::future::pending::<()>().await });
@@ -108,6 +111,7 @@ async fn cancel_session_scoped_aborts_the_run_when_the_request_matches() {
         "the cancelled run is removed from the registry"
     );
     let card = ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()
@@ -385,25 +389,30 @@ fn board_loc(dir: &std::path::Path) -> BoardLocation {
     }
 }
 
-#[test]
-fn write_back_marks_done_with_evidence_on_success() {
+#[tokio::test]
+async fn write_back_marks_done_with_evidence_on_success() {
     let dir = tempfile::tempdir().unwrap();
     let loc = board_loc(dir.path());
     let id = ops::add(&loc, "do the thing", CardPatch::default())
+        .await
         .unwrap()
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
 
     write_back(
         &loc,
         &id,
         "run-1",
         Ok("completed: opened PR #5".to_string()),
-    );
+    )
+    .await;
 
     let card = ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()
@@ -413,8 +422,8 @@ fn write_back_marks_done_with_evidence_on_success() {
     assert!(card.evidence.iter().any(|e| e.contains("opened PR #5")));
 }
 
-#[test]
-fn write_back_preserves_agent_set_blocked_on_clean_run() {
+#[tokio::test]
+async fn write_back_preserves_agent_set_blocked_on_clean_run() {
     // The run marked its own card `blocked` (needs user input) via
     // update_task, then ended cleanly. write_back must NOT force it to
     // `done` — the task stays blocked, with the agent's blocker intact,
@@ -422,11 +431,14 @@ fn write_back_preserves_agent_set_blocked_on_clean_run() {
     let dir = tempfile::tempdir().unwrap();
     let loc = board_loc(dir.path());
     let id = ops::add(&loc, "update alan", CardPatch::default())
+        .await
         .unwrap()
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
     // Agent self-blocks mid-run, as build_progress_instruction asks it to.
     ops::edit(
         &loc,
@@ -437,6 +449,7 @@ fn write_back_preserves_agent_set_blocked_on_clean_run() {
             ..Default::default()
         },
     )
+    .await
     .unwrap();
 
     // Run returns Ok (the turn finished) — but the card is self-blocked.
@@ -445,9 +458,11 @@ fn write_back_preserves_agent_set_blocked_on_clean_run() {
         &id,
         "run-2",
         Ok("I checked GitHub and memory…".to_string()),
-    );
+    )
+    .await;
 
     let card = ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()
@@ -465,20 +480,24 @@ fn write_back_preserves_agent_set_blocked_on_clean_run() {
     );
 }
 
-#[test]
-fn write_back_marks_blocked_with_reason_on_failure() {
+#[tokio::test]
+async fn write_back_marks_blocked_with_reason_on_failure() {
     let dir = tempfile::tempdir().unwrap();
     let loc = board_loc(dir.path());
     let id = ops::add(&loc, "do the thing", CardPatch::default())
+        .await
         .unwrap()
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
 
-    write_back(&loc, &id, "run-1", Err("agent build failed".to_string()));
+    write_back(&loc, &id, "run-1", Err("agent build failed".to_string())).await;
 
     let card = ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()

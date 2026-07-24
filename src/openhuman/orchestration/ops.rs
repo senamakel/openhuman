@@ -252,11 +252,12 @@ pub(super) fn gather_unread_signals(
     conn: &rusqlite::Connection,
 ) -> anyhow::Result<Vec<super::attention::UnreadSignal>> {
     let mut out: Vec<super::attention::UnreadSignal> = Vec::new();
+    let unread_counts = store::unread_counts(conn)?;
     for session in store::list_sessions(conn)? {
         if matches!(session.session_id.as_str(), "master" | "subconscious") {
             continue;
         }
-        let unread = store::unread_count(conn, &session.session_id)?;
+        let unread = unread_counts.get(&session.session_id).copied().unwrap_or(0);
         if unread > 0 {
             out.push(super::attention::UnreadSignal {
                 session_id: session.session_id,

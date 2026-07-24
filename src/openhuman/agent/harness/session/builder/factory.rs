@@ -173,63 +173,6 @@ impl Agent {
         )
     }
 
-    /// Constructs a council juror that runs the normal agent tool loop with
-    /// only read-only tools visible/executable.
-    ///
-    /// Model council calls need research/memory/search before a juror writes a
-    /// turn, but they must not mutate files, memory, schedules, wallets, or the
-    /// host. This constructor reuses the standard harness and provider wiring
-    /// while filtering the registry before tool specs and policy are built.
-    pub fn from_config_for_read_only_council_juror(
-        config: &Config,
-        juror_name: &str,
-        model_override: Option<String>,
-        temperature: Option<f64>,
-        prompt_suffix: String,
-    ) -> Result<Self> {
-        let mut agent = Self::build_session_agent_inner(
-            config,
-            "orchestrator",
-            None,
-            None,
-            Some(prompt_suffix),
-            true,
-            None,
-        )?;
-        let safe_name: String = juror_name
-            .chars()
-            .map(|c| {
-                if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .collect();
-        agent.set_event_context(
-            format!("model-council-{safe_name}"),
-            "model_council_readonly",
-        );
-        agent.set_agent_definition_name(format!("model_council_{safe_name}"));
-        // Council jurors are non-interactive, single-shot read-only model calls
-        // built from the orchestrator definition. The first-turn super-context
-        // pass (default-on) is an interactive convenience for the user-facing
-        // chat orchestrator — running it per juror would add an unexpected
-        // `context_scout` LLM call to each jury seat. Suppress it here.
-        agent.context.set_super_context_enabled(false);
-        if let Some(model) = model_override
-            .map(|m| m.trim().to_string())
-            .filter(|m| !m.is_empty())
-        {
-            agent.model_name = model;
-        }
-        if let Some(temp) = temperature {
-            agent.temperature = temp;
-        }
-        agent.auto_save = false;
-        Ok(agent)
-    }
-
     /// Internal constructor that consumes the optionally-resolved agent
     /// definition. Split out from [`Agent::from_config_for_agent`] so
     /// the lookup + logging live in one place and the heavy-lifting
@@ -401,23 +344,13 @@ impl Agent {
             }
         };
 
-        // Enabling the "App UI Control" (`ax_interact`) or "App Automation"
-        // (`automate`) tool in Settings → Features grants the mutating
-        // click/type actions its description promises — not just the read-only
-        // `list`. Previously those actions required the UI-less
-        // `computer_control.ax_interact_mutations` flag or Full autonomy, so the
-        // toggle silently did nothing on the default (Supervised) autonomy
-        // (#3762). The actions stay approval-gated and bound by the
-        // sensitive-app denylist; Full autonomy continues to grant this
-        // independently via `app_control_enabled`.
         // Share a single `Arc<Config>` across the heavyweight per-build consumers
         // (the tool registry, the reflection hook, the turn provider) instead of
         // deep-cloning the large `Config` at each site (#5050, Fix 1). `Config` is
         // immutable after construction, so one refcounted instance is behaviourally
-        // identical to N independent clones. `resolve_tool_config` handles the one
-        // consumer that needs a *different* config — the App-UI-Control toggle.
+        // identical to N independent clones.
         let base_config: Arc<Config> = Arc::new(config.clone());
-        let tool_config: Arc<Config> = resolve_tool_config(&base_config, &enabled_tools);
+        let tool_config: Arc<Config> = Arc::clone(&base_config);
 
         let mut tools = tools::all_tools_with_runtime(
             Arc::clone(&tool_config),
@@ -1260,6 +1193,17 @@ impl Agent {
             );
             effective_agent_config.max_tool_iterations = def_cap;
         }
+        let profile_subagent_tool_ceiling = profile
+            .and_then(|profile| profile.allowed_tools.as_ref())
+            .filter(|tools| !tools.is_empty())
+            .map(|tools| {
+                tools
+                    .iter()
+                    .map(|tool| tool.trim())
+                    .filter(|tool| !tool.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            });
         let mut builder = Agent::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
             .tools(tools)
@@ -1322,6 +1266,9 @@ impl Agent {
             .omit_memory_md(effective_omit_memory_md)
             .trigger_memory_agent(effective_trigger_memory_agent)
             .tokenjuice_compression(effective_tokenjuice_compression);
+        if let Some(ceiling) = profile_subagent_tool_ceiling {
+            builder = builder.subagent_tool_ceiling_names(ceiling);
+        }
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }
@@ -1411,41 +1358,6 @@ fn resolve_target_definition(
         "agent definition '{}' not found in registry",
         agent_id
     ))
-}
-
-/// Resolve the `Config` the tool registry is built from (#5050, Fix 1).
-///
-/// Normally this is the shared `base_config` — returned as a refcount bump, not a
-/// deep clone. The one exception is the App-UI-Control / App-Automation features
-/// toggle (#3762): when the user enabled the `ax_interact` / `automate` tools in
-/// Settings without global Full autonomy, the tool registry (and *only* the tool
-/// registry) receives a copy of the config with `ax_interact_mutations` granted.
-/// Scoping the grant here keeps the turn provider and reflection hook on the
-/// ungranted base config, and clones at most once — only when the toggle fires.
-pub(super) fn resolve_tool_config(
-    base_config: &Arc<Config>,
-    enabled_tools: &[String],
-) -> Arc<Config> {
-    log::trace!(
-        "[session-builder] action=resolve_tool_config phase=enter enabled_tools_count={} base_ax_interact_mutations={}",
-        enabled_tools.len(),
-        base_config.computer_control.ax_interact_mutations
-    );
-    if !base_config.computer_control.ax_interact_mutations
-        && tools::enables_app_ui_control_mutations(enabled_tools)
-    {
-        let mut granted = (**base_config).clone();
-        granted.computer_control.ax_interact_mutations = true;
-        log::debug!(
-            "[session-builder] action=resolve_tool_config phase=exit outcome=granted_app_ui_control_mutations source=features_toggle"
-        );
-        Arc::new(granted)
-    } else {
-        log::debug!(
-            "[session-builder] action=resolve_tool_config phase=exit outcome=reused_base_config"
-        );
-        Arc::clone(base_config)
-    }
 }
 
 fn definition_disallows_tool(disallowed: &[String], name: &str) -> bool {

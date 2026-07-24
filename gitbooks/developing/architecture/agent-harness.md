@@ -28,8 +28,6 @@ icon: layer-group
 > shared `graph::orchestration` `TaskStore` lifecycle primitives re-exported from
 > [`tinyagents/orchestration.rs`](../../../src/openhuman/tinyagents/orchestration.rs):
 >
-> - the model-council member fan-out runs on a real `StateGraph`
->   ([`model_council/graph.rs`](../../../src/openhuman/model_council/graph.rs));
 > - [`tinyagents/delegation.rs`](../../../src/openhuman/tinyagents/delegation.rs)
 >   is a `plan → execute ⇄ review → finalize` `CompiledGraph` (conditional routing,
 >   `RecursionPolicy`, durable `FileCheckpointer`, `CancellationToken`, `GraphTracingSink`);
@@ -417,8 +415,8 @@ The harness shell lives under `src/openhuman/agent/`, with the tinyagents adapte
 > `SqliteCheckpointer` described below **do not exist**. The live system runs on
 > the published **tinyagents** crate; see the status banner at the top of this
 > page and "Agent engine + orchestration on tinyagents (live)" below. Graphs are
-> built with `tinyagents::graph::GraphBuilder` (`model_council/graph.rs`,
-> `agent_orchestration/*/graph.rs`, `tinyagents/delegation.rs`), durable
+> built with `tinyagents::graph::GraphBuilder` (`agent_orchestration/*/graph.rs`,
+> `tinyagents/delegation.rs`), durable
 > checkpoints use `SqlRunLedgerCheckpointer`, and per-agent graph selection is
 > `AgentGraph` (`agent/harness/agent_graph.rs`) with each agent's
 > `agent_registry/agents/<id>/graph.rs`. The text below is retained only as

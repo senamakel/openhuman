@@ -300,6 +300,52 @@ async fn profile_allowed_tools_restrict_shared_session_builder() {
         &["file_read".to_string()].into_iter().collect(),
         "every profile-aware caller must inherit the same tool restriction"
     );
+    assert_eq!(
+        agent.subagent_tool_ceiling_names_for_test(),
+        &["file_read".to_string()].into_iter().collect(),
+        "an explicit profile tool restriction must also ceiling delegated agents"
+    );
+}
+
+#[tokio::test]
+async fn channel_ceiling_does_not_inherit_orchestrator_role_visibility() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config
+        .agent
+        .channel_permissions
+        .insert("internal".to_string(), "execute".to_string());
+    let def = builtin_def("orchestrator");
+
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        Some(&def),
+        None,
+        None,
+        false,
+        None,
+    )
+    .expect("build channel-scoped orchestrator session");
+
+    assert!(
+        !agent.visible_tool_names_for_test().contains("file_write"),
+        "the orchestrator must not advertise the specialist file_write tool"
+    );
+    assert!(
+        agent
+            .subagent_tool_ceiling_names_for_test()
+            .contains("file_write"),
+        "an execute-capable channel must let code_executor inherit file_write"
+    );
+    assert!(
+        !agent
+            .subagent_tool_ceiling_names_for_test()
+            .contains("update_apply"),
+        "the execute channel ceiling must still exclude dangerous tools"
+    );
 }
 
 #[tokio::test]
@@ -660,73 +706,5 @@ async fn from_config_for_agent_still_errors_for_a_genuinely_unknown_id() {
     assert!(
         err.to_string().contains("totally_unknown_agent_id_b38"),
         "error should name the unresolved agent id: {err}"
-    );
-}
-
-// ── #5050 Fix 1: shared `Arc<Config>` for the per-build tool config ──────────
-
-#[test]
-fn tool_config_shares_base_arc_when_ui_control_toggle_off() {
-    use super::factory::resolve_tool_config;
-    use std::sync::Arc;
-
-    let tmp = tempfile::TempDir::new().unwrap();
-    let mut cfg = test_config(&tmp);
-    cfg.computer_control.ax_interact_mutations = false;
-    let base = Arc::new(cfg);
-
-    // No enabled tools → the App-UI-Control toggle does not fire → the tool
-    // registry shares the base `Arc` (a refcount bump), not a deep clone.
-    let resolved = resolve_tool_config(&base, &[]);
-    assert!(
-        Arc::ptr_eq(&base, &resolved),
-        "toggle off must reuse the base config Arc rather than deep-clone it"
-    );
-}
-
-#[test]
-fn tool_config_grant_is_scoped_and_leaves_base_untouched() {
-    use super::factory::resolve_tool_config;
-    use std::sync::Arc;
-
-    let tmp = tempfile::TempDir::new().unwrap();
-    let mut cfg = test_config(&tmp);
-    cfg.computer_control.ax_interact_mutations = false;
-    let base = Arc::new(cfg);
-
-    // Enabling `ax_interact` fires the toggle: the tool registry gets the mutation
-    // grant, but as a *distinct* instance — the base config (which feeds the turn
-    // provider + reflection hook) must stay ungranted so the grant cannot leak.
-    let resolved = resolve_tool_config(&base, &["ax_interact".to_string()]);
-    assert!(
-        resolved.computer_control.ax_interact_mutations,
-        "the tool-registry config must carry the granted mutation flag"
-    );
-    assert!(
-        !Arc::ptr_eq(&base, &resolved),
-        "granting must produce a distinct config, not alias the shared base"
-    );
-    assert!(
-        !base.computer_control.ax_interact_mutations,
-        "the base config must stay ungranted — the grant is scoped to the tool registry"
-    );
-}
-
-#[test]
-fn tool_config_reuses_base_when_mutations_already_granted_globally() {
-    use super::factory::resolve_tool_config;
-    use std::sync::Arc;
-
-    let tmp = tempfile::TempDir::new().unwrap();
-    let mut cfg = test_config(&tmp);
-    cfg.computer_control.ax_interact_mutations = true;
-    let base = Arc::new(cfg);
-
-    // Already granted globally (e.g. Full autonomy) → no clone even when the tool
-    // is enabled, since there is nothing to grant.
-    let resolved = resolve_tool_config(&base, &["ax_interact".to_string()]);
-    assert!(
-        Arc::ptr_eq(&base, &resolved),
-        "an already-granted base config must not be re-cloned"
     );
 }

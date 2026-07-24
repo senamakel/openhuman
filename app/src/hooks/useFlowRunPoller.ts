@@ -26,8 +26,9 @@
  *
  * `pending_approval` is explicitly NOT terminal — a paused run still needs
  * live status so the drawer reflects an approval elsewhere resolving it.
- * `completed_with_warnings` (run honesty, PR2) and `cancelled` are terminal,
- * same as `completed`/`failed`.
+ * `completed_with_warnings` (run honesty, PR2), `cancelled`, and `interrupted`
+ * (bug B42 — reconciled after being dropped mid-flight) are terminal, same as
+ * `completed`/`failed`.
  */
 import debug from 'debug';
 import { useEffect, useRef, useState } from 'react';
@@ -51,6 +52,10 @@ const TERMINAL = new Set<FlowRunStatus>([
   'completed_with_warnings',
   'failed',
   'cancelled',
+  // Reconciled after its future was dropped mid-flight (bug B42) — a settled
+  // terminal state. Without this the poller would loop forever on a run that
+  // never leaves `interrupted`.
+  'interrupted',
 ]);
 
 function isTerminal(run: FlowRun | null): boolean {

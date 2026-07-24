@@ -57,6 +57,7 @@ mod cef_singleton_wait;
 #[cfg(any(target_os = "macos", target_os = "linux", test))]
 mod cef_stale_reap;
 mod claude_code;
+mod companion;
 mod companion_commands;
 mod core_process;
 mod core_rpc;
@@ -100,6 +101,7 @@ mod telegram_scanner;
 mod webview_accounts;
 mod webview_apis;
 mod wechat_scanner;
+mod whatsapp_data;
 mod whatsapp_scanner;
 mod window_state;
 mod workspace_paths;
@@ -3121,6 +3123,16 @@ pub fn run() {
             // requires) from generic `<R: Runtime>` call sites.
             cdp::set_cef_app_handle(app.handle().clone());
 
+            // Install the app handle for the desktop companion so its session
+            // state machine can emit `companion://state_changed` events.
+            companion::setup(app.handle());
+
+            // Structured WhatsApp Web data store lives shell-side. Register the
+            // in-process native handlers so the core agent tools (list/search)
+            // and the scanner ingest path can reach the SQLite store over the
+            // native request bus. No handler = graceful degradation core-side.
+            whatsapp_data::register_native_handlers();
+
             #[cfg(windows)]
             {
                 // `register_all` writes HKCU\Software\Classes\openhuman so the
@@ -3484,48 +3496,6 @@ pub fn run() {
             // here would flash the pill on every launch even with always-on
             // listening disabled (the default).
 
-            // Synthetic-input main-thread executor. enigo's macOS keyboard-layout
-            // lookup (TSMGetInputSourceProperty) MUST run on the app main thread
-            // or it traps (`_dispatch_assert_queue_fail`/EXC_BREAKPOINT) and
-            // crashes the CEF host (Change 1.15, confirmed via crash report). The
-            // keyboard/mouse tools run on tokio workers, so they dispatch their
-            // enigo ops here via the native registry; we run each on the real
-            // main thread through `run_on_main_thread`.
-            {
-                use openhuman_core::core::event_bus::register_native_global;
-                use openhuman_core::openhuman::tools::{
-                    MainThreadInputOp, INPUT_ON_MAIN_THREAD_METHOD,
-                };
-                let input_app = app.handle().clone();
-                register_native_global::<MainThreadInputOp, Result<String, String>, _, _>(
-                    INPUT_ON_MAIN_THREAD_METHOD,
-                    move |req| {
-                        let input_app = input_app.clone();
-                        async move {
-                            let (tx, rx) = tokio::sync::oneshot::channel();
-                            let run = req.run;
-                            input_app
-                                .run_on_main_thread(move || {
-                                    // Catch an enigo FFI panic so it can't unwind
-                                    // across the app main thread (which would be
-                                    // UB / abort). Convert it to a clean Err.
-                                    let result = std::panic::catch_unwind(
-                                        std::panic::AssertUnwindSafe(run),
-                                    )
-                                    .unwrap_or_else(|_| {
-                                        Err("synthetic input panicked on the main thread".to_string())
-                                    });
-                                    let _ = tx.send(result);
-                                })
-                                .map_err(|e| format!("run_on_main_thread dispatch failed: {e}"))?;
-                            rx.await
-                                .map_err(|_| "main-thread input op was cancelled".to_string())
-                        }
-                    },
-                );
-                log::info!("[computer] registered main-thread synthetic-input executor");
-            }
-
             // Tray icon setup moved to RunEvent::Ready (see below) — GTK is only
             // initialized after the event loop starts, so we must delay tray creation
             // until the Ready event fires. Creating the tray here would panic on
@@ -3845,6 +3815,10 @@ pub fn run() {
             // and the Save-As fallback needs it there (CodeRabbit on #4127).
             artifact_commands::save_artifact_via_dialog,
             artifact_commands::download_artifact_to_downloads,
+            // Structured WhatsApp data (store lives shell-side).
+            whatsapp_data::whatsapp_data_list_chats,
+            whatsapp_data::whatsapp_data_list_messages,
+            whatsapp_data::whatsapp_data_search_messages,
             check_core_update,
             apply_core_update,
             check_app_update,
@@ -3904,6 +3878,11 @@ pub fn run() {
             companion_commands::register_companion_hotkey,
             companion_commands::unregister_companion_hotkey,
             companion_commands::companion_activate,
+            companion::companion_start_session,
+            companion::companion_stop_session,
+            companion::companion_status,
+            companion::companion_config_get,
+            companion::companion_config_set,
             mcp_commands::mcp_resolve_binary_path,
             mcp_commands::mcp_open_client_config,
             loopback_oauth::start_loopback_oauth_listener,

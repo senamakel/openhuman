@@ -160,11 +160,27 @@ fn catalog_includes_additional_user_facing_surfaces() {
         "intelligence.memory_source_sync_controls",
         "intelligence.coding_session_memory",
         "conversation.subagent_mascots",
+        "companion.session",
+        "companion.pointing",
     ] {
         assert!(
             ids.contains(expected),
             "missing catalog capability `{expected}`"
         );
+    }
+}
+
+#[test]
+fn companion_capabilities_disclose_backend_reasoning() {
+    for id in ["companion.session", "companion.pointing"] {
+        let capability = lookup(id).expect("companion capability registered");
+        assert_eq!(capability.domain, "companion");
+        assert_eq!(capability.category, CapabilityCategory::ScreenIntelligence);
+
+        let privacy = capability.privacy.expect("privacy disclosure");
+        assert!(privacy.leaves_device);
+        assert_eq!(privacy.data_kind, PrivacyDataKind::Derived);
+        assert!(privacy.destinations.contains(&"OpenHuman backend"));
     }
 }
 

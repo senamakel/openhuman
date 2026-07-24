@@ -871,14 +871,14 @@ mod tests {
         .is_none());
         let line = format_event(&AgentProgress::ToolCallStarted {
             call_id: "c1".into(),
-            tool_name: "codegraph_search".into(),
+            tool_name: "memory_search".into(),
             arguments: serde_json::json!({"query": "x"}),
             iteration: 2,
             display_label: None,
             display_detail: None,
         })
         .expect("tool call logged");
-        assert!(line.contains("codegraph_search"));
+        assert!(line.contains("memory_search"));
         assert!(line.contains("it 2"));
     }
 }

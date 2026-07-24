@@ -22,6 +22,7 @@ impl AgentBuilder {
             turn_model_source: None,
             tools: None,
             visible_tool_names: None,
+            subagent_tool_ceiling_names: None,
             memory: None,
             shared_experience_memory: None,
             prompt_builder: None,
@@ -97,6 +98,14 @@ impl AgentBuilder {
     /// runner. Pass `None` (default) to make all tools visible.
     pub fn visible_tool_names(mut self, names: std::collections::HashSet<String>) -> Self {
         self.visible_tool_names = Some(names);
+        self
+    }
+
+    /// Restrict the tool names that delegated agents may inherit from the full
+    /// registry. Empty/`None` keeps delegation governed by each child
+    /// definition unless the channel policy adds a ceiling.
+    pub fn subagent_tool_ceiling_names(mut self, names: std::collections::HashSet<String>) -> Self {
+        self.subagent_tool_ceiling_names = Some(names);
         self
     }
 
@@ -454,6 +463,41 @@ impl AgentBuilder {
             &visible_names,
         );
 
+        // A child agent inherits explicit profile and channel restrictions, but
+        // not the coordinator's own role-specific tool scope. For example, the
+        // orchestrator intentionally cannot call `file_write` directly while
+        // its code-executor specialist must be able to do so. Conflating those
+        // two surfaces silently stripped specialist tools (#5118 merge).
+        //
+        // Build a second policy snapshot without the role visibility filter.
+        // `tool_policy_session` marks both channel-blocked and role-hidden tools
+        // as restricted, so deriving the child ceiling from it would reintroduce
+        // exactly that conflation.
+        let channel_policy_session = ToolPolicyEngine::build_session(
+            &agent_definition_name,
+            &event_channel,
+            "session",
+            &config.channel_permissions,
+            &tools,
+            &std::collections::HashSet::new(),
+        );
+        let mut subagent_tool_ceiling_names = self.subagent_tool_ceiling_names.unwrap_or_default();
+        if channel_policy_session.has_restrictions() {
+            let policy_allowed: std::collections::HashSet<String> = tool_specs
+                .iter()
+                .filter(|spec| channel_policy_session.is_allowed(&spec.name))
+                .map(|spec| spec.name.clone())
+                .collect();
+            if subagent_tool_ceiling_names.is_empty() {
+                subagent_tool_ceiling_names = policy_allowed;
+            } else {
+                subagent_tool_ceiling_names.retain(|name| policy_allowed.contains(name));
+                if subagent_tool_ceiling_names.is_empty() {
+                    subagent_tool_ceiling_names.insert("__subagent_no_tools__".to_string());
+                }
+            }
+        }
+
         // Build the filtered spec list that the main agent sends to the
         // provider. The explicit visible-tool allowlist and the resolved
         // channel permission policy must stay aligned so prompt-visible
@@ -522,6 +566,7 @@ impl AgentBuilder {
             tool_specs: Arc::new(tool_specs),
             visible_tool_specs: Arc::new(visible_tool_specs),
             visible_tool_names: visible_names,
+            subagent_tool_ceiling_names,
             tool_policy_session,
             memory: self
                 .memory

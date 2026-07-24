@@ -12,6 +12,7 @@ fn lazy_resolver_tolerates_near_miss_slugs() {
     let resolver = LazyToolkitResolver {
         config: std::sync::Arc::new(crate::openhuman::config::Config::default()),
         actions: vec![mk("GOOGLESLIDES_BATCH_UPDATE"), mk("GMAIL_LIST_MESSAGES")],
+        resolved: std::sync::Mutex::default(),
     };
     // Exact, case-insensitive, and separator/prefix drift all resolve
     // (bug-report-2026-05-26 A2).
@@ -374,6 +375,7 @@ fn make_parent(
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(tool_specs),
         visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
         model_name: "test-model".into(),
         temperature: 0.5,
         workspace_dir: std::env::temp_dir(),
@@ -1571,6 +1573,7 @@ fn repro_3152_near_miss_write_slug_resolves_uniquely() {
             mk("NOTION_CREATE_NOTION_PAGE"),
             mk("NOTION_FETCH_DATA"),
         ],
+        resolved: std::sync::Mutex::default(),
     };
     let resolved = resolver
         .resolve("NOTION_SEARCH_NOTION")
@@ -1599,6 +1602,7 @@ fn prefix_tier_refuses_ambiguous_and_short_slugs() {
             mk("NOTION_SEARCH_NOTION_DATABASE"),
             mk("NOTION_CREATE_NOTION_PAGE"),
         ],
+        resolved: std::sync::Mutex::default(),
     };
     // `NOTION_SEARCH_NOTION` is a prefix of TWO actions → ambiguous → None.
     assert!(

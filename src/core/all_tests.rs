@@ -1130,12 +1130,13 @@ fn meet_controllers_absent_when_feature_off() {
     }
 }
 
-/// The channel + webview-bridge namespaces register when the `channels` feature
-/// is on (#4801).
+/// The external-channel namespace registers when the `channels` feature is on
+/// (#4801).
 ///
 /// Paired with `channels_controllers_absent_when_feature_off` below to pin both
-/// directions of the compile-time gate. `webview_notifications` has no
-/// controllers (v1 toggle lives shell-side), so it is not asserted here.
+/// directions of the compile-time gate. The webview API/notification bridges
+/// and WhatsApp store have moved to the Tauri shell and expose no core
+/// controllers.
 #[cfg(feature = "channels")]
 #[test]
 fn channels_controllers_registered_when_feature_on() {
@@ -1143,12 +1144,10 @@ fn channels_controllers_registered_when_feature_on() {
         .iter()
         .map(|s| s.namespace)
         .collect();
-    for ns in ["channels", "webview_apis", "whatsapp_data"] {
-        assert!(
-            namespaces.contains(&ns),
-            "with the `channels` feature ON the `{ns}` controllers must be registered"
-        );
-    }
+    assert!(
+        namespaces.contains(&"channels"),
+        "with the `channels` feature ON the `channels` controllers must be registered"
+    );
 }
 
 /// With `channels` compiled out the channel + webview-bridge domains leave zero
@@ -1166,18 +1165,11 @@ fn channels_controllers_absent_when_feature_off() {
         .iter()
         .map(|s| s.namespace)
         .collect();
-    for ns in [
-        "channels",
-        "webview_apis",
-        "webview_notifications",
-        "whatsapp_data",
-    ] {
-        assert!(
-            !namespaces.contains(&ns),
-            "with the `channels` feature OFF the `{ns}` controllers must be absent \
-             (unknown-method over /rpc, omitted from /schema)"
-        );
-    }
+    assert!(
+        !namespaces.contains(&"channels"),
+        "with the `channels` feature OFF the `channels` controllers must be absent \
+         (unknown-method over /rpc, omitted from /schema)"
+    );
     // #5002 decoupling: the in-app web chat controllers (RPC namespace `channel`)
     // are core product surface and must survive the `channels` gate being off.
     assert!(
@@ -1235,40 +1227,4 @@ fn http_host_controllers_absent_when_http_server_off() {
         !schemas.iter().any(|s| s.namespace == "http_host"),
         "`http_host` controllers must be compiled out when the `http-server` feature is off"
     );
-}
-
-/// All three desktop-automation namespaces register under
-/// `DomainGroup::DesktopAutomation` when the `desktop-automation` feature is on
-/// (#5049). Paired with `desktop_automation_controllers_absent_when_feature_off`
-/// below: together they pin both directions of the compile-time gate.
-#[cfg(feature = "desktop-automation")]
-#[test]
-fn desktop_automation_controllers_registered_when_feature_on() {
-    for ns in ["autocomplete", "screen_intelligence", "companion"] {
-        assert_eq!(
-            group_for_namespace(ns),
-            Some(DomainGroup::DesktopAutomation),
-            "`{ns}` must register under DomainGroup::DesktopAutomation when the \
-             `desktop-automation` feature is on"
-        );
-    }
-}
-
-/// Negative half of the `desktop-automation` gate (#5049): with the cluster
-/// compiled out, none of the `autocomplete` / `screen_intelligence` / `companion`
-/// controllers register (unknown-method over `/rpc`, absent from `/schema`).
-/// Pairs with `desktop_automation_controllers_registered_when_feature_on` above.
-/// The `screen_intelligence_*` tool-absence half lives in
-/// `tools::ops_tests::screen_intelligence_tools_absent_when_feature_off`, where
-/// the full agent tool list can be built.
-#[cfg(not(feature = "desktop-automation"))]
-#[test]
-fn desktop_automation_controllers_absent_when_feature_off() {
-    for ns in ["autocomplete", "screen_intelligence", "companion"] {
-        assert_eq!(
-            group_for_namespace(ns),
-            None,
-            "`{ns}` must not register when the `desktop-automation` feature is off"
-        );
-    }
 }

@@ -849,7 +849,6 @@ mod tests {
         assert!(body.contains("use `ask_docs`"));
         assert!(body.contains("use `schedule_task`"));
         assert!(body.contains("use `make_presentation`"));
-        assert!(body.contains("use `delegate_desktop_control`"));
         assert!(
             !body.contains("## Presentation generation"),
             "presentation-specific grounding policy belongs in presentation_agent"

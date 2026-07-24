@@ -107,9 +107,18 @@ sentry = { version = "0.47.0", default-features = false, features = ["backtrace"
 
 # Used by the imessage_scanner module.
 anyhow = "1.0"
+# SQLite for the shell-side whatsapp_data store (relocated from the core). All
+# platforms — the store persists on Windows/Linux/macOS. Pinned to match the
+# core crate so a single bundled SQLite is linked. (The macOS-only iMessage
+# scanner also uses rusqlite; this general dep covers it too.)
+rusqlite = { version = "=0.40.0", features = ["bundled"] }
 parking_lot = "0.12"
 chrono = "0.4"
 async-trait = "0.1"
+# Desktop companion: native mic capture + POINT-tag parsing + session ids.
+cpal = "0.15"
+regex = "1"
+uuid = { version = "1", features = ["v4"] }
 # Mascot fake-camera pipeline (meet_call): rasterizes the OpenHuman
 # mascot SVG to a PNG once, converts it to a YUV420 Y4M frame, and
 # points CEF's `--use-file-for-fake-video-capture` flag at the cached
@@ -177,7 +186,6 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
     # http://127.0.0.1:<port>/rpc, so it REQUIRES the HTTP + Socket.IO transport
     # (#5048). Enforced by the HTTP_SERVER_COMPILED_IN compile assert in lib.rs.
     "http-server",
-    "desktop-automation",
     "medulla-local",
 ] }
 tinyjuice = { version = "0.2.1", default-features = false }
@@ -189,8 +197,8 @@ nix = { version = "0.29", default-features = false, features = ["hostname", "sig
 objc2 = "0.6"
 objc2-app-kit = "0.3.2"
 mac-notification-sys = "0.6"
-# iMessage scanner reads ~/Library/Messages/chat.db read-only on macOS.
-rusqlite = { version = "=0.40.0", features = ["bundled"] }
+# iMessage scanner reads ~/Library/Messages/chat.db read-only on macOS
+# (rusqlite is declared once in the general [dependencies] table above).
 objc2-user-notifications = "0.3.2"
 block2 = "0.6.2"
 objc2-foundation = { version = "0.3.2", features = ["NSTimer", "block2"] }

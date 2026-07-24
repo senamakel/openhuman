@@ -200,12 +200,6 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         content: include_str!("../agent_registry/agents/presentation_agent/prompt.md"),
     },
     PromptResource {
-        uri: "openhuman://prompts/agents/desktop_control_agent",
-        name: "desktop_control_agent",
-        description: "Specialist worker for desktop app launch and accessibility actions.",
-        content: include_str!("../agent_registry/agents/desktop_control_agent/prompt.md"),
-    },
-    PromptResource {
         uri: "openhuman://prompts/agents/mcp_setup",
         name: "mcp_setup",
         description: "Worker that guides the user through MCP client configuration.",

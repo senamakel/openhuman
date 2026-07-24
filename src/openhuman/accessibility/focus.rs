@@ -7,7 +7,9 @@
 use super::terminal::{is_terminal_app, is_text_role};
 #[cfg(target_os = "macos")]
 use super::text_util::{normalize_ax_value, parse_ax_number};
-use super::types::{ElementBounds, FocusedTextContext};
+#[cfg(target_os = "macos")]
+use super::types::ElementBounds;
+use super::types::FocusedTextContext;
 #[cfg(any(target_os = "macos", test))]
 use std::{
     process::{Command, Output, Stdio},

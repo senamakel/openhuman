@@ -18,6 +18,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import ChipTabs from '../../components/layout/ChipTabs';
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import Button from '../../components/ui/Button';
+import { ErrorBanner } from '../../components/ui/LoadingState';
 import {
   type AvailabilityResponse,
   type DirectoryIdentityListingsResponse,
@@ -244,7 +245,7 @@ function PaymentRequiredBanner() {
   );
 }
 
-function ErrorBanner({ message }: { message: string }) {
+function renderIdentityLoadError(message: string) {
   const isWalletLocked =
     message.includes('wallet is not configured') ||
     message.includes('wallet secret material is missing');
@@ -262,10 +263,10 @@ function ErrorBanner({ message }: { message: string }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-32 gap-2 text-red-400">
+    <ErrorBanner className="flex h-32 flex-col items-center justify-center gap-2">
       <p className="text-sm font-medium">Failed to load</p>
       <p className="text-xs text-content-faint">{message}</p>
-    </div>
+    </ErrorBanner>
   );
 }
 
@@ -610,7 +611,7 @@ function RegistryTab() {
           <p className="px-3 py-4 text-xs text-content-muted animate-pulse">Loading identities…</p>
         )}
         {directoryState.status === 'payment_required' && <PaymentRequiredBanner />}
-        {directoryState.status === 'error' && <ErrorBanner message={directoryState.message} />}
+        {directoryState.status === 'error' && renderIdentityLoadError(directoryState.message)}
         {directoryState.status === 'ok' && listings.length === 0 && (
           <p className="px-3 py-4 text-xs text-content-muted">
             No directory identities are currently listed.
@@ -787,7 +788,7 @@ function TradingTab() {
           <p className="text-xs text-content-muted animate-pulse">Loading listings…</p>
         )}
         {marketState.status === 'payment_required' && <PaymentRequiredBanner />}
-        {marketState.status === 'error' && <ErrorBanner message={marketState.message} />}
+        {marketState.status === 'error' && renderIdentityLoadError(marketState.message)}
         {marketState.status === 'ok' && listings.length === 0 && (
           <p className="text-xs text-content-muted">No identities listed for sale</p>
         )}

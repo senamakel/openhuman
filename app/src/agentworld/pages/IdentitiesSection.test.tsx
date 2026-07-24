@@ -611,6 +611,7 @@ describe('Registry tab', () => {
     await gotoTab('Registry');
     expect(await screen.findByText('Failed to load')).toBeInTheDocument();
     expect(screen.getByText(/directory down/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toContainElement(screen.getByText(/directory down/));
   });
 
   test('shows the wallet-locked banner when the error mentions a missing wallet', async () => {
@@ -898,6 +899,7 @@ describe('Trading tab — listed for sale', () => {
     await gotoTab('Trading');
     expect(await screen.findByText('Failed to load')).toBeInTheDocument();
     expect(screen.getByText(/listings down/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toContainElement(screen.getByText(/listings down/));
   });
 });
 

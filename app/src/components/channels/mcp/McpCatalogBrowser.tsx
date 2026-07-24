@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import Button from '../../ui/Button';
+import Input from '../../ui/Input';
 import { mcpRegistryErrorMessage } from './mcpRegistryErrorMessage';
 import McpServerCard from './McpServerCard';
 import type { SmitheryServer } from './types';
@@ -88,13 +89,13 @@ const McpCatalogBrowser = ({ onSelectInstall }: McpCatalogBrowserProps) => {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <input
+        <Input
           type="search"
           aria-label={t('mcp.catalog.searchAria')}
           placeholder={t('mcp.catalog.searchPlaceholder')}
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+          className="flex-1"
         />
       </div>
 

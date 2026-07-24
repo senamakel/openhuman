@@ -23,7 +23,9 @@ describe('McpCatalogBrowser', () => {
   it('renders search input', async () => {
     mockRegistrySearch.mockResolvedValue({ servers: [], page: 1, total_pages: 1 });
     render(<McpCatalogBrowser onSelectInstall={() => {}} />);
-    expect(screen.getByPlaceholderText('Search MCP servers...')).toBeInTheDocument();
+    const search = screen.getByPlaceholderText('Search MCP servers...');
+    expect(search).toHaveAttribute('type', 'search');
+    expect(search).toHaveClass('h-9');
   });
 
   it('fires debounced search on input change', async () => {

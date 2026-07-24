@@ -36,6 +36,7 @@ import {
 } from '../../hooks/useRunsPendingApprovalSet';
 import { useT } from '../../lib/i18n/I18nContext';
 import { type FlowRun, listFlowRuns } from '../../services/api/flowsApi';
+import { CenteredLoadingState, ErrorBanner } from '../ui/LoadingState';
 import {
   FLOW_RUN_STATUS_ACCENT,
   FLOW_RUN_STATUS_DOT,
@@ -210,20 +211,16 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
 
           <div className="flex-1 overflow-y-auto px-4 py-4">
             {loading && (
-              <div
-                className="flex items-center gap-2 py-8 text-content-faint"
-                data-testid="flow-runs-loading">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
-                <span className="text-sm">{t('flows.runs.loading')}</span>
+              <div data-testid="flow-runs-loading">
+                <CenteredLoadingState label={t('flows.runs.loading')} />
               </div>
             )}
 
             {error && (
-              <div
-                role="alert"
-                data-testid="flow-runs-error"
-                className="rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-                {t('flows.runs.loadError')}: {error}
+              <div data-testid="flow-runs-error">
+                <ErrorBanner>
+                  {t('flows.runs.loadError')}: {error}
+                </ErrorBanner>
               </div>
             )}
 

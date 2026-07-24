@@ -102,7 +102,9 @@ describe('FlowRunsDrawer', () => {
   it('shows a loading state before the fetch resolves', () => {
     listFlowRuns.mockReturnValue(new Promise(() => {})); // never resolves
     renderDrawer('flow-1', vi.fn());
-    expect(screen.getByTestId('flow-runs-loading')).toBeInTheDocument();
+    const loading = screen.getByTestId('flow-runs-loading');
+    expect(loading).toHaveTextContent('Loading runs…');
+    expect(loading.querySelector('svg')).toBeInTheDocument();
   });
 
   it('fetches and lists runs for the flow', async () => {
@@ -178,7 +180,9 @@ describe('FlowRunsDrawer', () => {
   it('shows an error state when the fetch fails', async () => {
     listFlowRuns.mockRejectedValue(new Error('core unreachable'));
     renderDrawer('flow-1', vi.fn());
-    expect(await screen.findByTestId('flow-runs-error')).toHaveTextContent('core unreachable');
+    const error = await screen.findByTestId('flow-runs-error');
+    expect(error).toHaveTextContent('core unreachable');
+    expect(screen.getByRole('alert')).toHaveClass('bg-coral-500/10');
   });
 
   it('opens the run inspector on top when a run row is clicked', async () => {

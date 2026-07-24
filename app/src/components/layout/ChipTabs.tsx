@@ -18,6 +18,10 @@ export interface ChipTabItem<T extends string> {
    * `testIdPrefix` is set on the bar, otherwise no testid is emitted.
    */
   testId?: string;
+  /** ID of the tab panel controlled by this chip. */
+  controls?: string;
+  /** ID assigned to the chip so its panel can reference it via `aria-labelledby`. */
+  labelledBy?: string;
 }
 
 export interface ChipTabsProps<T extends string> {
@@ -47,12 +51,16 @@ export interface ChipTabsProps<T extends string> {
    * already supply their own gutter.
    */
   className?: string;
+  /** Uses a smaller chip footprint while retaining the row layout. */
+  compact?: boolean;
 }
 
 /** Canonical chip-row spacing — its own gutter so content below sits correctly. */
 const DEFAULT_ROW_CLASS = 'flex flex-wrap gap-1.5 px-4 pt-3 pb-3';
 
-const baseChipClass = 'rounded-full px-3 py-1 text-xs font-medium transition-colors';
+const baseChipClass = 'rounded-full text-xs font-medium transition-colors';
+const defaultChipSpacingClass = 'px-3 py-1';
+const compactChipSpacingClass = 'px-2 py-0.5';
 // Inverse pill built from theme tokens: the foreground colour becomes the fill
 // and the surface colour becomes the text, so the selected chip stays
 // high-contrast and on-theme under any palette (light, dark, or custom).
@@ -78,6 +86,7 @@ export default function ChipTabs<T extends string>({
   testId,
   testIdPrefix,
   className = DEFAULT_ROW_CLASS,
+  compact = false,
 }: ChipTabsProps<T>) {
   const isNav = as === 'nav';
 
@@ -97,13 +106,18 @@ export default function ChipTabs<T extends string>({
             type="button"
             data-testid={chipTestId}
             role={isNav ? undefined : 'tab'}
+            id={isNav ? undefined : item.labelledBy}
             aria-selected={isNav ? undefined : active}
+            aria-controls={isNav ? undefined : item.controls}
             aria-current={isNav ? (active ? 'page' : undefined) : undefined}
+            tabIndex={isNav ? undefined : active ? 0 : -1}
             onClick={() => {
               debug('select', { id: item.id });
               onChange(item.id);
             }}
-            className={`${baseChipClass} ${active ? activeChipClass : inactiveChipClass}`}>
+            className={`${baseChipClass} ${
+              compact ? compactChipSpacingClass : defaultChipSpacingClass
+            } ${active ? activeChipClass : inactiveChipClass}`}>
             {item.label}
           </button>
         );

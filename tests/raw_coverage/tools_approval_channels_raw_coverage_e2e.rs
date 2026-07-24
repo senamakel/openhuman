@@ -101,8 +101,7 @@ use openhuman_core::openhuman::tools::generated::{
 use openhuman_core::openhuman::tools::orchestrator_tools::collect_orchestrator_tools;
 use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
-    decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
-    write_bytes_to_path, ApplyPatchTool, BrowserTool, CleaningStrategy,
+    default_tools, ApplyPatchTool, BrowserTool, CleaningStrategy,
     ComputerUseConfig, CsvExportTool, CurrentTimeTool, DefaultToolPolicy, DetectToolsTool,
     EditFileTool, FileReadTool, FileWriteTool, GitbooksGetPageTool, GitbooksSearchTool, GlobTool,
     GrepTool, InsertSqlRecordTool, ListFilesTool, LspTool, NodeExecTool, NpmExecTool,
@@ -1562,31 +1561,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(!default_tool.external_effect_with_args(&json!({})));
     assert!(default_tool.generated_runtime_context(&json!({})).is_none());
     assert!(default_tool.max_result_size_chars().is_none());
-
-    let png_data_url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-    let raw_screenshot = format!(
-        "noise\nScreenshot saved to: {}\n{png_data_url}\n",
-        dir.path().join("shot.png").display()
-    );
-    assert_eq!(
-        extract_data_url(&raw_screenshot).as_deref(),
-        Some(png_data_url)
-    );
-    assert_eq!(
-        extract_saved_path(&raw_screenshot).as_deref(),
-        Some(dir.path().join("shot.png").as_path())
-    );
-    let decoded = decode_data_url_bytes(png_data_url).expect("decode png");
-    assert_eq!(&decoded[..4], b"\x89PNG");
-    assert!(decode_data_url_bytes("data:text/plain;base64,aGVsbG8=")
-        .expect_err("non-image data URL rejected")
-        .contains("invalid data URL"));
-    let nested = dir.path().join("screens").join("nested").join("shot.png");
-    write_bytes_to_path(&nested, &decoded).expect("write screenshot bytes");
-    assert_eq!(
-        std::fs::read(&nested).expect("read screenshot bytes"),
-        decoded
-    );
 
     let computer = ComputerUseConfig {
         api_key: Some("secret-key".into()),

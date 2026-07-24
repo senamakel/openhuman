@@ -767,9 +767,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
-  // CycleUsagePill moved into ChatComposer toolbar (#3611) — quota-pill
-  // loading test removed; the "Loading…" text no longer renders here.
-
   // Covers budget banner: budget-exhausted banner + OpenRouter CTA
   it('renders budget-limit banner when teamUsage is present', async () => {
     // cycleBudgetUsd: 0 → renders "Your included budget is complete" branch
@@ -2006,9 +2003,6 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
     // cycleBudgetUsd=0 → false branch of cycleBudgetUsd > 0 ternary → budgetComplete key
     expect(screen.getByText(/Your included budget is complete/i)).toBeInTheDocument();
   });
-
-  // CycleUsagePill (cycle-pill tooltip, loading pulse) moved into ChatComposer
-  // toolbar (#3611) — those tests removed; the pill no longer renders here.
 });
 
 // #3717 (Bug 2) — A single logical assistant turn can be persisted as multiple

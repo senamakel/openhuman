@@ -36,6 +36,34 @@ describe('ChipTabs', () => {
     expect(screen.getByTestId('t-three')).toHaveAttribute('tabindex', '-1');
   });
 
+  it.each([
+    ['ArrowRight', 'three'],
+    ['ArrowLeft', 'one'],
+    ['Home', 'one'],
+    ['End', 'three'],
+  ] as const)('moves focus and selects with %s', (key, expectedId) => {
+    const onChange = vi.fn();
+    render(<ChipTabs items={items} value="two" onChange={onChange} testIdPrefix="t" />);
+
+    const activeTab = screen.getByTestId('t-two');
+    activeTab.focus();
+    fireEvent.keyDown(activeTab, { key });
+
+    expect(onChange).toHaveBeenCalledWith(expectedId);
+    expect(screen.getByTestId(`t-${expectedId}`)).toHaveFocus();
+  });
+
+  it('wraps arrow-key navigation at either end', () => {
+    const onChange = vi.fn();
+    render(<ChipTabs items={items} value="one" onChange={onChange} testIdPrefix="t" />);
+
+    fireEvent.keyDown(screen.getByTestId('t-one'), { key: 'ArrowLeft' });
+    expect(onChange).toHaveBeenLastCalledWith('three');
+
+    fireEvent.keyDown(screen.getByTestId('t-three'), { key: 'ArrowRight' });
+    expect(onChange).toHaveBeenLastCalledWith('one');
+  });
+
   it('connects a tab to its panel through stable IDs', () => {
     render(
       <>

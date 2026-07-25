@@ -96,7 +96,7 @@ export default function ChipTabs<T extends string>({
       role={isNav ? 'navigation' : 'tablist'}
       aria-label={ariaLabel}
       data-testid={testId}>
-      {items.map(item => {
+      {items.map((item, index) => {
         const active = item.id === value;
         const chipTestId = item.testId ?? (testIdPrefix ? `${testIdPrefix}-${item.id}` : undefined);
 
@@ -115,6 +115,29 @@ export default function ChipTabs<T extends string>({
               debug('select', { id: item.id });
               onChange(item.id);
             }}
+            onKeyDown={
+              isNav
+                ? undefined
+                : event => {
+                    let nextIndex: number | null = null;
+                    if (event.key === 'ArrowRight') nextIndex = (index + 1) % items.length;
+                    if (event.key === 'ArrowLeft')
+                      nextIndex = (index - 1 + items.length) % items.length;
+                    if (event.key === 'Home') nextIndex = 0;
+                    if (event.key === 'End') nextIndex = items.length - 1;
+                    if (nextIndex === null) return;
+
+                    event.preventDefault();
+                    const nextItem = items[nextIndex];
+                    if (!nextItem) return;
+                    debug('keyboard select', { id: nextItem?.id, key: event.key });
+                    onChange(nextItem.id);
+                    const tabs = event.currentTarget
+                      .closest('[role="tablist"]')
+                      ?.querySelectorAll<HTMLElement>('[role="tab"]');
+                    tabs?.[nextIndex]?.focus();
+                  }
+            }
             className={`${baseChipClass} ${
               compact ? compactChipSpacingClass : defaultChipSpacingClass
             } ${active ? activeChipClass : inactiveChipClass}`}>

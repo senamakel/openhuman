@@ -147,7 +147,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "blo
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"
-tokio = { version = "1", features = ["full", "sync"] }
+tokio = { version = "1", features = ["full"] }
 once_cell = "1.19"
 parking_lot = "0.12"
 log = "0.4"
@@ -160,15 +160,10 @@ argon2 = "0.5"
 rand = "0.10"
 dirs = "5"
 sha2 = "0.10"
-# Line-level text diffs for the memory_diff module (modified-item unified diffs).
-similar = "2"
 # Git-backed change ledger for the memory_diff module: snapshots are commits,
 # checkpoints are tags, read markers are refs, diffs are git tree diffs.
 # Vendored libgit2 (no system git dependency on end-user machines).
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
-# Legacy SHA-1 only used for Tencent COS HMAC-SHA1 signing (yuanbao
-# channel media upload). Not used for any new security-sensitive work.
-sha1 = "0.10"
 hmac = "0.12"
 # Archive extraction for the Node.js runtime bootstrap. Unix Node
 # distributions ship as .tar.xz, Windows as .zip. `xz2` with `static`
@@ -217,7 +212,6 @@ thiserror = "2.0"
 ring = "0.17"
 chrono-tz = "0.10"
 dotenvy = "0.15"
-console = "0.16"
 regex = "1.10"
 # Multi-pattern fixed-string DFA matcher used by `routing::quality` for
 # refusal/empty-noise detection on local-model responses. Already in the
@@ -229,9 +223,6 @@ walkdir = "2"
 glob = "0.3"
 hostname = "0.4.2"
 rustls = { version = "0.23", features = ["ring"] }
-rustls-pki-types = "1.14.0"
-tokio-rustls = "0.26.4"
-webpki-roots = "1.0.6"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
 clap = { version = "4.5", features = ["derive"] }
@@ -245,11 +236,10 @@ lettre = { version = "0.11.22", default-features = false, features = ["builder",
 # `http-server` feature note below and `src/core/http_server_status.rs`.
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"], optional = true }
 sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "reqwest", "rustls"] }
-tokio-stream = { version = "0.1.18", features = ["full"] }
+tokio-stream = { version = "0.1.18", default-features = false, features = ["sync"] }
 url = "2"
 socketioxide = { version = "0.15", features = ["extensions"], optional = true }
 whisper-rs = { version = "0.16", optional = true }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 tempfile = "3"
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
@@ -459,10 +449,9 @@ web3 = ["dep:bitcoin", "dep:curve25519-dalek"]
 # contracts scaffold. Default-ON. Slim builds opt out via
 # `--no-default-features --features "<explicit list without media>"`.
 # Composes with the runtime `DomainSet::media` flag (#4796).
-# NOTE: this gate sheds NO exclusive dependencies — media generation is
-# backend-proxied (reqwest, shared) and the `image` crate is shared with
-# channel media upload. It is a surface-only gate (drops the tool code +
-# module from the compile), not a dependency-shedding one. There are no
+# NOTE: this gate sheds no exclusive dependencies — media generation is
+# backend-proxied (reqwest, shared). It is a surface-only gate (drops the tool
+# code + module from the compile), not a dependency-shedding one. There are no
 # controllers / stores / subscribers tagged `Media` (agent tools only), and
 # `openhuman::image` is currently unwired scaffold (added #2997).
 media = []

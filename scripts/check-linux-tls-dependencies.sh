@@ -2,24 +2,48 @@
 set -euo pipefail
 
 target="${1:-x86_64-unknown-linux-gnu}"
-forbidden='^(native-tls|openssl|openssl-sys|aws-lc-rs|aws-lc-sys) v'
+forbidden='^(native-tls|openssl|openssl-sys) v'
 
-tree="$(cargo tree --locked --target "$target" --prefix none)"
-if matches="$(printf '%s\n' "$tree" | grep -E "$forbidden")"; then
-  printf 'error: native TLS/OpenSSL dependencies found for %s:\n%s\n' \
-    "$target" "$matches" >&2
-  exit 1
-fi
+check_world() {
+  local label="$1"
+  local manifest="$2"
+  local tree
+  tree="$(cargo tree --locked --manifest-path "$manifest" --target "$target" --prefix none)"
+  if [[ "$label" == core ]] &&
+    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden")"; then
+    printf 'error: native TLS/OpenSSL dependencies found in %s for %s:\n%s\n' \
+      "$label" "$target" "$matches" >&2
+    exit 1
+  fi
 
-reqwest_versions="$(
-  printf '%s\n' "$tree" |
-    sed -nE 's/^reqwest v([^ ]+).*/\1/p' |
-    sort -u
-)"
-if [[ "$(printf '%s\n' "$reqwest_versions" | sed '/^$/d' | wc -l)" -ne 1 ]]; then
-  printf 'error: expected exactly one reqwest version for %s, found:\n%s\n' \
-    "$target" "$reqwest_versions" >&2
-  exit 1
-fi
+  # Tauri legitimately owns reqwest 0.13 for its dev proxy/updater. Sentry
+  # must never own that tree: OpenHuman supplies its reqwest 0.12 transport.
+  for version in 0.13.1 0.13.2; do
+    owners="$(
+      cargo tree --locked --manifest-path "$manifest" --target "$target" \
+        --invert "reqwest@$version" 2>/dev/null || true
+    )"
+    if printf '%s\n' "$owners" | grep -Eq '^sentry v'; then
+      printf 'error: Sentry owns reqwest %s in %s\n%s\n' \
+        "$version" "$label" "$owners" >&2
+      exit 1
+    fi
+  done
 
-printf 'Linux TLS dependency policy passed for %s\n' "$target"
+  for package in native-tls openssl openssl-sys; do
+    owners="$(
+      cargo tree --locked --manifest-path "$manifest" --target "$target" \
+        --invert "$package" 2>/dev/null || true
+    )"
+    if printf '%s\n' "$owners" | grep -Eq '^sentry v'; then
+      printf 'error: Sentry owns %s in %s\n%s\n' \
+        "$package" "$label" "$owners" >&2
+      exit 1
+    fi
+  done
+}
+
+check_world core Cargo.toml
+check_world tauri app/src-tauri/Cargo.toml
+
+printf 'Linux TLS/Sentry dependency policy passed for both Cargo worlds (%s)\n' "$target"

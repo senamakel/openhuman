@@ -152,6 +152,7 @@ jobs:
               - 'scripts/test-rust-e2e.sh'
               - 'scripts/test-rust-with-mock.sh'
               - 'vendor/motosan-ai-oauth/**'
+              - 'vendor/tinychannels'
             # Changes here invalidate per-module test scoping → full suite.
             rust-core-full:
               - '.github/workflows/ci-lite.yml'
@@ -164,6 +165,7 @@ jobs:
               - 'scripts/ci-cancel-aware.sh'
               - 'scripts/check-linux-tls-dependencies.sh'
               - 'vendor/motosan-ai-oauth/**'
+              - 'vendor/tinychannels'
             rust-core-src:
               - 'src/**'
               - 'tests/**'

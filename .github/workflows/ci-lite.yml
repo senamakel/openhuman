@@ -148,8 +148,10 @@ jobs:
               - 'src/**'
               - 'tests/**'
               - 'scripts/ci-cancel-aware.sh'
+              - 'scripts/check-linux-tls-dependencies.sh'
               - 'scripts/test-rust-e2e.sh'
               - 'scripts/test-rust-with-mock.sh'
+              - 'vendor/motosan-ai-oauth/**'
             # Changes here invalidate per-module test scoping → full suite.
             rust-core-full:
               - '.github/workflows/ci-lite.yml'
@@ -160,6 +162,8 @@ jobs:
               - '.cargo/config.toml'
               - 'rust-toolchain.toml'
               - 'scripts/ci-cancel-aware.sh'
+              - 'scripts/check-linux-tls-dependencies.sh'
+              - 'vendor/motosan-ai-oauth/**'
             rust-core-src:
               - 'src/**'
               - 'tests/**'
@@ -348,6 +352,10 @@ jobs:
 
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
+
+      - name: Enforce Linux TLS dependency policy
+        if: needs.changes.outputs['rust-core'] == 'true'
+        run: bash scripts/check-linux-tls-dependencies.sh
 
       - name: Run clippy (core crate)
         if: needs.changes.outputs['rust-core'] == 'true'

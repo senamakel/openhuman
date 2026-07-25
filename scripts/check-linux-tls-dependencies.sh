@@ -45,6 +45,12 @@ check_world() {
         "$package" "$label" "$owners" >&2
       exit 1
     fi
+    if [[ "$label" == tauri ]] &&
+      printf '%s\n' "$owners" | grep -Eq '^motosan-ai-oauth v'; then
+      printf 'error: motosan-ai-oauth owns %s in %s\n%s\n' \
+        "$package" "$label" "$owners" >&2
+      exit 1
+    fi
   done
 }
 

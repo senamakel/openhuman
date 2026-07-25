@@ -235,7 +235,7 @@ lettre = { version = "0.11.22", default-features = false, features = ["builder",
 # services and answers over the CLI/native dispatch surface. See the
 # `http-server` feature note below and `src/core/http_server_status.rs`.
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"], optional = true }
-sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images"] }
+sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "httpdate"] }
 tokio-stream = { version = "0.1.18", default-features = false, features = ["sync"] }
 url = "2"
 socketioxide = { version = "0.15", features = ["extensions"], optional = true }

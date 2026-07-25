@@ -21,6 +21,13 @@ vi.mock('../services/api/flowsApi', () => ({
 const fetchPendingApprovals = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/approvalApi', () => ({ fetchPendingApprovals }));
 
+const runFinished = vi.hoisted(() => ({ callback: undefined as (() => void) | undefined }));
+vi.mock('../hooks/useFlowRunFinished', () => ({
+  useFlowRunFinished: (callback: () => void) => {
+    runFinished.callback = callback;
+  },
+}));
+
 // PanelPage + LoadingState pull i18n/redux we don't need — stub to bare markup.
 vi.mock('../components/layout/PanelPage', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -37,6 +44,19 @@ describe('WorkflowRunsPage', () => {
     listFlows.mockReset();
     fetchPendingApprovals.mockReset();
     fetchPendingApprovals.mockResolvedValue([]);
+    runFinished.callback = undefined;
+  });
+
+  it('refreshes immediately when any run finishes', async () => {
+    listAllFlowRuns.mockResolvedValue([]);
+    listFlows.mockResolvedValue([]);
+    render(<WorkflowRunsPage />);
+
+    await screen.findByTestId('workflow-runs-empty');
+    expect(runFinished.callback).toBeTypeOf('function');
+    act(() => runFinished.callback?.());
+
+    await waitFor(() => expect(listAllFlowRuns).toHaveBeenCalledTimes(2));
   });
 
   it('renders aggregate runs with their workflow name and status', async () => {

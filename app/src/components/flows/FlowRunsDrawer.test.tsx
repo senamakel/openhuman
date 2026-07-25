@@ -30,6 +30,13 @@ vi.mock('../../hooks/useFlowRunStarted', () => ({
   },
 }));
 
+const runFinished = vi.hoisted(() => ({ callback: undefined as (() => void) | undefined }));
+vi.mock('../../hooks/useFlowRunFinished', () => ({
+  useFlowRunFinished: (callback: () => void) => {
+    runFinished.callback = callback;
+  },
+}));
+
 const fetchPendingApprovals = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/approvalApi', () => ({ fetchPendingApprovals }));
 
@@ -82,7 +89,21 @@ describe('FlowRunsDrawer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     runStarted.callback = undefined;
+    runFinished.callback = undefined;
     fetchPendingApprovals.mockResolvedValue([]);
+  });
+
+  it('refreshes immediately when a run finishes', async () => {
+    listFlowRuns
+      .mockResolvedValueOnce([makeRun({ status: 'running' })])
+      .mockResolvedValueOnce([makeRun({ status: 'completed' })]);
+    renderDrawer('flow-1', vi.fn());
+
+    await screen.findByTestId('flow-runs-list');
+    expect(runFinished.callback).toBeTypeOf('function');
+    act(() => runFinished.callback?.());
+
+    await waitFor(() => expect(listFlowRuns).toHaveBeenCalledTimes(2));
   });
 
   it('renders null when flowId is null', () => {

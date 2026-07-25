@@ -28,6 +28,7 @@ import debug from 'debug';
 import { useEffect, useState } from 'react';
 
 import { useDismissLayer } from '../../hooks/useDismissLayer';
+import { useFlowRunFinished } from '../../hooks/useFlowRunFinished';
 import { useFlowRunsLiveRefresh } from '../../hooks/useFlowRunsLiveRefresh';
 import { useFlowRunsQuery } from '../../hooks/useFlowRunsQuery';
 import { useFlowRunStarted } from '../../hooks/useFlowRunStarted';
@@ -81,6 +82,7 @@ function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Props) {
   }, [flowId]);
 
   useFlowRunsLiveRefresh(runs, refreshSilently);
+  useFlowRunFinished(() => void refreshSilently(), flowId);
   // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
   // already-active run) — fills the empty-list gap ("No runs yet") that hook
   // can't reach, so the very first run shows up as "Running" instantly

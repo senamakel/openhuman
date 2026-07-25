@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { FlowRunStatus } from '../components/flows/FlowRunStatus';
 import PanelPage from '../components/layout/PanelPage';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
+import { useFlowRunFinished } from '../hooks/useFlowRunFinished';
 import { useFlowRunsLiveRefresh } from '../hooks/useFlowRunsLiveRefresh';
 import { useFlowRunsQuery } from '../hooks/useFlowRunsQuery';
 import { useFlowRunStarted } from '../hooks/useFlowRunStarted';
@@ -61,6 +62,7 @@ export default function WorkflowRunsPage() {
   }, []);
 
   useFlowRunsLiveRefresh(runs, refreshSilently);
+  useFlowRunFinished(() => void refreshSilently());
   // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
   // already-active run) — fills the empty-list gap ("No runs yet") that hook
   // can't reach, so the very first run across any flow shows up as "Running"

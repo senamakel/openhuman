@@ -101,7 +101,7 @@ migrations demonstrate that their geometry and semantics remain stable.
 Add narrowly scoped hooks:
 
 - `useFlowRunsQuery`: initial load, latest-request protection, silent refresh,
-  flow-run live refresh, and pending-run derivation.
+  and flow-run live refresh.
 - A shared pending-approvals source with selector hooks so list and detail views do
   not poll the same endpoint independently.
 - `useLatestAsync`: latest-request and unmount protection without dictating how a
@@ -170,6 +170,10 @@ reuse refactor.
   behavior was previously uncovered.
 - Each slice runs its related Vitest files plus `pnpm typecheck`.
 - The completed branch runs `pnpm lint`, `pnpm test`, and `pnpm build`.
+- Rust domains, controller schemas, JSON-RPC methods, and transport behavior are
+  unchanged, so no Rust/JSON-RPC implementation or new E2E scenario is needed.
+  Existing consumer-flow E2E coverage remains applicable; focused interaction
+  tests and the full frontend suite verify the migrated UI behavior.
 
 ## Delivery order
 

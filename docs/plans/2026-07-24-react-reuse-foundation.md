@@ -23,11 +23,7 @@ The following remain out of scope:
 - Card polymorphism unless a migration below proves it is required. None currently
   does, so `app/src/components/ui/Card.tsx` is not changed by this plan.
 
-Run every command below from the repository root:
-
-```bash
-cd /Users/enamakel/work/workflow-openhuman/worktrees/react-reuse-audit/openhuman
-```
+Run every command below from the repository root.
 
 For every task, follow the same discipline:
 
@@ -1252,6 +1248,12 @@ pnpm format:check
 git diff --check
 git status --short
 ```
+
+This refactor does not change Rust domains, controller schemas, JSON-RPC methods,
+or transport behavior, so Rust/JSON-RPC implementation and E2E additions are not
+applicable. Existing consumer-flow coverage remains the E2E proof for the
+migrated UI; the work here is verified with focused interaction tests plus the
+complete frontend suite and production build.
 
 The branch is ready for review only when:
 

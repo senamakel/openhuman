@@ -81,22 +81,25 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
     [navigate]
   );
 
+  const handleRunStarted = useCallback(() => {
+    log('run-started: refetch flow=%s', flowId);
+    void refreshSilently();
+  }, [flowId, refreshSilently]);
+  const handleRunFinished = useCallback(() => {
+    log('run-finished: refetch flow=%s', flowId);
+    void refreshSilently();
+  }, [flowId, refreshSilently]);
+
   useFlowRunsLiveRefresh(runs, refreshSilently);
   // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
   // already-active run) — fills the empty-list gap ("No runs yet") that
   // hook can't reach, so the very first run shows up as "Running" instantly
   // instead of waiting for a manual refresh (issue B35).
-  useFlowRunStarted(() => {
-    log('run-started: refetch flow=%s', flowId);
-    void refreshSilently();
-  }, flowId);
+  useFlowRunStarted(handleRunStarted, flowId);
   // Terminal companion to the above (issue B35 follow-up) — flips a run to
   // Completed/Failed the instant it settles instead of waiting on
   // `useFlowRunsLiveRefresh`'s debounced/backstop refetch to notice.
-  useFlowRunFinished(event => {
-    log('run-finished: refetch flow=%s run=%s status=%s', flowId, event.run_id, event.status);
-    void refreshSilently();
-  }, flowId);
+  useFlowRunFinished(handleRunFinished, flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   return (

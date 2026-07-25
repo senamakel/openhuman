@@ -25,7 +25,7 @@
  * single Escape press closes only the topmost overlay (the inspector) first.
  */
 import debug from 'debug';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useDismissLayer } from '../../hooks/useDismissLayer';
 import { useFlowRunFinished } from '../../hooks/useFlowRunFinished';
@@ -81,13 +81,15 @@ function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Props) {
     setSelectedRunId(null);
   }, [flowId]);
 
+  const handleRunFinished = useCallback(() => void refreshSilently(), [refreshSilently]);
+  const handleRunStarted = useCallback(() => void refreshSilently(), [refreshSilently]);
   useFlowRunsLiveRefresh(runs, refreshSilently);
-  useFlowRunFinished(() => void refreshSilently(), flowId);
+  useFlowRunFinished(handleRunFinished, flowId);
   // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
   // already-active run) — fills the empty-list gap ("No runs yet") that hook
   // can't reach, so the very first run shows up as "Running" instantly
   // instead of waiting for a manual refresh (issue B35).
-  useFlowRunStarted(() => void refreshSilently(), flowId);
+  useFlowRunStarted(handleRunStarted, flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   const dismissalEnabled = flowId !== null && selectedRunId === null;

@@ -6,7 +6,7 @@
  * lightweight silent refresh (re-fetches just the runs, not `listFlows()` too)
  * so a run doesn't sit on "Running" until the user reloads the page.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { FlowRunStatus } from '../components/flows/FlowRunStatus';
@@ -61,14 +61,16 @@ export default function WorkflowRunsPage() {
     };
   }, []);
 
+  const handleRunFinished = useCallback(() => void refreshSilently(), [refreshSilently]);
+  const handleRunStarted = useCallback(() => void refreshSilently(), [refreshSilently]);
   useFlowRunsLiveRefresh(runs, refreshSilently);
-  useFlowRunFinished(() => void refreshSilently());
+  useFlowRunFinished(handleRunFinished);
   // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
   // already-active run) — fills the empty-list gap ("No runs yet") that hook
   // can't reach, so the very first run across any flow shows up as "Running"
   // instantly instead of waiting for a manual refresh (issue B35). No
   // `flowId` filter — this is the flow-agnostic "all runs" page.
-  useFlowRunStarted(() => void refreshSilently());
+  useFlowRunStarted(handleRunStarted);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
   const pageLoading = loading || flowNamesLoading;
   const pageError = error ?? flowNamesError;

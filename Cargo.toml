@@ -652,6 +652,12 @@ while_let_loop = "allow"
 # See: https://github.com/tinyhumansai/openhuman/issues/273
 [patch.crates-io]
 whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+# Upstream 0.2.1 enables reqwest's default native-tls backend even though it
+# also requests rustls. Patch the official release locally so Linux/macOS do
+# not inherit OpenSSL; the only source delta disables reqwest defaults.
+# Windows still enables native-tls through the target-specific dependency
+# above. Remove this patch after upstream publishes the same manifest fix.
+motosan-ai-oauth = { path = "vendor/motosan-ai-oauth" }
 # TinyAgents is vendored as a git submodule (pinned at the released tag) so
 # migration work can change the SDK source in-tree, test it against OpenHuman
 # immediately, and PR the diff upstream from the submodule. Keep the submodule

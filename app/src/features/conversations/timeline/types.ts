@@ -71,11 +71,6 @@ export type TimelineItem = TimelineItemBase &
       }
   );
 
-export type TimelineItemKind = TimelineItem['kind'];
-
-/** The "agent process" kinds that `hideAgentInsights` suppresses. */
-export const AGENT_INSIGHT_KINDS: readonly TimelineItemKind[] = ['toolCall', 'subagentActivity'];
-
 /** A contiguous group of items sharing a `turnId`, in render order. */
 export interface TimelineTurn {
   turnId: string;

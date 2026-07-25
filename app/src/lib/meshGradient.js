@@ -475,9 +475,9 @@ class Gradient {
       e(this, 'addIsLoadedClass', () => {
         /*this.isIntersecting && */ !this.isLoadedClass &&
           ((this.isLoadedClass = !0),
-          this.el.classList.add('isLoaded'),
+          this.el && this.el.classList.add('isLoaded'),
           setTimeout(() => {
-            this.el.parentElement.classList.add('isLoaded');
+            this.el && this.el.parentElement && this.el.parentElement.classList.add('isLoaded');
           }, 3e3));
       }),
       e(this, 'pause', () => {
@@ -623,11 +623,12 @@ class Gradient {
   }
   showGradientLegend() {
     this.width > this.minWidth &&
-      ((this.isGradientLegendVisible = !0), document.body.classList.add('isGradientLegendVisible'));
+      ((this.isGradientLegendVisible = !0),
+      document.body && document.body.classList.add('isGradientLegendVisible'));
   }
   hideGradientLegend() {
     ((this.isGradientLegendVisible = !1),
-      document.body.classList.remove('isGradientLegendVisible'));
+      document.body && document.body.classList.remove('isGradientLegendVisible'));
   }
   init() {
     try {

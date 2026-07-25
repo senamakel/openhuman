@@ -920,7 +920,7 @@ mod loader_io_chain_tests {
             .expect_err("an unreadable config file must fail");
 
         assert!(
-            err.contains("reading config.toml from"),
+            err.contains("Failed to read config file"),
             "error must carry the read context: {err}"
         );
         assert!(

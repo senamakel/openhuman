@@ -11,7 +11,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { HarnessType, SessionSummary } from '../../lib/orchestration/orchestrationClient';
 import InstanceCard from './InstanceCard';
 
-export interface TinyPlaceRosterProps {
+interface TinyPlaceRosterProps {
   sessions: SessionSummary[];
   selectedId?: string;
   onSelect?: (sessionId: string) => void;

@@ -5,7 +5,7 @@ import Button from '../../components/ui/Button';
 import { useT } from '../../lib/i18n/I18nContext';
 import { WHAT_LEAVES_HEADLINE, WHAT_LEAVES_ITEMS, WHAT_LEAVES_SUBHEAD } from './whatLeavesItems';
 
-export interface WhatLeavesMyComputerSheetProps {
+interface WhatLeavesMyComputerSheetProps {
   open: boolean;
   onClose: () => void;
 }

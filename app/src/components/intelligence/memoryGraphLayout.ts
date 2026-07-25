@@ -36,7 +36,7 @@ export const LEVEL_COLOR = [
 export const LEAF_COLOR = '#94A3B8'; // raw chunks / leaves (no level)
 export const CONTACT_COLOR = '#A78BFA'; // person entities (contacts mode)
 export const SOURCE_COLOR = '#F97316'; // synthetic source root nodes
-export const ROOT_COLOR = '#8B5CF6'; // master root hub (purple)
+const ROOT_COLOR = '#8B5CF6'; // master root hub (purple)
 
 /** Layout is computed in this fixed coordinate space; the renderer pans/zooms it. */
 export const VIEWPORT_W = 1100;
@@ -100,7 +100,7 @@ export type SimLink = SimulationLinkDatum<SimNode>;
  * Tree mode draws an edge from each node to its `parent_id`; contacts mode
  * uses the explicit `edges`. Dangling endpoints are dropped.
  */
-export const ROOT_NODE_ID = '__root__';
+const ROOT_NODE_ID = '__root__';
 
 export function buildGraph(
   nodes: GraphNode[],

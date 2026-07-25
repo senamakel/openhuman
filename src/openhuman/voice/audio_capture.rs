@@ -244,14 +244,14 @@ fn record_on_thread(
             debug!("{LOG_PREFIX} microphone permission after request: {updated:?}");
             if matches!(updated, PermissionState::Denied | PermissionState::Unknown) {
                 let msg = microphone_denied_message();
-                error!("{LOG_PREFIX} {msg}");
+                warn!("{LOG_PREFIX} {msg}");
                 let _ = setup_tx.send(Err(msg.clone()));
                 return Err(msg);
             }
         }
         PermissionState::Denied => {
             let msg = microphone_denied_message();
-            error!("{LOG_PREFIX} {msg}");
+            warn!("{LOG_PREFIX} {msg}");
             let _ = setup_tx.send(Err(msg.clone()));
             return Err(msg);
         }
@@ -269,7 +269,7 @@ fn record_on_thread(
             // user — and Sentry — gets no signal about *which* audio
             // failure occurred.
             let msg = "no default audio input device found".to_string();
-            error!("{LOG_PREFIX} {msg}");
+            warn!("{LOG_PREFIX} {msg}");
             let _ = setup_tx.send(Err(msg.clone()));
             return Err(msg);
         }
@@ -356,7 +356,7 @@ fn record_on_thread(
                                 samples_writer.lock().extend_from_slice(&gated);
                             }
                         },
-                        |err| error!("{LOG_PREFIX} audio stream error: {err}"),
+                        |err| warn!("{LOG_PREFIX} audio stream error: {err}"),
                         None,
                     )
                     .map_err(|e| format!("failed to build f32 input stream: {e}"))
@@ -376,7 +376,7 @@ fn record_on_thread(
                                 samples_writer.lock().extend_from_slice(&gated);
                             }
                         },
-                        |err| error!("{LOG_PREFIX} audio stream error: {err}"),
+                        |err| warn!("{LOG_PREFIX} audio stream error: {err}"),
                         None,
                     )
                     .map_err(|e| format!("failed to build i16 input stream: {e}"))
@@ -396,7 +396,7 @@ fn record_on_thread(
                                 samples_writer.lock().extend_from_slice(&gated);
                             }
                         },
-                        |err| error!("{LOG_PREFIX} audio stream error: {err}"),
+                        |err| warn!("{LOG_PREFIX} audio stream error: {err}"),
                         None,
                     )
                     .map_err(|e| format!("failed to build u16 input stream: {e}"))
@@ -434,7 +434,7 @@ fn record_on_thread(
                                         sw.lock().extend_from_slice(&gated);
                                     }
                                 },
-                                |err| error!("{LOG_PREFIX} audio stream error: {err}"),
+                                |err| warn!("{LOG_PREFIX} audio stream error: {err}"),
                                 None,
                             )
                             .map_err(|e| format!("fallback f32 stream failed: {e}")),
@@ -450,7 +450,7 @@ fn record_on_thread(
                                         sw.lock().extend_from_slice(&gated);
                                     }
                                 },
-                                |err| error!("{LOG_PREFIX} audio stream error: {err}"),
+                                |err| warn!("{LOG_PREFIX} audio stream error: {err}"),
                                 None,
                             )
                             .map_err(|e| format!("fallback i16 stream failed: {e}")),
@@ -466,7 +466,7 @@ fn record_on_thread(
                                         sw.lock().extend_from_slice(&gated);
                                     }
                                 },
-                                |err| error!("{LOG_PREFIX} audio stream error: {err}"),
+                                |err| warn!("{LOG_PREFIX} audio stream error: {err}"),
                                 None,
                             )
                             .map_err(|e| format!("fallback u16 stream failed: {e}")),

@@ -69,25 +69,46 @@ pub async fn ingest_rpc(
     // and the DB work is isolated on `spawn_blocking` inside `persist`.
     let result = match source_kind {
         SourceKind::Chat => {
-            let batch: ChatBatch = serde_json::from_value(payload)
-                .map_err(|e| format!("invalid chat payload: {e}"))?;
+            let batch: ChatBatch = serde_json::from_value(payload).map_err(|e| {
+                let msg = format!("invalid chat payload: {e}");
+                log::warn!("[memory::rpc] invalid payload for chat");
+                msg
+            })?;
             do_ingest_chat(config, &source_id, &owner, tags, batch)
                 .await
-                .map_err(|e| format!("ingest: {e}"))?
+                .map_err(|e| {
+                    let msg = format!("ingest: {e}");
+                    log::warn!("[memory::rpc] chat ingestion failed");
+                    msg
+                })?
         }
         SourceKind::Email => {
-            let thread: EmailThread = serde_json::from_value(payload)
-                .map_err(|e| format!("invalid email payload: {e}"))?;
+            let thread: EmailThread = serde_json::from_value(payload).map_err(|e| {
+                let msg = format!("invalid email payload: {e}");
+                log::warn!("[memory::rpc] invalid payload for email");
+                msg
+            })?;
             do_ingest_email(config, &source_id, &owner, tags, thread)
                 .await
-                .map_err(|e| format!("ingest: {e}"))?
+                .map_err(|e| {
+                    let msg = format!("ingest: {e}");
+                    log::warn!("[memory::rpc] email ingestion failed");
+                    msg
+                })?
         }
         SourceKind::Document => {
-            let doc: DocumentInput = serde_json::from_value(payload)
-                .map_err(|e| format!("invalid document payload: {e}"))?;
+            let doc: DocumentInput = serde_json::from_value(payload).map_err(|e| {
+                let msg = format!("invalid document payload: {e}");
+                log::warn!("[memory::rpc] invalid payload for document");
+                msg
+            })?;
             do_ingest_document(config, &source_id, &owner, tags, doc)
                 .await
-                .map_err(|e| format!("ingest: {e}"))?
+                .map_err(|e| {
+                    let msg = format!("ingest: {e}");
+                    log::warn!("[memory::rpc] document ingestion failed");
+                    msg
+                })?
         }
     };
 

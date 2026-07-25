@@ -14,11 +14,11 @@ import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from 'react';
  * Use `iconOnly` for icon-only affordances (close / refresh / add); it squares
  * the padding — always pass an `aria-label` in that case.
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'tertiary';
-export type ButtonTone = 'default' | 'danger';
-export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary';
+type ButtonTone = 'default' | 'danger';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   tone?: ButtonTone;
   size?: ButtonSize;

@@ -2725,6 +2725,63 @@ fn reject_unsuccessful_composio_response(
     )))
 }
 
+/// Native-tool analogue of [`reject_unsuccessful_composio_response`].
+///
+/// `execute_tool` returns `Ok(outcome)` for a tool that *ran* but *failed* —
+/// the failure rides on [`ToolResult::is_error`] (quota exceeded, file missing,
+/// no integration client configured). Nothing downstream inspected that flag,
+/// so the tinyflows engine recorded the step — and therefore the run — as
+/// `Success` even though the tool never did its job. Concretely: a file-upload
+/// step could fail, the next node would bind a `null` URL, and the run still
+/// reported "completed".
+///
+/// Mirrors the Composio branch's contract so both paths turn a failed step into
+/// `StepStatus::Error` (and, via `degrade_completed_status`, a failed run)
+/// rather than a false "Completed".
+fn reject_failed_native_tool_result(
+    slug: &str,
+    result: &crate::openhuman::skills::types::ToolResult,
+) -> Result<()> {
+    if !result.is_error {
+        return Ok(());
+    }
+    let rendered = result.output();
+    let detail = match rendered.trim() {
+        "" => "no error detail returned by the tool",
+        d => d,
+    };
+    tracing::warn!(
+        target: "flows",
+        %slug,
+        %detail,
+        "[flows] tool_call: native tool reported is_error — failing the step"
+    );
+    Err(EngineError::Capability(format!(
+        "tool_call `{slug}` failed: {detail}"
+    )))
+}
+
+/// Unwraps a native (`oh:`) tool's [`ToolResult`] into the value a downstream
+/// node actually binds against.
+///
+/// Serializing the `ToolResult` verbatim (the previous behavior) placed the
+/// whole envelope on `item.json`, so reaching a field required
+/// `=nodes.<id>.item.json.content[0].data.<field>`. That expression does
+/// evaluate, but no builder agent ever emits it, which left native tools
+/// effectively unbindable in practice.
+///
+/// A lone `Json` block therefore returns its `data` directly, so a native node
+/// binds with the same `=nodes.<id>.item.json.<field>` shape used everywhere
+/// else. Anything else (plain text, or mixed/multiple blocks) collapses to
+/// `{ "text": <output()> }` so there is always a predictable field to bind.
+fn native_tool_payload(result: &crate::openhuman::skills::types::ToolResult) -> Value {
+    use crate::openhuman::skills::types::ToolContent;
+    match result.content.as_slice() {
+        [ToolContent::Json { data }] => data.clone(),
+        _ => json!({ "text": result.output() }),
+    }
+}
+
 /// A [`ToolInvoker`] decorator that runs the host's Composio required-arg
 /// preflight before delegating to `inner`.
 ///
@@ -2795,9 +2852,8 @@ impl ToolInvoker for OpenHumanTools {
             )
             .await
             .map_err(EngineError::Capability)?;
-            return serde_json::to_value(&outcome.result).map_err(|e| {
-                EngineError::Capability(format!("could not serialize tool result: {e}"))
-            });
+            return reject_failed_native_tool_result(slug, &outcome.result)
+                .map(|_| native_tool_payload(&outcome.result));
         }
 
         // Autonomy-tier gate (Phase 2, made effect-aware): the node's
@@ -3570,6 +3626,73 @@ mod tests {
     use super::*;
     use crate::openhuman::agent::prompts::types::IntegrationConnection;
     use crate::openhuman::composio::{ComposioExecuteResponse, ConnectedIntegration};
+    use crate::openhuman::skills::types::{ToolContent, ToolResult};
+
+    // ── native `oh:` tool result handling ──────────────────────────────────
+
+    #[test]
+    fn native_tool_payload_unwraps_a_single_json_block() {
+        // `storage_get_link` returns exactly one Json block. A downstream node
+        // must be able to bind `=nodes.<id>.item.json.url` — the same shape
+        // used everywhere else — not `...item.json.content[0].data.url`.
+        let result = ToolResult::json(json!({
+            "url": "https://example.test/presigned",
+            "expires_at": "2026-01-01T00:00:00Z",
+        }));
+        let payload = native_tool_payload(&result);
+        assert_eq!(payload["url"], "https://example.test/presigned");
+        assert_eq!(payload["expires_at"], "2026-01-01T00:00:00Z");
+        assert!(
+            payload.get("content").is_none() && payload.get("is_error").is_none(),
+            "the ToolResult envelope must not leak into item.json: {payload}"
+        );
+    }
+
+    #[test]
+    fn native_tool_payload_collapses_text_to_a_bindable_field() {
+        let payload = native_tool_payload(&ToolResult::success("done"));
+        assert_eq!(payload["text"], "done");
+    }
+
+    #[test]
+    fn native_tool_payload_collapses_mixed_blocks_to_text() {
+        let result = ToolResult {
+            content: vec![
+                ToolContent::Text {
+                    text: "line".into(),
+                },
+                ToolContent::Json {
+                    data: json!({"k": 1}),
+                },
+            ],
+            is_error: false,
+            markdown_formatted: None,
+        };
+        let payload = native_tool_payload(&result);
+        let text = payload["text"].as_str().expect("text field");
+        assert!(text.contains("line") && text.contains('k'), "got {text}");
+    }
+
+    #[test]
+    fn native_tool_failure_fails_the_step_instead_of_recording_success() {
+        // The bug this guards: `execute_tool` returns Ok for a tool that ran
+        // and FAILED (is_error), so the engine recorded the step — and the run
+        // — as Success while a downstream node bound a null value.
+        let result = ToolResult::error("storage quota exceeded");
+        let err = reject_failed_native_tool_result("oh:storage_upload_file", &result)
+            .expect_err("an is_error ToolResult must fail the step");
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("storage_upload_file") && msg.contains("storage quota exceeded"),
+            "error must name the tool and the provider detail: {msg}"
+        );
+    }
+
+    #[test]
+    fn native_tool_success_passes_through() {
+        let result = ToolResult::json(json!({"file_id": "f_1"}));
+        assert!(reject_failed_native_tool_result("oh:storage_upload_file", &result).is_ok());
+    }
 
     // ── reject_unsuccessful_composio_response (B6) ──────────────────────────
 

@@ -63,9 +63,10 @@ pub async fn registry_search(
     .await;
 
     // A total outage (every registry errored) is distinct from "no perfect
-    // servers": return an error so the UI shows its registry error state instead
-    // of an empty catalog. `merge_registry_results` logs+skips the individual
-    // failures.
+    // servers": log a clear diagnostic and return empty rather than bailing, so
+    // the error never reaches Sentry as a false code-defect signal.
+    // `merge_registry_results` already logs+skips the individual failures at
+    // `warn!` level, so the per-registry detail is preserved in the log stream.
     let any_ok = results.iter().any(Result::is_ok);
     let labelled = results
         .into_iter()
@@ -76,7 +77,12 @@ pub async fn registry_search(
     let (mut merged, mut total_pages) = merge_registry_results(labelled);
 
     if !any_ok && !registries.is_empty() {
-        anyhow::bail!("all MCP registries failed to respond");
+        let sources: Vec<&str> = registries.iter().map(|r| r.source()).collect();
+        tracing::warn!(
+            "[mcp-registry] all configured registries failed to respond — returning empty catalog (tried {})",
+            sources.join(", ")
+        );
+        return Ok((vec![], 0));
     }
 
     // Badge the canonical first-party server, drop non-perfect rows, refine

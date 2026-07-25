@@ -40,7 +40,7 @@ export interface WalletStatus {
   updatedAtMs: number | null;
 }
 
-export interface SetupWalletParams {
+interface SetupWalletParams {
   consentGranted: boolean;
   source: WalletSetupSource;
   mnemonicWordCount: number;
@@ -137,7 +137,7 @@ export interface ExecutionResult {
   transaction: PreparedTransaction;
 }
 
-export interface PrepareTransferParams {
+interface PrepareTransferParams {
   chain: WalletChain;
   toAddress: string;
   /** Amount in the asset's smallest unit (wei / sat / lamport / sun). */
@@ -175,7 +175,7 @@ export const executePrepared = async (quoteId: string): Promise<ExecutionResult>
   return response.result;
 };
 
-export interface RevealRecoveryPhraseResult {
+interface RevealRecoveryPhraseResult {
   phrase: string;
   wordCount: number;
 }

@@ -221,7 +221,7 @@ function inferRuntimeRequirement(skill?: WorkflowSummary): 'node' | 'python' | '
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export interface SkillsRunnerBodyProps {
+interface SkillsRunnerBodyProps {
   /**
    * Optional override for the descriptive header text rendered above
    * the skill picker. Defaults to the Settings-panel description so
@@ -239,7 +239,7 @@ export interface SkillsRunnerBodyProps {
   className?: string;
 }
 
-export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyProps) => {
+const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyProps) => {
   const { t } = useT();
 
   // Skill catalog (loaded once on mount)

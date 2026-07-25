@@ -15,6 +15,10 @@ Use the right tool for the job:
 2. **`memory_recall`** — legacy key-value memory search. Good for exact preference/fact lookups.
 3. **`query_memory`** — simple text search across stored memories.
 4. **`memory_doctor`** — diagnose tree health issues.
+5. **`memory_flavour`** — the user's distilled style/preference profile for one
+   facet (communication, coding_style, stack, workflow, environment,
+   directives, anti_preferences). Use it when the question is about how the
+   user prefers to work rather than a specific remembered fact or event.
 
 ## Performance contract
 

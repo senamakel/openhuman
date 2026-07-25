@@ -21,7 +21,7 @@ import { apiClient } from '../AgentWorldShell';
 // Namespaced already ('agentworld:identity'), so messages carry no prefix.
 const debug = debugFactory('agentworld:identity');
 
-export interface TransferHandleModalProps {
+interface TransferHandleModalProps {
   /** The handle being transferred away (without a leading @). */
   handle: string;
   onClose: () => void;

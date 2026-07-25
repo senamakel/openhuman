@@ -975,6 +975,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': '排队的后续消息',
   'chat.queuedFollowups.clear': '清除',
   'chat.queuedFollowups.clearFailed': '无法清空队列：请重试。',
+  'chat.createThreadFailed': '无法创建新会话。请重试。',
   'chat.parallelBranchLabel': '并行分支',
   'chat.thinking': '思考中...',
   'chat.noMessages': '暂无消息',

@@ -103,7 +103,7 @@ export function deriveSharedSecret(myPriv: Uint8Array, theirPub: Uint8Array): Ui
  * emits cannot decrypt under the server's own opener — guards against
  * cross-direction reflection.
  */
-export interface SessionKeys {
+interface SessionKeys {
   c2s: Uint8Array;
   s2c: Uint8Array;
 }
@@ -149,7 +149,7 @@ export function deriveSessionKeys(
 }
 
 /** Which side of the tunnel is operating the cipher. */
-export type TunnelRole = 'client' | 'server';
+type TunnelRole = 'client' | 'server';
 
 /**
  * Stateful directional cipher mirroring Rust `TunnelCipher::for_role`. Holds

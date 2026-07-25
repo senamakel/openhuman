@@ -56,7 +56,7 @@ import type { ThreadMessage } from '../types/thread';
 const log = createDebug('app:flows:builder-chat');
 
 /** A single builder turn: what the user sees vs. the structured turn request. */
-export interface WorkflowBuilderSendParams {
+interface WorkflowBuilderSendParams {
   /** Human-readable text shown as the user's message in the thread transcript. */
   displayText: string;
   /**
@@ -96,7 +96,7 @@ export interface WorkflowBuilderSendResult {
   proposed: boolean;
 }
 
-export interface UseWorkflowBuilderChat {
+interface UseWorkflowBuilderChat {
   /** The dedicated thread id, or `null` before the first send creates it. */
   threadId: string | null;
   /** True while a builder turn is in flight on this thread. */

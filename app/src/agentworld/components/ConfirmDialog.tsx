@@ -14,7 +14,7 @@
 import Button from '../../components/ui/Button';
 import { ModalShell } from '../../components/ui/ModalShell';
 
-export interface ConfirmDialogProps {
+interface ConfirmDialogProps {
   /** Modal header (e.g. "Delete post"). */
   title: string;
   /** Body copy explaining the consequence (e.g. "Delete this post? This can't be undone."). */

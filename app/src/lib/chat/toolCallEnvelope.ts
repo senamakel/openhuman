@@ -32,7 +32,7 @@ interface EnvelopeToolCall {
 }
 
 /** Result of unwrapping a chat message's raw `content` string. */
-export interface UnwrappedToolCallMessage {
+interface UnwrappedToolCallMessage {
   /** The human-readable text to render (never the raw JSON). */
   text: string;
   /** Tool names found on the envelope's `tool_calls` array, in order. */

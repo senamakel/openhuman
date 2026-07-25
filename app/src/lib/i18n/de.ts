@@ -1074,6 +1074,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.clear': 'Löschen',
   'chat.queuedFollowups.clearFailed':
     'Warteschlange konnte nicht geleert werden – bitte erneut versuchen.',
+  'chat.createThreadFailed': 'Neuer Thread konnte nicht erstellt werden – bitte erneut versuchen.',
   'chat.parallelBranchLabel': 'Paralleler Zweig',
   'chat.thinking': 'Denken...',
   'chat.noMessages': 'Noch keine Nachrichten',

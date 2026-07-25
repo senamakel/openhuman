@@ -2563,6 +2563,24 @@ pub fn run() {
                 );
                 return None;
             }
+            // Defense-in-depth: drop Windows `ERROR_FILE_SYSTEM_LIMITATION`
+            // (os error 665) — a persistent host-filesystem condition with
+            // zero local lever and no Sentry remediation path. The Tauri
+            // shell is a separate crate from the core, so the core's emit-site
+            // classifier (`expected_error_kind`) can only catch events that
+            // originate inside the core binary. Any filesystem-error event
+            // that starts in the shell (e.g. file_logging, window_state,
+            // CEF profile I/O) bypasses the core classifier and lands here;
+            // this filter is the only net for those events (TAURI-RUST-QT0:
+            // 6,050 events / 1 user).
+            if openhuman_core::core::observability::is_windows_file_system_limitation_event(&event)
+            {
+                log::debug!(
+                    "[sentry-fs-limitation-filter] dropping Windows file-system-limitation event (os error 665) event_id={:?}",
+                    event.event_id
+                );
+                return None;
+            }
             // Strip server_name (hostname) to avoid leaking machine identity.
             event.server_name = None;
             // Attach the cached account uid so Sentry can count unique users

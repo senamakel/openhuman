@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { markWorkflowProposalCompleted, type WorkflowProposal } from '../../store/chatRuntimeSlice';
-import { WorkflowProposalCard } from './WorkflowProposalCard';
+import WorkflowProposalCard from './WorkflowProposalCard';
 
 // Echo i18n keys so we can assert on the stable key string.
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));

@@ -16,9 +16,9 @@ import { mergeToolActivity, type ToolActivity } from '../../lib/orchestration/me
 import type { ChatMessage } from '../../lib/orchestration/useOrchestrationChats';
 import { formatTime } from '../intelligence/orchestrationTabHelpers';
 
-export type ApprovalDecision = 'approve' | 'deny' | 'always';
+type ApprovalDecision = 'approve' | 'deny' | 'always';
 
-export interface SessionTranscriptProps {
+interface SessionTranscriptProps {
   messages: ChatMessage[];
   /**
    * When present, approval rows show actionable Approve/Deny buttons wired to

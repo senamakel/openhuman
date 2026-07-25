@@ -2587,32 +2587,52 @@ impl Tool for GetNodeKindContractTool {
 ///
 /// The common case reports `{ node_id, location, expression }` — a wiring
 /// mistake the agent should fix. But when the null-resolved expression binds to
-/// the output of an upstream Composio `tool_call` node
-/// ([`ops::composio_tool_call_upstream_ref`]), the entry is instead marked
+/// the output of an upstream Composio-or-native `tool_call` node
+/// ([`ops::mock_opaque_tool_call_upstream_ref`]), the entry is instead marked
 /// `unverifiable: true` and carries an honest `suggestion`: the echo sandbox
-/// can NEVER produce a Composio tool's real output fields, so this particular
-/// null is expected here and does NOT prove the binding wrong (WS6 — the
-/// transcript audit where the agent re-wired an already-correct binding three
-/// times chasing this exact false negative). The message points at
-/// `get_tool_contract` / `get_tool_output_sample` as the real disambiguators.
+/// can NEVER produce a tool's real output fields, so this particular null is
+/// expected here and does NOT prove the binding wrong (WS6 — the transcript
+/// audit where the agent re-wired an already-correct binding three times
+/// chasing this exact false negative). The suggestion adapts to the upstream
+/// kind: a Composio upstream points at `get_tool_contract` /
+/// `get_tool_output_sample` and the `.item.json.data.` nesting; a native `oh:`
+/// upstream points at the flat `.item.json.<field>` shape instead.
 fn build_null_resolution_entry(
     node_id: &str,
     diag: &tinyflows::expr::NullResolution,
     graph: &WorkflowGraph,
 ) -> Value {
-    if let Some(upstream) = crate::openhuman::flows::ops::composio_tool_call_upstream_ref(
+    if let Some(upstream) = crate::openhuman::flows::ops::mock_opaque_tool_call_upstream_ref(
         &diag.expression,
         graph,
         node_id,
     ) {
         let field = diag.location.strip_prefix("args.").unwrap_or("args");
-        return json!({
-            "node_id": node_id,
-            "location": diag.location,
-            "expression": diag.expression,
-            "unverifiable": true,
-            "upstream_tool_call": upstream,
-            "suggestion": format!(
+        // The disambiguation advice differs by upstream kind: a native `oh:`
+        // tool's output binds FLAT (`.item.json.<field>`) after
+        // `native_tool_payload`'s unwrap — it has no `.data.` wrapper and no
+        // Composio `get_tool_contract` — whereas a Composio action nests under
+        // `.item.json.data.`. Emitting the Composio advice for a native
+        // upstream would send the agent chasing a `.data.` path that will
+        // never exist.
+        let upstream_is_native = graph
+            .nodes
+            .iter()
+            .find(|n| n.id == upstream)
+            .and_then(|n| n.config.get("slug").and_then(Value::as_str))
+            .is_some_and(|s| s.starts_with("oh:"));
+        let suggestion = if upstream_is_native {
+            format!(
+                "required arg `{field}` binds to the output of native tool_call node \
+                 `{upstream}` — the SANDBOX only echoes tool calls and can never produce \
+                 their real output fields, so this binding is UNVERIFIABLE here (not \
+                 necessarily wrong). A native `oh:` tool's real output binds FLAT at \
+                 `=nodes.{upstream}.item.json.<field>` (no `.data.` wrapper). Confirm the \
+                 field name against that tool's own output shape. It is a real bug only if \
+                 the path doesn't match the tool's actual output."
+            )
+        } else {
+            format!(
                 "required arg `{field}` binds to the output of Composio tool_call node \
                  `{upstream}` — the SANDBOX only echoes tool calls and can never produce \
                  their real output fields, so this binding is UNVERIFIABLE here (not \
@@ -2621,7 +2641,15 @@ fn build_null_resolution_entry(
                  `.item.json.data.`), or get_tool_output_sample {{ slug, args }} for the \
                  real shape. It is a real bug only if the path doesn't match the action's \
                  actual output."
-            ),
+            )
+        };
+        return json!({
+            "node_id": node_id,
+            "location": diag.location,
+            "expression": diag.expression,
+            "unverifiable": true,
+            "upstream_tool_call": upstream,
+            "suggestion": suggestion,
         });
     }
     json!({
@@ -2634,7 +2662,7 @@ fn build_null_resolution_entry(
 /// Every null-resolved `args.*` config expression that landed on a `tool_call`
 /// node, as `null_resolutions` diagnostic entries (see
 /// [`build_null_resolution_entry`] for the shape, including the WS6
-/// `unverifiable` Composio-upstream variant). Shared by the settled-run path
+/// `unverifiable` Composio-or-native-upstream variant). Shared by the settled-run path
 /// (which fails the dry run on these) and the errored-run path (which surfaces
 /// only the `unverifiable` ones so a stop-policy preflight abort explains
 /// itself honestly instead of via the generic required-arg text).

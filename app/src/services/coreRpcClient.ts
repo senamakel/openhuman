@@ -93,6 +93,8 @@ let _activeTransport: CoreTransport | null = null;
 /**
  * Override the active transport used by `callCoreRpc`.
  * Set to null to revert to the default local HTTP path.
+ *
+ * @knipignore Public transport-manager integration seam for remote profiles.
  */
 export function setActiveCoreTransport(transport: CoreTransport | null): void {
   _activeTransport = transport;
@@ -106,7 +108,7 @@ export function setActiveCoreTransport(transport: CoreTransport | null): void {
  * in again.`) can drive both a silent swallow in usage/credits chains AND
  * a global reauth signal without every caller re-implementing the regex.
  */
-export type CoreRpcErrorKind =
+type CoreRpcErrorKind =
   | 'auth_expired'
   | 'provider_auth' // downstream provider 401 — NOT user session expiry
   | 'transport'
@@ -285,6 +287,8 @@ const CORE_RPC_TOKEN_INVALIDATED_EVENT = 'invalidated';
  * Subscribe to core RPC bearer invalidations. Returns an unsubscribe handle.
  * The listener fires AFTER the cache has been cleared, so a subsequent
  * `getCoreRpcToken()` will re-resolve.
+ *
+ * @knipignore Public token-invalidation subscription seam for long-lived RPC consumers.
  */
 export function subscribeCoreRpcTokenInvalidated(listener: () => void): () => void {
   const wrapped = () => listener();
@@ -601,6 +605,8 @@ export async function getCoreHttpBaseUrl(): Promise<string> {
  * logs this URL. The proper fix is a short-lived single-use handshake token
  * minted just before opening the stream; that requires a new core endpoint and
  * is tracked as the follow-up to this seam. Do not log the returned URL.
+ *
+ * @knipignore Documented webhook SSE authentication URL seam.
  */
 export function buildWebhookEventsUrl(baseUrl: string, coreRpcToken: string | null): string | null {
   if (!coreRpcToken) return null;

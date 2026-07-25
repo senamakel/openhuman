@@ -1042,6 +1042,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'Сообщения в очереди',
   'chat.queuedFollowups.clear': 'Очистить',
   'chat.queuedFollowups.clearFailed': 'Не удалось очистить очередь: попробуйте ещё раз.',
+  'chat.createThreadFailed': 'Не удалось создать новый диалог. Попробуйте ещё раз.',
   'chat.parallelBranchLabel': 'Параллельная ветка',
   'chat.thinking': 'Думаю...',
   'chat.noMessages': 'Сообщений пока нет',

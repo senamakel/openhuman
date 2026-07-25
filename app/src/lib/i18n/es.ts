@@ -1055,6 +1055,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'Seguimientos en cola',
   'chat.queuedFollowups.clear': 'Borrar',
   'chat.queuedFollowups.clearFailed': 'No se pudo vaciar la cola: inténtalo de nuevo.',
+  'chat.createThreadFailed': 'No se pudo crear un nuevo hilo. Inténtalo de nuevo.',
   'chat.parallelBranchLabel': 'Rama paralela',
   'chat.thinking': 'Pensando...',
   'chat.noMessages': 'Sin mensajes aún',

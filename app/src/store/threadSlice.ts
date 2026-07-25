@@ -311,21 +311,6 @@ export const persistReaction = createAsyncThunk(
   }
 );
 
-export const updateThreadLabels = createAsyncThunk(
-  'thread/updateThreadLabels',
-  async (payload: { threadId: string; labels: string[] }, { dispatch, rejectWithValue }) => {
-    try {
-      const thread = await threadApi.updateLabels(payload.threadId, payload.labels);
-      await dispatch(loadThreads()).unwrap();
-      return thread;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error ? error.message : 'Failed to update thread labels'
-      );
-    }
-  }
-);
-
 export const updateThreadTitle = createAsyncThunk(
   'thread/updateThreadTitle',
   async (payload: { threadId: string; title: string }, { rejectWithValue }) => {
@@ -335,19 +320,6 @@ export const updateThreadTitle = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error ? error.message : 'Failed to update thread title'
       );
-    }
-  }
-);
-
-export const purgeThreads = createAsyncThunk(
-  'thread/purgeThreads',
-  async (_, { dispatch, rejectWithValue }) => {
-    try {
-      const result = await threadApi.purge();
-      dispatch(clearAllThreads());
-      return result;
-    } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Failed to purge threads');
     }
   }
 );

@@ -257,7 +257,7 @@ function toolToActivityFace(toolName: string): MascotFace | null {
   return null;
 }
 
-export interface UseHumanMascotOptions {
+interface UseHumanMascotOptions {
   /** When true, post-stream replies are sent to ElevenLabs and the mouth
    *  follows the returned viseme timeline while the audio plays. */
   speakReplies?: boolean;
@@ -266,7 +266,7 @@ export interface UseHumanMascotOptions {
   listening?: boolean;
 }
 
-export interface UseHumanMascotResult {
+interface UseHumanMascotResult {
   face: MascotFace;
   viseme: VisemeShape;
   /** Raw Oculus 15-set viseme code for Rive's `mouthVisemeCode` input. */

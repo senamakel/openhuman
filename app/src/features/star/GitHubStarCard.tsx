@@ -87,5 +87,3 @@ export function GitHubStarCard() {
     </div>
   );
 }
-
-export default GitHubStarCard;

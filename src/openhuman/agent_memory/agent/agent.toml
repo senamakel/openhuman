@@ -28,5 +28,10 @@ named = [
     "memory_tree",
     "query_memory",
     "memory_doctor",
+    # Compiled persona distillation profile for one facet (communication,
+    # coding_style, stack, workflow, environment, directives,
+    # anti_preferences) — read-only, distinct from the fact/episodic search
+    # above.
+    "memory_flavour",
     "ask_user_clarification",
 ]

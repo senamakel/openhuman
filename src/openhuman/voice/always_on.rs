@@ -255,7 +255,7 @@ pub async fn start_if_enabled(app_config: &Config) {
             log::debug!("{LOG_PREFIX} microphone capture stream ready");
         }
         Ok(Err(e)) => {
-            log::error!("{LOG_PREFIX} could not start microphone capture: {e}");
+            log::warn!("{LOG_PREFIX} could not start microphone capture: {e}");
             RUNNING.store(false, Ordering::SeqCst);
             return;
         }
@@ -674,7 +674,7 @@ fn spawn_capture_thread(tx: tokio::sync::mpsc::UnboundedSender<Vec<f32>>) -> Res
         .name("voice-always-on".into())
         .spawn(move || {
             if let Err(e) = capture_on_thread(tx, &setup_tx) {
-                log::error!("{LOG_PREFIX} capture thread error: {e}");
+                log::warn!("{LOG_PREFIX} capture thread error: {e}");
                 let _ = setup_tx.send(Err(e));
             }
         })
@@ -702,7 +702,7 @@ fn capture_on_thread(
     let permission = detect_microphone_permission();
     log::info!("{LOG_PREFIX} microphone permission: {permission:?}");
     if matches!(permission, PermissionState::Denied) {
-        log::error!("{LOG_PREFIX} microphone permission denied — always-on cannot capture audio");
+        log::warn!("{LOG_PREFIX} microphone permission denied — always-on cannot capture audio");
         return Err("microphone permission denied".to_string());
     }
 

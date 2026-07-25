@@ -52,7 +52,7 @@ function clearUserScopedStorage(userId: string | null): void {
   }
 }
 
-export interface ClearAllAppDataOptions {
+interface ClearAllAppDataOptions {
   // Optional core-side session clear (e.g. `auth_clear_session`). Best-effort —
   // skipped silently if the caller cannot/does not provide it (e.g. pre-login
   // recovery from a corrupt key file, where there is no live session).

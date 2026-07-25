@@ -11,7 +11,7 @@ import type { HarnessType } from '../../lib/orchestration/orchestrationClient';
 
 export type GlyphKind = HarnessType | 'openhuman';
 
-export interface HarnessGlyphProps {
+interface HarnessGlyphProps {
   harness: GlyphKind;
   className?: string;
 }

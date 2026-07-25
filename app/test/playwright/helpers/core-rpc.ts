@@ -42,7 +42,7 @@ export async function callCoreRpc<T>(
   return payload.result;
 }
 
-export async function resetCoreForWebUser(userId: string): Promise<void> {
+async function resetCoreForWebUser(userId: string): Promise<void> {
   await callCoreRpc('openhuman.auth_clear_session', {});
   await callCoreRpc('openhuman.config_set_onboarding_completed', { value: true });
   await callCoreRpc('openhuman.auth_store_session', { token: buildBypassJwt(userId) });
@@ -112,7 +112,7 @@ async function completeAuthCallback(page: Page, token: string): Promise<void> {
   }
 }
 
-export async function resetCoreForWebGuest(): Promise<void> {
+async function resetCoreForWebGuest(): Promise<void> {
   await callCoreRpc('openhuman.auth_clear_session', {});
   await callCoreRpc('openhuman.config_set_onboarding_completed', { value: true });
 }

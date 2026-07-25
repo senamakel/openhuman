@@ -105,7 +105,7 @@ function pickRecorderMime(): string {
   return '';
 }
 
-export interface MicComposerProps {
+interface MicComposerProps {
   /** Disabled while a turn is in flight or the welcome message is pending. */
   disabled: boolean;
   /** Receives the transcribed text — same callback the textarea send uses. */
@@ -144,7 +144,7 @@ export { STT_MAX_RETRIES };
  * Single button, single decision: tap once to start recording, tap again to
  * stop and send. No textarea — that's the whole point of the mascot tab.
  */
-export function MicComposer({
+function MicComposer({
   disabled,
   onSubmit,
   onError,

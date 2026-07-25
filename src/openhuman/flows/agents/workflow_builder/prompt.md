@@ -573,6 +573,65 @@ And without `input_context`, don't reach for a jq expression woven into
 — that's prose, not jq, resolves to `null`, and both the `save_workflow` gate
 and `dry_run_workflow`'s `agent_prompt_nulls` will reject it.
 
+### Attaching a produced file to an external action
+
+When the user wants a file **attached** to something you send or create through
+a connected integration, the file must be handed over as a **URL the provider's
+servers can fetch**. Composio actions execute on Composio's backend, so a local filesystem
+path can never work: it fails at run time with `Error reading file at
+/Users/... ENOENT`. Putting the content in the message body does **not**
+satisfy an attachment request either.
+
+The working chain is four nodes. **Keep the file handle out of any agent's
+structured output.** Give the producer a fixed path you choose, then refer to
+that same literal path from a separate upload node. An agent that has to emit a
+`file_id` or `file_path` through `output_parser` is a schema mismatch waiting to
+fail the run; the file only needs to exist on disk, so the agent's *side effect*
+is what matters, not its output.
+
+1. **Produce the file at a workspace-relative path YOU chose.** An `agent` node
+   (usually `agent_ref: "code_executor"`) or a `code` node writes it. State the
+   path in the prompt, e.g. "write the page to `report.html`". Use a path
+   **relative to the working directory**, never an absolute path like
+   `/tmp/...`: writes and uploads are confined to the agent workspace, and an
+   absolute path outside it is rejected. Do **not** give this node an
+   `output_parser` schema for the file, and do **not** bind anything off it.
+2. **Upload it.** A `tool_call` on **`oh:storage_upload_file`** with that same
+   path as a **literal** string: `{ "path": "report.html" }`. Because this is a
+   real node, its `file_id` is a node output rather than model-authored JSON:
+   bind `=nodes.<upload>.item.json.file_id`.
+3. **Mint a link that outlives approval.** A `tool_call` on
+   **`oh:storage_get_link`** with
+   `{ "file_id": "=nodes.<upload>.item.json.file_id", "expires_in_seconds": 900 }`
+   returns `{ url, expires_at }`. Bind `=nodes.<link>.item.json.url`.
+   The send is an outbound action, so it may be parked for human approval for up
+   to ~10 minutes before it fires; the link's TTL must comfortably outlive that
+   window or the provider will fetch a dead URL. The URL is a bearer capability
+   for as long as it lives, so do not set it far longer than needed either.
+   **Do not** upload with `visibility: "public"` to get a `public_url` instead.
+   That leaves a permanently world-readable object; the presigned link expires.
+4. **Send it.** A `tool_call` on the provider action, binding the link URL into
+   that action's file parameter.
+
+**Find the file parameter by its marker, never by guessing a name.** Call
+`get_tool_contract` on the send action and look in `input_schema.properties`
+for the property carrying **`"file_uploadable": true`** (it also shows
+`"format": "path"`). That marker is the contract across toolkits; the property
+name is not, so read it off the contract every time rather than assuming a
+convention (one toolkit's is `attachment`, another's is `file_to_upload`).
+
+Everything else about that parameter also comes from the contract: whether it
+accepts one value or a list, and any size or type limits the provider enforces,
+are stated in its schema and `description`. Read them there. Do not rely on
+remembered provider limits.
+
+**Do not invent a dedicated attachment action.** Send actions generally take
+the file on the ordinary send, so search for an attachment-capable send before
+assuming a separate one exists. If `get_tool_contract` reports a slug is not a
+real action, that is a hard stop: go back to `search_tool_catalog` and pick a
+real one rather than wiring it anyway. A slug that merely looks plausible by
+naming convention is the single most expensive mistake you can make here.
+
 ### Trigger kinds — which ones actually fire
 
 Set `config.trigger_kind` on the trigger node. **Only three fire automatically

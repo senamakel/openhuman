@@ -67,7 +67,7 @@ export const CORE_RPC_METHODS = {
   healthSystemInfo: 'openhuman.health_system_info',
 } as const;
 
-export type CoreRpcMethod = (typeof CORE_RPC_METHODS)[keyof typeof CORE_RPC_METHODS];
+type CoreRpcMethod = (typeof CORE_RPC_METHODS)[keyof typeof CORE_RPC_METHODS];
 
 export const LEGACY_METHOD_ALIASES: Record<string, CoreRpcMethod> = {
   // #3565: old desktop clients used dotted namespace/function channel calls.

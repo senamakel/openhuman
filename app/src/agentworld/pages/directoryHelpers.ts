@@ -8,7 +8,7 @@
  */
 import { type AgentCard } from '../../lib/agentworld/invokeApiClient';
 
-export const AVATAR_COLORS = [
+const AVATAR_COLORS = [
   'bg-blue-500',
   'bg-purple-500',
   'bg-pink-500',
@@ -29,7 +29,7 @@ export function getAvatarColor(agentId: string): string {
   return AVATAR_COLORS[total % AVATAR_COLORS.length] ?? 'bg-blue-500';
 }
 
-export function getDisplayName(agent: AgentCard): string {
+function getDisplayName(agent: AgentCard): string {
   const username = agent['username'] as string | undefined;
   return username ?? agent.name ?? agent.agentId.slice(0, 8);
 }

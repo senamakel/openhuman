@@ -34,9 +34,9 @@ import { type FlowRunItem, isPlainObject } from './runItems';
 
 const log = createDebug('app:flows:step-summary');
 
-export type StepOutcome = 'success' | 'error' | 'neutral';
+type StepOutcome = 'success' | 'error' | 'neutral';
 
-export interface StepSummary {
+interface StepSummary {
   outcome: StepOutcome;
   /** Plain-language, already-localized one-line summary (translation-ready inputs applied). */
   text: string;

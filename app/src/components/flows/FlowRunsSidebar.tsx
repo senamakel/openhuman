@@ -48,7 +48,7 @@ function relativeTime(iso: string, t: TFn): string {
 
 const log = createDebug('app:flows:runs-sidebar');
 
-export interface FlowRunsSidebarProps {
+interface FlowRunsSidebarProps {
   flowId: string;
 }
 

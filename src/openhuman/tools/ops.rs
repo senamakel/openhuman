@@ -396,6 +396,20 @@ pub fn all_tools_with_runtime(
         // effect — writes only to the agent's own suggestions store.
         #[cfg(feature = "flows")]
         Box::new(SuggestWorkflowsTool::new(config.clone())),
+        // Per-flow sandboxed memory (issue #5173): lets a running flow
+        // (e.g. a scheduled newsletter-digest) remember what it already did
+        // — dedupe across runs — without ever touching the user's own
+        // memory. Namespace is derived internally from `flow_id`; there is
+        // no code path by which either tool can address a namespace other
+        // than the calling flow's own (`flow_memory_recall`'s `scope:
+        // "flows"` is read-only cross-flow visibility, not a write path).
+        #[cfg(feature = "flows")]
+        Box::new(FlowMemoryRecallTool::new(memory.clone())),
+        #[cfg(feature = "flows")]
+        Box::new(FlowMemoryRememberTool::new(
+            memory.clone(),
+            security.clone(),
+        )),
         // Wallet tools — expose wallet operations to the agent tool-call pipeline
         // so the crypto sub-agent can prepare transfers, check status, etc.
         // Gated with the `web3` feature (the wallet domain is compiled out when
@@ -431,6 +445,11 @@ pub fn all_tools_with_runtime(
         // #002: read-only self-diagnosis of the memory pipeline so the agent
         // can explain an empty/stalled wiki + the fix.
         Box::new(MemoryDoctorTool::new(config.clone())),
+        // #5172: read-only access to the compiled persona flavour profiles
+        // (communication/coding_style/stack/workflow/environment/directives/
+        // anti_preferences) that persona ingestion builds but nothing
+        // previously surfaced to the agent loop.
+        Box::new(MemoryFlavourTool::new(config.clone())),
         Box::new(MemoryQueryTool),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
@@ -1276,7 +1295,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     // stays callable under a custom `DomainSet { platform: true, flows: false }`,
     // leaking the flows surface past the runtime gate (#4808 review; #4797
     // maintainer review). Keep this in lockstep with the `#[cfg(feature =
-    // "flows")]` registrations in `all_tools_with_runtime` above — the same 26
+    // "flows")]` registrations in `all_tools_with_runtime` above — the same 28
     // names asserted by `default_tools_omits_flows_tools_when_feature_off`.
     const FLOWS: &[&str] = &[
         "propose_workflow",
@@ -1307,6 +1326,12 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         // The `rhai_workflows` (.ragsh) tool is compile-gated with `flows` and
         // belongs to the same runtime domain — drop it when Flows is off too.
         "rhai_workflows",
+        // Per-flow sandboxed memory (issue #5173) — `flow_` prefixed, not
+        // `memory_`, so it does NOT fall under the `memory_` prefix check
+        // below and must be listed here explicitly like every other
+        // flow-owned tool.
+        "flow_memory_recall",
+        "flow_memory_remember",
     ];
     // Voice family agent tools (audio_toolkit) — no `voice_`/`tts_`/`stt_`
     // prefix, so they must be listed explicitly or they fall through to

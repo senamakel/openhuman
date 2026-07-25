@@ -1076,14 +1076,14 @@ const FormulaRow = ({ label, value, detail }: { label: string; value: string; de
   </div>
 );
 
-export type BackgroundLoopControlsView = 'all' | 'heartbeat' | 'ledger';
+type BackgroundLoopControlsView = 'all' | 'heartbeat' | 'ledger';
 
 /** Minimal cloud-provider shape consumed by the loop map's `describeProvider`
  *  helper — only slug/label/id are read. Accepting this narrower shape lets
  *  external panels (UsagePanel) feed in the API view
  *  (`CloudProviderView`) without copying the AIPanel-internal extras
  *  (`authStyle`, `maskedKey`). */
-export type BackgroundLoopProviderView = { id: string; slug: string; label: string };
+type BackgroundLoopProviderView = { id: string; slug: string; label: string };
 
 export const BackgroundLoopControls = ({
   routing,

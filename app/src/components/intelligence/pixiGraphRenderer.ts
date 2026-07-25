@@ -29,7 +29,7 @@ import {
   ZOOM_MIN,
 } from './memoryGraphLayout';
 
-export interface PixiGraphOptions {
+interface PixiGraphOptions {
   simNodes: SimNode[];
   links: SimLink[];
   dark: boolean;

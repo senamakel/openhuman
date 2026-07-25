@@ -18,7 +18,12 @@ check_world() {
 
   # Tauri legitimately owns reqwest 0.13 for its dev proxy/updater. Sentry
   # must never own that tree: OpenHuman supplies its reqwest 0.12 transport.
-  for version in 0.13.1 0.13.2; do
+  mapfile -t reqwest_013_versions < <(
+    printf '%s\n' "$tree" |
+      sed -nE 's/^reqwest v(0\.13\.[^ ]+).*/\1/p' |
+      sort -u
+  )
+  for version in "${reqwest_013_versions[@]}"; do
     owners="$(
       cargo tree --locked --manifest-path "$manifest" --target "$target" \
         --invert "reqwest@$version" 2>/dev/null || true

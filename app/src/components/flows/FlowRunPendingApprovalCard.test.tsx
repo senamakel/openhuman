@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PendingApproval } from '../../services/api/approvalApi';
-import FlowRunPendingApprovalCard from './FlowRunPendingApprovalCard';
+import { FlowRunPendingApprovalCard } from './FlowRunPendingApprovalCard';
 
 const APPROVAL: PendingApproval = {
   request_id: 'request-1',

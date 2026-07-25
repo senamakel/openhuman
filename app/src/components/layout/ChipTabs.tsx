@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 
+import { IS_DEV } from '../../utils/config';
+
 const namespace = 'chip-tabs';
 
 function debug(message: string, payload?: Record<string, unknown>) {
-  if (import.meta.env.DEV) {
+  if (IS_DEV) {
     console.debug(`[${namespace}] ${message}`, payload ?? {});
   }
 }

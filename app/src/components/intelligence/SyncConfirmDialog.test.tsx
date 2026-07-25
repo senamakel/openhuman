@@ -88,7 +88,7 @@ describe('SyncConfirmDialog', () => {
 
     expect(screen.getByRole('dialog')).toHaveFocus();
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(screen.getByRole('dialog').parentElement!);
+    fireEvent.pointerDown(screen.getByRole('dialog').parentElement!);
     expect(onCancel).toHaveBeenCalledTimes(2);
 
     unmount();

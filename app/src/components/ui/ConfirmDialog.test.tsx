@@ -65,7 +65,7 @@ describe('ConfirmDialog', () => {
     expect(screen.queryByRole('button', { name: 'common.close' })).not.toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(screen.getByRole('dialog').parentElement!);
+    fireEvent.pointerDown(screen.getByRole('dialog').parentElement!);
     expect(props.onCancel).not.toHaveBeenCalled();
   });
 

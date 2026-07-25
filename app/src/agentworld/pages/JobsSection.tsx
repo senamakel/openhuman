@@ -293,7 +293,11 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             onChange={e => setProposalDeadline(e.target.value)}
           />
         </FormField>
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error && (
+          <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
         <FormActions className="pt-1">
           <Button type="button" onClick={onClose}>
             Cancel

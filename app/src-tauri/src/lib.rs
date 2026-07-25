@@ -2609,6 +2609,9 @@ pub fn run() {
             Some(event)
         })),
         sample_rate: 1.0,
+        transport: Some(std::sync::Arc::new(
+            openhuman_core::core::sentry_transport::factory,
+        )),
         ..sentry::ClientOptions::default()
     });
     // Tag every Sentry event with CPU architecture and OS so Intel-specific

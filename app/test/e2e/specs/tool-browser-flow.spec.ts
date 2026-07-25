@@ -84,9 +84,7 @@ describe('System tools — Browser (open URL + automation registry)', () => {
     });
     expect(browserSettings.ok).toBe(true);
     const toolPreferences = await callOpenhumanRpc('openhuman.app_state_update_local_state', {
-      onboardingTasks: {
-        enabledTools: ['browser'],
-      },
+      onboardingTasks: { enabledTools: ['browser'] },
     });
     expect(toolPreferences.ok).toBe(true);
     clearRequestLog();

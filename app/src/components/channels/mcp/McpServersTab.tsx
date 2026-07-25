@@ -757,7 +757,14 @@ const McpServersTab = () => {
             <Button
               variant="tertiary"
               size="xs"
-              onClick={() => void fetchCatalog(searchQuery, transportFilter, 1, false)}
+              onClick={() =>
+                void fetchCatalog(
+                  debouncedCatalogFilters.query,
+                  debouncedCatalogFilters.transport,
+                  1,
+                  false
+                )
+              }
               className="text-primary-600 dark:text-primary-400 hover:underline">
               {t('common.retry')}
             </Button>

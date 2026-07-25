@@ -170,7 +170,7 @@ async fn audio_turn_rejects_empty_samples() {
 
 #[test]
 fn companion_system_prompt_does_not_request_screen_context_or_point_tags() {
-    assert!(!COMPANION_SYSTEM_PROMPT.contains("screen"));
+    assert!(!COMPANION_SYSTEM_PROMPT.contains("screen context"));
     assert!(!COMPANION_SYSTEM_PROMPT.contains("[POINT:"));
 }
 

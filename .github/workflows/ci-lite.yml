@@ -356,7 +356,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Enforce Linux TLS dependency policy
-        if: needs.changes.outputs['rust-core'] == 'true'
+        if: needs.changes.outputs['rust-core'] == 'true' || needs.changes.outputs['rust-tauri'] == 'true'
         run: bash scripts/check-linux-tls-dependencies.sh
 
       - name: Run clippy (core crate)

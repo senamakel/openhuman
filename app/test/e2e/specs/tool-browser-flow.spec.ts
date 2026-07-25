@@ -79,6 +79,16 @@ describe('System tools — Browser (open URL + automation registry)', () => {
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);
+    const browserSettings = await callOpenhumanRpc('openhuman.config_update_browser_settings', {
+      enabled: true,
+    });
+    expect(browserSettings.ok).toBe(true);
+    const toolPreferences = await callOpenhumanRpc('openhuman.app_state_update_local_state', {
+      onboardingTasks: {
+        enabledTools: ['browser'],
+      },
+    });
+    expect(toolPreferences.ok).toBe(true);
     clearRequestLog();
   });
 

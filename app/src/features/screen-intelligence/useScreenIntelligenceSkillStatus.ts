@@ -14,7 +14,7 @@ import {
   unsupportedStatus,
 } from '../skills/skillCardStatus';
 
-export interface ScreenIntelligenceSkillStatus extends SkillCardStatusDescriptor {
+interface ScreenIntelligenceSkillStatus extends SkillCardStatusDescriptor {
   /** True when all three macOS permissions are granted. */
   allPermissionsGranted: boolean;
   /** True when the platform doesn't support screen intelligence. */

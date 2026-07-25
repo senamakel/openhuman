@@ -106,7 +106,7 @@ impl ClaudeAgentSdkProvider {
         );
 
         let mut child = cmd.spawn().map_err(|source| {
-            tracing::error!(
+            tracing::warn!(
                 error = %source,
                 binary = %self.config.binary,
                 "[claude_agent_sdk] failed to spawn claude binary"

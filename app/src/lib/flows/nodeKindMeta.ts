@@ -22,7 +22,7 @@ export type NodeColor = 'sage' | 'primary' | 'amber' | 'coral' | 'neutral';
  */
 export type NodeGroup = 'triggers' | 'actions' | 'logic';
 
-export interface NodeKindMeta {
+interface NodeKindMeta {
   emoji: string;
   color: NodeColor;
   group: NodeGroup;
@@ -33,7 +33,7 @@ export interface NodeKindMeta {
  * leads (every graph needs exactly one); the rest follow the logical grouping
  * of the `tinyflows::model::NodeKind` enum.
  */
-export const NODE_KINDS: NodeKind[] = [
+const NODE_KINDS: NodeKind[] = [
   'trigger',
   'agent',
   'tool_call',
@@ -49,7 +49,7 @@ export const NODE_KINDS: NodeKind[] = [
 ];
 
 /** Per-kind emoji + border/chip color + palette group. See the module doc. */
-export const NODE_KIND_META: Record<NodeKind, NodeKindMeta> = {
+const NODE_KIND_META: Record<NodeKind, NodeKindMeta> = {
   trigger: { emoji: '⚡', color: 'sage', group: 'triggers' },
   agent: { emoji: '🤖', color: 'primary', group: 'actions' },
   tool_call: { emoji: '🔧', color: 'amber', group: 'actions' },
@@ -64,14 +64,8 @@ export const NODE_KIND_META: Record<NodeKind, NodeKindMeta> = {
   output_parser: { emoji: '📋', color: 'amber', group: 'logic' },
 };
 
-/** Palette group render order + the kinds in each, derived from NODE_KIND_META. */
+/** Palette group render order. */
 export const NODE_GROUP_ORDER: NodeGroup[] = ['triggers', 'actions', 'logic'];
-
-export const NODE_KINDS_BY_GROUP: Record<NodeGroup, NodeKind[]> = {
-  triggers: NODE_KINDS.filter(k => NODE_KIND_META[k].group === 'triggers'),
-  actions: NODE_KINDS.filter(k => NODE_KIND_META[k].group === 'actions'),
-  logic: NODE_KINDS.filter(k => NODE_KIND_META[k].group === 'logic'),
-};
 
 /**
  * One palette entry. Usually 1:1 with a `NodeKind`, but `tool_call` splits into
@@ -140,7 +134,7 @@ export const PALETTE_ENTRIES_BY_GROUP: Record<NodeGroup, PaletteEntry[]> = {
  * here so an unrecognized kind renders as a plain neutral node instead of
  * crashing the whole canvas (there's no error boundary around `<ReactFlow>`).
  */
-export const DEFAULT_NODE_META: NodeKindMeta = { emoji: '❔', color: 'neutral', group: 'actions' };
+const DEFAULT_NODE_META: NodeKindMeta = { emoji: '❔', color: 'neutral', group: 'actions' };
 
 /** Resolve a kind's metadata, falling back to {@link DEFAULT_NODE_META}. */
 export function nodeKindMeta(kind: NodeKind): NodeKindMeta {

@@ -117,7 +117,7 @@ const CLICK_ADD_ORIGIN = { x: 80, y: 80 };
 /** Per-click cascade so repeated palette clicks don't stack on one spot. */
 const CLICK_ADD_STEP = 32;
 
-export interface EditableFlowCanvasProps {
+interface EditableFlowCanvasProps {
   nodes: FlowNode[];
   edges: FlowEdge[];
   /** Graph-level metadata xyflow doesn't carry, needed to re-serialize on save. */

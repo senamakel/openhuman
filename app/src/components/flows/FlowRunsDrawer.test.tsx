@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FlowRun } from '../../services/api/flowsApi';
 import { store } from '../../store';
-import { FlowRunsDrawer } from './FlowRunsDrawer';
+import FlowRunsDrawer from './FlowRunsDrawer';
 
 const listFlowRuns = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns, listAllFlowRuns: vi.fn() }));

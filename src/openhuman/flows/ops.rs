@@ -23,7 +23,8 @@ use crate::openhuman::flows::store;
 use crate::openhuman::flows::types::{
     FlowConnection, FlowRunStep, FlowRunTrigger, FlowSuggestion, SuggestionStatus,
 };
-use crate::openhuman::flows::{Flow, FlowRun};
+use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
+use crate::openhuman::memory_store::MemoryClientRef;
 use crate::rpc::RpcOutcome;
 
 /// Overall safety bound on a single `flows_run` / `flows_resume`. Individual
@@ -442,6 +443,57 @@ pub(crate) fn to_flow_validation_error(
 /// Assumes `graph` is already structurally valid (run
 /// `validate_and_migrate_graph` / `validate_all` first) — these gates check
 /// resolvability/contracts on a compilable graph.
+///
+/// Author-gate for `oh:storage_upload_file`: its literal `path` arg must be
+/// workspace-relative. Uploads are confined to the agent workspace by the
+/// runtime `resolve_upload_path` (a canonicalized path that escapes `action_dir`
+/// is rejected), so an absolute path like `/tmp/report.html` or one climbing out
+/// with `..` cannot work — it fails mid-run at the upload step. The prompt tells
+/// the builder to use a relative path, but the model reliably ignores that and
+/// copies an absolute path from a prior flow's example, so this enforces it in
+/// code (a hard, actionable author-gate) rather than trusting the prose.
+///
+/// Only LITERAL paths are checked: a `=`-expression resolves from upstream data
+/// at runtime and is out of scope here (the runtime check still applies). An
+/// absent `path` is left to the required-arg gate.
+pub(crate) fn validate_upload_paths(graph: &WorkflowGraph) -> Vec<String> {
+    const UPLOAD_SLUG: &str = "oh:storage_upload_file";
+    let mut errors = Vec::new();
+    for node in &graph.nodes {
+        if node.kind != NodeKind::ToolCall {
+            continue;
+        }
+        if node.config.get("slug").and_then(Value::as_str) != Some(UPLOAD_SLUG) {
+            continue;
+        }
+        let Some(raw) = node
+            .config
+            .get("args")
+            .and_then(|a| a.get("path"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        let path = raw.trim();
+        // Dynamic (resolved at runtime) or absent — not a literal we can check here.
+        if path.is_empty() || path.starts_with('=') {
+            continue;
+        }
+        let escapes_via_parent = path.split(['/', '\\']).any(|seg| seg == "..");
+        if std::path::Path::new(path).is_absolute() || escapes_via_parent {
+            errors.push(format!(
+                "Node '{}': `oh:storage_upload_file` path `{path}` must be workspace-relative \
+                 (e.g. `report.html`). Uploads are confined to the agent workspace, so an \
+                 absolute path (`/tmp/...`, `/Users/...`) or one escaping with `..` is rejected \
+                 at run time. Use a relative path, and have the producing node write the file to \
+                 that same relative path.",
+                node.id
+            ));
+        }
+    }
+    errors
+}
+
 pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     let compatibility_errors = config_aware_engine_compatibility_errors(config, graph);
     if !compatibility_errors.is_empty() {
@@ -451,6 +503,14 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     let binding_errors = validate_binding_resolvability(graph);
     if !binding_errors.is_empty() {
         return binding_errors;
+    }
+    // Cheap, sync: an `oh:storage_upload_file` literal `path` that is absolute or
+    // escapes the workspace. The runtime `resolve_upload_path` rejects it, but the
+    // model reliably ignores the prompt's "use a workspace-relative path" rule and
+    // copies an absolute `/tmp/...` path from prior flows, so enforce it in code.
+    let upload_path_errors = validate_upload_paths(graph);
+    if !upload_path_errors.is_empty() {
+        return upload_path_errors;
     }
     // Cheap: an `agent` node's `agent_ref` that would hit the runtime's
     // `RegistryFallback` "unknown agent_ref" hard error mid-run. Almost always a
@@ -2371,19 +2431,21 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
                 );
                 continue;
             }
-            // A null bound to the OUTPUT of an upstream Composio `tool_call`
-            // node is UNVERIFIABLE in this echo sandbox — the mock renders a
-            // Composio `tool_call` as `{tool, args, connection}` and can NEVER
-            // produce its real output fields (`.item.json.data.<field>`), so a
-            // downstream binding to one resolves `null` here even when the
-            // wiring is perfectly correct. Hard-rejecting it (WS6) would block
-            // a possibly-correct graph from ever being proposed — the exact
-            // false-negative the transcript audit caught. Downgrade to a
-            // debug-logged skip; `dry_run_workflow` remains the surface that
-            // reports it (as an `unverifiable` diagnostic the agent can act on
-            // via get_tool_contract / get_tool_output_sample).
+            // A null bound to the OUTPUT of an upstream Composio-or-native
+            // `tool_call` node is UNVERIFIABLE in this echo sandbox — the mock
+            // renders BOTH a Composio and a native `oh:` `tool_call` as
+            // `{tool, args, connection}` and can NEVER produce their real output
+            // fields (`.item.json.data.<field>` for Composio, `.item.json.<field>`
+            // for a native tool), so a downstream binding to one resolves `null`
+            // here even when the wiring is perfectly correct. Hard-rejecting it
+            // (WS6) would block a possibly-correct graph from ever being proposed
+            // — the exact false-negative the transcript audit caught, and the one
+            // that made this gate reject #5148's own native-attachment chain.
+            // Downgrade to a debug-logged skip; `dry_run_workflow` remains the
+            // surface that reports it (as an `unverifiable` diagnostic the agent
+            // can act on via get_tool_contract / get_tool_output_sample).
             if let Some(upstream) =
-                composio_tool_call_upstream_ref(&diag.expression, graph, &step.node_id)
+                mock_opaque_tool_call_upstream_ref(&diag.expression, graph, &step.node_id)
             {
                 tracing::debug!(
                     target: "flows",
@@ -2392,7 +2454,7 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
                     %field,
                     upstream = %upstream,
                     expression = %diag.expression,
-                    "[flows] required-arg resolvability check: arg binds to a Composio \
+                    "[flows] required-arg resolvability check: arg binds to a Composio-or-native \
                      tool_call's output — UNVERIFIABLE in the echo sandbox (the mock cannot \
                      produce real tool output fields), not rejecting; dry_run_workflow \
                      reports it instead"
@@ -2515,18 +2577,25 @@ fn is_trigger_scoped_expression(
 }
 
 /// If a null-resolved config expression on `node_id` is bound to the OUTPUT of
-/// an upstream **Composio `tool_call`** node (a `tool_call` whose `slug` is a
-/// real Composio action — not `=`-derived, not native `oh:`), returns that
-/// upstream node's id; otherwise `None`.
+/// an upstream **`tool_call`** node whose sandbox output is an opaque echo — a
+/// Composio curated action OR a native `oh:` tool (anything but a `=`-derived
+/// dynamic slug) — returns that upstream node's id; otherwise `None`.
 ///
-/// The dry-run / gate sandbox renders a Composio `tool_call` as a deterministic
-/// echo (`{tool, args, connection}`) and can NEVER produce its real output
-/// fields, so a downstream binding to `.item.json.data.<field>` off such a node
-/// resolves `null` in the sandbox **even when the wiring is correct** — the
-/// binding is UNVERIFIABLE here, not necessarily broken. Callers use this to
-/// tell that honest-uncertainty case apart from a genuinely broken binding
-/// (one wired to an `agent` / `transform` / `code` / trigger upstream, whose
-/// real output the sandbox DOES produce, so a null there IS a real bug).
+/// The dry-run / gate sandbox renders BOTH a Composio `tool_call` and a native
+/// `oh:` `tool_call` as a deterministic echo (`{tool, args, connection}`) and
+/// can NEVER produce their real output fields, so a downstream binding off such
+/// a node (`.item.json.data.<field>` for Composio, or `.item.json.<field>` for
+/// a native tool after `native_tool_payload`'s unwrap) resolves `null` in the
+/// sandbox **even when the wiring is correct** — the binding is UNVERIFIABLE
+/// here, not necessarily broken. Callers use this to tell that honest-
+/// uncertainty case apart from a genuinely broken binding (one wired to an
+/// `agent` / `transform` / `code` / trigger upstream, whose real output the
+/// sandbox DOES produce, so a null there IS a real bug).
+///
+/// The native `oh:` case is why this exists beyond Composio: #5148's guidance
+/// prescribes a `produce -> oh:storage_upload_file -> oh:storage_get_link ->
+/// send` chain where the send binds `=nodes.get_link.item.json.url`; excluding
+/// native upstreams here made the gate hard-reject that exact (correct) chain.
 ///
 /// Handles both addressing forms the engine can trace:
 /// - explicit `=nodes.<id>...` / `=.nodes["<id>"]...` (parsed via
@@ -2536,9 +2605,9 @@ fn is_trigger_scoped_expression(
 ///   ambiguous fan-in is never mis-attributed to a single upstream node.
 ///
 /// Anything else (a `=run...` trigger reference, a jq expression not rooted at
-/// one of the above, or a reference to a non-`tool_call` / native / dynamic
-/// node) returns `None`.
-pub(crate) fn composio_tool_call_upstream_ref<'a>(
+/// one of the above, or a reference to a non-`tool_call` / `=`-dynamic node)
+/// returns `None`.
+pub(crate) fn mock_opaque_tool_call_upstream_ref<'a>(
     expr: &str,
     graph: &'a WorkflowGraph,
     node_id: &str,
@@ -2574,7 +2643,11 @@ pub(crate) fn composio_tool_call_upstream_ref<'a>(
         return None;
     }
     let slug = node.config.get("slug").and_then(Value::as_str)?;
-    if slug.starts_with('=') || slug.starts_with("oh:") {
+    // A `=`-derived slug is a dynamic runtime slug we can't reason about. But a
+    // native `oh:` tool_call IS opaque-echoed by the mock exactly like a
+    // Composio one, so its downstream null is equally unverifiable, not broken —
+    // do NOT exclude it (that exclusion made the gate reject #5148's own chain).
+    if slug.starts_with('=') {
         return None;
     }
     Some(node.id.as_str())
@@ -3420,6 +3493,24 @@ pub async fn flows_rollback(
 /// itself — `store::remove_flow` below still errors clearly if `id` doesn't
 /// exist.
 pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>, String> {
+    flows_delete_impl(config, id, None).await
+}
+
+/// Backs [`flows_delete`]. `memory_client_override`, when `Some`, is used in
+/// place of the process-global memory client for the namespace-clear step
+/// below — mirrors `bus::FlowRunDigestSubscriber`'s `with_memory` seam.
+///
+/// The process-global client (`memory::global`) is a single shared `OnceLock`
+/// that any test in the binary may rebind to its own tempdir workspace, so a
+/// test asserting this clear step deterministically must not depend on it —
+/// injecting a directly-constructed [`MemoryClientRef`] lets the test seed
+/// and read back through the SAME instance `flows_delete` itself writes to,
+/// with no race against the global.
+async fn flows_delete_impl(
+    config: &Config,
+    id: &str,
+    memory_client_override: Option<MemoryClientRef>,
+) -> Result<RpcOutcome<Value>, String> {
     match store::get_flow(config, id) {
         Ok(Some(flow)) => unbind_trigger(config, &flow),
         Ok(None) => {}
@@ -3430,6 +3521,27 @@ pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>
 
     store::remove_flow(config, id).map_err(|e| e.to_string())?;
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_delete: removed");
+
+    // Best-effort: clear this flow's private memory namespace along with its
+    // row — a deleted flow must not leave stray `flow_memory_remember`
+    // entries or run digests behind. Never fails the delete itself: the flow
+    // row is already gone by this point regardless of what happens here.
+    let memory_namespace = flow_namespace(id);
+    let client_result = match memory_client_override {
+        Some(client) => Ok(client),
+        None => crate::openhuman::memory::ops::helpers::active_memory_client().await,
+    };
+    match client_result {
+        Ok(client) => {
+            if let Err(e) = client.clear_namespace(&memory_namespace).await {
+                tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, error = %e, "[flows] flows_delete: failed to clear flow memory namespace");
+            }
+        }
+        Err(e) => {
+            tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, error = %e, "[flows] flows_delete: memory client unavailable — could not clear flow memory namespace");
+        }
+    }
+
     publish_flow_changed(id, "deleted", "system");
     Ok(RpcOutcome::new(
         json!({ "id": id, "removed": true }),

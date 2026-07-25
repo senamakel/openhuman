@@ -60,5 +60,3 @@ export function resolveDisplayStatus(run: FlowRun, pendingRunIds: Set<string>): 
   }
   return run.status;
 }
-
-export default useRunsPendingApprovalSet;

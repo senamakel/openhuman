@@ -36,7 +36,7 @@ export type SettingsSection =
  * "System" group's Developer & Diagnostics sub-sections are now first-class
  * top-level groups.
  */
-export type SettingsNavGroup =
+type SettingsNavGroup =
   | 'general'
   | 'assistant'
   | 'data'
@@ -47,7 +47,7 @@ export type SettingsNavGroup =
   | 'automationIntegrations'
   | 'diagnosticsLogs';
 
-export const NAV_GROUP_ORDER: SettingsNavGroup[] = [
+const NAV_GROUP_ORDER: SettingsNavGroup[] = [
   'general',
   'assistant',
   'data',
@@ -73,7 +73,7 @@ export const NAV_GROUP_LABEL_KEY: Record<SettingsNavGroup, string> = {
   diagnosticsLogs: 'settings.devGroups.diagnosticsLogs',
 };
 
-export interface SettingsRegistryEntry {
+interface SettingsRegistryEntry {
   /** Stable unique id — used as the React key, test id, and route slug. */
   id: string;
   /** Route segment passed to `navigateToSettings(id)` (defaults to `id`). */
@@ -702,7 +702,7 @@ export const findEntryByRoute = (route: string): SettingsRegistryEntry | undefin
 // Sidebar helpers (two-pane layout)
 // ---------------------------------------------------------------------------
 
-export interface SettingsSidebarGroup {
+interface SettingsSidebarGroup {
   group: SettingsNavGroup;
   entries: SettingsRegistryEntry[];
 }

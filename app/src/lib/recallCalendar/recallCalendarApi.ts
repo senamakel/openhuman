@@ -34,11 +34,11 @@ export interface RecallCalendarStatus {
   email?: string;
 }
 
-export interface RecallCalendarConnect {
+interface RecallCalendarConnect {
   connectUrl: string;
 }
 
-export interface RecallCalendarDisconnect {
+interface RecallCalendarDisconnect {
   disconnected: boolean;
 }
 

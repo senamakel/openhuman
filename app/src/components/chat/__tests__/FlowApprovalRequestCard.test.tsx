@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FlowApprovalRequest } from '../../../hooks/useFlowApprovalRequests';
 import { decideApproval } from '../../../services/api/approvalApi';
-import FlowApprovalRequestCard from '../FlowApprovalRequestCard';
+import { FlowApprovalRequestCard } from '../FlowApprovalRequestCard';
 
 vi.mock('../../../services/api/approvalApi', () => ({ decideApproval: vi.fn() }));
 

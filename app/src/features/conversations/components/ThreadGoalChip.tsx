@@ -27,7 +27,7 @@ import {
 const POLL_INTERVAL_MS = 10_000;
 
 /** Shared controller returned by {@link useThreadGoal}. */
-export interface ThreadGoalController {
+interface ThreadGoalController {
   threadId: string | null;
   goal: ThreadGoal | null;
   /** Whether the editor panel (above the composer) is open. */
@@ -92,14 +92,19 @@ export function useThreadGoal(
     }
   }, [api, threadId]);
 
-  // Reset the editor + cached goal when the thread changes. Done during render
-  // (React's sanctioned "reset state on prop change" pattern) rather than in an
-  // effect, so it's synchronous and lint-clean.
-  if (activeThread.current !== threadId) {
-    activeThread.current = threadId;
-    setExpanded(false);
-    setGoal(null);
-  }
+  // Reset the editor + cached goal when the thread changes. Done in a useEffect
+  // rather than during render to avoid React's nested-update detection, which
+  // can cascade with concurrent state changes into a "Maximum update depth
+  // exceeded" error (TAURI-REACT-2G).
+  const prevThreadRef = useRef(threadId);
+  useEffect(() => {
+    if (prevThreadRef.current !== threadId) {
+      prevThreadRef.current = threadId;
+      activeThread.current = threadId; // keep the race guard in sync
+      setExpanded(false);
+      setGoal(null);
+    }
+  }, [threadId]);
 
   // Fetch on mount/thread-change and poll lightly. `refresh` is async, so its
   // setState lands in a later microtask (not a synchronous effect write).

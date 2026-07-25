@@ -122,5 +122,3 @@ export const FlowApprovalRequestCard: React.FC<Props> = ({ request, onResolved }
     />
   );
 };
-
-export default FlowApprovalRequestCard;

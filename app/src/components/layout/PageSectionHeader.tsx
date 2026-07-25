@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
  * the same max-width and centering as the content beneath it — header and body
  * stay aligned. Pass width/centering via `className` (e.g. `mx-auto max-w-2xl`).
  */
-export interface PageSectionHeaderProps {
+interface PageSectionHeaderProps {
   title: ReactNode;
   /** One-line description of what the view does. */
   description?: ReactNode;

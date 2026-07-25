@@ -364,7 +364,7 @@ function SessionChatView({ session }: { session: SessionSummary }) {
   );
 }
 
-export interface AgentChatPanelProps {
+interface AgentChatPanelProps {
   /**
    * Controlled open peer-session id (the full-page session subpage). When
    * `onOpenSession` is provided the parent owns this (OrchestrationView drives

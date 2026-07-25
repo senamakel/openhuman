@@ -1772,6 +1772,169 @@ async fn load_or_init_read_failure_embeds_path_in_error_context() {
     );
 }
 
+// ── non-UTF-8 (binary) config recovery (#5167) ──────────────────────────
+
+/// Helper: write binary (non-UTF-8) bytes to a file.
+async fn write_binary(path: &std::path::Path, bytes: &[u8]) {
+    tokio::fs::write(path, bytes)
+        .await
+        .unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
+}
+
+#[tokio::test]
+async fn load_or_init_recovers_from_non_utf8_config() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    // Write binary data that is NOT valid UTF-8.
+    let config_path = root.join("config.toml");
+    let binary_bytes: Vec<u8> = vec![0xff, 0xfe, 0x00, 0x01, 0x02];
+    write_binary(&config_path, &binary_bytes).await;
+
+    let config = load_or_init_for_workspace(root).await;
+
+    // Should have loaded defaults (not crashed).
+    assert!(
+        config.default_model.is_some(),
+        "must load defaults from non-UTF-8 config"
+    );
+
+    // The original binary file should have been renamed to .corrupted.<ts>.
+    let dir = std::fs::read_dir(root).unwrap();
+    let mut found_corrupted = false;
+    for entry in dir {
+        let name = entry.unwrap().file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with("config.corrupted.") {
+            found_corrupted = true;
+            break;
+        }
+    }
+    assert!(
+        found_corrupted,
+        "non-UTF-8 config must be renamed to config.corrupted.<ts>"
+    );
+
+    // A fresh config.toml must have been created by the persistence logic.
+    assert!(
+        tokio::fs::try_exists(&config_path).await.unwrap(),
+        "a fresh config.toml must exist after recovery"
+    );
+}
+
+#[tokio::test]
+async fn load_or_init_recovers_from_non_utf8_using_valid_backup() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    let config_path = root.join("config.toml");
+    let backup_path = root.join("config.toml.bak");
+
+    let binary_bytes: Vec<u8> = vec![0xff, 0xfe, 0x00, 0x01, 0x02];
+    write_binary(&config_path, &binary_bytes).await;
+    // Write a valid backup.
+    write_file(
+        &backup_path,
+        r#"default_model = "backup-recovery-test"
+default_temperature = 0.7
+"#,
+    )
+    .await;
+
+    let config = load_or_init_for_workspace(root).await;
+
+    assert_eq!(
+        config.default_model.as_deref(),
+        Some("backup-recovery-test"),
+        "must recover model from backup when config has non-UTF-8 content"
+    );
+
+    // The binary file should have been renamed.
+    let dir = std::fs::read_dir(root).unwrap();
+    let mut found_corrupted = false;
+    for entry in dir {
+        let name = entry.unwrap().file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with("config.corrupted.") {
+            found_corrupted = true;
+            break;
+        }
+    }
+    assert!(
+        found_corrupted,
+        "non-UTF-8 config must be renamed to config.corrupted.<ts>"
+    );
+}
+
+#[tokio::test]
+async fn load_or_init_non_utf8_falls_back_to_defaults_when_backup_also_non_utf8() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    let config_path = root.join("config.toml");
+    let backup_path = root.join("config.toml.bak");
+
+    let binary_bytes: Vec<u8> = vec![0xff, 0xfe, 0x00, 0x01, 0x02];
+    write_binary(&config_path, &binary_bytes).await;
+    write_binary(&backup_path, &binary_bytes).await;
+
+    let config = load_or_init_for_workspace(root).await;
+
+    assert_eq!(
+        config.default_model.as_deref(),
+        Some(crate::openhuman::config::schema::DEFAULT_MODEL),
+        "must fall back to defaults when both config and backup have non-UTF-8 content"
+    );
+
+    // The primary should be renamed.
+    let dir = std::fs::read_dir(root).unwrap();
+    let mut found_corrupted = false;
+    for entry in dir {
+        let name = entry.unwrap().file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with("config.corrupted.") {
+            found_corrupted = true;
+            break;
+        }
+    }
+    assert!(
+        found_corrupted,
+        "non-UTF-8 config must be renamed to config.corrupted.<ts>"
+    );
+}
+
+#[tokio::test]
+async fn load_or_init_preserves_backup_when_config_is_non_utf8() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    let config_path = root.join("config.toml");
+    let backup_path = root.join("config.toml.bak");
+
+    let binary_bytes: Vec<u8> = vec![0xff, 0xfe, 0x00, 0x01, 0x02];
+    write_binary(&config_path, &binary_bytes).await;
+    write_file(
+        &backup_path,
+        r#"default_model = "preserve-backup-test"
+default_temperature = 0.7
+"#,
+    )
+    .await;
+
+    let _config = load_or_init_for_workspace(root).await;
+
+    // The .bak file must NOT be renamed or deleted.
+    assert!(
+        tokio::fs::try_exists(&backup_path).await.unwrap(),
+        ".bak file must be preserved when recovering from non-UTF-8 config"
+    );
+    let bak_contents = tokio::fs::read_to_string(&backup_path).await.unwrap();
+    assert!(
+        bak_contents.contains("preserve-backup-test"),
+        "backup content must be preserved: {bak_contents}"
+    );
+}
+
 #[test]
 fn redact_url_strips_basic_auth_and_query() {
     let out = redact_url_for_log(

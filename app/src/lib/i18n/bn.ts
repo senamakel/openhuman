@@ -1041,6 +1041,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'সারিবদ্ধ ফলো-আপ',
   'chat.queuedFollowups.clear': 'সাফ করুন',
   'chat.queuedFollowups.clearFailed': 'সারি সাফ করা যায়নি: আবার চেষ্টা করুন।',
+  'chat.createThreadFailed': 'নতুন থ্রেড তৈরি করা যায়নি: আবার চেষ্টা করুন।',
   'chat.parallelBranchLabel': 'সমান্তরাল শাখা',
   'chat.thinking': 'ভাবছে...',
   'chat.noMessages': 'এখনো কোনো বার্তা নেই',

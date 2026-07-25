@@ -24,11 +24,6 @@ vi.mock('../../../store/hooks', () => ({
   useAppSelector: () => [],
 }));
 
-// ── Mock SettingsHeader ─────────────────────────────────────────────────
-vi.mock('../components/SettingsHeader', () => ({
-  default: ({ title }: { title: string }) => <div data-testid="settings-header">{title}</div>,
-}));
-
 // ── Mock CronJobFormModal ───────────────────────────────────────────────
 // The modal is independently tested; here we just verify it opens/closes
 // and the callbacks fire.

@@ -41,7 +41,7 @@ const ACTION_LABEL_KEY: Record<Exclude<UserErrorAction, 'dismiss'>, string> = {
 // (react-hooks/purity); the calls below run only from event handlers.
 const nowMs = (): number => Date.now();
 
-export function UserErrorCenter() {
+function UserErrorCenter() {
   const { t } = useT();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();

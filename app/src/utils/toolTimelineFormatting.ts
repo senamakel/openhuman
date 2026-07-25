@@ -333,7 +333,7 @@ export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; 
  * tool rows under a Hermes-style summary. {@link buildProcessingBlocks}
  * derives an ordered list of these from the interleaved transcript.
  */
-export type ProcessingBlock =
+type ProcessingBlock =
   | { kind: 'narration'; key: string; text: string }
   | { kind: 'thinking'; key: string; text: string }
   | { kind: 'toolGroup'; key: string; summary: string; entries: ToolTimelineEntry[] };
@@ -582,7 +582,7 @@ function formatToolDetail(
 const KNOWN_TOOLKIT_RE =
   /^(gmail|notion|github|slack|discord|linear|jira|google_calendar|google_drive|calendar)$/i;
 
-export function inferIntegrationName(input?: string): string | undefined {
+function inferIntegrationName(input?: string): string | undefined {
   if (!input) return undefined;
 
   const delegateMatch = input.match(/^delegate_(.+)$/);

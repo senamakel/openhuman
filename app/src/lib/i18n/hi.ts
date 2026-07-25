@@ -1040,6 +1040,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'कतारबद्ध फ़ॉलो-अप',
   'chat.queuedFollowups.clear': 'साफ़ करें',
   'chat.queuedFollowups.clearFailed': 'कतार साफ़ नहीं हो सकी: फिर से प्रयास करें।',
+  'chat.createThreadFailed': 'नया थ्रेड नहीं बनाया जा सका: कृपया पुनः प्रयास करें।',
   'chat.parallelBranchLabel': 'समानांतर शाखा',
   'chat.thinking': 'सोच रहा है...',
   'chat.noMessages': 'अभी कोई मैसेज नहीं',

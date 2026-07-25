@@ -13,7 +13,7 @@
  */
 import { ConfirmDialog as GlobalConfirmDialog } from '../../components/ui/ConfirmDialog';
 
-export interface ConfirmDialogProps {
+interface ConfirmDialogProps {
   /** Modal header (e.g. "Delete post"). */
   title: string;
   /** Body copy explaining the consequence (e.g. "Delete this post? This can't be undone."). */

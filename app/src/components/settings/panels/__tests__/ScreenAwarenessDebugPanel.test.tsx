@@ -24,8 +24,6 @@ vi.mock('../../hooks/useSettingsNavigation', () => ({
   useSettingsNavigation: () => ({ navigateBack: vi.fn(), breadcrumbs: [] }),
 }));
 
-vi.mock('../components/SettingsHeader', () => ({ default: () => null }));
-
 vi.mock('../../../../components/intelligence/ScreenIntelligenceDebugPanel', () => ({
   default: () => <div data-testid="screen-debug-inner">debug-content</div>,
 }));

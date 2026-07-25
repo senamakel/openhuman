@@ -36,7 +36,6 @@ import {
   type InstalledModelInfo,
   type LocalAiDiagnostics,
   type LocalAiStatus,
-  type ModelPresetResult,
   openhumanLocalAiApplyPreset,
   openhumanLocalAiDiagnostics,
   openhumanLocalAiPresets,
@@ -58,12 +57,7 @@ export type WorkloadId =
   | 'subconscious';
 
 export const CHAT_WORKLOADS: WorkloadId[] = ['chat', 'reasoning', 'agentic', 'coding'];
-export const BACKGROUND_WORKLOADS: WorkloadId[] = [
-  'memory',
-  'heartbeat',
-  'learning',
-  'subconscious',
-];
+const BACKGROUND_WORKLOADS: WorkloadId[] = ['memory', 'heartbeat', 'learning', 'subconscious'];
 export const ALL_WORKLOADS: WorkloadId[] = [...CHAT_WORKLOADS, ...BACKGROUND_WORKLOADS];
 
 // Workloads that own a `<id>_provider` config field and must round-trip through
@@ -72,7 +66,7 @@ export const ALL_WORKLOADS: WorkloadId[] = [...CHAT_WORKLOADS, ...BACKGROUND_WOR
 // the managed `vision-v1` tier and is a delegate (like agentic BYOK), so it does
 // not participate in the billing-suppression / "routed away from OpenHuman"
 // checks in `useUsageState`.
-export const ROUTABLE_WORKLOADS: WorkloadId[] = [...ALL_WORKLOADS, 'vision'];
+const ROUTABLE_WORKLOADS: WorkloadId[] = [...ALL_WORKLOADS, 'vision'];
 export const OPENAI_CODEX_OAUTH_MISSING_AUTH_URL = 'OPENAI_CODEX_OAUTH_MISSING_AUTH_URL';
 export const OPENAI_CODEX_OAUTH_MISSING_CALLBACK_URL = 'OPENAI_CODEX_OAUTH_MISSING_CALLBACK_URL';
 
@@ -126,11 +120,11 @@ export interface ModelInfo {
   context_window?: number | null;
 }
 
-export interface ProviderModelTestResult {
+interface ProviderModelTestResult {
   reply: string;
 }
 
-export interface OpenAiCodexOAuthStartResult {
+interface OpenAiCodexOAuthStartResult {
   authUrl: string;
   state?: string;
   redirectUri?: string;
@@ -625,5 +619,3 @@ export const localProvider = {
   applyPreset: (tier: string) => openhumanLocalAiApplyPreset(tier),
   setEnabled: (enabled: boolean) => setLocalRuntimeEnabled(enabled),
 };
-
-export type { ModelPresetResult };

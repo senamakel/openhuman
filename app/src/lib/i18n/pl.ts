@@ -1060,6 +1060,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'Wiadomości w kolejce',
   'chat.queuedFollowups.clear': 'Wyczyść',
   'chat.queuedFollowups.clearFailed': 'Nie udało się wyczyścić kolejki: spróbuj ponownie.',
+  'chat.createThreadFailed': 'Nie udało się utworzyć nowego wątku. Spróbuj ponownie.',
   'chat.parallelBranchLabel': 'Równoległa gałąź',
   'chat.thinking': 'Myślę...',
   'chat.noMessages': 'Brak wiadomości',

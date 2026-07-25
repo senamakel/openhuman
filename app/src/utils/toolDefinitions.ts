@@ -1,4 +1,4 @@
-export interface ToolDefinition {
+interface ToolDefinition {
   id: string;
   displayName: string;
   description: string;
@@ -7,7 +7,7 @@ export interface ToolDefinition {
   rustToolNames: string[];
 }
 
-export type ToolCategory = 'System' | 'Files' | 'Vision' | 'Web' | 'Memory' | 'Automation';
+type ToolCategory = 'System' | 'Files' | 'Vision' | 'Web' | 'Memory' | 'Automation';
 
 export const TOOL_CATEGORIES: ToolCategory[] = [
   'System',

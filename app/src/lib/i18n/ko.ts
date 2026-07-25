@@ -1032,6 +1032,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': '대기 중인 후속 메시지',
   'chat.queuedFollowups.clear': '지우기',
   'chat.queuedFollowups.clearFailed': '대기열을 지우지 못했습니다: 다시 시도하세요.',
+  'chat.createThreadFailed': '새 대화를 만들지 못했습니다: 다시 시도하세요.',
   'chat.parallelBranchLabel': '병렬 분기',
   'chat.thinking': '생각 중...',
   'chat.noMessages': '아직 메시지가 없습니다',

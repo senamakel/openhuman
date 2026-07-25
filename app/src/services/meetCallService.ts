@@ -36,7 +36,7 @@ function mapRiveColors(colors?: {
   return { primary_color: primary, secondary_color: secondary };
 }
 
-export type MeetJoinCallInput = {
+type MeetJoinCallInput = {
   meetUrl: string;
   /** Bot's display name in Meet's "Your name" prompt. */
   displayName: string;
@@ -58,7 +58,7 @@ export type MeetJoinCallInput = {
   secondaryVoiceId?: string;
 };
 
-export type MeetJoinCallResult = {
+type MeetJoinCallResult = {
   requestId: string;
   meetUrl: string;
   displayName: string;
@@ -256,7 +256,7 @@ export async function getMeetCallDetail(requestId: string): Promise<MeetCallDeta
 // ---------------------------------------------------------------------------
 
 /** A transcript line with its parsed timestamp/speaker prefix stripped out. */
-export interface ParsedTranscriptLine {
+interface ParsedTranscriptLine {
   timestamp: string | null;
   speaker: string | null;
   text: string;
@@ -423,15 +423,15 @@ export async function sendHarnessResponse(result: string): Promise<void> {
  * core Socket.IO bridge so backend bot events can be handled locally too.
  */
 /** Alias of {@link MeetingPlatform} — kept for existing consumers. */
-export type MascotMeetPlatform = MeetingPlatform;
+type MascotMeetPlatform = MeetingPlatform;
 
-export interface MascotJoinMeetingInput {
+interface MascotJoinMeetingInput {
   platform: MascotMeetPlatform;
   meetUrl: string;
   displayName?: string;
 }
 
-export interface MascotJoinMeetingResult {
+interface MascotJoinMeetingResult {
   success: boolean;
   data?: unknown;
 }

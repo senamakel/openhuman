@@ -36,7 +36,7 @@ export interface NodeConfigPatch {
   config?: Record<string, unknown>;
 }
 
-export interface NodeConfigDrawerProps {
+interface NodeConfigDrawerProps {
   /** The selected node to edit, or `null` when nothing single-node is selected. */
   node: FlowNode | null;
   onClose: () => void;

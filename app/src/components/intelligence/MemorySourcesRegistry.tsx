@@ -82,7 +82,7 @@ interface SyncResult {
  * Per-stage fallback percentages so the progress bar always advances even
  * when no numeric "N/M" ratio is present in the detail string (RC#4, #3295).
  */
-export const STAGE_FALLBACK_PERCENT: Record<string, number> = {
+const STAGE_FALLBACK_PERCENT: Record<string, number> = {
   requested: 2,
   fetching: 5,
   stored: 15,

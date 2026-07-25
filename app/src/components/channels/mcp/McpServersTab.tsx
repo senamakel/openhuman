@@ -94,7 +94,7 @@ const transportOf = (server: SmitheryServer): Transport =>
  * `io.gitlab.<user>/…`), which maps 1:1 to a repo page. Returns `null` for
  * vendor reverse-DNS slugs that don't encode a code host.
  */
-export const deriveRepoUrl = (qualifiedName: string): string | null => {
+const deriveRepoUrl = (qualifiedName: string): string | null => {
   const slash = qualifiedName.indexOf('/');
   if (slash < 1) return null;
   const prefix = qualifiedName.slice(0, slash);

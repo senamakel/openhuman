@@ -1,5 +1,5 @@
 /** Convert a HashRouter hash into its application path. */
-export function hashToPath(hash: string): string {
+function hashToPath(hash: string): string {
   const withoutHash = hash.slice(1);
   return withoutHash || '/';
 }

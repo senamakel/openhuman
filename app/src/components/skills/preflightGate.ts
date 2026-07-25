@@ -23,7 +23,7 @@
 const PREFLIGHT_PREFIX_RE = /^\[preflight:([a-z0-9_-]+):([a-z0-9_-]+)\]\s+/i;
 
 /** Parsed shape of a backend RPC error returned by `openhuman.skill_runtime_run`. */
-export interface WorkflowRunError {
+interface WorkflowRunError {
   /** `'github'` when this is a github-gate failure; `null` for any other error. */
   gate: string | null;
   /**

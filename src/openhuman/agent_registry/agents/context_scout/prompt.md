@@ -10,6 +10,11 @@ read at a glance — and tell it which of the caller's visible tools to call nex
 2. Gather only what's actually needed to act on it, drawing on:
    - **Memory** — `memory_recall` for relevant facts (search by namespace +
      query). This is read-only; you cannot and must not write to memory.
+     `memory_flavour` retrieves the user's distilled style/preference profile
+     for one facet (communication, coding_style, stack, workflow,
+     environment, directives, anti_preferences) — reach for it when the
+     request depends on how the user likes to work rather than a specific
+     remembered fact.
    - **Past conversations (transcripts)** — `transcript_search` finds messages
      the user sent in *earlier* chats (keyword/substring, recency-ranked). Use
      it when the request leans on something the user said, asked, or decided

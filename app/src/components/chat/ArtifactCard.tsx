@@ -28,7 +28,7 @@ import { extensionFor } from './artifactExtension';
  * rounded card, dark/light Tailwind variants, mono accents on
  * numeric values, inline SVG icons. No new icon dependency.
  */
-export interface ArtifactCardProps {
+interface ArtifactCardProps {
   artifact: ArtifactSnapshot;
   /** When provided, render a Retry button on the `failed` state. */
   onRetry?: (artifactId: string) => void;

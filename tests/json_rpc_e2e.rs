@@ -14838,3 +14838,50 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
 
     rpc_join.abort();
 }
+
+/// #5172 — `memory_flavour` is a read-only agent tool exposing the compiled
+/// persona flavour profiles (communication/coding_style/stack/workflow/
+/// environment/directives/anti_preferences) that persona ingestion builds
+/// but nothing previously surfaced to the agent loop.
+///
+/// Verifies:
+/// 1. The tool is reachable under its registered name (`memory_flavour`).
+/// 2. On a fresh workspace (no persona ingestion has run, so no flavoured
+///    tree exists yet), a valid flavour slug returns a clear non-error
+///    "no profile built yet" message rather than an error or a fabricated
+///    profile.
+/// 3. An unknown flavour slug is rejected.
+#[tokio::test]
+async fn memory_flavour_agent_tool_e2e_5172() {
+    use openhuman_core::openhuman::config::Config;
+    use openhuman_core::openhuman::tools::traits::Tool;
+    use openhuman_core::openhuman::tools::MemoryFlavourTool;
+
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let mut cfg = Config::default();
+    cfg.workspace_dir = tmp.path().to_path_buf();
+    let tool = MemoryFlavourTool::new(std::sync::Arc::new(cfg));
+
+    assert_eq!(tool.name(), "memory_flavour");
+
+    let result = tool
+        .execute(json!({ "flavour": "coding_style" }))
+        .await
+        .expect("valid flavour on a fresh workspace should not error");
+    assert!(
+        !result.is_error,
+        "an unbuilt profile must not be reported as a tool error: {result:?}"
+    );
+    assert!(
+        result.output().contains("No profile built yet"),
+        "expected the no-profile-yet message, got: {}",
+        result.output()
+    );
+
+    let unknown = tool
+        .execute(json!({ "flavour": "astrology" }))
+        .await
+        .expect_err("an unrecognized flavour slug must be rejected");
+    assert!(unknown.to_string().contains("Unknown flavour"));
+}

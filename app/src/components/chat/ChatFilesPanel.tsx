@@ -32,7 +32,7 @@ import { extensionFor } from './artifactExtension';
  * state only shows if the user deletes the last artifact while the
  * panel is open).
  */
-export interface ChatFilesPanelProps {
+interface ChatFilesPanelProps {
   threadId: string;
   artifacts: ArtifactSnapshot[];
   onClose: () => void;

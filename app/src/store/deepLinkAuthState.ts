@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export interface DeepLinkAuthState {
+interface DeepLinkAuthState {
   isProcessing: boolean;
   errorMessage: string | null;
   // Set when sign-in fails because the local core could not decrypt persisted

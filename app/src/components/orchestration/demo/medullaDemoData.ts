@@ -85,7 +85,7 @@ export function buildDemoGraph(deviceLabel: string): { nodes: GraphNode[]; edges
 
 export type DemoPeerStatus = 'connected' | 'connecting' | 'idle';
 
-export interface DemoPeer {
+interface DemoPeer {
   id: string;
   address: string;
   status: DemoPeerStatus;
@@ -112,9 +112,9 @@ export function buildDemoPeers(): DemoPeer[] {
 
 // ── Demo chat transcript ───────────────────────────────────────────────────
 
-export type DemoChatRole = 'user' | 'assistant' | 'activity';
+type DemoChatRole = 'user' | 'assistant' | 'activity';
 
-export interface DemoChatMessage {
+interface DemoChatMessage {
   id: string;
   role: DemoChatRole;
   /** i18n key for the message body. */

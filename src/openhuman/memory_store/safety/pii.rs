@@ -5,4 +5,4 @@
 //! content scrubbing runs inside the crate `sanitize_text`. Host consumers keep
 //! their `safety::pii::has_likely_pii` import path.
 
-pub use tinycortex::memory::store::safety::pii::has_likely_pii;
+pub use tinycortex::memory::store::safety::pii::{has_likely_pii, redact_pii};

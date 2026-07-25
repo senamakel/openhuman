@@ -70,7 +70,7 @@ type RawWorkflowSummary = Omit<WorkflowSummary, 'platforms' | 'relatedSkills' | 
 /**
  * Result of `openhuman.skills_read_resource`.
  */
-export interface WorkflowResourceContent {
+interface WorkflowResourceContent {
   /** Echo of the requested skill id. */
   workflowId: string;
   /** Echo of the requested relative path. */
@@ -144,7 +144,7 @@ interface RawWorkflowsCreateResult {
  * `timeoutSecs` is optional — the Rust side defaults to 60s and caps at
  * 600s. Values outside that range are clamped server-side.
  */
-export interface InstallWorkflowFromUrlInput {
+interface InstallWorkflowFromUrlInput {
   url: string;
   timeoutSecs?: number;
 }
@@ -191,7 +191,7 @@ interface RawUninstallWorkflowResult {
   scope: WorkflowScope;
 }
 
-export interface SkillRuntimeSummary {
+interface SkillRuntimeSummary {
   runtime: 'node' | 'python' | string;
   enabled: boolean;
   available: boolean;
@@ -213,7 +213,7 @@ interface RawSkillRuntimeSummary {
   error: string | null;
 }
 
-export interface ResolveSkillRuntimesResult {
+interface ResolveSkillRuntimesResult {
   runtimes: SkillRuntimeSummary[];
 }
 
@@ -245,7 +245,7 @@ function normalizeWorkflowSummary(raw: RawWorkflowSummary): WorkflowSummary {
 }
 
 /** Options for {@link skillsApi.listWorkflows}. */
-export interface ListWorkflowsOptions {
+interface ListWorkflowsOptions {
   /**
    * When `true`, also include capability skills under the `skills/` roots
    * (registry installs land there), not just `workflows/`-root automations.

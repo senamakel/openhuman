@@ -107,9 +107,10 @@ pub const UNKNOWN_METHOD_PREFIX: &str = "unknown method: ";
 /// and never will be (issue #3567): `rpc.discover` (JSON-RPC service
 /// discovery), `list_methods`, liveness `status`, `auth.status`, `config/get`.
 /// This also covers retired feature calls from older clients when no safe
-/// canonical handler exists (#3565: `openhuman.memory_tree_create_namespace`).
+/// canonical handler exists (#3565: `openhuman.memory_tree_create_namespace`,
+/// #5157: `openhuman.harness_init_status`).
 ///
-/// Each miss previously produced recurring Sentry ERROR events with zero user
+/// Each miss previously produced recurring Sentry events with zero user
 /// impact. The transport layer keeps these debug-only (never captured). The
 /// matching health-method *aliases* land separately in `legacy_aliases`
 /// (#3566), which depends on this severity change.
@@ -120,6 +121,7 @@ const KNOWN_PROBE_METHODS: &[&str] = &[
     "auth.status",
     "config/get",
     "openhuman.memory_tree_create_namespace",
+    "openhuman.harness_init_status",
 ];
 
 /// Returns `true` when `method` is a known non-actionable unknown method name
@@ -376,6 +378,7 @@ mod tests {
             "auth.status",
             "config/get",
             "openhuman.memory_tree_create_namespace",
+            "openhuman.harness_init_status",
         ] {
             assert!(
                 is_known_probe_method(m),

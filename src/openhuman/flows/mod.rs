@@ -12,6 +12,7 @@ pub mod builder_tools;
 pub mod bus;
 pub mod discovery_tools;
 mod draft_store;
+pub mod memory_tools;
 mod n8n_import;
 pub mod node_contracts;
 pub mod ops;
@@ -43,3 +44,10 @@ pub use types::{
     DraftOrigin, Flow, FlowConnection, FlowDraft, FlowImport, FlowRevision, FlowRun, FlowRunStep,
     FlowRunTrigger, FlowSuggestion, FlowValidation, FlowValidationError, SuggestionStatus,
 };
+// `FLOW_MEMORY_NAMESPACE_PREFIX` / `flow_namespace` live in `memory_tools`
+// (the domain logic sibling that owns the agent tools consuming them) and are
+// re-exported here so every existing `flows::flow_namespace` /
+// `flows::FLOW_MEMORY_NAMESPACE_PREFIX` call site (`bus.rs`, `ops.rs`, this
+// module's own doc comments) keeps resolving unchanged — `mod.rs` stays
+// export-focused only, per this repo's canonical module shape.
+pub use memory_tools::{flow_namespace, FLOW_MEMORY_NAMESPACE_PREFIX};

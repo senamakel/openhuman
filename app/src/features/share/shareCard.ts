@@ -16,13 +16,13 @@
 export const CARD_WIDTH = 1200;
 export const CARD_HEIGHT = 675;
 
-export const OCEAN = '#4A83DD';
+const OCEAN = '#4A83DD';
 const OCEAN_DEEP = '#2C5AA8';
 const INK = '#0E1726';
 
 const LOG_PREFIX = '[share-card]';
 
-export interface ShareCardData {
+interface ShareCardData {
   /** Punchy headline describing what the agent did. */
   headline: string;
   /** Agent / profile name shown in the footer. */
@@ -33,7 +33,7 @@ export interface ShareCardData {
   brandUrl: string;
 }
 
-export interface ShareCardModel {
+interface ShareCardModel {
   headlineLines: string[];
   agentName: string;
   stat: string | null;

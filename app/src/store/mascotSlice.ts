@@ -28,7 +28,7 @@ export type MascotVoiceGender = 'male' | 'female';
  * voice) so new users see consistent state in the Mascot settings
  * panel without any extra writes.
  */
-export const DEFAULT_MASCOT_VOICE_GENDER: MascotVoiceGender = 'male';
+const DEFAULT_MASCOT_VOICE_GENDER: MascotVoiceGender = 'male';
 
 /**
  * Maximum length of a stored mascot voice id. ElevenLabs voice ids are
@@ -94,7 +94,7 @@ function isMascotVoiceGender(value: unknown): value is MascotVoiceGender {
   return value === 'male' || value === 'female';
 }
 
-export interface MascotState {
+interface MascotState {
   color: MascotColor;
   /**
    * User-selected ElevenLabs voice id for the mascot's reply speech, or
@@ -490,7 +490,7 @@ export const selectEffectiveMascotVoiceId = (state: {
   return MASCOT_VOICE_ID || ELEVENLABS_VOICE_PRESETS[0].id;
 };
 
-export interface MeetingMascotSlot {
+interface MeetingMascotSlot {
   /** Manifest mascot id, or `null` for the primary when the user is on
    *  the default (first-`ready`) mascot. */
   mascotId: string | null;
@@ -499,7 +499,7 @@ export interface MeetingMascotSlot {
   voiceId: string;
 }
 
-export interface MeetingMascotVoicePair {
+interface MeetingMascotVoicePair {
   primary: MeetingMascotSlot;
   secondary: MeetingMascotSlot | null;
 }
@@ -536,5 +536,4 @@ export const selectMeetingMascotVoicePair = (state: {
   return { primary, secondary };
 };
 
-export { mascotSlice };
 export default mascotSlice.reducer;

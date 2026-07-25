@@ -265,7 +265,7 @@ impl LocalAiService {
             .send()
             .await
             .map_err(|e| {
-                tracing::error!(
+                tracing::warn!(
                     target: "local_ai::ollama_admin",
                     %url,
                     error = %e,
@@ -309,7 +309,7 @@ impl LocalAiService {
 
         // Read the body as text first so we can log it if JSON parsing fails.
         let body = response.text().await.map_err(|e| {
-            tracing::error!(
+            tracing::warn!(
                 target: "local_ai::ollama_admin",
                 %url,
                 error = %e,

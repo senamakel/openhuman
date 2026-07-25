@@ -35,7 +35,7 @@ export interface EmbeddingsSettings {
   vector_search_enabled: boolean;
 }
 
-export interface EmbeddingsUpdateResult {
+interface EmbeddingsUpdateResult {
   provider?: string;
   model?: string;
   dimensions?: number;

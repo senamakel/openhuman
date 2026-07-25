@@ -97,5 +97,3 @@ export function FlowRunPendingApprovalCard({ approval, deciding, onDecide }: Pro
     />
   );
 }
-
-export default FlowRunPendingApprovalCard;

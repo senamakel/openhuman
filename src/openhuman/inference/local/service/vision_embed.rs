@@ -80,7 +80,7 @@ impl LocalAiService {
         );
 
         let response = self.http.post(&url).json(&body).send().await.map_err(|e| {
-            tracing::error!(
+            tracing::warn!(
                 target: "local_ai::vision",
                 %url,
                 error = %e,
@@ -100,7 +100,7 @@ impl LocalAiService {
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
             let detail = body.trim();
-            tracing::error!(
+            tracing::warn!(
                 target: "local_ai::vision",
                 %url,
                 %status,

@@ -2437,6 +2437,8 @@ fn tool_group_classifies_gate_and_harness_families() {
         "list_node_kinds",
         "get_node_kind_contract",
         "rhai_workflows",
+        "flow_memory_recall",
+        "flow_memory_remember",
     ] {
         assert_eq!(
             tool_group(flow_tool),
@@ -2565,6 +2567,8 @@ fn default_tools_omits_flows_tools_when_feature_off() {
         "save_workflow",
         "suggest_workflows",
         "rhai_workflows",
+        "flow_memory_recall",
+        "flow_memory_remember",
     ] {
         assert!(
             !names.iter().any(|n| n == absent),

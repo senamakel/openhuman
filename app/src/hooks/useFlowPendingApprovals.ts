@@ -36,7 +36,7 @@ function matchesRun(approval: PendingApproval, flowId: string, runId: string): b
   return !!ctx && ctx.kind === 'flow' && ctx.flow_id === flowId && ctx.run_id === runId;
 }
 
-export interface UseFlowPendingApprovalsResult {
+interface UseFlowPendingApprovalsResult {
   /** Pending approvals scoped to this flow/run, oldest first (server order). */
   approvals: PendingApproval[];
   /** `request_id` of the approval currently being decided, or `null`. */
@@ -93,5 +93,3 @@ export function useFlowPendingApprovals(
 
   return { approvals, decidingId, error: decisionError ?? (enabled ? source.error : null), decide };
 }
-
-export default useFlowPendingApprovals;

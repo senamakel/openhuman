@@ -1,6 +1,6 @@
 import type { AuthStyle } from '../../../utils/tauriCommands/config';
 
-export type BuiltinCloudProvider = {
+type BuiltinCloudProvider = {
   slug: string;
   label: string;
   endpoint: string;

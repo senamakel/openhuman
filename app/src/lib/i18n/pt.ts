@@ -1062,6 +1062,7 @@ const messages: TranslationMap = {
   'chat.queuedFollowups.label': 'Acompanhamentos na fila',
   'chat.queuedFollowups.clear': 'Limpar',
   'chat.queuedFollowups.clearFailed': 'Não foi possível limpar a fila: tente novamente.',
+  'chat.createThreadFailed': 'Não foi possível criar uma nova conversa. Tente novamente.',
   'chat.parallelBranchLabel': 'Ramificação paralela',
   'chat.thinking': 'Pensando...',
   'chat.noMessages': 'Nenhuma mensagem ainda',

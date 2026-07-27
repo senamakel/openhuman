@@ -117,33 +117,89 @@ fn is_announcements_latest_path(path: &str) -> bool {
 
 /// Map a `tinyhumans-sdk` error onto this crate's error contract.
 ///
-/// The SDK reports transport facts (`Status`, `Envelope`, `Http`); which of
-/// those are *expected user states* rather than code bugs is an OpenHuman
-/// policy question, and it is the same question [`BackendOAuthClient::authed_json`]
-/// answers for untyped calls. Both paths must agree, or a route would change
-/// its Sentry and session-expiry behaviour purely by moving onto a typed SDK
-/// method — so this mirrors that classification exactly: a 401 becomes
-/// [`BackendApiError::Unauthorized`], a 404 on `…/channels/<p>/messages/<id>`
-/// becomes [`BackendApiError::MessageNotFound`], a 404 on
-/// `/announcements/latest` becomes [`BackendApiError::AnnouncementNotFound`],
-/// and transient infrastructure statuses are logged rather than reported.
+/// The SDK reports transport facts (`Status`, `Envelope`, `Http`, …); deciding
+/// which of those are *expected user states* rather than code bugs is an
+/// OpenHuman policy question. This is the single place that decides, shared by
+/// [`BackendOAuthClient::authed_json`] and by every typed SDK call, so a route
+/// cannot change its Sentry or session-expiry behaviour merely by moving from
+/// one to the other.
+///
+/// `path` is the URL path only (no query string) and `host` the outbound host,
+/// both needed by the `report_error` branch — see the triage note there.
 pub(crate) fn classify_sdk_error(
     err: tinyhumans_sdk::Error,
     method: &Method,
     path: &str,
+    host: &str,
 ) -> anyhow::Error {
-    let tinyhumans_sdk::Error::Status { status, ref body } = err else {
-        return anyhow::Error::new(err).context(format!(
-            "backend request {} {}",
-            method.as_str(),
-            path
-        ));
+    let (status, body_text) = match err {
+        tinyhumans_sdk::Error::Status { status, ref body } => (status, body.to_string()),
+        // Transport failure: no response reached us. Walk the error source chain
+        // so transient markers hidden in nested causes (reqwest -> hyper ->
+        // rustls TLS EOF, …) still classify correctly — the top-level message
+        // often carries only the outermost wrapper, e.g. "error sending request
+        // for url (...)".
+        tinyhumans_sdk::Error::Http(_) => {
+            let mut error_message = err.to_string();
+            let mut src: Option<&(dyn std::error::Error + 'static)> =
+                std::error::Error::source(&err);
+            while let Some(s) = src {
+                error_message.push_str(" \u{2192} ");
+                error_message.push_str(&s.to_string());
+                src = s.source();
+            }
+            if crate::core::observability::contains_transient_transport_phrase(&error_message) {
+                tracing::warn!(
+                    domain = "backend_api",
+                    operation = "authed_json",
+                    method = method.as_str(),
+                    path = path,
+                    failure = "transport",
+                    error = %error_message,
+                    "[backend_api] transient transport failure on {} {}: {}",
+                    method.as_str(),
+                    path,
+                    error_message,
+                );
+            } else {
+                crate::core::observability::report_error(
+                    error_message.as_str(),
+                    "backend_api",
+                    "authed_json",
+                    &[
+                        ("method", method.as_str()),
+                        ("path", path),
+                        ("failure", "transport"),
+                    ],
+                );
+            }
+            return anyhow::Error::new(err).context(format!(
+                "backend request {} {}",
+                method.as_str(),
+                path
+            ));
+        }
+        // Envelope / decode / URL / header / gated-route failures are code or
+        // contract bugs, not expected user states; propagate with context.
+        _ => {
+            return anyhow::Error::new(err).context(format!(
+                "backend request {} {}",
+                method.as_str(),
+                path
+            ));
+        }
     };
 
+    // 401 on any authed backend endpoint is an expected user-session state
+    // (token expired / revoked / rotated server-side), not a code bug — every
+    // authed endpoint will see this once the session lapses. Surface a typed
+    // `BackendApiError::Unauthorized` so the auth domain can drive recovery,
+    // and skip `report_error` to avoid Sentry noise. Targets
+    // `OPENHUMAN-TAURI-4K8`.
     if status == 401 {
         tracing::info!(
             domain = "backend_api",
-            operation = "sdk_call",
+            operation = "authed_json",
             method = method.as_str(),
             path = path,
             status = status,
@@ -159,10 +215,13 @@ pub(crate) fn classify_sdk_error(
     }
 
     if status == 404 {
+        // 404 on `/channels/<provider>/messages/<id>` is an expected state (user
+        // deleted the message provider-side, or backend GC'd the relay row) —
+        // not a code bug. Targets `OPENHUMAN-TAURI-2Y` (~454 events).
         if let Some((provider, message_id)) = parse_message_path(path) {
             tracing::info!(
                 domain = "backend_api",
-                operation = "sdk_call",
+                operation = "authed_json",
                 provider = provider,
                 message_id = message_id,
                 "[backend_api] message-not-found 404 on {} {} — surfacing typed error",
@@ -174,10 +233,36 @@ pub(crate) fn classify_sdk_error(
                 message_id: message_id.to_string(),
             });
         }
+        // Defense-in-depth: PATCH/DELETE 404s on any channel-message path that
+        // `parse_message_path` could not parse (e.g. exotic URL variant with
+        // extra segments). Still an expected backend state — suppress the
+        // Sentry event without propagating a typed error. Targets
+        // OPENHUMAN-TAURI-R7.
+        if (*method == Method::PATCH || *method == Method::DELETE)
+            && path.contains("/channels/")
+            && path.contains("/messages/")
+        {
+            tracing::debug!(
+                domain = "backend_api",
+                operation = "authed_json",
+                "[backend_api] channel-message 404 on {} {} — path not matched by \
+                 parse_message_path, suppressing Sentry (TAURI-R7 defense-in-depth)",
+                method.as_str(),
+                path,
+            );
+            return anyhow::anyhow!(
+                "channel message not found (404) on {} {}",
+                method.as_str(),
+                path,
+            );
+        }
+        // 404 on `/announcements/latest` means "no announcement" for this
+        // best-effort, cosmetic feature — not a code bug. Targets
+        // `TAURI-RUST-HW0` / `TAURI-RUST-KHX`.
         if *method == Method::GET && is_announcements_latest_path(path) {
             tracing::info!(
                 domain = "backend_api",
-                operation = "sdk_call",
+                operation = "authed_json",
                 "[backend_api] announcement-not-found 404 on {} {} — surfacing typed error",
                 method.as_str(),
                 path,
@@ -186,7 +271,9 @@ pub(crate) fn classify_sdk_error(
         }
     }
 
-    let body_text = body.to_string();
+    // Transient infrastructure errors (proxy/CDN/backend temporarily
+    // unavailable) are not code bugs and callers already implement
+    // retry/disable logic, so skip Sentry to avoid noise.
     let is_budget_exhausted = status == 400
         && crate::openhuman::inference::provider::is_budget_exhausted_message(&body_text);
     if is_budget_exhausted {
@@ -203,7 +290,7 @@ pub(crate) fn classify_sdk_error(
     } else if crate::core::observability::is_transient_http_status_code(status) {
         tracing::warn!(
             domain = "backend_api",
-            operation = "sdk_call",
+            operation = "authed_json",
             method = method.as_str(),
             path = path,
             status = status,
@@ -213,6 +300,15 @@ pub(crate) fn classify_sdk_error(
             path,
         );
     } else {
+        // Enrich the report with the two fields triage needs to pin a non-2xx's
+        // origin: the outbound `host` and a PII-safe `body_shape` (top-level
+        // JSON key names only — never values). `report_error` previously logged
+        // only `response_body_len`, leaving us blind when a client hits a
+        // non-canonical backend (custom BACKEND_URL / proxy / foreign host) —
+        // TAURI-RUST-8C: 12k `GET /teams/me/usage` 404s from one user whose
+        // 91-byte body matched no route this backend emits, un-diagnosable
+        // because neither host nor shape was captured. `host` carries no
+        // scheme/path/query/token. Telemetry only — the error still propagates.
         crate::core::observability::report_error(
             format!(
                 "{} {} failed ({status}); response_body_len={}; body_shape={}",
@@ -223,10 +319,11 @@ pub(crate) fn classify_sdk_error(
             )
             .as_str(),
             "backend_api",
-            "sdk_call",
+            "authed_json",
             &[
                 ("method", method.as_str()),
                 ("path", path),
+                ("host", host),
                 ("status", status.to_string().as_str()),
                 ("failure", "non_2xx"),
             ],
@@ -354,6 +451,18 @@ fn build_backend_reqwest_client() -> Result<Client> {
 
 fn parse_api_response_json(text: &str) -> Result<Value> {
     let v: Value = serde_json::from_str(text).with_context(|| format!("parse API JSON: {text}"))?;
+    parse_api_response_value(v)
+}
+
+/// Envelope handling for an already-parsed body.
+///
+/// This is deliberately NOT the SDK's `unwrap_envelope`. It keeps two
+/// OpenHuman-specific behaviours the SDK does not have: the `user` key fallback
+/// (`GET /auth/me` returns `{success, user}` rather than `{success, data}`), and
+/// returning the envelope minus `success` when neither key is present. Routing
+/// SDK responses through here rather than letting the SDK unwrap them keeps the
+/// response shape every existing caller already expects.
+fn parse_api_response_value(v: Value) -> Result<Value> {
     let Some(obj) = v.as_object() else {
         return Ok(v);
     };
@@ -731,6 +840,16 @@ impl BackendOAuthClient {
     }
 
     /// Generic authenticated JSON request helper for backend API routes.
+    ///
+    /// Transport, URL building, and credential headers come from the vendored
+    /// `tinyhumans-sdk`; the envelope handling and the error classification
+    /// stay here (see [`parse_api_response_value`] and [`classify_sdk_error`]),
+    /// so callers see exactly the same success shapes and typed
+    /// [`BackendApiError`] variants as before the SDK sat underneath.
+    ///
+    /// The response is fetched **unwrapped** (`unwrap = false`) on purpose: the
+    /// SDK's own envelope logic lacks this crate's `user`-key fallback, so
+    /// unwrapping there would change `GET /auth/me`'s shape.
     pub async fn authed_json(
         &self,
         bearer_jwt: &str,
@@ -738,232 +857,25 @@ impl BackendOAuthClient {
         path: &str,
         body: Option<Value>,
     ) -> Result<Value> {
+        // Resolve the path once for telemetry: `classify_sdk_error` reports the
+        // URL path without the query string, and the host separately, matching
+        // what Sentry triage has always seen for these events.
         let url = self
             .base
             .join(path.trim_start_matches('/'))
             .with_context(|| format!("build URL for {path}"))?;
+        let url_path = url.path().to_string();
+        let host = url.host_str().unwrap_or("").to_string();
 
-        let mut request = self
-            .client
-            .request(method.clone(), url.clone())
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt));
-
-        if let Some(body) = body {
-            request = request.json(&body);
+        match self
+            .sdk_for(bearer_jwt)
+            .raw()
+            .send(method.clone(), path, &[], body.as_ref(), false)
+            .await
+        {
+            Ok(value) => parse_api_response_value(value),
+            Err(err) => Err(classify_sdk_error(err, &method, &url_path, &host)),
         }
-
-        let response = request.send().await.map_err(|e| {
-            // Walk the error source chain so transient markers hidden in nested
-            // causes (reqwest -> hyper -> rustls TLS EOF, etc.) still classify
-            // correctly. The top-level `e.to_string()` often only carries the
-            // outermost wrapper, e.g. "error sending request for url (...)".
-            let mut error_message = e.to_string();
-            let mut src: Option<&(dyn std::error::Error + 'static)> = std::error::Error::source(&e);
-            while let Some(s) = src {
-                error_message.push_str(" → ");
-                error_message.push_str(&s.to_string());
-                src = s.source();
-            }
-            if crate::core::observability::contains_transient_transport_phrase(&error_message) {
-                tracing::warn!(
-                    domain = "backend_api",
-                    operation = "authed_json",
-                    method = method.as_str(),
-                    path = url.path(),
-                    failure = "transport",
-                    error = %error_message,
-                    "[backend_api] transient transport failure on {} {}: {}",
-                    method.as_str(),
-                    url.path(),
-                    error_message,
-                );
-            } else {
-                crate::core::observability::report_error(
-                    error_message.as_str(),
-                    "backend_api",
-                    "authed_json",
-                    &[
-                        ("method", method.as_str()),
-                        ("path", url.path()),
-                        ("failure", "transport"),
-                    ],
-                );
-            }
-            anyhow::Error::new(e).context(format!(
-                "backend request {} {}",
-                method.as_str(),
-                url.path()
-            ))
-        })?;
-
-        let status = response.status();
-        let text = response.text().await.unwrap_or_default();
-        if !status.is_success() {
-            let status_code = status.as_u16();
-            let status_str = status_code.to_string();
-
-            // 401 on any authed backend endpoint is an expected user-session
-            // state (token expired / revoked / rotated server-side), not a
-            // code bug — every authed endpoint will see this once the session
-            // lapses. Surface a typed `BackendApiError::Unauthorized` so the
-            // auth domain can drive recovery, and skip `report_error` to
-            // avoid Sentry noise. Targets `OPENHUMAN-TAURI-4K8` (mascot TTS
-            // surfaced it first on `/openai/v1/audio/speech`, but the same
-            // shape applies to every `authed_json` path).
-            if status_code == 401 {
-                tracing::info!(
-                    domain = "backend_api",
-                    operation = "authed_json",
-                    method = method.as_str(),
-                    path = url.path(),
-                    status = status_code,
-                    failure = "non_2xx",
-                    "[backend_api] 401 on {} {} — session token rejected, surfacing typed error",
-                    method.as_str(),
-                    url.path(),
-                );
-                return Err(anyhow::Error::new(BackendApiError::Unauthorized {
-                    method: method.as_str().to_string(),
-                    path: url.path().to_string(),
-                }));
-            }
-
-            // 404 on `/channels/<provider>/messages/<id>` is an expected
-            // state (user deleted the message provider-side, or backend
-            // GC'd the relay row) — not a code bug. Surface a typed
-            // `BackendApiError::MessageNotFound` so callers (`bus.rs`
-            // streaming/thinking/delete/final paths) can clear stale
-            // ids and skip retry, without funneling the 404 into
-            // `report_error`. Targets `OPENHUMAN-TAURI-2Y` (~454 events).
-            if status_code == 404 {
-                if let Some((provider, message_id)) = parse_message_path(url.path()) {
-                    tracing::info!(
-                        domain = "backend_api",
-                        operation = "authed_json",
-                        provider = provider,
-                        message_id = message_id,
-                        "[backend_api] message-not-found 404 on {} {} — surfacing typed error",
-                        method.as_str(),
-                        url.path(),
-                    );
-                    return Err(anyhow::Error::new(BackendApiError::MessageNotFound {
-                        provider: provider.to_string(),
-                        message_id: message_id.to_string(),
-                    }));
-                }
-                // Defense-in-depth: PATCH/DELETE 404s on any channel-message path that
-                // parse_message_path could not parse (e.g. exotic URL variant with extra
-                // segments). Still an expected backend state — suppress the Sentry event
-                // without propagating a typed error. Targets OPENHUMAN-TAURI-R7.
-                if (method == Method::PATCH || method == Method::DELETE)
-                    && url.path().contains("/channels/")
-                    && url.path().contains("/messages/")
-                {
-                    tracing::debug!(
-                        domain = "backend_api",
-                        operation = "authed_json",
-                        "[backend_api] channel-message 404 on {} {} — path not matched by \
-                         parse_message_path, suppressing Sentry (TAURI-R7 defense-in-depth)",
-                        method.as_str(),
-                        url.path(),
-                    );
-                    anyhow::bail!(
-                        "channel message not found (404) on {} {}",
-                        method.as_str(),
-                        url.path(),
-                    );
-                }
-
-                // 404 on `/announcements/latest` means "no announcement" for
-                // this best-effort, cosmetic feature — not a code bug. Surface
-                // a typed `BackendApiError::AnnouncementNotFound` so the caller
-                // (`announcements::ops::get_latest_announcement`) can degrade to
-                // `null` instead of propagating an error, without funneling the
-                // 404 into `report_error`. Targets `TAURI-RUST-HW0` / `TAURI-RUST-KHX`.
-                if method == Method::GET && is_announcements_latest_path(url.path()) {
-                    tracing::info!(
-                        domain = "backend_api",
-                        operation = "authed_json",
-                        "[backend_api] announcement-not-found 404 on {} {} — surfacing typed error",
-                        method.as_str(),
-                        url.path(),
-                    );
-                    return Err(anyhow::Error::new(BackendApiError::AnnouncementNotFound));
-                }
-            }
-
-            // These are transient infrastructure errors (proxy/CDN/backend
-            // temporarily unavailable). They are not code bugs and callers already
-            // implement retry/disable logic, so skip Sentry to avoid noise.
-            let is_transient_infra =
-                crate::core::observability::is_transient_http_status_code(status_code);
-            let is_budget_exhausted = status_code == 400
-                && crate::openhuman::inference::provider::is_budget_exhausted_message(&text);
-            if is_budget_exhausted {
-                tracing::info!(
-                    method = method.as_str(),
-                    path = url.path(),
-                    status = status_code,
-                    failure = "non_2xx",
-                    kind = "budget",
-                    "[backend_api] budget-exhausted 400 on {} {} — not reporting to Sentry",
-                    method.as_str(),
-                    url.path(),
-                );
-            } else if is_transient_infra {
-                tracing::warn!(
-                    domain = "backend_api",
-                    operation = "authed_json",
-                    method = method.as_str(),
-                    path = url.path(),
-                    status = status_code,
-                    failure = "non_2xx",
-                    "[backend_api] transient {status} on {} {} — not reporting to Sentry",
-                    method.as_str(),
-                    url.path(),
-                );
-            } else {
-                // Enrich the report with the two fields triage needs to pin a
-                // non-2xx's origin: the outbound `host` and a PII-safe `body_shape`
-                // (top-level JSON key names only — never values; see
-                // `backend_api_body_shape`). `report_error` previously logged only
-                // `response_body_len`, leaving us blind when a client hits a
-                // non-canonical backend (custom BACKEND_URL / proxy / foreign
-                // host) — TAURI-RUST-8C: 12k `GET /teams/me/usage` 404s from one
-                // user whose 91-byte body matched no route this backend emits,
-                // un-diagnosable because neither host nor shape was captured.
-                // `host_str()` carries no scheme/path/query/token. Telemetry only
-                // — the error still propagates below (no suppression).
-                let host = url.host_str().unwrap_or("");
-                let body_shape = backend_api_body_shape(&text);
-                crate::core::observability::report_error(
-                    format!(
-                        "{} {} failed ({status}); response_body_len={}; body_shape={}",
-                        method.as_str(),
-                        url.path(),
-                        text.len(),
-                        body_shape,
-                    )
-                    .as_str(),
-                    "backend_api",
-                    "authed_json",
-                    &[
-                        ("method", method.as_str()),
-                        ("path", url.path()),
-                        ("host", host),
-                        ("status", status_str.as_str()),
-                        ("failure", "non_2xx"),
-                    ],
-                );
-            }
-            anyhow::bail!(
-                "{} {} failed ({status}): {text}",
-                method.as_str(),
-                url.path()
-            );
-        }
-
-        parse_api_response_json(&text)
     }
 
     /// Lists all active integrations for the current user.
@@ -1126,6 +1038,7 @@ impl BackendOAuthClient {
                     err,
                     &Method::POST,
                     &format!("/channels/{}/typing", tinyhumans_sdk::enc(channel)),
+                    self.base.host_str().unwrap_or(""),
                 )
             })
     }
@@ -1187,6 +1100,7 @@ impl BackendOAuthClient {
                         tinyhumans_sdk::enc(channel),
                         tinyhumans_sdk::enc(message_id)
                     ),
+                    self.base.host_str().unwrap_or(""),
                 )
             })
     }

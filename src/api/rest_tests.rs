@@ -876,3 +876,105 @@ async fn authed_json_patch_404_with_base_path_prefix_does_not_report() {
     assert_eq!(provider, "telegram");
     assert_eq!(message_id, "9999");
 }
+
+// The channel methods below now reach the backend through the vendored
+// `tinyhumans-sdk` transport instead of `authed_json`. The routes they call
+// still classify expected backend states the same way — a route must not
+// change its Sentry or session-expiry behaviour just because it moved onto a
+// typed SDK method. These pin that equivalence.
+
+#[tokio::test]
+async fn sdk_backed_channel_delete_surfaces_message_not_found_on_404() {
+    let app = Router::new().route(
+        "/channels/telegram/messages/1103",
+        axum::routing::delete(|| async { (axum::http::StatusCode::NOT_FOUND, "Not Found") }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let client = BackendOAuthClient::new(&format!("http://{addr}")).unwrap();
+    let err = client
+        .send_channel_delete("telegram", "1103", "mock-jwt")
+        .await
+        .unwrap_err();
+
+    let typed = err.downcast_ref::<BackendApiError>().unwrap();
+    let BackendApiError::MessageNotFound {
+        provider,
+        message_id,
+    } = typed
+    else {
+        panic!("expected MessageNotFound, got {typed:?}");
+    };
+    assert_eq!(provider, "telegram");
+    assert_eq!(message_id, "1103");
+}
+
+#[tokio::test]
+async fn sdk_backed_channel_typing_surfaces_unauthorized_on_401() {
+    let app = Router::new().route(
+        "/channels/telegram/typing",
+        post(|| async { (axum::http::StatusCode::UNAUTHORIZED, "Unauthorized") }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let client = BackendOAuthClient::new(&format!("http://{addr}")).unwrap();
+    let err = client
+        .send_channel_typing("telegram", "mock-jwt")
+        .await
+        .unwrap_err();
+
+    let typed = err.downcast_ref::<BackendApiError>().unwrap();
+    let BackendApiError::Unauthorized { method, path } = typed else {
+        panic!("expected Unauthorized, got {typed:?}");
+    };
+    assert_eq!(method, "POST");
+    assert_eq!(path, "/channels/telegram/typing");
+    // The session-expiry sentinel must still be derivable, so the dispatcher
+    // keeps routing this to re-sign-in rather than to Sentry.
+    assert!(flatten_authed_error(err).starts_with("SESSION_EXPIRED:"));
+}
+
+// The SDK transport must inherit this crate's client, so the version headers
+// and timeouts apply to SDK-backed calls exactly as they do to `authed_json`.
+#[tokio::test]
+async fn sdk_backed_calls_send_the_core_version_header() {
+    let seen: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let app = Router::new()
+        .route(
+            "/channels/telegram/typing",
+            post(
+                |State(state): State<Arc<Mutex<Option<String>>>>, headers: HeaderMap| async move {
+                    *state.lock().unwrap() = headers
+                        .get("x-core-version")
+                        .and_then(|v| v.to_str().ok())
+                        .map(str::to_owned);
+                    Json(json!({"success": true, "data": {}}))
+                },
+            ),
+        )
+        .with_state(seen.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let client = BackendOAuthClient::new(&format!("http://{addr}")).unwrap();
+    client
+        .send_channel_typing("telegram", "mock-jwt")
+        .await
+        .unwrap();
+
+    assert_eq!(
+        seen.lock().unwrap().as_deref(),
+        Some(env!("CARGO_PKG_VERSION"))
+    );
+}

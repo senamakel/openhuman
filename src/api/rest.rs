@@ -5,8 +5,10 @@ use base64::Engine;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION};
 use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::time::Duration;
+
+use tinyhumans_sdk::TinyHumansClient;
 
 use super::jwt::bearer_authorization_value;
 
@@ -111,6 +113,131 @@ fn parse_message_path(path: &str) -> Option<(&str, &str)> {
 fn is_announcements_latest_path(path: &str) -> bool {
     let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
     matches!(segments.as_slice(), [.., "announcements", "latest"])
+}
+
+/// Map a `tinyhumans-sdk` error onto this crate's error contract.
+///
+/// The SDK reports transport facts (`Status`, `Envelope`, `Http`); which of
+/// those are *expected user states* rather than code bugs is an OpenHuman
+/// policy question, and it is the same question [`BackendOAuthClient::authed_json`]
+/// answers for untyped calls. Both paths must agree, or a route would change
+/// its Sentry and session-expiry behaviour purely by moving onto a typed SDK
+/// method — so this mirrors that classification exactly: a 401 becomes
+/// [`BackendApiError::Unauthorized`], a 404 on `…/channels/<p>/messages/<id>`
+/// becomes [`BackendApiError::MessageNotFound`], a 404 on
+/// `/announcements/latest` becomes [`BackendApiError::AnnouncementNotFound`],
+/// and transient infrastructure statuses are logged rather than reported.
+pub(crate) fn classify_sdk_error(
+    err: tinyhumans_sdk::Error,
+    method: &Method,
+    path: &str,
+) -> anyhow::Error {
+    let tinyhumans_sdk::Error::Status { status, ref body } = err else {
+        return anyhow::Error::new(err).context(format!(
+            "backend request {} {}",
+            method.as_str(),
+            path
+        ));
+    };
+
+    if status == 401 {
+        tracing::info!(
+            domain = "backend_api",
+            operation = "sdk_call",
+            method = method.as_str(),
+            path = path,
+            status = status,
+            failure = "non_2xx",
+            "[backend_api] 401 on {} {} — session token rejected, surfacing typed error",
+            method.as_str(),
+            path,
+        );
+        return anyhow::Error::new(BackendApiError::Unauthorized {
+            method: method.as_str().to_string(),
+            path: path.to_string(),
+        });
+    }
+
+    if status == 404 {
+        if let Some((provider, message_id)) = parse_message_path(path) {
+            tracing::info!(
+                domain = "backend_api",
+                operation = "sdk_call",
+                provider = provider,
+                message_id = message_id,
+                "[backend_api] message-not-found 404 on {} {} — surfacing typed error",
+                method.as_str(),
+                path,
+            );
+            return anyhow::Error::new(BackendApiError::MessageNotFound {
+                provider: provider.to_string(),
+                message_id: message_id.to_string(),
+            });
+        }
+        if *method == Method::GET && is_announcements_latest_path(path) {
+            tracing::info!(
+                domain = "backend_api",
+                operation = "sdk_call",
+                "[backend_api] announcement-not-found 404 on {} {} — surfacing typed error",
+                method.as_str(),
+                path,
+            );
+            return anyhow::Error::new(BackendApiError::AnnouncementNotFound);
+        }
+    }
+
+    let body_text = body.to_string();
+    let is_budget_exhausted = status == 400
+        && crate::openhuman::inference::provider::is_budget_exhausted_message(&body_text);
+    if is_budget_exhausted {
+        tracing::info!(
+            method = method.as_str(),
+            path = path,
+            status = status,
+            failure = "non_2xx",
+            kind = "budget",
+            "[backend_api] budget-exhausted 400 on {} {} — not reporting to Sentry",
+            method.as_str(),
+            path,
+        );
+    } else if crate::core::observability::is_transient_http_status_code(status) {
+        tracing::warn!(
+            domain = "backend_api",
+            operation = "sdk_call",
+            method = method.as_str(),
+            path = path,
+            status = status,
+            failure = "non_2xx",
+            "[backend_api] transient {status} on {} {} — not reporting to Sentry",
+            method.as_str(),
+            path,
+        );
+    } else {
+        crate::core::observability::report_error(
+            format!(
+                "{} {} failed ({status}); response_body_len={}; body_shape={}",
+                method.as_str(),
+                path,
+                body_text.len(),
+                backend_api_body_shape(&body_text),
+            )
+            .as_str(),
+            "backend_api",
+            "sdk_call",
+            &[
+                ("method", method.as_str()),
+                ("path", path),
+                ("status", status.to_string().as_str()),
+                ("failure", "non_2xx"),
+            ],
+        );
+    }
+
+    anyhow::anyhow!(
+        "{} {} failed ({status}): {body_text}",
+        method.as_str(),
+        path
+    )
 }
 
 const CLIENT_VERSION_HEADER_MAX_LEN: usize = 64;
@@ -376,6 +503,20 @@ pub struct IntegrationTokensHandoff {
 pub struct BackendOAuthClient {
     client: Client,
     base: Url,
+    /// Typed client for the TinyHumans backend, from the vendored
+    /// `tinyhumans-sdk` crate (`vendor/tinyhumans-sdk`).
+    ///
+    /// It shares `client` above, so the SDK inherits this crate's transport
+    /// policy — platform TLS backend (schannel on Windows for corporate
+    /// TLS-inspection proxies), the 120s/15s timeouts, `http1_only`, and the
+    /// `x-core-version` / `x-tauri-version` attribution headers. The SDK is the
+    /// route layer; this module keeps the error classification and Sentry
+    /// policy, which are OpenHuman concerns rather than contract concerns.
+    ///
+    /// The bearer token is per-call rather than per-client here, so callers
+    /// clone this with [`BackendOAuthClient::sdk_for`] to bind a session token.
+    /// The clone is cheap: `reqwest::Client` is an `Arc` internally.
+    sdk: TinyHumansClient,
 }
 
 impl BackendOAuthClient {
@@ -397,7 +538,18 @@ impl BackendOAuthClient {
         base.set_query(None);
         base.set_fragment(None);
         let client = build_backend_reqwest_client()?;
-        Ok(Self { client, base })
+        let sdk = TinyHumansClient::new(base.as_str()).with_http_client(client.clone());
+        Ok(Self { client, base, sdk })
+    }
+
+    /// Borrow an SDK client bound to `bearer_jwt`.
+    ///
+    /// Sessions are per-call in this crate but per-client in the SDK, so this
+    /// clones the shared client and attaches the token. The clone copies an
+    /// `Arc`-backed `reqwest::Client` and a base-URL `String`; it does not
+    /// build a new connection pool.
+    pub fn sdk_for(&self, bearer_jwt: &str) -> TinyHumansClient {
+        self.sdk.clone().with_token(Some(bearer_jwt.to_owned()))
     }
 
     /// Borrow the underlying `reqwest::Client` for callers that need to
@@ -964,14 +1116,18 @@ impl BackendOAuthClient {
     pub async fn send_channel_typing(&self, channel: &str, bearer_jwt: &str) -> Result<Value> {
         let channel = channel.trim().trim_matches('/');
         anyhow::ensure!(!channel.is_empty(), "channel is required");
-        let encoded = urlencoding::encode(channel);
-        self.authed_json(
-            bearer_jwt,
-            Method::POST,
-            &format!("channels/{encoded}/typing"),
-            Some(json!({})),
-        )
-        .await
+        self.sdk_for(bearer_jwt)
+            .channels()
+            .send_typing(channel)
+            .await
+            .map(|response| response.0)
+            .map_err(|err| {
+                classify_sdk_error(
+                    err,
+                    &Method::POST,
+                    &format!("/channels/{}/typing", tinyhumans_sdk::enc(channel)),
+                )
+            })
     }
 
     /// Edits an existing channel message. Used by the progressive-edit
@@ -1017,15 +1173,22 @@ impl BackendOAuthClient {
         let channel = channel.trim().trim_matches('/');
         anyhow::ensure!(!channel.is_empty(), "channel is required");
         anyhow::ensure!(!message_id.is_empty(), "message_id is required");
-        let encoded_channel = urlencoding::encode(channel);
-        let encoded_id = urlencoding::encode(message_id);
-        self.authed_json(
-            bearer_jwt,
-            Method::DELETE,
-            &format!("channels/{encoded_channel}/messages/{encoded_id}"),
-            None,
-        )
-        .await
+        self.sdk_for(bearer_jwt)
+            .channels()
+            .delete_message(channel, message_id)
+            .await
+            .map(|response| response.0)
+            .map_err(|err| {
+                classify_sdk_error(
+                    err,
+                    &Method::DELETE,
+                    &format!(
+                        "/channels/{}/messages/{}",
+                        tinyhumans_sdk::enc(channel),
+                        tinyhumans_sdk::enc(message_id)
+                    ),
+                )
+            })
     }
 
     /// Sends a reaction (e.g. emoji) to a message in a channel.

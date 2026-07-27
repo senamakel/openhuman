@@ -29,14 +29,14 @@ pub enum Role {
 }
 
 /// Result of creating a session (`POST /medulla/v1/sessions`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionCreated {
     pub session_id: String,
 }
 
 /// Item in the session list (`GET /medulla/v1/sessions`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSummary {
     pub session_id: String,
@@ -50,7 +50,7 @@ pub struct SessionSummary {
 }
 
 /// Detailed session state (`GET /medulla/v1/sessions/:id`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionDetail {
     pub session_id: String,
@@ -64,7 +64,7 @@ pub struct SessionDetail {
 }
 
 /// Result of archiving a session (`DELETE /medulla/v1/sessions/:id`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionArchived {
     pub session_id: String,
@@ -75,7 +75,7 @@ pub struct SessionArchived {
 ///
 /// The async (202) response carries `cycle_id`/`seq`; the sync (`?sync=1`)
 /// response additionally carries `reply`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendResult {
     pub cycle_id: String,
@@ -85,7 +85,7 @@ pub struct SendResult {
 }
 
 /// A replayed message (`GET /medulla/v1/sessions/:id/messages`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     pub seq: i64,
@@ -98,7 +98,7 @@ pub struct Message {
 }
 
 /// Result of `POST /medulla/v1/sessions/:id/abort`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AbortResult {
     pub session_id: String,

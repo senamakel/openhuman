@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Client-safe harness budget advertised by a connected worker.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RosterBudget {
     /// Provider that meters the budget.
@@ -25,7 +25,7 @@ pub struct RosterBudget {
 }
 
 /// Connected worker returned by `GET /medulla/v1/roster`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RosterWorker {
     /// Stable worker identifier in the manager registry.
@@ -74,7 +74,7 @@ pub struct RosterWorker {
 }
 
 /// Response payload of `GET /medulla/v1/roster`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Roster {
     /// Workers currently known to the manager.
     #[serde(default)]
@@ -124,7 +124,7 @@ pub struct TaskRecurrence {
 }
 
 /// External source identity attached to a synchronized task.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProgramTaskSourceRef {
     /// Source provider name.
@@ -137,7 +137,7 @@ pub struct ProgramTaskSourceRef {
 }
 
 /// An operator-owned task in the backend program ledger.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProgramTask {
     /// Stable backend task identifier.
@@ -215,7 +215,7 @@ pub enum GithubIssueState {
 }
 
 /// A configured GitHub task source. Tokens never appear on this response.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProgramTaskSource {
     /// Stable backend source identifier.
@@ -266,7 +266,7 @@ pub struct CreateProgramTaskSource {
 }
 
 /// Result of synchronizing one GitHub source into the task ledger.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TaskSourceSyncResult {
     /// Number of tasks created.
     pub added: u64,
@@ -279,33 +279,33 @@ pub struct TaskSourceSyncResult {
     pub errors: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct TasksPayload {
     pub(crate) tasks: Vec<ProgramTask>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct TaskPayload {
     pub(crate) task: ProgramTask,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct TaskSourcesPayload {
     pub(crate) sources: Vec<ProgramTaskSource>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct TaskSourcePayload {
     pub(crate) source: ProgramTaskSource,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct TaskSourceSyncPayload {
     pub(crate) result: TaskSourceSyncResult,
 }
 
 /// Result shared by program task/source delete endpoints.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DeleteProgramItem {
     /// Whether the requested resource existed and was removed.
     pub deleted: bool,

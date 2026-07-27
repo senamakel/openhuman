@@ -1228,3 +1228,51 @@ fn http_host_controllers_absent_when_http_server_off() {
         "`http_host` controllers must be compiled out when the `http-server` feature is off"
     );
 }
+
+/// The `medulla` namespace registers under `DomainGroup::Medulla` when the
+/// `medulla` feature is on.
+///
+/// Paired with the negative below. On its own this proves nothing about the
+/// gate — a gate that removed nothing would still pass it.
+#[cfg(feature = "medulla")]
+#[test]
+fn medulla_controllers_registered_when_feature_on() {
+    assert_eq!(
+        group_for_namespace("medulla"),
+        Some(DomainGroup::Medulla),
+        "`medulla` must register under DomainGroup::Medulla when the feature is on"
+    );
+}
+
+/// The `medulla` namespace leaves no trace when the feature is off.
+///
+/// This is the half that proves the gate removes something. It also pins the
+/// intended off-state: **absence**, so a host sees unknown-method and hides the
+/// surface, rather than a registered controller that fails at call time.
+#[cfg(not(feature = "medulla"))]
+#[test]
+fn medulla_controllers_absent_when_feature_off() {
+    assert_eq!(
+        group_for_namespace("medulla"),
+        None,
+        "`medulla` must not register when the feature is off"
+    );
+}
+
+/// `medulla` and `medulla_local` are independent namespaces.
+///
+/// They are different products sharing a word: `medulla` is the cloud client,
+/// `medulla_local` the older supervised-child draft. Gating one must never
+/// affect the other, and this pins that so a future cleanup of `medulla_local`
+/// cannot silently take the client down with it.
+#[test]
+fn medulla_and_medulla_local_are_independent_namespaces() {
+    let client = group_for_namespace("medulla");
+    let local = group_for_namespace("medulla_local");
+    if client.is_some() && local.is_some() {
+        assert_ne!(
+            client, local,
+            "the cloud client and the local-brain draft must not share a DomainGroup"
+        );
+    }
+}

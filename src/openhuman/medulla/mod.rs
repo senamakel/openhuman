@@ -30,9 +30,17 @@
 pub mod client;
 pub mod contract;
 pub mod events;
+#[cfg(feature = "medulla")]
+pub mod ops;
+#[cfg(feature = "medulla")]
+pub mod resolve;
+#[cfg(feature = "medulla")]
+mod schemas;
 
 pub use contract::{VerificationEvidence, WorkerContract};
 pub use events::{EventEnvelope, TuiEvent};
+#[cfg(feature = "medulla")]
+pub use schemas::{all_medulla_controller_schemas, all_medulla_registered_controllers};
 
 /// The tool names the Medulla harness reserves for its built-in memory and
 /// task-tracker modules.

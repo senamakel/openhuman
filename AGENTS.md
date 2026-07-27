@@ -175,6 +175,37 @@ Embedded provider webviews **must not** grow new JS injection. No new `.js` unde
 
 ## Rust core (`src/`)
 
+### Backend API access — `src/api/` over `tinyhumans-sdk`
+
+Calls to the TinyHumans cloud backend go through the vendored
+[`tinyhumans-sdk`](https://github.com/tinyhumansai/sdk) crate at
+`vendor/tinyhumans-sdk` (git submodule, path dependency — the crate is not on
+crates.io, so unlike the other `vendor/` crates it has no `[patch.crates-io]`
+entry). **The SDK is the source of truth for backend routes.** A route missing
+from it belongs upstream in the SDK repo, not re-implemented in `src/api/`.
+
+The split:
+
+- **SDK** — routes, URL building, percent-encoding, credential headers,
+  `{success,data}` envelope handling, and the admin/webhook-receiver route gate.
+- **`src/api/`** — the OpenHuman-specific layer on top: session-token retrieval
+  (`jwt.rs`), base-URL/env resolution (`config.rs`), and the error
+  classification + Sentry policy in `rest.rs`.
+
+`BackendOAuthClient` owns a `TinyHumansClient` built with
+`with_http_client(...)` so the SDK inherits this crate's transport — platform
+TLS (schannel on Windows for corporate TLS-inspection proxies, rustls
+elsewhere), the 120s/15s timeouts, `http1_only`, and the `x-core-version` /
+`x-tauri-version` headers. Bind a session token with `sdk_for(bearer_jwt)`.
+
+**Every SDK-backed call must map its error through `classify_sdk_error`.** That
+function mirrors `authed_json`'s classification exactly (401 →
+`Unauthorized`/`SESSION_EXPIRED`, channel-message 404 → `MessageNotFound`,
+announcements 404 → `AnnouncementNotFound`, transient statuses logged not
+reported). Skipping it would change a route's Sentry and session-expiry
+behaviour purely by moving it onto a typed SDK method. `rest_tests.rs` pins the
+two paths' equivalence — keep that as call sites migrate.
+
 ### Domain layout (`src/openhuman/`)
 
 ~130 domain directories — authoritative list: `ls -d src/openhuman/*/`. Major families: agent (`agent`, `agent_experience`, `agent_meetings`, `agent_memory`, `agent_orchestration`, `agent_registry`, `agent_tool_policy`, `agentbox`, `orchestration`), memory (`memory`, `memory_archivist`, `memory_conversations`, `memory_diff`, `memory_goals`, `memory_queue`, `memory_search`, `memory_sources`, `memory_store`, `memory_sync`, `memory_tools`, `memory_tree`, `tinycortex`), skills/flows (`skills`, `skill_registry`, `skill_runtime`, `flows`, `tinyflows`, `tinyagents`, `rhai_workflows`), inference/AI (`inference`, `embeddings`, `routing`), MCP (`mcp_audit`, `mcp_client`, `mcp_registry`, `mcp_server`), runtimes (`runtime_node`, `runtime_python`, `runtime_python_server`, `javascript`, `sandbox`, `cwd_jail`), channels/webviews (`channels`, `whatsapp_data`), meet (`meet`, `meet_agent`), web3 (`wallet`, `web3`, `x402`, `tokenjuice`), plus platform domains (`about_app`, `approval`, `config`, `cron`, `credentials`, `keyring`, `security`, `threads`, `tools`, `update`, `voice`, …).

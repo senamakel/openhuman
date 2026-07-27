@@ -82,6 +82,15 @@ pub enum DomainGroup {
     Web3,
     Voice,
     Media,
+    /// Medulla integration: the cloud client (`medulla`), the folded session
+    /// runtime (`medulla_session`), the chat store (`medulla_chat`), and
+    /// authored harness workflows (`medulla_workflows`).
+    ///
+    /// One coarse family rather than four, because these are never
+    /// independently useful — a host that wants `medulla_session` always wants
+    /// `medulla` (it folds that domain's envelopes). Splitting them would add
+    /// drift surface for no reachable configuration.
+    Medulla,
     // Everything not in a named family — always on in `full()`, off otherwise.
     Platform,
 }

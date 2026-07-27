@@ -29,12 +29,6 @@ pub use session::{
 // Auth
 // ---------------------------------------------------------------------------
 
-/// Response of `POST /auth/login-token/consume`.
-#[derive(Debug, Clone, Deserialize)]
-pub struct LoginTokenResult {
-    pub jwt: String,
-}
-
 /// Audience hint accepted by the login-token consume endpoint.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -74,12 +68,6 @@ pub(super) struct RawEnvelope {
     pub(super) error_code: Option<String>,
     #[serde(default)]
     pub(super) details: Option<Value>,
-}
-
-/// Request body for exchanging a one-time login token.
-#[derive(serde::Serialize)]
-pub(super) struct ConsumeLoginTokenBody {
-    pub(super) token: String,
 }
 
 /// Request body for creating a durable session.

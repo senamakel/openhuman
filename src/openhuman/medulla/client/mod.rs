@@ -113,27 +113,6 @@ impl MedullaClient {
         let bytes = resp.bytes().await?;
         unwrap_envelope(status.as_u16(), &bytes)
     }
-
-    // --- Auth ------------------------------------------------------------
-
-    /// Exchange a one-time login token for a JWT
-    /// (`POST /auth/login-token/consume`).
-    pub async fn consume_login_token(&self, token: impl Into<String>) -> Result<String> {
-        let req =
-            self.http
-                .post(self.url("/auth/login-token/consume"))
-                .json(&ConsumeLoginTokenBody {
-                    token: token.into(),
-                });
-        let out: LoginTokenResult = self.send(req).await?;
-        Ok(out.jwt)
-    }
-
-    /// Fetch the authenticated principal (`GET /auth/me`).
-    pub async fn me(&self) -> Result<Value> {
-        let req = self.authed(self.http.get(self.url("/auth/me")));
-        self.send(req).await
-    }
 }
 
 /// Unwrap a `{success, data}` envelope into `T`, mapping failures and non-2xx

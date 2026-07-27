@@ -1,18 +1,17 @@
 //! Resolve a configured [`MedullaClient`] from ambient config and credentials.
 //!
-//! # Why there is no `[medulla]` config section yet
+//! # Why there is no `[medulla]` config section
 //!
-//! The Medulla backend base URL is read from `OPENHUMAN_MEDULLA_BASE_URL`,
-//! falling back to the OpenHuman `api_url`. That fallback is a **provisional
-//! assumption, not a verified fact**: `api_url` addresses the TinyHumans
-//! backend, and whether the Medulla orchestration API is the same deployment
-//! has not been confirmed. A dedicated `[medulla]` config section belongs with
-//! the auth migration, where that question gets answered properly; declaring
-//! one now would bake the assumption into a user-facing schema.
+//! There does not need to be one. The Medulla orchestration API and the
+//! OpenHuman backend are the **same deployment**, so `api_url` already
+//! addresses it and the existing session token already authenticates against
+//! it. A separate `[medulla]` section would be a second source of truth for one
+//! endpoint and one credential — exactly the drift this migration exists to
+//! remove.
 //!
-//! The bearer is the existing OpenHuman session token, for the same reason —
-//! one credential store, resolved through `credentials::session_support`,
-//! rather than a second one that could drift out of sync.
+//! `OPENHUMAN_MEDULLA_BASE_URL` remains as an override for pointing a
+//! development host at a different Medulla deployment than its OpenHuman one.
+//! Unset — the normal case — everything resolves from `api_url`.
 
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::session_support::get_session_token;

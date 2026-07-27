@@ -26,7 +26,7 @@ async fn integration_error_envelope_maps() {
     let body = r#"{"success":false,"error":"nope","errorCode":"TOKEN_EXPIRED"}"#;
     let base = spawn_stub(http_json("HTTP/1.1 401 Unauthorized", body)).await;
     let client = MedullaClient::new(base, "jwt-abc");
-    let err = client.me().await.unwrap_err();
+    let err = client.team_usage().await.unwrap_err();
     assert!(err.is_token_expired());
 }
 
@@ -66,18 +66,6 @@ fn ok_envelope(status: &str, data: serde_json::Value) -> Vec<u8> {
         status,
         &json!({ "success": true, "data": data }).to_string(),
     )
-}
-
-#[tokio::test]
-async fn consume_login_token_returns_jwt() {
-    let (base, req) =
-        spawn_stub_capture(ok_envelope("HTTP/1.1 200 OK", json!({ "jwt": "jwt-xyz" }))).await;
-    let client = MedullaClient::new(base, "");
-    let jwt = client.consume_login_token("one-time").await.unwrap();
-    assert_eq!(jwt, "jwt-xyz");
-    let sent = req.await.unwrap();
-    assert!(sent.starts_with("POST /auth/login-token/consume"), "{sent}");
-    assert!(sent.contains("\"token\":\"one-time\""), "{sent}");
 }
 
 #[tokio::test]
@@ -229,12 +217,12 @@ async fn program_source_sync_surfaces_nonfatal_provider_errors() {
 }
 
 #[tokio::test]
-async fn me_carries_bearer_and_unwraps() {
+async fn authed_get_carries_bearer_and_unwraps() {
     let (base, req) =
-        spawn_stub_capture(ok_envelope("HTTP/1.1 200 OK", json!({ "sub": "user-1" }))).await;
+        spawn_stub_capture(ok_envelope("HTTP/1.1 200 OK", json!({ "spend": 1 }))).await;
     let client = MedullaClient::new(base, "jwt-abc");
-    let me = client.me().await.unwrap();
-    assert_eq!(me["sub"], json!("user-1"));
+    let usage = client.team_usage().await.unwrap();
+    assert_eq!(usage["spend"], json!(1));
     let sent = req.await.unwrap();
     assert!(sent.contains("authorization: Bearer jwt-abc"), "{sent}");
 }
@@ -446,7 +434,7 @@ async fn http_error_without_envelope_becomes_api_error() {
 async fn success_status_with_non_json_body_is_decode_error() {
     let (base, _req) = spawn_stub_capture(http_json("HTTP/1.1 200 OK", "not json at all")).await;
     let client = MedullaClient::new(base, "jwt");
-    let err = client.me().await.unwrap_err();
+    let err = client.team_usage().await.unwrap_err();
     assert!(matches!(err, ClientError::Decode(_)), "got {err:?}");
 }
 

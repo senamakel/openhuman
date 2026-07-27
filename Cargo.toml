@@ -66,6 +66,16 @@ name = "openhuman_core"
 crate-type = ["rlib"]
 
 [dependencies]
+# tinyhumans-sdk — the typed Rust client for the TinyHumans backend API
+# (https://github.com/tinyhumansai/sdk). Vendored as a git submodule under
+# `vendor/` beside the other tiny* crates and consumed by path: the crate is not
+# published to crates.io, so there is no `[patch.crates-io]` entry for it.
+# This is the single source of truth for backend routes — `src/api/` is the
+# OpenHuman-local adapter layer (session tokens, config, observability) that
+# sits on top of it, not a second HTTP client. Anything missing here belongs
+# upstream in the SDK repo, not re-implemented in `src/api/`.
+# After cloning: `git submodule update --init vendor/tinyhumans-sdk`.
+tinyhumans-sdk = { path = "vendor/tinyhumans-sdk" }
 # tiny.place A2A social network SDK — published on crates.io and patched below
 # to the vendored tiny.place submodule so OpenHuman can test SDK changes before
 # publishing.

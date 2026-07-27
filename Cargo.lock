@@ -4750,6 +4750,7 @@ dependencies = [
  "tinychannels",
  "tinycortex",
  "tinyflows",
+ "tinyhumans-sdk",
  "tinyjuice",
  "tinyplace",
  "tokio",
@@ -7437,6 +7438,18 @@ dependencies = [
  "thiserror 2.0.18",
  "tinyagents",
  "tracing",
+]
+
+[[package]]
+name = "tinyhumans-sdk"
+version = "0.1.0"
+dependencies = [
+ "percent-encoding",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "url",
 ]
 
 [[package]]

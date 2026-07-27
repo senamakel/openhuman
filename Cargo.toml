@@ -380,7 +380,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla-local"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla-local", "medulla"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -589,6 +589,33 @@ tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
 # reports a typed unsupported-platform error, so forwarding the default-ON
 # gate to the Tauri shell never breaks Windows packaging.
 medulla-local = []
+
+# Medulla integration: the HTTP/SSE client for the Medulla orchestration backend
+# (`openhuman::medulla::client`) — durable sessions, event streaming, worker
+# routing + roster, the operator task ledger and its GitHub sources, one-shot
+# orchestration runs, the public feedback board, and the onboarding history
+# reward. This is the real Medulla surface; `medulla-local` above is the older
+# supervised-child draft and the two are independent.
+#
+# Default-ON, but INTENTIONALLY NOT FORWARDED to the Tauri shell (allowlisted in
+# scripts/lib/feature-forwarding.mjs, alongside `tui`): the desktop app is
+# OpenHuman's own product and never dials a Medulla backend. The consumer is the
+# Medulla TUI, which embeds this crate directly.
+#
+# Facade + type carve-out, NOT a leaf gate: `pub mod medulla;` is always
+# compiled, and `medulla::contract` + `medulla::events` stay compiled in BOTH
+# builds because `src/embed/` names those types in public signatures. Only
+# `medulla::client` — everything that touches reqwest — is gated. This follows
+# the rule the `skills` / `mcp_registry` gates established: carve inert types
+# out and gate behaviour, so the two builds share one type definition and
+# cannot drift.
+#
+# Sheds ZERO exclusive dependencies — do NOT "fix" the empty list. `reqwest`,
+# `futures`, `serde`, and `tokio` are all load-bearing for other domains; the
+# gate's value is compile-time surface and RPC/tool reach, not binary size.
+# Verify before ever claiming otherwise:
+#   cargo tree -i reqwest --no-default-features --features tokenjuice-treesitter
+medulla = []
 
 # Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
 # Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,

@@ -26,6 +26,8 @@
 //! [`contract`] and [`events`] type modules are **ungated carve-outs** — see
 //! [`events`] for why.
 
+#[cfg(feature = "medulla")]
+pub mod client;
 pub mod contract;
 pub mod events;
 

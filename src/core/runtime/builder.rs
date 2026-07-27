@@ -124,6 +124,34 @@ impl ServiceSet {
             orchestration: false,
         }
     }
+
+    /// The Medulla TUI host: no transport, but the background work a
+    /// long-lived operator session expects.
+    ///
+    /// `rpc_http: false` is the payoff of embedding through the typed facade
+    /// rather than HTTP — no port bound, no bearer-token handshake, no
+    /// loopback listener. Flip it on only if a `medulla --serve` mode lands.
+    ///
+    /// `socketio` stays off because the TUI reads state through the facade and
+    /// the core event bus in-process; `channels` stays off because the TUI
+    /// owns its own harness and tiny.place transports.
+    pub fn medulla_tui() -> Self {
+        Self {
+            rpc_http: false,
+            socketio: false,
+            cron: true,
+            channels: false,
+            heartbeat: true,
+            update_scheduler: false,
+            memory_queue: true,
+            harness_init: true,
+            skill_catalog_refresh: true,
+            mcp_boot: false,
+            integrations: false,
+            memory_sync: true,
+            orchestration: false,
+        }
+    }
 }
 
 /// Selects which domain *families* exist at runtime on a [`CoreRuntime`] (#4796).
@@ -175,6 +203,9 @@ pub struct DomainSet {
     /// future backing controller would stay live. Fold the media-generation
     /// controller into this group when it lands.
     pub media: bool,
+    /// Medulla integration: cloud client, session runtime, chat store, and
+    /// authored harness workflows.
+    pub medulla: bool,
     /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
 }
@@ -197,6 +228,7 @@ impl DomainSet {
             web3: true,
             voice: true,
             media: true,
+            medulla: true,
             platform: true,
         }
     }
@@ -219,7 +251,43 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
+            medulla: false,
             platform: false,
+        }
+    }
+
+    /// The Medulla TUI host: the harness core plus the Medulla integration and
+    /// the workflow engine it runs on, and `platform` for the credentials /
+    /// config / cron / task-source domains a long-lived operator session needs.
+    ///
+    /// Deliberately NOT built on [`DomainSet::harness`]: that preset sets
+    /// `platform: false`, which drops credentials, config, cron, task_sources
+    /// and todos, and leaves `channels` off — but `channel.web_chat` is tagged
+    /// `DomainGroup::Channels` and the host drives chat turns through it.
+    ///
+    /// `flows: true` is load-bearing, not incidental: `medulla_workflows` runs
+    /// on the tinyflows engine and boot reconciliation keys off
+    /// `ctx.domains().flows` rather than a `ServiceSet` flag.
+    ///
+    /// The TUI owns its own harness wrappers, tiny.place networking, routing
+    /// and rendering, so `meet` / `web3` / `voice` / `media` / `mcp` stay off.
+    pub fn medulla_tui() -> Self {
+        Self {
+            agent: true,
+            memory: true,
+            threads: true,
+            config: true,
+            security: true,
+            flows: true,
+            skills: true,
+            mcp: false,
+            meet: false,
+            channels: true,
+            web3: false,
+            voice: false,
+            media: false,
+            medulla: true,
+            platform: true,
         }
     }
 
@@ -239,6 +307,7 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
+            medulla: false,
             platform: false,
         }
     }
@@ -259,6 +328,7 @@ impl DomainSet {
             DomainGroup::Web3 => self.web3,
             DomainGroup::Voice => self.voice,
             DomainGroup::Media => self.media,
+            DomainGroup::Medulla => self.medulla,
             DomainGroup::Platform => self.platform,
         }
     }
@@ -671,6 +741,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::Medulla,
             DomainGroup::Platform,
         ] {
             assert!(full.allows(group), "full() must allow {group:?}");
@@ -697,6 +768,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::Medulla,
             DomainGroup::Platform,
         ] {
             assert!(!harness.allows(off), "harness() must NOT allow {off:?}");
@@ -718,6 +790,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::Medulla,
             DomainGroup::Platform,
         ] {
             assert!(!none.allows(group), "none() must NOT allow {group:?}");
@@ -726,6 +799,80 @@ mod tests {
         // Spot-check the field/group wiring is not transposed.
         assert!(DomainSet::harness().allows(DomainGroup::Memory));
         assert!(!DomainSet::harness().allows(DomainGroup::Web3));
+    }
+
+    #[test]
+    fn medulla_tui_domain_set_enables_the_host_families() {
+        let set = DomainSet::medulla_tui();
+
+        for on in [
+            DomainGroup::Agent,
+            DomainGroup::Memory,
+            DomainGroup::Threads,
+            DomainGroup::Config,
+            DomainGroup::Security,
+            DomainGroup::Medulla,
+            DomainGroup::Platform,
+        ] {
+            assert!(set.allows(on), "medulla_tui() must allow {on:?}");
+        }
+
+        for off in [
+            DomainGroup::Mcp,
+            DomainGroup::Meet,
+            DomainGroup::Web3,
+            DomainGroup::Voice,
+            DomainGroup::Media,
+        ] {
+            assert!(!set.allows(off), "medulla_tui() must NOT allow {off:?}");
+        }
+    }
+
+    #[test]
+    fn medulla_tui_keeps_flows_on_for_workflow_boot_reconcile() {
+        // Not incidental: `medulla_workflows` runs on the tinyflows engine and
+        // boot reconciliation keys off `ctx.domains().flows`, not a ServiceSet
+        // flag. Turning this off silently strands orphaned runs.
+        assert!(DomainSet::medulla_tui().allows(DomainGroup::Flows));
+    }
+
+    #[test]
+    fn medulla_tui_keeps_channels_on_for_web_chat() {
+        // `channel.web_chat` is tagged DomainGroup::Channels and the TUI drives
+        // chat turns through it. This is precisely why medulla_tui() is not
+        // built on harness(), which leaves channels off.
+        assert!(DomainSet::medulla_tui().allows(DomainGroup::Channels));
+    }
+
+    #[test]
+    fn medulla_tui_is_not_harness_plus_medulla() {
+        // Guards the most tempting future "simplification": deriving this
+        // preset from harness(). harness() sets platform:false, which drops
+        // credentials/config/cron/task_sources/todos.
+        let harness = DomainSet::harness();
+        let tui = DomainSet::medulla_tui();
+
+        assert!(!harness.allows(DomainGroup::Platform));
+        assert!(tui.allows(DomainGroup::Platform));
+        assert!(!harness.allows(DomainGroup::Channels));
+        assert!(tui.allows(DomainGroup::Channels));
+    }
+
+    #[test]
+    fn medulla_tui_service_set_binds_no_transport() {
+        // The whole point of the typed facade: the host talks to the core
+        // in-process, so no port, no bearer handshake, no loopback listener.
+        let services = ServiceSet::medulla_tui();
+
+        assert!(!services.rpc_http, "medulla_tui() must not bind HTTP");
+        assert!(!services.socketio, "medulla_tui() must not mount Socket.IO");
+
+        // But a long-lived operator session still wants background work.
+        assert!(services.cron);
+        assert!(services.heartbeat);
+        assert!(services.memory_queue);
+        assert!(services.harness_init);
+        assert!(services.memory_sync);
     }
 
     #[test]

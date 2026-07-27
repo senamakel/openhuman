@@ -125,17 +125,19 @@ impl ServiceSet {
         }
     }
 
-    /// The Medulla TUI host: no transport, but the background work a
-    /// long-lived operator session expects.
+    /// A long-lived embedded host: no transport, but the background work such
+    /// a session expects.
+    ///
+    /// Named for the shape, not a consumer — see [`DomainSet::embedded`].
     ///
     /// `rpc_http: false` is the payoff of embedding through the typed facade
     /// rather than HTTP — no port bound, no bearer-token handshake, no
-    /// loopback listener. Flip it on only if a `medulla --serve` mode lands.
+    /// loopback listener. Flip it on only if the host also needs to serve external clients.
     ///
-    /// `socketio` stays off because the TUI reads state through the facade and
-    /// the core event bus in-process; `channels` stays off because the TUI
-    /// owns its own harness and tiny.place transports.
-    pub fn medulla_tui() -> Self {
+    /// `socketio` stays off because an embedded host reads state through the
+    /// facade and the core event bus in-process; `channels` stays off because
+    /// such a host owns its own harness and networking transports.
+    pub fn embedded() -> Self {
         Self {
             rpc_http: false,
             socketio: false,
@@ -256,22 +258,27 @@ impl DomainSet {
         }
     }
 
-    /// The Medulla TUI host: the harness core plus the Medulla integration and
-    /// the workflow engine it runs on, and `platform` for the credentials /
-    /// config / cron / task-source domains a long-lived operator session needs.
+    /// A long-lived embedded host: the harness core plus the Medulla
+    /// integration and the workflow engine it runs on, and `platform` for the
+    /// credentials / config / cron / task-source domains such a session needs.
+    ///
+    /// Named for the *shape* rather than any downstream consumer — the core
+    /// does not know which host embeds it, and a preset naming one would invert
+    /// that. Suits any process that drives the core in-process through the
+    /// typed facade and owns its own presentation layer.
     ///
     /// Deliberately NOT built on [`DomainSet::harness`]: that preset sets
     /// `platform: false`, which drops credentials, config, cron, task_sources
     /// and todos, and leaves `channels` off — but `channel.web_chat` is tagged
-    /// `DomainGroup::Channels` and the host drives chat turns through it.
+    /// `DomainGroup::Channels` and an embedded host drives chat turns through it.
     ///
     /// `flows: true` is load-bearing, not incidental: `medulla_workflows` runs
     /// on the tinyflows engine and boot reconciliation keys off
     /// `ctx.domains().flows` rather than a `ServiceSet` flag.
     ///
-    /// The TUI owns its own harness wrappers, tiny.place networking, routing
-    /// and rendering, so `meet` / `web3` / `voice` / `media` / `mcp` stay off.
-    pub fn medulla_tui() -> Self {
+    /// An embedded host supplies its own harness wrappers, networking and
+    /// routing, so `meet` / `web3` / `voice` / `media` / `mcp` stay off.
+    pub fn embedded() -> Self {
         Self {
             agent: true,
             memory: true,
@@ -802,8 +809,8 @@ mod tests {
     }
 
     #[test]
-    fn medulla_tui_domain_set_enables_the_host_families() {
-        let set = DomainSet::medulla_tui();
+    fn embedded_domain_set_enables_the_host_families() {
+        let set = DomainSet::embedded();
 
         for on in [
             DomainGroup::Agent,
@@ -814,7 +821,7 @@ mod tests {
             DomainGroup::Medulla,
             DomainGroup::Platform,
         ] {
-            assert!(set.allows(on), "medulla_tui() must allow {on:?}");
+            assert!(set.allows(on), "embedded() must allow {on:?}");
         }
 
         for off in [
@@ -824,33 +831,33 @@ mod tests {
             DomainGroup::Voice,
             DomainGroup::Media,
         ] {
-            assert!(!set.allows(off), "medulla_tui() must NOT allow {off:?}");
+            assert!(!set.allows(off), "embedded() must NOT allow {off:?}");
         }
     }
 
     #[test]
-    fn medulla_tui_keeps_flows_on_for_workflow_boot_reconcile() {
+    fn embedded_keeps_flows_on_for_workflow_boot_reconcile() {
         // Not incidental: `medulla_workflows` runs on the tinyflows engine and
         // boot reconciliation keys off `ctx.domains().flows`, not a ServiceSet
         // flag. Turning this off silently strands orphaned runs.
-        assert!(DomainSet::medulla_tui().allows(DomainGroup::Flows));
+        assert!(DomainSet::embedded().allows(DomainGroup::Flows));
     }
 
     #[test]
-    fn medulla_tui_keeps_channels_on_for_web_chat() {
+    fn embedded_keeps_channels_on_for_web_chat() {
         // `channel.web_chat` is tagged DomainGroup::Channels and the TUI drives
-        // chat turns through it. This is precisely why medulla_tui() is not
+        // chat turns through it. This is precisely why embedded() is not
         // built on harness(), which leaves channels off.
-        assert!(DomainSet::medulla_tui().allows(DomainGroup::Channels));
+        assert!(DomainSet::embedded().allows(DomainGroup::Channels));
     }
 
     #[test]
-    fn medulla_tui_is_not_harness_plus_medulla() {
+    fn embedded_is_not_harness_plus_medulla() {
         // Guards the most tempting future "simplification": deriving this
         // preset from harness(). harness() sets platform:false, which drops
         // credentials/config/cron/task_sources/todos.
         let harness = DomainSet::harness();
-        let tui = DomainSet::medulla_tui();
+        let tui = DomainSet::embedded();
 
         assert!(!harness.allows(DomainGroup::Platform));
         assert!(tui.allows(DomainGroup::Platform));
@@ -859,13 +866,13 @@ mod tests {
     }
 
     #[test]
-    fn medulla_tui_service_set_binds_no_transport() {
+    fn embedded_service_set_binds_no_transport() {
         // The whole point of the typed facade: the host talks to the core
         // in-process, so no port, no bearer handshake, no loopback listener.
-        let services = ServiceSet::medulla_tui();
+        let services = ServiceSet::embedded();
 
-        assert!(!services.rpc_http, "medulla_tui() must not bind HTTP");
-        assert!(!services.socketio, "medulla_tui() must not mount Socket.IO");
+        assert!(!services.rpc_http, "embedded() must not bind HTTP");
+        assert!(!services.socketio, "embedded() must not mount Socket.IO");
 
         // But a long-lived operator session still wants background work.
         assert!(services.cron);

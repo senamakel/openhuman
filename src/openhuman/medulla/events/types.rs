@@ -1,4 +1,4 @@
-//! The event data model: the [`TuiEvent`] union and its payload structs plus the
+//! The event data model: the [`SessionEvent`] union and its payload structs plus the
 //! sequenced [`EventEnvelope`]. These are plain data types; the custom
 //! serialization lives in [`super::serde_impl`] and the read-only derivations in
 //! [`super::derive`].
@@ -106,7 +106,7 @@ pub struct NodeTrace {
 
 /// The full event union. Unknown kinds ride through in `Unknown`.
 #[derive(Debug, Clone, PartialEq)]
-pub enum TuiEvent {
+pub enum SessionEvent {
     /// An inference call began.
     InferenceStart {
         tier: String,
@@ -209,5 +209,34 @@ pub struct EventEnvelope {
     /// Wall-clock timestamp in epoch milliseconds.
     pub at: i64,
     /// The wrapped event.
-    pub event: TuiEvent,
+    pub event: SessionEvent,
+}
+
+impl SessionEvent {
+    /// The `kind` discriminator, matching the JSON tag.
+    pub fn kind(&self) -> &str {
+        match self {
+            SessionEvent::InferenceStart { .. } => "inference_start",
+            SessionEvent::InferenceEnd { .. } => "inference_end",
+            SessionEvent::ToolCallStart { .. } => "tool_call_start",
+            SessionEvent::ToolCallDelta { .. } => "tool_call_delta",
+            SessionEvent::AssistantDelta { .. } => "assistant_delta",
+            SessionEvent::ReasoningDelta { .. } => "reasoning_delta",
+            SessionEvent::TaskStart { .. } => "task_start",
+            SessionEvent::TaskEvent { .. } => "task_event",
+            SessionEvent::TaskAttention { .. } => "task_attention",
+            SessionEvent::TaskComplete { .. } => "task_complete",
+            SessionEvent::Trace { .. } => "trace",
+            SessionEvent::Error { .. } => "error",
+            SessionEvent::CycleStart { .. } => "cycle_start",
+            SessionEvent::CycleEnd { .. } => "cycle_end",
+            SessionEvent::AgentStatus { .. } => "agent_status",
+            SessionEvent::SessionEvent { .. } => "session_event",
+            SessionEvent::PeerSession { .. } => "peer_session",
+            SessionEvent::User { .. } => "user",
+            SessionEvent::Assistant { .. } => "assistant",
+            SessionEvent::Effect { .. } => "effect",
+            SessionEvent::Unknown { kind, .. } => kind,
+        }
+    }
 }

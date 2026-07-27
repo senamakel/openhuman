@@ -2,12 +2,11 @@
 //! [`serde_tests`] covers JSON round-trips and deserialize tolerance;
 //! [`derive_tests`] covers the read-only derivations.
 
-use crate::openhuman::medulla::events::{EventEnvelope, TuiEvent};
+use crate::openhuman::medulla::events::{EventEnvelope, SessionEvent};
 
-mod derive_tests;
 mod serde_tests;
 
 /// Build an envelope at `seq` with a zero timestamp for concise test setup.
-pub(super) fn env(seq: u64, event: TuiEvent) -> EventEnvelope {
+pub(super) fn env(seq: u64, event: SessionEvent) -> EventEnvelope {
     EventEnvelope { seq, at: 0, event }
 }

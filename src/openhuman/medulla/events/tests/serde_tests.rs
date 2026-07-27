@@ -1,4 +1,4 @@
-//! Tests for [`TuiEvent`] JSON serialization: full round-trips across every
+//! Tests for [`SessionEvent`] JSON serialization: full round-trips across every
 //! kind, and the deserialize tolerance rules (unknown kinds, missing fields,
 //! empty-string normalization, and error cases).
 
@@ -9,9 +9,9 @@ use crate::openhuman::medulla::events::*;
 #[test]
 fn unknown_kind_round_trips() {
     let json = r#"{"kind":"weird_kind","payload":42}"#;
-    let ev: TuiEvent = serde_json::from_str(json).unwrap();
+    let ev: SessionEvent = serde_json::from_str(json).unwrap();
     match &ev {
-        TuiEvent::Unknown { kind, data } => {
+        SessionEvent::Unknown { kind, data } => {
             assert_eq!(kind, "weird_kind");
             assert_eq!(data.get("payload").unwrap(), &json!(42));
         }
@@ -24,7 +24,7 @@ fn unknown_kind_round_trips() {
 
 #[test]
 fn known_event_round_trips() {
-    let ev = TuiEvent::InferenceEnd {
+    let ev = SessionEvent::InferenceEnd {
         tier: "reasoning".into(),
         op: "execute_step".into(),
         model: Some("gpt".into()),
@@ -39,16 +39,16 @@ fn known_event_round_trips() {
         tool_calls: None,
     };
     let s = serde_json::to_string(&ev).unwrap();
-    let back: TuiEvent = serde_json::from_str(&s).unwrap();
+    let back: SessionEvent = serde_json::from_str(&s).unwrap();
     assert_eq!(ev, back);
 }
 
 /// One representative JSON per kind, exercising every deserialize arm.
-fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
+fn one_of_each() -> Vec<(&'static str, SessionEvent)> {
     vec![
         (
             "inference_start",
-            TuiEvent::InferenceStart {
+            SessionEvent::InferenceStart {
                 tier: "orchestrator".into(),
                 op: "orchestrate".into(),
                 model: Some("m".into()),
@@ -56,7 +56,7 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "inference_end",
-            TuiEvent::InferenceEnd {
+            SessionEvent::InferenceEnd {
                 tier: "reasoning".into(),
                 op: "step".into(),
                 model: None,
@@ -72,29 +72,29 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "tool_call_start",
-            TuiEvent::ToolCallStart {
+            SessionEvent::ToolCallStart {
                 index: 2,
                 name: "read".into(),
             },
         ),
         (
             "tool_call_delta",
-            TuiEvent::ToolCallDelta {
+            SessionEvent::ToolCallDelta {
                 index: 2,
                 args_delta: "{\"a\":".into(),
             },
         ),
         (
             "assistant_delta",
-            TuiEvent::AssistantDelta { delta: "x".into() },
+            SessionEvent::AssistantDelta { delta: "x".into() },
         ),
         (
             "reasoning_delta",
-            TuiEvent::ReasoningDelta { delta: "y".into() },
+            SessionEvent::ReasoningDelta { delta: "y".into() },
         ),
         (
             "task_start",
-            TuiEvent::TaskStart {
+            SessionEvent::TaskStart {
                 task_id: "t1".into(),
                 instruction: "do".into(),
                 depth: 2,
@@ -104,7 +104,7 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "task_event",
-            TuiEvent::TaskEvent {
+            SessionEvent::TaskEvent {
                 task_id: "t1".into(),
                 event_kind: "text".into(),
                 content: "hi".into(),
@@ -113,7 +113,7 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "task_attention",
-            TuiEvent::TaskAttention {
+            SessionEvent::TaskAttention {
                 task_id: "t1".into(),
                 reason: "confirm".into(),
                 content: "proceed?".into(),
@@ -122,7 +122,7 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "task_complete",
-            TuiEvent::TaskComplete {
+            SessionEvent::TaskComplete {
                 digest: TaskDigest {
                     task_id: "t1".into(),
                     status: "done".into(),
@@ -141,7 +141,7 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "trace",
-            TuiEvent::Trace {
+            SessionEvent::Trace {
                 entry: NodeTrace {
                     node: "orchestrate".into(),
                     ms: 12,
@@ -152,20 +152,20 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "error",
-            TuiEvent::Error {
+            SessionEvent::Error {
                 source: "cycle".into(),
                 message: "boom".into(),
             },
         ),
         (
             "cycle_start",
-            TuiEvent::CycleStart {
+            SessionEvent::CycleStart {
                 cycle_id: "c1".into(),
             },
         ),
         (
             "cycle_end",
-            TuiEvent::CycleEnd {
+            SessionEvent::CycleEnd {
                 cycle_id: "c1".into(),
                 pass_count: 3,
                 duration_ms: 99,
@@ -173,7 +173,7 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "agent_status",
-            TuiEvent::AgentStatus {
+            SessionEvent::AgentStatus {
                 agent_id: "dev".into(),
                 availability: "online".into(),
                 detail: Some("idle".into()),
@@ -181,7 +181,7 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "session_event",
-            TuiEvent::SessionEvent {
+            SessionEvent::SessionEvent {
                 agent_id: "m1".into(),
                 session_id: "s1".into(),
                 event_kind: "stdout".into(),
@@ -190,18 +190,18 @@ fn one_of_each() -> Vec<(&'static str, TuiEvent)> {
         ),
         (
             "peer_session",
-            TuiEvent::PeerSession {
+            SessionEvent::PeerSession {
                 agent_id: "m1".into(),
                 session_id: "s1".into(),
                 state: "working".into(),
                 harness: Some("codex".into()),
             },
         ),
-        ("user", TuiEvent::User { body: "hey".into() }),
-        ("assistant", TuiEvent::Assistant { body: "yo".into() }),
+        ("user", SessionEvent::User { body: "hey".into() }),
+        ("assistant", SessionEvent::Assistant { body: "yo".into() }),
         (
             "effect",
-            TuiEvent::Effect {
+            SessionEvent::Effect {
                 effect: json!({"kind": "send"}),
             },
         ),
@@ -213,49 +213,50 @@ fn every_kind_round_trips_and_reports_kind() {
     for (kind, ev) in one_of_each() {
         assert_eq!(ev.kind(), kind, "kind() mismatch for {kind}");
         let s = serde_json::to_string(&ev).unwrap();
-        let back: TuiEvent = serde_json::from_str(&s).unwrap();
+        let back: SessionEvent = serde_json::from_str(&s).unwrap();
         assert_eq!(ev, back, "round-trip mismatch for {kind}");
-        // describe_event never panics and is non-empty.
-        assert!(!describe_event(&ev).is_empty(), "empty describe for {kind}");
     }
 }
 
 #[test]
 fn empty_object_is_unknown_with_empty_kind() {
-    let ev: TuiEvent = serde_json::from_str("{}").unwrap();
-    assert!(matches!(&ev, TuiEvent::Unknown { kind, .. } if kind.is_empty()));
+    let ev: SessionEvent = serde_json::from_str("{}").unwrap();
+    assert!(matches!(&ev, SessionEvent::Unknown { kind, .. } if kind.is_empty()));
     assert_eq!(ev.kind(), "");
 }
 
 #[test]
 fn non_object_json_is_a_deserialize_error() {
-    assert!(serde_json::from_str::<TuiEvent>("[1,2,3]").is_err());
-    assert!(serde_json::from_str::<TuiEvent>("42").is_err());
+    assert!(serde_json::from_str::<SessionEvent>("[1,2,3]").is_err());
+    assert!(serde_json::from_str::<SessionEvent>("42").is_err());
 }
 
 #[test]
 fn task_complete_without_digest_errors() {
-    assert!(serde_json::from_str::<TuiEvent>(r#"{"kind":"task_complete"}"#).is_err());
+    assert!(serde_json::from_str::<SessionEvent>(r#"{"kind":"task_complete"}"#).is_err());
 }
 
 #[test]
 fn trace_without_entry_errors() {
-    assert!(serde_json::from_str::<TuiEvent>(r#"{"kind":"trace"}"#).is_err());
+    assert!(serde_json::from_str::<SessionEvent>(r#"{"kind":"trace"}"#).is_err());
 }
 
 #[test]
 fn opt_str_filters_empty_to_none() {
     // An empty `model` string decodes to `None`, not `Some("")`.
-    let ev: TuiEvent =
+    let ev: SessionEvent =
         serde_json::from_str(r#"{"kind":"inference_start","tier":"r","op":"o","model":""}"#)
             .unwrap();
-    assert!(matches!(ev, TuiEvent::InferenceStart { model: None, .. }));
+    assert!(matches!(
+        ev,
+        SessionEvent::InferenceStart { model: None, .. }
+    ));
 }
 
 #[test]
 fn serialize_drops_null_fields() {
     // A model-less inference_start must not carry a `"model":null` key.
-    let ev = TuiEvent::InferenceStart {
+    let ev = SessionEvent::InferenceStart {
         tier: "r".into(),
         op: "o".into(),
         model: None,
@@ -267,8 +268,8 @@ fn serialize_drops_null_fields() {
 
 #[test]
 fn effect_decode_defaults_to_null_when_missing() {
-    let ev: TuiEvent = serde_json::from_str(r#"{"kind":"effect"}"#).unwrap();
-    assert!(matches!(ev, TuiEvent::Effect { effect } if effect.is_null()));
+    let ev: SessionEvent = serde_json::from_str(r#"{"kind":"effect"}"#).unwrap();
+    assert!(matches!(ev, SessionEvent::Effect { effect } if effect.is_null()));
 }
 
 #[test]
@@ -276,7 +277,7 @@ fn envelope_round_trips() {
     let e = EventEnvelope {
         seq: 7,
         at: 123,
-        event: TuiEvent::User { body: "hi".into() },
+        event: SessionEvent::User { body: "hi".into() },
     };
     let s = serde_json::to_string(&e).unwrap();
     let back: EventEnvelope = serde_json::from_str(&s).unwrap();
@@ -305,7 +306,7 @@ fn worker_contract_and_evidence_round_trip_on_task_events() {
             "terminalCondition": "tests green"
         }
     });
-    let event: TuiEvent = serde_json::from_value(start.clone()).unwrap();
+    let event: SessionEvent = serde_json::from_value(start.clone()).unwrap();
     assert_eq!(serde_json::to_value(event).unwrap(), start);
 
     let complete = json!({
@@ -325,6 +326,6 @@ fn worker_contract_and_evidence_round_trip_on_task_events() {
             ]
         }
     });
-    let event: TuiEvent = serde_json::from_value(complete.clone()).unwrap();
+    let event: SessionEvent = serde_json::from_value(complete.clone()).unwrap();
     assert_eq!(serde_json::to_value(event).unwrap(), complete);
 }

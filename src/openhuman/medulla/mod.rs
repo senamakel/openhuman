@@ -38,7 +38,7 @@ pub mod resolve;
 mod schemas;
 
 pub use contract::{VerificationEvidence, WorkerContract};
-pub use events::{EventEnvelope, TuiEvent};
+pub use events::{EventEnvelope, SessionEvent};
 #[cfg(feature = "medulla")]
 pub use schemas::{all_medulla_controller_schemas, all_medulla_registered_controllers};
 

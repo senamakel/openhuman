@@ -2,8 +2,8 @@
 //! host-sourced rows (cycle framing, conversation turns, agent/session status,
 //! effects).
 //!
-//! [`TuiEvent`] deserializes any JSON `{kind, ...}` shape and keeps unrecognized
-//! kinds in [`TuiEvent::Unknown`], so a newer backend never drops rows on an
+//! [`SessionEvent`] deserializes any JSON `{kind, ...}` shape and keeps unrecognized
+//! kinds in [`SessionEvent::Unknown`], so a newer backend never drops rows on an
 //! older host.
 //!
 //! # This module is an ungated type carve-out
@@ -18,15 +18,19 @@
 //! ungated; gate only behaviour. Both builds then share one definition, so
 //! fields cannot drift between them.
 //!
-//! Split by responsibility: [`types`] is the data model, `serde_impl` the custom
-//! compact-JSON codec, `derive` the read-only derivations.
+//! Split by responsibility: [`types`] is the data model (including
+//! [`SessionEvent::kind`], which the codec writes as the wire discriminator) and
+//! `serde_impl` the custom compact-JSON codec.
+//!
+//! Presentation derivations — transcript rendering, last-message lookup,
+//! one-line descriptions — deliberately do NOT live here. They are the
+//! renderer's concern and stay in the host, so the core carries the wire
+//! contract only.
 
-mod derive;
 mod serde_impl;
 mod types;
 
 #[cfg(test)]
 mod tests;
 
-pub use derive::{chat_transcript, describe_event, last_assistant_message};
-pub use types::{EventEnvelope, NodeTrace, TaskDigest, ToolCall, TuiEvent, Usage};
+pub use types::{EventEnvelope, NodeTrace, SessionEvent, TaskDigest, ToolCall, Usage};

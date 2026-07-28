@@ -26,7 +26,7 @@ use std::sync::{
 use tinyagents::harness::message::{AssistantMessage, Message};
 use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyagents::harness::tool::ToolCall;
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, timeout, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
 const RESEARCH_PROMPT_CANARY: &str = "research-branch-canary";
@@ -569,12 +569,32 @@ fn shared_workspace_allows_readonly_or_explicitly_isolated_workers() {
         .all(|item| matches!(item, SpawnParallelTaskPreflight::Prepared(_))));
 }
 
-#[derive(Default)]
 struct ParallelHarnessState {
     total_calls: AtomicUsize,
     active_subagent_calls: AtomicUsize,
     max_active_subagent_calls: AtomicUsize,
+    /// Sequence counter over subagent provider calls. The first two calls (one
+    /// from each parallel subagent) rendezvous at [`Self::overlap_barrier`].
+    subagent_call_seq: AtomicUsize,
+    /// Deterministic overlap gate: the first provider call of each parallel
+    /// subagent waits here until both have arrived, guaranteeing the
+    /// `max_active_subagent_calls >= 2` assertion without depending on a timing
+    /// window (the old fixed `sleep` raced under load and flaked — see #5209).
+    overlap_barrier: tokio::sync::Barrier,
     seen_payloads: Mutex<Vec<String>>,
+}
+
+impl Default for ParallelHarnessState {
+    fn default() -> Self {
+        Self {
+            total_calls: AtomicUsize::new(0),
+            active_subagent_calls: AtomicUsize::new(0),
+            max_active_subagent_calls: AtomicUsize::new(0),
+            subagent_call_seq: AtomicUsize::new(0),
+            overlap_barrier: tokio::sync::Barrier::new(2),
+            seen_payloads: Mutex::new(Vec::new()),
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -613,7 +633,21 @@ impl ParallelHarnessProvider {
             .fetch_add(1, Ordering::SeqCst)
             + 1;
         self.record_active_peak(current);
-        sleep(Duration::from_millis(25)).await;
+
+        // The two parallel subagents' first provider calls rendezvous at the
+        // barrier, deterministically forcing them to be active simultaneously
+        // (peak >= 2). The old approach slept a fixed 25ms and hoped the second
+        // call started before the first woke — a window scheduling jitter could
+        // miss, so the `max_active >= 2` assertion flaked run-to-run (#5209).
+        // The wait is timeout-guarded so a genuine loss of parallelism fails the
+        // assertion instead of hanging the test. Later calls (seq >= 2) yield
+        // briefly to keep the interleaving realistic.
+        let seq = self.state.subagent_call_seq.fetch_add(1, Ordering::SeqCst);
+        if seq < 2 {
+            let _ = timeout(Duration::from_secs(5), self.state.overlap_barrier.wait()).await;
+        } else {
+            sleep(Duration::from_millis(5)).await;
+        }
 
         let response = (|| -> tinyagents::Result<ModelResponse> {
             if flattened.contains(RESEARCH_PROMPT_CANARY) {
@@ -753,8 +787,37 @@ fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
     }
 }
 
-#[tokio::test]
-async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls() {
+// This exercises the full parallel-subagent path (parent turn → spawn N
+// subagents → each runs several nested tool-call iterations). It is a deep
+// async state machine whose stacked frames exceed the default ~2 MiB libtest
+// per-test thread stack in debug/coverage builds; the thread overflows and
+// SIGABRTs the *entire* test process, which then non-deterministically tags an
+// unrelated concurrently-running test as FAILED (issue #5209 — the
+// experience-recall test was a frequent victim). CI only avoided this by
+// exporting a 64 MiB `RUST_MIN_STACK`; a raw `cargo test` has no such env.
+// Production drives agent turns on an explicit large stack for the same reason
+// (`agent::bus::handle_agent_run_turn_on_large_stack`). Mirror that here so the
+// test never aborts the process regardless of `RUST_MIN_STACK`.
+#[test]
+fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls() {
+    std::thread::Builder::new()
+        .name("parallel-subagent-flow-test".to_string())
+        .stack_size(64 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("build large-stack test runtime")
+                .block_on(
+                    agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls_inner(),
+                );
+        })
+        .expect("spawn large-stack test thread")
+        .join()
+        .expect("large-stack parallel-subagent test thread panicked");
+}
+
+async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls_inner() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
 
     let workspace = tempfile::TempDir::new().expect("temp workspace");

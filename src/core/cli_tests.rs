@@ -279,8 +279,8 @@ fn mcp_server_alias_reports_disabled_build_when_gate_off() {
 /// is to delete the `"tui" | "chat"` match arm, which is WRONG — `tui` would
 /// fall through to generic namespace resolution and die with `unknown
 /// namespace: tui`, reading like a user typo. Instead `cli.rs` is untouched and
-/// the arm resolves to `tui::stub::run_from_cli`, which bails with the message
-/// asserted below.
+/// the arm resolves to the CLI-local disabled-feature dispatcher, which bails
+/// with the message asserted below.
 #[test]
 #[cfg(not(feature = "tui"))]
 fn tui_subcommand_reports_disabled_build_when_gate_off() {
@@ -305,8 +305,8 @@ fn tui_subcommand_reports_disabled_build_when_gate_off() {
     );
 }
 
-/// The `chat` alias must behave identically to `tui` — both arms route to the
-/// same stub, so neither can silently regress into the fall-through.
+/// The `chat` alias must behave identically to `tui` — both names route to the
+/// same dispatcher, so neither can silently regress into the fall-through.
 #[test]
 #[cfg(not(feature = "tui"))]
 fn chat_alias_reports_disabled_build_when_gate_off() {

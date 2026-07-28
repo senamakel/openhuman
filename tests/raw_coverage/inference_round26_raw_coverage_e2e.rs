@@ -170,7 +170,7 @@ async fn local_service_covers_mocked_bootstrap_assets_diagnostics_and_embed() {
         .await
         .expect("mocked embed");
     assert_eq!(embedded.model_id, "bge-m3");
-    assert_eq!(embedded.dimensions, 3);
+    assert_eq!(embedded.dimensions, 1024);
     assert_eq!(embedded.vectors.len(), 2);
 
     let seen = state.requests.lock().expect("requests");
@@ -330,7 +330,7 @@ async fn ollama_embed(
     remember(&state, "/api/embed", &headers, body);
     Json(json!({
         "model": "bge-m3",
-        "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+        "embeddings": [vec![0.1; 1024], vec![0.2; 1024]]
     }))
 }
 

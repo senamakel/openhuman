@@ -215,6 +215,67 @@ async fn backend_client_sends_x_core_version_on_auth_requests() {
         version,
         sanitize_client_version(env!("CARGO_PKG_VERSION")).unwrap()
     );
+    assert_eq!(
+        request_headers
+            .get("x-sdk-client")
+            .and_then(|value| value.to_str().ok()),
+        Some("tinyhumans-rust"),
+        "typed auth requests must be sent by the TinyHumans SDK transport"
+    );
+}
+
+#[tokio::test]
+async fn authed_json_uses_sdk_transport_with_bearer_and_host_headers() {
+    let (base_url, captured) = spawn_header_capture_server().await;
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    let response = client
+        .authed_json("sdk-cutover-token", Method::GET, "/probe", None)
+        .await
+        .unwrap();
+    assert_eq!(response, json!({ "ok": true }));
+
+    let headers = captured.take();
+    let request_headers = headers.last().unwrap();
+    assert_eq!(
+        request_headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok()),
+        Some("Bearer sdk-cutover-token")
+    );
+    assert_eq!(
+        request_headers
+            .get("x-sdk-client")
+            .and_then(|value| value.to_str().ok()),
+        Some("tinyhumans-rust")
+    );
+    assert!(
+        request_headers.get("x-core-version").is_some(),
+        "OpenHuman host metadata must survive the SDK cutover"
+    );
+}
+
+#[tokio::test]
+async fn authed_json_cannot_bypass_sdk_admin_or_webhook_exclusions() {
+    let client = BackendOAuthClient::new("http://127.0.0.1:9").unwrap();
+
+    for (method, path) in [
+        (Method::POST, "/admin/announcements"),
+        (Method::GET, "/webhooks/core"),
+    ] {
+        let err = client
+            .authed_json("token", method, path, None)
+            .await
+            .unwrap_err();
+        assert!(
+            err.chain().any(|source| {
+                let message = source.to_string();
+                message.contains("intentionally not exposed")
+                    || message.contains("webhook routes are not exposed")
+            }),
+            "{path} must be rejected locally by the SDK: {err:#}"
+        );
+    }
 }
 
 #[tokio::test]

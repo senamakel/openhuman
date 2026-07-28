@@ -31,6 +31,8 @@ pub use loader::{
 // expose internal helpers needed by tests (ops_tests.rs uses super::*)
 #[cfg(test)]
 pub(crate) use crate::openhuman::config::Config;
+#[cfg(all(test, windows))]
+pub(crate) use loader::reset_local_data_remove_error;
 #[cfg(test)]
 pub(crate) use loader::{
     active_workspace_marker_path, config_openhuman_dir, default_openhuman_dir, env_flag_enabled,

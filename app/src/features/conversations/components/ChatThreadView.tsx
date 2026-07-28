@@ -615,7 +615,7 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                             isAgentTextMode ? 'w-full max-w-full' : 'w-fit max-w-[75%]'
                           }`}>
                           {msg.sender === 'agent' ? (
-                            <div className="space-y-1">
+                            <div className="space-y-1" data-testid="agent-message">
                               <div className="relative space-y-1">
                                 {agentMessageViewMode === 'text' ? (
                                   <AgentMessageText content={displayContent} />
@@ -877,7 +877,7 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                                       </div>
                                     )}
                                     {(displayText || showTime) && (
-                                      <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-content-inverted rounded-br-md break-words overflow-hidden">
+                                      <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-content-inverted rounded-br-md break-words [overflow-wrap:anywhere] overflow-hidden">
                                         {displayText && (
                                           <BubbleMarkdown content={displayText} tone="user" />
                                         )}

@@ -1,4 +1,4 @@
-//! Controller schemas + JSON-RPC handlers for the `thread_goals` namespace.
+//! OpenHuman JSON-RPC adapters for tinyagents' `graph::goals` domain.
 //!
 //! Methods are exposed as `openhuman.thread_goals_<function>`:
 //! `get`, `set`, `complete`, `pause`, `resume`, `clear`. Handlers load the

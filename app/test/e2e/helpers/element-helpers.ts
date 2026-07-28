@@ -205,6 +205,33 @@ export async function textExists(text: string): Promise<boolean> {
 }
 
 /**
+ * Non-blocking check: is matching text rendered and visible right now?
+ *
+ * Unlike {@link textExists}, this deliberately ignores matching text retained
+ * inside a collapsed processing transcript.
+ */
+export async function visibleTextExists(text: string): Promise<boolean> {
+  try {
+    if (isTauriDriver()) {
+      const literal = xpathStringLiteral(text);
+      const matches = await browser.$$(`//*[contains(text(),${literal})]`);
+      for (const match of matches) {
+        if (await match.isDisplayed()) return true;
+      }
+      return false;
+    }
+
+    const matches = await browser.$$(xpathContainsText(text));
+    for (const match of matches) {
+      if (await match.isDisplayed()) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Wait for the app window to be visible.
  *
  * - Mac2: Wait for XCUIElementTypeWindow in accessibility tree

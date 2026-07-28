@@ -40,6 +40,7 @@ pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
 mod summarize;
 pub mod thread_context;
+pub mod todos;
 pub(crate) mod tools;
 mod topology;
 

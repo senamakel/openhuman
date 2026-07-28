@@ -23,6 +23,7 @@
 
 pub mod agent_graph;
 pub mod archivist;
+pub mod artifact_offload;
 pub(crate) mod builtin_definitions;
 pub(crate) mod credentials;
 pub mod definition;
@@ -47,6 +48,9 @@ pub mod turn_attachments_context;
 pub mod turn_subagent_usage;
 
 pub use agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult, AgentTurnUsage};
+// NOTE: deliberately no flat re-export here. `artifact_offload::ArtifactKind`
+// would shadow the unrelated `openhuman::artifacts::ArtifactKind` for anyone
+// glob-importing this module; callers use the `artifact_offload::` path.
 pub use definition::{
     AgentDefinition, AgentDefinitionRegistry, DefinitionSource, ModelSpec, PromptSource,
     SandboxMode, ToolScope, TriggerMemoryAgent,

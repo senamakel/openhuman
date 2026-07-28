@@ -1008,6 +1008,7 @@ fn handle_update_search_settings(params: Map<String, Value>) -> ControllerFuture
             parallel_api_key: update.parallel_api_key,
             brave_api_key: update.brave_api_key,
             querit_api_key: update.querit_api_key,
+            exa_api_key: update.exa_api_key,
             allowed_domains: update.allowed_domains,
             allow_all: update.allow_all,
         };

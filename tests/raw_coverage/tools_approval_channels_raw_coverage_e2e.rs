@@ -481,7 +481,7 @@ async fn mock_backend(request: Request) -> Response {
     let payload = match (method, path.as_str()) {
         (Method::GET, "/auth/me") => json!({
             "success": true,
-            "user": {
+            "data": {
                 "id": "user-e2e",
                 "telegramId": "telegram-user-1",
                 "discord_id": "discord-user-1"

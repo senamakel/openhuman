@@ -212,6 +212,66 @@ async fn verb_methods_block_user_data_egress_under_local_only() {
     );
 }
 
+/// The OpenHuman compatibility wrapper must retain the SDK's privileged-route
+/// denylist on every public verb, including the temporary reqwest download
+/// exception. An unreachable base URL makes a transport error the failure
+/// mode if any request gets past the local gate.
+#[tokio::test]
+async fn verb_methods_never_expose_admin_or_webhook_routes() {
+    let client = client_for("http://127.0.0.1:0".into());
+    let body = json!({});
+    let assert_blocked = |verb: &str, error: anyhow::Error| {
+        let message = error.to_string();
+        assert!(
+            message.contains("route is intentionally not exposed by the SDK"),
+            "{verb}: expected SDK route denylist, got: {message}"
+        );
+    };
+
+    assert_blocked(
+        "get",
+        client
+            .get::<serde_json::Value>("/coupons/admin")
+            .await
+            .unwrap_err(),
+    );
+    assert_blocked(
+        "post",
+        client
+            .post::<serde_json::Value>("/admin/announcements", &body)
+            .await
+            .unwrap_err(),
+    );
+    assert_blocked(
+        "patch",
+        client
+            .patch::<serde_json::Value>("/webhooks/core/hook-1", &body)
+            .await
+            .unwrap_err(),
+    );
+    assert_blocked(
+        "delete",
+        client
+            .delete::<serde_json::Value>("/webhooks/core/hook-1")
+            .await
+            .unwrap_err(),
+    );
+    assert_blocked(
+        "upload_multipart",
+        client
+            .upload_multipart::<serde_json::Value>(
+                "/webhooks/composio",
+                reqwest::multipart::Form::new(),
+            )
+            .await
+            .unwrap_err(),
+    );
+    assert_blocked(
+        "get_bytes",
+        client.get_bytes("/webhooks/core").await.unwrap_err(),
+    );
+}
+
 // ── Integration: HTTP error propagation through `post`/`get` ──────
 
 async fn start_mock_backend(app: Router) -> String {

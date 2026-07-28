@@ -224,6 +224,39 @@ fn build_backend_reqwest_client() -> Result<Client> {
         .map_err(|e| anyhow::anyhow!("failed to build HTTP client: {e}"))
 }
 
+/// Normalize the backend envelope while preserving OpenHuman's historical
+/// response shape. In particular, `/auth/me` returns `{success,user}` rather
+/// than `{success,data}`; SDK transport must not expose that envelope detail to
+/// existing callers.
+fn parse_api_response_value(value: Value) -> Result<Value> {
+    let Some(object) = value.as_object() else {
+        return Ok(value);
+    };
+    if let Some(user) = object.get("user").filter(|user| !user.is_null()) {
+        return Ok(user.clone());
+    }
+    let Some(success) = object.get("success").and_then(Value::as_bool) else {
+        return Ok(value);
+    };
+    if !success {
+        let message = object
+            .get("message")
+            .or_else(|| object.get("error"))
+            .and_then(Value::as_str)
+            .unwrap_or("request unsuccessful");
+        anyhow::bail!("API request failed: {message}");
+    }
+    if let Some(data) = object.get("data").filter(|data| !data.is_null()) {
+        return Ok(data.clone());
+    }
+    if let Some(user) = object.get("user").filter(|user| !user.is_null()) {
+        return Ok(user.clone());
+    }
+    let mut unwrapped = object.clone();
+    unwrapped.remove("success");
+    Ok(Value::Object(unwrapped))
+}
+
 fn user_id_from_object(obj: &serde_json::Map<String, Value>) -> Option<String> {
     for key in ["id", "_id", "userId"] {
         if let Some(s) = obj.get(key).and_then(|x| x.as_str()) {
@@ -490,7 +523,7 @@ impl BackendOAuthClient {
             .send(method.clone(), path, &[], body.as_ref(), true)
             .await;
         let value = match response {
-            Ok(value) => return Ok(value),
+            Ok(value) => return parse_api_response_value(value),
             Err(SdkError::Http(e)) => {
                 // Walk the error source chain so transient markers hidden in nested
                 // causes (reqwest -> hyper -> rustls TLS EOF, etc.) still classify

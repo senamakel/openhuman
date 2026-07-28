@@ -472,18 +472,6 @@ pub(crate) struct OllamaGenerateResponse {
     pub eval_duration: Option<u64>,
 }
 
-#[derive(Debug, Serialize)]
-pub(crate) struct OllamaEmbedRequest {
-    pub model: String,
-    pub input: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct OllamaEmbedResponse {
-    #[serde(default)]
-    pub embeddings: Vec<Vec<f32>>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct OllamaChatMessage {
     pub role: String,

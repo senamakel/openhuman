@@ -1,12 +1,16 @@
 use crate::openhuman::agent::multimodal;
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::local::ollama::{
-    ollama_base_url_from_config, redact_ollama_base_url, OllamaEmbedRequest, OllamaEmbedResponse,
-    OllamaGenerateOptions, OllamaGenerateRequest,
+    ollama_base_url_from_config, redact_ollama_base_url, OllamaGenerateOptions,
+    OllamaGenerateRequest,
 };
 use crate::openhuman::inference::model_ids;
 use crate::openhuman::inference::presets::{self, VisionMode};
 use crate::openhuman::inference::types::LocalAiEmbeddingResult;
+use tinyagents::harness::embeddings::{
+    EmbeddingModel, OllamaEmbeddingModel, DEFAULT_OLLAMA_DIMENSIONS,
+    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+};
 
 use super::LocalAiService;
 
@@ -161,46 +165,24 @@ impl LocalAiService {
             "[local_ai:embed] embed: using base_url={}",
             redact_ollama_base_url(&embed_base)
         );
-        let response = self
-            .http
-            .post(format!("{embed_base}/api/embed"))
-            .json(&OllamaEmbedRequest {
-                model: embedding_model.clone(),
-                input: items.clone(),
-            })
-            .send()
+        let model =
+            OllamaEmbeddingModel::try_new(&embed_base, &embedding_model, DEFAULT_OLLAMA_DIMENSIONS)
+                .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
+                .with_client(self.http.clone())
+                .with_context_options(
+                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                );
+        let vectors = model
+            .embed(&items)
             .await
-            .map_err(|e| format!("ollama embed request failed: {e}"))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            let detail = body.trim();
-            return Err(format!(
-                "ollama embed request failed with status {}{}",
-                status,
-                if detail.is_empty() {
-                    String::new()
-                } else {
-                    format!(": {detail}")
-                }
-            ));
-        }
-
-        let payload: OllamaEmbedResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("ollama embed parse failed: {e}"))?;
-        if payload.embeddings.is_empty() {
-            return Err("ollama embed returned no embeddings".to_string());
-        }
-
-        let dims = payload.embeddings.first().map(|v| v.len()).unwrap_or(0);
+            .map_err(|error| format!("local embedding RPC failed: {error}"))?;
+        let dims = model.dimensions();
         self.status.lock().embedding_state = "ready".to_string();
         Ok(LocalAiEmbeddingResult {
             model_id: embedding_model,
             dimensions: dims,
-            vectors: payload.embeddings,
+            vectors,
         })
     }
 }

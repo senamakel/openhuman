@@ -16,6 +16,15 @@ pub(super) struct ModelRpcOutcome {
     pub reply: String,
     pub prompt_tokens: Option<u64>,
     pub completion_tokens: Option<u64>,
+    pub prompt_toks_per_sec: Option<f32>,
+    pub gen_toks_per_sec: Option<f32>,
+}
+
+fn throughput(raw: Option<&serde_json::Value>, count: &str, duration: &str) -> Option<f32> {
+    let raw = raw?;
+    let count = raw.get(count)?.as_u64()?;
+    let duration = raw.get(duration)?.as_u64()?;
+    crate::openhuman::inference::local::ollama::ns_to_tps(count as f32, duration)
 }
 
 fn local_model(config: &Config, model_id: &str) -> Result<OpenAiModel, String> {
@@ -67,10 +76,40 @@ pub(super) async fn invoke(
         .usage
         .as_ref()
         .and_then(|usage| (usage.output_tokens > 0).then_some(usage.output_tokens));
+    let prompt_toks_per_sec = throughput(
+        response.raw.as_ref(),
+        "prompt_eval_count",
+        "prompt_eval_duration",
+    );
+    let gen_toks_per_sec = throughput(response.raw.as_ref(), "eval_count", "eval_duration");
 
     Ok(ModelRpcOutcome {
         reply,
         prompt_tokens,
         completion_tokens,
+        prompt_toks_per_sec,
+        gen_toks_per_sec,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::throughput;
+
+    #[test]
+    fn throughput_reads_ollama_timing_metadata() {
+        let raw = serde_json::json!({
+            "eval_count": 25,
+            "eval_duration": 500_000_000_u64,
+        });
+
+        assert_eq!(
+            throughput(Some(&raw), "eval_count", "eval_duration"),
+            Some(50.0)
+        );
+        assert_eq!(
+            throughput(Some(&raw), "prompt_eval_count", "prompt_eval_duration"),
+            None
+        );
+    }
 }

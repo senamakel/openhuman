@@ -280,8 +280,8 @@ impl LocalAiService {
             let mut status = self.status.lock();
             status.state = "ready".to_string();
             status.last_latency_ms = Some(elapsed_ms);
-            status.prompt_toks_per_sec = None;
-            status.gen_toks_per_sec = None;
+            status.prompt_toks_per_sec = outcome.prompt_toks_per_sec;
+            status.gen_toks_per_sec = outcome.gen_toks_per_sec;
             status.warning = None;
         }
 
@@ -457,8 +457,8 @@ impl LocalAiService {
             let mut status = self.status.lock();
             status.state = "ready".to_string();
             status.last_latency_ms = Some(elapsed_ms);
-            status.prompt_toks_per_sec = None;
-            status.gen_toks_per_sec = None;
+            status.prompt_toks_per_sec = outcome.prompt_toks_per_sec;
+            status.gen_toks_per_sec = outcome.gen_toks_per_sec;
             status.warning = None;
         }
 

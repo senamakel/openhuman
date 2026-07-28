@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use async_trait::async_trait;
 
 use super::store;
-use super::types::{ThreadGoal, ThreadGoalStatus};
+use super::{ThreadGoal, ThreadGoalStatus};
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::stop_hooks::{StopDecision, StopHook, TurnState};
 use crate::openhuman::tinyagents::thread_context::current_thread_id;

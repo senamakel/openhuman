@@ -129,7 +129,6 @@ pub mod task_sources;
 pub mod team;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;
-pub mod thread_goals;
 pub mod threads;
 pub mod tinyagents;
 pub mod tinycortex;

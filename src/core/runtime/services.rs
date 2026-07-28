@@ -367,7 +367,7 @@ async fn run_legacy_migrations(config: &Config) {
     //
     // Both copies are idempotent and must run for each workspace so an
     // in-process restart with a different workspace migrates that workspace.
-    match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
+    match crate::openhuman::tinyagents::goals::migration::migrate_legacy_goals(
         &config.workspace_dir,
     )
     .await

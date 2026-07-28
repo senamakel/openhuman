@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use super::store;
-use super::types::ThreadGoal;
+use super::ThreadGoal;
 use crate::openhuman::tinyagents::thread_context::current_thread_id;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 

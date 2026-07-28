@@ -23,6 +23,7 @@ pub(crate) mod abort_guard;
 mod convert;
 pub(crate) mod delegation;
 mod embeddings;
+pub(crate) mod goals;
 pub(crate) mod journal;
 pub(crate) mod middleware;
 pub(crate) mod model;

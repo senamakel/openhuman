@@ -28,7 +28,7 @@ use std::sync::OnceLock;
 use tokio::sync::Semaphore;
 
 use super::store;
-use super::types::{ThreadGoal, ThreadGoalStatus};
+use super::{ThreadGoal, ThreadGoalStatus};
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;

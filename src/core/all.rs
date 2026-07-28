@@ -534,7 +534,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Threads,
-        crate::openhuman::thread_goals::all_thread_goals_registered_controllers(),
+        crate::openhuman::tinyagents::goals::all_thread_goals_registered_controllers(),
     );
     // Memory tree ingestion layer (#707 — canonicalised chunks with provenance)
     push(

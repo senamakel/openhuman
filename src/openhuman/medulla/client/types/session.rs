@@ -7,13 +7,17 @@
 use serde::{Deserialize, Serialize};
 
 /// Session lifecycle status.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SessionStatus {
     Active,
     Idle,
     Archived,
     /// Any status not yet modelled by this client.
+    ///
+    /// Also the `Default`: a value constructed rather than decoded has not
+    /// declared a status, and defaulting to `Active` would assert one.
+    #[default]
     #[serde(other)]
     Other,
 }
@@ -36,7 +40,7 @@ pub struct SessionCreated {
 }
 
 /// Item in the session list (`GET /medulla/v1/sessions`).
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSummary {
     pub session_id: String,

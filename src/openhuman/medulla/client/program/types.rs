@@ -25,7 +25,7 @@ pub struct RosterBudget {
 }
 
 /// Connected worker returned by `GET /medulla/v1/roster`.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RosterWorker {
     /// Stable worker identifier in the manager registry.

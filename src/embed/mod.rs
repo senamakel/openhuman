@@ -53,9 +53,13 @@
 mod call;
 mod config;
 mod error;
+#[cfg(feature = "medulla")]
+mod medulla;
 
 pub use config::{Config, RuntimeFlags};
 pub use error::CoreError;
+#[cfg(feature = "medulla")]
+pub use medulla::{Medulla, MedullaStatus, RosterWorker, SessionSummary};
 
 use std::sync::Arc;
 
@@ -84,6 +88,15 @@ impl Core {
     /// Typed configuration access.
     pub fn config(&self) -> Config<'_> {
         Config(&self.rt)
+    }
+
+    /// Typed access to the Medulla orchestration backend.
+    ///
+    /// Absent unless the `medulla` feature is on, so a host built without it
+    /// fails to compile against this rather than meeting a runtime error.
+    #[cfg(feature = "medulla")]
+    pub fn medulla(&self) -> Medulla<'_> {
+        Medulla(&self.rt)
     }
 
     /// The underlying runtime, for anything this facade does not yet model.

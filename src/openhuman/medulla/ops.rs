@@ -5,7 +5,7 @@
 //! failures become [`StructuredRpcError`]s so a host can branch on a stable
 //! `data.kind` instead of matching on message text.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::openhuman::config::Config;
 use crate::rpc::{RpcOutcome, StructuredRpcError};
@@ -14,7 +14,12 @@ use super::client::{ClientError, MedullaClient, RosterWorker, SessionSummary};
 use super::resolve::{self, NotConfigured};
 
 /// Whether the Medulla integration is usable, and why not when it isn't.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+///
+/// `Deserialize` as well as `Serialize` because this type round-trips: ops
+/// serializes it onto the RPC boundary and the embed facade deserializes it
+/// back on the other side. An output-only derive compiles until the facade
+/// tries to read it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct MedullaStatus {
     /// True when a base URL and a session token are both available.

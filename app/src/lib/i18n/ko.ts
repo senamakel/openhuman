@@ -472,7 +472,10 @@ const messages: TranslationMap = {
   'agentWorld.world.retry': '다시 시도',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'tiny.place에 참여하면 에이전트가 다른 에이전트와 협업할 수 있습니다: 작업을 찾고 게시하고, 거래하고, 메시지를 주고받고, 바운티에 함께 참여하세요.',
+    'tiny.place에 참여하면 에이전트가 네트워크의 다른 에이전트와 협업할 수 있습니다: 작업을 찾고 게시하고, 거래하고, 메시지를 주고받고, 바운티에 함께 참여하세요.',
+  'agentWorld.world.offlineBadge': '오프라인 미리보기',
+  'agentWorld.world.offlineBadgeTitle':
+    '여기에 표시된 에이전트는 로컬 시뮬레이션입니다. 실시간 참여자 표시와 월드 동기화는 곧 제공될 예정입니다.',
   'agentWorld.world.room': '방',
   'agentWorld.world.rooms.poker.name': '포커',
   'agentWorld.world.rooms.poker.description': '펠트 테이블을 둘러싼 여덟 좌석.',
@@ -1679,16 +1682,16 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'OpenHuman 관리 검색을 기본값으로 사용하거나 API 키로 자체 제공업체를 연결하세요.',
   'settings.search.description':
-    '에이전트가 사용할 검색 엔진을 선택하거나 검색 도구를 완전히 비활성화합니다. 관리형은 OpenHuman의 백엔드를 사용합니다(설정 불필요). 병렬, Brave, Querit은 API 키를 사용하여 내 컴퓨터에서 직접 실행됩니다.',
+    '에이전트가 사용할 검색 엔진을 선택하거나 검색 도구를 완전히 비활성화합니다. 관리형은 OpenHuman의 백엔드를 사용합니다(설정 불필요). 병렬, Brave, Querit, Exa는 API 키를 사용하여 내 컴퓨터에서 직접 실행됩니다.',
   'settings.search.engineAria': '검색 엔진',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
     '에이전트 컨텍스트 및 사용 가능한 도구 목록에서 검색 도구를 제거합니다.',
   'settings.search.engineManagedLabel': 'OpenHuman 관리됨',
   'settings.search.engineManagedDesc':
-    '기본값입니다. OpenHuman 백엔드를 통해 라우팅되며 API 키가 필요하지 않습니다.',
+    '기본값입니다. OpenHuman 백엔드를 통해 라우팅되며 현재 Exa로 구동됩니다. API 키가 필요하지 않습니다.',
   'settings.search.localManagedUnavailable':
-    '로컬 사용자는 OpenHuman 관리 검색을 사용할 수 없습니다. 웹 검색을 활성화하려면 자체 Parallel, Brave 또는 Querit API 키를 추가하세요.',
+    '로컬 사용자는 OpenHuman 관리 검색을 사용할 수 없습니다. 웹 검색을 활성화하려면 자체 Parallel, Brave, Querit 또는 Exa API 키를 추가하세요.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
     '직접 Parallel API: 검색, 추출, 채팅, 리서치, 보강, 데이터셋 도구.',
@@ -1697,6 +1700,9 @@ const messages: TranslationMap = {
   'settings.search.engineQueritLabel': 'Querit',
   'settings.search.engineQueritDesc':
     '직접 Querit API: 사이트, 시간 범위, 국가 및 언어 필터가 있는 웹 검색.',
+  'settings.search.engineExaLabel': 'Exa',
+  'settings.search.engineExaDesc':
+    'Exa 기반 신경망 검색. 본인의 Exa API 키가 필요합니다. 검색, 유사 페이지 찾기, 페이지 콘텐츠 도구를 추가합니다.',
   'settings.search.statusConfigured': '구성됨',
   'settings.search.statusNeedsKey': 'API 키 필요',
   'settings.search.fallbackToManaged':
@@ -1712,10 +1718,12 @@ const messages: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Parallel API 키',
   'settings.search.braveKeyLabel': 'Brave 검색 API 키',
   'settings.search.queritKeyLabel': 'Querit API 키',
+  'settings.search.exaKeyLabel': 'Exa API 키',
   'settings.search.placeholderStored': '•••••••(저장됨)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'Querit API 키',
+  'settings.search.placeholderExa': 'Exa API 키를 붙여넣으세요…',
   'settings.search.allowedSitesLabel': '허용된 웹사이트',
   'settings.search.allowedSitesHint':
     '리서치 중 어시스턴트가 열고 읽을 수 있는 웹사이트입니다(한 줄에 호스트 하나, 예: reuters.com). 호스트에는 하위 도메인도 포함됩니다. 모든 웹 접근을 차단하려면 비워 두세요.',

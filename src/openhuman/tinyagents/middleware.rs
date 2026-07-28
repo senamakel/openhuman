@@ -1936,12 +1936,31 @@ impl Middleware<()> for CostBudgetMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        _request: &mut ModelRequest,
+        request: &mut ModelRequest,
     ) -> TaResult<()> {
         use crate::openhuman::cost::types::BudgetCheck;
         let Some(tracker) = crate::openhuman::cost::try_global() else {
             return Ok(());
         };
+
+        // #5016: exempt the CURRENT request when it is BYOK, not just BYOK
+        // history. Excluding BYOK from the managed totals alone still refuses a
+        // mixed-route user's own-key calls once their managed spend has
+        // legitimately crossed the cap — managed exhaustion would disable the
+        // provider OpenHuman never bills for, which is the whole bug. Classify
+        // this call's route and skip the gate when OpenHuman is not the biller.
+        if let Some(model) = request.model.as_deref() {
+            let route = crate::openhuman::cost::route::route_for_model(model);
+            if !route.counts_toward_budget() {
+                tracing::debug!(
+                    %model,
+                    ?route,
+                    "[tinyagents::mw] BYOK/local route — skipping the managed budget gate (#5016)"
+                );
+                return Ok(());
+            }
+        }
+
         // Pass 0.0 to test whether we are *already* over budget before spending
         // more (rather than projecting this call's cost, which needs a token
         // estimate).

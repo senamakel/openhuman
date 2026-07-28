@@ -74,8 +74,9 @@ pub mod mcp_registry;
 pub mod mcp_server;
 #[cfg(feature = "media")]
 pub mod media_generation;
-#[cfg(feature = "medulla-local")]
-pub mod medulla_local;
+pub mod medulla;
+#[cfg(feature = "medulla")]
+pub mod medulla_chat;
 #[cfg(feature = "meet")]
 pub mod meet;
 pub mod meet_agent;

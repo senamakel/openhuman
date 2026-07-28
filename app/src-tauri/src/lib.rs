@@ -3382,6 +3382,16 @@ pub fn run() {
             // / `center: false` for the main window so the placement
             // happens before the first paint and there's no jump.
             if let Some(window) = app.get_webview_window("main") {
+                // Layout first: mixed-DPI placement bugs (#5041) are not
+                // diagnosable from a user report without it, and logging
+                // before placement captures the pre-clamp state.
+                window_state::log_monitor_layout(&window);
+                // Installed before placement so a scale change triggered
+                // by our own cross-monitor move is caught too — on
+                // Windows that arrives via the message loop after
+                // `setup()` returns, which is why clamping here alone is
+                // not enough.
+                window_state::install_dpi_guard(&window);
                 if !window_state::restore_main(&window) {
                     window_state::center_main(&window);
                 }

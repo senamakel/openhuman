@@ -490,7 +490,10 @@ const messages: TranslationMap = {
   'agentWorld.world.retry': 'Ponów',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'Dołącz do tiny.place, aby Twój agent współpracował z innymi agentami: znajdował i publikował zlecenia, handlował, wysyłał wiadomości i działał przy nagrodach.',
+    'Dołącz do tiny.place, aby Twój agent współpracował z innymi agentami w sieci: znajdował i publikował zlecenia, handlował, wysyłał wiadomości i działał przy nagrodach.',
+  'agentWorld.world.offlineBadge': 'Podgląd offline',
+  'agentWorld.world.offlineBadgeTitle':
+    'Agenci widoczni tutaj to lokalna symulacja. Obecność na żywo i synchronizacja świata pojawią się wkrótce.',
   'agentWorld.world.room': 'Pokój',
   'agentWorld.world.rooms.poker.name': 'Poker',
   'agentWorld.world.rooms.poker.description': 'Osiem miejsc wokół stołu z filcem.',
@@ -1721,15 +1724,16 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Użyj domyślnie wyszukiwarki zarządzanej przez OpenHuman lub podłącz własnego dostawcę z kluczem API.',
   'settings.search.description':
-    'Wybierz wyszukiwarkę używaną przez agenta. Zarządzana korzysta z backendu OpenHuman (bez konfiguracji). Parallel i Brave działają bezpośrednio z Twojego urządzenia, używając Twojego klucza API.',
+    'Wybierz wyszukiwarkę używaną przez agenta. Zarządzana korzysta z backendu OpenHuman (bez konfiguracji). Parallel, Brave, Querit i Exa działają bezpośrednio z Twojego urządzenia, używając Twojego klucza API.',
   'settings.search.engineAria': 'Wyszukiwarka',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
     'Usuń narzędzia wyszukiwania z kontekstu agenta i listy dostępnych narzędzi.',
   'settings.search.engineManagedLabel': 'OpenHuman zarządzane',
-  'settings.search.engineManagedDesc': 'Domyślnie. Przez backend OpenHuman: bez klucza API.',
+  'settings.search.engineManagedDesc':
+    'Domyślnie. Kierowane przez backend OpenHuman, obecnie oparte na Exa: bez klucza API.',
   'settings.search.localManagedUnavailable':
-    'Wyszukiwarka zarządzana przez OpenHuman jest niedostępna dla użytkowników lokalnych. Dodaj własny klucz API Parallel lub Brave, aby włączyć wyszukiwanie w sieci.',
+    'Wyszukiwarka zarządzana przez OpenHuman jest niedostępna dla użytkowników lokalnych. Dodaj własny klucz API Parallel, Brave, Querit lub Exa, aby włączyć wyszukiwanie w sieci.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
     'Bezpośrednie API Parallel: szukaj, wyciąg, czat, badania, wzbogacenie, narzędzia datasetowe.',
@@ -1739,6 +1743,9 @@ const messages: TranslationMap = {
   'settings.search.engineQueritLabel': 'Querit',
   'settings.search.engineQueritDesc':
     'Bezpośrednie API Querit: wyszukiwanie w sieci z filtrami strony, zakresu czasu, kraju i języka.',
+  'settings.search.engineExaLabel': 'Exa',
+  'settings.search.engineExaDesc':
+    'Wyszukiwanie neuronowe oparte na Exa. Wymaga własnego klucza API Exa. Dodaje narzędzia wyszukiwania, podobnych stron i treści stron.',
   'settings.search.statusConfigured': 'Skonfigurowano',
   'settings.search.statusNeedsKey': 'Wymaga klucza API',
   'settings.search.fallbackToManaged':
@@ -1754,10 +1761,12 @@ const messages: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Klucz API Parallel',
   'settings.search.braveKeyLabel': 'Klucz API Brave Search',
   'settings.search.queritKeyLabel': 'Klucz API Querit',
+  'settings.search.exaKeyLabel': 'Klucz API Exa',
   'settings.search.placeholderStored': '•••••••• (zapisane)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'Klucz API Querit',
+  'settings.search.placeholderExa': 'Wklej swój klucz API Exa…',
   'settings.search.allowedSitesLabel': 'Dozwolone witryny',
   'settings.search.allowedSitesHint':
     'Hosty, które asystent może otwierać i odczytywać (poprzez pobieranie stron i narzędzie przeglądarki) jeden na linię, np. reuters.com. Host obejmuje również swoje subdomeny. Samo wyszukiwanie w internecie nie jest ograniczone przez tę listę.',

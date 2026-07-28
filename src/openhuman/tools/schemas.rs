@@ -137,12 +137,22 @@ pub fn tools_schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
             ],
-            outputs: vec![FieldSchema {
-                name: "results",
-                ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
-                comment: "Each item: {url, title, publish_date?, excerpts[]}.",
-                required: true,
-            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "results",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                    comment: "Each item: {url, title, publish_date?, excerpts[]}.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "provider",
+                    ty: TypeSchema::String,
+                    comment: "Upstream provider the managed backend resolved this \
+                              search to, for attribution. Reported by the backend when \
+                              it names one; falls back to the managed default.",
+                    required: true,
+                },
+            ],
         },
         "tools_seltz_search" => ControllerSchema {
             namespace: "tools",
@@ -531,9 +541,17 @@ fn handle_web_search(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("parallel search failed: {e:#}"))?;
 
         let count = resp.results.len();
-        let payload = json!({ "results": resp.results });
+        // Attribute the search to the provider the managed backend resolved to,
+        // so this RPC surface labels a call the same way the agent-facing
+        // `web_search` tool does (#5136).
+        let provider = crate::openhuman::search::tools::resolve_managed_provider(&resp);
+        let payload = json!({ "results": resp.results, "provider": provider });
+        // Log the query's length, never its text: a search query is
+        // user-authored and can carry PII or credentials. This matches the
+        // sibling seltz/querit handlers below, which already log `query_len`.
         let log = vec![format!(
-            "tools.web_search: query=\"{query}\" results={count}"
+            "tools.web_search: query_len={} results={count} provider={provider}",
+            query.chars().count()
         )];
         RpcOutcome::new(payload, log).into_cli_compatible_json()
     })
@@ -975,6 +993,9 @@ mod tests {
         assert_eq!(s.namespace, "tools");
         assert_eq!(s.function, "web_search");
         assert!(s.inputs.iter().any(|f| f.name == "query" && f.required));
+        // The resolved search provider is part of the documented output so
+        // callers can attribute a managed search (#5136).
+        assert!(s.outputs.iter().any(|f| f.name == "provider"));
     }
 
     #[test]

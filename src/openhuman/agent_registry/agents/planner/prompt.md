@@ -50,3 +50,12 @@ Return **only** valid JSON matching this schema:
 7. **No cycles** — The graph must be a DAG (directed acyclic graph).
 8. **Max 8 nodes** — Keep plans manageable. Split larger projects into multiple plans.
 9. **Read-only** — You have no write tools. If a plan depends on saving an insight, facts, or artefacts, capture that as an explicit node (e.g. "archivist: store X") in the DAG so a downstream agent performs the write.
+
+## Long-horizon Artifacts
+
+Plans for long-horizon work should hand data between nodes by **path**, not by pasting it forward.
+
+- When a node produces a large deliverable (a report, a dataset, a generated document), say so in its description and have it written under `outputs/`.
+- Reference that path in the dependent node's description, so the downstream worker reads the file instead of receiving the payload through context.
+- `workspace/` is for per-node scratch that no later node needs.
+- Both directories are relative to the action directory. Plans must never target the core's internal workspace state.

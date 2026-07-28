@@ -471,16 +471,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Platform,
         crate::openhuman::javascript::all_javascript_registered_controllers(),
     );
-    // Local Medulla brain (plan Flavor A, §3.1–§3.2): status/instruct against a
-    // supervised `medulla-serve` child. Registration-site gate, like `flows` —
-    // with the feature off the `medulla_local.*` methods are simply absent
-    // (unknown-method), not a runtime error.
-    #[cfg(feature = "medulla-local")]
-    push(
-        &mut controllers,
-        DomainGroup::Agent,
-        crate::openhuman::medulla_local::all_medulla_local_registered_controllers(),
-    );
     // Medulla integration: readiness, durable sessions, and the connected worker
     // roster against the Medulla orchestration backend. Registration-site gate
     // like `flows` — with the `medulla` feature off these methods are absent
@@ -895,7 +885,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "migrate" => Some("Data migration utilities."),
         "javascript" => Some("First-class JavaScript runtime bridge for listing and dispatching tools."),
         "medulla" => Some("Medulla orchestration backend: integration readiness, durable sessions, and the connected worker roster."),
-        "medulla_local" => Some("Supervised local medulla-serve brain: status of the child and instruct enqueue (Flavor A draft)."),
         "monitor" => Some("Start, inspect, read, and stop bounded background command monitors."),
         "security" => Some("Security policy and autonomy guardrail metadata."),
         "service" => Some("Desktop service lifecycle management."),

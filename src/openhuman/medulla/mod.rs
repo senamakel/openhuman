@@ -1,11 +1,12 @@
 //! Medulla integration domain — the cloud client, its wire vocabulary, and the
 //! harness contract types the two share.
 //!
-//! This is the real Medulla surface, replacing the `medulla_local` draft (a
-//! supervised `medulla-serve` child answering two of N ports). `medulla_local`
-//! is still present and still wired to the subconscious tick; it is removed once
-//! `medulla_session/serve/` exists to receive its NDJSON protocol and child
-//! supervisor. The two module paths do not collide, so they coexist meanwhile.
+//! This is the real Medulla surface. It replaced the `medulla_local` draft — a
+//! supervised `medulla-serve` child that answered two of N ports — which has
+//! since been removed along with the `subconscious.engine = "medulla"`
+//! behaviour it backed. That engine is to be re-ported onto this domain; its
+//! config keys remain accepted as inert serde meanwhile so existing configs
+//! still boot (see `config::schema::subconscious`).
 //!
 //! # Two directions, one product name
 //!

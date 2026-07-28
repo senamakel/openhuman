@@ -1258,21 +1258,3 @@ fn medulla_controllers_absent_when_feature_off() {
         "`medulla` must not register when the feature is off"
     );
 }
-
-/// `medulla` and `medulla_local` are independent namespaces.
-///
-/// They are different products sharing a word: `medulla` is the cloud client,
-/// `medulla_local` the older supervised-child draft. Gating one must never
-/// affect the other, and this pins that so a future cleanup of `medulla_local`
-/// cannot silently take the client down with it.
-#[test]
-fn medulla_and_medulla_local_are_independent_namespaces() {
-    let client = group_for_namespace("medulla");
-    let local = group_for_namespace("medulla_local");
-    if client.is_some() && local.is_some() {
-        assert_ne!(
-            client, local,
-            "the cloud client and the local-brain draft must not share a DomainGroup"
-        );
-    }
-}

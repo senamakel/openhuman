@@ -380,7 +380,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla-local", "medulla"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -570,32 +570,13 @@ crash-reporting = ["dep:sentry"]
 # build-fact "tui feature disabled at compile time" error from the untouched
 # `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
-# Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
-# a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,
-# host-side inference + tools port callbacks, the `medulla_local` RPC namespace,
-# and the subconscious-replacement draft (`subconscious.engine = "medulla"`,
-# §5.2). Default-ON — the desktop app ships it — and therefore FORWARDED to the
-# Tauri shell's `openhuman_core` features (default-features=false there). Slim /
-# headless builds opt out via `--no-default-features --features "<list without
-# medulla-local>"`. The module is `#[cfg(feature = "medulla-local")]` at its
-# `pub mod` declaration (a registration-site gate, like `flows`); the
-# `subconscious.engine` config field stays compiled in ALL builds (inert serde),
-# and the subconscious tick's medulla branch is `#[cfg]`-gated so the default
-# (`local`) path is byte-identical whether or not this feature is on.
-# Sheds ZERO exclusive dependencies — tokio net/process, reqwest, serde are all
-# load-bearing for other domains; the value is compile-time surface.
-# The serve transport is unix-only (unix domain sockets): on non-unix targets
-# (Windows desktop) the feature still compiles via a supervisor stub that
-# reports a typed unsupported-platform error, so forwarding the default-ON
-# gate to the Tauri shell never breaks Windows packaging.
-medulla-local = []
 
 # Medulla integration: the HTTP/SSE client for the Medulla orchestration backend
 # (`openhuman::medulla::client`) — durable sessions, event streaming, worker
 # routing + roster, the operator task ledger and its GitHub sources, one-shot
 # orchestration runs, the public feedback board, and the onboarding history
-# reward. This is the real Medulla surface; `medulla-local` above is the older
-# supervised-child draft and the two are independent.
+# reward. This is the real Medulla surface; it replaced the `medulla-local`
+# supervised-child draft, which has been removed.
 #
 # Default-ON, but INTENTIONALLY NOT FORWARDED to the Tauri shell (allowlisted in
 # scripts/lib/feature-forwarding.mjs, alongside `tui`): the desktop app is

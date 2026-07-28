@@ -77,8 +77,6 @@ pub mod media_generation;
 pub mod medulla;
 #[cfg(feature = "medulla")]
 pub mod medulla_chat;
-#[cfg(feature = "medulla-local")]
-pub mod medulla_local;
 #[cfg(feature = "meet")]
 pub mod meet;
 pub mod meet_agent;

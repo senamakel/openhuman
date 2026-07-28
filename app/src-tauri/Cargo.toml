@@ -186,7 +186,6 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
     # http://127.0.0.1:<port>/rpc, so it REQUIRES the HTTP + Socket.IO transport
     # (#5048). Enforced by the HTTP_SERVER_COMPILED_IN compile assert in lib.rs.
     "http-server",
-    "medulla-local",
 ] }
 tinyjuice = { version = "0.2.1", default-features = false }
 

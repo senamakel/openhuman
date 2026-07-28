@@ -40,7 +40,7 @@ use crate::openhuman::memory_sync::composio::periodic::{
     connection_is_due, effective_interval_secs, periodic_pause_reason,
 };
 use crate::openhuman::scheduler_gate::gate::resume_notify;
-use crate::openhuman::tinycortex::{read_audit_log, SyncAuditEntry};
+use crate::openhuman::tinycortex::{try_read_audit_log, SyncAuditEntry};
 
 /// How often the scheduler wakes up to look for due syncs. Matches the
 /// Composio loop's cadence — per-source intervals (24h default) bound the
@@ -181,7 +181,14 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         return Ok(());
     };
 
-    let audit_index = index_last_success_by_source_id(&read_audit_log(&config));
+    let audit_entries = try_read_audit_log(&config).map_err(|error| {
+        tracing::warn!(
+            %error,
+            "[memory_sync:workspace:periodic] audit unavailable; skipping automatic sync tick"
+        );
+        format!("sync audit unavailable: {error}")
+    })?;
+    let audit_index = index_last_success_by_source_id(&audit_entries);
     let now = Utc::now();
     let map = fired_map();
 

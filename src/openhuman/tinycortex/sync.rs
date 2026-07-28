@@ -62,73 +62,144 @@ impl HostSyncAdapter {
     }
 }
 
+/// Append one host sync audit record, logging failures without exposing source identifiers.
 pub fn append_audit_entry(config: &Config, entry: &SyncAuditEntry) {
+    tracing::debug!(
+        source_kind = %entry.source_kind,
+        success = entry.success,
+        items_fetched = entry.items_fetched,
+        "[tinycortex:sync] audit append starting"
+    );
     let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
-    if let Err(error) = tinycortex::memory::sync::append_audit_entry(&memory_config, entry) {
-        tracing::warn!(%error, "[tinycortex:sync] audit append failed");
-    }
-}
-
-pub fn read_audit_log(config: &Config) -> Vec<SyncAuditEntry> {
-    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
-    match tinycortex::memory::sync::read_audit_log(&memory_config) {
-        Ok(entries) => entries,
+    match tinycortex::memory::sync::append_audit_entry(&memory_config, entry) {
+        Ok(()) => tracing::debug!(
+            source_kind = %entry.source_kind,
+            success = entry.success,
+            "[tinycortex:sync] audit append completed"
+        ),
         Err(error) => {
-            tracing::warn!(%error, "[tinycortex:sync] audit read failed");
-            Vec::new()
+            tracing::warn!(%error, source_kind = %entry.source_kind, "[tinycortex:sync] audit append failed");
         }
     }
 }
 
+/// Read persisted sync audit records while preserving storage failures for fail-closed callers.
+pub fn try_read_audit_log(config: &Config) -> anyhow::Result<Vec<SyncAuditEntry>> {
+    tracing::debug!("[tinycortex:sync] audit read starting");
+    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
+    let entries = tinycortex::memory::sync::read_audit_log(&memory_config).map_err(|error| {
+        tracing::warn!(%error, "[tinycortex:sync] audit read failed");
+        error
+    })?;
+    tracing::debug!(
+        entries = entries.len(),
+        "[tinycortex:sync] audit read completed"
+    );
+    Ok(entries)
+}
+
+/// Read persisted sync audit records for best-effort RPC and reporting surfaces.
+pub fn read_audit_log(config: &Config) -> Vec<SyncAuditEntry> {
+    try_read_audit_log(config).unwrap_or_default()
+}
+
+/// Estimate sync inference cost using TinyCortex's canonical pricing model.
 pub fn estimate_cost_usd(input_tokens: u64, output_tokens: u64) -> f64 {
     tinycortex::memory::sync::estimate_cost_usd(input_tokens, output_tokens)
 }
 
+/// Measure coverage of a raw archive by its TinyCortex memory tree.
 pub fn raw_coverage(
     config: &Config,
     tree_scope: &str,
     archive_source_id: &str,
 ) -> anyhow::Result<RawCoverage> {
+    tracing::debug!("[tinycortex:sync] raw coverage scan starting");
     let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
-    tinycortex::memory::sync::raw_coverage(&memory_config, tree_scope, archive_source_id)
+    let coverage =
+        tinycortex::memory::sync::raw_coverage(&memory_config, tree_scope, archive_source_id)
+            .map_err(|error| {
+                tracing::warn!(%error, "[tinycortex:sync] raw coverage scan failed");
+                error
+            })?;
+    tracing::debug!(
+        total = coverage.total,
+        covered = coverage.covered,
+        pending = coverage.pending.len(),
+        "[tinycortex:sync] raw coverage scan completed"
+    );
+    Ok(coverage)
 }
 
+/// Return whether a raw archive contains records absent from its memory tree.
 pub fn needs_rebuild(config: &Config, tree_scope: &str, archive_source_id: &str) -> bool {
     let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
-    tinycortex::memory::sync::needs_rebuild(&memory_config, tree_scope, archive_source_id)
+    let required =
+        tinycortex::memory::sync::needs_rebuild(&memory_config, tree_scope, archive_source_id);
+    tracing::debug!(
+        required,
+        "[tinycortex:sync] raw rebuild requirement evaluated"
+    );
+    required
 }
 
+/// Rebuild a memory tree from its raw archive through the host summarizer.
 pub async fn rebuild_tree_from_raw(
     config: &Config,
     tree_scope: &str,
     archive_source_id: &str,
 ) -> anyhow::Result<RebuildOutcome> {
+    tracing::info!("[tinycortex:sync] raw rebuild starting");
     let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
     let summariser = super::HostSummariser::new(config.clone());
-    tinycortex::memory::sync::rebuild_tree_from_raw(
+    let outcome = tinycortex::memory::sync::rebuild_tree_from_raw(
         &memory_config,
         tree_scope,
         archive_source_id,
         &summariser,
     )
     .await
+    .map_err(|error| {
+        tracing::warn!(%error, "[tinycortex:sync] raw rebuild failed");
+        error
+    })?;
+    tracing::info!(
+        files_read = outcome.files_read,
+        batches = outcome.batches,
+        "[tinycortex:sync] raw rebuild completed"
+    );
+    Ok(outcome)
 }
 
+/// Run a registered GitHub repository source through TinyCortex synchronization.
 pub async fn run_github_sync(
     source: &MemorySourceEntry,
     config: &Config,
 ) -> anyhow::Result<SyncOutcome> {
-    tracing::debug!(
-        source_id = %source.id,
-        "[tinycortex:sync] dispatching GitHub repository source"
-    );
+    tracing::info!("[tinycortex:sync] GitHub repository sync starting");
     if crate::openhuman::memory::global::client_if_ready().is_none() {
+        tracing::debug!("[tinycortex:sync] GitHub sync initializing memory client");
         crate::openhuman::memory::global::init(config.workspace_dir.clone())
-            .map_err(anyhow::Error::msg)?;
+            .map_err(anyhow::Error::msg)
+            .map_err(|error| {
+                tracing::warn!(%error, "[tinycortex:sync] GitHub sync memory initialization failed");
+                error
+            })?;
     }
-    run_source_pipeline(source, config)
+    let outcome = run_source_pipeline(source, config)
         .await
         .map_err(|error| anyhow::anyhow!(error.to_string()))
+        .map_err(|error| {
+            tracing::warn!(%error, "[tinycortex:sync] GitHub repository sync failed");
+            error
+        })?;
+    tracing::info!(
+        records_ingested = outcome.records_ingested,
+        more_pending = outcome.more_pending,
+        actions_called = outcome.actions_called,
+        "[tinycortex:sync] GitHub repository sync completed"
+    );
+    Ok(outcome)
 }
 
 #[async_trait]
@@ -630,7 +701,10 @@ fn stage_name(stage: SyncStage) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_pipeline, is_composio_toolkit_syncable, syncable_composio_toolkits};
+    use super::{
+        build_pipeline, is_composio_toolkit_syncable, syncable_composio_toolkits,
+        try_read_audit_log,
+    };
     use crate::openhuman::config::Config;
     use crate::openhuman::memory_sources::MemorySourceEntry;
     use crate::openhuman::memory_sync::composio::{
@@ -747,5 +821,21 @@ mod tests {
         assert!(is_composio_toolkit_syncable("gmail"));
         assert!(is_composio_toolkit_syncable("Gmail"));
         assert!(is_composio_toolkit_syncable("  slack "));
+    }
+
+    #[test]
+    fn fallible_audit_read_distinguishes_io_failure_from_empty_log() {
+        let workspace = tempfile::tempdir().expect("workspace");
+        let audit_path = workspace.path().join("memory_tree/sync_audit.jsonl");
+        std::fs::create_dir_all(&audit_path).expect("create directory at audit file path");
+
+        let mut config = Config::default();
+        config.workspace_dir = workspace.path().to_path_buf();
+
+        let error = try_read_audit_log(&config).expect_err("directory read must fail");
+        assert!(
+            error.downcast_ref::<std::io::Error>().is_some(),
+            "expected the audit I/O error to remain distinguishable: {error:#}"
+        );
     }
 }

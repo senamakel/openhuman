@@ -66,7 +66,7 @@ pub use sync::{
     append_audit_entry, estimate_cost_usd, load_composio_sync_state, needs_rebuild, raw_coverage,
     read_audit_log, rebuild_tree_from_raw, run_composio_connection,
     run_composio_connection_with_budgets, run_github_sync, run_gmail_backfill,
-    run_slack_search_backfill, run_source_pipeline, sync_context, HostSyncAdapter, RawCoverage,
-    RawFileRef, RealCostAccumulator, RebuildOutcome, SourcePipelineFailure, SyncAuditEntry,
-    HOST_SYNC_STATE_NAMESPACE,
+    run_slack_search_backfill, run_source_pipeline, sync_context, try_read_audit_log,
+    HostSyncAdapter, RawCoverage, RawFileRef, RealCostAccumulator, RebuildOutcome,
+    SourcePipelineFailure, SyncAuditEntry, HOST_SYNC_STATE_NAMESPACE,
 };

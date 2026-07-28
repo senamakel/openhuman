@@ -63,7 +63,7 @@ use crate::openhuman::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
 use crate::openhuman::composio::ops;
-use crate::openhuman::tinycortex::{append_audit_entry, read_audit_log, SyncAuditEntry};
+use crate::openhuman::tinycortex::{append_audit_entry, try_read_audit_log, SyncAuditEntry};
 use chrono::{DateTime, Utc};
 
 /// How often the scheduler wakes up to look for due syncs. Independent
@@ -448,7 +448,14 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
     // "Sync every 24h" gap across app restarts. We index the persisted sync
     // audit log (wall-clock timestamps that survive restarts) and use it as the
     // due-check fallback whenever the in-memory monotonic record is absent.
-    let audit_index = index_last_success_by_connection(&read_audit_log(&config));
+    let audit_entries = try_read_audit_log(&config).map_err(|error| {
+        tracing::warn!(
+            %error,
+            "[memory_sync:periodic] audit unavailable; skipping automatic sync tick"
+        );
+        format!("sync audit unavailable: {error}")
+    })?;
+    let audit_index = index_last_success_by_connection(&audit_entries);
     let now = Utc::now();
 
     // Per-source registry snapshot (#2831). The periodic loop gates on the

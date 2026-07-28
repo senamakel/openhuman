@@ -238,7 +238,12 @@ mod tests {
     fn not_configured_encodes_an_expected_user_state_envelope() {
         let config = Config::default();
         // No api_url and no env override, so resolution fails on base URL.
+        // Isolate environment to ensure BACKEND_URL and VITE_BACKEND_URL do not
+        // provide a fallback through effective_backend_api_url.
+        let _guard = std::sync::Mutex::new(());
         std::env::remove_var(resolve::MEDULLA_BASE_URL_ENV);
+        std::env::remove_var("BACKEND_URL");
+        std::env::remove_var("VITE_BACKEND_URL");
         let err = resolved(&config).expect_err("must not resolve");
         let decoded = StructuredRpcError::decode(&err).expect("structured envelope");
         assert!(
@@ -301,7 +306,12 @@ mod tests {
 
     #[tokio::test]
     async fn status_reports_unconfigured_rather_than_failing() {
+        // Isolate environment to ensure BACKEND_URL and VITE_BACKEND_URL do not
+        // provide a fallback through effective_backend_api_url.
+        let _guard = std::sync::Mutex::new(());
         std::env::remove_var(resolve::MEDULLA_BASE_URL_ENV);
+        std::env::remove_var("BACKEND_URL");
+        std::env::remove_var("VITE_BACKEND_URL");
         let out = status(&Config::default())
             .await
             .expect("status never errors");

@@ -42,12 +42,8 @@ impl TaskBoardStore {
             .await
             .map_err(|error| format!("decode crate task board for thread {thread_id}: {error}"))?
         {
-            Some(mut board) => {
-                if let Ok(updated_at_ms) = board.updated_at.parse::<i64>() {
-                    if let Some(updated_at) = Utc.timestamp_millis_opt(updated_at_ms).single() {
-                        board.updated_at = updated_at.to_rfc3339();
-                    }
-                }
+            Some(board) => {
+                let board = normalize_board_for_wire(board);
                 tracing::debug!(
                     thread_id = %thread_id,
                     card_count = board.cards.len(),
@@ -62,9 +58,8 @@ impl TaskBoardStore {
         }
     }
 
-    /// Persist `board`. Locally normalises first (minting `task-<uuid>` ids for
-    /// blank cards, recomputing order), then hands the cards to the crate
-    /// `replace` op — which re-normalises and **enforces the single-`InProgress`
+    /// Persist `board`. Hands the cards directly to the crate `replace` op,
+    /// which owns normalisation and **enforces the single-`InProgress`
     /// invariant** (an invalid board now errors here rather than being silently
     /// saved). Returns the saved board with crate-normalised cards.
     pub async fn put(&self, board: TaskBoard) -> Result<TaskBoard, String> {
@@ -78,7 +73,8 @@ impl TaskBoardStore {
         let snap = crate_todos::replace(&store, &thread_id, board.cards)
             .await
             .map_err(|e| e.to_string())?;
-        let cards = snap.cards;
+        let mut cards = snap.cards;
+        normalize_cards_for_wire(&mut cards);
         tracing::debug!(
             thread_id = %thread_id,
             card_count = cards.len(),
@@ -112,7 +108,32 @@ pub async fn board_for_thread(workspace_dir: &Path, thread_id: &str) -> Result<T
     Ok(store
         .get(&thread_id)
         .await?
-        .unwrap_or_else(|| TaskBoard::empty(thread_id)))
+        .unwrap_or_else(|| normalize_board_for_wire(TaskBoard::empty(thread_id))))
+}
+
+pub(crate) fn normalize_timestamp_for_wire(value: &str) -> String {
+    if chrono::DateTime::parse_from_rfc3339(value).is_ok() {
+        return value.to_owned();
+    }
+    if let Ok(updated_at_ms) = value.parse::<i64>() {
+        if let Some(updated_at) = Utc.timestamp_millis_opt(updated_at_ms).single() {
+            return updated_at.to_rfc3339();
+        }
+    }
+    tracing::warn!(updated_at = %value, "invalid task-board timestamp; using current time");
+    Utc::now().to_rfc3339()
+}
+
+pub(crate) fn normalize_cards_for_wire(cards: &mut [TaskBoardCard]) {
+    for card in cards {
+        card.updated_at = normalize_timestamp_for_wire(&card.updated_at);
+    }
+}
+
+fn normalize_board_for_wire(mut board: TaskBoard) -> TaskBoard {
+    board.updated_at = normalize_timestamp_for_wire(&board.updated_at);
+    normalize_cards_for_wire(&mut board.cards);
+    board
 }
 
 fn validate_thread_id(thread_id: &str) -> Result<String, String> {
@@ -224,6 +245,13 @@ mod tests {
             chrono::DateTime::parse_from_rfc3339(&loaded.updated_at).is_ok(),
             "persisted board reads must preserve the RFC 3339 wire format"
         );
+        assert!(
+            loaded
+                .cards
+                .iter()
+                .all(|card| { chrono::DateTime::parse_from_rfc3339(&card.updated_at).is_ok() }),
+            "persisted card reads must preserve the RFC 3339 wire format"
+        );
 
         assert!(store.delete("thread-1").await.expect("delete existing"));
         assert!(store.get("thread-1").await.expect("get deleted").is_none());
@@ -235,6 +263,15 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         let store = TaskBoardStore::new(dir.path().to_path_buf());
         assert!(store.get("missing").await.expect("get").is_none());
+    }
+
+    #[tokio::test]
+    async fn missing_board_fallback_uses_rfc3339_timestamp() {
+        let dir = tempdir().expect("tempdir");
+        let board = board_for_thread(dir.path(), "missing")
+            .await
+            .expect("board");
+        assert!(chrono::DateTime::parse_from_rfc3339(&board.updated_at).is_ok());
     }
 
     #[tokio::test]

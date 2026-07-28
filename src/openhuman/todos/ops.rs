@@ -13,6 +13,7 @@ use tinyagents::graph::todos::store as todos;
 use tinyagents::harness::store::Store;
 
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::agent::task_board::normalize_cards_for_wire;
 pub use crate::openhuman::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 use crate::openhuman::tinyagents::todos::{scratch_todos_store, todos_store, SCRATCH_THREAD_ID};
 
@@ -96,7 +97,8 @@ fn finish(
     location: &BoardLocation,
     result: tinyagents::error::Result<tinyagents::graph::todos::TodosSnapshot>,
 ) -> Result<TodosSnapshot, String> {
-    let value = result.map_err(|error| error.to_string())?;
+    let mut value = result.map_err(|error| error.to_string())?;
+    normalize_cards_for_wire(&mut value.cards);
     emit_progress(location, &value.cards);
     Ok(snapshot(location, value))
 }
@@ -160,9 +162,14 @@ pub async fn decide_plan(
 
 pub async fn revise_plan(
     location: &BoardLocation,
-    _feedback: &str,
+    feedback: &str,
 ) -> Result<TodosSnapshot, String> {
     let (store, thread_id) = target(location);
+    tracing::info!(
+        thread_id,
+        feedback_len = feedback.len(),
+        "[todos][ops] revise_plan requested re-plan"
+    );
     finish(location, todos::revise_plan(&store, thread_id).await)
 }
 

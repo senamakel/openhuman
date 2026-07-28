@@ -307,7 +307,6 @@ fn optional_string_array(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::todos::global_scratch_store;
     use serde_json::Value;
 
     /// Serialize tests that share the process-global scratch store with
@@ -317,14 +316,16 @@ mod tests {
         crate::openhuman::todos::ops::scratch_test_lock()
     }
 
-    fn reset_scratch() {
-        global_scratch_store().replace(Vec::new());
+    async fn reset_scratch() {
+        crate::openhuman::todos::ops::clear(&BoardLocation::Scratch)
+            .await
+            .expect("clear scratch");
     }
 
     #[tokio::test]
     async fn add_then_list_round_trips_via_scratch() {
         let _guard = scratch_lock();
-        reset_scratch();
+        reset_scratch().await;
         let tool = TodoTool::new();
         let added = tool
             .execute(json!({ "op": "add", "content": "Write tests" }))
@@ -353,7 +354,7 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("[x] Write tests"));
-        reset_scratch();
+        reset_scratch().await;
     }
 
     #[tokio::test]
@@ -394,7 +395,7 @@ mod tests {
     #[tokio::test]
     async fn edit_rejects_unknown_id() {
         let _guard = scratch_lock();
-        reset_scratch();
+        reset_scratch().await;
         let tool = TodoTool::new();
         let result = tool
             .execute(json!({ "op": "edit", "id": "task-missing", "content": "x" }))
@@ -402,13 +403,13 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         assert!(result.output().contains("not found"));
-        reset_scratch();
+        reset_scratch().await;
     }
 
     #[tokio::test]
     async fn replace_accepts_full_card_list() {
         let _guard = scratch_lock();
-        reset_scratch();
+        reset_scratch().await;
         let tool = TodoTool::new();
         let result = tool
             .execute(json!({
@@ -435,6 +436,6 @@ mod tests {
         assert!(!result.is_error, "{}", result.output());
         let payload: Value = serde_json::from_str(&result.output()).unwrap();
         assert_eq!(payload["cards"].as_array().unwrap().len(), 2);
-        reset_scratch();
+        reset_scratch().await;
     }
 }

@@ -5,132 +5,20 @@
 //! not the retired `<workspace>/agent_task_boards/<hex(thread_id)>.json`
 //! file-JSON tree. [`TaskBoardStore`] is a thin adapter that preserves the
 //! historical `get`/`put`/`delete` surface every consumer uses and forwards each
-//! operation to the crate store via [`crate::openhuman::todos::crate_adapter`],
-//! converting the crate `TaskBoard` back to the local [`TaskBoard`] and its
-//! `TinyAgentsError` to a `String`.
+//! operation directly to `tinyagents::graph::todos`.
 //!
 //! The agent updates boards through the `todo` tool; the UI can fetch or replace
 //! them through the `threads.task_board_*` and granular `openhuman.todos_*` RPC
-//! surfaces. The single-writer constraint (the core process is the only writer)
-//! is documented in the adapter module.
+//! surfaces. The core process remains the single writer.
 
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use tinyagents::graph::todos::store as crate_todos;
+pub use tinyagents::graph::todos::{
+    normalise_board, TaskApprovalMode, TaskBoard, TaskBoardCard, TaskCardStatus,
+};
 
-use crate::openhuman::todos::crate_adapter;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TaskCardStatus {
-    Todo,
-    /// Plan approval required and pending — the dispatcher parked the card here
-    /// and emitted `TaskPlanAwaitingApproval`; it will not run until a human
-    /// approves (→ `Ready`) or rejects (→ `Rejected`).
-    AwaitingApproval,
-    /// Approved for execution — the dispatcher runs `Ready` cards without a
-    /// further approval check (distinguishes "approved" from the initial
-    /// `Todo`, which the approval gate would otherwise re-park).
-    Ready,
-    InProgress,
-    Blocked,
-    Done,
-    /// Plan approval was denied; the card is not executed.
-    Rejected,
-}
-
-impl TaskCardStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Todo => "todo",
-            Self::AwaitingApproval => "awaiting_approval",
-            Self::Ready => "ready",
-            Self::InProgress => "in_progress",
-            Self::Blocked => "blocked",
-            Self::Done => "done",
-            Self::Rejected => "rejected",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TaskApprovalMode {
-    Required,
-    NotRequired,
-}
-
-impl TaskApprovalMode {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Required => "required",
-            Self::NotRequired => "not_required",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskBoardCard {
-    pub id: String,
-    pub title: String,
-    pub status: TaskCardStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub objective: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub plan: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub assigned_agent: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_tools: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approval_mode: Option<TaskApprovalMode>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub acceptance_criteria: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub evidence: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notes: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub blocker: Option<String>,
-    /// Conversation thread id of the card's live/last agent session, when one
-    /// exists. Set by the autonomous dispatcher (`task_session`) and the manual
-    /// "Work" path so the UI can offer a "View session" jump into Conversations.
-    /// `None` for a card that has never been run.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_thread_id: Option<String>,
-    /// Provider/source identifiers for a card ingested from a task source
-    /// (`{provider, source_id, external_id, url, repo?, urgency}`). Set by
-    /// the `task_sources` route; consumed downstream for prioritisation and
-    /// external write-back. `None` for agent/UI-authored cards.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_metadata: Option<serde_json::Value>,
-    #[serde(default)]
-    pub order: u32,
-    #[serde(default)]
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskBoard {
-    pub thread_id: String,
-    pub cards: Vec<TaskBoardCard>,
-    pub updated_at: String,
-}
-
-impl TaskBoard {
-    pub fn empty(thread_id: impl Into<String>) -> Self {
-        let now = Utc::now().to_rfc3339();
-        Self {
-            thread_id: thread_id.into(),
-            cards: Vec::new(),
-            updated_at: now,
-        }
-    }
-}
+use crate::openhuman::tinyagents::todos::todos_store;
 
 #[derive(Debug, Clone)]
 pub struct TaskBoardStore {
@@ -148,10 +36,12 @@ impl TaskBoardStore {
     pub async fn get(&self, thread_id: &str) -> Result<Option<TaskBoard>, String> {
         let thread_id = validate_thread_id(thread_id)?;
         tracing::debug!(thread_id = %thread_id, "[agent:task_board] get entry");
-        let store = crate_adapter::crate_todos_store(&self.workspace_dir);
-        match crate_adapter::get_crate_board_raw(&store, &thread_id).await? {
-            Some(crate_board) => {
-                let board = crate_adapter::from_crate_board(&crate_board);
+        let store = todos_store(&self.workspace_dir);
+        match crate_todos::get(&store, &thread_id)
+            .await
+            .map_err(|e| e.to_string())?
+        {
+            Some(board) => {
                 tracing::debug!(
                     thread_id = %thread_id,
                     card_count = board.cards.len(),
@@ -171,29 +61,18 @@ impl TaskBoardStore {
     /// `replace` op — which re-normalises and **enforces the single-`InProgress`
     /// invariant** (an invalid board now errors here rather than being silently
     /// saved). Returns the saved board with crate-normalised cards.
-    pub async fn put(&self, mut board: TaskBoard) -> Result<TaskBoard, String> {
+    pub async fn put(&self, board: TaskBoard) -> Result<TaskBoard, String> {
         tracing::debug!(
             thread_id = %board.thread_id,
             card_count = board.cards.len(),
             "[agent:task_board] put entry"
         );
-        normalise_board(&mut board);
         let thread_id = validate_thread_id(&board.thread_id)?;
-        board.thread_id = thread_id.clone();
-        let store = crate_adapter::crate_todos_store(&self.workspace_dir);
-        let crate_cards: Vec<_> = board
-            .cards
-            .iter()
-            .map(crate_adapter::to_crate_card)
-            .collect();
-        let snap = crate_todos::replace(&store, &thread_id, crate_cards)
+        let store = todos_store(&self.workspace_dir);
+        let snap = crate_todos::replace(&store, &thread_id, board.cards)
             .await
             .map_err(|e| e.to_string())?;
-        let cards: Vec<TaskBoardCard> = snap
-            .cards
-            .iter()
-            .map(crate_adapter::from_crate_card)
-            .collect();
+        let cards = snap.cards;
         tracing::debug!(
             thread_id = %thread_id,
             card_count = cards.len(),
@@ -202,7 +81,7 @@ impl TaskBoardStore {
         Ok(TaskBoard {
             thread_id,
             cards,
-            updated_at: Utc::now().to_rfc3339(),
+            updated_at: tinyagents::harness::ids::now_ms().to_string(),
         })
     }
 
@@ -212,13 +91,10 @@ impl TaskBoardStore {
     pub async fn delete(&self, thread_id: &str) -> Result<bool, String> {
         let thread_id = validate_thread_id(thread_id)?;
         tracing::debug!(thread_id = %thread_id, "[agent:task_board] delete entry");
-        let store = crate_adapter::crate_todos_store(&self.workspace_dir);
-        let existed = crate_adapter::get_crate_board_raw(&store, &thread_id)
-            .await?
-            .is_some();
-        if existed {
-            crate_adapter::delete_crate_board_raw(&store, &thread_id).await?;
-        }
+        let store = todos_store(&self.workspace_dir);
+        let existed = crate_todos::delete(&store, &thread_id)
+            .await
+            .map_err(|e| e.to_string())?;
         tracing::debug!(thread_id = %thread_id, existed, "[agent:task_board] delete ok");
         Ok(existed)
     }
@@ -233,103 +109,12 @@ pub async fn board_for_thread(workspace_dir: &Path, thread_id: &str) -> Result<T
         .unwrap_or_else(|| TaskBoard::empty(thread_id)))
 }
 
-pub fn normalise_board(board: &mut TaskBoard) {
-    board.thread_id = board.thread_id.trim().to_string();
-    let now = Utc::now().to_rfc3339();
-    board.updated_at = now.clone();
-    let before_count = board.cards.len();
-    tracing::trace!(
-        thread_id = %board.thread_id,
-        card_count = before_count,
-        "[agent:task_board] normalise entry"
-    );
-
-    for card in board.cards.iter_mut() {
-        card.title = card.title.trim().to_string();
-        if card.id.trim().is_empty() {
-            card.id = format!("task-{}", uuid::Uuid::new_v4());
-            tracing::trace!(
-                thread_id = %board.thread_id,
-                card_id = %card.id,
-                "[agent:task_board] normalise generated_card_id"
-            );
-        } else {
-            card.id = card.id.trim().to_string();
-        }
-        card.notes = card
-            .notes
-            .as_ref()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        card.objective = card
-            .objective
-            .as_ref()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        card.assigned_agent = card
-            .assigned_agent
-            .as_ref()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        trim_string_vec(&mut card.plan);
-        trim_string_vec(&mut card.allowed_tools);
-        trim_string_vec(&mut card.acceptance_criteria);
-        trim_string_vec(&mut card.evidence);
-        card.blocker = card
-            .blocker
-            .as_ref()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        card.session_thread_id = card
-            .session_thread_id
-            .as_ref()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        if card.status == TaskCardStatus::Blocked && card.blocker.is_none() {
-            card.blocker = card.notes.clone();
-            tracing::trace!(
-                thread_id = %board.thread_id,
-                card_id = %card.id,
-                "[agent:task_board] normalise blocker_from_notes"
-            );
-        }
-    }
-
-    board.cards.retain(|card| !card.title.is_empty());
-    let removed = before_count.saturating_sub(board.cards.len());
-    if removed > 0 {
-        tracing::debug!(
-            thread_id = %board.thread_id,
-            removed,
-            "[agent:task_board] normalise removed_empty_title_cards"
-        );
-    }
-
-    for (idx, card) in board.cards.iter_mut().enumerate() {
-        card.order = idx as u32;
-        card.updated_at = now.clone();
-    }
-
-    tracing::trace!(
-        thread_id = %board.thread_id,
-        card_count = board.cards.len(),
-        "[agent:task_board] normalise exit"
-    );
-}
-
 fn validate_thread_id(thread_id: &str) -> Result<String, String> {
     let trimmed = thread_id.trim();
     if trimmed.is_empty() {
         return Err("invalid task board thread_id: empty or whitespace".to_string());
     }
     Ok(trimmed.to_string())
-}
-
-fn trim_string_vec(values: &mut Vec<String>) {
-    values.retain_mut(|value| {
-        *value = value.trim().to_string();
-        !value.is_empty()
-    });
 }
 
 #[cfg(test)]
@@ -518,8 +303,12 @@ mod tests {
         use tinyagents::graph::todos::store::TODOS_NAMESPACE;
 
         let dir = tempdir().expect("tempdir");
-        let store = crate_adapter::crate_todos_store(dir.path());
-        let key = crate_adapter::todo_key("thread-corrupt");
+        let store = todos_store(dir.path());
+        let key = "thread-corrupt"
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         let undecodable = serde_json::json!({ "not": "a board" });
         store
             .put(TODOS_NAMESPACE, &key, undecodable.clone())

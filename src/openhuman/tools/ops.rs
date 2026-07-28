@@ -829,14 +829,14 @@ pub fn all_tools_with_runtime(
     // system-driven and have no model tool.
     {
         let goal_dir = root_config.workspace_dir.clone();
+        tools.push(Box::new(crate::openhuman::thread_goals::GoalGetTool::new(
+            goal_dir.clone(),
+        )));
+        tools.push(Box::new(crate::openhuman::thread_goals::GoalSetTool::new(
+            goal_dir.clone(),
+        )));
         tools.push(Box::new(
-            crate::openhuman::tinyagents::goals::GoalGetTool::new(goal_dir.clone()),
-        ));
-        tools.push(Box::new(
-            crate::openhuman::tinyagents::goals::GoalSetTool::new(goal_dir.clone()),
-        ));
-        tools.push(Box::new(
-            crate::openhuman::tinyagents::goals::GoalCompleteTool::new(goal_dir),
+            crate::openhuman::thread_goals::GoalCompleteTool::new(goal_dir),
         ));
     }
 

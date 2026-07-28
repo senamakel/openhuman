@@ -768,7 +768,7 @@ impl Agent {
         // `turn_body` coroutine (which borrows `&mut self`) is constructed.
         let goal_workspace_dir = self.workspace_dir.clone();
         let active_goal = {
-            let loaded = crate::openhuman::tinyagents::goals::runtime::load_for_current_thread(
+            let loaded = crate::openhuman::thread_goals::runtime::load_for_current_thread(
                 &self.workspace_dir,
             )
             .await;
@@ -779,10 +779,10 @@ impl Agent {
                 Some(goal)
                     if matches!(
                         goal.status,
-                        crate::openhuman::tinyagents::goals::ThreadGoalStatus::Paused
+                        crate::openhuman::thread_goals::ThreadGoalStatus::Paused
                     ) =>
                 {
-                    crate::openhuman::tinyagents::goals::runtime::resume_for_current_thread(
+                    crate::openhuman::thread_goals::runtime::resume_for_current_thread(
                         &self.workspace_dir,
                     )
                     .await
@@ -792,9 +792,7 @@ impl Agent {
             }
         };
         if let Some(ref goal) = active_goal {
-            if let Some(block) =
-                crate::openhuman::tinyagents::goals::runtime::active_goal_context_block(goal)
-            {
+            if let Some(block) = tinyagents::graph::goals::active_goal_context_block(goal) {
                 log::info!(
                     "[thread_goals] injecting active_goal block status={} budget={:?} ({} chars)",
                     goal.status.as_str(),
@@ -1083,7 +1081,7 @@ impl Agent {
         let mut turn_stop_hooks = crate::openhuman::agent::stop_hooks::current_stop_hooks();
         if let Some(ref goal) = active_goal {
             if let Some(hook) =
-                crate::openhuman::tinyagents::goals::runtime::GoalBudgetStopHook::for_goal(
+                crate::openhuman::thread_goals::runtime::GoalBudgetStopHook::for_goal(
                     &goal_workspace_dir,
                     goal,
                 )
@@ -1579,7 +1577,7 @@ impl Agent {
         // the legacy engine) so budgeted goals progress to `budget_limited` and
         // continuation scheduling reads a live budget. Self-guarding + best-effort
         // — a no-op when there is no active goal for the ambient thread.
-        crate::openhuman::tinyagents::goals::runtime::account_turn_against_goal(
+        crate::openhuman::thread_goals::runtime::account_turn_against_goal(
             &self.workspace_dir,
             input_tokens,
             output_tokens,

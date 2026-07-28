@@ -1,4 +1,4 @@
-//! Persistence for the thread-level goal.
+//! Workspace-path adapter onto tinyagents' authoritative goal store.
 //!
 //! **Crate-backed.** The per-thread goal now lives in the vendored `tinyagents`
 //! crate's `graph::goals` KV store

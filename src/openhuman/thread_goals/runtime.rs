@@ -1,13 +1,9 @@
-//! Harness-level runtime for the thread goal: per-turn context injection,
-//! token-budget accounting, and the mid-turn budget stop hook.
+//! OpenHuman runtime adapters for tinyagents thread-goal accounting and the
+//! host-specific mid-turn budget stop hook.
 //!
 //! These are the pieces that make a stored goal actually steer the agent
 //! (Codex parity):
 //!
-//! - [`active_goal_context_block`] renders a compact `[active_goal]` block that
-//!   the turn loop prepends to the user message **fresh each turn** (never the
-//!   cached system-prompt prefix), so the objective stays visible and the model
-//!   sees live budget/status.
 //! - [`account_turn_against_goal`] folds a completed turn's token + time usage
 //!   into the active goal, flipping it to `budget_limited` when the cap is
 //!   crossed.
@@ -87,43 +83,6 @@ pub async fn pause_for_current_thread(workspace_dir: &Path) {
             tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] pause_for_current_thread failed");
         }
     }
-}
-
-/// Render the per-turn `[active_goal]` context block for `goal`, or `None` when
-/// the goal is in a state that needs no steering text.
-///
-/// The block is intentionally tiny and source-attributed so it reads as harness
-/// state, not user instruction.
-pub fn active_goal_context_block(goal: &ThreadGoal) -> Option<String> {
-    let directive = match goal.status {
-        ThreadGoalStatus::Active => {
-            "Keep working toward this goal. Before responding, verify whether the \
-             objective is satisfied. If confirmed, call `goal_complete` now. \
-             If the objective has changed, call `goal_set` to update it."
-        }
-        ThreadGoalStatus::BudgetLimited => {
-            "This goal has reached its token budget. Stop substantive work: summarise \
-             progress and blockers, and name the next useful step. Do not continue \
-             until the user raises the budget or clears the goal."
-        }
-        // A paused goal isn't being worked right now; a completed goal needs no
-        // steering. Surfacing them would only add noise to the turn.
-        ThreadGoalStatus::Paused | ThreadGoalStatus::Complete => return None,
-    };
-    let budget = match (goal.token_budget, goal.budget_remaining()) {
-        (Some(b), Some(rem)) => format!(
-            "\nbudget: {} used / {b} ({rem} remaining)",
-            goal.tokens_used
-        ),
-        _ => String::new(),
-    };
-    Some(format!(
-        "[active_goal]\nstatus: {}\nobjective: {}{}\n{}\n[/active_goal]\n\n",
-        goal.status.as_str(),
-        goal.objective,
-        budget,
-        directive
-    ))
 }
 
 /// The per-turn token total used for budget accounting (prompt + completion).
@@ -297,64 +256,6 @@ mod tests {
             },
         );
         tc
-    }
-
-    #[test]
-    fn active_block_includes_objective_and_budget() {
-        let goal = ThreadGoal {
-            thread_id: "t".into(),
-            goal_id: "g".into(),
-            objective: "ship the feature".into(),
-            status: ThreadGoalStatus::Active,
-            token_budget: Some(1000),
-            tokens_used: 250,
-            time_used_seconds: 0,
-            created_at_ms: 0,
-            updated_at_ms: 0,
-            continuation_suppressed: false,
-        };
-        let block = active_goal_context_block(&goal).unwrap();
-        assert!(block.contains("[active_goal]"));
-        assert!(block.contains("ship the feature"));
-        assert!(block.contains("250 used / 1000"));
-        assert!(block.contains("goal_complete"));
-    }
-
-    #[test]
-    fn budget_limited_block_steers_to_summarise() {
-        let goal = ThreadGoal {
-            thread_id: "t".into(),
-            goal_id: "g".into(),
-            objective: "obj".into(),
-            status: ThreadGoalStatus::BudgetLimited,
-            token_budget: Some(100),
-            tokens_used: 100,
-            time_used_seconds: 0,
-            created_at_ms: 0,
-            updated_at_ms: 0,
-            continuation_suppressed: false,
-        };
-        let block = active_goal_context_block(&goal).unwrap();
-        assert!(block.contains("reached its token budget"));
-    }
-
-    #[test]
-    fn paused_and_complete_render_no_block() {
-        let mut goal = ThreadGoal {
-            thread_id: "t".into(),
-            goal_id: "g".into(),
-            objective: "obj".into(),
-            status: ThreadGoalStatus::Paused,
-            token_budget: None,
-            tokens_used: 0,
-            time_used_seconds: 0,
-            created_at_ms: 0,
-            updated_at_ms: 0,
-            continuation_suppressed: false,
-        };
-        assert!(active_goal_context_block(&goal).is_none());
-        goal.status = ThreadGoalStatus::Complete;
-        assert!(active_goal_context_block(&goal).is_none());
     }
 
     #[tokio::test]

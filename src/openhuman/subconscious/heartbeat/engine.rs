@@ -103,8 +103,7 @@ impl HeartbeatEngine {
             {
                 let cfg = config.clone();
                 tokio::spawn(async move {
-                    crate::openhuman::tinyagents::goals::continuation::run_continuation_tick(&cfg)
-                        .await;
+                    crate::openhuman::thread_goals::continuation::run_continuation_tick(&cfg).await;
                 });
             }
 

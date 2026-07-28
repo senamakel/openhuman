@@ -1,4 +1,4 @@
-//! Heartbeat-driven autonomous continuation of idle thread goals (Codex's
+//! OpenHuman heartbeat adapter for tinyagents thread-goal continuation.
 //! `MaybeContinueIfIdle`).
 //!
 //! When a thread carries an **active** goal and goes idle — no in-flight turn

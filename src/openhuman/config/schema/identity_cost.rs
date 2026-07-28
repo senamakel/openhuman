@@ -27,11 +27,18 @@ pub struct CostConfig {
     #[serde(default = "default_cost_enabled")]
     pub enabled: bool,
 
-    /// Daily spending limit in USD (default: 10.00)
+    /// Daily spending limit in USD (default: 10.00).
+    ///
+    /// Applies to **managed (OpenHuman-credit) inference only** — see
+    /// [`crate::openhuman::cost::route`]. Bring-your-own-key and local
+    /// inference is billed by the user's own provider, so it is recorded for
+    /// the dashboard but never counted against this limit and can never
+    /// refuse a request (#5016).
     #[serde(default = "default_daily_limit")]
     pub daily_limit_usd: f64,
 
-    /// Monthly spending limit in USD (default: 100.00)
+    /// Monthly spending limit in USD (default: 100.00). Managed-route only,
+    /// on the same terms as [`Self::daily_limit_usd`].
     #[serde(default = "default_monthly_limit")]
     pub monthly_limit_usd: f64,
 

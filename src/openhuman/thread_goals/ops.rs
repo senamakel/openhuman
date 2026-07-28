@@ -8,7 +8,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use super::store;
-use super::types::ThreadGoal;
+use super::ThreadGoal;
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::rpc::RpcOutcome;
 

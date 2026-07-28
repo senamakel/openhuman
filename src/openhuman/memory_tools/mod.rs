@@ -14,14 +14,14 @@
 //! distinct from `global`, `skill-{id}`, `tool_effectiveness`, and the
 //! learning namespaces so list/clear operations can reason about it
 //! without ambiguity. Build the namespace string via
-//! [`types::tool_memory_namespace`] — never hard-code the format.
+//! [`tool_memory_namespace`] — never hard-code the format.
 //!
 //! ## Components
 //!
-//! - [`types`]   — [`ToolMemoryRule`], [`ToolMemoryPriority`],
-//!   [`ToolMemorySource`].
-//! - [`store`]   — [`ToolMemoryStore`], the put/list/delete/prompt API
-//!   built on top of an `Arc<dyn Memory>`.
+//! - [`tinycortex::memory::tool_memory::types`] owns [`ToolMemoryRule`],
+//!   [`ToolMemoryPriority`], and [`ToolMemorySource`].
+//! - [`tinycortex::memory::tool_memory::store`] owns [`ToolMemoryStore`], the
+//!   put/list/delete/prompt API built on top of an `Arc<dyn Memory>`.
 //! - [`capture`] — [`ToolMemoryCaptureHook`], the post-turn
 //!   [`PostTurnHook`] that records user edicts and repeated tool
 //!   failures.
@@ -35,13 +35,15 @@
 
 pub mod capture;
 pub mod prompt;
-pub mod store;
+mod store;
 #[cfg(test)]
 pub mod test_helpers;
 pub mod tools;
-pub mod types;
 
 pub use capture::ToolMemoryCaptureHook;
 pub use prompt::{render_tool_memory_rules, ToolMemoryRulesSection, TOOL_MEMORY_HEADING};
-pub use store::{tool_memory_store, ToolMemoryStore, TOOL_MEMORY_PROMPT_CAP};
-pub use types::{tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule, ToolMemorySource};
+pub use store::tool_memory_store;
+pub use tinycortex::memory::tool_memory::{
+    store::{ToolMemoryStore, TOOL_MEMORY_PROMPT_CAP},
+    types::{tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule, ToolMemorySource},
+};

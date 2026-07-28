@@ -114,6 +114,7 @@ pub(crate) fn chat_message_to_message(msg: &ChatMessage) -> Message {
             Message::Tool(ToolMessage {
                 tool_call_id,
                 content: vec![ContentBlock::Text(content)],
+                trusted_verbatim: false,
             })
         }
         // "user" and any unrecognized role default to a user turn — the safest
@@ -446,6 +447,7 @@ mod tests {
             panic!("expected Tool, got {t:?}");
         };
         assert_eq!(tm.tool_call_id, "call-1");
+        assert!(!tm.trusted_verbatim);
         assert_eq!(t.text(), "echoed:hi");
 
         // Outbound: re-serialized to a well-formed native tool round (assistant
@@ -554,6 +556,7 @@ mod tests {
         let messages = vec![Message::Tool(ToolMessage {
             tool_call_id: "call-7".into(),
             content: vec![ContentBlock::Text("done".into())],
+            trusted_verbatim: false,
         })];
         let back = messages_to_history(&messages);
         assert_eq!(back[0].role, "tool");
@@ -581,6 +584,7 @@ mod tests {
             Message::Tool(ToolMessage {
                 tool_call_id: "c1".into(),
                 content: vec![ContentBlock::Text("echoed:hi".into())],
+                trusted_verbatim: false,
             }),
             Message::Assistant(AssistantMessage {
                 id: None,

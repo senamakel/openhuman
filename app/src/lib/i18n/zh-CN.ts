@@ -448,7 +448,10 @@ const messages: TranslationMap = {
   'agentWorld.world.retry': '重试',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    '加入 tiny.place，让你的代理与其他代理协作：查找和发布任务、交易、收发消息以及共同完成悬赏。',
+    '加入 tiny.place，让你的代理与网络上的其他代理协作：查找和发布任务、交易、收发消息以及共同完成悬赏。',
+  'agentWorld.world.offlineBadge': '离线预览',
+  'agentWorld.world.offlineBadgeTitle':
+    '此处显示的智能体为本地模拟。实时在线状态和世界同步即将推出。',
   'agentWorld.world.room': '房间',
   'agentWorld.world.rooms.poker.name': '扑克',
   'agentWorld.world.rooms.poker.description': '八个座位围绕一张毡面牌桌。',
@@ -1602,14 +1605,15 @@ const messages: TranslationMap = {
   'settings.search.title': '搜索引擎',
   'settings.search.menuDesc': '默认使用 OpenHuman 托管搜索，或用 API 密钥接入你自己的提供商。',
   'settings.search.description':
-    '选择智能体使用的搜索引擎。托管模式使用 OpenHuman 后端（无需设置）。Parallel、Brave 和 Querit 会用你的 API 密钥从本机直接调用。',
+    '选择智能体使用的搜索引擎。托管模式使用 OpenHuman 后端（无需设置）。Parallel、Brave、Querit 和 Exa 会用你的 API 密钥从本机直接调用。',
   'settings.search.engineAria': '搜索引擎',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc': '从智能体上下文和可用工具列表中移除搜索工具。',
   'settings.search.engineManagedLabel': 'OpenHuman 托管',
-  'settings.search.engineManagedDesc': '默认选项。通过 OpenHuman 后端路由，无需 API 密钥。',
+  'settings.search.engineManagedDesc':
+    '默认选项。通过 OpenHuman 后端路由，当前由 Exa 提供支持，无需 API 密钥。',
   'settings.search.localManagedUnavailable':
-    '本地用户无法使用 OpenHuman 托管搜索。请添加你自己的 Parallel、Brave 或 Querit API 密钥以启用网页搜索。',
+    '本地用户无法使用 OpenHuman 托管搜索。请添加你自己的 Parallel、Brave、Querit 或 Exa API 密钥以启用网页搜索。',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
     '直接调用 Parallel API：搜索、提取、聊天、研究、增强和数据集工具。',
@@ -1618,6 +1622,9 @@ const messages: TranslationMap = {
   'settings.search.engineQueritLabel': 'Querit',
   'settings.search.engineQueritDesc':
     '直接调用 Querit API：支持站点、时间范围、国家/地区和语言筛选的网页搜索。',
+  'settings.search.engineExaLabel': 'Exa',
+  'settings.search.engineExaDesc':
+    '由 Exa 提供的神经搜索。需要你自己的 Exa API 密钥。新增搜索、查找相似页面和获取页面内容工具。',
   'settings.search.statusConfigured': '已配置',
   'settings.search.statusNeedsKey': '需要 API 密钥',
   'settings.search.fallbackToManaged': '未配置密钥，保存密钥前搜索会回退到托管模式。',
@@ -1632,10 +1639,12 @@ const messages: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Parallel API 键',
   'settings.search.braveKeyLabel': 'Brave 搜索 API 键',
   'settings.search.queritKeyLabel': 'Querit API 键',
+  'settings.search.exaKeyLabel': 'Exa API 密钥',
   'settings.search.placeholderStored': '••••••••（已存储）',
   'settings.search.placeholderParallel': 'PK_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'Querit API 密钥',
+  'settings.search.placeholderExa': '粘贴你的 Exa API 密钥…',
   'settings.search.allowedSitesLabel': '允许的网站',
   'settings.search.allowedSitesHint':
     '助手在研究时可以打开并阅读的网站（每行一个主机，例如 reuters.com）。主机也包含其子域名。留空将阻止所有网页访问。',

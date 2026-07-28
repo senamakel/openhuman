@@ -15,8 +15,11 @@
 
 pub mod api;
 pub mod core;
+pub mod embed;
 pub mod openhuman;
 pub mod rpc;
+#[cfg(feature = "tui")]
+pub mod tui;
 
 pub use openhuman::config::DaemonConfig;
 pub use openhuman::memory_store::{MemoryClient, MemoryState};

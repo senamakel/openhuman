@@ -56,7 +56,7 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
             cfg!(feature = "tui"),
         )
     {
-        return crate::openhuman::tui::run_from_cli(&[]);
+        return run_tui_from_cli(&[]);
     }
 
     // `--no-tui` is a global opt-out, not a synthetic subcommand. Strip it
@@ -85,11 +85,9 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
     match args[0].as_str() {
         "run" | "serve" => run_server_command(&args[1..]),
         "mcp" | "mcp-server" => crate::openhuman::mcp_server::run_stdio_from_cli(&args[1..]),
-        // Terminal chat UI. Un-`#[cfg]`'d on purpose: in a slim build this
-        // resolves to `tui::stub::run_from_cli`, which bails with a build-fact
-        // error (see `src/openhuman/tui/stub.rs`) rather than falling through to
-        // `unknown namespace: tui`.
-        "tui" | "chat" => crate::openhuman::tui::run_from_cli(&args[1..]),
+        // Keep the command present in slim builds so users get a build-fact
+        // diagnostic rather than a misleading "unknown namespace" error.
+        "tui" | "chat" => run_tui_from_cli(&args[1..]),
         "call" => run_call_command(&args[1..]),
         "tree-summarizer" => {
             crate::openhuman::memory_tree::tree_runtime::cli::run_tree_summarizer_command(
@@ -111,6 +109,19 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         // Generic namespace dispatcher: `openhuman <namespace> <function> ...`
         namespace => run_namespace_command(namespace, &args[1..], &grouped),
     }
+}
+
+#[cfg(feature = "tui")]
+fn run_tui_from_cli(args: &[String]) -> Result<()> {
+    crate::tui::run_from_cli(args)
+}
+
+#[cfg(not(feature = "tui"))]
+fn run_tui_from_cli(_args: &[String]) -> Result<()> {
+    anyhow::bail!(
+        "tui feature disabled at compile time; rebuild with `--features tui` \
+         (or use a default-feature build) to enable `openhuman tui`"
+    )
 }
 
 /// Pure launch policy for the bare `openhuman` command. Explicit subcommands

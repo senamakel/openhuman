@@ -1,4 +1,4 @@
-//! Heartbeat-driven autonomous continuation of idle thread goals (Codex's
+//! OpenHuman heartbeat adapter for tinyagents thread-goal continuation.
 //! `MaybeContinueIfIdle`).
 //!
 //! When a thread carries an **active** goal and goes idle — no in-flight turn
@@ -28,7 +28,7 @@ use std::sync::OnceLock;
 use tokio::sync::Semaphore;
 
 use super::store;
-use super::types::{ThreadGoal, ThreadGoalStatus};
+use super::{ThreadGoal, ThreadGoalStatus};
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;

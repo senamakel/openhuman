@@ -291,11 +291,28 @@ pub(crate) struct LmStudioNativeModelsResponse {
 /// Map a normalized `…/v1` base URL to the LM Studio native models endpoint
 /// `…/api/v0/models` (a sibling of `/v1`, served at the host root).
 pub(crate) fn lm_studio_native_models_url(v1_base_url: &str) -> String {
-    let root = v1_base_url
+    format!("{}/api/v0/models", host_root_of(v1_base_url))
+}
+
+/// Strip a trailing `/v1` so sibling endpoints served at the host root can be
+/// derived from an OpenAI-compatible base URL.
+pub(crate) fn host_root_of(v1_base_url: &str) -> &str {
+    v1_base_url
         .trim_end_matches('/')
         .trim_end_matches("/v1")
-        .trim_end_matches('/');
-    format!("{root}/api/v0/models")
+        .trim_end_matches('/')
+}
+
+/// Ollama-native `GET /api/tags` URL derived from an OpenAI-compatible base.
+///
+/// Only used as the one-shot 404 fallback in
+/// [`LocalAiService::list_lm_studio_models`](crate::openhuman::inference::local::service::LocalAiService):
+/// some runtimes are reachable on an OpenAI-shaped base URL but expose only the
+/// Ollama listing (e.g. plain Ollama configured with a `/v1` base). Discovery is
+/// still chosen by provider type first — this is a recovery path, not a probe
+/// order (GH #5055).
+pub(crate) fn ollama_tags_fallback_url(v1_base_url: &str) -> String {
+    format!("{}/api/tags", host_root_of(v1_base_url))
 }
 
 /// Resolve the context window LM Studio reports for `model_id` from a native
@@ -334,6 +351,37 @@ mod tests {
             lm_studio_native_models_url("https://lm.example.com/lmstudio/v1"),
             "https://lm.example.com/lmstudio/api/v0/models"
         );
+    }
+
+    /// GH #5055: the `/api/tags` fallback URL is a sibling of `/v1` at the host
+    /// root. Appending to the `/v1` base would produce `/v1/api/tags` — the
+    /// exact malformed request LM Studio logs as `Unexpected endpoint or
+    /// method` (GH #5053).
+    #[test]
+    fn ollama_tags_fallback_url_is_host_rooted_not_v1_suffixed() {
+        assert_eq!(
+            ollama_tags_fallback_url("http://localhost:1234/v1"),
+            "http://localhost:1234/api/tags"
+        );
+        assert_eq!(
+            ollama_tags_fallback_url("http://127.0.0.1:1234/v1/"),
+            "http://127.0.0.1:1234/api/tags"
+        );
+        assert_eq!(
+            ollama_tags_fallback_url("https://lm.example.com/lmstudio/v1"),
+            "https://lm.example.com/lmstudio/api/tags"
+        );
+        // A host-rooted base (no /v1) is left alone.
+        assert_eq!(
+            ollama_tags_fallback_url("http://localhost:11434"),
+            "http://localhost:11434/api/tags"
+        );
+        for url in [
+            ollama_tags_fallback_url("http://localhost:1234/v1"),
+            ollama_tags_fallback_url("http://localhost:1234/v1/"),
+        ] {
+            assert!(!url.contains("/v1/api/tags"), "malformed probe URL: {url}");
+        }
     }
 
     #[test]

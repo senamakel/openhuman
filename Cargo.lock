@@ -4657,7 +4657,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman"
-version = "0.63.1"
+version = "0.63.5"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -4750,6 +4750,7 @@ dependencies = [
  "tinychannels",
  "tinycortex",
  "tinyflows",
+ "tinyhumans-sdk",
  "tinyjuice",
  "tinyplace",
  "tokio",
@@ -7440,6 +7441,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyhumans-sdk"
+version = "0.1.0"
+source = "git+https://github.com/tinyhumansai/sdk.git?rev=3ee4123ba3b7a76c5f167d7bc2c72fca86671292#3ee4123ba3b7a76c5f167d7bc2c72fca86671292"
+dependencies = [
+ "base64 0.22.1",
+ "percent-encoding",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "url",
+]
+
+[[package]]
 name = "tinyjuice"
 version = "0.2.1"
 dependencies = [
@@ -7464,7 +7479,7 @@ dependencies = [
 
 [[package]]
 name = "tinyplace"
-version = "2.0.2"
+version = "2.0.4"
 dependencies = [
  "aes",
  "async-trait",

@@ -130,6 +130,7 @@ pub(super) struct SearchSettingsUpdate {
     pub(super) parallel_api_key: Option<String>,
     pub(super) brave_api_key: Option<String>,
     pub(super) querit_api_key: Option<String>,
+    pub(super) exa_api_key: Option<String>,
     pub(super) allowed_domains: Option<Vec<String>>,
     pub(super) allow_all: Option<bool>,
 }

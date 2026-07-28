@@ -169,11 +169,19 @@ pub fn all_presets() -> Vec<ModelPreset> {
         ModelPreset {
             tier: ModelTier::Ram16PlusGb,
             label: "16 GB+",
-            description: "Best local quality with Gemma 4 on higher-end devices.",
-            chat_model_id: "gemma4:e4b",
-            vision_model_id: "gemma4:e4b",
+            description: "Best local quality with Gemma 3n on higher-end devices.",
+            // GH #5055: was `gemma4:e4b`, which does not exist on the Ollama
+            // library — the tier shipped a model no `ollama pull` could fetch.
+            // Gemma 3n is the real publication of the "e4b" (effective-4B)
+            // variant, and `e4b-it-q8_0` (9.5 GB) is what `approx_download_gb`
+            // below was sized against.
+            chat_model_id: "gemma3n:e4b-it-q8_0",
+            vision_model_id: "gemma3n:e4b-it-q8_0",
             embedding_model_id: "nomic-embed-text:latest",
-            quantization: "qat",
+            // The other tiers ship QAT builds; this one is q8_0. The field is a
+            // display label (`effective_quantization`) and does not take part in
+            // resolving the model tag, but it should still match what is pulled.
+            quantization: "q8_0",
             vision_mode: VisionMode::Bundled,
             supports_screen_summary: true,
             target_ram_gb: 16,
@@ -422,5 +430,37 @@ mod tests {
 
         apply_preset_to_config(&mut config, ModelTier::Ram16PlusGb);
         assert_eq!(vision_mode_for_config(&config), VisionMode::Bundled);
+    }
+
+    /// GH #5055: every preset must name a model that actually exists on the
+    /// Ollama library. The 16 GB+ tier shipped `gemma4:e4b` for chat and vision
+    /// — there is no `gemma4` namespace, so the tier offered a model that no
+    /// `ollama pull` could ever fetch. Guard the whole table, not just that row.
+    #[test]
+    fn presets_reference_no_unpullable_gemma4_namespace() {
+        for preset in all_presets() {
+            for (field, id) in [
+                ("chat", preset.chat_model_id),
+                ("vision", preset.vision_model_id),
+                ("embedding", preset.embedding_model_id),
+            ] {
+                assert!(
+                    !id.starts_with("gemma4:"),
+                    "preset {:?} {field} model `{id}` is not a real Ollama model \
+                     — there is no gemma4 namespace",
+                    preset.tier
+                );
+            }
+        }
+    }
+
+    /// The 16 GB+ tier's chat model must be the allowlisted Gemma 3n build, so
+    /// selecting the preset does not immediately get redirected back to the
+    /// default by `enforce_mvp_chat_allowlist`.
+    #[test]
+    fn high_tier_preset_uses_the_allowlisted_gemma3n_build() {
+        let preset = preset_for_tier(ModelTier::Ram16PlusGb).expect("16 GB+ preset");
+        assert_eq!(preset.chat_model_id, "gemma3n:e4b-it-q8_0");
+        assert_eq!(preset.vision_model_id, "gemma3n:e4b-it-q8_0");
     }
 }

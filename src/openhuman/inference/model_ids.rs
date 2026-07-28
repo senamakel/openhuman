@@ -19,7 +19,14 @@ pub(crate) const DEFAULT_OLLAMA_EMBED_MODEL: &str = "bge-m3";
 
 /// Chat models allowed in the current local Ollama build.
 /// Any resolved chat model ID not listed here is redirected to `MVP_DEFAULT_CHAT_MODEL`.
-const MVP_ALLOWED_CHAT_MODELS: &[&str] = &["gemma3:1b-it-qat", "gemma4:e4b-it-q8_0"];
+///
+/// Every id here must be pullable from the public Ollama library as written —
+/// an entry that does not resolve makes the allowlist silently redirect the
+/// user back to the default, or leaves them with a model that `ollama pull`
+/// cannot fetch (GH #5055). `gemma4:*` was such an entry: there is no `gemma4`
+/// namespace on Ollama. The intended model is Gemma 3n, published as
+/// `gemma3n:e4b-it-q8_0`.
+const MVP_ALLOWED_CHAT_MODELS: &[&str] = &["gemma3:1b-it-qat", "gemma3n:e4b-it-q8_0"];
 const MVP_DEFAULT_CHAT_MODEL: &str = "gemma3:1b-it-qat";
 
 /// Vision models allowed in MVP — only disabled (empty string) since the
@@ -233,10 +240,10 @@ mod tests {
     }
 
     #[test]
-    fn chat_model_allows_requested_ollama_gemma4_q8() {
+    fn chat_model_allows_requested_ollama_gemma3n_q8() {
         let mut config = test_config();
-        config.local_ai.chat_model_id = "gemma4:e4b-it-q8_0".to_string();
-        assert_eq!(effective_chat_model_id(&config), "gemma4:e4b-it-q8_0");
+        config.local_ai.chat_model_id = "gemma3n:e4b-it-q8_0".to_string();
+        assert_eq!(effective_chat_model_id(&config), "gemma3n:e4b-it-q8_0");
     }
 
     #[test]
@@ -272,8 +279,30 @@ mod tests {
         config.local_ai.chat_model_id = "gemma3:270m-it-qat".to_string();
         assert_eq!(effective_chat_model_id(&config), MVP_DEFAULT_CHAT_MODEL);
 
-        config.local_ai.chat_model_id = "gemma4:e4b".to_string();
+        // Bare `gemma3n:e4b` is a real Ollama tag but is NOT the allowlisted
+        // quantization, so it still redirects to the default.
+        config.local_ai.chat_model_id = "gemma3n:e4b".to_string();
         assert_eq!(effective_chat_model_id(&config), MVP_DEFAULT_CHAT_MODEL);
+
+        // The retired `gemma4:*` namespace does not exist on Ollama at all.
+        config.local_ai.chat_model_id = "gemma4:e4b-it-q8_0".to_string();
+        assert_eq!(effective_chat_model_id(&config), MVP_DEFAULT_CHAT_MODEL);
+    }
+
+    /// GH #5055: every allowlisted chat model must be a real, pullable Ollama
+    /// id. `gemma4:*` shipped for a while and could never be pulled.
+    #[test]
+    fn mvp_chat_allowlist_has_no_unpullable_namespaces() {
+        for model in MVP_ALLOWED_CHAT_MODELS {
+            assert!(
+                !model.starts_with("gemma4:"),
+                "`{model}` is not a real Ollama model — there is no gemma4 namespace"
+            );
+            assert!(
+                model.contains(':'),
+                "`{model}` must be a fully-qualified `<model>:<tag>` id"
+            );
+        }
     }
 
     #[test]

@@ -1,6 +1,6 @@
 [package]
 name = "openhuman"
-version = "0.63.1"
+version = "0.63.5"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
 autobins = false
@@ -144,6 +144,7 @@ dhat = { version = "0.3", optional = true }
 # AV root CAs. So the two TLS backends coexist only on Windows, never on
 # the RAM-sensitive platforms.
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
+tinyhumans-sdk = { git = "https://github.com/tinyhumansai/sdk.git", rev = "3ee4123ba3b7a76c5f167d7bc2c72fca86671292" }
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"
@@ -290,11 +291,11 @@ ppt-rs = { version = "0.2.14", optional = true }
 # drops both `ratatui` and `crossterm`. Kept in lockstep — ratatui 0.30
 # re-exports crossterm 0.29, so declaring crossterm directly at the same major
 # unifies to a single crossterm in the dep graph. Only compiled into
-# `src/openhuman/tui/` behind `#[cfg(feature = "tui")]`.
+# `src/tui/` behind `#[cfg(feature = "tui")]`.
 ratatui = { version = "0.30", optional = true }
 crossterm = { version = "0.29", optional = true }
 # Terminal column-width measurement for the `tui` chat renderer
-# (`src/openhuman/tui/render.rs`); only compiled behind `#[cfg(feature = "tui")]`.
+# (`src/tui/render.rs`); only compiled behind `#[cfg(feature = "tui")]`.
 unicode-width = { version = "0.2", optional = true }
 # Native-Rust `.docx` writer for the `generate_document` tool (GH #4847).
 # Pure Rust (no subprocess / managed runtime), MIT-licensed, actively
@@ -380,7 +381,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla-local"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -564,31 +565,38 @@ crash-reporting = ["dep:sentry"]
 # Tauri UI and never needs a terminal one) — see the allowlist entry in
 # `scripts/ci/check-feature-forwarding.mjs`. Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without tui>"`, which drops
-# the exclusive `ratatui` + `crossterm` dependencies. The module
-# `src/openhuman/tui/` is a facade (always compiled) whose behavioural submodules
-# are `#[cfg(feature = "tui")]`; when off, `tui::stub::run_from_cli` returns a
-# build-fact "tui feature disabled at compile time" error from the untouched
-# `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
+# the exclusive `ratatui` + `crossterm` dependencies. The crate-root
+# `src/tui/` module is declared only under `#[cfg(feature = "tui")]`; when off,
+# the always-compiled CLI dispatcher returns a build-fact "tui feature disabled
+# at compile time" error for the `"tui" | "chat"` commands.
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
-# Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
-# a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,
-# host-side inference + tools port callbacks, the `medulla_local` RPC namespace,
-# and the subconscious-replacement draft (`subconscious.engine = "medulla"`,
-# §5.2). Default-ON — the desktop app ships it — and therefore FORWARDED to the
-# Tauri shell's `openhuman_core` features (default-features=false there). Slim /
-# headless builds opt out via `--no-default-features --features "<list without
-# medulla-local>"`. The module is `#[cfg(feature = "medulla-local")]` at its
-# `pub mod` declaration (a registration-site gate, like `flows`); the
-# `subconscious.engine` config field stays compiled in ALL builds (inert serde),
-# and the subconscious tick's medulla branch is `#[cfg]`-gated so the default
-# (`local`) path is byte-identical whether or not this feature is on.
-# Sheds ZERO exclusive dependencies — tokio net/process, reqwest, serde are all
-# load-bearing for other domains; the value is compile-time surface.
-# The serve transport is unix-only (unix domain sockets): on non-unix targets
-# (Windows desktop) the feature still compiles via a supervisor stub that
-# reports a typed unsupported-platform error, so forwarding the default-ON
-# gate to the Tauri shell never breaks Windows packaging.
-medulla-local = []
+
+# Medulla integration: the HTTP/SSE client for the Medulla orchestration backend
+# (`openhuman::medulla::client`) — durable sessions, event streaming, worker
+# routing + roster, the operator task ledger and its GitHub sources, one-shot
+# orchestration runs, the public feedback board, and the onboarding history
+# reward. This is the real Medulla surface; it replaced the `medulla-local`
+# supervised-child draft, which has been removed.
+#
+# Default-ON, but INTENTIONALLY NOT FORWARDED to the Tauri shell (allowlisted in
+# scripts/lib/feature-forwarding.mjs, alongside `tui`): the desktop app is
+# OpenHuman's own product and never dials a Medulla backend. The consumer is the
+# Medulla TUI, which embeds this crate directly.
+#
+# Facade + type carve-out, NOT a leaf gate: `pub mod medulla;` is always
+# compiled, and `medulla::contract` + `medulla::events` stay compiled in BOTH
+# builds because `src/embed/` names those types in public signatures. Only
+# `medulla::client` — everything that touches reqwest — is gated. This follows
+# the rule the `skills` / `mcp_registry` gates established: carve inert types
+# out and gate behaviour, so the two builds share one type definition and
+# cannot drift.
+#
+# Sheds ZERO exclusive dependencies — do NOT "fix" the empty list. `reqwest`,
+# `futures`, `serde`, and `tokio` are all load-bearing for other domains; the
+# gate's value is compile-time surface and RPC/tool reach, not binary size.
+# Verify before ever claiming otherwise:
+#   cargo tree -i reqwest --no-default-features --features tokenjuice-treesitter
+medulla = []
 
 # Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
 # Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,

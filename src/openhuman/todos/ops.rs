@@ -1,79 +1,27 @@
-//! Core todo CRUD operations.
+//! Compatibility facade over [`tinyagents::graph::todos`].
 //!
-//! Each operation loads the current cards for a thread (or the
-//! process-global scratch store when no thread id is given), applies the
-//! mutation, persists the result, and returns both the updated cards and
-//! a markdown rendering. The agent-facing `todo` tool and the
-//! `openhuman.todos_*` RPC handlers both call into this module so behavior
-//! stays in lock-step across surfaces.
+//! OpenHuman keeps its historical board-location and optional-thread snapshot
+//! shapes for RPC and tool callers. All task-board data, normalization, CRUD,
+//! and compare-and-set behavior is owned by TinyAgents.
 
-use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::agent::task_board::{
-    normalise_board, TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
-};
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
-use tokio::sync::Mutex as AsyncMutex;
-use uuid::Uuid;
+use tinyagents::graph::todos::store as todos;
+use tinyagents::harness::store::Store;
 
-/// Thread id backing the personal "user tasks" kanban board.
-///
-/// Must match the frontend constant in `app/src/services/api/todosApi.ts`.
-/// This is the board the kanban UI renders as the user's working lane and that
-/// the task dispatcher's board poller executes **agent-assigned** cards on
-/// (tasks approved out of the proactive `task-sources` inbox). Manually-created
-/// human cards on this board carry no `assigned_agent` and are never auto-run.
+use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::agent::task_board::normalize_cards_for_wire;
+pub use crate::openhuman::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
+use crate::openhuman::tinyagents::todos::{scratch_todos_store, todos_store, SCRATCH_THREAD_ID};
+
 pub const USER_TASKS_THREAD_ID: &str = "user-tasks";
-
-/// The orchestrator's single, app-wide task board. The orchestrator's `todo`
-/// tool always targets this fixed board (not a per-thread one) so it owns one
-/// global Kanban across every delegation — surfaced in the UI by
-/// `OrchestratorTaskBoard` under the same id.
 pub const ORCHESTRATOR_TASKS_THREAD_ID: &str = "orchestrator-tasks";
 
-use super::store::{global_scratch_store, ScratchTodoStore};
+pub use tinyagents::graph::todos::{parse_status, render_markdown, CardPatch};
 
-/// Per-board **async** mutex map for serialising every read/modify/write
-/// operation. Keyed by a
-/// canonical board key (thread_id for `Thread`, `"_scratch_"` for `Scratch`).
-/// The outer sync `Mutex` only guards the map itself (never held across an
-/// await); the inner `Arc<AsyncMutex<()>>` is held across load → mutate → save,
-/// including its `.await` points.
-fn board_lock(location: &BoardLocation) -> Arc<AsyncMutex<()>> {
-    static MAP: OnceLock<Mutex<HashMap<String, Arc<AsyncMutex<()>>>>> = OnceLock::new();
-    let map_mu = MAP.get_or_init(|| Mutex::new(HashMap::new()));
-    let key = match location {
-        BoardLocation::Thread { thread_id, .. } => thread_id.clone(),
-        BoardLocation::Scratch => "_scratch_".to_string(),
-    };
-    map_mu
-        .lock()
-        .expect("todos board lock map poisoned")
-        .entry(key)
-        .or_default()
-        .clone()
-}
-
-/// Stable string aliases accepted on the wire for [`TaskCardStatus`].
-pub fn parse_status(raw: &str) -> Result<TaskCardStatus, String> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "todo" | "pending" => Ok(TaskCardStatus::Todo),
-        "awaiting_approval" | "awaiting-approval" => Ok(TaskCardStatus::AwaitingApproval),
-        "ready" | "approved" => Ok(TaskCardStatus::Ready),
-        "in_progress" | "in-progress" | "inprogress" | "started" => Ok(TaskCardStatus::InProgress),
-        "blocked" => Ok(TaskCardStatus::Blocked),
-        "done" | "completed" | "complete" => Ok(TaskCardStatus::Done),
-        "rejected" | "denied" => Ok(TaskCardStatus::Rejected),
-        other => Err(format!(
-            "invalid status '{other}' (expected todo|awaiting_approval|ready|in_progress|blocked|done|rejected)"
-        )),
-    }
-}
-
-/// A single CRUD outcome: the post-mutation cards plus a markdown rendering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TodosSnapshot {
@@ -82,562 +30,47 @@ pub struct TodosSnapshot {
     pub markdown: String,
 }
 
-/// Optional fields supplied by `add` / `edit` callers.
-#[derive(Debug, Default, Clone)]
-pub struct CardPatch {
-    pub content: Option<String>,
-    pub status: Option<TaskCardStatus>,
-    pub objective: Option<String>,
-    pub plan: Option<Vec<String>>,
-    pub assigned_agent: Option<String>,
-    pub allowed_tools: Option<Vec<String>>,
-    pub approval_mode: Option<Option<TaskApprovalMode>>,
-    pub acceptance_criteria: Option<Vec<String>>,
-    pub evidence: Option<Vec<String>>,
-    pub notes: Option<String>,
-    pub blocker: Option<String>,
-    /// Provider/source identifiers for a task-source-ingested card. `Some`
-    /// sets the card's `source_metadata`; `None` leaves it untouched.
-    pub source_metadata: Option<serde_json::Value>,
-}
-
-/// Where to load/save the working set of cards.
 #[derive(Debug, Clone)]
 pub enum BoardLocation {
-    /// Persisted to `<workspace>/agent_task_boards/<hex(thread_id)>.json`.
     Thread {
         workspace_dir: PathBuf,
         thread_id: String,
     },
-    /// In-memory only, shared across the process.
     Scratch,
 }
 
 impl BoardLocation {
     pub fn thread_id(&self) -> Option<&str> {
         match self {
-            Self::Thread { thread_id, .. } => Some(thread_id.as_str()),
+            Self::Thread { thread_id, .. } => Some(thread_id),
             Self::Scratch => None,
         }
     }
 }
 
-async fn load_cards(location: &BoardLocation) -> Result<Vec<TaskBoardCard>, String> {
+fn target(location: &BoardLocation) -> (Arc<dyn Store>, &str) {
     match location {
         BoardLocation::Thread {
             workspace_dir,
             thread_id,
-        } => {
-            let store = TaskBoardStore::new(workspace_dir.clone());
-            Ok(store
-                .get(thread_id)
-                .await?
-                .map(|board| board.cards)
-                .unwrap_or_default())
-        }
-        BoardLocation::Scratch => Ok(global_scratch_store().snapshot()),
+        } => (todos_store(workspace_dir), thread_id),
+        BoardLocation::Scratch => (scratch_todos_store(), SCRATCH_THREAD_ID),
     }
 }
 
-async fn save_cards(
+fn snapshot(
     location: &BoardLocation,
-    cards: Vec<TaskBoardCard>,
-) -> Result<Vec<TaskBoardCard>, String> {
-    match location {
-        BoardLocation::Thread {
-            workspace_dir,
-            thread_id,
-        } => {
-            let board = TaskBoard {
-                thread_id: thread_id.clone(),
-                cards,
-                updated_at: Utc::now().to_rfc3339(),
-            };
-            // `TaskBoardStore::put` normalises (minting `task-<uuid>` ids for
-            // blank cards), enforces the single-`InProgress` invariant, and
-            // persists into the crate `graph.todos` store.
-            let store = TaskBoardStore::new(workspace_dir.clone());
-            let saved = store.put(board).await?.cards;
-            Ok(saved)
-        }
-        BoardLocation::Scratch => {
-            let mut board = TaskBoard {
-                thread_id: "_scratch_".to_string(),
-                cards,
-                updated_at: Utc::now().to_rfc3339(),
-            };
-            normalise_board(&mut board);
-            let scratch: std::sync::Arc<ScratchTodoStore> = global_scratch_store();
-            scratch.replace(board.cards.clone());
-            Ok(board.cards)
-        }
-    }
-}
-
-fn into_snapshot(location: &BoardLocation, cards: Vec<TaskBoardCard>) -> TodosSnapshot {
-    let markdown = render_markdown(&cards);
+    value: tinyagents::graph::todos::TodosSnapshot,
+) -> TodosSnapshot {
     TodosSnapshot {
-        thread_id: location.thread_id().map(|s| s.to_string()),
-        cards,
-        markdown,
+        thread_id: location.thread_id().map(str::to_owned),
+        cards: value.cards,
+        markdown: value.markdown,
     }
 }
 
-/// Render a card list as GitHub-flavored markdown. Each card becomes a
-/// `- [ ]` / `- [x]` line (with `[~]` for in-progress and `[!]` for
-/// blocked) followed by indented notes / blocker reasons.
-pub fn render_markdown(cards: &[TaskBoardCard]) -> String {
-    if cards.is_empty() {
-        return "_No todos yet._".to_string();
-    }
-    let mut out = String::new();
-    for card in cards {
-        let marker = match card.status {
-            TaskCardStatus::Todo | TaskCardStatus::Ready => "[ ]",
-            TaskCardStatus::AwaitingApproval => "[?]",
-            TaskCardStatus::InProgress => "[~]",
-            TaskCardStatus::Blocked => "[!]",
-            TaskCardStatus::Done => "[x]",
-            TaskCardStatus::Rejected => "[-]",
-        };
-        out.push_str("- ");
-        out.push_str(marker);
-        out.push(' ');
-        out.push_str(&card.title);
-        out.push_str(&format!("  `({})`", card.id));
-        out.push('\n');
-
-        if let Some(objective) = card.objective.as_deref() {
-            out.push_str("  - objective: ");
-            out.push_str(objective);
-            out.push('\n');
-        }
-        if let Some(agent) = card.assigned_agent.as_deref() {
-            out.push_str("  - agent: ");
-            out.push_str(agent);
-            out.push('\n');
-        }
-        if !card.allowed_tools.is_empty() {
-            out.push_str("  - tools: ");
-            out.push_str(&card.allowed_tools.join(", "));
-            out.push('\n');
-        }
-        if let Some(mode) = card.approval_mode.as_ref() {
-            out.push_str("  - approval: ");
-            out.push_str(mode.as_str());
-            out.push('\n');
-        }
-        if !card.plan.is_empty() {
-            out.push_str("  - plan:\n");
-            for step in &card.plan {
-                out.push_str("    - ");
-                out.push_str(step);
-                out.push('\n');
-            }
-        }
-        if !card.acceptance_criteria.is_empty() {
-            out.push_str("  - acceptance criteria:\n");
-            for criterion in &card.acceptance_criteria {
-                out.push_str("    - ");
-                out.push_str(criterion);
-                out.push('\n');
-            }
-        }
-        if !card.evidence.is_empty() {
-            out.push_str("  - evidence:\n");
-            for item in &card.evidence {
-                out.push_str("    - ");
-                out.push_str(item);
-                out.push('\n');
-            }
-        }
-
-        if matches!(card.status, TaskCardStatus::Blocked) {
-            if let Some(reason) = card.blocker.as_deref().or(card.notes.as_deref()) {
-                out.push_str("  - _blocked:_ ");
-                out.push_str(reason);
-                out.push('\n');
-            }
-        } else if let Some(notes) = card.notes.as_deref() {
-            out.push_str("  - ");
-            out.push_str(notes);
-            out.push('\n');
-        }
-    }
-    out.trim_end().to_string()
-}
-
-/// Append a new card. `content` is required; missing status defaults to
-/// `todo`.
-pub async fn add(
-    location: &BoardLocation,
-    content: &str,
-    patch: CardPatch,
-) -> Result<TodosSnapshot, String> {
-    tracing::debug!(
-        thread_id = ?location.thread_id(),
-        content_len = content.len(),
-        "[todos][ops] add entry"
-    );
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let content = content.trim();
-    if content.is_empty() {
-        return Err("todo content must not be empty".to_string());
-    }
-    let mut cards = load_cards(location).await?;
-    let new_card = TaskBoardCard {
-        id: format!("task-{}", Uuid::new_v4()),
-        title: content.to_string(),
-        status: patch.status.unwrap_or(TaskCardStatus::Todo),
-        objective: patch.objective.and_then(non_empty),
-        plan: patch.plan.unwrap_or_default(),
-        assigned_agent: patch.assigned_agent.and_then(non_empty),
-        allowed_tools: patch.allowed_tools.unwrap_or_default(),
-        approval_mode: patch.approval_mode.flatten(),
-        acceptance_criteria: patch.acceptance_criteria.unwrap_or_default(),
-        evidence: patch.evidence.unwrap_or_default(),
-        notes: patch.notes.and_then(non_empty),
-        blocker: patch.blocker.and_then(non_empty),
-        session_thread_id: None,
-        source_metadata: patch.source_metadata,
-        order: cards.len() as u32,
-        updated_at: Utc::now().to_rfc3339(),
-    };
-    cards.push(new_card);
-    enforce_single_in_progress(&cards)?;
-    let cards = save_cards(location, cards).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Edit an existing card's content / notes / blocker / status. Any field
-/// left as `None` in `patch` is left untouched. Errors if `id` is unknown.
-pub async fn edit(
-    location: &BoardLocation,
-    id: &str,
-    patch: CardPatch,
-) -> Result<TodosSnapshot, String> {
-    tracing::debug!(
-        thread_id = ?location.thread_id(),
-        id,
-        "[todos][ops] edit entry"
-    );
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let mut cards = load_cards(location).await?;
-    let card = cards
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("todo id '{id}' not found"))?;
-    if let Some(content) = patch.content {
-        let trimmed = content.trim().to_string();
-        if trimmed.is_empty() {
-            return Err("todo content must not be empty".to_string());
-        }
-        card.title = trimmed;
-    }
-    if let Some(status) = patch.status {
-        card.status = status;
-    }
-    if let Some(objective) = patch.objective {
-        card.objective = non_empty(objective);
-    }
-    if let Some(plan) = patch.plan {
-        card.plan = plan;
-    }
-    if let Some(assigned_agent) = patch.assigned_agent {
-        card.assigned_agent = non_empty(assigned_agent);
-    }
-    if let Some(allowed_tools) = patch.allowed_tools {
-        card.allowed_tools = allowed_tools;
-    }
-    if let Some(approval_mode) = patch.approval_mode {
-        card.approval_mode = approval_mode;
-    }
-    if let Some(acceptance_criteria) = patch.acceptance_criteria {
-        card.acceptance_criteria = acceptance_criteria;
-    }
-    if let Some(evidence) = patch.evidence {
-        card.evidence = evidence;
-    }
-    if let Some(notes) = patch.notes {
-        card.notes = non_empty(notes);
-    }
-    if let Some(blocker) = patch.blocker {
-        card.blocker = non_empty(blocker);
-    }
-    if let Some(source_metadata) = patch.source_metadata {
-        card.source_metadata = Some(source_metadata);
-    }
-    card.updated_at = Utc::now().to_rfc3339();
-    enforce_single_in_progress(&cards)?;
-    let cards = save_cards(location, cards).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Stamp (or clear) a card's `session_thread_id` — the conversation thread of
-/// its live/last agent run — so the UI can offer a "View session" jump into
-/// Conversations. Used by the autonomous dispatcher (`task_session`, direct
-/// call) and the manual "Work" path (via the `todos_set_session_thread` RPC).
-/// A blank id clears the link. Does NOT touch status or `enforce_single_in_progress`
-/// — this is pure session-link bookkeeping, orthogonal to the card lifecycle.
-pub async fn set_session_thread(
-    location: &BoardLocation,
-    id: &str,
-    session_thread_id: Option<String>,
-) -> Result<TodosSnapshot, String> {
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let mut cards = load_cards(location).await?;
-    let card = cards
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("todo id '{id}' not found"))?;
-    card.session_thread_id = session_thread_id.and_then(non_empty);
-    card.updated_at = Utc::now().to_rfc3339();
-    let cards = save_cards(location, cards).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Update only the status of a card.
-pub async fn update_status(
-    location: &BoardLocation,
-    id: &str,
-    status: TaskCardStatus,
-) -> Result<TodosSnapshot, String> {
-    edit(
-        location,
-        id,
-        CardPatch {
-            status: Some(status),
-            ..Default::default()
-        },
-    )
-    .await
-}
-
-/// Resolve a plan-approval decision: approve (→`Ready`, so the dispatcher runs
-/// it) or reject (→`Rejected`). Errors unless the card is currently
-/// `AwaitingApproval`, so a stale/duplicate decision can't resurrect a card
-/// that already moved on.
-pub async fn decide_plan(
-    location: &BoardLocation,
-    id: &str,
-    approve: bool,
-) -> Result<TodosSnapshot, String> {
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let mut cards = load_cards(location).await?;
-    let current = cards
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("todo id '{id}' not found"))?;
-    if current.status != TaskCardStatus::AwaitingApproval {
-        return Err(format!(
-            "card '{id}' is not awaiting approval (status: {})",
-            current.status.as_str()
-        ));
-    }
-    current.status = if approve {
-        TaskCardStatus::Ready
-    } else {
-        TaskCardStatus::Rejected
-    };
-    current.updated_at = Utc::now().to_rfc3339();
-    let cards = save_cards(location, cards).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Clear a parked plan for re-planning. Transitions **every**
-/// `AwaitingApproval` card on the board to `Rejected` so none stays runnable,
-/// then returns the fresh snapshot. The caller (the plan-review surface) sends
-/// the user's `feedback` back into the thread as a normal message so the
-/// orchestrator re-plans and re-parks a new plan. Lenient when nothing is
-/// awaiting — a benign no-op (returns the snapshot unchanged) rather than an
-/// error, so a racing decision can't strand the feedback message.
-pub async fn revise_plan(
-    location: &BoardLocation,
-    feedback: &str,
-) -> Result<TodosSnapshot, String> {
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let mut cards = load_cards(location).await?;
-    let mut revised = 0usize;
-    for card in cards.iter_mut() {
-        if card.status == TaskCardStatus::AwaitingApproval {
-            card.status = TaskCardStatus::Rejected;
-            card.updated_at = Utc::now().to_rfc3339();
-            revised += 1;
-        }
-    }
-    tracing::info!(
-        thread_id = ?location.thread_id(),
-        revised,
-        feedback_len = feedback.len(),
-        "[todos][ops] revise_plan rejected awaiting cards for re-plan"
-    );
-    let cards = save_cards(location, cards).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Remove a card by id. Errors if `id` is unknown.
-pub async fn remove(location: &BoardLocation, id: &str) -> Result<TodosSnapshot, String> {
-    tracing::debug!(
-        thread_id = ?location.thread_id(),
-        id,
-        "[todos][ops] remove entry"
-    );
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let mut cards = load_cards(location).await?;
-    let before = cards.len();
-    cards.retain(|c| c.id != id);
-    if cards.len() == before {
-        return Err(format!("todo id '{id}' not found"));
-    }
-    let cards = save_cards(location, cards).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Wholesale replace the list. Generates ids for cards missing them.
-pub async fn replace(
-    location: &BoardLocation,
-    cards: Vec<TaskBoardCard>,
-) -> Result<TodosSnapshot, String> {
-    tracing::debug!(
-        thread_id = ?location.thread_id(),
-        card_count = cards.len(),
-        "[todos][ops] replace entry"
-    );
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    enforce_single_in_progress(&cards)?;
-    let cards = save_cards(location, cards).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Empty the list.
-pub async fn clear(location: &BoardLocation) -> Result<TodosSnapshot, String> {
-    tracing::debug!(thread_id = ?location.thread_id(), "[todos][ops] clear entry");
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let cards = save_cards(location, Vec::new()).await?;
-    emit_progress(location, &cards);
-    Ok(into_snapshot(location, cards))
-}
-
-/// Snapshot the current list without mutating.
-pub async fn list(location: &BoardLocation) -> Result<TodosSnapshot, String> {
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-    let cards = load_cards(location).await?;
-    Ok(into_snapshot(location, cards))
-}
-
-/// Atomic compare-and-set claim: transition a card from one of the
-/// `expected` statuses to `target` under a per-board lock, returning the
-/// **fresh** card snapshot on success. If the card's current status is not
-/// in `expected`, the claim is rejected with `Err` — the caller lost the
-/// race or the card already moved on.
-///
-/// This is the single safe entry-point for the dispatcher to claim a card;
-/// callers must **not** do a manual load→check→write outside this lock.
-pub async fn claim_card(
-    location: &BoardLocation,
-    card_id: &str,
-    expected: &[TaskCardStatus],
-    target: TaskCardStatus,
-) -> Result<TaskBoardCard, String> {
-    let lock = board_lock(location);
-    let _guard = lock.lock().await;
-
-    tracing::debug!(
-        card_id = %card_id,
-        expected = ?expected.iter().map(TaskCardStatus::as_str).collect::<Vec<_>>(),
-        target = %target.as_str(),
-        "[todos][ops] claim_card entry"
-    );
-
-    let mut cards = load_cards(location).await?;
-
-    // The whole load → check → write runs under the per-board async lock above,
-    // so the compare-and-set stays atomic within the process (the single-writer
-    // core). A rejected claim (card missing / wrong status) short-circuits here.
-    let claimed_card = apply_claim(&mut cards, card_id, expected, target)?;
-    let saved = save_cards(location, cards).await?;
-    emit_progress(location, &saved);
-    tracing::info!(
-        card_id = %card_id,
-        new_status = %claimed_card.status.as_str(),
-        "[todos][ops] claim_card ok"
-    );
-    Ok(claimed_card)
-}
-
-/// Applies a claim to an in-memory card set: find `card_id`, verify its status
-/// is in `expected`, transition it to `target`, and enforce the single-
-/// `InProgress` invariant. Returns the claimed card (cloned) on success. Does
-/// **not** persist — the caller saves the mutated `cards`. Extracted so
-/// [`claim_card`] can capture a single ok/err verdict for its crate shadow.
-fn apply_claim(
-    cards: &mut [TaskBoardCard],
-    card_id: &str,
-    expected: &[TaskCardStatus],
-    target: TaskCardStatus,
-) -> Result<TaskBoardCard, String> {
-    let card = cards
-        .iter_mut()
-        .find(|c| c.id == card_id)
-        .ok_or_else(|| format!("[todos][ops] claim_card: card '{card_id}' not found on board"))?;
-
-    if !expected.contains(&card.status) {
-        let current = card.status.as_str();
-        return Err(format!(
-            "[todos][ops] claim_card: card '{card_id}' status is '{current}', \
-             expected one of [{}]; claim rejected",
-            expected
-                .iter()
-                .map(TaskCardStatus::as_str)
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    }
-
-    card.status = target;
-    card.updated_at = Utc::now().to_rfc3339();
-    let claimed_card = card.clone();
-
-    enforce_single_in_progress(cards)?;
-    Ok(claimed_card)
-}
-
-fn non_empty(s: String) -> Option<String> {
-    let trimmed = s.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn enforce_single_in_progress(cards: &[TaskBoardCard]) -> Result<(), String> {
-    let in_progress = cards
-        .iter()
-        .filter(|c| matches!(c.status, TaskCardStatus::InProgress))
-        .count();
-    if in_progress > 1 {
-        return Err(format!(
-            "only one todo may be `in_progress` at a time (got {in_progress})"
-        ));
-    }
-    Ok(())
+fn progress_updated_at() -> String {
+    Utc::now().to_rfc3339()
 }
 
 fn emit_progress(location: &BoardLocation, cards: &[TaskBoardCard]) {
@@ -650,27 +83,141 @@ fn emit_progress(location: &BoardLocation, cards: &[TaskBoardCard]) {
     let Some(tx) = parent.on_progress else {
         return;
     };
-    let board = TaskBoard {
+    let board = tinyagents::graph::todos::TaskBoard {
         thread_id: thread_id.clone(),
         cards: cards.to_vec(),
-        updated_at: Utc::now().to_rfc3339(),
+        updated_at: progress_updated_at(),
     };
-    if let Err(err) = tx.try_send(AgentProgress::TaskBoardUpdated { board }) {
-        tracing::debug!(
-            thread_id = %thread_id,
-            error = %err,
-            "[todos][ops] task board progress dropped"
-        );
+    if let Err(error) = tx.try_send(AgentProgress::TaskBoardUpdated { board }) {
+        tracing::debug!(thread_id, %error, "task board progress dropped");
     }
 }
 
-/// Process-global lock that test code (here and in
-/// `agent::tools::todo`) uses to serialize access to the shared
-/// scratch store under `cargo test`'s parallel runner.
+fn finish(
+    location: &BoardLocation,
+    result: tinyagents::error::Result<tinyagents::graph::todos::TodosSnapshot>,
+) -> Result<TodosSnapshot, String> {
+    let mut value = result.map_err(|error| error.to_string())?;
+    normalize_cards_for_wire(&mut value.cards);
+    emit_progress(location, &value.cards);
+    Ok(snapshot(location, value))
+}
+
+pub async fn add(
+    location: &BoardLocation,
+    content: &str,
+    patch: CardPatch,
+) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(
+        location,
+        todos::add(&store, thread_id, content, patch).await,
+    )
+}
+
+pub async fn edit(
+    location: &BoardLocation,
+    id: &str,
+    patch: CardPatch,
+) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(location, todos::edit(&store, thread_id, id, patch).await)
+}
+
+pub async fn update_status(
+    location: &BoardLocation,
+    id: &str,
+    status: TaskCardStatus,
+) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(
+        location,
+        todos::update_status(&store, thread_id, id, status).await,
+    )
+}
+
+pub async fn set_session_thread(
+    location: &BoardLocation,
+    id: &str,
+    session_thread_id: Option<String>,
+) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(
+        location,
+        todos::set_session_thread(&store, thread_id, id, session_thread_id).await,
+    )
+}
+
+pub async fn decide_plan(
+    location: &BoardLocation,
+    id: &str,
+    approve: bool,
+) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(
+        location,
+        todos::decide_plan(&store, thread_id, id, approve).await,
+    )
+}
+
+pub async fn revise_plan(
+    location: &BoardLocation,
+    feedback: &str,
+) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    tracing::info!(
+        thread_id,
+        feedback_len = feedback.len(),
+        "[todos][ops] revise_plan requested re-plan"
+    );
+    finish(location, todos::revise_plan(&store, thread_id).await)
+}
+
+pub async fn remove(location: &BoardLocation, id: &str) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(location, todos::remove(&store, thread_id, id).await)
+}
+
+pub async fn replace(
+    location: &BoardLocation,
+    cards: Vec<TaskBoardCard>,
+) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(location, todos::replace(&store, thread_id, cards).await)
+}
+
+pub async fn clear(location: &BoardLocation) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    finish(location, todos::clear(&store, thread_id).await)
+}
+
+pub async fn list(location: &BoardLocation) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(location);
+    todos::list(&store, thread_id)
+        .await
+        .map(|value| snapshot(location, value))
+        .map_err(|error| error.to_string())
+}
+
+pub async fn claim_card(
+    location: &BoardLocation,
+    card_id: &str,
+    expected: &[TaskCardStatus],
+    target_status: TaskCardStatus,
+) -> Result<TaskBoardCard, String> {
+    let (store, thread_id) = target(location);
+    let card = todos::claim_card(&store, thread_id, card_id, expected, target_status)
+        .await
+        .map_err(|error| error.to_string())?;
+    if let Ok(value) = todos::list(&store, thread_id).await {
+        emit_progress(location, &value.cards);
+    }
+    Ok(card)
+}
+
 #[cfg(test)]
 pub(crate) fn scratch_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    use std::sync::Mutex;
-    use std::sync::OnceLock;
+    use std::sync::{Mutex, OnceLock};
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
     LOCK.get_or_init(|| Mutex::new(()))
         .lock()
@@ -679,524 +226,12 @@ pub(crate) fn scratch_test_lock() -> std::sync::MutexGuard<'static, ()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use tempfile::tempdir;
-
-    fn thread_loc(dir: &std::path::Path, id: &str) -> BoardLocation {
-        BoardLocation::Thread {
-            workspace_dir: dir.to_path_buf(),
-            thread_id: id.to_string(),
-        }
-    }
-
     #[test]
-    fn parse_status_accepts_aliases() {
-        assert_eq!(parse_status("todo").unwrap(), TaskCardStatus::Todo);
-        assert_eq!(parse_status("PENDING").unwrap(), TaskCardStatus::Todo);
-        assert_eq!(
-            parse_status("in_progress").unwrap(),
-            TaskCardStatus::InProgress
+    fn progress_timestamp_preserves_rfc3339_wire_format() {
+        let timestamp = super::progress_updated_at();
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(&timestamp).is_ok(),
+            "progress-event updated_at must remain RFC 3339"
         );
-        assert_eq!(parse_status("blocked").unwrap(), TaskCardStatus::Blocked);
-        assert_eq!(parse_status("done").unwrap(), TaskCardStatus::Done);
-        assert_eq!(
-            parse_status("awaiting_approval").unwrap(),
-            TaskCardStatus::AwaitingApproval
-        );
-        assert_eq!(parse_status("ready").unwrap(), TaskCardStatus::Ready);
-        assert_eq!(parse_status("approved").unwrap(), TaskCardStatus::Ready);
-        assert_eq!(parse_status("rejected").unwrap(), TaskCardStatus::Rejected);
-        assert!(parse_status("nope").is_err());
-    }
-
-    #[tokio::test]
-    async fn set_session_thread_links_then_clears() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let snap = add(&loc, "Do the thing", CardPatch::default())
-            .await
-            .unwrap();
-        let card_id = snap.cards[0].id.clone();
-
-        // Link a session thread → exposed on the card for the UI "View session".
-        let linked = set_session_thread(&loc, &card_id, Some("thread-xyz".into()))
-            .await
-            .unwrap();
-        assert_eq!(
-            linked.cards[0].session_thread_id.as_deref(),
-            Some("thread-xyz")
-        );
-
-        // A blank id clears the link (non_empty trims to None).
-        let cleared = set_session_thread(&loc, &card_id, Some("   ".into()))
-            .await
-            .unwrap();
-        assert!(cleared.cards[0].session_thread_id.is_none());
-
-        // Unknown card id is an error, not a silent no-op.
-        assert!(set_session_thread(&loc, "missing", Some("t".into()))
-            .await
-            .is_err());
-    }
-
-    #[tokio::test]
-    async fn add_appends_and_returns_markdown() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let snap = add(
-            &loc,
-            "First task",
-            CardPatch {
-                objective: Some("Ship a richer handoff".into()),
-                plan: Some(vec![
-                    "Inspect existing board".into(),
-                    "Update schema".into(),
-                ]),
-                assigned_agent: Some("planner".into()),
-                allowed_tools: Some(vec!["todo".into(), "spawn_subagent".into()]),
-                approval_mode: Some(Some(TaskApprovalMode::Required)),
-                acceptance_criteria: Some(vec!["Tests pass".into()]),
-                evidence: Some(vec!["cargo test".into()]),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-        assert_eq!(snap.cards.len(), 1);
-        assert!(snap.markdown.contains("[ ] First task"));
-        assert!(snap.markdown.contains("objective: Ship a richer handoff"));
-        assert!(snap.markdown.contains("agent: planner"));
-        assert!(snap.markdown.contains("tools: todo, spawn_subagent"));
-        assert!(snap.markdown.contains("approval: required"));
-        assert!(snap.markdown.contains("Inspect existing board"));
-        assert!(snap.markdown.contains("Tests pass"));
-        assert!(snap.markdown.contains("cargo test"));
-        assert!(snap.markdown.contains(&snap.cards[0].id));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn concurrent_adds_preserve_every_thread_board_mutation() {
-        const WRITERS: usize = 12;
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "concurrent-adds");
-        let barrier = Arc::new(tokio::sync::Barrier::new(WRITERS));
-        let mut handles = Vec::with_capacity(WRITERS);
-
-        for index in 0..WRITERS {
-            let loc = loc.clone();
-            let barrier = barrier.clone();
-            handles.push(tokio::spawn(async move {
-                barrier.wait().await;
-                add(&loc, &format!("task {index}"), CardPatch::default()).await
-            }));
-        }
-
-        for handle in handles {
-            handle.await.unwrap().unwrap();
-        }
-
-        let snapshot = list(&loc).await.unwrap();
-        assert_eq!(snapshot.cards.len(), WRITERS);
-        for index in 0..WRITERS {
-            assert!(
-                snapshot
-                    .cards
-                    .iter()
-                    .any(|card| card.title == format!("task {index}")),
-                "missing concurrent mutation {index}"
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn edit_updates_fields_by_id() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let added = add(&loc, "Draft plan", CardPatch::default()).await.unwrap();
-        let id = added.cards[0].id.clone();
-        let snap = edit(
-            &loc,
-            &id,
-            CardPatch {
-                content: Some("Refined plan".into()),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-        assert_eq!(snap.cards[0].title, "Refined plan");
-    }
-
-    #[tokio::test]
-    async fn source_metadata_round_trips_through_add_and_edit() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let added = add(
-            &loc,
-            "ingested task",
-            CardPatch {
-                source_metadata: Some(serde_json::json!({
-                    "provider": "github",
-                    "external_id": "7",
-                })),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-        let id = added.cards[0].id.clone();
-        assert_eq!(
-            added.cards[0].source_metadata.as_ref().unwrap()["external_id"],
-            serde_json::json!("7")
-        );
-
-        // A subsequent edit with `Some(..)` replaces the stamped metadata.
-        let snap = edit(
-            &loc,
-            &id,
-            CardPatch {
-                source_metadata: Some(serde_json::json!({
-                    "provider": "github",
-                    "external_id": "8",
-                })),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            snap.cards[0].source_metadata.as_ref().unwrap()["external_id"],
-            serde_json::json!("8")
-        );
-
-        // An edit that leaves `source_metadata: None` preserves the value.
-        let snap2 = edit(
-            &loc,
-            &id,
-            CardPatch {
-                notes: Some("touch".into()),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            snap2.cards[0].source_metadata.as_ref().unwrap()["external_id"],
-            serde_json::json!("8")
-        );
-    }
-
-    #[tokio::test]
-    async fn decide_plan_approves_and_rejects_only_when_awaiting() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let added = add(&loc, "task", CardPatch::default()).await.unwrap();
-        let id = added.cards[0].id.clone();
-
-        // A todo card isn't awaiting approval yet → decision rejected.
-        assert!(decide_plan(&loc, &id, true).await.is_err());
-
-        // Park it, then approve → Ready.
-        update_status(&loc, &id, TaskCardStatus::AwaitingApproval)
-            .await
-            .unwrap();
-        let approved = decide_plan(&loc, &id, true).await.unwrap();
-        assert_eq!(approved.cards[0].status, TaskCardStatus::Ready);
-
-        // Re-park, then reject → Rejected.
-        update_status(&loc, &id, TaskCardStatus::AwaitingApproval)
-            .await
-            .unwrap();
-        let rejected = decide_plan(&loc, &id, false).await.unwrap();
-        assert_eq!(rejected.cards[0].status, TaskCardStatus::Rejected);
-    }
-
-    #[tokio::test]
-    async fn revise_plan_rejects_only_awaiting_cards() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        // Each `add` returns the whole board; the new card is the last one.
-        let a = add(&loc, "A", CardPatch::default()).await.unwrap();
-        let b = add(&loc, "B", CardPatch::default()).await.unwrap();
-        let c = add(&loc, "C", CardPatch::default()).await.unwrap();
-        let a_id = a.cards.last().unwrap().id.clone();
-        let b_id = b.cards.last().unwrap().id.clone();
-        let c_id = c.cards.last().unwrap().id.clone();
-
-        // Two cards parked for review, one left as a plain todo.
-        update_status(&loc, &a_id, TaskCardStatus::AwaitingApproval)
-            .await
-            .unwrap();
-        update_status(&loc, &b_id, TaskCardStatus::AwaitingApproval)
-            .await
-            .unwrap();
-
-        let snap = revise_plan(&loc, "please add a verification step")
-            .await
-            .unwrap();
-        let by_id = |id: &str| {
-            snap.cards
-                .iter()
-                .find(|c| c.id == id)
-                .unwrap()
-                .status
-                .clone()
-        };
-        assert_eq!(by_id(&a_id), TaskCardStatus::Rejected);
-        assert_eq!(by_id(&b_id), TaskCardStatus::Rejected);
-        // The non-awaiting card is untouched.
-        assert_eq!(by_id(&c_id), TaskCardStatus::Todo);
-    }
-
-    #[tokio::test]
-    async fn revise_plan_is_noop_when_nothing_awaiting() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let a = add(&loc, "A", CardPatch::default()).await.unwrap();
-        let a_id = a.cards[0].id.clone();
-        let snap = revise_plan(&loc, "tweak it").await.unwrap();
-        assert_eq!(snap.cards.len(), 1);
-        assert_eq!(snap.cards[0].id, a_id);
-        assert_eq!(snap.cards[0].status, TaskCardStatus::Todo);
-    }
-
-    #[tokio::test]
-    async fn edit_can_clear_approval_mode() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let added = add(
-            &loc,
-            "Draft plan",
-            CardPatch {
-                approval_mode: Some(Some(TaskApprovalMode::Required)),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-        let id = added.cards[0].id.clone();
-
-        let snap = edit(
-            &loc,
-            &id,
-            CardPatch {
-                approval_mode: Some(None),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(snap.cards[0].approval_mode, None);
-    }
-
-    #[tokio::test]
-    async fn edit_unknown_id_errors() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let err = edit(&loc, "task-missing", CardPatch::default())
-            .await
-            .unwrap_err();
-        assert!(err.contains("not found"));
-    }
-
-    #[tokio::test]
-    async fn update_status_changes_only_status() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let added = add(&loc, "Write tests", CardPatch::default())
-            .await
-            .unwrap();
-        let id = added.cards[0].id.clone();
-        let snap = update_status(&loc, &id, TaskCardStatus::Done)
-            .await
-            .unwrap();
-        assert_eq!(snap.cards[0].status, TaskCardStatus::Done);
-        assert!(snap.markdown.contains("[x] Write tests"));
-    }
-
-    #[tokio::test]
-    async fn remove_drops_card_by_id() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let a = add(&loc, "A", CardPatch::default()).await.unwrap();
-        let _ = add(&loc, "B", CardPatch::default()).await.unwrap();
-        let snap = remove(&loc, &a.cards[0].id).await.unwrap();
-        assert_eq!(snap.cards.len(), 1);
-        assert_eq!(snap.cards[0].title, "B");
-    }
-
-    #[tokio::test]
-    async fn replace_enforces_single_in_progress() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let cards = vec![
-            TaskBoardCard {
-                id: "a".into(),
-                title: "A".into(),
-                status: TaskCardStatus::InProgress,
-                objective: None,
-                plan: Vec::new(),
-                assigned_agent: None,
-                allowed_tools: Vec::new(),
-                approval_mode: None,
-                acceptance_criteria: Vec::new(),
-                evidence: Vec::new(),
-                notes: None,
-                blocker: None,
-                session_thread_id: None,
-                source_metadata: None,
-                order: 0,
-                updated_at: String::new(),
-            },
-            TaskBoardCard {
-                id: "b".into(),
-                title: "B".into(),
-                status: TaskCardStatus::InProgress,
-                objective: None,
-                plan: Vec::new(),
-                assigned_agent: None,
-                allowed_tools: Vec::new(),
-                approval_mode: None,
-                acceptance_criteria: Vec::new(),
-                evidence: Vec::new(),
-                notes: None,
-                blocker: None,
-                session_thread_id: None,
-                source_metadata: None,
-                order: 1,
-                updated_at: String::new(),
-            },
-        ];
-        let err = replace(&loc, cards).await.unwrap_err();
-        assert!(err.contains("in_progress"));
-    }
-
-    #[tokio::test]
-    async fn clear_empties_the_list() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "t1");
-        let _ = add(&loc, "A", CardPatch::default()).await.unwrap();
-        let snap = clear(&loc).await.unwrap();
-        assert!(snap.cards.is_empty());
-        assert!(snap.markdown.contains("No todos"));
-    }
-
-    #[tokio::test]
-    async fn claim_card_transitions_todo_to_in_progress() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "claim-1");
-        let added = add(&loc, "claimable task", CardPatch::default())
-            .await
-            .unwrap();
-        let id = added.cards[0].id.clone();
-
-        let claimed = claim_card(
-            &loc,
-            &id,
-            &[TaskCardStatus::Todo, TaskCardStatus::Ready],
-            TaskCardStatus::InProgress,
-        )
-        .await
-        .unwrap();
-        assert_eq!(claimed.status, TaskCardStatus::InProgress);
-        assert_eq!(claimed.id, id);
-
-        let snap = list(&loc).await.unwrap();
-        assert_eq!(snap.cards[0].status, TaskCardStatus::InProgress);
-    }
-
-    #[tokio::test]
-    async fn claim_card_rejects_when_status_does_not_match() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "claim-2");
-        let added = add(&loc, "done task", CardPatch::default()).await.unwrap();
-        let id = added.cards[0].id.clone();
-        update_status(&loc, &id, TaskCardStatus::Done)
-            .await
-            .unwrap();
-
-        let err = claim_card(
-            &loc,
-            &id,
-            &[TaskCardStatus::Todo, TaskCardStatus::Ready],
-            TaskCardStatus::InProgress,
-        )
-        .await
-        .unwrap_err();
-        assert!(err.contains("claim rejected"), "err: {err}");
-    }
-
-    #[tokio::test]
-    async fn claim_card_returns_not_found_for_missing_id() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "claim-3");
-        let err = claim_card(
-            &loc,
-            "task-nonexistent",
-            &[TaskCardStatus::Todo],
-            TaskCardStatus::InProgress,
-        )
-        .await
-        .unwrap_err();
-        assert!(err.contains("not found"), "err: {err}");
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn concurrent_claims_only_one_wins() {
-        let dir = tempdir().unwrap();
-        let loc = thread_loc(dir.path(), "race-1");
-        let added = add(&loc, "race target", CardPatch::default())
-            .await
-            .unwrap();
-        let id = added.cards[0].id.clone();
-
-        // Two concurrent claimers gated on a shared barrier so both hit the
-        // per-board async CAS lock at once. Exactly one wins; the other observes
-        // the card already `InProgress` and is rejected.
-        let barrier = Arc::new(tokio::sync::Barrier::new(2));
-        let mut handles = Vec::new();
-        for _ in 0..2 {
-            let loc = loc.clone();
-            let id = id.clone();
-            let barrier = barrier.clone();
-            handles.push(tokio::spawn(async move {
-                barrier.wait().await;
-                claim_card(
-                    &loc,
-                    &id,
-                    &[TaskCardStatus::Todo, TaskCardStatus::Ready],
-                    TaskCardStatus::InProgress,
-                )
-                .await
-            }));
-        }
-        let mut results = Vec::new();
-        for h in handles {
-            results.push(h.await.unwrap());
-        }
-
-        let wins = results.iter().filter(|r| r.is_ok()).count();
-        let losses = results.iter().filter(|r| r.is_err()).count();
-        assert_eq!(wins, 1, "exactly one claimer wins");
-        assert_eq!(losses, 1, "exactly one claimer is rejected");
-
-        let snap = list(&loc).await.unwrap();
-        assert_eq!(snap.cards[0].status, TaskCardStatus::InProgress);
-    }
-
-    #[tokio::test]
-    async fn scratch_store_works_without_thread_context() {
-        let _guard = super::scratch_test_lock();
-        global_scratch_store().replace(Vec::new());
-        let loc = BoardLocation::Scratch;
-        let snap = add(&loc, "Scratch task", CardPatch::default())
-            .await
-            .unwrap();
-        assert_eq!(snap.cards.len(), 1);
-        assert!(snap.thread_id.is_none());
-        let listed = list(&loc).await.unwrap();
-        assert_eq!(listed.cards.len(), 1);
-        global_scratch_store().replace(Vec::new());
     }
 }

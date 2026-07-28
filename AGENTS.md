@@ -175,6 +175,18 @@ Embedded provider webviews **must not** grow new JS injection. No new `.js` unde
 
 ## Rust core (`src/`)
 
+### TinyHumans backend SDK boundary
+
+- All Rust-core calls to the TinyHumans managed backend must go through
+  `tinyhumans-sdk`, with OpenHuman adapters retaining local egress, budget,
+  session-expiry, TLS, and observability policy.
+- Do not add direct `reqwest` calls for TinyHumans JSON APIs or duplicate SDK
+  wire types in OpenHuman. Extend the SDK and update its pinned revision when a
+  public route or type is missing.
+- Never expose or call TinyHumans admin or webhook APIs from the SDK boundary.
+  Local inbound webhook routing is an OpenHuman runtime feature and is not an
+  exception for backend `/webhooks/*` calls.
+
 ### Domain layout (`src/openhuman/`)
 
 ~130 domain directories — authoritative list: `ls -d src/openhuman/*/`. Major families: agent (`agent`, `agent_experience`, `agent_meetings`, `agent_memory`, `agent_orchestration`, `agent_registry`, `agent_tool_policy`, `agentbox`, `orchestration`), memory (`memory`, `memory_archivist`, `memory_conversations`, `memory_diff`, `memory_goals`, `memory_queue`, `memory_search`, `memory_sources`, `memory_store`, `memory_sync`, `memory_tools`, `memory_tree`, `tinycortex`), skills/flows (`skills`, `skill_registry`, `skill_runtime`, `flows`, `tinyflows`, `tinyagents`, `rhai_workflows`), inference/AI (`inference`, `embeddings`, `routing`), MCP (`mcp_audit`, `mcp_client`, `mcp_registry`, `mcp_server`), runtimes (`runtime_node`, `runtime_python`, `runtime_python_server`, `javascript`, `sandbox`, `cwd_jail`), channels/webviews (`channels`, `whatsapp_data`), meet (`meet`, `meet_agent`), web3 (`wallet`, `web3`, `x402`, `tokenjuice`), plus platform domains (`about_app`, `approval`, `config`, `cron`, `credentials`, `keyring`, `security`, `threads`, `tools`, `update`, `voice`, …).

@@ -365,6 +365,12 @@ mod tests {
             vec![
                 "openhuman.medulla_status",
                 "openhuman.medulla_list_sessions",
+                "openhuman.medulla_create_session",
+                "openhuman.medulla_get_session",
+                "openhuman.medulla_send_message",
+                "openhuman.medulla_abort",
+                "openhuman.medulla_list_messages",
+                "openhuman.medulla_list_events",
                 "openhuman.medulla_roster",
             ]
         );

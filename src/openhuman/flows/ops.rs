@@ -9,6 +9,7 @@ use std::sync::{Arc, LazyLock};
 use chrono::Utc;
 use serde_json::{json, Value};
 use tinyflows::model::{NodeKind, TriggerKind, WorkflowGraph};
+use tokio_util::sync::CancellationToken;
 
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::approval::{
@@ -16,6 +17,7 @@ use crate::openhuman::approval::{
     APPROVAL_FLOW_RUN_CONTEXT,
 };
 use crate::openhuman::config::Config;
+use crate::openhuman::flows::build_registry;
 use crate::openhuman::flows::bus;
 use crate::openhuman::flows::draft_store;
 use crate::openhuman::flows::run_registry;
@@ -6235,6 +6237,21 @@ pub async fn flows_build(
     //   — the gate auto-allows `external_effect` tools under that origin, which
     //   is why `restrict_builder_toolset` above must keep the full hide-list on
     //   this path; there is no routable approval surface here to park against.
+    // Outcome of racing the run future against its wall-clock timeout and
+    // (streaming only) a user Stop-button cancellation. Kept as one enum so
+    // both branches below (and the settle match after) share one shape.
+    enum BuildRunOutcome {
+        /// The agent run itself finished (or errored) before the timeout or a
+        /// cancel raced it.
+        Ran(anyhow::Result<String>),
+        /// `FLOW_BUILD_TIMEOUT_SECS` elapsed first.
+        TimedOut,
+        /// The user cancelled the turn (`flows_build_cancel`) before it
+        /// finished. Streaming-only — the headless/CLI branch never
+        /// registers a token, so it can never produce this.
+        Cancelled,
+    }
+
     let timed = match &stream {
         Some(target) => {
             let origin = AgentTurnOrigin::WebChat {
@@ -6271,11 +6288,47 @@ pub async fn flows_build(
             );
             let run =
                 tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run);
-            crate::openhuman::tinyagents::thread_context::with_thread_id(
+            let run = crate::openhuman::tinyagents::thread_context::with_thread_id(
                 target.thread_id.clone(),
                 run,
-            )
-            .await
+            );
+
+            // Register this turn's cancellation token BEFORE racing the run,
+            // so a `flows_build_cancel` call landing the instant this turn
+            // starts can never miss the registration window. The run stays
+            // awaited INLINE (never spawned) — spawning it would drop the
+            // task-local `with_origin` / `APPROVAL_CHAT_CONTEXT.scope` /
+            // `APPROVAL_COPILOT_STREAM_CONTEXT.scope` / thread-id scope
+            // context above, which the approval gate + tracing depend on.
+            // `tokio::select!` races the two futures on THIS task instead, so
+            // every one of those scopes stays attached to the winning arm.
+            let token = CancellationToken::new();
+            build_registry::register_build_turn(
+                target.thread_id.clone(),
+                Some(target.request_id.clone()),
+                token.clone(),
+            );
+            let outcome = tokio::select! {
+                r = run => match r {
+                    Ok(inner) => BuildRunOutcome::Ran(inner),
+                    Err(_) => BuildRunOutcome::TimedOut,
+                },
+                _ = token.cancelled() => {
+                    tracing::debug!(
+                        target: "flows",
+                        thread_id = %target.thread_id,
+                        request_id = %target.request_id,
+                        "[flows] flows_build: cancelled by user"
+                    );
+                    BuildRunOutcome::Cancelled
+                }
+            };
+            // Unconditional — covers every exit the `select!` above can take
+            // (ran to completion, errored, timed out, or was cancelled); there
+            // is no early return between `register_build_turn` and here that
+            // could skip it.
+            build_registry::unregister_build_turn(&target.thread_id, Some(&target.request_id));
+            outcome
         }
         None => {
             tracing::debug!(
@@ -6284,19 +6337,25 @@ pub async fn flows_build(
                  auto-allows external_effect tools (run-advancing tools stay hidden)"
             );
             let run = with_origin(AgentTurnOrigin::Cli, agent.run_single(&prompt));
-            tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run).await
+            match tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run)
+                .await
+            {
+                Ok(inner) => BuildRunOutcome::Ran(inner),
+                Err(_) => BuildRunOutcome::TimedOut,
+            }
         }
     };
-    let (assistant_text, run_error) = match timed {
-        Ok(Ok(text)) => (text, None),
-        Ok(Err(e)) => {
+    let (assistant_text, run_error, cancelled) = match timed {
+        BuildRunOutcome::Ran(Ok(text)) => (text, None, false),
+        BuildRunOutcome::Ran(Err(e)) => {
             tracing::warn!(target: "flows", error = %e, "[flows] flows_build: agent run failed");
             (
                 String::new(),
                 Some(format!("workflow_builder run failed: {e:#}")),
+                false,
             )
         }
-        Err(_) => {
+        BuildRunOutcome::TimedOut => {
             tracing::warn!(
                 target: "flows",
                 timeout_secs = FLOW_BUILD_TIMEOUT_SECS,
@@ -6307,8 +6366,14 @@ pub async fn flows_build(
                 Some(format!(
                     "workflow_builder run timed out after {FLOW_BUILD_TIMEOUT_SECS}s"
                 )),
+                false,
             )
         }
+        // A user Stop is not an error (`run_error = None`) — it must not be
+        // reported as a failed turn, nor fall into the trail-off backstop
+        // below that synthesizes a "continue?" question for a turn that
+        // quietly ran out of steam; a deliberate cancel is neither.
+        BuildRunOutcome::Cancelled => (String::new(), None, true),
     };
 
     // Capture the proposal from the run's tool history (propose/revise/save all
@@ -6321,6 +6386,38 @@ pub async fn flows_build(
     // so patching only the latter would still leave an interactive user
     // staring at the original silent/status-only text.
     let proposal = extract_workflow_proposal(agent.history());
+
+    // A user-cancelled turn settles here, clean and separate from the
+    // error/trail-off paths below: `finalize_flow_stream` gets an `Ok(...)` (a
+    // Stop is not an error) so the copilot pane receives the same `chat_done`
+    // terminal event a normal completion would — `ChatRuntimeProvider` ends
+    // the inference turn / detaches the streaming state on that event exactly
+    // as it does for any other settle, so nothing is left dangling on the FE.
+    // Whatever `proposal`/`assistant_text` the turn produced before the
+    // cancel raced it (e.g. it had already called `propose_workflow`) is
+    // still returned — cancelling doesn't discard partial progress.
+    if cancelled {
+        if let Some(target) = &stream {
+            let terminal: Result<String, String> = Ok(assistant_text.clone());
+            finalize_flow_stream(target, &terminal, &prompt).await;
+        }
+        tracing::info!(
+            target: "flows",
+            flow_id = req.flow_id.as_deref().unwrap_or("<none>"),
+            has_proposal = proposal.is_some(),
+            "[flows] flows_build: workflow builder turn cancelled by user"
+        );
+        return Ok(RpcOutcome::single_log(
+            json!({
+                "proposal": proposal,
+                "assistant_text": assistant_text,
+                "error": Value::Null,
+                "capped": false,
+                "trail_off": false,
+            }),
+            "workflow builder turn cancelled by user",
+        ));
+    }
 
     // A run that both errored AND produced no proposal is a hard failure; a run
     // that proposed before erroring still returns the proposal for review.
@@ -6405,6 +6502,42 @@ pub async fn flows_build(
             "trail_off": trail_off,
         }),
         "workflow builder turn complete",
+    ))
+}
+
+/// Cancel the in-flight `flows_build` (Workflow Copilot) turn streaming into
+/// `thread_id`, scoped by `request_id` — the real, working half of the
+/// composer's Stop button (issue: the original FE-only version hid the
+/// button but never touched the running turn, since `flows_build` runs the
+/// agent inline and never registers in `web_chat::IN_FLIGHT` or
+/// `task_dispatcher::ACTIVE_RUNS`).
+///
+/// When `request_id` is `Some`, the cancel only fires if it matches the turn
+/// currently registered on `thread_id` — a stale Stop click for a
+/// superseded/earlier request can't kill a newer turn that has since started
+/// on the same thread (mirrors `task_dispatcher::cancel_session_scoped`,
+/// #4760). `None` cancels whatever turn is on the thread. Returns whether a
+/// turn was found and signalled; `false` is not an error — it just means
+/// nothing was in flight to cancel (already settled, or never started).
+pub async fn flows_build_cancel(
+    thread_id: &str,
+    request_id: Option<&str>,
+) -> Result<RpcOutcome<Value>, String> {
+    let cancelled = build_registry::cancel_build_turn_scoped(thread_id, request_id);
+    tracing::info!(
+        target: "flows",
+        thread_id,
+        request_id = request_id.unwrap_or("<none>"),
+        cancelled,
+        "[flows] flows_build_cancel: cancel request handled"
+    );
+    Ok(RpcOutcome::single_log(
+        json!({ "cancelled": cancelled }),
+        if cancelled {
+            "workflow builder turn cancellation requested"
+        } else {
+            "no in-flight workflow builder turn to cancel"
+        },
     ))
 }
 

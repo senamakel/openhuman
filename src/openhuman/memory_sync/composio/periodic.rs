@@ -448,14 +448,16 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
     // "Sync every 24h" gap across app restarts. We index the persisted sync
     // audit log (wall-clock timestamps that survive restarts) and use it as the
     // due-check fallback whenever the in-memory monotonic record is absent.
-    let audit_entries = try_read_audit_log(&config).map_err(|error| {
-        tracing::warn!(
-            %error,
-            "[memory_sync:periodic] audit unavailable; skipping automatic sync tick"
-        );
-        format!("sync audit unavailable: {error}")
-    })?;
-    let audit_index = index_last_success_by_connection(&audit_entries);
+    let (audit_index, audit_available) = match try_read_audit_log(&config) {
+        Ok(entries) => (index_last_success_by_connection(&entries), true),
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "[memory_sync:periodic] audit unavailable; sources without in-memory cadence will be skipped"
+            );
+            (HashMap::new(), false)
+        }
+    };
     let now = Utc::now();
 
     // Per-source registry snapshot (#2831). The periodic loop gates on the
@@ -518,11 +520,21 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         // Prefer the in-memory monotonic record (most accurate within this run);
         // fall back to the persisted audit timestamp so the configured cadence
         // is honoured across restarts instead of re-firing on every cold start.
-        let since_last_sync = {
+        let in_memory_since = {
             let map = sync_map.lock().unwrap_or_else(|e| e.into_inner());
             map.get(&key).map(|when| when.elapsed())
-        }
-        .or_else(|| persisted_since_last_sync(&audit_index, &conn.id, now));
+        };
+        let since_last_sync = match in_memory_since {
+            Some(since) => Some(since),
+            None if audit_available => persisted_since_last_sync(&audit_index, &conn.id, now),
+            None => {
+                tracing::debug!(
+                    toolkit = %toolkit,
+                    "[composio:periodic] source has unknown cadence while audit is unavailable; skipping"
+                );
+                continue;
+            }
+        };
         if !connection_is_due(interval_secs, since_last_sync) {
             continue;
         }

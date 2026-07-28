@@ -181,14 +181,16 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         return Ok(());
     };
 
-    let audit_entries = try_read_audit_log(&config).map_err(|error| {
-        tracing::warn!(
-            %error,
-            "[memory_sync:workspace:periodic] audit unavailable; skipping automatic sync tick"
-        );
-        format!("sync audit unavailable: {error}")
-    })?;
-    let audit_index = index_last_success_by_source_id(&audit_entries);
+    let (audit_index, audit_available) = match try_read_audit_log(&config) {
+        Ok(entries) => (index_last_success_by_source_id(&entries), true),
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "[memory_sync:workspace:periodic] audit unavailable; sources without in-memory cadence will be skipped"
+            );
+            (HashMap::new(), false)
+        }
+    };
     let now = Utc::now();
     let map = fired_map();
 
@@ -197,11 +199,21 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         .iter()
         .filter(|s| s.enabled && is_workspace_synced_kind(&s.kind))
         .filter(|s| {
-            let since = {
+            let in_memory_since = {
                 let guard = map.lock().unwrap_or_else(|e| e.into_inner());
                 guard.get(&s.id).map(|when| when.elapsed())
-            }
-            .or_else(|| persisted_since_last_sync(&audit_index, &s.id, now));
+            };
+            let since = match in_memory_since {
+                Some(since) => Some(since),
+                None if audit_available => persisted_since_last_sync(&audit_index, &s.id, now),
+                None => {
+                    tracing::debug!(
+                        source_kind = %s.kind.as_str(),
+                        "[memory_sync:workspace:periodic] source has unknown cadence while audit is unavailable; skipping"
+                    );
+                    return false;
+                }
+            };
             connection_is_due(interval_secs, since)
         })
         .cloned()

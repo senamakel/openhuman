@@ -5601,6 +5601,7 @@ dependencies = [
  "tinychannels",
  "tinycortex",
  "tinyflows",
+ "tinyhumans-sdk",
  "tinyjuice",
  "tinyplace",
  "tokio",
@@ -8924,7 +8925,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -9023,6 +9024,20 @@ dependencies = [
  "thiserror 2.0.18",
  "tinyagents",
  "tracing",
+]
+
+[[package]]
+name = "tinyhumans-sdk"
+version = "0.1.0"
+source = "git+https://github.com/tinyhumansai/sdk.git?rev=3ee4123ba3b7a76c5f167d7bc2c72fca86671292#3ee4123ba3b7a76c5f167d7bc2c72fca86671292"
+dependencies = [
+ "base64 0.22.1",
+ "percent-encoding",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "url",
 ]
 
 [[package]]

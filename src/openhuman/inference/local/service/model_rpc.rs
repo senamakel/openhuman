@@ -101,7 +101,15 @@ pub(super) async fn invoke(
             error = %error,
             "[local_ai:model_rpc] local model call failed"
         );
-        format!("local model RPC failed: {error}")
+        if provider == LocalAiProvider::Ollama
+            && error.to_string().contains("error sending request")
+        {
+            format!(
+                "external Ollama endpoint is unavailable; ensure Ollama is already running: {error}"
+            )
+        } else {
+            format!("local model RPC failed: {error}")
+        }
     })?;
     let outcome = model_outcome(response, allow_empty)?;
 

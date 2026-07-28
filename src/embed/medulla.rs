@@ -68,10 +68,7 @@ impl Medulla<'_> {
     ///
     /// `title` is optional — the backend names an untitled session itself
     /// rather than the host inventing one.
-    pub async fn create_session(
-        &self,
-        title: Option<&str>,
-    ) -> Result<SessionCreated, CoreError> {
+    pub async fn create_session(&self, title: Option<&str>) -> Result<SessionCreated, CoreError> {
         call(
             self.0,
             "openhuman.medulla_create_session",

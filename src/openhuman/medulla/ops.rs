@@ -84,10 +84,7 @@ pub async fn create_session(
     title: Option<&str>,
 ) -> Result<RpcOutcome<SessionCreated>, String> {
     let client = resolved(config)?;
-    let created = call(
-        client.create_session(title).await,
-        "medulla_create_session",
-    )?;
+    let created = call(client.create_session(title).await, "medulla_create_session")?;
     log::debug!("[medulla] create_session id={}", created.session_id);
     Ok(RpcOutcome::new(created, Vec::new()))
 }

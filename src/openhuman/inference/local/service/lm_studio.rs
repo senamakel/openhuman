@@ -1,11 +1,9 @@
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::local::lm_studio::{
     apply_lm_studio_auth, lm_studio_base_url, ollama_tags_fallback_url,
-    LmStudioChatCompletionRequest, LmStudioChatCompletionResponse, LmStudioChatMessage,
     LmStudioModelsResponse,
 };
 use crate::openhuman::inference::local::ollama::{OllamaModelTag, OllamaTagsResponse};
-use crate::openhuman::inference::model_ids;
 
 use super::LocalAiService;
 
@@ -16,12 +14,6 @@ fn diagnostic_body_snippet(body: &str) -> String {
         snippet.push_str("...");
     }
     snippet
-}
-
-pub(in crate::openhuman::inference::local::service) struct LmStudioCompletionOutcome {
-    pub reply: String,
-    pub prompt_tokens: Option<u32>,
-    pub completion_tokens: Option<u32>,
 }
 
 impl LocalAiService {
@@ -266,114 +258,5 @@ impl LocalAiService {
             .await?
             .into_iter()
             .any(|m| m.name.to_ascii_lowercase() == target))
-    }
-
-    pub(in crate::openhuman::inference::local::service) async fn lm_studio_chat_completion(
-        &self,
-        config: &Config,
-        messages: Vec<LmStudioChatMessage>,
-        max_tokens: Option<u32>,
-        temperature: f32,
-        allow_empty: bool,
-    ) -> Result<LmStudioCompletionOutcome, String> {
-        let base = lm_studio_base_url(config);
-        let url = format!("{base}/chat/completions");
-        let model = model_ids::effective_chat_model_id(config);
-
-        tracing::debug!(
-            target: "local_ai::lm_studio",
-            %url,
-            %model,
-            message_count = messages.len(),
-            max_tokens = ?max_tokens,
-            "[local_ai:lm_studio] chat completion: sending POST"
-        );
-
-        let body = LmStudioChatCompletionRequest {
-            model,
-            messages,
-            stream: false,
-            temperature: Some(temperature),
-            max_tokens,
-        };
-
-        let request = self
-            .http
-            .post(&url)
-            .timeout(std::time::Duration::from_secs(120))
-            .json(&body);
-        let response = apply_lm_studio_auth(request, config)
-            .send()
-            .await
-            .map_err(|e| {
-                tracing::debug!(
-                    target: "local_ai::lm_studio",
-                    %url,
-                    error = %e,
-                    "[local_ai:lm_studio] chat completion: request failed"
-                );
-                format!("lm studio chat request failed: {e}")
-            })?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            let detail = body.trim();
-            tracing::debug!(
-                target: "local_ai::lm_studio",
-                %url,
-                %status,
-                body = %diagnostic_body_snippet(&body),
-                "[local_ai:lm_studio] chat completion: non-success response"
-            );
-            return Err(format!(
-                "lm studio chat failed with status {}{}",
-                status,
-                if detail.is_empty() {
-                    String::new()
-                } else {
-                    format!(": {detail}")
-                }
-            ));
-        }
-
-        let body = response.text().await.map_err(|e| {
-            tracing::debug!(
-                target: "local_ai::lm_studio",
-                %url,
-                error = %e,
-                "[local_ai:lm_studio] chat completion: body read failed"
-            );
-            format!("lm studio chat response body read failed: {e}")
-        })?;
-        let payload: LmStudioChatCompletionResponse = serde_json::from_str(&body).map_err(|e| {
-            tracing::debug!(
-                target: "local_ai::lm_studio",
-                %url,
-                error = %e,
-                body = %diagnostic_body_snippet(&body),
-                "[local_ai:lm_studio] chat completion: parse failed"
-            );
-            format!("lm studio chat response parse failed: {e}")
-        })?;
-
-        let reply = payload
-            .choices
-            .first()
-            .map(|choice| choice.message.effective_content())
-            .unwrap_or_default();
-
-        if reply.is_empty() && !allow_empty {
-            return Err("lm studio returned empty content".to_string());
-        }
-
-        Ok(LmStudioCompletionOutcome {
-            reply,
-            prompt_tokens: payload.usage.as_ref().and_then(|usage| usage.prompt_tokens),
-            completion_tokens: payload
-                .usage
-                .as_ref()
-                .and_then(|usage| usage.completion_tokens),
-        })
     }
 }

@@ -7,6 +7,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tinyagents::graph::todos::store as todos;
 use tinyagents::harness::store::Store;
@@ -67,6 +68,10 @@ fn snapshot(
     }
 }
 
+fn progress_updated_at() -> String {
+    Utc::now().to_rfc3339()
+}
+
 fn emit_progress(location: &BoardLocation, cards: &[TaskBoardCard]) {
     let BoardLocation::Thread { thread_id, .. } = location else {
         return;
@@ -80,7 +85,7 @@ fn emit_progress(location: &BoardLocation, cards: &[TaskBoardCard]) {
     let board = tinyagents::graph::todos::TaskBoard {
         thread_id: thread_id.clone(),
         cards: cards.to_vec(),
-        updated_at: tinyagents::harness::ids::now_ms().to_string(),
+        updated_at: progress_updated_at(),
     };
     if let Err(error) = tx.try_send(AgentProgress::TaskBoardUpdated { board }) {
         tracing::debug!(thread_id, %error, "task board progress dropped");
@@ -210,4 +215,16 @@ pub(crate) fn scratch_test_lock() -> std::sync::MutexGuard<'static, ()> {
     LOCK.get_or_init(|| Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn progress_timestamp_preserves_rfc3339_wire_format() {
+        let timestamp = super::progress_updated_at();
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(&timestamp).is_ok(),
+            "progress-event updated_at must remain RFC 3339"
+        );
+    }
 }

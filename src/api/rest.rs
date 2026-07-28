@@ -2,13 +2,12 @@
 
 use anyhow::{Context, Result};
 use base64::Engine;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Duration;
-
-use super::jwt::bearer_authorization_value;
+use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
 
 /// Typed errors surfaced by `authed_json` for expected backend states that
 /// callers should recover from in-flow rather than funnel into Sentry.
@@ -225,37 +224,6 @@ fn build_backend_reqwest_client() -> Result<Client> {
         .map_err(|e| anyhow::anyhow!("failed to build HTTP client: {e}"))
 }
 
-fn parse_api_response_json(text: &str) -> Result<Value> {
-    let v: Value = serde_json::from_str(text).with_context(|| format!("parse API JSON: {text}"))?;
-    let Some(obj) = v.as_object() else {
-        return Ok(v);
-    };
-    if let Some(success) = obj.get("success").and_then(|x| x.as_bool()) {
-        if !success {
-            let msg = obj
-                .get("message")
-                .or_else(|| obj.get("error"))
-                .and_then(|x| x.as_str())
-                .unwrap_or("request unsuccessful");
-            anyhow::bail!("API request failed: {msg}");
-        }
-        if let Some(data) = obj.get("data") {
-            if !data.is_null() {
-                return Ok(data.clone());
-            }
-        }
-        if let Some(user) = obj.get("user") {
-            if !user.is_null() {
-                return Ok(user.clone());
-            }
-        }
-        let mut m = obj.clone();
-        m.remove("success");
-        return Ok(Value::Object(m));
-    }
-    Ok(v)
-}
-
 fn user_id_from_object(obj: &serde_json::Map<String, Value>) -> Option<String> {
     for key in ["id", "_id", "userId"] {
         if let Some(s) = obj.get(key).and_then(|x| x.as_str()) {
@@ -303,27 +271,6 @@ pub struct ConnectResponse {
     pub state: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct ConnectEnvelope {
-    success: bool,
-    #[serde(default, alias = "oauthUrl")]
-    oauth_url: Option<String>,
-    #[serde(default)]
-    state: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct IntegrationsEnvelope {
-    success: bool,
-    data: IntegrationsData,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct IntegrationsData {
-    integrations: Vec<IntegrationSummary>,
-}
-
 /// A summary of an active integration, as returned by the backend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -334,28 +281,6 @@ pub struct IntegrationSummary {
     pub provider: String,
     /// RFC3339 timestamp of when the integration was created.
     pub created_at: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct TokensEnvelope {
-    success: bool,
-    data: TokensData,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct TokensData {
-    encrypted: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct LoginTokenConsumeEnvelope {
-    success: bool,
-    data: LoginTokenConsumeData,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct LoginTokenConsumeData {
-    jwt: String,
 }
 
 /// Decrypted OAuth token payload for handing off tokens to a local service or skill.
@@ -376,6 +301,7 @@ pub struct IntegrationTokensHandoff {
 pub struct BackendOAuthClient {
     client: Client,
     base: Url,
+    sdk: TinyHumansClient,
 }
 
 impl BackendOAuthClient {
@@ -397,7 +323,8 @@ impl BackendOAuthClient {
         base.set_query(None);
         base.set_fragment(None);
         let client = build_backend_reqwest_client()?;
-        Ok(Self { client, base })
+        let sdk = TinyHumansClient::new(base.as_str()).with_http_client(client.clone());
+        Ok(Self { client, base, sdk })
     }
 
     /// Borrow the underlying `reqwest::Client` for callers that need to
@@ -436,67 +363,48 @@ impl BackendOAuthClient {
     ) -> Result<ConnectResponse> {
         let p = provider.trim().trim_matches('/');
         anyhow::ensure!(!p.is_empty(), "provider is required");
-        let mut url = self
-            .base
-            .join(&format!("auth/{p}/connect"))
-            .context("build connect URL")?;
-        if let Some(s) = skill_id.filter(|s| !s.is_empty()) {
-            url.query_pairs_mut().append_pair("skillId", s);
-        }
-        if let Some(r) = response_type.filter(|r| !r.is_empty()) {
-            url.query_pairs_mut().append_pair("responseType", r);
-        }
-        if let Some(e) = encryption_mode.filter(|e| !e.is_empty()) {
-            url.query_pairs_mut().append_pair("encryptionMode", e);
-        }
-
-        let resp = self
-            .client
-            .get(url)
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt))
-            .send()
+        let query = {
+            let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+            if let Some(s) = skill_id.filter(|s| !s.is_empty()) {
+                serializer.append_pair("skillId", s);
+            }
+            if let Some(r) = response_type.filter(|r| !r.is_empty()) {
+                serializer.append_pair("responseType", r);
+            }
+            if let Some(e) = encryption_mode.filter(|e| !e.is_empty()) {
+                serializer.append_pair("encryptionMode", e);
+            }
+            serializer.finish()
+        };
+        let path = if query.is_empty() {
+            format!("auth/{p}/connect")
+        } else {
+            format!("auth/{p}/connect?{query}")
+        };
+        let value = self
+            .authed_json(bearer_jwt, Method::GET, &path, None)
             .await
             .context("auth connect request")?;
-
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            anyhow::bail!("auth connect failed ({status}): {text}");
-        }
-
-        let env: ConnectEnvelope =
-            serde_json::from_str(&text).with_context(|| format!("parse connect JSON: {text}"))?;
-        if !env.success {
-            anyhow::bail!("auth connect unsuccessful: {text}");
-        }
-        let oauth_url = env
-            .oauth_url
-            .filter(|u| !u.is_empty())
+        let oauth_url = value
+            .get("oauthUrl")
+            .or_else(|| value.get("oauth_url"))
+            .and_then(Value::as_str)
+            .filter(|url| !url.is_empty())
+            .map(str::to_owned)
             .context("missing oauthUrl in response")?;
-        let state = env
-            .state
-            .filter(|s| !s.is_empty())
+        let state = value
+            .get("state")
+            .and_then(Value::as_str)
+            .filter(|state| !state.is_empty())
+            .map(str::to_owned)
             .context("missing state")?;
         Ok(ConnectResponse { oauth_url, state })
     }
 
     /// Fetches the current authenticated user profile using the provided JWT.
     pub async fn fetch_current_user(&self, bearer_jwt: &str) -> Result<Value> {
-        let url = self.base.join("auth/me").context("build /auth/me URL")?;
-        let resp = self
-            .client
-            .get(url)
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt))
-            .send()
+        self.authed_json(bearer_jwt, Method::GET, "auth/me", None)
             .await
-            .context("GET /auth/me")?;
-
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            anyhow::bail!("GET /auth/me failed ({status}): {text}");
-        }
-        parse_api_response_json(&text)
     }
 
     /// Exchanges a one-time login token (e.g. from Telegram) for a long-lived JWT.
@@ -510,32 +418,20 @@ impl BackendOAuthClient {
         // `telegram/login-tokens/{token}/consume` path-param route was removed, so
         // the old call 404'd and Telegram/OAuth-token login could never complete
         // (WIRING_GAPS_AUDIT C1/C2).
-        let url = self
-            .base
-            .join("auth/login-token/consume")
-            .context("build login-token consume URL")?;
-
-        let resp = self
-            .client
-            .post(url)
-            .json(&serde_json::json!({ "token": token }))
-            .send()
+        let response = self
+            .sdk
+            .auth()
+            .consume_login_token(&tinyhumans_sdk::api::types::LoginTokenRequest {
+                token: token.to_string(),
+            })
             .await
-            .context("consume login token")?;
-
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            anyhow::bail!("consume login token failed ({status}): {text}");
-        }
-
-        let env: LoginTokenConsumeEnvelope = serde_json::from_str(&text)
-            .with_context(|| format!("parse consume-login-token JSON: {text}"))?;
-        if !env.success {
-            anyhow::bail!("consume login token unsuccessful: {text}");
-        }
-
-        let jwt = env.data.jwt.trim().to_string();
+            .context("consume login token through TinyHumans SDK")?;
+        let jwt = response
+            .get("jwt")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         anyhow::ensure!(!jwt.is_empty(), "consume login token response missing jwt");
         Ok(jwt)
     }
@@ -556,26 +452,13 @@ impl BackendOAuthClient {
         anyhow::ensure!(!channel.is_empty(), "channel is required");
         let encoded_channel = urlencoding::encode(channel);
 
-        let url = self
-            .base
-            .join(&format!("auth/channels/{encoded_channel}/link-token"))
-            .context("build channel link-token URL")?;
-
-        let resp = self
-            .client
-            .post(url)
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt))
-            .send()
-            .await
-            .context("create channel link token")?;
-
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            anyhow::bail!("create channel link token failed ({status}): {text}");
-        }
-
-        parse_api_response_json(&text)
+        self.authed_json(
+            bearer_jwt,
+            Method::POST,
+            &format!("auth/channels/{encoded_channel}/link-token"),
+            None,
+        )
+        .await
     }
 
     /// Generic authenticated JSON request helper for backend API routes.
@@ -586,68 +469,89 @@ impl BackendOAuthClient {
         path: &str,
         body: Option<Value>,
     ) -> Result<Value> {
-        let url = self
-            .base
-            .join(path.trim_start_matches('/'))
-            .with_context(|| format!("build URL for {path}"))?;
-
-        let mut request = self
-            .client
-            .request(method.clone(), url.clone())
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt));
-
-        if let Some(body) = body {
-            request = request.json(&body);
-        }
-
-        let response = request.send().await.map_err(|e| {
-            // Walk the error source chain so transient markers hidden in nested
-            // causes (reqwest -> hyper -> rustls TLS EOF, etc.) still classify
-            // correctly. The top-level `e.to_string()` often only carries the
-            // outermost wrapper, e.g. "error sending request for url (...)".
-            let mut error_message = e.to_string();
-            let mut src: Option<&(dyn std::error::Error + 'static)> = std::error::Error::source(&e);
-            while let Some(s) = src {
-                error_message.push_str(" → ");
-                error_message.push_str(&s.to_string());
-                src = s.source();
-            }
-            if crate::core::observability::contains_transient_transport_phrase(&error_message) {
-                tracing::warn!(
-                    domain = "backend_api",
-                    operation = "authed_json",
-                    method = method.as_str(),
-                    path = url.path(),
-                    failure = "transport",
-                    error = %error_message,
-                    "[backend_api] transient transport failure on {} {}: {}",
+        // OpenHuman does not consume backend webhook APIs. Keep that boundary
+        // local even though the shared SDK intentionally exposes the
+        // user-owned `/webhooks/core` tunnel CRUD surface for other clients.
+        // Platform-admin operations are independently rejected by the SDK's
+        // generated route gate below.
+        anyhow::ensure!(
+            !path
+                .split(['/', '?'])
+                .any(|segment| segment.eq_ignore_ascii_case("webhooks")),
+            "backend webhook routes are not exposed through OpenHuman"
+        );
+        let url = self.url_for(path)?;
+        let sdk = self
+            .sdk
+            .clone()
+            .with_token(Some(bearer_jwt.trim().to_string()));
+        let response = sdk
+            .raw()
+            .send(method.clone(), path, &[], body.as_ref(), true)
+            .await;
+        let value = match response {
+            Ok(value) => return Ok(value),
+            Err(SdkError::Http(e)) => {
+                // Walk the error source chain so transient markers hidden in nested
+                // causes (reqwest -> hyper -> rustls TLS EOF, etc.) still classify
+                // correctly. The top-level `e.to_string()` often only carries the
+                // outermost wrapper, e.g. "error sending request for url (...)".
+                let mut error_message = e.to_string();
+                let mut src: Option<&(dyn std::error::Error + 'static)> =
+                    std::error::Error::source(&e);
+                while let Some(s) = src {
+                    error_message.push_str(" → ");
+                    error_message.push_str(&s.to_string());
+                    src = s.source();
+                }
+                if crate::core::observability::contains_transient_transport_phrase(&error_message) {
+                    tracing::warn!(
+                        domain = "backend_api",
+                        operation = "authed_json",
+                        method = method.as_str(),
+                        path = url.path(),
+                        failure = "transport",
+                        error = %error_message,
+                        "[backend_api] transient transport failure on {} {}: {}",
+                        method.as_str(),
+                        url.path(),
+                        error_message,
+                    );
+                } else {
+                    crate::core::observability::report_error(
+                        error_message.as_str(),
+                        "backend_api",
+                        "authed_json",
+                        &[
+                            ("method", method.as_str()),
+                            ("path", url.path()),
+                            ("failure", "transport"),
+                        ],
+                    );
+                }
+                return Err(anyhow::Error::new(e).context(format!(
+                    "backend request {} {}",
                     method.as_str(),
-                    url.path(),
-                    error_message,
-                );
-            } else {
-                crate::core::observability::report_error(
-                    error_message.as_str(),
-                    "backend_api",
-                    "authed_json",
-                    &[
-                        ("method", method.as_str()),
-                        ("path", url.path()),
-                        ("failure", "transport"),
-                    ],
-                );
+                    url.path()
+                )));
             }
-            anyhow::Error::new(e).context(format!(
-                "backend request {} {}",
-                method.as_str(),
-                url.path()
-            ))
-        })?;
-
-        let status = response.status();
-        let text = response.text().await.unwrap_or_default();
-        if !status.is_success() {
-            let status_code = status.as_u16();
+            Err(SdkError::Status { status, body }) => (status, body),
+            Err(error) => {
+                return Err(anyhow::Error::new(error).context(format!(
+                    "backend request {} {}",
+                    method.as_str(),
+                    url.path()
+                )));
+            }
+        };
+        {
+            let (status_code, response_body) = value;
+            let status = reqwest::StatusCode::from_u16(status_code)
+                .context("SDK returned an invalid HTTP status")?;
+            let text = match response_body {
+                Value::String(text) => text,
+                other => serde_json::to_string(&other).unwrap_or_default(),
+            };
             let status_str = status_code.to_string();
 
             // 401 on any authed backend endpoint is an expected user-session
@@ -810,35 +714,18 @@ impl BackendOAuthClient {
                 url.path()
             );
         }
-
-        parse_api_response_json(&text)
     }
 
     /// Lists all active integrations for the current user.
     pub async fn list_integrations(&self, bearer_jwt: &str) -> Result<Vec<IntegrationSummary>> {
-        let url = self
-            .base
-            .join("auth/integrations")
-            .context("build integrations URL")?;
-        let resp = self
-            .client
-            .get(url)
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt))
-            .send()
-            .await
-            .context("list integrations")?;
-
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            anyhow::bail!("list integrations failed ({status}): {text}");
-        }
-        let env: IntegrationsEnvelope = serde_json::from_str(&text)
-            .with_context(|| format!("parse integrations JSON: {text}"))?;
-        if !env.success {
-            anyhow::bail!("list integrations unsuccessful: {text}");
-        }
-        Ok(env.data.integrations)
+        let value = self
+            .authed_json(bearer_jwt, Method::GET, "auth/integrations", None)
+            .await?;
+        let integrations = value
+            .get("integrations")
+            .cloned()
+            .unwrap_or_else(|| value.clone());
+        serde_json::from_value(integrations).context("parse integrations response")
     }
 
     /// Fetches the decrypted OAuth tokens for a specific integration.
@@ -856,31 +743,21 @@ impl BackendOAuthClient {
             !id.is_empty() && id.len() == 24,
             "integrationId must be a 24-char hex id"
         );
-        let url = self
-            .base
-            .join(&format!("auth/integrations/{id}/tokens"))
-            .context("build tokens URL")?;
         let body = serde_json::json!({ "key": encryption_key.trim() });
-        let resp = self
-            .client
-            .post(url)
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt))
-            .json(&body)
-            .send()
+        let value = self
+            .authed_json(
+                bearer_jwt,
+                Method::POST,
+                &format!("auth/integrations/{id}/tokens"),
+                Some(body),
+            )
             .await
             .context("integration tokens handoff")?;
-
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            anyhow::bail!("integration tokens failed ({status}): {text}");
-        }
-        let env: TokensEnvelope =
-            serde_json::from_str(&text).with_context(|| format!("parse tokens JSON: {text}"))?;
-        if !env.success {
-            anyhow::bail!("integration tokens unsuccessful: {text}");
-        }
-        let plaintext = decrypt_handoff_blob(&env.data.encrypted, encryption_key.trim())?;
+        let encrypted = value
+            .get("encrypted")
+            .and_then(Value::as_str)
+            .context("integration tokens response missing encrypted payload")?;
+        let plaintext = decrypt_handoff_blob(encrypted, encryption_key.trim())?;
         serde_json::from_str(&plaintext).context("parse decrypted token JSON")
     }
 
@@ -894,42 +771,19 @@ impl BackendOAuthClient {
             !id.is_empty() && id.len() == 24,
             "integrationId must be a 24-char hex id"
         );
-        let url = self
-            .base
-            .join(&format!("auth/integrations/{id}/client-key"))
-            .context("build client-key URL")?;
-        let resp = self
-            .client
-            .post(url)
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt))
-            .send()
+        let value = self
+            .authed_json(
+                bearer_jwt,
+                Method::POST,
+                &format!("auth/integrations/{id}/client-key"),
+                None,
+            )
             .await
             .context("fetch client key")?;
-
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            anyhow::bail!("fetch client key failed ({status}): {text}");
-        }
-        let v: Value = serde_json::from_str(&text)
-            .with_context(|| format!("parse client-key JSON: {text}"))?;
-        let obj = v.as_object().context("expected JSON object")?;
-        let success = obj
-            .get("success")
-            .and_then(|s| s.as_bool())
-            .unwrap_or(false);
-        if !success {
-            let msg = obj
-                .get("error")
-                .and_then(|e| e.as_str())
-                .unwrap_or("client key retrieval unsuccessful");
-            anyhow::bail!("fetch client key failed: {msg}");
-        }
-        let client_key = obj
-            .get("data")
-            .and_then(|d| d.get("clientKey"))
+        let client_key = value
+            .get("clientKey")
             .and_then(|k| k.as_str())
-            .context("missing data.clientKey in response")?;
+            .context("missing clientKey in response")?;
         Ok(client_key.to_string())
     }
 
@@ -1120,23 +974,13 @@ impl BackendOAuthClient {
     pub async fn revoke_integration(&self, integration_id: &str, bearer_jwt: &str) -> Result<()> {
         let id = integration_id.trim();
         anyhow::ensure!(!id.is_empty(), "integration id is required");
-        let url = self
-            .base
-            .join(&format!("auth/integrations/{id}"))
-            .context("build revoke URL")?;
-        let resp = self
-            .client
-            .delete(url)
-            .header(AUTHORIZATION, bearer_authorization_value(bearer_jwt))
-            .send()
-            .await
-            .context("revoke integration")?;
-
-        let status = resp.status();
-        if !status.is_success() {
-            let text = resp.text().await.unwrap_or_default();
-            anyhow::bail!("revoke integration failed ({status}): {text}");
-        }
+        self.authed_json(
+            bearer_jwt,
+            Method::DELETE,
+            &format!("auth/integrations/{id}"),
+            None,
+        )
+        .await?;
         Ok(())
     }
 }

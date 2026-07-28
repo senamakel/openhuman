@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 use crate::openhuman::config::Config;
 use crate::rpc::{RpcOutcome, StructuredRpcError};
 
-use super::client::{ClientError, MedullaClient, RosterWorker, SessionSummary};
+use super::client::{
+    AbortResult, ClientError, EventEnvelope, MedullaClient, Message, RosterWorker, SendResult,
+    SessionCreated, SessionDetail, SessionSummary,
+};
 use super::resolve::{self, NotConfigured};
 
 /// Whether the Medulla integration is usable, and why not when it isn't.
@@ -70,6 +73,110 @@ pub async fn list_sessions(config: &Config) -> Result<RpcOutcome<Vec<SessionSumm
     let sessions = call(client.list_sessions().await, "medulla_list_sessions")?;
     log::debug!("[medulla] list_sessions count={}", sessions.len());
     Ok(RpcOutcome::new(sessions, Vec::new()))
+}
+
+/// Create a durable session.
+///
+/// `title` is optional; the backend names an untitled session itself rather
+/// than this host inventing one.
+pub async fn create_session(
+    config: &Config,
+    title: Option<&str>,
+) -> Result<RpcOutcome<SessionCreated>, String> {
+    let client = resolved(config)?;
+    let created = call(
+        client.create_session(title).await,
+        "medulla_create_session",
+    )?;
+    log::debug!("[medulla] create_session id={}", created.session_id);
+    Ok(RpcOutcome::new(created, Vec::new()))
+}
+
+/// Fetch one session's state.
+pub async fn get_session(
+    config: &Config,
+    session_id: &str,
+) -> Result<RpcOutcome<SessionDetail>, String> {
+    let client = resolved(config)?;
+    let detail = call(client.get_session(session_id).await, "medulla_get_session")?;
+    Ok(RpcOutcome::new(detail, Vec::new()))
+}
+
+/// Send a message to a session.
+///
+/// `sync = false` returns as soon as the backend accepts the turn; `true`
+/// blocks until it replies. The caller chooses, because a TUI wants the former
+/// (so it can render streaming progress) while a scripted client wants the
+/// latter.
+pub async fn send_message(
+    config: &Config,
+    session_id: &str,
+    body: &str,
+    sync: bool,
+) -> Result<RpcOutcome<SendResult>, String> {
+    let client = resolved(config)?;
+    let result = call(
+        client.send_message(session_id, body, sync).await,
+        "medulla_send_message",
+    )?;
+    log::debug!(
+        "[medulla] send_message session={session_id} sync={sync} cycle={} seq={}",
+        result.cycle_id,
+        result.seq
+    );
+    Ok(RpcOutcome::new(result, Vec::new()))
+}
+
+/// Abort a session's running cycle.
+pub async fn abort(config: &Config, session_id: &str) -> Result<RpcOutcome<AbortResult>, String> {
+    let client = resolved(config)?;
+    let result = call(client.abort(session_id).await, "medulla_abort")?;
+    log::debug!(
+        "[medulla] abort session={session_id} aborted={}",
+        result.aborted
+    );
+    Ok(RpcOutcome::new(result, Vec::new()))
+}
+
+/// Replay a session's messages after `after`.
+///
+/// `after` is a cursor, not a page offset: passing the last seq already seen
+/// returns only what is new, which is what makes a reconnect cheap.
+pub async fn list_messages(
+    config: &Config,
+    session_id: &str,
+    after: Option<i64>,
+) -> Result<RpcOutcome<Vec<Message>>, String> {
+    let client = resolved(config)?;
+    let messages = call(
+        client.list_messages(session_id, after).await,
+        "medulla_list_messages",
+    )?;
+    log::debug!(
+        "[medulla] list_messages session={session_id} after={after:?} count={}",
+        messages.len()
+    );
+    Ok(RpcOutcome::new(messages, Vec::new()))
+}
+
+/// Replay a session's events after `after`.
+///
+/// Same cursor semantics as [`list_messages`].
+pub async fn list_events(
+    config: &Config,
+    session_id: &str,
+    after: Option<i64>,
+) -> Result<RpcOutcome<Vec<EventEnvelope>>, String> {
+    let client = resolved(config)?;
+    let events = call(
+        client.list_events(session_id, after).await,
+        "medulla_list_events",
+    )?;
+    log::debug!(
+        "[medulla] list_events session={session_id} after={after:?} count={}",
+        events.len()
+    );
+    Ok(RpcOutcome::new(events, Vec::new()))
 }
 
 /// Read the connected worker roster.

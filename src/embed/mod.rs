@@ -59,7 +59,10 @@ mod medulla;
 pub use config::{Config, RuntimeFlags};
 pub use error::CoreError;
 #[cfg(feature = "medulla")]
-pub use medulla::{Medulla, MedullaStatus, RosterWorker, SessionSummary};
+pub use medulla::{
+    AbortResult, EventEnvelope, Medulla, MedullaStatus, Message, RosterWorker, SendResult,
+    SessionCreated, SessionDetail, SessionSummary,
+};
 
 use std::sync::Arc;
 

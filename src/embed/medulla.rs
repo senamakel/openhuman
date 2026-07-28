@@ -22,7 +22,10 @@ use super::call::call;
 use super::error::CoreError;
 use crate::core::runtime::CoreRuntime;
 
-pub use crate::openhuman::medulla::client::{RosterWorker, SessionSummary};
+pub use crate::openhuman::medulla::client::{
+    AbortResult, EventEnvelope, Message, RosterWorker, SendResult, SessionCreated, SessionDetail,
+    SessionSummary,
+};
 pub use crate::openhuman::medulla::ops::MedullaStatus;
 
 /// Typed access to the Medulla backend.
@@ -61,6 +64,95 @@ impl Medulla<'_> {
         .await
     }
 
+    /// Create a durable session.
+    ///
+    /// `title` is optional — the backend names an untitled session itself
+    /// rather than the host inventing one.
+    pub async fn create_session(
+        &self,
+        title: Option<&str>,
+    ) -> Result<SessionCreated, CoreError> {
+        call(
+            self.0,
+            "openhuman.medulla_create_session",
+            serde_json::json!({ "title": title }),
+        )
+        .await
+    }
+
+    /// Fetch one session's state.
+    pub async fn get_session(&self, session_id: &str) -> Result<SessionDetail, CoreError> {
+        call(
+            self.0,
+            "openhuman.medulla_get_session",
+            serde_json::json!({ "sessionId": session_id }),
+        )
+        .await
+    }
+
+    /// Send a message to a session.
+    ///
+    /// `sync = false` returns as soon as the backend accepts the turn, leaving
+    /// the reply to arrive over the event stream; `true` blocks until it
+    /// replies. A UI wants the former so it can render progress, a scripted
+    /// caller usually wants the latter.
+    pub async fn send_message(
+        &self,
+        session_id: &str,
+        body: &str,
+        sync: bool,
+    ) -> Result<SendResult, CoreError> {
+        call(
+            self.0,
+            "openhuman.medulla_send_message",
+            serde_json::json!({ "sessionId": session_id, "body": body, "sync": sync }),
+        )
+        .await
+    }
+
+    /// Abort a session's running cycle.
+    pub async fn abort(&self, session_id: &str) -> Result<AbortResult, CoreError> {
+        call(
+            self.0,
+            "openhuman.medulla_abort",
+            serde_json::json!({ "sessionId": session_id }),
+        )
+        .await
+    }
+
+    /// Replay a session's messages after `after`.
+    ///
+    /// `after` is a cursor, not a page offset: passing the last seq already
+    /// seen returns only what is new, which is what makes a reconnect cheap.
+    pub async fn list_messages(
+        &self,
+        session_id: &str,
+        after: Option<i64>,
+    ) -> Result<Vec<Message>, CoreError> {
+        call(
+            self.0,
+            "openhuman.medulla_list_messages",
+            serde_json::json!({ "sessionId": session_id, "after": after }),
+        )
+        .await
+    }
+
+    /// Replay a session's events after `after`.
+    ///
+    /// Same cursor semantics as [`list_messages`](Self::list_messages).
+    pub async fn list_events(
+        &self,
+        session_id: &str,
+        after: Option<i64>,
+    ) -> Result<Vec<EventEnvelope>, CoreError> {
+        call(
+            self.0,
+            "openhuman.medulla_list_events",
+            serde_json::json!({ "sessionId": session_id, "after": after }),
+        )
+        .await
+    }
+
     /// Read the roster of workers currently connected to the backend.
     ///
     /// # Errors
@@ -92,6 +184,12 @@ mod tests {
         for method in [
             "openhuman.medulla_status",
             "openhuman.medulla_list_sessions",
+            "openhuman.medulla_create_session",
+            "openhuman.medulla_get_session",
+            "openhuman.medulla_send_message",
+            "openhuman.medulla_abort",
+            "openhuman.medulla_list_messages",
+            "openhuman.medulla_list_events",
             "openhuman.medulla_roster",
         ] {
             assert!(

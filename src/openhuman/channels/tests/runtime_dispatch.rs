@@ -414,8 +414,14 @@ async fn channel_processed_event_records_resolved_agent_route() {
     for _ in 0..50 {
         let event = tokio::time::timeout(Duration::from_millis(200), events.recv())
             .await
-            .expect("ChannelMessageProcessed event should be published")
-            .expect("event receiver should stay open");
+            .expect("ChannelMessageProcessed event should be published");
+        let event = match event {
+            Ok(event) => event,
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                panic!("event receiver should stay open")
+            }
+        };
 
         if let DomainEvent::ChannelMessageProcessed {
             message_id,

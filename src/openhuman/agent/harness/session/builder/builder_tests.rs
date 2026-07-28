@@ -279,6 +279,7 @@ async fn profile_allowed_tools_restrict_shared_session_builder() {
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
+    let orchestrator = builtin_def("orchestrator");
     let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
     profile.id = "alice".to_string();
     profile.built_in = false;
@@ -287,7 +288,7 @@ async fn profile_allowed_tools_restrict_shared_session_builder() {
     let agent = Agent::build_session_agent_inner(
         &config,
         "orchestrator",
-        None,
+        Some(&orchestrator),
         None,
         None,
         false,

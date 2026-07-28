@@ -1,7 +1,6 @@
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::local::lm_studio::{
-    apply_lm_studio_auth, lm_studio_base_url, ollama_tags_fallback_url,
-    LmStudioModelsResponse,
+    apply_lm_studio_auth, lm_studio_base_url, ollama_tags_fallback_url, LmStudioModelsResponse,
 };
 use crate::openhuman::inference::local::ollama::{OllamaModelTag, OllamaTagsResponse};
 

@@ -13,7 +13,7 @@
 
 use std::path::{Path, PathBuf};
 
-use chrono::Utc;
+use chrono::{TimeZone, Utc};
 use tinyagents::graph::todos::store as crate_todos;
 pub use tinyagents::graph::todos::{
     normalise_board, TaskApprovalMode, TaskBoard, TaskBoardCard, TaskCardStatus,
@@ -42,7 +42,12 @@ impl TaskBoardStore {
             .await
             .map_err(|error| format!("decode crate task board for thread {thread_id}: {error}"))?
         {
-            Some(board) => {
+            Some(mut board) => {
+                if let Ok(updated_at_ms) = board.updated_at.parse::<i64>() {
+                    if let Some(updated_at) = Utc.timestamp_millis_opt(updated_at_ms).single() {
+                        board.updated_at = updated_at.to_rfc3339();
+                    }
+                }
                 tracing::debug!(
                     thread_id = %thread_id,
                     card_count = board.cards.len(),
@@ -215,6 +220,10 @@ mod tests {
         let loaded = store.get("thread-1").await.expect("get").expect("present");
         assert_eq!(loaded.cards.len(), 2);
         assert_eq!(loaded.cards[1].status, TaskCardStatus::Blocked);
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(&loaded.updated_at).is_ok(),
+            "persisted board reads must preserve the RFC 3339 wire format"
+        );
 
         assert!(store.delete("thread-1").await.expect("delete existing"));
         assert!(store.get("thread-1").await.expect("get deleted").is_none());

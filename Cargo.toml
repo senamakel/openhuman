@@ -290,11 +290,11 @@ ppt-rs = { version = "0.2.14", optional = true }
 # drops both `ratatui` and `crossterm`. Kept in lockstep — ratatui 0.30
 # re-exports crossterm 0.29, so declaring crossterm directly at the same major
 # unifies to a single crossterm in the dep graph. Only compiled into
-# `src/openhuman/tui/` behind `#[cfg(feature = "tui")]`.
+# `src/tui/` behind `#[cfg(feature = "tui")]`.
 ratatui = { version = "0.30", optional = true }
 crossterm = { version = "0.29", optional = true }
 # Terminal column-width measurement for the `tui` chat renderer
-# (`src/openhuman/tui/render.rs`); only compiled behind `#[cfg(feature = "tui")]`.
+# (`src/tui/render.rs`); only compiled behind `#[cfg(feature = "tui")]`.
 unicode-width = { version = "0.2", optional = true }
 # Native-Rust `.docx` writer for the `generate_document` tool (GH #4847).
 # Pure Rust (no subprocess / managed runtime), MIT-licensed, actively
@@ -564,11 +564,10 @@ crash-reporting = ["dep:sentry"]
 # Tauri UI and never needs a terminal one) — see the allowlist entry in
 # `scripts/ci/check-feature-forwarding.mjs`. Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without tui>"`, which drops
-# the exclusive `ratatui` + `crossterm` dependencies. The module
-# `src/openhuman/tui/` is a facade (always compiled) whose behavioural submodules
-# are `#[cfg(feature = "tui")]`; when off, `tui::stub::run_from_cli` returns a
-# build-fact "tui feature disabled at compile time" error from the untouched
-# `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
+# the exclusive `ratatui` + `crossterm` dependencies. The crate-root
+# `src/tui/` module is declared only under `#[cfg(feature = "tui")]`; when off,
+# the always-compiled CLI dispatcher returns a build-fact "tui feature disabled
+# at compile time" error for the `"tui" | "chat"` commands.
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
 # Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
 # a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,

@@ -42,6 +42,18 @@ fn managed_budget_applies_to_path(path: &str) -> bool {
     path != "/agent-integrations/pricing" && path.starts_with("/agent-integrations/")
 }
 
+fn reject_backend_webhook_path(method: &str, path: &str) -> anyhow::Result<()> {
+    let route = path.split('?').next().unwrap_or(path);
+    if route.split('/').any(|segment| segment == "webhooks") {
+        anyhow::bail!(
+            "route is intentionally not exposed by the SDK: {} {}",
+            method,
+            route
+        );
+    }
+    Ok(())
+}
+
 /// Handle a `401 Unauthorized` from the OpenHuman backend's
 /// `/agent-integrations/*` routes.
 ///
@@ -464,6 +476,7 @@ impl IntegrationClient {
         path: &str,
         body: Option<&serde_json::Value>,
     ) -> anyhow::Result<T> {
+        reject_backend_webhook_path(method.as_str(), path)?;
         enforce_backend_egress(path)?;
         emit_backend_egress(path);
         self.ensure_budget_available(path).await?;
@@ -507,6 +520,7 @@ impl IntegrationClient {
         path: &str,
         form: reqwest::multipart::Form,
     ) -> anyhow::Result<T> {
+        reject_backend_webhook_path("POST", path)?;
         enforce_backend_egress(path)?;
         emit_backend_egress(path);
         self.ensure_budget_available(path).await?;

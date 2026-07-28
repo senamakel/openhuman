@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use chrono::Utc;
 
-use crate::openhuman::people::address_book;
 use crate::openhuman::people::resolver::HandleResolver;
 use crate::openhuman::people::store::PeopleStore;
 use crate::openhuman::people::types::{Handle, PersonId};

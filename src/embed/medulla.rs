@@ -162,7 +162,6 @@ impl Medulla<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::openhuman::medulla::all_medulla_registered_controllers;
 
     /// Every method this facade dispatches must name a registered controller.

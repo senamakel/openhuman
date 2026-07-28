@@ -14,18 +14,16 @@ use tinyagents::harness::embeddings::{
 
 use super::LocalAiService;
 
-fn embedding_dimensions(model_id: &str) -> Result<usize, String> {
+fn embedding_dimensions(model_id: &str) -> Option<usize> {
     let normalized = model_id.trim().to_ascii_lowercase();
     if normalized.starts_with("all-minilm") {
-        Ok(384)
+        Some(384)
     } else if normalized.contains("bge-m3") || normalized.starts_with("mxbai-embed-large") {
-        Ok(DEFAULT_OLLAMA_DIMENSIONS)
+        Some(DEFAULT_OLLAMA_DIMENSIONS)
     } else if normalized.starts_with("nomic-embed-text") {
-        Ok(768)
+        Some(768)
     } else {
-        Err(format!(
-            "embedding dimensions are unknown for local model `{model_id}`"
-        ))
+        None
     }
 }
 
@@ -176,20 +174,26 @@ impl LocalAiService {
         let _gate_permit = crate::openhuman::scheduler_gate::wait_for_capacity().await;
 
         let embed_base = ollama_base_url_from_config(config);
-        let dimensions = embedding_dimensions(&embedding_model)?;
+        let dimensions = embedding_dimensions(&embedding_model);
         log::debug!(
             "[local_ai:embed] embed: using model={} dimensions={} base_url={}",
             embedding_model,
-            dimensions,
+            dimensions
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "dynamic".to_string()),
             redact_ollama_base_url(&embed_base)
         );
-        let model = OllamaEmbeddingModel::try_new(&embed_base, &embedding_model, dimensions)
-            .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
-            .with_client(self.http.clone())
-            .with_context_options(
-                RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
-                RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
-            );
+        let model = if let Some(dimensions) = dimensions {
+            OllamaEmbeddingModel::try_new(&embed_base, &embedding_model, dimensions)
+        } else {
+            OllamaEmbeddingModel::try_new_dynamic(&embed_base, &embedding_model)
+        }
+        .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
+        .with_client(self.http.clone())
+        .with_context_options(
+            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+        );
         let vectors = model
             .embed(&items)
             .await
@@ -309,10 +313,10 @@ mod tests {
 
     #[test]
     fn embedding_dimensions_match_supported_legacy_models() {
-        assert_eq!(embedding_dimensions("bge-m3").unwrap(), 1024);
-        assert_eq!(embedding_dimensions("all-minilm:latest").unwrap(), 384);
-        assert_eq!(embedding_dimensions("nomic-embed-text").unwrap(), 768);
-        assert!(embedding_dimensions("user-managed-model").is_err());
+        assert_eq!(embedding_dimensions("bge-m3"), Some(1024));
+        assert_eq!(embedding_dimensions("all-minilm:latest"), Some(384));
+        assert_eq!(embedding_dimensions("nomic-embed-text"), Some(768));
+        assert_eq!(embedding_dimensions("user-managed-model"), None);
     }
 
     #[tokio::test]

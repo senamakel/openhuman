@@ -46,10 +46,11 @@ duplication.
 
 ## Cleanup executed
 
-The unused `memory_tools::types` and `memory_tools::store` facade files were
-removed. `memory_tools` now re-exports the crate-owned types and store directly
-at its existing domain-level API and retains only the host constructor, prompt
-integration, capture hook, and agent tools.
+The unused `memory_tools::types` facade file was removed. `memory_tools` now
+re-exports the crate-owned types and store directly at its existing domain-level
+API. Its private `store` module retains only the host constructor so `mod.rs`
+remains export-focused; prompt integration, the capture hook, and agent tools
+also stay host-owned.
 
 Other small re-export modules remain where they preserve heavily used import
 paths such as `memory_queue::types`, `memory_sources::types`,

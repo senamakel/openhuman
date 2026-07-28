@@ -18,7 +18,7 @@ pub(super) struct ModelRpcOutcome {
     pub completion_tokens: Option<u64>,
 }
 
-fn local_model(config: &Config, model_id: &str) -> OpenAiModel {
+fn local_model(config: &Config, model_id: &str) -> Result<OpenAiModel, String> {
     match provider_from_config(config) {
         LocalAiProvider::LmStudio => OpenAiModel::lm_studio(
             lm_studio_base_url(config),
@@ -29,6 +29,7 @@ fn local_model(config: &Config, model_id: &str) -> OpenAiModel {
             OpenAiModel::ollama_at(ollama_base_url_from_config(config), model_id)
         }
     }
+    .map_err(|error| format!("invalid local model RPC configuration: {error}"))
 }
 
 pub(super) async fn invoke(
@@ -39,7 +40,7 @@ pub(super) async fn invoke(
     allow_empty: bool,
 ) -> Result<ModelRpcOutcome, String> {
     let model_id = crate::openhuman::inference::model_ids::effective_chat_model_id(config);
-    let model = local_model(config, &model_id);
+    let model = local_model(config, &model_id)?;
 
     let mut request = ModelRequest::new(messages)
         .with_model(model_id)
@@ -58,10 +59,18 @@ pub(super) async fn invoke(
         return Err("local model RPC returned empty content".to_owned());
     }
 
+    let prompt_tokens = response
+        .usage
+        .as_ref()
+        .and_then(|usage| (usage.input_tokens > 0).then_some(usage.input_tokens));
+    let completion_tokens = response
+        .usage
+        .as_ref()
+        .and_then(|usage| (usage.output_tokens > 0).then_some(usage.output_tokens));
+
     Ok(ModelRpcOutcome {
         reply,
-        prompt_tokens: (response.usage.input_tokens > 0).then_some(response.usage.input_tokens),
-        completion_tokens: (response.usage.output_tokens > 0)
-            .then_some(response.usage.output_tokens),
+        prompt_tokens,
+        completion_tokens,
     })
 }

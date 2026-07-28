@@ -14,6 +14,18 @@ use tinyagents::harness::embeddings::{
 
 use super::LocalAiService;
 
+fn embedding_dimensions(model_id: &str) -> usize {
+    if model_id
+        .trim()
+        .to_ascii_lowercase()
+        .starts_with("all-minilm")
+    {
+        384
+    } else {
+        DEFAULT_OLLAMA_DIMENSIONS
+    }
+}
+
 impl LocalAiService {
     pub async fn vision_prompt(
         &self,
@@ -165,14 +177,17 @@ impl LocalAiService {
             "[local_ai:embed] embed: using base_url={}",
             redact_ollama_base_url(&embed_base)
         );
-        let model =
-            OllamaEmbeddingModel::try_new(&embed_base, &embedding_model, DEFAULT_OLLAMA_DIMENSIONS)
-                .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
-                .with_client(self.http.clone())
-                .with_context_options(
-                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
-                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
-                );
+        let model = OllamaEmbeddingModel::try_new(
+            &embed_base,
+            &embedding_model,
+            embedding_dimensions(&embedding_model),
+        )
+        .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
+        .with_client(self.http.clone())
+        .with_context_options(
+            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+        );
         let vectors = model
             .embed(&items)
             .await
@@ -288,6 +303,12 @@ mod tests {
         let service = LocalAiService::new(&config);
         let err = service.embed(&config, &["x".into()]).await.unwrap_err();
         assert!(err.contains("local ai is disabled"));
+    }
+
+    #[test]
+    fn embedding_dimensions_match_supported_legacy_models() {
+        assert_eq!(embedding_dimensions("bge-m3"), 1024);
+        assert_eq!(embedding_dimensions("all-minilm:latest"), 384);
     }
 
     #[tokio::test]

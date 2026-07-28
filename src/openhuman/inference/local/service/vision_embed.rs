@@ -183,22 +183,31 @@ impl LocalAiService {
                 .unwrap_or_else(|| "dynamic".to_string()),
             redact_ollama_base_url(&embed_base)
         );
-        let model = if let Some(dimensions) = dimensions {
-            OllamaEmbeddingModel::try_new(&embed_base, &embedding_model, dimensions)
+        let (dims, vectors) = if let Some(dimensions) = dimensions {
+            let model = OllamaEmbeddingModel::try_new(&embed_base, &embedding_model, dimensions)
+                .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
+                .with_client(self.http.clone())
+                .with_context_options(
+                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                );
+            let vectors = model
+                .embed(&items)
+                .await
+                .map_err(|error| format!("local embedding RPC failed: {error}"))?;
+            (model.dimensions(), vectors)
         } else {
-            OllamaEmbeddingModel::try_new_dynamic(&embed_base, &embedding_model)
-        }
-        .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
-        .with_client(self.http.clone())
-        .with_context_options(
-            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
-            RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
-        );
-        let vectors = model
-            .embed(&items)
+            OllamaEmbeddingModel::embed_discovering_dimensions(
+                &embed_base,
+                &embedding_model,
+                self.http.clone(),
+                &items,
+                RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+            )
             .await
-            .map_err(|error| format!("local embedding RPC failed: {error}"))?;
-        let dims = model.dimensions();
+            .map_err(|error| format!("local embedding RPC failed: {error}"))?
+        };
         self.status.lock().embedding_state = "ready".to_string();
         Ok(LocalAiEmbeddingResult {
             model_id: embedding_model,

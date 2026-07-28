@@ -7722,7 +7722,7 @@ async fn json_rpc_inference_prompt_requires_external_ollama_runtime_when_unreach
         .and_then(Value::as_str)
         .unwrap_or_default();
     assert!(
-        prompt_err_message.contains("routes inference through an external Ollama endpoint"),
+        prompt_err_message.contains("external Ollama endpoint is unavailable"),
         "unexpected error: {prompt_err}"
     );
 

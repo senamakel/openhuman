@@ -154,7 +154,6 @@ dhat = { version = "0.3", optional = true }
 # AV root CAs. So the two TLS backends coexist only on Windows, never on
 # the RAM-sensitive platforms.
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
-tinyhumans-sdk = { git = "https://github.com/tinyhumansai/sdk.git", rev = "3ee4123ba3b7a76c5f167d7bc2c72fca86671292" }
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"

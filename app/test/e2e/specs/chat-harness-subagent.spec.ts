@@ -58,7 +58,7 @@ import {
   waitForSocketConnected,
 } from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { textExists } from '../helpers/element-helpers';
+import { textExists, visibleTextExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { getRequestLog, setMockBehavior, startMockServer, stopMockServer } from '../mock-server';
@@ -213,7 +213,7 @@ describe('Chat harness — orchestrator → subagent flow', () => {
         sawSubagentTimeline = true;
       }
       if (sawSubagentPhase && sawSubagentTimeline) break;
-      if (await textExists(CANARY_FINAL)) {
+      if (await visibleTextExists(CANARY_FINAL)) {
         sawSubagentTimeline = sawSubagentTimeline || (await hasRenderedSubagentTimeline());
         break;
       }

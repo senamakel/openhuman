@@ -129,7 +129,21 @@ fn model_outcome(
     response: tinyagents::harness::model::ModelResponse,
     allow_empty: bool,
 ) -> Result<ModelRpcOutcome, String> {
-    let reply = response.text();
+    let mut reply = response.text();
+    if reply.trim().is_empty() {
+        reply = response
+            .message
+            .content
+            .iter()
+            .filter_map(|block| match block {
+                tinyagents::harness::message::ContentBlock::Thinking { text, .. } => {
+                    Some(text.as_str())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
     let reply = reply.trim().to_owned();
     if reply.is_empty() && !allow_empty {
         return Err("local model RPC returned empty content".to_owned());
@@ -232,5 +246,26 @@ mod tests {
         .unwrap();
         assert_eq!(populated.prompt_tokens, Some(7));
         assert_eq!(populated.completion_tokens, Some(3));
+
+        let reasoning_only = ModelResponse {
+            message: AssistantMessage {
+                id: None,
+                content: vec![ContentBlock::Thinking {
+                    text: "reasoning fallback".to_string(),
+                    signature: None,
+                }],
+                tool_calls: Vec::new(),
+                usage: None,
+            },
+            usage: None,
+            finish_reason: None,
+            raw: None,
+            resolved_model: None,
+            continue_turn: None,
+        };
+        assert_eq!(
+            model_outcome(reasoning_only, false).unwrap().reply,
+            "reasoning fallback"
+        );
     }
 }

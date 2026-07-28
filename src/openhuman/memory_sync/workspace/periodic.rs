@@ -39,8 +39,8 @@ use crate::openhuman::memory_sources::types::{MemorySourceEntry, SourceKind};
 use crate::openhuman::memory_sync::composio::periodic::{
     connection_is_due, effective_interval_secs, periodic_pause_reason,
 };
-use crate::openhuman::memory_sync::sources::audit::{read_audit_log, SyncAuditEntry};
 use crate::openhuman::scheduler_gate::gate::resume_notify;
+use crate::openhuman::tinycortex::{read_audit_log, SyncAuditEntry};
 
 /// How often the scheduler wakes up to look for due syncs. Matches the
 /// Composio loop's cadence — per-source intervals (24h default) bound the

@@ -63,9 +63,7 @@ use crate::openhuman::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
 use crate::openhuman::composio::ops;
-use crate::openhuman::memory_sync::sources::audit::{
-    append_audit_entry, read_audit_log, SyncAuditEntry,
-};
+use crate::openhuman::tinycortex::{append_audit_entry, read_audit_log, SyncAuditEntry};
 use chrono::{DateTime, Utc};
 
 /// How often the scheduler wakes up to look for due syncs. Independent

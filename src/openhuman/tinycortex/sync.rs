@@ -14,6 +14,9 @@ use crate::openhuman::memory_sources::{MemorySourceEntry, SourceKind};
 use crate::openhuman::memory_store::MemoryClientRef;
 
 pub const HOST_SYNC_STATE_NAMESPACE: &str = "composio-sync-state";
+pub use tinycortex::memory::sync::{
+    RawCoverage, RawFileRef, RealCostAccumulator, RebuildOutcome, SyncAuditEntry,
+};
 
 pub struct HostSyncAdapter {
     memory: MemoryClientRef,
@@ -57,6 +60,75 @@ impl HostSyncAdapter {
             config: Some(config),
         }
     }
+}
+
+pub fn append_audit_entry(config: &Config, entry: &SyncAuditEntry) {
+    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
+    if let Err(error) = tinycortex::memory::sync::append_audit_entry(&memory_config, entry) {
+        tracing::warn!(%error, "[tinycortex:sync] audit append failed");
+    }
+}
+
+pub fn read_audit_log(config: &Config) -> Vec<SyncAuditEntry> {
+    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
+    match tinycortex::memory::sync::read_audit_log(&memory_config) {
+        Ok(entries) => entries,
+        Err(error) => {
+            tracing::warn!(%error, "[tinycortex:sync] audit read failed");
+            Vec::new()
+        }
+    }
+}
+
+pub fn estimate_cost_usd(input_tokens: u64, output_tokens: u64) -> f64 {
+    tinycortex::memory::sync::estimate_cost_usd(input_tokens, output_tokens)
+}
+
+pub fn raw_coverage(
+    config: &Config,
+    tree_scope: &str,
+    archive_source_id: &str,
+) -> anyhow::Result<RawCoverage> {
+    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
+    tinycortex::memory::sync::raw_coverage(&memory_config, tree_scope, archive_source_id)
+}
+
+pub fn needs_rebuild(config: &Config, tree_scope: &str, archive_source_id: &str) -> bool {
+    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
+    tinycortex::memory::sync::needs_rebuild(&memory_config, tree_scope, archive_source_id)
+}
+
+pub async fn rebuild_tree_from_raw(
+    config: &Config,
+    tree_scope: &str,
+    archive_source_id: &str,
+) -> anyhow::Result<RebuildOutcome> {
+    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
+    let summariser = super::HostSummariser::new(config.clone());
+    tinycortex::memory::sync::rebuild_tree_from_raw(
+        &memory_config,
+        tree_scope,
+        archive_source_id,
+        &summariser,
+    )
+    .await
+}
+
+pub async fn run_github_sync(
+    source: &MemorySourceEntry,
+    config: &Config,
+) -> anyhow::Result<SyncOutcome> {
+    tracing::debug!(
+        source_id = %source.id,
+        "[tinycortex:sync] dispatching GitHub repository source"
+    );
+    if crate::openhuman::memory::global::client_if_ready().is_none() {
+        crate::openhuman::memory::global::init(config.workspace_dir.clone())
+            .map_err(anyhow::Error::msg)?;
+    }
+    run_source_pipeline(source, config)
+        .await
+        .map_err(|error| anyhow::anyhow!(error.to_string()))
 }
 
 #[async_trait]

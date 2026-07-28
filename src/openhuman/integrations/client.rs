@@ -577,8 +577,8 @@ impl IntegrationClient {
         let status = resp.status();
         if !status.is_success() {
             let body_text = resp.text().await.unwrap_or_default();
-            let body = serde_json::from_str(&body_text)
-                .unwrap_or(serde_json::Value::String(body_text));
+            let body =
+                serde_json::from_str(&body_text).unwrap_or(serde_json::Value::String(body_text));
             return Err(Self::map_sdk_error(
                 SdkError::Status {
                     status: status.as_u16(),

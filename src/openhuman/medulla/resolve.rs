@@ -82,6 +82,17 @@ pub fn base_url(config: &Config) -> Option<String> {
     let from_env = std::env::var(MEDULLA_BASE_URL_ENV)
         .ok()
         .filter(|v| !v.trim().is_empty());
+
+    let source_ident = if from_env.is_some() {
+        "env_override"
+    } else {
+        "effective_backend_api_url"
+    };
+    log::debug!(
+        "[medulla] base_url source={} (URL redacted for security)",
+        source_ident
+    );
+
     from_env
         .or_else(|| Some(effective_backend_api_url(&config.api_url)))
         .map(|v| v.trim().trim_end_matches('/').to_string())
@@ -119,6 +130,38 @@ mod tests {
     /// Serialize env mutation: `base_url` reads a process-global.
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+    /// RAII guard to snapshot and restore a process-global environment variable.
+    struct EnvGuard {
+        key: &'static str,
+        prev: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, val: &str) -> Self {
+            let prev = std::env::var(key).ok();
+            // SAFETY: caller holds ENV_LOCK guard.
+            unsafe { std::env::set_var(key, val) };
+            Self { key, prev }
+        }
+
+        fn remove(key: &'static str) -> Self {
+            let prev = std::env::var(key).ok();
+            // SAFETY: caller holds ENV_LOCK guard.
+            unsafe { std::env::remove_var(key) };
+            Self { key, prev }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.prev {
+                // SAFETY: caller's ENV_LOCK guard is still alive during drop.
+                Some(v) => unsafe { std::env::set_var(self.key, v) },
+                None => unsafe { std::env::remove_var(self.key) },
+            }
+        }
+    }
+
     fn config_with_api_url(url: Option<&str>) -> Config {
         let mut config = Config::default();
         config.api_url = url.map(str::to_string);
@@ -128,16 +171,15 @@ mod tests {
     #[test]
     fn env_override_wins_over_api_url() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::set_var(MEDULLA_BASE_URL_ENV, "https://medulla.example");
+        let _env = EnvGuard::set(MEDULLA_BASE_URL_ENV, "https://medulla.example");
         let resolved = base_url(&config_with_api_url(Some("https://api.example")));
-        std::env::remove_var(MEDULLA_BASE_URL_ENV);
         assert_eq!(resolved.as_deref(), Some("https://medulla.example"));
     }
 
     #[test]
     fn falls_back_to_api_url_when_env_unset() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::remove_var(MEDULLA_BASE_URL_ENV);
+        let _env = EnvGuard::remove(MEDULLA_BASE_URL_ENV);
         let resolved = base_url(&config_with_api_url(Some("https://api.example/")));
         assert_eq!(resolved.as_deref(), Some("https://api.example"));
     }
@@ -147,9 +189,8 @@ mod tests {
         // An exported-but-empty var is a common shell accident; treating it as
         // "configured" would break an otherwise-working setup.
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::set_var(MEDULLA_BASE_URL_ENV, "   ");
+        let _env = EnvGuard::set(MEDULLA_BASE_URL_ENV, "   ");
         let resolved = base_url(&config_with_api_url(Some("https://api.example")));
-        std::env::remove_var(MEDULLA_BASE_URL_ENV);
         assert_eq!(resolved.as_deref(), Some("https://api.example"));
     }
 
@@ -160,9 +201,9 @@ mod tests {
         // the same host every other backend call defaults to, not report itself
         // unconfigured while auth and billing work.
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::remove_var(MEDULLA_BASE_URL_ENV);
-        std::env::remove_var("BACKEND_URL");
-        std::env::remove_var("VITE_BACKEND_URL");
+        let _env_medulla = EnvGuard::remove(MEDULLA_BASE_URL_ENV);
+        let _env_backend = EnvGuard::remove("BACKEND_URL");
+        let _env_vite = EnvGuard::remove("VITE_BACKEND_URL");
         assert_eq!(
             base_url(&config_with_api_url(None)),
             Some(crate::api::config::effective_backend_api_url(&None))
@@ -175,19 +216,23 @@ mod tests {
         // must not aim the Medulla client at a model runner that 404s every
         // path it speaks — the same guard every other backend call gets.
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::remove_var(MEDULLA_BASE_URL_ENV);
-        std::env::remove_var("BACKEND_URL");
-        std::env::remove_var("VITE_BACKEND_URL");
+        let _env_medulla = EnvGuard::remove(MEDULLA_BASE_URL_ENV);
+        let _env_backend = EnvGuard::remove("BACKEND_URL");
+        let _env_vite = EnvGuard::remove("VITE_BACKEND_URL");
         let resolved = base_url(&config_with_api_url(Some("http://localhost:11434")));
-        assert_ne!(resolved.as_deref(), Some("http://localhost:11434"));
+        // Assert that the local model runner URL does not become the Medulla host;
+        // instead, it falls back to the effective backend URL (same as all other backend calls).
+        assert_eq!(
+            resolved,
+            Some(crate::api::config::effective_backend_api_url(&None))
+        );
     }
 
     #[test]
     fn trailing_slashes_are_trimmed_so_paths_do_not_double_up() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::set_var(MEDULLA_BASE_URL_ENV, "https://medulla.example///");
+        let _env = EnvGuard::set(MEDULLA_BASE_URL_ENV, "https://medulla.example///");
         let resolved = base_url(&config_with_api_url(None));
-        std::env::remove_var(MEDULLA_BASE_URL_ENV);
         assert_eq!(resolved.as_deref(), Some("https://medulla.example"));
     }
 

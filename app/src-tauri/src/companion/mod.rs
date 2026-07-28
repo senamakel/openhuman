@@ -1,14 +1,12 @@
 //! Desktop companion — Clicky-style interaction loop (shell-side).
 //!
 //! Migrated out of the Rust core (`src/openhuman/desktop_companion`) into the
-//! Tauri shell. Ties hotkey activation, **native** microphone capture, screen
-//! context, LLM reasoning, speech synthesis, and visual pointing into one
-//! product experience:
+//! Tauri shell. Ties hotkey activation, **native** microphone capture, LLM
+//! reasoning, and speech synthesis into one product experience:
 //!
 //! - `audio`    — native `cpal` mic capture (mono i16 PCM ~16 kHz)
 //! - `session`  — session lifecycle + state machine (idle→listening→…→idle)
-//! - `pipeline` — one interaction turn (STT → LLM → TTS → pointing)
-//! - `pointing` — `[POINT:x,y:label:screenN]` tag parsing + monitor mapping
+//! - `pipeline` — one interaction turn (STT → LLM → TTS)
 //! - `events`   — `companion://state_changed` Tauri event delivery
 //!
 //! STT/TTS run in the embedded core over JSON-RPC; the LLM turn runs shell-side
@@ -18,19 +16,17 @@
 pub mod audio;
 pub mod events;
 pub mod pipeline;
-pub mod pointing;
 pub mod session;
 pub mod types;
 
 use log::{debug, info, warn};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::AppRuntime;
 use audio::MicCapture;
-use pointing::ScreenGeometry;
 use types::*;
 
 const LOG_PREFIX: &str = "[companion]";
@@ -167,12 +163,12 @@ pub fn handle_hotkey_pressed(app: AppHandle<AppRuntime>) {
 ///
 /// Only push mode consumes releases. Tap mode intentionally waits for the next
 /// press, preserving toggle behavior.
-pub fn handle_hotkey_released(app: AppHandle<AppRuntime>) {
+pub fn handle_hotkey_released(_app: AppHandle<AppRuntime>) {
     if current_config()
         .activation_mode
         .eq_ignore_ascii_case("push")
     {
-        finish_capture_and_run(app);
+        finish_capture_and_run();
     }
 }
 
@@ -182,7 +178,7 @@ pub fn handle_hotkey_released(app: AppHandle<AppRuntime>) {
 /// the interaction turn.
 pub fn handle_activation(app: AppHandle<AppRuntime>) {
     if ACTIVE_CAPTURE.lock().is_some() {
-        finish_capture_and_run(app);
+        finish_capture_and_run();
     } else {
         start_capture(&app);
     }
@@ -227,7 +223,7 @@ fn start_capture(app: &AppHandle<AppRuntime>) {
     }
 }
 
-fn finish_capture_and_run(app: AppHandle<AppRuntime>) {
+fn finish_capture_and_run() {
     let _lifecycle = SESSION_LIFECYCLE.lock();
     let Some(capture) = ACTIVE_CAPTURE.lock().take() else {
         debug!("{LOG_PREFIX} capture stop ignored — not listening");
@@ -235,10 +231,9 @@ fn finish_capture_and_run(app: AppHandle<AppRuntime>) {
     };
     let (samples, rate) = capture.stop();
     info!("{LOG_PREFIX} captured {} samples @ {rate}Hz", samples.len());
-    let screens = monitors_geometry(&app);
     let (turn_id, cancel) = register_active_turn();
     tauri::async_runtime::spawn(async move {
-        let result = pipeline::run_audio_turn(&samples, rate, &screens, cancel.clone()).await;
+        let result = pipeline::run_audio_turn(&samples, rate, cancel.clone()).await;
         if let Err(e) = result {
             if cancel.is_cancelled() {
                 debug!("{LOG_PREFIX} interrupted companion turn stopped: {e}");
@@ -283,34 +278,6 @@ fn clear_active_turn(id: u64) {
     if active.as_ref().map(|turn| turn.id) == Some(id) {
         active.take();
     }
-}
-
-/// Enumerate connected monitors as [`ScreenGeometry`] for POINT-tag coordinate
-/// mapping. Best-effort — returns an empty vec if no window/monitor info is
-/// available (pointing then falls back to raw coordinates).
-fn monitors_geometry(app: &AppHandle<AppRuntime>) -> Vec<ScreenGeometry> {
-    let Some(window) = app.get_webview_window("main") else {
-        debug!("{LOG_PREFIX} no main window — cannot enumerate monitors");
-        return Vec::new();
-    };
-    let Ok(monitors) = window.available_monitors() else {
-        return Vec::new();
-    };
-    monitors
-        .iter()
-        .enumerate()
-        .map(|(index, m)| {
-            let pos = m.position();
-            let size = m.size();
-            ScreenGeometry {
-                index,
-                x: pos.x as f64,
-                y: pos.y as f64,
-                width: size.width as f64,
-                height: size.height as f64,
-            }
-        })
-        .collect()
 }
 
 #[cfg(test)]

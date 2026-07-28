@@ -23,7 +23,8 @@ use crate::openhuman::flows::store;
 use crate::openhuman::flows::types::{
     FlowConnection, FlowRunStep, FlowRunTrigger, FlowSuggestion, SuggestionStatus,
 };
-use crate::openhuman::flows::{Flow, FlowRun};
+use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
+use crate::openhuman::memory_store::MemoryClientRef;
 use crate::rpc::RpcOutcome;
 
 /// Overall safety bound on a single `flows_run` / `flows_resume`. Individual
@@ -442,6 +443,57 @@ pub(crate) fn to_flow_validation_error(
 /// Assumes `graph` is already structurally valid (run
 /// `validate_and_migrate_graph` / `validate_all` first) — these gates check
 /// resolvability/contracts on a compilable graph.
+///
+/// Author-gate for `oh:storage_upload_file`: its literal `path` arg must be
+/// workspace-relative. Uploads are confined to the agent workspace by the
+/// runtime `resolve_upload_path` (a canonicalized path that escapes `action_dir`
+/// is rejected), so an absolute path like `/tmp/report.html` or one climbing out
+/// with `..` cannot work — it fails mid-run at the upload step. The prompt tells
+/// the builder to use a relative path, but the model reliably ignores that and
+/// copies an absolute path from a prior flow's example, so this enforces it in
+/// code (a hard, actionable author-gate) rather than trusting the prose.
+///
+/// Only LITERAL paths are checked: a `=`-expression resolves from upstream data
+/// at runtime and is out of scope here (the runtime check still applies). An
+/// absent `path` is left to the required-arg gate.
+pub(crate) fn validate_upload_paths(graph: &WorkflowGraph) -> Vec<String> {
+    const UPLOAD_SLUG: &str = "oh:storage_upload_file";
+    let mut errors = Vec::new();
+    for node in &graph.nodes {
+        if node.kind != NodeKind::ToolCall {
+            continue;
+        }
+        if node.config.get("slug").and_then(Value::as_str) != Some(UPLOAD_SLUG) {
+            continue;
+        }
+        let Some(raw) = node
+            .config
+            .get("args")
+            .and_then(|a| a.get("path"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        let path = raw.trim();
+        // Dynamic (resolved at runtime) or absent — not a literal we can check here.
+        if path.is_empty() || path.starts_with('=') {
+            continue;
+        }
+        let escapes_via_parent = path.split(['/', '\\']).any(|seg| seg == "..");
+        if std::path::Path::new(path).is_absolute() || escapes_via_parent {
+            errors.push(format!(
+                "Node '{}': `oh:storage_upload_file` path `{path}` must be workspace-relative \
+                 (e.g. `report.html`). Uploads are confined to the agent workspace, so an \
+                 absolute path (`/tmp/...`, `/Users/...`) or one escaping with `..` is rejected \
+                 at run time. Use a relative path, and have the producing node write the file to \
+                 that same relative path.",
+                node.id
+            ));
+        }
+    }
+    errors
+}
+
 pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     let compatibility_errors = config_aware_engine_compatibility_errors(config, graph);
     if !compatibility_errors.is_empty() {
@@ -452,6 +504,14 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     if !binding_errors.is_empty() {
         return binding_errors;
     }
+    // Cheap, sync: an `oh:storage_upload_file` literal `path` that is absolute or
+    // escapes the workspace. The runtime `resolve_upload_path` rejects it, but the
+    // model reliably ignores the prompt's "use a workspace-relative path" rule and
+    // copies an absolute `/tmp/...` path from prior flows, so enforce it in code.
+    let upload_path_errors = validate_upload_paths(graph);
+    if !upload_path_errors.is_empty() {
+        return upload_path_errors;
+    }
     // Cheap: an `agent` node's `agent_ref` that would hit the runtime's
     // `RegistryFallback` "unknown agent_ref" hard error mid-run. Almost always a
     // pure in-memory harness-registry lookup; only a ref that ISN'T a harness
@@ -460,6 +520,22 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     if !agent_ref_errors.is_empty() {
         return agent_ref_errors;
     }
+    // NOTE (B45 design correction, judge finding on live run 104aab90):
+    // provider-connectivity (issue B45 — signed out, or a managed-backend
+    // account with no provider API key configured) is deliberately NOT a
+    // hard author gate here. It used to reject `propose_workflow` /
+    // `edit_workflow` outright, which meant a graph whose only problem was
+    // "not runnable yet" could never even be SHOWN to the user — the copilot
+    // detected the problem, could not propose past it, and trailed off with
+    // no proposal at all. `evaluate_inference_readiness` still runs (see
+    // `build_builder_proposal` below) and surfaces `inference_status` /
+    // `inference_message` as an ADVISORY warning on the proposal payload, so
+    // authoring always succeeds and the UI can render a "connect your
+    // provider" nudge alongside the built workflow. The hard rejection moved
+    // to run time instead — see `validate_inference_readiness`'s use in
+    // `run_flow_body`, which fails a real run cleanly before the engine
+    // executes rather than blocking the author from ever seeing the graph.
+    //
     // Async, live connection list: a tool_call whose `connection_ref` names the
     // wrong toolkit for its slug, or a connection id the user doesn't actually
     // have (WS3 — the transcript bug where a TIKTOK connection id was wired onto
@@ -662,6 +738,19 @@ pub(crate) async fn build_builder_proposal(
     // toolkits this graph needs and whether they're connected, so it can render
     // "Connect <toolkit>" CTAs instead of a bare gate error later.
     let required_connections = compute_required_connections(config, graph).await;
+    // B45 (design correction): the LLM-provider-connectivity evaluation is
+    // ADVISORY here, never a rejection — `run_builder_gates` above no longer
+    // includes it (that used to hard-block `propose_workflow`/`edit_workflow`
+    // on a graph the copilot couldn't then show the user at all — judge
+    // finding on live run 104aab90). So `evaluation.status` here can
+    // legitimately be `"ready"`, `"signed_out"`, `"provider_not_configured"`,
+    // or `"error"` — the UI renders a "Connect a provider" / "Sign in" CTA
+    // for the non-ready cases, alongside the toolkit-connection CTAs above.
+    // The graph is proposed regardless of this value. Computed via the same
+    // shared, cached evaluator the run-time preflight (`validate_inference_readiness`
+    // in `run_flow_body`) consumes, so a run right after this proposal reads
+    // the cached result instead of re-probing the network.
+    let inference_readiness = evaluate_inference_readiness(config, graph).await;
     let graph_value = serde_json::to_value(graph).map_err(|e| e.to_string())?;
 
     tracing::info!(
@@ -688,6 +777,15 @@ pub(crate) async fn build_builder_proposal(
         "warnings": warnings,
         "required_connections": required_connections,
     });
+    // Only present when the graph has at least one applicable `agent` node;
+    // a tool_call-only graph omits both fields entirely rather than claiming
+    // a meaningless "ready".
+    if let Some(evaluation) = inference_readiness {
+        payload["inference_status"] = json!(evaluation.status);
+        if let Some(message) = evaluation.message {
+            payload["inference_message"] = json!(message);
+        }
+    }
     if let Some(instruction) = instruction {
         payload["instruction"] = json!(instruction);
     }
@@ -1749,6 +1847,457 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Inference-readiness check: provider-connectivity (issue B45)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// An `agent` node's completion (`OpenHumanLlm::complete` in
+// `tinyflows/caps.rs`) resolves a chat model exactly like every other
+// inference caller in this host — but no check previously inspected that
+// resolution at all. `compute_required_connections` only walks `tool_call`
+// Composio nodes; an `agent` node's own hard dependency, a working LLM
+// provider, went completely unchecked. The confirmed failure: a signed-in
+// user whose managed-backend account has no provider API key configured gets
+// an HTTP 400 `{"success":false,"error":"API key not configured for
+// provider","errorCode":"BAD_REQUEST"}` — but only mid-run, wrapped several
+// layers deep as `capability error: graph error: capability error: model
+// error: ...`.
+//
+// **Design correction (judge finding on live run 104aab90 — see git log for
+// the full writeup):** this was originally wired in as a HARD author gate
+// (`run_builder_gates`), rejecting `propose_workflow`/`edit_workflow`
+// outright. In practice that meant a graph whose only problem was "the user
+// hasn't configured a provider yet" could never be proposed at all — the
+// copilot detected `provider_not_configured`, tried to propose anyway, was
+// blocked, and trailed off with no workflow shown to the user. The correct
+// placement is:
+//
+// - **Author time (`build_builder_proposal`)** — ADVISORY ONLY. Authoring
+//   always succeeds; `evaluate_inference_readiness`'s result rides along on
+//   the proposal payload as `inference_status`/`inference_message` so the UI
+//   can render a "connect your provider" nudge next to the built workflow.
+// - **Run time (`run_flow_body`)** — HARD gate. A real run (never
+//   `dry_run_workflow`, which is a sandbox) checks readiness before invoking
+//   the tinyflows engine and fails the run row cleanly with an actionable
+//   message if the graph's agent node(s) can't currently reach a provider —
+//   see `validate_inference_readiness`'s call site in `run_flow_body`.
+//
+// Two layers, cheapest and most decisive first:
+//
+// - **Layer 1 (sync)** — the desktop session itself: signed out
+//   (`scheduler_gate::is_signed_out`), or no valid `app-session` JWT
+//   (`inference::provider::factory::verify_session_active`, the exact check
+//   every custom-provider construction already gates on).
+// - **Layer 2 (async, cached)** — one cheap real probe per DISTINCT resolved
+//   role (`inference::provider::probe_inference_readiness`) to catch the
+//   "signed in but no provider API key configured for this account" class of
+//   failure that Layer 1 cannot see. A graph can mix agent nodes pinned to
+//   different models (e.g. one `hint:reasoning`, one plain `chat`) that route
+//   to different provider configs — each distinct role is probed once, not
+//   once per node, and every probe's result caches BOTH a successful and a
+//   definitively-negative result for a short TTL — a propose → edit → save →
+//   run authoring/run burst hits the network at most once per role per TTL
+//   window, whichever way the probe comes back. This is safe to cache
+//   negative because `probe_inference_readiness` (and, beneath it,
+//   `OpenHumanBackendModel::probe_readiness`) already fails OPEN (`Ok(())`)
+//   on anything transient — a timeout, a transport error, a 5xx — so an
+//   `Err` reaching this cache is always the definitive, config-level "not
+//   ready" signal, never a flake that a naive cache would freeze in place.
+//
+// [`evaluate_inference_readiness`] is the single evaluation both
+// [`validate_inference_readiness`] (the hard gate) and
+// [`build_builder_proposal`]'s `inference_status` payload field consume, so
+// the gate and the UI-facing status can never disagree.
+
+/// Cache TTL for the Layer-2 managed-backend/role probe.
+const INFERENCE_PROBE_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Cache key: (workload role, session identity). `config.config_path` stands
+/// in for "session identity" — within one desktop process there is exactly
+/// one active config/session, so this is stable in production, while
+/// distinct `Config`s (as every test builds its own `tempfile` workspace)
+/// naturally get distinct cache entries instead of bleeding a cached result
+/// from one test/session into an unrelated one. Keying on `role` alone would
+/// NOT be enough: two different sessions (or two tests) can both resolve the
+/// literal role `"summarization"` to entirely different, unrelated outcomes.
+type InferenceProbeCacheKey = (String, std::path::PathBuf);
+/// A cached probe outcome: when it was taken, and the definitive result.
+type InferenceProbeCacheEntry = (std::time::Instant, Result<(), String>);
+/// The probe cache map, factored out to keep the `static` type readable
+/// (clippy::type-complexity).
+type InferenceProbeCacheMap =
+    std::collections::HashMap<InferenceProbeCacheKey, InferenceProbeCacheEntry>;
+
+/// Process-global cache of Layer-2 probe outcomes, keyed by
+/// [`InferenceProbeCacheKey`]. Both `Ok` and `Err` entries are served from
+/// cache within [`INFERENCE_PROBE_CACHE_TTL`] (design correction, B45 —
+/// previously only `Ok` was cached, so a signed-in-but-unconfigured account
+/// re-hit the network on every one of `edit_workflow` / `validate_workflow` /
+/// `propose_workflow` / a run's own preflight in a single authoring turn — up
+/// to 4 network round trips observed in one live judge-flagged turn). A
+/// cached `Err` is still only ever the definitive class (see the module doc
+/// above on fail-open) — a fixed provider becomes visible again at most
+/// `INFERENCE_PROBE_CACHE_TTL` later, or immediately on sign-out/back-in via
+/// [`invalidate_inference_probe_cache_if_signed_out`].
+static INFERENCE_PROBE_CACHE: LazyLock<std::sync::Mutex<InferenceProbeCacheMap>> =
+    LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+/// Invalidate every cached Layer-2 probe result. Checked defensively on every
+/// call so a signed-out session (whether the initial one or a later
+/// account-switch) can never serve a stale cached "ready" — the moment
+/// `is_signed_out` flips true the next successful probe starts a fresh TTL
+/// window. Clears the whole cache rather than just the current key: a
+/// sign-out is a session-wide event, not scoped to one role.
+fn invalidate_inference_probe_cache_if_signed_out() {
+    if crate::openhuman::scheduler_gate::is_signed_out() {
+        INFERENCE_PROBE_CACHE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
+    }
+}
+
+async fn cached_probe_inference_readiness(role: &str, config: &Config) -> Result<(), String> {
+    invalidate_inference_probe_cache_if_signed_out();
+
+    let key: InferenceProbeCacheKey = (role.to_string(), config.config_path.clone());
+
+    if let Some((checked_at, result)) = INFERENCE_PROBE_CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(&key)
+        .cloned()
+    {
+        if checked_at.elapsed() < INFERENCE_PROBE_CACHE_TTL {
+            tracing::debug!(
+                target: "flows",
+                role,
+                cached_ready = result.is_ok(),
+                "[flows] inference-readiness: reusing cached probe result"
+            );
+            return result;
+        }
+    }
+
+    let result =
+        crate::openhuman::inference::provider::probe_inference_readiness(role, config).await;
+    INFERENCE_PROBE_CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(key, (std::time::Instant::now(), result.clone()));
+    result
+}
+
+/// The workload role an `agent` node's completion effectively runs on —
+/// mirrors the exact mapping `OpenHumanLlm::complete` (`tinyflows/caps.rs`)
+/// applies, so this probe checks the same route the node will actually
+/// dispatch to at run time. Precedence (findings A+B on this gate):
+///
+/// 1. Node `config.model` — a managed tier or `hint:*` alias, translated via
+///    [`role_for_model_tier`](crate::openhuman::inference::provider::role_for_model_tier).
+/// 2. A static (non-`=`) `agent_ref` whose custom
+///    [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+///    itself pins a `model` (e.g. `hint:reasoning`) — resolved the same way
+///    [`OpenHumanAgentRunner::run_via_harness`](crate::openhuman::tinyflows::caps::OpenHumanAgentRunner)
+///    does via `resolve_node_model(&request, entry_model)`, using the same
+///    sync, config-only accessor
+///    ([`find_custom_in_config`](crate::openhuman::agent_registry::find_custom_in_config))
+///    it calls.
+/// 3. Otherwise, caps.rs's own default role (`"summarization"`, its fallback
+///    absent a `role` field on the completion request).
+///
+/// A static `agent_ref` that instead resolves to a shipped/TOML harness
+/// `AgentDefinition` (`AgentRoute::Harness`) can *also* pin a model via
+/// `ModelSpec::Exact`/`ModelSpec::Hint` — but `ModelSpec::Inherit` (the
+/// default) resolves against the *parent* agent's live model at spawn time,
+/// which this static, pre-run gate has no parent turn to read. Resolving only
+/// the Exact/Hint cases here — while silently mis-defaulting every
+/// `Inherit`-using definition — would be a half-correct, fragile lookup, so
+/// this case falls back to the default role rather than guess.
+/// TODO(B45): resolve agent_ref-pinned model for harness `AgentDefinition`s
+/// once a parent-model-free resolution path exists.
+fn agent_node_role(config: &Config, node: &tinyflows::model::Node) -> &'static str {
+    let pinned_model = node
+        .config
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    if let Some(model) = pinned_model {
+        return crate::openhuman::inference::provider::role_for_model_tier(model);
+    }
+
+    let static_agent_ref = node
+        .config
+        .get("agent_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with('='));
+    if let Some(agent_ref) = static_agent_ref {
+        if let Some(entry_model) =
+            crate::openhuman::agent_registry::find_custom_in_config(config, agent_ref)
+                .and_then(|entry| entry.model)
+        {
+            let entry_model = entry_model.trim();
+            if !entry_model.is_empty() {
+                return crate::openhuman::inference::provider::role_for_model_tier(entry_model);
+            }
+        }
+    }
+
+    "summarization"
+}
+
+/// Classifies an inference-readiness failure message into the fixed wire
+/// vocabulary `build_builder_proposal`'s `inference_status` payload and this
+/// gate's prose both use (`"signed_out" | "provider_not_configured" |
+/// "error"`).
+///
+/// Defensive ordering: a message that still smells like a dead session (an
+/// unlikely race between this gate's own signed-out check and the async
+/// probe) is classified `signed_out` before the more specific
+/// `provider_not_configured` pattern; anything else falls back to the generic
+/// `error` bucket (a BYOK-incomplete config, an unknown provider slug, a
+/// local-only privacy-mode block, …) rather than mislabeling it as a
+/// provider-key problem.
+fn classify_inference_error_message(message: &str) -> &'static str {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("session_expired") || lower.contains("sign in") {
+        "signed_out"
+    } else if lower.contains("api key not configured") {
+        "provider_not_configured"
+    } else {
+        "error"
+    }
+}
+
+/// Outcome of [`evaluate_inference_readiness`] for a graph that has at least
+/// one applicable `agent` node.
+struct InferenceReadinessEvaluation {
+    /// One of `"ready"`, `"signed_out"`, `"provider_not_configured"`, `"error"`
+    /// — the fixed vocabulary shared with the proposal payload.
+    status: &'static str,
+    /// User-actionable prose; `None` only when `status == "ready"`.
+    message: Option<String>,
+    /// The offending node id, when applicable (absent for `"ready"`).
+    node_id: Option<String>,
+}
+
+/// Evaluate the B45 provider-connectivity gate for `graph`.
+///
+/// Returns `None` when the graph has no `agent` node at all — a tool_call-only
+/// graph never pays this check's cost. A dynamic `=`-derived `agent_ref` node
+/// is still in scope (finding C): its concrete route is not knowable
+/// statically, so its exact per-model role can't be resolved, but the node
+/// still means "this graph runs inference" — it stays in scope for Layer 1
+/// (signed-out/session) and gets a default-role Layer 2 probe. Only the
+/// per-model role resolution is skipped for such a node, never the whole
+/// check.
+///
+/// Every DISTINCT role across the graph's applicable `agent` nodes is probed
+/// (findings A+B): Layer 1 (signed-out/session) runs once for the whole
+/// graph — every agent node shares one backend session — then Layer 2 runs
+/// once per distinct role (via [`cached_probe_inference_readiness`], so a
+/// role already probed elsewhere in this process within the TTL is served
+/// from cache). `status`/`message` report `provider_not_configured`/`error`
+/// if ANY role's probe fails, naming every offending node and role.
+async fn evaluate_inference_readiness(
+    config: &Config,
+    graph: &WorkflowGraph,
+) -> Option<InferenceReadinessEvaluation> {
+    let agent_nodes: Vec<&tinyflows::model::Node> = graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind == NodeKind::Agent)
+        .collect();
+
+    let first_node = *agent_nodes.first()?;
+
+    // Layer 1: signed-out is the cheapest, most decisive check. Session-wide
+    // — checked once for the whole graph, not per node/role.
+    if crate::openhuman::scheduler_gate::is_signed_out() {
+        tracing::debug!(
+            target: "flows",
+            node = %first_node.id,
+            "[flows] inference-readiness: signed out — rejecting"
+        );
+        return Some(InferenceReadinessEvaluation {
+            status: "signed_out",
+            message: Some(
+                "Inference unavailable: you are signed out. Sign in to OpenHuman to run agent \
+                 nodes."
+                    .to_string(),
+            ),
+            node_id: Some(first_node.id.clone()),
+        });
+    }
+    // Skipped under `#[cfg(test)]`, matching every other call site of this
+    // exact check (`factory.rs`'s `unresolved_chat_model_error` and friends):
+    // unit-test configs use a fresh `tempfile::tempdir()` workspace with no
+    // stored `app-session` JWT by design, so this would otherwise reject
+    // every agent-node graph built by the hundreds of existing flows tests
+    // that have nothing to do with session state. Layer 2 below still fails
+    // OPEN on a construction failure caused by a genuinely missing session
+    // (see `OpenHumanBackendModel::probe_readiness`'s own doc), so production
+    // behavior for a real signed-out desktop user is unchanged — only the
+    // (redundant, in that case) early rejection here is test-only skipped.
+    #[cfg(not(test))]
+    if let Err(e) = crate::openhuman::inference::provider::factory::verify_session_active(config) {
+        tracing::debug!(
+            target: "flows",
+            node = %first_node.id,
+            error = %e,
+            "[flows] inference-readiness: no active backend session — rejecting"
+        );
+        return Some(InferenceReadinessEvaluation {
+            status: "signed_out",
+            message: Some(format!(
+                "Inference unavailable: {e} Sign in to OpenHuman to run agent nodes."
+            )),
+            node_id: Some(first_node.id.clone()),
+        });
+    }
+
+    // Layer 2: each node's effective role, grouped so every DISTINCT role is
+    // probed exactly once (a graph with several agent nodes pinning the same
+    // role must not pay the network/cache-lookup cost twice). `BTreeMap` for
+    // deterministic iteration/message ordering (test-friendly, and stable
+    // prose across runs).
+    let mut nodes_by_role: std::collections::BTreeMap<&'static str, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for node in &agent_nodes {
+        let role = agent_node_role(config, node);
+        nodes_by_role.entry(role).or_default().push(node.id.clone());
+    }
+
+    let mut failures: Vec<(&'static str, String, Vec<String>)> = Vec::new();
+    for (role, node_ids) in &nodes_by_role {
+        tracing::debug!(
+            target: "flows",
+            nodes = ?node_ids,
+            role,
+            "[flows] inference-readiness: probing managed-backend/role readiness"
+        );
+        if let Err(msg) = cached_probe_inference_readiness(role, config).await {
+            tracing::warn!(
+                target: "flows",
+                nodes = ?node_ids,
+                role,
+                "[flows] inference-readiness: probe rejected — {msg}"
+            );
+            failures.push((role, msg, node_ids.clone()));
+        }
+    }
+
+    if failures.is_empty() {
+        return Some(InferenceReadinessEvaluation {
+            status: "ready",
+            message: None,
+            node_id: None,
+        });
+    }
+
+    // Defensive ordering matches `classify_inference_error_message`'s own doc:
+    // `signed_out` (unlikely to reach Layer 2, given the Layer 1 check above,
+    // but a race is not impossible) outranks `provider_not_configured`, which
+    // outranks the generic `error` bucket.
+    let statuses: Vec<&'static str> = failures
+        .iter()
+        .map(|(_, msg, _)| classify_inference_error_message(msg))
+        .collect();
+    let status = if statuses.contains(&"signed_out") {
+        "signed_out"
+    } else if statuses.contains(&"provider_not_configured") {
+        "provider_not_configured"
+    } else {
+        "error"
+    };
+
+    // Single failing role naming a single node: keep the original flat
+    // message shape (no node-list preamble) so the existing single-node
+    // contract/tests read exactly as before. Anything broader (several
+    // failing roles, or one role shared by several nodes) names every
+    // offending node/role explicitly, since a flat message can no longer
+    // unambiguously point at "the" offending node.
+    if let [(_role, msg, node_ids)] = failures.as_slice() {
+        if let [node_id] = node_ids.as_slice() {
+            let message = if status == "provider_not_configured" {
+                format!(
+                    "This flow's agent step needs a working AI provider, but the provider \
+                     returned: '{msg}'. Configure your provider API key in OpenHuman Settings > \
+                     Providers, then try again."
+                )
+            } else {
+                format!("This flow's agent step needs a working AI provider: {msg}")
+            };
+            return Some(InferenceReadinessEvaluation {
+                status,
+                message: Some(message),
+                node_id: Some(node_id.clone()),
+            });
+        }
+    }
+
+    let message = failures
+        .iter()
+        .map(|(role, msg, node_ids)| {
+            let nodes = node_ids
+                .iter()
+                .map(|id| format!("'{id}'"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let role_status = classify_inference_error_message(msg);
+            if role_status == "provider_not_configured" {
+                format!(
+                    "Node(s) {nodes} (role `{role}`): the provider returned: '{msg}'. Configure \
+                     your provider API key in OpenHuman Settings > Providers, then try again."
+                )
+            } else {
+                format!("Node(s) {nodes} (role `{role}`): {msg}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    Some(InferenceReadinessEvaluation {
+        status,
+        message: Some(format!(
+            "This flow has {} agent step(s) that need a working AI provider:\n\n{message}",
+            failures.len()
+        )),
+        node_id: None,
+    })
+}
+
+/// The B45 provider-connectivity check as a gate-shaped `Vec<String>`: empty
+/// when the graph's `agent` node(s) (if any) can currently reach a working
+/// LLM provider, otherwise the offending node's error, naming it.
+///
+/// **No longer wired into `run_builder_gates`** (design correction — see the
+/// module doc above): authoring is never blocked by this. Its one production
+/// caller is `run_flow_body`'s run-time preflight, which fails a real run
+/// cleanly before the tinyflows engine executes rather than hard-blocking the
+/// author from proposing/saving the graph in the first place. See the module
+/// doc above for the two-layer evaluation design.
+pub(crate) async fn validate_inference_readiness(
+    config: &Config,
+    graph: &WorkflowGraph,
+) -> Vec<String> {
+    let Some(evaluation) = evaluate_inference_readiness(config, graph).await else {
+        return Vec::new();
+    };
+    if evaluation.status == "ready" {
+        return Vec::new();
+    }
+    let message = evaluation
+        .message
+        .unwrap_or_else(|| "This flow's agent step needs a working AI provider.".to_string());
+    match evaluation.node_id {
+        Some(node_id) => vec![format!("Node '{node_id}': {message}")],
+        None => vec![message],
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tool-contract enforcement gate (systemic tool-contract fix, Part 2)
 // ─────────────────────────────────────────────────────────────────────────────
 //
@@ -2371,19 +2920,21 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
                 );
                 continue;
             }
-            // A null bound to the OUTPUT of an upstream Composio `tool_call`
-            // node is UNVERIFIABLE in this echo sandbox — the mock renders a
-            // Composio `tool_call` as `{tool, args, connection}` and can NEVER
-            // produce its real output fields (`.item.json.data.<field>`), so a
-            // downstream binding to one resolves `null` here even when the
-            // wiring is perfectly correct. Hard-rejecting it (WS6) would block
-            // a possibly-correct graph from ever being proposed — the exact
-            // false-negative the transcript audit caught. Downgrade to a
-            // debug-logged skip; `dry_run_workflow` remains the surface that
-            // reports it (as an `unverifiable` diagnostic the agent can act on
-            // via get_tool_contract / get_tool_output_sample).
+            // A null bound to the OUTPUT of an upstream Composio-or-native
+            // `tool_call` node is UNVERIFIABLE in this echo sandbox — the mock
+            // renders BOTH a Composio and a native `oh:` `tool_call` as
+            // `{tool, args, connection}` and can NEVER produce their real output
+            // fields (`.item.json.data.<field>` for Composio, `.item.json.<field>`
+            // for a native tool), so a downstream binding to one resolves `null`
+            // here even when the wiring is perfectly correct. Hard-rejecting it
+            // (WS6) would block a possibly-correct graph from ever being proposed
+            // — the exact false-negative the transcript audit caught, and the one
+            // that made this gate reject #5148's own native-attachment chain.
+            // Downgrade to a debug-logged skip; `dry_run_workflow` remains the
+            // surface that reports it (as an `unverifiable` diagnostic the agent
+            // can act on via get_tool_contract / get_tool_output_sample).
             if let Some(upstream) =
-                composio_tool_call_upstream_ref(&diag.expression, graph, &step.node_id)
+                mock_opaque_tool_call_upstream_ref(&diag.expression, graph, &step.node_id)
             {
                 tracing::debug!(
                     target: "flows",
@@ -2392,7 +2943,7 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
                     %field,
                     upstream = %upstream,
                     expression = %diag.expression,
-                    "[flows] required-arg resolvability check: arg binds to a Composio \
+                    "[flows] required-arg resolvability check: arg binds to a Composio-or-native \
                      tool_call's output — UNVERIFIABLE in the echo sandbox (the mock cannot \
                      produce real tool output fields), not rejecting; dry_run_workflow \
                      reports it instead"
@@ -2515,18 +3066,25 @@ fn is_trigger_scoped_expression(
 }
 
 /// If a null-resolved config expression on `node_id` is bound to the OUTPUT of
-/// an upstream **Composio `tool_call`** node (a `tool_call` whose `slug` is a
-/// real Composio action — not `=`-derived, not native `oh:`), returns that
-/// upstream node's id; otherwise `None`.
+/// an upstream **`tool_call`** node whose sandbox output is an opaque echo — a
+/// Composio curated action OR a native `oh:` tool (anything but a `=`-derived
+/// dynamic slug) — returns that upstream node's id; otherwise `None`.
 ///
-/// The dry-run / gate sandbox renders a Composio `tool_call` as a deterministic
-/// echo (`{tool, args, connection}`) and can NEVER produce its real output
-/// fields, so a downstream binding to `.item.json.data.<field>` off such a node
-/// resolves `null` in the sandbox **even when the wiring is correct** — the
-/// binding is UNVERIFIABLE here, not necessarily broken. Callers use this to
-/// tell that honest-uncertainty case apart from a genuinely broken binding
-/// (one wired to an `agent` / `transform` / `code` / trigger upstream, whose
-/// real output the sandbox DOES produce, so a null there IS a real bug).
+/// The dry-run / gate sandbox renders BOTH a Composio `tool_call` and a native
+/// `oh:` `tool_call` as a deterministic echo (`{tool, args, connection}`) and
+/// can NEVER produce their real output fields, so a downstream binding off such
+/// a node (`.item.json.data.<field>` for Composio, or `.item.json.<field>` for
+/// a native tool after `native_tool_payload`'s unwrap) resolves `null` in the
+/// sandbox **even when the wiring is correct** — the binding is UNVERIFIABLE
+/// here, not necessarily broken. Callers use this to tell that honest-
+/// uncertainty case apart from a genuinely broken binding (one wired to an
+/// `agent` / `transform` / `code` / trigger upstream, whose real output the
+/// sandbox DOES produce, so a null there IS a real bug).
+///
+/// The native `oh:` case is why this exists beyond Composio: #5148's guidance
+/// prescribes a `produce -> oh:storage_upload_file -> oh:storage_get_link ->
+/// send` chain where the send binds `=nodes.get_link.item.json.url`; excluding
+/// native upstreams here made the gate hard-reject that exact (correct) chain.
 ///
 /// Handles both addressing forms the engine can trace:
 /// - explicit `=nodes.<id>...` / `=.nodes["<id>"]...` (parsed via
@@ -2536,9 +3094,9 @@ fn is_trigger_scoped_expression(
 ///   ambiguous fan-in is never mis-attributed to a single upstream node.
 ///
 /// Anything else (a `=run...` trigger reference, a jq expression not rooted at
-/// one of the above, or a reference to a non-`tool_call` / native / dynamic
-/// node) returns `None`.
-pub(crate) fn composio_tool_call_upstream_ref<'a>(
+/// one of the above, or a reference to a non-`tool_call` / `=`-dynamic node)
+/// returns `None`.
+pub(crate) fn mock_opaque_tool_call_upstream_ref<'a>(
     expr: &str,
     graph: &'a WorkflowGraph,
     node_id: &str,
@@ -2574,7 +3132,11 @@ pub(crate) fn composio_tool_call_upstream_ref<'a>(
         return None;
     }
     let slug = node.config.get("slug").and_then(Value::as_str)?;
-    if slug.starts_with('=') || slug.starts_with("oh:") {
+    // A `=`-derived slug is a dynamic runtime slug we can't reason about. But a
+    // native `oh:` tool_call IS opaque-echoed by the mock exactly like a
+    // Composio one, so its downstream null is equally unverifiable, not broken —
+    // do NOT exclude it (that exclusion made the gate reject #5148's own chain).
+    if slug.starts_with('=') {
         return None;
     }
     Some(node.id.as_str())
@@ -3420,6 +3982,24 @@ pub async fn flows_rollback(
 /// itself — `store::remove_flow` below still errors clearly if `id` doesn't
 /// exist.
 pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>, String> {
+    flows_delete_impl(config, id, None).await
+}
+
+/// Backs [`flows_delete`]. `memory_client_override`, when `Some`, is used in
+/// place of the process-global memory client for the namespace-clear step
+/// below — mirrors `bus::FlowRunDigestSubscriber`'s `with_memory` seam.
+///
+/// The process-global client (`memory::global`) is a single shared `OnceLock`
+/// that any test in the binary may rebind to its own tempdir workspace, so a
+/// test asserting this clear step deterministically must not depend on it —
+/// injecting a directly-constructed [`MemoryClientRef`] lets the test seed
+/// and read back through the SAME instance `flows_delete` itself writes to,
+/// with no race against the global.
+async fn flows_delete_impl(
+    config: &Config,
+    id: &str,
+    memory_client_override: Option<MemoryClientRef>,
+) -> Result<RpcOutcome<Value>, String> {
     match store::get_flow(config, id) {
         Ok(Some(flow)) => unbind_trigger(config, &flow),
         Ok(None) => {}
@@ -3430,6 +4010,27 @@ pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>
 
     store::remove_flow(config, id).map_err(|e| e.to_string())?;
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_delete: removed");
+
+    // Best-effort: clear this flow's private memory namespace along with its
+    // row — a deleted flow must not leave stray `flow_memory_remember`
+    // entries or run digests behind. Never fails the delete itself: the flow
+    // row is already gone by this point regardless of what happens here.
+    let memory_namespace = flow_namespace(id);
+    let client_result = match memory_client_override {
+        Some(client) => Ok(client),
+        None => crate::openhuman::memory::ops::helpers::active_memory_client().await,
+    };
+    match client_result {
+        Ok(client) => {
+            if let Err(e) = client.clear_namespace(&memory_namespace).await {
+                tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, error = %e, "[flows] flows_delete: failed to clear flow memory namespace");
+            }
+        }
+        Err(e) => {
+            tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, error = %e, "[flows] flows_delete: memory client unavailable — could not clear flow memory namespace");
+        }
+    }
+
     publish_flow_changed(id, "deleted", "system");
     Ok(RpcOutcome::new(
         json!({ "id": id, "removed": true }),
@@ -4023,6 +4624,54 @@ async fn run_flow_body(
 ) -> Result<RpcOutcome<Value>, String> {
     let config: &Config = config_arc.as_ref();
     let flow_id: &str = flow_id.as_str();
+
+    // B45 run-time preflight (design correction — see the "Inference-readiness
+    // check" module doc above): an `agent` node needs a working LLM provider
+    // to run at all, but that is no longer enforced as an author-time gate —
+    // `propose_workflow`/`edit_workflow`/`save_workflow` always succeed now,
+    // so a graph can reach here whose agent node(s) cannot currently complete.
+    // Catch that HERE, before the tinyflows engine (and any upstream
+    // fetch/prep nodes) does real work for nothing, and finalize the run row
+    // as `failed` with a clear, actionable message instead of the opaque,
+    // several-layers-deep "capability error: graph error: capability error:
+    // model error: ... API key not configured for provider" a mid-run failure
+    // surfaces as. Reuses `validate_inference_readiness` — backed by the same
+    // cached evaluation `build_builder_proposal`'s advisory `inference_status`
+    // warns on — so a run right after a proposal/edit reads the cached
+    // negative (`INFERENCE_PROBE_CACHE`) instead of re-probing the network.
+    // Returns an empty `Vec` (no-op here) for a tool_call-only graph, and is
+    // never consulted by `dry_run_workflow` (sandbox runs are exempt by
+    // design — that tool doesn't route through `run_flow_body` at all).
+    let inference_errors = validate_inference_readiness(config, &flow.graph).await;
+    if !inference_errors.is_empty() {
+        let detail = inference_errors.join(" ");
+        let msg = format!("This flow's AI step needs a working AI provider to run. {detail}");
+        tracing::warn!(
+            target: "flows",
+            flow_id,
+            "[flows] run_flow_body: inference-readiness preflight failed — finalizing run as \
+             failed without invoking the engine: {msg}"
+        );
+        if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
+            tracing::warn!(
+                target: "flows",
+                flow_id,
+                error = %rec_err,
+                "[flows] run_flow_body: failed to record failed run (inference preflight)"
+            );
+        }
+        let observed = current_persisted_steps(config, &thread_id);
+        finish_flow_run_row(
+            config,
+            &thread_id,
+            flow_id,
+            "failed",
+            &observed,
+            &[],
+            Some(&msg),
+        );
+        return Err(msg);
+    }
 
     // Recompile to execute — the entry point already compile-checked to fail
     // fast before the running row existed. A failure *now* (after the row was

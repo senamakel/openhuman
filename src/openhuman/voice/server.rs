@@ -9,7 +9,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -394,7 +394,7 @@ impl VoiceServer {
                             deferred_stop_deadline = None;
                             pending_expected_app = None;
                             pending_generation = None;
-                            error!("{LOG_PREFIX} failed to start recording: {e}");
+                            warn!("{LOG_PREFIX} failed to start recording: {e}");
                             *self.state.lock().await = ServerState::Idle;
                             *self.last_error.lock().await = Some(e);
                         }
@@ -403,7 +403,7 @@ impl VoiceServer {
                             deferred_stop_deadline = None;
                             pending_expected_app = None;
                             pending_generation = None;
-                            error!("{LOG_PREFIX} recording setup task dropped");
+                            warn!("{LOG_PREFIX} recording setup task dropped");
                             *self.state.lock().await = ServerState::Idle;
                         }
                     }
@@ -908,7 +908,7 @@ async fn process_recording_bg(
                         } else {
                             let insert_started = Instant::now();
                             if let Err(e) = text_input::insert_text(text, expected_app.as_deref()) {
-                                error!("{LOG_PREFIX} [pipeline={pipeline_id}] stage=deliver_paste FAILED: {e}");
+                                warn!("{LOG_PREFIX} [pipeline={pipeline_id}] stage=deliver_paste FAILED: {e}");
                                 *last_error.lock().await = Some(e);
                             } else {
                                 let insert_elapsed = insert_started.elapsed();
@@ -925,13 +925,20 @@ async fn process_recording_bg(
                     }
                 }
                 Err(e) => {
-                    error!("{LOG_PREFIX} [pipeline={pipeline_id}] stage=transcribe FAILED: {e}");
+                    // Windows DLL-not-found errors are classified at the
+                    // subprocess layer and logged with a 5-minute backoff.
+                    // Demote to warn! so they don't flood Sentry (issue #5168).
+                    if e.contains("STATUS_DLL_NOT_FOUND") {
+                        warn!("{LOG_PREFIX} [pipeline={pipeline_id}] stage=transcribe DLL_UNAVAILABLE: {e}");
+                    } else {
+                        warn!("{LOG_PREFIX} [pipeline={pipeline_id}] stage=transcribe FAILED: {e}");
+                    }
                     *last_error.lock().await = Some(e);
                 }
             }
         }
         Err(e) => {
-            error!("{LOG_PREFIX} [pipeline={pipeline_id}] stage=stop_recording FAILED: {e}");
+            warn!("{LOG_PREFIX} [pipeline={pipeline_id}] stage=stop_recording FAILED: {e}");
             *last_error.lock().await = Some(e);
         }
     }
@@ -1035,7 +1042,7 @@ pub async fn start_if_enabled(app_config: &Config) {
     let server_for_err = server.clone();
     tokio::spawn(async move {
         if let Err(e) = server.run(&config_for_run).await {
-            error!("{LOG_PREFIX} embedded voice server exited with error: {e}");
+            warn!("{LOG_PREFIX} embedded voice server exited with error: {e}");
             server_for_err.set_last_error(&e).await;
         }
     });

@@ -491,6 +491,7 @@ mod tests {
             },
             final_history: Vec::new(),
             usage: SubagentUsage::default(),
+            artifact_paths: Vec::new(),
         };
 
         let res = awaiting_outcome_to_tool_result(&outcome, &question);

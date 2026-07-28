@@ -16,7 +16,6 @@ export type CapabilityCategory =
   | 'team'
   | 'settings'
   | 'auth'
-  | 'screen_intelligence'
   | 'channels'
   | 'automation';
 

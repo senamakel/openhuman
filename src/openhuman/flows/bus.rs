@@ -13,7 +13,8 @@
 use crate::core::event_bus::{DomainEvent, EventHandler};
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::store;
-use crate::openhuman::flows::Flow;
+use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
+use crate::openhuman::memory::{Memory, MemoryCategory, MemoryTaint};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashSet;
@@ -257,12 +258,239 @@ impl EventHandler for FlowTriggerSubscriber {
     }
 }
 
+/// Bounds a post-run memory digest to a compact, LLM-cheap size — a single
+/// run's summary must never dominate a later `flow_memory_recall`.
+const DIGEST_MAX_CHARS: usize = 1000;
+
+/// Cap on how many `run_digest:*` entries [`FlowRunDigestSubscriber`] keeps
+/// per flow's memory namespace before pruning the oldest.
+const DIGEST_RETENTION_CAP: usize = 50;
+
+/// Listens for `DomainEvent::FlowRunFinished` and, on a successful terminal
+/// status, writes a compact digest of the run into the flow's own private
+/// memory namespace ([`flow_namespace`]) — e.g. so a later run of the same
+/// scheduled digest flow can `flow_memory_recall` what it already sent
+/// without re-deriving that from the target service.
+///
+/// Success-only: `"failed"` / `"cancelled"` / `"interrupted"` / any other
+/// terminal status is ignored, since a digest of a run that didn't actually
+/// complete its work would misleadingly look like a record of real output.
+///
+/// Best-effort throughout: every failure here is logged via `tracing::warn!`
+/// and swallowed, never propagated — by the time this subscriber observes
+/// `FlowRunFinished`, the run has already settled its own `flow_runs` row, so
+/// a memory-layer hiccup must never retroactively affect run status.
+pub struct FlowRunDigestSubscriber {
+    config: Arc<Config>,
+    /// Test-only memory override. In production this is `None` and the digest
+    /// resolves the process-global memory client via [`active_memory_client`].
+    /// The process-global client is a one-shot `OnceLock`, so a unit test
+    /// cannot reliably rebind it to its own tempdir (an earlier test in the
+    /// same binary may already have initialised the singleton — see
+    /// `memory::global`'s own test notes). Injecting a directly-constructed
+    /// [`Memory`] here lets the digest tests write and read back through the
+    /// SAME instance deterministically, exactly as `flows::memory_tools`'
+    /// tests do with `UnifiedMemory::new`.
+    memory_override: Option<Arc<dyn Memory>>,
+}
+
+impl FlowRunDigestSubscriber {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self {
+            config,
+            memory_override: None,
+        }
+    }
+
+    /// Test constructor: run the digest against an explicitly-provided memory
+    /// instance instead of the process-global client. See [`Self::memory_override`].
+    #[cfg(test)]
+    fn with_memory(config: Arc<Config>, memory: Arc<dyn Memory>) -> Self {
+        Self {
+            config,
+            memory_override: Some(memory),
+        }
+    }
+
+    /// Resolves the memory handle the digest writes to: the injected test
+    /// override when present, else the process-global client
+    /// ([`active_memory_client`]). Returns `None` (best-effort skip) when the
+    /// global client is unavailable.
+    async fn resolve_memory(&self) -> Option<Arc<dyn Memory>> {
+        if let Some(memory) = &self.memory_override {
+            return Some(memory.clone());
+        }
+        match crate::openhuman::memory::ops::helpers::active_memory_client().await {
+            Ok(client) => Some(client.memory_handle()),
+            Err(e) => {
+                tracing::warn!(target: "flows", error = %e, "[flows] digest: memory client unavailable — skipping");
+                None
+            }
+        }
+    }
+
+    async fn handle_finished(&self, flow_id: &str, run_id: &str, status: &str) {
+        if status != "completed" && status != "completed_with_warnings" {
+            tracing::trace!(target: "flows", %flow_id, %run_id, %status, "[flows] digest: ignoring non-success terminal status");
+            return;
+        }
+
+        let flow_name = match store::get_flow(&self.config, flow_id) {
+            Ok(Some(flow)) => flow.name,
+            Ok(None) => {
+                tracing::debug!(target: "flows", %flow_id, %run_id, "[flows] digest: flow no longer exists — skipping");
+                return;
+            }
+            Err(e) => {
+                tracing::warn!(target: "flows", %flow_id, %run_id, error = %e, "[flows] digest: failed to load flow — skipping");
+                return;
+            }
+        };
+
+        let run = match store::get_flow_run(&self.config, run_id) {
+            Ok(Some(run)) => run,
+            Ok(None) => {
+                tracing::warn!(target: "flows", %flow_id, %run_id, "[flows] digest: run row not found — skipping");
+                return;
+            }
+            Err(e) => {
+                tracing::warn!(target: "flows", %flow_id, %run_id, error = %e, "[flows] digest: failed to load run — skipping");
+                return;
+            }
+        };
+
+        let digest = render_run_digest(&flow_name, &run);
+
+        let Some(memory) = self.resolve_memory().await else {
+            return;
+        };
+        let namespace = flow_namespace(flow_id);
+        let digest_key = format!("run_digest:{run_id}");
+
+        if let Err(e) = memory
+            .store_with_taint(
+                &namespace,
+                &digest_key,
+                &digest,
+                MemoryCategory::Core,
+                None,
+                MemoryTaint::ExternalSync,
+            )
+            .await
+        {
+            tracing::warn!(target: "flows", %flow_id, %run_id, %namespace, error = %e, "[flows] digest: failed to write run digest");
+            return;
+        }
+
+        self.enforce_retention_cap(&memory, &namespace).await;
+    }
+
+    /// Best-effort prune: keeps at most [`DIGEST_RETENTION_CAP`] `run_digest:*`
+    /// entries per flow namespace, evicting the oldest (by `timestamp`) first.
+    async fn enforce_retention_cap(&self, memory: &Arc<dyn Memory>, namespace: &str) {
+        let entries = match memory.list(Some(namespace), None, None).await {
+            Ok(entries) => entries,
+            Err(e) => {
+                tracing::warn!(target: "flows", %namespace, error = %e, "[flows] digest: retention sweep failed to list namespace");
+                return;
+            }
+        };
+        let mut digests: Vec<_> = entries
+            .into_iter()
+            .filter(|entry| entry.key.starts_with("run_digest:"))
+            .collect();
+        if digests.len() <= DIGEST_RETENTION_CAP {
+            return;
+        }
+        // Oldest first, so the excess taken below is the stalest entries.
+        digests.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        let excess = digests.len() - DIGEST_RETENTION_CAP;
+        for entry in digests.into_iter().take(excess) {
+            if let Err(e) = memory.forget(namespace, &entry.key).await {
+                tracing::warn!(target: "flows", %namespace, key = %entry.key, error = %e, "[flows] digest: retention sweep failed to forget stale entry");
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl EventHandler for FlowRunDigestSubscriber {
+    fn name(&self) -> &str {
+        "flows::digest"
+    }
+
+    fn domains(&self) -> Option<&[&str]> {
+        // `FlowRunFinished` — the only event this subscriber handles — is
+        // itself tagged `"cron"` by `DomainEvent::domain()` (grouped there
+        // with the other flow-run/schedule events), not `"flows"`. This is
+        // matching that tag, not a typo.
+        Some(&["cron"])
+    }
+
+    async fn handle(&self, event: &DomainEvent) {
+        if let DomainEvent::FlowRunFinished {
+            flow_id,
+            run_id,
+            status,
+        } = event
+        {
+            self.handle_finished(flow_id, run_id, status).await;
+        }
+    }
+}
+
+/// Truncates `s` to at most `max` `char`s, appending `…` when truncated.
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let truncated: String = s.chars().take(max.saturating_sub(1)).collect();
+    format!("{truncated}…")
+}
+
+/// Composes a compact, bounded summary of a finished run: flow name,
+/// finished-at, status, node count, and per-node status + truncated output.
+/// Bounded to [`DIGEST_MAX_CHARS`] total.
+fn render_run_digest(flow_name: &str, run: &FlowRun) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let _ = writeln!(out, "Flow: {flow_name}");
+    let _ = writeln!(out, "Status: {}", run.status);
+    if let Some(finished_at) = &run.finished_at {
+        let _ = writeln!(out, "Finished: {finished_at}");
+    }
+    let _ = writeln!(out, "Nodes: {}", run.steps.len());
+    for step in &run.steps {
+        if out.chars().count() >= DIGEST_MAX_CHARS {
+            break;
+        }
+        let status = step.status.as_deref().unwrap_or("?");
+        let output = truncate_chars(&step.output.to_string(), 120);
+        let _ = writeln!(out, "- {} [{status}]: {output}", step.node_id);
+    }
+    truncate_chars(&out, DIGEST_MAX_CHARS)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::embeddings::NoopEmbedding;
     use crate::openhuman::flows::Flow;
+    use crate::openhuman::memory_store::UnifiedMemory;
     use serde_json::json;
     use tinyflows::model::{Node, NodeKind, WorkflowGraph};
+
+    /// A directly-constructed, isolated [`Memory`] for the digest tests — NOT
+    /// the process-global `OnceLock` client. The global is one-shot, so an
+    /// earlier test in the same binary may already have bound it to a different
+    /// workspace, making `global::init(..)` here a silent no-op (see
+    /// `memory::global`'s own test notes). Injecting this instance into the
+    /// subscriber via [`FlowRunDigestSubscriber::with_memory`] makes writes and
+    /// read-backs go through the SAME store deterministically — the same shape
+    /// `flows::memory_tools`' tests use.
+    fn digest_test_memory(tmp: &tempfile::TempDir) -> Arc<dyn Memory> {
+        Arc::new(UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap())
+    }
 
     fn test_config(tmp: &tempfile::TempDir) -> Arc<Config> {
         let config = Config {
@@ -460,5 +688,251 @@ mod tests {
         let a = FlowTriggerSubscriber::new(config.clone());
         let b = FlowTriggerSubscriber::new(config);
         assert_eq!(a.name(), b.name());
+    }
+
+    // ── FlowRunDigestSubscriber ─────────────────────────────────────
+
+    #[test]
+    fn digest_name_and_domains_are_stable() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = FlowRunDigestSubscriber::new(test_config(&tmp));
+        assert_eq!(sub.name(), "flows::digest");
+        assert_eq!(sub.domains(), Some(&["cron"][..]));
+    }
+
+    #[tokio::test]
+    async fn digest_handle_does_not_panic_on_unrelated_events() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = FlowRunDigestSubscriber::new(test_config(&tmp));
+        // Must not panic, and must not touch the memory layer at all, for
+        // any event other than `FlowRunFinished`.
+        sub.handle(&DomainEvent::CronJobTriggered {
+            job_id: "j1".into(),
+            job_name: "test".into(),
+            job_type: "shell".into(),
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn digest_ignores_failed_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let memory = digest_test_memory(&tmp);
+
+        let flow = flow_with_trigger_config("f-failed", true, json!({}));
+        store::upsert_flow(&config, &flow).unwrap();
+        store::insert_flow_run(
+            &config,
+            "run-failed",
+            "f-failed",
+            "thread-failed",
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap();
+        store::finish_flow_run(
+            &config,
+            "run-failed",
+            "failed",
+            "2026-01-01T00:05:00Z",
+            &[],
+            &[],
+            Some("boom"),
+        )
+        .unwrap();
+
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-failed".into(),
+            run_id: "run-failed".into(),
+            status: "failed".into(),
+        })
+        .await;
+
+        let entry = memory
+            .get(&flow_namespace("f-failed"), "run_digest:run-failed")
+            .await
+            .unwrap();
+        assert!(
+            entry.is_none(),
+            "a failed run must never produce a run_digest entry"
+        );
+    }
+
+    #[tokio::test]
+    async fn digest_ignores_cancelled_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let memory = digest_test_memory(&tmp);
+
+        let flow = flow_with_trigger_config("f-cancelled", true, json!({}));
+        store::upsert_flow(&config, &flow).unwrap();
+        store::insert_flow_run(
+            &config,
+            "run-cancelled",
+            "f-cancelled",
+            "thread-cancelled",
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap();
+        store::finish_flow_run(
+            &config,
+            "run-cancelled",
+            "cancelled",
+            "2026-01-01T00:05:00Z",
+            &[],
+            &[],
+            None,
+        )
+        .unwrap();
+
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-cancelled".into(),
+            run_id: "run-cancelled".into(),
+            status: "cancelled".into(),
+        })
+        .await;
+
+        let entry = memory
+            .get(&flow_namespace("f-cancelled"), "run_digest:run-cancelled")
+            .await
+            .unwrap();
+        assert!(entry.is_none());
+    }
+
+    #[tokio::test]
+    async fn digest_writes_run_digest_entry_for_completed_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let memory = digest_test_memory(&tmp);
+
+        let flow = flow_with_trigger_config("f-ok", true, json!({}));
+        store::upsert_flow(&config, &flow).unwrap();
+        store::insert_flow_run(
+            &config,
+            "run-ok",
+            "f-ok",
+            "thread-ok",
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap();
+        let step = crate::openhuman::flows::FlowRunStep {
+            node_id: "n1".to_string(),
+            output: json!({ "sent": 3 }),
+            port: None,
+            status: Some("success".to_string()),
+            duration_ms: Some(12),
+            diagnostics: Vec::new(),
+        };
+        store::finish_flow_run(
+            &config,
+            "run-ok",
+            "completed",
+            "2026-01-01T00:05:00Z",
+            &[step],
+            &[],
+            None,
+        )
+        .unwrap();
+
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-ok".into(),
+            run_id: "run-ok".into(),
+            status: "completed".into(),
+        })
+        .await;
+
+        let entry = memory
+            .get(&flow_namespace("f-ok"), "run_digest:run-ok")
+            .await
+            .unwrap()
+            .expect("completed run must produce a run_digest entry");
+        assert_eq!(entry.taint, MemoryTaint::ExternalSync);
+        assert!(entry.content.contains("f-ok"));
+        assert!(entry.content.contains("completed"));
+        assert!(entry.content.contains("n1"));
+        assert!(entry.content.chars().count() <= DIGEST_MAX_CHARS);
+    }
+
+    #[tokio::test]
+    async fn digest_treats_completed_with_warnings_as_success() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let memory = digest_test_memory(&tmp);
+
+        let flow = flow_with_trigger_config("f-warn", true, json!({}));
+        store::upsert_flow(&config, &flow).unwrap();
+        store::insert_flow_run(
+            &config,
+            "run-warn",
+            "f-warn",
+            "thread-warn",
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap();
+        store::finish_flow_run(
+            &config,
+            "run-warn",
+            "completed_with_warnings",
+            "2026-01-01T00:05:00Z",
+            &[],
+            &[],
+            None,
+        )
+        .unwrap();
+
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-warn".into(),
+            run_id: "run-warn".into(),
+            status: "completed_with_warnings".into(),
+        })
+        .await;
+
+        let entry = memory
+            .get(&flow_namespace("f-warn"), "run_digest:run-warn")
+            .await
+            .unwrap();
+        assert!(entry.is_some());
+    }
+
+    #[test]
+    fn truncate_chars_bounds_output_and_marks_truncation() {
+        let long = "x".repeat(50);
+        let truncated = truncate_chars(&long, 10);
+        assert_eq!(truncated.chars().count(), 10);
+        assert!(truncated.ends_with('…'));
+
+        let short = "hello";
+        assert_eq!(truncate_chars(short, 10), "hello");
+    }
+
+    #[test]
+    fn render_run_digest_is_bounded_and_includes_key_fields() {
+        let run = FlowRun {
+            id: "run-1".to_string(),
+            flow_id: "f1".to_string(),
+            thread_id: "thread-1".to_string(),
+            status: "completed".to_string(),
+            started_at: "2026-01-01T00:00:00Z".to_string(),
+            finished_at: Some("2026-01-01T00:05:00Z".to_string()),
+            steps: vec![crate::openhuman::flows::FlowRunStep {
+                node_id: "n1".to_string(),
+                output: json!({ "ok": true }),
+                port: None,
+                status: Some("success".to_string()),
+                duration_ms: Some(5),
+                diagnostics: Vec::new(),
+            }],
+            pending_approvals: Vec::new(),
+            error: None,
+        };
+        let digest = render_run_digest("My Flow", &run);
+        assert!(digest.contains("My Flow"));
+        assert!(digest.contains("completed"));
+        assert!(digest.contains("n1"));
+        assert!(digest.chars().count() <= DIGEST_MAX_CHARS);
     }
 }

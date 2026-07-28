@@ -229,6 +229,20 @@ pub enum ExpectedErrorKind {
     /// (`inference_downloads_progress` re-reads config every poll → 36k events /
     /// 1 Windows user).
     ConfigReadIoFailure,
+    /// Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665) — the NTFS file
+    /// system cannot complete the operation because the filesystem is too
+    /// fragmented, the USN journal has overflowed, or a filesystem filter
+    /// driver has hit its resource cap. This is a persistent host-filesystem
+    /// condition that the user must resolve by restarting, running a defrag,
+    /// or freeing space — Sentry has no remediation path.
+    ///
+    /// Also covers `ERROR_DISK_FULL` (112) / `ERROR_HANDLE_DISK_FULL` (39),
+    /// although those are more reliably caught by the `DiskFull` arm above.
+    ///
+    /// Matched on the locale-stable `(os error 665)` suffix (the Italian
+    /// locale rendering observed in Sentry TAURI-RUST-QT0 — 6,050 events from
+    /// 1 Windows user — is `".. (os error 665)"`, matching any locale).
+    WindowsFileSystemLimitation,
     /// The subconscious engine's SQLite schema init couldn't open its database
     /// file at all — a host-filesystem condition, not a code bug. Two canonical
     /// renderings, both bound to the user's local FS:
@@ -588,6 +602,9 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     if is_disk_full_message(&lower) {
         return Some(ExpectedErrorKind::DiskFull);
     }
+    if is_windows_file_system_limitation_message(&lower) {
+        return Some(ExpectedErrorKind::WindowsFileSystemLimitation);
+    }
     if is_config_load_timed_out_message(&lower) {
         return Some(ExpectedErrorKind::ConfigLoadTimedOut);
     }
@@ -708,6 +725,25 @@ fn is_disk_full_message(lower: &str) -> bool {
     (bare_suffix || extended_local) && !lower.contains("backend returned ")
 }
 
+/// Detect Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665) —
+/// a host-filesystem condition (fragmentation, USN journal overflow,
+/// filter-driver resource cap) that is persistent, locale-independent
+/// in the `(os error N)` suffix, and unrecoverable by the app.
+///
+/// Anchor on the locale-stable `(os error 665)` suffix. The Italian
+/// locale rendering is `"Impossibile completare l'operazione a causa
+/// di un limite del file system (os error 665)"` (Sentry
+/// TAURI-RUST-QT0, 6,050 events / 1 user). The `(os error 665)` suffix
+/// is the same across every locale, so no locale-detection is needed.
+///
+/// Polarity contract — only match when `(os error 665)` appears in
+/// the message body. This is a standard `std::io::Error` Display
+/// rendering, so it will never appear in a remote backend body
+/// accidentally.
+fn is_windows_file_system_limitation_message(lower: &str) -> bool {
+    lower.contains("(os error 665)") && !lower.contains("backend returned ")
+}
+
 /// Detect the literal `"Config loading timed out"` string produced by
 /// [`crate::openhuman::config::ops::load_config_with_timeout`] /
 /// [`crate::openhuman::config::ops::reload_config_snapshot_with_timeout`]
@@ -756,6 +792,21 @@ fn is_config_read_io_failure_message(lower: &str) -> bool {
     // the read site (`impl_load.rs`) now fails a directory fast with this
     // distinct wording, and we belt-and-braces exclude it here too. (Codex P2.)
     if lower.contains("is a directory") || lower.contains("not a file") {
+        return false;
+    }
+    // The file is owned by a uid other than the one reading it. That is an
+    // OpenHuman defect, not user-environment state: *we* pick the runtime uid
+    // (Dockerfile) and *we* write the config at 0600 (`impl_load.rs`), and the
+    // container entrypoint chowns only the workspace directory — so a
+    // stale-uid `config.toml` inside a reused volume denies every config RPC
+    // (including the sign-in `auth_store_session`) while `/health` stays green.
+    // There IS a local lever here, so it must keep paging. Genuine ACL /
+    // antivirus / OneDrive denials carry no marker and stay demoted.
+    //
+    // Referencing the loader's constant (rather than a copied literal) makes
+    // the producer/consumer coupling a compile-time one: the marker is already
+    // lowercase, so it matches `lower` verbatim.
+    if lower.contains(crate::openhuman::config::schema::CONFIG_OWNER_MISMATCH_MARKER) {
         return false;
     }
     lower.contains("access is denied")
@@ -977,6 +1028,20 @@ pub fn is_session_expired_message(msg: &str) -> bool {
         // escalating — guarded by
         // `does_not_classify_streaming_byo_key_401_as_session_expired`.
         || (msg.contains("OpenHuman streaming API error (401")
+            && msg.contains("\"error\":\"Invalid token\""))
+        // TAURI-RUST-N — same OpenHuman backend "Invalid token" envelope
+        // wrapped by the tinyagents `ProviderError::Display` format
+        // (`TinyAgentsError::Provider(Box<ProviderError>)`). The crate-native
+        // path (`OpenHumanBackendModel`) delegates to tinyagents' `OpenAiModel`
+        // which formats errors as `"{provider} returned HTTP {status}: {body}"`,
+        // producing `"OpenHuman returned HTTP 401: ..."` — different from the
+        // `"OpenHuman API error (401"` prefix the classic `api_error` path emits.
+        // Same conjunctive-anchor pattern: scoped to `"OpenHuman returned HTTP
+        // {status}"` (so a third-party BYO-key 401 from a provider whose label
+        // contains "OpenHuman" cannot match) AND the envelope-shaped
+        // `"\"error\":\"Invalid token\""` (so bare prose mentions of "invalid
+        // token" stay actionable).
+        || (msg.contains("OpenHuman returned HTTP 401")
             && msg.contains("\"error\":\"Invalid token\""))
 }
 
@@ -2082,6 +2147,21 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
                 "[observability] {domain}.{operation} skipped expected disk-full error"
             );
         }
+        ExpectedErrorKind::WindowsFileSystemLimitation => {
+            // Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665) —
+            // caused by fragmentation, USN journal overflow, or a
+            // filesystem filter driver bottleneck. The user must restart
+            // their machine, run a defrag, or free disk space — Sentry
+            // has no remediation path. Demote at `warn!` so a sustained
+            // spike shows up in dashboards without flooding Sentry.
+            // Drops TAURI-RUST-QT0 (6,050 events / 1 user).
+            tracing::warn!(
+                domain = domain,
+                operation = operation,
+                kind = "windows_file_system_limitation",
+                "[observability] {domain}.{operation} skipped expected Windows file-system-limitation error (os error 665)"
+            );
+        }
         ExpectedErrorKind::MemoryStoreBreakerOpen => {
             tracing::warn!(
                 domain = domain,
@@ -2294,6 +2374,40 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
 /// honest.
 pub const REPORT_ERROR_TRACING_TARGET: &str = "openhuman::observability::report_error";
 
+/// Cooldown period for rate-limiting repeated filesystem-limit errors.
+/// Within this window, the same (domain, operation) pair that carries
+/// `(os error 665)` is suppressed — Sentry never receives a duplicate
+/// Sentry event, and only a `debug!` log line is emitted.
+const FS_ERROR_COOLDOWN: std::time::Duration = std::time::Duration::from_secs(300); // 5 min
+
+/// In-process state tracking the last-reported time of `ERROR_FILE_SYSTEM_LIMITATION`
+/// (os error 665) events, keyed by `(domain, operation)`. This prevents
+/// unthrottled retry loops from flooding Sentry (TAURI-RUST-QT0: 6,050 events /
+/// 1 user).
+static LAST_FS_LIMIT_REPORT: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<(String, String), std::time::Instant>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+/// Returns `true` when `(domain, operation)` was already reported with
+/// an error-665 message within [`FS_ERROR_COOLDOWN`]. Cleans up stale
+/// entries older than the cooldown on every call.
+fn was_recently_reported(domain: &str, operation: &str) -> bool {
+    let mut guard = LAST_FS_LIMIT_REPORT
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let now = std::time::Instant::now();
+    // Prune stale entries older than cooldown (single-pass to keep map bounded).
+    guard.retain(|_, last| now.duration_since(*last) < FS_ERROR_COOLDOWN);
+    let key = (domain.to_string(), operation.to_string());
+    if let Some(last) = guard.get(&key) {
+        if now.duration_since(*last) < FS_ERROR_COOLDOWN {
+            return true;
+        }
+    }
+    guard.insert(key, now);
+    false
+}
+
 pub(crate) fn report_error_message(
     message: &str,
     domain: &str,
@@ -2306,6 +2420,22 @@ pub(crate) fn report_error_message(
     // `crash-reporting` `before_send` hook — so scrub once, up front.
     let scrubbed = crate::core::log_redaction::scrub_secrets(message);
     let message = scrubbed.as_str();
+    // Rate-limit Windows `ERROR_FILE_SYSTEM_LIMITATION` (os error 665)
+    // events: skip the Sentry capture if the same (domain, operation) pair
+    // was already reported within the last 5 minutes. This prevents
+    // unthrottled retry loops from flooding Sentry (TAURI-RUST-QT0:
+    // 6,050 events / 1 user). The `before_send` chain also filters these,
+    // but this early-exit avoids the Sentry scope overhead entirely.
+    #[cfg(feature = "crash-reporting")]
+    if message.contains("os error 665") && was_recently_reported(domain, operation) {
+        tracing::debug!(
+            target: REPORT_ERROR_TRACING_TARGET,
+            domain = domain,
+            operation = operation,
+            "[observability] {domain}.{operation} rate-limited os error 665 (reported within cooldown)"
+        );
+        return;
+    }
     // Sentry-touching behaviour is gated behind `crash-reporting`. The
     // diagnostic `tracing::error!` stays compiled in both builds (see the
     // `#[cfg(not(...))]` companion below) so stderr / file appenders keep the
@@ -3108,6 +3238,45 @@ pub fn is_ollama_cloud_internal_500_event(event: &sentry::protocol::Event<'_>) -
     })
 }
 
+/// Defense-in-depth `before_send` filter for Windows `ERROR_FILE_SYSTEM_LIMITATION`
+/// (os error 665) — a host-filesystem condition (fragmentation, USN journal
+/// overflow, filter-driver resource cap) that is persistent, locale-independent
+/// in the `(os error N)` suffix, and unrecoverable by the app.
+///
+/// The primary suppression lives at the emit site via `expected_error_kind` →
+/// `ExpectedErrorKind::WindowsFileSystemLimitation` (called by
+/// `report_error_or_expected`). This filter catches any future call site that
+/// bypasses `report_error_or_expected` and emits the error via `report_error`
+/// or `tracing::error!` directly — keeping TAURI-RUST-QT0 (6,050 events /
+/// 1 user) permanently off Sentry.
+///
+/// Also catches `OS error 665` from the Tauri shell side
+/// (`app/src-tauri/`) which is compiled into a separate crate and therefore
+/// cannot route through the core's `expected_error_kind` classifier.
+#[cfg(feature = "crash-reporting")]
+pub fn is_windows_file_system_limitation_event(event: &sentry::protocol::Event<'_>) -> bool {
+    let check = |text: &str| -> bool {
+        let lower = text.to_ascii_lowercase();
+        lower.contains("(os error 665)")
+    };
+    if event.message.as_deref().is_some_and(check) {
+        return true;
+    }
+    if event
+        .logentry
+        .as_ref()
+        .map(|log| log.message.as_str())
+        .is_some_and(check)
+    {
+        return true;
+    }
+    event
+        .exception
+        .values
+        .iter()
+        .any(|exception| exception.value.as_deref().is_some_and(check))
+}
+
 /// 404 on PATCH/DELETE to a channel-message path is an expected backend state
 /// (user deleted the message provider-side, backend GC'd the relay row). The
 /// primary suppression lives in `authed_json` via `parse_message_path` +
@@ -3168,6 +3337,208 @@ fn event_contains_budget_exhausted_message(event: &sentry::protocol::Event<'_>) 
             .as_deref()
             .is_some_and(crate::openhuman::inference::provider::is_budget_exhausted_message)
     })
+}
+
+/// Defense-in-depth `before_send` filter for **user-config provider error
+/// patterns** — 4xx client errors, model-not-found, subscription/payment
+/// issues, and other misconfigurations that are not application bugs.
+///
+/// Matches on `event.message` or exception values against known user-config
+/// patterns. The primary suppression lives at the `report_error` / emit sites;
+/// this catches any future call site that bypasses those classifiers.
+///
+/// Returns true (should be dropped) when the event message matches any known
+/// user-config provider pattern. Target: ~22 Sentry issues / ~26k events.
+#[cfg(feature = "crash-reporting")]
+pub fn is_user_config_provider_event(event: &sentry::protocol::Event<'_>) -> bool {
+    // Collect all text sources to check against
+    let texts: Vec<&str> = {
+        let mut v = Vec::with_capacity(2 + event.exception.values.len());
+        if let Some(msg) = event.message.as_deref() {
+            v.push(msg);
+        }
+        if let Some(log) = event.logentry.as_ref().map(|l| l.message.as_str()) {
+            v.push(log);
+        }
+        for exc in &event.exception.values {
+            if let Some(val) = exc.value.as_deref() {
+                v.push(val);
+            }
+        }
+        v
+    };
+    if texts.is_empty() {
+        return false;
+    }
+
+    // Provider 4xx patterns — user config errors like:
+    //   "HTTP 400", "HTTP 401", "HTTP 403", "HTTP 404"
+    // matching against llm_provider domain events
+    let tags = &event.tags;
+    let domain = tags.get("domain").map(String::as_str);
+    if domain == Some("llm_provider") {
+        if let Some(status) = tags.get("status") {
+            // 4xx user config errors. 401/403/404 are unambiguously
+            // auth/permission/config issues and safe to drop blanket.
+            // 400 (Bad Request) may also be a client-side serialization
+            // bug — only drop when the message content confirms it's
+            // a user config error (handled by message patterns below
+            // and the earlier `is_budget_event` / `is_insufficient_credits_event`
+            // filters in the before_send chain).
+            if matches!(status.as_str(), "401" | "403" | "404") {
+                return true;
+            }
+        }
+        // Message-level patterns
+        let lower = texts.join(" ").to_ascii_lowercase();
+        if lower.contains("401 payment required")
+            || lower.contains("subscription")
+            || lower.contains("max monthly spend")
+            || lower.contains("context length exceeded")
+            || lower.contains("context size exceeded")
+        {
+            return true;
+        }
+    }
+
+    // Embedding API 4xx / unauthorized — user's embedding provider config
+    if domain == Some("llm_provider") || domain == Some("local_ai") {
+        let lower = texts.join(" ").to_ascii_lowercase();
+        if (lower.contains("embed") || lower.contains("embedding"))
+            && (lower.contains("401")
+                || lower.contains("404")
+                || lower.contains("unauthorized")
+                || lower.contains("invalid model"))
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Defense-in-depth `before_send` filter for **connectivity/network flakiness**
+/// events — transient, self-resolving failures like timeouts, gateways, and
+/// "Failed to fetch" messages from the frontend.
+///
+/// Primary suppression lives at the caller sites. This is the outermost net for
+/// any future call site that bypasses those classifiers. Target: ~8 issues.
+#[cfg(feature = "crash-reporting")]
+pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
+    let texts: Vec<&str> = {
+        let mut v = Vec::with_capacity(2 + event.exception.values.len());
+        if let Some(msg) = event.message.as_deref() {
+            v.push(msg);
+        }
+        if let Some(log) = event.logentry.as_ref().map(|l| l.message.as_str()) {
+            v.push(log);
+        }
+        for exc in &event.exception.values {
+            if let Some(val) = exc.value.as_deref() {
+                v.push(val);
+            }
+        }
+        v
+    };
+    if texts.is_empty() {
+        return false;
+    }
+
+    let lower = texts.join(" ").to_ascii_lowercase();
+
+    // Core HTTP transport errors
+    if lower.contains("connection refused")
+        || lower.contains("connection reset")
+        || lower.contains("connection closed before")
+        || lower.contains("broken pipe")
+        || lower.contains("tls handshake eof")
+    {
+        return true;
+    }
+
+    // Backend / provider gateway errors
+    if lower.contains("502 bad gateway")
+        || lower.contains("504 gateway timeout")
+        || lower.contains("502 gateway timeout")
+        || lower.contains("timeout: 503")
+        || lower.contains("upstream connect error")
+    {
+        return true;
+    }
+
+    // CoreRpcError / HTTP 401 (from frontend — user session issue, not code defect)
+    // Only match bare HTTP 401 (CoreRpcError / fetch), not llm_provider 401
+    // which is handled by the session-expired classifier
+    let domain = event.tags.get("domain").map(String::as_str);
+    if domain != Some("llm_provider")
+        && domain != Some("backend_api")
+        && (lower.contains("http 401")
+            || lower.contains("status: 401")
+            || lower.contains("401 unauthorized"))
+    {
+        return true;
+    }
+
+    // Timeout patterns — scoped to known transient forms so genuine
+    // non-transport timeouts (database locks, inference hangs) still
+    // reach Sentry for investigation.
+    if lower.contains("connection timed out")
+        || lower.contains("request timed out")
+        || lower.contains("deadline has elapsed")
+        || lower.contains("timeout after")
+    {
+        return true;
+    }
+
+    false
+}
+
+/// Filter out events from **stale releases** — releases older than
+/// `MAX_AGE_MINOR_VERSIONS` minor versions behind the current build.
+///
+/// Ancient-client errors are not actionable against the current codebase.
+/// Target: ~4 issues from releases like v0.54.0 against current v0.58+.
+#[cfg(feature = "crash-reporting")]
+pub fn is_stale_release_event(event: &sentry::protocol::Event<'_>) -> bool {
+    // Maximum number of minor versions behind the current release to accept.
+    // Events from clients on releases older than this are dropped.
+    const MAX_AGE_MINOR_VERSIONS: u32 = 6;
+
+    let Some(release) = event.release.as_ref() else {
+        return false;
+    };
+
+    let current = env!("CARGO_PKG_VERSION");
+    parse_version(current).is_some_and(|(current_major, current_minor)| {
+        parse_release_tag(release).is_some_and(|(event_major, event_minor)| {
+            if event_major != current_major {
+                // Different major version = definitely stale (or from the future)
+                return event_major < current_major;
+            }
+            // Same major: check minor version gap
+            current_minor.saturating_sub(event_minor) > MAX_AGE_MINOR_VERSIONS
+        })
+    })
+}
+
+/// Parse a Sentry release tag like `"openhuman@0.58.0"` or
+/// `"openhuman@0.58.0+abc123def456"` into `(major, minor)`.
+#[cfg(feature = "crash-reporting")]
+fn parse_release_tag(tag: &str) -> Option<(u32, u32)> {
+    // Strip the `openhuman@` prefix
+    let after_at = tag.split('@').nth(1)?;
+    // Get the version part before any `+` suffix
+    let version = after_at.split('+').next()?;
+    parse_version(version)
+}
+
+/// Parse a `"MAJOR.MINOR.PATCH"` version string into `(major, minor)`.
+#[cfg(feature = "crash-reporting")]
+fn parse_version(version: &str) -> Option<(u32, u32)> {
+    let mut parts = version.splitn(3, '.');
+    let major = parts.next()?.parse::<u32>().ok()?;
+    let minor = parts.next()?.parse::<u32>().ok()?;
+    Some((major, minor))
 }
 
 #[cfg(test)]
@@ -4334,6 +4705,42 @@ mod tests {
         assert_eq!(
             expected_error_kind(
                 "reading config.toml from C:\\Users\\u\\.openhuman\\users\\local-wb\\config.toml: Access is denied. (os error 5)"
+            ),
+            Some(ExpectedErrorKind::ConfigReadIoFailure),
+        );
+    }
+
+    /// A denial caused by the config being owned by a *different uid than the
+    /// process reading it* is an OpenHuman defect, not user-environment state:
+    /// we pick the container runtime uid and we write the file at 0600, and the
+    /// entrypoint historically chowned only the workspace directory — so a
+    /// reused volume denied every config RPC (including the sign-in
+    /// `auth_store_session`) while `/health` stayed green and Sentry saw
+    /// nothing. It must keep paging.
+    #[test]
+    fn does_not_demote_config_read_denial_on_owner_mismatch() {
+        let marker = crate::openhuman::config::schema::CONFIG_OWNER_MISMATCH_MARKER;
+        assert_ne!(
+            expected_error_kind(&format!(
+                "Failed to read config file: /home/openhuman/.openhuman/config.toml {marker} \
+                 (file uid=0 gid=0 mode=0600; process euid=10001 egid=10001): \
+                 Permission denied (os error 13)"
+            )),
+            Some(ExpectedErrorKind::ConfigReadIoFailure),
+        );
+    }
+
+    /// The complement: without the marker the file is ours and readable-in-
+    /// principle, so the denial really is an ACL / antivirus / OneDrive
+    /// condition with no local lever, and stays demoted. Guarding this pins
+    /// that the exclusion above is keyed on the marker, not on "permission".
+    #[test]
+    fn still_demotes_config_read_denial_without_owner_mismatch() {
+        assert_eq!(
+            expected_error_kind(
+                "Failed to read config file: /home/u/.openhuman/users/local/config.toml \
+                 (file uid=501 gid=20 mode=0000; process euid=501 egid=20): \
+                 Permission denied (os error 13)"
             ),
             Some(ExpectedErrorKind::ConfigReadIoFailure),
         );

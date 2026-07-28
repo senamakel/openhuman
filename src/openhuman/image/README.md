@@ -20,21 +20,22 @@ expose when image capabilities are available.
 
 ## Module Shape
 
-| File | Role |
-| --- | --- |
-| `mod.rs` | Export-only module entrypoint. |
-| `types.rs` | Shared descriptors, permission/config types, and gating helpers. |
-| `image_generation.rs` | `image_generation` schema and output-format contract. |
-| `image_view.rs` | `view_image` schema and detail-level contract. |
-| `prompt.rs` | Agent prompt guidance for enabled image tools. |
-| `tests.rs` | Contract-level e2e tests across config, schemas, and prompt output. |
+| File                  | Role                                                                |
+| --------------------- | ------------------------------------------------------------------- |
+| `mod.rs`              | Export-only module entrypoint.                                      |
+| `types.rs`            | Shared descriptors, permission/config types, and gating helpers.    |
+| `image_generation.rs` | `image_generation` schema and output-format contract.               |
+| `image_view.rs`       | `view_image` schema and detail-level contract.                      |
+| `prompt.rs`           | Agent prompt guidance for enabled image tools.                      |
+| `tests.rs`            | Contract-level e2e tests across config, schemas, and prompt output. |
 
 ## Notes
 
 Existing lower-level image helpers remain separate:
 
 - `image_info` reads metadata/base64 text.
-- Browser screenshot tooling captures page images.
+- Browser `snapshot` exposes structured DOM and accessibility content without
+  capturing page pixels.
 - Multimodal `[IMAGE:...]` preparation normalizes image references for
   image-capable providers.
 

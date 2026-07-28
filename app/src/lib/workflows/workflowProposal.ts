@@ -5,13 +5,15 @@ import type { ThreadMessage } from '../../types/thread';
  * Shared parsing for `workflow_proposal` payloads produced by the Rust
  * `propose_workflow` / `revise_workflow` / `edit_workflow` tools.
  *
- * Three delivery channels funnel through here so they can never drift:
+ * Four delivery channels funnel through here so they can never drift:
  *  1. live `tool_result` socket events (main-agent tool call),
  *  2. live `subagent_tool_result` socket events (`build_workflow` delegate),
  *  3. persisted thread messages whose `extraMetadata.scope` is
  *     `workflow_proposal` — the durable backstop written by the Rust core
  *     when an async `workflow_builder` run completes, which lets the card
  *     rehydrate after a reload or a dropped socket event.
+ *  4. direct `openhuman.flows_build` API responses used by the workflow
+ *     builder UI.
  *
  * IMPORTANT: match on the payload's `type` field, NOT on tool names. This
  * mirrors the Rust `flows_build` path's `extract_workflow_proposal`, which

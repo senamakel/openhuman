@@ -34,7 +34,7 @@ Maintaining both stacks means every fix (streaming edge case, retry policy, cont
 
 ### Blast radius
 
-- 170 files outside `inference/` import `openhuman::inference`; 151 import `inference::provider` specifically. Top consumers: agent harness/session/tools/triage, `context`, `voice`, `routing`, `memory_tree`, `learning`, `channels`, `embeddings`, `subconscious`, `screen_intelligence`, `threads`, `migrations`, `config/schema`.
+- 170 files outside `inference/` import `openhuman::inference`; 151 import `inference::provider` specifically. Top consumers: agent harness/session/tools/triage, `context`, `voice`, `routing`, `memory_tree`, `learning`, `channels`, `embeddings`, `subconscious`, `threads`, `migrations`, `config/schema`.
 - Module sizes: `provider/` ≈ 29.6k lines, `local/` ≈ 13.7k, `voice/` + `http/` + `openai_oauth/` ≈ 4.4k, root files ≈ 5.5k. Only `provider/` + parts of the root files migrate; the rest stays.
 
 ---
@@ -95,7 +95,7 @@ Upstream flow: change in `vendor/tinyagents` (submodule working tree) → PR to 
 Each phase compiles green in both Cargo worlds, keeps ≥80% diff coverage, and lands as its own PR-sized slice. Provider-string grammar, RPC names, and observable UI behavior (streaming, cost footer, tool timeline) are parity-locked throughout.
 
 ### Phase 0 — Inventory & gap re-audit
-- Enumerate every consumer of `Provider` / `ChatRequest` / `ChatResponse` / `ChatMessage` outside `inference/` (151 files) and bucket them: (a) goes through the seam already, (b) direct one-shot `provider.chat(...)` callers (learning, memory, subconscious, screen_intelligence, sentiment, triage…), (c) type-only imports.
+- Enumerate every consumer of `Provider` / `ChatRequest` / `ChatResponse` / `ChatMessage` outside `inference/` (151 files) and bucket them: (a) goes through the seam already, (b) direct one-shot `provider.chat(...)` callers (learning, memory, subconscious, sentiment, triage…), (c) type-only imports.
 - Re-verify §3 gaps against current crate HEAD; file crate issues; update
   `vendor/tinyagents/docs/sdk-gaps.md`.
 - Golden-transcript capture: record request/response wire dumps for the BYOK catalog matrix + Ollama + openhuman backend on the current stack, as fixtures for Phase 2 parity.

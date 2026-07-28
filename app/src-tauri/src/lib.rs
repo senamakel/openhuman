@@ -94,7 +94,6 @@ mod ptt_hotkeys;
 mod ptt_overlay;
 #[cfg(target_os = "windows")]
 mod reset_reboot_schedule;
-mod screen_capture;
 mod slack_scanner;
 mod stderr_panic_hook;
 mod telegram_scanner;
@@ -2564,6 +2563,24 @@ pub fn run() {
                 );
                 return None;
             }
+            // Defense-in-depth: drop Windows `ERROR_FILE_SYSTEM_LIMITATION`
+            // (os error 665) — a persistent host-filesystem condition with
+            // zero local lever and no Sentry remediation path. The Tauri
+            // shell is a separate crate from the core, so the core's emit-site
+            // classifier (`expected_error_kind`) can only catch events that
+            // originate inside the core binary. Any filesystem-error event
+            // that starts in the shell (e.g. file_logging, window_state,
+            // CEF profile I/O) bypasses the core classifier and lands here;
+            // this filter is the only net for those events (TAURI-RUST-QT0:
+            // 6,050 events / 1 user).
+            if openhuman_core::core::observability::is_windows_file_system_limitation_event(&event)
+            {
+                log::debug!(
+                    "[sentry-fs-limitation-filter] dropping Windows file-system-limitation event (os error 665) event_id={:?}",
+                    event.event_id
+                );
+                return None;
+            }
             // Strip server_name (hostname) to avoid leaking machine identity.
             event.server_name = None;
             // Attach the cached account uid so Sentry can count unique users
@@ -3111,7 +3128,6 @@ pub fn run() {
     let builder = builder.manage(discord_scanner::ScannerRegistry::new());
     let builder = builder.manage(telegram_scanner::ScannerRegistry::new());
     let builder = builder.manage(wechat_scanner::ScannerRegistry::new());
-    let builder = builder.manage(screen_capture::ScreenShareState::new());
     let builder = builder.manage(meet_call::MeetCallState::new());
     let builder = builder.manage(meet_audio::MeetAudioState::new());
     let builder = builder.manage(meet_video::frame_bus::MeetVideoFrameBusState::new());
@@ -3366,6 +3382,16 @@ pub fn run() {
             // / `center: false` for the main window so the placement
             // happens before the first paint and there's no jump.
             if let Some(window) = app.get_webview_window("main") {
+                // Layout first: mixed-DPI placement bugs (#5041) are not
+                // diagnosable from a user report without it, and logging
+                // before placement captures the pre-clamp state.
+                window_state::log_monitor_layout(&window);
+                // Installed before placement so a scale change triggered
+                // by our own cross-monitor move is caught too — on
+                // Windows that arrives via the message loop after
+                // `setup()` returns, which is why clamping here alone is
+                // not enough.
+                window_state::install_dpi_guard(&window);
                 if !window_state::restore_main(&window) {
                     window_state::center_main(&window);
                 }
@@ -3856,9 +3882,6 @@ pub fn run() {
             webview_accounts::webview_set_focused_account,
             notification_settings::notification_settings_get,
             notification_settings::notification_settings_set,
-            screen_capture::screen_share_begin_session,
-            screen_capture::screen_share_thumbnail,
-            screen_capture::screen_share_finalize_session,
             native_notifications::notification_permission_state,
             native_notifications::notification_permission_request,
             activate_main_window,

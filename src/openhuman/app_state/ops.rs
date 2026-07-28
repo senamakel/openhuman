@@ -26,15 +26,14 @@ use crate::openhuman::credentials::session_support::{
 };
 use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 use crate::openhuman::inference::LocalAiStatus;
-use crate::openhuman::screen_intelligence::AccessibilityStatus;
 use crate::openhuman::service::{ServiceState, ServiceStatus};
 use crate::rpc::RpcOutcome;
 
 const LOG_PREFIX: &str = "[app_state]";
 const APP_STATE_FILENAME: &str = "app-state.json";
 const CURRENT_USER_REFRESH_TTL: Duration = Duration::from_secs(5);
-// Runtime-status widgets (screen intelligence / local AI / autocomplete /
-// service) tolerate ~10s of staleness. A short TTL (was 2s < the ~2.4s build
+// Runtime-status widgets (local AI / autocomplete / service) tolerate ~10s of
+// staleness. A short TTL (was 2s < the ~2.4s build
 // time) meant the cache was stale before it was even written, so the frontend's
 // ~4s `app_state_snapshot` poll never hit the fast path and every poll re-ran
 // the full 4-way fan-out (issue #4249 profiling: this, combined with the lack
@@ -177,7 +176,6 @@ pub struct AppStateSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeSnapshot {
-    pub screen_intelligence: AccessibilityStatus,
     pub local_ai: LocalAiStatus,
     pub service: ServiceStatus,
 }
@@ -830,37 +828,12 @@ async fn build_runtime_snapshot(config: &Config, req_id: u64) -> RuntimeSnapshot
         return snapshot;
     }
 
-    let si_config = config.screen_intelligence.clone();
     let config_for_local_ai = config.clone();
     let config_for_service = config.clone();
 
     let t0 = Instant::now();
 
-    let (screen_intelligence, local_ai, service) = tokio::join!(
-        async {
-            let t = Instant::now();
-            let status = match tokio::time::timeout(SNAPSHOT_SUB_OP_TIMEOUT, async {
-                let _ = crate::openhuman::screen_intelligence::global_engine()
-                    .apply_config(si_config)
-                    .await;
-                crate::openhuman::screen_intelligence::global_engine()
-                    .status()
-                    .await
-            })
-            .await
-            {
-                Ok(s) => s,
-                Err(_) => {
-                    warn!(
-                        "{LOG_PREFIX} screen_intelligence timed out after {}s; using degraded sub-snapshot req_id={}",
-                        SNAPSHOT_SUB_OP_TIMEOUT.as_secs(),
-                        req_id,
-                    );
-                    degraded_runtime_snapshot(config).screen_intelligence
-                }
-            };
-            (status, t.elapsed().as_millis())
-        },
+    let (local_ai, service) = tokio::join!(
         async {
             let t = Instant::now();
             let status = match tokio::time::timeout(
@@ -911,16 +884,13 @@ async fn build_runtime_snapshot(config: &Config, req_id: u64) -> RuntimeSnapshot
 
     let total_ms = t0.elapsed().as_millis();
     debug!(
-        "{LOG_PREFIX} build_runtime_snapshot timings req_id={} si_ms={} local_ai_ms={} service_ms={} total_ms={}",
+        "{LOG_PREFIX} build_runtime_snapshot timings req_id={} local_ai_ms={} service_ms={} total_ms={}",
         req_id,
-        screen_intelligence.1,
-        local_ai.1,
-        service.1,
+        local_ai.1, service.1,
         total_ms,
     );
 
     let snapshot = RuntimeSnapshot {
-        screen_intelligence: screen_intelligence.0,
         local_ai: local_ai.0,
         service: service.0,
     };
@@ -1185,14 +1155,13 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
     );
 
     debug!(
-        "{LOG_PREFIX} snapshot req_id={} auth={} onboarding={} chat_onboarding={} analytics={} meet_handoff={} si_active={} local_ai_state={} service_state={:?}",
+        "{LOG_PREFIX} snapshot req_id={} auth={} onboarding={} chat_onboarding={} analytics={} meet_handoff={} local_ai_state={} service_state={:?}",
         req_id,
         auth.is_authenticated,
         snapshot_config.onboarding_completed,
         snapshot_config.chat_onboarding_completed,
         snapshot_config.observability.analytics_enabled,
         snapshot_config.meet.auto_orchestrator_handoff,
-        runtime.screen_intelligence.session.active,
         runtime.local_ai.state,
         runtime.service.state
     );
@@ -1219,51 +1188,7 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
 }
 
 fn degraded_runtime_snapshot(config: &Config) -> RuntimeSnapshot {
-    use crate::openhuman::screen_intelligence::{
-        AccessibilityFeatures, PermissionState, PermissionStatus, SessionStatus,
-    };
-
     RuntimeSnapshot {
-        screen_intelligence: AccessibilityStatus {
-            platform_supported: cfg!(target_os = "macos"),
-            permissions: PermissionStatus {
-                screen_recording: PermissionState::Unknown,
-                accessibility: PermissionState::Unknown,
-                input_monitoring: PermissionState::Unknown,
-                microphone: PermissionState::Unknown,
-            },
-            features: AccessibilityFeatures {
-                screen_monitoring: false,
-            },
-            session: SessionStatus {
-                active: false,
-                started_at_ms: None,
-                expires_at_ms: None,
-                remaining_ms: None,
-                ttl_secs: 0,
-                panic_hotkey: config.screen_intelligence.panic_stop_hotkey.clone(),
-                stop_reason: None,
-                capture_count: 0,
-                frames_in_memory: 0,
-                last_capture_at_ms: None,
-                last_context: None,
-                last_window_title: None,
-                vision_enabled: false,
-                vision_state: "degraded".to_string(),
-                vision_queue_depth: 0,
-                last_vision_at_ms: None,
-                last_vision_summary: None,
-                vision_persist_count: 0,
-                last_vision_persisted_key: None,
-                last_vision_persist_error: None,
-            },
-            foreground_context: None,
-            config: config.screen_intelligence.clone(),
-            denylist: vec![],
-            is_context_blocked: false,
-            permission_check_process_path: None,
-            core_process: None,
-        },
         local_ai: crate::openhuman::inference::LocalAiStatus::disabled(config),
         service: ServiceStatus {
             state: ServiceState::Unknown("snapshot timed out".to_string()),

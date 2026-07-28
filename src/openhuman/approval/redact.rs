@@ -69,6 +69,21 @@ const SENSITIVE_KEYS: &[&str] = &[
     "authorization",
     "auth",
     "code",
+    // File-handoff params. A presigned storage link (`storage_get_link`) is a
+    // BEARER CAPABILITY: anyone holding the URL can fetch the file until it
+    // expires. These land in `tool_call` args whenever a flow hands a produced
+    // file to an externally-executed action (a Composio `file_uploadable`
+    // param such as Gmail's `attachment` or Jira's `file_to_upload`). Redacted
+    // args are both rendered on the approval card and persisted with the
+    // approval record, so leaving these clear would leak the capability into
+    // the UI and durable storage.
+    "attachment",
+    "attachments",
+    "file_to_upload",
+    "file_url",
+    "public_url",
+    "signed_url",
+    "presigned_url",
 ];
 
 /// Produce a redacted clone of `args` suitable for persistence /
@@ -483,6 +498,41 @@ mod tests {
         assert!(!summary.contains("alice"));
         assert!(!summary.contains("bob"));
         assert_eq!(summary.matches("<HOME>").count(), 2);
+    }
+
+    #[test]
+    fn file_handoff_links_are_redacted() {
+        // A presigned storage link is a bearer capability: anyone holding the
+        // URL can fetch the file until it expires. Redacted args are shown on
+        // the approval card AND persisted, so these must never appear clear.
+        let args = json!({
+            "attachment": "https://files.example.test/f_1?sig=SECRETSIGNATURE",
+            "file_to_upload": "https://files.example.test/f_2?sig=ANOTHERSIG",
+            "file_url": "https://files.example.test/f_3?sig=THIRDSIG",
+            "public_url": "https://files.example.test/f_4?sig=FOURTHSIG",
+            // A bare `url` (e.g. an `http_request` node's destination, or a
+            // Composio action's benign url arg) is NOT a file-handoff key and
+            // MUST stay visible so the human approver can judge the action.
+            "url": "https://webhook.site/VISIBLE-DESTINATION",
+        });
+        let red = redact_args(&args);
+        let blob = red.to_string();
+        for leaked in [
+            "SECRETSIGNATURE",
+            "ANOTHERSIG",
+            "THIRDSIG",
+            "FOURTHSIG",
+            "files.example.test",
+        ] {
+            assert!(
+                !blob.contains(leaked),
+                "presigned link leaked through redaction ({leaked}): {blob}"
+            );
+        }
+        assert!(
+            blob.contains("webhook.site/VISIBLE-DESTINATION"),
+            "a bare `url` (e.g. an http_request destination) must NOT be redacted: {blob}"
+        );
     }
 
     #[test]

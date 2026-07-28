@@ -542,7 +542,7 @@ async fn round16_browser_computer_use_validation_and_sidecar_paths() {
     }
 
     let bad_endpoint = browser_tool("https://public.example.test/".into(), &harness.workspace)
-        .execute(json!({ "action": "screen_capture" }))
+        .execute(json!({ "action": "mouse_move", "x": 1, "y": 1 }))
         .await
         .expect("public endpoint is rejected as a tool result");
     assert!(bad_endpoint.is_error);

@@ -13,7 +13,7 @@ import Button from '../ui/Button';
  */
 
 /** Accent families available for the icon tile. Keys map to design tokens. */
-export type PageWelcomeAccent = 'ocean' | 'sage' | 'amber' | 'coral';
+type PageWelcomeAccent = 'ocean' | 'sage' | 'amber' | 'coral';
 
 /** Static per-accent tile tint (Tailwind only scans literal class names). */
 const ACCENT_TILE: Record<PageWelcomeAccent, string> = {
@@ -23,7 +23,7 @@ const ACCENT_TILE: Record<PageWelcomeAccent, string> = {
   coral: 'bg-coral-500/15 text-coral-600',
 };
 
-export interface WelcomeFeature {
+interface WelcomeFeature {
   /** Leading glyph — emoji string or icon node. */
   icon: ReactNode;
   /** Short feature title. */
@@ -32,7 +32,7 @@ export interface WelcomeFeature {
   description: ReactNode;
 }
 
-export interface WelcomeCta {
+interface WelcomeCta {
   label: ReactNode;
   onClick: () => void;
   /** First CTA renders as primary; the rest as secondary (override here). */
@@ -41,7 +41,7 @@ export interface WelcomeCta {
   testId?: string;
 }
 
-export interface PageWelcomeProps {
+interface PageWelcomeProps {
   /** Big glyph in the accent tile — emoji string or icon node. */
   icon: ReactNode;
   /** Optional short lead-in above the title (e.g. the page name). */

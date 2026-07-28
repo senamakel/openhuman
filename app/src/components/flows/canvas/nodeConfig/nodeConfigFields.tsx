@@ -75,7 +75,7 @@ export function Field({
   );
 }
 
-export interface TextFieldProps {
+interface TextFieldProps {
   label: string;
   hint?: string;
   value: string;
@@ -101,7 +101,7 @@ export function TextField({ label, hint, value, onChange, placeholder, testId }:
   );
 }
 
-export interface TextAreaFieldProps extends Omit<TextFieldProps, 'onChange'> {
+interface TextAreaFieldProps extends Omit<TextFieldProps, 'onChange'> {
   onChange: (value: string) => void;
   rows?: number;
   mono?: boolean;
@@ -133,12 +133,12 @@ export function TextAreaField({
   );
 }
 
-export interface SelectOption {
+interface SelectOption {
   value: string;
   label: string;
 }
 
-export interface SelectFieldProps {
+interface SelectFieldProps {
   label: string;
   hint?: string;
   value: string;
@@ -163,96 +163,6 @@ export function SelectField({ label, hint, value, onChange, options, testId }: S
           </option>
         ))}
       </select>
-    </Field>
-  );
-}
-
-/**
- * Canonical model route hints (mirrors `AgentEditorPage`'s list, which in turn
- * mirrors the Rust `ModelSpec::Hint(...)` slugs). Selecting one routes the
- * agent node by capability tier; the workspace resolves the concrete model.
- */
-export const AGENT_MODEL_HINTS = [
-  'hint:reasoning',
-  'hint:chat',
-  'hint:agentic',
-  'hint:burst',
-  'hint:coding',
-  'hint:summarization',
-  'hint:vision',
-] as const;
-
-/** Sentinel select value for "type a raw model id" — never persisted. */
-const CUSTOM_MODEL = '__custom__';
-
-export interface ModelHintFieldProps {
-  label: string;
-  hint?: string;
-  value: string;
-  onChange: (value: string) => void;
-  testId?: string;
-}
-
-/**
- * Model selector for the `agent` node: a dropdown of the workspace's model
- * route hints (`hint:chat`, `hint:coding`, …) with an "inherit" default and a
- * custom escape hatch for a raw BYOK model id. Writes `hint:<tier>` (or the raw
- * id, or `''` to inherit) onto `config.model`. Mirrors the agent-editor model
- * picker so hints stay consistent across the app.
- */
-export function ModelHintField({ label, hint, value, onChange, testId }: ModelHintFieldProps) {
-  const { t } = useT();
-  const id = useId();
-  // A value that's neither empty nor a known hint is a raw custom model id, so
-  // the picker opens in custom mode showing it in the text box.
-  const isKnown = value === '' || (AGENT_MODEL_HINTS as readonly string[]).includes(value);
-  const [customMode, setCustomMode] = useState(value !== '' && !isKnown);
-
-  const handleSelect = useCallback(
-    (next: string) => {
-      if (next === CUSTOM_MODEL) {
-        setCustomMode(true);
-        // Entering custom from a hint/inherit starts with an empty raw id.
-        if (isKnown) onChange('');
-        return;
-      }
-      setCustomMode(false);
-      onChange(next);
-    },
-    [isKnown, onChange]
-  );
-
-  return (
-    <Field label={label} hint={hint} htmlFor={id}>
-      <div className="space-y-2">
-        <select
-          id={id}
-          className={INPUT_CLASS}
-          value={customMode ? CUSTOM_MODEL : value}
-          data-testid={testId}
-          onChange={e => handleSelect(e.target.value)}>
-          <option value="">{t('flows.nodeConfig.agent.modelInherit')}</option>
-          <optgroup label={t('flows.nodeConfig.agent.modelHints')}>
-            {AGENT_MODEL_HINTS.map(h => (
-              <option key={h} value={h}>
-                {h}
-              </option>
-            ))}
-          </optgroup>
-          <option value={CUSTOM_MODEL}>{t('flows.nodeConfig.agent.modelCustom')}</option>
-        </select>
-        {customMode && (
-          <input
-            type="text"
-            className={`${INPUT_CLASS} ${MONO_CLASS}`}
-            value={value}
-            placeholder={t('flows.nodeConfig.agent.modelCustomPlaceholder')}
-            aria-label={t('flows.nodeConfig.agent.modelCustomPlaceholder')}
-            data-testid={testId ? `${testId}-custom` : undefined}
-            onChange={e => onChange(e.target.value)}
-          />
-        )}
-      </div>
     </Field>
   );
 }
@@ -304,7 +214,7 @@ export function UpstreamInsertSelect({
   );
 }
 
-export interface ExpressionFieldProps extends TextFieldProps {
+interface ExpressionFieldProps extends TextFieldProps {
   /**
    * `=nodes.…` expressions from upstream nodes; when non-empty a compact
    * insert dropdown renders beside the input (picking replaces the value).
@@ -370,7 +280,7 @@ export function ExpressionField({
   );
 }
 
-export interface KeyMapFieldProps {
+interface KeyMapFieldProps {
   label: string;
   hint?: string;
   value: Record<string, string>;
@@ -473,7 +383,7 @@ export function KeyMapField({
   );
 }
 
-export interface JsonFieldProps {
+interface JsonFieldProps {
   label: string;
   hint?: string;
   value: unknown;
@@ -545,7 +455,7 @@ export function JsonField({ label, hint, value, onChange, rows = 6, testId }: Js
   );
 }
 
-export interface CredentialPickerFieldProps {
+interface CredentialPickerFieldProps {
   label?: string;
   value: string;
   onChange: (value: string) => void;

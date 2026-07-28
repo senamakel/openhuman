@@ -128,46 +128,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         },
-        "update_screen_intelligence_settings" => ControllerSchema {
-            namespace: "config",
-            function: "update_screen_intelligence_settings",
-            description: "Update screen intelligence runtime settings.",
-            inputs: vec![
-                optional_bool("enabled", "Enable screen intelligence."),
-                optional_string("capture_policy", "Capture policy mode."),
-                optional_string("policy_mode", "Policy mode override."),
-                FieldSchema {
-                    name: "baseline_fps",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::F64)),
-                    comment: "Baseline capture FPS.",
-                    required: false,
-                },
-                optional_bool("vision_enabled", "Enable vision analysis."),
-                optional_bool("autocomplete_enabled", "Enable autocomplete integration."),
-                optional_bool(
-                    "use_vision_model",
-                    "Use a vision LLM for screenshot analysis (false = OCR + text LLM).",
-                ),
-                optional_bool("keep_screenshots", "Keep screenshots on disk after vision processing."),
-                FieldSchema {
-                    name: "allowlist",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Allowed app list.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "denylist",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Denied app list.",
-                    required: false,
-                },
-            ],
-            outputs: vec![json_output("snapshot", "Updated config snapshot.")],
-        },
         "update_runtime_settings" => ControllerSchema {
             namespace: "config",
             function: "update_runtime_settings",
@@ -561,7 +521,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![
                 optional_string(
                     "engine",
-                    "Active engine: managed | parallel | brave | querit.",
+                    "Active engine: disabled | managed | parallel | brave | querit | exa.",
                 ),
                 FieldSchema {
                     name: "max_results",
@@ -586,6 +546,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_string(
                     "querit_api_key",
                     "Querit API key (empty string clears the stored key).",
+                ),
+                optional_string(
+                    "exa_api_key",
+                    "Exa API key (empty string clears the stored key).",
                 ),
                 FieldSchema {
                     name: "allowed_domains",

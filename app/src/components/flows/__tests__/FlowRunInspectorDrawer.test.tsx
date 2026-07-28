@@ -96,6 +96,8 @@ describe('FlowRunInspectorDrawer', () => {
     renderDrawer('thread-1', vi.fn());
 
     expect(screen.getByTestId('flow-run-status-pill')).toHaveTextContent('Running');
+    expect(screen.getByTestId('flow-run-status-pill')).toHaveClass('bg-ocean-50');
+    expect(screen.getByTestId('flow-run-status-dot')).toHaveClass('bg-ocean-500', 'animate-pulse');
     expect(screen.getByTestId('flow-run-steps')).toBeInTheDocument();
     expect(screen.getByText('fetch-data')).toBeInTheDocument();
     expect(screen.getByText('branch')).toBeInTheDocument();

@@ -39,7 +39,7 @@ const EVENT_UNDERSCORE = 'flow_run_finished';
 const DEDUP_CACHE_SIZE = 50;
 
 /** Payload of a `flow:run_finished` socket event (`DomainEvent::FlowRunFinished`). */
-export interface FlowRunFinishedEvent {
+interface FlowRunFinishedEvent {
   flow_id: string;
   run_id: string;
   status: string;
@@ -118,5 +118,3 @@ export function useFlowRunFinished(
     };
   }, [handle]);
 }
-
-export default useFlowRunFinished;

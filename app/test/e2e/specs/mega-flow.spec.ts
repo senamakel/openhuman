@@ -468,14 +468,6 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
   // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
-  // Scenario 9 — Accessibility permission flow.
-  // SKIPPED: No `openhuman.accessibility_*` RPC surface exists in the Rust
-  // controller registry.  The `accessibility` domain name appears only in
-  // directory listings; it has no `schemas.rs` with registered controllers.
-  // If a future PR adds accessibility controllers, add scenarios here.
-  // -------------------------------------------------------------------------
-
-  // -------------------------------------------------------------------------
   // Scenario 10 — Account switch + restore.
   // Login as user A, create a thread, reset, login as user B, then re-login
   // as user A. Verifies RPC health across login transitions.

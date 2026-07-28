@@ -2,7 +2,7 @@
 //!
 //! A companion session represents a single period of desktop companion
 //! activity. It owns the state machine (idle → listening → thinking →
-//! speaking → pointing → idle), TTL enforcement, and conversation history.
+//! speaking → idle), TTL enforcement, and conversation history.
 //!
 //! Only one session may be active at a time. Sessions are created with
 //! explicit user consent and can be stopped manually or via TTL expiry.
@@ -345,13 +345,9 @@ pub fn conversation_history() -> Vec<ConversationTurn> {
 /// - Listening → Thinking (transcript received)
 /// - Listening → Idle (cancelled / released)
 /// - Thinking → Speaking (response ready)
-/// - Thinking → Pointing (response has point targets, no TTS)
 /// - Thinking → Idle (cancelled)
-/// - Speaking → Pointing (TTS done, point targets present)
-/// - Speaking → Idle (TTS done, no pointing)
+/// - Speaking → Idle (TTS done)
 /// - Speaking → Listening (interrupted — new turn)
-/// - Pointing → Idle (animation done)
-/// - Pointing → Listening (interrupted — new turn)
 /// - Error → Idle (reset)
 /// - Any → Error (error from any state)
 fn is_valid_transition(from: CompanionState, to: CompanionState) -> bool {
@@ -366,13 +362,9 @@ fn is_valid_transition(from: CompanionState, to: CompanionState) -> bool {
             | (CompanionState::Listening, CompanionState::Thinking)
             | (CompanionState::Listening, CompanionState::Idle)
             | (CompanionState::Thinking, CompanionState::Speaking)
-            | (CompanionState::Thinking, CompanionState::Pointing)
             | (CompanionState::Thinking, CompanionState::Idle)
-            | (CompanionState::Speaking, CompanionState::Pointing)
             | (CompanionState::Speaking, CompanionState::Idle)
             | (CompanionState::Speaking, CompanionState::Listening)
-            | (CompanionState::Pointing, CompanionState::Idle)
-            | (CompanionState::Pointing, CompanionState::Listening)
             | (CompanionState::Error, CompanionState::Idle)
     )
 }

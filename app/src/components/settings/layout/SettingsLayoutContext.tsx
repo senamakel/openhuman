@@ -21,5 +21,3 @@ const SettingsLayoutContext = createContext<{
 export const SettingsLayoutProvider = SettingsLayoutContext.Provider;
 
 export const useSettingsLayout = () => useContext(SettingsLayoutContext);
-
-export default SettingsLayoutContext;

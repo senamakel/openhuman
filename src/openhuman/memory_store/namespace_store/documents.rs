@@ -27,15 +27,27 @@ impl UnifiedMemory {
             );
             return Err("document namespace/key cannot contain secrets".to_string());
         }
-        if safety::pii::has_likely_pii(&input.namespace) || safety::pii::has_likely_pii(&input.key)
-        {
-            log::warn!(
-                "[memory:safety] document write rejected due to PII-like namespace/key namespace_chars={} key_chars={}",
-                input.namespace.chars().count(),
-                input.key.chars().count()
-            );
-            return Err("document namespace/key cannot contain personal identifiers".to_string());
-        }
+
+        // Auto-sanitize PII from namespace/key rather than rejecting the entire
+        // write (see #5164). Previously this returned an Err, which caused
+        // unthrottled retry loops when caller-generated identifiers happened to
+        // contain structured personal identifiers (CPF, SSN, RFC, etc.).
+        let input = {
+            let key = safety::pii::redact_pii(&input.key);
+            let namespace = safety::pii::redact_pii(&input.namespace);
+            if key.report.pii_redactions > 0 || namespace.report.pii_redactions > 0 {
+                log::info!(
+                    "[memory:safety] document write auto-sanitized PII from namespace/key original_len_ns={} original_len_key={}",
+                    input.namespace.chars().count(),
+                    input.key.chars().count()
+                );
+            }
+            NamespaceDocumentInput {
+                namespace: namespace.value,
+                key: key.value,
+                ..input
+            }
+        };
 
         let sanitized = safety::sanitize_document_input(input);
         let input = sanitized.value;
@@ -229,8 +241,8 @@ impl UnifiedMemory {
     }
 
     /// Store a document (DB row + markdown file) without chunking, embedding,
-    /// or graph extraction.  Suitable for high-frequency, low-value writes
-    /// (e.g. screen-intelligence snapshots) where the full ingestion pipeline
+    /// or graph extraction. Suitable for high-frequency, low-value writes
+    /// (e.g. transient sync checkpoints) where the full ingestion pipeline
     /// would be too expensive.
     pub async fn upsert_document_metadata_only(
         &self,
@@ -244,15 +256,24 @@ impl UnifiedMemory {
             );
             return Err("document namespace/key cannot contain secrets".to_string());
         }
-        if safety::pii::has_likely_pii(&input.namespace) || safety::pii::has_likely_pii(&input.key)
-        {
-            log::warn!(
-                "[memory:safety] metadata-only write rejected due to PII-like namespace/key namespace_chars={} key_chars={}",
-                input.namespace.chars().count(),
-                input.key.chars().count()
-            );
-            return Err("document namespace/key cannot contain personal identifiers".to_string());
-        }
+
+        // Auto-sanitize PII from namespace/key rather than rejecting (see #5164).
+        let input = {
+            let key = safety::pii::redact_pii(&input.key);
+            let namespace = safety::pii::redact_pii(&input.namespace);
+            if key.report.pii_redactions > 0 || namespace.report.pii_redactions > 0 {
+                log::info!(
+                    "[memory:safety] metadata-only write auto-sanitized PII from namespace/key original_len_ns={} original_len_key={}",
+                    input.namespace.chars().count(),
+                    input.key.chars().count()
+                );
+            }
+            NamespaceDocumentInput {
+                namespace: namespace.value,
+                key: key.value,
+                ..input
+            }
+        };
 
         let sanitized = safety::sanitize_document_input(input);
         let input = sanitized.value;
@@ -371,7 +392,7 @@ impl UnifiedMemory {
         namespace: &str,
     ) -> Result<Vec<StoredMemoryDocument>, String> {
         let conn = self.conn.lock();
-        let ns = Self::sanitize_namespace(namespace);
+        let ns = Self::sanitize_namespace(&safety::pii::redact_pii(namespace).value);
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -448,7 +469,9 @@ impl UnifiedMemory {
                 )
                 .map_err(|e| format!("prepare list_documents: {e}"))?;
             let mut rows = stmt
-                .query(params![Self::sanitize_namespace(ns)])
+                .query(params![Self::sanitize_namespace(
+                    &safety::pii::redact_pii(ns).value
+                )])
                 .map_err(|e| format!("query list_documents: {e}"))?;
             while let Some(row) = rows
                 .next()
@@ -522,7 +545,7 @@ impl UnifiedMemory {
     /// for the given namespace in a single transaction. Also removes the
     /// on-disk markdown directory (`namespaces/{ns}/docs/`).
     pub async fn clear_namespace(&self, namespace: &str) -> Result<(), String> {
-        let ns = Self::sanitize_namespace(namespace);
+        let ns = Self::sanitize_namespace(&safety::pii::redact_pii(namespace).value);
         log::debug!("[memory] clear_namespace: starting for namespace={ns}");
 
         {
@@ -595,7 +618,7 @@ impl UnifiedMemory {
         namespace: &str,
         document_id: &str,
     ) -> Result<Value, String> {
-        let ns = Self::sanitize_namespace(namespace);
+        let ns = Self::sanitize_namespace(&safety::pii::redact_pii(namespace).value);
         let rel_path: Option<String> = {
             let conn = self.conn.lock();
             conn.query_row(

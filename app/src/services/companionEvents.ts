@@ -23,7 +23,6 @@ const COMPANION_STATES: ReadonlySet<string> = new Set([
   'listening',
   'thinking',
   'speaking',
-  'pointing',
   'error',
 ]);
 

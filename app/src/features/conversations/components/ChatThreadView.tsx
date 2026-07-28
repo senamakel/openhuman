@@ -112,7 +112,7 @@ export interface ChatThreadViewHandle {
   openBackgroundProcesses(): void;
 }
 
-export interface ChatThreadViewProps {
+interface ChatThreadViewProps {
   /** Thread whose transcript is rendered. `null` renders the empty state
    *  (no thread selected). */
   threadId: string | null;
@@ -877,7 +877,7 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                                       </div>
                                     )}
                                     {(displayText || showTime) && (
-                                      <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-content-inverted rounded-br-md break-words overflow-hidden">
+                                      <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-content-inverted rounded-br-md break-words [overflow-wrap:anywhere] overflow-hidden">
                                         {displayText && (
                                           <BubbleMarkdown content={displayText} tone="user" />
                                         )}

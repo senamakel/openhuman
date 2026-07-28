@@ -728,6 +728,9 @@ jobs:
       - name: Build E2E app
         run: bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:e2e:build
 
+      - name: Clippy (macOS-gated Rust)
+        run: bash scripts/ci-cancel-aware.sh pnpm rust:clippy
+
       - name: Package build artifact
         run: |
           # Stage the same runner-visible layout Linux/Windows use. The .app is

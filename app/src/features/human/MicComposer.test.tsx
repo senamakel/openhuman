@@ -1,10 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
+import MicComposer, {
   isLowConfidenceTranscript,
   MAX_RECORDING_MS,
-  MicComposer,
   STT_MAX_RETRIES,
 } from './MicComposer';
 import { VoiceNotCompiledError } from './voice/sttClient';

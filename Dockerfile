@@ -110,6 +110,14 @@ RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint-core.sh \
 
 # The entrypoint runs as root so it can chown the mounted volume, then execs
 # gosu to drop to the openhuman user before starting the binary.
+#
+# CAUTION: because the image default user is root, `docker exec <ctr> ...` lands
+# as root and does NOT run the entrypoint — so running `openhuman-core` that way
+# creates a root-owned `config.toml` (the core writes it at mode 0600), which
+# uid 10001 then cannot read on the next start. Use
+# `docker exec -u openhuman <ctr> openhuman-core ...` for any CLI poking around.
+# The entrypoint heals a workspace already in that state, but prevention is
+# cheaper than a restart loop.
 USER root
 
 # Default workspace directory

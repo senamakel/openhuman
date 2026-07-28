@@ -98,12 +98,10 @@ use openhuman_core::openhuman::tools::generated::{
     admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
     GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
 };
-use openhuman_core::openhuman::tools::local_cli::tools_wrappers_list_json;
 use openhuman_core::openhuman::tools::orchestrator_tools::collect_orchestrator_tools;
 use openhuman_core::openhuman::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
-    decode_data_url_bytes, default_tools, extract_data_url, extract_saved_path,
-    write_bytes_to_path, ApplyPatchTool, BrowserAction, BrowserTool, CleaningStrategy,
+    default_tools, ApplyPatchTool, BrowserTool, CleaningStrategy,
     ComputerUseConfig, CsvExportTool, CurrentTimeTool, DefaultToolPolicy, DetectToolsTool,
     EditFileTool, FileReadTool, FileWriteTool, GitbooksGetPageTool, GitbooksSearchTool, GlobTool,
     GrepTool, InsertSqlRecordTool, ListFilesTool, LspTool, NodeExecTool, NpmExecTool,
@@ -1425,7 +1423,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
         "gitbooks_search",
         "gitbooks_get_page",
         "tool_stats",
-        "screenshot",
         "image_info",
     ] {
         assert!(
@@ -1442,14 +1439,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert_eq!(baseline.len(), 3);
     assert_eq!(baseline[0].scope(), ToolScope::All);
     assert_eq!(baseline[0].permission_level(), PermissionLevel::Execute);
-
-    let wrappers = tools_wrappers_list_json();
-    assert!(wrappers
-        .pointer("/result/wrappers")
-        .and_then(Value::as_array)
-        .expect("wrapper list")
-        .iter()
-        .any(|wrapper| wrapper.get("name").and_then(Value::as_str) == Some("screenshot")));
 
     let tool_schemas = all_tools_controller_schemas();
     let tool_controllers = all_tools_registered_controllers();
@@ -1573,31 +1562,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(default_tool.generated_runtime_context(&json!({})).is_none());
     assert!(default_tool.max_result_size_chars().is_none());
 
-    let png_data_url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-    let raw_screenshot = format!(
-        "noise\nScreenshot saved to: {}\n{png_data_url}\n",
-        dir.path().join("shot.png").display()
-    );
-    assert_eq!(
-        extract_data_url(&raw_screenshot).as_deref(),
-        Some(png_data_url)
-    );
-    assert_eq!(
-        extract_saved_path(&raw_screenshot).as_deref(),
-        Some(dir.path().join("shot.png").as_path())
-    );
-    let decoded = decode_data_url_bytes(png_data_url).expect("decode png");
-    assert_eq!(&decoded[..4], b"\x89PNG");
-    assert!(decode_data_url_bytes("data:text/plain;base64,aGVsbG8=")
-        .expect_err("non-image data URL rejected")
-        .contains("invalid data URL"));
-    let nested = dir.path().join("screens").join("nested").join("shot.png");
-    write_bytes_to_path(&nested, &decoded).expect("write screenshot bytes");
-    assert_eq!(
-        std::fs::read(&nested).expect("read screenshot bytes"),
-        decoded
-    );
-
     let computer = ComputerUseConfig {
         api_key: Some("secret-key".into()),
         window_allowlist: vec!["OpenHuman".into()],
@@ -1608,13 +1572,6 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     let debug = format!("{computer:?}");
     assert!(debug.contains("[REDACTED]"));
     assert!(!debug.contains("secret-key"));
-    let action = serde_json::to_value(BrowserAction::Screenshot {
-        path: Some("shot.png".into()),
-        full_page: true,
-    })
-    .expect("serialize browser action");
-    assert_eq!(action.pointer("/screenshot/path"), Some(&json!("shot.png")));
-    assert_eq!(action.pointer("/screenshot/full_page"), Some(&json!(true)));
 }
 
 #[tokio::test]
@@ -1767,7 +1724,6 @@ async fn browser_tool_with_agent_browser_shim_covers_action_parser_and_command_p
         json!({ "action": "get_text", "selector": "main" }),
         json!({ "action": "get_title" }),
         json!({ "action": "get_url" }),
-        json!({ "action": "screenshot", "path": "shot.png", "full_page": true }),
         json!({ "action": "wait", "selector": ".ready" }),
         json!({ "action": "wait", "ms": 25 }),
         json!({ "action": "wait", "text": "Loaded" }),

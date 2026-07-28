@@ -174,22 +174,6 @@ export function describeCron(expr: string): string {
 }
 
 /**
- * The tagged shapes a trigger node's `config.schedule` can hold. The flows
- * engine's `crate::openhuman::cron::Schedule` (an internally-tagged enum,
- * `#[serde(tag = "kind")]`) is what `flows::tools` and the workflow-builder
- * agent actually write today — `{kind:"cron",expr,tz?,active_hours?}` /
- * `{kind:"at",at}` / `{kind:"every",every_ms}`. A bare cron string (what the
- * visual builder above compiles to, and what the bundled flow templates use)
- * is also accepted — the Rust side's custom `Deserialize` treats it as
- * shorthand for `Cron{expr}`.
- */
-export type ScheduleValue =
-  | string
-  | { kind?: string; expr?: string; tz?: string; at?: string; every_ms?: number }
-  | null
-  | undefined;
-
-/**
  * Pull the bare cron expression out of a schedule value, if it has one (a
  * plain string, or a `{kind:"cron", expr}` object). Returns `null` for the
  * `at` / `every` shapes and anything unset — those aren't cron-shaped, so the
@@ -231,10 +215,10 @@ export function describeEveryMs(everyMs: number): string {
 }
 
 /**
- * Plain-language summary of a trigger's `schedule` config value, across every
- * shape it can actually hold (see {@link ScheduleValue}). This is the single
- * place that decides "No schedule set" vs. a real summary — callers should
- * never re-derive it from just the cron string, or a valid `every`/`at`
+ * Plain-language summary of a trigger's `schedule` config value, across bare
+ * cron strings and the tagged `cron`, `at`, and `every` shapes. This is the
+ * single place that decides "No schedule set" vs. a real summary — callers
+ * should never re-derive it from just the cron string, or a valid `every`/`at`
  * schedule reads as unset (the canvas trigger-node bug this guards against).
  */
 export function describeSchedule(value: unknown): string {

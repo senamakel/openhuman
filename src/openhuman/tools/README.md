@@ -29,10 +29,9 @@ The agent tool layer. Defines the core [`Tool`] trait every agent-callable capab
 | `src/openhuman/tools/orchestrator_tools.rs` | Synthesizes named per-subagent tools from the orchestrator's `subagents = [...]` definition; collapses skill wildcards into `delegate_to_integrations_agent`. |
 | `src/openhuman/tools/generated.rs` | `GeneratedToolDefinition` + wrapper for runtime/profile-supplied generated capability tools (provider/capability/risk metadata for policy). |
 | `src/openhuman/tools/user_filter.rs` | `filter_tools_by_user_preference` + UI-toggle-ID → Rust-tool-name map. Unmapped tools are always retained. |
-| `src/openhuman/tools/local_cli.rs` | Local CLI helpers (e.g. screenshot wrappers) that run tools against workspace config without the RPC server. |
 | `src/openhuman/tools/impl/mod.rs` | Aggregates and re-exports the built-in tool families. |
 | `src/openhuman/tools/impl/filesystem/` | `file_read`, `file_write`, `edit_file`, `apply_patch`, `grep`, `glob_search`, `list_files`, `read_diff`, `csv_export`, `git_operations`, `run_linter`, `run_tests`, `update_memory_md`. |
-| `src/openhuman/tools/impl/browser/` | `browser` (full automation, pluggable backend), `browser_open`, `screenshot`, `image_info`, image output, action parser, native backend, security. |
+| `src/openhuman/tools/impl/browser/` | `browser` (DOM-snapshot automation, pluggable backend), `browser_open`, `image_info`, action parser, native backend, security. |
 | `src/openhuman/tools/impl/computer/` | `mouse`, `keyboard` (native control, default-off), human-path resolution. |
 | `src/openhuman/tools/impl/network/` | `http_request`, `web_fetch`, `curl`, `gitbooks` (search/get-page), `mcp` (list servers/tools, call), `mcp_setup` (5 setup-agent tools), `polymarket` (+ orders, CLOB auth), `gmail_unsubscribe`, `url_guard`. |
 | `src/openhuman/search/` | Search engine registry and search-owned agent tools such as `web_search`. |
@@ -71,7 +70,7 @@ This module **owns** the cross-cutting built-in tools (the only ones that belong
 
 - **Filesystem**: `file_read`, `file_write`, `edit_file`, `apply_patch`, `grep`, `glob`/`glob_search`, `list_files`, `read_diff`, `csv_export`, `git_operations`, `run_linter`, `run_tests`, `update_memory_md`.
 - **System/process**: `shell`, `node_exec`, `npm_exec`, `install_tool`, `detect_tools`, `current_time`, `schedule`, `proxy_config`, `pushover`, `lsp`, `tool_stats`, `update_check`, `update_apply`.
-- **Browser/computer**: `browser`, `browser_open`, `screenshot`, `image_info`, `mouse`, `keyboard`.
+- **Browser/computer**: `browser`, `browser_open`, `image_info`, `mouse`, `keyboard`.
 - **Generic network**: `http_request`, `web_fetch`, `curl`, `gitbooks_search`/`gitbooks_get_page`, MCP bridge (`mcp` list/call), `mcp_setup` tools, `gmail_unsubscribe`.
 - **Search**: `web_search` and provider-specific search families are registered by `openhuman::search::registry`; `search.engine = "disabled"` suppresses this surface entirely.
 

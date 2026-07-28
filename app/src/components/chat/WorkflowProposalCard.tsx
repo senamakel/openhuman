@@ -106,7 +106,7 @@ interface Props {
  * the tool-timeline `StatusTag`/detail-chip visual language for the
  * node-kind badges + config hints in the step list.
  */
-export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) => {
+const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) => {
   const { t } = useT();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();

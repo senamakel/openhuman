@@ -23,6 +23,7 @@ import { type GqlLedgerTransaction } from '../../lib/agentworld/invokeApiClient'
 import { useT } from '../../lib/i18n/I18nContext';
 import { apiClient } from '../AgentWorldShell';
 import { decimalsForAsset, resolveAssetSymbol } from '../assets';
+import StatusBlock from '../components/StatusBlock';
 import { formatUnits, friendlyNetwork } from '../components/X402ConfirmDialog';
 import { explorerTxUrl } from '../hooks/useX402Buy';
 import { relativeTime } from './relativeTime';
@@ -91,16 +92,6 @@ export function formatLedgerAmount(amount: string | undefined, asset: string | u
   const decimals = decimalsForAsset(asset);
   const display = decimals > 0 ? formatUnits(amount, decimals) : amount;
   return formatAmount(display);
-}
-
-/** Centered status message for loading / error / info states. */
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
-    </div>
-  );
 }
 
 // ── StatusBadge ───────────────────────────────────────────────────────────────
@@ -431,17 +422,11 @@ export default function LedgerSection() {
       </div>
     );
   } else if (ledgerState.status === 'error') {
-    body = (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title="Failed to load ledger"
-        body={ledgerState.message}
-      />
-    );
+    body = <StatusBlock tone="danger" title="Failed to load ledger" body={ledgerState.message} />;
   } else if (ledgerState.transactions.length === 0) {
     body = (
       <StatusBlock
-        tone="text-content-muted"
+        tone="neutral"
         title="No transactions found"
         body="The ledger is empty or no transactions match the current filter."
       />

@@ -1,6 +1,6 @@
 // [settings] Developer & Diagnostics panel — debug-only entries only.
 // User-facing routes (agents, autonomy, agent-access, sandbox-settings,
-// activity-level, tools, companion, screen-intelligence, voice, embeddings,
+// activity-level, tools, companion, voice, embeddings,
 // heartbeat, ledger-usage, cost-dashboard, task-sources, composio-routing,
 // webhooks-triggers, migration, security) have been moved to their canonical
 // section pages. Only genuine diagnostics remain here.
@@ -46,7 +46,7 @@ interface DevGroup {
 // Removed from all groups (moved to canonical section pages):
 //   agents, autonomy, agent-access, sandbox-settings, activity-level
 //   → Settings → Agents
-//   tools, companion, screen-intelligence
+//   tools, companion
 //   → Settings → Features
 //   voice, embeddings, heartbeat, ledger-usage, cost-dashboard
 //   → Settings → AI & Models
@@ -117,22 +117,6 @@ const modelsDebugGroup: DevGroup = {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: 'screen-awareness-debug',
-      titleKey: 'settings.developerMenu.screenAwareness.title',
-      descriptionKey: 'settings.developerMenu.screenAwareness.desc',
-      route: 'screen-awareness-debug',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 5h18v12H3zM8 21h8m-4-4v4"
           />
         </svg>
       ),

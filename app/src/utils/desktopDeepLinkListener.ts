@@ -11,6 +11,7 @@ import {
   failDeepLinkAuthProcessing,
 } from '../store/deepLinkAuthState';
 import { getStoredCoreMode } from './configPersistence';
+import { CORE_CONFIG_UNREADABLE_I18N_KEY, isCoreConfigUnreadableError } from './coreConfigFailure';
 import { BILLING_DASHBOARD_URL } from './links';
 import {
   evaluateOAuthAppVersionGate,
@@ -152,6 +153,66 @@ const focusMainWindow = async () => {
   }
 };
 
+// The Rust core `auth_store_session` with `allowPendingBackendValidation: true`
+// connects to the backend `/auth/me` endpoint. The backend's HTTP client has
+// a 15s connect timeout + 120s request timeout. The frontend RPC timeout must
+// be long enough for the backend to establish a connection (15s) before the
+// first attempt fails, otherwise the retry loop never completes before the
+// backend responds. Set to 25s to cover the 15s connect window with headroom.
+const AUTH_STORE_TIMEOUT_MS = 25_000;
+const AUTH_STORE_RETRIES = 2;
+const AUTH_STORE_RETRY_BACKOFF_MS = 500;
+// The suppress-reauth window must cover the full worst-case retry duration:
+// AUTH_STORE_RETRIES × AUTH_STORE_TIMEOUT_MS + (AUTH_STORE_RETRIES − 1) × backoff
+// = 2 × 25 000 + 500 = 50 500 ms. Add 5 s of headroom for RPC serialization,
+// CoreStateProvider polling jitter, and the final try-catch turnaround.
+const AUTH_STORE_SUPPRESS_REAUTH_MS =
+  AUTH_STORE_RETRIES * AUTH_STORE_TIMEOUT_MS +
+  (AUTH_STORE_RETRIES - 1) * AUTH_STORE_RETRY_BACKOFF_MS +
+  5_000;
+
+/**
+ * Retry-safe wrapper around `storeSession` for transient backend timeouts.
+ *
+ * The Rust core's `auth_store_session` with `allowPendingBackendValidation: true`
+ * already retries the `/auth/me` call once (150ms delay) and falls through to
+ * deferred validation on a second transient failure *if* the JWT has a live
+ * local exp. However, the frontend coreRpcClient's default timeout (30s) can
+ * fire *before* Rust finishes its slow backend call + retry + deferred-validation
+ * path, producing a `CoreRpcError(kind='timeout')` even though Rust would have
+ * persisted the session successfully. This wrapper retries the whole RPC call
+ * so a transient backend blip doesn't bounce the user back to sign-in.
+ */
+const storeSessionWithRetry = async (sessionToken: string): Promise<void> => {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= AUTH_STORE_RETRIES; attempt++) {
+    try {
+      await storeSession(
+        sessionToken,
+        {},
+        { allowPendingBackendValidation: true, timeoutMs: AUTH_STORE_TIMEOUT_MS }
+      );
+      return; // success
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+      const isTimeout = /timed out|timeout|operation timed out/.test(message);
+      if (isTimeout && attempt < AUTH_STORE_RETRIES) {
+        console.warn(
+          '[DeepLink][auth] auth_store_session timed out (attempt %d/%d), retrying in %dms',
+          attempt,
+          AUTH_STORE_RETRIES,
+          AUTH_STORE_RETRY_BACKOFF_MS
+        );
+        await new Promise(r => setTimeout(r, AUTH_STORE_RETRY_BACKOFF_MS));
+        continue;
+      }
+      throw err; // non-timeout or last attempt
+    }
+  }
+  throw lastError;
+};
+
 const applySessionToken = async (sessionToken: string): Promise<void> => {
   // In cloud mode, bust any stale RPC URL/token caches so auth_store_session
   // targets the user's configured remote core. See issue #2377.
@@ -164,10 +225,12 @@ const applySessionToken = async (sessionToken: string): Promise<void> => {
 
   // Signal CoreStateProvider to hold off clearing session during token delivery.
   window.dispatchEvent(
-    new CustomEvent('core-state:suppress-reauth', { detail: { until: Date.now() + 15_000 } })
+    new CustomEvent('core-state:suppress-reauth', {
+      detail: { until: Date.now() + AUTH_STORE_SUPPRESS_REAUTH_MS },
+    })
   );
   try {
-    await storeSession(sessionToken, {}, { allowPendingBackendValidation: true });
+    await storeSessionWithRetry(sessionToken);
   } finally {
     window.dispatchEvent(new CustomEvent('core-state:suppress-reauth', { detail: { until: 0 } }));
   }
@@ -279,13 +342,30 @@ const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
       //     BEFORE our tag applies. A plain `Error` makes `originalException`
       //     non-matching, so the lead cause finally reaches Sentry.
       // The PII-free `kind` tag + stable fingerprint are all we need to group.
+      //
+      // Transient connectivity issues (timeout, gateway, network) are reported
+      // at `warning` rather than `error` — the auth flow already retried inside
+      // `storeSessionWithRetry`, and the Rust core with
+      // `allowPendingBackendValidation: true` also retries and falls back to
+      // deferred validation. If the backend was genuinely unreachable through
+      // all retries this is a connectivity observation, not an app crash
+      // (issue #5166).
+      const isTransient =
+        kind === 'auth_me_timeout' || kind === 'auth_me_gateway' || kind === 'network';
       Sentry.captureException(new Error(`auth store failed: ${kind}`), {
-        level: 'error',
+        level: isTransient ? 'warning' : 'error',
         tags: { surface: 'react', phase: 'deep-link-auth-store', auth_store_failure: kind },
         fingerprint: ['deep-link-auth', 'session-store-failed', kind],
       });
       console.warn('[DeepLink][auth] session store failed — staying on signin (kind=%s)', kind);
-      failDeepLinkAuthProcessing(authStoreFailureUserMessage(kind, getStoredCoreMode()));
+      // `config_unreadable` copy is translated, and this module cannot call
+      // `useT()`. Hand the key to the store and let the rendering component
+      // resolve it in the user's locale; every other kind keeps its literal.
+      if (kind === 'config_unreadable') {
+        failDeepLinkAuthProcessing('', { messageKey: CORE_CONFIG_UNREADABLE_I18N_KEY });
+      } else {
+        failDeepLinkAuthProcessing(authStoreFailureUserMessage(kind, getStoredCoreMode()));
+      }
     }
   }
 };
@@ -312,6 +392,12 @@ const isDecryptionFailure = (message: string): boolean => {
  */
 export const classifyAuthStoreFailure = (message: string): string => {
   const m = message.toLowerCase();
+  // Most specific first: the core could not read its own config.toml. Checked
+  // ahead of the transport buckets because it is permanent and host-side —
+  // bucketing it as `'other'` told the user to "try again" forever. Passed the
+  // raw message: the predicate normalises its own input, and every other call
+  // site hands it a raw one.
+  if (isCoreConfigUnreadableError(message)) return 'config_unreadable';
   if (/timed out|timeout|operation timed out|deadline/.test(m)) return 'auth_me_timeout';
   if (/\b401\b|unauthorized/.test(m)) return 'auth_me_unauthorized';
   if (/\b50[234]\b|bad gateway|service unavailable|gateway timeout/.test(m))
@@ -338,8 +424,16 @@ export const authStoreFailureUserMessage = (
   kind: string,
   mode: 'local' | 'cloud' | null
 ): string => {
+  // NOTE: `config_unreadable` never reaches here — its copy is translated and
+  // is resolved from `CORE_CONFIG_UNREADABLE_I18N_KEY` at the rendering
+  // component instead (see the catch block in `handleAuthDeepLink`). It is
+  // mode-independent anyway: an unreadable config.toml is a property of
+  // whichever core answered, embedded or remote, and retrying never clears it.
   if (mode !== 'cloud') {
-    return 'Sign-in failed. Please try again.';
+    return (
+      'Sign-in could not be completed right now. The session store did not respond in time ' +
+      '(even after retrying). Please restart OpenHuman and try again.'
+    );
   }
   switch (kind) {
     case 'auth_me_unauthorized':

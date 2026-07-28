@@ -19,10 +19,6 @@ vi.mock('react-router-dom', async importOriginal => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-vi.mock('../components/SettingsHeader', () => ({
-  default: ({ title }: { title: string }) => <h1>{title}</h1>,
-}));
-
 const mockUpsert = vi.mocked(agentProfilesApi.upsert);
 
 function profile(overrides: Partial<AgentProfile> = {}): AgentProfile {

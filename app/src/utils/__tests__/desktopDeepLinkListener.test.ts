@@ -125,6 +125,8 @@ describe('desktopDeepLinkListener', () => {
     expect(windowControls.setFocus).toHaveBeenCalledTimes(1);
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
+      // Literal copy, not a key: only the localized failures carry one.
+      errorMessageKey: null,
       errorMessage:
         'Twitter/X sign-in failed before OpenHuman received authorization. Check the Twitter Developer Portal app settings: OAuth 2.0 must be enabled, callback URL must match the backend redirect URL exactly, and the client ID, client secret, and requested scopes must match the OpenHuman backend configuration.',
       requiresAppDataReset: false,
@@ -204,8 +206,40 @@ describe('desktopDeepLinkListener', () => {
     expect(storeSession).toHaveBeenCalledWith(
       'web-token',
       {},
-      { allowPendingBackendValidation: true }
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
     );
+  });
+
+  it('retries storeSession on timeout then succeeds on second attempt', async () => {
+    vi.mocked(storeSession)
+      .mockReset()
+      .mockRejectedValueOnce(new Error('timed out'))
+      .mockResolvedValueOnce(undefined);
+
+    const state = registerAuthDeepLinkState();
+    const url = `openhuman://auth?token=retry-token&key=auth&state=${state}`;
+
+    vi.mocked(getCurrent).mockResolvedValue([url]);
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    expect(storeSession).toHaveBeenCalledTimes(2);
+    expect(getDeepLinkAuthState().errorMessage).toBeNull();
+  });
+
+  it('does NOT retry storeSession on non-timeout error', async () => {
+    vi.mocked(storeSession).mockReset().mockRejectedValueOnce(new Error('network down'));
+
+    const state = registerAuthDeepLinkState();
+    const url = `openhuman://auth?token=no-retry-token&key=auth&state=${state}`;
+
+    vi.mocked(getCurrent).mockResolvedValue([url]);
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    // Non-timeout errors should not be retried — only one call expected.
+    expect(storeSession).toHaveBeenCalledTimes(1);
+    expect(getDeepLinkAuthState().errorMessage).not.toBeNull();
   });
 
   it('rejects an auth deep link whose state nonce does not match a pending one', async () => {
@@ -230,7 +264,11 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(getCurrent).mockResolvedValue([url]);
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
 
     // Replay the exact same deep link — the nonce was consumed, so it fails.
     vi.mocked(storeSession).mockClear();
@@ -249,7 +287,34 @@ describe('desktopDeepLinkListener', () => {
 
     const state = getDeepLinkAuthState();
     expect(state.requiresAppDataReset).toBe(false);
-    expect(state.errorMessage).toBe('Sign-in failed. Please try again.');
+    expect(state.errorMessage).toContain('did not respond');
+    expect(state.errorMessage).toContain('restart');
+    expect(state.errorMessageKey).toBeNull();
+  });
+
+  // The core cannot read its own config.toml: permanent, host-side, and
+  // identical for every config-dependent RPC. It previously fell through to the
+  // generic "Please try again", which is advice that can never work. The copy is
+  // localized, and this module cannot call useT(), so it hands the rendering
+  // component an i18n key instead of a literal.
+  it('surfaces an unreadable core config as a translatable key, not a retry prompt', async () => {
+    vi.mocked(storeSession).mockRejectedValueOnce(
+      new Error(
+        'Failed to read config file: /home/openhuman/.openhuman/config.toml ' +
+          '[config owner mismatch] (file uid=0 gid=0 mode=0600; process euid=10001 egid=10001): ' +
+          'Permission denied (os error 13)'
+      )
+    );
+
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
+
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    const state = getDeepLinkAuthState();
+    expect(state.errorMessageKey).toBe('welcome.coreConfigUnreadable');
+    expect(state.errorMessage).not.toBe('Sign-in failed. Please try again.');
+    expect(state.requiresAppDataReset).toBe(false);
   });
 
   it('injection #1: store-time /auth/me failure bounces to signin — no session applied, no /home nav', async () => {
@@ -275,14 +340,18 @@ describe('desktopDeepLinkListener', () => {
       await waitForAuthSettled();
 
       // store WAS attempted (we reached the persistence call)...
-      expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+      expect(storeSession).toHaveBeenCalledWith(
+        'abc',
+        {},
+        { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+      );
       // ...but it FAILED, so the session-applied event was never dispatched...
       expect(sessionTokenUpdated).not.toHaveBeenCalled();
       // ...and we never navigated to /home (ProtectedRoute/PublicRoute keep signin).
       expect(window.location.hash).not.toBe('#/home');
       // Surfaced as the generic toast; processing cleared.
       const state = getDeepLinkAuthState();
-      expect(state.errorMessage).toBe('Sign-in failed. Please try again.');
+      expect(state.errorMessage).toContain('did not respond');
       expect(state.isProcessing).toBe(false);
     } finally {
       window.removeEventListener('core-state:session-token-updated', sessionTokenUpdated);
@@ -315,7 +384,11 @@ describe('desktopDeepLinkListener', () => {
     resolveReadiness({ ready: true });
     await waitForAuthSettled();
 
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
     expect(getDeepLinkAuthState().isProcessing).toBe(false);
   });
 
@@ -348,7 +421,11 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).toHaveBeenCalledTimes(1);
     expect(clearCoreRpcTokenCache).toHaveBeenCalledTimes(1);
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
   });
 
   it('does NOT bust RPC caches before storeSession in local mode', async () => {
@@ -360,7 +437,11 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).not.toHaveBeenCalled();
     expect(clearCoreRpcTokenCache).not.toHaveBeenCalled();
-    expect(storeSession).toHaveBeenCalledWith('abc', {}, { allowPendingBackendValidation: true });
+    expect(storeSession).toHaveBeenCalledWith(
+      'abc',
+      {},
+      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
+    );
   });
 
   it('dispatches suppress-reauth before storeSession and clears it after in cloud mode', async () => {
@@ -415,6 +496,19 @@ describe('classifyAuthStoreFailure', () => {
     expect(classifyAuthStoreFailure(bare)).toBe('auth_me_other');
     expect(classifyAuthStoreFailure(bare)).not.toBe('other');
   });
+
+  // A core that cannot read its own config.toml fails EVERY config-dependent
+  // RPC the same way. Bucketing it as 'other' surfaced "Sign-in failed. Please
+  // try again." for a fault no amount of retrying clears.
+  it('classifies an unreadable core config as its own permanent kind', () => {
+    const reported =
+      'Failed to read config file: /home/openhuman/.openhuman/config.toml ' +
+      '[config owner mismatch] (file uid=0 gid=0 mode=0600; process euid=10001 egid=10001): ' +
+      'Permission denied (os error 13)';
+
+    expect(classifyAuthStoreFailure(reported)).toBe('config_unreadable');
+    expect(classifyAuthStoreFailure(reported)).not.toBe('other');
+  });
 });
 
 describe('authStoreFailureUserMessage (issue #3025)', () => {
@@ -426,11 +520,13 @@ describe('authStoreFailureUserMessage (issue #3025)', () => {
     'other',
   ];
 
-  // Local / unset mode always keeps the plain retry message — the failure there
-  // is a transient embedded-core/backend blip that retrying can clear.
+  // Local / unset mode should mention the retry attempt so the user knows
+  // the system tried before giving up (issue #5166).
   it.each(['local', null] as const)('stays generic for mode=%s', mode => {
     for (const kind of CLOUD_KINDS) {
-      expect(authStoreFailureUserMessage(kind, mode)).toBe('Sign-in failed. Please try again.');
+      const msg = authStoreFailureUserMessage(kind, mode);
+      expect(msg).toContain('retry');
+      expect(msg).not.toContain('remote');
     }
   });
 

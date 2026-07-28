@@ -1,16 +1,25 @@
-//! Subconscious engine selection (plan §5.2 — the openhuman subconscious
-//! replacement draft).
+//! Subconscious engine selection.
 //!
 //! `subconscious.engine` chooses which cognition drives the heartbeat tick's
 //! observe/reflect/commit cycle:
 //!
-//! * `local` (default) — the existing local tinyagents graph. Unchanged.
-//! * `medulla` — route each tick through a supervised local `medulla-serve`
-//!   child via `openhuman::medulla_local`. Draft; only wired when the crate is
-//!   built with the `medulla-local` feature.
+//! * `local` (default) — the local tinyagents graph.
+//! * `medulla` — **accepted but not implemented in this build.** The
+//!   supervised `medulla-serve` child that backed it was removed along with
+//!   the `medulla_local` draft; the engine is to be re-ported onto the
+//!   `medulla` domain. A config selecting it logs a warning and runs the local
+//!   graph.
 //!
-//! The default is `local`, so a config that omits the `[subconscious]` block —
-//! every config today — behaves exactly as before.
+//! # Why the variant and its settings still exist
+//!
+//! Deliberate back-compat, not oversight. Configs in the wild may carry
+//! `engine = "medulla"` or a `[subconscious.medulla_local]` block, and serde
+//! rejects an unknown enum variant — so deleting either would turn a
+//! now-unsupported *setting* into a hard **startup failure**. Keeping them as
+//! inert serde means such a host boots, runs the local graph, and says why.
+//!
+//! Remove them only once the engine is re-ported (making the variant live
+//! again) or a config migration rewrites the affected keys.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -22,12 +31,19 @@ pub enum SubconsciousEngine {
     /// The local tinyagents subconscious graph (unchanged default).
     #[default]
     Local,
-    /// Route ticks through a local `medulla-serve` child (draft).
+    /// Route ticks through the Medulla brain.
+    ///
+    /// Accepted for back-compat but **not implemented in this build** — see the
+    /// module docs. Selecting it warns and falls back to [`Self::Local`].
     Medulla,
 }
 
 impl SubconsciousEngine {
-    /// Whether ticks should route through the local medulla brain.
+    /// Whether the operator selected the medulla brain.
+    ///
+    /// True does **not** mean ticks route there — the engine is unimplemented
+    /// in this build. The tick uses this only to warn before running the local
+    /// graph.
     pub fn is_medulla(self) -> bool {
         matches!(self, Self::Medulla)
     }

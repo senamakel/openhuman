@@ -101,7 +101,7 @@ const CompanionPanel = () => {
   const sessionActive = status?.active ?? false;
 
   return (
-    <SettingsPanel description={t('pages.settings.features.desktopCompanionDesc')}>
+    <SettingsPanel description={t('settings.assistant.desktopCompanionDesc')}>
       {/* Session status + controls */}
       <SettingsSection>
         <SettingsRow
@@ -181,22 +181,6 @@ const CompanionPanel = () => {
           <SettingsRow
             label={t('settings.companion.sessionTtl')}
             control={<span className="text-xs text-content-muted">{config.ttl_secs}s</span>}
-          />
-          <SettingsRow
-            label={t('settings.companion.screenCapture')}
-            control={
-              <span className="text-xs text-content-muted">
-                {config.capture_screen ? t('common.enabled') : t('common.disabled')}
-              </span>
-            }
-          />
-          <SettingsRow
-            label={t('settings.companion.appContext')}
-            control={
-              <span className="text-xs text-content-muted">
-                {config.include_app_context ? t('common.enabled') : t('common.disabled')}
-              </span>
-            }
           />
         </SettingsSection>
       )}

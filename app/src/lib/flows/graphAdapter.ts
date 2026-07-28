@@ -50,7 +50,7 @@ export interface FlowNodeData extends Record<string, unknown> {
 export type FlowNode = Node<FlowNodeData>;
 export type FlowEdge = Edge;
 
-export interface Point {
+interface Point {
   x: number;
   y: number;
 }
@@ -157,7 +157,7 @@ export function workflowGraphToXyflow(graph: WorkflowGraph): {
  * effective port names `FlowNodeComponent` renders — and may be `null` when a
  * node exposes a single unnamed handle, in which case they default to `main`.
  */
-export interface FlowConnectionCandidate {
+interface FlowConnectionCandidate {
   source?: string | null;
   target?: string | null;
   sourceHandle?: string | null;

@@ -31,13 +31,7 @@ const mockStatus = {
   last_error: null,
 };
 
-const mockConfig = {
-  hotkey: 'ctrl+space',
-  activation_mode: 'push',
-  ttl_secs: 3600,
-  capture_screen: true,
-  include_app_context: true,
-};
+const mockConfig = { hotkey: 'ctrl+space', activation_mode: 'push', ttl_secs: 3600 };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -244,17 +238,12 @@ describe('CompanionPanel', () => {
     });
   });
 
-  it('renders "Disabled" when capture_screen and include_app_context are false', async () => {
-    invokeMock.mockImplementation(async (cmd: string) => {
-      if (cmd === 'companion_status') return mockStatus;
-      if (cmd === 'companion_config_get') {
-        return { ...mockConfig, capture_screen: false, include_app_context: false };
-      }
-      throw new Error(`unmocked command: ${cmd}`);
-    });
+  it('does not render screen capture or app context configuration', async () => {
     renderWithProviders(<CompanionPanel />);
     await waitFor(() => {
-      expect(screen.getAllByText('Disabled').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('ctrl+space')).toBeInTheDocument();
     });
+    expect(screen.queryByText('Screen Capture')).not.toBeInTheDocument();
+    expect(screen.queryByText('App Context')).not.toBeInTheDocument();
   });
 });

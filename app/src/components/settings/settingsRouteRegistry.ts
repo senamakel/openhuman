@@ -36,7 +36,7 @@ export type SettingsSection =
  * "System" group's Developer & Diagnostics sub-sections are now first-class
  * top-level groups.
  */
-export type SettingsNavGroup =
+type SettingsNavGroup =
   | 'general'
   | 'assistant'
   | 'data'
@@ -47,7 +47,7 @@ export type SettingsNavGroup =
   | 'automationIntegrations'
   | 'diagnosticsLogs';
 
-export const NAV_GROUP_ORDER: SettingsNavGroup[] = [
+const NAV_GROUP_ORDER: SettingsNavGroup[] = [
   'general',
   'assistant',
   'data',
@@ -73,7 +73,7 @@ export const NAV_GROUP_LABEL_KEY: Record<SettingsNavGroup, string> = {
   diagnosticsLogs: 'settings.devGroups.diagnosticsLogs',
 };
 
-export interface SettingsRegistryEntry {
+interface SettingsRegistryEntry {
   /** Stable unique id — used as the React key, test id, and route slug. */
   id: string;
   /** Route segment passed to `navigateToSettings(id)` (defaults to `id`). */
@@ -230,8 +230,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // --- Connections group ---
   // The Integrations settings section was retired — the composio/OAuth grid
   // lives on the Connections page and the task-source/webhook triage surface is
-  // no longer used. Screen Awareness, Desktop Agent and Desktop Companion moved
-  // to the Connections page's Desktop group; their slugs redirect there.
+  // no longer used. Desktop Agent and Desktop Companion moved to the
+  // Connections page's Desktop group; their slugs redirect there.
 
   // Notifications-hub and crypto hub pages are retired — their slugs redirect
   // to /settings/notifications and /settings/wallet-balances.
@@ -451,15 +451,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // FEATURES section leaf panels
   // =========================================================================
   {
-    // Surfaced on the Connections page (Desktop group); route redirects there.
-    // Entry kept for search + deep-link compatibility.
-    id: 'screen-intelligence',
-    titleKey: 'pages.settings.features.screenAwareness',
-    descriptionKey: 'pages.settings.features.screenAwarenessDesc',
-    section: 'features',
-    searchKeywords: ['screen', 'awareness', 'vision', 'capture'],
-  },
-  {
     id: 'tools',
     titleKey: 'pages.settings.features.tools',
     descriptionKey: 'pages.settings.features.toolsDesc',
@@ -472,7 +463,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     // Surfaced on the Connections page (Desktop group); route redirects there.
     id: 'companion',
     titleKey: 'pages.settings.features.desktopCompanion',
-    descriptionKey: 'pages.settings.features.desktopCompanionDesc',
+    descriptionKey: 'settings.assistant.desktopCompanionDesc',
     section: 'features',
     searchKeywords: ['desktop', 'overlay', 'companion'],
   },
@@ -538,7 +529,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // These live ONLY under Settings → Developer & Diagnostics.
   // Items removed from this list compared to the old DeveloperOptionsPanel:
   //   agents, autonomy, agent-access, sandbox-settings, activity-level,
-  //   tools, companion, screen-intelligence, voice, embeddings, heartbeat,
+  //   tools, companion, voice, embeddings, heartbeat,
   //   ledger-usage, cost-dashboard, task-sources, composio-routing,
   //   webhooks-triggers, migration, security
   //   (all moved to their canonical section pages).
@@ -557,14 +548,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // Knowledge & Memory group retired entirely — memory surfaces live on the
   // Brain page (graph / goals / sources / sync / subconscious).
   // voice-debug retired from the settings UI.
-  {
-    id: 'screen-awareness-debug',
-    titleKey: 'settings.developerMenu.screenAwareness.title',
-    descriptionKey: 'settings.developerMenu.screenAwareness.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'modelsInference',
-  },
   {
     id: 'event-log',
     titleKey: 'settings.developerMenu.eventLog.title',
@@ -702,7 +685,7 @@ export const findEntryByRoute = (route: string): SettingsRegistryEntry | undefin
 // Sidebar helpers (two-pane layout)
 // ---------------------------------------------------------------------------
 
-export interface SettingsSidebarGroup {
+interface SettingsSidebarGroup {
   group: SettingsNavGroup;
   entries: SettingsRegistryEntry[];
 }

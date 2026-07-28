@@ -254,14 +254,10 @@ function toolToActivityFace(toolName: string): MascotFace | null {
     return 'reading';
   }
 
-  if (name.includes('screen') || name.includes('screenshot') || name.includes('capture')) {
-    return 'recording';
-  }
-
   return null;
 }
 
-export interface UseHumanMascotOptions {
+interface UseHumanMascotOptions {
   /** When true, post-stream replies are sent to ElevenLabs and the mouth
    *  follows the returned viseme timeline while the audio plays. */
   speakReplies?: boolean;
@@ -270,7 +266,7 @@ export interface UseHumanMascotOptions {
   listening?: boolean;
 }
 
-export interface UseHumanMascotResult {
+interface UseHumanMascotResult {
   face: MascotFace;
   viseme: VisemeShape;
   /** Raw Oculus 15-set viseme code for Rive's `mouthVisemeCode` input. */
@@ -284,7 +280,7 @@ export interface UseHumanMascotResult {
  *
  * - `inference_start` → `thinking`
  * - `iteration_start` round > 1 or `tool_call` → activity pose based on tool
- *   name (writing/reading/recording) or `confused` as fallback
+ *   name (writing/reading) or `confused` as fallback
  * - `tool_result success=false` → `concerned` (held briefly)
  * - `text_delta` → `speaking`, pseudo-lipsync from the trailing letter
  * - `chat_done` (no TTS) → message-aware ack face (held briefly), then `idle`

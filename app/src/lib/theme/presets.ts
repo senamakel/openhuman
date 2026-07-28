@@ -10,8 +10,8 @@ import type { Theme, ThemeFamily } from './types';
  * persisted selections keep resolving.
  */
 
-export const LIGHT_THEME_ID = 'light';
-export const DARK_THEME_ID = 'dark';
+const LIGHT_THEME_ID = 'light';
+const DARK_THEME_ID = 'dark';
 
 const MONO_STACK = `'JetBrains Mono', 'SF Mono', Consolas, 'Liberation Mono', Courier, monospace`;
 const SERIF_STACK = `'Newsreader', Georgia, Cambria, 'Times New Roman', Times, serif`;

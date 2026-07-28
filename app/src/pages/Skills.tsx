@@ -23,12 +23,10 @@ import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import LlmConnectionsPanel from '../components/settings/panels/LlmConnectionsPanel';
 import MeetingSettingsPanel from '../components/settings/panels/MeetingSettingsPanel';
-import ScreenIntelligencePanel from '../components/settings/panels/ScreenIntelligencePanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletPanel from '../components/settings/panels/WalletPanel';
-import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
 import UnifiedSkillCard from '../components/skills/SkillCard';
 import { SKILL_CATEGORY_ORDER, type SkillCategory } from '../components/skills/skillCategories';
 import SkillCategoryFilter from '../components/skills/SkillCategoryFilter';
@@ -41,7 +39,6 @@ import SkillSearchBar from '../components/skills/SkillSearchBar';
 import SkillsExplorerTab from '../components/skills/SkillsExplorerTab';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import BetaBanner from '../components/ui/BetaBanner';
-import { useScreenIntelligenceSkillStatus } from '../features/screen-intelligence/useScreenIntelligenceSkillStatus';
 import { useVoiceSkillStatus } from '../features/voice/useVoiceSkillStatus';
 import { useChannelDefinitions } from '../hooks/useChannelDefinitions';
 import { useAgentReadyComposioToolkits, useComposioIntegrations } from '../lib/composio/hooks';
@@ -398,18 +395,7 @@ const BUILT_IN_SKILLS: Array<{
   description: string;
   route: string;
   icon: React.ReactNode;
-}> = [
-  // Hidden — not active yet. Uncomment to re-enable.
-  // {
-  //   id: 'screen-intelligence',
-  //   title: 'Screen Intelligence',
-  //   description:
-  //     'Capture windows, summarize what is on screen, and feed useful context into memory.',
-  //   route: '/settings/screen-intelligence',
-  //   icon: BUILT_IN_SKILL_ICONS.screenIntelligence,
-  // },
-  // text-autocomplete + voice-stt hidden per #717 (modals/status hooks retained for re-enable).
-];
+}> = [];
 
 // ─── Item type for unified list ────────────────────────────────────────────────
 
@@ -455,7 +441,6 @@ type ConnectionsTab =
   | 'usage'
   | 'composio-key'
   | 'wallet'
-  | 'screen-intelligence'
   | 'companion';
 
 /**
@@ -487,10 +472,6 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
     },
     search: { titleKey: 'settings.search.title', descKey: 'connections.header.search' },
     usage: { titleKey: 'settings.usage.title', descKey: 'settings.usage.menuDesc' },
-    'screen-intelligence': {
-      titleKey: 'pages.settings.features.screenAwareness',
-      descKey: 'connections.header.screen',
-    },
     companion: {
       titleKey: 'pages.settings.features.desktopCompanion',
       descKey: 'connections.header.companion',
@@ -509,7 +490,6 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'usage',
   'composio-key',
   'wallet',
-  'screen-intelligence',
   'companion',
 ]);
 
@@ -540,7 +520,6 @@ export default function Skills() {
       raw === 'usage' ||
       raw === 'composio-key' ||
       raw === 'wallet' ||
-      raw === 'screen-intelligence' ||
       raw === 'companion'
     )
       return raw;
@@ -609,9 +588,7 @@ export default function Skills() {
   const [composioModalToolkit, setComposioModalToolkit] = useState<ComposioToolkitMeta | null>(
     null
   );
-  const [screenIntelligenceModalOpen, setScreenIntelligenceModalOpen] = useState(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
-  const screenIntelligenceStatus = useScreenIntelligenceSkillStatus();
   const voiceStatus = useVoiceSkillStatus();
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -872,39 +849,8 @@ export default function Skills() {
         {items.map(item => {
           if (item.kind === 'builtin') {
             /* v8 ignore start -- BUILT_IN_SKILLS list is empty today; the per-id
-               branches below are kept for re-enabling screen-intelligence /
-               text-autocomplete / voice-stt and shouldn't drag the diff-coverage
-               gate down while they're unreachable. */
-            if (item.id === 'screen-intelligence') {
-              return (
-                <UnifiedSkillCard
-                  key={item.id}
-                  icon={item.icon}
-                  title={item.name}
-                  description={item.description}
-                  statusLabel={screenIntelligenceStatus.statusLabel}
-                  statusColor={screenIntelligenceStatus.statusColor}
-                  ctaLabel={screenIntelligenceStatus.ctaLabel}
-                  ctaVariant={screenIntelligenceStatus.ctaVariant}
-                  testId={`skill-row-${item.id}`}
-                  ctaTestId={`skill-install-${item.id}`}
-                  onCtaClick={() => {
-                    if (screenIntelligenceStatus.platformUnsupported) {
-                      navigate(item.route!);
-                      return;
-                    }
-                    if (
-                      screenIntelligenceStatus.connectionStatus === 'connected' ||
-                      screenIntelligenceStatus.connectionStatus === 'disconnected'
-                    ) {
-                      navigate(item.route!);
-                      return;
-                    }
-                    setScreenIntelligenceModalOpen(true);
-                  }}
-                />
-              );
-            }
+               branches below are retained for the hidden voice skill without
+               dragging the diff-coverage gate down while unreachable. */
             if (item.id === 'voice-stt') {
               return (
                 <UnifiedSkillCard
@@ -1020,11 +966,6 @@ export default function Skills() {
                 // Desktop capabilities relocated from Settings → Connections.
                 label: t('connections.groups.desktop'),
                 items: [
-                  {
-                    value: 'screen-intelligence',
-                    label: t('pages.settings.features.screenAwareness'),
-                    icon: navIcon('M3 5h18v12H3zM8 21h8m-4-4v4'),
-                  },
                   {
                     value: 'companion',
                     label: t('pages.settings.features.desktopCompanion'),
@@ -1166,7 +1107,6 @@ export default function Skills() {
                     {activeTab === 'search' && <SearchPanel />}
                     {activeTab === 'usage' && <UsagePanel />}
                     {activeTab === 'composio-key' && <ComposioPanel />}
-                    {activeTab === 'screen-intelligence' && <ScreenIntelligencePanel />}
                     {activeTab === 'companion' && <CompanionPanel />}
                   </SettingsLayoutProvider>
                 </div>
@@ -1431,13 +1371,6 @@ export default function Skills() {
 
       {channelModalDef && (
         <ChannelSetupModal definition={channelModalDef} onClose={() => setChannelModalDef(null)} />
-      )}
-
-      {screenIntelligenceModalOpen && (
-        <ScreenIntelligenceSetupModal
-          onClose={() => setScreenIntelligenceModalOpen(false)}
-          initialStep={screenIntelligenceStatus.allPermissionsGranted ? 'enable' : 'permissions'}
-        />
       )}
 
       {voiceModalOpen && (

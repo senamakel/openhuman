@@ -96,7 +96,7 @@ async fn local_admin_covers_assets_diagnostics_downloads_and_ops_errors() {
     config.local_ai.runtime_enabled = true;
     config.local_ai.opt_in_confirmed = true;
     config.local_ai.base_url = Some(base.clone());
-    config.local_ai.chat_model_id = "gemma4:e4b-it-q8_0".to_string();
+    config.local_ai.chat_model_id = "gemma3n:e4b-it-q8_0".to_string();
     config.local_ai.embedding_model_id = "bge-m3".to_string();
     config.local_ai.vision_model_id = "missing-vision".to_string();
     config.local_ai.selected_tier = Some("custom".to_string());
@@ -134,7 +134,7 @@ async fn local_admin_covers_assets_diagnostics_downloads_and_ops_errors() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|issue| issue.as_str().unwrap().contains("gemma4:e4b-it-q8_0")));
+        .any(|issue| issue.as_str().unwrap().contains("gemma3n:e4b-it-q8_0")));
 
     let assets = service.assets_status(&config).await.expect("assets");
     assert!(assets.ollama_available);
@@ -175,7 +175,7 @@ async fn local_admin_covers_assets_diagnostics_downloads_and_ops_errors() {
         .lock()
         .expect("models")
         .iter()
-        .any(|m| m == "gemma4:e4b-it-q8_0"));
+        .any(|m| m == "gemma3n:e4b-it-q8_0"));
 
     let mut lm_config = config.clone();
     lm_config.local_ai.provider = "lmstudio".to_string();
@@ -220,7 +220,7 @@ async fn local_admin_covers_assets_diagnostics_downloads_and_ops_errors() {
         .await
         .expect("ops progress")
         .value;
-    assert_eq!(ops_progress.chat.id, "gemma4:e4b-it-q8_0");
+    assert_eq!(ops_progress.chat.id, "gemma3n:e4b-it-q8_0");
 
     let ops_asset = local_ai_download_asset(&config, "embedding")
         .await
@@ -529,7 +529,7 @@ async fn ollama_show(Json(body): Json<Value>) -> impl IntoResponse {
             .into_response();
     }
     let context = match model {
-        "gemma4:e4b-it-q8_0" => 1024,
+        "gemma3n:e4b-it-q8_0" => 1024,
         "bge-m3" => 8192,
         _ => 4096,
     };
@@ -545,7 +545,7 @@ async fn ollama_show(Json(body): Json<Value>) -> impl IntoResponse {
 async fn ollama_pull(State(state): State<MockState>, Json(body): Json<Value>) -> impl IntoResponse {
     let name = body["name"]
         .as_str()
-        .unwrap_or("gemma4:e4b-it-q8_0")
+        .unwrap_or("gemma3n:e4b-it-q8_0")
         .to_string();
     state.ollama_models.lock().expect("models").push(name);
     let body = [

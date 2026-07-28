@@ -116,6 +116,21 @@ fn main() {
             if openhuman_core::core::observability::is_ollama_cloud_internal_500_event(&event) {
                 return None;
             }
+            // Defense-in-depth: drop Windows `ERROR_FILE_SYSTEM_LIMITATION`
+            // (os error 665) — a persistent host-filesystem condition with
+            // zero local lever and no Sentry remediation path. The primary
+            // suppression lives at the emit site via `expected_error_kind` →
+            // `ExpectedErrorKind::WindowsFileSystemLimitation`; this catches
+            // any call site that uses `report_error` directly instead of
+            // `report_error_or_expected` (TAURI-RUST-QT0: 6,050 events / 1 user).
+            if openhuman_core::core::observability::is_windows_file_system_limitation_event(&event)
+            {
+                log::debug!(
+                    "[sentry-fs-limitation-filter] dropping Windows file-system-limitation event (os error 665) event_id={:?}",
+                    event.event_id
+                );
+                return None;
+            }
             // Defense-in-depth: drop max-tool-iterations cap events that
             // slipped past the call-site filters in
             // `agent::harness::session::runtime::run_single`,
@@ -171,6 +186,44 @@ fn main() {
             if openhuman_core::core::observability::is_auth_get_me_opaque_transport_event(&event) {
                 log::debug!(
                     "[sentry-auth-get-me-opaque-filter] dropping opaque transport event_id={:?}",
+                    event.event_id
+                );
+                return None;
+            }
+            // Defense-in-depth: drop user-config provider errors that
+            // slipped past the call-site classifiers — 4xx client errors,
+            // subscription/payment issues, embedding API authorization
+            // failures. These are user misconfigurations, not application
+            // bugs (targets ~22 Sentry issues / ~26k events from the issue
+            // audit). Primary suppression lives at individual emit sites;
+            // this catch-all net catches any future new path that bypasses
+            // those gates.
+            if openhuman_core::core::observability::is_user_config_provider_event(&event) {
+                log::debug!(
+                    "[sentry-user-config-filter] dropping user-config provider event event_id={:?}",
+                    event.event_id
+                );
+                return None;
+            }
+            // Defense-in-depth: drop connectivity / network flakiness events
+            // that escaped the call-site classifiers — "Failed to fetch",
+            // connection refused, gateway 502/504, HTTP 401 from frontend
+            // connectivity. These are transient self-resolving conditions,
+            // not actionable code defects (targets ~8 Sentry issues).
+            if openhuman_core::core::observability::is_connectivity_event(&event) {
+                log::debug!(
+                    "[sentry-connectivity-filter] dropping connectivity event event_id={:?}",
+                    event.event_id
+                );
+                return None;
+            }
+            // Drop events from stale releases (clients running versions
+            // more than 6 minor versions behind the current build). Errors
+            // from ancient code are not actionable against the current
+            // codebase (targets ~4 Sentry issues).
+            if openhuman_core::core::observability::is_stale_release_event(&event) {
+                log::debug!(
+                    "[sentry-stale-release-filter] dropping stale release event event_id={:?}",
                     event.event_id
                 );
                 return None;

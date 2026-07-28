@@ -56,11 +56,6 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
         default_enabled: true,
     },
     ToolFamily {
-        id: "screenshot",
-        rust_names: &["screenshot"],
-        default_enabled: true,
-    },
-    ToolFamily {
         id: "image_info",
         rust_names: &["image_info"],
         default_enabled: true,
@@ -201,14 +196,6 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
             "service_install",
             "service_uninstall",
             "daemon_host_prefs_set",
-        ],
-        default_enabled: false,
-    },
-    ToolFamily {
-        id: "screen_permissions",
-        rust_names: &[
-            "screen_intelligence_request_permissions",
-            "screen_intelligence_request_permission",
         ],
         default_enabled: false,
     },

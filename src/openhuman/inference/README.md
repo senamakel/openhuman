@@ -110,7 +110,7 @@ Also exposes a non-RPC HTTP router (`http::router()`) nested at `/v1` by `src/co
 
 ## Used by
 
-Widely depended on by the agent layer (`agent/harness`, `agent/harness/session`, `agent/tools`, `agent/triage`, `agent/harness/subagent_runner`), `context`, `voice`, `memory_tree/tree_runtime`, `learning` (+ `learning/transcript_ingest`), `channels`, `embeddings`, `subconscious`, `screen_intelligence`, `threads`, and `migrations`/`config/schema`.
+Widely depended on by the agent layer (`agent/harness`, `agent/harness/session`, `agent/tools`, `agent/triage`, `agent/harness/subagent_runner`), `context`, `voice`, `memory_tree/tree_runtime`, `learning` (+ `learning/transcript_ingest`), `channels`, `embeddings`, `subconscious`, `threads`, and `migrations`/`config/schema`.
 
 ## Notes / gotchas
 

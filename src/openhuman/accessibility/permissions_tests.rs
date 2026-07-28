@@ -1,7 +1,7 @@
 //! Unit tests for `accessibility::permissions`.
 //!
 //! macOS-only FFI functions (`detect_accessibility_permission`,
-//! `detect_screen_recording_permission`, `detect_input_monitoring_permission`,
+//! `detect_input_monitoring_permission`,
 //! `request_*`) call into Apple frameworks and cannot be exercised in a
 //! cross-platform test binary without hardware. Tests here cover:
 //!
@@ -13,14 +13,6 @@
 use super::*;
 
 // ── permission_to_str ─────────────────────────────────────────────────────
-
-#[test]
-fn permission_to_str_screen_recording() {
-    assert_eq!(
-        permission_to_str(PermissionKind::ScreenRecording),
-        "screen_recording"
-    );
-}
 
 #[test]
 fn permission_to_str_accessibility() {
@@ -46,7 +38,6 @@ fn permission_to_str_microphone() {
 #[test]
 fn permission_to_str_is_snake_case_and_nonempty() {
     for kind in [
-        PermissionKind::ScreenRecording,
         PermissionKind::Accessibility,
         PermissionKind::InputMonitoring,
         PermissionKind::Microphone,
@@ -89,18 +80,13 @@ fn microphone_denied_message_is_human_readable() {
 
 // ── detect_permissions (non-macOS path) ──────────────────────────────────
 
-/// On non-macOS platforms `detect_permissions` reports screen_recording,
-/// accessibility, and input_monitoring as `Unsupported`. Microphone gets a
+/// On non-macOS platforms `detect_permissions` reports accessibility and
+/// input_monitoring as `Unsupported`. Microphone gets a
 /// real check via CPAL.
 #[cfg(not(target_os = "macos"))]
 #[test]
 fn detect_permissions_non_macos_reports_unsupported_for_desktop_perms() {
     let status = detect_permissions();
-    assert_eq!(
-        status.screen_recording,
-        PermissionState::Unsupported,
-        "screen_recording should be Unsupported on non-macOS"
-    );
     assert_eq!(
         status.accessibility,
         PermissionState::Unsupported,
@@ -133,14 +119,12 @@ fn permission_state_serde_round_trip() {
     use crate::openhuman::accessibility::types::{PermissionState, PermissionStatus};
 
     let status = PermissionStatus {
-        screen_recording: PermissionState::Granted,
         accessibility: PermissionState::Denied,
         input_monitoring: PermissionState::Unknown,
         microphone: PermissionState::Unsupported,
     };
     let json = serde_json::to_string(&status).expect("serialize PermissionStatus");
     let back: PermissionStatus = serde_json::from_str(&json).expect("deserialize PermissionStatus");
-    assert_eq!(back.screen_recording, PermissionState::Granted);
     assert_eq!(back.accessibility, PermissionState::Denied);
     assert_eq!(back.input_monitoring, PermissionState::Unknown);
     assert_eq!(back.microphone, PermissionState::Unsupported);

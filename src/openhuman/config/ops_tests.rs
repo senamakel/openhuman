@@ -543,7 +543,7 @@ async fn apply_search_settings_rejects_unknown_search_engine() {
     .await
     .expect_err("unknown engine should be rejected");
 
-    assert!(err.contains("disabled/managed/parallel/brave/querit"));
+    assert!(err.contains("disabled/managed/parallel/brave/querit/exa"));
 }
 
 #[tokio::test]
@@ -1596,34 +1596,6 @@ async fn apply_model_settings_trims_and_clears_optional_provider_fields() {
     assert!(cfg.heartbeat_provider.is_none());
     assert!(cfg.learning_provider.is_none());
     assert!(cfg.subconscious_provider.is_none());
-}
-
-#[tokio::test]
-async fn apply_screen_intelligence_settings_clamps_baseline_fps() {
-    let tmp = tempdir().unwrap();
-    let mut cfg = tmp_config(&tmp);
-
-    apply_screen_intelligence_settings(
-        &mut cfg,
-        ScreenIntelligenceSettingsPatch {
-            baseline_fps: Some(99.0),
-            ..Default::default()
-        },
-    )
-    .await
-    .expect("high clamp");
-    assert!((cfg.screen_intelligence.baseline_fps - 30.0).abs() < f32::EPSILON);
-
-    apply_screen_intelligence_settings(
-        &mut cfg,
-        ScreenIntelligenceSettingsPatch {
-            baseline_fps: Some(0.01),
-            ..Default::default()
-        },
-    )
-    .await
-    .expect("low clamp");
-    assert!((cfg.screen_intelligence.baseline_fps - 0.2).abs() < f32::EPSILON);
 }
 
 // ── apply_autonomy_settings ────────────────────────────────────

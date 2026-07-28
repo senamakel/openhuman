@@ -94,7 +94,7 @@ interface UpdateEnvResult {
 }
 
 /** Non-secret registry-credentials snapshot. Secret *values* are never returned. */
-export interface RegistrySettings {
+interface RegistrySettings {
   smithery_api_key_set: boolean;
   mcp_official_token_set: boolean;
   mcp_official_base?: string | null;

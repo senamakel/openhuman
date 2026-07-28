@@ -41,7 +41,7 @@ import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
 const log = debug('conversations.derived.mapDisplayItems');
 
 /** A partial assistant answer left behind by an interrupted turn. */
-export interface DerivedInterruptedAnswer {
+interface DerivedInterruptedAnswer {
   requestId: string;
   content: string;
   thinking: string;
@@ -52,7 +52,7 @@ export interface DerivedInterruptedAnswer {
  * projection, ready to feed `setTurnTimelinesForThread` (timelines +
  * transcripts) and, for completeness, any interrupted partials found.
  */
-export interface MappedTranscript {
+interface MappedTranscript {
   /** `requestId -> tool timeline rows` for each settled turn. */
   timelines: Record<string, ToolTimelineEntry[]>;
   /** `requestId -> processing transcript` (narration / thinking / tool ptr). */
@@ -67,7 +67,7 @@ export interface MappedTranscript {
 }
 
 /** Options controlling {@link mapDisplayItems}. */
-export interface MapDisplayItemsOptions {
+interface MapDisplayItemsOptions {
   /**
    * Request ids to omit from the output entirely — the live/most-recent turn
    * (rendered from socket-fed state / the turn_state snapshot) and any turn

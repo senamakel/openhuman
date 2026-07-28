@@ -974,6 +974,21 @@ fn assert_jsonrpc_error<'a>(v: &'a Value, context: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("{context}: expected JSON-RPC error, got: {v}"))
 }
 
+fn assert_unknown_method(v: &Value, method: &str) {
+    let error = assert_jsonrpc_error(v, method);
+    let expected_message = format!("unknown method: {method}");
+    assert_eq!(
+        error.get("code").and_then(Value::as_i64),
+        Some(-32000),
+        "{method}: expected unknown-method server error: {v}"
+    );
+    assert_eq!(
+        error.get("message").and_then(Value::as_str),
+        Some(expected_message.as_str()),
+        "{method}: expected unknown-method message: {v}"
+    );
+}
+
 fn extract_string_outcome(result: &Value) -> String {
     if let Some(s) = result.as_str() {
         return s.to_string();
@@ -5374,7 +5389,7 @@ async fn json_rpc_rejects_non_object_params_with_clear_error() {
 }
 
 #[tokio::test]
-async fn json_rpc_screen_intelligence_capture_test_returns_stable_shape() {
+async fn json_rpc_removed_screen_intelligence_methods_are_not_found() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -5393,62 +5408,13 @@ async fn json_rpc_screen_intelligence_capture_test_returns_stable_shape() {
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let capture = post_json_rpc(
-        &rpc_base,
-        1002,
-        "openhuman.screen_intelligence_capture_test",
-        json!({}),
-    )
-    .await;
-    let capture_outer = assert_no_jsonrpc_error(&capture, "screen_intelligence_capture_test");
-    let capture_result = capture_outer.get("result").unwrap_or(capture_outer);
-
-    assert!(
-        capture_result.get("ok").and_then(Value::as_bool).is_some(),
-        "expected bool ok field: {capture_result}"
-    );
-    assert!(
-        matches!(
-            capture_result.get("capture_mode").and_then(Value::as_str),
-            Some("windowed" | "fullscreen")
-        ),
-        "expected capture_mode field: {capture_result}"
-    );
-    assert!(
-        capture_result
-            .get("timing_ms")
-            .and_then(Value::as_u64)
-            .is_some(),
-        "expected timing_ms field: {capture_result}"
-    );
-
-    let ok = capture_result
-        .get("ok")
-        .and_then(Value::as_bool)
-        .expect("ok should be bool");
-    let image_ref = capture_result.get("image_ref").and_then(Value::as_str);
-    let error = capture_result.get("error").and_then(Value::as_str);
-
-    if ok {
-        assert!(
-            image_ref
-                .map(|value| value.starts_with("data:image/png;base64,"))
-                .unwrap_or(false),
-            "successful capture should include a PNG data URL: {capture_result}"
-        );
-        assert!(
-            error.is_none(),
-            "successful capture should not include an error"
-        );
-    } else {
-        assert!(
-            image_ref.is_none(),
-            "failed capture should not include image data"
-        );
-        assert!(
-            error.is_some(),
-            "failed capture should include an error message"
-        );
+    for (id, method) in [
+        (1002, "openhuman.screen_intelligence_status"),
+        (1003, "openhuman.screen_intelligence_capture_now"),
+        (1004, "openhuman.config_update_screen_intelligence_settings"),
+    ] {
+        let response = post_json_rpc(&rpc_base, id, method, json!({})).await;
+        assert_unknown_method(&response, method);
     }
 
     mock_join.abort();
@@ -5555,100 +5521,6 @@ async fn json_rpc_subconscious_status_exposes_instances_and_trigger_takes_kind()
 }
 
 #[tokio::test]
-async fn json_rpc_screen_intelligence_status_returns_stable_shape() {
-    let _env_lock = json_rpc_e2e_env_lock();
-    let tmp = tempdir().expect("tempdir");
-    let home = tmp.path();
-    let openhuman_home = home.join(".openhuman");
-
-    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
-    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
-    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
-    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
-
-    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
-    let mock_origin = format!("http://{}", mock_addr);
-    write_min_config(&openhuman_home, &mock_origin);
-
-    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
-    let rpc_base = format!("http://{}", rpc_addr);
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    let status = post_json_rpc(
-        &rpc_base,
-        1003,
-        "openhuman.screen_intelligence_status",
-        json!({}),
-    )
-    .await;
-    let result = assert_no_jsonrpc_error(&status, "screen_intelligence_status");
-    let status_result = result.get("result").unwrap_or(result);
-
-    // Required top-level fields
-    assert!(
-        status_result
-            .get("platform_supported")
-            .and_then(Value::as_bool)
-            .is_some(),
-        "expected bool platform_supported: {status_result}"
-    );
-    assert!(
-        status_result
-            .get("is_context_blocked")
-            .and_then(Value::as_bool)
-            .is_some(),
-        "expected bool is_context_blocked: {status_result}"
-    );
-
-    // session block
-    let session = status_result
-        .get("session")
-        .expect("expected session object");
-    assert!(
-        session.get("active").and_then(Value::as_bool).is_some(),
-        "expected bool session.active: {status_result}"
-    );
-    assert_eq!(
-        session.get("active").and_then(Value::as_bool),
-        Some(false),
-        "session should not be active without start_session: {status_result}"
-    );
-    assert!(
-        session
-            .get("capture_count")
-            .and_then(Value::as_u64)
-            .is_some(),
-        "expected u64 session.capture_count: {status_result}"
-    );
-    assert!(
-        session
-            .get("vision_persist_count")
-            .and_then(Value::as_u64)
-            .is_some(),
-        "expected u64 session.vision_persist_count: {status_result}"
-    );
-    assert!(
-        session.get("last_vision_persist_error").is_some(),
-        "expected nullable session.last_vision_persist_error: {status_result}"
-    );
-
-    // permissions block
-    let perms = status_result
-        .get("permissions")
-        .expect("expected permissions object");
-    assert!(
-        perms
-            .get("screen_recording")
-            .and_then(Value::as_str)
-            .is_some(),
-        "expected string permissions.screen_recording: {status_result}"
-    );
-
-    mock_join.abort();
-    rpc_join.abort();
-}
-
-#[tokio::test]
 async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
@@ -5705,13 +5577,6 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
     );
 
     let runtime = body.get("runtime").expect("expected runtime object");
-    assert!(
-        runtime
-            .get("screenIntelligence")
-            .and_then(Value::as_object)
-            .is_some(),
-        "expected runtime.screenIntelligence object: {runtime}"
-    );
     assert!(
         runtime.get("localAi").and_then(Value::as_object).is_some(),
         "expected runtime.localAi object: {runtime}"
@@ -7048,50 +6913,6 @@ encrypt = false
         body.get("chatOnboardingCompleted").and_then(Value::as_bool),
         Some(false),
         "fresh-user config without chat_onboarding_completed must surface chatOnboardingCompleted=false: {body}"
-    );
-
-    mock_join.abort();
-    rpc_join.abort();
-}
-
-#[tokio::test]
-async fn json_rpc_screen_intelligence_vision_recent_returns_empty_without_session() {
-    let _env_lock = json_rpc_e2e_env_lock();
-    let tmp = tempdir().expect("tempdir");
-    let home = tmp.path();
-    let openhuman_home = home.join(".openhuman");
-
-    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
-    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
-    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
-    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
-
-    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
-    let mock_origin = format!("http://{}", mock_addr);
-    write_min_config(&openhuman_home, &mock_origin);
-
-    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
-    let rpc_base = format!("http://{}", rpc_addr);
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    let recent = post_json_rpc(
-        &rpc_base,
-        1004,
-        "openhuman.screen_intelligence_vision_recent",
-        json!({ "limit": 10 }),
-    )
-    .await;
-    let result = assert_no_jsonrpc_error(&recent, "screen_intelligence_vision_recent");
-    let recent_result = result.get("result").unwrap_or(result);
-
-    let summaries = recent_result
-        .get("summaries")
-        .and_then(Value::as_array)
-        .expect("expected summaries array: {recent_result}");
-    assert!(
-        summaries.is_empty(),
-        "vision_recent should return empty list without an active session, got {} items",
-        summaries.len()
     );
 
     mock_join.abort();
@@ -14837,4 +14658,51 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
     assert_eq!(missing_data.get("total").and_then(Value::as_u64), Some(0));
 
     rpc_join.abort();
+}
+
+/// #5172 — `memory_flavour` is a read-only agent tool exposing the compiled
+/// persona flavour profiles (communication/coding_style/stack/workflow/
+/// environment/directives/anti_preferences) that persona ingestion builds
+/// but nothing previously surfaced to the agent loop.
+///
+/// Verifies:
+/// 1. The tool is reachable under its registered name (`memory_flavour`).
+/// 2. On a fresh workspace (no persona ingestion has run, so no flavoured
+///    tree exists yet), a valid flavour slug returns a clear non-error
+///    "no profile built yet" message rather than an error or a fabricated
+///    profile.
+/// 3. An unknown flavour slug is rejected.
+#[tokio::test]
+async fn memory_flavour_agent_tool_e2e_5172() {
+    use openhuman_core::openhuman::config::Config;
+    use openhuman_core::openhuman::tools::traits::Tool;
+    use openhuman_core::openhuman::tools::MemoryFlavourTool;
+
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let mut cfg = Config::default();
+    cfg.workspace_dir = tmp.path().to_path_buf();
+    let tool = MemoryFlavourTool::new(std::sync::Arc::new(cfg));
+
+    assert_eq!(tool.name(), "memory_flavour");
+
+    let result = tool
+        .execute(json!({ "flavour": "coding_style" }))
+        .await
+        .expect("valid flavour on a fresh workspace should not error");
+    assert!(
+        !result.is_error,
+        "an unbuilt profile must not be reported as a tool error: {result:?}"
+    );
+    assert!(
+        result.output().contains("No profile built yet"),
+        "expected the no-profile-yet message, got: {}",
+        result.output()
+    );
+
+    let unknown = tool
+        .execute(json!({ "flavour": "astrology" }))
+        .await
+        .expect_err("an unrecognized flavour slug must be rejected");
+    assert!(unknown.to_string().contains("Unknown flavour"));
 }

@@ -74,8 +74,9 @@ pub mod mcp_registry;
 pub mod mcp_server;
 #[cfg(feature = "media")]
 pub mod media_generation;
-#[cfg(feature = "medulla-local")]
-pub mod medulla_local;
+pub mod medulla;
+#[cfg(feature = "medulla")]
+pub mod medulla_chat;
 #[cfg(feature = "meet")]
 pub mod meet;
 pub mod meet_agent;
@@ -112,7 +113,6 @@ pub mod runtime_python;
 pub mod runtime_python_server;
 pub mod sandbox;
 pub mod scheduler_gate;
-pub mod screen_intelligence;
 pub mod search;
 pub mod security;
 pub mod service;

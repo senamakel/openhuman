@@ -17,12 +17,10 @@ pub enum CompanionState {
     Idle,
     /// Microphone is live — capturing user speech.
     Listening,
-    /// Transcript + screen context sent to LLM; awaiting response.
+    /// Transcript sent to LLM; awaiting response.
     Thinking,
     /// TTS is playing the response audio.
     Speaking,
-    /// Visual pointer is animating toward a UI target.
-    Pointing,
     /// An unrecoverable error occurred in the current turn.
     Error,
 }
@@ -34,7 +32,6 @@ impl std::fmt::Display for CompanionState {
             Self::Listening => write!(f, "listening"),
             Self::Thinking => write!(f, "thinking"),
             Self::Speaking => write!(f, "speaking"),
-            Self::Pointing => write!(f, "pointing"),
             Self::Error => write!(f, "error"),
         }
     }
@@ -63,12 +60,6 @@ pub struct CompanionConfig {
     /// Session TTL in seconds. `0` means no automatic expiry.
     #[serde(default = "default_ttl_secs")]
     pub ttl_secs: u64,
-    /// Whether to capture a screenshot on each activation.
-    #[serde(default = "default_true")]
-    pub capture_screen: bool,
-    /// Whether to include the foreground app context.
-    #[serde(default = "default_true")]
-    pub include_app_context: bool,
 }
 
 impl Default for CompanionConfig {
@@ -77,8 +68,6 @@ impl Default for CompanionConfig {
             hotkey: default_hotkey(),
             activation_mode: default_activation_mode(),
             ttl_secs: default_ttl_secs(),
-            capture_screen: true,
-            include_app_context: true,
         }
     }
 }
@@ -92,14 +81,11 @@ fn default_activation_mode() -> String {
 fn default_ttl_secs() -> u64 {
     3600
 }
-fn default_true() -> bool {
-    true
-}
 
 /// Parameters for starting a companion session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StartCompanionSessionParams {
-    /// Explicit user consent to screen monitoring and audio capture.
+    /// Explicit user consent to audio capture.
     pub consent: bool,
     /// Optional TTL override in seconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]

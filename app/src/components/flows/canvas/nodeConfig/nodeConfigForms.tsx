@@ -67,7 +67,7 @@ export interface NodeConfigFormProps {
   upstreamOptions?: UpstreamExpressionOption[];
 }
 
-export type NodeConfigForm = (props: NodeConfigFormProps) => React.ReactElement;
+type NodeConfigForm = (props: NodeConfigFormProps) => React.ReactElement;
 
 // ── trigger ────────────────────────────────────────────────────────────────
 

@@ -18,8 +18,6 @@ pub enum CapabilityCategory {
     Settings,
     #[serde(rename = "auth")]
     Auth,
-    #[serde(rename = "screen_intelligence")]
-    ScreenIntelligence,
     #[serde(rename = "channels")]
     Channels,
     #[serde(rename = "automation")]
@@ -29,7 +27,7 @@ pub enum CapabilityCategory {
 }
 
 impl CapabilityCategory {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 10] = [
         Self::Conversation,
         Self::Intelligence,
         Self::Workflows,
@@ -37,7 +35,6 @@ impl CapabilityCategory {
         Self::Team,
         Self::Settings,
         Self::Auth,
-        Self::ScreenIntelligence,
         Self::Channels,
         Self::Automation,
         Self::Mobile,
@@ -52,7 +49,6 @@ impl CapabilityCategory {
             Self::Team => "team",
             Self::Settings => "settings",
             Self::Auth => "auth",
-            Self::ScreenIntelligence => "screen_intelligence",
             Self::Channels => "channels",
             Self::Automation => "automation",
             Self::Mobile => "mobile",
@@ -73,9 +69,6 @@ impl FromStr for CapabilityCategory {
             "team" => Ok(Self::Team),
             "settings" => Ok(Self::Settings),
             "auth" => Ok(Self::Auth),
-            "screen_intelligence" | "screen-intelligence" | "screen intelligence" => {
-                Ok(Self::ScreenIntelligence)
-            }
             "channels" => Ok(Self::Channels),
             "automation" => Ok(Self::Automation),
             "mobile" => Ok(Self::Mobile),
@@ -168,11 +161,6 @@ mod tests {
             serde_json::to_string(&CapabilityCategory::LocalAI).expect("serialize LocalAI"),
             "\"local_ai\""
         );
-        assert_eq!(
-            serde_json::to_string(&CapabilityCategory::ScreenIntelligence)
-                .expect("serialize ScreenIntelligence"),
-            "\"screen_intelligence\""
-        );
     }
 
     #[test]
@@ -184,8 +172,8 @@ mod tests {
     }
 
     #[test]
-    fn category_all_has_11_variants() {
-        assert_eq!(CapabilityCategory::ALL.len(), 11);
+    fn category_all_has_10_variants() {
+        assert_eq!(CapabilityCategory::ALL.len(), 10);
     }
 
     #[test]
@@ -210,14 +198,6 @@ mod tests {
         assert_eq!(
             "localai".parse::<CapabilityCategory>().unwrap(),
             CapabilityCategory::LocalAI
-        );
-        assert_eq!(
-            "screen-intelligence".parse::<CapabilityCategory>().unwrap(),
-            CapabilityCategory::ScreenIntelligence
-        );
-        assert_eq!(
-            "screen intelligence".parse::<CapabilityCategory>().unwrap(),
-            CapabilityCategory::ScreenIntelligence
         );
     }
 

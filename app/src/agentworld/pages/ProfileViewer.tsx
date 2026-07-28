@@ -18,6 +18,7 @@ import { useParams } from 'react-router-dom';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import Button from '../../components/ui/Button';
+import { useClipboardFeedback } from '../../hooks/useClipboardFeedback';
 import {
   type AgentCard,
   type FollowStats,
@@ -27,8 +28,9 @@ import {
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
-import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
+import StatusBlock from '../components/StatusBlock';
+import { useMyAgentId } from '../hooks/useMyAgentId';
 
 const log = debug('agentworld:profileviewer');
 
@@ -63,29 +65,6 @@ function pickPrimary<T extends { primary?: boolean }>(identities: T[]): T | unde
 function readViewerFollows(card: AgentCard | null): boolean | null {
   const value = card?.['viewerIsFollowing'];
   return typeof value === 'boolean' ? value : null;
-}
-
-/** Resolve the wallet's Solana address (the viewer's tiny.place cryptoId). */
-function useMyAgentId(): string | null {
-  const [agentId, setAgentId] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    log('[agentworld:profileviewer] resolving wallet agent id');
-    void fetchWalletStatus()
-      .then(status => {
-        if (cancelled) return;
-        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
-        if (solana?.address) setAgentId(solana.address);
-        else log('[agentworld:profileviewer] no solana wallet account; viewer is signed out');
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) log('[agentworld:profileviewer] wallet resolve failed: %s', errorKind(err));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return agentId;
 }
 
 // ── Profile fetch ────────────────────────────────────────────────────────────────
@@ -238,17 +217,6 @@ function useFollowStats(cryptoId: string): FollowStats | null {
   return stats;
 }
 
-// ── Presentational bits ──────────────────────────────────────────────────────────
-
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
-    </div>
-  );
-}
-
 // ── Main export ──────────────────────────────────────────────────────────────────
 
 export default function ProfileViewer() {
@@ -267,19 +235,14 @@ export default function ProfileViewer() {
   } else if (state.status === 'not_found') {
     body = (
       <StatusBlock
-        tone="text-content-secondary"
+        tone="neutral"
         title={t('agentWorld.profileViewer.notFoundTitle')}
         body={t('agentWorld.profileViewer.notFoundBody')}
       />
     );
   } else if (state.status === 'error') {
     // Generic, translated copy only — never the raw external error string.
-    body = (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title={t('agentWorld.profileViewer.errorTitle')}
-      />
-    );
+    body = <StatusBlock tone="danger" title={t('agentWorld.profileViewer.errorTitle')} />;
   } else {
     body = <ProfileCard profile={state.profile} routeHandle={routeHandle} />;
   }
@@ -293,7 +256,8 @@ export default function ProfileViewer() {
 
 function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandle: string }) {
   const { t } = useT();
-  const myAgentId = useMyAgentId();
+  const myAgent = useMyAgentId();
+  const myAgentId = myAgent.status === 'ready' ? myAgent.agentId : null;
   const cryptoId = profile.cryptoId;
   const agentCard = useAgentCard(cryptoId);
   // Optimistic follower-count adjustment so the count tracks the follow button
@@ -303,7 +267,7 @@ function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandl
     setFollowerDelta(d => d + (next === 'following' ? 1 : -1))
   );
   const followStats = useFollowStats(cryptoId);
-  const [copied, setCopied] = useState(false);
+  const clipboard = useClipboardFeedback();
   // Fall back to the initials monogram if the avatar image fails to load.
   const [avatarBroken, setAvatarBroken] = useState(false);
 
@@ -323,23 +287,19 @@ function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandl
   // Read-only agent-card summary (only when it adds something over the profile).
   const cardDescription = (agentCard?.description ?? '').trim();
 
-  const copyLink = useCallback(() => {
+  const copyLink = useCallback(async () => {
     // Build the deep link from the ROUTE handle (what the user actually
     // navigated to), not from `identities`/`displayName` — those may be null or
     // differ from the selected route, producing a link that does not resolve.
     const { origin, pathname } = window.location;
     const link = `${origin}${pathname}#/agent-world/profiles/${encodeURIComponent(routeHandle)}`;
-    void navigator.clipboard
-      ?.writeText(link)
-      .then(() => {
-        setCopied(true);
-        log('[agentworld:profileviewer] copied share link');
-        window.setTimeout(() => setCopied(false), 2000);
-      })
-      .catch((err: unknown) => {
-        log('[agentworld:profileviewer] copy link failed: %s', errorKind(err));
-      });
-  }, [routeHandle]);
+    const succeeded = await clipboard.copy(link);
+    log(
+      succeeded
+        ? '[agentworld:profileviewer] copied share link'
+        : '[agentworld:profileviewer] copy link failed'
+    );
+  }, [clipboard.copy, routeHandle]);
 
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
@@ -405,8 +365,12 @@ function ProfileCard({ profile, routeHandle }: { profile: GqlProfile; routeHandl
                 : t('agentWorld.profileViewer.follow')}
             </Button>
           ) : null}
-          <Button variant="tertiary" size="sm" onClick={copyLink} data-testid="profile-copy-link">
-            {copied
+          <Button
+            variant="tertiary"
+            size="sm"
+            onClick={() => void copyLink()}
+            data-testid="profile-copy-link">
+            {clipboard.status === 'copied'
               ? t('agentWorld.profileViewer.linkCopied')
               : t('agentWorld.profileViewer.copyLink')}
           </Button>

@@ -183,37 +183,12 @@ fn transition_thinking_to_speaking() {
 }
 
 #[test]
-fn transition_speaking_to_pointing() {
-    with_clean_session(|| {
-        let _s = start_default_session();
-        transition_state(CompanionState::Listening, None).unwrap();
-        transition_state(CompanionState::Thinking, None).unwrap();
-        transition_state(CompanionState::Speaking, None).unwrap();
-        let prev = transition_state(CompanionState::Pointing, None).unwrap();
-        assert_eq!(prev, CompanionState::Speaking);
-    });
-}
-
-#[test]
-fn transition_pointing_to_idle() {
-    with_clean_session(|| {
-        let _s = start_default_session();
-        transition_state(CompanionState::Listening, None).unwrap();
-        transition_state(CompanionState::Thinking, None).unwrap();
-        transition_state(CompanionState::Pointing, None).unwrap();
-        let prev = transition_state(CompanionState::Idle, None).unwrap();
-        assert_eq!(prev, CompanionState::Pointing);
-    });
-}
-
-#[test]
 fn transition_full_happy_path() {
     with_clean_session(|| {
         let _s = start_default_session();
         transition_state(CompanionState::Listening, None).unwrap();
         transition_state(CompanionState::Thinking, None).unwrap();
         transition_state(CompanionState::Speaking, None).unwrap();
-        transition_state(CompanionState::Pointing, None).unwrap();
         transition_state(CompanionState::Idle, None).unwrap();
         assert_eq!(session_status().state, CompanionState::Idle);
     });

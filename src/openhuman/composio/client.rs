@@ -256,7 +256,7 @@ impl ComposioClient {
                 has_error = resp.error.is_some(),
                 "[composio] execute_tool_once completed"
             ),
-            Err(err) => tracing::error!(
+            Err(err) => tracing::warn!(
                 tool = %tool,
                 error = %err,
                 "[composio] execute_tool_once failed"

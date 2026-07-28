@@ -51,6 +51,11 @@ named = [
     # mutate memory ("remember this document") despite running read-only.
     # Retrieval-only `memory_recall` covers the scout's needs safely.
     "memory_recall",
+    # Compiled persona distillation profile for one facet (communication,
+    # coding_style, stack, workflow, environment, directives,
+    # anti_preferences) — the user's distilled style/preference summary, read
+    # only, complements `memory_recall`'s raw-fact search.
+    "memory_flavour",
     # Transcripts: recall what the user said/decided in earlier chats. Backed
     # by the cross-thread trigram index; read-only and workspace-scoped.
     "transcript_search",

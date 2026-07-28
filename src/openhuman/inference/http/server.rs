@@ -35,7 +35,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tinyagents::harness::message::Message;
 use tinyagents::harness::model::{ModelRequest, ModelStreamItem};
-use tracing::{debug, error};
+use tracing::{debug, warn};
 
 use super::types::{
     ChatCompletionChoice, ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionDelta,
@@ -72,7 +72,7 @@ async fn chat_completions_handler(
     let config = match Config::load_or_init().await {
         Ok(c) => c,
         Err(e) => {
-            error!("{LOG_PREFIX} chat_completions: config load failed: {e}");
+            warn!("{LOG_PREFIX} chat_completions: config load failed: {e}");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": { "message": format!("config load failed: {e}"), "type": "internal_error" }})),
@@ -103,7 +103,7 @@ async fn chat_completions_handler(
         ) {
             Ok(pair) => pair,
             Err(e) => {
-                error!("{LOG_PREFIX} chat_completions: provider build failed: {e}");
+                warn!("{LOG_PREFIX} chat_completions: provider build failed: {e}");
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(json!({ "error": { "message": format!("provider error: {e}"), "type": "invalid_request_error" }})),
@@ -153,7 +153,7 @@ async fn chat_completions_handler(
         let model_stream = match chat_model.stream(&(), model_request).await {
             Ok(stream) => stream,
             Err(e) => {
-                error!(error = %e, model = %model_id, "{LOG_PREFIX} chat_completions: stream start failed");
+                warn!(error = %e, model = %model_id, "{LOG_PREFIX} chat_completions: stream start failed");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({ "error": { "message": format!("inference error: {e}"), "type": "internal_error" }})),
@@ -250,7 +250,7 @@ async fn chat_completions_handler(
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => {
-            error!("{LOG_PREFIX} chat_completions: inference failed: {e}");
+            warn!("{LOG_PREFIX} chat_completions: inference failed: {e}");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": { "message": format!("inference error: {e}"), "type": "internal_error" }})),
@@ -269,7 +269,7 @@ async fn models_handler(State(_state): State<AppState>) -> Response {
     let config = match Config::load_or_init().await {
         Ok(c) => c,
         Err(e) => {
-            error!("{LOG_PREFIX} models: config load failed: {e}");
+            warn!("{LOG_PREFIX} models: config load failed: {e}");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": { "message": format!("config load failed: {e}") }})),

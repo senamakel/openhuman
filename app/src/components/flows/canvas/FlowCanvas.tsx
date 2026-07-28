@@ -37,7 +37,7 @@ import EditableFlowCanvas, {
 import './flowCanvasStyles.css';
 import FlowNodeComponent from './FlowNodeComponent';
 
-export interface FlowCanvasProps {
+interface FlowCanvasProps {
   nodes: FlowNode[];
   edges: FlowEdge[];
   /**

@@ -48,7 +48,7 @@ There is **no** `library-minimal` meta-feature in `Cargo.toml`, on purpose — s
 | `media` | ON | **DROP** | `media_generate_*` image/video tools — surface-only | none (backend-proxied) |
 | `meet` | ON | **DROP** | Google-Meet join/live-STT/TTS bot — no headless use | none |
 | `mcp` | ON | **DROP** | MCP stdio/HTTP server + Smithery registry (~20k LOC, ~19 tools) — a library host is not an MCP host | none (hand-rolled over tokio/reqwest/axum) |
-| `desktop-automation` | ON | **DROP** | AX / screen-capture / `computer` tool family drives a **local desktop UI** — meaningless headless | `uiautomation` |
+| `desktop-automation` | ON | **DROP** | AX / `computer` tool family drives a **local desktop UI** — meaningless headless | `uiautomation` |
 | `tui` | ON | **DROP** | `openhuman tui`/`chat` terminal UI — no terminal in a library host | `ratatui`, `crossterm`, `unicode-width` |
 
 **Non-default optional features** (`sandbox-landlock`, `sandbox-bubblewrap`,
@@ -142,7 +142,7 @@ build-fact error:
   returns a "rebuild with --features mcp" build-fact error. (`McpHttpClient` +
   `sanitize` stay compiled — the gitbooks docs tool and the orchestrator prompt
   sanitizer still work.)
-- **desktop-automation:** `accessibility` / `screen_intelligence` / `autocomplete`
+- **desktop-automation:** `accessibility` / `autocomplete`
   / `desktop_companion` domains + the `computer` tool family (`ax_interact`,
   `automate`, mouse/keyboard) absent.
 - **tui:** `openhuman tui` / `chat` returns "tui feature disabled at compile time".

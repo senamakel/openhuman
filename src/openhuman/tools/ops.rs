@@ -396,6 +396,20 @@ pub fn all_tools_with_runtime(
         // effect — writes only to the agent's own suggestions store.
         #[cfg(feature = "flows")]
         Box::new(SuggestWorkflowsTool::new(config.clone())),
+        // Per-flow sandboxed memory (issue #5173): lets a running flow
+        // (e.g. a scheduled newsletter-digest) remember what it already did
+        // — dedupe across runs — without ever touching the user's own
+        // memory. Namespace is derived internally from `flow_id`; there is
+        // no code path by which either tool can address a namespace other
+        // than the calling flow's own (`flow_memory_recall`'s `scope:
+        // "flows"` is read-only cross-flow visibility, not a write path).
+        #[cfg(feature = "flows")]
+        Box::new(FlowMemoryRecallTool::new(memory.clone())),
+        #[cfg(feature = "flows")]
+        Box::new(FlowMemoryRememberTool::new(
+            memory.clone(),
+            security.clone(),
+        )),
         // Wallet tools — expose wallet operations to the agent tool-call pipeline
         // so the crypto sub-agent can prepare transfers, check status, etc.
         // Gated with the `web3` feature (the wallet domain is compiled out when
@@ -431,6 +445,11 @@ pub fn all_tools_with_runtime(
         // #002: read-only self-diagnosis of the memory pipeline so the agent
         // can explain an empty/stalled wiki + the fix.
         Box::new(MemoryDoctorTool::new(config.clone())),
+        // #5172: read-only access to the compiled persona flavour profiles
+        // (communication/coding_style/stack/workflow/environment/directives/
+        // anti_preferences) that persona ingestion builds but nothing
+        // previously surfaced to the agent loop.
+        Box::new(MemoryFlavourTool::new(config.clone())),
         Box::new(MemoryQueryTool),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
@@ -705,27 +724,10 @@ pub fn all_tools_with_runtime(
         Box::new(SessionGetUserTool::new(config.clone())),
         Box::new(OAuthConnectUrlTool::new(config.clone())),
         Box::new(OAuthListTool::new(config.clone())),
-        // Desktop perception, MCP registry, workspace persona. Observe/connect/
-        // call tools default-ON; OS permission prompts (screen_permissions),
-        // MCP install/uninstall (mcp_manage), and persona/workspace writers
+        // MCP registry and workspace persona. Observe/connect/call tools
+        // default-ON; MCP install/uninstall (mcp_manage), and persona/workspace writers
         // (workspace_manage) ship default-OFF via `tools::user_filter`.
         //
-        // Screen intelligence tools (always-on Platform family).
-        Box::new(ScreenStatusTool),
-        Box::new(ScreenCaptureImageRefTool),
-        Box::new(ScreenVisionRecentTool),
-        Box::new(ScreenVisionFlushTool),
-        Box::new(ScreenRefreshPermissionsTool),
-        Box::new(ScreenCaptureNowTool),
-        Box::new(ScreenCaptureTestTool),
-        Box::new(ScreenSessionStartTool),
-        Box::new(ScreenSessionStopTool),
-        Box::new(ScreenInputActionTool),
-        Box::new(ScreenGlobeStartTool),
-        Box::new(ScreenGlobePollTool),
-        Box::new(ScreenGlobeStopTool),
-        Box::new(ScreenRequestPermissionsTool),
-        Box::new(ScreenRequestPermissionTool),
         // MCP registry (dynamic, user-installed servers) — compiled out with
         // the `mcp` feature. Per-element attrs inside the `vec![]` mirror the
         // voice idiom used earlier in this same literal.
@@ -1045,8 +1047,7 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[tools::ops] registered python_exec");
     }
 
-    // Vision tools are always available
-    tools.push(Box::new(ScreenshotTool::new(security.clone())));
+    // Image metadata is always available for user-provided images.
     tools.push(Box::new(ImageInfoTool::new(security.clone())));
 
     // Tool effectiveness stats (enabled when learning is on)
@@ -1294,7 +1295,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     // stays callable under a custom `DomainSet { platform: true, flows: false }`,
     // leaking the flows surface past the runtime gate (#4808 review; #4797
     // maintainer review). Keep this in lockstep with the `#[cfg(feature =
-    // "flows")]` registrations in `all_tools_with_runtime` above — the same 26
+    // "flows")]` registrations in `all_tools_with_runtime` above — the same 28
     // names asserted by `default_tools_omits_flows_tools_when_feature_off`.
     const FLOWS: &[&str] = &[
         "propose_workflow",
@@ -1325,6 +1326,12 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         // The `rhai_workflows` (.ragsh) tool is compile-gated with `flows` and
         // belongs to the same runtime domain — drop it when Flows is off too.
         "rhai_workflows",
+        // Per-flow sandboxed memory (issue #5173) — `flow_` prefixed, not
+        // `memory_`, so it does NOT fall under the `memory_` prefix check
+        // below and must be listed here explicitly like every other
+        // flow-owned tool.
+        "flow_memory_recall",
+        "flow_memory_remember",
     ];
     // Voice family agent tools (audio_toolkit) — no `voice_`/`tts_`/`stt_`
     // prefix, so they must be listed explicitly or they fall through to

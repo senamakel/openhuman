@@ -653,6 +653,7 @@ mod tests {
             "Picking a specialist via `agent_ref`",
             "code_executor",
             "researcher",
+            "flow_memory_agent",
         ] {
             assert!(
                 STANDING_PROMPT.contains(rule),
@@ -661,6 +662,49 @@ mod tests {
                  list_agent_profiles instead of hallucinating one"
             );
         }
+    }
+
+    /// #5204: `flow_memory_agent` is the general-purpose read-only context/
+    /// memory route for a flow `agent` node's `agent_ref` — not a fixed list
+    /// of use cases. The standing prompt must actually teach that generality
+    /// (not just mention the agent's name once), or the builder keeps
+    /// reaching for `context_scout`'s narrower structured-bundle niche for
+    /// requests that don't need a bundle at all.
+    #[test]
+    fn standing_prompt_teaches_flow_memory_agent_as_general_context_route() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        assert!(
+            STANDING_PROMPT.contains("flow_memory_agent"),
+            "standing prompt must name `flow_memory_agent`"
+        );
+        assert!(
+            STANDING_PROMPT.contains("the PREFERRED general"),
+            "standing prompt must teach flow_memory_agent as the PREFERRED general route"
+        );
+        assert!(
+            STANDING_PROMPT.contains("for ANY use case, not a fixed list"),
+            "standing prompt must state the routing rule is general — ANY use case, not \
+             a fixed list of scenarios — or the builder will under-route to flow_memory_agent"
+        );
+        assert!(
+            STANDING_PROMPT.contains("narrower niche"),
+            "standing prompt must demote context_scout to its narrower structured-bundle \
+             niche now that flow_memory_agent is the general route"
+        );
+        // Regression (Greptile P1 / CodeRabbit): the generic customer-history
+        // example must route to flow_memory_agent — routing general history
+        // retrieval to context_scout contradicts the rule above and trains the
+        // builder to under-route to flow_memory_agent.
+        assert!(
+            STANDING_PROMPT.contains("asked us before\" → `flow_memory_agent`"),
+            "the generic customer-history example must route to flow_memory_agent"
+        );
+        assert!(
+            !STANDING_PROMPT.contains("asked us before\" → `context_scout`"),
+            "the generic customer-history example must NOT route to context_scout — that \
+             contradicts flow_memory_agent being the general context/history route"
+        );
     }
 
     /// The runtime already gives an `agent_ref` step the selected specialist's
@@ -786,26 +830,30 @@ mod tests {
         );
     }
 
-    /// The two mechanisms that DO reach memory from inside a running flow must
-    /// both be taught, with the correct binding path for the deterministic one.
-    /// A native `oh:` tool result is a `ToolResult` — `{ content: [{ type,
-    /// text }], is_error }` — so a downstream binding dereferences
-    /// `.item.json.content[0].text`, not the bare `.item.json.<field>` an
-    /// agent/`http_request` output would use. Getting that path wrong is the
-    /// same class of silent-null failure the `=`-binding rules exist to stop.
+    /// The three mechanisms that DO reach memory from inside a running flow
+    /// must all be taught, with the correct binding path for the
+    /// deterministic one. A native `oh:` tool result is a `ToolResult` —
+    /// `{ content: [{ type, text }], is_error }` — so a downstream binding
+    /// dereferences `.item.json.content[0].text`, not the bare
+    /// `.item.json.<field>` an agent/`http_request` output would use. Getting
+    /// that path wrong is the same class of silent-null failure the
+    /// `=`-binding rules exist to stop. #5204 added `flow_memory_agent` as
+    /// the third (and now PREFERRED general) route alongside the
+    /// deterministic `tool_call` reads and `context_scout`'s narrower niche.
     #[test]
-    fn standing_prompt_teaches_the_two_working_memory_read_paths() {
+    fn standing_prompt_teaches_the_three_working_memory_read_paths() {
         const STANDING_PROMPT: &str = include_str!("prompt.md");
 
         for rule in [
             "oh:memory_recall",
             "oh:memory_hybrid_search",
+            "flow_memory_agent",
             "context_scout",
             "=nodes.<id>.item.json.content[0].text",
         ] {
             assert!(
                 STANDING_PROMPT.contains(rule),
-                "standing prompt must teach `{rule}` — it is one of the only two \
+                "standing prompt must teach `{rule}` — it is one of the only three \
                  mechanisms that actually read memory at flow run time, or the \
                  binding path needed to consume one"
             );

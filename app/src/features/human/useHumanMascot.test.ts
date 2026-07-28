@@ -336,6 +336,17 @@ describe('useHumanMascot state machine', () => {
     expect(result.current.face).toBe('thinking');
   });
 
+  it('does not expose a capture-specific activity face', () => {
+    const { result } = renderHook(() => useHumanMascot());
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onToolCall?.(
+        fakeEvent({ tool_name: 'memory_capture', skill_id: 's', args: {}, round: 1 })
+      );
+    });
+    expect(result.current.face).toBe('thinking');
+  });
+
   it('maps reading tools to reading face', () => {
     const { result } = renderHook(() => useHumanMascot());
     act(() => {

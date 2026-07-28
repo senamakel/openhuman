@@ -1129,7 +1129,6 @@ async fn start_login_gated_services_completes_with_all_services_disabled() {
     config.local_ai.runtime_enabled = false;
     config.voice_server.auto_start = false;
     config.voice_server.always_on_enabled = false;
-    config.screen_intelligence.enabled = false;
     config.orchestration.enabled = false;
 
     // Bound the wait so a serial-blocking regression (or a hung join) fails the

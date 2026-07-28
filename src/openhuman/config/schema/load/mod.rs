@@ -17,6 +17,13 @@ pub use dirs::{
 // can access it because they are a submodule and use `use super::*`.
 pub(super) use migrate::redact_url_for_log;
 
+// The wire contract between the config loader (which appends the marker to a
+// read failure) and `core::observability::expected_error_kind` (which keys on
+// it to keep an ownership mismatch paging instead of demoting it as
+// user-environment state). Exported so the classifier's tests can assert
+// against the real constant rather than a copied literal.
+pub(crate) use impl_load::CONFIG_OWNER_MISMATCH_MARKER;
+
 // Items needed by load_tests.rs (loaded as `mod tests` below).
 // Tests are a submodule of `load`, so `super::*` == this module's namespace.
 #[cfg(test)]

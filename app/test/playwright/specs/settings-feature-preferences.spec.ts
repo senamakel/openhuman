@@ -196,15 +196,14 @@ function readEnabledTools(snapshot: ToolsSnapshot): string[] {
 }
 
 test.describe('Settings - Feature Preferences', () => {
-  test('renders the features settings section route', async ({ page }) => {
-    // The old "Features" hub page is retired and redirects to the Screen
-    // Awareness tab on Connections.
+  test('falls through the retired features settings route to settings home', async ({ page }) => {
     await openAuthenticatedRoute(page, 'pw-settings-features-route', '/settings/features');
 
     await expect
       .poll(async () => page.evaluate(() => window.location.hash))
-      .toContain('/connections?tab=screen-intelligence');
-    await expect(page.getByText('Screen awareness', { exact: true }).first()).toBeVisible();
+      .toMatch(/^#\/settings(?:\/account)?$/);
+    await expect(page.getByText('Screen Intelligence', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Screen Awareness Debug', { exact: true })).toHaveCount(0);
   });
 
   test('persists the default messaging channel through redux state', async ({ page }) => {

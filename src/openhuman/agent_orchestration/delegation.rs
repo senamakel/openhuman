@@ -23,7 +23,8 @@ use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRu
 use crate::openhuman::agent_orchestration::parent_context::build_root_parent;
 use crate::openhuman::config::Config;
 use crate::openhuman::tinyagents::delegation::{
-    run_delegation, DelegationConfig, DelegationStage, DelegationStageOutput, DelegationState,
+    run_or_resume_delegation, DelegationConfig, DelegationStage, DelegationStageOutput,
+    DelegationState,
 };
 use tinyagents::graph::checkpoint::Checkpointer;
 use tinyagents::graph::SqliteCheckpointer;
@@ -107,6 +108,10 @@ pub(crate) async fn run_subagent_delegation(
                         Ok(DelegationStageOutput {
                             text: outcome.output,
                             approved,
+                            // Persist the exact prompt this stage sent so the
+                            // execute step's `StepRecord` carries its provenance
+                            // (read only for the execute stage; #3884).
+                            prompt: Some(prompt),
                         })
                     }
                     Err(e) => Err(format!("delegation stage {stage:?} failed: {e}")),
@@ -125,7 +130,12 @@ pub(crate) async fn run_subagent_delegation(
             // stays off here until a human-review delegation surface wires it.
             ..DelegationConfig::default()
         };
-        run_delegation(delegation_config, run_stage).await
+        // Resume-aware entry (#3884): with today's fresh-per-run `thread_id` this
+        // is always a fresh run; reusing a stable `thread_id` resumes from the
+        // last checkpoint boundary instead of restarting.
+        run_or_resume_delegation(delegation_config, run_stage)
+            .await
+            .map(|outcome| outcome.state)
     };
 
     if current_parent().is_some() {
@@ -160,11 +170,7 @@ fn build_stage_prompt(stage: DelegationStage, task: &str, state: &DelegationStat
             )
         }
         DelegationStage::Review => {
-            let result = state
-                .executions
-                .last()
-                .map(String::as_str)
-                .unwrap_or("(no execution produced)");
+            let result = state.last_result().unwrap_or("(no execution produced)");
             format!(
                 "Review the result below against the task. If it fully and correctly \
                  accomplishes the task, reply with `APPROVE` on the first line. Otherwise \

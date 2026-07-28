@@ -5,7 +5,7 @@ The single source of truth for the OpenHuman desktop app's **user-facing capabil
 ## Responsibilities
 
 - Define the canonical, hard-coded list of user-facing capabilities (`CAPABILITIES` in `catalog.rs`).
-- Classify each capability by `CapabilityCategory` (conversation, intelligence, workflows, local_ai, team, settings, auth, screen_intelligence, channels, automation, mobile) and `CapabilityStatus`.
+- Classify each capability by `CapabilityCategory` (conversation, intelligence, workflows, local_ai, team, settings, auth, channels, automation, mobile) and `CapabilityStatus`.
 - Attach optional `CapabilityPrivacy` disclosures (`leaves_device`, `data_kind`, `destinations`) so the in-app Privacy surface can render "what leaves my computer".
 - Provide read APIs: list all (optionally filtered by category), look up one by stable id, keyword search across id/name/domain/category/description/how_to/status.
 - Validate catalog integrity at first access (no empty ids, no duplicate ids) via a `OnceLock` guard.
@@ -75,4 +75,4 @@ No dependencies on other `openhuman` domains — capability metadata for other d
 - Privacy constants encode real third-party destinations (Hugging Face, GitHub Releases, Composio `backend.composio.dev`, Polymarket, SearXNG, configured embedding providers, ElevenLabs, etc.) — the inline comments document why several were corrected away from the generic `DERIVED_TO_BACKEND` / `LOCAL_CREDENTIALS` defaults; mirror that diligence when adding network-touching capabilities.
 - `Capability` fields are all `&'static str` / copy types, so `Capability` is `Copy` and the read APIs cheaply return owned `Vec`s by copying.
 - A capability's `domain` is a free-text label and does not always equal its `category` wire name (e.g. `embeddings`, `wallet`, `runtime_python`, `devices`, `desktop_companion`, `security`, `tools`, `memory`).
-- `CapabilityCategory::FromStr` is lenient (case-insensitive, accepts `local-ai`/`local ai`/`localai` and `screen-intelligence`/`screen intelligence` aliases); `as_str` emits the canonical snake_case wire name used by serde.
+- `CapabilityCategory::FromStr` is lenient (case-insensitive, accepts `local-ai`/`local ai`/`localai` aliases); `as_str` emits the canonical snake_case wire name used by serde.

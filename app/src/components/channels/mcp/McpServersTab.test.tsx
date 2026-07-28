@@ -6,6 +6,7 @@
  * status polling.
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import McpServersTab from './McpServersTab';
@@ -21,6 +22,14 @@ const mockRegistryGet = vi.fn();
 const mockRegistrySearch = vi.fn();
 const mockConfigAssist = vi.fn();
 const mockOpenUrl = vi.fn();
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
 
 vi.mock('../../../utils/openUrl', () => ({
   openUrl: (...args: unknown[]) => mockOpenUrl(...args),
@@ -77,9 +86,10 @@ const STATUSES_CONNECTED = [
 ];
 
 /**
- * Helper that renders McpServersTab and waits past the initial debounce
- * so the catalog fetch fires and resolves. Keeps fake timers throughout —
- * callers that need waitFor must switch to real timers themselves.
+ * Helper that renders McpServersTab and settles its initial loads. It also
+ * advances through the debounce window so no hook timer leaks into callers.
+ * Keeps fake timers throughout — callers that need waitFor must switch to real
+ * timers themselves.
  */
 async function renderAndWaitForLoad() {
   const result = render(<McpServersTab />);
@@ -330,6 +340,96 @@ describe('McpServersTab', () => {
 
     await waitFor(() => expect(screen.getByText('Server C')).toBeInTheDocument());
     expect(screen.getAllByText('Server B')).toHaveLength(1);
+  });
+
+  it('fetches only the latest debounced query and resets catalog pagination', async () => {
+    mockInstalledList.mockResolvedValue([]);
+    mockStatus.mockResolvedValue([]);
+    mockRegistrySearch.mockImplementation(({ page }: { page: number }) =>
+      Promise.resolve({
+        servers: [{ qualified_name: `acme/page-${page}`, display_name: `Page ${page}` }],
+        page,
+        total_pages: 2,
+      })
+    );
+
+    await renderAndWaitForLoad();
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(mockRegistrySearch).toHaveBeenLastCalledWith({
+      query: undefined,
+      transport: undefined,
+      page: 2,
+      page_size: 30,
+    });
+    mockRegistrySearch.mockClear();
+
+    const searchInput = screen.getByRole('searchbox');
+    fireEvent.change(searchInput, { target: { value: 'git' } });
+    act(() => vi.advanceTimersByTime(100));
+    fireEvent.change(searchInput, { target: { value: 'github' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hosted' }));
+
+    act(() => vi.advanceTimersByTime(299));
+    expect(mockRegistrySearch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(1);
+    expect(mockRegistrySearch).toHaveBeenCalledWith({
+      query: 'github',
+      transport: 'hosted',
+      page: 1,
+      page_size: 30,
+    });
+  });
+
+  it('coalesces StrictMode fetches for each stable debounced catalog filter', async () => {
+    mockInstalledList.mockResolvedValue([]);
+    mockStatus.mockResolvedValue([]);
+    const initialRequest = deferred<{ servers: never[]; page: number; total_pages: number }>();
+    const changedRequest = deferred<{ servers: never[]; page: number; total_pages: number }>();
+    mockRegistrySearch.mockImplementation(
+      ({ query, transport }: { query?: string; transport?: string }) =>
+        query === 'github' && transport === 'hosted'
+          ? changedRequest.promise
+          : initialRequest.promise
+    );
+
+    render(
+      <StrictMode>
+        <McpServersTab />
+      </StrictMode>
+    );
+
+    initialRequest.resolve({ servers: [], page: 1, total_pages: 1 });
+    await act(async () => {
+      await initialRequest.promise;
+      await Promise.resolve();
+    });
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'github' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hosted' }));
+    act(() => vi.advanceTimersByTime(299));
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(mockRegistrySearch).toHaveBeenCalledTimes(2);
+    expect(mockRegistrySearch).toHaveBeenLastCalledWith({
+      query: 'github',
+      transport: 'hosted',
+      page: 1,
+      page_size: 30,
+    });
+
+    changedRequest.resolve({ servers: [], page: 1, total_pages: 1 });
+    await act(async () => {
+      await changedRequest.promise;
+    });
   });
 
   it('distinguishes look-alike registry rows by slug', async () => {

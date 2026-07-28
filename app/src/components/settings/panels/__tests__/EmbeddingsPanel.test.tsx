@@ -97,7 +97,7 @@ const setCoreSession = ({
         activeMode: 'os_keyring',
         backendName: 'os',
       },
-      runtime: { screenIntelligence: null, localAi: null, service: null },
+      runtime: { localAi: null, service: null },
     },
     teams: [],
     teamMembersById: {},

@@ -21,7 +21,7 @@ const LOG_PREFIX = '[share-modal]';
 /** Marketing URL printed on the card footer. */
 const CARD_URL = 'tinyhumans.ai';
 
-export interface ShareCardModalProps {
+interface ShareCardModalProps {
   /** The assistant output being shared (already image-stripped plain text). */
   content: string;
   /** Display name of the agent/profile that produced the output. */
@@ -267,5 +267,3 @@ function downloadBlob(blob: Blob, filename: string): void {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
-
-export default ShareCardModal;

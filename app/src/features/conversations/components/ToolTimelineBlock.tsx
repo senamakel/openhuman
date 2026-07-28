@@ -394,7 +394,7 @@ interface CoalescedRow {
  * same status, no unique body (result/detail/sub-agent/failure), and never the
  * live `running` row — so no information is lost, only duplication.
  */
-export function coalesceTimelineEntries(entries: ToolTimelineEntry[]): CoalescedRow[] {
+function coalesceTimelineEntries(entries: ToolTimelineEntry[]): CoalescedRow[] {
   const rows: CoalescedRow[] = [];
   for (const entry of entries) {
     const mergeable = entry.status !== 'running' && !entryHasUniqueBody(entry);

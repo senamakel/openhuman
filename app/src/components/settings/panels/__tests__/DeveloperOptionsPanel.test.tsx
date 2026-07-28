@@ -127,9 +127,7 @@ describe('DeveloperOptionsPanel — CoreModeBadge', () => {
     // Knowledge & Memory group was retired. Assert a destination that IS
     // present: 事件日志 (Event Log).
     expect(screen.getByText('事件日志')).toBeInTheDocument();
-    // Two screen-awareness rows now exist (the moved settings row + the debug
-    // panel), which collapse to the same zh-CN label — assert at least one.
-    expect(screen.getAllByText('屏幕感知').length).toBeGreaterThan(0);
+    expect(screen.queryByText('屏幕感知')).not.toBeInTheDocument();
     // Composio triggers moved to the Connections Composio page — assert a
     // destination that IS still present: MCP 服务器 (MCP Server).
     expect(screen.getByText('MCP 服务器')).toBeInTheDocument();

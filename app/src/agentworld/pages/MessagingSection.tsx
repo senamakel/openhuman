@@ -30,8 +30,8 @@ import {
   type SignalKeyStatus,
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
-import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
+import { useMyAgentId } from '../hooks/useMyAgentId';
 import { useTinyplaceStream } from '../hooks/useTinyplaceStream';
 
 const log = debug('openhuman:messaging');
@@ -94,27 +94,6 @@ function useAsyncCall<T>(fetcher: () => Promise<T>, deps: unknown[]): AsyncState
   }, deps);
 
   return state;
-}
-
-// ── My agent ID (wallet address) ─────────────────────────────────────────────
-
-/**
- * Returns the Solana agent ID of the connected wallet, or null when the wallet
- * is not connected / still loading.  Mirrors the pattern in DirectorySection.
- */
-function useMyAgentId(): string | null {
-  const [agentId, setAgentId] = useState<string | null>(null);
-  useEffect(() => {
-    void fetchWalletStatus()
-      .then(status => {
-        const solana = (status.accounts ?? []).find(
-          (a: { chain: string; address?: string }) => a.chain === 'solana'
-        );
-        if (solana?.address) setAgentId(solana.address);
-      })
-      .catch(() => {});
-  }, []);
-  return agentId;
 }
 
 // ── Sub-panels ────────────────────────────────────────────────────────────────
@@ -344,7 +323,8 @@ function ChannelsPanel() {
 // ── Groups panel ──────────────────────────────────────────────────────────────
 
 function GroupsPanel() {
-  const myAgentId = useMyAgentId();
+  const myAgent = useMyAgentId();
+  const myAgentId = myAgent.status === 'ready' ? myAgent.agentId : null;
   const params: GroupQueryParams = { limit: 20 };
   const { version, busyKey, error: actionError, run } = useRowActions();
   const [invitesGroupId, setInvitesGroupId] = useState<string | null>(null);

@@ -240,11 +240,7 @@ function normalizeSnapshot(
       activeMode: 'os_keyring',
       backendName: 'os',
     },
-    runtime: {
-      screenIntelligence: result.runtime?.screenIntelligence ?? null,
-      localAi: result.runtime?.localAi ?? null,
-      service: result.runtime?.service ?? null,
-    },
+    runtime: { localAi: result.runtime?.localAi ?? null, service: result.runtime?.service ?? null },
   };
 }
 

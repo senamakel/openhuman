@@ -1,4 +1,4 @@
-export interface ToolDefinition {
+interface ToolDefinition {
   id: string;
   displayName: string;
   description: string;
@@ -7,7 +7,7 @@ export interface ToolDefinition {
   rustToolNames: string[];
 }
 
-export type ToolCategory = 'System' | 'Files' | 'Vision' | 'Web' | 'Memory' | 'Automation';
+type ToolCategory = 'System' | 'Files' | 'Vision' | 'Web' | 'Memory' | 'Automation';
 
 export const TOOL_CATEGORIES: ToolCategory[] = [
   'System',
@@ -56,14 +56,6 @@ export const TOOL_CATALOG: ToolDefinition[] = [
   },
 
   // Vision
-  {
-    id: 'screenshot',
-    displayName: 'Screenshot',
-    description: 'Capture screenshots of your screen.',
-    category: 'Vision',
-    defaultEnabled: true,
-    rustToolNames: ['screenshot'],
-  },
   {
     id: 'image_info',
     displayName: 'Image Analysis',
@@ -155,7 +147,7 @@ export const TOOL_CATALOG: ToolDefinition[] = [
 export const CATEGORY_DESCRIPTIONS: Record<ToolCategory, string> = {
   System: 'Shell access and version control',
   Files: 'Read and write files on disk',
-  Vision: 'Screen capture and image analysis',
+  Vision: 'Image analysis',
   Web: 'Browser, HTTP, and web search',
   Memory: 'Persistent recall for the AI',
   Automation: 'Cron jobs and scheduled tasks',

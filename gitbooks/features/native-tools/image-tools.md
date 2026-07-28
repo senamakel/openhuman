@@ -18,7 +18,6 @@ This layer is intentionally high level. Existing lower-level tools still own
 their concrete behavior:
 
 - `image_info` reads local image metadata and optional base64 text.
-- Browser screenshot tooling captures pages and writes image files.
 - Agent multimodal preparation normalizes `[IMAGE:...]` markers for providers
   that accept image data.
 

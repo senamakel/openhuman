@@ -366,6 +366,12 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("orchestrator", 15),
         ("code_executor", 50),
         ("context_scout", 50),
+        // #5204: general-purpose read-only flow context/memory retrieval
+        // agent — `iteration_policy = "extended"` so it can loop across
+        // several retrievals in one turn. `#[cfg(feature = "flows")]`-gated
+        // (like the other flow agents), so this audit entry is too.
+        #[cfg(feature = "flows")]
+        ("flow_memory_agent", 50),
         ("integrations_agent", 50),
         // `mcp_agent` is compiled out with the `mcp` feature (#4799).
         // `mcp_setup` is NOT — only its five tools are gated, so the agent
@@ -402,7 +408,6 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("morning_briefing", 8),
         ("profile_memory_agent", 8),
         ("scheduler_agent", 8),
-        ("screen_awareness_agent", 8),
         ("settings_agent", 8),
         ("summarizer", 1),
         ("tool_maker", 2),

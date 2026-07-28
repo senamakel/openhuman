@@ -19,7 +19,7 @@ import { store } from '../../store';
 import FlowRunsSidebar from './FlowRunsSidebar';
 
 const listFlowRuns = vi.hoisted(() => vi.fn());
-vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns }));
+vi.mock('../../services/api/flowsApi', () => ({ listFlowRuns, listAllFlowRuns: vi.fn() }));
 
 const fetchPendingApprovals = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/approvalApi', () => ({ fetchPendingApprovals }));
@@ -43,30 +43,6 @@ const inspectorDrawerProps = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
 }));
 vi.mock('./FlowRunInspectorDrawer', () => ({
-  FLOW_RUN_STATUS_ACCENT: {
-    running: '',
-    completed: '',
-    completed_with_warnings: '',
-    pending_approval: '',
-    failed: '',
-    cancelled: '',
-  },
-  FLOW_RUN_STATUS_DOT: {
-    running: '',
-    completed: '',
-    completed_with_warnings: '',
-    pending_approval: '',
-    failed: '',
-    cancelled: '',
-  },
-  FLOW_RUN_STATUS_KEY: {
-    running: 'flowRuns.status.running',
-    completed: 'flowRuns.status.completed',
-    completed_with_warnings: 'flowRuns.status.completed_with_warnings',
-    pending_approval: 'flowRuns.status.pending_approval',
-    failed: 'flowRuns.status.failed',
-    cancelled: 'flowRuns.status.cancelled',
-  },
   FlowRunInspectorDrawer: (props: Record<string, unknown>) => {
     inspectorDrawerProps.current = props;
     return props.runId ? (
@@ -126,6 +102,15 @@ describe('FlowRunsSidebar', () => {
     fireEvent.click(row);
 
     expect(screen.getByTestId('flow-run-inspector-drawer-stub')).toHaveTextContent('run-1');
+  });
+
+  it('uses an important padding override for the compact status badge', async () => {
+    listFlowRuns.mockResolvedValue([makeRun()]);
+    renderSidebar();
+
+    const badge = await screen.findByText('Failed');
+    expect(badge).toHaveClass('!px-1.5');
+    expect(badge).not.toHaveClass('px-1.5');
   });
 
   it('passes onFixWithAgent through to the run inspector drawer', async () => {
@@ -215,6 +200,11 @@ describe('FlowRunsSidebar', () => {
 
     const runRow = await screen.findByTestId('flow-runs-sidebar-run-run-1');
     await waitFor(() => expect(runRow).toHaveTextContent('Awaiting approval'));
+    expect(runRow.querySelector('[aria-hidden="true"]')).toHaveClass(
+      'bg-amber-500',
+      'animate-pulse'
+    );
+    expect(screen.getByText('Awaiting approval')).toHaveClass('bg-amber-50');
   });
 
   it('leaves a running run without a matching approval labeled "Running"', async () => {

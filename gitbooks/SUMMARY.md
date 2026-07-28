@@ -60,7 +60,6 @@
   * [System & Utilities](features/native-tools/system-and-utilities.md)
 * [Subconscious Loop](features/subconscious.md)
 * [Notifications & Activity](features/notifications-and-activity.md)
-* [Screen Intelligence](features/screen-intelligence.md)
 * [Wallet](features/wallet.md)
 * [tiny.place Agent Economy](features/tinyplace.md)
 * [Billing, Cost & Usage](features/billing-and-usage.md)

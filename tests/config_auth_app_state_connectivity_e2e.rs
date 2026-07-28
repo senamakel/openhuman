@@ -1926,6 +1926,7 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
         EnvVarGuard::set("OPENHUMAN_PARALLEL_API_KEY", "parallel-key"),
         EnvVarGuard::set("OPENHUMAN_BRAVE_API_KEY", "brave-key"),
         EnvVarGuard::set("OPENHUMAN_QUERIT_API_KEY", "querit-key"),
+        EnvVarGuard::set("OPENHUMAN_EXA_API_KEY", "exa-key"),
         EnvVarGuard::set("OPENHUMAN_SEARCH_MAX_RESULTS", "11"),
         EnvVarGuard::set("OPENHUMAN_SEARCH_TIMEOUT_SECS", "8"),
         EnvVarGuard::set("OPENHUMAN_WEB_SEARCH_ENABLED", "0"),
@@ -2019,6 +2020,7 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
     assert!(config.search.parallel.has_key());
     assert!(config.search.brave.has_key());
     assert!(config.search.querit.has_key());
+    assert!(config.search.exa.has_key());
     assert_eq!(config.search.max_results, 11);
     assert_eq!(config.web_search.max_results, 7);
     assert!(config.proxy.enabled);
@@ -2116,6 +2118,7 @@ async fn config_save_and_load_encrypts_channel_secret_fields() {
     config.search.parallel.api_key = Some("parallel-secret".into());
     config.search.brave.api_key = Some("brave-secret".into());
     config.search.querit.api_key = Some("querit-secret".into());
+    config.search.exa.api_key = Some("exa-secret".into());
     config.channels_config.telegram = Some(TelegramConfig {
         bot_token: "telegram-secret".into(),
         chat_id: None,
@@ -2199,6 +2202,7 @@ async fn config_save_and_load_encrypts_channel_secret_fields() {
     for secret in [
         "api-secret",
         "parallel-secret",
+        "exa-secret",
         "telegram-secret",
         "discord-secret",
         "slack-bot-secret",
@@ -2226,6 +2230,7 @@ async fn config_save_and_load_encrypts_channel_secret_fields() {
         loaded.search.parallel.api_key.as_deref(),
         Some("parallel-secret")
     );
+    assert_eq!(loaded.search.exa.api_key.as_deref(), Some("exa-secret"));
     assert_eq!(
         loaded
             .channels_config
@@ -2838,7 +2843,6 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.config_update_model_settings",
                 "openhuman.config_update_runtime_settings",
                 "openhuman.config_update_sandbox_settings",
-                "openhuman.config_update_screen_intelligence_settings",
                 "openhuman.config_update_search_settings",
                 "openhuman.config_update_voice_server_settings",
                 "openhuman.config_workspace_onboarding_flag_exists",
@@ -3058,26 +3062,11 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
     for (id, method, params) in [
         (
             10_005,
-            "openhuman.config_update_screen_intelligence_settings",
-            json!({
-                "enabled": false,
-                "capture_policy": "off",
-                "baseline_fps": 0.5,
-                "vision_enabled": false,
-                "autocomplete_enabled": false,
-                "use_vision_model": false,
-                "keep_screenshots": false,
-                "allowlist": ["Finder"],
-                "denylist": ["Passwords"]
-            }),
-        ),
-        (
-            10_006,
             "openhuman.config_update_runtime_settings",
             json!({ "kind": "local", "reasoning_enabled": true }),
         ),
         (
-            10_007,
+            10_006,
             "openhuman.config_update_browser_settings",
             json!({ "enabled": true }),
         ),
@@ -3454,6 +3443,7 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
             "parallel_api_key": " parallel-rpc-key ",
             "brave_api_key": " brave-rpc-key ",
             "querit_api_key": " querit-rpc-key ",
+            "exa_api_key": " exa-rpc-key ",
             "allowed_domains": [" example.com ", "", "example.com", "docs.example.com"],
             "allow_all": false
         }),
@@ -3509,6 +3499,12 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         Some(true)
     );
     assert_eq!(
+        search_payload
+            .get("exa_configured")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
         search_payload.get("allow_all").and_then(Value::as_bool),
         Some(false)
     );
@@ -3524,6 +3520,7 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
             "parallel_api_key": " ",
             "brave_api_key": " ",
             "querit_api_key": " ",
+            "exa_api_key": " ",
             "allow_all": true
         }),
     )
@@ -3629,16 +3626,6 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         &rpc(
             &harness.rpc_base,
             11_019,
-            "openhuman.config_update_screen_intelligence_settings",
-            json!({ "baseline_fps": 99.0 }),
-        )
-        .await,
-        "update_screen_intelligence_settings clamps baseline",
-    );
-    ok(
-        &rpc(
-            &harness.rpc_base,
-            11_020,
             "openhuman.config_update_voice_server_settings",
             json!({
                 "min_duration_secs": -1.0,
@@ -3648,12 +3635,8 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         .await,
         "update_voice_server_settings clamps non-negative floats",
     );
-    let config = rpc(&harness.rpc_base, 11_021, "openhuman.config_get", json!({})).await;
+    let config = rpc(&harness.rpc_base, 11_020, "openhuman.config_get", json!({})).await;
     let config_payload = payload(&config, "config_get after clamps");
-    assert_eq!(
-        config_payload.pointer("/config/screen_intelligence/baseline_fps"),
-        Some(&json!(30.0))
-    );
     assert_eq!(
         config_payload.pointer("/config/voice_server/min_duration_secs"),
         Some(&json!(0.0))

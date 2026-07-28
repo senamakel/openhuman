@@ -712,7 +712,6 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
             "web_search_tool",
             "node_exec",
             "npm_exec",
-            "screenshot",
             "image_info",
         ],
     );
@@ -2266,28 +2265,9 @@ fn money_default_off_tools_retained_when_opted_in() {
     }
 }
 
-// ── Theme: Desktop perception, MCP registry, workspace ──────────────────────
+// ── Theme: MCP registry and workspace ───────────────────────────────────────
 
 const DESKTOP_TOOLS: &[&str] = &[
-    // The 15 `screen_intelligence_*` tools are compiled out with the
-    // `desktop-automation` feature, so these expectations are gated per-element
-    // (same idiom as the `mcp_registry_*` block below) rather than gating the
-    // `desktop_tools_are_registered` test away wholesale.
-    "screen_intelligence_status",
-    "screen_intelligence_capture_image_ref",
-    "screen_intelligence_vision_recent",
-    "screen_intelligence_vision_flush",
-    "screen_intelligence_refresh_permissions",
-    "screen_intelligence_capture_now",
-    "screen_intelligence_capture_test",
-    "screen_intelligence_session_start",
-    "screen_intelligence_session_stop",
-    "screen_intelligence_input_action",
-    "screen_intelligence_globe_listener_start",
-    "screen_intelligence_globe_listener_poll",
-    "screen_intelligence_globe_listener_stop",
-    "screen_intelligence_request_permissions",
-    "screen_intelligence_request_permission",
     // The `mcp_registry_*` desktop surface is compiled out with the `mcp`
     // feature, so these expectations are gated per-element rather than gating
     // the three tests below away wholesale — the non-MCP desktop tools must
@@ -2319,8 +2299,6 @@ const DESKTOP_TOOLS: &[&str] = &[
 ];
 
 const DESKTOP_DEFAULT_OFF: &[&str] = &[
-    "screen_intelligence_request_permissions",
-    "screen_intelligence_request_permission",
     #[cfg(feature = "mcp")]
     "mcp_registry_install",
     #[cfg(feature = "mcp")]
@@ -2331,8 +2309,6 @@ const DESKTOP_DEFAULT_OFF: &[&str] = &[
 ];
 
 const DESKTOP_ALWAYS_ON: &[&str] = &[
-    "screen_intelligence_status",
-    "screen_intelligence_capture_now",
     #[cfg(feature = "mcp")]
     "mcp_registry_search",
     #[cfg(feature = "mcp")]
@@ -2437,6 +2413,8 @@ fn tool_group_classifies_gate_and_harness_families() {
         "list_node_kinds",
         "get_node_kind_contract",
         "rhai_workflows",
+        "flow_memory_recall",
+        "flow_memory_remember",
     ] {
         assert_eq!(
             tool_group(flow_tool),
@@ -2565,6 +2543,8 @@ fn default_tools_omits_flows_tools_when_feature_off() {
         "save_workflow",
         "suggest_workflows",
         "rhai_workflows",
+        "flow_memory_recall",
+        "flow_memory_remember",
     ] {
         assert!(
             !names.iter().any(|n| n == absent),

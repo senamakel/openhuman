@@ -7,7 +7,7 @@
  * all handles/ids are generic placeholders. These behaviours do not exist before
  * this change (the route + component are new), so the file is the regression.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -165,11 +165,43 @@ describe('ProfileViewer', () => {
     expect(screen.queryByRole('button', { name: 'Following' })).not.toBeInTheDocument();
   });
 
-  test('copy-link affordance copies the shareable deep link', async () => {
+  test('copy-link affordance preserves success copy, duration, and analytics behavior', async () => {
     // Install a clipboard spy and drive the click with fireEvent — NOT
     // userEvent, whose setup() replaces navigator.clipboard with its own stub
     // and would shadow this spy.
     const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+
+    try {
+      renderViewer('alice');
+      const copyBtn = await screen.findByTestId('profile-copy-link');
+      expect(copyBtn).toHaveTextContent('Copy link');
+      expect(copyBtn).not.toHaveAttribute('data-analytics-id');
+      vi.useFakeTimers();
+      await act(async () => {
+        fireEvent.click(copyBtn);
+        await Promise.resolve();
+      });
+
+      expect(writeText).toHaveBeenCalled();
+      expect(writeText.mock.calls[0][0] as string).toContain('#/agent-world/profiles/alice');
+      expect(copyBtn).toHaveTextContent('Link copied');
+
+      act(() => {
+        vi.advanceTimersByTime(1999);
+      });
+      expect(copyBtn).toHaveTextContent('Link copied');
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(copyBtn).toHaveTextContent('Copy link');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('copy-link affordance preserves its error copy when clipboard writing fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'));
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
 
     renderViewer('alice');
@@ -177,6 +209,7 @@ describe('ProfileViewer', () => {
     fireEvent.click(copyBtn);
 
     await waitFor(() => expect(writeText).toHaveBeenCalled());
-    expect(writeText.mock.calls[0][0] as string).toContain('#/agent-world/profiles/alice');
+    expect(copyBtn).toHaveTextContent('Copy link');
+    expect(screen.queryByText('Link copied')).not.toBeInTheDocument();
   });
 });

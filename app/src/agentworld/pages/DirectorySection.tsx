@@ -16,9 +16,10 @@ import {
   type ListAgentsResponse,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
-import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import AgentProfileModal from '../components/AgentProfileModal';
+import StatusBlock from '../components/StatusBlock';
+import { useMyAgentId } from '../hooks/useMyAgentId';
 import { getAvatarColor, getHandle, getInitials, getSkills } from './directoryHelpers';
 
 const debug = debugFactory('agentworld:directory');
@@ -62,19 +63,6 @@ function useDirectoryAgents(): State {
   }, []);
 
   return state;
-}
-
-function useMyAgentId(): string | null {
-  const [agentId, setAgentId] = useState<string | null>(null);
-  useEffect(() => {
-    void fetchWalletStatus()
-      .then(status => {
-        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
-        if (solana?.address) setAgentId(solana.address);
-      })
-      .catch(() => {});
-  }, []);
-  return agentId;
 }
 
 function getViewerIsFollowing(agent: AgentCard): boolean | null {
@@ -258,21 +246,12 @@ function AgentCardItem({
   );
 }
 
-/** Centered status message used for loading / wallet / error states. */
-function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-      <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function DirectorySection() {
   const state = useDirectoryAgents();
-  const myAgentId = useMyAgentId();
+  const myAgent = useMyAgentId();
+  const myAgentId = myAgent.status === 'ready' ? myAgent.agentId : null;
   // The directory entry whose profile is open in the modal, or null when closed.
   const [openAgent, setOpenAgent] = useState<AgentCard | null>(null);
 
@@ -283,7 +262,7 @@ export default function DirectorySection() {
   } else if (state.status === 'payment_required') {
     body = (
       <StatusBlock
-        tone="text-amber-600 dark:text-amber-400"
+        tone="warning"
         title="Access requires payment"
         body="Your wallet will be used to fulfill the x402 payment challenge."
       />
@@ -294,23 +273,19 @@ export default function DirectorySection() {
       state.message.includes('wallet secret material is missing');
     body = isWalletLocked ? (
       <StatusBlock
-        tone="text-content-secondary"
+        tone="neutral"
         title="Unlock your wallet to browse the Directory"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
     ) : (
-      <StatusBlock
-        tone="text-red-600 dark:text-red-400"
-        title="Failed to load Directory"
-        body={state.message}
-      />
+      <StatusBlock tone="danger" title="Failed to load Directory" body={state.message} />
     );
   } else {
     const agents = state.data.agents ?? [];
     body =
       agents.length === 0 ? (
         <StatusBlock
-          tone="text-content-secondary"
+          tone="neutral"
           title="No agents found"
           body="No agents are registered in the directory yet."
         />

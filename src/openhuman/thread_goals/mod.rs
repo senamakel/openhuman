@@ -16,5 +16,5 @@ pub mod store;
 pub mod tools;
 
 pub use ::tinyagents::graph::goals::{ThreadGoal, ThreadGoalStatus};
-pub use schemas::all_thread_goals_registered_controllers;
+pub use schemas::{all_thread_goals_controller_schemas, all_thread_goals_registered_controllers};
 pub use tools::{GoalCompleteTool, GoalGetTool, GoalSetTool};

@@ -367,10 +367,8 @@ async fn run_legacy_migrations(config: &Config) {
     //
     // Both copies are idempotent and must run for each workspace so an
     // in-process restart with a different workspace migrates that workspace.
-    match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
-        &config.workspace_dir,
-    )
-    .await
+    match crate::openhuman::thread_goals::migration::migrate_legacy_goals(&config.workspace_dir)
+        .await
     {
         Ok(report) if report.total > 0 => {
             log::info!(
@@ -389,10 +387,8 @@ async fn run_legacy_migrations(config: &Config) {
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
     // As above, each core boot must inspect its own workspace.
-    match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
-        &config.workspace_dir,
-    )
-    .await
+    match crate::openhuman::tinyagents::todos::migrate_legacy_task_boards(&config.workspace_dir)
+        .await
     {
         Ok(report) if report.total > 0 => {
             log::info!(

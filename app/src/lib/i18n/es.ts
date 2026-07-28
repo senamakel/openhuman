@@ -489,7 +489,10 @@ const messages: TranslationMap = {
   'agentWorld.world.retry': 'Reintentar',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'Únete a tiny.place para que tu agente coordine con otros agentes: encontrar y publicar trabajos, comerciar, enviar mensajes y colaborar en recompensas.',
+    'Únete a tiny.place para que tu agente coordine con otros agentes de la red: encontrar y publicar trabajos, comerciar, enviar mensajes y colaborar en recompensas.',
+  'agentWorld.world.offlineBadge': 'Vista previa sin conexión',
+  'agentWorld.world.offlineBadgeTitle':
+    'Los agentes que se muestran aquí forman parte de una simulación local. La presencia en vivo y la sincronización del mundo llegarán pronto.',
   'agentWorld.world.room': 'Sala',
   'agentWorld.world.rooms.poker.name': 'Póker',
   'agentWorld.world.rooms.poker.description': 'Ocho asientos alrededor de una mesa de fieltro.',
@@ -1728,16 +1731,16 @@ const messages: TranslationMap = {
   'settings.search.menuDesc':
     'Por defecto, usa la búsqueda gestionada por OpenHuman o conecta tu propio proveedor con una clave API.',
   'settings.search.description':
-    'Elige el motor de búsqueda que usa el agente, o deshabilita las herramientas de búsqueda por completo. Gestionado usa el backend de OpenHuman (sin configuración). Parallel, Brave y Querit se ejecutan directamente desde tu máquina usando tu clave de API.',
+    'Elige el motor de búsqueda que usa el agente, o deshabilita las herramientas de búsqueda por completo. Gestionado usa el backend de OpenHuman (sin configuración). Parallel, Brave, Querit y Exa se ejecutan directamente desde tu máquina usando tu clave de API.',
   'settings.search.engineAria': 'motor de búsqueda',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
     'Elimina las herramientas de búsqueda del contexto del agente y de la lista de herramientas disponibles.',
   'settings.search.engineManagedLabel': 'OpenHuman Gestionado',
   'settings.search.engineManagedDesc':
-    'Predeterminado. Enrutado a través del backend OpenHuman: no se requiere la clave API.',
+    'Predeterminado. Enrutado a través del backend de OpenHuman, actualmente con tecnología de Exa: no se requiere clave API.',
   'settings.search.localManagedUnavailable':
-    'La búsqueda gestionada por OpenHuman no está disponible para usuarios locales. Añade tu propia API key de Parallel o Brave para habilitar la búsqueda web.',
+    'La búsqueda gestionada por OpenHuman no está disponible para usuarios locales. Añade tu propia API key de Parallel, Brave, Querit o Exa para habilitar la búsqueda web.',
   'settings.search.engineParallelLabel': 'paralelo',
   'settings.search.engineParallelDesc':
     'Direct Parallel API: buscar, extraer, chatear, investigar, enriquecer, herramientas de conjuntos de datos.',
@@ -1747,6 +1750,9 @@ const messages: TranslationMap = {
   'settings.search.engineQueritLabel': 'Quiere',
   'settings.search.engineQueritDesc':
     'Direct Querit API: búsqueda web con filtros de sitio, rango de tiempo, país e idioma.',
+  'settings.search.engineExaLabel': 'Exa',
+  'settings.search.engineExaDesc':
+    'Búsqueda neuronal con tecnología de Exa. Requiere tu propia API key de Exa. Añade herramientas de búsqueda, páginas similares y contenido de páginas.',
   'settings.search.statusConfigured': 'Configurado',
   'settings.search.statusNeedsKey': 'Necesita la clave API',
   'settings.search.fallbackToManaged':
@@ -1762,10 +1768,12 @@ const messages: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Parallel API clave',
   'settings.search.braveKeyLabel': 'Brave Buscar clave API',
   'settings.search.queritKeyLabel': 'Querit clave API',
+  'settings.search.exaKeyLabel': 'Clave API de Exa',
   'settings.search.placeholderStored': '•••••••• (almacenado)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'Querit clave API',
+  'settings.search.placeholderExa': 'Pega tu clave API de Exa…',
   'settings.search.allowedSitesLabel': 'Sitios web permitidos',
   'settings.search.allowedSitesHint':
     'Hosts que el asistente puede abrir y leer (mediante recuperación web y la herramienta de navegador) uno por línea, p. ej. reuters.com. Un host también incluye sus subdominios. La búsqueda web en sí no está restringida por esta lista.',

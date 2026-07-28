@@ -10,6 +10,8 @@ pub mod code_executor;
 pub mod context_scout;
 pub mod critic;
 pub mod crypto_agent;
+#[cfg(feature = "flows")]
+pub mod flow_memory_agent;
 pub mod goals_agent;
 pub mod help;
 pub mod image_agent;

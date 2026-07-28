@@ -792,9 +792,7 @@ impl Agent {
             }
         };
         if let Some(ref goal) = active_goal {
-            if let Some(block) =
-                crate::openhuman::thread_goals::runtime::active_goal_context_block(goal)
-            {
+            if let Some(block) = tinyagents::graph::goals::active_goal_context_block(goal) {
                 log::info!(
                     "[thread_goals] injecting active_goal block status={} budget={:?} ({} chars)",
                     goal.status.as_str(),

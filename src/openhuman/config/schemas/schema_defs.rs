@@ -521,7 +521,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![
                 optional_string(
                     "engine",
-                    "Active engine: managed | parallel | brave | querit.",
+                    "Active engine: disabled | managed | parallel | brave | querit | exa.",
                 ),
                 FieldSchema {
                     name: "max_results",
@@ -546,6 +546,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_string(
                     "querit_api_key",
                     "Querit API key (empty string clears the stored key).",
+                ),
+                optional_string(
+                    "exa_api_key",
+                    "Exa API key (empty string clears the stored key).",
                 ),
                 FieldSchema {
                     name: "allowed_domains",

@@ -1,4 +1,4 @@
-//! Persistence for the thread-level goal.
+//! Workspace-path adapter onto tinyagents' authoritative goal store.
 //!
 //! **Crate-backed.** The per-thread goal now lives in the vendored `tinyagents`
 //! crate's `graph::goals` KV store
@@ -17,9 +17,9 @@
 
 use std::path::Path;
 
-use super::crate_adapter::{crate_goals_store, delete_legacy_goal_file, from_crate_goal};
-use super::types::ThreadGoal;
-use tinyagents::graph::goals::store as crate_store;
+use super::migration::{delete_legacy_goal_file, goals_store};
+use super::ThreadGoal;
+use ::tinyagents::graph::goals::store as crate_store;
 
 /// Set (create or replace) the thread's goal. A changed objective mints a fresh
 /// goal and resets counters; an unchanged objective preserves counters and
@@ -30,11 +30,10 @@ pub async fn set(
     objective: &str,
     token_budget: Option<u64>,
 ) -> Result<ThreadGoal, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal = crate_store::set(&store, thread_id, objective, token_budget)
         .await
         .map_err(|e| e.to_string())?;
-    let goal = from_crate_goal(&goal);
     tracing::info!(
         thread_id = %goal.thread_id,
         goal_id = %goal.goal_id,
@@ -53,35 +52,35 @@ pub async fn set_if_absent(
     objective: &str,
     token_budget: Option<u64>,
 ) -> Result<Option<ThreadGoal>, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal = crate_store::set_if_absent(&store, thread_id, objective, token_budget)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(goal.as_ref().map(from_crate_goal))
+    Ok(goal)
 }
 
 /// The thread's current goal, or `None`.
 pub async fn get(workspace_dir: &Path, thread_id: &str) -> Result<Option<ThreadGoal>, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal = crate_store::get(&store, thread_id)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(goal.as_ref().map(from_crate_goal))
+    Ok(goal)
 }
 
 /// Every stored thread goal (used by the heartbeat continuation sweep).
 pub async fn list_all(workspace_dir: &Path) -> Result<Vec<ThreadGoal>, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goals = crate_store::list_all(&store)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(goals.iter().map(from_crate_goal).collect())
+    Ok(goals)
 }
 
 /// Delete the thread's goal. Returns whether a goal was present.
 pub async fn clear(workspace_dir: &Path, thread_id: &str) -> Result<bool, String> {
     delete_legacy_goal_file(workspace_dir, thread_id).await?;
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let existed = crate_store::clear(&store, thread_id)
         .await
         .map_err(|e| e.to_string())?;
@@ -91,31 +90,30 @@ pub async fn clear(workspace_dir: &Path, thread_id: &str) -> Result<bool, String
 
 /// Mark the goal `Complete` (model-driven success).
 pub async fn complete(workspace_dir: &Path, thread_id: &str) -> Result<ThreadGoal, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal = crate_store::complete(&store, thread_id)
         .await
         .map_err(|e| e.to_string())?;
-    let goal = from_crate_goal(&goal);
     tracing::info!(thread_id = %goal.thread_id, goal_id = %goal.goal_id, "[thread_goals] complete");
     Ok(goal)
 }
 
 /// Mark the goal `Paused`.
 pub async fn pause(workspace_dir: &Path, thread_id: &str) -> Result<ThreadGoal, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal = crate_store::pause(&store, thread_id)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(from_crate_goal(&goal))
+    Ok(goal)
 }
 
 /// Resume a `Paused` goal back to `Active`.
 pub async fn resume(workspace_dir: &Path, thread_id: &str) -> Result<ThreadGoal, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal = crate_store::resume(&store, thread_id)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(from_crate_goal(&goal))
+    Ok(goal)
 }
 
 /// Set `continuation_suppressed` only when the thread's current goal still
@@ -128,7 +126,7 @@ pub async fn set_continuation_suppressed_if(
     expected_goal_id: &str,
     suppressed: bool,
 ) -> Result<Option<ThreadGoal>, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal = crate_store::set_continuation_suppressed_if(
         &store,
         thread_id,
@@ -137,7 +135,7 @@ pub async fn set_continuation_suppressed_if(
     )
     .await
     .map_err(|e| e.to_string())?;
-    Ok(goal.as_ref().map(from_crate_goal))
+    Ok(goal)
 }
 
 /// Account token + time usage against the goal, applying the budget constraint.
@@ -151,10 +149,10 @@ pub async fn account_usage(
     token_delta: u64,
     secs_delta: u64,
 ) -> Result<Option<ThreadGoal>, String> {
-    let store = crate_goals_store(workspace_dir);
+    let store = goals_store(workspace_dir);
     let goal =
         crate_store::account_usage(&store, thread_id, expected_goal_id, token_delta, secs_delta)
             .await
             .map_err(|e| e.to_string())?;
-    Ok(goal.as_ref().map(from_crate_goal))
+    Ok(goal)
 }

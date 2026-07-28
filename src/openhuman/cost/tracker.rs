@@ -1,3 +1,4 @@
+use super::route::route_for_model;
 use super::types::{
     BudgetCheck, BudgetStatus, CostDashboard, CostRecord, CostSummary, DailyCostEntry, ModelStats,
     TokenUsage, UsagePeriod,
@@ -51,6 +52,17 @@ impl CostTracker {
     }
 
     /// Check if a request is within budget.
+    ///
+    /// Only **managed-route** spend is considered (#5016). The local `[cost]`
+    /// limits cap spend against OpenHuman credits; bring-your-own-key and
+    /// local inference is billed by the user's own provider, so counting it
+    /// here produced a phantom limit — a pure-BYOK user accrued locally
+    /// *estimated* spend they were never charged for and got "You're out of
+    /// credits" at the default $10/day. See [`super::route`].
+    ///
+    /// A pure-BYOK user therefore has zero managed spend and can never trip
+    /// this gate. Real managed-credit exhaustion is unaffected: it is enforced
+    /// server-side by the backend, which returns its own billing error.
     pub fn check_budget(&self, estimated_cost_usd: f64) -> Result<BudgetCheck> {
         if !self.config.enabled {
             return Ok(BudgetCheck::Allowed);
@@ -63,7 +75,23 @@ impl CostTracker {
         }
 
         let mut storage = self.lock_storage();
-        let (daily_cost, monthly_cost) = storage.get_aggregated_costs()?;
+        let (daily_cost, monthly_cost) = storage.get_aggregated_managed_costs()?;
+        // The all-routes totals exist purely to make the managed-vs-BYOK split
+        // visible in a debug log. `tracing` evaluates field expressions eagerly,
+        // so compute them only when that level is actually enabled rather than
+        // on every budget check in production.
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            let (daily_all, monthly_all) = storage.get_aggregated_costs()?;
+            tracing::debug!(
+                daily_managed_usd = daily_cost,
+                monthly_managed_usd = monthly_cost,
+                daily_all_routes_usd = daily_all,
+                monthly_all_routes_usd = monthly_all,
+                daily_limit_usd = self.config.daily_limit_usd,
+                monthly_limit_usd = self.config.monthly_limit_usd,
+                "[cost] budget check against managed-route spend only (BYOK excluded, #5016)"
+            );
+        }
 
         // Check daily limit
         let projected_daily = daily_cost + estimated_cost_usd;
@@ -183,10 +211,18 @@ impl CostTracker {
         storage.get_cost_for_date(date)
     }
 
-    /// Get the monthly cost for a specific month.
+    /// Get the monthly cost for a specific month, across all routes.
     pub fn get_monthly_cost(&self, year: i32, month: u32) -> Result<f64> {
         let storage = self.lock_storage();
         storage.get_cost_for_month(year, month)
+    }
+
+    /// Get the **managed-route** monthly cost for a specific month — the
+    /// portion of spend the local `[cost]` budget applies to (#5016). BYOK and
+    /// local inference is excluded because OpenHuman never bills for it.
+    pub fn get_managed_monthly_cost(&self, year: i32, month: u32) -> Result<f64> {
+        let storage = self.lock_storage();
+        storage.get_managed_cost_for_month(year, month)
     }
 
     /// Get a daily cost/token history covering the last `days` calendar days,
@@ -300,9 +336,16 @@ impl CostTracker {
         let budget_limit_monthly_usd = self.config.monthly_limit_usd.max(0.0);
 
         let now = Utc::now();
+        // `month_to_date_usd` stays an all-route total: users want to see what
+        // their BYOK providers cost them. Budget utilisation and status,
+        // however, describe a limit that only gates *managed* spend (#5016) —
+        // driving them off the total made a pure-BYOK user's gauge fill to
+        // 100% against a cap that can never fire, which is the phantom limit
+        // reported in the issue.
         let month_to_date_usd = self.get_monthly_cost(now.year(), now.month())?;
+        let managed_month_to_date_usd = self.get_managed_monthly_cost(now.year(), now.month())?;
         let budget_utilization = if budget_limit_monthly_usd > 0.0 {
-            (month_to_date_usd / budget_limit_monthly_usd).clamp(0.0, 1.0)
+            (managed_month_to_date_usd / budget_limit_monthly_usd).clamp(0.0, 1.0)
         } else {
             0.0
         };
@@ -312,7 +355,7 @@ impl CostTracker {
         } else {
             let warn = warn_threshold.clamp(0.0, 1.0);
             let alert = alert_threshold.clamp(0.0, 1.0).max(warn);
-            let utilization_raw = month_to_date_usd / budget_limit_monthly_usd;
+            let utilization_raw = managed_month_to_date_usd / budget_limit_monthly_usd;
             if utilization_raw >= alert {
                 BudgetStatus::Exceeded
             } else if utilization_raw >= warn {
@@ -415,6 +458,12 @@ struct CostStorage {
     path: PathBuf,
     daily_cost_usd: f64,
     monthly_cost_usd: f64,
+    /// Managed-route subset of `daily_cost_usd` — the only spend the local
+    /// `[cost]` budget may gate (#5016). BYOK/local spend is still counted in
+    /// the totals above so the dashboard shows it, but never here.
+    daily_managed_cost_usd: f64,
+    /// Managed-route subset of `monthly_cost_usd`. See above.
+    monthly_managed_cost_usd: f64,
     cached_day: NaiveDate,
     cached_year: i32,
     cached_month: u32,
@@ -433,6 +482,8 @@ impl CostStorage {
             path: path.to_path_buf(),
             daily_cost_usd: 0.0,
             monthly_cost_usd: 0.0,
+            daily_managed_cost_usd: 0.0,
+            monthly_managed_cost_usd: 0.0,
             cached_day: now.date_naive(),
             cached_year: now.year(),
             cached_month: now.month(),
@@ -491,21 +542,34 @@ impl CostStorage {
     fn rebuild_aggregates(&mut self, day: NaiveDate, year: i32, month: u32) -> Result<()> {
         let mut daily_cost = 0.0;
         let mut monthly_cost = 0.0;
+        let mut daily_managed_cost = 0.0;
+        let mut monthly_managed_cost = 0.0;
 
         self.for_each_record(|record| {
             let timestamp = record.usage.timestamp.naive_utc();
+            // Classified from the record's own model id, so records written by
+            // builds that predate #5016 are routed correctly with no migration.
+            let counts = route_for_model(&record.usage.model).counts_toward_budget();
 
             if timestamp.date() == day {
                 daily_cost += record.usage.cost_usd;
+                if counts {
+                    daily_managed_cost += record.usage.cost_usd;
+                }
             }
 
             if timestamp.year() == year && timestamp.month() == month {
                 monthly_cost += record.usage.cost_usd;
+                if counts {
+                    monthly_managed_cost += record.usage.cost_usd;
+                }
             }
         })?;
 
         self.daily_cost_usd = daily_cost;
         self.monthly_cost_usd = monthly_cost;
+        self.daily_managed_cost_usd = daily_managed_cost;
+        self.monthly_managed_cost_usd = monthly_managed_cost;
         self.cached_day = day;
         self.cached_year = year;
         self.cached_month = month;
@@ -547,20 +611,37 @@ impl CostStorage {
         self.ensure_period_cache_current()?;
 
         let timestamp = record.usage.timestamp.naive_utc();
+        let counts = route_for_model(&record.usage.model).counts_toward_budget();
         if timestamp.date() == self.cached_day {
             self.daily_cost_usd += record.usage.cost_usd;
+            if counts {
+                self.daily_managed_cost_usd += record.usage.cost_usd;
+            }
         }
         if timestamp.year() == self.cached_year && timestamp.month() == self.cached_month {
             self.monthly_cost_usd += record.usage.cost_usd;
+            if counts {
+                self.monthly_managed_cost_usd += record.usage.cost_usd;
+            }
         }
 
         Ok(())
     }
 
-    /// Get aggregated costs for current day and month.
+    /// Get aggregated costs for current day and month, across **all** routes.
+    /// This is the dashboard/summary figure — use
+    /// [`Self::get_aggregated_managed_costs`] for anything that gates a
+    /// request.
     fn get_aggregated_costs(&mut self) -> Result<(f64, f64)> {
         self.ensure_period_cache_current()?;
         Ok((self.daily_cost_usd, self.monthly_cost_usd))
+    }
+
+    /// Get aggregated **managed-route** costs for the current day and month —
+    /// the only spend the local `[cost]` budget may gate (#5016).
+    fn get_aggregated_managed_costs(&mut self) -> Result<(f64, f64)> {
+        self.ensure_period_cache_current()?;
+        Ok((self.daily_managed_cost_usd, self.monthly_managed_cost_usd))
     }
 
     /// Get cost for a specific date.
@@ -583,6 +664,25 @@ impl CostStorage {
         self.for_each_record(|record| {
             let timestamp = record.usage.timestamp.naive_utc();
             if timestamp.year() == year && timestamp.month() == month {
+                cost += record.usage.cost_usd;
+            }
+        })?;
+
+        Ok(cost)
+    }
+
+    /// Get **managed-route** cost for a specific month — the figure the budget
+    /// gauge should reflect, since only managed spend can trip the limit
+    /// (#5016).
+    fn get_managed_cost_for_month(&self, year: i32, month: u32) -> Result<f64> {
+        let mut cost = 0.0;
+
+        self.for_each_record(|record| {
+            let timestamp = record.usage.timestamp.naive_utc();
+            if timestamp.year() == year
+                && timestamp.month() == month
+                && route_for_model(&record.usage.model).counts_toward_budget()
+            {
                 cost += record.usage.cost_usd;
             }
         })?;

@@ -178,6 +178,43 @@ Some tool calls return enormous payloads - a Composio action dumping 200 KB of J
 
 When a tool result exceeds the summarizer's threshold, it gets routed through a dedicated `summarizer` sub-agent before entering the parent's history. The summarizer compresses the payload per an extraction contract that preserves identifiers and key facts, and the parent agent only sees the compressed summary. Hard truncation remains the backstop downstream when summarization fails or the payload is so absurdly large that paying for an LLM call on it makes no economic sense.
 
+### Filesystem offload - `outputs/` and `workspace/`
+
+Compression alone does not survive a long-horizon run. Summaries still accumulate step after step, and no amount of compressing restores the fidelity that was thrown away. So for minutes-to-hours tasks the harness moves large results **out of context and onto disk**, and hands the next step a **path**.
+
+Two directories under the agent's existing `action_dir` at runtime (the implementation lives in `src/openhuman/agent/harness/artifact_offload/`):
+
+| Directory                | Holds                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `action_dir/outputs/`    | Deliverables. Meant to outlive the step that made them, handed on by path.  |
+| `action_dir/workspace/`  | Scratch. Intermediate files a worker needs but does not hand back.          |
+
+Note `action_dir/workspace/` is a scratch folder inside the agent's action root. It is **not** the core's internal `workspace_dir`, which agent writes may never reach.
+
+Two halves enforce the convention:
+
+* **Prompt.** A sub-agent that actually holds `file_write` gets a Long-horizon Artifact Offload contract in its system prompt: results past roughly 2 000 tokens go to a file under `outputs/`, and the reply is that relative path plus a short abstract. The gate is deliberate — a prompt may only name tools the agent can really call, or the model emits calls that fail. `researcher` (search + fetch only) and skill-filtered specialists get no contract text, and dedicated guards assert their prompts never mention a filesystem tool. They stay covered by the harness half below, which needs no cooperation from the model. The relevant archetype prompts (`researcher`, `planner`) spell out what the convention means for their own work; the planner is told to reference artifact paths across DAG nodes rather than pasting payloads forward.
+* **Harness.** `offload_oversized_result` runs on every sub-agent outcome, so an oversized result is offloaded even when the worker inlined it anyway. It fires **before** the definition's `max_result_chars` cap, so the full body lands on disk instead of being cut.
+
+What the parent receives is a pointer, not a payload:
+
+```text
+[artifact] kind=output path=outputs/researcher/sub-1234-result.md bytes=52318
+read_with: file_read {"path":"outputs/researcher/sub-1234-result.md"}
+note: The full result was written to the action workspace instead of being inlined. …
+
+[abstract]
+HEADLINE FINDING …
+```
+
+`SubagentRunOutcome.artifact_paths` carries the same paths structurally, parsed out of the `[artifact]` pointers in the output, so the handoff carries paths whether the harness offloaded the result or the worker wrote the file itself. Any path the parent takes delivery of is recoverable with an ordinary `file_read` long after the child's context is gone.
+
+**The summarizer is now the fallback, not the first resort.** Offload catches the common case; the summarizer detour and the `tool_result_budget_bytes` truncation above still handle everything it does not, including every failure mode here. A refused or failed offload is deliberately soft: the caller keeps its inline payload and falls through to those backstops.
+
+**Path hardening is fail-closed.** `resolve_artifact_path` rejects absolute paths, `..` traversal, and anything that escapes its convention root after lexical normalization. When a `SecurityPolicy` is available it also refuses anything under `workspace_dir`, both by blanket containment and via `is_workspace_internal_path`. Offload targets resolve under `action_dir`, never `workspace_dir` - including the case where someone configures `action_dir` inside the workspace root, where every offload is refused rather than quietly writing to internal state.
+
+Writes log `[artifact] wrote worker artifact under action_dir`; each path a handoff carries logs `[artifact] handoff carried an artifact path to the parent`, on both the producing and the consuming side, so a run journal shows both ends of every pointer.
+
 ### TokenJuice - content-aware tool-output compaction (Stage 1a)
 
 Before a fresh tool result enters history (and ahead of the byte-budget backstop), it passes through the **TokenJuice content router** in the vendored TinyJuice crate (`vendor/tinyjuice`), with OpenHuman adapters in `src/openhuman/tokenjuice/`. Inspired by Headroom, the router *detects the content kind* (JSON, code, log, search, diff, HTML, plain text) from the bytes and/or a hint derived from the tool name and arguments, then dispatches to a specialised compressor:

@@ -13,18 +13,12 @@
 //!   `markdown` string so the chat UI / agent transcript can render the
 //!   list directly without re-formatting.
 
-pub mod crate_adapter;
 pub mod ops;
 pub mod runs;
 pub mod schemas;
-pub mod store;
 pub mod tools;
-
-#[cfg(test)]
-mod invariant_tests;
 
 pub use schemas::{
     all_controller_schemas as all_todos_controller_schemas,
     all_registered_controllers as all_todos_registered_controllers,
 };
-pub use store::{global_scratch_store, ScratchTodoStore};

@@ -248,6 +248,12 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         content: include_str!("../flows/agents/workflow_builder/prompt.md"),
     },
     PromptResource {
+        uri: "openhuman://prompts/agents/flow_memory_agent",
+        name: "flow_memory_agent",
+        description: "Flow Memory Agent — read-only context and memory retrieval specialist a flow's `agent` node routes to for run-time context, style, history, or people lookups.",
+        content: include_str!("../agent_registry/agents/flow_memory_agent/prompt.md"),
+    },
+    PromptResource {
         uri: "openhuman://prompts/agents/agent_memory",
         name: "agent_memory",
         description: "Dedicated memory retrieval subagent using smart-walk strategies.",

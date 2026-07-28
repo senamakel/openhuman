@@ -827,7 +827,7 @@ export async function openhumanGetMeetSettings(): Promise<CommandResponse<MeetSe
   });
 }
 
-export type SearchEngineId = 'disabled' | 'managed' | 'parallel' | 'brave' | 'querit';
+export type SearchEngineId = 'disabled' | 'managed' | 'parallel' | 'brave' | 'querit' | 'exa';
 
 export interface SearchSettingsUpdate {
   engine?: SearchEngineId;
@@ -839,6 +839,11 @@ export interface SearchSettingsUpdate {
   brave_api_key?: string;
   /** Empty string clears the stored key. */
   querit_api_key?: string;
+  /**
+   * Exa API key (BYOK). Empty string clears the stored key. When set and
+   * `engine: 'exa'` is selected, search calls go straight to api.exa.ai.
+   */
+  exa_api_key?: string;
   /**
    * Websites the assistant may open/read (web_fetch / curl). Exact hosts
    * match their subdomains; `"*"` allows all public sites; an empty list
@@ -862,6 +867,7 @@ export interface SearchSettings {
   parallel_configured: boolean;
   brave_configured: boolean;
   querit_configured: boolean;
+  exa_configured: boolean;
   /** Current allowed-websites host list (may contain `"*"`). */
   allowed_domains: string[];
   /** True when the allowlist contains the `"*"` wildcard. */

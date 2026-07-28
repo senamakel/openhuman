@@ -39,8 +39,8 @@ pub use error_code::{
 pub(crate) use factory::is_raw_passthrough_model;
 pub use factory::{
     create_chat_model, create_chat_model_from_string, create_chat_model_from_string_with_model_id,
-    create_chat_model_with_model_id, provider_for_role, role_for_model_tier,
-    BYOK_INCOMPLETE_SENTINEL,
+    create_chat_model_with_model_id, probe_inference_readiness, provider_for_role,
+    role_for_model_tier, BYOK_INCOMPLETE_SENTINEL,
 };
 pub use openhuman_backend_model::{OpenHumanBackendModel, PROVIDER_LABEL};
 pub use ops::*;

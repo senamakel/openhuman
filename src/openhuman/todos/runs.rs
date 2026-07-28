@@ -398,7 +398,7 @@ pub async fn reclaim_stale(
         };
 
         let patch = CardPatch {
-            status: Some(new_status.clone()),
+            status: Some(new_status),
             blocker: blocker_msg,
             ..Default::default()
         };

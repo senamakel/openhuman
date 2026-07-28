@@ -1277,3 +1277,187 @@ async fn diagnostics_gates_models_by_context_window() {
         std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
     }
 }
+
+// ── GH #5055: one-shot /api/tags fallback on a /v1/models 404 ───────────────
+//
+// Discovery is still chosen by provider *type* (`model_discovery_api`); these
+// cover the recovery path taken when the chosen OpenAI-compatible endpoint
+// answers 404, so a runtime that only speaks the Ollama listing is not left
+// with an empty catalog.
+
+/// A `/v1/models` 404 falls back to the host-rooted `/api/tags` exactly once
+/// and returns that catalog.
+#[tokio::test]
+async fn v1_models_404_falls_back_to_ollama_api_tags() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+
+    let app = Router::new()
+        .route(
+            "/v1/models",
+            get(|| async { (axum::http::StatusCode::NOT_FOUND, "404 page not found") }),
+        )
+        .route(
+            "/api/tags",
+            get(|| async {
+                Json(json!({
+                    "models": [
+                        { "name": "local-model", "size": 42, "modified_at": "2026-01-01T00:00:00Z" }
+                    ]
+                }))
+            }),
+        );
+    let base = spawn_mock(app).await;
+    let config = lm_studio_config(&base);
+    let service = LocalAiService::new(&config);
+
+    let models = service
+        .list_lm_studio_models(&config)
+        .await
+        .expect("the /api/tags fallback should recover discovery");
+
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0].name, "local-model");
+}
+
+/// When neither endpoint serves a catalog, the caller sees the original
+/// `/v1/models` failure — not a second, more confusing error from the fallback.
+#[tokio::test]
+async fn v1_models_404_reports_the_original_error_when_fallback_also_fails() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+
+    // The fallback returns a DISTINCT status (503, not 404). Without that,
+    // Axum's implicit fallback route also answers 404 and the assertion below
+    // would pass even if the implementation surfaced the /api/tags failure.
+    let app = Router::new()
+        .route(
+            "/v1/models",
+            get(|| async {
+                (
+                    axum::http::StatusCode::NOT_FOUND,
+                    "404 page not found: /v1/models",
+                )
+            }),
+        )
+        .route(
+            "/api/tags",
+            get(|| async {
+                (
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                    "503 fallback unavailable",
+                )
+            }),
+        );
+    let base = spawn_mock(app).await;
+    let config = lm_studio_config(&base);
+    let service = LocalAiService::new(&config);
+
+    let err = service
+        .list_lm_studio_models(&config)
+        .await
+        .expect_err("no catalog anywhere must fail");
+
+    assert!(
+        err.contains("404"),
+        "expected the original /v1/models status, got: {err}"
+    );
+    assert!(
+        !err.contains("503"),
+        "the fallback failure must not replace the original error, got: {err}"
+    );
+}
+
+/// LM Studio answers unknown paths with `200 {"error": …}` and no models
+/// (GH #5053). That ERROR ENVELOPE must not be treated as a recovery,
+/// otherwise discovery silently "succeeds" with zero models.
+#[tokio::test]
+async fn error_envelope_api_tags_fallback_is_not_treated_as_recovery() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+
+    let app = Router::new()
+        .route(
+            "/v1/models",
+            get(|| async { (axum::http::StatusCode::NOT_FOUND, "404 page not found") }),
+        )
+        .route(
+            "/api/tags",
+            get(|| async { Json(json!({ "error": "Unexpected endpoint or method." })) }),
+        );
+    let base = spawn_mock(app).await;
+    let config = lm_studio_config(&base);
+    let service = LocalAiService::new(&config);
+
+    let err = service
+        .list_lm_studio_models(&config)
+        .await
+        .expect_err("an error envelope is not a recovery");
+
+    assert!(err.contains("404"), "got: {err}");
+}
+
+/// A fresh Ollama with nothing pulled answers `{"models":[]}`. That is a
+/// REACHABLE runtime, not a failure: rejecting it hid the server behind the
+/// original 404 so the UI could not offer the model-download action.
+#[tokio::test]
+async fn empty_api_tags_fallback_recovers_as_zero_models() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+
+    let app = Router::new()
+        .route(
+            "/v1/models",
+            get(|| async { (axum::http::StatusCode::NOT_FOUND, "404 page not found") }),
+        )
+        .route("/api/tags", get(|| async { Json(json!({ "models": [] })) }));
+    let base = spawn_mock(app).await;
+    let config = lm_studio_config(&base);
+    let service = LocalAiService::new(&config);
+
+    let models = service
+        .list_lm_studio_models(&config)
+        .await
+        .expect("a reachable runtime with no models is not an error");
+
+    assert!(
+        models.is_empty(),
+        "expected an empty catalog, got {models:?}"
+    );
+}
+
+/// Any non-404 failure must NOT trigger the fallback: a 500 is a server fault,
+/// not a wrong-endpoint signal, and probing a second path would mask it.
+#[tokio::test]
+async fn non_404_status_does_not_trigger_the_fallback() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+
+    let hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let hits_route = std::sync::Arc::clone(&hits);
+    let app = Router::new()
+        .route(
+            "/v1/models",
+            get(|| async { (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "boom") }),
+        )
+        .route(
+            "/api/tags",
+            get(move || {
+                let hits = std::sync::Arc::clone(&hits_route);
+                async move {
+                    hits.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    Json(json!({ "models": [{ "name": "should-not-be-used" }] }))
+                }
+            }),
+        );
+    let base = spawn_mock(app).await;
+    let config = lm_studio_config(&base);
+    let service = LocalAiService::new(&config);
+
+    let err = service
+        .list_lm_studio_models(&config)
+        .await
+        .expect_err("a 500 must surface, not fall back");
+
+    assert!(err.contains("500"), "got: {err}");
+    assert_eq!(
+        hits.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "the /api/tags fallback must not run for a non-404 status"
+    );
+}

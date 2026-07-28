@@ -483,7 +483,7 @@ changes remain gated on explicit approval of that proposal.
 | `tinyagents/middleware.rs` generic middlewares | UPSTREAM case-by-case (WP-5) |
 | `tinyagents/` remainder (seam) | STAYS, shrinks |
 | `agent/` legacy `run_turn_engine` + escape hatches | ALREADY DELETED; WP-3 corrected the stale audit and runner documentation |
-| `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `tool_registry/` | STAYS (product/host) |
+| `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `tool_registry/` | **REOPENED 2026-07-28** (was: STAYS (product/host)). The maintainer decided on 2026-07-28 to relocate `src/openhuman/agent/` into `vendor/tinyagents` as a generic runtime with OpenHuman coupling expressed as trait injection — see [`specs/2026-07-28-agent-runtime-into-tinyagents-design.md`](specs/2026-07-28-agent-runtime-into-tinyagents-design.md). ~22.1k LOC still stays host-side as the adapter layer, so this row is narrowed rather than reversed; the runtime half is now in scope. Tracked as rows AR-1..AR-3 in [`tinyagents-drift-ledger.md`](tinyagents-drift-ledger.md). |
 | `routing/` | DELETED; #4783 crate router already owned the only live path (WP-2) |
 | `tool_timeout/` | HOST-OWNED: config/env state + hard-deadline enforcement; crate timeout is metadata only (WP-2 closed) |
 | `tool_status/` classification | HOST-OWNED: OpenHuman UI/security/recovery taxonomy (WP-2 closed) |

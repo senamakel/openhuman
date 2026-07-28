@@ -261,6 +261,23 @@ error emitted before the cap.
 | Phase 5 - workflow/team generic slices | Validation/scheduling slice evaluation | **NOT STARTED** |
 | Phase 6 - cleanup and docs | Transitional shim deletion and architecture docs | **NOT STARTED** |
 
+## Agent-Relocation Reopen Rows (2026-07-28)
+
+Opened by the maintainer decision of 2026-07-28 to move `src/openhuman/agent/`
+into `vendor/tinyagents` as a generic agent runtime, with OpenHuman coupling
+expressed as trait injection. Governing plan:
+[`specs/2026-07-28-agent-runtime-into-tinyagents-design.md`](specs/2026-07-28-agent-runtime-into-tinyagents-design.md)
+(formerly filed as `plan-agents.md`; renamed to the directory convention so both
+it and the transcript spec cross-link cleanly). These rows reopen dispositions
+that earlier documents had closed as permanently host-owned.
+
+| # | Area | Status | Evidence / action |
+| --- | --- | --- | --- |
+| AR-1 | `agent/harness/session/{builder/, turn/, runtime.rs, types.rs}` — recorded as **Permanent host** in `specs/2026-07-28-agent-session-transcript-to-tinyagents-design.md` §6 | **REOPENED — DRIFT -> tinyagents PR** | The 2026-07-28 relocation decision puts session lifecycle/assembly (~3,700 LOC) and the turn orchestration shell (~4,476 LOC) in scope as `harness::session` / `harness::session::turn` generic over host capability traits. §6 of the transcript spec keeps its analysis but no longer holds its verdict for these four areas. Blocked behind Phase 3 (config mapping) and Phase 4 (trait injection in place); relocation itself is Phase 5. |
+| AR-2 | `agent/` remainder — recorded as **STAYS (product/host)** in `tinyagents-migration-plan-2026-07-22.md` §7 | **REOPENED — narrowed, not reversed** | `agent/` is 152 files / 70,530 LOC (measured 2026-07-28). The runtime half moves; a measured **22,121 LOC** stays as the host adapter layer (`ChatMessage`, `message_convert`, `AgentProgress`, `turn_origin`, `prompts/`, `triage/`, `bus.rs`, `host_runtime.rs`, `agent/tools/`, `archivist/`, plus every impl of the ~10 new capability traits). The §7 row is annotated in place. |
+| AR-3 | Transcript format ownership — the transcript spec §4 recommended **Option A** (host-owned format) | **REOPENED — Option B selected** | Moving the session runtime down forces the `session_raw` JSONL format to become crate-owned public API (`harness::memory::JsonlChatHistory`). Recorded in the transcript spec's own header and in the plan §4.2. The §3.1 gap table (compaction-replacement records, skippable interrupted partials, dual/display-order read path, cumulative `_meta`) is a binding acceptance constraint on that implementation — it is plan Phase 2, the program's only on-disk/user-visible data risk, and is **not started**. |
+| AR-4 | Phase 0 + Phase 1 of the relocation plan | **CLOSED (2026-07-28)** | Phase 0: host-capability trait catalogue documented upstream as `vendor/tinyagents/docs/modules/harness/host.md` (the plan's original "RFC in `docs/`" wording was corrected — the crate's `AGENTS.md` / `docs/spec/README.md` forbid standalone spec files there); plan counts re-derived from the tree and corrected in the plan header. Phase 1: the ten seams + inert default impls committed in `vendor/tinyagents` on branch `agent-to-tinyagents` (`e3f06d7`). **Phases 2–7 deliberately not executed**; the submodule gitlink bump is a separate later step. |
+
 ## Closing Procedure
 
 1. For a **DRIFT -> tinyagents PR** row, branch inside `vendor/tinyagents`, port

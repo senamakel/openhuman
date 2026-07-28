@@ -26,8 +26,8 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory_queue::testing::drain_until_idle;
 use crate::openhuman::memory_store::chunks::types::SourceKind;
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_tree::retrieval::{fetch_leaves, query_source, search_entities};
+use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 /// Shared test config — disables embedding for deterministic inert behaviour.
 fn bench_config() -> (TempDir, Config) {

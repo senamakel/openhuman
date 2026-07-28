@@ -19,8 +19,8 @@ use openhuman_core::openhuman::memory_store::content::wiki_git::{
     get_read_pointer_tag, set_read_pointer_tag,
 };
 use openhuman_core::openhuman::memory_store::content::{SummaryComposeInput, SummaryTreeKind};
-use openhuman_core::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use openhuman_core::openhuman::memory_tree::ingest::{ingest_summary, SummaryIngestInput};
+use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 fn make_config(workspace_dir: &std::path::Path) -> Config {
     let mut config = Config::default();

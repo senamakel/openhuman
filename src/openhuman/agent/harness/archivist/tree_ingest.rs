@@ -6,7 +6,7 @@ use super::types::ArchivistHook;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::ingest_pipeline;
 use crate::openhuman::memory_store::fts5;
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
+use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 impl ArchivistHook {
     /// Pipe a closed segment's raw prose turns into the memory tree as

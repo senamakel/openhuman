@@ -79,16 +79,16 @@ use openhuman_core::openhuman::memory_store::trees::types::{
 use openhuman_core::openhuman::memory_store::{
     MemoryClient, NamespaceDocumentInput, UnifiedMemory,
 };
-use openhuman_core::openhuman::memory_sync::canonicalize::chat::{
+use tinycortex::memory::ingest::canonicalize::chat::{
     canonicalise as canonicalise_chat, ChatBatch, ChatMessage,
 };
-use openhuman_core::openhuman::memory_sync::canonicalize::document::{
+use tinycortex::memory::ingest::canonicalize::document::{
     canonicalise as canonicalise_document, DocumentInput,
 };
-use openhuman_core::openhuman::memory_sync::canonicalize::email::{
+use tinycortex::memory::ingest::canonicalize::email::{
     canonicalise as canonicalise_email, EmailMessage, EmailThread,
 };
-use openhuman_core::openhuman::memory_sync::canonicalize::email_clean;
+use tinycortex::memory::ingest::canonicalize::email_clean;
 use openhuman_core::openhuman::memory_sync::composio;
 use openhuman_core::openhuman::memory_sync::composio::providers::profile::{
     canonicalize, delete_connected_identity_facets, is_self_identity, is_self_identity_any_toolkit,
@@ -117,9 +117,7 @@ use openhuman_core::openhuman::memory_sync::composio::providers::{
 use openhuman_core::openhuman::memory_sync::sync_status::{
     rpc as memory_sync_status_rpc, schemas as memory_sync_status_schemas,
 };
-use openhuman_core::openhuman::memory_sync::traits::{
-    SyncOutcome as PipelineSyncOutcome, SyncPipeline, SyncPipelineKind,
-};
+use tinycortex::memory::sync::{SyncOutcome as PipelineSyncOutcome, SyncPipelineKind};
 use openhuman_core::openhuman::memory_tools::tools::{MemoryToolsListTool, MemoryToolsPutTool};
 use openhuman_core::openhuman::memory_tools::{
     render_tool_memory_rules, tool_memory_namespace, tool_memory_store, ToolMemoryPriority,
@@ -2172,43 +2170,12 @@ async fn memory_preferences_remember_redaction_and_pipeline_traits_cover_public_
         "localhost:11434"
     );
 
-    #[derive(Default)]
-    struct RawPipeline;
-
-    #[async_trait::async_trait]
-    impl SyncPipeline for RawPipeline {
-        fn id(&self) -> &str {
-            "workspace:raw-coverage"
-        }
-
-        fn kind(&self) -> SyncPipelineKind {
-            SyncPipelineKind::Workspace
-        }
-
-        async fn init(&self, _config: &Config) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        async fn tick(&self, _config: &Config) -> anyhow::Result<PipelineSyncOutcome> {
-            Ok(PipelineSyncOutcome {
-                records_ingested: 2,
-                more_pending: false,
-                note: Some("covered".into()),
-            })
-        }
-    }
-
-    let pipeline = RawPipeline;
-    assert_eq!(pipeline.id(), "workspace:raw-coverage");
-    assert_eq!(pipeline.kind().as_str(), "workspace");
-    pipeline
-        .init(&config_in(&tmp))
-        .await
-        .expect("pipeline init");
-    let outcome = pipeline
-        .tick(&config_in(&tmp))
-        .await
-        .expect("pipeline tick");
+    let outcome = PipelineSyncOutcome {
+        records_ingested: 2,
+        more_pending: false,
+        note: Some("covered".into()),
+        ..PipelineSyncOutcome::default()
+    };
     assert_eq!(outcome.records_ingested, 2);
     assert_eq!(serde_json::to_value(outcome).unwrap()["note"], "covered");
     assert_eq!(PipelineSyncOutcome::default().records_ingested, 0);

@@ -467,7 +467,7 @@ impl LocalDocumentSink for HostSyncAdapter {
             .config
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("local document sink missing host config"))?;
-        let input = crate::openhuman::memory_sync::canonicalize::document::DocumentInput {
+        let input = tinycortex::memory::ingest::canonicalize::document::DocumentInput {
             provider: "memory_sources:local".into(),
             title: document.title,
             body: document.body,

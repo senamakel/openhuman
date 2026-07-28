@@ -20,9 +20,9 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::chat::{test_override, ChatProvider, StaticChatProvider};
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory_queue::drain_until_idle;
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_tree::retrieval::{query_source, search_entities};
 use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
+use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 fn test_config() -> (TempDir, Config) {
     let tmp = TempDir::new().unwrap();

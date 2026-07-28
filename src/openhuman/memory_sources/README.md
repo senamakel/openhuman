@@ -81,7 +81,7 @@ No `bus.rs` / `EventHandler` of its own. It **publishes** `DomainEvent::MemorySy
 - `openhuman::memory::ingest_pipeline::ingest_document` — ingests reader-backed source items into memory.
 - `openhuman::memory::sync` (`emit_sync_stage`, `MemorySyncStage`, `MemorySyncTrigger`) — sync-progress event emission.
 - `openhuman::memory_sync::composio` — Composio sync delegate (`run_connection_sync`, `scan_active_sync_targets`, `SyncReason`).
-- `openhuman::memory_sync::canonicalize::document::DocumentInput` — document shape for ingestion.
+- `tinycortex::memory::ingest::canonicalize::document::DocumentInput` — document shape for ingestion.
 - `openhuman::memory_store::chunks::store::with_connection` — SQLite access for status queries against `mem_tree_chunks`.
 - `core::all` (`ControllerFuture`, `RegisteredController`) and `core` schema types (`ControllerSchema`, `FieldSchema`, `TypeSchema`) — controller registry wiring.
 - `rpc::RpcOutcome` — RPC return contract.

@@ -18,10 +18,10 @@ use crate::openhuman::memory::ingest_pipeline::{
 };
 use crate::openhuman::memory_store::chunks::store::{self as chunk_store, ListChunksQuery};
 use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
-use crate::openhuman::memory_sync::canonicalize::{
+use crate::rpc::RpcOutcome;
+use tinycortex::memory::ingest::canonicalize::{
     chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
-use crate::rpc::RpcOutcome;
 
 /// Unified ingest request. The `payload` shape is adapter-specific and is
 /// validated inside the dispatch based on `source_kind`.
@@ -855,10 +855,10 @@ mod tests {
     use super::*;
     use crate::openhuman::memory_queue as jobs;
     use crate::openhuman::memory_store::chunks::types::SourceKind;
-    use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
     use chrono::Utc;
     use serde_json::json;
     use tempfile::TempDir;
+    use tinycortex::memory::ingest::canonicalize::document::DocumentInput;
 
     fn test_config() -> (TempDir, Config) {
         let tmp = TempDir::new().unwrap();

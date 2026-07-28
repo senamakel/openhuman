@@ -5,6 +5,7 @@ import {
   buildWorkflow,
   discoverWorkflows,
   dismissSuggestion,
+  flowsBuildCancel,
   type FlowSuggestion,
   getFlowRun,
   listAllFlowRuns,
@@ -79,6 +80,43 @@ describe('flowsApi', () => {
       await expect(resumeFlow('flow-1', 't1', ['wrong-node'])).rejects.toThrow(
         'no pending approval matches'
       );
+    });
+  });
+
+  describe('flowsBuildCancel', () => {
+    it('calls openhuman.flows_build_cancel with thread_id + null request_id and returns cancelled', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope({ cancelled: true }));
+
+      const cancelled = await flowsBuildCancel('t1');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_build_cancel',
+        params: { thread_id: 't1', request_id: null },
+      });
+      expect(cancelled).toBe(true);
+    });
+
+    it('scopes the cancel with request_id when given', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope({ cancelled: false }));
+
+      const cancelled = await flowsBuildCancel('t1', 'req-9');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_build_cancel',
+        params: { thread_id: 't1', request_id: 'req-9' },
+      });
+      // `false` is not an error — it just means nothing was in flight to cancel.
+      expect(cancelled).toBe(false);
+    });
+
+    it('defaults to false when the payload omits `cancelled`', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope({}));
+      await expect(flowsBuildCancel('t1')).resolves.toBe(false);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('rpc down'));
+      await expect(flowsBuildCancel('t1')).rejects.toThrow('rpc down');
     });
   });
 

@@ -615,7 +615,7 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                             isAgentTextMode ? 'w-full max-w-full' : 'w-fit max-w-[75%]'
                           }`}>
                           {msg.sender === 'agent' ? (
-                            <div className="space-y-1">
+                            <div className="space-y-1" data-testid="agent-message">
                               <div className="relative space-y-1">
                                 {agentMessageViewMode === 'text' ? (
                                   <AgentMessageText content={displayContent} />

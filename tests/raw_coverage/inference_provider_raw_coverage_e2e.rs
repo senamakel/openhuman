@@ -259,13 +259,13 @@ async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama(
         .prompt(&config, "Say hi", Some(8), true)
         .await
         .expect("prompt");
-    assert_eq!(prompt, "generated final");
+    assert_eq!(prompt, "chat:gemma3:1b-it-qat");
 
     let summarized = service
         .summarize(&config, "one two three", Some(16))
         .await
         .expect("summarize");
-    assert_eq!(summarized, "generated final");
+    assert_eq!(summarized, "chat:gemma3:1b-it-qat");
 
     let completion = service
         .inline_complete_interactive(
@@ -278,7 +278,7 @@ async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama(
         )
         .await
         .expect("inline");
-    assert_eq!(completion, "generated final");
+    assert_eq!(completion, "chat:gemma3:1b-it-qat");
 
     let assets = service.assets_status(&config).await.expect("assets");
     assert!(assets.ollama_available);

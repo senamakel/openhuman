@@ -127,8 +127,50 @@ impl Tool for MemoryStoreRawChunksTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+
+    use tempfile::TempDir;
+
+    use crate::openhuman::config::{Config, TEST_ENV_LOCK};
     use crate::openhuman::tools::traits::Tool;
     use serde_json::json;
+
+    struct WorkspaceEnvGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        previous: Option<OsString>,
+    }
+
+    impl WorkspaceEnvGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            unsafe {
+                std::env::set_var("OPENHUMAN_WORKSPACE", path);
+            }
+            Self {
+                _lock: lock,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for WorkspaceEnvGuard {
+        fn drop(&mut self) {
+            unsafe {
+                if let Some(previous) = self.previous.as_ref() {
+                    std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+                } else {
+                    std::env::remove_var("OPENHUMAN_WORKSPACE");
+                }
+            }
+        }
+    }
+
+    async fn isolated_config(tmp: &TempDir) -> (WorkspaceEnvGuard, Config) {
+        let guard = WorkspaceEnvGuard::set(tmp.path());
+        let config = Config::load_or_init().await.expect("load config");
+        (guard, config)
+    }
 
     #[test]
     fn args_deserialize_optional_filters() {
@@ -192,6 +234,8 @@ mod tests {
 
     #[tokio::test]
     async fn execute_success_path_returns_json_array() {
+        let tmp = TempDir::new().expect("tempdir");
+        let (_workspace, _config) = isolated_config(&tmp).await;
         let tool = MemoryStoreRawChunksTool;
         let result = tool
             .execute(json!({

@@ -66,6 +66,16 @@ name = "openhuman_core"
 crate-type = ["rlib"]
 
 [dependencies]
+# tinyhumans-sdk — the typed Rust client for the TinyHumans backend API
+# (https://github.com/tinyhumansai/sdk). Vendored as a git submodule under
+# `vendor/` beside the other tiny* crates and consumed by path: the crate is not
+# published to crates.io, so there is no `[patch.crates-io]` entry for it.
+# This is the single source of truth for backend routes — `src/api/` is the
+# OpenHuman-local adapter layer (session tokens, config, observability) that
+# sits on top of it, not a second HTTP client. Anything missing here belongs
+# upstream in the SDK repo, not re-implemented in `src/api/`.
+# After cloning: `git submodule update --init vendor/tinyhumans-sdk`.
+tinyhumans-sdk = { path = "vendor/tinyhumans-sdk" }
 # tiny.place A2A social network SDK — published on crates.io and patched below
 # to the vendored tiny.place submodule so OpenHuman can test SDK changes before
 # publishing.
@@ -144,11 +154,10 @@ dhat = { version = "0.3", optional = true }
 # AV root CAs. So the two TLS backends coexist only on Windows, never on
 # the RAM-sensitive platforms.
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
-tinyhumans-sdk = { git = "https://github.com/tinyhumansai/sdk.git", rev = "3ee4123ba3b7a76c5f167d7bc2c72fca86671292" }
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"
-tokio = { version = "1", features = ["full", "sync"] }
+tokio = { version = "1", features = ["full"] }
 once_cell = "1.19"
 parking_lot = "0.12"
 log = "0.4"
@@ -161,15 +170,10 @@ argon2 = "0.5"
 rand = "0.10"
 dirs = "5"
 sha2 = "0.10"
-# Line-level text diffs for the memory_diff module (modified-item unified diffs).
-similar = "2"
 # Git-backed change ledger for the memory_diff module: snapshots are commits,
 # checkpoints are tags, read markers are refs, diffs are git tree diffs.
 # Vendored libgit2 (no system git dependency on end-user machines).
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
-# Legacy SHA-1 only used for Tencent COS HMAC-SHA1 signing (yuanbao
-# channel media upload). Not used for any new security-sensitive work.
-sha1 = "0.10"
 hmac = "0.12"
 # Archive extraction for the Node.js runtime bootstrap. Unix Node
 # distributions ship as .tar.xz, Windows as .zip. `xz2` with `static`
@@ -218,7 +222,6 @@ thiserror = "2.0"
 ring = "0.17"
 chrono-tz = "0.10"
 dotenvy = "0.15"
-console = "0.16"
 regex = "1.10"
 # Multi-pattern fixed-string DFA matcher used by `routing::quality` for
 # refusal/empty-noise detection on local-model responses. Already in the
@@ -229,10 +232,7 @@ aho-corasick = "1.1"
 walkdir = "2"
 glob = "0.3"
 hostname = "0.4.2"
-rustls = { version = "0.23", features = ["ring"] }
-rustls-pki-types = "1.14.0"
-tokio-rustls = "0.26.4"
-webpki-roots = "1.0.6"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
 clap = { version = "4.5", features = ["derive"] }
@@ -245,12 +245,11 @@ lettre = { version = "0.11.22", default-features = false, features = ["builder",
 # services and answers over the CLI/native dispatch surface. See the
 # `http-server` feature note below and `src/core/http_server_status.rs`.
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"], optional = true }
-sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "reqwest", "rustls"] }
-tokio-stream = { version = "0.1.18", features = ["full"] }
+sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "httpdate"] }
+tokio-stream = { version = "0.1.18", default-features = false, features = ["sync"] }
 url = "2"
 socketioxide = { version = "0.15", features = ["extensions"], optional = true }
 whisper-rs = { version = "0.16", optional = true }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 tempfile = "3"
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
@@ -460,10 +459,9 @@ web3 = ["dep:bitcoin", "dep:curve25519-dalek"]
 # contracts scaffold. Default-ON. Slim builds opt out via
 # `--no-default-features --features "<explicit list without media>"`.
 # Composes with the runtime `DomainSet::media` flag (#4796).
-# NOTE: this gate sheds NO exclusive dependencies — media generation is
-# backend-proxied (reqwest, shared) and the `image` crate is shared with
-# channel media upload. It is a surface-only gate (drops the tool code +
-# module from the compile), not a dependency-shedding one. There are no
+# NOTE: this gate sheds no exclusive dependencies — media generation is
+# backend-proxied (reqwest, shared). It is a surface-only gate (drops the tool
+# code + module from the compile), not a dependency-shedding one. There are no
 # controllers / stores / subscribers tagged `Media` (agent tools only), and
 # `openhuman::image` is currently unwired scaffold (added #2997).
 media = []
@@ -671,6 +669,12 @@ while_let_loop = "allow"
 # See: https://github.com/tinyhumansai/openhuman/issues/273
 [patch.crates-io]
 whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+# Upstream 0.2.1 enables reqwest's default native-tls backend even though it
+# also requests rustls. Patch the official release locally so Linux/macOS do
+# not inherit OpenSSL; the only source delta disables reqwest defaults.
+# Windows still enables native-tls through the target-specific dependency
+# above. Remove this patch after upstream publishes the same manifest fix.
+motosan-ai-oauth = { path = "vendor/motosan-ai-oauth" }
 # TinyAgents is vendored as a git submodule (pinned at the released tag) so
 # migration work can change the SDK source in-tree, test it against OpenHuman
 # immediately, and PR the diff upstream from the submodule. Keep the submodule

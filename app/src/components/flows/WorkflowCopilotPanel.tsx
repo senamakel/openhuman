@@ -161,7 +161,7 @@ export default function WorkflowCopilotPanel({
   fullWidth = false,
 }: Props) {
   const { t } = useT();
-  const { threadId, sending, proposal, pendingApproval, capped, error, send, clearProposal } =
+  const { threadId, sending, proposal, pendingApproval, capped, error, send, stop, clearProposal } =
     useWorkflowBuilderChat(seedThreadId);
   const [text, setText] = useState('');
 
@@ -644,6 +644,7 @@ export default function WorkflowCopilotPanel({
           fileInputRef={fileInputRef}
           composerInteractionBlocked={sending}
           isSending={sending}
+          onStopGeneration={stop}
           attachments={[]}
           onAttachFiles={noopAttach}
           onRemoveAttachment={noop}

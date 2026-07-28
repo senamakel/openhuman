@@ -103,7 +103,7 @@ env_logger = "0.11"
 # can be overridden at runtime via the same env var. Feature set mirrors the
 # core sidecar (`Cargo.toml` at repo root) minus `tracing` since the shell
 # uses `log` + `env_logger`.
-sentry = { version = "0.47.0", default-features = false, features = ["backtrace", "contexts", "panic", "debug-images", "reqwest", "rustls"] }
+sentry = { version = "0.47.0", default-features = false, features = ["backtrace", "contexts", "panic", "debug-images", "httpdate"] }
 
 # Used by the imessage_scanner module.
 anyhow = "1.0"
@@ -262,6 +262,9 @@ e2e-test-support = ["openhuman_core/e2e-test-support"]
 # whisper.cpp to use MSVC's static runtime (/MT), matching CEF and avoiding
 # LNK2038/LNK1169 CRT conflicts on Windows.
 whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+# Keep reqwest defaults disabled in this independent Cargo world too. Without
+# this patch, the registry release reintroduces native-tls/OpenSSL on Linux.
+motosan-ai-oauth = { path = "../../vendor/motosan-ai-oauth" }
 # TinyAgents vendored submodule (repo-root vendor/tinyagents, pinned at the
 # released tag) — same patch as the root Cargo world so both resolve the
 # in-tree SDK source. `git submodule update --init vendor/tinyagents` first.

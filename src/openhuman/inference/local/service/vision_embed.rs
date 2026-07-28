@@ -1,14 +1,31 @@
 use crate::openhuman::agent::multimodal;
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::local::ollama::{
-    ollama_base_url_from_config, redact_ollama_base_url, OllamaEmbedRequest, OllamaEmbedResponse,
-    OllamaGenerateOptions, OllamaGenerateRequest,
+    ollama_base_url_from_config, redact_ollama_base_url, OllamaGenerateOptions,
+    OllamaGenerateRequest,
 };
 use crate::openhuman::inference::model_ids;
 use crate::openhuman::inference::presets::{self, VisionMode};
 use crate::openhuman::inference::types::LocalAiEmbeddingResult;
+use tinyagents::harness::embeddings::{
+    EmbeddingModel, OllamaEmbeddingModel, DEFAULT_OLLAMA_DIMENSIONS,
+    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+};
 
 use super::LocalAiService;
+
+fn embedding_dimensions(model_id: &str) -> Option<usize> {
+    let normalized = model_id.trim().to_ascii_lowercase();
+    if normalized.starts_with("all-minilm") {
+        Some(384)
+    } else if normalized.contains("bge-m3") || normalized.starts_with("mxbai-embed-large") {
+        Some(DEFAULT_OLLAMA_DIMENSIONS)
+    } else if normalized.starts_with("nomic-embed-text") {
+        Some(768)
+    } else {
+        None
+    }
+}
 
 impl LocalAiService {
     pub async fn vision_prompt(
@@ -157,50 +174,45 @@ impl LocalAiService {
         let _gate_permit = crate::openhuman::scheduler_gate::wait_for_capacity().await;
 
         let embed_base = ollama_base_url_from_config(config);
+        let dimensions = embedding_dimensions(&embedding_model);
         log::debug!(
-            "[local_ai:embed] embed: using base_url={}",
+            "[local_ai:embed] embed: using model={} dimensions={} base_url={}",
+            embedding_model,
+            dimensions
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "dynamic".to_string()),
             redact_ollama_base_url(&embed_base)
         );
-        let response = self
-            .http
-            .post(format!("{embed_base}/api/embed"))
-            .json(&OllamaEmbedRequest {
-                model: embedding_model.clone(),
-                input: items.clone(),
-            })
-            .send()
+        let (dims, vectors) = if let Some(dimensions) = dimensions {
+            let model = OllamaEmbeddingModel::try_new(&embed_base, &embedding_model, dimensions)
+                .map_err(|error| format!("invalid local embedding RPC configuration: {error}"))?
+                .with_client(self.http.clone())
+                .with_context_options(
+                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                    RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                );
+            let vectors = model
+                .embed(&items)
+                .await
+                .map_err(|error| format!("local embedding RPC failed: {error}"))?;
+            (model.dimensions(), vectors)
+        } else {
+            OllamaEmbeddingModel::embed_discovering_dimensions(
+                &embed_base,
+                &embedding_model,
+                self.http.clone(),
+                &items,
+                RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+            )
             .await
-            .map_err(|e| format!("ollama embed request failed: {e}"))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            let detail = body.trim();
-            return Err(format!(
-                "ollama embed request failed with status {}{}",
-                status,
-                if detail.is_empty() {
-                    String::new()
-                } else {
-                    format!(": {detail}")
-                }
-            ));
-        }
-
-        let payload: OllamaEmbedResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("ollama embed parse failed: {e}"))?;
-        if payload.embeddings.is_empty() {
-            return Err("ollama embed returned no embeddings".to_string());
-        }
-
-        let dims = payload.embeddings.first().map(|v| v.len()).unwrap_or(0);
+            .map_err(|error| format!("local embedding RPC failed: {error}"))?
+        };
         self.status.lock().embedding_state = "ready".to_string();
         Ok(LocalAiEmbeddingResult {
             model_id: embedding_model,
             dimensions: dims,
-            vectors: payload.embeddings,
+            vectors,
         })
     }
 }
@@ -306,6 +318,14 @@ mod tests {
         let service = LocalAiService::new(&config);
         let err = service.embed(&config, &["x".into()]).await.unwrap_err();
         assert!(err.contains("local ai is disabled"));
+    }
+
+    #[test]
+    fn embedding_dimensions_match_supported_legacy_models() {
+        assert_eq!(embedding_dimensions("bge-m3"), Some(1024));
+        assert_eq!(embedding_dimensions("all-minilm:latest"), Some(384));
+        assert_eq!(embedding_dimensions("nomic-embed-text"), Some(768));
+        assert_eq!(embedding_dimensions("user-managed-model"), None);
     }
 
     #[tokio::test]

@@ -8,6 +8,7 @@
 //! controller surface in `schemas` (private, re-exported below).
 
 pub mod agents;
+mod build_registry;
 pub mod builder_tools;
 pub mod bus;
 pub mod discovery_tools;

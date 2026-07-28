@@ -1019,6 +1019,32 @@ export async function buildWorkflow(
 }
 
 /**
+ * Cancel the in-flight `flows_build` (Workflow Copilot) turn streaming into
+ * `threadId` via `openhuman.flows_build_cancel` — the real cancellation
+ * behind the composer's Stop button (the RPC actually signals the running
+ * `workflow_builder` agent turn to stop, unlike the shared `chatCancel`
+ * primitive, which only ever tore down a spawned interactive chat turn and
+ * silently no-ops for a `flows_build` turn since it runs inline and was never
+ * registered anywhere `channel_web_cancel` looks).
+ *
+ * `requestId`, when given, scopes the cancel so a stale Stop click for a
+ * superseded/earlier request can't kill a newer turn that has since started
+ * on the same thread (mirrors the server's `cancel_build_turn_scoped`).
+ * Returns the server's `cancelled` field — `false` is not an error, it just
+ * means nothing was in flight to cancel.
+ */
+export async function flowsBuildCancel(threadId: string, requestId?: string): Promise<boolean> {
+  log('flowsBuildCancel: request thread=%s requestId=%s', threadId, requestId ?? '<none>');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_build_cancel',
+    params: { thread_id: threadId, request_id: requestId ?? null },
+  });
+  const result = unwrapCliEnvelope<{ cancelled: boolean }>(response);
+  log('flowsBuildCancel: response cancelled=%s', result.cancelled);
+  return result.cancelled ?? false;
+}
+
+/**
  * Dismiss a suggestion via `openhuman.flows_dismiss_suggestion` (the user
  * rejected the card). The row is kept server-side so a later discovery run
  * dedupes against it and won't re-surface the idea.

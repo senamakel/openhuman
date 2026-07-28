@@ -294,6 +294,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("get_run"),
         schemas("prune_runs"),
         schemas("build"),
+        schemas("build_cancel"),
         schemas("discover"),
         schemas("list_suggestions"),
         schemas("dismiss_suggestion"),
@@ -385,6 +386,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("build"),
             handler: handle_build,
+        },
+        RegisteredController {
+            schema: schemas("build_cancel"),
+            handler: handle_build_cancel,
         },
         RegisteredController {
             schema: schemas("discover"),
@@ -938,6 +943,48 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "build_cancel" => ControllerSchema {
+            namespace: "flows",
+            function: "build_cancel",
+            description: "Cancel the in-flight `flows_build` (Workflow Copilot) turn streaming \
+                          into `thread_id` — the real cancellation behind the composer's Stop \
+                          button. When `request_id` is given, the cancel only fires if it \
+                          matches the turn currently registered on the thread (a stale Stop for \
+                          a superseded request can't kill a newer turn); omit it to cancel \
+                          whatever turn is on the thread. `cancelled: false` is not an error — it \
+                          just means nothing was in flight (already settled, or never started).",
+            inputs: vec![
+                FieldSchema {
+                    name: "thread_id",
+                    ty: TypeSchema::String,
+                    comment: "The copilot's dedicated chat thread id (the same `thread_id` \
+                              passed to `flows.build`'s streaming params).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "request_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Per-turn correlation id to scope the cancel to (matches the \
+                              `request_id` `flows.build` streamed with). Omit to cancel \
+                              unscoped.",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Object {
+                    fields: vec![FieldSchema {
+                        name: "cancelled",
+                        ty: TypeSchema::Bool,
+                        comment: "True when an in-flight build turn was found and signalled to \
+                                  cancel.",
+                        required: true,
+                    }],
+                },
+                comment: "Cancellation result payload.",
+                required: true,
+            }],
+        },
         "discover" => ControllerSchema {
             namespace: "flows",
             function: "discover",
@@ -1472,6 +1519,17 @@ fn handle_build(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_build_cancel(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let thread_id = read_required::<String>(&params, "thread_id")?;
+        let request_id = params
+            .get("request_id")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        to_json(ops::flows_build_cancel(thread_id.trim(), request_id.as_deref()).await?)
+    })
+}
+
 fn handle_discover(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -1710,6 +1768,7 @@ mod tests {
                 "get_run",
                 "prune_runs",
                 "build",
+                "build_cancel",
                 "discover",
                 "list_suggestions",
                 "dismiss_suggestion",
@@ -1732,7 +1791,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 33);
+        assert_eq!(controllers.len(), 34);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -1755,6 +1814,7 @@ mod tests {
                 "get_run",
                 "prune_runs",
                 "build",
+                "build_cancel",
                 "discover",
                 "list_suggestions",
                 "dismiss_suggestion",
@@ -1941,6 +2001,22 @@ mod tests {
         // The streaming params are present and optional.
         let thread = s.inputs.iter().find(|f| f.name == "thread_id").unwrap();
         assert!(!thread.required);
+        let request = s.inputs.iter().find(|f| f.name == "request_id").unwrap();
+        assert!(!request.required);
+    }
+
+    #[test]
+    fn schemas_build_cancel_requires_thread_id_but_not_request_id() {
+        let s = schemas("build_cancel");
+        assert_eq!(s.namespace, "flows");
+        assert_eq!(s.function, "build_cancel");
+        let required: Vec<_> = s
+            .inputs
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.name)
+            .collect();
+        assert_eq!(required, vec!["thread_id"]);
         let request = s.inputs.iter().find(|f| f.name == "request_id").unwrap();
         assert!(!request.required);
     }

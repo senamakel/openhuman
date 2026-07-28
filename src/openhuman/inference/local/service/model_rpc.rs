@@ -70,13 +70,14 @@ fn local_model(config: &Config, model_id: &str) -> Result<OpenAiModel, String> {
 
 pub(super) async fn invoke(
     config: &Config,
+    client: reqwest::Client,
     messages: Vec<Message>,
     max_tokens: Option<u32>,
     temperature: f32,
     allow_empty: bool,
 ) -> Result<ModelRpcOutcome, String> {
     let model_id = crate::openhuman::inference::model_ids::effective_chat_model_id(config);
-    let model = local_model(config, &model_id)?;
+    let model = local_model(config, &model_id)?.with_client(client);
     let provider = provider_from_config(config);
     tracing::debug!(
         provider = provider.as_str(),

@@ -312,6 +312,14 @@ impl OllamaPullProgress {
 pub(crate) struct OllamaTagsResponse {
     #[serde(default)]
     pub models: Vec<OllamaModelTag>,
+    /// Set when the server answered with an error envelope rather than a
+    /// catalog. LM Studio replies to unknown paths with `200 {"error": …}` and
+    /// no `models` (GH #5053), which is indistinguishable from a real catalog
+    /// by `models` alone — a fresh Ollama with nothing pulled legitimately
+    /// returns `{"models":[]}`. Callers must branch on this field, not on
+    /// emptiness.
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

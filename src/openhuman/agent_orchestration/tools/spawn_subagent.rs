@@ -593,6 +593,17 @@ impl Tool for SpawnSubagentTool {
                         Ok(ToolResult::success(envelope))
                     }
                     SubagentRunStatus::Completed => {
+                        // #3883: log the orchestrator taking delivery of each
+                        // artifact path the child handed back, so a run journal
+                        // shows both ends of every `[artifact]` pointer. The
+                        // `consumed_by_parent` stage distinguishes this from the
+                        // child's `recorded_by_child` line for the same path.
+                        crate::openhuman::agent::harness::artifact_offload::note_artifact_handoff(
+                            crate::openhuman::agent::harness::artifact_offload::HANDOFF_STAGE_CONSUMED,
+                            &outcome.agent_id,
+                            &outcome.task_id,
+                            &outcome.artifact_paths,
+                        );
                         crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
                             parent_session,
                             outcome.task_id.clone(),
@@ -958,6 +969,7 @@ mod tests {
             status: SubagentRunStatus::Completed,
             final_history: Vec::new(),
             usage: Default::default(),
+            artifact_paths: Vec::new(),
         }
     }
 

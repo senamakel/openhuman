@@ -543,7 +543,7 @@ async fn apply_search_settings_rejects_unknown_search_engine() {
     .await
     .expect_err("unknown engine should be rejected");
 
-    assert!(err.contains("disabled/managed/parallel/brave/querit"));
+    assert!(err.contains("disabled/managed/parallel/brave/querit/exa"));
 }
 
 #[tokio::test]

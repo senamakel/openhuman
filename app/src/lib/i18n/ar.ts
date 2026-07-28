@@ -464,7 +464,10 @@ const messages: TranslationMap = {
   'agentWorld.world.retry': 'إعادة المحاولة',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'انضم إلى tiny.place ليتمكن وكيلك من التنسيق مع الوكلاء الآخرين: العثور على الوظائف ونشرها، والتداول، وتبادل الرسائل، والتعاون في المكافآت.',
+    'انضم إلى tiny.place ليتمكن وكيلك من التنسيق مع الوكلاء الآخرين على الشبكة: العثور على الوظائف ونشرها، والتداول، وتبادل الرسائل، والتعاون في المكافآت.',
+  'agentWorld.world.offlineBadge': 'معاينة دون اتصال',
+  'agentWorld.world.offlineBadgeTitle':
+    'الوكلاء المعروضون هنا محاكاة محلية. سيتوفر الحضور المباشر ومزامنة العالم قريبًا.',
   'agentWorld.world.room': 'الغرفة',
   'agentWorld.world.rooms.poker.name': 'بوكر',
   'agentWorld.world.rooms.poker.description': 'ثمانية مقاعد حول طاولة مكسوة باللباد.',
@@ -1657,15 +1660,15 @@ const messages: TranslationMap = {
   'settings.search.title': 'محرك البحث',
   'settings.search.menuDesc': 'تخلف عن البحث أو التنصت على مزودك الخاص بمفتاح اكسوكس',
   'settings.search.description':
-    'اختر محرك البحث الذي يستخدمه الوكيل، أو عطّل أدوات البحث بالكامل. يستخدم الوضع المُدار واجهة خلفية OpenHuman (بدون إعداد). تعمل محركات Parallel وBrave وQuerit مباشرةً من جهازك باستخدام مفتاح API الخاص بك.',
+    'اختر محرك البحث الذي يستخدمه الوكيل، أو عطّل أدوات البحث بالكامل. يستخدم الوضع المُدار واجهة خلفية OpenHuman (بدون إعداد). تعمل محركات Parallel وBrave وQuerit وExa مباشرةً من جهازك باستخدام مفتاح API الخاص بك.',
   'settings.search.engineAria': 'محرك البحث',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc': 'أزل أدوات البحث من سياق الوكيل وقائمة الأدوات المتاحة.',
   'settings.search.engineManagedLabel': 'OpenHuman مُدار',
   'settings.search.engineManagedDesc':
-    'خطأ تم سحبها من خلال الركيزة الخلفية - لا حاجة لمفتاح Xqx0xx.',
+    'الإعداد الافتراضي. يتم توجيهه عبر خادم OpenHuman الخلفي، المدعوم حاليًا بواسطة Exa: لا حاجة إلى مفتاح API.',
   'settings.search.localManagedUnavailable':
-    'بحث OpenHuman المُدار غير متاح للمستخدمين المحليين. أضف مفتاح Parallel أو Brave الخاص بك لتفعيل البحث على الويب.',
+    'بحث OpenHuman المُدار غير متاح للمستخدمين المحليين. أضف مفتاح Parallel أو Brave أو Querit أو Exa الخاص بك لتفعيل البحث على الويب.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
     'واجهة برمجية متوازية مباشرة: أدوات البحث والاستخراج والمحادثة والبحث المتعمق والإثراء ومجموعات البيانات.',
@@ -1674,6 +1677,9 @@ const messages: TranslationMap = {
   'settings.search.engineQueritLabel': 'Querit',
   'settings.search.engineQueritDesc':
     'واجهة Querit API المباشرة: بحث على الويب مع فلاتر الموقع والنطاق الزمني والبلد واللغة.',
+  'settings.search.engineExaLabel': 'Exa',
+  'settings.search.engineExaDesc':
+    'بحث عصبي مدعوم من Exa. يتطلب مفتاح API الخاص بك من Exa. يضيف أدوات البحث والعثور على صفحات مشابهة واسترجاع محتوى الصفحات.',
   'settings.search.statusConfigured': 'تم تكوينه',
   'settings.search.statusNeedsKey': 'يحتاج إلى مفتاح API',
   'settings.search.fallbackToManaged':
@@ -1689,10 +1695,12 @@ const messages: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Parallel API مفتاح',
   'settings.search.braveKeyLabel': 'Brave بحث API مفتاح',
   'settings.search.queritKeyLabel': 'مفتاح API الخاص بـ Querit',
+  'settings.search.exaKeyLabel': 'مفتاح API الخاص بـ Exa',
   'settings.search.placeholderStored': '•••••••• (مخزن)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'مفتاح API الخاص بـ Querit',
+  'settings.search.placeholderExa': 'الصق مفتاح API الخاص بـ Exa…',
   'settings.search.allowedSitesLabel': 'المواقع الشبكية المسموح بها',
   'settings.search.allowedSitesHint':
     'المضيفون الذين يُسمح للمساعد بفتحهم وقراءتهم (عبر جلب الويب وأداة المتصفح) مضيف واحد في كل سطر، مثل reuters.com. يشمل المضيف نطاقاته الفرعية أيضًا. البحث على الويب نفسه لا يتقيّد بهذه القائمة.',

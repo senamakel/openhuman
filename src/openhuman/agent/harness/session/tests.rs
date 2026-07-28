@@ -929,8 +929,38 @@ async fn turn_with_native_dispatcher_persists_fallback_tool_calls() {
 /// plumbing this test asserts. Provider *routing* for Hint sub-agents
 /// is covered independently by
 /// `subagent_runner::ops::tests::resolve_subagent_source_*`.
-#[tokio::test]
-async fn turn_dispatches_spawn_subagent_through_full_path() {
+// The full spawn_subagent path (parent turn → run_subagent → nested agent
+// turn) is a deep async state machine. In debug/coverage builds each future
+// frame is large, and the two stacked turns exceed the default ~2 MiB libtest
+// per-test thread stack — the thread overflows and SIGABRTs the *entire* test
+// process. Because libtest runs tests concurrently, the abort then tags
+// whichever unrelated test happened to be in flight as FAILED, producing the
+// run-to-run flake reported in issue #5209 (the experience-recall test was the
+// most frequent victim). CI only avoided this by exporting a 64 MiB
+// `RUST_MIN_STACK`; a raw `cargo test` (e.g. the diff-scoped coverage command)
+// has no such env and reliably overflows. Production already drives agent
+// turns on an explicit large stack for this exact reason
+// (`agent::bus::handle_agent_run_turn_on_large_stack`). Mirror that here so the
+// test is self-contained and never aborts the process, regardless of
+// `RUST_MIN_STACK`.
+#[test]
+fn turn_dispatches_spawn_subagent_through_full_path() {
+    std::thread::Builder::new()
+        .name("spawn-subagent-full-path-test".to_string())
+        .stack_size(64 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("build large-stack test runtime")
+                .block_on(turn_dispatches_spawn_subagent_through_full_path_inner());
+        })
+        .expect("spawn large-stack test thread")
+        .join()
+        .expect("large-stack spawn_subagent test thread panicked");
+}
+
+async fn turn_dispatches_spawn_subagent_through_full_path_inner() {
     use crate::openhuman::agent::harness::AgentDefinitionRegistry;
     use crate::openhuman::tools::SpawnSubagentTool;
 

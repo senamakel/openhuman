@@ -190,7 +190,10 @@ const en: TranslationMap = {
   'agentWorld.world.retry': 'Retry',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'Join tiny.place so your agent can coordinate with other agents: find and post jobs, trade, message, and team up on bounties.',
+    'Join tiny.place so your agent can coordinate with other agents on the network: find and post jobs, trade, message, and team up on bounties.',
+  'agentWorld.world.offlineBadge': 'Offline preview',
+  'agentWorld.world.offlineBadgeTitle':
+    'Agents shown here are a local simulation. Live presence and world sync are coming soon.',
   'agentWorld.world.room': 'Room',
   'agentWorld.world.rooms.poker.name': 'Poker',
   'agentWorld.world.rooms.poker.description': 'Eight seats around a felt table.',
@@ -1789,16 +1792,16 @@ const en: TranslationMap = {
   'settings.search.menuDesc':
     'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    "Pick the search engine the agent uses, or disable search tools entirely. Managed uses OpenHuman's backend (no setup). Parallel, Brave, and Querit run direct from your machine using your API key.",
+    "Pick the search engine the agent uses, or disable search tools entirely. Managed uses OpenHuman's backend (no setup). Parallel, Brave, Querit, and Exa run direct from your machine using your API key.",
   'settings.search.engineAria': 'Search engine',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
     'Remove search tools from the agent context and available tool list.',
   'settings.search.engineManagedLabel': 'OpenHuman Managed',
   'settings.search.engineManagedDesc':
-    'Default. Routed through the OpenHuman backend: no API key required.',
+    'Default. Routed through the OpenHuman backend, currently powered by Exa: no API key required.',
   'settings.search.localManagedUnavailable':
-    'OpenHuman Managed search is not available for local users. Add your own Parallel, Brave, or Querit API key to enable web search.',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel, Brave, Querit, or Exa API key to enable web search.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
     'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
@@ -1807,6 +1810,9 @@ const en: TranslationMap = {
   'settings.search.engineQueritLabel': 'Querit',
   'settings.search.engineQueritDesc':
     'Direct Querit API: web search with site, time range, country, and language filters.',
+  'settings.search.engineExaLabel': 'Exa',
+  'settings.search.engineExaDesc':
+    'Neural search powered by Exa. Requires your own Exa API key. Adds search, find similar, and page contents tools.',
   'settings.search.statusConfigured': 'Configured',
   'settings.search.statusNeedsKey': 'Needs API key',
   'settings.search.fallbackToManaged':
@@ -1822,10 +1828,12 @@ const en: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Parallel API key',
   'settings.search.braveKeyLabel': 'Brave Search API key',
   'settings.search.queritKeyLabel': 'Querit API key',
+  'settings.search.exaKeyLabel': 'Exa API key',
   'settings.search.placeholderStored': '•••••••• (stored)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'Querit API key',
+  'settings.search.placeholderExa': 'Paste your Exa API key…',
   'settings.search.allowedSitesLabel': 'Allowed websites',
   'settings.search.allowedSitesHint':
     'Enter one host per line, such as reuters.com. The assistant may open and read these hosts through web fetch and the browser tool. Each host also covers its subdomains. This list does not restrict web search.',

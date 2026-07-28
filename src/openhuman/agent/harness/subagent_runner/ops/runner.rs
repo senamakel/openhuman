@@ -11,6 +11,11 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::openhuman::agent::harness::agent_graph::{AgentTurnRequest, AgentTurnUsage};
+use crate::openhuman::agent::harness::artifact_offload::{
+    effective_offload_threshold, extract_artifact_paths, note_artifact_handoff,
+    offload_oversized_result, ArtifactOffload, DEFAULT_OFFLOAD_THRESHOLD_BYTES,
+    HANDOFF_STAGE_RECORDED,
+};
 use crate::openhuman::agent::harness::definition::{
     validate_tier_transition, AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy,
     PromptSource, SandboxMode as AgentSandboxMode,
@@ -42,7 +47,9 @@ use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 use tinyagents::harness::tool::SandboxMode as TinyagentsSandboxMode;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 
-use super::prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
+use super::prompt::{
+    append_artifact_offload_contract, append_subagent_role_contract, dedup_tool_specs_by_name,
+};
 use super::provider::{
     resolve_subagent_source, user_is_signed_in_to_composio, LazyToolkitResolver,
 };
@@ -287,6 +294,9 @@ async fn try_deterministic_memory_retrieval(
         status: SubagentRunStatus::Completed,
         final_history: Vec::new(),
         usage: SubagentUsage::default(),
+        // Deterministic memory hits are already bounded; nothing is offloaded
+        // on this path.
+        artifact_paths: Vec::new(),
     })
 }
 
@@ -432,6 +442,13 @@ pub async fn run_subagent(
         })
         .await?;
 
+        // #3883: offload an oversized worker result to `action_dir/outputs/`
+        // BEFORE the cap below truncates it, so the parent receives a path plus
+        // an abstract and the full-fidelity body survives on disk instead of
+        // being cut. A refused or failed offload is soft: the inline payload
+        // continues on to the cap and the summarizer detour exactly as before.
+        offload_outcome_artifacts(&mut outcome, definition, &options, &task_id).await;
+
         // Truncate result to the definition's cap if set (shared with the
         // deterministic memory fast path via `apply_max_result_chars`).
         apply_max_result_chars(&mut outcome.output, definition.max_result_chars, &definition.id);
@@ -450,6 +467,116 @@ pub async fn run_subagent(
         Ok(outcome)
     })
     .await
+}
+
+/// Apply the filesystem-offload convention to a finished sub-agent run (#3883).
+///
+/// Writes an oversized result to `action_dir/outputs/` and swaps `output` for a
+/// path + abstract, then records every `[artifact]` pointer the outgoing payload
+/// carries — the harness-written one and any the worker authored itself by
+/// following the prompt contract — onto `SubagentRunOutcome::artifact_paths`, so
+/// the parent receives the paths structurally, not only as prose.
+///
+/// Every failure is soft. With no resolvable action root (or a refused target)
+/// the outcome is left untouched and the summarizer detour plus
+/// `tool_result_budget_bytes` truncation stay in charge as the fallback.
+async fn offload_outcome_artifacts(
+    outcome: &mut SubagentRunOutcome,
+    definition: &AgentDefinition,
+    options: &SubagentRunOptions,
+    task_id: &str,
+) {
+    // Pointers the WORKER authored itself (prompt contract) are read first: the
+    // harness may be about to replace `output` wholesale with its own pointer,
+    // which would otherwise drop them. They also have to survive the early
+    // returns below, so a run with no resolvable action root still reports the
+    // paths its child wrote by hand.
+    let mut paths = extract_artifact_paths(&outcome.output);
+
+    // A worktree-isolated worker offloads into its own checkout; everyone else
+    // uses the live policy's action root, which is the same root a parent's
+    // relative read resolves the returned path against.
+    let policy = crate::openhuman::security::live_policy::current();
+    let Some(action_dir) = options
+        .worktree_action_dir
+        .clone()
+        .or_else(|| policy.as_ref().map(|p| p.action_dir.clone()))
+    else {
+        tracing::debug!(
+            task_id = %task_id,
+            agent_id = %outcome.agent_id,
+            worker_authored_paths = paths.len(),
+            "[artifact] no resolvable action_dir — skipping offload (summarizer/truncation backstop applies)"
+        );
+        outcome.artifact_paths = paths;
+        note_artifact_handoff(
+            HANDOFF_STAGE_RECORDED,
+            &outcome.agent_id,
+            task_id,
+            &outcome.artifact_paths,
+        );
+        return;
+    };
+
+    // A read-only tier means this run may not mutate the disk at all, so the
+    // harness does not persist on its behalf either. The result stays inline and
+    // the summarizer / truncation backstops handle it, exactly as before #3883.
+    if policy
+        .as_ref()
+        .is_some_and(|p| p.autonomy == crate::openhuman::security::AutonomyLevel::ReadOnly)
+    {
+        tracing::debug!(
+            task_id = %task_id,
+            agent_id = %outcome.agent_id,
+            "[artifact] readonly autonomy tier — skipping offload (summarizer/truncation backstop applies)"
+        );
+        outcome.artifact_paths = paths;
+        note_artifact_handoff(
+            HANDOFF_STAGE_RECORDED,
+            &outcome.agent_id,
+            task_id,
+            &outcome.artifact_paths,
+        );
+        return;
+    }
+
+    // Offload at the tighter of the global default and this agent's own result
+    // cap, so a definition capped below the default (flow_memory_agent at 4 000
+    // chars, context_scout at 5 000) gets its full body on disk instead of
+    // truncated by `apply_max_result_chars` immediately after.
+    let threshold =
+        effective_offload_threshold(DEFAULT_OFFLOAD_THRESHOLD_BYTES, definition.max_result_chars);
+
+    // Worktree-isolated workers write inside their own checkout, but the parent
+    // that receives the pointer resolves relative paths against ITS action root.
+    // Render against that root so the handed-back path is one the parent can
+    // actually open (relative when the worktree nests inside it, absolute when
+    // it does not) rather than a bare `outputs/…` that silently misses.
+    let render_root = policy
+        .as_ref()
+        .map(|p| p.action_dir.clone())
+        .unwrap_or_else(|| action_dir.clone());
+    let offload = ArtifactOffload::new(action_dir, policy, outcome.agent_id.clone(), task_id)
+        .with_render_root(render_root);
+    let (output, _artifact) =
+        offload_oversized_result(std::mem::take(&mut outcome.output), &offload, threshold).await;
+    outcome.output = output;
+
+    // Merge: the harness pointer (if it fired) plus any worker-authored pointer
+    // read before the swap. `extract_artifact_paths` already de-duplicates
+    // within a payload; dedupe across the two sources here.
+    for path in extract_artifact_paths(&outcome.output) {
+        if !paths.contains(&path) {
+            paths.push(path);
+        }
+    }
+    outcome.artifact_paths = paths;
+    note_artifact_handoff(
+        HANDOFF_STAGE_RECORDED,
+        &outcome.agent_id,
+        task_id,
+        &outcome.artifact_paths,
+    );
 }
 
 fn workspace_descriptor_for_subagent(
@@ -1068,6 +1195,11 @@ async fn run_typed_mode(
     };
 
     let system_prompt = append_subagent_role_contract(system_prompt, &definition.id);
+    // #3883: only agents that actually hold a file-write tool are told to
+    // offload. `visible_tool_names` is this sub-agent's real, post-filter tool
+    // surface, so the contract can never advertise a tool the child cannot call.
+    let system_prompt =
+        append_artifact_offload_contract(system_prompt, &definition.id, &visible_tool_names);
 
     // ── Build the user message (with optional context prefix) ──────────
     // Shared one-line stamp (#3602) so sub-agents report time in the same
@@ -1425,6 +1557,9 @@ async fn run_typed_mode(
         status,
         final_history: history,
         usage,
+        // Filled in by `run_subagent` once the offload step has had its say, so
+        // both the harness-offloaded and worker-authored pointers are counted.
+        artifact_paths: Vec::new(),
     })
 }
 #[cfg(test)]

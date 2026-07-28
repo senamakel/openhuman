@@ -755,6 +755,66 @@ fn resolves_to_managed_backend(role: &str, config: &Config) -> bool {
     resolved.trim() == PROVIDER_OPENHUMAN
 }
 
+/// Probe whether `role` can actually complete an inference call right now
+/// (issue B45 — the flows provider-connectivity author gate).
+///
+/// Two-stage check, mirroring the two ways a `role` can be un-runnable:
+///
+/// 1. **Construction** — [`create_chat_model_with_model_id_inner`] must
+///    succeed. This is the existing Layer 1 check (BYOK-incomplete config,
+///    unknown provider slug, local-only privacy-mode block, …) reused
+///    verbatim so this probe never re-implements it.
+/// 2. **Managed-backend readiness** — when `role` resolves to the managed
+///    OpenHuman backend, [`OpenHumanBackendModel::probe_readiness`] makes one
+///    cheap real completion attempt to catch the "account has no provider API
+///    key configured" class of failure that construction alone cannot see
+///    (construction only builds the client; it never calls the backend).
+///    BYOK/local models have no such hidden failure mode — their construction
+///    step already validates what it can, so they return `Ok(())` here
+///    unconditionally.
+///
+/// Respects the [`test_provider_override`] test seam: when a mock model is
+/// installed, construction returns it immediately and this function returns
+/// `Ok(())` without ever touching the network or resolving `role` again —
+/// `resolves_to_managed_backend` is a pure config read that would otherwise
+/// still call this "managed" in a test with a bare default `Config`.
+pub async fn probe_inference_readiness(role: &str, config: &Config) -> Result<(), String> {
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
+    if test_provider_override::current().is_some() {
+        log::debug!(
+            "[flows][inference-probe] role={role} test model override active — skipping probe"
+        );
+        return Ok(());
+    }
+
+    log::debug!("[flows][inference-probe] role={role} verifying model construction");
+    if let Err(e) = create_chat_model_with_model_id_inner(role, config) {
+        log::debug!("[flows][inference-probe] role={role} construction failed: {e}");
+        return Err(e.to_string());
+    }
+
+    if !resolves_to_managed_backend(role, config) {
+        log::debug!(
+            "[flows][inference-probe] role={role} resolves to a non-managed provider — \
+             construction succeeded, nothing further to probe"
+        );
+        return Ok(());
+    }
+
+    log::debug!(
+        "[flows][inference-probe] role={role} resolves to the managed OpenHuman backend — \
+         probing readiness"
+    );
+    let (managed_model, model_id) =
+        resolve_managed_backend(role, config).map_err(|e| e.to_string())?;
+    let result = managed_model.probe_readiness().await;
+    log::debug!(
+        "[flows][inference-probe] role={role} model={model_id} probe result: {}",
+        if result.is_ok() { "ready" } else { "not ready" }
+    );
+    result
+}
+
 /// Build an `Arc<dyn ChatModel>` from an explicit provider string and config.
 ///
 /// The explicit-string counterpart of [`create_chat_model`].
@@ -1781,7 +1841,13 @@ pub(crate) fn create_local_chat_model_from_string(
 /// entirely.  This function ensures that custom providers (Ollama,
 /// `<slug>:<model>`) are only reachable when the workspace holds a valid
 /// `app-session` JWT.
-fn verify_session_active(config: &Config) -> anyhow::Result<()> {
+///
+/// `pub(crate)`: also reused directly by the flows provider-connectivity
+/// author gate (issue B45, `openhuman::flows::ops::evaluate_inference_readiness`)
+/// as its Layer 1 sync session check, so the author-time gate and this
+/// construction-time chokepoint can never diverge on what "session active"
+/// means.
+pub(crate) fn verify_session_active(config: &Config) -> anyhow::Result<()> {
     // AgentBox marketplace containers run headless with no desktop
     // `app-session` JWT — the deployment is operator-controlled and ships its
     // own GMI MaaS credentials via `GMI_*` env vars. The session gate exists to

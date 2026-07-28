@@ -15,6 +15,7 @@
 
 pub mod api;
 pub mod core;
+pub mod embed;
 pub mod openhuman;
 pub mod rpc;
 

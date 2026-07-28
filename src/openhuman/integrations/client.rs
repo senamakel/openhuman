@@ -44,7 +44,10 @@ fn managed_budget_applies_to_path(path: &str) -> bool {
 
 fn reject_backend_webhook_path(method: &str, path: &str) -> anyhow::Result<()> {
     let route = path.split('?').next().unwrap_or(path);
-    if route.split('/').any(|segment| segment == "webhooks") {
+    if route
+        .split('/')
+        .any(|segment| segment.eq_ignore_ascii_case("webhooks"))
+    {
         anyhow::bail!(
             "route is intentionally not exposed by the SDK: {} {}",
             method,
@@ -336,13 +339,19 @@ impl IntegrationClient {
         let sdk = TinyHumansClient::new(&backend_url)
             .with_token(Some(auth_token.clone()))
             .with_http_client(http_client.clone());
+        let download_client = crate::openhuman::tls::tls_client_builder()
+            .http1_only()
+            .timeout(Duration::from_secs(15 * 60))
+            .connect_timeout(Duration::from_secs(15))
+            .build()
+            .expect("failed to build integration download HTTP client");
 
         Self {
             backend_url,
             auth_token,
             budget_config,
             sdk,
-            download_client: http_client,
+            download_client,
             pricing: tokio::sync::OnceCell::new(),
         }
     }

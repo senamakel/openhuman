@@ -12,15 +12,28 @@
 //! - `medulla:task_send`  → [`MedullaTaskManager::steer_task`]
 //! - `medulla:task_abort` → [`MedullaTaskManager::abort_task`]
 //!
+//! - `medulla:capabilities_request` → [`handle_capabilities_request`]
+//! - `medulla:workflow_request` → [`workflows::handle_workflow_request`]
+//!
 //! Up (openhuman → backend):
 //! - `medulla:task_envelope` — the live session stream, as
 //!   `tinyplace.harness.session.v2` envelopes (see [`envelope`]).
 //! - `medulla:task_result`   — explicit completion.
 //! - `medulla:register_agents` — roster advertised on connect
 //!   ([`emit_register_agents`]); the backend clears it on disconnect.
+//! - `medulla:register_workflows` — the saved workflow graphs this host can be
+//!   asked to run ([`workflows::emit_register_workflows`]), same lifetime.
+//! - `medulla:capabilities_result` — the answer to a capability probe.
+//! - `medulla:workflow_result` — the answer to a workflow round trip.
+//!
+//! Every *down* event here is request/response with a server-side deadline, so
+//! silence is never free: an unanswered probe costs the backend ten seconds and
+//! an unanswered workflow request up to ten minutes. Both handlers therefore
+//! always reply, even when the answer is an error.
 
 pub mod envelope;
 pub mod payloads;
+pub mod workflows;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -36,8 +49,8 @@ use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin};
 use crate::openhuman::agent::Agent;
 
 use payloads::{
-    AgentDescriptor, RegisterAgents, TaskResult, EVENT_REGISTER_AGENTS, EVENT_TASK_ENVELOPE,
-    EVENT_TASK_RESULT,
+    AgentDescriptor, CapabilitiesRequest, CapabilitiesResult, RegisterAgents, TaskResult,
+    EVENT_CAPABILITIES_RESULT, EVENT_REGISTER_AGENTS, EVENT_TASK_ENVELOPE, EVENT_TASK_RESULT,
 };
 
 /// Default agent an unspecified `medulla:task_run` runs as.
@@ -476,13 +489,85 @@ pub fn emit_register_agents() {
     let agents: Vec<AgentDescriptor> = crate::openhuman::agent_registry::default_agents()
         .into_iter()
         .map(|entry| AgentDescriptor {
-            agent_id: entry.id,
+            id: entry.id,
             name: entry.name,
             description: entry.description,
         })
         .collect();
     log::info!("[medulla] advertising {} agents to backend", agents.len());
     emit(EVENT_REGISTER_AGENTS, RegisterAgents { agents });
+}
+
+/// Handle `medulla:capabilities_request`: self-report for one probe.
+///
+/// The backend's roster calls this lazily before first delegating to an agent it
+/// has not cached, fans the frame out to every harness socket the user holds,
+/// and waits ten seconds. An agent that never answers does not degrade
+/// gracefully — it spends that whole window on every first delegation. So this
+/// always emits a `medulla:capabilities_result`, even when the only thing it can
+/// truthfully say is `ready`.
+///
+/// Runs on its own task: building the report loads config and reads the workflow
+/// store, neither of which belongs on the socket read loop.
+pub fn handle_capabilities_request(request: CapabilitiesRequest) {
+    tokio::spawn(async move {
+        let capabilities = describe_self(&request.agent_id).await;
+        emit(
+            EVENT_CAPABILITIES_RESULT,
+            CapabilitiesResult {
+                probe_id: request.probe_id,
+                capabilities,
+            },
+        );
+    });
+}
+
+/// Build this host's capability report for `agent_id`.
+///
+/// Only fields on the backend's allowlist (`sanitizeCapabilities`) are worth
+/// sending — anything else is dropped there — and each is best-effort: a field
+/// this host cannot resolve is omitted rather than guessed, because the
+/// orchestrator reasons about placement from these values.
+async fn describe_self(agent_id: &str) -> serde_json::Value {
+    let mut caps = serde_json::Map::new();
+    // Advisory readiness. A connected core that answered the probe at all is
+    // ready by definition; per-agent gating lives in the task path, not here.
+    caps.insert("ready".to_string(), serde_json::Value::Bool(true));
+
+    if let Some(entry) = crate::openhuman::agent_registry::default_agents()
+        .into_iter()
+        .find(|entry| entry.id == agent_id)
+    {
+        if !entry.description.is_empty() {
+            caps.insert("summary".to_string(), entry.description.into());
+        }
+    }
+
+    // `cwd` is the agent's read/write root (`action_dir`), which is what the
+    // orchestrator actually means by "where does this agent work".
+    match crate::openhuman::config::rpc::load_config_with_timeout().await {
+        Ok(config) => {
+            caps.insert(
+                "cwd".to_string(),
+                config.action_dir.display().to_string().into(),
+            );
+        }
+        Err(err) => log::debug!("[medulla] capability probe could not read config: {err}"),
+    }
+
+    // The workflow adverts ride the probe as well as the push registration, so a
+    // backend that only probes still learns this host's graphs.
+    let workflows = workflows::advertised_workflows().await;
+    if !workflows.is_empty() {
+        match serde_json::to_value(workflows) {
+            Ok(value) => {
+                caps.insert("workflows".to_string(), value);
+            }
+            Err(err) => log::warn!("[medulla] failed to serialize workflow adverts: {err}"),
+        }
+    }
+
+    serde_json::Value::Object(caps)
 }
 
 /// Serialize `payload` and emit it as a Socket.IO event on the global backend

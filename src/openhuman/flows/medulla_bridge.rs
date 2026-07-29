@@ -65,6 +65,14 @@ const RUN_HISTORY_LIMIT: usize = 20;
 /// the rest of the section.
 const MAX_DESCRIPTION_CHARS: usize = 400;
 
+/// Persistence tools hidden from a medulla copilot turn.
+///
+/// The generic builder exposes these for its product surfaces, but this bridge
+/// deliberately owns persistence in [`apply_proposal`] so it can enforce the
+/// observed version and approval floor exactly once.
+const MEDULLA_COPILOT_HIDDEN_TOOLS: &[&str] =
+    &["save_workflow", "create_workflow", "duplicate_flow"];
+
 /// Install the flows-backed bridge on the medulla workflow plane.
 ///
 /// Called once at boot, gated on the `flows` domain being live. Installing also
@@ -216,22 +224,24 @@ impl WorkflowBridge for FlowsWorkflowBridge {
         // Headless: no chat thread to stream into, so the turn runs under the
         // CLI origin with the full run-advancing hide-list — a remote authoring
         // turn proposes a graph, it never runs one.
-        let built = ops::flows_build(&config, request, None).await?.value;
+        let built = ops::flows_build_with_extra_hidden_tools(
+            &config,
+            request,
+            None,
+            MEDULLA_COPILOT_HIDDEN_TOOLS,
+        )
+        .await?
+        .value;
         let mut reply = built
             .get("assistant_text")
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string();
 
-        let mut created = None;
-        let mut affected_workflow_id = None;
+        let mut applied = None;
         if let Some(proposal) = built.get("proposal").filter(|value| !value.is_null()) {
             match apply_proposal(&config, workflow_id, proposal, expected_version).await {
-                Ok(id) => {
-                    created = id;
-                    affected_workflow_id =
-                        workflow_id.map(str::to_string).or_else(|| created.clone());
-                }
+                Ok(saved) => applied = Some(saved),
                 // The turn happened and its reply is worth returning; only the
                 // save failed. Say so in the reply rather than discarding the
                 // whole outcome — and let the diff below report (truthfully)
@@ -243,15 +253,17 @@ impl WorkflowBridge for FlowsWorkflowBridge {
             }
         }
 
-        let after = ops::flows_list(&config).await?.value;
+        let changes = applied
+            .as_ref()
+            .map(|saved| diff_workflow(&before, std::slice::from_ref(&saved.flow), &saved.flow.id))
+            .unwrap_or_default();
+        let created = applied
+            .filter(|saved| saved.created)
+            .map(|saved| saved.flow.id);
         Ok(CopilotOutcome {
             reply,
-            changes: affected_workflow_id
-                .as_deref()
-                .map(|id| diff_workflow(&before, &after, id))
-                .unwrap_or_default(),
-            // Only claim a creation the store actually holds.
-            created: created.filter(|id| after.iter().any(|flow| &flow.id == id)),
+            changes,
+            created,
         })
     }
 }
@@ -401,7 +413,13 @@ fn builder_request(
     })
 }
 
-/// Persist the graph a builder turn proposed, returning the new id on a create.
+/// The exact row committed by [`apply_proposal`].
+struct AppliedProposal {
+    flow: Flow,
+    created: bool,
+}
+
+/// Persist the graph a builder turn proposed, returning the committed row.
 ///
 /// See the module docs for why this host performs the accept the copilot panel
 /// would otherwise perform, and for the two approval guards that bound it.
@@ -410,7 +428,7 @@ async fn apply_proposal(
     workflow_id: Option<&str>,
     proposal: &Value,
     expected_version: Option<&str>,
-) -> Result<Option<String>, String> {
+) -> Result<AppliedProposal, String> {
     let graph = proposal
         .get("graph")
         .filter(|graph| !graph.is_null())
@@ -428,7 +446,7 @@ async fn apply_proposal(
                 .map(str::trim)
                 .filter(|name| !name.is_empty())
                 .map(str::to_string);
-            ops::flows_update(
+            let flow = ops::flows_update(
                 config,
                 id,
                 name,
@@ -436,8 +454,12 @@ async fn apply_proposal(
                 None,
                 expected_version.map(str::to_string),
             )
-            .await?;
-            Ok(None)
+            .await?
+            .value;
+            Ok(AppliedProposal {
+                flow,
+                created: false,
+            })
         }
         None => {
             let name = proposal
@@ -450,7 +472,10 @@ async fn apply_proposal(
             // `true`, not the proposal's own value: nothing authored by a remote
             // instruction acts outward without a human decision at run time.
             let flow = ops::flows_create(config, name, graph, true).await?.value;
-            Ok(Some(flow.id))
+            Ok(AppliedProposal {
+                flow,
+                created: true,
+            })
         }
     }
 }

@@ -276,11 +276,14 @@ async fn a_created_workflow_always_requires_approval() {
         "require_approval": false,
     });
 
-    let id = apply_proposal(&config, None, &proposal, None)
+    let applied = apply_proposal(&config, None, &proposal, None)
+        .await
+        .unwrap();
+    assert!(applied.created);
+    let saved = ops::flows_get(&config, &applied.flow.id)
         .await
         .unwrap()
-        .expect("a create reports its new id");
-    let saved = ops::flows_get(&config, &id).await.unwrap().value;
+        .value;
     assert_eq!(saved.name, "Remote build");
     assert!(
         saved.require_approval,
@@ -307,18 +310,16 @@ async fn an_update_cannot_lower_the_approval_requirement() {
         "graph": serde_json::to_value(graph_with_step("Ship it twice")).unwrap(),
         "require_approval": false,
     });
-    assert_eq!(
-        apply_proposal(
-            &config,
-            Some(&created.id),
-            &proposal,
-            Some(&created.updated_at),
-        )
-        .await
-        .unwrap(),
-        None,
-        "an update creates nothing"
-    );
+    let applied = apply_proposal(
+        &config,
+        Some(&created.id),
+        &proposal,
+        Some(&created.updated_at),
+    )
+    .await
+    .unwrap();
+    assert!(!applied.created, "an update is not a creation");
+    assert_eq!(applied.flow.id, created.id);
 
     let saved = ops::flows_get(&config, &created.id).await.unwrap().value;
     assert_eq!(saved.name, "Deploy v2");
@@ -479,6 +480,33 @@ fn scoped_diff_excludes_concurrent_changes_to_other_workflows() {
         changes
             .iter()
             .any(|line| line.contains("rewrote the graph")),
+        "{changes:?}"
+    );
+}
+
+#[test]
+fn medulla_copilot_hides_every_persistence_tool() {
+    assert_eq!(
+        MEDULLA_COPILOT_HIDDEN_TOOLS,
+        ["save_workflow", "create_workflow", "duplicate_flow"]
+    );
+}
+
+#[test]
+fn accountability_uses_the_committed_snapshot_not_a_later_user_edit() {
+    let before = vec![flow("target", "Deploy", graph_with_step("Ship it"))];
+    let committed = flow("target", "Copilot edit", graph_with_step("Ship it twice"));
+    let later_user_edit = flow("target", "User edit", graph_with_step("Something else"));
+
+    let changes = diff_workflow(&before, std::slice::from_ref(&committed), "target");
+    assert!(
+        changes.iter().any(|line| line.contains("Copilot edit")),
+        "{changes:?}"
+    );
+    assert!(
+        changes
+            .iter()
+            .all(|line| !line.contains(&later_user_edit.name)),
         "{changes:?}"
     );
 }

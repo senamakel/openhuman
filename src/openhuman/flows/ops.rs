@@ -3444,6 +3444,7 @@ pub async fn flows_duplicate(config: &Config, id: &str) -> Result<RpcOutcome<Flo
         store::insert_duplicate_flow(config, &source, new_name).map_err(|e| e.to_string())?;
     // Intentionally NO bind_trigger: a duplicate is disabled and must stay
     // inert (no schedule/trigger dispatch) until the user enables it.
+    publish_flow_changed(&flow.id, "created", "system");
     Ok(RpcOutcome::single_log(
         flow,
         format!("flow duplicated from {id}"),
@@ -3738,8 +3739,8 @@ fn publish_flow_changed(flow_id: &str, kind: &str, actor: &str) {
         actor: actor.to_string(),
     });
     // Re-advertise the workflow set to the medulla backend. This is the single
-    // funnel every store mutation passes through (create / update / delete /
-    // enable), and the backend replaces a socket's whole entry on each
+    // funnel every store mutation passes through (create / duplicate / update /
+    // delete / enable), and the backend replaces a socket's whole entry on each
     // registration — so re-sending here is what keeps a remote orchestrator from
     // reasoning about a set that no longer exists. A no-op (one debug log, no
     // task spawned) when no bridge is installed, which is every build that is

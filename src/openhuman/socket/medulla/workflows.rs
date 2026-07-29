@@ -23,11 +23,12 @@
 
 use std::future::Future;
 use std::panic::AssertUnwindSafe;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::FutureExt;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use serde_json::Value;
 
 use super::payloads::{
@@ -99,41 +100,45 @@ static BRIDGE: RwLock<Option<Arc<dyn WorkflowBridge>>> = RwLock::new(None);
 /// Reads stay concurrent and off the socket runtime. A newer successful read
 /// supersedes every older one, while a newer failed read does not suppress an
 /// older successful snapshot. The mutex makes the revision check plus the
-/// synchronous socket emit one ordered operation.
+/// awaited socket enqueue one ordered operation.
 struct RegistrationSequencer {
-    state: Mutex<RegistrationSequenceState>,
+    next_revision: AtomicU64,
+    last_emitted: tokio::sync::Mutex<u64>,
 }
 
-#[derive(Default)]
-struct RegistrationSequenceState {
-    next_revision: u64,
-    last_emitted: u64,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SequencedEmit {
+    Emitted,
+    Superseded,
+    Failed,
 }
 
 impl RegistrationSequencer {
     const fn new() -> Self {
         Self {
-            state: Mutex::new(RegistrationSequenceState {
-                next_revision: 0,
-                last_emitted: 0,
-            }),
+            next_revision: AtomicU64::new(0),
+            last_emitted: tokio::sync::Mutex::const_new(0),
         }
     }
 
     fn begin(&self) -> u64 {
-        let mut state = self.state.lock();
-        state.next_revision = state.next_revision.saturating_add(1);
-        state.next_revision
+        self.next_revision.fetch_add(1, Ordering::Relaxed) + 1
     }
 
-    fn emit_if_newer(&self, revision: u64, emit: impl FnOnce()) -> bool {
-        let mut state = self.state.lock();
-        if revision <= state.last_emitted {
-            return false;
+    async fn emit_if_newer<F, Fut>(&self, revision: u64, emit: F) -> SequencedEmit
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = bool>,
+    {
+        let mut last_emitted = self.last_emitted.lock().await;
+        if revision <= *last_emitted {
+            return SequencedEmit::Superseded;
         }
-        emit();
-        state.last_emitted = revision;
-        true
+        if !emit().await {
+            return SequencedEmit::Failed;
+        }
+        *last_emitted = revision;
+        SequencedEmit::Emitted
     }
 }
 
@@ -154,11 +159,14 @@ pub fn set_workflow_bridge(bridge: Arc<dyn WorkflowBridge>) {
 pub fn clear_workflow_bridge() {
     *BRIDGE.write() = None;
     let revision = REGISTRATION_SEQUENCE.begin();
-    REGISTRATION_SEQUENCE.emit_if_newer(revision, || {
-        emit_batch(RegisterWorkflows {
+    tokio::spawn(async move {
+        let batch = RegisterWorkflows {
             workflows: Vec::new(),
             agent_id: None,
-        });
+        };
+        REGISTRATION_SEQUENCE
+            .emit_if_newer(revision, || emit_batch(batch))
+            .await;
     });
 }
 
@@ -183,17 +191,21 @@ pub fn emit_register_workflows() {
     tokio::spawn(async move {
         match read_batch(bridge).await {
             Ok(batch) => {
-                if !REGISTRATION_SEQUENCE.emit_if_newer(revision, || {
-                    log::info!(
-                        "[medulla] advertising {} workflows to backend",
-                        batch.workflows.len()
-                    );
-                    emit_batch(batch);
-                }) {
-                    log::debug!(
+                let count = batch.workflows.len();
+                match REGISTRATION_SEQUENCE
+                    .emit_if_newer(revision, || emit_batch(batch))
+                    .await
+                {
+                    SequencedEmit::Emitted => {
+                        log::info!("[medulla] advertised {count} workflows to backend");
+                    }
+                    SequencedEmit::Superseded => log::debug!(
                         "[medulla] workflow registration snapshot already superseded by a newer \
                          successful read — not advertising"
-                    );
+                    ),
+                    SequencedEmit::Failed => {
+                        log::debug!("[medulla] workflow registration enqueue failed")
+                    }
                 }
             }
             Err(err) => {
@@ -233,8 +245,8 @@ async fn read_batch(bridge: Arc<dyn WorkflowBridge>) -> Result<RegisterWorkflows
     }
 }
 
-fn emit_batch(batch: RegisterWorkflows) {
-    super::emit(EVENT_REGISTER_WORKFLOWS, batch);
+async fn emit_batch(batch: RegisterWorkflows) -> bool {
+    super::emit_awaited(EVENT_REGISTER_WORKFLOWS, batch).await
 }
 
 /// Handle an inbound `medulla:workflow_request`.
@@ -609,20 +621,36 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_newer_registration_suppresses_an_older_snapshot() {
+    #[tokio::test]
+    async fn a_newer_registration_suppresses_an_older_snapshot() {
         let sequencer = RegistrationSequencer::new();
         let older = sequencer.begin();
         let newer = sequencer.begin();
         let emitted = std::sync::Mutex::new(Vec::new());
 
-        assert!(sequencer.emit_if_newer(newer, || emitted.lock().unwrap().push("newer")));
-        assert!(!sequencer.emit_if_newer(older, || emitted.lock().unwrap().push("older")));
+        assert_eq!(
+            sequencer
+                .emit_if_newer(newer, || async {
+                    emitted.lock().unwrap().push("newer");
+                    true
+                })
+                .await,
+            SequencedEmit::Emitted
+        );
+        assert_eq!(
+            sequencer
+                .emit_if_newer(older, || async {
+                    emitted.lock().unwrap().push("older");
+                    true
+                })
+                .await,
+            SequencedEmit::Superseded
+        );
         assert_eq!(*emitted.lock().unwrap(), vec!["newer"]);
     }
 
-    #[test]
-    fn a_failed_newer_read_does_not_suppress_an_older_success() {
+    #[tokio::test]
+    async fn a_failed_newer_read_does_not_suppress_an_older_success() {
         let sequencer = RegistrationSequencer::new();
         let older = sequencer.begin();
         let _newer = sequencer.begin();
@@ -631,8 +659,32 @@ mod tests {
         // The newer read failed, so it never calls `emit_if_newer`. The older
         // successful snapshot must still advance the backend from its
         // pre-mutation state.
-        assert!(sequencer.emit_if_newer(older, || emitted.lock().unwrap().push("older")));
+        assert_eq!(
+            sequencer
+                .emit_if_newer(older, || async {
+                    emitted.lock().unwrap().push("older");
+                    true
+                })
+                .await,
+            SequencedEmit::Emitted
+        );
         assert_eq!(*emitted.lock().unwrap(), vec!["older"]);
+    }
+
+    #[tokio::test]
+    async fn a_failed_enqueue_does_not_advance_the_success_watermark() {
+        let sequencer = RegistrationSequencer::new();
+        let older = sequencer.begin();
+        let newer = sequencer.begin();
+
+        assert_eq!(
+            sequencer.emit_if_newer(newer, || async { false }).await,
+            SequencedEmit::Failed
+        );
+        assert_eq!(
+            sequencer.emit_if_newer(older, || async { true }).await,
+            SequencedEmit::Emitted
+        );
     }
 
     #[tokio::test]

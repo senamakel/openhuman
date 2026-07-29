@@ -634,6 +634,32 @@ fn emit<T: serde::Serialize>(event: &str, payload: T) {
     });
 }
 
+/// Serialize and enqueue one medulla event before returning.
+///
+/// Registration snapshots use this awaited form because their full-replacement
+/// ordering must extend through `SocketManager::emit`'s channel send, not stop
+/// at spawning a task that may be scheduled later.
+async fn emit_awaited<T: serde::Serialize>(event: &str, payload: T) -> bool {
+    let data = match serde_json::to_value(&payload) {
+        Ok(value) => value,
+        Err(err) => {
+            log::warn!("[medulla] failed to serialize payload for {event}: {err}");
+            return false;
+        }
+    };
+    let Some(manager) = crate::openhuman::socket::global_socket_manager() else {
+        log::debug!("[medulla] no socket manager — dropping {event}");
+        return false;
+    };
+    match manager.emit(event, data).await {
+        Ok(()) => true,
+        Err(err) => {
+            log::warn!("[medulla] failed to emit {event}: {err}");
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

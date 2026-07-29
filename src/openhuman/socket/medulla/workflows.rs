@@ -109,7 +109,34 @@ struct BridgeState {
     generation: CancellationToken,
 }
 
+struct ConnectionGeneration {
+    current: CancellationToken,
+}
+
+impl ConnectionGeneration {
+    fn disconnected() -> Self {
+        let current = CancellationToken::new();
+        current.cancel();
+        Self { current }
+    }
+
+    fn snapshot(&self) -> CancellationToken {
+        self.current.clone()
+    }
+
+    fn begin(&mut self) {
+        self.current.cancel();
+        self.current = CancellationToken::new();
+    }
+
+    fn end(&mut self) {
+        self.current.cancel();
+        *self = Self::disconnected();
+    }
+}
+
 static BRIDGE_STATE: OnceLock<RwLock<BridgeState>> = OnceLock::new();
+static CONNECTION_GENERATION: OnceLock<RwLock<ConnectionGeneration>> = OnceLock::new();
 
 fn bridge_state() -> &'static RwLock<BridgeState> {
     BRIDGE_STATE.get_or_init(|| {
@@ -120,12 +147,35 @@ fn bridge_state() -> &'static RwLock<BridgeState> {
     })
 }
 
+fn connection_generation_state() -> &'static RwLock<ConnectionGeneration> {
+    CONNECTION_GENERATION.get_or_init(|| RwLock::new(ConnectionGeneration::disconnected()))
+}
+
 pub(super) fn bridge_generation() -> BridgeGeneration {
     let state = bridge_state().read();
     BridgeGeneration {
         bridge: state.bridge.clone(),
         cancel: state.generation.clone(),
     }
+}
+
+pub(super) fn connection_generation() -> CancellationToken {
+    connection_generation_state().read().snapshot()
+}
+
+/// Start a new authenticated-socket lifetime.
+///
+/// Called by the `ready` handler before it advertises workflows. Work received
+/// before `ready`, while reconnecting, or after a disconnect sees a cancelled
+/// generation and is discarded instead of outliving the backend waiter that
+/// sent it.
+pub(in crate::openhuman::socket) fn begin_connection_generation() {
+    connection_generation_state().write().begin();
+}
+
+/// End the current authenticated-socket lifetime and cancel its work.
+pub(in crate::openhuman::socket) fn end_connection_generation() {
+    connection_generation_state().write().end();
 }
 
 fn replace_bridge(bridge: Option<Arc<dyn WorkflowBridge>>) -> CancellationToken {
@@ -200,11 +250,13 @@ pub fn set_workflow_bridge(bridge: Arc<dyn WorkflowBridge>) {
 /// replaces a socket's whole entry on each registration and has no delete event.
 pub fn clear_workflow_bridge() {
     let generation = replace_bridge(None);
+    let connection_cancel = connection_generation();
     let revision = REGISTRATION_SEQUENCE.begin();
     tokio::spawn(async move {
         tokio::select! {
             biased;
             _ = generation.cancelled() => {}
+            _ = connection_cancel.cancelled() => {}
             _ = async move {
                 let batch = RegisterWorkflows {
                     workflows: Vec::new(),
@@ -232,6 +284,7 @@ pub fn emit_register_workflows() {
     };
     let revision = REGISTRATION_SEQUENCE.begin();
     let cancel = generation.cancel;
+    let connection_cancel = connection_generation();
     // `list()` reads the host's store, so keep it off the socket runtime; a
     // panicking bridge surfaces as a `JoinError` here instead of unwinding.
     tokio::spawn(async move {
@@ -239,6 +292,9 @@ pub fn emit_register_workflows() {
             biased;
             _ = cancel.cancelled() => {
                 log::debug!("[medulla] discarded workflow registration from an old bridge");
+            }
+            _ = connection_cancel.cancelled() => {
+                log::debug!("[medulla] discarded workflow registration from a closed socket");
             }
             _ = async move {
                 match read_batch(bridge).await {
@@ -316,11 +372,15 @@ async fn emit_batch(batch: RegisterWorkflows) -> bool {
 /// `medulla:task_run` and `orch:tool_call` already use.
 pub fn handle_workflow_request(request: WorkflowRequest) {
     let BridgeGeneration { bridge, cancel } = bridge_generation();
+    let connection_cancel = connection_generation();
     tokio::spawn(async move {
         tokio::select! {
             biased;
             _ = cancel.cancelled() => {
                 log::debug!("[medulla] discarded workflow request from an old bridge");
+            }
+            _ = connection_cancel.cancelled() => {
+                log::debug!("[medulla] discarded workflow request from a closed socket");
             }
             _ = async move {
                 let request_id = request.request_id.clone();
@@ -598,6 +658,20 @@ mod tests {
         assert!(!failed.ok);
         assert!(failed.data.is_none());
         assert_eq!(failed.error.as_deref(), Some("boom"));
+    }
+
+    #[test]
+    fn connection_generation_cancels_work_at_each_lifetime_boundary() {
+        let mut generation = ConnectionGeneration::disconnected();
+        assert!(generation.snapshot().is_cancelled());
+
+        generation.begin();
+        let connected = generation.snapshot();
+        assert!(!connected.is_cancelled());
+
+        generation.end();
+        assert!(connected.is_cancelled());
+        assert!(generation.snapshot().is_cancelled());
     }
 
     #[test]

@@ -511,11 +511,15 @@ pub fn emit_register_agents() {
 /// store, neither of which belongs on the socket read loop.
 pub fn handle_capabilities_request(request: CapabilitiesRequest) {
     let workflows::BridgeGeneration { bridge, cancel } = workflows::bridge_generation();
+    let connection_cancel = workflows::connection_generation();
     tokio::spawn(async move {
         tokio::select! {
             biased;
             _ = cancel.cancelled() => {
                 log::debug!("[medulla] discarded capability probe from an old bridge");
+            }
+            _ = connection_cancel.cancelled() => {
+                log::debug!("[medulla] discarded capability probe from a closed socket");
             }
             _ = async move {
                 let capabilities = describe_self(&request.agent_id, bridge).await;

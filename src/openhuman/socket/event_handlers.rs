@@ -59,6 +59,7 @@ pub(super) fn handle_sio_event(
     match event_name {
         "ready" => {
             log::info!("[socket] Server ready — auth successful");
+            super::medulla::workflows::begin_connection_generation();
             *shared.status.write() = ConnectionStatus::Connected;
             emit_state_change(shared);
             // Declare the device-tool manifest so the hosted brain knows which

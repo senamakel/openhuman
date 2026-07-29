@@ -702,6 +702,16 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
         .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
         .map_err(|e| e.to_string())?;
 
+    // The core process stays alive on logout. Tear down its authenticated
+    // Socket.IO transport and the user-pinned workflow bridge so neither can
+    // keep serving the signed-out account until a later reconnect.
+    if let Some(manager) = crate::openhuman::socket::global_socket_manager() {
+        if let Err(error) = manager.disconnect().await {
+            tracing::warn!(%error, "failed to disconnect backend socket on logout");
+        }
+    }
+    crate::openhuman::socket::medulla::workflows::clear_workflow_bridge();
+
     // Clear the active user marker so subsequent config loads fall back to the
     // default (unauthenticated) openhuman directory.
     if let Ok(root_dir) = default_root_openhuman_dir() {

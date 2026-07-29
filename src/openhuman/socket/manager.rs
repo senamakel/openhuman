@@ -272,6 +272,7 @@ impl SocketManager {
 
     /// Disconnect from the server and shut down the background loop.
     pub async fn disconnect(&self) -> Result<(), String> {
+        super::medulla::workflows::end_connection_generation();
         if let Some(tx) = self.shutdown_tx.lock().await.take() {
             let _ = tx.send(true);
         }

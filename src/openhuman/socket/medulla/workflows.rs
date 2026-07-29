@@ -24,12 +24,13 @@
 use std::future::Future;
 use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use futures::FutureExt;
 use parking_lot::RwLock;
 use serde_json::Value;
+use tokio_util::sync::CancellationToken;
 
 use super::payloads::{
     CopilotOutcome, RegisterWorkflows, WorkflowDescriptor, WorkflowOp, WorkflowRequest,
@@ -143,12 +144,30 @@ impl RegistrationSequencer {
 }
 
 static REGISTRATION_SEQUENCE: RegistrationSequencer = RegistrationSequencer::new();
+static REGISTRATION_GENERATION: OnceLock<RwLock<CancellationToken>> = OnceLock::new();
+
+fn registration_generation() -> &'static RwLock<CancellationToken> {
+    REGISTRATION_GENERATION.get_or_init(|| RwLock::new(CancellationToken::new()))
+}
+
+fn current_registration_generation() -> CancellationToken {
+    registration_generation().read().clone()
+}
+
+fn rotate_registration_generation() -> CancellationToken {
+    let mut current = registration_generation().write();
+    current.cancel();
+    let next = CancellationToken::new();
+    *current = next.clone();
+    next
+}
 
 /// Install (or replace) the host's workflow bridge, and advertise what it holds.
 ///
 /// Registering re-advertises immediately so a bridge installed after connect
 /// still reaches a backend that has already seen this socket's `ready`.
 pub fn set_workflow_bridge(bridge: Arc<dyn WorkflowBridge>) {
+    rotate_registration_generation();
     *BRIDGE.write() = Some(bridge);
     emit_register_workflows();
 }
@@ -157,16 +176,23 @@ pub fn set_workflow_bridge(bridge: Arc<dyn WorkflowBridge>) {
 /// nothing. Sending an empty batch is the only way to retract: the backend
 /// replaces a socket's whole entry on each registration and has no delete event.
 pub fn clear_workflow_bridge() {
+    let generation = rotate_registration_generation();
     *BRIDGE.write() = None;
     let revision = REGISTRATION_SEQUENCE.begin();
     tokio::spawn(async move {
-        let batch = RegisterWorkflows {
-            workflows: Vec::new(),
-            agent_id: None,
-        };
-        REGISTRATION_SEQUENCE
-            .emit_if_newer(revision, || emit_batch(batch))
-            .await;
+        tokio::select! {
+            biased;
+            _ = generation.cancelled() => {}
+            _ = async move {
+                let batch = RegisterWorkflows {
+                    workflows: Vec::new(),
+                    agent_id: None,
+                };
+                REGISTRATION_SEQUENCE
+                    .emit_if_newer(revision, || emit_batch(batch))
+                    .await;
+            } => {}
+        }
     });
 }
 
@@ -186,31 +212,40 @@ pub fn emit_register_workflows() {
         return;
     };
     let revision = REGISTRATION_SEQUENCE.begin();
+    let generation = current_registration_generation();
     // `list()` reads the host's store, so keep it off the socket runtime; a
     // panicking bridge surfaces as a `JoinError` here instead of unwinding.
     tokio::spawn(async move {
-        match read_batch(bridge).await {
-            Ok(batch) => {
-                let count = batch.workflows.len();
-                match REGISTRATION_SEQUENCE
-                    .emit_if_newer(revision, || emit_batch(batch))
-                    .await
-                {
-                    SequencedEmit::Emitted => {
-                        log::info!("[medulla] advertised {count} workflows to backend");
+        tokio::select! {
+            biased;
+            _ = generation.cancelled() => {
+                log::debug!("[medulla] discarded workflow registration from an old bridge");
+            }
+            _ = async move {
+                match read_batch(bridge).await {
+                    Ok(batch) => {
+                        let count = batch.workflows.len();
+                        match REGISTRATION_SEQUENCE
+                            .emit_if_newer(revision, || emit_batch(batch))
+                            .await
+                        {
+                            SequencedEmit::Emitted => {
+                                log::info!("[medulla] advertised {count} workflows to backend");
+                            }
+                            SequencedEmit::Superseded => log::debug!(
+                                "[medulla] workflow registration snapshot already superseded by a newer \
+                                 successful read — not advertising"
+                            ),
+                            SequencedEmit::Failed => {
+                                log::debug!("[medulla] workflow registration enqueue failed")
+                            }
+                        }
                     }
-                    SequencedEmit::Superseded => log::debug!(
-                        "[medulla] workflow registration snapshot already superseded by a newer \
-                         successful read — not advertising"
-                    ),
-                    SequencedEmit::Failed => {
-                        log::debug!("[medulla] workflow registration enqueue failed")
+                    Err(err) => {
+                        log::warn!("[medulla] workflow bridge list() failed — not advertising: {err}")
                     }
                 }
-            }
-            Err(err) => {
-                log::warn!("[medulla] workflow bridge list() failed — not advertising: {err}")
-            }
+            } => {}
         }
     });
 }

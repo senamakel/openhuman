@@ -21,9 +21,12 @@
 //! readable message. The only way to stay silent is for the socket to be gone,
 //! which the server already handles by retiring the waiter on disconnect.
 
+use std::future::Future;
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::FutureExt;
 use parking_lot::RwLock;
 use serde_json::Value;
 
@@ -258,9 +261,8 @@ async fn dispatch(
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
                 .ok_or_else(|| "workflow copilot requires a non-empty instruction".to_string())?;
-            let outcome = bridge
-                .copilot(instruction, request.workflow_id.as_deref())
-                .await?;
+            let turn = bridge.copilot(instruction, request.workflow_id.as_deref());
+            let outcome = catching_panics(turn).await??;
             serde_json::to_value(outcome)
                 .map_err(|err| format!("failed to serialize the copilot outcome: {err}"))
         }
@@ -292,6 +294,35 @@ where
     }
 }
 
+/// The async twin of [`blocking`]: run a bridge turn that must be awaited on the
+/// socket runtime — today only `copilot` — and map a panic inside it to an error.
+///
+/// `copilot` cannot go on a blocking thread (it is a whole agent turn, not a
+/// store read), so it does not inherit `spawn_blocking`'s `JoinError` net. Left
+/// bare, a panicking `copilot` would abort the task that owes the backend a
+/// `workflow_result` and cost it the op's whole ten-minute deadline. Caught
+/// in-place rather than on a supervised child task so cancelling the answering
+/// task still cancels the turn.
+async fn catching_panics<F, T>(turn: F) -> Result<T, String>
+where
+    F: Future<Output = T>,
+{
+    match AssertUnwindSafe(turn).catch_unwind().await {
+        Ok(value) => Ok(value),
+        Err(panic) => {
+            let reason = panic
+                .downcast_ref::<&str>()
+                .copied()
+                .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+                .unwrap_or("unknown panic");
+            log::error!("[medulla] workflow copilot panicked: {reason}");
+            Err(format!(
+                "the workflow store failed to answer: the copilot panicked: {reason}"
+            ))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,9 +330,11 @@ mod tests {
 
     /// A bridge whose every read is scripted, so the dispatch table can be
     /// exercised without a store.
+    #[derive(Default)]
     struct FakeBridge {
         fail: bool,
         panic_on_get: bool,
+        panic_on_copilot: bool,
     }
 
     #[async_trait]
@@ -342,6 +375,9 @@ mod tests {
             instruction: &str,
             workflow_id: Option<&str>,
         ) -> Result<CopilotOutcome, String> {
+            if self.panic_on_copilot {
+                panic!("copilot exploded");
+            }
             if self.fail {
                 return Err("copilot refused".into());
             }
@@ -360,7 +396,20 @@ mod tests {
     /// A scripted bridge, handed straight to `dispatch` — the tests never touch
     /// the process-global registry, so they stay order- and thread-independent.
     fn bridge_of(fail: bool, panic_on_get: bool) -> Arc<dyn WorkflowBridge> {
-        Arc::new(FakeBridge { fail, panic_on_get })
+        Arc::new(FakeBridge {
+            fail,
+            panic_on_get,
+            ..FakeBridge::default()
+        })
+    }
+
+    /// A bridge whose authoring turn panics mid-`await` — the async twin of
+    /// `panic_on_get`, and the one arm `blocking()` does not cover.
+    fn panicking_copilot_bridge() -> Arc<dyn WorkflowBridge> {
+        Arc::new(FakeBridge {
+            panic_on_copilot: true,
+            ..FakeBridge::default()
+        })
     }
 
     fn request(op: WorkflowOp) -> WorkflowRequest {
@@ -479,6 +528,23 @@ mod tests {
         assert!(outcome
             .unwrap_err()
             .starts_with("the workflow store failed to answer"));
+    }
+
+    #[tokio::test]
+    async fn a_panicking_copilot_still_answers() {
+        let mut copilot = request(WorkflowOp::Copilot);
+        copilot.instruction = Some("build a deploy flow".into());
+        let outcome = dispatch(panicking_copilot_bridge(), copilot).await;
+        // A panic inside the authoring turn must come back as an answer, not
+        // abort the task that owes the backend a frame: an unanswered copilot
+        // costs the server its whole ten-minute deadline.
+        assert!(outcome
+            .clone()
+            .unwrap_err()
+            .starts_with("the workflow store failed to answer"));
+        let frame = result_frame("r1".into(), outcome);
+        assert!(!frame.ok);
+        assert!(frame.error.is_some());
     }
 
     #[test]

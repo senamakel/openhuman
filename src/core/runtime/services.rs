@@ -146,9 +146,16 @@ pub fn spawn_flows_boot_reconcile() {
 ///
 /// Installing also advertises immediately, so ordering against the socket's
 /// `ready` handler does not matter: whichever happens second re-sends the batch.
-pub fn install_flows_workflow_bridge() {
+pub fn install_flows_workflow_bridge(_config: Option<&crate::openhuman::config::Config>) {
     #[cfg(feature = "flows")]
-    crate::openhuman::flows::medulla_bridge::install();
+    match _config {
+        Some(config) => {
+            crate::openhuman::flows::medulla_bridge::install(std::sync::Arc::new(config.clone()))
+        }
+        None => {
+            log::warn!("[flows] config unavailable — the medulla workflow plane stays unbacked")
+        }
+    }
     #[cfg(not(feature = "flows"))]
     log::debug!(
         "[flows] flows feature disabled at compile time — the medulla workflow plane stays unbacked"

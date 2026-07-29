@@ -78,9 +78,9 @@ const MEDULLA_COPILOT_HIDDEN_TOOLS: &[&str] =
 /// Called once at boot, gated on the `flows` domain being live. Installing also
 /// advertises immediately, so a core that connected before this ran still
 /// publishes its workflows.
-pub fn install() {
+pub fn install(config: Arc<Config>) {
     log::debug!("[flows] installing the medulla workflow bridge over the flows store");
-    set_workflow_bridge(Arc::new(FlowsWorkflowBridge::new()));
+    set_workflow_bridge(Arc::new(FlowsWorkflowBridge::pinned(config)));
 }
 
 /// The `flows::`-backed [`WorkflowBridge`].

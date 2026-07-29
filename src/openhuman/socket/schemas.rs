@@ -242,6 +242,18 @@ fn handle_connect_with_session(_params: Map<String, Value>) -> ControllerFuture 
             initial_token.len()
         );
 
+        // The workflow bridge and token provider must address the same
+        // user-scoped config for this connection's whole lifetime. Disconnect
+        // first so an old authenticated socket cannot race a bridge rebind
+        // during an in-process account switch.
+        mgr.disconnect().await?;
+        #[cfg(feature = "flows")]
+        if crate::core::runtime::context::CoreContext::current()
+            .is_some_and(|context| context.domains().flows)
+        {
+            crate::openhuman::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
+        }
+
         // Build a live-refresh provider: on every reconnect attempt the loop
         // calls this closure to obtain the most recently stored token, picking
         // up any rotation or re-login that happened while sleeping.

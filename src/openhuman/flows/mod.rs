@@ -6,6 +6,10 @@
 //! handful of functions re-exported below for the capability seam's
 //! [`crate::openhuman::tinyflows::caps::FlowStateStore`]); the RPC/CLI
 //! controller surface in `schemas` (private, re-exported below).
+//!
+//! [`medulla_bridge`] adapts this store onto the medulla harness protocol's
+//! workflow plane, so a remote orchestrator can read these graphs and brief the
+//! authoring copilot without any of that reaching back into `ops`.
 
 pub mod agents;
 mod build_registry;
@@ -13,6 +17,7 @@ pub mod builder_tools;
 pub mod bus;
 pub mod discovery_tools;
 mod draft_store;
+pub mod medulla_bridge;
 pub mod memory_tools;
 mod n8n_import;
 pub mod node_contracts;

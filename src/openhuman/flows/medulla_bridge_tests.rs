@@ -1,0 +1,430 @@
+use super::*;
+use crate::openhuman::config::Config;
+use serde_json::json;
+use tempfile::TempDir;
+use tinyflows::model::{Node, NodeKind};
+
+/// A config pointed at a throwaway workspace, so every test addresses its own
+/// SQLite store instead of the developer's real one.
+fn test_config(tmp: &TempDir) -> Arc<Config> {
+    let config = Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+    Arc::new(config)
+}
+
+fn node(id: &str, kind: NodeKind, name: &str, config: Value) -> Node {
+    Node {
+        id: id.to_string(),
+        kind,
+        type_version: 1,
+        name: name.to_string(),
+        config,
+        ports: Vec::new(),
+        position: None,
+    }
+}
+
+/// A minimal manual-trigger graph with one named step.
+fn graph_with_step(step_name: &str) -> WorkflowGraph {
+    WorkflowGraph {
+        nodes: vec![
+            node(
+                "t",
+                NodeKind::Trigger,
+                "Trigger",
+                json!({ "trigger_kind": "manual" }),
+            ),
+            node(
+                "s",
+                NodeKind::Code,
+                step_name,
+                json!({ "code": "return {}" }),
+            ),
+        ],
+        ..Default::default()
+    }
+}
+
+fn flow(id: &str, name: &str, graph: WorkflowGraph) -> Flow {
+    Flow {
+        id: id.to_string(),
+        name: name.to_string(),
+        enabled: true,
+        graph,
+        created_at: "2026-01-01T00:00:00Z".to_string(),
+        updated_at: "2026-01-01T00:00:00Z".to_string(),
+        last_run_at: None,
+        last_status: None,
+        require_approval: false,
+    }
+}
+
+// ── advert projection ────────────────────────────────────────────────────────
+
+#[test]
+fn describe_flow_counts_every_node_and_names_the_trigger() {
+    let descriptor = describe_flow(&flow("f1", "Deploy", graph_with_step("Ship it")));
+    assert_eq!(descriptor.id, "f1");
+    assert_eq!(descriptor.name, "Deploy");
+    // Trigger + step: the whole graph, not just the executable half.
+    assert_eq!(descriptor.node_count, 2);
+    assert_eq!(descriptor.enabled, Some(true));
+    assert_eq!(descriptor.trigger_kind.as_deref(), Some("manual"));
+    assert_eq!(descriptor.description, "on manual → Ship it");
+}
+
+#[test]
+fn a_blank_name_stays_absent_on_the_wire_rather_than_empty() {
+    let descriptor = describe_flow(&flow("f1", "   ", graph_with_step("Step")));
+    assert!(descriptor.name.is_empty());
+    let wire = serde_json::to_value(&descriptor).unwrap();
+    // The contract is an ABSENT key, not `""` — both sides treat it as optional.
+    assert!(wire.get("name").is_none(), "wire = {wire}");
+    assert_eq!(wire["nodeCount"], 2);
+}
+
+#[test]
+fn a_triggerless_graph_claims_no_trigger_kind() {
+    let graph = WorkflowGraph {
+        nodes: vec![node("s", NodeKind::Code, "Step", json!({}))],
+        ..Default::default()
+    };
+    let descriptor = describe_flow(&flow("f1", "Orphan", graph));
+    assert_eq!(descriptor.trigger_kind, None);
+    assert_eq!(descriptor.description, "no trigger → Step");
+}
+
+#[test]
+fn a_long_graph_description_is_truncated() {
+    let nodes = (0..80)
+        .map(|i| {
+            node(
+                &format!("s{i}"),
+                NodeKind::Code,
+                "A fairly long step name",
+                json!({}),
+            )
+        })
+        .collect();
+    let descriptor = describe_flow(&flow(
+        "f1",
+        "Big",
+        WorkflowGraph {
+            nodes,
+            ..Default::default()
+        },
+    ));
+    assert_eq!(
+        descriptor.description.chars().count(),
+        MAX_DESCRIPTION_CHARS + 1
+    );
+    assert!(descriptor.description.ends_with('…'));
+}
+
+// ── node kinds ───────────────────────────────────────────────────────────────
+
+#[test]
+fn node_kinds_renders_the_catalog_in_the_ports_camel_case_shape() {
+    let bridge = FlowsWorkflowBridge::new();
+    let all = bridge.node_kinds(None).unwrap();
+    let kinds = all["kinds"].as_array().unwrap();
+    assert_eq!(kinds.len(), NODE_KINDS.len());
+    // `configFields`, not `config_fields`: the backend spreads this object onto
+    // the port type, so a snake_case key would miss the field entirely.
+    assert!(kinds[0].get("configFields").is_some());
+    assert!(kinds[0].get("config_fields").is_none());
+
+    let one = bridge.node_kinds(Some("agent")).unwrap();
+    assert_eq!(one["kinds"].as_array().unwrap().len(), 1);
+    assert_eq!(one["kinds"][0]["kind"], "agent");
+}
+
+#[test]
+fn an_unknown_node_kind_reports_the_real_ones() {
+    let err = FlowsWorkflowBridge::new()
+        .node_kinds(Some("teleport"))
+        .unwrap_err();
+    assert!(err.contains("teleport"), "{err}");
+    assert!(err.contains("tool_call"), "{err}");
+}
+
+#[test]
+fn a_blank_kind_filter_means_the_whole_catalog() {
+    let bridge = FlowsWorkflowBridge::new();
+    assert_eq!(
+        bridge.node_kinds(Some("  ")).unwrap(),
+        bridge.node_kinds(None).unwrap()
+    );
+}
+
+// ── run projection ───────────────────────────────────────────────────────────
+
+#[test]
+fn run_json_emits_epoch_millis_and_omits_what_it_cannot_read() {
+    let run = super::super::types::FlowRun {
+        id: "r1".to_string(),
+        flow_id: "f1".to_string(),
+        thread_id: "r1".to_string(),
+        status: "completed".to_string(),
+        started_at: "2026-01-01T00:00:00Z".to_string(),
+        finished_at: Some("not a timestamp".to_string()),
+        steps: Vec::new(),
+        pending_approvals: Vec::new(),
+        error: None,
+    };
+    let value = run_json(&run);
+    assert_eq!(value["id"], "r1");
+    assert_eq!(value["workflowId"], "f1");
+    assert_eq!(value["startedAt"], 1_767_225_600_000_i64);
+    // An unreadable stamp is absent, never `0` — that would read as 1970.
+    assert!(value.get("finishedAt").is_none(), "{value}");
+    assert!(value.get("error").is_none(), "{value}");
+    // The step-by-step payload belongs to the run inspector, not to this read.
+    assert!(value.get("steps").is_none(), "{value}");
+}
+
+// ── the store reads, over a real SQLite store ────────────────────────────────
+
+/// Drive a synchronous bridge read the way the transport does — from a blocking
+/// thread — since that is the only context its `block_on` is legal in.
+async fn off_runtime<T, F>(read: F) -> T
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    tokio::task::spawn_blocking(read).await.unwrap()
+}
+
+#[tokio::test]
+async fn list_and_get_answer_out_of_the_real_store() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = ops::flows_create(
+        &config,
+        "Deploy".to_string(),
+        serde_json::to_value(graph_with_step("Ship it")).unwrap(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
+
+    let bridge = Arc::new(FlowsWorkflowBridge::pinned(Arc::clone(&config)));
+
+    let listed = off_runtime({
+        let bridge = Arc::clone(&bridge);
+        move || bridge.list()
+    })
+    .await;
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, created.id);
+    assert_eq!(listed[0].node_count, 2);
+
+    let id = created.id.clone();
+    let detail = off_runtime({
+        let bridge = Arc::clone(&bridge);
+        move || bridge.get(&id)
+    })
+    .await
+    .unwrap();
+    // The graph crosses whole and opaque — nothing above this parses it.
+    assert_eq!(detail["id"], created.id);
+    assert!(detail["graph"]["nodes"].as_array().unwrap().len() == 2);
+}
+
+#[tokio::test]
+async fn an_unknown_id_is_a_readable_error_not_an_empty_answer() {
+    let tmp = TempDir::new().unwrap();
+    let bridge = Arc::new(FlowsWorkflowBridge::pinned(test_config(&tmp)));
+    let err = off_runtime(move || bridge.get("nope")).await.unwrap_err();
+    assert!(err.contains("nope"), "{err}");
+}
+
+#[tokio::test]
+async fn runs_answers_with_an_empty_window_for_a_flow_that_never_ran() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = ops::flows_create(
+        &config,
+        "Deploy".to_string(),
+        serde_json::to_value(graph_with_step("Ship it")).unwrap(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
+    let bridge = Arc::new(FlowsWorkflowBridge::pinned(config));
+    let runs = off_runtime(move || bridge.runs(&created.id)).await.unwrap();
+    assert_eq!(runs["runs"], json!([]));
+}
+
+// ── persisting a proposal ────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn a_created_workflow_always_requires_approval() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let proposal = json!({
+        "name": "Remote build",
+        "graph": serde_json::to_value(graph_with_step("Ship it")).unwrap(),
+        // The proposal's own answer is deliberately ignored on this path.
+        "require_approval": false,
+    });
+
+    let id = apply_proposal(&config, None, &proposal)
+        .await
+        .unwrap()
+        .expect("a create reports its new id");
+    let saved = ops::flows_get(&config, &id).await.unwrap().value;
+    assert_eq!(saved.name, "Remote build");
+    assert!(
+        saved.require_approval,
+        "a remotely authored workflow must still park its outbound actions"
+    );
+}
+
+#[tokio::test]
+async fn an_update_cannot_lower_the_approval_requirement() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = ops::flows_create(
+        &config,
+        "Deploy".to_string(),
+        serde_json::to_value(graph_with_step("Ship it")).unwrap(),
+        true,
+    )
+    .await
+    .unwrap()
+    .value;
+
+    let proposal = json!({
+        "name": "Deploy v2",
+        "graph": serde_json::to_value(graph_with_step("Ship it twice")).unwrap(),
+        "require_approval": false,
+    });
+    assert_eq!(
+        apply_proposal(&config, Some(&created.id), &proposal)
+            .await
+            .unwrap(),
+        None,
+        "an update creates nothing"
+    );
+
+    let saved = ops::flows_get(&config, &created.id).await.unwrap().value;
+    assert_eq!(saved.name, "Deploy v2");
+    assert!(
+        saved.require_approval,
+        "the user's approval requirement survives a remote turn"
+    );
+}
+
+#[tokio::test]
+async fn a_proposal_without_a_graph_is_refused() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let err = apply_proposal(&config, None, &json!({ "name": "Nothing" }))
+        .await
+        .unwrap_err();
+    assert!(err.contains("no graph"), "{err}");
+}
+
+// ── the accountability diff ──────────────────────────────────────────────────
+
+#[test]
+fn diff_reports_a_creation_with_its_size() {
+    let after = vec![flow("f1", "Deploy", graph_with_step("Ship it"))];
+    let changes = diff_flows(&[], &after);
+    assert_eq!(changes.len(), 1);
+    assert!(
+        changes[0].contains("created workflow \"Deploy\" (f1)"),
+        "{changes:?}"
+    );
+    assert!(changes[0].contains("2 node(s)"), "{changes:?}");
+}
+
+#[test]
+fn diff_reports_a_rewrite_a_rename_and_a_deletion() {
+    let before = vec![
+        flow("f1", "Deploy", graph_with_step("Ship it")),
+        flow("f2", "Doomed", graph_with_step("Step")),
+    ];
+    let mut renamed = flow("f1", "Deploy v2", graph_with_step("Ship it faster"));
+    renamed.enabled = false;
+    let changes = diff_flows(&before, &[renamed]);
+
+    assert!(
+        changes
+            .iter()
+            .any(|line| line.contains("renamed workflow f1")),
+        "{changes:?}"
+    );
+    assert!(
+        changes
+            .iter()
+            .any(|line| line.contains("rewrote the graph")),
+        "{changes:?}"
+    );
+    assert!(
+        changes
+            .iter()
+            .any(|line| line.starts_with("disabled workflow")),
+        "{changes:?}"
+    );
+    assert!(
+        changes
+            .iter()
+            .any(|line| line.contains("deleted workflow \"Doomed\" (f2)")),
+        "{changes:?}"
+    );
+}
+
+#[test]
+fn a_turn_that_changed_nothing_claims_nothing() {
+    let flows = vec![flow("f1", "Deploy", graph_with_step("Ship it"))];
+    // The whole point: the agent's account of its turn cannot inflate this.
+    assert!(diff_flows(&flows, &flows).is_empty());
+}
+
+#[test]
+fn diff_reports_an_approval_requirement_change() {
+    let before = vec![flow("f1", "Deploy", graph_with_step("Ship it"))];
+    let mut after = before.clone();
+    after[0].require_approval = true;
+    let changes = diff_flows(&before, &after);
+    assert_eq!(changes.len(), 1);
+    assert!(changes[0].contains("now requires approval"), "{changes:?}");
+}
+
+// ── the copilot turn's request shaping ───────────────────────────────────────
+
+#[test]
+fn naming_no_workflow_briefs_a_create() {
+    let request = builder_request("build a deploy flow", None, &[]).unwrap();
+    assert_eq!(request.mode, BuildMode::Create);
+    assert!(request.graph.is_none());
+    assert!(request.flow_id.is_none());
+    assert_eq!(request.instruction, "build a deploy flow");
+}
+
+#[test]
+fn naming_a_workflow_briefs_a_revise_of_that_exact_graph() {
+    let flows = vec![flow("f1", "Deploy", graph_with_step("Ship it"))];
+    let request = builder_request("add a retry", Some("f1"), &flows).unwrap();
+    assert_eq!(request.mode, BuildMode::Revise);
+    assert_eq!(request.flow_id.as_deref(), Some("f1"));
+    assert_eq!(
+        request.graph.unwrap(),
+        serde_json::to_value(&flows[0].graph).unwrap()
+    );
+}
+
+#[test]
+fn an_unknown_workflow_id_fails_rather_than_silently_creating_a_second_one() {
+    let err = builder_request("add a retry", Some("ghost"), &[]).unwrap_err();
+    assert!(err.contains("ghost"), "{err}");
+}

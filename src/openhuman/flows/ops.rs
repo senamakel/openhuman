@@ -3737,6 +3737,14 @@ fn publish_flow_changed(flow_id: &str, kind: &str, actor: &str) {
         kind: kind.to_string(),
         actor: actor.to_string(),
     });
+    // Re-advertise the workflow set to the medulla backend. This is the single
+    // funnel every store mutation passes through (create / update / delete /
+    // enable), and the backend replaces a socket's whole entry on each
+    // registration — so re-sending here is what keeps a remote orchestrator from
+    // reasoning about a set that no longer exists. A no-op (one debug log, no
+    // task spawned) when no bridge is installed, which is every build that is
+    // not talking to a backend, and every test.
+    crate::openhuman::socket::medulla::workflows::emit_register_workflows();
 }
 
 /// Maps a store-level [`FlowUpdateError`](store::FlowUpdateError) to the RPC

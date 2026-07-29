@@ -27,12 +27,13 @@
 //! so nothing authored over this plane can start firing on its own.
 //!
 //! **Why the outcome is diffed, not reported.** [`WorkflowBridge::copilot`]'s
-//! `changes` are computed by [`diff_flows`] over a listing taken before the turn
-//! and a second one taken after it — never from what the agent said it did. That
-//! is the whole reason medulla-v1 forwards the outcome verbatim instead of
+//! `changes` are computed by [`diff_workflow`] over the workflow this turn
+//! successfully persisted, using listings taken before and after the turn —
+//! never from what the agent said it did. Scoping the diff matters because a
+//! copilot turn can run for minutes while a user edits unrelated workflows.
+//! That is the whole reason medulla-v1 forwards the outcome verbatim instead of
 //! re-deriving it: the claim that reaches the orchestrator is a statement about
-//! the store, made by the store's owner. openhuman had no before/after flow diff
-//! before this module, so [`diff_flows`] is new here.
+//! the store, made by the store's owner.
 //!
 //! **Threading.** The three reads are synchronous on the trait but every
 //! `flows::` op is `async`, so they bridge with a `Handle::block_on` — legal
@@ -139,22 +140,22 @@ impl Default for FlowsWorkflowBridge {
 #[async_trait]
 impl WorkflowBridge for FlowsWorkflowBridge {
     fn list(&self) -> Vec<WorkflowDescriptor> {
-        match self.on_store(|config| async move {
-            ops::flows_list(&config)
-                .await
-                .map(|outcome| outcome.value)
-                .map(|flows| flows.iter().map(describe_flow).collect::<Vec<_>>())
-        }) {
+        match self.try_list() {
             Ok(descriptors) => descriptors,
             Err(err) => {
-                // `list` has no error channel — it is an advert, and a failed
-                // read must not be published as "this host has no workflows".
-                // Log it and advertise nothing this round; the next store change
-                // or reconnect re-advertises.
                 log::warn!("[flows] medulla bridge could not list workflows: {err}");
                 Vec::new()
             }
         }
+    }
+
+    fn try_list(&self) -> Result<Vec<WorkflowDescriptor>, String> {
+        self.on_store(|config| async move {
+            ops::flows_list(&config)
+                .await
+                .map(|outcome| outcome.value)
+                .map(|flows| flows.iter().map(describe_flow).collect::<Vec<_>>())
+        })
     }
 
     fn get(&self, id: &str) -> Result<Value, String> {
@@ -205,6 +206,12 @@ impl WorkflowBridge for FlowsWorkflowBridge {
         let config = self.config().await?;
         let before = ops::flows_list(&config).await?.value;
         let request = builder_request(instruction, workflow_id, &before)?;
+        let expected_version = workflow_id.and_then(|id| {
+            before
+                .iter()
+                .find(|flow| flow.id == id)
+                .map(|flow| flow.updated_at.as_str())
+        });
 
         // Headless: no chat thread to stream into, so the turn runs under the
         // CLI origin with the full run-advancing hide-list — a remote authoring
@@ -217,9 +224,14 @@ impl WorkflowBridge for FlowsWorkflowBridge {
             .to_string();
 
         let mut created = None;
+        let mut affected_workflow_id = None;
         if let Some(proposal) = built.get("proposal").filter(|value| !value.is_null()) {
-            match apply_proposal(&config, workflow_id, proposal).await {
-                Ok(id) => created = id,
+            match apply_proposal(&config, workflow_id, proposal, expected_version).await {
+                Ok(id) => {
+                    created = id;
+                    affected_workflow_id =
+                        workflow_id.map(str::to_string).or_else(|| created.clone());
+                }
                 // The turn happened and its reply is worth returning; only the
                 // save failed. Say so in the reply rather than discarding the
                 // whole outcome — and let the diff below report (truthfully)
@@ -234,7 +246,10 @@ impl WorkflowBridge for FlowsWorkflowBridge {
         let after = ops::flows_list(&config).await?.value;
         Ok(CopilotOutcome {
             reply,
-            changes: diff_flows(&before, &after),
+            changes: affected_workflow_id
+                .as_deref()
+                .map(|id| diff_workflow(&before, &after, id))
+                .unwrap_or_default(),
             // Only claim a creation the store actually holds.
             created: created.filter(|id| after.iter().any(|flow| &flow.id == id)),
         })
@@ -394,6 +409,7 @@ async fn apply_proposal(
     config: &Config,
     workflow_id: Option<&str>,
     proposal: &Value,
+    expected_version: Option<&str>,
 ) -> Result<Option<String>, String> {
     let graph = proposal
         .get("graph")
@@ -412,7 +428,15 @@ async fn apply_proposal(
                 .map(str::trim)
                 .filter(|name| !name.is_empty())
                 .map(str::to_string);
-            ops::flows_update(config, id, name, Some(graph), None, None).await?;
+            ops::flows_update(
+                config,
+                id,
+                name,
+                Some(graph),
+                None,
+                expected_version.map(str::to_string),
+            )
+            .await?;
             Ok(None)
         }
         None => {
@@ -489,6 +513,25 @@ fn diff_flows(before: &[Flow], after: &[Flow]) -> Vec<String> {
     }
 
     changes
+}
+
+/// Diff only the workflow this copilot turn successfully persisted.
+///
+/// A turn may overlap arbitrary user edits elsewhere in the store. Those edits
+/// are real, but they are not attributable to this turn and must not be claimed
+/// in its result.
+fn diff_workflow(before: &[Flow], after: &[Flow], workflow_id: &str) -> Vec<String> {
+    let before: Vec<Flow> = before
+        .iter()
+        .filter(|flow| flow.id == workflow_id)
+        .cloned()
+        .collect();
+    let after: Vec<Flow> = after
+        .iter()
+        .filter(|flow| flow.id == workflow_id)
+        .cloned()
+        .collect();
+    diff_flows(&before, &after)
 }
 
 #[cfg(test)]

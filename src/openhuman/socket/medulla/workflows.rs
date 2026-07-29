@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::FutureExt;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use serde_json::Value;
 
 use super::payloads::{
@@ -50,6 +50,15 @@ pub trait WorkflowBridge: Send + Sync {
     /// The adverts this host publishes. Cheap and side-effect free — it is
     /// called on every (re)connect and on every store change.
     fn list(&self) -> Vec<WorkflowDescriptor>;
+
+    /// Fallible advert read used by registration.
+    ///
+    /// The default preserves compatibility for hosts whose list cannot fail.
+    /// Store-backed hosts override it so a transient read failure does not look
+    /// like a successful empty replacement batch.
+    fn try_list(&self) -> Result<Vec<WorkflowDescriptor>, String> {
+        Ok(self.list())
+    }
 
     /// One workflow's detail, graph included, as the host's own JSON shape.
     fn get(&self, id: &str) -> Result<Value, String>;
@@ -85,6 +94,42 @@ pub trait WorkflowBridge: Send + Sync {
 /// store is initialized lazily), and tests need to swap it.
 static BRIDGE: RwLock<Option<Arc<dyn WorkflowBridge>>> = RwLock::new(None);
 
+/// Coalesces overlapping snapshot reads onto the newest registration request.
+///
+/// Reads stay concurrent and off the socket runtime, but only the newest
+/// requested snapshot may emit. The mutex makes "is this current?" plus the
+/// synchronous socket emit one ordered operation: a newer request either
+/// invalidates an older snapshot before it emits, or follows its emit and will
+/// replace it afterward.
+struct RegistrationSequencer {
+    current: Mutex<u64>,
+}
+
+impl RegistrationSequencer {
+    const fn new() -> Self {
+        Self {
+            current: Mutex::new(0),
+        }
+    }
+
+    fn begin(&self) -> u64 {
+        let mut current = self.current.lock();
+        *current = current.wrapping_add(1);
+        *current
+    }
+
+    fn emit_if_current(&self, revision: u64, emit: impl FnOnce()) -> bool {
+        let current = self.current.lock();
+        if *current != revision {
+            return false;
+        }
+        emit();
+        true
+    }
+}
+
+static REGISTRATION_SEQUENCE: RegistrationSequencer = RegistrationSequencer::new();
+
 /// Install (or replace) the host's workflow bridge, and advertise what it holds.
 ///
 /// Registering re-advertises immediately so a bridge installed after connect
@@ -99,9 +144,12 @@ pub fn set_workflow_bridge(bridge: Arc<dyn WorkflowBridge>) {
 /// replaces a socket's whole entry on each registration and has no delete event.
 pub fn clear_workflow_bridge() {
     *BRIDGE.write() = None;
-    emit_batch(RegisterWorkflows {
-        workflows: Vec::new(),
-        agent_id: None,
+    let revision = REGISTRATION_SEQUENCE.begin();
+    REGISTRATION_SEQUENCE.emit_if_current(revision, || {
+        emit_batch(RegisterWorkflows {
+            workflows: Vec::new(),
+            agent_id: None,
+        });
     });
 }
 
@@ -120,18 +168,27 @@ pub fn emit_register_workflows() {
         log::debug!("[medulla] no workflow bridge installed — not advertising workflows");
         return;
     };
+    let revision = REGISTRATION_SEQUENCE.begin();
     // `list()` reads the host's store, so keep it off the socket runtime; a
     // panicking bridge surfaces as a `JoinError` here instead of unwinding.
     tokio::spawn(async move {
         match read_batch(bridge).await {
-            Some(batch) => {
-                log::info!(
-                    "[medulla] advertising {} workflows to backend",
-                    batch.workflows.len()
-                );
-                emit_batch(batch);
+            Ok(batch) => {
+                if !REGISTRATION_SEQUENCE.emit_if_current(revision, || {
+                    log::info!(
+                        "[medulla] advertising {} workflows to backend",
+                        batch.workflows.len()
+                    );
+                    emit_batch(batch);
+                }) {
+                    log::debug!(
+                        "[medulla] superseded workflow registration snapshot — not advertising"
+                    );
+                }
             }
-            None => log::warn!("[medulla] workflow bridge list() failed — not advertising"),
+            Err(err) => {
+                log::warn!("[medulla] workflow bridge list() failed — not advertising: {err}")
+            }
         }
     });
 }
@@ -150,16 +207,20 @@ pub async fn advertised_workflows() -> Vec<WorkflowDescriptor> {
         .unwrap_or_default()
 }
 
-/// Read one advert batch off the bridge on a blocking thread. `None` when the
-/// bridge panicked or its thread was cancelled — never a partial batch.
-async fn read_batch(bridge: Arc<dyn WorkflowBridge>) -> Option<RegisterWorkflows> {
-    tokio::task::spawn_blocking(move || RegisterWorkflows {
-        workflows: bridge.list(),
-        agent_id: bridge.agent_id(),
+/// Read one advert batch off the bridge on a blocking thread. An error or panic
+/// remains a failed read — never an empty replacement or a partial batch.
+async fn read_batch(bridge: Arc<dyn WorkflowBridge>) -> Result<RegisterWorkflows, String> {
+    match tokio::task::spawn_blocking(move || {
+        Ok(RegisterWorkflows {
+            workflows: bridge.try_list()?,
+            agent_id: bridge.agent_id(),
+        })
     })
     .await
-    .map_err(|err| log::warn!("[medulla] workflow bridge list() failed: {err}"))
-    .ok()
+    {
+        Ok(batch) => batch,
+        Err(err) => Err(format!("the workflow store failed to list: {err}")),
+    }
 }
 
 fn emit_batch(batch: RegisterWorkflows) {
@@ -333,6 +394,7 @@ mod tests {
     #[derive(Default)]
     struct FakeBridge {
         fail: bool,
+        fail_list: bool,
         panic_on_get: bool,
         panic_on_copilot: bool,
     }
@@ -350,6 +412,13 @@ mod tests {
                 agent_id: None,
                 workspace_id: None,
             }]
+        }
+
+        fn try_list(&self) -> Result<Vec<WorkflowDescriptor>, String> {
+            if self.fail_list {
+                return Err("store unavailable".into());
+            }
+            Ok(self.list())
         }
 
         fn get(&self, id: &str) -> Result<Value, String> {
@@ -516,6 +585,30 @@ mod tests {
             dispatch(bridge, copilot).await,
             Err("copilot refused".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn a_list_error_is_not_converted_to_an_empty_registration() {
+        let bridge: Arc<dyn WorkflowBridge> = Arc::new(FakeBridge {
+            fail_list: true,
+            ..FakeBridge::default()
+        });
+        assert_eq!(
+            read_batch(bridge).await.unwrap_err(),
+            "store unavailable".to_string()
+        );
+    }
+
+    #[test]
+    fn a_newer_registration_suppresses_an_older_snapshot() {
+        let sequencer = RegistrationSequencer::new();
+        let older = sequencer.begin();
+        let newer = sequencer.begin();
+        let emitted = std::sync::Mutex::new(Vec::new());
+
+        assert!(!sequencer.emit_if_current(older, || emitted.lock().unwrap().push("older")));
+        assert!(sequencer.emit_if_current(newer, || emitted.lock().unwrap().push("newer")));
+        assert_eq!(*emitted.lock().unwrap(), vec!["newer"]);
     }
 
     #[tokio::test]

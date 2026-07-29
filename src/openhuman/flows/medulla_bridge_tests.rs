@@ -276,7 +276,7 @@ async fn a_created_workflow_always_requires_approval() {
         "require_approval": false,
     });
 
-    let id = apply_proposal(&config, None, &proposal)
+    let id = apply_proposal(&config, None, &proposal, None)
         .await
         .unwrap()
         .expect("a create reports its new id");
@@ -308,9 +308,14 @@ async fn an_update_cannot_lower_the_approval_requirement() {
         "require_approval": false,
     });
     assert_eq!(
-        apply_proposal(&config, Some(&created.id), &proposal)
-            .await
-            .unwrap(),
+        apply_proposal(
+            &config,
+            Some(&created.id),
+            &proposal,
+            Some(&created.updated_at),
+        )
+        .await
+        .unwrap(),
         None,
         "an update creates nothing"
     );
@@ -327,10 +332,53 @@ async fn an_update_cannot_lower_the_approval_requirement() {
 async fn a_proposal_without_a_graph_is_refused() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let err = apply_proposal(&config, None, &json!({ "name": "Nothing" }))
+    let err = apply_proposal(&config, None, &json!({ "name": "Nothing" }), None)
         .await
         .unwrap_err();
     assert!(err.contains("no graph"), "{err}");
+}
+
+#[tokio::test]
+async fn an_update_refuses_to_overwrite_a_concurrent_edit() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = ops::flows_create(
+        &config,
+        "Deploy".to_string(),
+        serde_json::to_value(graph_with_step("Ship it")).unwrap(),
+        true,
+    )
+    .await
+    .unwrap()
+    .value;
+
+    ops::flows_update(
+        &config,
+        &created.id,
+        Some("User edit".to_string()),
+        None,
+        None,
+        Some(created.updated_at.clone()),
+    )
+    .await
+    .unwrap();
+
+    let proposal = json!({
+        "name": "Copilot edit",
+        "graph": serde_json::to_value(graph_with_step("Ship it twice")).unwrap(),
+    });
+    let err = apply_proposal(
+        &config,
+        Some(&created.id),
+        &proposal,
+        Some(&created.updated_at),
+    )
+    .await
+    .unwrap_err();
+    assert!(err.contains("conflict"), "{err}");
+
+    let saved = ops::flows_get(&config, &created.id).await.unwrap().value;
+    assert_eq!(saved.name, "User edit");
 }
 
 // ── the accountability diff ──────────────────────────────────────────────────
@@ -398,6 +446,41 @@ fn diff_reports_an_approval_requirement_change() {
     let changes = diff_flows(&before, &after);
     assert_eq!(changes.len(), 1);
     assert!(changes[0].contains("now requires approval"), "{changes:?}");
+}
+
+#[test]
+fn scoped_diff_excludes_concurrent_changes_to_other_workflows() {
+    let before = vec![
+        flow("target", "Deploy", graph_with_step("Ship it")),
+        flow("other", "Unrelated", graph_with_step("Before")),
+    ];
+    let after = vec![
+        flow("target", "Deploy v2", graph_with_step("Ship it twice")),
+        flow("other", "User edit", graph_with_step("After")),
+        flow("new", "Also user-created", graph_with_step("Step")),
+    ];
+
+    let changes = diff_workflow(&before, &after, "target");
+    assert!(
+        changes.iter().all(|line| !line.contains("other")
+            && !line.contains("Unrelated")
+            && !line.contains("User edit")
+            && !line.contains("new")
+            && !line.contains("Also user-created")),
+        "{changes:?}"
+    );
+    assert!(
+        changes
+            .iter()
+            .any(|line| line.contains("renamed workflow target")),
+        "{changes:?}"
+    );
+    assert!(
+        changes
+            .iter()
+            .any(|line| line.contains("rewrote the graph")),
+        "{changes:?}"
+    );
 }
 
 // ── the copilot turn's request shaping ───────────────────────────────────────

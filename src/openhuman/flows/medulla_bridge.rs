@@ -147,6 +147,12 @@ impl Default for FlowsWorkflowBridge {
 
 #[async_trait]
 impl WorkflowBridge for FlowsWorkflowBridge {
+    fn action_dir(&self) -> Option<String> {
+        self.config
+            .as_ref()
+            .map(|config| config.action_dir.display().to_string())
+    }
+
     fn list(&self) -> Vec<WorkflowDescriptor> {
         match self.try_list() {
             Ok(descriptors) => descriptors,

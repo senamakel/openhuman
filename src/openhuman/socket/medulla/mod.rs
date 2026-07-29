@@ -510,15 +510,25 @@ pub fn emit_register_agents() {
 /// Runs on its own task: building the report loads config and reads the workflow
 /// store, neither of which belongs on the socket read loop.
 pub fn handle_capabilities_request(request: CapabilitiesRequest) {
+    let workflows::BridgeGeneration { bridge, cancel } = workflows::bridge_generation();
     tokio::spawn(async move {
-        let capabilities = describe_self(&request.agent_id).await;
-        emit(
-            EVENT_CAPABILITIES_RESULT,
-            CapabilitiesResult {
-                probe_id: request.probe_id,
-                capabilities,
-            },
-        );
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                log::debug!("[medulla] discarded capability probe from an old bridge");
+            }
+            _ = async move {
+                let capabilities = describe_self(&request.agent_id, bridge).await;
+                emit_awaited(
+                    EVENT_CAPABILITIES_RESULT,
+                    CapabilitiesResult {
+                        probe_id: request.probe_id,
+                        capabilities,
+                    },
+                )
+                .await;
+            } => {}
+        }
     });
 }
 
@@ -569,7 +579,10 @@ fn unparsed_capabilities_result(
 /// sending — anything else is dropped there — and each is best-effort: a field
 /// this host cannot resolve is omitted rather than guessed, because the
 /// orchestrator reasons about placement from these values.
-async fn describe_self(agent_id: &str) -> serde_json::Value {
+async fn describe_self(
+    agent_id: &str,
+    bridge: Option<Arc<dyn workflows::WorkflowBridge>>,
+) -> serde_json::Value {
     let mut caps = serde_json::Map::new();
     // Advisory readiness. A connected core that answered the probe at all is
     // ready by definition; per-agent gating lives in the task path, not here.
@@ -586,19 +599,13 @@ async fn describe_self(agent_id: &str) -> serde_json::Value {
 
     // `cwd` is the agent's read/write root (`action_dir`), which is what the
     // orchestrator actually means by "where does this agent work".
-    match crate::openhuman::config::rpc::load_config_with_timeout().await {
-        Ok(config) => {
-            caps.insert(
-                "cwd".to_string(),
-                config.action_dir.display().to_string().into(),
-            );
-        }
-        Err(err) => log::debug!("[medulla] capability probe could not read config: {err}"),
+    if let Some(action_dir) = bridge.as_ref().and_then(|bridge| bridge.action_dir()) {
+        caps.insert("cwd".to_string(), action_dir.into());
     }
 
     // The workflow adverts ride the probe as well as the push registration, so a
     // backend that only probes still learns this host's graphs.
-    let workflows = workflows::advertised_workflows().await;
+    let workflows = workflows::advertised_workflows_for(bridge).await;
     if !workflows.is_empty() {
         match serde_json::to_value(workflows) {
             Ok(value) => {

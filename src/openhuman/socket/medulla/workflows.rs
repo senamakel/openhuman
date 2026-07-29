@@ -89,12 +89,53 @@ pub trait WorkflowBridge: Send + Sync {
     fn agent_id(&self) -> Option<String> {
         None
     }
+
+    /// The action directory associated with this bridge's authenticated
+    /// identity, when the host has one. Capability probes use this instead of
+    /// reloading process-global active-user state.
+    fn action_dir(&self) -> Option<String> {
+        None
+    }
 }
 
-/// The installed bridge. A plain `RwLock<Option<_>>` rather than a `OnceLock`
-/// because a host may install its bridge after the socket is already up (the
-/// store is initialized lazily), and tests need to swap it.
-static BRIDGE: RwLock<Option<Arc<dyn WorkflowBridge>>> = RwLock::new(None);
+#[derive(Clone)]
+pub(super) struct BridgeGeneration {
+    pub(super) bridge: Option<Arc<dyn WorkflowBridge>>,
+    pub(super) cancel: CancellationToken,
+}
+
+struct BridgeState {
+    bridge: Option<Arc<dyn WorkflowBridge>>,
+    generation: CancellationToken,
+}
+
+static BRIDGE_STATE: OnceLock<RwLock<BridgeState>> = OnceLock::new();
+
+fn bridge_state() -> &'static RwLock<BridgeState> {
+    BRIDGE_STATE.get_or_init(|| {
+        RwLock::new(BridgeState {
+            bridge: None,
+            generation: CancellationToken::new(),
+        })
+    })
+}
+
+pub(super) fn bridge_generation() -> BridgeGeneration {
+    let state = bridge_state().read();
+    BridgeGeneration {
+        bridge: state.bridge.clone(),
+        cancel: state.generation.clone(),
+    }
+}
+
+fn replace_bridge(bridge: Option<Arc<dyn WorkflowBridge>>) -> CancellationToken {
+    let mut state = bridge_state().write();
+    state.generation.cancel();
+    let generation = CancellationToken::new();
+    state.bridge = bridge;
+    state.generation = generation.clone();
+    generation
+}
 
 /// Orders overlapping snapshot emissions by successful registration revision.
 ///
@@ -144,31 +185,13 @@ impl RegistrationSequencer {
 }
 
 static REGISTRATION_SEQUENCE: RegistrationSequencer = RegistrationSequencer::new();
-static REGISTRATION_GENERATION: OnceLock<RwLock<CancellationToken>> = OnceLock::new();
-
-fn registration_generation() -> &'static RwLock<CancellationToken> {
-    REGISTRATION_GENERATION.get_or_init(|| RwLock::new(CancellationToken::new()))
-}
-
-fn current_registration_generation() -> CancellationToken {
-    registration_generation().read().clone()
-}
-
-fn rotate_registration_generation() -> CancellationToken {
-    let mut current = registration_generation().write();
-    current.cancel();
-    let next = CancellationToken::new();
-    *current = next.clone();
-    next
-}
 
 /// Install (or replace) the host's workflow bridge, and advertise what it holds.
 ///
 /// Registering re-advertises immediately so a bridge installed after connect
 /// still reaches a backend that has already seen this socket's `ready`.
 pub fn set_workflow_bridge(bridge: Arc<dyn WorkflowBridge>) {
-    rotate_registration_generation();
-    *BRIDGE.write() = Some(bridge);
+    replace_bridge(Some(bridge));
     emit_register_workflows();
 }
 
@@ -176,8 +199,7 @@ pub fn set_workflow_bridge(bridge: Arc<dyn WorkflowBridge>) {
 /// nothing. Sending an empty batch is the only way to retract: the backend
 /// replaces a socket's whole entry on each registration and has no delete event.
 pub fn clear_workflow_bridge() {
-    let generation = rotate_registration_generation();
-    *BRIDGE.write() = None;
+    let generation = replace_bridge(None);
     let revision = REGISTRATION_SEQUENCE.begin();
     tokio::spawn(async move {
         tokio::select! {
@@ -196,10 +218,6 @@ pub fn clear_workflow_bridge() {
     });
 }
 
-fn bridge() -> Option<Arc<dyn WorkflowBridge>> {
-    BRIDGE.read().clone()
-}
-
 /// Emit `medulla:register_workflows` — the advert batch, sent on connect and
 /// whenever the host signals its workflow set changed.
 ///
@@ -207,18 +225,19 @@ fn bridge() -> Option<Arc<dyn WorkflowBridge>> {
 /// "I have no workflow plane" and "my store is empty" are different claims, and
 /// only the second one should clear a previously registered set.
 pub fn emit_register_workflows() {
-    let Some(bridge) = bridge() else {
+    let generation = bridge_generation();
+    let Some(bridge) = generation.bridge else {
         log::debug!("[medulla] no workflow bridge installed — not advertising workflows");
         return;
     };
     let revision = REGISTRATION_SEQUENCE.begin();
-    let generation = current_registration_generation();
+    let cancel = generation.cancel;
     // `list()` reads the host's store, so keep it off the socket runtime; a
     // panicking bridge surfaces as a `JoinError` here instead of unwinding.
     tokio::spawn(async move {
         tokio::select! {
             biased;
-            _ = generation.cancelled() => {
+            _ = cancel.cancelled() => {
                 log::debug!("[medulla] discarded workflow registration from an old bridge");
             }
             _ = async move {
@@ -255,7 +274,13 @@ pub fn emit_register_workflows() {
 /// carries the same descriptors in its reply bag. Empty when no bridge is
 /// installed or the bridge failed, so a probe still answers.
 pub async fn advertised_workflows() -> Vec<WorkflowDescriptor> {
-    let Some(bridge) = bridge() else {
+    advertised_workflows_for(bridge_generation().bridge).await
+}
+
+pub(super) async fn advertised_workflows_for(
+    bridge: Option<Arc<dyn WorkflowBridge>>,
+) -> Vec<WorkflowDescriptor> {
+    let Some(bridge) = bridge else {
         return Vec::new();
     };
     read_batch(bridge)
@@ -290,20 +315,33 @@ async fn emit_batch(batch: RegisterWorkflows) -> bool {
 /// ten minutes of agent time) cannot hold the socket read loop, the same shape
 /// `medulla:task_run` and `orch:tool_call` already use.
 pub fn handle_workflow_request(request: WorkflowRequest) {
+    let BridgeGeneration { bridge, cancel } = bridge_generation();
     tokio::spawn(async move {
-        let request_id = request.request_id.clone();
-        let op = request.op;
-        let outcome = match bridge() {
-            Some(bridge) => dispatch(bridge, request).await,
-            None => Err("this agent has no workflow store installed".to_string()),
-        };
-        match &outcome {
-            Ok(_) => log::debug!("[medulla] workflow {op:?} request_id={request_id} ok"),
-            Err(err) => {
-                log::warn!("[medulla] workflow {op:?} request_id={request_id} failed: {err}")
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                log::debug!("[medulla] discarded workflow request from an old bridge");
             }
+            _ = async move {
+                let request_id = request.request_id.clone();
+                let op = request.op;
+                let outcome = match bridge {
+                    Some(bridge) => dispatch(bridge, request).await,
+                    None => Err("this agent has no workflow store installed".to_string()),
+                };
+                match &outcome {
+                    Ok(_) => log::debug!("[medulla] workflow {op:?} request_id={request_id} ok"),
+                    Err(err) => {
+                        log::warn!("[medulla] workflow {op:?} request_id={request_id} failed: {err}")
+                    }
+                }
+                super::emit_awaited(
+                    EVENT_WORKFLOW_RESULT,
+                    result_frame(request_id, outcome),
+                )
+                .await;
+            } => {}
         }
-        super::emit(EVENT_WORKFLOW_RESULT, result_frame(request_id, outcome));
     });
 }
 

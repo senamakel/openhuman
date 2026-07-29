@@ -259,16 +259,32 @@ mod tests {
         }
     }
 
-    /// Serialize env mutation: tests modify process-globals.
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// Serialize env mutation via the crate-wide backend env lock: these
+    /// tests remove `BACKEND_URL`/`VITE_BACKEND_URL`, which `api::config`
+    /// and `core::cli_tests` tests concurrently set — a module-local lock
+    /// cannot prevent that cross-module race (it deterministically broke
+    /// these assertions under the full-suite coverage lane).
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        crate::api::config::backend_env_test_lock()
+    }
+
+    /// A config whose workspace is an empty temp dir, so `get_session_token`
+    /// deterministically finds nothing regardless of the developer's real
+    /// sign-in state.
+    fn signed_out_config(tmp: &tempfile::TempDir) -> Config {
+        Config {
+            workspace_dir: tmp.path().join("workspace"),
+            ..Config::default()
+        }
+    }
 
     #[test]
     fn not_configured_encodes_an_expected_user_state_envelope() {
-        let config = Config::default();
-        // No api_url and no env override, so resolution fails on base URL.
+        let tmp = tempfile::tempdir().unwrap();
+        let config = signed_out_config(&tmp);
         // Isolate environment to ensure BACKEND_URL and VITE_BACKEND_URL do not
         // provide a fallback through effective_backend_api_url.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env_medulla = EnvGuard::remove(resolve::MEDULLA_BASE_URL_ENV);
         let _env_backend = EnvGuard::remove("BACKEND_URL");
         let _env_vite = EnvGuard::remove("VITE_BACKEND_URL");
@@ -278,11 +294,17 @@ mod tests {
             decoded.expected_user_state,
             "an unconfigured host is a user state, not an internal fault"
         );
+        // With every override cleared, `base_url` still resolves to the hosted
+        // backend default by design (`resolve.rs`'s
+        // `an_unconfigured_install_falls_back_to_the_hosted_backend` pins
+        // that), so `MedullaNoBaseUrl` is unreachable from a cleared env — the
+        // unconfigured state actually produced is the missing session token
+        // (signed out).
         assert_eq!(
             decoded
                 .data
                 .and_then(|d| d["kind"].as_str().map(String::from)),
-            Some("MedullaNoBaseUrl".to_string())
+            Some("MedullaNoSessionToken".to_string())
         );
     }
 
@@ -334,16 +356,19 @@ mod tests {
 
     #[tokio::test]
     async fn status_reports_unconfigured_rather_than_failing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = signed_out_config(&tmp);
         // Isolate environment to ensure BACKEND_URL and VITE_BACKEND_URL do not
         // provide a fallback through effective_backend_api_url.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env_medulla = EnvGuard::remove(resolve::MEDULLA_BASE_URL_ENV);
         let _env_backend = EnvGuard::remove("BACKEND_URL");
         let _env_vite = EnvGuard::remove("VITE_BACKEND_URL");
-        let out = status(&Config::default())
-            .await
-            .expect("status never errors");
+        let out = status(&config).await.expect("status never errors");
         assert!(!out.value.configured);
-        assert_eq!(out.value.reason.as_deref(), Some("MedullaNoBaseUrl"));
+        // See `not_configured_encodes_an_expected_user_state_envelope`: the
+        // base URL always falls back to the hosted default, so the reason a
+        // cleared env reports is the missing session token, never NoBaseUrl.
+        assert_eq!(out.value.reason.as_deref(), Some("MedullaNoSessionToken"));
     }
 }

@@ -4292,6 +4292,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.output_parser': 'Analyseur de sortie',
   'flows.nodeKind.sub_workflow': 'Sous-workflow',
   'flows.nodeKind.memory': 'Mémoire',
+  'flows.nodeKind.dedup': 'Déduplication',
   'flows.palette.title': 'Nœuds',
   'flows.palette.addNode': 'Ajouter un nœud {kind}',
   'flows.editor.save': 'Enregistrer',
@@ -4468,7 +4469,24 @@ const messages: TranslationMap = {
   'flows.nodeConfig.memory.limitHint': 'Nombre maximal de résultats.',
   'flows.nodeConfig.memory.minScoreLabel': 'Score minimal',
   'flows.nodeConfig.memory.minScoreHint': 'Seuil de pertinence de 0 à 1.',
+  'flows.nodeConfig.dedup.keyLabel': 'Clé',
+  'flows.nodeConfig.dedup.keyHint':
+    "Une expression d'identifiant stable par élément, ex. =item.id. Les éléments dont la clé a déjà été vue sont ignorés.",
 
+  'flows.enableApproval.title': 'Autoriser ce workflow à agir ?',
+  'flows.enableApproval.intro':
+    'Ce workflow a besoin de votre autorisation pour les actions ci-dessous. L’approbation ne s’applique qu’à ce workflow.',
+  'flows.enableApproval.approveAll': 'Tout approuver',
+  'flows.enableApproval.deny': 'Refuser',
+  'flows.enableApproval.enableAnyway': 'Activer quand même',
+  'flows.enableApproval.granting': 'Approbation en cours…',
+  'flows.enableApproval.error': 'Impossible d’enregistrer les approbations. Veuillez réessayer.',
+  'flows.enableApproval.blockedHint': 'Bloqué par vos paramètres d’accès de l’agent.',
+  'flows.enableApproval.dynamicHint':
+    'Déterminé pendant l’exécution ; il vous demandera si nécessaire.',
+  'flows.enableApproval.agentHint':
+    'Cette étape IA peut demander séparément pour ses propres actions.',
+  'flows.enableApproval.deniedDisabled': 'Enregistré, mais le workflow est resté désactivé.',
   'flows.chooser.title': 'Créer un workflow',
   'flows.chooser.subtitle': 'Choisissez comment commencer.',
   'flows.chooser.scratchTitle': 'Partir de zéro',

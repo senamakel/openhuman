@@ -4249,6 +4249,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.output_parser': 'Parser wyjścia',
   'flows.nodeKind.sub_workflow': 'Podprzepływ pracy',
   'flows.nodeKind.memory': 'Pamięć',
+  'flows.nodeKind.dedup': 'Deduplikacja',
   'flows.palette.title': 'Węzły',
   'flows.palette.addNode': 'Dodaj węzeł {kind}',
   'flows.editor.save': 'Zapisz',
@@ -4422,7 +4423,23 @@ const messages: TranslationMap = {
   'flows.nodeConfig.memory.limitHint': 'Maksymalna liczba wyników.',
   'flows.nodeConfig.memory.minScoreLabel': 'Minimalny wynik',
   'flows.nodeConfig.memory.minScoreHint': 'Próg trafności od 0 do 1.',
+  'flows.nodeConfig.dedup.keyLabel': 'Klucz',
+  'flows.nodeConfig.dedup.keyHint':
+    'Stabilne wyrażenie identyfikatora dla każdego elementu, np. =item.id. Elementy z już widzianym kluczem są pomijane.',
 
+  'flows.enableApproval.title': 'Zezwolić temu przepływowi pracy na działanie?',
+  'flows.enableApproval.intro':
+    'Ten przepływ pracy potrzebuje Twojej zgody na poniższe działania. Zatwierdzenie dotyczy tylko tego przepływu pracy.',
+  'flows.enableApproval.approveAll': 'Zatwierdź wszystko',
+  'flows.enableApproval.deny': 'Odmów',
+  'flows.enableApproval.enableAnyway': 'Włącz mimo to',
+  'flows.enableApproval.granting': 'Zatwierdzanie…',
+  'flows.enableApproval.error': 'Nie udało się zapisać zatwierdzeń. Spróbuj ponownie.',
+  'flows.enableApproval.blockedHint': 'Zablokowane przez ustawienia dostępu agenta.',
+  'flows.enableApproval.dynamicHint':
+    'Ustalane podczas działania przepływu; w razie potrzeby zapyta.',
+  'flows.enableApproval.agentHint': 'Ten krok AI może osobno prosić o zgodę na własne działania.',
+  'flows.enableApproval.deniedDisabled': 'Zapisano, ale przepływ pracy pozostał wyłączony.',
   'flows.chooser.title': 'Utwórz przepływ pracy',
   'flows.chooser.subtitle': 'Wybierz, jak chcesz zacząć.',
   'flows.chooser.scratchTitle': 'Zacznij od zera',

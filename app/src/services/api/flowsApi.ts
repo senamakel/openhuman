@@ -745,6 +745,57 @@ export async function requiredConnections(graph: unknown): Promise<RequiredConne
   return result.required_connections ?? [];
 }
 
+// ── Save-time approval manifest (consolidated pre-authorization card) ───────
+
+/** One row of the save+enable approval manifest. */
+export interface ApprovalManifestEntry {
+  /**
+   * approvable — will park a run; pre-approving `tool_name` clears it.
+   * blocked — refused outright by the autonomy tier; informational only.
+   * dynamic — tool chosen at run time (`=` slug); cannot be pre-approved.
+   * agent — AI step whose inner tool calls are unknown at save time.
+   */
+  kind: 'approvable' | 'blocked' | 'dynamic' | 'agent';
+  node_id: string;
+  /** The ApprovalGate trust key. Present for approvable/blocked rows. */
+  tool_name?: string;
+  label: string;
+  class?: string;
+}
+
+/** Result of `openhuman.flows_approval_manifest`. */
+export interface ApprovalManifest {
+  entries: ApprovalManifestEntry[];
+  /** Approvable trust keys the flow does not yet hold — what the card asks for. */
+  missing: string[];
+  already_trusted: string[];
+  /** False when the approval gate is disabled — nothing ever prompts. */
+  gate_installed: boolean;
+}
+
+/**
+ * Compute the approval manifest for a saved flow (by id) or candidate graph
+ * via `openhuman.flows_approval_manifest` — every permission a run will
+ * prompt for, joined against the flow's existing per-flow trust grants. The
+ * data behind the consolidated save+enable pre-authorization card.
+ */
+export async function getApprovalManifest(
+  target: { id: string } | { graph: unknown }
+): Promise<ApprovalManifest> {
+  log('getApprovalManifest: %s', 'id' in target ? `id=${target.id}` : 'candidate graph');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_approval_manifest',
+    params: 'id' in target ? { id: target.id } : { graph: target.graph },
+  });
+  const result = unwrapCliEnvelope<ApprovalManifest>(response);
+  return {
+    entries: result.entries ?? [],
+    missing: result.missing ?? [],
+    already_trusted: result.already_trusted ?? [],
+    gate_installed: result.gate_installed ?? true,
+  };
+}
+
 /**
  * Fetch one action's full contract via `openhuman.flows_get_tool_contract`.
  *

@@ -72,4 +72,9 @@ describe('describeNode', () => {
     );
     expect(describeNode('memory', { operation: 'search' })).toBe('Searches memory');
   });
+
+  it('describes dedup by its key expression, and falls back generically when unset', () => {
+    expect(describeNode('dedup', { key: '=item.id' })).toBe('Skips items already seen by =item.id');
+    expect(describeNode('dedup', {})).toBe('Skips items already processed');
+  });
 });

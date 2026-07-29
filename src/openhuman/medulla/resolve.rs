@@ -127,8 +127,13 @@ pub fn client(config: &Config) -> Result<MedullaClient, NotConfigured> {
 mod tests {
     use super::*;
 
-    /// Serialize env mutation: `base_url` reads a process-global.
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// Serialize env mutation via the crate-wide backend env lock:
+    /// `base_url` reads process-globals that `api::config`, `core::cli_tests`,
+    /// and `medulla::ops` tests also mutate — a module-local lock cannot
+    /// prevent that cross-module race.
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        crate::api::config::backend_env_test_lock()
+    }
 
     /// RAII guard to snapshot and restore a process-global environment variable.
     struct EnvGuard {
@@ -170,7 +175,7 @@ mod tests {
 
     #[test]
     fn env_override_wins_over_api_url() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env = EnvGuard::set(MEDULLA_BASE_URL_ENV, "https://medulla.example");
         let resolved = base_url(&config_with_api_url(Some("https://api.example")));
         assert_eq!(resolved.as_deref(), Some("https://medulla.example"));
@@ -178,7 +183,7 @@ mod tests {
 
     #[test]
     fn falls_back_to_api_url_when_env_unset() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env = EnvGuard::remove(MEDULLA_BASE_URL_ENV);
         let resolved = base_url(&config_with_api_url(Some("https://api.example/")));
         assert_eq!(resolved.as_deref(), Some("https://api.example"));
@@ -188,7 +193,7 @@ mod tests {
     fn blank_env_does_not_shadow_api_url() {
         // An exported-but-empty var is a common shell accident; treating it as
         // "configured" would break an otherwise-working setup.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env = EnvGuard::set(MEDULLA_BASE_URL_ENV, "   ");
         let resolved = base_url(&config_with_api_url(Some("https://api.example")));
         assert_eq!(resolved.as_deref(), Some("https://api.example"));
@@ -200,7 +205,7 @@ mod tests {
         // that never wrote an explicit `api_url` — the normal case — must reach
         // the same host every other backend call defaults to, not report itself
         // unconfigured while auth and billing work.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env_medulla = EnvGuard::remove(MEDULLA_BASE_URL_ENV);
         let _env_backend = EnvGuard::remove("BACKEND_URL");
         let _env_vite = EnvGuard::remove("VITE_BACKEND_URL");
@@ -215,7 +220,7 @@ mod tests {
         // `api_url` doubles as the inference endpoint. Pointing it at Ollama
         // must not aim the Medulla client at a model runner that 404s every
         // path it speaks — the same guard every other backend call gets.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env_medulla = EnvGuard::remove(MEDULLA_BASE_URL_ENV);
         let _env_backend = EnvGuard::remove("BACKEND_URL");
         let _env_vite = EnvGuard::remove("VITE_BACKEND_URL");
@@ -230,7 +235,7 @@ mod tests {
 
     #[test]
     fn trailing_slashes_are_trimmed_so_paths_do_not_double_up() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
         let _env = EnvGuard::set(MEDULLA_BASE_URL_ENV, "https://medulla.example///");
         let resolved = base_url(&config_with_api_url(None));
         assert_eq!(resolved.as_deref(), Some("https://medulla.example"));

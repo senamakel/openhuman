@@ -4313,6 +4313,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.output_parser': 'Ausgabe-Parser',
   'flows.nodeKind.sub_workflow': 'Unter-Workflow',
   'flows.nodeKind.memory': 'Gedächtnis',
+  'flows.nodeKind.dedup': 'Deduplizierung',
   'flows.palette.title': 'Knoten',
   'flows.palette.addNode': '{kind}-Knoten hinzufügen',
   'flows.editor.save': 'Speichern',
@@ -4488,7 +4489,24 @@ const messages: TranslationMap = {
   'flows.nodeConfig.memory.limitHint': 'Maximale Anzahl an Ergebnissen.',
   'flows.nodeConfig.memory.minScoreLabel': 'Mindestbewertung',
   'flows.nodeConfig.memory.minScoreHint': 'Relevanzschwelle von 0 bis 1.',
+  'flows.nodeConfig.dedup.keyLabel': 'Schlüssel',
+  'flows.nodeConfig.dedup.keyHint':
+    'Ein stabiler Id-Ausdruck pro Element, z. B. =item.id. Elemente mit einem bereits gesehenen Schlüssel werden übersprungen.',
 
+  'flows.enableApproval.title': 'Darf dieser Workflow Aktionen ausführen?',
+  'flows.enableApproval.intro':
+    'Dieser Workflow benötigt deine Erlaubnis für die folgenden Aktionen. Die Freigabe gilt nur für diesen Workflow.',
+  'flows.enableApproval.approveAll': 'Alle genehmigen',
+  'flows.enableApproval.deny': 'Ablehnen',
+  'flows.enableApproval.enableAnyway': 'Trotzdem aktivieren',
+  'flows.enableApproval.granting': 'Wird genehmigt…',
+  'flows.enableApproval.error':
+    'Die Freigaben konnten nicht gespeichert werden. Bitte erneut versuchen.',
+  'flows.enableApproval.blockedHint': 'Durch deine Agentenzugriffs-Einstellungen blockiert.',
+  'flows.enableApproval.dynamicHint': 'Wird zur Laufzeit bestimmt; bei Bedarf wirst du gefragt.',
+  'flows.enableApproval.agentHint':
+    'Dieser KI-Schritt kann für eigene Aktionen separat nachfragen.',
+  'flows.enableApproval.deniedDisabled': 'Gespeichert, aber der Workflow bleibt ausgeschaltet.',
   'flows.chooser.title': 'Workflow erstellen',
   'flows.chooser.subtitle': 'Wählen Sie, wie Sie beginnen möchten.',
   'flows.chooser.scratchTitle': 'Bei null anfangen',

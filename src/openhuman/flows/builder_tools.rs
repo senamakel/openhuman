@@ -3096,6 +3096,13 @@ impl Tool for DryRunWorkflowTool {
             })
             .collect();
 
+        // Quiet, informational only (never a prompt, never a gate): the
+        // ApprovalGate permissions a real run of this graph will need, so the
+        // builder agent can tell the user what the save+enable card will ask
+        // for — the card itself fires at save+enable, NOT during dry runs.
+        let permissions_manifest =
+            crate::openhuman::flows::ops::compute_approval_manifest(&self.config, &graph).await;
+
         tracing::info!(
             target: "flows",
             node_count = graph.nodes.len(),
@@ -3105,6 +3112,7 @@ impl Tool for DryRunWorkflowTool {
             agent_input_context_null_count = agent_input_context_nulls.len(),
             node_error_count = node_errors.len(),
             routing_divergence_warning_count = routing_divergence_warnings.len(),
+            permissions_manifest_count = permissions_manifest.len(),
             "[flows] dry_run_workflow: sandbox run finished"
         );
 
@@ -3130,6 +3138,7 @@ impl Tool for DryRunWorkflowTool {
                 "agent_input_context_nulls": agent_input_context_nulls,
                 "node_errors": node_errors,
                 "routing_divergence_warnings": routing_divergence_warnings,
+                "permissions_manifest": permissions_manifest,
                 "message": "These tool_call args resolved to null, an agent node's prompt or \
                     input_context resolved to null (an EMPTY prompt — see agent_prompt_nulls — \
                     or no upstream data at all — see agent_input_context_nulls), or a tool_call \
@@ -3155,6 +3164,7 @@ impl Tool for DryRunWorkflowTool {
             "agent_input_context_nulls": agent_input_context_nulls,
             "node_errors": node_errors,
             "routing_divergence_warnings": routing_divergence_warnings,
+            "permissions_manifest": permissions_manifest,
             "note": "SANDBOX (mock) output — LLM/tool/HTTP/code nodes returned deterministic echoes; NO real side effects occurred. This checks wiring/routing only, not whether real integrations work. \
                 If routing_divergence_warnings is non-empty, an agent/tool_call node never ran in \
                 this sandbox because an upstream condition routed the mock data past it — that \

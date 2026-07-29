@@ -233,6 +233,50 @@ pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &s
     })
 }
 
+/// Record a save-time flow pre-authorization in the durable audit trail as a
+/// born-decided row (`decided_at = created_at`, decision
+/// `approve_always_for_flow`): it never appears in `list_pending` (which
+/// filters `decided_at IS NULL`) but does surface in
+/// `list_recent_decisions`, so Settings → Approval history shows exactly
+/// when and for which tool the user granted blanket trust. The
+/// `source_context` carries an empty `run_id` — no run existed yet — which
+/// also keeps it invisible to `list_pending_for_flow_run`.
+pub fn record_flow_preauthorization(
+    config: &Config,
+    flow_id: &str,
+    tool_name: &str,
+    session_id: &str,
+) -> Result<()> {
+    with_connection(config, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let source_context = serde_json::to_string(&ApprovalSourceContext::Flow {
+            flow_id: flow_id.to_string(),
+            run_id: String::new(),
+            node_id: None,
+        })
+        .context("[approval::store] serialize preauthorization source_context")?;
+        conn.execute(
+            "INSERT INTO pending_approvals
+                (request_id, tool_name, action_summary, args_redacted,
+                 session_id, created_at, expires_at, source_context,
+                 decided_at, decision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?6, ?8)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                tool_name,
+                "Pre-authorized for this flow when it was saved and enabled",
+                "{}",
+                session_id,
+                now,
+                source_context,
+                ApprovalDecision::ApproveAlwaysForFlow.as_str(),
+            ],
+        )
+        .context("[approval::store] insert preauthorization audit row")?;
+        Ok(())
+    })
+}
+
 /// Transition any stale rows into a terminal state so they no longer
 /// appear as actionable pending approvals after restart.
 ///
@@ -481,6 +525,62 @@ pub fn insert_flow_trust(config: &Config, flow_id: &str, tool_name: &str) -> Res
         )
         .context("[approval::store] insert_flow_trust")?;
         Ok(())
+    })
+}
+
+/// List every `tool_name` currently holding "approve always for this flow"
+/// trust for `flow_id`, ordered by name for stable output. Used by the
+/// save-time pre-authorization manifest (`flows_approval_manifest`) to diff
+/// "what the graph needs" against "what is already granted".
+pub fn list_flow_trust(config: &Config, flow_id: &str) -> Result<Vec<String>> {
+    with_connection(config, |conn| {
+        let mut stmt = conn
+            .prepare(
+                "SELECT tool_name FROM flow_tool_trust
+                 WHERE flow_id = ?1 ORDER BY tool_name",
+            )
+            .context("[approval::store] list_flow_trust prepare")?;
+        let names = stmt
+            .query_map(params![flow_id], |row| row.get::<_, String>(0))
+            .context("[approval::store] list_flow_trust query")?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .context("[approval::store] list_flow_trust rows")?;
+        Ok(names)
+    })
+}
+
+/// Delete flow trust rows for `flow_id`. With `tool_names: None` every grant
+/// for the flow is removed (flow deletion cleanup); with `Some(names)` only
+/// the named grants are revoked. Returns the number of rows removed. Deleting
+/// a name that was never granted is a no-op, keeping the call idempotent.
+pub fn delete_flow_trust(
+    config: &Config,
+    flow_id: &str,
+    tool_names: Option<&[String]>,
+) -> Result<usize> {
+    with_connection(config, |conn| {
+        let removed = match tool_names {
+            None => conn
+                .execute(
+                    "DELETE FROM flow_tool_trust WHERE flow_id = ?1",
+                    params![flow_id],
+                )
+                .context("[approval::store] delete_flow_trust all")?,
+            Some(names) => {
+                let mut removed = 0usize;
+                for name in names {
+                    removed += conn
+                        .execute(
+                            "DELETE FROM flow_tool_trust
+                             WHERE flow_id = ?1 AND tool_name = ?2",
+                            params![flow_id, name],
+                        )
+                        .context("[approval::store] delete_flow_trust named")?;
+                }
+                removed
+            }
+        };
+        Ok(removed)
     })
 }
 
@@ -1369,5 +1469,70 @@ mod tests {
         // A second grant of the same pair must not error (INSERT OR IGNORE).
         insert_flow_trust(&config, "flow-1", "composio").unwrap();
         assert!(is_flow_tool_trusted(&config, "flow-1", "composio").unwrap());
+    }
+
+    #[test]
+    fn list_flow_trust_returns_sorted_grants_scoped_to_flow() {
+        let (config, _dir) = test_config();
+        assert!(list_flow_trust(&config, "flow-1").unwrap().is_empty());
+
+        insert_flow_trust(&config, "flow-1", "zeta_tool").unwrap();
+        insert_flow_trust(&config, "flow-1", "alpha_tool").unwrap();
+        insert_flow_trust(&config, "flow-2", "other_tool").unwrap();
+
+        assert_eq!(
+            list_flow_trust(&config, "flow-1").unwrap(),
+            vec!["alpha_tool".to_string(), "zeta_tool".to_string()],
+        );
+    }
+
+    #[test]
+    fn delete_flow_trust_named_removes_only_named_grants() {
+        let (config, _dir) = test_config();
+        insert_flow_trust(&config, "flow-1", "slack_post").unwrap();
+        insert_flow_trust(&config, "flow-1", "gmail_send").unwrap();
+
+        let removed =
+            delete_flow_trust(&config, "flow-1", Some(&["slack_post".to_string()])).unwrap();
+        assert_eq!(removed, 1);
+        assert!(!is_flow_tool_trusted(&config, "flow-1", "slack_post").unwrap());
+        assert!(is_flow_tool_trusted(&config, "flow-1", "gmail_send").unwrap());
+        // Revoking a never-granted name is a no-op, not an error.
+        let removed = delete_flow_trust(&config, "flow-1", Some(&["missing".to_string()])).unwrap();
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn delete_flow_trust_all_purges_only_that_flow() {
+        let (config, _dir) = test_config();
+        insert_flow_trust(&config, "flow-1", "slack_post").unwrap();
+        insert_flow_trust(&config, "flow-1", "gmail_send").unwrap();
+        insert_flow_trust(&config, "flow-2", "slack_post").unwrap();
+
+        let removed = delete_flow_trust(&config, "flow-1", None).unwrap();
+        assert_eq!(removed, 2);
+        assert!(list_flow_trust(&config, "flow-1").unwrap().is_empty());
+        assert!(is_flow_tool_trusted(&config, "flow-2", "slack_post").unwrap());
+    }
+
+    #[test]
+    fn record_flow_preauthorization_lands_in_audit_not_pending() {
+        let (config, _dir) = test_config();
+        record_flow_preauthorization(&config, "flow-1", "slack_post", "session-test").unwrap();
+
+        // Born-decided: never actionable.
+        assert!(list_pending(&config).unwrap().is_empty());
+        // …but visible in the durable audit trail with the flow decision.
+        let decisions = list_recent_decisions(&config, 10).unwrap();
+        assert_eq!(decisions.len(), 1);
+        assert_eq!(decisions[0].tool_name, "slack_post");
+        assert_eq!(
+            decisions[0].decision,
+            ApprovalDecision::ApproveAlwaysForFlow
+        );
+        // And invisible to per-run pending listings (empty run_id sentinel).
+        assert!(list_pending_for_flow_run(&config, "flow-1", "run-1")
+            .unwrap()
+            .is_empty());
     }
 }

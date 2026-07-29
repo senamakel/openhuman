@@ -1727,7 +1727,11 @@ async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
 /// the agent"), not for deciding whether a real side-effecting call skips
 /// a human approval prompt. A "SEARCH"/"GET"-shaped uncurated slug must
 /// still prompt until OpenHuman has actually hand-curated it as `Read`.
-async fn classify_composio_action_for_tier(slug: &str) -> CommandClass {
+/// `pub(crate)` so `flows::ops::compute_approval_manifest` can reuse the
+/// exact runtime classifier at save time — the manifest must never drift
+/// from what actually gates (a parallel re-implementation would list
+/// permissions that never prompt, or miss ones that do).
+pub(crate) async fn classify_composio_action_for_tier(slug: &str) -> CommandClass {
     use crate::openhuman::memory_sync::composio::providers::{curated_scope_for, ToolScope};
 
     match curated_scope_for(slug) {

@@ -18,6 +18,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("list_recent_decisions"),
         schemas("decide"),
         schemas("get_gate_state"),
+        schemas("preauthorize_flow"),
     ]
 }
 
@@ -38,6 +39,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("get_gate_state"),
             handler: handle_get_gate_state,
+        },
+        RegisteredController {
+            schema: schemas("preauthorize_flow"),
+            handler: handle_preauthorize_flow,
         },
     ]
 }
@@ -116,6 +121,37 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "preauthorize_flow" => ControllerSchema {
+            namespace: "approval",
+            function: "preauthorize_flow",
+            description:
+                "Batch-grant flow-scoped tool trust at save+enable time (consolidated \
+                 pre-authorization card). Idempotent; already-trusted tools are reported, \
+                 not re-granted. Succeeds with gate_installed=false when the approval gate \
+                 is disabled.",
+            inputs: vec![
+                FieldSchema {
+                    name: "flow_id",
+                    ty: TypeSchema::String,
+                    comment: "Flow to grant trust for.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "tool_names",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment:
+                        "Gate trust keys to grant (e.g. \"flows_http_request\", a Composio \
+                         slug, or a native tool name). Blanks and duplicates are skipped.",
+                    required: true,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Ref("FlowPreauthorizationResult"),
+                comment: "Which grants were newly written vs already present.",
+                required: true,
+            }],
+        },
         _ => ControllerSchema {
             namespace: "approval",
             function: "unknown",
@@ -170,6 +206,35 @@ fn handle_decide(params: Map<String, Value>) -> ControllerFuture {
             )
         })?;
         let outcome = approval_rpc::approval_decide(request_id.trim(), decision)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(outcome)
+    })
+}
+
+fn handle_preauthorize_flow(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let flow_id = read_required_string(&params, "flow_id")?;
+        let tool_names = match params.get("tool_names") {
+            Some(Value::Array(items)) => items
+                .iter()
+                .map(|v| match v {
+                    Value::String(s) => Ok(s.clone()),
+                    other => Err(format!(
+                        "invalid 'tool_names' entry: expected string, got {}",
+                        type_name(other)
+                    )),
+                })
+                .collect::<Result<Vec<String>, String>>()?,
+            Some(other) => {
+                return Err(format!(
+                    "invalid 'tool_names': expected array of strings, got {}",
+                    type_name(other)
+                ))
+            }
+            None => return Err("missing required param 'tool_names'".to_string()),
+        };
+        let outcome = approval_rpc::approval_preauthorize_flow(flow_id.trim(), tool_names)
             .await
             .map_err(|e| e.to_string())?;
         to_json(outcome)
@@ -248,7 +313,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 4);
+        assert_eq!(controllers.len(), 5);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -257,8 +322,18 @@ mod tests {
                 "list_recent_decisions",
                 "decide",
                 "get_gate_state",
+                "preauthorize_flow",
             ]
         );
+    }
+
+    #[test]
+    fn schemas_preauthorize_flow_requires_flow_id_and_tool_names() {
+        let s = schemas("preauthorize_flow");
+        assert_eq!(s.namespace, "approval");
+        let names: Vec<_> = s.inputs.iter().map(|f| f.name).collect();
+        assert_eq!(names, vec!["flow_id", "tool_names"]);
+        assert!(s.inputs.iter().all(|f| f.required));
     }
 
     #[test]

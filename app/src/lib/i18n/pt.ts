@@ -4253,6 +4253,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.output_parser': 'Analisador de saída',
   'flows.nodeKind.sub_workflow': 'Subfluxo de trabalho',
   'flows.nodeKind.memory': 'Memória',
+  'flows.nodeKind.dedup': 'Deduplicação',
   'flows.palette.title': 'Nós',
   'flows.palette.addNode': 'Adicionar nó {kind}',
   'flows.editor.save': 'Salvar',
@@ -4426,7 +4427,24 @@ const messages: TranslationMap = {
   'flows.nodeConfig.memory.limitHint': 'Número máximo de resultados.',
   'flows.nodeConfig.memory.minScoreLabel': 'Pontuação mínima',
   'flows.nodeConfig.memory.minScoreHint': 'Limite de relevância de 0 a 1.',
+  'flows.nodeConfig.dedup.keyLabel': 'Chave',
+  'flows.nodeConfig.dedup.keyHint':
+    'Uma expressão de id estável por item, ex.: =item.id. Itens com uma chave já vista são ignorados.',
 
+  'flows.enableApproval.title': 'Permitir que este fluxo de trabalho aja?',
+  'flows.enableApproval.intro':
+    'Este fluxo de trabalho precisa da sua permissão para as ações abaixo. A aprovação vale apenas para este fluxo de trabalho.',
+  'flows.enableApproval.approveAll': 'Aprovar tudo',
+  'flows.enableApproval.deny': 'Negar',
+  'flows.enableApproval.enableAnyway': 'Ativar mesmo assim',
+  'flows.enableApproval.granting': 'Aprovando…',
+  'flows.enableApproval.error': 'Não foi possível salvar as aprovações. Tente novamente.',
+  'flows.enableApproval.blockedHint': 'Bloqueado pelas suas configurações de acesso do agente.',
+  'flows.enableApproval.dynamicHint':
+    'Decidido durante a execução; ele perguntará se for necessário.',
+  'flows.enableApproval.agentHint':
+    'Esta etapa de IA pode pedir permissão separadamente para as próprias ações.',
+  'flows.enableApproval.deniedDisabled': 'Salvo, mas o fluxo de trabalho ficou desativado.',
   'flows.chooser.title': 'Criar um fluxo de trabalho',
   'flows.chooser.subtitle': 'Escolha como quer começar.',
   'flows.chooser.scratchTitle': 'Começar do zero',

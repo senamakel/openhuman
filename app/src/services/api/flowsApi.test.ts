@@ -7,6 +7,7 @@ import {
   dismissSuggestion,
   flowsBuildCancel,
   type FlowSuggestion,
+  getApprovalManifest,
   getFlowRun,
   listAllFlowRuns,
   listFlowRuns,
@@ -562,5 +563,55 @@ describe('flowsApi', () => {
       expect(coerceWorkflowProposal).toHaveBeenCalledWith(raw);
       expect(result.proposal).toEqual(expected);
     });
+  });
+});
+
+describe('getApprovalManifest', () => {
+  beforeEach(() => mockCallCoreRpc.mockReset());
+
+  const manifest = {
+    entries: [
+      { kind: 'approvable', node_id: 'n1', tool_name: 'flows_http_request', label: 'Call API' },
+    ],
+    missing: ['flows_http_request'],
+    already_trusted: ['GMAIL_SEND_EMAIL'],
+    gate_installed: true,
+  };
+
+  it('targets a saved flow by id', async () => {
+    mockCallCoreRpc.mockResolvedValue(cliEnvelope(manifest));
+
+    const result = await getApprovalManifest({ id: 'flow-1' });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.flows_approval_manifest',
+      params: { id: 'flow-1' },
+    });
+    expect(result).toEqual(manifest);
+  });
+
+  it('targets a candidate graph when no id exists yet', async () => {
+    mockCallCoreRpc.mockResolvedValue(cliEnvelope(manifest));
+
+    await getApprovalManifest({ graph: { nodes: [], edges: [] } });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.flows_approval_manifest',
+      params: { graph: { nodes: [], edges: [] } },
+    });
+  });
+
+  it('defaults every field when the envelope payload is sparse', async () => {
+    mockCallCoreRpc.mockResolvedValue(cliEnvelope({}));
+
+    const result = await getApprovalManifest({ id: 'flow-1' });
+
+    expect(result).toEqual({ entries: [], missing: [], already_trusted: [], gate_installed: true });
+  });
+
+  it('propagates rejection from callCoreRpc', async () => {
+    mockCallCoreRpc.mockRejectedValueOnce(new Error('manifest down'));
+
+    await expect(getApprovalManifest({ id: 'flow-1' })).rejects.toThrow('manifest down');
   });
 });

@@ -1312,6 +1312,35 @@ impl ApprovalGate {
         store::is_flow_tool_trusted(&self.config, flow_id, tool_name)
     }
 
+    /// Every `tool_name` currently trusted for `flow_id`, sorted. Consumed by
+    /// `flows_approval_manifest` to diff the graph's required permissions
+    /// against grants that already exist (re-save asks only for what's new).
+    pub fn list_flow_trust(&self, flow_id: &str) -> anyhow::Result<Vec<String>> {
+        store::list_flow_trust(&self.config, flow_id)
+    }
+
+    /// Revoke flow trust: all grants for `flow_id` when `tool_names` is
+    /// `None` (flow deletion cleanup), or only the named grants. Returns the
+    /// number of rows removed.
+    pub fn delete_flow_trust(
+        &self,
+        flow_id: &str,
+        tool_names: Option<&[String]>,
+    ) -> anyhow::Result<usize> {
+        store::delete_flow_trust(&self.config, flow_id, tool_names)
+    }
+
+    /// Write the durable audit record for one save-time pre-authorization
+    /// grant (a born-decided `approve_always_for_flow` row) so blanket
+    /// grants stay inspectable in Settings → Approval history.
+    pub fn record_flow_preauthorization(
+        &self,
+        flow_id: &str,
+        tool_name: &str,
+    ) -> anyhow::Result<()> {
+        store::record_flow_preauthorization(&self.config, flow_id, tool_name, &self.session_id)
+    }
+
     /// Return the session id this gate was installed with (used by
     /// RPC handlers for diagnostics).
     pub fn session_id(&self) -> &str {

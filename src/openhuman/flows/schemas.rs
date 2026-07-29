@@ -310,6 +310,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("search_tool_catalog"),
         schemas("get_tool_contract"),
         schemas("required_connections"),
+        schemas("approval_manifest"),
     ]
 }
 
@@ -450,6 +451,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("required_connections"),
             handler: handle_required_connections,
+        },
+        RegisteredController {
+            schema: schemas("approval_manifest"),
+            handler: handle_approval_manifest,
         },
     ]
 }
@@ -1038,6 +1043,59 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "approval_manifest" => ControllerSchema {
+            namespace: "flows",
+            function: "approval_manifest",
+            description:
+                "Compute the approval manifest for a saved flow (by id) or a candidate graph: \
+                 every ApprovalGate permission a run will prompt for, joined against the flow's \
+                 existing flow_tool_trust grants — the data behind the consolidated save+enable \
+                 pre-authorization card. Entries carry kind approvable|blocked|dynamic|agent.",
+            inputs: vec![
+                FieldSchema {
+                    name: "id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Saved flow id. Provide this or 'graph'.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "graph",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "Candidate WorkflowGraph to inspect (no trust join without an id).",
+                    required: false,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "entries",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                    comment:
+                        "One per relevant node/tool: {kind: approvable|blocked|dynamic|agent, \
+                         node_id, tool_name?, label, class?}.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "missing",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Approvable trust keys the flow does not yet hold.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "already_trusted",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Approvable trust keys already granted to this flow.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "gate_installed",
+                    ty: TypeSchema::Bool,
+                    comment:
+                        "False when the approval gate is disabled — nothing ever prompts, so \
+                         missing is empty by definition.",
+                    required: true,
+                },
+            ],
+        },
         "required_connections" => ControllerSchema {
             namespace: "flows",
             function: "required_connections",
@@ -1593,6 +1651,19 @@ fn handle_required_connections(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_approval_manifest(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = params
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|s| !s.trim().is_empty())
+            .map(str::to_string);
+        let graph = params.get("graph").filter(|v| !v.is_null()).cloned();
+        to_json(ops::flows_approval_manifest(&config, id.as_deref(), graph).await?)
+    })
+}
+
 fn handle_search_tool_catalog(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -1784,6 +1855,7 @@ mod tests {
                 "search_tool_catalog",
                 "get_tool_contract",
                 "required_connections",
+                "approval_manifest",
             ]
         );
     }
@@ -1791,7 +1863,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 34);
+        assert_eq!(controllers.len(), 35);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -1830,6 +1902,7 @@ mod tests {
                 "search_tool_catalog",
                 "get_tool_contract",
                 "required_connections",
+                "approval_manifest",
             ]
         );
     }

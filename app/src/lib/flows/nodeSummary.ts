@@ -104,6 +104,12 @@ export function describeNode(
       // recall
       return `Recalls memory${scoped}`;
     }
+    case 'dedup': {
+      const key = str(config, 'key');
+      return key
+        ? `Skips items already seen by ${truncate(key, 40)}`
+        : 'Skips items already processed';
+    }
     default:
       return '';
   }

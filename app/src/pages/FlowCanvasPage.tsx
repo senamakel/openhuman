@@ -27,6 +27,7 @@ import type {
   EditorSaveMeta,
 } from '../components/flows/canvas/EditableFlowCanvas';
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
+import { FlowPreauthorizationOverlay } from '../components/flows/FlowPreauthorizationCard';
 import FlowRunsSidebar from '../components/flows/FlowRunsSidebar';
 import WorkflowCopilotPanel, {
   type RepairPromptContext,
@@ -39,19 +40,13 @@ import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
+import { useFlowPreauthorization } from '../hooks/useFlowPreauthorization';
 import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { workflowGraphToXyflow } from '../lib/flows/graphAdapter';
 import { buildPreviewGraph, diffGraphs } from '../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { useT } from '../lib/i18n/I18nContext';
-import {
-  createFlow,
-  type Flow,
-  getFlow,
-  runFlow,
-  setFlowEnabled,
-  updateFlow,
-} from '../services/api/flowsApi';
+import { createFlow, type Flow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
 import type { WorkflowProposal } from '../store/chatRuntimeSlice';
 import type { ToastNotification } from '../types/intelligence';
 
@@ -615,15 +610,70 @@ function FlowEditor({
     [isDraft, flowId, name, requireApproval, navigate]
   );
 
+  // Deferred draft navigation while the pre-authorization card is open — the
+  // `/flows/:id` route change would unmount the card mid-decision, so a
+  // draft-save that surfaces the card parks its navigation here and fires it
+  // from the hook's `onSettled` once the user decided either way.
+  const preauthNavRef = useRef<string | null>(null);
+  const preauth = useFlowPreauthorization({
+    onSettled: useCallback(
+      (outcome: 'no-card' | 'approved' | 'denied', settledFlowId: string) => {
+        if (preauthNavRef.current === settledFlowId) {
+          preauthNavRef.current = null;
+          log(
+            'preauth settled outcome=%s id=%s — firing deferred draft navigation',
+            outcome,
+            settledFlowId
+          );
+          navigate(`/flows/${settledFlowId}`, { replace: true });
+        } else {
+          log('preauth settled outcome=%s id=%s — no deferred navigation', outcome, settledFlowId);
+        }
+      },
+      [navigate]
+    ),
+  });
+
   // Adapter for the canvas's own `onSave` prop, whose type (`void |
   // Promise<void>`) is shared with the read-only viewer and every other
   // consumer — `handleSave`'s richer `{ remounted }` return (needed by
   // `handleAcceptProposal` below) isn't part of that contract.
+  //
+  // After a successful persist this also runs the save+enable
+  // pre-authorization check: a flow that is (or came back) enabled with
+  // missing permission grants surfaces the consolidated Approve-all/Deny
+  // card. For a draft-create the navigation to `/flows/:id` is deferred
+  // until the card settles (see `preauthNavRef`).
   const onCanvasSave = useCallback(
     async (next: WorkflowGraph) => {
-      await handleSave(next);
+      const result = await handleSave(next, undefined, undefined, true);
+      if (result.wasDraft) {
+        let cardShown = false;
+        try {
+          cardShown = await preauth.checkAfterSave(result.flowId, result.flowEnabled);
+        } catch (err) {
+          // The flow is already persisted — on failure we must still
+          // navigate, or `isDraft` stays true and a Save retry would call
+          // `createFlow` again, duplicating the flow (same guard as
+          // `handleAcceptProposal`'s enable arm).
+          log('save: pre-authorization check failed id=%s err=%o', result.flowId, err);
+        }
+        if (cardShown) {
+          log('save: preauth card shown id=%s — deferring draft navigation', result.flowId);
+          preauthNavRef.current = result.flowId;
+        } else {
+          log('save: no preauth card id=%s — navigating to flow route', result.flowId);
+          navigate(`/flows/${result.flowId}`, { replace: true });
+        }
+      } else {
+        preauth
+          .checkAfterSave(result.flowId, result.flowEnabled)
+          .catch(err =>
+            log('save: pre-authorization check failed id=%s err=%o', result.flowId, err)
+          );
+      }
     },
-    [handleSave]
+    [handleSave, preauth, navigate]
   );
 
   const handleGraphChange = useCallback(
@@ -759,11 +809,20 @@ function FlowEditor({
         // simpler than special-casing an already-enabled flow, and this is
         // still inside the same try/catch so a failure here also leaves the
         // proposal visible for retry rather than silently vanishing.
+        let preauthCardShown = false;
         if (opts?.enable) {
           log('copilot proposal accepted: enabling flow id=%s', savedFlowId);
           try {
-            await setFlowEnabled(savedFlowId, true);
-            log('copilot proposal accepted: enable succeeded id=%s', savedFlowId);
+            // Routes through the pre-authorization check: enables directly
+            // when no grants are missing, otherwise surfaces the consolidated
+            // Approve-all/Deny card and defers the enable to "Approve all".
+            const enabledNow = await preauth.beginEnable(savedFlowId);
+            preauthCardShown = !enabledNow;
+            log(
+              'copilot proposal accepted: enable settled id=%s cardShown=%s',
+              savedFlowId,
+              preauthCardShown
+            );
           } catch (enableErr) {
             // The flow IS saved at this point. On a DRAFT we must still
             // navigate to the created flow (below) or a retry would create a
@@ -784,8 +843,14 @@ function FlowEditor({
         // Draft navigation was deferred so the "Save & enable" arm could run
         // first; now that persist + enable have settled, move to the real flow
         // route. A non-draft accept stays on its existing `/flows/:id` page.
+        // When the pre-authorization card is open, navigation is parked until
+        // the user decides (the route change would unmount the card).
         if (wasDraft) {
-          navigate(`/flows/${savedFlowId}`, { replace: true });
+          if (preauthCardShown) {
+            preauthNavRef.current = savedFlowId;
+          } else {
+            navigate(`/flows/${savedFlowId}`, { replace: true });
+          }
         }
       } catch (err) {
         log('copilot proposal accepted: save/enable failed err=%o', err);
@@ -799,7 +864,7 @@ function FlowEditor({
         throw err;
       }
     },
-    [titleDraft, renaming, t, isDraft, handleSave]
+    [titleDraft, renaming, t, isDraft, handleSave, preauth, navigate]
   );
 
   const handleRejectProposal = useCallback(() => {
@@ -1247,6 +1312,17 @@ function FlowEditor({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Consolidated save+enable pre-authorization card (Approve all / Deny). */}
+        {preauth.pending && (
+          <FlowPreauthorizationOverlay
+            entries={preauth.pending.manifest.entries}
+            busy={preauth.busy}
+            errorMsg={preauth.errorKey ? t('flows.enableApproval.error') : null}
+            onApproveAll={() => void preauth.approveAll()}
+            onDeny={() => void preauth.deny()}
+          />
         )}
       </div>
     </PanelPage>

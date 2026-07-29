@@ -1,5 +1,5 @@
 /**
- * Per-kind visual metadata for the 13 tinyflows `NodeKind`s, shared by the
+ * Per-kind visual metadata for the 14 tinyflows `NodeKind`s, shared by the
  * canvas node renderer (`FlowNodeComponent`) and the editable canvas's node
  * palette (`NodePalette`). Kept dependency-free (no React) so both a rendered
  * `<Handle>`-bearing card and a plain palette button can pull the same
@@ -8,7 +8,7 @@
  * Colors cycle through the four CSS-variable-backed semantic ramps
  * (primary/sage/amber/coral) that support Tailwind's `/opacity` modifiers in
  * this codebase (see `tailwind.config.js`) so light/dark theming comes for
- * free; with 13 kinds and 4 ramps some kinds share a color family — the emoji
+ * free; with 14 kinds and 4 ramps some kinds share a color family — the emoji
  * + name remain the primary distinguishers.
  */
 import type { NodeKind } from './types';
@@ -29,12 +29,16 @@ interface NodeKindMeta {
 }
 
 /**
- * The 13 `NodeKind`s in the order they should appear in the palette. Trigger
+ * The 14 `NodeKind`s in the order they should appear in the palette. Trigger
  * leads (every graph needs exactly one); the rest follow the logical grouping
  * of the `tinyflows::model::NodeKind` enum. `memory` (issue #5226) is
- * appended last — the design doc (`08-memory-node.md`) sequences it as the
- * 13th kind deliberately, so it trails `sub_workflow` here too rather than
- * being interleaved with the other `actions`-group kinds.
+ * appended after `sub_workflow` — the design doc (`08-memory-node.md`)
+ * sequences it as the 13th kind deliberately, so it trails `sub_workflow`
+ * here too rather than being interleaved with the other `actions`-group
+ * kinds. `dedup` (issue #5263) is the 14th kind and is appended last in turn
+ * — it renders in the `logic` group (alongside `condition`/`split_out`/
+ * `merge`) regardless of its position here, since {@link PALETTE_ENTRIES_BY_GROUP}
+ * filters by group rather than relying on interleaved array order.
  */
 const NODE_KINDS: NodeKind[] = [
   'trigger',
@@ -50,6 +54,7 @@ const NODE_KINDS: NodeKind[] = [
   'output_parser',
   'sub_workflow',
   'memory',
+  'dedup',
 ];
 
 /** Per-kind emoji + border/chip color + palette group. See the module doc. */
@@ -70,6 +75,10 @@ const NODE_KIND_META: Record<NodeKind, NodeKindMeta> = {
   split_out: { emoji: '📤', color: 'sage', group: 'logic' },
   transform: { emoji: '♻️', color: 'primary', group: 'logic' },
   output_parser: { emoji: '📋', color: 'amber', group: 'logic' },
+  // Skips items already seen, keyed by a stable per-item `=`-expression — a
+  // "logic" node like its neighbours (`condition`/`split_out`/`merge`): it
+  // routes/filters the item stream rather than calling out or reading state.
+  dedup: { emoji: '🪪', color: 'coral', group: 'logic' },
 };
 
 /** Palette group render order. */

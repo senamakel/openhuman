@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 
 import EmptyStateCard from '../components/EmptyStateCard';
 import FlowListRow, { type FlowListRowBusy } from '../components/flows/FlowListRow';
+import { FlowPreauthorizationOverlay } from '../components/flows/FlowPreauthorizationCard';
 import type { FlowRepairRequest } from '../components/flows/FlowRunInspectorDrawer';
 import FlowRunsDrawer from '../components/flows/FlowRunsDrawer';
 import FlowTemplateGallery from '../components/flows/FlowTemplateGallery';
@@ -30,6 +31,7 @@ import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { ModalShell } from '../components/ui/ModalShell';
 import { useFlowChanged } from '../hooks/useFlowChanged';
+import { useFlowPreauthorization } from '../hooks/useFlowPreauthorization';
 import { FLOW_CANVAS_DRAFT_ROUTE, type FlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { downloadFlowGraph } from '../lib/flows/exportFlow';
 import { type FlowTemplate, templateNameKey } from '../lib/flows/templates';
@@ -117,6 +119,17 @@ export default function FlowsPage() {
     }, [])
   );
 
+  // Consolidated save+enable pre-authorization (Approve all / Deny). When a
+  // decision settles either way, silently refresh the list so the enabled
+  // toggle reflects the outcome.
+  const preauth = useFlowPreauthorization({
+    onSettled: useCallback(() => {
+      void listFlows()
+        .then(setFlows)
+        .catch(err => log('post-preauth refetch failed: %o', err));
+    }, []),
+  });
+
   const handleToggle = useCallback(
     async (flow: Flow) => {
       if (busyKey) return;
@@ -125,8 +138,24 @@ export default function FlowsPage() {
       setError(null);
       log('toggle: id=%s next=%s', flow.id, !flow.enabled);
       try {
-        const updated = await setFlowEnabled(flow.id, !flow.enabled);
-        setFlows(prev => prev.map(f => (f.id === updated.id ? updated : f)));
+        if (flow.enabled) {
+          const updated = await setFlowEnabled(flow.id, false);
+          setFlows(prev => prev.map(f => (f.id === updated.id ? updated : f)));
+        } else {
+          // Enabling goes through the pre-authorization check: enables
+          // directly when no grants are missing, otherwise surfaces the
+          // consolidated card and defers the enable to "Approve all".
+          const enabledNow = await preauth.beginEnable(flow.id);
+          log(
+            'toggle: id=%s beginEnable settled enabledNow=%s (false = preauth card shown)',
+            flow.id,
+            enabledNow
+          );
+          if (enabledNow) {
+            const result = await listFlows();
+            setFlows(result);
+          }
+        }
       } catch (err) {
         log('toggle failed: id=%s err=%o', flow.id, err);
         setError(errorMessage(err));
@@ -134,7 +163,7 @@ export default function FlowsPage() {
         setBusyKey(null);
       }
     },
-    [busyKey]
+    [busyKey, preauth]
   );
 
   const handleRun = useCallback(
@@ -559,6 +588,16 @@ export default function FlowsPage() {
               </Button>
             </div>
           </ModalShell>
+        )}
+
+        {preauth.pending && (
+          <FlowPreauthorizationOverlay
+            entries={preauth.pending.manifest.entries}
+            busy={preauth.busy}
+            errorMsg={preauth.errorKey ? t('flows.enableApproval.error') : null}
+            onApproveAll={() => void preauth.approveAll()}
+            onDeny={() => void preauth.deny()}
+          />
         )}
 
         <ToastContainer notifications={toasts} onRemove={removeToast} />

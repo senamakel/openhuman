@@ -8,7 +8,15 @@ use anyhow::anyhow;
 use crate::rpc::RpcOutcome;
 
 use super::gate::{try_boot_state, ApprovalGate, ApprovalGateBootState, DecideMiss};
-use super::types::{ApprovalAuditEntry, ApprovalDecision, ApprovalSourceContext, PendingApproval};
+use super::types::{
+    ApprovalAuditEntry, ApprovalDecision, ApprovalSourceContext, FlowPreauthorizationResult,
+    PendingApproval,
+};
+
+/// Upper bound on `tool_names` per pre-authorization call — far above any
+/// real flow's tool count, present only to keep a malformed caller from
+/// writing unbounded rows.
+const MAX_PREAUTHORIZE_TOOLS: usize = 100;
 
 /// Read the host-aware approval-gate boot decision so the UI banner can
 /// render the right state on first paint (rather than waiting for a
@@ -85,6 +93,98 @@ pub async fn approval_list_recent_decisions(
         "[rpc:approval_list_recent_decisions] exit"
     );
     Ok(RpcOutcome::single_log(rows, log))
+}
+
+/// Batch-grant "approve always for this flow" trust at save+enable time
+/// (consolidated pre-authorization card). Loops the idempotent
+/// `INSERT OR IGNORE` per tool and writes one born-decided audit row per
+/// *new* grant so blanket approvals stay visible in Approval history.
+///
+/// Unlike `approval_decide`, a missing gate is NOT an error: with the gate
+/// uninstalled (`OPENHUMAN_APPROVAL_GATE=0`) nothing ever parks, so there is
+/// nothing to pre-authorize — the call reports `gate_installed: false` and
+/// succeeds, keeping the save-and-enable UX identical in both modes.
+pub async fn approval_preauthorize_flow(
+    flow_id: &str,
+    tool_names: Vec<String>,
+) -> anyhow::Result<RpcOutcome<FlowPreauthorizationResult>> {
+    tracing::debug!(
+        flow_id = flow_id,
+        tools = tool_names.len(),
+        "[rpc:approval_preauthorize_flow] entry"
+    );
+    if flow_id.trim().is_empty() {
+        return Err(anyhow!("flow_id must not be empty"));
+    }
+    if tool_names.len() > MAX_PREAUTHORIZE_TOOLS {
+        return Err(anyhow!(
+            "too many tool_names ({}); max {MAX_PREAUTHORIZE_TOOLS}",
+            tool_names.len()
+        ));
+    }
+    let Some(gate) = ApprovalGate::try_global() else {
+        tracing::info!(
+            flow_id = flow_id,
+            "[rpc:approval_preauthorize_flow] gate not installed; nothing to grant"
+        );
+        return Ok(RpcOutcome::single_log(
+            FlowPreauthorizationResult {
+                flow_id: flow_id.to_string(),
+                granted: vec![],
+                already_trusted: vec![],
+                gate_installed: false,
+            },
+            "[approval] preauthorize: gate not installed, no trust persisted".to_string(),
+        ));
+    };
+
+    let mut granted = Vec::new();
+    let mut already_trusted = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for tool_name in tool_names {
+        let tool_name = tool_name.trim().to_string();
+        if tool_name.is_empty() || !seen.insert(tool_name.clone()) {
+            continue; // skip blanks and intra-call duplicates
+        }
+        if gate.is_flow_tool_trusted(flow_id, &tool_name)? {
+            already_trusted.push(tool_name);
+            continue;
+        }
+        gate.insert_flow_trust(flow_id, &tool_name)?;
+        // Audit row is best-effort: the grant above is what changes behavior,
+        // and failing the whole batch over a bookkeeping row would leave the
+        // user with a half-approved card for no security benefit.
+        if let Err(err) = gate.record_flow_preauthorization(flow_id, &tool_name) {
+            tracing::warn!(
+                flow_id = flow_id,
+                tool = tool_name.as_str(),
+                error = %err,
+                "[rpc:approval_preauthorize_flow] failed to write audit row for grant"
+            );
+        }
+        granted.push(tool_name);
+    }
+
+    tracing::info!(
+        flow_id = flow_id,
+        granted = granted.len(),
+        already_trusted = already_trusted.len(),
+        "[rpc:approval_preauthorize_flow] exit"
+    );
+    let log = format!(
+        "[approval] pre-authorized {} tool(s) for flow {flow_id} ({} already trusted)",
+        granted.len(),
+        already_trusted.len()
+    );
+    Ok(RpcOutcome::single_log(
+        FlowPreauthorizationResult {
+            flow_id: flow_id.to_string(),
+            granted,
+            already_trusted,
+            gate_installed: true,
+        },
+        log,
+    ))
 }
 
 /// Apply a decision to a pending row. Errors when the request id is

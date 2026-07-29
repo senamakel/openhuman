@@ -7355,3 +7355,150 @@ async fn flows_run_detached_registers_the_run_before_returning_its_id() {
         "a detached run must be registered before its run_id is returned"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// compute_approval_manifest (save-time pre-authorization card)
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn manifest_graph() -> WorkflowGraph {
+    structurally_valid_graph(json!({
+        "name": "manifest-fixture",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "h", "kind": "http_request", "name": "Call API",
+              "config": { "url": "https://api.example.com/x", "method": "GET" } },
+            { "id": "c", "kind": "code", "name": "Transform",
+              "config": { "language": "javascript", "code": "return 1;" } },
+            { "id": "w", "kind": "tool_call", "name": "Create order",
+              "config": { "slug": "SHOPIFY_CREATE_ORDER" } },
+            { "id": "r", "kind": "tool_call", "name": "Count products",
+              "config": { "slug": "SHOPIFY_COUNT_PRODUCTS" } }
+        ],
+        "edges": [
+            { "from_node": "t", "from_port": "main", "to_node": "h" },
+            { "from_node": "h", "from_port": "main", "to_node": "c" },
+            { "from_node": "c", "from_port": "main", "to_node": "w" },
+            { "from_node": "w", "from_port": "main", "to_node": "r" }
+        ]
+    }))
+}
+
+fn entry_kinds_by_tool(entries: &[Value]) -> Vec<(String, String)> {
+    entries
+        .iter()
+        .map(|e| {
+            (
+                e.get("tool_name")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                e.get("kind").and_then(Value::as_str).unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn approval_manifest_lists_gated_nodes_and_skips_curated_reads() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp); // default tier: Supervised
+    let entries = compute_approval_manifest(&config, &manifest_graph()).await;
+
+    let kinds = entry_kinds_by_tool(&entries);
+    // Supervised prompts on every acting class → all three are approvable.
+    assert!(kinds.contains(&("flows_http_request".into(), "approvable".into())));
+    assert!(kinds.contains(&("flows_code".into(), "approvable".into())));
+    assert!(kinds.contains(&("SHOPIFY_CREATE_ORDER".into(), "approvable".into())));
+    // A curated Read action never reaches the gate — must NOT be listed.
+    assert!(
+        !kinds.iter().any(|(t, _)| t == "SHOPIFY_COUNT_PRODUCTS"),
+        "curated Read slug must be excluded from the manifest: {kinds:?}"
+    );
+    assert_eq!(entries.len(), 3, "{entries:?}");
+}
+
+#[tokio::test]
+async fn approval_manifest_marks_blocked_classes_under_readonly_tier() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.autonomy.level = crate::openhuman::security::AutonomyLevel::ReadOnly;
+    let entries = compute_approval_manifest(&config, &manifest_graph()).await;
+
+    let kinds = entry_kinds_by_tool(&entries);
+    // Read-only blocks every non-Read class: informational, never approvable.
+    assert!(kinds.contains(&("flows_http_request".into(), "blocked".into())));
+    assert!(kinds.contains(&("flows_code".into(), "blocked".into())));
+    assert!(kinds.contains(&("SHOPIFY_CREATE_ORDER".into(), "blocked".into())));
+    assert!(!kinds.iter().any(|(_, k)| k == "approvable"), "{kinds:?}");
+}
+
+#[tokio::test]
+async fn approval_manifest_dedupes_repeated_tools_and_flags_dynamic_slugs() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let graph = structurally_valid_graph(json!({
+        "name": "dedupe-dynamic",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "h1", "kind": "http_request", "name": "One",
+              "config": { "url": "https://a.example.com", "method": "GET" } },
+            { "id": "h2", "kind": "http_request", "name": "Two",
+              "config": { "url": "https://b.example.com", "method": "POST" } },
+            { "id": "d", "kind": "tool_call", "name": "Dynamic",
+              "config": { "slug": "={{ $json.slug }}" } }
+        ],
+        "edges": [
+            { "from_node": "t", "from_port": "main", "to_node": "h1" },
+            { "from_node": "h1", "from_port": "main", "to_node": "h2" },
+            { "from_node": "h2", "from_port": "main", "to_node": "d" }
+        ]
+    }));
+    let entries = compute_approval_manifest(&config, &graph).await;
+
+    // Two http nodes share one trust key → exactly one row.
+    let http_rows = entries
+        .iter()
+        .filter(|e| e.get("tool_name").and_then(Value::as_str) == Some("flows_http_request"))
+        .count();
+    assert_eq!(http_rows, 1, "{entries:?}");
+    // The `=` slug cannot be pre-approved; it is disclosed as dynamic.
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.get("kind").and_then(Value::as_str) == Some("dynamic")),
+        "{entries:?}"
+    );
+}
+
+#[tokio::test]
+async fn approval_manifest_discloses_agent_ref_nodes_only() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let graph = structurally_valid_graph(json!({
+        "name": "agent-disclosure",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "plain", "kind": "agent", "name": "Plain LLM",
+              "config": { "prompt": "Summarize {{input}}" } },
+            { "id": "harness", "kind": "agent", "name": "Full agent",
+              "config": { "prompt": "Do things", "agent_ref": "orchestrator" } }
+        ],
+        "edges": [
+            { "from_node": "t", "from_port": "main", "to_node": "plain" },
+            { "from_node": "plain", "from_port": "main", "to_node": "harness" }
+        ]
+    }));
+    let entries = compute_approval_manifest(&config, &graph).await;
+
+    let agent_rows: Vec<_> = entries
+        .iter()
+        .filter(|e| e.get("kind").and_then(Value::as_str) == Some("agent"))
+        .collect();
+    // Only the harness-backed agent node is disclosed; a plain LLM node has
+    // no acting side effect and must not scare the user with a row.
+    assert_eq!(agent_rows.len(), 1, "{entries:?}");
+    assert_eq!(
+        agent_rows[0].get("node_id").and_then(Value::as_str),
+        Some("harness")
+    );
+}

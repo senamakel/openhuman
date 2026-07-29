@@ -329,6 +329,53 @@ async fn an_update_cannot_lower_the_approval_requirement() {
     );
 }
 
+fn schedule_graph(cron: &str) -> Value {
+    json!({
+        "name": "scheduled",
+        "nodes": [{
+            "id": "t",
+            "kind": "trigger",
+            "name": "Trigger",
+            "config": { "trigger_kind": "schedule", "schedule": cron }
+        }],
+        "edges": []
+    })
+}
+
+#[tokio::test]
+async fn a_remote_automatic_revision_requires_explicit_rearming() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = ops::flows_create(
+        &config,
+        "Scheduled".to_string(),
+        schedule_graph("0 9 * * *"),
+        true,
+    )
+    .await
+    .unwrap()
+    .value;
+    assert!(!created.enabled, "automatic flows are born disarmed");
+
+    let armed = ops::flows_set_enabled(&config, &created.id, true)
+        .await
+        .unwrap()
+        .value;
+    assert!(armed.enabled, "precondition: the user explicitly armed it");
+
+    let proposal = json!({
+        "name": "Scheduled v2",
+        "graph": schedule_graph("0 10 * * *"),
+    });
+    let applied = apply_proposal(&config, Some(&armed.id), &proposal, Some(&armed.updated_at))
+        .await
+        .unwrap();
+
+    assert!(!applied.flow.enabled);
+    let saved = ops::flows_get(&config, &armed.id).await.unwrap().value;
+    assert!(!saved.enabled, "the revised schedule must stay disarmed");
+}
+
 #[tokio::test]
 async fn a_proposal_without_a_graph_is_refused() {
     let tmp = TempDir::new().unwrap();

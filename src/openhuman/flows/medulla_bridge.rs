@@ -457,7 +457,7 @@ async fn apply_proposal(
                 .map(str::trim)
                 .filter(|name| !name.is_empty())
                 .map(str::to_string);
-            let flow = ops::flows_update(
+            let flow = ops::flows_update_disarming_automatic(
                 config,
                 id,
                 name,

@@ -279,7 +279,7 @@ impl SocketManager {
         self.shared.ack_registry.cancel_all();
         self.emit_tx.lock().await.take();
         if let Some(handle) = self.loop_handle.lock().await.take() {
-            let _ = tokio::time::timeout(Duration::from_secs(5), handle).await;
+            terminate_loop(handle, Duration::from_secs(5)).await;
         }
         *self.shared.status.write() = ConnectionStatus::Disconnected;
         *self.shared.socket_id.write() = None;
@@ -335,6 +335,21 @@ impl SocketManager {
                 ))
             }
         }
+    }
+}
+
+/// Wait for the socket loop to observe shutdown, then abort and join it if a
+/// transport operation outlives the grace period.
+///
+/// Dropping a timed-out `JoinHandle` detaches its task. During an account
+/// switch that would let the old credential finish authenticating after the
+/// new user's workflow bridge is installed, so timeout must mean termination,
+/// not detachment.
+async fn terminate_loop(mut handle: tokio::task::JoinHandle<()>, grace: Duration) {
+    if tokio::time::timeout(grace, &mut handle).await.is_err() {
+        log::warn!("[socket] connection loop did not stop within {grace:?} — aborting");
+        handle.abort();
+        let _ = handle.await;
     }
 }
 
@@ -470,6 +485,33 @@ mod tests {
         // Calling again must still succeed.
         assert!(mgr.disconnect().await.is_ok());
         assert_eq!(mgr.get_state().status, ConnectionStatus::Disconnected);
+    }
+
+    #[tokio::test]
+    async fn a_timed_out_socket_loop_is_aborted_and_joined() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        struct MarksDrop(Arc<AtomicBool>);
+        impl Drop for MarksDrop {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let dropped = Arc::new(AtomicBool::new(false));
+        let dropped_in_task = Arc::clone(&dropped);
+        let handle = tokio::spawn(async move {
+            let _guard = MarksDrop(dropped_in_task);
+            std::future::pending::<()>().await;
+        });
+        tokio::task::yield_now().await;
+
+        terminate_loop(handle, Duration::from_millis(1)).await;
+
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "terminate_loop must join the aborted task before returning"
+        );
     }
 
     #[test]

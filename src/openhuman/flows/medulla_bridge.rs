@@ -414,6 +414,7 @@ fn builder_request(
 }
 
 /// The exact row committed by [`apply_proposal`].
+#[derive(Debug)]
 struct AppliedProposal {
     flow: Flow,
     created: bool,

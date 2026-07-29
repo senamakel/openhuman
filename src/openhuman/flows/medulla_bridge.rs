@@ -70,8 +70,12 @@ const MAX_DESCRIPTION_CHARS: usize = 400;
 /// The generic builder exposes these for its product surfaces, but this bridge
 /// deliberately owns persistence in [`apply_proposal`] so it can enforce the
 /// observed version and approval floor exactly once.
-const MEDULLA_COPILOT_HIDDEN_TOOLS: &[&str] =
-    &["save_workflow", "create_workflow", "duplicate_flow"];
+const MEDULLA_COPILOT_HIDDEN_TOOLS: &[&str] = &[
+    "save_workflow",
+    "create_workflow",
+    "duplicate_flow",
+    "edit_workflow",
+];
 
 /// Install the flows-backed bridge on the medulla workflow plane.
 ///

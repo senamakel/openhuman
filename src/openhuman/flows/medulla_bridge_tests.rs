@@ -488,7 +488,12 @@ fn scoped_diff_excludes_concurrent_changes_to_other_workflows() {
 fn medulla_copilot_hides_every_persistence_tool() {
     assert_eq!(
         MEDULLA_COPILOT_HIDDEN_TOOLS,
-        ["save_workflow", "create_workflow", "duplicate_flow"]
+        [
+            "save_workflow",
+            "create_workflow",
+            "duplicate_flow",
+            "edit_workflow"
+        ]
     );
 }
 

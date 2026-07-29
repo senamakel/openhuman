@@ -528,7 +528,9 @@ pub(super) fn handle_sio_event(
         // unanswered one is not a graceful degradation — it is a stall on the
         // first delegation to this agent.
         "medulla:capabilities_request" => {
-            match serde_json::from_value::<super::medulla::payloads::CapabilitiesRequest>(data) {
+            match serde_json::from_value::<super::medulla::payloads::CapabilitiesRequest>(
+                data.clone(),
+            ) {
                 Ok(request) => {
                     log::info!(
                         "[socket] medulla:capabilities_request probe_id={} agent_id={}",
@@ -537,7 +539,13 @@ pub(super) fn handle_sio_event(
                     );
                     super::medulla::handle_capabilities_request(request);
                 }
-                Err(e) => log::warn!("[socket] failed to parse medulla:capabilities_request: {e}"),
+                // An undecodable probe still has to be answered when it named
+                // itself, for the same reason a decodable one does: silence
+                // spends the backend's whole 10s window.
+                Err(e) => {
+                    log::warn!("[socket] failed to parse medulla:capabilities_request: {e}");
+                    super::medulla::reject_unparsed_capabilities_request(&data, &e.to_string());
+                }
             }
         }
         // Workflow round trip: a read of, or an authoring turn on, this host's

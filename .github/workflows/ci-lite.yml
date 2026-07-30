@@ -465,7 +465,6 @@ jobs:
           openhuman/composio/action_tool.rs
           openhuman/inference/local/mod.rs
           openhuman/socket/ops.rs
-          openhuman/socket/schemas.rs
           openhuman/tool_registry/ops_tests.rs
           openhuman/tool_registry/schemas.rs
           openhuman/tools/ops_tests.rs

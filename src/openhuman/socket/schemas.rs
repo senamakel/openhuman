@@ -159,6 +159,15 @@ fn require_manager() -> Result<&'static std::sync::Arc<super::SocketManager>, St
         .ok_or_else(|| "SocketManager not initialized — runtime not bootstrapped".to_string())
 }
 
+async fn prepare_unbound_static_connection(
+    manager: &super::SocketManager,
+    clear_workflow_plane: impl FnOnce(),
+) -> Result<(), String> {
+    manager.disconnect().await?;
+    clear_workflow_plane();
+    Ok(())
+}
+
 fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
@@ -171,7 +180,20 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
             .and_then(|v| v.as_str())
             .ok_or("missing required param 'token'")?;
 
-        log::info!("[socket:rpc] connect url={}", url);
+        log::info!(
+            "[socket:rpc] connect url={} — disabling identity-bound workflow plane",
+            url
+        );
+
+        // This legacy controller accepts an opaque token with no Config or
+        // profile identity to prove which user it belongs to. Never carry the
+        // boot-pinned/user-pinned workflow bridge across that trust boundary:
+        // terminate the old socket first, then synchronously remove the bridge
+        // before the replacement loop can authenticate. Callers that need the
+        // workflow plane must use `connect_with_session`, which binds its token
+        // provider and bridge to the same Config.
+        prepare_unbound_static_connection(mgr, super::medulla::workflows::clear_workflow_bridge)
+            .await?;
         mgr.connect(url, token).await?;
 
         let state = mgr.get_state();
@@ -364,6 +386,34 @@ mod tests {
         let names: Vec<&str> = s.inputs.iter().map(|f| f.name).collect();
         assert!(names.contains(&"url"));
         assert!(names.contains(&"token"));
+    }
+
+    #[tokio::test]
+    async fn static_token_connection_clears_identity_bound_state_after_disconnect() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let manager = super::super::SocketManager::new();
+        manager
+            .connect("http://127.0.0.1:1", "opaque-static-token")
+            .await
+            .unwrap();
+
+        let cleared = AtomicBool::new(false);
+        prepare_unbound_static_connection(&manager, || {
+            assert_eq!(
+                manager.get_state().status,
+                super::super::types::ConnectionStatus::Disconnected,
+                "the prior identity must be fully disconnected before its bridge is cleared"
+            );
+            cleared.store(true, Ordering::SeqCst);
+        })
+        .await
+        .unwrap();
+
+        assert!(
+            cleared.load(Ordering::SeqCst),
+            "the unbound connection must clear identity-bound workflow state"
+        );
     }
 
     // ── handlers (without manager): require_manager errors ─────────

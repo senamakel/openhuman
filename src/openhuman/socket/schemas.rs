@@ -159,18 +159,6 @@ fn require_manager() -> Result<&'static std::sync::Arc<super::SocketManager>, St
         .ok_or_else(|| "SocketManager not initialized — runtime not bootstrapped".to_string())
 }
 
-async fn connect_with_unbound_static_token(
-    manager: &super::SocketManager,
-    url: &str,
-    token: &str,
-    clear_workflow_plane: impl FnOnce(),
-) -> Result<(), String> {
-    let _rebind = manager.lock_identity_rebind().await;
-    manager.disconnect().await?;
-    clear_workflow_plane();
-    manager.connect(url, token).await
-}
-
 fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
@@ -183,27 +171,7 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
             .and_then(|v| v.as_str())
             .ok_or("missing required param 'token'")?;
 
-        log::info!(
-            "[socket:rpc] connect url={} — disabling identity-bound workflow plane",
-            url
-        );
-
-        // This legacy controller accepts an opaque token with no Config or
-        // profile identity to prove which user it belongs to. Never carry the
-        // boot-pinned/user-pinned workflow bridge across that trust boundary:
-        // terminate the old socket first, then synchronously remove the bridge
-        // before the replacement loop can authenticate. Callers that need the
-        // workflow plane must use `connect_with_session`, which binds its token
-        // provider and bridge to the same Config.
-        connect_with_unbound_static_token(
-            mgr,
-            url,
-            token,
-            super::medulla::workflows::clear_workflow_bridge,
-        )
-        .await?;
-
-        let state = mgr.get_state();
+        let state = super::ops::connect_static(mgr, url, token).await?;
         Ok(json!({ "status": format!("{:?}", state.status) }))
     })
 }
@@ -211,11 +179,7 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
 fn handle_disconnect(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
-        log::info!("[socket:rpc] disconnect");
-        let _rebind = mgr.lock_identity_rebind().await;
-        mgr.disconnect().await?;
-
-        let state = mgr.get_state();
+        let state = super::ops::disconnect(mgr).await?;
         Ok(json!({ "status": format!("{:?}", state.status) }))
     })
 }
@@ -247,51 +211,7 @@ fn handle_emit(params: Map<String, Value>) -> ControllerFuture {
 fn handle_connect_with_session(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
-
-        log::info!("[socket:rpc] connect_with_session — resolving credentials");
-
-        // Load config once to derive the API URL and perform the initial
-        // token validation. The config is then moved into a live-refresh
-        // `TokenProvider` so the reconnect loop can re-read the latest
-        // session token from the profile store on every subsequent attempt
-        // (fix for TAURI-RUST-9C / #2892 — stale-token retry storm).
-        let config =
-            std::sync::Arc::new(crate::openhuman::config::rpc::load_config_with_timeout().await?);
-        let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-
-        // Perform an eager check so the RPC caller gets an immediate error
-        // if no session is stored — the provider will do the same check on
-        // every reconnect attempt inside `ws_loop`.
-        let initial_token = crate::api::jwt::get_session_token(&config)
-            .map_err(|e| format!("failed to read session token: {e}"))?
-            .ok_or("no session token stored — user must log in first")?;
-
-        log::info!(
-            "[socket:rpc] connect_with_session url={} token_len={}",
-            api_url,
-            initial_token.len()
-        );
-
-        // The workflow bridge and token provider must address the same
-        // user-scoped config for this connection's whole lifetime. Disconnect
-        // first so an old authenticated socket cannot race a bridge rebind
-        // during an in-process account switch.
-        mgr.disconnect().await?;
-        #[cfg(feature = "flows")]
-        if crate::core::runtime::context::CoreContext::current()
-            .is_some_and(|context| context.domains().flows)
-        {
-            crate::openhuman::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
-        }
-
-        // Build a live-refresh provider: on every reconnect attempt the loop
-        // calls this closure to obtain the most recently stored token, picking
-        // up any rotation or re-login that happened while sleeping.
-        let provider = super::token_provider::token_provider_from_config(config);
-
-        mgr.connect_with_provider(&api_url, provider).await?;
-
-        let state = mgr.get_state();
+        let state = super::ops::connect_with_session(mgr).await?;
         Ok(json!({ "status": format!("{:?}", state.status) }))
     })
 }
@@ -394,39 +314,6 @@ mod tests {
         let names: Vec<&str> = s.inputs.iter().map(|f| f.name).collect();
         assert!(names.contains(&"url"));
         assert!(names.contains(&"token"));
-    }
-
-    #[tokio::test]
-    async fn static_token_connection_clears_identity_bound_state_after_disconnect() {
-        use std::sync::atomic::{AtomicBool, Ordering};
-
-        let manager = super::super::SocketManager::new();
-        manager
-            .connect("http://127.0.0.1:1", "opaque-static-token")
-            .await
-            .unwrap();
-
-        let cleared = AtomicBool::new(false);
-        connect_with_unbound_static_token(
-            &manager,
-            "http://127.0.0.1:1",
-            "replacement-token",
-            || {
-                assert_eq!(
-                    manager.get_state().status,
-                    super::super::types::ConnectionStatus::Disconnected,
-                    "the prior identity must be fully disconnected before its bridge is cleared"
-                );
-                cleared.store(true, Ordering::SeqCst);
-            },
-        )
-        .await
-        .unwrap();
-
-        assert!(
-            cleared.load(Ordering::SeqCst),
-            "the unbound connection must clear identity-bound workflow state"
-        );
     }
 
     // ── handlers (without manager): require_manager errors ─────────

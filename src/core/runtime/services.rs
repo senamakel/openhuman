@@ -132,36 +132,6 @@ pub fn spawn_flows_boot_reconcile() {
     log::debug!("[flows] flows feature disabled at compile time — no boot run reconciliation");
 }
 
-/// Install the `flows`-backed workflow bridge on the medulla harness protocol's
-/// workflow plane, so a remote medulla orchestrator can see this host's saved
-/// graphs, read one, and brief its authoring copilot.
-///
-/// Selected by the flows **domain** flag rather than a background service, for
-/// the same reason as [`spawn_flows_boot_reconcile`]: the plane rides the
-/// backend socket the socket service already owns, and there is nothing to run
-/// on a schedule here — installing is what makes the seam answer at all.
-/// Without this call the transport is present but unbacked, and every
-/// `medulla:workflow_request` truthfully reports that this agent has no
-/// workflow store.
-///
-/// Installing also advertises immediately, so ordering against the socket's
-/// `ready` handler does not matter: whichever happens second re-sends the batch.
-pub fn install_flows_workflow_bridge(_config: Option<&crate::openhuman::config::Config>) {
-    #[cfg(feature = "flows")]
-    match _config {
-        Some(config) => {
-            crate::openhuman::flows::medulla_bridge::install(std::sync::Arc::new(config.clone()))
-        }
-        None => {
-            log::warn!("[flows] config unavailable — the medulla workflow plane stays unbacked")
-        }
-    }
-    #[cfg(not(feature = "flows"))]
-    log::debug!(
-        "[flows] flows feature disabled at compile time — the medulla workflow plane stays unbacked"
-    );
-}
-
 /// Cron scheduler — polls `due_jobs()` every ~5s and executes them
 /// automatically. Gated by `config.cron.enabled`.
 pub fn spawn_cron_service() {

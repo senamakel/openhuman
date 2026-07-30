@@ -723,10 +723,6 @@ impl CoreRuntime {
         // ServiceSet, so their orphans must be reconcilable without it too.
         if self.ctx.domains().flows {
             services::spawn_flows_boot_reconcile();
-            // Back the medulla workflow plane with this host's own store. Same
-            // domain gate: a core without the flows domain has no workflows to
-            // advertise, and the plane correctly reports that it has none.
-            services::install_flows_workflow_bridge(self.config.as_ref());
         }
         if self.services.channels {
             services::spawn_channels_service();

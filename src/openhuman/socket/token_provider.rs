@@ -73,7 +73,7 @@ pub(super) fn static_token_provider(token: String) -> TokenProvider {
 /// This is the **live-refresh** path used by `handle_connect_with_session`:
 /// when the loop retries after a disconnect it will see any token that was
 /// refreshed or re-stored since the previous attempt.
-pub(super) fn token_provider_from_config(
+pub(crate) fn token_provider_from_config(
     config: Arc<crate::openhuman::config::Config>,
 ) -> TokenProvider {
     Arc::new(move || {

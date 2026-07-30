@@ -702,7 +702,12 @@ impl CoreRuntime {
     /// each service keeps its own runtime config gate.
     async fn start_selected_services(&self) {
         use crate::core::runtime::services;
-        jsonrpc::start_core_runtime_services(self.services, self.config.as_ref()).await;
+        jsonrpc::start_core_runtime_services(
+            self.services,
+            self.config.as_ref(),
+            self.ctx.domains().flows,
+        )
+        .await;
 
         if self.services.heartbeat {
             services::spawn_login_gated_services(self.ctx.host_kind().is_desktop_shell());

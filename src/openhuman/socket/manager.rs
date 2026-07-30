@@ -122,6 +122,9 @@ pub struct SocketManager {
     shutdown_tx: tokio::sync::Mutex<Option<watch::Sender<bool>>>,
     /// Join handle for the background connection loop.
     loop_handle: tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
+    /// Serializes identity-sensitive disconnect → bridge bind → connect
+    /// transactions while still allowing ordinary emits and state reads.
+    identity_rebind: tokio::sync::Mutex<()>,
 }
 
 impl SocketManager {
@@ -139,7 +142,13 @@ impl SocketManager {
             emit_tx: tokio::sync::Mutex::new(None),
             shutdown_tx: tokio::sync::Mutex::new(None),
             loop_handle: tokio::sync::Mutex::new(None),
+            identity_rebind: tokio::sync::Mutex::new(()),
         }
+    }
+
+    /// Lock an identity-sensitive socket rebind for its complete transaction.
+    pub(crate) async fn lock_identity_rebind(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.identity_rebind.lock().await
     }
 
     /// Set the webhook router for skill-targeted webhook delivery.
@@ -512,6 +521,29 @@ mod tests {
             dropped.load(Ordering::SeqCst),
             "terminate_loop must join the aborted task before returning"
         );
+    }
+
+    #[tokio::test]
+    async fn identity_rebind_transactions_are_serialized() {
+        let manager = Arc::new(SocketManager::new());
+        let first = manager.lock_identity_rebind().await;
+
+        let waiting_manager = Arc::clone(&manager);
+        let mut waiter = tokio::spawn(async move {
+            let _second = waiting_manager.lock_identity_rebind().await;
+        });
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), &mut waiter)
+                .await
+                .is_err(),
+            "a second account rebind must not interleave with the first"
+        );
+
+        drop(first);
+        tokio::time::timeout(Duration::from_secs(1), waiter)
+            .await
+            .expect("the next rebind should proceed after the first commits")
+            .unwrap();
     }
 
     #[test]

@@ -159,13 +159,16 @@ fn require_manager() -> Result<&'static std::sync::Arc<super::SocketManager>, St
         .ok_or_else(|| "SocketManager not initialized — runtime not bootstrapped".to_string())
 }
 
-async fn prepare_unbound_static_connection(
+async fn connect_with_unbound_static_token(
     manager: &super::SocketManager,
+    url: &str,
+    token: &str,
     clear_workflow_plane: impl FnOnce(),
 ) -> Result<(), String> {
+    let _rebind = manager.lock_identity_rebind().await;
     manager.disconnect().await?;
     clear_workflow_plane();
-    Ok(())
+    manager.connect(url, token).await
 }
 
 fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
@@ -192,9 +195,13 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
         // before the replacement loop can authenticate. Callers that need the
         // workflow plane must use `connect_with_session`, which binds its token
         // provider and bridge to the same Config.
-        prepare_unbound_static_connection(mgr, super::medulla::workflows::clear_workflow_bridge)
-            .await?;
-        mgr.connect(url, token).await?;
+        connect_with_unbound_static_token(
+            mgr,
+            url,
+            token,
+            super::medulla::workflows::clear_workflow_bridge,
+        )
+        .await?;
 
         let state = mgr.get_state();
         Ok(json!({ "status": format!("{:?}", state.status) }))
@@ -205,6 +212,7 @@ fn handle_disconnect(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
         log::info!("[socket:rpc] disconnect");
+        let _rebind = mgr.lock_identity_rebind().await;
         mgr.disconnect().await?;
 
         let state = mgr.get_state();
@@ -399,14 +407,19 @@ mod tests {
             .unwrap();
 
         let cleared = AtomicBool::new(false);
-        prepare_unbound_static_connection(&manager, || {
-            assert_eq!(
-                manager.get_state().status,
-                super::super::types::ConnectionStatus::Disconnected,
-                "the prior identity must be fully disconnected before its bridge is cleared"
-            );
-            cleared.store(true, Ordering::SeqCst);
-        })
+        connect_with_unbound_static_token(
+            &manager,
+            "http://127.0.0.1:1",
+            "replacement-token",
+            || {
+                assert_eq!(
+                    manager.get_state().status,
+                    super::super::types::ConnectionStatus::Disconnected,
+                    "the prior identity must be fully disconnected before its bridge is cleared"
+                );
+                cleared.store(true, Ordering::SeqCst);
+            },
+        )
         .await
         .unwrap();
 

@@ -566,6 +566,7 @@ mod tests {
                 trigger_kind: None,
                 agent_id: None,
                 workspace_id: None,
+                inputs: Vec::new(),
             }]
         }
 

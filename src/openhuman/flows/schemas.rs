@@ -728,6 +728,16 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Trigger payload seeded into the run; defaults to null.",
                     required: false,
                 },
+                FieldSchema {
+                    name: "inputs",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "Values for the flow's declared workflow inputs, keyed by name \
+                              (read the flow's `graph.inputs` for the declarations). Missing \
+                              required values, wrong types, and undeclared names are rejected \
+                              before the run starts. Distinct from `input`, which is the \
+                              free-form trigger payload.",
+                    required: false,
+                },
             ],
             outputs: vec![FieldSchema {
                 name: "result",
@@ -754,6 +764,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     name: "input",
                     ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
                     comment: "Trigger payload seeded into the run; defaults to null.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "inputs",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "Values for the flow's declared workflow inputs, keyed by name                               (read the flow's `graph.inputs` for the declarations). Validated                               synchronously, so a bad set is refused here rather than surfacing                               later as a failed background run. Distinct from `input`, which is                               the free-form trigger payload.",
                     required: false,
                 },
             ],
@@ -1537,11 +1553,13 @@ fn handle_run(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let id = read_required::<String>(&params, "id")?;
         let input = params.get("input").cloned().unwrap_or(Value::Null);
+        let inputs = read_declared_inputs(&params)?;
         to_json(
             ops::flows_run(
                 &config,
                 id.trim(),
                 input,
+                inputs,
                 crate::openhuman::flows::FlowRunTrigger::Rpc,
             )
             .await?,
@@ -1554,16 +1572,42 @@ fn handle_run_detached(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let id = read_required::<String>(&params, "id")?;
         let input = params.get("input").cloned().unwrap_or(Value::Null);
+        let inputs = read_declared_inputs(&params)?;
         to_json(
             ops::flows_run_detached(
                 &config,
                 id.trim(),
                 input,
+                inputs,
                 crate::openhuman::flows::FlowRunTrigger::Rpc,
             )
             .await?,
         )
     })
+}
+
+/// Reads the optional `inputs` param — values for the flow's declared workflow
+/// inputs, keyed by name.
+///
+/// Absent or `null` means "supplied nothing", which is valid for a flow whose
+/// inputs are all optional or defaulted. A present-but-non-object value is a
+/// caller error rejected here, before it reaches `ops`, so the message names the
+/// parameter rather than surfacing as a confusing per-input complaint.
+fn read_declared_inputs(params: &Map<String, Value>) -> Result<Map<String, Value>, String> {
+    match params.get("inputs") {
+        None | Some(Value::Null) => Ok(Map::new()),
+        Some(Value::Object(map)) => Ok(map.clone()),
+        Some(other) => Err(format!(
+            "param 'inputs' must be an object keyed by declared input name, got {}",
+            match other {
+                Value::Array(_) => "an array",
+                Value::String(_) => "a string",
+                Value::Number(_) => "a number",
+                Value::Bool(_) => "a boolean",
+                _ => "a non-object",
+            }
+        )),
+    }
 }
 
 fn handle_resume(params: Map<String, Value>) -> ControllerFuture {
@@ -1924,6 +1968,52 @@ fn parse_draft_update_flow_id(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn run_schema_advertises_both_input_channels() {
+        let run = all_controller_schemas()
+            .into_iter()
+            .find(|s| s.function == "run")
+            .expect("the run controller is registered");
+        let names: Vec<_> = run.inputs.iter().map(|f| f.name).collect();
+        assert!(names.contains(&"input"), "trigger payload, got {names:?}");
+        assert!(names.contains(&"inputs"), "declared inputs, got {names:?}");
+
+        let declared = run.inputs.iter().find(|f| f.name == "inputs").unwrap();
+        assert!(
+            !declared.required,
+            "a flow with no declared inputs must still be runnable without the param"
+        );
+    }
+
+    #[test]
+    fn read_declared_inputs_accepts_absent_null_and_object() {
+        let mut params = Map::new();
+        assert!(read_declared_inputs(&params).unwrap().is_empty(), "absent");
+
+        params.insert("inputs".into(), Value::Null);
+        assert!(read_declared_inputs(&params).unwrap().is_empty(), "null");
+
+        params.insert("inputs".into(), json!({ "repo": "acme/api" }));
+        assert_eq!(
+            read_declared_inputs(&params).unwrap()["repo"],
+            json!("acme/api")
+        );
+    }
+
+    #[test]
+    fn read_declared_inputs_rejects_a_non_object_naming_the_param() {
+        // A caller sending an array or scalar has mis-shaped the call; say so
+        // here rather than letting it read as "you supplied no inputs".
+        for bad in [json!([1, 2]), json!("repo=acme"), json!(7), json!(true)] {
+            let mut params = Map::new();
+            params.insert("inputs".into(), bad.clone());
+            let err =
+                read_declared_inputs(&params).expect_err("a non-object `inputs` must be rejected");
+            assert!(err.contains("'inputs'"), "got: {err} (for {bad})");
+        }
+    }
 
     #[test]
     fn all_controller_schemas_covers_every_supported_function() {

@@ -79,6 +79,48 @@ fn describe_flow_counts_every_node_and_names_the_trigger() {
 }
 
 #[test]
+fn describe_flow_projects_declared_inputs_onto_the_advert() {
+    // The orchestrator picks a workflow off the advert, so the advert has to
+    // carry what running it requires — otherwise it can only find out by
+    // fetching the graph, or by trying and failing.
+    let mut graph = graph_with_step("Ship it");
+    graph.inputs = vec![
+        tinyflows::model::WorkflowInput::new("repo", tinyflows::model::InputType::String)
+            .required()
+            .with_description("Repo to deploy"),
+        tinyflows::model::WorkflowInput::new("depth", tinyflows::model::InputType::Number)
+            .with_default(serde_json::json!(3)),
+    ];
+
+    let descriptor = describe_flow(&flow("f1", "Deploy", graph));
+    assert_eq!(descriptor.inputs.len(), 2);
+
+    let repo = &descriptor.inputs[0];
+    assert_eq!(repo.name, "repo");
+    assert_eq!(repo.ty, "string");
+    assert!(repo.required);
+    assert_eq!(repo.description, "Repo to deploy");
+    assert_eq!(repo.default, None);
+
+    let depth = &descriptor.inputs[1];
+    assert_eq!(depth.ty, "number");
+    assert!(!depth.required);
+    assert_eq!(depth.default, Some(serde_json::json!(3)));
+    assert!(
+        depth.description.is_empty(),
+        "an undescribed input sends no description rather than a null"
+    );
+}
+
+#[test]
+fn a_workflow_declaring_no_inputs_advertises_none() {
+    let descriptor = describe_flow(&flow("f1", "Deploy", graph_with_step("Ship it")));
+    assert!(descriptor.inputs.is_empty());
+    let wire = serde_json::to_value(&descriptor).unwrap();
+    assert!(wire.get("inputs").is_none());
+}
+
+#[test]
 fn a_blank_name_stays_absent_on_the_wire_rather_than_empty() {
     let descriptor = describe_flow(&flow("f1", "   ", graph_with_step("Step")));
     assert!(descriptor.name.is_empty());

@@ -517,12 +517,22 @@ export async function getFlow(id: string): Promise<Flow> {
  * settles — prefer {@link runFlowDetached} for any UI entry point (Run
  * buttons) that must not freeze while a run is in flight; `runFlow` remains
  * for callers that genuinely want to await the final result.
+ *
+ * `input` is the free-form trigger payload. `inputs` supplies values for the
+ * flow's *declared* workflow inputs by name — read the declarations from the
+ * flow's `graph.inputs`. A missing required value, a wrong type, or a name the
+ * flow does not declare is rejected server-side before the run starts, so this
+ * rejects without leaving a run row behind.
  */
-export async function runFlow(id: string, input?: unknown): Promise<FlowResumeResult> {
-  log('runFlow: request id=%s', id);
+export async function runFlow(
+  id: string,
+  input?: unknown,
+  inputs?: Record<string, unknown>
+): Promise<FlowResumeResult> {
+  log('runFlow: request id=%s inputs=%d', id, Object.keys(inputs ?? {}).length);
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_run',
-    params: { id, input: input ?? null },
+    params: { id, input: input ?? null, inputs: inputs ?? null },
     timeoutMs: FLOW_RESUME_TIMEOUT_MS,
   });
   const result = unwrapCliEnvelope<FlowResumeResult>(response);
@@ -562,12 +572,23 @@ export interface FlowRunDetachedResult {
  * to yet), so callers should set up their `flow:run_progress` subscription /
  * poller using the returned `run_id` immediately after this resolves, not
  * after the run itself completes.
+ *
+ * `inputs` carries values for the flow's *declared* workflow inputs by name
+ * (see {@link runFlow}). Because this is the entry point both Run controls use,
+ * a flow with a required input is only runnable from the UI through here — the
+ * caller is expected to collect the values first. They are validated
+ * synchronously, so a bad set rejects here rather than surfacing later as a
+ * failed background run.
  */
-export async function runFlowDetached(id: string, input?: unknown): Promise<FlowRunDetachedResult> {
-  log('runFlowDetached: request id=%s', id);
+export async function runFlowDetached(
+  id: string,
+  input?: unknown,
+  inputs?: Record<string, unknown>
+): Promise<FlowRunDetachedResult> {
+  log('runFlowDetached: request id=%s inputs=%d', id, Object.keys(inputs ?? {}).length);
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_run_detached',
-    params: { id, input: input ?? null },
+    params: { id, input: input ?? null, inputs: inputs ?? null },
   });
   const result = unwrapCliEnvelope<FlowRunDetachedResult>(response);
   log(

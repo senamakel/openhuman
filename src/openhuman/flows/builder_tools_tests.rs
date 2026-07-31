@@ -2706,6 +2706,7 @@ async fn cancel_flow_run_refuses_a_run_the_caller_does_not_own() {
         &config,
         &owner_flow.id,
         json!({}),
+        serde_json::Map::new(),
         crate::openhuman::flows::FlowRunTrigger::Rpc,
     )
     .await
@@ -2757,6 +2758,7 @@ async fn cancel_flow_run_cancels_when_flow_id_matches_the_owner() {
         &config,
         &flow.id,
         json!({}),
+        serde_json::Map::new(),
         crate::openhuman::flows::FlowRunTrigger::Rpc,
     )
     .await

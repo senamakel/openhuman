@@ -50,6 +50,7 @@ pub async fn run() -> Result<ProfileResult> {
             &fixture.config,
             &flow_id,
             json!({ "topic": "Phoenix migration" }),
+            serde_json::Map::new(),
             FlowRunTrigger::Rpc,
         )
         .await

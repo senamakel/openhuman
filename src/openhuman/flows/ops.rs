@@ -4428,20 +4428,27 @@ async fn export_run_to_langfuse(
 /// `tool_call`/`http_request` nodes are pre-declared), not about who started
 /// the run — see `TrustedAutomationSource::Workflow`'s doc and
 /// `my_docs/ohxtf/b2-triggers-trust/01-triggers-and-trust.md` §3.
+/// `input` is the free-form trigger payload (reachable as `=run.trigger.…`);
+/// `inputs` supplies values for the flow's *declared* workflow inputs by name
+/// (reachable as `=inputs.<name>`). The two are separate channels — see
+/// [`tinyflows::engine::RunInput`]. A declared-input problem (missing required
+/// value, wrong type, undeclared key) is rejected before any run row exists.
 pub async fn flows_run(
     config: &Config,
     flow_id: &str,
     input: Value,
+    inputs: serde_json::Map<String, Value>,
     trigger: FlowRunTrigger,
 ) -> Result<RpcOutcome<Value>, String> {
-    // Prep synchronously (validate + compile-check + mint the run id), insert
-    // the initial `running` row, and announce it, then hand off to the shared
-    // run body. Both the synchronous "Run" RPC path (this fn) and the detached
-    // agent path ([`flows_run_detached`]) reuse `run_flow_body` so a single
-    // [`RunRowFinalizer`] guards the row on every exit — bug B42.
-    let prepared = prepare_flow_run(config, flow_id)?;
+    // Prep synchronously (validate + compile-check + resolve inputs + mint the
+    // run id), insert the initial `running` row, and announce it, then hand off
+    // to the shared run body. Both the synchronous "Run" RPC path (this fn) and
+    // the detached agent path ([`flows_run_detached`]) reuse `run_flow_body` so
+    // a single [`RunRowFinalizer`] guards the row on every exit — bug B42.
+    let prepared = prepare_flow_run(config, flow_id, &inputs)?;
     let thread_id = prepared.thread_id.clone();
     let no_actionable_nodes = prepared.no_actionable_nodes;
+    let resolved_inputs = prepared.inputs;
 
     // Register BEFORE the row exists, so a `flows_cancel_run` can never observe
     // a `running` row that no live run owns (see [`run_flow_body`]'s doc).
@@ -4455,6 +4462,7 @@ pub async fn flows_run(
         flow_id.to_string(),
         thread_id,
         input,
+        resolved_inputs,
         trigger,
         no_actionable_nodes,
         cancel_token,
@@ -4482,15 +4490,21 @@ pub async fn flows_run(
 /// (`flows::bus::spawn_run`) fires runs the same fire-and-forget way. Combined
 /// with B42's finalizer + boot sweep, a detached run ALWAYS settles to a
 /// terminal row even if the process dies mid-run.
+///
+/// `input` / `inputs` mean exactly what they do on [`flows_run`]: the trigger
+/// payload and the flow's declared inputs. Both are validated synchronously, so
+/// the agent still gets an immediate, actionable error for a bad call.
 pub async fn flows_run_detached(
     config: &Config,
     flow_id: &str,
     input: Value,
+    inputs: serde_json::Map<String, Value>,
     trigger: FlowRunTrigger,
 ) -> Result<RpcOutcome<Value>, String> {
-    let prepared = prepare_flow_run(config, flow_id)?;
+    let prepared = prepare_flow_run(config, flow_id, &inputs)?;
     let thread_id = prepared.thread_id.clone();
     let no_actionable_nodes = prepared.no_actionable_nodes;
+    let resolved_inputs = prepared.inputs;
 
     // Register BEFORE the `run_id` becomes observable to the agent. The spawned
     // task below may not be polled for some time, so registering inside it
@@ -4522,6 +4536,7 @@ pub async fn flows_run_detached(
             flow_id_owned,
             body_thread_id,
             input,
+            resolved_inputs,
             trigger,
             no_actionable_nodes,
             cancel_token,
@@ -4555,14 +4570,28 @@ struct PreparedFlowRun {
     flow: Flow,
     thread_id: String,
     no_actionable_nodes: bool,
+    /// The flow's declared inputs resolved against the caller's values —
+    /// defaults applied, one entry per declaration.
+    inputs: serde_json::Map<String, Value>,
 }
 
 /// Synchronous prep shared by [`flows_run`] and [`flows_run_detached`]: loads
 /// the flow, warns on an actionless graph, rejects an engine-incompatible
 /// topology, compile-checks the graph so a broken flow fails fast *before* any
-/// `running` row is inserted, and mints the run's `thread_id`. Returns an error
-/// (never a wedged row) if the flow can't run at all.
-fn prepare_flow_run(config: &Config, flow_id: &str) -> Result<PreparedFlowRun, String> {
+/// `running` row is inserted, resolves the caller's declared-input values, and
+/// mints the run's `thread_id`. Returns an error (never a wedged row) if the
+/// flow can't run at all.
+///
+/// Input resolution happens *here* rather than being left to the engine so a
+/// bad call never creates a `running` row, a thread id, or a registry entry.
+/// The engine re-resolves the same values (it is the authority on its own
+/// contract); doing it twice is cheap and keeps this host from having to trust
+/// its own copy of the rules.
+fn prepare_flow_run(
+    config: &Config,
+    flow_id: &str,
+    inputs: &serde_json::Map<String, Value>,
+) -> Result<PreparedFlowRun, String> {
     let flow = store::get_flow(config, flow_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("flow '{flow_id}' not found"))?;
@@ -4606,6 +4635,19 @@ fn prepare_flow_run(config: &Config, flow_id: &str) -> Result<PreparedFlowRun, S
     // (cheap) to actually execute.
     tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
 
+    // Declared inputs, before anything observable exists for this run.
+    let resolved_inputs =
+        tinyflows::model::resolve_inputs(&flow.graph.inputs, inputs).map_err(|e| {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %flow_id,
+                input = %e.input_name(),
+                code = %e.code(),
+                "[flows] flows_run: rejected — bad workflow input"
+            );
+            e.to_string()
+        })?;
+
     let thread_id = format!("flow:{flow_id}:{}", uuid::Uuid::new_v4());
     tracing::debug!(
         target: "flows",
@@ -4619,6 +4661,7 @@ fn prepare_flow_run(config: &Config, flow_id: &str) -> Result<PreparedFlowRun, S
         flow,
         thread_id,
         no_actionable_nodes,
+        inputs: resolved_inputs,
     })
 }
 
@@ -4748,6 +4791,7 @@ async fn run_flow_body(
     flow_id: String,
     thread_id: String,
     input: Value,
+    inputs: serde_json::Map<String, Value>,
     trigger: FlowRunTrigger,
     no_actionable_nodes: bool,
     cancel_token: tokio_util::sync::CancellationToken,
@@ -4926,7 +4970,7 @@ async fn run_flow_body(
             origin,
             tinyflows::engine::run_with_checkpointer_journaled_observed(
                 &compiled,
-                input,
+                tinyflows::engine::RunInput::new(input).with_inputs(inputs),
                 &caps,
                 checkpointer,
                 &thread_id,

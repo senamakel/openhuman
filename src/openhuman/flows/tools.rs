@@ -261,8 +261,11 @@ impl Tool for RunFlowTool {
          instead). It only works on a flow the user has already saved; pass its `flow_id`. \
          You MUST ask the user to confirm and wait for an explicit 'yes' before calling this \
          — never run a workflow unprompted. The flow's own approval gate still pauses \
-         outbound-action nodes. Params: { flow_id (required), input? }. Returns the run's \
-         status + any nodes paused for approval."
+         outbound-action nodes. If the flow declares workflow inputs (read `graph.inputs` \
+         via get_flow), pass their values in `inputs` — ask the user for any required one \
+         rather than inventing it; a missing or wrongly-typed value is rejected and nothing \
+         runs. Params: { flow_id (required), input?, inputs? }. Returns the run's status + \
+         any nodes paused for approval."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -275,6 +278,14 @@ impl Tool for RunFlowTool {
                 },
                 "input": {
                     "description": "Optional trigger input passed to the run (defaults to {})."
+                },
+                "inputs": {
+                    "type": "object",
+                    "description": "Values for the flow's DECLARED workflow inputs, keyed by \
+                                    name. Read the declarations from the flow's graph.inputs \
+                                    first; ask the user for any required value instead of \
+                                    guessing. Distinct from 'input', the free-form trigger \
+                                    payload."
                 }
             },
             "required": ["flow_id"]
@@ -302,6 +313,21 @@ impl Tool for RunFlowTool {
             }
         };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
+        // A non-object `inputs` is the model mis-shaping the call; say so
+        // plainly rather than silently running with none, which would produce a
+        // confusing "required input missing" for a value it thinks it sent.
+        let inputs = match args.get("inputs") {
+            None | Some(Value::Null) => serde_json::Map::new(),
+            Some(Value::Object(map)) => map.clone(),
+            Some(_) => {
+                return Ok(ToolResult::error(
+                    "'inputs' must be an object keyed by the flow's declared input names, \
+                     e.g. {\"repo\": \"acme/api\"}. Read the declarations from the flow's \
+                     graph.inputs."
+                        .to_string(),
+                ))
+            }
+        };
 
         tracing::info!(
             target: "flows",
@@ -321,6 +347,7 @@ impl Tool for RunFlowTool {
             &self.config,
             &flow_id,
             input,
+            inputs,
             crate::openhuman::flows::types::FlowRunTrigger::Rpc,
         )
         .await

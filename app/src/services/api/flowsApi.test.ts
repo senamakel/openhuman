@@ -325,7 +325,7 @@ describe('flowsApi', () => {
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_run',
-        params: { id: 'flow-1', input: null },
+        params: { id: 'flow-1', input: null, inputs: null },
         timeoutMs: 610_000,
       });
       expect(result).toEqual({ output: { nodes: {} }, pending_approvals: [], thread_id: 't1' });
@@ -340,7 +340,21 @@ describe('flowsApi', () => {
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_run',
-        params: { id: 'flow-1', input: { trigger: 'manual' } },
+        params: { id: 'flow-1', input: { trigger: 'manual' }, inputs: null },
+        timeoutMs: 610_000,
+      });
+    });
+
+    it('passes declared workflow inputs alongside the trigger payload', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ output: null, pending_approvals: [], thread_id: 't3' })
+      );
+
+      await runFlow('flow-1', {}, { repo: 'acme/api', depth: 3 });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run',
+        params: { id: 'flow-1', input: {}, inputs: { repo: 'acme/api', depth: 3 } },
         timeoutMs: 610_000,
       });
     });
@@ -379,7 +393,7 @@ describe('flowsApi', () => {
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_run_detached',
-        params: { id: 'flow-1', input: null },
+        params: { id: 'flow-1', input: null, inputs: null },
       });
       // No `timeoutMs` key at all — asserted structurally above via
       // `toHaveBeenCalledWith` (an object with an extra `timeoutMs` key would
@@ -407,7 +421,25 @@ describe('flowsApi', () => {
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_run_detached',
-        params: { id: 'flow-1', input: { trigger: 'manual' } },
+        params: { id: 'flow-1', input: { trigger: 'manual' }, inputs: null },
+      });
+    });
+
+    it('passes declared workflow inputs — the only way a parameterized flow runs from the UI', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({
+          run_id: 'flow:flow-1:t4',
+          flow_id: 'flow-1',
+          status: 'running',
+          detached: true,
+        })
+      );
+
+      await runFlowDetached('flow-1', {}, { repo: 'acme/api' });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run_detached',
+        params: { id: 'flow-1', input: {}, inputs: { repo: 'acme/api' } },
       });
     });
 

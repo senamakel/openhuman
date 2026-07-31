@@ -509,6 +509,7 @@ async fn flows_run_rejects_legacy_nested_conditional_fan_in_before_execution() {
         &config,
         &flow.id,
         json!({ "outer": true, "inner": true }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -544,9 +545,15 @@ async fn flows_run_rejects_an_incompatible_saved_child_before_execution() {
     )
     .unwrap();
 
-    let error = flows_run(&config, &parent.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("an unsafe saved child must fail before root execution starts");
+    let error = flows_run(
+        &config,
+        &parent.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("an unsafe saved child must fail before root execution starts");
     assert!(
         error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
         "{error}"
@@ -845,6 +852,7 @@ async fn flows_run_completes_trigger_only_graph() {
         &config,
         &created.value.id,
         json!({ "hello": "world" }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -876,9 +884,15 @@ async fn flows_run_on_trigger_only_graph_surfaces_no_actionable_nodes_note() {
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     let note = outcome.value["note"]
         .as_str()
@@ -923,9 +937,15 @@ async fn flows_run_on_graph_with_actionable_nodes_has_no_empty_flow_note() {
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     assert!(
         outcome.value.get("note").is_none(),
@@ -961,9 +981,15 @@ async fn flows_run_on_graph_with_disconnected_component_still_surfaces_empty_flo
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     let note = outcome.value["note"]
         .as_str()
@@ -1000,6 +1026,7 @@ async fn flows_run_reports_pending_approval_and_blocks_downstream() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1028,10 +1055,242 @@ async fn flows_get_missing_flow_errors() {
 async fn flows_run_missing_flow_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let err = flows_run(&config, "missing", json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("must error");
+    let err = flows_run(
+        &config,
+        "missing",
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("must error");
     assert!(err.contains("not found"));
+}
+
+/// A graph declaring `repo` (required) and `depth` (defaulted), whose single
+/// `transform` node copies both out via `=inputs.<name>`.
+fn parameterized_graph() -> Value {
+    json!({
+        "name": "parameterized",
+        "inputs": [
+            { "name": "repo", "type": "string", "required": true, "description": "Repo to review" },
+            { "name": "depth", "type": "number", "default": 3 }
+        ],
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "shape", "kind": "transform", "name": "Shape",
+              "config": { "set": { "repo": "=inputs.repo", "depth": "=inputs.depth" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "shape" } ]
+    })
+}
+
+/// Collects `pairs` into the supplied-values map `flows_run` takes.
+fn input_values(pairs: &[(&str, Value)]) -> serde_json::Map<String, Value> {
+    pairs
+        .iter()
+        .map(|(k, v)| ((*k).to_string(), v.clone()))
+        .collect()
+}
+
+#[tokio::test]
+async fn flows_run_threads_declared_inputs_into_the_run() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("a run supplying its required input must succeed");
+
+    let output = &run.value["output"];
+    assert_eq!(
+        output["run"]["inputs"]["repo"],
+        json!("acme/api"),
+        "the supplied value must reach run.inputs"
+    );
+    assert_eq!(
+        output["run"]["inputs"]["depth"],
+        json!(3),
+        "the declared default must be applied"
+    );
+    assert_eq!(
+        output["nodes"]["shape"]["items"][0]["json"]["repo"],
+        json!("acme/api"),
+        "the node's `=inputs.repo` binding must resolve"
+    );
+}
+
+#[tokio::test]
+async fn flows_run_detached_threads_and_validates_declared_inputs_too() {
+    // `run_detached` is the entry point both UI Run controls call, so a flow
+    // with a required input is only runnable from the UI through here — it must
+    // enforce the same contract as the blocking path, synchronously, before it
+    // reports a run id the caller will go on to poll.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let err = flows_run_detached(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a missing required input must be refused before a run id is handed out");
+    assert!(err.contains("repo"), "got: {err}");
+
+    let started = flows_run_detached(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("a run supplying its required input must start");
+    assert_eq!(started.value["status"], "running");
+}
+
+#[tokio::test]
+async fn flows_run_rejects_a_missing_required_input_without_creating_a_run_row() {
+    // The whole point of resolving in `prepare_flow_run`: a caller that gets
+    // this error can be certain nothing was started and nothing was recorded.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a missing required input must fail the call");
+    assert!(
+        err.contains("repo"),
+        "the error must name the offending input, got: {err}"
+    );
+
+    let runs = flows_list_runs(&config, &created.value.id, 10)
+        .await
+        .unwrap();
+    assert!(
+        runs.value.is_empty(),
+        "a rejected call must leave no run row behind, got {:?}",
+        runs.value
+    );
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert!(
+        reloaded.value.last_run_at.is_none(),
+        "a rejected call must not stamp last_run_at"
+    );
+}
+
+#[tokio::test]
+async fn flows_run_rejects_a_wrongly_typed_or_undeclared_input() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let type_err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api")), ("depth", json!("3"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a string for a number input must be rejected");
+    assert!(type_err.contains("depth"), "got: {type_err}");
+
+    let unknown_err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api")), ("reop", json!("typo"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("an undeclared key must be rejected rather than dropped");
+    assert!(unknown_err.contains("reop"), "got: {unknown_err}");
+}
+
+#[tokio::test]
+async fn flows_run_leaves_a_flow_declaring_no_inputs_unchanged() {
+    // The pre-existing call shape — empty `inputs` against a graph that
+    // declares none — must behave exactly as before.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let graph = json!({
+        "name": "plain",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "shape", "kind": "transform", "name": "Shape",
+              "config": { "set": { "seen": "=run.trigger.hi" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "shape" } ]
+    });
+    let created = flows_create(&config, "plain".to_string(), graph, false)
+        .await
+        .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "hi": 1 }),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("run");
+    assert_eq!(
+        run.value["output"]["nodes"]["shape"]["items"][0]["json"]["seen"],
+        json!(1)
+    );
 }
 
 #[tokio::test]
@@ -1055,9 +1314,15 @@ async fn flows_run_records_failed_status_when_a_node_errors() {
         .await
         .unwrap();
 
-    let err = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("a run whose node errors under on_error:stop must fail");
+    let err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a run whose node errors under on_error:stop must fail");
     assert!(!err.is_empty());
 
     // The failed attempt must be recorded, not left on the prior state.
@@ -1098,9 +1363,15 @@ async fn flows_run_populates_error_when_a_continue_policy_node_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect("on_error:continue must settle the run future Ok, not bubble up an Err");
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("on_error:continue must settle the run future Ok, not bubble up an Err");
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let run_row = flows_get_run(&config, &thread_id).await.unwrap();
@@ -1647,6 +1918,7 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1703,6 +1975,7 @@ async fn flows_resume_refuses_when_the_graph_changed_after_park() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1793,6 +2066,7 @@ async fn flows_resume_succeeds_when_the_graph_is_unchanged() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1842,6 +2116,7 @@ async fn flows_resume_allows_a_legacy_row_with_null_graph_hash() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1971,6 +2246,7 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2050,6 +2326,7 @@ async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2148,6 +2425,7 @@ async fn flows_resume_with_empty_approvals_is_rejected_and_does_not_complete_the
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2187,6 +2465,7 @@ async fn flows_resume_with_mismatched_approvals_is_rejected() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2218,6 +2497,7 @@ async fn flows_resume_with_the_correct_gate_completes_and_runs_downstream() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2281,6 +2561,7 @@ async fn flows_resume_denying_a_gate_routes_to_its_error_port() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2331,6 +2612,7 @@ async fn flows_resume_denying_a_gate_with_no_error_port_fails_the_run() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2365,9 +2647,15 @@ async fn flows_resume_rejects_a_gate_named_in_both_approvals_and_rejections() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let err = flows_resume(
@@ -2396,9 +2684,15 @@ async fn flows_resume_of_a_non_paused_run_errors_clearly() {
 
     // This run completes outright (no approval gate) — its recorded status
     // is "completed", not "pending_approval".
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let err = flows_resume(&config, &created.value.id, &thread_id, vec![], vec![])
@@ -2444,6 +2738,7 @@ async fn flows_run_persists_a_flow_run_row_queryable_via_list_and_get() {
         &config,
         &created.value.id,
         json!({ "hello": "world" }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2479,12 +2774,24 @@ async fn flows_list_all_runs_aggregates_across_flows_newest_first() {
         .unwrap();
 
     // Run alpha first, then beta — beta's run is the newest.
-    flows_run(&config, &a.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
-    let beta_run = flows_run(&config, &b.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    flows_run(
+        &config,
+        &a.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let beta_run = flows_run(
+        &config,
+        &b.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let beta_thread = beta_run.value["thread_id"].as_str().unwrap().to_string();
 
     let all = flows_list_all_runs(&config, 100).await.unwrap();
@@ -2525,9 +2832,15 @@ async fn flows_run_emits_pending_approval_notification() {
     .await
     .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // Filter for our notification specifically — the broadcast bus is
@@ -2578,9 +2891,15 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
         .unwrap();
     let created_id = created.value.id.clone();
 
-    flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     let expected_prefix = format!("flow-pending-approval:{created_id}:");
     let saw_notification = tokio::time::timeout(std::time::Duration::from_millis(300), async {
@@ -2654,9 +2973,15 @@ async fn flows_run_publishes_flow_run_started_with_flow_and_run_id() {
     .await
     .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // The bus is process-global and shared with concurrently-running tests,
@@ -2745,6 +3070,7 @@ async fn flows_run_finished_event_skips_pending_approval_and_fires_once_on_resum
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2904,6 +3230,7 @@ async fn flows_run_persists_live_steps_with_status_and_timing() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2953,9 +3280,15 @@ async fn flows_cancel_run_cancels_a_parked_pending_approval_run() {
 
     // Run pauses at the gate → a durable `pending_approval` row with no live
     // task (the run future already returned): the not-in-flight cancel path.
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
     assert_eq!(
         flows_get_run(&config, &thread_id)
@@ -3004,9 +3337,15 @@ async fn flows_cancel_run_of_an_already_completed_run_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let err = flows_cancel_run(&config, &thread_id)
@@ -3028,9 +3367,15 @@ async fn flows_cancel_run_of_a_completed_with_warnings_run_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // Force the settled row to the warning status directly — an end-to-end
@@ -3063,9 +3408,15 @@ async fn flows_cancel_run_of_an_interrupted_run_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // Force the settled row to `interrupted` directly.
@@ -3132,9 +3483,15 @@ async fn parked_run_ttl_sweep_expires_stale_runs_but_spares_fresh_ones() {
     .unwrap();
 
     // A genuinely fresh parked run (just paused now) must survive the sweep.
-    let fresh = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let fresh = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let fresh_id = fresh.value["thread_id"].as_str().unwrap().to_string();
 
     let swept = sweep_expired_parked_runs(&config).await;
@@ -4274,9 +4631,15 @@ async fn flows_run_fails_cleanly_without_invoking_engine_when_inference_not_read
         .await
         .expect("creating (authoring) an agent-node flow must succeed even when signed out");
 
-    let err = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("a run whose agent node cannot reach a provider must fail cleanly");
+    let err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a run whose agent node cannot reach a provider must fail cleanly");
     assert!(
         err.to_ascii_lowercase().contains("ai provider"),
         "error must explain the AI-provider problem: {err}"
@@ -7698,9 +8061,15 @@ async fn flows_run_detached_returns_running_run_id_and_inserts_row() {
     )
     .unwrap();
 
-    let outcome = flows_run_detached(&config, &flow.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect("detached run must start");
+    let outcome = flows_run_detached(
+        &config,
+        &flow.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("detached run must start");
 
     assert_eq!(outcome.value["status"], json!("running"));
     assert_eq!(outcome.value["detached"], json!(true));
@@ -7734,9 +8103,15 @@ async fn flows_run_detached_registers_the_run_before_returning_its_id() {
     )
     .unwrap();
 
-    let outcome = flows_run_detached(&config, &flow.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect("detached run must start");
+    let outcome = flows_run_detached(
+        &config,
+        &flow.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("detached run must start");
     let run_id = outcome.value["run_id"].as_str().unwrap().to_string();
 
     // The moment the agent can see this `run_id` it can be cancelled. If

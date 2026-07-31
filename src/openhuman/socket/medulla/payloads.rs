@@ -147,7 +147,11 @@ pub struct CapabilitiesResult {
 /// serialization when empty for exactly that reason: the Rust advert already
 /// omits its empty strings, the port therefore declares them optional, and the
 /// backend passes an absent key through as absent rather than fabricating `""`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Not `Eq`: a declared input's `default` is free-form JSON, which has no total
+/// equality (floats, and `NaN` among them). `PartialEq` is what comparisons here
+/// actually use.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowDescriptor {
     /// Stable identity — the only field the wire always carries and the only one
@@ -176,13 +180,50 @@ pub struct WorkflowDescriptor {
     /// Provenance: the workspace the owning agent is deployed into.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_id: Option<String>,
+    /// The workflow's declared inputs — its callable signature. Lets the reader
+    /// know what it must collect before asking for a run, rather than having to
+    /// fetch the whole graph to find out. Empty for a workflow taking none, and
+    /// omitted from the wire in that case.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inputs: Vec<WorkflowInputDescriptor>,
+}
+
+/// One declared input of an advertised workflow — what a caller must supply to
+/// run it.
+///
+/// Mirrors `tinyflows::model::WorkflowInput` field-for-field rather than
+/// re-exporting it, for the same reason [`TaskEnvelope`] keeps its envelope as
+/// raw JSON: this module is a transport vocabulary and is compiled in every
+/// build, while the engine is behind the `flows` feature gate. Naming the engine
+/// type here would make the medulla plane fail to build whenever flows is off.
+/// The mapping from the engine type lives in `flows::medulla_bridge`, which is
+/// gated and may name it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowInputDescriptor {
+    /// The input's name — the key a caller supplies it under.
+    pub name: String,
+    /// Declared JSON type: `string` | `number` | `boolean` | `json`.
+    #[serde(default, rename = "type", skip_serializing_if = "String::is_empty")]
+    pub ty: String,
+    /// Human-readable explanation; omitted when blank.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// Whether a caller must supply it.
+    #[serde(default)]
+    pub required: bool,
+    /// Value used when the caller supplies none; omitted when there is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default: Option<serde_json::Value>,
 }
 
 /// `medulla:register_workflows` — the workflow advert batch, sent on connect and
 /// re-sent whenever the host's store changes. The backend replaces this socket's
 /// whole entry each time and drops it on disconnect, so a shrinking store is
 /// communicated by re-sending the smaller list (never by a delete event).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Not `Eq` for the same reason as [`WorkflowDescriptor`], which it contains.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterWorkflows {
     pub workflows: Vec<WorkflowDescriptor>,
@@ -367,6 +408,43 @@ mod tests {
     }
 
     #[test]
+    fn workflow_descriptor_advertises_declared_inputs_and_omits_them_when_none() {
+        // The reader needs to know what to collect before asking for a run;
+        // without this it would have to fetch the whole graph to find out.
+        let advert = WorkflowDescriptor {
+            id: "wf-1".into(),
+            name: "Review".into(),
+            description: String::new(),
+            node_count: 2,
+            enabled: Some(true),
+            trigger_kind: None,
+            agent_id: None,
+            workspace_id: None,
+            inputs: vec![WorkflowInputDescriptor {
+                name: "repo".into(),
+                ty: "string".into(),
+                description: String::new(),
+                required: true,
+                default: None,
+            }],
+        };
+        let wire = serde_json::to_value(&advert).unwrap();
+        assert_eq!(wire["inputs"][0]["name"], "repo");
+        assert_eq!(wire["inputs"][0]["type"], "string");
+        assert_eq!(wire["inputs"][0]["required"], true);
+
+        let none = WorkflowDescriptor {
+            inputs: Vec::new(),
+            ..advert
+        };
+        let wire = serde_json::to_value(&none).unwrap();
+        assert!(
+            wire.get("inputs").is_none(),
+            "a workflow taking no inputs must not send an empty key"
+        );
+    }
+
+    #[test]
     fn workflow_descriptor_omits_blank_name_and_description() {
         let advert = WorkflowDescriptor {
             id: "wf-1".into(),
@@ -377,6 +455,7 @@ mod tests {
             trigger_kind: Some("cron".into()),
             agent_id: None,
             workspace_id: None,
+            inputs: Vec::new(),
         };
         let wire = serde_json::to_value(&advert).unwrap();
         assert_eq!(wire["id"], "wf-1");

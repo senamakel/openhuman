@@ -52,7 +52,9 @@ use super::node_contracts::{all_node_kind_contracts, node_kind_contract, NODE_KI
 use super::ops;
 use super::types::Flow;
 use crate::openhuman::config::Config;
-use crate::openhuman::socket::medulla::payloads::{CopilotOutcome, WorkflowDescriptor};
+use crate::openhuman::socket::medulla::payloads::{
+    CopilotOutcome, WorkflowDescriptor, WorkflowInputDescriptor,
+};
 use crate::openhuman::socket::medulla::workflows::{set_workflow_bridge, WorkflowBridge};
 
 /// How many runs a `runs` read returns. The orchestrator wants "did this
@@ -295,7 +297,28 @@ fn describe_flow(flow: &Flow) -> WorkflowDescriptor {
         // answer and a per-advert claim would only be redundant.
         agent_id: None,
         workspace_id: None,
+        inputs: describe_inputs(&flow.graph),
     }
+}
+
+/// Projects the graph's declared inputs onto the wire descriptors.
+///
+/// The translation exists because the medulla plane's payload module is
+/// compiled in every build while the engine is behind the `flows` gate — see
+/// [`WorkflowInputDescriptor`]'s doc. This side is gated, so it may name the
+/// engine type.
+fn describe_inputs(graph: &WorkflowGraph) -> Vec<WorkflowInputDescriptor> {
+    graph
+        .inputs
+        .iter()
+        .map(|input| WorkflowInputDescriptor {
+            name: input.name.clone(),
+            ty: input.ty.as_str().to_string(),
+            description: input.description.clone().unwrap_or_default(),
+            required: input.required,
+            default: input.default.clone(),
+        })
+        .collect()
 }
 
 /// The open-vocabulary trigger label, when the graph has exactly one trigger

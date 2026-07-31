@@ -40,6 +40,27 @@ pub(crate) fn extract_trigger_config(flow: &Flow) -> Option<&Value> {
     Some(&flow.graph.trigger()?.config)
 }
 
+/// Values an author pinned on the trigger node for *unattended* runs, read from
+/// the trigger's `config.inputs` object.
+///
+/// A schedule tick or an inbound app event has no operator to prompt, so a flow
+/// with declared inputs would otherwise be undispatchable. Pinning values in the
+/// trigger config is how such a flow states, at author time, what an automatic
+/// run should use. Values are passed through literally — this is configuration,
+/// not an expression scope, and there is no run in flight to resolve one
+/// against.
+///
+/// Returns an empty map when the trigger declares none, in which case a required
+/// input with no default fails in `prepare_flow_run` before any run row exists,
+/// and the reason is logged and visible in the run digest.
+fn pinned_trigger_inputs(flow: &Flow) -> serde_json::Map<String, Value> {
+    extract_trigger_config(flow)
+        .and_then(|cfg| cfg.get("inputs"))
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default()
+}
+
 /// True when `flow` is an enabled `app_event` flow bound to the given
 /// Composio `toolkit`/`trigger_slug` (case-insensitive — Composio slugs are
 /// conventionally upper-case but authoring surfaces may not normalize them).
@@ -122,9 +143,11 @@ impl FlowTriggerSubscriber {
             tracing::debug!(target: "flows", %flow_id, "[flows] schedule tick for flow whose trigger is no longer `schedule` — ignoring");
             return;
         }
+        let inputs = pinned_trigger_inputs(&flow);
         self.spawn_run(
             flow_id.to_string(),
             Value::Null,
+            inputs,
             crate::openhuman::flows::FlowRunTrigger::Schedule,
         );
     }
@@ -151,9 +174,11 @@ impl FlowTriggerSubscriber {
         for flow in flows {
             if matches_app_event(&flow, toolkit, trigger_slug) {
                 matched += 1;
+                let inputs = pinned_trigger_inputs(&flow);
                 self.spawn_run(
                     flow.id.clone(),
                     payload.clone(),
+                    inputs,
                     crate::openhuman::flows::FlowRunTrigger::AppEvent,
                 );
             }
@@ -173,6 +198,7 @@ impl FlowTriggerSubscriber {
         &self,
         flow_id: String,
         input: Value,
+        inputs: serde_json::Map<String, Value>,
         trigger: crate::openhuman::flows::FlowRunTrigger,
     ) {
         let Some(guard) = self.try_acquire_dispatch(&flow_id) else {
@@ -186,7 +212,9 @@ impl FlowTriggerSubscriber {
             // on panic) by `InFlightGuard`.
             let _guard = guard;
             tracing::info!(target: "flows", %flow_id, "[flows] trigger fired — starting run");
-            match crate::openhuman::flows::ops::flows_run(&config, &flow_id, input, trigger).await {
+            match crate::openhuman::flows::ops::flows_run(&config, &flow_id, input, inputs, trigger)
+                .await
+            {
                 Ok(_) => {
                     tracing::info!(target: "flows", %flow_id, "[flows] trigger-driven run finished")
                 }
@@ -943,6 +971,48 @@ mod tests {
             last_status: None,
             require_approval: false,
         }
+    }
+
+    #[test]
+    fn pinned_trigger_inputs_reads_values_an_author_fixed_for_unattended_runs() {
+        let flow = flow_with_trigger_config(
+            "f1",
+            true,
+            json!({
+                "trigger_kind": "schedule",
+                "schedule": "0 9 * * *",
+                "inputs": { "repo": "acme/api", "depth": 3 }
+            }),
+        );
+        let inputs = pinned_trigger_inputs(&flow);
+        assert_eq!(inputs["repo"], json!("acme/api"));
+        assert_eq!(inputs["depth"], json!(3));
+    }
+
+    #[test]
+    fn pinned_trigger_inputs_is_empty_when_unset_or_malformed() {
+        // Empty, not an error: a flow declaring no inputs (the overwhelming
+        // majority) must keep dispatching on a tick exactly as before, and a
+        // malformed value is caught downstream by `prepare_flow_run`, which
+        // reports it against the flow's actual declarations.
+        for cfg in [
+            json!({ "trigger_kind": "schedule" }),
+            json!({ "trigger_kind": "schedule", "inputs": null }),
+            json!({ "trigger_kind": "schedule", "inputs": ["repo"] }),
+        ] {
+            let flow = flow_with_trigger_config("f1", true, cfg.clone());
+            assert!(
+                pinned_trigger_inputs(&flow).is_empty(),
+                "expected no pinned inputs for {cfg}"
+            );
+        }
+    }
+
+    #[test]
+    fn pinned_trigger_inputs_is_empty_for_a_graph_with_no_trigger() {
+        let mut flow = flow_with_trigger_config("f1", true, json!({ "trigger_kind": "schedule" }));
+        flow.graph.nodes.clear();
+        assert!(pinned_trigger_inputs(&flow).is_empty());
     }
 
     #[test]

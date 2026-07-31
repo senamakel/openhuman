@@ -155,6 +155,10 @@ pub(crate) fn map_n8n_workflow(value: &Value) -> Result<N8nImportResult, String>
         schema_version: tinyflows::model::CURRENT_SCHEMA_VERSION,
         id: None,
         name,
+        // n8n has no equivalent of a declared workflow input — its workflows are
+        // parameterized through trigger/node config — so an import declares
+        // none. The author adds them afterwards if the flow needs them.
+        inputs: Vec::new(),
         nodes,
         edges,
     };

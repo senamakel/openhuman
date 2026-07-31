@@ -683,13 +683,64 @@ impl LlmProvider for OpenHumanLlm {
 ///
 /// **Per-item cost.** In per-item execution mode the engine calls
 /// [`run_agent`](AgentRunner::run_agent) once per input item, so a full harness
-/// turn (with memory injection) fans out one `Agent` per item. The batch size is
-/// not visible inside a single `run_agent` call (the engine drives the fan-out),
-/// so a "> 25 items" warning is not reachable here; it belongs to a future
-/// host-side per-item guard. Memory injection per node turn is accepted for this
+/// turn (with memory injection) fans out one `Agent` per item. Since the engine
+/// gained bounded per-item concurrency those calls also arrive *simultaneously*,
+/// so the host-side guard this doc used to defer is now
+/// [`HARNESS_AGENT_SLOTS`] — see it for why the engine's own `concurrency`
+/// bound is not enough. Memory injection per node turn is accepted for this
 /// first cut (skip-memory is a follow-up).
+///
+/// **Concurrency safety.** `run_agent` is re-entrant by construction: it builds
+/// a fresh [`Agent`](crate::openhuman::agent::Agent) per call and stamps any
+/// model override onto a *cloned* `Config`, so concurrent calls never mutate
+/// shared state. The origin escalation and approval-run context are task-locals
+/// propagated by the engine's `buffer_unordered` (which polls every item on the
+/// caller's task), so HITL gating still applies to every fanned-out turn.
 pub struct OpenHumanAgentRunner {
     pub config: Arc<Config>,
+}
+
+/// Process-wide ceiling on **simultaneous harness agent turns started by flow
+/// nodes**, honoured by [`run_via_harness`](OpenHumanAgentRunner::run_via_harness).
+///
+/// The engine's per-node `concurrency` bounds one node's fan-out; this bounds
+/// the host. Those are different limits and the host one is the load-bearing
+/// one: a graph can fan out `concurrency: "all"` over a 200-item array, and
+/// several nodes (or several concurrent runs) can be fanning out at once, so
+/// without a shared ceiling a single workflow could open hundreds of full agent
+/// sessions — each with its own model context and tool loop — and exhaust
+/// memory or the inference provider's rate limit.
+///
+/// Default 8; override with `OPENHUMAN_FLOWS_MAX_PARALLEL_AGENTS`. Waiting on a
+/// permit is *not* an error — an over-wide fan-out is throttled to this width
+/// rather than rejected, so the workflow still completes, just more slowly.
+static HARNESS_AGENT_SLOTS: std::sync::LazyLock<tokio::sync::Semaphore> =
+    std::sync::LazyLock::new(|| {
+        let permits = max_parallel_harness_agents(
+            std::env::var("OPENHUMAN_FLOWS_MAX_PARALLEL_AGENTS")
+                .ok()
+                .as_deref(),
+        );
+        tracing::debug!(
+            target: "flows",
+            permits,
+            "[flows] agent_runner: harness concurrency ceiling"
+        );
+        tokio::sync::Semaphore::new(permits)
+    });
+
+/// Default value for [`HARNESS_AGENT_SLOTS`].
+const DEFAULT_MAX_PARALLEL_HARNESS_AGENTS: usize = 8;
+
+/// Resolves the harness concurrency ceiling from the raw env-var value.
+///
+/// A malformed or zero override falls back to the default rather than erroring
+/// or, worse, yielding a zero-permit semaphore that would deadlock every flow
+/// agent node in the process.
+fn max_parallel_harness_agents(raw: Option<&str>) -> usize {
+    raw.and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(DEFAULT_MAX_PARALLEL_HARNESS_AGENTS)
 }
 
 /// Which execution path an `agent_ref` routes to (see [`OpenHumanAgentRunner`]).
@@ -1097,6 +1148,17 @@ impl OpenHumanAgentRunner {
         entry_model: Option<&str>,
     ) -> Result<Value> {
         use crate::openhuman::agent::Agent;
+
+        // Hold a slot for the whole turn: a fanned-out node can call this
+        // hundreds of times at once, and each call below builds a full agent
+        // session. Acquired before any work so waiters queue rather than pile
+        // up half-built agents. `_permit` is released on drop at end of scope,
+        // including on every early return below.
+        let _permit = HARNESS_AGENT_SLOTS.acquire().await.map_err(|_| {
+            EngineError::Capability(
+                "agent node: harness concurrency limiter closed unexpectedly".to_string(),
+            )
+        })?;
 
         if let Some(c) = conn {
             tracing::debug!(
@@ -3780,6 +3842,44 @@ pub fn open_flow_checkpointer(
 
 #[cfg(test)]
 mod tests {
+
+    // --- harness fan-out concurrency ceiling ---
+
+    #[test]
+    fn harness_ceiling_defaults_when_unset_or_nonsense() {
+        // A malformed override must never produce a zero-permit semaphore —
+        // that would deadlock every flow agent node in the process.
+        for raw in [None, Some(""), Some("0"), Some("-4"), Some("lots")] {
+            assert_eq!(
+                super::max_parallel_harness_agents(raw),
+                super::DEFAULT_MAX_PARALLEL_HARNESS_AGENTS,
+                "{raw:?} should fall back to the default"
+            );
+        }
+    }
+
+    #[test]
+    fn harness_ceiling_honours_a_valid_override() {
+        assert_eq!(super::max_parallel_harness_agents(Some("3")), 3);
+        assert_eq!(super::max_parallel_harness_agents(Some(" 16 ")), 16);
+    }
+
+    #[tokio::test]
+    async fn the_harness_ceiling_throttles_rather_than_rejects() {
+        // The contract the fan-out relies on: an over-wide batch waits for a
+        // slot and still completes. If this ever started returning an error
+        // instead, `concurrency: "all"` over a large array would fail the run
+        // rather than run it more slowly.
+        let slots = tokio::sync::Semaphore::new(2);
+        let held = slots.acquire().await.expect("first permit");
+        let held2 = slots.acquire().await.expect("second permit");
+        assert_eq!(slots.available_permits(), 0);
+        // A third acquirer is pending, not refused.
+        assert!(slots.try_acquire().is_err(), "no permits left");
+        drop(held);
+        assert!(slots.try_acquire().is_ok(), "a released slot is reusable");
+        drop(held2);
+    }
     use super::*;
     use crate::openhuman::agent::prompts::types::IntegrationConnection;
     use crate::openhuman::composio::{ComposioExecuteResponse, ConnectedIntegration};

@@ -42,6 +42,14 @@ fn apply_host_overlay(contract: NodeKindContract) -> NodeKindContract {
                  woven into the prose. A prompt written as a =expression built from prose silently \
                  resolves to null and hands the agent an EMPTY prompt (rejected by the \
                  binding-resolvability gate).",
+            )
+            .with_note(
+                "execution=per_item runs a FULL harness agent (own model context, own tool loop) \
+                 per input item, so it is far more expensive than a per_item tool_call — fan out \
+                 over a list you have already narrowed, not a raw fetch. In THIS host \
+                 simultaneous harness turns are additionally capped process-wide (8 by default, \
+                 OPENHUMAN_FLOWS_MAX_PARALLEL_AGENTS): a higher config.concurrency is throttled \
+                 to that ceiling, never rejected, so the run still completes.",
             ),
         "tool_call" => contract
             .with_note(

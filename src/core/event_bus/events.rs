@@ -463,6 +463,33 @@ pub enum DomainEvent {
         status: String,
     },
 
+    /// One **item** of a fanned-out node started or settled.
+    ///
+    /// A node in per-item execution mode (`execution: "per_item"` with a
+    /// `concurrency`) is a single step running N units of work, so
+    /// [`FlowRunProgress`](Self::FlowRunProgress) fires once for the whole node
+    /// and cannot express the workers actually in flight. This is the per-item
+    /// channel: one `running` when an item is picked up, then its terminal
+    /// `success`/`error`, so a canvas can show a fanned-out node as "3 of 8"
+    /// rather than as one long-running node.
+    ///
+    /// Never published for a node that runs once, so a consumer needs no
+    /// special case for the ordinary path.
+    FlowRunItemProgress {
+        /// The run's stable identifier (== the tinyflows checkpointer thread id).
+        run_id: String,
+        /// The fanned-out node these items belong to.
+        node_id: String,
+        /// The item's index in the node's **input** array. Stable and matches
+        /// the output item that eventually lands in that slot, even though
+        /// items complete out of order.
+        index: usize,
+        /// How many items the node is mapping over, known before any starts.
+        total: usize,
+        /// Item outcome: `"running"` | `"success"` | `"error"`.
+        status: String,
+    },
+
     /// A `flows_run` (or `flows_resume`) invocation just persisted its
     /// `flow_runs` row, before execution begins (issue B35, runs-rail live
     /// refresh). Published from `flows::ops::flows_run` right after
@@ -1411,6 +1438,7 @@ impl DomainEvent {
             | Self::ProactiveMessageRequested { .. }
             | Self::FlowScheduleTick { .. }
             | Self::FlowRunProgress { .. }
+            | Self::FlowRunItemProgress { .. }
             | Self::FlowRunStarted { .. }
             | Self::FlowRunFinished { .. }
             | Self::FlowChanged { .. } => "cron",
@@ -1573,6 +1601,7 @@ impl DomainEvent {
             Self::ProactiveMessageRequested { .. } => "ProactiveMessageRequested",
             Self::FlowScheduleTick { .. } => "FlowScheduleTick",
             Self::FlowRunProgress { .. } => "FlowRunProgress",
+            Self::FlowRunItemProgress { .. } => "FlowRunItemProgress",
             Self::FlowRunStarted { .. } => "FlowRunStarted",
             Self::FlowRunFinished { .. } => "FlowRunFinished",
             Self::FlowChanged { .. } => "FlowChanged",

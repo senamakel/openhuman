@@ -106,6 +106,36 @@ impl FlowRunObserver {
     }
 }
 
+impl FlowRunObserver {
+    /// Publishes one item-level progress frame.
+    ///
+    /// Item events are broadcast only — unlike a step they are never persisted.
+    /// The durable `flow_runs` row records what the *node* did, and writing a
+    /// row per item would multiply run-history storage by the fan-out width to
+    /// record something no run view reads back. Liveness is all these carry, so
+    /// a dropped frame costs nothing but a stale spinner, which the UI's
+    /// existing poller reconciles.
+    fn publish_item(&self, node_id: &str, index: usize, total: usize, status: &str) {
+        tracing::debug!(
+            target: "flows",
+            flow_id = %self.flow_id,
+            run_id = %self.run_id,
+            node = %node_id,
+            index,
+            total,
+            status,
+            "[flows] observer: fanned-out item progress"
+        );
+        publish_global(DomainEvent::FlowRunItemProgress {
+            run_id: self.run_id.clone(),
+            node_id: node_id.to_string(),
+            index,
+            total,
+            status: status.to_string(),
+        });
+    }
+}
+
 impl RunObserver for FlowRunObserver {
     fn on_run_start(&self, run_id: &str) {
         tracing::debug!(
@@ -146,6 +176,17 @@ impl RunObserver for FlowRunObserver {
             node_id: node_id.to_string(),
             status: "running".to_string(),
         });
+    }
+
+    fn on_item_start(&self, node_id: &str, index: usize, total: usize) {
+        self.publish_item(node_id, index, total, "running");
+    }
+
+    fn on_item_finish(&self, node_id: &str, index: usize, total: usize, ok: bool) {
+        // `ok` is the item's own outcome, independent of whether it went on to
+        // fail the node — under the default `collect` policy a failed item is
+        // reported here and the step still succeeds.
+        self.publish_item(node_id, index, total, if ok { "success" } else { "error" });
     }
 
     fn on_step_finish(&self, step: &ExecutionStep) {
@@ -265,6 +306,90 @@ mod tests {
     /// unreachable and the "live" overlay was really a completion trail.
     /// Assert the trait method is actually overridden — a default no-op here
     /// silently returns the UI to that state with every other test still green.
+    #[tokio::test]
+    async fn item_callbacks_publish_running_then_terminal_for_each_item() {
+        // A fanned-out node is one step, so without these frames a canvas can
+        // only show the node as busy — never how far through the batch it is.
+        use crate::core::event_bus::{
+            init_global, subscribe_global, EventHandler, DEFAULT_CAPACITY,
+        };
+        use async_trait::async_trait;
+        use std::sync::Mutex as StdMutex;
+
+        type Frame = (String, usize, usize, String);
+
+        struct Collector {
+            run_id: String,
+            frames: Arc<StdMutex<Vec<Frame>>>,
+        }
+
+        #[async_trait]
+        impl EventHandler for Collector {
+            fn name(&self) -> &str {
+                "test::flows::observability::item_progress_collector"
+            }
+            fn domains(&self) -> Option<&[&str]> {
+                Some(&["cron"])
+            }
+            async fn handle(&self, event: &DomainEvent) {
+                if let DomainEvent::FlowRunItemProgress {
+                    run_id,
+                    node_id,
+                    index,
+                    total,
+                    status,
+                } = event
+                {
+                    // The bus is process-global and shared with concurrent
+                    // tests, so keep only this run's frames.
+                    if run_id == &self.run_id {
+                        self.frames.lock().unwrap().push((
+                            node_id.clone(),
+                            *index,
+                            *total,
+                            status.clone(),
+                        ));
+                    }
+                }
+            }
+        }
+
+        init_global(DEFAULT_CAPACITY);
+        let run_id = "run-item-progress-test";
+        let frames: Arc<StdMutex<Vec<Frame>>> = Arc::new(StdMutex::new(Vec::new()));
+        let _handle = subscribe_global(Arc::new(Collector {
+            run_id: run_id.to_string(),
+            frames: Arc::clone(&frames),
+        }))
+        .expect("bus subscriber installed");
+
+        let observer = FlowRunObserver::new(Arc::new(Config::default()), "flow-1", run_id);
+        observer.on_item_start("work", 2, 5);
+        observer.on_item_finish("work", 2, 5, true);
+        observer.on_item_finish("work", 3, 5, false);
+
+        // Delivery is async; wait for the three frames rather than racing them.
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while frames.lock().unwrap().len() < 3 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("three item frames published");
+
+        assert_eq!(
+            *frames.lock().unwrap(),
+            vec![
+                ("work".to_string(), 2, 5, "running".to_string()),
+                ("work".to_string(), 2, 5, "success".to_string()),
+                // A failed item is still reported: under the default `collect`
+                // policy the step succeeds, so this frame is the only signal
+                // that one of the workers went wrong.
+                ("work".to_string(), 3, 5, "error".to_string()),
+            ]
+        );
+    }
+
     #[test]
     fn on_step_start_is_implemented_so_the_running_status_can_reach_the_canvas() {
         use std::sync::atomic::{AtomicBool, Ordering};

@@ -29,6 +29,10 @@ const log = debug('flows:run-progress');
 const EVENT_COLON = 'flow:run_progress';
 const EVENT_UNDERSCORE = 'flow_run_progress';
 
+/** The per-item aliases, for nodes that fan out over their input. */
+const ITEM_EVENT_COLON = 'flow:run_item_progress';
+const ITEM_EVENT_UNDERSCORE = 'flow_run_item_progress';
+
 /**
  * Node-level live status. The observer today emits only `success`/`error` on
  * step finish; `running` is included so the hook stays forward-compatible with
@@ -54,6 +58,53 @@ export const FLOW_RUN_NODE_STATUS_CLASS: Record<string, string> = {
   failed: 'flow-node-failed',
 };
 
+/**
+ * How far a fanned-out node is through its batch.
+ *
+ * A node with `execution: "per_item"` and a `concurrency` is a *single* step
+ * running N units of work, so the node-level status above can only say
+ * "running" for the whole batch. This is the per-item breakdown, so the canvas
+ * can show "3 / 8" and how many workers are live right now.
+ */
+export interface FlowNodeItemProgress {
+  /** Batch size, known from the first frame. */
+  total: number;
+  /** Items currently started but not yet settled. */
+  running: number;
+  /** Items that completed successfully. */
+  succeeded: number;
+  /** Items whose own work failed (the node itself may still succeed). */
+  failed: number;
+}
+
+/** node_id → per-item progress, for fanned-out nodes only. */
+type FlowRunItemProgressMap = Record<string, FlowNodeItemProgress>;
+
+interface FlowRunItemProgressPayload {
+  run_id: string;
+  node_id: string;
+  index: number;
+  total: number;
+  status: string;
+}
+
+function parseItemPayload(data: unknown): FlowRunItemProgressPayload | null {
+  if (!data || typeof data !== 'object') return null;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.run_id !== 'string') return null;
+  if (typeof obj.node_id !== 'string') return null;
+  if (typeof obj.index !== 'number') return null;
+  if (typeof obj.total !== 'number') return null;
+  if (typeof obj.status !== 'string') return null;
+  return {
+    run_id: obj.run_id,
+    node_id: obj.node_id,
+    index: obj.index,
+    total: obj.total,
+    status: obj.status,
+  };
+}
+
 interface FlowRunProgressPayload {
   run_id: string;
   node_id: string;
@@ -76,7 +127,20 @@ function parsePayload(data: unknown): FlowRunProgressPayload | null {
  * bleed onto a newly-started one.
  */
 export function useFlowRunProgress(runId: string | null): FlowRunProgressMap {
+  return useFlowRunProgressDetailed(runId).statuses;
+}
+
+/**
+ * Like {@link useFlowRunProgress}, but also exposes per-item progress for
+ * fanned-out nodes. Split so the common caller keeps its simple map return and
+ * only the canvas pays for the extra state.
+ */
+export function useFlowRunProgressDetailed(runId: string | null): {
+  statuses: FlowRunProgressMap;
+  items: FlowRunItemProgressMap;
+} {
   const [statuses, setStatuses] = useState<FlowRunProgressMap>({});
+  const [items, setItems] = useState<FlowRunItemProgressMap>({});
 
   // Reset during render (not synchronously inside the effect below —
   // `react-hooks/set-state-in-effect` disallows that) when `runId` changes, so
@@ -85,6 +149,7 @@ export function useFlowRunProgress(runId: string | null): FlowRunProgressMap {
   if (prevRunIdRef.current !== runId) {
     prevRunIdRef.current = runId;
     setStatuses({});
+    setItems({});
   }
 
   const handleProgress = useCallback(
@@ -108,17 +173,55 @@ export function useFlowRunProgress(runId: string | null): FlowRunProgressMap {
     [runId]
   );
 
+  const handleItemProgress = useCallback(
+    (data: unknown) => {
+      if (!runId) return;
+      const payload = parseItemPayload(data);
+      if (!payload) {
+        log('item progress: dropped — invalid payload %o', data);
+        return;
+      }
+      if (payload.run_id !== runId) return;
+      setItems(prev => {
+        const current = prev[payload.node_id] ?? {
+          total: payload.total,
+          running: 0,
+          succeeded: 0,
+          failed: 0,
+        };
+        // Counts, not per-index bookkeeping: the canvas shows "3 / 8" and a
+        // live-worker count, and counting survives a dropped frame far more
+        // gracefully than a per-index map would (which could strand an item as
+        // permanently running).
+        const next: FlowNodeItemProgress = { ...current, total: payload.total };
+        if (payload.status === 'running') {
+          next.running = current.running + 1;
+        } else {
+          next.running = Math.max(0, current.running - 1);
+          if (payload.status === 'error') next.failed = current.failed + 1;
+          else next.succeeded = current.succeeded + 1;
+        }
+        return { ...prev, [payload.node_id]: next };
+      });
+    },
+    [runId]
+  );
+
   useEffect(() => {
     if (!runId) return;
     log('subscribe: run=%s', runId);
     socketService.on(EVENT_COLON, handleProgress);
     socketService.on(EVENT_UNDERSCORE, handleProgress);
+    socketService.on(ITEM_EVENT_COLON, handleItemProgress);
+    socketService.on(ITEM_EVENT_UNDERSCORE, handleItemProgress);
     return () => {
       log('unsubscribe: run=%s', runId);
       socketService.off(EVENT_COLON, handleProgress);
       socketService.off(EVENT_UNDERSCORE, handleProgress);
+      socketService.off(ITEM_EVENT_COLON, handleItemProgress);
+      socketService.off(ITEM_EVENT_UNDERSCORE, handleItemProgress);
     };
-  }, [runId, handleProgress]);
+  }, [runId, handleProgress, handleItemProgress]);
 
-  return statuses;
+  return { statuses, items };
 }

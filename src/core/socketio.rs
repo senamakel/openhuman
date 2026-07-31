@@ -1125,6 +1125,34 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     let _ = io_memory_sync.emit("flow:run_progress", &payload);
                     let _ = io_memory_sync.emit("flow_run_progress", &payload);
                 }
+                // One item of a fanned-out node. Same best-effort contract as
+                // the node-level event above: the durable row remains the
+                // source of truth, so a dropped frame costs liveness only.
+                crate::core::event_bus::DomainEvent::FlowRunItemProgress {
+                    run_id,
+                    node_id,
+                    index,
+                    total,
+                    status,
+                } => {
+                    let payload = serde_json::json!({
+                        "run_id": run_id,
+                        "node_id": node_id,
+                        "index": index,
+                        "total": total,
+                        "status": status,
+                    });
+                    log::debug!(
+                        "[socketio] broadcast flow_run_item_progress run_id={} node_id={} item={}/{} status={}",
+                        run_id,
+                        node_id,
+                        index,
+                        total,
+                        status
+                    );
+                    let _ = io_memory_sync.emit("flow:run_item_progress", &payload);
+                    let _ = io_memory_sync.emit("flow_run_item_progress", &payload);
+                }
                 // A `flow_runs` row was just persisted, before execution begins
                 // (issue B35, runs-rail live refresh). Broadcast so an open
                 // Workflows canvas/sidebar can show "Running" immediately

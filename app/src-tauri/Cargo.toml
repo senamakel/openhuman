@@ -190,6 +190,9 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
     # `require_ac_power` gets no enforcement and `battery_floor` throttling never
     # fires — silently, since the off-state is a valid "on AC" reading.
     "scheduler-gate",
+    # The packaged app's only durable log. Without this, a support request
+    # comes back with nothing to attach — and the absence is silent.
+    "file-logging",
 ] }
 tinyjuice = { version = "0.2.1", default-features = false }
 

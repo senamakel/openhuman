@@ -215,9 +215,9 @@ directories = "6"
 toml = "1.0"
 schemars = "1.2"
 tracing = { version = "0.1", default-features = false }
-tracing-log = "0.2"
+tracing-log = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi", "env-filter"] }
-tracing-appender = "0.2"
+tracing-appender = { version = "0.2", optional = true }
 urlencoding = "2.1"
 motosan-ai-oauth = { version = "0.2", features = ["codex"] }
 thiserror = "2.0"
@@ -389,7 +389,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate", "file-logging"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -668,6 +668,16 @@ e2e-test-support = []
 # container. Consequence to be explicit about — `require_ac_power` and
 # `battery_floor` are NOT enforced in such a build. CPU throttling and
 # server-mode detection are unaffected.
+# Rolling on-disk log files, plus the `log`->`tracing` bridge. Default-ON.
+# Two consequences worth being explicit about when it is off:
+#   * nothing is written to disk, so a packaged desktop build has no durable
+#     log to attach to a support request. stderr and Sentry are unaffected.
+#   * `tracing-log` goes with it, so `log::*` records from dependencies stop
+#     reaching tracing in EVERY init path — including the stderr-only CLI one,
+#     which otherwise has nothing to do with file logging.
+# `tracing` and `tracing-subscriber` are NOT part of this gate and stay always-on.
+file-logging = ["dep:tracing-appender", "dep:tracing-log"]
+
 scheduler-gate = ["dep:starship-battery"]
 
 bin-tools = ["dep:clap", "dep:env_logger"]

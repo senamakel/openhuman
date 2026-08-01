@@ -645,6 +645,7 @@ mod tests {
     /// stashes / takes the guard), making one of them observe a guard it
     /// did not install. Mirror of the `SCHEDULE_LOCK` pattern in
     /// `app/src-tauri/src/reset_reboot_schedule.rs::tests`.
+    #[cfg(feature = "file-logging")]
     static FILE_GUARD_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     fn with_clean_rust_log<R>(f: impl FnOnce() -> R) -> R {

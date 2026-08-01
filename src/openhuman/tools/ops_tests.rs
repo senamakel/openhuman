@@ -2079,7 +2079,8 @@ fn knowledge_default_off_tools_retained_when_opted_in() {
         ],
     );
     let names = tool_names(&tools);
-    for on in KNOWLEDGE_DEFAULT_OFF {
+    let off_tools = knowledge_default_off();
+    for on in &off_tools {
         assert!(
             names.iter().any(|n| n == on),
             "opted-in tool `{on}` must be retained; got: {names:?}"

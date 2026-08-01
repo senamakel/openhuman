@@ -525,9 +525,6 @@ mod tests {
         );
     }
 
-    // Seeds the flows/tinyflows live-catalog cache, so it only builds with the
-    // `flows` feature on (the gate degrades to a no-op when flows is off).
-    #[cfg(feature = "flows")]
     #[tokio::test]
     async fn contract_gate_surfaces_full_contract_then_proceeds_on_retry() {
         // Regression for #4853: the FIRST per-action execute this turn must
@@ -536,7 +533,7 @@ mod tests {
         // schema; the retry then proceeds to real dispatch. A unique toolkit is
         // seeded so this is deterministic and never touches the network.
         use crate::openhuman::config::TEST_ENV_LOCK;
-        use crate::openhuman::tinyflows::caps::{seed_live_catalog_cache, ToolContract};
+        use crate::openhuman::composio::catalog::{seed_live_catalog_cache, ToolContract};
         let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
         let toolkit = "cgateexec";

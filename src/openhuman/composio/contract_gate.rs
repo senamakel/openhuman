@@ -30,14 +30,8 @@ use std::sync::Mutex;
 use std::sync::OnceLock;
 
 use crate::openhuman::config::Config;
-// The live-contract lookup is sourced from the flows/tinyflows caps catalog,
-// which is compiled out when the `flows` feature is off (#4912). The gate then
-// simply has no fuller contract to surface and always proceeds, so the import
-// and the lookup/format helpers below are gated in lockstep.
-#[cfg(feature = "flows")]
+use crate::openhuman::composio::catalog::{fetch_live_toolkit_catalog, ToolContract};
 use crate::openhuman::composio::providers::toolkit_from_slug;
-#[cfg(feature = "flows")]
-use crate::openhuman::tinyflows::caps::{fetch_live_toolkit_catalog, ToolContract};
 
 /// Record of which action contracts have already been surfaced to the model,
 /// so the gate blocks a given action at most once per gate instance.
@@ -241,11 +235,6 @@ pub async fn consult(
         GateConsultOutcome::FirstTime => {}
     }
 
-    // The live catalog lives in the flows/tinyflows caps layer. With `flows`
-    // compiled out there is no catalog source, so the gate can never surface a
-    // fuller contract and always proceeds (the per-action tool still runs; it
-    // just does not get the pre-execute contract nudge).
-    #[cfg(feature = "flows")]
     if let Some(contract) = lookup_contract(config, action_slug).await {
         // Validate-then-pass (#5119): only surface when the model actually needs
         // the schema. A call whose args already conform is executed directly.
@@ -267,11 +256,6 @@ pub async fn consult(
         return GateDecision::Surface(format_contract(action_slug, &contract));
     }
 
-    // `config` and `args` are only consulted through the flows-gated lookup +
-    // validation above.
-    #[cfg(not(feature = "flows"))]
-    let _ = (config, args);
-
     tracing::debug!(
         target: "composio",
         slug = %action_slug,
@@ -292,7 +276,6 @@ pub async fn consult(
 /// an array is required, an unknown/invented key, a missing required arg — fails.
 /// When the schema publishes no `properties`, only the required-args presence
 /// check applies.
-#[cfg(feature = "flows")]
 fn args_satisfy_contract(args: &serde_json::Value, contract: &ToolContract) -> bool {
     let obj = match args.as_object() {
         Some(obj) => obj,
@@ -349,7 +332,6 @@ fn args_satisfy_contract(args: &serde_json::Value, contract: &ToolContract) -> b
 /// treated as a schema violation. An unrecognised or union `type` (the
 /// `and_then(as_str)` returns `None` for a `["string","null"]` array) is never
 /// reached here, so callers simply skip the check — lenient by construction.
-#[cfg(feature = "flows")]
 fn json_value_matches_type(value: &serde_json::Value, expected: &str) -> bool {
     match expected {
         "string" => value.is_string(),
@@ -384,7 +366,6 @@ fn json_value_matches_type(value: &serde_json::Value, expected: &str) -> bool {
 /// live toolkit catalog. Returns `None` when the toolkit can't be derived, the
 /// catalog can't be fetched (unconfigured / offline — `fetch_live_toolkit_catalog`
 /// degrades to `None`), or the action isn't in it.
-#[cfg(feature = "flows")]
 async fn lookup_contract(config: &Config, action_slug: &str) -> Option<ToolContract> {
     let toolkit = toolkit_from_slug(action_slug)?;
     let contracts = fetch_live_toolkit_catalog(config, &toolkit).await?;
@@ -395,7 +376,6 @@ async fn lookup_contract(config: &Config, action_slug: &str) -> Option<ToolContr
 
 /// Render the contract into a compact instruction for the model. Contains only
 /// the provider's own action description + JSON schema — no user data / PII.
-#[cfg(feature = "flows")]
 fn format_contract(action_slug: &str, contract: &ToolContract) -> String {
     let mut out = format!(
         "Before running `{action_slug}`, read its full contract below and then re-issue \

@@ -1084,7 +1084,7 @@ pub async fn direct_list_connections(
 /// still applies at the `ops::composio_list_tools` layer.
 ///
 /// `pub(crate)` (widened from `pub(super)`) so
-/// `tinyflows::caps::fetch_raw_toolkit_tools` can call this directly for
+/// `catalog::fetch_raw_toolkit_tools` can call this directly for
 /// the LIVE (uncurated) tool-contract catalog the Workflow builder grounds
 /// against — that caller deliberately bypasses `composio_list_tools`'s
 /// curated-whitelist filter (`filter_list_tools_response_for_direct`),

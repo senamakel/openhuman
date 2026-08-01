@@ -7,7 +7,7 @@
 
 use super::{consult, ContractGate, GateDecision};
 use crate::openhuman::config::Config;
-use crate::openhuman::tinyflows::caps::{seed_live_catalog_cache, ToolContract};
+use crate::openhuman::composio::catalog::{seed_live_catalog_cache, ToolContract};
 
 /// Build a full contract for `slug` in `toolkit` with a REQUIRED `query` input
 /// field and a description that spells out the quoting rule — the exact detail

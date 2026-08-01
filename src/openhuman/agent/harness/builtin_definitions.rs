@@ -178,10 +178,16 @@ mod tests {
     #[test]
     fn all_definitions_present() {
         let defs = all();
+        let builtins_count = crate::openhuman::agent_registry::agents::BUILTINS.len();
         // +3 for the cfg(test) default parent and inherit-based test defs appended by all().
+        let expected = builtins_count + 3;
         assert_eq!(
             defs.len(),
-            crate::openhuman::agent_registry::agents::BUILTINS.len() + 3
+            expected,
+            "Expected {} definitions but got {} (BUILTINS={}, +3 test overrides)",
+            expected,
+            defs.len(),
+            builtins_count
         );
     }
 

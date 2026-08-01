@@ -428,6 +428,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "channels")]
     async fn dispatch_dotted_channel_list_aliases_route_to_registry() {
         for method in ["channels.list", "openhuman.channels.list"] {
             let out = dispatch(test_state(), method, json!({}))

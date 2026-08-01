@@ -669,3 +669,7 @@ pub(crate) async fn composio_response_fields(config: &Config, slug: &str) -> Opt
     contract.output_schema.as_ref()?;
     Some(contract.output_fields.clone())
 }
+
+#[cfg(test)]
+#[path = "catalog_tests.rs"]
+mod tests;

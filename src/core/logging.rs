@@ -740,6 +740,9 @@ mod tests {
         }
     }
 
+    // Constructs a real `tracing_appender` appender, so it only exists when
+    // the crate does.
+    #[cfg(feature = "file-logging")]
     #[test]
     fn shutdown_file_guard_takes_installed_guard() {
         let _g = FILE_GUARD_LOCK.lock().unwrap_or_else(|e| e.into_inner());

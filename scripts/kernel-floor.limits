@@ -13,6 +13,10 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   375/6  2026-08-01  M2 step 4: tracing-appender + tracing-log behind
+#                      default-ON `file-logging` (-9). Off-state keeps stderr
+#                      and Sentry but writes nothing to disk, and drops the
+#                      log->tracing bridge in every init path.
 #   384/6  2026-08-01  M2 step 3: starship-battery behind default-ON
 #                      `scheduler-gate` (-3). Off-state = "on AC, no charge
 #                      signal", i.e. require_ac_power is not enforced.
@@ -26,4 +30,4 @@
 #                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
 #                      lzma-sys ring. Target after gating is 222 names / 2 native
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
-flows:384:6
+flows:375:6

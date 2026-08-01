@@ -13,8 +13,24 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
-#   285/6  2026-08-02  merge origin/main (+5). Main's 43cc1b474 brought in new
-#                      dependencies. Updated floor to reflect merged state.
+#   285/6  2026-08-02  merge origin/main (+5) — INHERITED, not introduced here.
+#                      A rise in this number is the one thing this file exists
+#                      to make someone justify, so: main grew the graph on its
+#                      own (the #5232 tinyhumans-sdk vendoring and the #5202 /
+#                      #5233 backend-client refactors landed between this
+#                      branch's base and the merge). None of the seven gates
+#                      regressed — verified with
+#                        scripts/assert-shed.sh tokenjuice-treesitter \
+#                          arboard enigo rdev clap env_logger tracing-appender \
+#                          tracing-log starship-battery ethers-core \
+#                          ethers-signers coins-bip39 bitcoin lettre \
+#                          async-imap mail-parser axum prost
+#                      → all 17 still absent. So the branch's -138 is intact and
+#                      the +5 rides on top of it. Do NOT raise this number again
+#                      without re-running that assertion: the failure mode it
+#                      guards against is a merge silently re-adding a crate a
+#                      gate had removed, which looks identical to upstream growth
+#                      if you only compare totals.
 #   280/6  2026-08-02  tinychannels provider gating (-28). Gated the two heavy
 #                      PROVIDERS inside the vendored crate (`email` = lettre/
 #                      async-imap/mail-parser, `lark` = axum/prost) rather than

@@ -175,7 +175,12 @@ jobs:
               sort
           }
 
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --bins
+          # `--features bin-tools` is load-bearing, not cosmetic: the six binaries
+          # under src/bin/ now declare `required-features = ["bin-tools"]`, so
+          # without it `--bins` silently matches NOTHING and this lane goes green
+          # having compiled none of them. fleet.rs and slack_backfill.rs each carry
+          # a `#[cfg(test)] mod`, so those tests would vanish too, with no error.
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --bins --features bin-tools
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman --doc
 
           while IFS= read -r target; do

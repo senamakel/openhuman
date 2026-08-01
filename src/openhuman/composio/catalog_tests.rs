@@ -35,8 +35,7 @@ fn compute_composio_array_path_prefixes_data_for_an_unwrapped_payload_schema() {
 }
 
 #[test]
-fn compute_composio_array_path_still_prefixes_data_when_the_payload_schema_itself_has_a_data_key(
-) {
+fn compute_composio_array_path_still_prefixes_data_when_the_payload_schema_itself_has_a_data_key() {
     // A payload whose own real shape happens to have a top-level `data`
     // key (unrelated to Composio's wrapper — e.g. a provider that
     // itself returns `{data: {messages: [...]}}`) must NOT be mistaken
@@ -117,10 +116,19 @@ fn compute_primary_array_path_from_value_none_when_no_array_anywhere() {
         "data": { "id": "abc123", "name": "octocat" },
         "successful": true
     });
-    assert_eq!(compute_primary_array_path_from_value(&value, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT), None);
-    assert_eq!(compute_primary_array_path_from_value(&json!(null), COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT), None);
     assert_eq!(
-        compute_primary_array_path_from_value(&json!("scalar"), COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT),
+        compute_primary_array_path_from_value(&value, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT),
+        None
+    );
+    assert_eq!(
+        compute_primary_array_path_from_value(&json!(null), COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT),
+        None
+    );
+    assert_eq!(
+        compute_primary_array_path_from_value(
+            &json!("scalar"),
+            COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT
+        ),
         None
     );
 }
@@ -211,8 +219,7 @@ fn cache_probe_result_redacts_the_raw_sample_before_caching() {
             sample: json!({ "data": { "issues": [{"secret": "do-not-retain"}] } }),
         },
     );
-    let cached =
-        probed_output_sample("PROBETEST_REDACTS_SAMPLE").expect("just cached this slug");
+    let cached = probed_output_sample("PROBETEST_REDACTS_SAMPLE").expect("just cached this slug");
     assert_eq!(cached.sample, Value::Null);
     // The derived metadata is still cached faithfully — only the raw
     // payload is redacted.
@@ -252,8 +259,7 @@ fn resolve_composio_action_scope_rejects_an_uncurated_slug_on_a_cataloged_toolki
 }
 
 #[test]
-fn resolve_composio_action_scope_falls_back_to_the_verb_heuristic_only_without_a_static_catalog(
-) {
+fn resolve_composio_action_scope_falls_back_to_the_verb_heuristic_only_without_a_static_catalog() {
     use crate::openhuman::memory_sync::composio::providers::ToolScope;
     assert_eq!(
         resolve_composio_action_scope("MADEUPTOOLKIT_LIST_THINGS"),
@@ -290,12 +296,7 @@ async fn probe_tool_output_sample_refuses_an_uncurated_slug_on_a_cataloged_toolk
 // ── fetch_live_toolkit_catalog / composio_required_args /
 //    composio_response_fields delegation ─────────────────────────────────
 
-fn contract(
-    slug: &str,
-    toolkit: &str,
-    required: &[&str],
-    output_fields: &[&str],
-) -> ToolContract {
+fn contract(slug: &str, toolkit: &str, required: &[&str], output_fields: &[&str]) -> ToolContract {
     let output_schema = if output_fields.is_empty() {
         None
     } else {

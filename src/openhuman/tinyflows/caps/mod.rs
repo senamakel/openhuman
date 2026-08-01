@@ -61,31 +61,31 @@ pub(crate) use crate::openhuman::composio::catalog::{
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{seed_live_catalog_cache, seed_probe_cache};
 
-mod tier;
+mod agent;
+mod code;
+mod http;
 mod llm;
 mod mocks;
-mod http;
-mod code;
-mod state;
-mod resolver;
 mod prompt;
-mod agent;
+mod resolver;
+mod state;
+mod tier;
 pub(crate) mod tools;
 
 // Glob re-exports keep every existing path resolving after the split:
 // `caps::X` from `flows/`, `super::super::X` from `caps::tools::*`.
-pub(crate) use prompt::*;
 pub(crate) use agent::*;
+pub(crate) use prompt::*;
 
 // Glob re-exports keep every existing path resolving after the split:
 // `caps::X` from `flows/`, `super::super::X` from `caps::tools::*`.
-pub(crate) use tier::*;
+pub(crate) use code::*;
+pub(crate) use http::*;
 pub(crate) use llm::*;
 pub(crate) use mocks::*;
-pub(crate) use http::*;
-pub(crate) use code::*;
-pub(crate) use state::*;
 pub(crate) use resolver::*;
+pub(crate) use state::*;
+pub(crate) use tier::*;
 
 pub(crate) use tools::NATIVE_TOOL_PREFIX;
 
@@ -93,10 +93,6 @@ pub(crate) use crate::openhuman::json_schema::{
     compute_primary_array_path, compute_primary_array_path_from_value, missing_required_args,
     response_fields_from_schema, unsupported_arg_names,
 };
-
-
-
-
 
 /// Parses a `"composio:<toolkit>:<connection_id>"` `connection_ref` (see the
 /// node catalog, `my_docs/ohxtf/commons/12-node-catalog-0.2.md`) and returns
@@ -433,7 +429,6 @@ pub struct OpenHumanTools {
     pub security: Arc<SecurityPolicy>,
 }
 
-
 /// Required-arg preflight for a Composio `tool_call`: fails **before** the
 /// Composio dispatch when a required arg is missing or resolved to `null`,
 /// with a message that names the field and the likely fix — instead of letting
@@ -609,10 +604,6 @@ impl ToolInvoker for OpenHumanTools {
         }
     }
 }
-
-
-
-
 
 /// Builds the [`Capabilities`] bundle for one run, wiring each of the six
 /// host-injected traits to a real OpenHuman adapter (see each adapter above for
@@ -2324,7 +2315,6 @@ mod tests {
             None
         );
     }
-
 
     // ── resolve_completion_model raw/BYOK passthrough (issue #4598) ───────────
     #[test]

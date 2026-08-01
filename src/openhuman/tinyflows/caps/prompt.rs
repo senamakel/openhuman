@@ -54,7 +54,6 @@ pub(crate) fn model_response_to_completion_value(
     })
 }
 
-
 /// Cap on the serialized `input_context` block size (bytes of the pretty-
 /// printed JSON) before truncation. Keeps a huge upstream payload (e.g. a
 /// large fan-in `=items` array) from blowing the completion's context window;

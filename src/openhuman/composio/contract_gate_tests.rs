@@ -6,8 +6,8 @@
 //! `LIVE_CATALOG_CACHE` can't cross-contaminate between tests.
 
 use super::{consult, ContractGate, GateDecision};
-use crate::openhuman::config::Config;
 use crate::openhuman::composio::catalog::{seed_live_catalog_cache, ToolContract};
+use crate::openhuman::config::Config;
 
 /// Build a full contract for `slug` in `toolkit` with a REQUIRED `query` input
 /// field and a description that spells out the quoting rule — the exact detail

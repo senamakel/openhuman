@@ -311,35 +311,38 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
         // type does not exist in that build. Hence paired `.with()` chains
         // below rather than one chain and an optional layer.
         #[cfg(feature = "file-logging")]
-        let pending_file: Option<(_, tracing_appender::non_blocking::WorkerGuard, PathBuf)> =
-            match std::fs::create_dir_all(&logs_dir) {
-                Ok(()) => match tracing_appender::rolling::Builder::new()
-                    .rotation(tracing_appender::rolling::Rotation::DAILY)
-                    .filename_prefix("openhuman")
-                    .filename_suffix("log")
-                    .max_log_files(7)
-                    .build(&logs_dir)
-                {
-                    Ok(appender) => {
-                        let (writer, guard) = tracing_appender::non_blocking(appender);
-                        Some((writer, guard, logs_dir.clone()))
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "[logging] failed to create file appender in {}: {err}",
-                            logs_dir.display()
-                        );
-                        None
-                    }
-                },
+        let pending_file: Option<(
+            _,
+            tracing_appender::non_blocking::WorkerGuard,
+            PathBuf,
+        )> = match std::fs::create_dir_all(&logs_dir) {
+            Ok(()) => match tracing_appender::rolling::Builder::new()
+                .rotation(tracing_appender::rolling::Rotation::DAILY)
+                .filename_prefix("openhuman")
+                .filename_suffix("log")
+                .max_log_files(7)
+                .build(&logs_dir)
+            {
+                Ok(appender) => {
+                    let (writer, guard) = tracing_appender::non_blocking(appender);
+                    Some((writer, guard, logs_dir.clone()))
+                }
                 Err(err) => {
                     eprintln!(
-                        "[logging] failed to create logs dir {}: {err}",
+                        "[logging] failed to create file appender in {}: {err}",
                         logs_dir.display()
                     );
                     None
                 }
-            };
+            },
+            Err(err) => {
+                eprintln!(
+                    "[logging] failed to create logs dir {}: {err}",
+                    logs_dir.display()
+                );
+                None
+            }
+        };
 
         #[cfg(feature = "file-logging")]
         let file_layer = pending_file.as_ref().map(|(writer, _, _)| {
@@ -381,7 +384,8 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
             .try_init();
 
         match init_result {
-            Ok(()) => {
+            Ok(()) =>
+            {
                 #[cfg(feature = "file-logging")]
                 if let Some((_, guard, dir)) = pending_file {
                     if let Ok(mut slot) = FILE_GUARD.lock() {
@@ -430,29 +434,32 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
 
         let logs_dir = data_dir.join("logs");
         #[cfg(feature = "file-logging")]
-        let pending_file: Option<(_, tracing_appender::non_blocking::WorkerGuard, PathBuf)> =
-            match std::fs::create_dir_all(&logs_dir) {
-                Ok(()) => match tracing_appender::rolling::Builder::new()
-                    .rotation(tracing_appender::rolling::Rotation::DAILY)
-                    .filename_prefix("openhuman")
-                    .filename_suffix("log")
-                    .max_log_files(7)
-                    .build(&logs_dir)
-                {
-                    Ok(appender) => {
-                        let (writer, guard) = tracing_appender::non_blocking(appender);
-                        Some((writer, guard, logs_dir.clone()))
-                    }
-                    Err(err) => {
-                        // No tracing subscriber yet, but we deliberately do NOT
-                        // eprintln! here (the TUI is about to take the terminal).
-                        // Losing this one diagnostic is the correct trade.
-                        let _ = err;
-                        None
-                    }
-                },
-                Err(_) => None,
-            };
+        let pending_file: Option<(
+            _,
+            tracing_appender::non_blocking::WorkerGuard,
+            PathBuf,
+        )> = match std::fs::create_dir_all(&logs_dir) {
+            Ok(()) => match tracing_appender::rolling::Builder::new()
+                .rotation(tracing_appender::rolling::Rotation::DAILY)
+                .filename_prefix("openhuman")
+                .filename_suffix("log")
+                .max_log_files(7)
+                .build(&logs_dir)
+            {
+                Ok(appender) => {
+                    let (writer, guard) = tracing_appender::non_blocking(appender);
+                    Some((writer, guard, logs_dir.clone()))
+                }
+                Err(err) => {
+                    // No tracing subscriber yet, but we deliberately do NOT
+                    // eprintln! here (the TUI is about to take the terminal).
+                    // Losing this one diagnostic is the correct trade.
+                    let _ = err;
+                    None
+                }
+            },
+            Err(_) => None,
+        };
 
         #[cfg(feature = "file-logging")]
         let file_layer = pending_file.as_ref().map(|(writer, _, _)| {

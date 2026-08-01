@@ -22,7 +22,9 @@ use serde_json::Value;
 use tinyflows::error::{EngineError, Result};
 
 use super::{ToolBackend, ToolCallCtx};
-use crate::openhuman::composio::client::{create_composio_client, direct_execute, ComposioClientKind};
+use crate::openhuman::composio::client::{
+    create_composio_client, direct_execute, ComposioClientKind,
+};
 use crate::openhuman::config::Config;
 use crate::openhuman::security::GateDecision;
 
@@ -71,7 +73,8 @@ impl ToolBackend for ComposioToolBackend {
         // curation check (unlike the pre-fix behavior) so a read-only tier
         // can never even probe which slugs are curated.
         let composio_class = super::super::classify_composio_action_for_tier(slug).await;
-        let tier_decision = super::super::enforce_node_tier_gate(ctx.security, composio_class, "tool_call")?;
+        let tier_decision =
+            super::super::enforce_node_tier_gate(ctx.security, composio_class, "tool_call")?;
         tracing::debug!(
             target: "flows",
             %slug,
@@ -150,7 +153,10 @@ impl ToolBackend for ComposioToolBackend {
         // user's live connected set. Ambient-session fallback is used ONLY when
         // no connection_ref was supplied.
         let resolved_account = match connection_id {
-            Some(id) => Some((id, super::super::resolve_composio_account(ctx.config, id).await)),
+            Some(id) => Some((
+                id,
+                super::super::resolve_composio_account(ctx.config, id).await,
+            )),
             None => None,
         };
 
@@ -232,7 +238,8 @@ impl ToolBackend for ComposioToolBackend {
         // (`{successful: false, error: "..."}`, e.g. a Slack 400 on
         // `SLACK_SEND_MESSAGE`) — reject it into a real capability error, see
         // `reject_unsuccessful_composio_response`'s doc.
-        let response = response.and_then(|resp| super::super::reject_unsuccessful_composio_response(slug, resp));
+        let response = response
+            .and_then(|resp| super::super::reject_unsuccessful_composio_response(slug, resp));
 
         if let Some(id) = audit_id {
             if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {

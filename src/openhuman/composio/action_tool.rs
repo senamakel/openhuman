@@ -532,8 +532,8 @@ mod tests {
         // well-formed query) instead of running with the thin spawn-time
         // schema; the retry then proceeds to real dispatch. A unique toolkit is
         // seeded so this is deterministic and never touches the network.
-        use crate::openhuman::config::TEST_ENV_LOCK;
         use crate::openhuman::composio::catalog::{seed_live_catalog_cache, ToolContract};
+        use crate::openhuman::config::TEST_ENV_LOCK;
         let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
         let toolkit = "cgateexec";

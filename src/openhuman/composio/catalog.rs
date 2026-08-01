@@ -612,7 +612,8 @@ pub(crate) async fn probe_tool_output_sample(
     let envelope = serde_json::to_value(&resp).map_err(|e| {
         format!("get_tool_output_sample: could not serialize the real response: {e}")
     })?;
-    let primary_array_path = compute_primary_array_path_from_value(&envelope, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT);
+    let primary_array_path =
+        compute_primary_array_path_from_value(&envelope, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT);
     let output_fields = resp
         .data
         .as_object()

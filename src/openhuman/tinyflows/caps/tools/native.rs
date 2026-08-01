@@ -37,10 +37,7 @@ impl ToolBackend for NativeToolBackend {
         args: Value,
         _conn: Option<&str>,
     ) -> Result<Value> {
-        let tool_name = slug
-            .strip_prefix(NATIVE_TOOL_PREFIX)
-            .unwrap_or(slug)
-            .trim();
+        let tool_name = slug.strip_prefix(NATIVE_TOOL_PREFIX).unwrap_or(slug).trim();
         if tool_name.is_empty() {
             return Err(EngineError::Capability(
                 "tool_call node: native tool slug is empty (expected `oh:<tool_name>`)".to_string(),

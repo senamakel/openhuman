@@ -152,7 +152,10 @@ mod tests {
 
     #[test]
     fn dispatch_routes_each_namespace_to_its_owner() {
-        assert_eq!(backend_for("oh:web_search").map(|b| b.name()), Some("native"));
+        assert_eq!(
+            backend_for("oh:web_search").map(|b| b.name()),
+            Some("native")
+        );
         assert_eq!(
             backend_for("GMAIL_SEND_EMAIL").map(|b| b.name()),
             Some("composio")
@@ -166,7 +169,11 @@ mod tests {
         let err = unclaimed_slug_error("bogus:thing").to_string();
         assert!(err.contains("bogus:thing"), "names the slug: {err}");
         for b in BACKENDS {
-            assert!(err.contains(b.name()), "names backend `{}`: {err}", b.name());
+            assert!(
+                err.contains(b.name()),
+                "names backend `{}`: {err}",
+                b.name()
+            );
         }
     }
 

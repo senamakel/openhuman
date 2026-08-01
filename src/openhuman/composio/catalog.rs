@@ -328,7 +328,12 @@ pub(crate) fn compute_composio_array_path(schema: Option<&Value>) -> Option<Stri
 /// never masquerades as (or shadows) the real array. None of these are ever
 /// arrays in practice, but the skip is explicit so a future envelope field
 /// can't silently win a shallowest-wins tie against a real nested array.
-const COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT: &[&str] =
+/// `pub(crate)` because the workflow adapter seam passes this into the
+/// vendor-neutral walker in [`crate::openhuman::json_schema`]. That walker
+/// deliberately takes the skip-list as a parameter rather than knowing any
+/// provider's envelope shape, so this constant is the piece of Composio
+/// knowledge the caller supplies — exporting it is the seam, not a leak.
+pub(crate) const COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT: &[&str] =
     &["successful", "error", "costUsd", "markdownFormatted"];
 
 /// One real, LIVE-sampled Composio action result — [`probe_tool_output_sample`]'s

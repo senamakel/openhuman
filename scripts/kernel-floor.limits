@@ -13,6 +13,9 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   387/6  2026-08-01  M2 step 2: clap + env_logger behind default-OFF
+#                      `bin-tools`; the six src/bin/ targets declare it as a
+#                      required-feature (-14, a whole CLI stack).
 #   401/6  2026-08-01  M2 step 1: arboard/enigo/rdev folded into the `voice`
 #                      gate (-17). arboard alone was 11 of those — an X11/wayland
 #                      clipboard stack in every workflow-only build.
@@ -20,4 +23,4 @@
 #                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
 #                      lzma-sys ring. Target after gating is 222 names / 2 native
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
-flows:401:6
+flows:387:6

@@ -442,6 +442,32 @@ jobs:
             --no-default-features --features tokenjuice-treesitter --lib -- \
             core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent_registry::agents::loader::
 
+      - name: Guard — the kernel dependency floor may not grow
+        # The `--no-default-features --features flows` profile is the surface a
+        # second host would embed, and left unmeasured it grows: seven heavy
+        # dependencies (git2/vendored-libgit2, rusqlite/bundled, enigo, arboard,
+        # ethers-*, tokio-tungstenite) are unconditional today, and none of them
+        # would likely have landed that way had a number moved in CI when they
+        # did. This lane is that number.
+        #
+        # The ratchet is bidirectional on purpose: it fails on growth AND on a
+        # shed that was not written back into scripts/kernel-floor.limits, since
+        # an unratcheted improvement silently grows back. Lower the limit in the
+        # same PR that sheds the crates.
+        run: bash scripts/check-kernel-floor.sh --verbose
+
+      - name: Guard — the removal simulator still agrees with cargo
+        # scripts/dep-sim.py projects the effect of cutting a dependency cohort,
+        # and every gating decision in the kernelization program is sized with
+        # it. It parses `cargo tree` precisely so it cannot drift from cargo's
+        # own feature resolution — an earlier version walked `cargo metadata`'s
+        # resolve graph instead and over-reported by 36 crates, counting
+        # dev-dependencies and unenabled target-specific edges.
+        #
+        # This asserts the calibration still holds. If it fails, every
+        # projection built on the simulator is suspect until it is fixed.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 418
+
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on
         # a domain feature must equal the allowlist below. When a new gate (or a new

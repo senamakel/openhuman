@@ -1,0 +1,20 @@
+# Dependency-floor ratchet. `scripts/check-kernel-floor.sh` fails when a profile
+# exceeds its limit here.
+#
+# Format: <profile>:<max unique crate names>:<max native builds>
+#
+# The ratchet only goes DOWN. Lowering a number is the point — every gating step
+# that sheds crates should lower it in the same PR, which is what stops the floor
+# silently growing back. Raising one requires a written justification in the PR
+# body and a reviewer who reads it; a dependency added to an always-on path is
+# exactly the regression this file exists to catch.
+#
+# Measure with:  scripts/kernel-floor.sh flows
+# Simulate with: scripts/dep-sim.py --cut <crates>
+#
+# History
+#   418/6  2026-08-01  baseline at the start of the kernelization program.
+#                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
+#                      lzma-sys ring. Target after gating is 222 names / 2 native
+#                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
+flows:418:6

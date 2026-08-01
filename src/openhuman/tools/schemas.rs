@@ -921,14 +921,38 @@ fn handle_polymarket_execute(params: Map<String, Value>) -> ControllerFuture {
 mod tests {
     use super::*;
 
+    /// Six always-on controllers, plus `polymarket_execute` when
+    /// `prediction-markets` is compiled in.
+    ///
+    /// Asserted in both directions rather than as one number: the OFF half is
+    /// what proves the gate actually removes the controller instead of leaving
+    /// it registered and failing at call time, which is the whole point of a
+    /// leaf gate. A single hard-coded count could only ever check one build.
+    const BASE_CONTROLLERS: usize = 6;
+
     #[test]
-    fn all_schemas_returns_seven() {
-        assert_eq!(all_controller_schemas().len(), 7);
+    fn all_schemas_covers_the_base_surface() {
+        let expected = BASE_CONTROLLERS + usize::from(cfg!(feature = "prediction-markets"));
+        assert_eq!(all_controller_schemas().len(), expected);
     }
 
     #[test]
-    fn all_controllers_returns_seven() {
-        assert_eq!(all_registered_controllers().len(), 7);
+    fn all_controllers_covers_the_base_surface() {
+        let expected = BASE_CONTROLLERS + usize::from(cfg!(feature = "prediction-markets"));
+        assert_eq!(all_registered_controllers().len(), expected);
+    }
+
+    #[test]
+    fn polymarket_controller_presence_follows_its_gate() {
+        let has = all_registered_controllers()
+            .iter()
+            .any(|c| c.schema.function == "polymarket_execute");
+        assert_eq!(
+            has,
+            cfg!(feature = "prediction-markets"),
+            "the polymarket controller must be absent (unknown-method) when \
+             `prediction-markets` is off, not registered-and-failing"
+        );
     }
 
     #[test]

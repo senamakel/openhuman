@@ -250,9 +250,9 @@ whisper-rs = { version = "0.16", optional = true }
 tempfile = "3"
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
-enigo = "0.3"
-arboard = "3"
-rdev = "0.5"
+enigo = { version = "0.3", optional = true }
+arboard = { version = "3", optional = true }
+rdev = { version = "0.5", optional = true }
 fs2 = "0.4"
 # Cross-platform battery probe for the scheduler gate. Maintained fork of
 # the abandoned `battery` crate; same `use battery::*;` API surface. Used
@@ -436,7 +436,14 @@ documents = ["dep:pdf-extract", "dep:ppt-rs", "dep:docx-rs"]
 # feature narrows the compile-time surface, `DomainSet` gates it at runtime.
 # Requires `inference` (the whisper engine + the cpal capture stack), so
 # enabling `voice` turns `inference` on transitively.
-voice = ["inference", "dep:hound", "dep:lettre"]
+# `arboard`/`enigo`/`rdev` join here rather than getting their own gate: their
+# only call sites are `voice::text_input` (clipboard + synthetic keystrokes to
+# insert a dictated transcript) and `voice::hotkey` (the global push-to-talk
+# listener), both already `#[cfg(feature = "voice")]`, and nothing outside
+# `voice/` reaches them. Worth 17 crates — the largest single shed in the wave —
+# because `arboard` alone drags an X11/wayland clipboard stack (11 crates) into
+# any build that just wants workflow execution.
+voice = ["inference", "dep:hound", "dep:lettre", "dep:arboard", "dep:enigo", "dep:rdev"]
 # Web3 domains: openhuman::wallet + openhuman::web3 + openhuman::x402 — the
 # crypto wallet (multi-chain sign/broadcast), the high-level swap/bridge/dapp
 # surface, and the x402 machine-payment protocol. Default-ON — the desktop app

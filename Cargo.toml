@@ -23,22 +23,27 @@ path = "src/main.rs"
 [[bin]]
 name = "slack-backfill"
 path = "src/bin/slack_backfill.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "gmail-backfill-3d"
 path = "src/bin/gmail_backfill_3d.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "memory-tree-init-smoke"
 path = "src/bin/memory_tree_init_smoke.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "inference-probe"
 path = "src/bin/inference_probe.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "harness-subagent-audit"
 path = "src/bin/harness_subagent_audit.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "test-mcp-stub"
@@ -50,7 +55,7 @@ path = "src/bin/fleet.rs"
 # The fleet supervisor embeds the axum control-plane server, so it only builds
 # with the HTTP transport compiled in (#5048). Under `--no-default-features`
 # (no `http-server`) this target is skipped rather than failing to link.
-required-features = ["http-server"]
+required-features = ["http-server", "bin-tools"]
 
 # Embedded-RSS benchmark harness (#5046). Gated behind the default-OFF
 # `rss-bench` feature so no benchmark code enters the shipped build. Build with
@@ -160,7 +165,7 @@ parking_lot = "0.12"
 log = "0.4"
 libc = "0.2"
 nu-ansi-term = "0.46"
-env_logger = "0.11"
+env_logger = { version = "0.11", optional = true }
 base64 = "0.22"
 aes-gcm = "0.10"
 argon2 = "0.5"
@@ -232,7 +237,7 @@ hostname = "0.4.2"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"], optional = true }
 lettre = { version = "0.11.22", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"], optional = true }
 # HTTP + Socket.IO server transport — the `/rpc` JSON-RPC endpoint, `/v1`
 # OpenAI-compat router, agentbox/http_host sub-servers, and the Socket.IO
@@ -344,6 +349,13 @@ landlock = { version = "0.4", optional = true }
 rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
+# Dual-declared on purpose (same shape as the `sentry`/`axum` entries): the
+# optional dependency above is bin-only behind `bin-tools`, but
+# `agent_orchestration::tools::tools_e2e_tests` (a #[cfg(test)] LIB module),
+# `tests/memory_graph_sync_e2e.rs`, `tests/x402_twit_sh_live.rs` and
+# `examples/embed_headless.rs` all call it with no feature #[cfg]. Without this
+# line the test build breaks the moment `bin-tools` is off.
+env_logger = "0.11"
 # Enable sentry's TestTransport for runtime smoke of the observability
 # before_send filter (see tests/observability_smoke.rs). `default-features
 # = false` here is load-bearing — sentry's default feature set pulls in
@@ -644,6 +656,13 @@ e2e-test-support = []
 # Builds the `rss-bench` benchmark binary (#5046). Default-OFF, so it is never
 # part of the shipped desktop/library build and the feature-forwarding gate
 # (which only inspects the `default` list) never requires forwarding it.
+# CLI argument parsing + logger init for the six developer/ops binaries under
+# `src/bin/`. Default-OFF and NOT in `default`: nothing in the library reaches
+# `clap` or `env_logger` (the one hit in `core/logging.rs` is a doc comment),
+# so the shipped desktop build has no reason to carry a 14-crate CLI stack.
+# Each owning `[[bin]]` declares `required-features = ["bin-tools"]`, so those
+# targets are simply skipped rather than failing to link when it is off.
+bin-tools = ["dep:clap", "dep:env_logger"]
 rss-bench = []
 # Adds dhat heap profiling on top of `rss-bench` for the `library-profile`
 # binary. Default-OFF, dev-only: installs dhat's global allocator, which

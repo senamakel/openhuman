@@ -56,27 +56,55 @@ fn sample_power() -> (bool, Option<f32>) {
         return (ac, Some(c));
     }
 
-    match probe_battery() {
-        Ok(probe) => (
+    match battery_probe() {
+        Some(probe) => (
             env_on_ac.unwrap_or(probe.on_ac),
             env_charge.or(probe.charge),
         ),
-        Err(err) => {
-            // Probe failure on Linux often just means no /sys/class/power_supply
-            // entries (server, container) — treat as "plugged in, no battery"
-            // which yields Normal/Aggressive, not Throttled. Log once at debug
-            // because this fires every 30s on the sampler tick.
-            log::debug!("[scheduler_gate] battery probe failed: {err:#}");
-            (env_on_ac.unwrap_or(true), env_charge)
-        }
+        // No probe answer — either it failed, or the `scheduler-gate` feature is
+        // compiled out. Treat as "plugged in, no battery", which yields
+        // Normal/Aggressive rather than Throttled. Erring the other way would
+        // throttle every server and container, where a battery probe never
+        // succeeds anyway.
+        None => (env_on_ac.unwrap_or(true), env_charge),
     }
 }
 
+/// The two facts the scheduler cares about. Both primitives, deliberately: the
+/// type stays ungated so `sample_power` needs no `#[cfg]` around its `match`.
 struct BatteryProbe {
     on_ac: bool,
     charge: Option<f32>,
 }
 
+/// The real probe, when `scheduler-gate` is compiled in.
+#[cfg(feature = "scheduler-gate")]
+fn battery_probe() -> Option<BatteryProbe> {
+    match probe_battery() {
+        Ok(probe) => Some(probe),
+        Err(err) => {
+            // Probe failure on Linux often just means no /sys/class/power_supply
+            // entries (server, container). Log once at debug because this fires
+            // every 30s on the sampler tick.
+            log::debug!("[scheduler_gate] battery probe failed: {err:#}");
+            None
+        }
+    }
+}
+
+/// Off-state: no hardware probe at all.
+///
+/// Deliberately the same answer the real probe gives on a machine with no
+/// battery, so the throttle path behaves identically to running on a server —
+/// a configuration this code already handles — rather than down a new branch.
+/// The visible consequence is that `require_ac_power` and `battery_floor` stop
+/// being enforced; CPU throttling and server-mode detection are unaffected.
+#[cfg(not(feature = "scheduler-gate"))]
+fn battery_probe() -> Option<BatteryProbe> {
+    None
+}
+
+#[cfg(feature = "scheduler-gate")]
 fn probe_battery() -> Result<BatteryProbe, starship_battery::Error> {
     let manager = starship_battery::Manager::new()?;
     let mut any = false;

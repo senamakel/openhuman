@@ -263,7 +263,7 @@ fs2 = "0.4"
 # the abandoned `battery` crate; same `use battery::*;` API surface. Used
 # only by `openhuman::scheduler_gate::signals` to decide when to throttle
 # background LLM work on laptops.
-starship-battery = "0.10"
+starship-battery = { version = "0.10", optional = true }
 ethers-core = { version = "2.0.14", default-features = false }
 ethers-signers = { version = "2.0.14", default-features = false }
 # Multi-chain wallet signing.
@@ -389,7 +389,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -662,6 +662,14 @@ e2e-test-support = []
 # so the shipped desktop build has no reason to carry a 14-crate CLI stack.
 # Each owning `[[bin]]` declares `required-features = ["bin-tools"]`, so those
 # targets are simply skipped rather than failing to link when it is off.
+# Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
+# When off there is no hardware probe: `sample_power` reports "on AC, no charge
+# signal", which is the same answer the real probe gives on a server or
+# container. Consequence to be explicit about — `require_ac_power` and
+# `battery_floor` are NOT enforced in such a build. CPU throttling and
+# server-mode detection are unaffected.
+scheduler-gate = ["dep:starship-battery"]
+
 bin-tools = ["dep:clap", "dep:env_logger"]
 rss-bench = []
 # Adds dhat heap profiling on top of `rss-bench` for the `library-profile`

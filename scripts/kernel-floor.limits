@@ -13,6 +13,14 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   280/6  2026-08-02  tinychannels provider gating (-28). Gated the two heavy
+#                      PROVIDERS inside the vendored crate (`email` = lettre/
+#                      async-imap/mail-parser, `lark` = axum/prost) rather than
+#                      gating the crate out of openhuman — the crate itself is
+#                      load-bearing (DomainEvent embeds its envelope, config and
+#                      security::pairing re-export its types), so gating it
+#                      would have meant stubbing ~28 items including crypto
+#                      helpers and a PERSISTED session-key derivation.
 #   308/6  2026-08-02  web3 cohort: ethers-core/ethers-signers/coins-bip39
 #                      join the `web3` gate, unblocked by giving Polymarket its
 #                      own `prediction-markets` feature that implies it (-67 —
@@ -36,4 +44,4 @@
 #                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
 #                      lzma-sys ring. Target after gating is 222 names / 2 native
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
-flows:308:6
+flows:280:6

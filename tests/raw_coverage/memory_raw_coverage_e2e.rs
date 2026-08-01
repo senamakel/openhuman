@@ -19,19 +19,19 @@ use openhuman_core::openhuman::memory_store::chunks::store::upsert_chunks;
 use openhuman_core::openhuman::memory_store::chunks::types::{
     approx_token_count, chunk_id, Chunk, Metadata, SourceKind as ChunkSourceKind, SourceRef,
 };
-use openhuman_core::openhuman::memory_sync::canonicalize::chat::{
+use tinycortex::memory::ingest::canonicalize::chat::{
     canonicalise as canonicalise_chat, ChatBatch, ChatMessage,
 };
-use openhuman_core::openhuman::memory_sync::canonicalize::document::{
+use tinycortex::memory::ingest::canonicalize::document::{
     canonicalise as canonicalise_document, DocumentInput,
 };
-use openhuman_core::openhuman::memory_sync::canonicalize::email::{
+use tinycortex::memory::ingest::canonicalize::email::{
     canonicalise as canonicalise_email, EmailMessage, EmailThread,
 };
 use openhuman_core::openhuman::memory_sync::composio::providers::{
     classify_unknown, find_curated, toolkit_from_slug, CuratedTool, ToolScope,
 };
-use openhuman_core::openhuman::memory_sync::{SyncOutcome, SyncPipelineKind};
+use tinycortex::memory::sync::{SyncOutcome, SyncPipelineKind};
 use openhuman_core::openhuman::memory_tree::summarise::{
     fallback_summary, SummaryContext, SummaryInput,
 };
@@ -395,6 +395,7 @@ fn memory_sources_validation_and_sync_classification_edges() {
         records_ingested: 3,
         more_pending: true,
         note: Some("paged".into()),
+        ..SyncOutcome::default()
     };
     let encoded = serde_json::to_value(&outcome).expect("sync outcome json");
     assert_eq!(encoded["records_ingested"], 3);

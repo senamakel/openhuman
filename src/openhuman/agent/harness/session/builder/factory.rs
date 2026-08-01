@@ -490,6 +490,19 @@ impl Agent {
         let model_vision =
             crate::openhuman::inference::model_context::model_supports_vision(&model_name, config);
 
+        // #5146 §2.1/§2.3: when the active model can't take images the turn
+        // engine silently strips them, and the user gets a confident answer
+        // about an image the model never saw. Log the actionable reason (which
+        // model, and what to switch to) at the moment the decision is made.
+        if let Err(reason) =
+            crate::openhuman::inference::provider::fallback_diagnostics::vision_preflight(
+                &model_name,
+                config,
+            )
+        {
+            log::info!("[vision-preflight] {reason}");
+        }
+
         // Dispatcher selection is deferred until after the tool list is
         // finalised (orchestrator tools are appended below). We capture
         // the choice string now so the provider borrow doesn't conflict

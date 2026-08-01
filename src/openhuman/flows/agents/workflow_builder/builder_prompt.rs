@@ -220,6 +220,27 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Collapses runs of whitespace (including newlines and hard-wrap
+    /// indentation) to a single space and trims the ends.
+    ///
+    /// `prompt.md` is hand-wrapped prose, and several regression tests below
+    /// pin exact substrings of it (including a few that embed a literal
+    /// `\n` at a specific wrap column, e.g. "NO\n   memory access"). Pinning
+    /// against the raw file couples the suite to WHERE a line happens to
+    /// wrap, not what it says — a semantically neutral rewrap (P-m4) then
+    /// reads as a content regression and breaks tests that never should have
+    /// cared. Normalizing both sides before comparing keeps the assertions
+    /// falsifiable against actual content changes while surviving any
+    /// rewrap that doesn't change the words.
+    fn normalize_whitespace(s: &str) -> String {
+        s.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    /// Whitespace-normalized substring check — see [`normalize_whitespace`].
+    fn contains_normalized(haystack: &str, needle: &str) -> bool {
+        normalize_whitespace(haystack).contains(&normalize_whitespace(needle))
+    }
+
     fn req(mode: BuildMode) -> BuilderRequest {
         BuilderRequest {
             mode,
@@ -351,7 +372,7 @@ mod tests {
         // reappear in the standing prompt either.
         for banned in ["review card", "Accept the proposal explicitly"] {
             assert!(
-                !STANDING_PROMPT.contains(banned),
+                !contains_normalized(STANDING_PROMPT, banned),
                 "standing prompt must not carry phantom review-card phrasing `{banned}` (B27)"
             );
         }
@@ -359,14 +380,14 @@ mod tests {
         // Positive: the anti-jargon Style rule — replies must stay in plain
         // language, never leak response_format/schema/expression internals.
         assert!(
-            STANDING_PROMPT.contains("Speak to a non-technical user"),
+            contains_normalized(STANDING_PROMPT, "Speak to a non-technical user"),
             "standing prompt must teach the anti-jargon Style rule"
         );
 
         // Positive: read-only memory grounding via the raw `memory_recall`
         // tool (no `memory_store` — see the agent.toml regression test).
         assert!(
-            STANDING_PROMPT.contains("memory_recall"),
+            contains_normalized(STANDING_PROMPT, "memory_recall"),
             "standing prompt must teach the builder to ground itself with memory_recall"
         );
 
@@ -375,7 +396,10 @@ mod tests {
         // drop the "can't change their memory" guarantee this agent's tool
         // scope depends on (no `memory_store` in agent.toml).
         assert!(
-            STANDING_PROMPT.contains("Read-only — you can't change their memory"),
+            contains_normalized(
+                STANDING_PROMPT,
+                "Read-only — you can't change their memory"
+            ),
             "standing prompt must state the memory read-only guarantee, not just mention memory_recall"
         );
 
@@ -388,7 +412,7 @@ mod tests {
             "It cannot create flows,",
         ] {
             assert!(
-                !STANDING_PROMPT.contains(banned),
+                !contains_normalized(STANDING_PROMPT, banned),
                 "standing prompt must not carry the stale \"can never create a flow\" claim \
                  `{banned}` — create_workflow/duplicate_flow are on the belt (issue #6)"
             );
@@ -397,7 +421,8 @@ mod tests {
         // Positive: the accurate contract — the agent CAN create a flow, but
         // every flow it creates is always born disabled.
         assert!(
-            STANDING_PROMPT.contains("create_workflow") && STANDING_PROMPT.contains("born"),
+            contains_normalized(STANDING_PROMPT, "create_workflow")
+                && contains_normalized(STANDING_PROMPT, "born"),
             "standing prompt must accurately teach that create_workflow exists and that \
              created flows are always born disabled (issue #6)"
         );
@@ -410,9 +435,9 @@ mod tests {
         // offering-then-refusing (the confusing "want me to run it?" → "I
         // don't have access" behavior).
         assert!(
-            STANDING_PROMPT.contains("only if the tool is on your belt")
-                && STANDING_PROMPT.contains("never offer to run the flow")
-                && STANDING_PROMPT.contains("Workflows UI"),
+            contains_normalized(STANDING_PROMPT, "only if the tool is on your belt")
+                && contains_normalized(STANDING_PROMPT, "never offer to run the flow")
+                && contains_normalized(STANDING_PROMPT, "Workflows UI"),
             "standing prompt must make run_flow capability-conditional: never offer to run \
              when the tool is off the belt, and point the user to the Workflows UI Run \
              control instead (Bld §4 offer-then-refuse)"
@@ -423,7 +448,7 @@ mod tests {
         // it must not reappear (that's the exact offer-then-refuse regression
         // Bld §4 closed).
         assert!(
-            !STANDING_PROMPT.contains("`run_flow` (ask first!)"),
+            !contains_normalized(STANDING_PROMPT, "`run_flow` (ask first!)"),
             "standing prompt must not regress to the pre-Bld-§4 unconditional \
              \"ask first!\" run_flow heading"
         );
@@ -433,14 +458,18 @@ mod tests {
         // check somewhere else in the doc — bind the assertion to the two
         // halves of the actual contract (off-belt fallback, on-belt usage).
         assert!(
-            STANDING_PROMPT
-                .contains("If you do **not** have a `run_flow` tool, never offer to run the flow"),
+            contains_normalized(
+                STANDING_PROMPT,
+                "If you do **not** have a `run_flow` tool, never offer to run the flow"
+            ),
             "standing prompt must state the off-belt fallback as a direct consequence \
              of the capability check, not a generic nearby mention"
         );
         assert!(
-            STANDING_PROMPT
-                .contains("If you **do** have `run_flow`: once the user has **saved** a flow"),
+            contains_normalized(
+                STANDING_PROMPT,
+                "If you **do** have `run_flow`: once the user has **saved** a flow"
+            ),
             "standing prompt must gate the on-belt run_flow usage behind the same \
              capability check"
         );
@@ -452,18 +481,22 @@ mod tests {
         // gated `run_flow` while leaving these two unconditional would
         // reopen the same offer-then-refuse bug one hop later.
         assert!(
-            STANDING_PROMPT
-                .contains("those tools are on your belt** — `resume_flow_run` (approval-gated) or"),
+            contains_normalized(
+                STANDING_PROMPT,
+                "those tools are on your belt** — `resume_flow_run` (approval-gated) or"
+            ),
             "standing prompt must gate resume_flow_run/cancel_flow_run behind the \
              same on-your-belt capability check as run_flow"
         );
         assert!(
-            STANDING_PROMPT.contains("(if they're not available, point the"),
+            contains_normalized(STANDING_PROMPT, "(if they're not available, point the"),
             "standing prompt must state the resume/cancel off-belt fallback condition"
         );
         assert!(
-            STANDING_PROMPT
-                .contains("user to the runs list in the Workflows UI instead of offering)."),
+            contains_normalized(
+                STANDING_PROMPT,
+                "user to the runs list in the Workflows UI instead of offering)."
+            ),
             "standing prompt must point resume/cancel's off-belt fallback to the \
              Workflows UI runs list, matching run_flow's UI fallback pattern"
         );
@@ -472,7 +505,10 @@ mod tests {
         // right after `edit_workflow`, with no capability check in between —
         // must not reappear.
         assert!(
-            !STANDING_PROMPT.contains("patch with `edit_workflow`; `resume_flow_run`"),
+            !contains_normalized(
+                STANDING_PROMPT,
+                "patch with `edit_workflow`; `resume_flow_run`"
+            ),
             "standing prompt must not regress to the pre-fix unconditional \
              resume_flow_run/cancel_flow_run offer"
         );
@@ -481,16 +517,19 @@ mod tests {
         // wire "DM me" onto the connection's own `platform_user_id`, not a
         // public channel (the #general/#team-product fallback bug).
         assert!(
-            STANDING_PROMPT.contains("platform_user_id"),
+            contains_normalized(STANDING_PROMPT, "platform_user_id"),
             "standing prompt must teach that list_flow_connections surfaces \
              platform_user_id for self-DM resolution"
         );
         assert!(
-            STANDING_PROMPT.contains("DM me"),
+            contains_normalized(STANDING_PROMPT, "DM me"),
             "standing prompt must keep the \"DM me\" self-target guidance"
         );
         assert!(
-            STANDING_PROMPT.contains("Never default a personal request to a public channel"),
+            contains_normalized(
+                STANDING_PROMPT,
+                "Never default a personal request to a public channel"
+            ),
             "standing prompt must explicitly forbid falling back to a public \
              channel (e.g. #general/#team-product) for a personal \"DM me\" request"
         );
@@ -501,8 +540,10 @@ mod tests {
         // word `platform_user_id` elsewhere in the prompt and still pass the
         // looser check above.
         assert!(
-            STANDING_PROMPT
-                .contains("that id verbatim as the `channel` arg on `SLACK_SEND_MESSAGE`"),
+            contains_normalized(
+                STANDING_PROMPT,
+                "that id verbatim as the `channel` arg on `SLACK_SEND_MESSAGE`"
+            ),
             "standing prompt must explicitly instruct passing `platform_user_id` \
              verbatim as the `channel` arg on `SLACK_SEND_MESSAGE` — not just \
              mention the field name"
@@ -512,8 +553,8 @@ mod tests {
         // their member id in one question) must survive too — this is the
         // other half of the self-DM contract and must not be silently lost.
         assert!(
-            STANDING_PROMPT.contains("Only if `platform_user_id` is null")
-                && STANDING_PROMPT.contains("ask the user for their member id"),
+            contains_normalized(STANDING_PROMPT, "Only if `platform_user_id` is null")
+                && contains_normalized(STANDING_PROMPT, "ask the user for their member id"),
             "standing prompt must preserve the null-`platform_user_id` fallback: \
              ask the user for their member id in one question rather than \
              guessing a channel"
@@ -526,38 +567,38 @@ mod tests {
         // toolkit-specific slug hardcoded) — the same shape applies to
         // Slack, Discord, Telegram, or any other messaging toolkit.
         assert!(
-            STANDING_PROMPT.contains("is NOT the connected"),
+            contains_normalized(STANDING_PROMPT, "is NOT the connected"),
             "standing prompt must teach the non-owner DM case explicitly"
         );
         assert!(
-            STANDING_PROMPT.contains("platform-agnostic"),
+            contains_normalized(STANDING_PROMPT, "platform-agnostic"),
             "standing prompt must state the non-owner DM guidance is \
              platform-agnostic, not tied to one toolkit"
         );
         assert!(
-            STANDING_PROMPT.contains("search_tool_catalog { query, toolkit }"),
+            contains_normalized(STANDING_PROMPT, "search_tool_catalog { query, toolkit }"),
             "standing prompt must teach resolving the lookup action via \
              search_tool_catalog scoped to the TARGET toolkit, rather than \
              hardcoding one platform's slug"
         );
         assert!(
-            STANDING_PROMPT.contains("tool_call` node upstream of the send"),
+            contains_normalized(STANDING_PROMPT, "tool_call` node upstream of the send"),
             "standing prompt must teach wiring the lookup as a tool_call \
              node upstream of the send node"
         );
         assert!(
-            STANDING_PROMPT.contains("resolves to exactly one match"),
+            contains_normalized(STANDING_PROMPT, "resolves to exactly one match"),
             "standing prompt must require a name search to resolve to \
              exactly one match before binding it without asking"
         );
         assert!(
-            STANDING_PROMPT.contains("ask the user to confirm which person"),
+            contains_normalized(STANDING_PROMPT, "ask the user to confirm which person"),
             "standing prompt must preserve the safety rule: never message an \
              unverified same-name match, ask instead when ambiguous"
         );
         assert!(
-            STANDING_PROMPT.contains("Check the send action")
-                && STANDING_PROMPT.contains("open conversation"),
+            contains_normalized(STANDING_PROMPT, "Check the send action")
+                && contains_normalized(STANDING_PROMPT, "open conversation"),
             "standing prompt must teach checking the send tool's own contract \
              for a required open-conversation step, handled generally via the \
              contract rather than a single-platform special case"
@@ -574,7 +615,7 @@ mod tests {
             "exact_match",
         ] {
             assert!(
-                !STANDING_PROMPT.contains(banned),
+                !contains_normalized(STANDING_PROMPT, banned),
                 "standing prompt's non-owner DM guidance must not hardcode \
                  the platform-specific `{banned}` — it must stay \
                  platform-agnostic (any messaging toolkit)"
@@ -600,7 +641,7 @@ mod tests {
             "Lead with substance",
         ] {
             assert!(
-                STANDING_PROMPT.contains(rule),
+                contains_normalized(STANDING_PROMPT, rule),
                 "standing prompt must teach the reply-hygiene rule `{rule}` — the \
                  reply is the finished answer, not a thinking scratchpad (no \
                  deliberation narration, no draft-then-restate)"
@@ -629,7 +670,7 @@ mod tests {
             "zero questions is still the happy path",
         ] {
             assert!(
-                STANDING_PROMPT.contains(rule),
+                contains_normalized(STANDING_PROMPT, rule),
                 "standing prompt must teach the resolution-first rule `{rule}` — \
                  before asking for any missing value, the builder must exhaust \
                  self-resolution (recall, connections, tool catalog, runtime \
@@ -656,7 +697,7 @@ mod tests {
             "flow_memory_agent",
         ] {
             assert!(
-                STANDING_PROMPT.contains(rule),
+                contains_normalized(STANDING_PROMPT, rule),
                 "standing prompt must teach specialist selection via `{rule}` — the \
                  builder needs to know it can ground a real agent_ref with \
                  list_agent_profiles instead of hallucinating one"
@@ -675,20 +716,20 @@ mod tests {
         const STANDING_PROMPT: &str = include_str!("prompt.md");
 
         assert!(
-            STANDING_PROMPT.contains("flow_memory_agent"),
+            contains_normalized(STANDING_PROMPT, "flow_memory_agent"),
             "standing prompt must name `flow_memory_agent`"
         );
         assert!(
-            STANDING_PROMPT.contains("the PREFERRED general"),
+            contains_normalized(STANDING_PROMPT, "the PREFERRED general"),
             "standing prompt must teach flow_memory_agent as the PREFERRED general route"
         );
         assert!(
-            STANDING_PROMPT.contains("for ANY use case, not a fixed list"),
+            contains_normalized(STANDING_PROMPT, "for ANY use case, not a fixed list"),
             "standing prompt must state the routing rule is general — ANY use case, not \
              a fixed list of scenarios — or the builder will under-route to flow_memory_agent"
         );
         assert!(
-            STANDING_PROMPT.contains("narrower niche"),
+            contains_normalized(STANDING_PROMPT, "narrower niche"),
             "standing prompt must demote context_scout to its narrower structured-bundle \
              niche now that flow_memory_agent is the general route"
         );
@@ -697,11 +738,11 @@ mod tests {
         // retrieval to context_scout contradicts the rule above and trains the
         // builder to under-route to flow_memory_agent.
         assert!(
-            STANDING_PROMPT.contains("asked us before\" → `flow_memory_agent`"),
+            contains_normalized(STANDING_PROMPT, "asked us before\" → `flow_memory_agent`"),
             "the generic customer-history example must route to flow_memory_agent"
         );
         assert!(
-            !STANDING_PROMPT.contains("asked us before\" → `context_scout`"),
+            !contains_normalized(STANDING_PROMPT, "asked us before\" → `context_scout`"),
             "the generic customer-history example must NOT route to context_scout — that \
              contradicts flow_memory_agent being the general context/history route"
         );
@@ -716,9 +757,9 @@ mod tests {
         const STANDING_PROMPT: &str = include_str!("prompt.md");
 
         assert!(
-            STANDING_PROMPT.contains("specialist")
-                && (STANDING_PROMPT.contains("tool loop")
-                    || STANDING_PROMPT.contains("full persona")),
+            contains_normalized(STANDING_PROMPT, "specialist")
+                && (contains_normalized(STANDING_PROMPT, "tool loop")
+                    || contains_normalized(STANDING_PROMPT, "full persona")),
             "standing prompt must link agent_ref to the specialist's full tool loop \
              (the harness path), not just a persona/model swap"
         );
@@ -740,7 +781,7 @@ mod tests {
             "still gets tools from the node's own",
         ] {
             assert!(
-                !STANDING_PROMPT.contains(banned),
+                !contains_normalized(STANDING_PROMPT, banned),
                 "standing prompt must not carry the stale agent_ref-tool-loop \
                  phrasing `{banned}` — the harness path already gives agent_ref \
                  its full tool loop"
@@ -783,15 +824,16 @@ mod tests {
         const STANDING_PROMPT: &str = include_str!("prompt.md");
 
         assert!(
-            STANDING_PROMPT.contains("minimal viable graph"),
+            contains_normalized(STANDING_PROMPT, "minimal viable graph"),
             "standing prompt must still warn to prefer the minimal viable graph"
         );
         assert!(
-            STANDING_PROMPT.contains("3–6 nodes") || STANDING_PROMPT.contains("3-6 nodes"),
+            contains_normalized(STANDING_PROMPT, "3–6 nodes")
+                || contains_normalized(STANDING_PROMPT, "3-6 nodes"),
             "standing prompt must still carry the 3-6 node sizing guidance"
         );
         assert!(
-            STANDING_PROMPT.contains("SAME kind of work"),
+            contains_normalized(STANDING_PROMPT, "SAME kind of work"),
             "standing prompt must still warn against chaining agents doing the \
              same kind of work, even after adding specialist-selection guidance"
         );
@@ -816,7 +858,7 @@ mod tests {
             "wire\n   an `agent` node that uses memory",
         ] {
             assert!(
-                !STANDING_PROMPT.contains(banned),
+                !contains_normalized(STANDING_PROMPT, banned),
                 "standing prompt must not tell the builder a plain `agent` node can \
                  reach memory ({banned:?}) — it has no tool loop, so the model \
                  fabricates the recalled value instead of looking it up"
@@ -824,27 +866,34 @@ mod tests {
         }
 
         assert!(
-            STANDING_PROMPT.contains("A plain `agent` node has NO\n   memory access"),
+            contains_normalized(
+                STANDING_PROMPT,
+                "A plain `agent` node has NO\n   memory access"
+            ),
             "standing prompt must state outright that a plain agent node has no \
              memory access, so the builder never authors a no-op recall step"
         );
     }
 
-    /// The three mechanisms that DO reach memory from inside a running flow
+    /// The four mechanisms that DO reach memory from inside a running flow
     /// must all be taught, with the correct binding path for the
-    /// deterministic one. A native `oh:` tool result is a `ToolResult` —
-    /// `{ content: [{ type, text }], is_error }` — so a downstream binding
-    /// dereferences `.item.json.content[0].text`, not the bare
-    /// `.item.json.<field>` an agent/`http_request` output would use. Getting
-    /// that path wrong is the same class of silent-null failure the
+    /// deterministic `tool_call` one. A native `oh:` tool result is a
+    /// `ToolResult` — `{ content: [{ type, text }], is_error }` — so a
+    /// downstream binding dereferences `.item.json.content[0].text`, not the
+    /// bare `.item.json.<field>` an agent/`http_request` output would use.
+    /// Getting that path wrong is the same class of silent-null failure the
     /// `=`-binding rules exist to stop. #5204 added `flow_memory_agent` as
-    /// the third (and now PREFERRED general) route alongside the
-    /// deterministic `tool_call` reads and `context_scout`'s narrower niche.
+    /// the PREFERRED general route alongside the deterministic `tool_call`
+    /// reads and `context_scout`'s narrower niche; the memory-node feature
+    /// (issue #5226) then added the `memory` node itself as the preferred
+    /// choice specifically for a non-reasoning node (`condition`/`switch`)
+    /// that needs to branch on a recalled value.
     #[test]
-    fn standing_prompt_teaches_the_three_working_memory_read_paths() {
+    fn standing_prompt_teaches_the_four_working_memory_read_paths() {
         const STANDING_PROMPT: &str = include_str!("prompt.md");
 
         for rule in [
+            "A `memory` node",
             "oh:memory_recall",
             "oh:memory_hybrid_search",
             "flow_memory_agent",
@@ -852,8 +901,8 @@ mod tests {
             "=nodes.<id>.item.json.content[0].text",
         ] {
             assert!(
-                STANDING_PROMPT.contains(rule),
-                "standing prompt must teach `{rule}` — it is one of the only three \
+                contains_normalized(STANDING_PROMPT, rule),
+                "standing prompt must teach `{rule}` — it is one of the four \
                  mechanisms that actually read memory at flow run time, or the \
                  binding path needed to consume one"
             );
@@ -861,30 +910,54 @@ mod tests {
     }
 
     /// Flows run on trigger data a third party can influence (an inbound
-    /// email, a webhook payload), so writing that into the user's personal
-    /// memory is deliberately not offered. `agent_memory` is NOT an escape
-    /// hatch here despite being a registered, `read_only` builtin: its
+    /// email, a webhook payload), so writing to the user's PERSONAL memory is
+    /// deliberately never offered — that guarantee must survive the
+    /// memory-node feature (issue #5226) verbatim. `agent_memory` is NOT an
+    /// escape hatch here despite being a registered, `read_only` builtin: its
     /// `memory_tree` tool inherits the trait-default `PermissionLevel::ReadOnly`
     /// while dispatching an `ingest_document` WRITE mode, so it survives the
     /// read-only tool filter in `session/builder/factory.rs` (which consults
     /// the argless `permission_level()`). Steering the builder there would
     /// hand prompt-injected trigger content a memory-write foothold — exactly
     /// the hole `context_scout`'s own agent.toml documents refusing.
+    ///
+    /// What DID change with #5226: a flow can now write its OWN private,
+    /// flow-scoped memory (`memory` node, `scope: "flow"`) — the prompt must
+    /// teach that too, with the "remember after the action, not before" rule,
+    /// so the builder stops telling users memory writes are unavailable
+    /// entirely and instead reaches for the real mechanism.
     #[test]
-    fn standing_prompt_states_flows_cannot_write_memory_and_avoids_agent_memory() {
+    fn standing_prompt_states_flows_cannot_write_user_memory_but_can_write_flow_memory() {
         const STANDING_PROMPT: &str = include_str!("prompt.md");
 
         assert!(
-            STANDING_PROMPT.contains("can never WRITE the user's memory"),
+            contains_normalized(STANDING_PROMPT, "can never WRITE the user's memory"),
             "standing prompt must state plainly that a workflow cannot write the \
-             user's memory, so the builder stops authoring remember/store steps"
+             user's PERSONAL memory, so the builder never targets scope \"user\" \
+             on a remember/forget memory node"
         );
         assert!(
-            !STANDING_PROMPT.contains("agent_memory"),
+            !contains_normalized(STANDING_PROMPT, "agent_memory"),
             "standing prompt must not steer the builder to `agent_memory` as a \
              flow agent_ref: its `memory_tree` tool declares ReadOnly but exposes \
              an ingest_document write mode, so it would give prompt-injectable \
              trigger data a memory-write path"
+        );
+        assert!(
+            contains_normalized(STANDING_PROMPT, "scope: \"flow\""),
+            "standing prompt must teach that a workflow CAN write its own \
+             flow-scoped memory via a `memory` node (scope: \"flow\") — this is \
+             the real mechanism for a flow that \"remembers\" across runs, \
+             replacing the old blanket \"memory writes are not available\" advice"
+        );
+        assert!(
+            contains_normalized(
+                STANDING_PROMPT,
+                "Always place the `remember` AFTER the real action"
+            ),
+            "standing prompt must teach commit-on-success ordering: remember AFTER \
+             the action it's recording, never before, so a failed action doesn't \
+             get silently marked done"
         );
     }
 

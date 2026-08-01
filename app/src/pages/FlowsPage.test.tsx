@@ -1,15 +1,18 @@
 /**
  * FlowsPage (issue B5a / B5a.1 / B5b.1) — the Workflows list page. Asserts
  * the loading/empty/error/list states, that toggling a flow calls
- * `setFlowEnabled` and refreshes the row, that Run fires `runFlow`, shows a
- * "Workflow started" toast, and refetches the list, that "View runs" opens
- * `FlowRunsDrawer` for the clicked flow, that clicking a flow's name
- * navigates to its read-only Workflow Canvas (`/flows/:id`, issue B5b.1),
- * and that "New workflow" (header + empty state) opens the Phase 4a chooser
- * (start from scratch / template / describe), with the empty state also
- * surfacing the Phase 4c template gallery inline.
+ * `setFlowEnabled` and refreshes the row, that Run fires `runFlowDetached`
+ * (F-M1/F-M2 — the non-blocking `flows_run_detached` RPC, not the old
+ * blocking `flows_run`), shows a "Workflow started" toast immediately, that
+ * a run in flight on one row does NOT disable any other row's actions
+ * (F-M2's core regression), that "View runs" opens `FlowRunsDrawer` for the
+ * clicked flow, that clicking a flow's name navigates to its read-only
+ * Workflow Canvas (`/flows/:id`, issue B5b.1), and that "New workflow"
+ * (header + empty state) opens the Phase 4a chooser (start from scratch /
+ * template / describe), with the empty state also surfacing the Phase 4c
+ * template gallery inline.
  */
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FLOW_TEMPLATES } from '../lib/flows/templates';
@@ -19,7 +22,7 @@ import FlowsPage from './FlowsPage';
 
 const listFlows = vi.hoisted(() => vi.fn());
 const setFlowEnabled = vi.hoisted(() => vi.fn());
-const runFlow = vi.hoisted(() => vi.fn());
+const runFlowDetached = vi.hoisted(() => vi.fn());
 const listFlowRuns = vi.hoisted(() => vi.fn());
 const createFlow = vi.hoisted(() => vi.fn());
 const importFlow = vi.hoisted(() => vi.fn());
@@ -33,7 +36,7 @@ const markSuggestionBuilt = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/flowsApi', () => ({
   listFlows,
   setFlowEnabled,
-  runFlow,
+  runFlowDetached,
   listFlowRuns,
   createFlow,
   importFlow,
@@ -137,23 +140,26 @@ describe('FlowsPage', () => {
     );
   });
 
-  it('runs a flow, shows a "Workflow started" toast, and refetches the list', async () => {
+  it('runs a flow via the non-blocking flows_run_detached RPC and shows a "Workflow started" toast', async () => {
     listFlows.mockResolvedValue([makeFlow()]);
-    runFlow.mockResolvedValue({ output: null, pending_approvals: [], thread_id: 't1' });
+    runFlowDetached.mockResolvedValue({
+      run_id: 'flow:flow-1:t1',
+      flow_id: 'flow-1',
+      status: 'running',
+      detached: true,
+    });
     renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
 
     await waitFor(() => expect(screen.getByTestId('flow-run-flow-1')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('flow-run-flow-1'));
 
-    expect(runFlow).toHaveBeenCalledWith('flow-1');
+    expect(runFlowDetached).toHaveBeenCalledWith('flow-1');
     await waitFor(() => expect(screen.getByText('Workflow started')).toBeInTheDocument());
-    // Loaded once on mount, once more on refetch after the run kicks off.
-    await waitFor(() => expect(listFlows).toHaveBeenCalledTimes(2));
   });
 
-  it('shows an error banner (without a toast) when runFlow rejects', async () => {
+  it('shows an error banner (without a toast) when runFlowDetached rejects', async () => {
     listFlows.mockResolvedValue([makeFlow()]);
-    runFlow.mockRejectedValue(new Error('flow disabled'));
+    runFlowDetached.mockRejectedValue(new Error('flow disabled'));
     renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
 
     await waitFor(() => expect(screen.getByTestId('flow-run-flow-1')).toBeInTheDocument());
@@ -161,6 +167,36 @@ describe('FlowsPage', () => {
 
     await waitFor(() => expect(screen.getByText('flow disabled')).toBeInTheDocument());
     expect(screen.queryByText('Workflow started')).not.toBeInTheDocument();
+  });
+
+  // F-M2 regression: the old page-global `busyKey` disabled EVERY row's
+  // Run/Toggle for the whole duration of any one row's action. Now that Run
+  // starts a detached, possibly minutes-long flow (F-M1), that would have
+  // frozen the entire list. Assert the busy state stays scoped to the row
+  // whose action is actually in flight.
+  it('keeps other rows interactive while one row has a run in flight', async () => {
+    listFlows.mockResolvedValue([makeFlow(), makeFlow({ id: 'flow-2', name: 'Weekly report' })]);
+    // Never resolves — simulates the RPC round-trip still being in flight so
+    // the row-1 Run button stays in its busy state for the assertion window.
+    runFlowDetached.mockReturnValue(new Promise(() => {}));
+    renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
+
+    await waitFor(() => expect(screen.getByTestId('flow-run-flow-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('flow-run-flow-1'));
+
+    // Row 1's own Run button reflects its in-flight state...
+    await waitFor(() => expect(screen.getByTestId('flow-run-flow-1')).toBeDisabled());
+    // ...but row 2's Run and Toggle stay fully interactive — nothing
+    // page-global gates them anymore.
+    expect(screen.getByTestId('flow-run-flow-2')).not.toBeDisabled();
+    expect(screen.getByTestId('flow-toggle-flow-2')).not.toBeDisabled();
+
+    // Row 2's own actions still work while row 1 is busy.
+    setFlowEnabled.mockResolvedValue(
+      makeFlow({ id: 'flow-2', name: 'Weekly report', enabled: false })
+    );
+    fireEvent.click(screen.getByTestId('flow-toggle-flow-2'));
+    await waitFor(() => expect(setFlowEnabled).toHaveBeenCalledWith('flow-2', false));
   });
 
   it('opens the run-history drawer for the clicked flow when "View runs" is clicked', async () => {
@@ -328,5 +364,68 @@ describe('FlowsPage', () => {
       'That file is not valid workflow JSON.'
     );
     expect(importFlow).not.toHaveBeenCalled();
+  });
+  it('refetches the list on a poll backstop when the run-finished broadcast never arrives', async () => {
+    // `flows_run_detached` returns immediately, so a row's last-run outcome is
+    // refreshed by the `FlowRunFinished` broadcast — a plain socket emit with
+    // no server-side replay. If that is missed (reconnect gap, sleeping
+    // laptop), the row would show a stale outcome until the user navigates
+    // away and back. Every other run-outcome surface pairs the event with a
+    // poll backstop; this pins that this page does too.
+    //
+    // `waitFor` is avoided throughout: it deadlocks under fake timers, so the
+    // clock is advanced explicitly with `advanceTimersByTimeAsync`, which also
+    // flushes the pending promises.
+    vi.useFakeTimers();
+    try {
+      listFlows.mockResolvedValue([makeFlow()]);
+      runFlowDetached.mockResolvedValue({
+        run_id: 'flow:flow-1:t1',
+        flow_id: 'flow-1',
+        status: 'running',
+        detached: true,
+      });
+      renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
+
+      // Flush the mount fetch without moving the clock into the poll window.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      const callsBeforeRun = listFlows.mock.calls.length;
+
+      fireEvent.click(screen.getByTestId('flow-run-flow-1'));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(runFlowDetached).toHaveBeenCalledWith('flow-1');
+
+      // No FlowRunFinished is ever delivered — the backstop must still fire.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(31_000);
+      });
+      expect(listFlows.mock.calls.length).toBeGreaterThan(callsBeforeRun);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not poll when no run from this page is outstanding', async () => {
+    vi.useFakeTimers();
+    try {
+      listFlows.mockResolvedValue([makeFlow()]);
+      renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      const callsAfterLoad = listFlows.mock.calls.length;
+
+      // Several poll windows pass with nothing outstanding — no refetch.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+      expect(listFlows.mock.calls.length).toBe(callsAfterLoad);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

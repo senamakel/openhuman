@@ -10,9 +10,12 @@
 # Env:
 #   APPIMAGE_RUNTIME_SMOKE — set to 1 to require the bounded Xvfb startup smoke;
 #                            otherwise only static final-artifact checks run
-#   APPIMAGE_RUNTIME_APPARMOR_USERNS — set to 1 on Ubuntu 24.04 CI to load a
-#                            temporary, per-executable AppArmor profile granting
-#                            Chromium's sandbox access to user namespaces
+#   APPIMAGE_RUNTIME_APPARMOR_USERNS — set to 1 on Ubuntu 24.04 CI to give
+#                            Chromium's sandbox access to user namespaces for
+#                            the smoke window: relaxes
+#                            kernel.apparmor_restrict_unprivileged_userns (and
+#                            restores it afterwards) and loads a temporary,
+#                            per-executable AppArmor profile
 
 set -euo pipefail
 
@@ -155,6 +158,52 @@ smoke_extracted_apprun() {
     [ -n "$secret_name" ] && unset_args+=(-u "$secret_name")
   done < <(compgen -v OPENAI_ || true)
 
+  # ── D-Bus session bus for the smoke window ─────────────────────────────────
+  #
+  # A real desktop user always launches the AppImage inside a session that has a
+  # D-Bus session bus; a CI runner does not. `tauri-plugin-single-instance` calls
+  # `zbus::blocking::connection::Builder::session().unwrap()` in its `setup()`,
+  # so with no usable bus it panics before any window exists:
+  #
+  #   thread 'main' panicked at plugins/single-instance/src/platform_impl/linux.rs:57
+  #   called `Result::unwrap()` on an `Err` value:
+  #     Address("unsupported transport 'disabled'")
+  #
+  # ...which is exactly how the Release Production ubuntu smoke failed (exit 101,
+  # actions/runs/30393949588). Chromium logs the same underlying condition as
+  # "Failed to connect to the bus: Could not parse server address".
+  #
+  # `app/scripts/e2e-run-session.sh` already solves this for the desktop e2e
+  # runner by starting a bus with `dbus-launch`; the AppImage smoke never got the
+  # same treatment. Wrapping in `dbus-run-session` is the modern equivalent and
+  # needs no explicit teardown — the bus dies with the wrapped command, so the
+  # 15s `timeout` still bounds everything.
+  #
+  # Echo the inherited value first: whether it arrives as `disabled`, `disabled:`
+  # or unset changes which code path the app takes, and the failing log gave us
+  # no way to tell.
+  echo "[appimage-runtime] Inherited DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-<unset>}"
+
+  # Always drop the inherited value: the wrapper below supplies a real one, and
+  # if no wrapper is available a poisoned `disabled` must not reach the app —
+  # with the variable absent the app's own `can_register_single_instance_plugin()`
+  # probe falls back to inspecting `$XDG_RUNTIME_DIR/bus`, whereas the literal
+  # string `disabled` is precisely what zbus refuses to parse.
+  unset_args+=(-u DBUS_SESSION_BUS_ADDRESS)
+
+  local -a dbus_wrapper=()
+  if command -v dbus-run-session >/dev/null 2>&1; then
+    dbus_wrapper=(dbus-run-session --)
+    echo "[appimage-runtime] Providing a session bus via dbus-run-session"
+  elif command -v dbus-launch >/dev/null 2>&1; then
+    # Older images ship dbus-launch (from dbus-x11) but not dbus-run-session.
+    dbus_wrapper=(dbus-launch --exit-with-session)
+    echo "[appimage-runtime] Providing a session bus via dbus-launch"
+  else
+    echo "[appimage-runtime] WARNING: neither dbus-run-session nor dbus-launch found;" \
+      "smoking without a session bus (single-instance will be skipped)"
+  fi
+
   local status
   if (
     cd "$foreign_cwd"
@@ -167,6 +216,7 @@ smoke_extracted_apprun() {
         XDG_CACHE_HOME="$smoke_cache" \
         OPENHUMAN_CEF_PREWARM=0 \
         OPENHUMAN_DISABLE_GPU=1 \
+        ${dbus_wrapper[@]+"${dbus_wrapper[@]}"} \
         "$appdir/AppRun"
   ) >"$log_file" 2>&1; then
     status=0
@@ -194,6 +244,17 @@ smoke_extracted_apprun() {
     forbidden=1
   fi
 
+  # Name this failure explicitly. It exits 101 like any other Rust panic, and the
+  # generic "status 101" message sent the last investigation looking at the
+  # non-fatal `libcef.so => not found` ldd lines instead of the actual cause.
+  if grep -Eq "unsupported transport 'disabled'|single-instance/src/platform_impl/linux\.rs" \
+    "$log_file"; then
+    forbidden=1
+    echo "[appimage-runtime] Detected the single-instance D-Bus panic — the smoke" \
+      "environment has no usable session bus. Check the dbus-run-session wrapper" \
+      "above and that 'dbus'/'dbus-x11' are installed on the runner." >&2
+  fi
+
   # The desktop process is expected to remain alive until timeout ends the
   # startup window. An earlier clean exit is a failure as well as loader output.
   if [ "$forbidden" -ne 0 ] || [ "$status" -ne 124 ]; then
@@ -206,6 +267,67 @@ smoke_extracted_apprun() {
     | sed 's/^/[appimage-runtime]   /' \
     || true
   echo "[appimage-runtime] Application remained alive for the 15-second startup window"
+}
+
+# Ubuntu 23.10+ (the hosted ubuntu-24.04 runner included) sets
+# `kernel.apparmor_restrict_unprivileged_userns=1`, which denies unprivileged
+# user-namespace creation to every *unconfined* process on the box. Chromium's
+# zygote needs one, so CEF aborts during startup with
+# `FATAL:zygote_host_impl_linux.cc] No usable sandbox!` and the smoke sees exit
+# 133 (SIGTRAP) instead of the expected 124 (still alive at the timeout).
+#
+# `install_smoke_userns_profile` below is Chromium's second documented remedy —
+# a per-executable AppArmor profile carrying `userns,`. It loads successfully
+# but never takes effect here, because the profile attaches by execve path and
+# the sharun launcher runs the app through the AppDir's bundled dynamic loader
+# rather than exec'ing `shared/bin/OpenHuman` directly (Chromium then re-execs
+# `/proc/self/exe` for the zygote). Toggling the sysctl is Chromium's first
+# documented remedy and is path-independent, so it cannot miss the way the
+# profile attachment does. The AppArmor profile is retained alongside it: it is
+# harmless, and it keeps the narrower per-executable grant in place for hosts
+# where the sysctl is unavailable.
+#
+# The original value is restored after the smoke window so the runner is left
+# exactly as it was found.
+SMOKE_USERNS_SYSCTL="kernel.apparmor_restrict_unprivileged_userns"
+
+smoke_userns_sysctl_value() {
+  sysctl -n "$SMOKE_USERNS_SYSCTL" 2>/dev/null || true
+}
+
+relax_smoke_userns_restriction() {
+  local previous_file="$1"
+  local current
+  current="$(smoke_userns_sysctl_value)"
+
+  if [ -z "$current" ]; then
+    echo "[appimage-runtime] $SMOKE_USERNS_SYSCTL is absent; unprivileged user namespaces are already unrestricted"
+    return 0
+  fi
+  if [ "$current" = "0" ]; then
+    echo "[appimage-runtime] $SMOKE_USERNS_SYSCTL is already 0; leaving it unchanged"
+    return 0
+  fi
+
+  command -v sudo >/dev/null 2>&1 \
+    || { runtime_validation_error "sudo is required to relax $SMOKE_USERNS_SYSCTL for the AppImage smoke"; return 1; }
+  sudo --non-interactive sysctl -q -w "$SMOKE_USERNS_SYSCTL=0" \
+    || { runtime_validation_error "could not relax $SMOKE_USERNS_SYSCTL for the AppImage smoke"; return 1; }
+
+  printf '%s\n' "$current" >"$previous_file"
+  echo "[appimage-runtime] Relaxed $SMOKE_USERNS_SYSCTL: $current -> 0 for the smoke window"
+}
+
+restore_smoke_userns_restriction() {
+  local previous_file="$1"
+  [ -s "$previous_file" ] || return 0
+
+  local previous
+  previous="$(cat "$previous_file")"
+  rm -f "$previous_file"
+  sudo --non-interactive sysctl -q -w "$SMOKE_USERNS_SYSCTL=$previous" \
+    || { runtime_validation_error "could not restore $SMOKE_USERNS_SYSCTL to $previous"; return 1; }
+  echo "[appimage-runtime] Restored $SMOKE_USERNS_SYSCTL to $previous"
 }
 
 install_smoke_userns_profile() {
@@ -248,6 +370,8 @@ smoke_extracted_apprun_with_userns() {
   local log_file="$3"
   local profile_file="$4"
   local profile_loaded=0
+  # Derived rather than passed so the four-argument contract is unchanged.
+  local userns_sysctl_file="$profile_file.sysctl"
   local previous_hup_trap previous_int_trap previous_term_trap
   previous_hup_trap="$(trap -p HUP)"
   previous_int_trap="$(trap -p INT)"
@@ -266,6 +390,8 @@ smoke_extracted_apprun_with_userns() {
       remove_smoke_userns_profile "$profile_file" \
         || echo "[appimage-runtime] ERROR: AppArmor cleanup failed after smoke interruption" >&2
     fi
+    restore_smoke_userns_restriction "$userns_sysctl_file" \
+      || echo "[appimage-runtime] ERROR: $SMOKE_USERNS_SYSCTL restore failed after smoke interruption" >&2
   }
 
   interrupt_smoke_with_userns() {
@@ -278,7 +404,15 @@ smoke_extracted_apprun_with_userns() {
   trap 'interrupt_smoke_with_userns 130' INT
   trap 'interrupt_smoke_with_userns 143' TERM
 
+  rm -f "$userns_sysctl_file"
+  if ! relax_smoke_userns_restriction "$userns_sysctl_file"; then
+    restore_smoke_signal_traps
+    return 1
+  fi
+
   if ! install_smoke_userns_profile "$appdir" "$profile_file"; then
+    restore_smoke_userns_restriction "$userns_sysctl_file" \
+      || echo "[appimage-runtime] ERROR: $SMOKE_USERNS_SYSCTL restore failed after AppArmor setup failure" >&2
     restore_smoke_signal_traps
     return 1
   fi
@@ -299,10 +433,18 @@ smoke_extracted_apprun_with_userns() {
     remove_status=$?
   fi
 
+  local restore_status
+  if restore_smoke_userns_restriction "$userns_sysctl_file"; then
+    restore_status=0
+  else
+    restore_status=$?
+  fi
+
   restore_smoke_signal_traps
-  # Preserve the original smoke failure even if profile cleanup also fails.
+  # Preserve the original smoke failure even if cleanup also fails.
   [ "$smoke_status" -eq 0 ] || return "$smoke_status"
-  return "$remove_status"
+  [ "$remove_status" -eq 0 ] || return "$remove_status"
+  return "$restore_status"
 }
 
 validate_final_appimage() (

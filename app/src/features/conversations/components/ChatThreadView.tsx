@@ -103,6 +103,12 @@ const EMPTY_TRANSCRIPT: ProcessingTranscriptItem[] = [];
 // Stable empty tool-row list for a transcript-only past turn (agent thought /
 // narrated but ran no tools).
 const EMPTY_TRANSCRIPT_ENTRIES: ToolTimelineEntry[] = [];
+// Stable empty live tool-timeline / processing-transcript for the selected
+// thread. Allocating a fresh `[]` here gave the value a new identity on every
+// render, which invalidated the `backgroundProcesses` memo below every time and
+// added avoidable re-render churn to the chat's hot path (#5162).
+const EMPTY_TOOL_TIMELINE: ToolTimelineEntry[] = [];
+const EMPTY_PROCESSING: ProcessingTranscriptItem[] = [];
 
 export interface ChatThreadViewHandle {
   /** Opens the detached background sub-agents panel — called from the host
@@ -253,8 +259,12 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
       }
     };
 
-    const selectedThreadToolTimeline = threadId ? (toolTimelineByThread[threadId] ?? []) : [];
-    const selectedThreadProcessing = threadId ? (processingByThread[threadId] ?? []) : [];
+    const selectedThreadToolTimeline = threadId
+      ? (toolTimelineByThread[threadId] ?? EMPTY_TOOL_TIMELINE)
+      : EMPTY_TOOL_TIMELINE;
+    const selectedThreadProcessing = threadId
+      ? (processingByThread[threadId] ?? EMPTY_PROCESSING)
+      : EMPTY_PROCESSING;
     // Detached background sub-agents (mode === 'async') spawned in this thread.
     const backgroundProcesses = useMemo(
       () => selectBackgroundProcesses(selectedThreadToolTimeline),

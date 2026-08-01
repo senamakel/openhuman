@@ -171,10 +171,7 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
             .and_then(|v| v.as_str())
             .ok_or("missing required param 'token'")?;
 
-        log::info!("[socket:rpc] connect url={}", url);
-        mgr.connect(url, token).await?;
-
-        let state = mgr.get_state();
+        let state = super::ops::connect_static(mgr, url, token).await?;
         Ok(json!({ "status": format!("{:?}", state.status) }))
     })
 }
@@ -182,10 +179,7 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
 fn handle_disconnect(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
-        log::info!("[socket:rpc] disconnect");
-        mgr.disconnect().await?;
-
-        let state = mgr.get_state();
+        let state = super::ops::disconnect(mgr).await?;
         Ok(json!({ "status": format!("{:?}", state.status) }))
     })
 }
@@ -217,39 +211,7 @@ fn handle_emit(params: Map<String, Value>) -> ControllerFuture {
 fn handle_connect_with_session(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
-
-        log::info!("[socket:rpc] connect_with_session — resolving credentials");
-
-        // Load config once to derive the API URL and perform the initial
-        // token validation. The config is then moved into a live-refresh
-        // `TokenProvider` so the reconnect loop can re-read the latest
-        // session token from the profile store on every subsequent attempt
-        // (fix for TAURI-RUST-9C / #2892 — stale-token retry storm).
-        let config =
-            std::sync::Arc::new(crate::openhuman::config::rpc::load_config_with_timeout().await?);
-        let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-
-        // Perform an eager check so the RPC caller gets an immediate error
-        // if no session is stored — the provider will do the same check on
-        // every reconnect attempt inside `ws_loop`.
-        let initial_token = crate::api::jwt::get_session_token(&config)
-            .map_err(|e| format!("failed to read session token: {e}"))?
-            .ok_or("no session token stored — user must log in first")?;
-
-        log::info!(
-            "[socket:rpc] connect_with_session url={} token_len={}",
-            api_url,
-            initial_token.len()
-        );
-
-        // Build a live-refresh provider: on every reconnect attempt the loop
-        // calls this closure to obtain the most recently stored token, picking
-        // up any rotation or re-login that happened while sleeping.
-        let provider = super::token_provider::token_provider_from_config(config);
-
-        mgr.connect_with_provider(&api_url, provider).await?;
-
-        let state = mgr.get_state();
+        let state = super::ops::connect_with_session(mgr).await?;
         Ok(json!({ "status": format!("{:?}", state.status) }))
     })
 }

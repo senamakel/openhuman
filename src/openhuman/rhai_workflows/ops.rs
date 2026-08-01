@@ -16,15 +16,10 @@ use crate::openhuman::security::live_policy;
 use crate::openhuman::security::policy::AutonomyLevel;
 use crate::openhuman::tinyagents::run_cancellation_context::current_run_cancellation;
 
-use super::bridge::build_capability_registry;
-use super::policy::{resolve_policy, DEFAULT_RHAI_TIMEOUT_SECS};
+use super::bridge::{begin_call_outcome_tracking, build_capability_registry, take_call_outcomes};
+use super::policy::{outer_backstop_secs, resolve_policy, DEFAULT_RHAI_TIMEOUT_SECS};
 use super::sessions::RhaiSessionManager;
 use super::types::{RhaiCallSummary, RhaiEvalRequest, RhaiEvalResponse, RhaiLimitsRemaining};
-
-/// Grace added to the inner policy timeout for the outer `spawn_blocking`
-/// backstop — the inner deadline should always fire first; this defends against
-/// bugs in the inner layers, and if it ever fires the session is dropped.
-const OUTER_TIMEOUT_GRACE: Duration = Duration::from_secs(5);
 
 /// Hard cap on the characters returned to the model in `stdout`, so a runaway
 /// print cannot flood the context window even within the byte policy.
@@ -124,8 +119,13 @@ impl RhaiAvailable {
 /// The internal result of the blocking cell task, distinguishing a lock
 /// contention / poison from an actual evaluation outcome.
 enum CellRun {
-    /// The cell ran; carries the raw evaluation result.
-    Completed(Result<ReplResult, TinyAgentsError>),
+    /// The cell ran; carries the raw evaluation result plus the per-call
+    /// tool-outcome side channel recorded during it (E-m5 — see
+    /// [`super::bridge`]).
+    Completed(
+        Result<ReplResult, TinyAgentsError>,
+        std::collections::HashMap<String, bool>,
+    ),
     /// Another cell holds the session lock.
     Busy,
     /// The session mutex was poisoned by a prior panic.
@@ -189,7 +189,6 @@ async fn run_cell(
     // session builder (used only on a fresh session; a reused session keeps its
     // own registry).
     let available = RhaiAvailable::from_registry(&registry);
-    let policy_for_build = policy.clone();
 
     tracing::info!(
         session_key = %key,
@@ -199,12 +198,19 @@ async fn run_cell(
         "[rhai_workflows] eval_rhai_cell: start"
     );
 
-    let handle = manager.get_or_create(&key, move || {
+    // `get_or_create` only uses `policy` to build a *fresh* session; a reused
+    // session keeps whatever policy it was actually built with, returned on
+    // `handle.policy` (E-M2 — see `sessions::SlotHandle`). Every bound below
+    // is computed from `handle.policy`, never from the `policy` this call
+    // just resolved, so a reused session's live bounds can never regress
+    // out from under it.
+    let handle = manager.get_or_create(&key, policy, move |resolved_policy| {
         let capabilities = ReplCapabilities::new(Arc::new(registry));
         ReplSession::<()>::new()
             .with_capabilities(capabilities)
-            .with_policy(policy_for_build)
+            .with_policy(resolved_policy)
     });
+    let session_policy = handle.policy.clone();
 
     // Fresh per-cell cancel flag (sticky flags would leave a reused session
     // permanently cancelled), wired to the turn's run-cancellation token.
@@ -223,10 +229,11 @@ async fn run_cell(
     let session = handle.session.clone();
     let script = req.script.clone();
     let flag_for_cell = cell_flag.clone();
-    let outer_bound = policy
+    let inner_secs = session_policy
         .timeout
-        .unwrap_or(Duration::from_secs(DEFAULT_RHAI_TIMEOUT_SECS))
-        + OUTER_TIMEOUT_GRACE;
+        .map(|d| d.as_secs())
+        .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
+    let outer_bound = Duration::from_secs(outer_backstop_secs(inner_secs));
 
     let join = tokio::task::spawn_blocking(move || {
         let mut guard = match session.try_lock() {
@@ -236,7 +243,10 @@ async fn run_cell(
         };
         // Install this cell's fresh cancel flag before running.
         guard.set_cancel_flag(flag_for_cell);
-        CellRun::Completed(guard.eval_cell(&script))
+        begin_call_outcome_tracking();
+        let eval = guard.eval_cell(&script);
+        let outcomes = take_call_outcomes();
+        CellRun::Completed(eval, outcomes)
     });
 
     let run = match tokio::time::timeout(outer_bound, join).await {
@@ -264,8 +274,8 @@ async fn run_cell(
         }
     };
 
-    let eval = match run {
-        CellRun::Completed(eval) => eval,
+    let (eval, outcomes) = match run {
+        CellRun::Completed(eval, outcomes) => (eval, outcomes),
         CellRun::Busy => {
             tracing::info!(session_key = %key, "[rhai_workflows] session busy — concurrent cell rejected");
             return Err(RhaiError::SessionBusy(format!(
@@ -299,15 +309,21 @@ async fn run_cell(
         stdout: truncate_chars(&result.stdout, MAX_RHAI_RESULT_CHARS),
         value: result.value.as_ref().map(|v| v.to_json()),
         variables_changed: result.variables_changed,
-        calls: summarize_calls(&result.calls),
+        calls: summarize_calls(&result.calls, &outcomes),
         final_answer: result.final_answer,
         elapsed_ms: result.elapsed.as_millis() as u64,
         cells_used: stats.cells,
         limits_remaining: RhaiLimitsRemaining {
-            cells: policy.max_iterations.saturating_sub(stats.cells),
-            model_calls: policy.max_model_calls.saturating_sub(stats.model_calls),
-            tool_calls: policy.max_tool_calls.saturating_sub(stats.tool_calls),
-            agent_calls: policy.max_agent_calls.saturating_sub(stats.agent_calls),
+            cells: session_policy.max_iterations.saturating_sub(stats.cells),
+            model_calls: session_policy
+                .max_model_calls
+                .saturating_sub(stats.model_calls),
+            tool_calls: session_policy
+                .max_tool_calls
+                .saturating_sub(stats.tool_calls),
+            agent_calls: session_policy
+                .max_agent_calls
+                .saturating_sub(stats.agent_calls),
         },
         closed: req.close_session,
     };
@@ -351,14 +367,27 @@ fn map_eval_error(err: TinyAgentsError, available: &RhaiAvailable) -> RhaiError 
 
 /// Summarizes recorded calls into the model-visible shape — kind, name, timing,
 /// success only, never raw arguments/payloads.
-fn summarize_calls(calls: &[ReplCallRecord]) -> Vec<RhaiCallSummary> {
+///
+/// `outcomes` (`call_id` -> `ok`, from [`super::bridge::take_call_outcomes`])
+/// is the only source of truth for a *tool* call's real success/failure
+/// (E-m5): the vendor `ReplCallRecord` the session hands back carries no
+/// success flag, and for a tool call specifically "recorded" does not imply
+/// "succeeded" — `tool_call_impl` records before checking the tool's own
+/// error, and `tool_call_batched_impl` records + continues on a per-item tool
+/// failure without ever raising. A call with no tracked outcome (every other
+/// capability kind — model/agent/graph/emit — which the vendor session only
+/// ever records on success) defaults to `ok: true`.
+fn summarize_calls(
+    calls: &[ReplCallRecord],
+    outcomes: &std::collections::HashMap<String, bool>,
+) -> Vec<RhaiCallSummary> {
     calls
         .iter()
         .map(|c| RhaiCallSummary {
             kind: call_kind_str(c.kind).to_string(),
             name: c.name.clone(),
             elapsed_ms: c.elapsed.as_millis() as u64,
-            ok: true,
+            ok: outcomes.get(c.call_id.as_str()).copied().unwrap_or(true),
         })
         .collect()
 }
@@ -396,7 +425,9 @@ fn truncate_chars(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use std::sync::Arc;
+    use tinyagents::harness::ids::CallId;
     use tinyagents::harness::tool::{
         Tool as TaTool, ToolCall as TaToolCall, ToolResult as TaToolResult, ToolSchema,
     };
@@ -456,6 +487,55 @@ mod tests {
         // Unknown-tool errors list the live tool names for the model.
         let msg = map_eval_error(TinyAgentsError::ToolNotFound("nope".into()), &avail).message();
         assert!(msg.contains("read_file") && msg.contains("grep"), "{msg}");
+    }
+
+    /// E-m5: the vendor `ReplCallRecord` carries no success flag, and for a
+    /// tool call specifically the vendor session records the call before (or
+    /// regardless of) checking the tool's own error — so `summarize_calls`
+    /// must consult the side-channel `outcomes` map (from
+    /// `bridge::take_call_outcomes`) rather than assuming every recorded call
+    /// succeeded.
+    #[test]
+    fn summarize_calls_reports_a_failed_call_as_not_ok() {
+        let calls = vec![
+            ReplCallRecord {
+                call_id: CallId::new("call-1"),
+                kind: ReplCallKind::Tool,
+                name: "flaky_tool".into(),
+                detail: serde_json::Value::Null,
+                elapsed: Duration::from_millis(5),
+            },
+            ReplCallRecord {
+                call_id: CallId::new("call-2"),
+                kind: ReplCallKind::Tool,
+                name: "ok_tool".into(),
+                detail: serde_json::Value::Null,
+                elapsed: Duration::from_millis(5),
+            },
+            ReplCallRecord {
+                call_id: CallId::new("call-3"),
+                kind: ReplCallKind::Emit,
+                name: "progress".into(),
+                detail: serde_json::Value::Null,
+                elapsed: Duration::default(),
+            },
+        ];
+        let mut outcomes = HashMap::new();
+        outcomes.insert("call-1".to_string(), false);
+        outcomes.insert("call-2".to_string(), true);
+        // `call-3` (an `emit`) is deliberately untracked — only tool calls go
+        // through the outcome side channel.
+
+        let summaries = summarize_calls(&calls, &outcomes);
+        assert!(
+            !summaries[0].ok,
+            "a tracked failure must be reported as ok: false"
+        );
+        assert!(summaries[1].ok, "a tracked success stays ok: true");
+        assert!(
+            summaries[2].ok,
+            "an untracked call kind defaults to ok: true, matching every other capability kind"
+        );
     }
 
     // ── End-to-end `run_cell` matrix (with a hand-built registry) ────────────
@@ -656,11 +736,125 @@ mod tests {
         assert_eq!(manager.len(), 0, "close_session dropped the session");
     }
 
+    /// E-M2: `ReplSession` cannot be re-policied after construction
+    /// (`with_policy` is builder-style, consumed at build time), so a reused
+    /// session must report `limits_remaining` against the policy it was
+    /// *actually built with* — not whatever a later call happens to resolve.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reused_session_uses_its_own_policy_for_bounds() {
+        let manager = RhaiSessionManager::new_for_test();
+        let original_policy = ReplPolicy {
+            max_tool_calls: 5,
+            ..ReplPolicy::default()
+        };
+        let first = run_cell(
+            RhaiEvalRequest {
+                script: "let acc = 1; acc".into(),
+                session_id: Some("bounds".into()),
+                ..Default::default()
+            },
+            original_policy.clone(),
+            echo_registry(),
+            "t",
+            &manager,
+        )
+        .await
+        .expect("cell 1");
+        assert_eq!(first.limits_remaining.tool_calls, 5);
+
+        // A later call on the same session resolves a very different
+        // policy — as a cell passing `timeout_secs`/`limits` overrides would.
+        let different_policy = ReplPolicy {
+            max_tool_calls: 999,
+            ..ReplPolicy::default()
+        };
+        let second = run_cell(
+            RhaiEvalRequest {
+                script: "acc".into(),
+                session_id: Some("bounds".into()),
+                ..Default::default()
+            },
+            different_policy,
+            echo_registry(),
+            "t",
+            &manager,
+        )
+        .await
+        .expect("cell 2");
+        assert_eq!(
+            second.limits_remaining.tool_calls, 5,
+            "reused session must report bounds from its own live policy (5), \
+             not the newly-requested one (999)"
+        );
+    }
+
+    /// E-M2's binding-loss scenario: a session built with a long timeout is
+    /// reused by a cell that resolves a much shorter `timeout_secs`. With the
+    /// bug, the outer backstop and `limits_remaining` were computed from the
+    /// freshly-resolved (short) policy, so a slow-but-legitimate cell under
+    /// the *original* budget could trip the outer backstop and drop the whole
+    /// session, losing every binding. After the fix, both are computed from
+    /// the session's own stored policy, so the session survives and its
+    /// bindings are still visible.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reused_session_with_a_shorter_requested_timeout_does_not_drop_the_session() {
+        let manager = RhaiSessionManager::new_for_test();
+        let long_policy = ReplPolicy {
+            timeout: Some(Duration::from_secs(300)),
+            ..ReplPolicy::default()
+        };
+        run_cell(
+            RhaiEvalRequest {
+                script: "let acc = 42; acc".into(),
+                session_id: Some("no-drop".into()),
+                ..Default::default()
+            },
+            long_policy,
+            echo_registry(),
+            "t",
+            &manager,
+        )
+        .await
+        .expect("cell 1");
+        assert_eq!(manager.len(), 1);
+
+        let short_policy = ReplPolicy {
+            timeout: Some(Duration::from_secs(1)),
+            ..ReplPolicy::default()
+        };
+        let second = run_cell(
+            RhaiEvalRequest {
+                script: "acc".into(),
+                session_id: Some("no-drop".into()),
+                ..Default::default()
+            },
+            short_policy,
+            echo_registry(),
+            "t",
+            &manager,
+        )
+        .await
+        .expect("cell 2 must not be dropped by a mismatched shorter timeout request");
+
+        assert_eq!(
+            second.value,
+            Some(serde_json::json!(42)),
+            "the binding from cell 1 must survive reuse under a different requested timeout"
+        );
+        assert_eq!(
+            manager.len(),
+            1,
+            "the session must still be live, not dropped"
+        );
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn concurrent_cell_on_a_busy_session_is_rejected() {
         let manager = RhaiSessionManager::new_for_test();
         let key = RhaiSessionManager::session_key("t", "busy");
-        let handle = manager.get_or_create(&key, || tinyagents::ReplSession::<()>::new());
+        let handle = manager.get_or_create(&key, ReplPolicy::default(), |policy| {
+            tinyagents::ReplSession::<()>::new().with_policy(policy)
+        });
         // Hold the session lock to simulate an in-flight cell.
         let _guard = handle.session.lock().unwrap();
 

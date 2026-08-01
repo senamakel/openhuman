@@ -141,9 +141,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         Some(&source.id),
                     );
 
-                    use crate::openhuman::memory_sync::sources::audit::{
-                        append_audit_entry, SyncAuditEntry,
-                    };
+                    use crate::openhuman::tinycortex::{append_audit_entry, SyncAuditEntry};
                     append_audit_entry(
                         &config,
                         &SyncAuditEntry {
@@ -188,9 +186,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                 }
                 Err(error) => {
                     // Audit failed syncs too.
-                    use crate::openhuman::memory_sync::sources::audit::{
-                        append_audit_entry, SyncAuditEntry,
-                    };
+                    use crate::openhuman::tinycortex::{append_audit_entry, SyncAuditEntry};
                     append_audit_entry(
                         &config,
                         &SyncAuditEntry {
@@ -271,7 +267,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
 
 /// Reconcile raw files that are not yet covered by tree summaries.
 pub(crate) async fn check_and_rebuild_tree(source: &MemorySourceEntry, config: &Config) {
-    use crate::openhuman::memory_sync::sources::rebuild::{needs_rebuild, rebuild_tree_from_raw};
+    use crate::openhuman::tinycortex::{needs_rebuild, rebuild_tree_from_raw};
 
     for scope in derive_scopes(source, config) {
         if !needs_rebuild(config, &scope.tree_scope, &scope.archive_source_id) {

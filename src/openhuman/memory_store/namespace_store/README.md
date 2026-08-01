@@ -14,6 +14,32 @@ tier; this directory is intentionally not migration staging.
 - **`documents.rs`** — `memory_docs` CRUD: `upsert_document` (chunks + embeds + writes markdown sidecar), `upsert_document_metadata_only` (light path), `list_documents`, `list_namespaces`, `delete_document`, `clear_namespace`.
 - **`kv.rs`** — global and namespace-scoped get/set/delete/list against `kv_global` / `kv_namespace`.
 - **`../../safety/`** — secret redaction/validation helpers. Document, KV, and episodic writes sanitize credentials before persistence and emit `[memory:safety]` diagnostics when a payload is rewritten.
+
+### Identifier canonicalization (namespace / key)
+
+Content and identifiers are scrubbed by **different** rules, and mixing them up
+caused #5164. `safety::canonical_identifier` (namespace, KV key) and
+`safety::canonical_document_key` (document key) are the single source of truth:
+
+- **Strict gating.** Only formatted / keyword-gated national IDs are rewritten
+  (`has_likely_pii`). The lenient content scrubber (`redact_pii` on its own,
+  used for titles/bodies/metadata) also rewrites bare digit runs, which the
+  scanners legitimately use as identifiers — WhatsApp JIDs, iMessage `+1…` chat
+  ids, timestamps, padded counters. Rewriting those maps two contacts onto one
+  `(namespace, key)`, and the upsert's `ON CONFLICT … DO UPDATE` then has one
+  contact's document overwrite the other's.
+- **Symmetry.** An identifier is a storage *address*, so every path that
+  addresses a row canonicalizes the same way: `sanitize_namespace` (`init.rs`)
+  carries the namespace step for writes, reads, `query.rs`, `graph.rs`, deletes
+  and the on-disk `namespaces/<ns>/` directory, and the by-key paths
+  (`upsert_document*`, `Memory::get`, `Memory::forget`, the `kv.rs` shim) go
+  through `canonical_document_key` / `canonical_identifier`. A read that skips
+  the transform silently misses the row the write created, so the caller writes
+  again — the unthrottled loop #5164 was reported for.
+- **Never reject.** Rejecting the write instead returns an `Err` on every retry,
+  which is what flooded Sentry (3,055 events / 1 user / 1 day). The rejections
+  that remain deliberate (secret-shaped identifiers, empty keys) are demoted out
+  of the error stream by `ExpectedErrorKind::MemoryIdentifierRejected`.
 - **`graph.rs`** — `graph_namespace` / `graph_global` upserts with attribute merging and evidence accumulation, plus namespace / global / cross-namespace queries and document-scoped relation removal.
 - **`query.rs`** — hybrid retrieval. Combines graph relevance, vector similarity, keyword overlap, episodic signal and freshness; exposes `query_namespace_*` (with query) and `recall_namespace_*` (query-less) entry points used by `MemoryClient`.
 - **`helpers.rs`** — shared utilities: f32-vector byte codecs, cosine similarity, markdown chunking, text/graph normalisation, JSON attribute merging, recency scoring.

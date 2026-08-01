@@ -182,10 +182,15 @@ pub(crate) async fn run_chat_task(
                  from conversation-log prose",
                 thread_id
             );
-            match crate::openhuman::memory_conversations::get_messages(
+            // Blocking pool: the store takes a process-global mutex and reads
+            // the thread's whole JSONL under it, so doing this inline parked an
+            // async worker on the chat hot path (#5156).
+            match crate::openhuman::memory_conversations::blocking::get_messages(
                 config.workspace_dir.clone(),
-                thread_id,
-            ) {
+                thread_id.to_string(),
+            )
+            .await
+            {
                 Ok(prior_messages) if !prior_messages.is_empty() => {
                     let pairs: Vec<(String, String)> = prior_messages
                         .into_iter()

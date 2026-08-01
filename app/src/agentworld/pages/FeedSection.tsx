@@ -14,6 +14,13 @@
  * - Inline post composer at the top of the feed (refetches feed on success)
  * - Delete post / delete comment (own content only, via an in-app ConfirmDialog)
  *
+ * Post *media* (images / GIFs) is intentionally NOT composable in-app: the
+ * tiny.place backend serves no media field on posts (neither `PostCreate` nor
+ * the read-side `Post` / `GqlPost` in the vendored SDK carry one), so an
+ * in-app upload would round-trip to nothing and render nowhere. Attaching media
+ * is therefore web-only on tiny.place; the composer links users there for it.
+ * See #4924 (and the same web-only resolution as marketplace selling, #4920).
+ *
  * Pattern mirrors ExploreSection / MarketplaceSection: useState + useEffect
  * fetch, PanelScaffold wrapper, StatusBlock for loading/error/empty states.
  */
@@ -32,6 +39,7 @@ import {
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import { fetchWalletStatus } from '../../services/walletApi';
+import { openUrl } from '../../utils/openUrl';
 import { apiClient } from '../AgentWorldShell';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StatusBlock from '../components/StatusBlock';
@@ -39,6 +47,18 @@ import { useTinyplaceStream } from '../hooks/useTinyplaceStream';
 import { relativeTime } from './relativeTime';
 
 const log = debug('agentworld:feed');
+
+// Attaching images / GIFs to a post is web-only — the tiny.place backend serves
+// no post-media field, so we point users at the web app for it (#4924). tiny.place's
+// home page is the feed, where the media composer lives.
+//
+// Single hardcoded origin by design: the *API* host varies by env (api.tiny.place
+// vs staging-api.tiny.place), but there is exactly one human-facing website —
+// `tiny.place` — used unconditionally across the codebase for the same reason
+// (post permalinks: `TINYPLACE_WEB_ORIGIN` in tinyplace/agent_tools/flows_write.rs;
+// `FUND_PAGE_URL` in X402ConfirmDialog.tsx; `SELL_ON_WEB_URL` in IdentitiesSection.tsx).
+// There is no per-network web frontend to derive this from.
+const ADD_MEDIA_ON_WEB_URL = 'https://tiny.place';
 
 /**
  * Home-feed items fetched per page (also the initial page size). The
@@ -353,6 +373,28 @@ function FeedComposer({ myAgentId, onPostCreated }: FeedComposerProps) {
             {submitting ? 'Posting…' : 'Post'}
           </Button>
         </div>
+      </div>
+      {/* Adding images / GIFs to a post is web-only (#4924): the tiny.place
+          backend serves no post-media field, so an in-app upload would render
+          nowhere. Point users at the web app instead of dead-ending. */}
+      <div
+        className="mt-2 flex items-center gap-1.5 pl-[2.625rem] text-[11px] text-content-faint"
+        data-testid="add-media-on-web">
+        <span>Add photos or GIFs on tiny.place.</span>
+        <button
+          type="button"
+          data-testid="add-media-on-web-cta"
+          data-analytics-id="feed.addMediaOnWeb"
+          className="font-medium text-primary-400 underline-offset-2 hover:underline focus:underline focus:outline-none"
+          onClick={() => {
+            // Static destination URL only — no post body / PII. openUrl owns the
+            // outcome diagnostics (low-PII breadcrumb + https fallback), so we
+            // don't re-observe success/error here.
+            log('[tinyplace][ui] add-media-on-web: opening %s', ADD_MEDIA_ON_WEB_URL);
+            void openUrl(ADD_MEDIA_ON_WEB_URL);
+          }}>
+          Open tiny.place →
+        </button>
       </div>
     </div>
   );

@@ -113,6 +113,22 @@ pub struct ApprovalAuditEntry {
     pub decision: ApprovalDecision,
 }
 
+/// Result of `approval_preauthorize_flow`: which trust grants were newly
+/// written vs. already present (the RPC is idempotent — re-approving an
+/// already-trusted tool is a no-op, not an error).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlowPreauthorizationResult {
+    pub flow_id: String,
+    /// Tool names granted by this call.
+    pub granted: Vec<String>,
+    /// Tool names that already held flow trust before this call.
+    pub already_trusted: Vec<String>,
+    /// False when the approval gate is not installed (e.g.
+    /// `OPENHUMAN_APPROVAL_GATE=0`): nothing was persisted because nothing
+    /// will ever prompt — callers may treat this as success.
+    pub gate_installed: bool,
+}
+
 /// User's decision on a pending approval.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

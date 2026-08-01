@@ -25,7 +25,7 @@ import {
 import { useT } from '../../lib/i18n/I18nContext';
 import { CenteredLoadingState, ErrorBanner } from '../ui/LoadingState';
 import { type FlowRepairRequest, FlowRunInspectorDrawer } from './FlowRunInspectorDrawer';
-import { FLOW_RUN_STATUS_KEY, FlowRunStatus } from './FlowRunStatus';
+import { FlowRunStatus, flowRunStatusLabel } from './FlowRunStatus';
 
 /** Matches `useT()`'s `t` signature. */
 type TFn = (key: string, fallback?: string) => string;
@@ -163,13 +163,13 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
                   }`}>
                   <FlowRunStatus
                     status={displayStatus}
-                    label={t(FLOW_RUN_STATUS_KEY[displayStatus])}
+                    label={flowRunStatusLabel(displayStatus, t)}
                     presentation="dot"
                   />
                   <span className="min-w-0 flex-1">
                     <FlowRunStatus
                       status={displayStatus}
-                      label={t(FLOW_RUN_STATUS_KEY[displayStatus])}
+                      label={flowRunStatusLabel(displayStatus, t)}
                       className="!px-1.5 text-[10px]"
                     />
                     <span className="mt-0.5 block truncate text-[11px] text-content-faint">

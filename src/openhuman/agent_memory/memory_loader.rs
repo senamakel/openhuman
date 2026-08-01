@@ -9,7 +9,7 @@ use crate::openhuman::agent::harness::memory_context::{
     CROSS_CHAT_LIMIT, CROSS_CHAT_SNIPPET_CHARS, WORKING_MEMORY_KEY_PREFIX, WORKING_MEMORY_LIMIT,
 };
 use crate::openhuman::learning::transcript_ingest::CONVERSATION_MEMORY_NAMESPACE;
-use crate::openhuman::memory_conversations::ConversationStore;
+use crate::openhuman::memory_conversations::blocking as conversations_blocking;
 
 /// Maximum number of `[Prior conversations]` lines surfaced into the prompt
 /// at the start of a fresh chat. Tight cap on purpose: this block is meant
@@ -367,12 +367,18 @@ impl MemoryLoader for DefaultMemoryLoader {
                 crate::openhuman::tinyagents::thread_context::current_thread_id();
             let cross_hits: Vec<(String, String)> = if let Some(workspace_dir) = &self.workspace_dir
             {
-                let store = ConversationStore::new(workspace_dir.clone());
-                match store.search_cross_thread_messages(
-                    user_message,
+                // Blocking pool: on a cold inverted index this reads every
+                // thread's transcript, and it takes the store's process-global
+                // mutex to run the search. Inline, it parked an async worker on
+                // every turn — the starvation behind #5156.
+                match conversations_blocking::search_cross_thread_messages(
+                    workspace_dir.clone(),
+                    user_message.to_string(),
                     CROSS_CHAT_LIMIT * 4,
-                    current_thread_id.as_deref(),
-                ) {
+                    current_thread_id.clone(),
+                )
+                .await
+                {
                     Ok(hits) => {
                         tracing::debug!(
                             "[memory_loader] cross-chat JSONL scan returned {} hits (exclude={:?})",

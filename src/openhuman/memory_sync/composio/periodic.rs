@@ -63,9 +63,7 @@ use crate::openhuman::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
 use crate::openhuman::composio::ops;
-use crate::openhuman::memory_sync::sources::audit::{
-    append_audit_entry, read_audit_log, SyncAuditEntry,
-};
+use crate::openhuman::tinycortex::{append_audit_entry, try_read_audit_log, SyncAuditEntry};
 use chrono::{DateTime, Utc};
 
 /// How often the scheduler wakes up to look for due syncs. Independent
@@ -450,7 +448,12 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
     // "Sync every 24h" gap across app restarts. We index the persisted sync
     // audit log (wall-clock timestamps that survive restarts) and use it as the
     // due-check fallback whenever the in-memory monotonic record is absent.
-    let audit_index = index_last_success_by_connection(&read_audit_log(&config));
+    let (audit_index, audit_available) = composio_audit_state(try_read_audit_log(&config));
+    if !audit_available {
+        tracing::warn!(
+            "[memory_sync:periodic] audit unavailable; sources without in-memory cadence will be skipped"
+        );
+    }
     let now = Utc::now();
 
     // Per-source registry snapshot (#2831). The periodic loop gates on the
@@ -513,11 +516,21 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         // Prefer the in-memory monotonic record (most accurate within this run);
         // fall back to the persisted audit timestamp so the configured cadence
         // is honoured across restarts instead of re-firing on every cold start.
-        let since_last_sync = {
+        let in_memory_since = {
             let map = sync_map.lock().unwrap_or_else(|e| e.into_inner());
             map.get(&key).map(|when| when.elapsed())
-        }
-        .or_else(|| persisted_since_last_sync(&audit_index, &conn.id, now));
+        };
+        let Some(since_last_sync) = cadence_from_audit(
+            in_memory_since,
+            audit_available,
+            persisted_since_last_sync(&audit_index, &conn.id, now),
+        ) else {
+            tracing::debug!(
+                toolkit = %toolkit,
+                "[composio:periodic] source has unknown cadence while audit is unavailable; skipping"
+            );
+            continue;
+        };
         if !connection_is_due(interval_secs, since_last_sync) {
             continue;
         }
@@ -622,6 +635,30 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
 
     tracing::debug!(considered, fired, "[composio:periodic] tick complete");
     Ok(())
+}
+
+fn composio_audit_state(
+    read: anyhow::Result<Vec<SyncAuditEntry>>,
+) -> (HashMap<String, DateTime<Utc>>, bool) {
+    match read {
+        Ok(entries) => (index_last_success_by_connection(&entries), true),
+        Err(error) => {
+            tracing::warn!(%error, "[memory_sync:periodic] audit read failed");
+            (HashMap::new(), false)
+        }
+    }
+}
+
+fn cadence_from_audit(
+    in_memory_since: Option<Duration>,
+    audit_available: bool,
+    persisted_since: Option<Duration>,
+) -> Option<Option<Duration>> {
+    match in_memory_since {
+        Some(since) => Some(Some(since)),
+        None if audit_available => Some(persisted_since),
+        None => None,
+    }
 }
 
 fn periodic_source(toolkit: &str, connection_id: &str) -> MemorySourceEntry {
@@ -1031,6 +1068,32 @@ mod tests {
         // A connection with no persisted record still fires (truly fresh).
         let fresh = None.or_else(|| persisted_since_last_sync(&idx, "cmp-new", now));
         assert!(connection_is_due(interval, fresh));
+    }
+
+    #[test]
+    fn audit_failure_is_unavailable_and_unknown_cadence_is_skipped() {
+        let (index, available) =
+            composio_audit_state(Err(anyhow::anyhow!("simulated audit I/O failure")));
+        assert!(index.is_empty());
+        assert!(!available);
+        assert_eq!(cadence_from_audit(None, available, None), None);
+
+        let known = Duration::from_secs(60);
+        assert_eq!(
+            cadence_from_audit(Some(known), available, None),
+            Some(Some(known))
+        );
+    }
+
+    #[test]
+    fn readable_empty_audit_preserves_first_sync_behavior() {
+        let (index, available) = composio_audit_state(Ok(Vec::new()));
+        assert!(index.is_empty());
+        assert!(available);
+
+        let cadence = cadence_from_audit(None, available, None)
+            .expect("readable empty audit keeps the source eligible");
+        assert!(connection_is_due(3600, cadence));
     }
 
     /// A successful periodic tick produces a Composio-kind audit entry that

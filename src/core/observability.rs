@@ -358,6 +358,33 @@ pub enum ExpectedErrorKind {
     /// (`"MCP unauthorized for "` + `"(HTTP 401"`) so an unrelated MCP transport
     /// failure still reaches Sentry.
     McpServerNeedsAuth,
+    /// The memory store refused a write because the caller-supplied
+    /// **namespace / key** failed a boundary check — it carries secret-shaped
+    /// text, or it trimmed to empty. The rejection is deterministic in the
+    /// caller's own input (`memory_store::namespace_store::documents`,
+    /// `namespace_store::fts5`, the tinycortex KV store): the same call retried
+    /// with the same identifier fails identically, so every retry produced
+    /// another `report_error_or_expected` capture through the RPC dispatcher.
+    /// That is how the PII variant of this family reached 3,055 events from a
+    /// single user in one day (TAURI-RUST-QWW, #5164) — the flood was retry
+    /// volume, not 3,055 distinct defects.
+    ///
+    /// The PII half of the family no longer rejects at all: those identifiers
+    /// are canonicalized on write and on read (see
+    /// [`crate::openhuman::memory_store::safety::canonical_identifier`]). This
+    /// arm covers the rejections that remain deliberate — a secret must never
+    /// be persisted as a storage address (#4947), and an empty key has no row
+    /// to address — and keeps their retry volume out of the error stream.
+    /// Sentry has no remediation path either way: the fix is the caller passing
+    /// a stable opaque identifier, which is a code change in the calling sync
+    /// provider, not a signal that repeats per attempt.
+    ///
+    /// Anchored on the store's own rejection wording (`"cannot contain
+    /// secrets"` / `"document key cannot be empty"` scoped to a
+    /// document/kv/episodic subject) so unrelated failures on the same write
+    /// path — SQLite errors, embedding failures, sidecar IO — still reach
+    /// Sentry as errors.
+    MemoryIdentifierRejected,
 }
 
 pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
@@ -420,6 +447,16 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     // with the generic matchers below. See `is_mcp_server_needs_auth_message`.
     if is_mcp_server_needs_auth_message(&lower) {
         return Some(ExpectedErrorKind::McpServerNeedsAuth);
+    }
+    // TAURI-RUST-QWW (#5164) — the memory store rejected a write because the
+    // caller's namespace/key failed a boundary check. Deterministic in the
+    // caller's input, so the same call retried fails identically and each retry
+    // captured another event (3,055 events / 1 user / 1 day). Highly specific
+    // anchors, checked before the generic matchers; see
+    // `is_memory_identifier_rejection_message` and
+    // `ExpectedErrorKind::MemoryIdentifierRejected`.
+    if is_memory_identifier_rejection_message(&lower) {
+        return Some(ExpectedErrorKind::MemoryIdentifierRejected);
     }
     if lower.contains("local ai is disabled") {
         return Some(ExpectedErrorKind::LocalAiDisabled);
@@ -1064,6 +1101,38 @@ pub fn is_session_expired_message(msg: &str) -> bool {
 /// [`ExpectedErrorKind::McpServerNeedsAuth`].
 fn is_mcp_server_needs_auth_message(lower: &str) -> bool {
     lower.contains("mcp unauthorized for ") && lower.contains("(http 401")
+}
+
+/// Detect a memory-store **identifier** rejection: the caller's namespace/key
+/// (or episodic `session_id`/`role`) failed a write-boundary check.
+///
+/// Matches the store's own rejection wording, verbatim and subject-scoped:
+///   - `document namespace/key cannot contain secrets`
+///     (`namespace_store::documents`, both upsert paths)
+///   - `document key cannot be empty` (same paths, post-trim)
+///   - `kv key cannot contain secrets` / `kv namespace/key cannot contain
+///     secrets` (`tinycortex::memory::store::kv`)
+///   - `episodic session_id/role cannot contain secrets`
+///     (`namespace_store::fts5`)
+///   - the retired `… cannot contain personal identifiers` wording, so a client
+///     still running a pre-#5164 core (the releases the flood came from) is
+///     demoted too
+///
+/// Requiring the subject prefix (`document` / `kv` / `episodic`) keeps the
+/// demotion inside the memory store: a real defect on the same write path —
+/// SQLite failure, embedding provider error, markdown sidecar IO — carries none
+/// of these bodies and still reaches Sentry as an error. See
+/// [`ExpectedErrorKind::MemoryIdentifierRejected`].
+fn is_memory_identifier_rejection_message(lower: &str) -> bool {
+    let rejects_identifier = lower.contains("cannot contain secrets")
+        || lower.contains("cannot contain personal identifiers")
+        || lower.contains("key cannot be empty");
+    rejects_identifier
+        && (lower.contains("document namespace/key")
+            || lower.contains("document key")
+            || lower.contains("kv key")
+            || lower.contains("kv namespace/key")
+            || lower.contains("episodic session_id/role"))
 }
 
 /// Detect the "a configured provider has no API key" user-config state.
@@ -2015,6 +2084,24 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
                 kind = "mcp_server_needs_auth",
                 error = %message,
                 "[observability] {domain}.{operation} skipped expected MCP needs-auth (401) error: {message}"
+            );
+        }
+        ExpectedErrorKind::MemoryIdentifierRejected => {
+            // The memory store refused a write whose namespace/key failed a
+            // boundary check (secret-shaped, or empty after trim). Deterministic
+            // in the caller's input: retrying the same call rejects again, so
+            // this repeats at the caller's retry rate rather than carrying new
+            // signal each time (TAURI-RUST-QWW: 3,055 events / 1 user / 1 day,
+            // #5164). The remedy is the calling sync provider passing a stable
+            // opaque identifier — a code change, not a per-attempt signal — so
+            // demote to warn: the breadcrumb survives for triage, no error event
+            // fires.
+            tracing::warn!(
+                domain = domain,
+                operation = operation,
+                kind = "memory_identifier_rejected",
+                error = %message,
+                "[observability] {domain}.{operation} skipped expected memory identifier rejection: {message}"
             );
         }
         ExpectedErrorKind::ProviderConfigRejection => {
@@ -3718,6 +3805,61 @@ mod tests {
             "openhuman.mcp_clients_connect",
             &[],
         );
+    }
+
+    /// Sentry TAURI-RUST-QWW (#5164): a memory-store identifier rejection is
+    /// deterministic in the caller's own input, so it repeats at the caller's
+    /// retry rate (3,055 events / 1 user / 1 day) without carrying new signal.
+    /// Every rejection wording the store emits must classify as
+    /// `MemoryIdentifierRejected`, including the retired PII wording that
+    /// pre-#5164 cores still send.
+    #[test]
+    fn classifies_memory_identifier_rejections_as_expected() {
+        for msg in [
+            "document namespace/key cannot contain secrets",
+            "document namespace/key cannot contain personal identifiers",
+            "document key cannot be empty",
+            "kv key cannot contain secrets",
+            "kv namespace/key cannot contain secrets",
+            "episodic session_id/role cannot contain secrets",
+            // The stringified RPC re-report shape that reaches the dispatcher.
+            "openhuman.memory_store failed: document namespace/key cannot contain secrets",
+        ] {
+            assert_eq!(
+                expected_error_kind(msg),
+                Some(ExpectedErrorKind::MemoryIdentifierRejected),
+                "must classify as MemoryIdentifierRejected: {msg}"
+            );
+        }
+        // Full demotion path (classifier -> report arm) must not panic.
+        report_error_or_expected(
+            "document namespace/key cannot contain secrets",
+            "rpc",
+            "openhuman.memory_store",
+            &[],
+        );
+    }
+
+    /// Guard against over-suppression: a real failure on the same memory write
+    /// path — SQLite, embeddings, the markdown sidecar — carries none of the
+    /// rejection wording and MUST still reach Sentry (stay `None`). Nor may a
+    /// bare "cannot contain secrets" from an unrelated domain borrow the
+    /// memory-store demotion.
+    #[test]
+    fn does_not_classify_real_memory_write_failures_as_identifier_rejections() {
+        for msg in [
+            "upsert memory_docs: database is locked",
+            "insert vector chunk: disk I/O error",
+            "lookup existing document_id: no such table: memory_docs",
+            "write_markdown_doc: permission denied",
+            "webhook payload cannot contain secrets",
+        ] {
+            assert_ne!(
+                expected_error_kind(msg),
+                Some(ExpectedErrorKind::MemoryIdentifierRejected),
+                "must NOT classify as MemoryIdentifierRejected: {msg}"
+            );
+        }
     }
 
     /// Guard against over-suppression: an MCP transport failure that is NOT the

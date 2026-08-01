@@ -122,6 +122,9 @@ pub struct SocketManager {
     shutdown_tx: tokio::sync::Mutex<Option<watch::Sender<bool>>>,
     /// Join handle for the background connection loop.
     loop_handle: tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
+    /// Serializes identity-sensitive disconnect → bridge bind → connect
+    /// transactions while still allowing ordinary emits and state reads.
+    identity_rebind: tokio::sync::Mutex<()>,
 }
 
 impl SocketManager {
@@ -139,7 +142,13 @@ impl SocketManager {
             emit_tx: tokio::sync::Mutex::new(None),
             shutdown_tx: tokio::sync::Mutex::new(None),
             loop_handle: tokio::sync::Mutex::new(None),
+            identity_rebind: tokio::sync::Mutex::new(()),
         }
+    }
+
+    /// Lock an identity-sensitive socket rebind for its complete transaction.
+    pub(crate) async fn lock_identity_rebind(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.identity_rebind.lock().await
     }
 
     /// Set the webhook router for skill-targeted webhook delivery.
@@ -272,13 +281,14 @@ impl SocketManager {
 
     /// Disconnect from the server and shut down the background loop.
     pub async fn disconnect(&self) -> Result<(), String> {
+        super::medulla::workflows::end_connection_generation();
         if let Some(tx) = self.shutdown_tx.lock().await.take() {
             let _ = tx.send(true);
         }
         self.shared.ack_registry.cancel_all();
         self.emit_tx.lock().await.take();
         if let Some(handle) = self.loop_handle.lock().await.take() {
-            let _ = tokio::time::timeout(Duration::from_secs(5), handle).await;
+            terminate_loop(handle, Duration::from_secs(5)).await;
         }
         *self.shared.status.write() = ConnectionStatus::Disconnected;
         *self.shared.socket_id.write() = None;
@@ -334,6 +344,21 @@ impl SocketManager {
                 ))
             }
         }
+    }
+}
+
+/// Wait for the socket loop to observe shutdown, then abort and join it if a
+/// transport operation outlives the grace period.
+///
+/// Dropping a timed-out `JoinHandle` detaches its task. During an account
+/// switch that would let the old credential finish authenticating after the
+/// new user's workflow bridge is installed, so timeout must mean termination,
+/// not detachment.
+async fn terminate_loop(mut handle: tokio::task::JoinHandle<()>, grace: Duration) {
+    if tokio::time::timeout(grace, &mut handle).await.is_err() {
+        log::warn!("[socket] connection loop did not stop within {grace:?} — aborting");
+        handle.abort();
+        let _ = handle.await;
     }
 }
 
@@ -469,6 +494,56 @@ mod tests {
         // Calling again must still succeed.
         assert!(mgr.disconnect().await.is_ok());
         assert_eq!(mgr.get_state().status, ConnectionStatus::Disconnected);
+    }
+
+    #[tokio::test]
+    async fn a_timed_out_socket_loop_is_aborted_and_joined() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        struct MarksDrop(Arc<AtomicBool>);
+        impl Drop for MarksDrop {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let dropped = Arc::new(AtomicBool::new(false));
+        let dropped_in_task = Arc::clone(&dropped);
+        let handle = tokio::spawn(async move {
+            let _guard = MarksDrop(dropped_in_task);
+            std::future::pending::<()>().await;
+        });
+        tokio::task::yield_now().await;
+
+        terminate_loop(handle, Duration::from_millis(1)).await;
+
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "terminate_loop must join the aborted task before returning"
+        );
+    }
+
+    #[tokio::test]
+    async fn identity_rebind_transactions_are_serialized() {
+        let manager = Arc::new(SocketManager::new());
+        let first = manager.lock_identity_rebind().await;
+
+        let waiting_manager = Arc::clone(&manager);
+        let mut waiter = tokio::spawn(async move {
+            let _second = waiting_manager.lock_identity_rebind().await;
+        });
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), &mut waiter)
+                .await
+                .is_err(),
+            "a second account rebind must not interleave with the first"
+        );
+
+        drop(first);
+        tokio::time::timeout(Duration::from_secs(1), waiter)
+            .await
+            .expect("the next rebind should proceed after the first commits")
+            .unwrap();
     }
 
     #[test]

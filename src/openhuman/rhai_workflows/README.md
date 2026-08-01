@@ -29,18 +29,43 @@ the tool result. The orchestrator's own turn loop *is* the CodeAct driver loop.
 Every failure mode returns a **model-consumable tool result** — never a panic,
 never a hung turn:
 
-- **Layered time bounds:** (1) rhai `on_progress` deadline for pure script
-  loops; (2) `bridge_block_on` timer race for hung capability futures;
-  (3) an outer `tokio::time::timeout(policy.timeout + 5s)` around
-  `spawn_blocking`; (4) the harness `ToolTimeout::Secs` backstop above all of
-  them. The tool's own timeout is always set below the harness backstop.
+- **Layered time bounds, strictly ordered `inner < outer < harness`:**
+  (1) the **inner** deadline — rhai `on_progress` for pure script loops and
+  the `bridge_block_on` timer race for hung capability futures, both driven
+  by `policy.timeout` (`policy.rs::resolve_policy`); (2) the **outer**
+  `tokio::time::timeout` around `spawn_blocking` in `ops.rs`, at
+  `policy.timeout + OUTER_TIMEOUT_GRACE_SECS` (`policy::outer_backstop_secs`);
+  (3) the **harness** `ToolTimeout::Secs` backstop the agent tool-execution
+  loop enforces, at `outer_backstop_secs + HARNESS_TIMEOUT_GRACE_SECS`
+  (`policy::harness_backstop_secs`, wired in `tools.rs::timeout_policy`) —
+  strictly above both inner layers. Each grace exists so the *next* layer out
+  only ever fires if every layer inside it already failed to enforce its own
+  deadline: the inner deadline is the primary enforcement point, the outer
+  backstop defends against a hung/poisoned inner layer (dropping the session
+  on fire), and the harness backstop is a last resort — if it ever won the
+  race it would drop the whole tool-execution future, skipping the
+  `RhaiError::Timeout` taxonomy, `finish_cell` accounting, `close_session`,
+  and the outer-backstop session cleanup entirely (E-M1).
 - **Bounded sessions:** LRU cap (16) + idle TTL (30 min); a second concurrent
   call on a busy session returns a typed "session busy" error rather than
-  deadlocking; a poisoned/errored session is dropped, never reused.
+  deadlocking; a poisoned/errored session is dropped, never reused. Neither
+  sweep ever evicts a slot whose cell is currently in flight (its session
+  `Mutex` held) — the cap/TTL can be exceeded, logged, while every live slot
+  is genuinely busy, but a running cell's session is never pulled out from
+  under it (E-m6).
 - **Bounded work per session:** `ReplPolicy` caps on operations, output bytes,
   script bytes, and per-kind call counts. `full` tier may raise call-count
   limits up to a hard 2× ceiling via the tool's `limits` arg; `readonly` tier
   does not get the tool at all.
+- **Reused sessions keep their own policy:** `ReplSession` exposes no
+  re-policy operation after construction (only builder-style `with_policy`),
+  so `sessions::SlotHandle` carries the policy a session was actually built
+  with. A cell that reuses a `session_id` with a *different* resolved policy
+  (e.g. a different `timeout_secs`/`limits`) logs a warning and every bound
+  for that call — the outer backstop, `limits_remaining` — is computed from
+  the session's live policy, never the newly-resolved one (E-M2). This is
+  deliberate: keying the session cache on a policy fingerprint instead would
+  silently fragment sessions and lose bindings by design.
 - **Cancellation end-to-end:** the turn's run-cancellation token drives a
   `ReplCancelFlag` watcher, so a user cancel drops an in-flight cell (script or
   capability call) promptly; the session is left resumable.

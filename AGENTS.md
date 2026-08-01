@@ -175,17 +175,36 @@ Embedded provider webviews **must not** grow new JS injection. No new `.js` unde
 
 ## Rust core (`src/`)
 
-### TinyHumans backend SDK boundary
+### Backend API access — `src/api/` over `tinyhumans-sdk`
 
-- All Rust-core calls to the TinyHumans managed backend must go through
-  `tinyhumans-sdk`, with OpenHuman adapters retaining local egress, budget,
-  session-expiry, TLS, and observability policy.
-- Do not add direct `reqwest` calls for TinyHumans JSON APIs or duplicate SDK
-  wire types in OpenHuman. Extend the SDK and update its pinned revision when a
-  public route or type is missing.
-- Never expose or call TinyHumans admin or webhook APIs from the SDK boundary.
-  Local inbound webhook routing is an OpenHuman runtime feature and is not an
-  exception for backend `/webhooks/*` calls.
+Calls to the TinyHumans cloud backend go through the vendored
+[`tinyhumans-sdk`](https://github.com/tinyhumansai/sdk) crate at
+`vendor/tinyhumans-sdk` (git submodule, path dependency — the crate is not on
+crates.io, so unlike the other `vendor/` crates it has no `[patch.crates-io]`
+entry). **The SDK is the source of truth for backend routes.** A route missing
+from it belongs upstream in the SDK repo, not re-implemented in `src/api/`.
+
+The split:
+
+- **SDK** — routes, URL building, percent-encoding, credential headers,
+  `{success,data}` envelope handling, and the admin/webhook-receiver route gate.
+- **`src/api/`** — the OpenHuman-specific layer on top: session-token retrieval
+  (`jwt.rs`), base-URL/env resolution (`config.rs`), and the error
+  classification + Sentry policy in `rest.rs`.
+
+`BackendOAuthClient` owns a `TinyHumansClient` built with
+`with_http_client(...)` so the SDK inherits this crate's transport — platform
+TLS (schannel on Windows for corporate TLS-inspection proxies, rustls
+elsewhere), the 120s/15s timeouts, `http1_only`, and the `x-core-version` /
+`x-tauri-version` headers. Bind a session token with `sdk_for(bearer_jwt)`.
+
+**Every SDK-backed call must map its error through `classify_sdk_error`.** That
+function mirrors `authed_json`'s classification exactly (401 →
+`Unauthorized`/`SESSION_EXPIRED`, channel-message 404 → `MessageNotFound`,
+announcements 404 → `AnnouncementNotFound`, transient statuses logged not
+reported). Skipping it would change a route's Sentry and session-expiry
+behaviour purely by moving it onto a typed SDK method. `rest_tests.rs` pins the
+two paths' equivalence — keep that as call sites migrate.
 
 ### Domain layout (`src/openhuman/`)
 

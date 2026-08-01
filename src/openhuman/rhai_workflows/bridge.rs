@@ -20,6 +20,8 @@
 //! `run_workflow`/`await_workflow`. `ToolScope::CliRpcOnly` tools are excluded
 //! too.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -58,7 +60,8 @@ fn is_excluded_tool(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_excluded_tool;
+    use super::*;
+    use crate::openhuman::tools::traits::ToolResult as OhToolResult;
 
     #[test]
     fn recursion_and_duplication_hazards_are_excluded() {
@@ -78,6 +81,153 @@ mod tests {
             assert!(!is_excluded_tool(name), "{name} should be callable");
         }
     }
+
+    // ── Per-cell outcome tracking (E-m5) ──────────────────────────────────
+
+    #[test]
+    fn outcome_tracking_round_trips_and_resets() {
+        // Untracked (no `begin_call_outcome_tracking`) is a safe no-op.
+        record_call_outcome("orphan", false);
+        assert!(take_call_outcomes().is_empty());
+
+        begin_call_outcome_tracking();
+        record_call_outcome("a", true);
+        record_call_outcome("b", false);
+        let outcomes = take_call_outcomes();
+        assert_eq!(outcomes.get("a"), Some(&true));
+        assert_eq!(outcomes.get("b"), Some(&false));
+
+        // `take` ends tracking — a later record without a new `begin` is a
+        // no-op again, so it can never bleed into the next cell on the same
+        // (possibly reused) thread-pool thread.
+        record_call_outcome("c", true);
+        assert!(take_call_outcomes().is_empty());
+    }
+
+    /// A minimal openhuman [`OhTool`] whose success/failure is driven by its
+    /// `fail` argument, for exercising [`RhaiToolAdapter::dispatch`] end to
+    /// end.
+    struct FlakyTool;
+
+    #[async_trait]
+    impl OhTool for FlakyTool {
+        fn name(&self) -> &str {
+            "flaky"
+        }
+        fn description(&self) -> &str {
+            "fails when called with fail: true"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({ "type": "object" })
+        }
+        async fn execute(&self, args: serde_json::Value) -> anyhow::Result<OhToolResult> {
+            if args.get("fail").and_then(serde_json::Value::as_bool) == Some(true) {
+                Ok(OhToolResult::error("boom"))
+            } else {
+                Ok(OhToolResult::json(serde_json::json!({ "ok": true })))
+            }
+        }
+    }
+
+    fn flaky_adapter() -> RhaiToolAdapter {
+        let tools: Arc<Vec<Box<dyn OhTool>>> = Arc::new(vec![Box::new(FlakyTool)]);
+        RhaiToolAdapter::new(tools.clone(), tools[0].as_ref())
+    }
+
+    fn call(id: &str, fail: bool) -> TaToolCall {
+        TaToolCall {
+            id: id.to_string(),
+            name: "flaky".to_string(),
+            arguments: serde_json::json!({ "fail": fail }),
+            invalid: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn dispatch_records_a_successful_call_as_ok() {
+        let adapter = flaky_adapter();
+        begin_call_outcome_tracking();
+        let result = adapter.dispatch(call("c-ok", false), None).await;
+        assert!(result.error.is_none());
+        assert_eq!(take_call_outcomes().get("c-ok"), Some(&true));
+    }
+
+    #[tokio::test]
+    async fn dispatch_records_a_failed_call_as_not_ok() {
+        let adapter = flaky_adapter();
+        begin_call_outcome_tracking();
+        let result = adapter.dispatch(call("c-fail", true), None).await;
+        assert!(result.error.is_some());
+        assert_eq!(
+            take_call_outcomes().get("c-fail"),
+            Some(&false),
+            "a tool-reported failure must be tracked as not ok even though the vendor REPL \
+             records the call regardless of `result.error`"
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatch_records_an_unknown_tool_as_not_ok() {
+        let tools: Arc<Vec<Box<dyn OhTool>>> = Arc::new(Vec::new());
+        let missing_tool = FlakyTool;
+        let adapter = RhaiToolAdapter::new(tools, &missing_tool);
+        begin_call_outcome_tracking();
+        let result = adapter.dispatch(call("c-missing", false), None).await;
+        assert!(result.error.is_some());
+        assert_eq!(take_call_outcomes().get("c-missing"), Some(&false));
+    }
+}
+
+// ── Per-cell tool-call outcome tracking (E-m5) ──────────────────────────────
+//
+// The vendor REPL's `tool_call_impl` records a `ReplCallRecord` for a tool
+// call *before* it checks whether the tool itself reported an error (so a
+// try/catch-wrapped failure still lands in `ReplResult::calls`), and
+// `tool_call_batched_impl` records + keeps going on a per-item tool failure
+// without ever raising at all. `ReplCallRecord` carries no success flag
+// either way, so `ops::summarize_calls` cannot tell a caught/per-batch-item
+// failure from a success by looking at the vendor record alone. This tracks
+// the real outcome on our side, keyed by the same `call_id` the vendor record
+// carries, as each call is dispatched through [`RhaiToolAdapter::dispatch`].
+
+thread_local! {
+    /// Per-cell outcome map (`call_id` -> `ok`). `None` means "not currently
+    /// tracking" (a call dispatched outside an `eval_cell` — defensive only,
+    /// should not happen) so `record_call_outcome` is a safe no-op; `ops.rs`
+    /// defaults an untracked `call_id` to `ok: true`, matching every other
+    /// capability kind (model/agent/graph/emit), which the vendor session
+    /// only ever records on success.
+    static CALL_OUTCOMES: RefCell<Option<HashMap<String, bool>>> = const { RefCell::new(None) };
+}
+
+/// Begins per-cell tool-call outcome tracking on the current thread. Call
+/// once, immediately before `ReplSession::eval_cell`, matched by
+/// [`take_call_outcomes`] after it returns.
+///
+/// Confined to a single OS thread by construction: `eval_cell` and every tool
+/// dispatch it drives run synchronously on the `spawn_blocking` thread that
+/// calls this — the vendor REPL's capability bridge blocks that same thread
+/// to completion (`futures::executor::block_on`, see
+/// `session/builtins/mod.rs`'s module doc) rather than yielding to another
+/// worker thread.
+pub(super) fn begin_call_outcome_tracking() {
+    CALL_OUTCOMES.with(|cell| *cell.borrow_mut() = Some(HashMap::new()));
+}
+
+/// Ends tracking and returns everything recorded since the matching
+/// [`begin_call_outcome_tracking`] (empty if tracking was never begun).
+pub(super) fn take_call_outcomes() -> HashMap<String, bool> {
+    CALL_OUTCOMES
+        .with(|cell| cell.borrow_mut().take())
+        .unwrap_or_default()
+}
+
+fn record_call_outcome(call_id: &str, ok: bool) {
+    CALL_OUTCOMES.with(|cell| {
+        if let Some(map) = cell.borrow_mut().as_mut() {
+            map.insert(call_id.to_string(), ok);
+        }
+    });
 }
 
 /// Builds the `CapabilityRegistry<()>` a session binds against from the parent
@@ -171,7 +321,7 @@ impl RhaiToolAdapter {
         context: Option<&ToolExecutionContext>,
     ) -> TaToolResult {
         let found = self.tools.iter().find(|t| t.name() == self.name);
-        match found {
+        let result = match found {
             Some(tool) => gated_execute(tool.as_ref(), call, context).await,
             None => {
                 tracing::warn!(tool = %self.name, "[rhai_workflows] bridged tool not found at call time");
@@ -184,7 +334,14 @@ impl RhaiToolAdapter {
                     elapsed_ms: 0,
                 }
             }
-        }
+        };
+        // Record the real outcome (E-m5) — the vendor REPL records a
+        // `ReplCallRecord` for this call_id regardless of `result.error`, so
+        // `ops::summarize_calls` needs this side channel to report a
+        // caught/per-batch-item tool failure as `ok: false` instead of the
+        // vendor type's implicit (wrong) "recorded == succeeded".
+        record_call_outcome(&result.call_id, result.error.is_none());
+        result
     }
 }
 
@@ -223,6 +380,30 @@ impl TaTool<()> for RhaiToolAdapter {
 /// Runs an openhuman tool for a `.ragsh` `tool_call`, routing any external-effect
 /// tool through the [`ApprovalGate`] first (fail-closed on denial) since the
 /// repl bridge sits outside the harness approval middleware.
+///
+/// **E-m4: a Supervised-tier park from inside a cell is practically
+/// unanswerable.** This calls [`ApprovalGate::intercept_audited`] — the
+/// UNBOUNDED variant, which awaits up to the gate's own TTL (10 minutes by
+/// default, `DEFAULT_APPROVAL_TTL` in `approval/gate.rs`) — from inside a
+/// Rhai cell whose own wall-clock deadline is `rhai_workflows::policy`'s
+/// `DEFAULT_RHAI_TIMEOUT_SECS` (300s, i.e. 5 minutes) unless the caller
+/// passed a longer `timeout_secs`. With the default cell timeout, the cell
+/// times out and is torn down at 5 minutes — well before a human could
+/// plausibly see, read, and act on the approval card — so in practice a
+/// Supervised-tier `tool_call`/`code`/native-tool capability invoked from a
+/// cell either gets approved within the cell's own timeout window (a very
+/// fast human response) or the cell dies waiting, and the approval decision
+/// (if it eventually comes) lands on a session and cell that no longer
+/// exist. Compounding this: per E-M1/E-M2's session-timeout-ordering bugs,
+/// a cell that times out this way can also lose the whole Rhai session's
+/// bindings, not just this one call.
+///
+/// [`ApprovalGate::intercept_audited_bounded`] exists precisely to cap the
+/// park window below a caller's own deadline — this bridge does not use it,
+/// which is the gap this comment documents rather than fixes (bounding the
+/// park to the cell's remaining timeout, or refusing to park at all from
+/// inside a cell, is tracked as follow-up, not applied in this doc-only
+/// pass).
 async fn gated_execute(
     tool: &dyn OhTool,
     call: TaToolCall,

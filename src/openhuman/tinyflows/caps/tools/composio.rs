@@ -177,19 +177,25 @@ impl ToolBackend for ComposioToolBackend {
                             %slug,
                             connection_id = %id,
                             %toolkit,
-                            account = label.as_deref().unwrap_or("<unlabeled>"),
-                            "[flows] tool_call: connection_ref resolves to a specific account, but \
-                             backend mode has no per-call account-scoping path yet — using the \
-                             ambient session account instead (documented stub, see caps.rs's \
-                             OpenHumanTools doc)"
+                            requested_account = label.as_deref().unwrap_or("<unlabeled>"),
+                            "[flows] tool_call: EXECUTING ON THE WRONG ACCOUNT — connection_ref \
+                             names a specific connected account, but backend mode has no per-call \
+                             account-scoping path yet, so this call runs against the AMBIENT \
+                             signed-in session account instead of the one requested (E-m3, \
+                             documented backend-API-gap stub, see caps.rs's OpenHumanTools doc). \
+                             Proceeds rather than failing closed."
                         ),
                         None => tracing::warn!(
                             target: "flows",
                             %slug,
                             connection_id = %id,
-                            "[flows] tool_call: connection_ref set but backend mode has no per-call \
-                             account-scoping path yet — using the ambient session account \
-                             (documented stub, see caps.rs's OpenHumanTools doc)"
+                            "[flows] tool_call: POSSIBLY EXECUTING ON THE WRONG ACCOUNT — \
+                             connection_ref names a connection id not found among the user's live \
+                             connected accounts, and backend mode has no per-call account-scoping \
+                             path to validate it against anyway — this call runs against the \
+                             AMBIENT signed-in session account regardless (E-m3, documented \
+                             backend-API-gap stub, see caps.rs's OpenHumanTools doc). Proceeds \
+                             rather than failing closed."
                         ),
                     }
                 }

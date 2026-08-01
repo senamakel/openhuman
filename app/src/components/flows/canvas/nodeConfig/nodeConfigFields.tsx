@@ -36,6 +36,12 @@ export function configString(config: Record<string, unknown>, key: string): stri
   return typeof value === 'string' ? value : '';
 }
 
+/** Read a finite numeric field off a free-form config object, defaulting to `undefined`. */
+export function configNumber(config: Record<string, unknown>, key: string): number | undefined {
+  const value = config[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 /** Read a `Record<string,string>` map off config (e.g. HTTP headers / transform set). */
 export function configStringMap(
   config: Record<string, unknown>,
@@ -163,6 +169,57 @@ export function SelectField({ label, hint, value, onChange, options, testId }: S
           </option>
         ))}
       </select>
+    </Field>
+  );
+}
+
+interface NumberFieldProps {
+  label: string;
+  hint?: string;
+  value: number | undefined;
+  onChange: (value: number | undefined) => void;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  testId?: string;
+}
+
+/**
+ * A plain numeric input (e.g. a memory node's `limit` / `min_score`). Unlike
+ * {@link TextField} the empty string round-trips to `undefined` rather than
+ * `''`, so an unset optional numeric config key stays genuinely absent
+ * instead of becoming a stray `""` in the saved graph.
+ */
+export function NumberField({
+  label,
+  hint,
+  value,
+  onChange,
+  placeholder,
+  min,
+  max,
+  step,
+  testId,
+}: NumberFieldProps) {
+  const id = useId();
+  return (
+    <Field label={label} hint={hint} htmlFor={id}>
+      <input
+        id={id}
+        type="number"
+        className={INPUT_CLASS}
+        value={value ?? ''}
+        placeholder={placeholder}
+        min={min}
+        max={max}
+        step={step}
+        data-testid={testId}
+        onChange={e => {
+          const raw = e.target.value;
+          onChange(raw === '' ? undefined : Number(raw));
+        }}
+      />
     </Field>
   );
 }

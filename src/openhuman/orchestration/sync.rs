@@ -1,7 +1,7 @@
 //! Hosted read-surface sync + reachability.
 //!
 //! The device renders the hosted brain's state. This loop pulls the hosted read
-//! surface (`GET /orchestration/v1/{sessions,sessions/:id/messages,steering}`)
+//! surface (`GET /orchestration/v1/{sessions,sessions/:id/messages}`)
 //! into the local SQLite **render cache**, so the existing read handlers stay
 //! synchronous and offline-safe: they read the cache (which is hosted-sourced
 //! and kept fresh here + by live effects), and when the hosted brain is
@@ -15,7 +15,6 @@
 use std::time::Duration;
 
 use serde::Deserialize;
-use serde_json::json;
 
 use crate::openhuman::config::Config;
 
@@ -26,8 +25,6 @@ const LOG: &str = "orchestration";
 
 /// `kv` key: `"1"` when the last sync reached the hosted brain, `"0"` when not.
 pub const REACHABLE_KEY: &str = "orch:cloud_reachable";
-/// `kv` key: cached steering summary JSON (`{ text, maxCycles }`).
-pub const STEERING_KEY: &str = "orch:steering";
 /// Default cadence of the read-sync loop.
 pub const DEFAULT_SYNC_INTERVAL: Duration = Duration::from_secs(20);
 
@@ -80,13 +77,13 @@ fn ms_to_rfc3339(ms: i64) -> String {
         .to_rfc3339()
 }
 
-/// One sync pass: pull hosted sessions + missing messages + steering into the
-/// render cache and update reachability. Returns whether the hosted brain was
-/// reachable (a `GET /sessions` success).
+/// One sync pass: pull hosted sessions + missing messages into the render cache
+/// and update reachability. Returns whether the hosted brain was reachable
+/// (a `GET /sessions` success).
 pub async fn sync_reads(config: &Config) -> bool {
     // Resolve the token + backend client once and reuse them for every GET in this
-    // pass (sessions + per-session messages + steering), so the profile lookup and
-    // the reqwest connection pool aren't rebuilt on each request.
+    // pass (sessions + per-session messages), so the profile lookup and the
+    // reqwest connection pool aren't rebuilt on each request.
     let pass = match super::cloud::read_pass(config) {
         Ok(p) => p,
         Err(e) => {
@@ -214,20 +211,6 @@ pub async fn sync_reads(config: &Config) -> bool {
         });
     }
 
-    // Steering summary for the status surface (best-effort).
-    if let Ok(data) = pass.fetch_steering().await {
-        let steering_cache = data.get("active").filter(|a| !a.is_null()).map(|active| {
-            json!({
-                "text": active.get("directive").and_then(|v| v.as_str()).unwrap_or(""),
-                "maxCycles": active.get("maxCycles").and_then(|v| v.as_i64()).unwrap_or(0),
-            })
-        });
-        let _ = store::with_connection(&config.workspace_dir, |c| match &steering_cache {
-            Some(v) => store::kv_set(c, STEERING_KEY, &v.to_string()),
-            None => store::kv_delete(c, STEERING_KEY),
-        });
-    }
-
     true
 }
 
@@ -251,26 +234,4 @@ pub fn cloud_reachable(config: &Config) -> bool {
         .flatten()
         .map(|v| v != "0")
         .unwrap_or(true)
-}
-
-/// Read the cached steering summary as `(text, max_cycles)`, if any.
-pub fn cached_steering(config: &Config) -> Option<(String, u32)> {
-    let raw = store::with_connection(&config.workspace_dir, |c| store::kv_get(c, STEERING_KEY))
-        .ok()
-        .flatten()?;
-    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    let text = v
-        .get("text")
-        .and_then(|x| x.as_str())
-        .unwrap_or("")
-        .to_string();
-    if text.is_empty() {
-        return None;
-    }
-    let max_cycles = v
-        .get("maxCycles")
-        .and_then(|x| x.as_i64())
-        .unwrap_or(0)
-        .max(0) as u32;
-    Some((text, max_cycles))
 }

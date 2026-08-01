@@ -339,11 +339,13 @@ impl Memory for UnifiedMemory {
     }
 
     async fn get(&self, namespace: &str, key: &str) -> anyhow::Result<Option<MemoryEntry>> {
-        let ns = if namespace.trim().is_empty() {
-            GLOBAL_NAMESPACE.to_string()
-        } else {
-            namespace.to_string()
-        };
+        // Address the row the way `store` wrote it: `upsert_document` stores
+        // `sanitize_namespace(namespace)` and `canonical_document_key(key)`, so
+        // looking up the raw caller values misses whenever either transform
+        // changed anything — the caller then reads the row as absent and stores
+        // it again, which is the retry loop behind #5164.
+        let ns = UnifiedMemory::sanitize_namespace(namespace);
+        let key = crate::openhuman::memory_store::safety::canonical_document_key(key);
         let conn = self.conn.lock();
         let row: Option<(String, String, String, f64, String, String)> = conn
             .query_row(
@@ -416,11 +418,11 @@ impl Memory for UnifiedMemory {
     }
 
     async fn forget(&self, namespace: &str, key: &str) -> anyhow::Result<bool> {
-        let ns = if namespace.trim().is_empty() {
-            GLOBAL_NAMESPACE.to_string()
-        } else {
-            namespace.to_string()
-        };
+        // Same write/read symmetry as `get` above (#5164): a `forget` that
+        // addresses the raw caller identifiers can never delete a row whose
+        // namespace or key was canonicalized on the way in.
+        let ns = UnifiedMemory::sanitize_namespace(namespace);
+        let key = crate::openhuman::memory_store::safety::canonical_document_key(key);
         let row: Option<String> = {
             let conn = self.conn.lock();
             conn.query_row(

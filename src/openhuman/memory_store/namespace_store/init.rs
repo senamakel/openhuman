@@ -14,6 +14,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::openhuman::embeddings::EmbeddingProvider;
+use crate::openhuman::memory_store::safety::canonical_identifier;
 use crate::openhuman::memory_store::types::GLOBAL_NAMESPACE;
 
 use super::UnifiedMemory;
@@ -338,8 +339,16 @@ impl UnifiedMemory {
             .unwrap_or(0.0)
     }
 
+    /// Canonical storage form of a namespace: PII-bearing namespaces are
+    /// canonicalized (#5164), then path-hostile characters collapse to `_`.
+    ///
+    /// The PII step lives here, in the one funnel every namespace path already
+    /// goes through — writes, reads, recall/search (`query.rs`), graph relations
+    /// (`graph.rs`), deletes, and the on-disk `namespaces/<ns>/` directory — so
+    /// a canonicalized write stays addressable by its original namespace
+    /// instead of looking like a missing row and driving the caller to retry.
     pub(crate) fn sanitize_namespace(namespace: &str) -> String {
-        let trimmed = namespace.trim();
+        let trimmed = canonical_identifier(namespace.trim());
         if trimmed.is_empty() {
             return GLOBAL_NAMESPACE.to_string();
         }
@@ -384,6 +393,32 @@ mod tests {
             "team_alpha/_1"
         );
         assert_eq!(UnifiedMemory::sanitize_namespace("a-b_c/ok"), "a-b_c/ok");
+    }
+
+    /// #5164: the PII step lives in this one funnel so every namespace path
+    /// (write, read, recall/search, graph, delete, on-disk dir) derives the same
+    /// address. Strict-gated — scanner-built namespaces keep their identity.
+    #[test]
+    fn sanitize_namespace_canonicalizes_pii_and_preserves_scanner_namespaces() {
+        let canonical = UnifiedMemory::sanitize_namespace("cliente-RFC-VECJ880326XK4");
+        assert!(
+            !canonical.contains("VECJ880326XK4"),
+            "the national ID must not become the storage address, got: {canonical}"
+        );
+        assert!(
+            canonical.contains("REDACTED_PII"),
+            "expected a redaction placeholder, got: {canonical}"
+        );
+        // Idempotent, so read paths can canonicalize unconditionally.
+        assert_eq!(UnifiedMemory::sanitize_namespace(&canonical), canonical);
+
+        for namespace in ["whatsapp-web:12025551234@c.us", "skill-gmail", "global"] {
+            assert_eq!(
+                UnifiedMemory::sanitize_namespace(namespace),
+                namespace.replace(['@', ':', '.'], "_"),
+                "scanner-built namespace must only get the character scrub: {namespace}"
+            );
+        }
     }
 
     #[test]

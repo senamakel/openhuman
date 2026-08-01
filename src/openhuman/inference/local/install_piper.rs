@@ -619,14 +619,69 @@ mod tests {
     use super::*;
     use crate::openhuman::inference::local::voice_install_common::reset_status;
 
+    /// Point [`paths::shared_root_dir`] at a test's own `TempDir`.
+    ///
+    /// `shared_root_dir` only honours `config.workspace_dir` when
+    /// `OPENHUMAN_WORKSPACE` is set; without it every write below lands in the
+    /// developer's real `~/.openhuman/bin/piper` and the cleanup deletes their
+    /// installed Piper (CodeRabbit, #5253). Setting the variable for the
+    /// duration keeps writes *and* cleanup inside the `TempDir`, so the
+    /// `TempDir`'s own `Drop` is the cleanup and it runs on unwind too: a
+    /// failing assertion can no longer leave a stub binary behind for the next
+    /// test to trip over.
+    ///
+    /// Callers must already hold [`shared_install_lock`] — this mutates
+    /// process-wide environment state.
+    ///
+    /// `#[cfg(unix)]` because its only consumer is the unix-only permissions
+    /// test; unconditional would be dead code on Windows, where clippy runs
+    /// with `-D warnings`.
+    #[cfg(unix)]
+    struct SharedRootOverride {
+        previous: Option<std::ffi::OsString>,
+    }
+
+    #[cfg(unix)]
+    impl SharedRootOverride {
+        fn set(root: &std::path::Path) -> Self {
+            let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+            std::env::set_var("OPENHUMAN_WORKSPACE", root);
+            Self { previous }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for SharedRootOverride {
+        fn drop(&mut self) {
+            match self.previous.as_ref() {
+                Some(previous) => std::env::set_var("OPENHUMAN_WORKSPACE", previous),
+                None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
+            }
+        }
+    }
+
     #[cfg(unix)]
     #[test]
     fn non_executable_workspace_binary_is_skipped_so_path_can_win() {
         // #5045 review (Codex P2): when the chmod repair fails, returning the
         // 0644 workspace copy anyway pins resolution to a binary that cannot
         // launch and makes the PIPER_BIN/PATH fallback unreachable.
+        //
+        // This test must hold the module lock: it mutates OPENHUMAN_WORKSPACE,
+        // which is process-wide, and `reset_status`/install state is shared
+        // with every sibling install_piper / install_whisper / paths test.
+        //
+        // `workspace_piper_binary_candidates` resolves through
+        // `paths::shared_root_dir`, which ignores `config.workspace_dir` unless
+        // OPENHUMAN_WORKSPACE is set and otherwise returns the real
+        // `~/.openhuman/bin/piper`. `SharedRootOverride` sets it to this test's
+        // TempDir so the stub written below, and its cleanup, stay inside the
+        // TempDir instead of touching a developer's installed Piper.
         use std::os::unix::fs::PermissionsExt;
+        let _g = shared_install_lock();
         let (_dir, config) = temp_config();
+        let _root = SharedRootOverride::set(&config.workspace_dir);
+        wipe_shared_install_dir(&config);
         let candidates = paths::workspace_piper_binary_candidates(&config);
         let candidate = candidates.first().expect("at least one candidate").clone();
         std::fs::create_dir_all(candidate.parent().unwrap()).unwrap();
@@ -644,6 +699,10 @@ mod tests {
             Some(candidate.as_path()),
             "an executable workspace binary is still preferred"
         );
+
+        // No tail cleanup: it would only run when every assertion above passed.
+        // `_dir` (TempDir) and `_root` (SharedRootOverride) clean up on drop,
+        // which happens on the panic path too.
     }
 
     fn temp_config() -> (tempfile::TempDir, Config) {

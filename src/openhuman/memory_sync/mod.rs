@@ -26,24 +26,7 @@
 //!   own retry/backoff policy. The trait gives the orchestrator a
 //!   single shape to call; everything else stays local.
 
-pub mod canonicalize;
 pub mod composio;
 pub mod mcp;
-pub mod sources;
 pub mod sync_status;
-pub mod traits;
 pub mod workspace;
-
-pub use traits::{SyncOutcome, SyncPipeline, SyncPipelineKind};
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn reexports_sync_pipeline_kind_labels() {
-        assert_eq!(SyncPipelineKind::Composio.as_str(), "composio");
-        assert_eq!(SyncPipelineKind::Workspace.as_str(), "workspace");
-        assert_eq!(SyncPipelineKind::Mcp.as_str(), "mcp");
-    }
-}

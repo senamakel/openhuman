@@ -5,11 +5,11 @@ use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory_queue::drain_until_idle;
 use crate::openhuman::memory_store::content::raw::{write_raw_items, RawItem, RawKind};
 use crate::openhuman::memory_store::namespace_store::UnifiedMemory;
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use chrono::{TimeZone, Utc};
 use rusqlite::params;
 use std::sync::Arc;
 use tempfile::TempDir;
+use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 fn test_config() -> (TempDir, Config) {
     let tmp = TempDir::new().unwrap();

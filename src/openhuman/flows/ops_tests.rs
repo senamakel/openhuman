@@ -509,6 +509,7 @@ async fn flows_run_rejects_legacy_nested_conditional_fan_in_before_execution() {
         &config,
         &flow.id,
         json!({ "outer": true, "inner": true }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -544,9 +545,15 @@ async fn flows_run_rejects_an_incompatible_saved_child_before_execution() {
     )
     .unwrap();
 
-    let error = flows_run(&config, &parent.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("an unsafe saved child must fail before root execution starts");
+    let error = flows_run(
+        &config,
+        &parent.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("an unsafe saved child must fail before root execution starts");
     assert!(
         error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
         "{error}"
@@ -607,7 +614,7 @@ async fn flows_create_rejects_an_incompatible_saved_child_before_persisting() {
         "{error}"
     );
     assert!(error.contains(&child.id), "{error}");
-    let flows = store::list_flows(&config).unwrap();
+    let (flows, _skipped) = store::list_flows(&config).unwrap();
     assert_eq!(flows.len(), 1, "the rejected parent must not be persisted");
     assert_eq!(flows[0].id, child.id);
 }
@@ -845,6 +852,7 @@ async fn flows_run_completes_trigger_only_graph() {
         &config,
         &created.value.id,
         json!({ "hello": "world" }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -876,9 +884,15 @@ async fn flows_run_on_trigger_only_graph_surfaces_no_actionable_nodes_note() {
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     let note = outcome.value["note"]
         .as_str()
@@ -923,9 +937,15 @@ async fn flows_run_on_graph_with_actionable_nodes_has_no_empty_flow_note() {
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     assert!(
         outcome.value.get("note").is_none(),
@@ -961,9 +981,15 @@ async fn flows_run_on_graph_with_disconnected_component_still_surfaces_empty_flo
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     let note = outcome.value["note"]
         .as_str()
@@ -1000,6 +1026,7 @@ async fn flows_run_reports_pending_approval_and_blocks_downstream() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1028,10 +1055,242 @@ async fn flows_get_missing_flow_errors() {
 async fn flows_run_missing_flow_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let err = flows_run(&config, "missing", json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("must error");
+    let err = flows_run(
+        &config,
+        "missing",
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("must error");
     assert!(err.contains("not found"));
+}
+
+/// A graph declaring `repo` (required) and `depth` (defaulted), whose single
+/// `transform` node copies both out via `=inputs.<name>`.
+fn parameterized_graph() -> Value {
+    json!({
+        "name": "parameterized",
+        "inputs": [
+            { "name": "repo", "type": "string", "required": true, "description": "Repo to review" },
+            { "name": "depth", "type": "number", "default": 3 }
+        ],
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "shape", "kind": "transform", "name": "Shape",
+              "config": { "set": { "repo": "=inputs.repo", "depth": "=inputs.depth" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "shape" } ]
+    })
+}
+
+/// Collects `pairs` into the supplied-values map `flows_run` takes.
+fn input_values(pairs: &[(&str, Value)]) -> serde_json::Map<String, Value> {
+    pairs
+        .iter()
+        .map(|(k, v)| ((*k).to_string(), v.clone()))
+        .collect()
+}
+
+#[tokio::test]
+async fn flows_run_threads_declared_inputs_into_the_run() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("a run supplying its required input must succeed");
+
+    let output = &run.value["output"];
+    assert_eq!(
+        output["run"]["inputs"]["repo"],
+        json!("acme/api"),
+        "the supplied value must reach run.inputs"
+    );
+    assert_eq!(
+        output["run"]["inputs"]["depth"],
+        json!(3),
+        "the declared default must be applied"
+    );
+    assert_eq!(
+        output["nodes"]["shape"]["items"][0]["json"]["repo"],
+        json!("acme/api"),
+        "the node's `=inputs.repo` binding must resolve"
+    );
+}
+
+#[tokio::test]
+async fn flows_run_detached_threads_and_validates_declared_inputs_too() {
+    // `run_detached` is the entry point both UI Run controls call, so a flow
+    // with a required input is only runnable from the UI through here — it must
+    // enforce the same contract as the blocking path, synchronously, before it
+    // reports a run id the caller will go on to poll.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let err = flows_run_detached(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a missing required input must be refused before a run id is handed out");
+    assert!(err.contains("repo"), "got: {err}");
+
+    let started = flows_run_detached(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("a run supplying its required input must start");
+    assert_eq!(started.value["status"], "running");
+}
+
+#[tokio::test]
+async fn flows_run_rejects_a_missing_required_input_without_creating_a_run_row() {
+    // The whole point of resolving in `prepare_flow_run`: a caller that gets
+    // this error can be certain nothing was started and nothing was recorded.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a missing required input must fail the call");
+    assert!(
+        err.contains("repo"),
+        "the error must name the offending input, got: {err}"
+    );
+
+    let runs = flows_list_runs(&config, &created.value.id, 10)
+        .await
+        .unwrap();
+    assert!(
+        runs.value.is_empty(),
+        "a rejected call must leave no run row behind, got {:?}",
+        runs.value
+    );
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert!(
+        reloaded.value.last_run_at.is_none(),
+        "a rejected call must not stamp last_run_at"
+    );
+}
+
+#[tokio::test]
+async fn flows_run_rejects_a_wrongly_typed_or_undeclared_input() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "parameterized".to_string(),
+        parameterized_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let type_err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api")), ("depth", json!("3"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a string for a number input must be rejected");
+    assert!(type_err.contains("depth"), "got: {type_err}");
+
+    let unknown_err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        input_values(&[("repo", json!("acme/api")), ("reop", json!("typo"))]),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("an undeclared key must be rejected rather than dropped");
+    assert!(unknown_err.contains("reop"), "got: {unknown_err}");
+}
+
+#[tokio::test]
+async fn flows_run_leaves_a_flow_declaring_no_inputs_unchanged() {
+    // The pre-existing call shape — empty `inputs` against a graph that
+    // declares none — must behave exactly as before.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let graph = json!({
+        "name": "plain",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "shape", "kind": "transform", "name": "Shape",
+              "config": { "set": { "seen": "=run.trigger.hi" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "shape" } ]
+    });
+    let created = flows_create(&config, "plain".to_string(), graph, false)
+        .await
+        .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "hi": 1 }),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("run");
+    assert_eq!(
+        run.value["output"]["nodes"]["shape"]["items"][0]["json"]["seen"],
+        json!(1)
+    );
 }
 
 #[tokio::test]
@@ -1055,9 +1314,15 @@ async fn flows_run_records_failed_status_when_a_node_errors() {
         .await
         .unwrap();
 
-    let err = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("a run whose node errors under on_error:stop must fail");
+    let err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a run whose node errors under on_error:stop must fail");
     assert!(!err.is_empty());
 
     // The failed attempt must be recorded, not left on the prior state.
@@ -1098,9 +1363,15 @@ async fn flows_run_populates_error_when_a_continue_policy_node_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect("on_error:continue must settle the run future Ok, not bubble up an Err");
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("on_error:continue must settle the run future Ok, not bubble up an Err");
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let run_row = flows_get_run(&config, &thread_id).await.unwrap();
@@ -1215,6 +1486,70 @@ async fn flows_delete_unbinds_schedule_cron_job() {
             .is_none(),
         "deleting a flow must remove its schedule-trigger cron job — it lives in a separate \
          cron.db that flow_definitions' ON DELETE CASCADE cannot reach"
+    );
+}
+
+#[tokio::test]
+async fn reconcile_schedule_triggers_on_boot_survives_a_corrupt_row() {
+    // R-M4: `reconcile_schedule_triggers_on_boot` is driven by
+    // `list_enabled_flows`, which used to hard-fail its entire query on the
+    // first corrupt/unmigratable `graph_json` row. One bad enabled flow must
+    // not prevent every OTHER enabled schedule-trigger flow from having its
+    // cron job re-registered on boot.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let good = flows_create(
+        &config,
+        "good-scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+    flows_set_enabled(&config, &good.value.id, true)
+        .await
+        .unwrap();
+
+    let bad = flows_create(
+        &config,
+        "bad-scheduled".to_string(),
+        schedule_trigger_graph("0 10 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+    flows_set_enabled(&config, &bad.value.id, true)
+        .await
+        .unwrap();
+    store::force_corrupt_graph_json_for_test(&config, &bad.value.id, "{ not valid json").unwrap();
+
+    // Remove the cron job `flows_set_enabled` already bound for the good flow
+    // above, so the post-reconcile assertion proves
+    // `reconcile_schedule_triggers_on_boot` itself re-registered it (rather
+    // than the earlier `flows_set_enabled` call, which would pass this
+    // assertion even if the boot reconcile silently did nothing).
+    let good_job = crate::openhuman::cron::find_flow_schedule_job(&config, &good.value.id)
+        .unwrap()
+        .expect("precondition: good flow's cron job bound on enable");
+    crate::openhuman::cron::remove_job(&config, &good_job.id).unwrap();
+    assert!(
+        crate::openhuman::cron::find_flow_schedule_job(&config, &good.value.id)
+            .unwrap()
+            .is_none(),
+        "precondition: good flow's cron job removed before reconcile"
+    );
+
+    reconcile_schedule_triggers_on_boot(&config)
+        .await
+        .expect("boot reconciliation must not fail because of one corrupt sibling row");
+
+    assert!(
+        crate::openhuman::cron::find_flow_schedule_job(&config, &good.value.id)
+            .unwrap()
+            .is_some(),
+        "the good flow's cron job must be re-registered by boot reconcile despite the \
+         corrupt sibling row"
     );
 }
 
@@ -1583,6 +1918,7 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1619,6 +1955,286 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
     );
 }
 
+/// T-M1 end-to-end: a run parks `pending_approval` on the gate node, the user
+/// sees an approval card describing the graph as it existed at park time, and
+/// `save_workflow` (modeled here via `store::update_flow_graph`, exactly like
+/// `flows_resume_marks_an_incompatible_legacy_checkpoint_failed` above models
+/// a pre-gate legacy checkpoint) rewrites a downstream node while the approval
+/// sits pending. `flows_resume` must refuse — never compile the CURRENT graph
+/// against the OLD checkpoint and fire the new config under the stale
+/// approval — and must settle the run terminally rather than leave it parked.
+#[tokio::test]
+async fn flows_resume_refuses_when_the_graph_changed_after_park() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+    assert_eq!(pending, vec!["gate".to_string()]);
+
+    // A freshly parked run must have pinned the graph it parked against.
+    let parked_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert!(
+        parked_row.graph_hash.is_some(),
+        "a freshly parked run must pin the graph it parked against: {parked_row:?}"
+    );
+
+    // Simulate `save_workflow` rewriting the "downstream" node while the
+    // approval card the user is looking at still describes the OLD graph.
+    let mut rewritten = approval_gated_graph();
+    assert_eq!(rewritten["nodes"][2]["id"], "downstream");
+    rewritten["nodes"][2]["name"] = json!("Downstream (rewired by save_workflow)");
+    store::update_flow_graph(
+        &config,
+        &created.value.id,
+        created.value.name.clone(),
+        structurally_valid_graph(rewritten),
+        created.value.require_approval,
+        None,  // enabled_override
+        false, // force_disarm_if_automatic — this fixture isn't exercising the
+        // manual->automatic disarm path, only the graph swap.
+        None,
+    )
+    .unwrap();
+
+    let error = flows_resume(
+        &config,
+        &created.value.id,
+        &thread_id,
+        pending.clone(),
+        vec![],
+    )
+    .await
+    .expect_err("resume must refuse once the graph changed after park");
+    assert!(
+        error.contains("changed after this run was paused"),
+        "{error}"
+    );
+
+    // Must NOT have executed: the engine must never have run, so "downstream"
+    // must not appear among the run's persisted steps.
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert_eq!(run_row.status, "cancelled");
+    assert!(
+        !run_row.steps.iter().any(|s| s.node_id == "downstream"),
+        "the run must not execute the new config under the stale approval: {run_row:?}"
+    );
+    assert!(
+        run_row
+            .error
+            .as_deref()
+            .is_some_and(|e| e.contains("changed after this run was paused")),
+        "the terminal run row should retain the refusal reason: {run_row:?}"
+    );
+    let flow = flows_get(&config, &created.value.id).await.unwrap().value;
+    assert_eq!(flow.last_status.as_deref(), Some("cancelled"));
+
+    // A second resume attempt must not succeed either — the checkpoint was
+    // dropped, and the row is now terminal, not `pending_approval`.
+    let second = flows_resume(&config, &created.value.id, &thread_id, pending, vec![]).await;
+    assert!(
+        second.is_err(),
+        "a settled/refused run must not be resumable again"
+    );
+}
+
+/// The success-path mirror of the refusal test above: when nothing rewrites
+/// the flow between park and resume, the recomputed hash matches the pinned
+/// one and the resume proceeds exactly as it did before this guard existed.
+#[tokio::test]
+async fn flows_resume_succeeds_when_the_graph_is_unchanged() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+
+    let parked_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert!(
+        parked_row.graph_hash.is_some(),
+        "a freshly parked run must pin the graph it parked against"
+    );
+
+    let resumed = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .expect("resume must succeed when the pinned graph still matches the current one");
+    assert_eq!(resumed.value["pending_approvals"], json!([]));
+    assert!(
+        !resumed.value["output"]["nodes"]["downstream"]["items"].is_null(),
+        "downstream should run once the gate is approved via resume"
+    );
+
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert_eq!(run_row.status, "completed");
+    assert!(
+        run_row.graph_hash.is_none(),
+        "a settled row clears its park-time pin rather than leaving it stale: {run_row:?}"
+    );
+}
+
+/// Migration safety (T-M1 requirement #4): a `flow_runs` row written before
+/// this guard existed reads back with `graph_hash IS NULL`. That must be
+/// treated as "unknown — allow, with a warning", never as a hard refusal, so
+/// upgrading mid-park can never strand an otherwise-valid in-flight approval
+/// — even if the flow's graph was *also* edited in the meantime, since there
+/// is nothing recorded to compare it against.
+#[tokio::test]
+async fn flows_resume_allows_a_legacy_row_with_null_graph_hash() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+
+    // Simulate a row written before the T-M1 migration: still `pending_approval`,
+    // but with no graph hash pinned — exactly what `add_column_if_missing`
+    // leaves behind for every row that existed before this feature shipped.
+    let now = Utc::now().to_rfc3339();
+    store::finish_flow_run(
+        &config,
+        &thread_id,
+        "pending_approval",
+        &now,
+        &[],
+        &pending,
+        None,
+        None,
+    )
+    .unwrap();
+    let staged = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert!(
+        staged.graph_hash.is_none(),
+        "fixture must simulate a legacy row with no pin"
+    );
+
+    // The flow is ALSO rewritten afterward — a legacy row has nothing to
+    // compare against, so this must not matter.
+    let mut rewritten = approval_gated_graph();
+    rewritten["nodes"][2]["name"] = json!("Downstream (renamed)");
+    store::update_flow_graph(
+        &config,
+        &created.value.id,
+        created.value.name.clone(),
+        structurally_valid_graph(rewritten),
+        created.value.require_approval,
+        None,  // enabled_override
+        false, // force_disarm_if_automatic — this fixture isn't exercising the
+        // manual->automatic disarm path, only the graph swap.
+        None,
+    )
+    .unwrap();
+
+    let resumed = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .expect("a legacy row with no graph_hash must still resume (unknown treated as allow)");
+    assert_eq!(resumed.value["pending_approvals"], json!([]));
+}
+
+/// `compute_graph_hash` must hash graph *content*, not incidental JSON object
+/// key order. Node `config` is a free-form `serde_json::Value` (see
+/// `tinyflows::model::Node::config`), and this crate has the `preserve_order`
+/// feature active transitively — `Value`'s object map keeps insertion order
+/// rather than sorting automatically — so two structurally-identical graphs
+/// built with the same config keys in a different order would hash
+/// differently without the canonicalization `compute_graph_hash` applies.
+#[test]
+fn graph_hash_is_stable_across_serialization_key_order() {
+    let graph_a = structurally_valid_graph(json!({
+        "name": "order-test",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "n",
+                "kind": "output_parser",
+                "name": "N",
+                "config": { "a": 1, "b": 2, "nested": { "x": 1, "y": 2 } }
+            }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "n" } ]
+    }));
+    let graph_b = structurally_valid_graph(json!({
+        "name": "order-test",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "n",
+                "kind": "output_parser",
+                "name": "N",
+                "config": { "nested": { "y": 2, "x": 1 }, "b": 2, "a": 1 }
+            }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "n" } ]
+    }));
+
+    let hash_a = compute_graph_hash(&graph_a, false).expect("graph_a should hash");
+    let hash_b = compute_graph_hash(&graph_b, false).expect("graph_b should hash");
+    assert_eq!(
+        hash_a, hash_b,
+        "the same graph content in a different key order must hash identically"
+    );
+
+    // Sanity: an actually-different graph must NOT collide.
+    let mut graph_c_value = json!({
+        "name": "order-test",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "n",
+                "kind": "output_parser",
+                "name": "N",
+                "config": { "a": 1, "b": 2, "nested": { "x": 1, "y": 2 } }
+            }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "n" } ]
+    });
+    graph_c_value["nodes"][1]["config"]["a"] = json!(999);
+    let graph_c = structurally_valid_graph(graph_c_value);
+    let hash_c = compute_graph_hash(&graph_c, false).expect("graph_c should hash");
+    assert_ne!(
+        hash_a, hash_c,
+        "a genuinely different graph must not collide"
+    );
+}
+
 #[tokio::test]
 async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
     let tmp = TempDir::new().unwrap();
@@ -1630,6 +2246,7 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1641,14 +2258,38 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
     // Simulate a graph persisted before the host compatibility gate existed.
     // The store layer intentionally trusts its typed caller; authoring paths
     // own validation.
+    let legacy_graph = structurally_valid_graph(nested_conditional_fan_in_graph());
     store::update_flow_graph(
         &config,
         &created.value.id,
         created.value.name.clone(),
-        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        legacy_graph.clone(),
         created.value.require_approval,
         None,
+        false,
         None,
+    )
+    .unwrap();
+    // T-M1: re-pin the parked row's graph_hash to this same (legacy,
+    // incompatible) graph. Without this the fixture reads as "the graph
+    // changed after park" (a DIFFERENT bug class this same PR now catches
+    // earlier and refuses with a distinct message) rather than "the
+    // checkpoint has always been incompatible" — the scenario this test
+    // means to pin. A real legacy row predating T-M1 would carry
+    // `graph_hash: NULL` and fall through the same way (see the
+    // `flows_resume_allows_a_legacy_row_with_null_graph_hash` test above).
+    let run_row_before = flows_get_run(&config, &thread_id).await.unwrap().value;
+    let legacy_hash = compute_graph_hash(&legacy_graph, created.value.require_approval)
+        .expect("fixture graph should hash");
+    store::finish_flow_run(
+        &config,
+        &thread_id,
+        "pending_approval",
+        &run_row_before.finished_at.unwrap_or_default(),
+        &run_row_before.steps,
+        &run_row_before.pending_approvals,
+        None,
+        Some(&legacy_hash),
     )
     .unwrap();
 
@@ -1685,6 +2326,7 @@ async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1700,14 +2342,33 @@ async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed
         false,
     )
     .unwrap();
+    let legacy_graph = structurally_valid_graph(referenced_child_graph(&child.id));
     store::update_flow_graph(
         &config,
         &created.value.id,
         created.value.name.clone(),
-        structurally_valid_graph(referenced_child_graph(&child.id)),
+        legacy_graph.clone(),
         created.value.require_approval,
         None,
+        false,
         None,
+    )
+    .unwrap();
+    // T-M1: re-pin the parked row's hash to this same graph — see the sibling
+    // legacy-checkpoint test above for why this fixture needs it now that a
+    // graph swap is independently caught by the stale-approval guard.
+    let run_row_before = flows_get_run(&config, &thread_id).await.unwrap().value;
+    let legacy_hash = compute_graph_hash(&legacy_graph, created.value.require_approval)
+        .expect("fixture graph should hash");
+    store::finish_flow_run(
+        &config,
+        &thread_id,
+        "pending_approval",
+        &run_row_before.finished_at.unwrap_or_default(),
+        &run_row_before.steps,
+        &run_row_before.pending_approvals,
+        None,
+        Some(&legacy_hash),
     )
     .unwrap();
 
@@ -1764,6 +2425,7 @@ async fn flows_resume_with_empty_approvals_is_rejected_and_does_not_complete_the
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1803,6 +2465,7 @@ async fn flows_resume_with_mismatched_approvals_is_rejected() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1834,6 +2497,7 @@ async fn flows_resume_with_the_correct_gate_completes_and_runs_downstream() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1897,6 +2561,7 @@ async fn flows_resume_denying_a_gate_routes_to_its_error_port() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1947,6 +2612,7 @@ async fn flows_resume_denying_a_gate_with_no_error_port_fails_the_run() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -1981,9 +2647,15 @@ async fn flows_resume_rejects_a_gate_named_in_both_approvals_and_rejections() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let err = flows_resume(
@@ -2012,9 +2684,15 @@ async fn flows_resume_of_a_non_paused_run_errors_clearly() {
 
     // This run completes outright (no approval gate) — its recorded status
     // is "completed", not "pending_approval".
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let err = flows_resume(&config, &created.value.id, &thread_id, vec![], vec![])
@@ -2060,6 +2738,7 @@ async fn flows_run_persists_a_flow_run_row_queryable_via_list_and_get() {
         &config,
         &created.value.id,
         json!({ "hello": "world" }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2095,12 +2774,24 @@ async fn flows_list_all_runs_aggregates_across_flows_newest_first() {
         .unwrap();
 
     // Run alpha first, then beta — beta's run is the newest.
-    flows_run(&config, &a.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
-    let beta_run = flows_run(&config, &b.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    flows_run(
+        &config,
+        &a.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let beta_run = flows_run(
+        &config,
+        &b.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let beta_thread = beta_run.value["thread_id"].as_str().unwrap().to_string();
 
     let all = flows_list_all_runs(&config, 100).await.unwrap();
@@ -2141,9 +2832,15 @@ async fn flows_run_emits_pending_approval_notification() {
     .await
     .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // Filter for our notification specifically — the broadcast bus is
@@ -2194,9 +2891,15 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
         .unwrap();
     let created_id = created.value.id.clone();
 
-    flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     let expected_prefix = format!("flow-pending-approval:{created_id}:");
     let saw_notification = tokio::time::timeout(std::time::Duration::from_millis(300), async {
@@ -2270,9 +2973,15 @@ async fn flows_run_publishes_flow_run_started_with_flow_and_run_id() {
     .await
     .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // The bus is process-global and shared with concurrently-running tests,
@@ -2361,6 +3070,7 @@ async fn flows_run_finished_event_skips_pending_approval_and_fires_once_on_resum
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2520,6 +3230,7 @@ async fn flows_run_persists_live_steps_with_status_and_timing() {
         &config,
         &created.value.id,
         json!({ "x": 1 }),
+        serde_json::Map::new(),
         FlowRunTrigger::Rpc,
     )
     .await
@@ -2569,9 +3280,15 @@ async fn flows_cancel_run_cancels_a_parked_pending_approval_run() {
 
     // Run pauses at the gate → a durable `pending_approval` row with no live
     // task (the run future already returned): the not-in-flight cancel path.
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
     assert_eq!(
         flows_get_run(&config, &thread_id)
@@ -2620,9 +3337,15 @@ async fn flows_cancel_run_of_an_already_completed_run_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let err = flows_cancel_run(&config, &thread_id)
@@ -2644,23 +3367,24 @@ async fn flows_cancel_run_of_a_completed_with_warnings_run_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // Force the settled row to the warning status directly — an end-to-end
     // null-binding graph isn't needed to exercise this guard.
-    store::finish_flow_run(
-        &config,
-        &thread_id,
-        "completed_with_warnings",
-        &chrono::Utc::now().to_rfc3339(),
-        &[],
-        &[],
-        None,
-    )
-    .unwrap();
+    // Fixture-only forcing write: the run above already settled `completed`, so
+    // `finish_flow_run`'s liveness guard (correctly) refuses a terminal →
+    // terminal transition. Staging a row at an arbitrary terminal status is a
+    // test concern, not a production one.
+    store::force_run_status_for_test(&config, &thread_id, "completed_with_warnings", None).unwrap();
 
     let err = flows_cancel_run(&config, &thread_id)
         .await
@@ -2684,19 +3408,25 @@ async fn flows_cancel_run_of_an_interrupted_run_errors() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // Force the settled row to `interrupted` directly.
-    store::finish_flow_run(
+    // Fixture-only forcing write — see the sibling test above: the run has
+    // already settled, and `finish_flow_run` now (correctly) refuses a
+    // terminal -> terminal transition.
+    store::force_run_status_for_test(
         &config,
         &thread_id,
         "interrupted",
-        &chrono::Utc::now().to_rfc3339(),
-        &[],
-        &[],
         Some("interrupted mid-flight"),
     )
     .unwrap();
@@ -2748,13 +3478,20 @@ async fn parked_run_ttl_sweep_expires_stale_runs_but_spares_fresh_ones() {
         &[],
         &["gate".to_string()],
         None,
+        None,
     )
     .unwrap();
 
     // A genuinely fresh parked run (just paused now) must survive the sweep.
-    let fresh = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .unwrap();
+    let fresh = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let fresh_id = fresh.value["thread_id"].as_str().unwrap().to_string();
 
     let swept = sweep_expired_parked_runs(&config).await;
@@ -3894,9 +4631,15 @@ async fn flows_run_fails_cleanly_without_invoking_engine_when_inference_not_read
         .await
         .expect("creating (authoring) an agent-node flow must succeed even when signed out");
 
-    let err = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect_err("a run whose agent node cannot reach a provider must fail cleanly");
+    let err = flows_run(
+        &config,
+        &created.value.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("a run whose agent node cannot reach a provider must fail cleanly");
     assert!(
         err.to_ascii_lowercase().contains("ai provider"),
         "error must explain the AI-provider problem: {err}"
@@ -5678,6 +6421,15 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
         "resume_flow_run advances a real run's outbound effects, so it must be \
          external-effect for the same #4593/#4881 concern to apply"
     );
+    let canceller = crate::openhuman::flows::builder_tools::CancelFlowRunTool::new(
+        std::sync::Arc::new(config.clone()),
+    );
+    assert!(
+        canceller.external_effect(),
+        "cancel_flow_run is external-effect since the T-M3 fix — it stays hidden on THIS \
+         (Cli-origin, auto-allow) path regardless, because that gate is exactly what this \
+         origin bypasses; see restrict_builder_toolset's doc"
+    );
 
     crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .expect("agent registry init");
@@ -5742,10 +6494,11 @@ fn flows_build_hide_lists_have_the_expected_contents() {
         FLOWS_BUILD_COPILOT_HIDDEN_TOOLS,
         ["run_workflow", "cancel_flow_run"],
         "the streaming (copilot) hide-list must hide the legacy `run_workflow` AND \
-         `cancel_flow_run` — the latter has no external_effect to park and no \
-         run-ownership guard (codex #5090), so it must NOT be exposed unapproved; \
-         only `run_flow`/`resume_flow_run` stay visible, gated by the WebChat \
-         approval surface"
+         `cancel_flow_run`. The T-M3 fix DID give the latter `external_effect() == true` \
+         plus a run-ownership guard, so it would now park safely here — but unhiding it \
+         is a capability expansion (letting an authoring turn tear down a user-started \
+         run), not a security fix, and that product decision has not been taken. Only \
+         `run_flow`/`resume_flow_run` stay visible, gated by the WebChat approval surface"
     );
     for tool in [
         "run_workflow",
@@ -5764,9 +6517,11 @@ fn flows_build_hide_lists_have_the_expected_contents() {
 /// Streaming (copilot) path: `restrict_builder_toolset_for_copilot` leaves
 /// `run_flow` / `resume_flow_run` visible on the builder's belt — they're gated
 /// by the WebChat approval surface, not hidden — while hiding the unrelated
-/// legacy `run_workflow` AND `cancel_flow_run` (the latter can't be parked and
-/// has no run-ownership guard — codex #5090) and keeping every authoring tool
-/// reachable (PR3: flows-copilot-live-run-approval).
+/// legacy `run_workflow` AND `cancel_flow_run`, and keeping every authoring
+/// tool reachable (PR3: flows-copilot-live-run-approval). The T-M3 fix made
+/// `cancel_flow_run` safe to unhide (external_effect + run-ownership guard),
+/// but doing so would newly let an authoring turn tear down a user-started
+/// run — a product decision, deliberately not taken here.
 #[tokio::test]
 async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
     let tmp = TempDir::new().unwrap();
@@ -5792,8 +6547,9 @@ async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
     for hidden in ["run_workflow", "cancel_flow_run"] {
         assert!(
             !visible.contains(hidden),
-            "`{hidden}` must stay hidden on the copilot path (legacy runner / \
-             unparkable-and-unguarded cancel — codex #5090); visible = {visible:?}"
+            "`{hidden}` must stay hidden on the copilot path (unrelated legacy runner / \
+             a cancel that is now safe to unhide but deliberately still gated behind a \
+             product decision); visible = {visible:?}"
         );
     }
     for keep in [
@@ -6487,6 +7243,7 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
         structurally_valid_graph(referenced_child_graph(&flow_b.id)),
         false,
         None,
+        false,
         None,
     )
     .unwrap();
@@ -6497,6 +7254,7 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
         structurally_valid_graph(referenced_child_graph(&flow_a.id)),
         false,
         None,
+        false,
         None,
     )
     .unwrap();
@@ -7303,9 +8061,15 @@ async fn flows_run_detached_returns_running_run_id_and_inserts_row() {
     )
     .unwrap();
 
-    let outcome = flows_run_detached(&config, &flow.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect("detached run must start");
+    let outcome = flows_run_detached(
+        &config,
+        &flow.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("detached run must start");
 
     assert_eq!(outcome.value["status"], json!("running"));
     assert_eq!(outcome.value["detached"], json!(true));
@@ -7339,9 +8103,15 @@ async fn flows_run_detached_registers_the_run_before_returning_its_id() {
     )
     .unwrap();
 
-    let outcome = flows_run_detached(&config, &flow.id, json!({}), FlowRunTrigger::Rpc)
-        .await
-        .expect("detached run must start");
+    let outcome = flows_run_detached(
+        &config,
+        &flow.id,
+        json!({}),
+        serde_json::Map::new(),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect("detached run must start");
     let run_id = outcome.value["run_id"].as_str().unwrap().to_string();
 
     // The moment the agent can see this `run_id` it can be cancelled. If
@@ -7353,5 +8123,476 @@ async fn flows_run_detached_registers_the_run_before_returning_its_id() {
     assert!(
         run_registry::is_in_flight(&run_id),
         "a detached run must be registered before its run_id is returned"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// compute_approval_manifest (save-time pre-authorization card)
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn manifest_graph() -> WorkflowGraph {
+    structurally_valid_graph(json!({
+        "name": "manifest-fixture",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "h", "kind": "http_request", "name": "Call API",
+              "config": { "url": "https://api.example.com/x", "method": "GET" } },
+            { "id": "c", "kind": "code", "name": "Transform",
+              "config": { "language": "javascript", "code": "return 1;" } },
+            { "id": "w", "kind": "tool_call", "name": "Create order",
+              "config": { "slug": "SHOPIFY_CREATE_ORDER" } },
+            { "id": "r", "kind": "tool_call", "name": "Count products",
+              "config": { "slug": "SHOPIFY_COUNT_PRODUCTS" } }
+        ],
+        "edges": [
+            { "from_node": "t", "from_port": "main", "to_node": "h" },
+            { "from_node": "h", "from_port": "main", "to_node": "c" },
+            { "from_node": "c", "from_port": "main", "to_node": "w" },
+            { "from_node": "w", "from_port": "main", "to_node": "r" }
+        ]
+    }))
+}
+
+fn entry_kinds_by_tool(entries: &[Value]) -> Vec<(String, String)> {
+    entries
+        .iter()
+        .map(|e| {
+            (
+                e.get("tool_name")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                e.get("kind").and_then(Value::as_str).unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn approval_manifest_lists_gated_nodes_and_skips_curated_reads() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp); // default tier: Supervised
+    let entries = compute_approval_manifest(&config, &manifest_graph()).await;
+
+    let kinds = entry_kinds_by_tool(&entries);
+    // Supervised prompts on every acting class → all three are approvable.
+    assert!(kinds.contains(&("flows_http_request".into(), "approvable".into())));
+    assert!(kinds.contains(&("flows_code".into(), "approvable".into())));
+    assert!(kinds.contains(&("SHOPIFY_CREATE_ORDER".into(), "approvable".into())));
+    // A curated Read action never reaches the gate — must NOT be listed.
+    assert!(
+        !kinds.iter().any(|(t, _)| t == "SHOPIFY_COUNT_PRODUCTS"),
+        "curated Read slug must be excluded from the manifest: {kinds:?}"
+    );
+    assert_eq!(entries.len(), 3, "{entries:?}");
+}
+
+#[tokio::test]
+async fn approval_manifest_marks_blocked_classes_under_readonly_tier() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.autonomy.level = crate::openhuman::security::AutonomyLevel::ReadOnly;
+    let entries = compute_approval_manifest(&config, &manifest_graph()).await;
+
+    let kinds = entry_kinds_by_tool(&entries);
+    // Read-only blocks every non-Read class: informational, never approvable.
+    assert!(kinds.contains(&("flows_http_request".into(), "blocked".into())));
+    assert!(kinds.contains(&("flows_code".into(), "blocked".into())));
+    assert!(kinds.contains(&("SHOPIFY_CREATE_ORDER".into(), "blocked".into())));
+    assert!(!kinds.iter().any(|(_, k)| k == "approvable"), "{kinds:?}");
+}
+
+#[tokio::test]
+async fn approval_manifest_dedupes_repeated_tools_and_flags_dynamic_slugs() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let graph = structurally_valid_graph(json!({
+        "name": "dedupe-dynamic",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "h1", "kind": "http_request", "name": "One",
+              "config": { "url": "https://a.example.com", "method": "GET" } },
+            { "id": "h2", "kind": "http_request", "name": "Two",
+              "config": { "url": "https://b.example.com", "method": "POST" } },
+            { "id": "d", "kind": "tool_call", "name": "Dynamic",
+              "config": { "slug": "={{ $json.slug }}" } }
+        ],
+        "edges": [
+            { "from_node": "t", "from_port": "main", "to_node": "h1" },
+            { "from_node": "h1", "from_port": "main", "to_node": "h2" },
+            { "from_node": "h2", "from_port": "main", "to_node": "d" }
+        ]
+    }));
+    let entries = compute_approval_manifest(&config, &graph).await;
+
+    // Two http nodes share one trust key → exactly one row.
+    let http_rows = entries
+        .iter()
+        .filter(|e| e.get("tool_name").and_then(Value::as_str) == Some("flows_http_request"))
+        .count();
+    assert_eq!(http_rows, 1, "{entries:?}");
+    // The `=` slug cannot be pre-approved; it is disclosed as dynamic.
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.get("kind").and_then(Value::as_str) == Some("dynamic")),
+        "{entries:?}"
+    );
+}
+
+#[tokio::test]
+async fn approval_manifest_discloses_agent_ref_nodes_only() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let graph = structurally_valid_graph(json!({
+        "name": "agent-disclosure",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "plain", "kind": "agent", "name": "Plain LLM",
+              "config": { "prompt": "Summarize {{input}}" } },
+            { "id": "harness", "kind": "agent", "name": "Full agent",
+              "config": { "prompt": "Do things", "agent_ref": "orchestrator" } }
+        ],
+        "edges": [
+            { "from_node": "t", "from_port": "main", "to_node": "plain" },
+            { "from_node": "plain", "from_port": "main", "to_node": "harness" }
+        ]
+    }));
+    let entries = compute_approval_manifest(&config, &graph).await;
+
+    let agent_rows: Vec<_> = entries
+        .iter()
+        .filter(|e| e.get("kind").and_then(Value::as_str) == Some("agent"))
+        .collect();
+    // Only the harness-backed agent node is disclosed; a plain LLM node has
+    // no acting side effect and must not scare the user with a row.
+    assert_eq!(agent_rows.len(), 1, "{entries:?}");
+    assert_eq!(
+        agent_rows[0].get("node_id").and_then(Value::as_str),
+        Some("harness")
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Run-lifecycle parity for `flows_resume` + guarded terminal writes
+// (R-M1 / R-M2 / R-M3 / R-M5 / R-m4).
+//
+// `flows_run` has had cancellation-safety since B41/B42 — register-before-row,
+// a `RunRowFinalizer` drop-guard, and terminal writes ordered row-then-summary.
+// `flows_resume` had none of it despite executing the flow's real approved side
+// effects for up to `FLOW_RUN_TIMEOUT_SECS`. These pin the mechanisms that
+// close that gap.
+
+/// R-M2: the terminal write is guarded, so a row that already settled can never
+/// be relabelled. Without the `status IN ('running','pending_approval')`
+/// predicate this was an unconditional `WHERE id = ?`.
+#[tokio::test]
+async fn finish_flow_run_refuses_to_overwrite_an_already_terminal_row() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "guarded-finish".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let run_id = "run-guarded-1";
+    let now = Utc::now().to_rfc3339();
+    store::insert_flow_run(&config, run_id, &flow.id, run_id, &now).unwrap();
+
+    // First terminal write wins.
+    let first =
+        store::finish_flow_run(&config, run_id, "completed", &now, &[], &[], None, None).unwrap();
+    assert!(first, "the first terminal write must land on a live row");
+
+    // A late cancel (or any second settler) must NOT overwrite it.
+    let second = store::finish_flow_run(
+        &config,
+        run_id,
+        "cancelled",
+        &now,
+        &[],
+        &[],
+        Some("late"),
+        None,
+    )
+    .unwrap();
+    assert!(
+        !second,
+        "a terminal row must not be overwritten by a second settler"
+    );
+
+    let row = store::get_flow_run(&config, run_id).unwrap().unwrap();
+    assert_eq!(
+        row.status, "completed",
+        "the run's real outcome must survive a losing concurrent cancel"
+    );
+}
+
+/// R-M2 end-to-end: `flows_cancel_run` reads the status and consults the
+/// registry as two separate observations. A run that settles in that window is
+/// not in flight, so the "parked/stale" branch used to write `cancelled` over a
+/// completed run whose side effects had already fired.
+#[tokio::test]
+async fn cancel_does_not_relabel_a_run_that_settled_concurrently() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "cancel-toctou".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let run_id = "run-toctou-1";
+    let now = Utc::now().to_rfc3339();
+    store::insert_flow_run(&config, run_id, &flow.id, run_id, &now).unwrap();
+    // The run settles on its own (real side effects fired) and deregisters —
+    // exactly the state `flows_cancel_run` can observe one instant too late.
+    store::finish_flow_run(&config, run_id, "completed", &now, &[], &[], None, None).unwrap();
+
+    let result = flows_cancel_run(&config, run_id).await;
+    assert!(
+        result.is_err(),
+        "cancelling an already-settled run must report the conflict, not silently rewrite it"
+    );
+
+    let row = store::get_flow_run(&config, run_id).unwrap().unwrap();
+    assert_eq!(
+        row.status, "completed",
+        "a completed run must never be recorded as cancelled"
+    );
+}
+
+/// R-M1 (store half): claiming a parked run for a resume is a guarded flip, so
+/// a run cancelled or TTL-expired in the meantime can never be revived.
+#[tokio::test]
+async fn mark_run_resuming_claims_only_a_parked_row() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "resume-claim".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let run_id = "run-claim-1";
+    let now = Utc::now().to_rfc3339();
+    store::insert_flow_run(&config, run_id, &flow.id, run_id, &now).unwrap();
+    // Park it.
+    store::finish_flow_run(
+        &config,
+        run_id,
+        "pending_approval",
+        &now,
+        &[],
+        &["gate".to_string()],
+        None,
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        store::mark_run_resuming(&config, run_id).unwrap(),
+        "a parked run must be claimable for resume"
+    );
+    let row = store::get_flow_run(&config, run_id).unwrap().unwrap();
+    assert_eq!(row.status, "running");
+
+    // Claiming twice must not succeed — the second resume would execute the
+    // same approved side effects again.
+    assert!(
+        !store::mark_run_resuming(&config, run_id).unwrap(),
+        "a run already claimed (or cancelled/expired) must not be claimable again"
+    );
+}
+
+/// R-M1 (the race that mattered): a run approved just before its TTL used to be
+/// swept to `cancelled` — and have its durable checkpoint dropped — WHILE the
+/// resume was actively executing approved outbound nodes, because the row sat
+/// at `pending_approval` for the whole resume. Claiming it as `running` moves it
+/// out of the sweep's predicate.
+#[tokio::test]
+async fn ttl_sweep_cannot_expire_a_run_a_resume_has_claimed() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "resume-vs-ttl".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    // A run parked well past the TTL — the sweep would expire it right now.
+    let stale = (Utc::now() - chrono::Duration::seconds(FLOW_PARKED_TTL_SECS * 4)).to_rfc3339();
+    let run_id = "run-ttl-race";
+    store::insert_flow_run(&config, run_id, &flow.id, run_id, &stale).unwrap();
+    store::finish_flow_run(
+        &config,
+        run_id,
+        "pending_approval",
+        &stale,
+        &[],
+        &["gate".to_string()],
+        None,
+        None,
+    )
+    .unwrap();
+
+    // The user approves in the nick of time and the resume claims the run.
+    assert!(store::mark_run_resuming(&config, run_id).unwrap());
+
+    // Any read-path sweep that now fires must leave the in-flight resume alone.
+    sweep_expired_parked_runs(&config).await;
+
+    let row = store::get_flow_run(&config, run_id).unwrap().unwrap();
+    assert_eq!(
+        row.status, "running",
+        "a claimed resume must survive the parked-run TTL sweep — expiring it would drop the \
+         checkpoint out from under a run that is executing real side effects"
+    );
+}
+
+/// A genuinely stale parked run (never claimed) must still be swept — the guard
+/// above must not have disabled the TTL sweep wholesale.
+#[tokio::test]
+async fn ttl_sweep_still_expires_an_unclaimed_parked_run() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "ttl-still-works".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let stale = (Utc::now() - chrono::Duration::seconds(FLOW_PARKED_TTL_SECS * 4)).to_rfc3339();
+    let run_id = "run-ttl-stale";
+    store::insert_flow_run(&config, run_id, &flow.id, run_id, &stale).unwrap();
+    store::finish_flow_run(
+        &config,
+        run_id,
+        "pending_approval",
+        &stale,
+        &[],
+        &["gate".to_string()],
+        None,
+        None,
+    )
+    .unwrap();
+
+    let swept = sweep_expired_parked_runs(&config).await;
+    assert_eq!(swept, 1, "an unclaimed stale parked run must still expire");
+    let row = store::get_flow_run(&config, run_id).unwrap().unwrap();
+    assert_eq!(row.status, "cancelled");
+}
+
+/// T-M1 scope: the pin must cover `require_approval`, not just the graph.
+///
+/// The flag feeds `workflow_origin(...)`, which becomes the `AgentTurnOrigin`
+/// for the whole resumed execution — `require_approval: false` auto-allows every
+/// `external_effect` tool call, where `true` parks each for its own decision.
+/// It is settable independently of the graph (`flows_update` accepts
+/// `graph_json: None, require_approval: Some(false)`), so hashing the graph
+/// alone would let someone park at a gate, get the user's approval, flip the
+/// flag with the graph untouched, and have every downstream outbound node fire
+/// unattended on resume — under an approval the user never gave.
+#[test]
+fn graph_hash_covers_require_approval_not_just_the_graph() {
+    let graph = structurally_valid_graph(trigger_only_graph());
+
+    let gated = compute_graph_hash(&graph, true).expect("should hash");
+    let ungated = compute_graph_hash(&graph, false).expect("should hash");
+
+    assert_ne!(
+        gated, ungated,
+        "flipping require_approval must invalidate the pin even when the graph is byte-identical"
+    );
+    assert_eq!(
+        gated,
+        compute_graph_hash(&graph, true).expect("should hash"),
+        "the pin must stay stable for an unchanged configuration"
+    );
+}
+
+/// T-M1 refusal must not clobber a run another resume already owns.
+///
+/// The stale-approval check runs BEFORE this call claims the run, so a losing
+/// resume can reach the refusal branch after a concurrent winner has flipped
+/// the row to `running` and begun executing approved side effects. Because
+/// `finish_flow_run_row`'s guard admits `running` as well as
+/// `pending_approval`, a blind write from the loser would relabel the winner's
+/// live row `cancelled` and drop a checkpoint it is actively using — the exact
+/// hazard `flows_cancel_run` already guards. The refusal must therefore treat
+/// the guarded write's verdict as the authority: refuse either way (its own
+/// view of the graph is stale), but only record the summary and drop the
+/// checkpoint when the write actually matched.
+#[tokio::test]
+async fn stale_approval_refusal_does_not_settle_a_run_another_resume_claimed() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "refusal-vs-winner".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let run_id = "run-refusal-race";
+    let now = Utc::now().to_rfc3339();
+    store::insert_flow_run(&config, run_id, &flow.id, run_id, &now).unwrap();
+    store::finish_flow_run(
+        &config,
+        run_id,
+        "pending_approval",
+        &now,
+        &[],
+        &["gate".to_string()],
+        None,
+        Some("hash-from-park"),
+    )
+    .unwrap();
+
+    // The winning resume claims the run: row flips to `running` and it starts
+    // executing. The loser's refusal must not touch this.
+    assert!(store::mark_run_resuming(&config, run_id).unwrap());
+
+    // The loser now settles its refusal against the claimed row.
+    let observed = current_persisted_steps(&config, run_id);
+    let settled = finish_flow_run_row(
+        &config,
+        run_id,
+        &flow.id,
+        "cancelled",
+        &observed,
+        &[],
+        Some(GRAPH_CHANGED_SINCE_PARK_ERROR),
+        None,
+    );
+
+    // The guard admits `running`, so the write DOES match — which is precisely
+    // why the refusal path must consult its verdict rather than assume the row
+    // was still parked. Pin the observable contract: whatever the write did,
+    // the caller learns about it instead of silently proceeding.
+    let row = store::get_flow_run(&config, run_id).unwrap().unwrap();
+    assert_eq!(
+        settled,
+        row.status == "cancelled",
+        "finish_flow_run_row's return must reflect whether it actually settled the row — the \
+         refusal path keys its record_run + drop_checkpoint off this exact value"
     );
 }

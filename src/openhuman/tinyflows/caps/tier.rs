@@ -37,6 +37,12 @@ use crate::openhuman::config::Config;
 /// would otherwise silently override the tier's `Prompt` decision). The error
 /// is prefixed with [`POLICY_BLOCKED_MARKER`] so the harness's repeated-failure
 /// middleware recognizes it as a permanent, don't-retry refusal.
+///
+/// `pub(crate)` (not `http_request`/`code`-private): the `memory` node's
+/// [`OpenHumanMemory`](super::super::memory_adapter::OpenHumanMemory) adapter
+/// reuses this exact function — `CommandClass::Read` for
+/// recall/search/flavour/people, `CommandClass::Write` for remember/forget —
+/// rather than growing a second permission path for the new node kind.
 pub(crate) fn enforce_node_tier_gate(
     security: &SecurityPolicy,
     class: CommandClass,

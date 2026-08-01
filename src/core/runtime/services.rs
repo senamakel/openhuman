@@ -416,19 +416,20 @@ fn spawn_mcp_reconnect_supervisor(config: Config) {
 pub fn spawn_socket_auto_connect(
     services: ServiceSet,
     socket_mgr: std::sync::Arc<crate::openhuman::socket::SocketManager>,
+    _flows_enabled: bool,
 ) {
     if services.socketio {
         tokio::spawn(async move {
             log::info!("[socket] Checking for stored session to auto-connect...");
             let config = match Config::load_or_init().await {
-                Ok(c) => c,
+                Ok(c) => std::sync::Arc::new(c),
                 Err(e) => {
                     log::debug!("[socket] Config not available for auto-connect: {e}");
                     return;
                 }
             };
             let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-            let token = match crate::api::jwt::get_session_token(&config) {
+            let _initial_token = match crate::api::jwt::get_session_token(&config) {
                 Ok(Some(t)) => t,
                 Ok(None) => {
                     log::info!(
@@ -445,7 +446,22 @@ pub fn spawn_socket_auto_connect(
                 "[socket] Session token found — auto-connecting to {}",
                 api_url
             );
-            if let Err(e) = socket_mgr.connect(&api_url, &token).await {
+            // Keep the authenticated token and user-scoped workflow bridge in
+            // one serialized identity transaction. The active profile may have
+            // changed since CoreRuntime::build(), so the build-time Config is
+            // not authoritative here.
+            let _rebind = socket_mgr.lock_identity_rebind().await;
+            if let Err(e) = socket_mgr.disconnect().await {
+                log::error!("[socket] Auto-connect could not stop the prior connection: {e}");
+                return;
+            }
+            #[cfg(feature = "flows")]
+            if _flows_enabled {
+                crate::openhuman::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
+            }
+            let provider =
+                crate::openhuman::socket::token_provider::token_provider_from_config(config);
+            if let Err(e) = socket_mgr.connect_with_provider(&api_url, provider).await {
                 log::error!("[socket] Auto-connect failed: {e}");
             } else {
                 log::info!("[socket] Auto-connect initiated successfully");

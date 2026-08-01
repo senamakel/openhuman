@@ -163,6 +163,7 @@ pub(super) async fn ws_loop(
         // session-expired escalation below — not just explicit
         // `SocketManager::disconnect()` (CodeRabbit #4355).
         shared.ack_registry.cancel_all();
+        super::medulla::workflows::end_connection_generation();
 
         match outcome {
             ConnectionOutcome::Shutdown => {
@@ -720,6 +721,7 @@ fn handle_sio_packet(
         b'1' => {
             // Socket.IO DISCONNECT
             log::info!("[socket] SIO DISCONNECT from server");
+            super::medulla::workflows::end_connection_generation();
             *shared.status.write() = ConnectionStatus::Disconnected;
             *shared.socket_id.write() = None;
             emit_state_change(shared);

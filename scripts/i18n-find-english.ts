@@ -58,6 +58,7 @@ const INTENTIONAL_ENGLISH = new Set([
   "conversations.backgroundTasks.cronSchedCron", // Cron expression label; Cron is the scheduler name
   "composio.integrationSlugsExample",
   "composio.integrationSlugsPlaceholder",
+  "settings.ai.deploymentNamePlaceholder", // Example Azure deployment id; an identifier, not prose
   "devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny",
   "intelligence.agents.subagentCountOne",
   "intelligence.diagram.skillInstallCommand",
@@ -92,6 +93,8 @@ const INTENTIONAL_ENGLISH = new Set([
   "settings.sandbox.backend.landlock",
   "settings.search.allowedSitesPlaceholder",
   "settings.search.engineBraveLabel",
+  "flows.nodeSummary.agent.withPrompt", // "“{prompt}” · {model}" — quoted prompt + model id; only the quote glyph varies per locale, no prose to translate
+  "flows.nodeSummary.http.withUrl", // "{method} {url}" — HTTP method + URL are literal, untranslatable data
   "settings.taskSources.name",
   "skills.create.allowedToolsPlaceholder",
   "skills.create.optional",

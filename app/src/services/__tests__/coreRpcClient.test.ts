@@ -705,6 +705,10 @@ describe('classifyRpcError', () => {
     ['no backend session token; run auth_store_session first', undefined, 'auth_expired'],
     ['NO BACKEND SESSION TOKEN', undefined, 'auth_expired'],
     ['HTTP 429 rate-limit exceeded', undefined, 'rate_limited'],
+    // #5157 verbatim from Sentry (CORE-RUST-1PY) — the running core does not
+    // expose the method. Permanent, so pollers must be able to stop.
+    ['unknown method: openhuman.harness_init_status', undefined, 'method_not_found'],
+    ['unknown method: openhuman.memory_tree_create_namespace', undefined, 'method_not_found'],
     ['Budget exceeded for current period', undefined, 'budget_exceeded'],
     ['Insufficient budget for request', undefined, 'budget_exceeded'],
     ['error sending request for url', undefined, 'transport'],
@@ -750,6 +754,16 @@ describe('classifyRpcError', () => {
 
   test('http status 429 wins over message text', () => {
     expect(classifyRpcError('anything', 429)).toBe('rate_limited');
+  });
+
+  test('unknown-method match is prefix-anchored, mirroring the Rust strip_prefix', () => {
+    // `dispatch::unknown_method_name` classifies with `strip_prefix`, so the
+    // frontend anchors identically — a nested/quoted occurrence is not the
+    // core telling us *this* call's method is absent.
+    expect(classifyRpcError('unknown method: openhuman.harness_init_status')).toBe(
+      'method_not_found'
+    );
+    expect(classifyRpcError('tool failed: unknown method: openhuman.foo_bar')).toBe('unknown');
   });
 
   test('structured ThreadNotFound data wins over message text', () => {

@@ -13,6 +13,8 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   285/6  2026-08-02  merge origin/main (+5). Main's 43cc1b474 brought in new
+#                      dependencies. Updated floor to reflect merged state.
 #   280/6  2026-08-02  tinychannels provider gating (-28). Gated the two heavy
 #                      PROVIDERS inside the vendored crate (`email` = lettre/
 #                      async-imap/mail-parser, `lark` = axum/prost) rather than
@@ -44,4 +46,4 @@
 #                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
 #                      lzma-sys ring. Target after gating is 222 names / 2 native
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
-flows:280:6
+flows:285:6

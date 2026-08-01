@@ -705,3 +705,56 @@ async fn thread_update_title_returns_error_for_missing_thread() {
         "error must describe the update-title failure, got: {err}"
     );
 }
+
+/// Review follow-up on #5282: moving the conversation store onto the blocking
+/// pool put an `.await` between a destructive store mutation and the cleanup
+/// that has to follow it (web-session invalidation, sub-agent cancellation,
+/// turn-snapshot deletion).
+///
+/// `spawn_blocking` work is never cancelled by dropping its `JoinHandle`, so a
+/// caller that goes away in that window — client disconnect, RPC timeout —
+/// used to leave the thread deleted from the store while every one of those
+/// cleanup steps was skipped. `run_to_completion` owns the mutation *and* the
+/// cleanup in one spawned task, so the tail runs regardless of the caller.
+#[tokio::test]
+async fn run_to_completion_runs_the_tail_after_the_caller_is_dropped() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let tail_ran = Arc::new(AtomicBool::new(false));
+    let flag = Arc::clone(&tail_ran);
+    let (release, parked) = tokio::sync::oneshot::channel::<()>();
+
+    let mut call = Box::pin(run_to_completion("test_destructive_op", async move {
+        // Stands in for the blocking store mutation still in progress.
+        let _ = parked.await;
+        // Stands in for the cleanup that must never be skipped.
+        flag.store(true, Ordering::SeqCst);
+        Ok::<(), String>(())
+    }));
+
+    // Poll once so the inner task is spawned, then abandon the caller — exactly
+    // what dropping the RPC future does.
+    tokio::select! {
+        biased;
+        _ = &mut call => panic!("the inner task should still be parked"),
+        _ = tokio::task::yield_now() => {}
+    }
+    drop(call);
+
+    assert!(
+        !tail_ran.load(Ordering::SeqCst),
+        "the tail must not have run before the mutation completed"
+    );
+
+    // The store mutation finishes after the caller is already gone.
+    release.send(()).expect("release the parked task");
+
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while !tail_ran.load(Ordering::SeqCst) {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("cleanup must still run after the caller's future was dropped");
+}

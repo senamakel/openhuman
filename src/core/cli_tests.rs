@@ -4,10 +4,7 @@ use super::{
 };
 use crate::core::types::HostKind;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
-use std::sync::{Mutex, OnceLock};
 use tempfile::tempdir;
-
-static CLI_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 #[test]
 fn bare_cli_auto_launches_tui_only_for_interactive_non_container_hosts() {
@@ -79,11 +76,11 @@ fn no_tui_is_stripped_before_normal_cli_dispatch() {
     assert_eq!(strip_no_tui(&ordinary), ordinary.as_slice());
 }
 
+/// Serialises env-mutating CLI tests via the crate-wide backend env lock —
+/// these tests set `BACKEND_URL`, which `api::config` and `medulla::ops`
+/// tests also read/remove, so a module-local lock is not enough.
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    CLI_ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    crate::api::config::backend_env_test_lock()
 }
 
 #[test]

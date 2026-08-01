@@ -3,7 +3,7 @@
 //! Forwards sanitized orchestration events (`POST /orchestration/v1/events`) and
 //! world-diff batches (`POST /orchestration/v1/world-diff`) to the hosted brain,
 //! which runs the wake/reasoning graph server-side, and reads back
-//! sessions / messages / steering (`GET /orchestration/v1/*`). Forwarding is
+//! sessions / messages (`GET /orchestration/v1/*`). Forwarding is
 //! best-effort and fire-and-forget, so it never blocks or fails ingest.
 //!
 //! Auth + base-URL plumbing mirrors the other hosted-API adapters
@@ -163,7 +163,7 @@ pub async fn push_world_diff_with(
 }
 
 // ── Hosted read surface (GET) ─────────────────────────────────────────────────
-// The renderer reads session / message / state / steering / world-diff state
+// The renderer reads session / message / state / world-diff state
 // from the hosted brain over these routes. Each returns the unwrapped `data`
 // payload (`BackendOAuthClient` strips the `{success,data}` envelope). Callers
 // fall back to the local render cache on `Err` and surface an offline notice.
@@ -171,13 +171,12 @@ pub async fn push_world_diff_with(
 // needs to special-case dedupe.
 
 const SESSIONS_PATH: &str = "/orchestration/v1/sessions";
-const STEERING_PATH: &str = "/orchestration/v1/steering";
 
 /// A session token + backend client resolved once and reused across every GET in a
 /// single sync read pass. `sync_reads` issues `fetch_sessions` + up to
-/// `MAX_SESSIONS_PER_SYNC` `fetch_messages` + `fetch_steering` per 20s tick, so
-/// rebuilding the client (and re-loading the session profile) per GET would repeat
-/// the profile lookup and discard the reqwest connection pool on every request.
+/// `MAX_SESSIONS_PER_SYNC` `fetch_messages` per 20s tick, so rebuilding the client
+/// (and re-loading the session profile) per GET would repeat the profile lookup and
+/// discard the reqwest connection pool on every request.
 /// Resolve it once with [`read_pass`] and thread it through the pass.
 pub struct ReadPass {
     client: BackendOAuthClient,
@@ -215,12 +214,6 @@ impl ReadPass {
             path.push_str(&format!("?after={after}"));
         }
         self.authed_get(path, "messages").await
-    }
-
-    /// GET the current steering directive + recent history →
-    /// `{ active: { directive, consumedCycles, maxCycles } | null, history: [{ directive, createdAt? }] }`.
-    pub async fn fetch_steering(&self) -> Result<Value, String> {
-        self.authed_get(STEERING_PATH.to_string(), "steering").await
     }
 
     /// Shared authed GET → unwrapped `data`, reusing this pass's token + client.

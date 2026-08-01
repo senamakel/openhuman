@@ -55,7 +55,7 @@ use tokio::sync::mpsc;
 
 use crate::openhuman::config::{rpc as config_rpc, Config};
 use crate::openhuman::memory::ingest_pipeline::ingest_document_with_scope;
-use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
+use tinycortex::memory::ingest::canonicalize::document::DocumentInput;
 use crate::openhuman::memory_sync::workspace::watcher::state::WatcherStateStore;
 use crate::openhuman::scheduler_gate::gate::current_policy;
 use crate::openhuman::scheduler_gate::policy::PauseReason;

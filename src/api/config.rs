@@ -714,6 +714,22 @@ fn host_is_local(parsed: &url::Url) -> bool {
     }
 }
 
+/// Process-global mutex serialising every test in this crate that mutates the
+/// backend env vars (`BACKEND_URL` / `VITE_BACKEND_URL` / app-env overrides).
+/// `std::env` is process-global, so a module-local lock cannot prevent
+/// cross-module races: `api::config`, `core::cli_tests`, and `medulla::ops`
+/// tests all mutate the same vars from parallel test threads, and under the
+/// full-suite coverage lane that race reliably broke `medulla`'s
+/// "unconfigured" assertions. Every env-mutating test must take THIS lock.
+#[cfg(test)]
+pub(crate) fn backend_env_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    use std::sync::{Mutex, OnceLock};
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(Mutex::default)
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -724,16 +740,11 @@ mod tests {
 
     // ── Test infrastructure ───────────────────────────────────────────────────
 
-    /// Global mutex that serialises all env-mutating tests.
-    /// `std::env` is process-global; without serialisation, parallel test
-    /// threads race on `set_var` / `remove_var` and produce flaky failures.
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
+    /// Serialises all env-mutating tests via the crate-wide backend env lock
+    /// (see [`super::backend_env_test_lock`]) — module-local locks cannot
+    /// stop other modules' tests from racing on the same process globals.
     fn env_lock() -> MutexGuard<'static, ()> {
-        match ENV_LOCK.get_or_init(Mutex::default).lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(), // recover from a poisoned lock
-        }
+        super::backend_env_test_lock()
     }
 
     /// RAII guard that captures the current values of the four backend env

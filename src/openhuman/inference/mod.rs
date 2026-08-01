@@ -36,6 +36,7 @@ mod schemas;
 pub mod sentiment;
 pub mod temperature;
 pub mod types;
+pub mod vision_models;
 pub mod voice;
 
 pub use ops as rpc;

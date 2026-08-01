@@ -10,7 +10,7 @@
 //! - [`cloud`]: the hosted uplink (`POST events`/`world-diff`) + read surface (`GET …`).
 //! - [`effect_executor`]: runs `send_dm` / `evict` / `tool_call` effects the brain pushes.
 //! - [`world_diff_uploader`] / [`world_model`]: device world-observations → subconscious tier.
-//! - [`sync`]: hosted reachability + steering cache for the status/offline surface.
+//! - [`sync`]: hosted reachability for the status/offline surface.
 //! - [`migrate_history`]: one-shot first-login import of local history to the brain.
 
 pub mod attention;

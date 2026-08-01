@@ -1312,6 +1312,35 @@ impl ApprovalGate {
         store::is_flow_tool_trusted(&self.config, flow_id, tool_name)
     }
 
+    /// Every `tool_name` currently trusted for `flow_id`, sorted. Consumed by
+    /// `flows_approval_manifest` to diff the graph's required permissions
+    /// against grants that already exist (re-save asks only for what's new).
+    pub fn list_flow_trust(&self, flow_id: &str) -> anyhow::Result<Vec<String>> {
+        store::list_flow_trust(&self.config, flow_id)
+    }
+
+    /// Revoke flow trust: all grants for `flow_id` when `tool_names` is
+    /// `None` (flow deletion cleanup), or only the named grants. Returns the
+    /// number of rows removed.
+    pub fn delete_flow_trust(
+        &self,
+        flow_id: &str,
+        tool_names: Option<&[String]>,
+    ) -> anyhow::Result<usize> {
+        store::delete_flow_trust(&self.config, flow_id, tool_names)
+    }
+
+    /// Write the durable audit record for one save-time pre-authorization
+    /// grant (a born-decided `approve_always_for_flow` row) so blanket
+    /// grants stay inspectable in Settings → Approval history.
+    pub fn record_flow_preauthorization(
+        &self,
+        flow_id: &str,
+        tool_name: &str,
+    ) -> anyhow::Result<()> {
+        store::record_flow_preauthorization(&self.config, flow_id, tool_name, &self.session_id)
+    }
+
     /// Return the session id this gate was installed with (used by
     /// RPC handlers for diagnostics).
     pub fn session_id(&self) -> &str {
@@ -2219,6 +2248,41 @@ mod tests {
         match outcome {
             GateOutcome::Deny { reason } => assert!(reason.contains("timed out")),
             other => panic!("expected deny, got {other:?}"),
+        }
+    }
+
+    /// T-M3 (flows `cancel_flow_run`): the gate has no special-casing per tool
+    /// name — any call intercepted under a chat origin/context with no
+    /// matching auto-allowlist entry parks and, absent a human decision,
+    /// times out to `Deny` rather than executing. This pins that
+    /// `cancel_flow_run` — now that `builder_tools::CancelFlowRunTool`
+    /// reports `external_effect() == true` (T-M3) so
+    /// `ApprovalSecurityMiddleware` routes it through exactly this call —
+    /// genuinely parks for a real approval decision instead of running
+    /// unapproved, mirroring `timeout_returns_deny` above.
+    #[tokio::test]
+    async fn cancel_flow_run_parks_for_approval_when_a_gate_is_present() {
+        let (gate, _dir) = test_gate(); // TTL = 500ms
+        let gate = Arc::new(gate);
+        let outcome = turn_origin::with_origin(
+            web_origin(),
+            APPROVAL_CHAT_CONTEXT.scope(
+                chat_ctx(),
+                gate.intercept(
+                    "cancel_flow_run",
+                    "cancel run r-1 of flow f-1",
+                    serde_json::json!({ "flow_id": "f-1", "run_id": "r-1" }),
+                ),
+            ),
+        )
+        .await;
+        // No decision ever arrives — the call must NOT auto-execute. It
+        // parks until the gate's TTL elapses, then denies (never `Allow`).
+        match outcome {
+            GateOutcome::Deny { reason } => assert!(reason.contains("timed out")),
+            other => panic!(
+                "expected the parked cancel_flow_run call to time out to Deny, got {other:?}"
+            ),
         }
     }
 

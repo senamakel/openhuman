@@ -113,6 +113,15 @@ describe('FlowRunsSidebar', () => {
     expect(badge).not.toHaveClass('px-1.5');
   });
 
+  it('falls back to a humanized label instead of "undefined" for an unrecognized status (F-m8)', async () => {
+    listFlowRuns.mockResolvedValue([makeRun({ status: 'archived' as FlowRun['status'] })]);
+    renderSidebar();
+
+    const row = await screen.findByTestId('flow-runs-sidebar-run-run-1');
+    expect(row).toHaveTextContent('archived');
+    expect(row).not.toHaveTextContent('undefined');
+  });
+
   it('passes onFixWithAgent through to the run inspector drawer', async () => {
     listFlowRuns.mockResolvedValue([makeRun()]);
     renderSidebar();

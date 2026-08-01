@@ -7,12 +7,19 @@
 //! - [`TracingRunObserver`] — log-only, for `run_with_observer` call sites and
 //!   as a simple example.
 //! - [`FlowRunObserver`] — the real one used by the durable run path (issue
-//!   G2, live run observation). As each non-trigger node finishes it (1)
+//!   G2, live run observation). It publishes a [`DomainEvent::FlowRunProgress`]
+//!   twice per non-trigger node — `running` when the node activates, then its
+//!   terminal `success`/`error` when it finishes — so the frontend socket
+//!   bridge can stream the run advancing node-by-node. On finish it also
 //!   persists a [`FlowRunStep`] incrementally into the run's `flow_runs` row
-//!   via `flows::store::upsert_flow_run_step` and (2) publishes a
-//!   [`DomainEvent::FlowRunProgress`] so the frontend socket bridge can stream
-//!   the run advancing node-by-node. Both effects are best-effort: a step that
-//!   fails to persist is logged, never fatal to the run.
+//!   via `flows::store::upsert_flow_run_step`. All effects are best-effort: a
+//!   step that fails to persist is logged, never fatal to the run.
+//!
+//!   The `running` half matters for more than symmetry: the canvas's
+//!   `.flow-node-running` pulse is bound to that status, so while only
+//!   `on_step_finish` was implemented the pulse was unreachable and the live
+//!   overlay rendered as a completion trail — each node gaining a static ring
+//!   only after it had already finished.
 //!
 //! The durable + journaled run path used by `flows_run`/`flows_resume` now
 //! accepts an observer (tinyflows 0.3.1's
@@ -108,6 +115,37 @@ impl RunObserver for FlowRunObserver {
             engine_run_id = %run_id,
             "[flows] observer: run start"
         );
+    }
+
+    /// Announces a node as `running` the moment it activates, so the canvas can
+    /// show what is executing *now* rather than only what has already finished.
+    ///
+    /// Without this the overlay could never do that: `on_step_finish` is the
+    /// only event that ever fired, so the socket only ever carried `success` /
+    /// `failed`, and a node stayed unstyled until it was already done. The
+    /// canvas's `.flow-node-running` pulse (`flow-node-run-pulse`, written for
+    /// exactly this) was therefore unreachable, and the "live run overlay" read
+    /// as a completion trail — nodes acquiring a static ring after the fact.
+    ///
+    /// Publish-only, deliberately: the durable `flow_runs` row stays
+    /// finish-driven. A started-but-unfinished node has no output, duration, or
+    /// terminal status to record, and writing a placeholder row would put a
+    /// `running` step into run history that the post-hoc reconstruction at
+    /// settle would then have to reconcile away. The socket event is ephemeral
+    /// UI state; the row remains the source of truth.
+    fn on_step_start(&self, node_id: &str) {
+        tracing::debug!(
+            target: "flows",
+            flow_id = %self.flow_id,
+            run_id = %self.run_id,
+            node = %node_id,
+            "[flows] observer: step started — publishing FlowRunProgress(running)"
+        );
+        publish_global(DomainEvent::FlowRunProgress {
+            run_id: self.run_id.clone(),
+            node_id: node_id.to_string(),
+            status: "running".to_string(),
+        });
     }
 
     fn on_step_finish(&self, step: &ExecutionStep) {
@@ -219,6 +257,51 @@ mod tests {
     fn step_status_maps_to_stable_strings() {
         assert_eq!(step_status_str(&StepStatus::Success), "success");
         assert_eq!(step_status_str(&StepStatus::Error), "error");
+    }
+
+    /// The canvas's `.flow-node-running` pulse is bound to a `running` status
+    /// that only `on_step_start` can produce. Before it was implemented the
+    /// socket carried nothing but `success`/`failed`, so the pulse was
+    /// unreachable and the "live" overlay was really a completion trail.
+    /// Assert the trait method is actually overridden — a default no-op here
+    /// silently returns the UI to that state with every other test still green.
+    #[test]
+    fn on_step_start_is_implemented_so_the_running_status_can_reach_the_canvas() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        // A probe observer whose `on_step_start` records that the *trait's*
+        // dispatch reached an override rather than the blanket default.
+        struct Probe {
+            started: Arc<AtomicBool>,
+        }
+        impl RunObserver for Probe {
+            fn on_step_start(&self, _node_id: &str) {
+                self.started.store(true, Ordering::SeqCst);
+            }
+        }
+        let started = Arc::new(AtomicBool::new(false));
+        let probe: Box<dyn RunObserver> = Box::new(Probe {
+            started: started.clone(),
+        });
+        probe.on_step_start("n1");
+        assert!(
+            started.load(Ordering::SeqCst),
+            "the engine dispatches on_step_start through the trait object — if this ever \
+             stops holding, FlowRunObserver's override cannot fire either"
+        );
+
+        // And the real observer must override it, not inherit the no-op.
+        let src = include_str!("observability.rs");
+        assert!(
+            src.contains("fn on_step_start(&self, node_id: &str)"),
+            "FlowRunObserver must implement on_step_start — without it no `running` \
+             status is ever published and the canvas pulse is dead code"
+        );
+        assert!(
+            src.contains("status: \"running\".to_string()"),
+            "on_step_start must publish FlowRunProgress with status=running"
+        );
     }
 
     // The end-to-end proof that `FlowRunObserver::on_step_finish` persists each

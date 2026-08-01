@@ -51,12 +51,10 @@ use openhuman_core::openhuman::memory_store::content::raw::{
 };
 use openhuman_core::openhuman::memory_store::trees::store as tree_store;
 use openhuman_core::openhuman::memory_store::trees::types::SUMMARY_FANOUT;
-use openhuman_core::openhuman::memory_sync::sources::audit::read_audit_log;
-use openhuman_core::openhuman::memory_sync::sources::github::run_github_sync;
-use openhuman_core::openhuman::memory_sync::sources::rebuild::{
-    needs_rebuild, rebuild_tree_from_raw,
-};
 use openhuman_core::openhuman::memory_tree::ingest::{ingest_summary, SummaryIngestInput};
+use openhuman_core::openhuman::tinycortex::read_audit_log;
+use openhuman_core::openhuman::tinycortex::run_github_sync;
+use openhuman_core::openhuman::tinycortex::{needs_rebuild, rebuild_tree_from_raw};
 
 // ── Shared harness ────────────────────────────────────────────────────────
 

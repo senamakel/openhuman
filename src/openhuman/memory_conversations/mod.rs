@@ -14,6 +14,7 @@
 //! bridges typed channel events onto the crate store (the crate abstracts the
 //! bus behind its own `ConversationEventBus` trait; the host wires the real one).
 
+pub mod blocking;
 mod bus;
 
 pub use bus::register_conversation_persistence_subscriber;

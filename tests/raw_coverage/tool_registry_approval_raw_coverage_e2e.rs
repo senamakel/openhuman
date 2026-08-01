@@ -1062,7 +1062,8 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
             "list_pending",
             "list_recent_decisions",
             "decide",
-            "get_gate_state"
+            "get_gate_state",
+            "preauthorize_flow"
         ]
     );
     let unknown = openhuman_core::openhuman::approval::schemas::schemas("missing");
@@ -1165,6 +1166,40 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
         .await
         .expect_err("invalid decision")
         .contains("approve_once|approve_always_for_tool|approve_always_for_flow|deny"));
+
+    let preauthorize_handler = controllers
+        .iter()
+        .find(|controller| controller.schema.function == "preauthorize_flow")
+        .expect("preauthorize flow controller")
+        .handler;
+    assert!(preauthorize_handler(Map::new())
+        .await
+        .expect_err("missing flow id")
+        .contains("missing required param 'flow_id'"));
+    let mut missing_tools = Map::new();
+    missing_tools.insert("flow_id".to_string(), json!("flow-1"));
+    assert!(preauthorize_handler(missing_tools)
+        .await
+        .expect_err("missing tool names")
+        .contains("missing required param 'tool_names'"));
+    let mut non_array_tools = Map::new();
+    non_array_tools.insert("flow_id".to_string(), json!("flow-1"));
+    non_array_tools.insert("tool_names".to_string(), json!("slack_post"));
+    assert!(preauthorize_handler(non_array_tools)
+        .await
+        .expect_err("non-array tool names")
+        .contains("expected array of strings"));
+    let mut mixed_tools = Map::new();
+    mixed_tools.insert("flow_id".to_string(), json!("flow-1"));
+    mixed_tools.insert("tool_names".to_string(), json!(["ok", 42]));
+    assert!(preauthorize_handler(mixed_tools)
+        .await
+        .expect_err("non-string tool name entry")
+        .contains("expected string"));
+    // Success-path behavior (gate-absent tolerance, idempotent grants, audit
+    // rows) is pinned by the unit tests in `approval::rpc`/`approval::store`;
+    // asserting it here would be order-dependent on whether a sibling test
+    // already installed the process-global gate.
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

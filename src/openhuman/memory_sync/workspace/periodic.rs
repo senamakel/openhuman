@@ -39,8 +39,8 @@ use crate::openhuman::memory_sources::types::{MemorySourceEntry, SourceKind};
 use crate::openhuman::memory_sync::composio::periodic::{
     connection_is_due, effective_interval_secs, periodic_pause_reason,
 };
-use crate::openhuman::memory_sync::sources::audit::{read_audit_log, SyncAuditEntry};
 use crate::openhuman::scheduler_gate::gate::resume_notify;
+use crate::openhuman::tinycortex::{try_read_audit_log, SyncAuditEntry};
 
 /// How often the scheduler wakes up to look for due syncs. Matches the
 /// Composio loop's cadence — per-source intervals (24h default) bound the
@@ -181,7 +181,12 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         return Ok(());
     };
 
-    let audit_index = index_last_success_by_source_id(&read_audit_log(&config));
+    let (audit_index, audit_available) = workspace_audit_state(try_read_audit_log(&config));
+    if !audit_available {
+        tracing::warn!(
+            "[memory_sync:workspace:periodic] audit unavailable; sources without in-memory cadence will be skipped"
+        );
+    }
     let now = Utc::now();
     let map = fired_map();
 
@@ -190,11 +195,21 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
         .iter()
         .filter(|s| s.enabled && is_workspace_synced_kind(&s.kind))
         .filter(|s| {
-            let since = {
+            let in_memory_since = {
                 let guard = map.lock().unwrap_or_else(|e| e.into_inner());
                 guard.get(&s.id).map(|when| when.elapsed())
-            }
-            .or_else(|| persisted_since_last_sync(&audit_index, &s.id, now));
+            };
+            let Some(since) = cadence_from_audit(
+                in_memory_since,
+                audit_available,
+                persisted_since_last_sync(&audit_index, &s.id, now),
+            ) else {
+                    tracing::debug!(
+                        source_kind = %s.kind.as_str(),
+                        "[memory_sync:workspace:periodic] source has unknown cadence while audit is unavailable; skipping"
+                    );
+                    return false;
+            };
             connection_is_due(interval_secs, since)
         })
         .cloned()
@@ -237,6 +252,30 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
 
     tracing::debug!(fired, "[memory_sync:workspace:periodic] tick complete");
     Ok(())
+}
+
+fn workspace_audit_state(
+    read: anyhow::Result<Vec<SyncAuditEntry>>,
+) -> (HashMap<String, DateTime<Utc>>, bool) {
+    match read {
+        Ok(entries) => (index_last_success_by_source_id(&entries), true),
+        Err(error) => {
+            tracing::warn!(%error, "[memory_sync:workspace:periodic] audit read failed");
+            (HashMap::new(), false)
+        }
+    }
+}
+
+fn cadence_from_audit(
+    in_memory_since: Option<Duration>,
+    audit_available: bool,
+    persisted_since: Option<Duration>,
+) -> Option<Option<Duration>> {
+    match in_memory_since {
+        Some(since) => Some(Some(since)),
+        None if audit_available => Some(persisted_since),
+        None => None,
+    }
 }
 
 #[cfg(test)]
@@ -336,6 +375,35 @@ mod tests {
             Some(Duration::ZERO)
         );
         assert_eq!(persisted_since_last_sync(&idx, "missing", now), None);
+    }
+
+    #[test]
+    fn audit_failure_is_unavailable_and_unknown_cadence_is_excluded() {
+        let (index, available) =
+            workspace_audit_state(Err(anyhow::anyhow!("simulated audit I/O failure")));
+        assert!(index.is_empty());
+        assert!(!available);
+        assert_eq!(cadence_from_audit(None, available, None), None);
+
+        let known = Duration::from_secs(60);
+        assert_eq!(
+            cadence_from_audit(Some(known), available, None),
+            Some(Some(known))
+        );
+    }
+
+    #[test]
+    fn readable_empty_audit_keeps_never_synced_workspace_source_due() {
+        let (index, available) = workspace_audit_state(Ok(Vec::new()));
+        assert!(index.is_empty());
+        assert!(available);
+
+        let cadence = cadence_from_audit(None, available, None)
+            .expect("readable empty audit keeps the source eligible");
+        assert!(connection_is_due(
+            DEFAULT_MEMORY_SYNC_INTERVAL_SECS,
+            cadence
+        ));
     }
 
     #[tokio::test]

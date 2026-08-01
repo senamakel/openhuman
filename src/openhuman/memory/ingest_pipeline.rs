@@ -5,7 +5,7 @@ use anyhow::Result;
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_store::chunks::store::RawRef;
-use crate::openhuman::memory_sync::canonicalize::{
+use tinycortex::memory::ingest::canonicalize::{
     chat::{self, ChatBatch},
     document::{self, DocumentInput},
     email::{self, EmailThread},

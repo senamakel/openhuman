@@ -1,6 +1,6 @@
 [package]
 name = "openhuman"
-version = "0.63.5"
+version = "0.63.6"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
 # The crate ships a verbatim GPLv3 `LICENSE` file but carried no `license` key,
@@ -77,6 +77,16 @@ name = "openhuman_core"
 crate-type = ["rlib"]
 
 [dependencies]
+# tinyhumans-sdk — the typed Rust client for the TinyHumans backend API
+# (https://github.com/tinyhumansai/sdk). Vendored as a git submodule under
+# `vendor/` beside the other tiny* crates and consumed by path: the crate is not
+# published to crates.io, so there is no `[patch.crates-io]` entry for it.
+# This is the single source of truth for backend routes — `src/api/` is the
+# OpenHuman-local adapter layer (session tokens, config, observability) that
+# sits on top of it, not a second HTTP client. Anything missing here belongs
+# upstream in the SDK repo, not re-implemented in `src/api/`.
+# After cloning: `git submodule update --init vendor/tinyhumans-sdk`.
+tinyhumans-sdk = { path = "vendor/tinyhumans-sdk" }
 # tiny.place A2A social network SDK — published on crates.io and patched below
 # to the vendored tiny.place submodule so OpenHuman can test SDK changes before
 # publishing.
@@ -155,7 +165,6 @@ dhat = { version = "0.3", optional = true }
 # AV root CAs. So the two TLS backends coexist only on Windows, never on
 # the RAM-sensitive platforms.
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
-tinyhumans-sdk = { git = "https://github.com/tinyhumansai/sdk.git", rev = "3ee4123ba3b7a76c5f167d7bc2c72fca86671292" }
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"

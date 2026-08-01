@@ -1512,6 +1512,47 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: DERIVED_TO_BACKEND,
     },
     Capability {
+        id: "automation.flow_memory_node",
+        name: "Memory Node (Flows)",
+        domain: "flows",
+        category: CapabilityCategory::Automation,
+        description: "A `memory` node inside a saved workflow graph, giving the flow direct, \
+                      in-graph memory access with no agent turn involved. It can recall/search/ \
+                      read style-flavour/look up people from your durable, cross-flow memory \
+                      (read-only — a flow can never write there) or from other flows' own \
+                      memory (also read-only), and can remember/forget entries in its OWN \
+                      private, flow-scoped memory namespace — never the user's personal memory, \
+                      never another flow's. Every operation is gated by the flow's autonomy \
+                      tier; a flow-scoped write can require human approval.",
+        how_to: "Flows editor > add a `memory` node; set `config.operation` and `config.scope`.",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
+        id: "automation.flow_dedup_node",
+        name: "Dedup Node (Flows)",
+        domain: "flows",
+        category: CapabilityCategory::Automation,
+        description: "A `dedup` node inside a saved workflow graph, giving the flow durable \
+                      exactly-once processing per item with no agent turn or extra plumbing \
+                      involved. It drops an item whose per-item key was already committed by a \
+                      prior successful run, and otherwise passes it through. Committing happens \
+                      automatically: keys the node passes through are marked done only once the \
+                      whole run finishes successfully; a failed/cancelled/interrupted/unknown (or \
+                      any other non-success) run leaves them unmarked so the same items retry next \
+                      time. Only the resolved per-item key value is stored, locally, in the flow's \
+                      own private, flow-scoped state — never the item's full content, and never \
+                      the user's personal memory. The key is whatever the workflow author's \
+                      `config.key` expression resolves to, so it can carry item-derived data if \
+                      keyed off a sensitive field — author flows to key off an opaque, \
+                      non-sensitive stable id (an issue number, message id, url) rather than \
+                      personal data.",
+        how_to: "Flows editor > add a `dedup` node right after the item source; set config.key \
+                 to a stable per-item id expression, e.g. \"=item.id\".",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
         id: "automation.view_cron_jobs",
         name: "View Cron Jobs",
         domain: "automation",

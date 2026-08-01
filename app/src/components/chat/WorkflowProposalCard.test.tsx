@@ -13,18 +13,31 @@ vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) =
 // time the (hoisted) factory runs. (These specific names happened to work
 // without it, since Vitest's compiler special-cases `mock`-prefixed
 // identifiers, but that's an incidental heuristic, not a guarantee.)
-const { mockCreateFlow, mockUpdateFlow, mockSetFlowEnabled, mockDispatch, mockNavigate } =
-  vi.hoisted(() => ({
-    mockCreateFlow: vi.fn(),
-    mockUpdateFlow: vi.fn(),
-    mockSetFlowEnabled: vi.fn(),
-    mockDispatch: vi.fn(),
-    mockNavigate: vi.fn(),
-  }));
+const {
+  mockCreateFlow,
+  mockUpdateFlow,
+  mockSetFlowEnabled,
+  mockGetApprovalManifest,
+  mockPreauthorizeFlow,
+  mockDispatch,
+  mockNavigate,
+} = vi.hoisted(() => ({
+  mockCreateFlow: vi.fn(),
+  mockUpdateFlow: vi.fn(),
+  mockSetFlowEnabled: vi.fn(),
+  mockGetApprovalManifest: vi.fn(),
+  mockPreauthorizeFlow: vi.fn(),
+  mockDispatch: vi.fn(),
+  mockNavigate: vi.fn(),
+}));
 vi.mock('../../services/api/flowsApi', () => ({
   createFlow: (...args: unknown[]) => mockCreateFlow(...args),
   updateFlow: (...args: unknown[]) => mockUpdateFlow(...args),
   setFlowEnabled: (...args: unknown[]) => mockSetFlowEnabled(...args),
+  getApprovalManifest: (...args: unknown[]) => mockGetApprovalManifest(...args),
+}));
+vi.mock('../../services/api/approvalApi', () => ({
+  preauthorizeFlow: (...args: unknown[]) => mockPreauthorizeFlow(...args),
 }));
 vi.mock('../../store/hooks', () => ({ useAppDispatch: () => mockDispatch }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }));
@@ -52,6 +65,14 @@ describe('WorkflowProposalCard', () => {
       .mockResolvedValue({ id: 'f1', name: 'Daily standup summary', enabled: true });
     mockUpdateFlow.mockReset();
     mockSetFlowEnabled.mockReset().mockResolvedValue({ id: 'f1', enabled: true });
+    // Default: nothing missing — the pre-authorization card stays out of the
+    // way and every pre-existing save-path expectation holds unchanged.
+    mockGetApprovalManifest
+      .mockReset()
+      .mockResolvedValue({ entries: [], missing: [], already_trusted: [], gate_installed: true });
+    mockPreauthorizeFlow
+      .mockReset()
+      .mockResolvedValue({ flow_id: 'f1', granted: [], already_trusted: [], gate_installed: true });
     mockDispatch.mockReset();
     mockNavigate.mockReset();
   });
@@ -358,5 +379,92 @@ describe('WorkflowProposalCard', () => {
       <WorkflowProposalCard threadId="t1" proposal={proposal({ requireApproval: false })} />
     );
     expect(screen.queryByText('chat.flowProposal.requireApprovalHint')).not.toBeInTheDocument();
+  });
+});
+
+describe('WorkflowProposalCard pre-authorization', () => {
+  const MISSING_MANIFEST = {
+    entries: [
+      {
+        kind: 'approvable',
+        node_id: 'n1',
+        tool_name: 'GMAIL_SEND_EMAIL',
+        label: 'Use GMAIL_SEND_EMAIL',
+      },
+    ],
+    missing: ['GMAIL_SEND_EMAIL'],
+    already_trusted: [],
+    gate_installed: true,
+  };
+
+  it('surfaces the consolidated card inline when the saved flow has missing grants', async () => {
+    mockGetApprovalManifest.mockResolvedValue(MISSING_MANIFEST);
+    render(<WorkflowProposalCard threadId="t1" proposal={proposal()} />);
+
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-preauthorization-card')).toBeInTheDocument()
+    );
+    // Not completed yet — the decision is still pending.
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('workflow-proposal-saved')).not.toBeInTheDocument();
+  });
+
+  it('Approve all grants the tools and lands in the terminal saved view', async () => {
+    mockGetApprovalManifest.mockResolvedValue(MISSING_MANIFEST);
+    render(<WorkflowProposalCard threadId="t1" proposal={proposal()} />);
+
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-preauthorization-card')).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByText('flows.enableApproval.approveAll'));
+
+    await waitFor(() => expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument());
+    expect(mockPreauthorizeFlow).toHaveBeenCalledWith('f1', ['GMAIL_SEND_EMAIL']);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      markWorkflowProposalCompleted({ threadId: 't1', flowId: 'f1' })
+    );
+    // checkAfterSave path: the flow came back enabled from createFlow, so no
+    // redundant enable call fires on approve.
+    expect(mockSetFlowEnabled).not.toHaveBeenCalled();
+  });
+
+  it('re-clicking Save while the card is open never creates a duplicate flow', async () => {
+    mockGetApprovalManifest.mockResolvedValue(MISSING_MANIFEST);
+    render(<WorkflowProposalCard threadId="t1" proposal={proposal()} />);
+
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-preauthorization-card')).toBeInTheDocument()
+    );
+    // The proposal's own Save button is clickable again (saving released
+    // while the decision is pending) — a second click must reuse the
+    // persisted flow id, not call createFlow again (greptile P1).
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() => expect(mockGetApprovalManifest).toHaveBeenCalledTimes(2));
+    expect(mockCreateFlow).toHaveBeenCalledTimes(1);
+  });
+
+  it('Deny leaves the flow saved but disabled with the informational note', async () => {
+    mockGetApprovalManifest.mockResolvedValue(MISSING_MANIFEST);
+    render(<WorkflowProposalCard threadId="t1" proposal={proposal()} />);
+
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-preauthorization-card')).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByText('flows.enableApproval.deny'));
+
+    await waitFor(() => expect(mockSetFlowEnabled).toHaveBeenCalledWith('f1', false));
+    await waitFor(() =>
+      expect(screen.getByText(/flows.enableApproval.deniedDisabled/)).toBeInTheDocument()
+    );
+    // No terminal completion — the proposal card stays for a later retry.
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      markWorkflowProposalCompleted({ threadId: 't1', flowId: 'f1' })
+    );
+    expect(screen.queryByTestId('workflow-proposal-saved')).not.toBeInTheDocument();
   });
 });

@@ -217,6 +217,24 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                         &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
                     );
                 }
+            } else if crate::openhuman::memory_tree::tree::rpc::is_invalid_ingest_payload_message(
+                &display_message,
+            ) {
+                // The caller submitted an ingest payload that does not match
+                // the canonicaliser schema for its `source_kind` (#5169). The
+                // handler already returned a precise error naming the missing
+                // or malformed field, and no core-side change can fix a
+                // producer sending the wrong shape — so this is a caller
+                // error, not an actionable core defect. Same treatment as an
+                // unrecognised method above: still captured for triage (a
+                // spike means a producer regressed) but at warn severity, so
+                // it does not page.
+                crate::core::observability::report_warning_message(
+                    display_message.as_str(),
+                    "rpc",
+                    "invoke_method",
+                    &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
+                );
             } else {
                 crate::core::observability::report_error_or_expected(
                     display_message.as_str(),
@@ -1934,6 +1952,22 @@ fn register_domain_subscribers(
     // set of already-registered groups lets a later, wider DomainSet install
     // exactly the newly-enabled groups (and no group twice). `insert` returns
     // `true` only the first time a group is seen.
+    //
+    // **Known limitation (issue #5265, CodeRabbit "Major" on the dedup engine
+    // PR):** this marks a group "done" the moment its `if group_first_time(…)`
+    // block is entered, not once every `subscribe_global` call inside it
+    // actually returns `Some`. A transient `subscribe_global` failure (the
+    // global bus not yet initialized) inside one of those blocks — e.g. the
+    // Flows block's `FlowTriggerSubscriber` / `FlowRunDigestSubscriber` /
+    // `DedupCommitSubscriber` registrations — only logs a warning; the group
+    // is still marked done, so no later call ever retries it, leaving that
+    // subscriber permanently absent for the process's lifetime. This is a
+    // pre-existing pattern shared by every `group_first_time(DomainGroup::…)`
+    // call site in this function, not something introduced by (or specific
+    // to) the dedup subscriber — reworking it (e.g. marking the group done
+    // only after every registration in its block succeeds, or making
+    // individual registrations retryable) is out of scope for the dedup PR
+    // and is reported as a separate follow-up issue instead of fixed here.
     fn group_first_time(group: DomainGroup) -> bool {
         static DONE: OnceLock<Mutex<HashSet<DomainGroup>>> = OnceLock::new();
         DONE.get_or_init(|| Mutex::new(HashSet::new()))
@@ -2160,6 +2194,26 @@ fn register_domain_subscribers(
             } else {
                 log::warn!(
                     "[event_bus] failed to register flows run-digest subscriber — bus not initialized"
+                );
+            }
+            // Dedup commit-on-success (issue #5263 PR2): on every terminal
+            // `FlowRunFinished`, settles each `dedup` node in the flow's graph
+            // — unions tentative keys into committed on success, releases
+            // (clears) tentative on failure/cancel/interrupt. This is the
+            // host half of the `dedup` node's exactly-once contract; the node
+            // itself (`tinyflows::nodes::control_flow::dedup`) only ever
+            // reads `committed` and writes `tentative`. Registered in the
+            // same `group_first_time(DomainGroup::Flows)` block as the other
+            // two flows subscribers above — see the digest subscriber's
+            // comment just above for why a second `group_first_time` guard
+            // here would be redundant.
+            if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
+                crate::openhuman::flows::bus::DedupCommitSubscriber::new(Arc::new(config.clone())),
+            )) {
+                std::mem::forget(handle);
+            } else {
+                log::warn!(
+                    "[event_bus] failed to register flows dedup-commit subscriber — bus not initialized"
                 );
             }
         }
@@ -2538,6 +2592,7 @@ pub async fn bootstrap_core_runtime(
 pub async fn start_core_runtime_services(
     services: crate::core::runtime::ServiceSet,
     config: Option<&crate::openhuman::config::Config>,
+    flows_enabled: bool,
 ) {
     let Some(cfg) = config else {
         log::error!(
@@ -2561,7 +2616,11 @@ pub async fn start_core_runtime_services(
 
     match crate::openhuman::socket::global_socket_manager() {
         Some(socket_mgr) => {
-            crate::core::runtime::services::spawn_socket_auto_connect(services, socket_mgr.clone());
+            crate::core::runtime::services::spawn_socket_auto_connect(
+                services,
+                socket_mgr.clone(),
+                flows_enabled,
+            );
         }
         None => {
             log::warn!(

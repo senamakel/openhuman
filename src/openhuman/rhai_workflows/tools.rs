@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult, ToolScope, ToolTimeout};
 
-use super::policy::DEFAULT_RHAI_TIMEOUT_SECS;
+use super::policy::{harness_backstop_secs, DEFAULT_RHAI_TIMEOUT_SECS};
 use super::types::RhaiEvalRequest;
 
 /// The `rhai_workflows` language-workflow tool. Stateless: it resolves the parent turn
@@ -133,7 +133,15 @@ pipeline over results. Pass a `session_id` to continue a prior cell's bindings; 
             crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS,
         )
         .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
-        ToolTimeout::Secs(secs)
+        // The harness backstop must sit strictly above the outer
+        // `spawn_blocking` backstop in `ops.rs` (itself strictly above the
+        // inner `ReplPolicy.timeout` deadline resolved identically to `secs`
+        // in `policy::resolve_policy`) — see README's `inner < outer <
+        // harness` invariant (E-M1). If the harness ever won this race it
+        // would drop the whole tool-execution future, skipping the
+        // `RhaiError::Timeout` taxonomy, `finish_cell` accounting,
+        // `close_session`, and the outer-backstop session cleanup.
+        ToolTimeout::Secs(harness_backstop_secs(secs))
     }
 
     fn display_label(&self, _args: &Value) -> Option<String> {
@@ -190,6 +198,7 @@ pipeline over results. Pass a `session_id` to continue a prior cell's bindings; 
 
 #[cfg(test)]
 mod tests {
+    use super::super::policy::outer_backstop_secs;
     use super::*;
 
     #[test]
@@ -206,17 +215,44 @@ mod tests {
         let tool = RhaiTool::new();
         assert_eq!(
             tool.timeout_policy(&json!({})),
-            ToolTimeout::Secs(DEFAULT_RHAI_TIMEOUT_SECS)
+            ToolTimeout::Secs(harness_backstop_secs(DEFAULT_RHAI_TIMEOUT_SECS))
         );
         assert_eq!(
             tool.timeout_policy(&json!({ "timeout_secs": 42 })),
-            ToolTimeout::Secs(42)
+            ToolTimeout::Secs(harness_backstop_secs(42))
         );
         // Out-of-range requests are clamped, never unbounded.
         assert_eq!(
             tool.timeout_policy(&json!({ "timeout_secs": 100000 })),
-            ToolTimeout::Secs(3600)
+            ToolTimeout::Secs(harness_backstop_secs(3600))
         );
+    }
+
+    /// E-M1: the harness backstop this tool declares must always sit
+    /// strictly above the outer `spawn_blocking` backstop `ops.rs` enforces
+    /// for the same resolved inner deadline.
+    #[test]
+    fn harness_backstop_is_always_above_the_outer_backstop() {
+        let tool = RhaiTool::new();
+        for requested in [None, Some(1u64), Some(42), Some(3600), Some(100_000)] {
+            let secs = crate::openhuman::tool_timeout::explicit_call_timeout_secs(
+                requested,
+                crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS,
+            )
+            .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
+            let args = match requested {
+                Some(r) => json!({ "timeout_secs": r }),
+                None => json!({}),
+            };
+            let ToolTimeout::Secs(harness_secs) = tool.timeout_policy(&args) else {
+                panic!("rhai_workflows must always declare an explicit ToolTimeout::Secs bound");
+            };
+            let outer_secs = outer_backstop_secs(secs);
+            assert!(
+                outer_secs < harness_secs,
+                "outer {outer_secs} should be < harness {harness_secs} for requested {requested:?}"
+            );
+        }
     }
 
     #[test]

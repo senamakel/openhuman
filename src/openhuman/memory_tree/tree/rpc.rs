@@ -18,10 +18,10 @@ use crate::openhuman::memory::ingest_pipeline::{
 };
 use crate::openhuman::memory_store::chunks::store::{self as chunk_store, ListChunksQuery};
 use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
-use crate::openhuman::memory_sync::canonicalize::{
+use crate::rpc::RpcOutcome;
+use tinycortex::memory::ingest::canonicalize::{
     chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
-use crate::rpc::RpcOutcome;
 
 /// Unified ingest request. The `payload` shape is adapter-specific and is
 /// validated inside the dispatch based on `source_kind`.
@@ -43,6 +43,47 @@ pub struct IngestRequest {
     /// - `email`    → [`EmailThread`]
     /// - `document` → [`DocumentInput`]
     pub payload: Value,
+}
+
+/// Build the validation error returned when an ingest payload does not match
+/// the canonicaliser schema for its `source_kind`.
+///
+/// Kept as the single construction site so the wording cannot drift away from
+/// [`is_invalid_ingest_payload_message`], which the transport layer uses to
+/// pick the Sentry severity. Same emit-site/classifier pairing as
+/// `dispatch::UNKNOWN_METHOD_PREFIX` / `dispatch::unknown_method_name`.
+fn invalid_payload_message(source_kind: SourceKind, err: &serde_json::Error) -> String {
+    format!("invalid {} payload: {err}", source_kind.as_str())
+}
+
+/// Returns `true` when `message` is an ingest-payload schema-validation
+/// failure produced by `invalid_payload_message`.
+///
+/// Such a failure is a **caller** error — the submitted JSON does not match
+/// the canonicaliser's shape — not a core defect. The handler already returns
+/// a precise, actionable JSON-RPC error naming the offending field, and no
+/// core-side change can fix a producer that sends the wrong shape. Reporting
+/// it at Sentry *error* severity therefore pages on someone else's payload
+/// bug: #5169 (`CORE-RUST-1P0`) was 14 such events for a chat batch whose
+/// messages omitted `timestamp`.
+///
+/// The transport layer demotes these to a warn-level capture — still recorded
+/// for triage, because a spike genuinely means a producer regressed, but not
+/// an error event. See `core::jsonrpc::rpc_handler`.
+///
+/// Anchored on the exact `invalid <kind> payload: ` prefix rather than a
+/// loose `"invalid"` substring so unrelated failures keep paging.
+pub fn is_invalid_ingest_payload_message(message: &str) -> bool {
+    let Some(rest) = message.strip_prefix("invalid ") else {
+        return false;
+    };
+    // Enumerated rather than parsed so a new `SourceKind` that forgets to
+    // update this list stays *loud* (keeps paging) instead of silently
+    // inheriting the demotion. The `all_source_kinds_are_recognised_*` test
+    // below pins that every variant reachable from `ingest_rpc` is covered.
+    [SourceKind::Chat, SourceKind::Email, SourceKind::Document]
+        .iter()
+        .any(|k| rest.starts_with(&format!("{} payload: ", k.as_str())))
 }
 
 /// Unified ingest RPC handler. Dispatches on `source_kind`.
@@ -70,7 +111,7 @@ pub async fn ingest_rpc(
     let result = match source_kind {
         SourceKind::Chat => {
             let batch: ChatBatch = serde_json::from_value(payload).map_err(|e| {
-                let msg = format!("invalid chat payload: {e}");
+                let msg = invalid_payload_message(SourceKind::Chat, &e);
                 log::warn!("[memory::rpc] invalid payload for chat");
                 msg
             })?;
@@ -84,7 +125,7 @@ pub async fn ingest_rpc(
         }
         SourceKind::Email => {
             let thread: EmailThread = serde_json::from_value(payload).map_err(|e| {
-                let msg = format!("invalid email payload: {e}");
+                let msg = invalid_payload_message(SourceKind::Email, &e);
                 log::warn!("[memory::rpc] invalid payload for email");
                 msg
             })?;
@@ -98,7 +139,7 @@ pub async fn ingest_rpc(
         }
         SourceKind::Document => {
             let doc: DocumentInput = serde_json::from_value(payload).map_err(|e| {
-                let msg = format!("invalid document payload: {e}");
+                let msg = invalid_payload_message(SourceKind::Document, &e);
                 log::warn!("[memory::rpc] invalid payload for document");
                 msg
             })?;
@@ -855,10 +896,10 @@ mod tests {
     use super::*;
     use crate::openhuman::memory_queue as jobs;
     use crate::openhuman::memory_store::chunks::types::SourceKind;
-    use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
     use chrono::Utc;
     use serde_json::json;
     use tempfile::TempDir;
+    use tinycortex::memory::ingest::canonicalize::document::DocumentInput;
 
     fn test_config() -> (TempDir, Config) {
         let tmp = TempDir::new().unwrap();
@@ -868,6 +909,91 @@ mod tests {
         cfg.memory_tree.embedding_model = None;
         cfg.memory_tree.embedding_strict = false;
         (tmp, cfg)
+    }
+
+    /// #5169 (`CORE-RUST-1P0`) — a chat batch whose messages omit `timestamp`
+    /// must ingest, defaulting to `now()`, not reject the whole batch.
+    ///
+    /// The tolerance lives in `tinycortex` (`ChatMessage::timestamp` carries
+    /// `#[serde(default = "chrono_now")]`), which is a **separate repository**
+    /// vendored here as a submodule. Nothing in this repo guarded that
+    /// contract, so a submodule bump could silently reintroduce the hard
+    /// rejection and the 4xx-shaped payload would page again. This test is
+    /// that guard: it fails on the parent-repo side the moment the vendored
+    /// schema stops tolerating an absent timestamp.
+    #[test]
+    fn chat_payload_without_timestamp_is_accepted() {
+        let payload = json!({
+            "platform": "slack",
+            "channel_label": "#general",
+            "messages": [{ "author": "alice", "text": "no timestamp here" }],
+        });
+
+        let batch: ChatBatch = serde_json::from_value(payload)
+            .expect("a chat message omitting `timestamp` must default, not reject the batch");
+
+        assert_eq!(batch.messages.len(), 1);
+        assert_eq!(batch.messages[0].text, "no timestamp here");
+    }
+
+    /// Sibling contract for the document arm: `modified_at` is likewise
+    /// optional (`#[serde(default = "now_utc")]` in tinycortex).
+    ///
+    /// The payload is deliberately minimal — `title` and `body` are the only
+    /// required fields on `DocumentInput`. `provider` (`default_provider`),
+    /// `source_ref` (`Option`) and `modified_at` (`now_utc`) all carry serde
+    /// defaults, so omitting them together pins the whole optional set rather
+    /// than just the timestamp.
+    #[test]
+    fn document_payload_without_modified_at_is_accepted() {
+        let payload = json!({ "title": "Launch plan", "body": "ship it" });
+
+        let doc: DocumentInput = serde_json::from_value(payload)
+            .expect("a document omitting `modified_at` must default, not reject");
+
+        assert_eq!(doc.title, "Launch plan");
+    }
+
+    /// Every `SourceKind` reachable from `ingest_rpc` must produce a message
+    /// the classifier recognises — otherwise that arm's caller errors keep
+    /// paging while its siblings are demoted, which is the silent-drift
+    /// failure the enumerated list in `is_invalid_ingest_payload_message`
+    /// is meant to make impossible to miss.
+    #[test]
+    fn all_source_kinds_are_recognised_as_caller_payload_errors() {
+        let err = serde_json::from_str::<ChatBatch>("{}").unwrap_err();
+        for kind in [SourceKind::Chat, SourceKind::Email, SourceKind::Document] {
+            let message = invalid_payload_message(kind, &err);
+            assert!(
+                is_invalid_ingest_payload_message(&message),
+                "{} payload errors must classify as caller errors, got {message:?}",
+                kind.as_str()
+            );
+        }
+    }
+
+    /// The verbatim #5169 message shape, and the negative half: unrelated
+    /// failures must keep their error severity so real defects still page.
+    #[test]
+    fn only_ingest_payload_errors_are_demoted() {
+        assert!(is_invalid_ingest_payload_message(
+            "invalid chat payload: missing field `timestamp`"
+        ));
+
+        for other in [
+            "invalid",
+            "invalid payload",
+            "invalid audio payload: missing field `timestamp`",
+            "ingest: chunk store unavailable",
+            "chat payload: missing field `timestamp`",
+            "something failed: invalid chat payload: missing field `timestamp`",
+            "",
+        ] {
+            assert!(
+                !is_invalid_ingest_payload_message(other),
+                "{other:?} must keep paging"
+            );
+        }
     }
 
     fn sample_document(title: &str, body: &str) -> DocumentInput {

@@ -31,9 +31,9 @@ use crate::openhuman::memory_store::chunks::store::{
     count_chunks, count_chunks_by_lifecycle_status, CHUNK_STATUS_BUFFERED,
 };
 use crate::openhuman::memory_store::trees::{store as tree_store, types::TreeKind};
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use crate::openhuman::memory_tree::retrieval::{query_source, search_entities};
 use crate::openhuman::memory_tree::score::store::lookup_entity;
+use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 // ── helpers ─────────────────────────────────────────────────────────────
 

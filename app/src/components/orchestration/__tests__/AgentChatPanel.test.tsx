@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SessionSummary } from '../../../lib/orchestration/orchestrationClient';
 import AgentChatPanel from '../AgentChatPanel';
@@ -264,5 +264,113 @@ describe('AgentChatPanel', () => {
     render(<AgentChatPanel />);
     // Exercises `selected?.messages ?? EMPTY_MESSAGES`; the panel still renders.
     expect(screen.getByTestId('orch-agent-tab-master')).toBeInTheDocument();
+  });
+
+  // ── Composer-footer measurement (regression: #5162 / TAURI-REACT-2G) ───────
+  //
+  // `ChatPageScaffold` measures its floating footer with a ResizeObserver and
+  // feeds the height into the scroll region's bottom padding. The effect used to
+  // depend on the `footer` *node*, which is inline JSX at every call site and so
+  // takes a fresh identity on every render — the observer was torn down and
+  // rebuilt each pass, and because `observe()` delivers an immediate
+  // observation, every render scheduled another height update. Any measurement
+  // that disagreed with the committed value re-rendered and re-ran the effect,
+  // cascading until React aborted with "Maximum update depth exceeded". Typing
+  // was the easiest trigger: the composer's auto-growing textarea lives inside
+  // this footer.
+  describe('composer footer measurement', () => {
+    /** Model of the real ResizeObserver: `observe()` reports an initial size. */
+    class MockResizeObserver {
+      static instances: MockResizeObserver[] = [];
+      observed: Element[] = [];
+      disconnected = false;
+      constructor(private readonly cb: () => void) {
+        MockResizeObserver.instances.push(this);
+      }
+      observe(el: Element) {
+        this.observed.push(el);
+        this.cb();
+      }
+      unobserve() {}
+      disconnect() {
+        this.disconnected = true;
+      }
+      /** Drive a size change the way a real layout change would. */
+      fire() {
+        this.cb();
+      }
+    }
+
+    /**
+     * Observers watching the composer footer. `useStickToBottom` also builds a
+     * ResizeObserver (on the scroll container), so the global mock catches both —
+     * select ours by the element it observes.
+     */
+    const footerObservers = () =>
+      MockResizeObserver.instances.filter(o =>
+        o.observed.some(el => (el as HTMLElement).dataset?.testid === 'orch-chat-footer')
+      );
+
+    const footerHeight = { current: 96 };
+    let originalResizeObserver: typeof globalThis.ResizeObserver | undefined;
+    let originalOffsetHeight: PropertyDescriptor | undefined;
+
+    beforeEach(() => {
+      MockResizeObserver.instances = [];
+      footerHeight.current = 96;
+      originalResizeObserver = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = MockResizeObserver as unknown as typeof globalThis.ResizeObserver;
+      // jsdom does no layout, so every `offsetHeight` is 0. Report a real height
+      // for the footer wrapper only, so the measurement path is observable.
+      originalOffsetHeight = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        'offsetHeight'
+      ) as PropertyDescriptor | undefined;
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+        configurable: true,
+        get(this: HTMLElement) {
+          return this.dataset.testid === 'orch-chat-footer' ? footerHeight.current : 0;
+        },
+      });
+    });
+
+    afterEach(() => {
+      if (originalResizeObserver) globalThis.ResizeObserver = originalResizeObserver;
+      else delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+      if (originalOffsetHeight) {
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+      } else {
+        delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
+      }
+    });
+
+    it('does not rebuild the footer ResizeObserver on every render while typing', () => {
+      render(<AgentChatPanel />);
+      expect(footerObservers()).toHaveLength(1);
+
+      // Each keystroke re-renders the panel, which produces a fresh `footer`
+      // element. That must NOT re-subscribe the observer.
+      const textbox = screen.getByRole('textbox');
+      fireEvent.change(textbox, { target: { value: 'h' } });
+      fireEvent.change(textbox, { target: { value: 'he' } });
+      fireEvent.change(textbox, { target: { value: 'hey' } });
+
+      expect(footerObservers()).toHaveLength(1);
+      expect(footerObservers()[0].disconnected).toBe(false);
+    });
+
+    it('still reserves the measured footer height on the scroll region', () => {
+      render(<AgentChatPanel />);
+      const scroll = screen.getByTestId('orch-chat-scroll');
+      expect(scroll.style.paddingBottom).toBe('96px');
+
+      // A real layout change (the composer growing a line) must still be picked
+      // up now that the effect subscribes on footer presence rather than identity.
+      footerHeight.current = 132;
+      act(() => footerObservers()[0].fire());
+
+      expect(scroll.style.paddingBottom).toBe('132px');
+      expect(footerObservers()).toHaveLength(1);
+    });
   });
 });

@@ -1,11 +1,11 @@
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::memory_store::chunks::types::SourceKind;
-use crate::openhuman::memory_sync::canonicalize::document::DocumentInput;
 use crate::openhuman::memory_tree::tree::rpc;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::json;
+use tinycortex::memory::ingest::canonicalize::document::DocumentInput;
 
 pub struct MemoryTreeIngestDocumentTool;
 

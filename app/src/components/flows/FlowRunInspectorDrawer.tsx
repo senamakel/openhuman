@@ -33,7 +33,11 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { FlowRunStep } from '../../services/api/flowsApi';
 import Button from '../ui/Button';
 import { FlowRunPendingApprovalCard } from './FlowRunPendingApprovalCard';
-import { FLOW_RUN_STATUS_ACCENT, FLOW_RUN_STATUS_DOT, FLOW_RUN_STATUS_KEY } from './FlowRunStatus';
+import {
+  flowRunStatusAccentClass,
+  flowRunStatusDotClass,
+  flowRunStatusLabel,
+} from './FlowRunStatus';
 import { RunItemDataBrowser } from './RunItemDataBrowser';
 
 /**
@@ -274,7 +278,7 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
               {run && (
                 <span
                   data-testid="flow-run-status-dot"
-                  className={`h-2 w-2 shrink-0 rounded-full ${FLOW_RUN_STATUS_DOT[run.status]}`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${flowRunStatusDotClass(run.status)}`}
                 />
               )}
             </div>
@@ -282,8 +286,8 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
               {run && (
                 <span
                   data-testid="flow-run-status-pill"
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${FLOW_RUN_STATUS_ACCENT[run.status]}`}>
-                  {t(FLOW_RUN_STATUS_KEY[run.status])}
+                  className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${flowRunStatusAccentClass(run.status)}`}>
+                  {flowRunStatusLabel(run.status, t)}
                 </span>
               )}
               {/* Internal ids are dev/debug info, not primary-view content (issue

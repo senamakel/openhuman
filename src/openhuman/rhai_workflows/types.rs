@@ -79,8 +79,15 @@ pub struct RhaiCallSummary {
     pub name: String,
     /// Wall-clock time the call took, in milliseconds.
     pub elapsed_ms: u64,
-    /// Whether the call was recorded (calls that errored abort the cell, so a
-    /// recorded call is a completed one).
+    /// Whether the capability call itself succeeded. For model/agent/graph
+    /// calls the vendor session only ever records a call on success, so an
+    /// uncaught failure aborts the cell before it would appear here. Tool
+    /// calls are different: the vendor REPL records the call *before*
+    /// checking the tool's own error (a caught `tool_call` failure) or keeps
+    /// going on a per-item failure without ever raising (`tool_call_batched`)
+    /// — `ops::summarize_calls` tracks the real outcome separately
+    /// (`bridge::take_call_outcomes`) so a failed-but-caught tool call is
+    /// still reported here as `ok: false` rather than defaulting to success.
     pub ok: bool,
 }
 

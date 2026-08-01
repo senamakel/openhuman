@@ -975,6 +975,11 @@ async fn composio_get_user_profile_via_mock_returns_provider_profile() {
     use crate::openhuman::config::TEST_ENV_LOCK;
     let _cache_guard = cache_guard();
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // This test mutates BACKEND_URL below via EnvVarGuard, which races with
+    // api::config / core::cli_tests / medulla::ops / medulla::resolve tests
+    // that mutate the same process-global var under the crate-wide lock —
+    // TEST_ENV_LOCK alone does not serialize against those. Hold both.
+    let _backend_env_guard = crate::api::config::backend_env_test_lock();
 
     crate::openhuman::composio::providers::init_default_providers();
 
@@ -1118,6 +1123,11 @@ async fn composio_sync_gmail_via_mock_stores_skill_document_and_updates_outcome(
     use crate::openhuman::config::TEST_ENV_LOCK;
     let _cache_guard = cache_guard();
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // See composio_get_user_profile_via_mock_returns_provider_profile: this
+    // test also mutates BACKEND_URL via EnvVarGuard below, which needs the
+    // crate-wide lock to serialize against api::config / core::cli_tests /
+    // medulla's tests on the same process-global var.
+    let _backend_env_guard = crate::api::config::backend_env_test_lock();
 
     crate::openhuman::composio::providers::init_default_providers();
 

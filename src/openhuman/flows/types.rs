@@ -360,6 +360,16 @@ pub struct FlowRun {
     /// rendering a bare terminal state.
     #[serde(default)]
     pub error: Option<String>,
+    /// Content hash of the graph this run was executing when it parked at
+    /// `status == "pending_approval"` (T-M1 — stale-approval guard). `None`
+    /// for a run that never parked, or for a row written before this pin
+    /// existed (a legacy `pending_approval` row) — `flows_resume` treats a
+    /// `None` on a currently-parked row as "unknown, allow with a warning"
+    /// rather than a hard refusal, so upgrading mid-park cannot strand an
+    /// in-flight approval. See `flows::ops::compute_graph_hash` and
+    /// `flows_resume`'s doc for the full mechanics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graph_hash: Option<String>,
 }
 
 /// Lifecycle status of a [`FlowSuggestion`] discovery card.
@@ -538,6 +548,7 @@ mod tests {
             }],
             pending_approvals: Vec::new(),
             error: None,
+            graph_hash: None,
         };
         let json = serde_json::to_string(&run).expect("serialize");
         let back: FlowRun = serde_json::from_str(&json).expect("deserialize");

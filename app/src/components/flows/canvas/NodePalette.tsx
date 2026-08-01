@@ -12,8 +12,8 @@
  */
 import { memo } from 'react';
 
+import { NodeKindTile } from '../../../lib/flows/nodeKindIcons';
 import {
-  COLOR_CLASSES,
   NODE_GROUP_ORDER,
   PALETTE_ENTRIES_BY_GROUP,
   type PaletteEntry,
@@ -43,7 +43,6 @@ function NodePalette({ onAdd }: NodePaletteProps) {
               {t(`flows.palette.group.${group}`)}
             </div>
             {PALETTE_ENTRIES_BY_GROUP[group].map(entry => {
-              const colors = COLOR_CLASSES[entry.color];
               const label = t(entry.labelKey, entry.kind);
               return (
                 <button
@@ -58,10 +57,10 @@ function NodePalette({ onAdd }: NodePaletteProps) {
                     event.dataTransfer.effectAllowed = 'copy';
                   }}
                   title={t('flows.palette.addNode').replace('{kind}', label)}
-                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs text-content transition-colors hover:bg-surface-hover ${colors.tint} ${colors.border}`}>
-                  <span className="text-base leading-none" aria-hidden="true">
-                    {entry.emoji}
-                  </span>
+                  className="flex items-center gap-2 rounded-lg border border-line px-2 py-1.5 text-left text-xs text-content transition-colors hover:border-primary-500/40 hover:bg-surface-hover">
+                  {/* Same tile as the canvas card, scaled down — the swatch the
+                      user picks here is the swatch that lands on the graph. */}
+                  <NodeKindTile kind={entry.kind} size="sm" />
                   <span className="truncate">{label}</span>
                 </button>
               );

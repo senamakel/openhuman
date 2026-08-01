@@ -21,6 +21,36 @@ use super::types::RhaiLimitsOverride;
 /// deadline and the harness backstop agree.
 pub const DEFAULT_RHAI_TIMEOUT_SECS: u64 = 300;
 
+/// Grace added to the resolved inner [`ReplPolicy::timeout`] deadline for the
+/// outer `spawn_blocking` wall-clock backstop in `ops.rs` — the inner deadline
+/// should always fire first; the outer backstop only defends against bugs in
+/// the inner layers (a hung/poisoned session that never observes its own
+/// deadline). See [`outer_backstop_secs`] and the README's
+/// `inner < outer < harness` invariant.
+pub const OUTER_TIMEOUT_GRACE_SECS: u64 = 5;
+
+/// Additional grace layered on top of the outer backstop for the harness
+/// `ToolTimeout::Secs` deadline in `tools.rs`, so the harness enforcement
+/// (which drops the whole tool-execution future with no `RhaiError` taxonomy,
+/// `finish_cell` accounting, or session cleanup) only ever fires if *both*
+/// inner layers already failed to enforce their own deadlines — never as the
+/// primary enforcement point. See [`harness_backstop_secs`].
+pub const HARNESS_TIMEOUT_GRACE_SECS: u64 = 5;
+
+/// The outer `spawn_blocking` wall-clock backstop for a resolved inner
+/// deadline of `inner_secs` — strictly above `inner_secs`. Shared by `ops.rs`
+/// (which enforces it) and `tools.rs` (which must sit strictly above it).
+pub fn outer_backstop_secs(inner_secs: u64) -> u64 {
+    inner_secs.saturating_add(OUTER_TIMEOUT_GRACE_SECS)
+}
+
+/// The harness `ToolTimeout::Secs` backstop for a resolved inner deadline of
+/// `inner_secs` — strictly above [`outer_backstop_secs`], so the ordering
+/// `inner < outer < harness` documented in README.md always holds.
+pub fn harness_backstop_secs(inner_secs: u64) -> u64 {
+    outer_backstop_secs(inner_secs).saturating_add(HARNESS_TIMEOUT_GRACE_SECS)
+}
+
 /// Hard upper bound on batched concurrency, regardless of tier or override.
 pub const MAX_RHAI_CONCURRENCY: usize = 8;
 
@@ -199,5 +229,24 @@ mod tests {
     fn depth_respects_the_spawn_ceiling() {
         let p = resolve_policy(AutonomyLevel::Full, None, None).expect("policy");
         assert!(p.max_depth <= RHAI_MAX_DEPTH);
+    }
+
+    /// E-M1: the harness `ToolTimeout::Secs` backstop must sit strictly above
+    /// the outer `spawn_blocking` backstop, which must sit strictly above the
+    /// inner `ReplPolicy.timeout` deadline — matching README.md's stated
+    /// `inner < outer < harness` invariant. Asserted directly over the three
+    /// computed bounds so the constants can never drift back into the
+    /// `harness == inner < outer` inversion the review found.
+    #[test]
+    fn harness_backstop_is_strictly_above_outer_which_is_strictly_above_inner() {
+        for inner in [1, DEFAULT_RHAI_TIMEOUT_SECS, 3600] {
+            let outer = outer_backstop_secs(inner);
+            let harness = harness_backstop_secs(inner);
+            assert!(inner < outer, "inner {inner} should be < outer {outer}");
+            assert!(
+                outer < harness,
+                "outer {outer} should be < harness {harness}"
+            );
+        }
     }
 }

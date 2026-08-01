@@ -7,6 +7,9 @@ import {
   FLOW_RUN_STATUS_DOT,
   FLOW_RUN_STATUS_KEY,
   FlowRunStatus,
+  flowRunStatusAccentClass,
+  flowRunStatusDotClass,
+  flowRunStatusLabel,
 } from './FlowRunStatus';
 
 const EXPECTED_STATUS_PRESENTATION: Record<
@@ -110,5 +113,40 @@ describe('FlowRunStatus', () => {
       'bg-amber-500',
       'animate-pulse'
     );
+  });
+
+  // F-m8: run payloads are cast, never validated, so a future/unknown
+  // `FlowRunStatus` string must fall back rather than index these maps with
+  // `undefined` — mirroring WorkflowRunsPage.tsx's existing fallback pattern.
+  describe('unrecognized wire status (F-m8)', () => {
+    const unknown = 'archived' as FlowRunStatusValue;
+
+    it('flowRunStatusLabel falls back to a humanized status instead of an undefined key', () => {
+      const t = (key: string, fallback?: string) => fallback ?? `MISSING:${key}`;
+      expect(flowRunStatusLabel(unknown, t)).toBe('archived');
+      // A recognized status still resolves through the real key + t().
+      expect(flowRunStatusLabel('completed', t)).toBe(t('flowRuns.status.completed', 'completed'));
+    });
+
+    it('flowRunStatusLabel humanizes underscores in the fallback', () => {
+      const t = (_key: string, fallback?: string) => fallback ?? '';
+      expect(flowRunStatusLabel('archived_forever' as FlowRunStatusValue, t)).toBe(
+        'archived forever'
+      );
+    });
+
+    it('flowRunStatusAccentClass / flowRunStatusDotClass fall back to a neutral class', () => {
+      expect(flowRunStatusAccentClass(unknown)).toBe(
+        'border-line bg-surface-muted text-content-secondary'
+      );
+      expect(flowRunStatusDotClass(unknown)).toBe('bg-surface-strong');
+    });
+
+    it('FlowRunStatus renders without an "undefined" class for an unrecognized status', () => {
+      render(<FlowRunStatus status={unknown} label="archived" testId="status-unknown" />);
+      const badge = screen.getByTestId('status-unknown');
+      expect(badge).toHaveTextContent('archived');
+      expect(badge.className).not.toContain('undefined');
+    });
   });
 });

@@ -6,12 +6,18 @@
 //! handful of functions re-exported below for the capability seam's
 //! [`crate::openhuman::tinyflows::caps::FlowStateStore`]); the RPC/CLI
 //! controller surface in `schemas` (private, re-exported below).
+//!
+//! [`medulla_bridge`] adapts this store onto the medulla harness protocol's
+//! workflow plane, so a remote orchestrator can read these graphs and brief the
+//! authoring copilot without any of that reaching back into `ops`.
 
 pub mod agents;
+mod build_registry;
 pub mod builder_tools;
 pub mod bus;
 pub mod discovery_tools;
 mod draft_store;
+pub mod medulla_bridge;
 pub mod memory_tools;
 mod n8n_import;
 pub mod node_contracts;
@@ -50,4 +56,9 @@ pub use types::{
 // `flows::FLOW_MEMORY_NAMESPACE_PREFIX` call site (`bus.rs`, `ops.rs`, this
 // module's own doc comments) keeps resolving unchanged — `mod.rs` stays
 // export-focused only, per this repo's canonical module shape.
-pub use memory_tools::{flow_namespace, FLOW_MEMORY_NAMESPACE_PREFIX};
+// `cross_flow_recall` is re-exported for the same reason: the tinyflows
+// `memory` node's `OpenHumanMemory` adapter (`scope: "flows"` recall) must
+// see byte-identical cross-flow results to `flow_memory_recall`'s own
+// `scope: "flows"` arm, so both call the one implementation here rather than
+// each walking `namespace_summaries` independently.
+pub use memory_tools::{cross_flow_recall, flow_namespace, FLOW_MEMORY_NAMESPACE_PREFIX};

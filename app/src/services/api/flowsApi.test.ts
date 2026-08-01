@@ -5,7 +5,9 @@ import {
   buildWorkflow,
   discoverWorkflows,
   dismissSuggestion,
+  flowsBuildCancel,
   type FlowSuggestion,
+  getApprovalManifest,
   getFlowRun,
   listAllFlowRuns,
   listFlowRuns,
@@ -14,6 +16,7 @@ import {
   markSuggestionBuilt,
   resumeFlow,
   runFlow,
+  runFlowDetached,
   setFlowEnabled,
 } from './flowsApi';
 
@@ -79,6 +82,43 @@ describe('flowsApi', () => {
       await expect(resumeFlow('flow-1', 't1', ['wrong-node'])).rejects.toThrow(
         'no pending approval matches'
       );
+    });
+  });
+
+  describe('flowsBuildCancel', () => {
+    it('calls openhuman.flows_build_cancel with thread_id + null request_id and returns cancelled', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope({ cancelled: true }));
+
+      const cancelled = await flowsBuildCancel('t1');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_build_cancel',
+        params: { thread_id: 't1', request_id: null },
+      });
+      expect(cancelled).toBe(true);
+    });
+
+    it('scopes the cancel with request_id when given', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope({ cancelled: false }));
+
+      const cancelled = await flowsBuildCancel('t1', 'req-9');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_build_cancel',
+        params: { thread_id: 't1', request_id: 'req-9' },
+      });
+      // `false` is not an error — it just means nothing was in flight to cancel.
+      expect(cancelled).toBe(false);
+    });
+
+    it('defaults to false when the payload omits `cancelled`', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope({}));
+      await expect(flowsBuildCancel('t1')).resolves.toBe(false);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('rpc down'));
+      await expect(flowsBuildCancel('t1')).rejects.toThrow('rpc down');
     });
   });
 
@@ -285,7 +325,7 @@ describe('flowsApi', () => {
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_run',
-        params: { id: 'flow-1', input: null },
+        params: { id: 'flow-1', input: null, inputs: null },
         timeoutMs: 610_000,
       });
       expect(result).toEqual({ output: { nodes: {} }, pending_approvals: [], thread_id: 't1' });
@@ -300,7 +340,21 @@ describe('flowsApi', () => {
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_run',
-        params: { id: 'flow-1', input: { trigger: 'manual' } },
+        params: { id: 'flow-1', input: { trigger: 'manual' }, inputs: null },
+        timeoutMs: 610_000,
+      });
+    });
+
+    it('passes declared workflow inputs alongside the trigger payload', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ output: null, pending_approvals: [], thread_id: 't3' })
+      );
+
+      await runFlow('flow-1', {}, { repo: 'acme/api', depth: 3 });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run',
+        params: { id: 'flow-1', input: {}, inputs: { repo: 'acme/api', depth: 3 } },
         timeoutMs: 610_000,
       });
     });
@@ -318,6 +372,95 @@ describe('flowsApi', () => {
       mockCallCoreRpc.mockRejectedValue(new Error('flow disabled'));
 
       await expect(runFlow('flow-1')).rejects.toThrow('flow disabled');
+    });
+  });
+
+  // F-M1/F-M2: `flows_run_detached` registers the run and returns immediately
+  // — it must NOT share `runFlow`'s extended `FLOW_RESUME_TIMEOUT_MS` budget,
+  // since (unlike `runFlow`) it never waits for the engine.
+  describe('runFlowDetached', () => {
+    it('calls openhuman.flows_run_detached with id/input and the DEFAULT timeout (no timeoutMs override)', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({
+          run_id: 'flow:flow-1:t1',
+          flow_id: 'flow-1',
+          status: 'running',
+          detached: true,
+        })
+      );
+
+      const result = await runFlowDetached('flow-1');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run_detached',
+        params: { id: 'flow-1', input: null, inputs: null },
+      });
+      // No `timeoutMs` key at all — asserted structurally above via
+      // `toHaveBeenCalledWith` (an object with an extra `timeoutMs` key would
+      // NOT match), rather than a brittle `not.toHaveProperty` on the mock
+      // call args.
+      expect(result).toEqual({
+        run_id: 'flow:flow-1:t1',
+        flow_id: 'flow-1',
+        status: 'running',
+        detached: true,
+      });
+    });
+
+    it('passes a supplied input payload through', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({
+          run_id: 'flow:flow-1:t2',
+          flow_id: 'flow-1',
+          status: 'running',
+          detached: true,
+        })
+      );
+
+      await runFlowDetached('flow-1', { trigger: 'manual' });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run_detached',
+        params: { id: 'flow-1', input: { trigger: 'manual' }, inputs: null },
+      });
+    });
+
+    it('passes declared workflow inputs — the only way a parameterized flow runs from the UI', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({
+          run_id: 'flow:flow-1:t4',
+          flow_id: 'flow-1',
+          status: 'running',
+          detached: true,
+        })
+      );
+
+      await runFlowDetached('flow-1', {}, { repo: 'acme/api' });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run_detached',
+        params: { id: 'flow-1', input: {}, inputs: { repo: 'acme/api' } },
+      });
+    });
+
+    it('unwraps the { result, logs } envelope', async () => {
+      const payload = {
+        run_id: 'flow:flow-1:t3',
+        flow_id: 'flow-1',
+        status: 'running',
+        detached: true,
+      };
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(payload));
+
+      const result = await runFlowDetached('flow-1');
+
+      expect(result).toEqual(payload);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('flow disabled'));
+
+      await expect(runFlowDetached('flow-1')).rejects.toThrow('flow disabled');
     });
   });
 
@@ -524,5 +667,55 @@ describe('flowsApi', () => {
       expect(coerceWorkflowProposal).toHaveBeenCalledWith(raw);
       expect(result.proposal).toEqual(expected);
     });
+  });
+});
+
+describe('getApprovalManifest', () => {
+  beforeEach(() => mockCallCoreRpc.mockReset());
+
+  const manifest = {
+    entries: [
+      { kind: 'approvable', node_id: 'n1', tool_name: 'flows_http_request', label: 'Call API' },
+    ],
+    missing: ['flows_http_request'],
+    already_trusted: ['GMAIL_SEND_EMAIL'],
+    gate_installed: true,
+  };
+
+  it('targets a saved flow by id', async () => {
+    mockCallCoreRpc.mockResolvedValue(cliEnvelope(manifest));
+
+    const result = await getApprovalManifest({ id: 'flow-1' });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.flows_approval_manifest',
+      params: { id: 'flow-1' },
+    });
+    expect(result).toEqual(manifest);
+  });
+
+  it('targets a candidate graph when no id exists yet', async () => {
+    mockCallCoreRpc.mockResolvedValue(cliEnvelope(manifest));
+
+    await getApprovalManifest({ graph: { nodes: [], edges: [] } });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.flows_approval_manifest',
+      params: { graph: { nodes: [], edges: [] } },
+    });
+  });
+
+  it('defaults every field when the envelope payload is sparse', async () => {
+    mockCallCoreRpc.mockResolvedValue(cliEnvelope({}));
+
+    const result = await getApprovalManifest({ id: 'flow-1' });
+
+    expect(result).toEqual({ entries: [], missing: [], already_trusted: [], gate_installed: true });
+  });
+
+  it('propagates rejection from callCoreRpc', async () => {
+    mockCallCoreRpc.mockRejectedValueOnce(new Error('manifest down'));
+
+    await expect(getApprovalManifest({ id: 'flow-1' })).rejects.toThrow('manifest down');
   });
 });

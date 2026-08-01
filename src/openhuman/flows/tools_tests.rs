@@ -178,6 +178,40 @@ async fn summary_step_count_and_kinds_are_correct() {
     assert_eq!(steps[1]["config_hint"], "slack.post_message");
 }
 
+#[test]
+fn dedup_config_hint_is_truncated_for_a_long_key_expression() {
+    // CodeRabbit (PR #5265): unlike the other config_hint branches, the
+    // dedup branch returned `format!("key: {k}")` unwrapped by
+    // `truncate_hint`, so an oversized `config.key` expression could make
+    // the proposal/summary payload unbounded.
+    let long_key = format!("=item.{}", "x".repeat(200));
+    let graph = WorkflowGraph {
+        nodes: vec![Node {
+            id: "dd".to_string(),
+            kind: NodeKind::Dedup,
+            type_version: 1,
+            name: "Dedup".to_string(),
+            config: json!({ "key": long_key }),
+            ports: Vec::new(),
+            position: None,
+        }],
+        ..Default::default()
+    };
+
+    let summary = build_summary(&graph);
+    let hint = summary["steps"][0]["config_hint"].as_str().unwrap();
+    assert!(
+        hint.chars().count() <= MAX_CONFIG_HINT_CHARS,
+        "hint not truncated: {} chars: {hint}",
+        hint.chars().count()
+    );
+    assert!(hint.ends_with('…'), "expected an ellipsis marker: {hint}");
+    assert!(
+        hint.starts_with("key: "),
+        "expected the key: prefix: {hint}"
+    );
+}
+
 #[tokio::test]
 async fn summary_trigger_describes_schedule() {
     let tmp = TempDir::new().unwrap();

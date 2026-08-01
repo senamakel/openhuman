@@ -2,10 +2,11 @@ import debug from 'debug';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useFlowPreauthorization } from '../../hooks/useFlowPreauthorization';
 import { FLOW_CANVAS_DRAFT_ROUTE, type FlowCanvasDraftState } from '../../lib/flows/canvasDraft';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
-import { createFlow, setFlowEnabled } from '../../services/api/flowsApi';
+import { createFlow } from '../../services/api/flowsApi';
 import { threadApi } from '../../services/api/threadApi';
 import {
   clearWorkflowProposalForThread,
@@ -13,6 +14,7 @@ import {
   type WorkflowProposal,
 } from '../../store/chatRuntimeSlice';
 import { useAppDispatch } from '../../store/hooks';
+import { FlowPreauthorizationCard } from '../flows/FlowPreauthorizationCard';
 import Button from '../ui/Button';
 
 const log = debug('openhuman:chat:workflow-proposal-card');
@@ -205,6 +207,30 @@ const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) 
     dispatch(markWorkflowProposalCompleted({ threadId, flowId }));
   };
 
+  // Consolidated save+enable pre-authorization (Approve all / Deny), rendered
+  // inline below the proposal body when the flow's manifest has missing
+  // grants. "Approve all" finishes the arm and lands in the terminal saved
+  // view; "Deny" leaves the flow saved-but-disabled and keeps `savedFlowId`
+  // so a later retry only re-runs the enable step.
+  const preauth = useFlowPreauthorization({
+    onSettled: (outcome, flowId) => {
+      // 'no-card': the awaited beginEnable/checkAfterSave call inside `save`
+      // observed the direct enable itself and finishes the arm there —
+      // completing here too would double-dispatch `markWorkflowProposalCompleted`.
+      if (outcome === 'no-card') return;
+      if (outcome === 'denied') {
+        log('preauthorization denied — flow %s saved but left disabled', flowId);
+        setSavedFlowId(flowId);
+        setErrorMsg(t('flows.enableApproval.deniedDisabled'));
+        return;
+      }
+      log('preauthorization approved — flow %s armed, completing card', flowId);
+      markSourceMessageConsumed();
+      markCompleted(flowId);
+      onSaved?.();
+    },
+  });
+
   const save = async () => {
     if (saving) return;
     setSaving(true);
@@ -220,27 +246,42 @@ const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) 
         const flow = await createFlow(proposal.name, proposal.graph, proposal.requireApproval);
         flowId = flow.id;
         flowPersisted = true;
+        // Persisted — record the id BEFORE any branch releases `saving`, so a
+        // second click (e.g. while the pre-authorization card below is open)
+        // can never reach `createFlow` again and duplicate the flow.
+        setSavedFlowId(flow.id);
         if (flow.enabled) {
-          log('save: createFlow returned enabled — nothing further to arm id=%s', flow.id);
-          markSourceMessageConsumed();
+          // Already live — surface the pre-authorization card when grants
+          // are missing; otherwise this is the terminal success state.
+          log('save: createFlow returned enabled id=%s — running pre-auth check', flow.id);
+          const cardShown = await preauth.checkAfterSave(flow.id, true);
           setSaving(false);
-          markCompleted(flow.id);
-          onSaved?.();
+          if (!cardShown) {
+            markSourceMessageConsumed();
+            markCompleted(flow.id);
+            onSaved?.();
+          }
           return;
         }
         // B29 Rule 1 saved this automatic-trigger flow disabled. This click
         // is the user's own explicit "Save & enable" — not the copilot's
         // silent autosave Rule 1 guards against — so arm it now.
         log('save: createFlow returned disabled (Rule 1) — arming explicitly id=%s', flow.id);
-        setSavedFlowId(flow.id);
       }
-      await setFlowEnabled(flowId, true);
-      markSourceMessageConsumed();
+      // Enable through the pre-authorization check: enables directly when no
+      // grants are missing, otherwise the card renders below and the enable
+      // waits for "Approve all" (settled via the hook's onSettled above).
+      log('save: routing enable through pre-authorization check id=%s', flowId);
+      const enabledNow = await preauth.beginEnable(flowId);
+      log('save: beginEnable settled id=%s enabledNow=%s', flowId, enabledNow);
       setSaving(false);
-      markCompleted(flowId);
-      onSaved?.();
+      if (enabledNow) {
+        markSourceMessageConsumed();
+        markCompleted(flowId);
+        onSaved?.();
+      }
     } catch (e) {
-      log('save failed (createFlow/setFlowEnabled): %o', e);
+      log('save failed (createFlow/enable): %o', e);
       setErrorMsg(
         flowPersisted ? t('chat.flowProposal.enableError') : t('chat.flowProposal.error')
       );
@@ -364,6 +405,18 @@ const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) 
                 </Button>
               </div>
             </>
+          )}
+
+          {preauth.pending && (
+            <div className="mt-3">
+              <FlowPreauthorizationCard
+                entries={preauth.pending.manifest.entries}
+                busy={preauth.busy}
+                errorMsg={preauth.errorKey ? t('flows.enableApproval.error') : null}
+                onApproveAll={() => void preauth.approveAll()}
+                onDeny={() => void preauth.deny()}
+              />
+            </div>
           )}
         </div>
       </div>

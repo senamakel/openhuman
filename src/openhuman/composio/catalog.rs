@@ -108,10 +108,58 @@ pub struct ToolContract {
     pub is_curated: bool,
 }
 
+/// A [`LIVE_CATALOG_CACHE`] / [`PROBE_CACHE`] entry, timestamped so a lookup
+/// can tell a fresh hit from an expired one (E-m8).
+#[derive(Debug, Clone)]
+struct CacheEntry<T> {
+    value: T,
+    cached_at: std::time::Instant,
+}
+
+impl<T> CacheEntry<T> {
+    fn fresh(value: T) -> Self {
+        Self {
+            value,
+            cached_at: std::time::Instant::now(),
+        }
+    }
+
+    /// `Some(&value)` while still within [`COMPOSIO_CATALOG_CACHE_TTL`],
+    /// `None` once expired — callers treat an expired entry as a cache miss
+    /// and re-fetch, same as no entry at all.
+    fn if_fresh(&self) -> Option<&T> {
+        (self.cached_at.elapsed() < COMPOSIO_CATALOG_CACHE_TTL).then_some(&self.value)
+    }
+
+    /// Backdates a fresh entry by `age` — test-only seam for exercising TTL
+    /// expiry deterministically, without a mockable clock or a real 30-minute
+    /// sleep (E-m8).
+    #[cfg(test)]
+    fn backdated_by(mut self, age: std::time::Duration) -> Self {
+        self.cached_at -= age;
+        self
+    }
+}
+
+/// TTL for [`LIVE_CATALOG_CACHE`] and [`PROBE_CACHE`] entries (E-m8). Both
+/// caches were previously permanent for the life of the process: a Composio
+/// action published to a toolkit (or a corrected probe result) after the
+/// first fetch stayed invisible — rejected by `flow_tool_allowed` Path B, or
+/// serving a stale `primary_array_path`/`output_fields` — until the next
+/// core restart. A support-visible gotcha, not a correctness bug: the
+/// rejection direction is fail-CLOSED (an unknown/stale action is refused,
+/// never silently permitted), so a bounded TTL only changes how long that
+/// staleness can persist before self-healing, never which way an ambiguous
+/// case resolves. 30 minutes comfortably outlasts a single builder session's
+/// worth of repeat lookups (the reason these are caches at all) while
+/// keeping "add a Composio action, come back later today" working without a
+/// restart.
+const COMPOSIO_CATALOG_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
 /// Process-level cache backing [`fetch_live_toolkit_catalog`]: lowercase
 /// toolkit slug → every [`ToolContract`] the LIVE Composio catalog published
-/// for it. One fetch per toolkit per process — schemas are effectively
-/// static within a session.
+/// for it. One fetch per toolkit per TTL window — schemas are effectively
+/// static within a session, but not forever (E-m8).
 ///
 /// Replaces the narrower `REQUIRED_ARGS_CACHE` / `RESPONSE_FIELDS_CACHE`
 /// pair (single-purpose, args-only / fields-only) that predated this fix:
@@ -119,7 +167,7 @@ pub struct ToolContract {
 /// delegate to this one cache/fetch instead of each running its own
 /// independent `composio_list_tools` round trip.
 static LIVE_CATALOG_CACHE: std::sync::OnceLock<
-    std::sync::Mutex<std::collections::HashMap<String, Vec<ToolContract>>>,
+    std::sync::Mutex<std::collections::HashMap<String, CacheEntry<Vec<ToolContract>>>>,
 > = std::sync::OnceLock::new();
 
 /// Seeds the live-catalog cache for a toolkit — test hook so preflight /
@@ -132,7 +180,25 @@ pub(crate) fn seed_live_catalog_cache(toolkit: &str, contracts: Vec<ToolContract
         .get_or_init(Default::default)
         .lock()
         .expect("live catalog cache poisoned")
-        .insert(toolkit.trim().to_ascii_lowercase(), contracts);
+        .insert(
+            toolkit.trim().to_ascii_lowercase(),
+            CacheEntry::fresh(contracts),
+        );
+}
+
+/// Like [`seed_live_catalog_cache`], but backdates the entry so it is
+/// already expired — E-m8 TTL-expiry test seam.
+#[cfg(test)]
+pub(crate) fn seed_live_catalog_cache_expired(toolkit: &str, contracts: Vec<ToolContract>) {
+    LIVE_CATALOG_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .expect("live catalog cache poisoned")
+        .insert(
+            toolkit.trim().to_ascii_lowercase(),
+            CacheEntry::fresh(contracts)
+                .backdated_by(COMPOSIO_CATALOG_CACHE_TTL + std::time::Duration::from_secs(1)),
+        );
 }
 
 /// Fetches a toolkit's tool schemas STRAIGHT from the Composio client,
@@ -221,11 +287,12 @@ pub(crate) async fn fetch_live_toolkit_catalog(
         .lock()
         .ok()?
         .get(&key)
+        .and_then(CacheEntry::if_fresh)
     {
         return Some(cached.clone());
     }
 
-    tracing::debug!(target: "flows", toolkit = %key, "[flows] live catalog: fetching (cache miss)");
+    tracing::debug!(target: "flows", toolkit = %key, "[flows] live catalog: fetching (cache miss or expired)");
     let resp = fetch_raw_toolkit_tools(config, &key).await?;
 
     let curated_catalog = get_provider(&key)
@@ -269,7 +336,7 @@ pub(crate) async fn fetch_live_toolkit_catalog(
         .collect();
 
     if let Ok(mut cache) = LIVE_CATALOG_CACHE.get_or_init(Default::default).lock() {
-        cache.insert(key, contracts.clone());
+        cache.insert(key, CacheEntry::fresh(contracts.clone()));
     }
     Some(contracts)
 }
@@ -366,14 +433,14 @@ pub(crate) struct ProbedOutputSample {
 
 /// Process-level cache backing [`probe_tool_output_sample`]: action slug
 /// (uppercased) → the [`ProbedOutputSample`] it produced. One real probe per
-/// slug per process — mirrors [`LIVE_CATALOG_CACHE`]'s one-fetch-per-process
-/// shape, and for the same reason: a probe is a real, potentially
-/// rate-limited/billed external call, not something to repeat every turn.
+/// slug per TTL window (E-m8) — mirrors [`LIVE_CATALOG_CACHE`]'s shape, and
+/// for the same reason: a probe is a real, potentially rate-limited/billed
+/// external call, not something to repeat every turn.
 ///
 /// Entries here always have `sample` redacted to `Value::Null` — see
 /// [`cache_probe_result`] and [`ProbedOutputSample::sample`]'s doc.
 static PROBE_CACHE: std::sync::OnceLock<
-    std::sync::Mutex<std::collections::HashMap<String, ProbedOutputSample>>,
+    std::sync::Mutex<std::collections::HashMap<String, CacheEntry<ProbedOutputSample>>>,
 > = std::sync::OnceLock::new();
 
 /// Seeds the probe cache for a slug — test hook so [`apply_probe_override`]
@@ -386,7 +453,22 @@ pub(crate) fn seed_probe_cache(slug: &str, sample: ProbedOutputSample) {
         .get_or_init(Default::default)
         .lock()
         .expect("probe cache poisoned")
-        .insert(slug.trim().to_ascii_uppercase(), sample);
+        .insert(slug.trim().to_ascii_uppercase(), CacheEntry::fresh(sample));
+}
+
+/// Like [`seed_probe_cache`], but backdates the entry so it is already
+/// expired — E-m8 TTL-expiry test seam.
+#[cfg(test)]
+pub(crate) fn seed_probe_cache_expired(slug: &str, sample: ProbedOutputSample) {
+    PROBE_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .expect("probe cache poisoned")
+        .insert(
+            slug.trim().to_ascii_uppercase(),
+            CacheEntry::fresh(sample)
+                .backdated_by(COMPOSIO_CATALOG_CACHE_TTL + std::time::Duration::from_secs(1)),
+        );
 }
 
 /// Caches the DERIVED metadata from a real probe — never the raw `sample`
@@ -401,19 +483,21 @@ fn cache_probe_result(slug: &str, sample: ProbedOutputSample) {
         ..sample
     };
     if let Ok(mut cache) = PROBE_CACHE.get_or_init(Default::default).lock() {
-        cache.insert(slug.trim().to_ascii_uppercase(), cached);
+        cache.insert(slug.trim().to_ascii_uppercase(), CacheEntry::fresh(cached));
     }
 }
 
 /// Looks up a cached [`ProbedOutputSample`] for `slug`, or `None` when
-/// [`probe_tool_output_sample`] has never successfully probed it this
-/// process.
+/// [`probe_tool_output_sample`] has never successfully probed it within the
+/// current TTL window (E-m8) — an expired probe is treated exactly like a
+/// process that never probed it at all, and re-probes on next use.
 pub(crate) fn probed_output_sample(slug: &str) -> Option<ProbedOutputSample> {
     PROBE_CACHE
         .get_or_init(Default::default)
         .lock()
         .ok()?
         .get(&slug.trim().to_ascii_uppercase())
+        .and_then(CacheEntry::if_fresh)
         .cloned()
 }
 

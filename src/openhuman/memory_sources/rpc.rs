@@ -465,7 +465,7 @@ pub struct ReconcileResponse {
 /// sync; this RPC exposes it for inspection and manual triggering.
 pub async fn reconcile_rpc(req: ReconcileRequest) -> Result<RpcOutcome<ReconcileResponse>, String> {
     use crate::openhuman::memory_sources::sync::derive_scopes;
-    use crate::openhuman::memory_sync::sources::rebuild::{raw_coverage, rebuild_tree_from_raw};
+    use crate::openhuman::tinycortex::{raw_coverage, rebuild_tree_from_raw};
 
     tracing::info!(
         source_id = ?req.source_id,
@@ -594,12 +594,12 @@ pub async fn supported_toolkits_rpc() -> Result<RpcOutcome<SupportedToolkitsResp
 
 #[derive(Debug, serde::Serialize)]
 pub struct SyncAuditLogResponse {
-    pub entries: Vec<crate::openhuman::memory_sync::sources::audit::SyncAuditEntry>,
+    pub entries: Vec<crate::openhuman::tinycortex::SyncAuditEntry>,
 }
 
 pub async fn sync_audit_log_rpc() -> Result<RpcOutcome<SyncAuditLogResponse>, String> {
     let config = config_rpc::load_config_with_timeout().await?;
-    let entries = crate::openhuman::memory_sync::sources::audit::read_audit_log(&config);
+    let entries = crate::openhuman::tinycortex::read_audit_log(&config);
     Ok(RpcOutcome::new(SyncAuditLogResponse { entries }, vec![]))
 }
 
@@ -639,7 +639,7 @@ pub async fn estimate_sync_cost_rpc(
     let estimated_input_tokens = item_count as u64 * 500;
     let estimated_output_tokens = item_count as u64 * 100;
     let estimated_tokens = estimated_input_tokens + estimated_output_tokens;
-    let estimated_cost_usd = crate::openhuman::memory_sync::sources::audit::estimate_cost_usd(
+    let estimated_cost_usd = crate::openhuman::tinycortex::estimate_cost_usd(
         estimated_input_tokens,
         estimated_output_tokens,
     );
@@ -672,7 +672,7 @@ pub struct MonthlyCostSummaryResponse {
 pub async fn monthly_cost_summary_rpc() -> Result<RpcOutcome<MonthlyCostSummaryResponse>, String> {
     tracing::debug!("[memory_sources] monthly_cost_summary_rpc: entry");
     let config = config_rpc::load_config_with_timeout().await?;
-    let entries = crate::openhuman::memory_sync::sources::audit::read_audit_log(&config);
+    let entries = crate::openhuman::tinycortex::read_audit_log(&config);
 
     let now = chrono::Utc::now();
     let month_str = now.format("%Y-%m").to_string();

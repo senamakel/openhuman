@@ -172,6 +172,19 @@ describe('FlowRunsDrawer', () => {
     expect(row).toHaveTextContent('Completed with warnings');
   });
 
+  it('falls back to a humanized label instead of "undefined" for an unrecognized status (F-m8)', async () => {
+    // Run payloads are cast, never validated — a future/unknown status the
+    // frontend doesn't recognize yet must not render literal "undefined".
+    listFlowRuns.mockResolvedValue([
+      makeRun({ id: 'run-1', status: 'archived' as FlowRun['status'] }),
+    ]);
+    renderDrawer('flow-1', vi.fn());
+
+    const row = await screen.findByTestId('flow-run-row-run-1');
+    expect(row).toHaveTextContent('archived');
+    expect(row).not.toHaveTextContent('undefined');
+  });
+
   it('shows "Awaiting approval" for a running run halted at a matching flow approval gate', async () => {
     listFlowRuns.mockResolvedValue([makeRun({ id: 'run-1', status: 'running' })]);
     fetchPendingApprovals.mockResolvedValue([

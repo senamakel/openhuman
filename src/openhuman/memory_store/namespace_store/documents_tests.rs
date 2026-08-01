@@ -1127,11 +1127,19 @@ async fn kv_set_global_auto_sanitizes_pii_like_key() {
         .await
         .expect("PII-like global key should be auto-sanitized, not rejected");
 
-    // The key in storage contains the redacted token.
+    // ... and the caller must be able to read it back with the identifier it
+    // wrote. The canonicalization is a storage-address transform, so the read
+    // path applies the same one (#5164). A miss here is what made the caller
+    // write again, which is the loop the issue was reported for.
     let stored = memory.kv_get_global("ssn-123-45-6789").await.unwrap();
+    assert_eq!(
+        stored,
+        Some(json!({"value": "ok"})),
+        "a canonicalized KV key must stay readable by its original identifier"
+    );
     assert!(
-        stored.is_none(),
-        "original PII key should not match after sanitization"
+        memory.kv_delete_global("ssn-123-45-6789").await.unwrap(),
+        "delete must address the same canonicalized row the write created"
     );
 }
 
@@ -1148,6 +1156,14 @@ async fn kv_set_namespace_auto_sanitizes_pii_like_key() {
     let records = memory.kv_records_namespace("safe").await.unwrap();
     // The record should still exist; the key gets redacted internally.
     assert_eq!(records.len(), 1);
+    assert_eq!(
+        memory
+            .kv_get_namespace("safe", "ssn-123-45-6789")
+            .await
+            .unwrap(),
+        Some(json!({"value": "ok"})),
+        "a canonicalized KV key must stay readable by its original identifier"
+    );
 }
 
 #[tokio::test]
@@ -1159,6 +1175,15 @@ async fn kv_set_namespace_auto_sanitizes_pii_like_namespace() {
         .kv_set_namespace("user/111.444.777-35", "safe-key", &json!({"value": "ok"}))
         .await
         .expect("PII-like namespace should be auto-sanitized, not rejected");
+
+    assert_eq!(
+        memory
+            .kv_get_namespace("user/111.444.777-35", "safe-key")
+            .await
+            .unwrap(),
+        Some(json!({"value": "ok"})),
+        "a canonicalized KV namespace must stay readable by its original value"
+    );
 }
 
 #[tokio::test]
@@ -1296,5 +1321,188 @@ async fn upsert_document_metadata_only_auto_sanitizes_pii_like_namespace() {
         doc.namespace.contains("REDACTED"), // [REDACTED_PII_CPF] after sanitize_namespace
         "namespace should contain a redaction token, got: {}",
         doc.namespace
+    );
+}
+
+// ---------------------------------------------------------------------------
+// #5164 — the identifier canonicalization has to be symmetric, and it has to
+// leave scanner-built identifiers alone.
+//
+// Canonicalizing a namespace/key rewrites the row's *address*. Two failure
+// modes follow, and both re-create the unthrottled write loop the issue was
+// filed for (silently, this time):
+//
+//   1. a read path that addresses the raw caller identifier never finds the
+//      canonicalized row, so the caller writes it again;
+//   2. canonicalizing with the lenient *content* scrubber maps every
+//      phone-shaped identifier onto one placeholder, so distinct chats collapse
+//      onto one `(namespace, key)` and the upsert's `ON CONFLICT … DO UPDATE`
+//      has one contact's document overwrite another's.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn pii_like_document_key_round_trips_through_get_and_forget() {
+    use crate::openhuman::memory::traits::Memory;
+
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    memory
+        .upsert_document(make_doc_input(
+            "clients",
+            "ssn-123-45-6789",
+            "Title",
+            "Body",
+        ))
+        .await
+        .expect("PII-like key should be canonicalized, not rejected");
+
+    let entry = memory
+        .get("clients", "ssn-123-45-6789")
+        .await
+        .unwrap()
+        .expect("a canonicalized key must stay readable by its original identifier");
+    assert_eq!(entry.content, "Body");
+    assert!(
+        !entry.key.contains("123-45-6789"),
+        "the SSN must not be persisted as the storage address, got: {}",
+        entry.key
+    );
+
+    assert!(
+        memory.forget("clients", "ssn-123-45-6789").await.unwrap(),
+        "forget must address the same canonicalized row the write created"
+    );
+    assert!(memory
+        .get("clients", "ssn-123-45-6789")
+        .await
+        .unwrap()
+        .is_none());
+}
+
+#[tokio::test]
+async fn pii_like_namespace_round_trips_through_get_and_list() {
+    use crate::openhuman::memory::traits::Memory;
+
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    memory
+        .upsert_document(make_doc_input(
+            "cliente-RFC-VECJ880326XK4",
+            "notes",
+            "Title",
+            "Body",
+        ))
+        .await
+        .expect("PII-like namespace should be canonicalized, not rejected");
+
+    assert!(
+        memory
+            .get("cliente-RFC-VECJ880326XK4", "notes")
+            .await
+            .unwrap()
+            .is_some(),
+        "a canonicalized namespace must stay readable by its original value"
+    );
+    let listed = memory
+        .list(Some("cliente-RFC-VECJ880326XK4"), None, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        listed.len(),
+        1,
+        "list() must canonicalize its namespace the same way the write did"
+    );
+}
+
+#[tokio::test]
+async fn scanner_built_phone_shaped_keys_stay_distinct_documents() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    // Two different WhatsApp contacts, same day. The digit runs differ only in
+    // the phone number — the lenient content scrubber replaces both with one
+    // `[REDACTED_PII_PHONE]` token, which would collapse them onto a single row.
+    for (key, content) in [
+        ("12025551234@c.us:2026-05-30", "alice thread"),
+        ("12025559999@c.us:2026-05-30", "bob thread"),
+    ] {
+        memory
+            .upsert_document(make_doc_input("whatsapp-web", key, "Chat", content))
+            .await
+            .unwrap();
+    }
+
+    let docs = memory
+        .load_documents_for_scope("whatsapp-web")
+        .await
+        .unwrap();
+    assert_eq!(
+        docs.len(),
+        2,
+        "scanner-built phone-shaped keys must stay distinct documents, got: {:?}",
+        docs.iter().map(|d| d.key.clone()).collect::<Vec<_>>()
+    );
+    for key in ["12025551234@c.us:2026-05-30", "12025559999@c.us:2026-05-30"] {
+        assert!(
+            docs.iter().any(|d| d.key == key),
+            "key {key} must be stored verbatim, got: {:?}",
+            docs.iter().map(|d| d.key.clone()).collect::<Vec<_>>()
+        );
+    }
+}
+
+#[tokio::test]
+async fn scanner_built_identifiers_are_preserved_verbatim() {
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    // The strict boundary predicate deliberately tolerates these shapes
+    // (WhatsApp group JID, iMessage E.164 chat id, padded ms timestamp); the
+    // content scrubber does not. Canonicalization must follow the strict set,
+    // or every scanner rewrites its own storage addresses.
+    for key in [
+        "12025551234-1543890267@g.us:2026-05-30",
+        "imessage:+12025551234:2026-05-30",
+        "accepted:000001747729035001",
+    ] {
+        let doc_id = memory
+            .upsert_document(make_doc_input("scanner", key, "Title", "Body"))
+            .await
+            .unwrap();
+        let docs = memory.load_documents_for_scope("scanner").await.unwrap();
+        let doc = docs.iter().find(|d| d.document_id == doc_id).unwrap();
+        assert_eq!(
+            doc.key, key,
+            "scanner-built identifier must not be rewritten"
+        );
+    }
+}
+
+#[tokio::test]
+async fn metadata_only_write_round_trips_through_pii_like_key() {
+    use crate::openhuman::memory::traits::Memory;
+
+    let tmp = TempDir::new().unwrap();
+    let memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
+
+    memory
+        .upsert_document_metadata_only(make_doc_input(
+            "clients",
+            "cuit-20-11111111-2",
+            "Title",
+            "Body",
+        ))
+        .await
+        .expect("PII-like key should be canonicalized, not rejected");
+
+    assert!(
+        memory
+            .get("clients", "cuit-20-11111111-2")
+            .await
+            .unwrap()
+            .is_some(),
+        "the metadata-only path must canonicalize keys the same way the full upsert does"
     );
 }

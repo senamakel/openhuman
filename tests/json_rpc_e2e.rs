@@ -7722,7 +7722,7 @@ async fn json_rpc_inference_prompt_requires_external_ollama_runtime_when_unreach
         .and_then(Value::as_str)
         .unwrap_or_default();
     assert!(
-        prompt_err_message.contains("routes inference through an external Ollama endpoint"),
+        prompt_err_message.contains("external Ollama endpoint is unavailable"),
         "unexpected error: {prompt_err}"
     );
 
@@ -11794,6 +11794,125 @@ async fn json_rpc_flows_lifecycle_round_trip() {
             .expect("flows array")
             .is_empty(),
         "no flows after delete"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+/// JSON-RPC E2E for `flows.run_detached` (PR E / F-M1, F-M2): unlike
+/// `flows_run`, which blocks the RPC caller until the run reaches a terminal
+/// status, `flows_run_detached` must register the run and return
+/// `{run_id, status: "running", detached: true}` immediately — the run row
+/// must already be readable via `flows_get_run` the instant this call
+/// returns, and only *later* (via polling here, `flow:run_progress` /
+/// `useFlowRunPoller` in the UI) does it settle to a terminal status. This is
+/// the RPC-layer counterpart to the direct-API tests
+/// `flows_run_detached_returns_running_run_id_and_inserts_row` /
+/// `flows_run_detached_registers_the_run_before_returning_its_id` in
+/// `src/openhuman/flows/ops_tests.rs` — same contract, exercised through the
+/// `openhuman.flows_run_detached` controller (schema + handler wiring), not
+/// just the `ops::flows_run_detached` fn directly.
+#[cfg(feature = "flows")]
+#[tokio::test]
+async fn json_rpc_flows_run_detached_returns_before_run_completes() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    // 1. Create a trivial, immediately-completable flow.
+    let create = post_json_rpc(
+        &rpc_base,
+        9401,
+        "openhuman.flows_create",
+        json!({
+            "name": "Detached Demo",
+            "graph": {
+                "name": "Detached Demo",
+                "nodes": [{ "id": "t", "kind": "trigger", "name": "Trigger" }],
+                "edges": []
+            }
+        }),
+    )
+    .await;
+    let flow = peel_logs_envelope(assert_no_jsonrpc_error(&create, "flows_create"));
+    let flow_id = flow
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("flow id in create result")
+        .to_string();
+
+    // 2. `flows_run_detached` must hand back a non-terminal "running" payload
+    //    right away, not the completed-run payload `flows_run` returns.
+    let run = post_json_rpc(
+        &rpc_base,
+        9402,
+        "openhuman.flows_run_detached",
+        json!({ "id": flow_id }),
+    )
+    .await;
+    let run_out = peel_logs_envelope(assert_no_jsonrpc_error(&run, "flows_run_detached"));
+    assert_eq!(
+        run_out.get("status").and_then(Value::as_str),
+        Some("running"),
+        "run_detached must report 'running' immediately, not await a terminal status: {run_out:?}"
+    );
+    assert_eq!(run_out.get("detached").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        run_out.get("flow_id").and_then(Value::as_str),
+        Some(flow_id.as_str())
+    );
+    let run_id = run_out
+        .get("run_id")
+        .and_then(Value::as_str)
+        .expect("run_id in run_detached result")
+        .to_string();
+
+    // 3. The run row must already exist — registered + inserted synchronously
+    //    before `flows_run_detached` returned, not from inside the spawned
+    //    background task (which may not be polled for a while).
+    let get_run = post_json_rpc(
+        &rpc_base,
+        9403,
+        "openhuman.flows_get_run",
+        json!({ "run_id": run_id }),
+    )
+    .await;
+    let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&get_run, "flows_get_run"));
+    assert_eq!(
+        run_row.get("id").and_then(Value::as_str),
+        Some(run_id.as_str())
+    );
+
+    // 4. The background task eventually settles the row to a terminal status
+    //    on its own — this is the completion signal the UI's poller /
+    //    `flow:run_progress` subscription relies on instead of the RPC return.
+    let mut terminal_status: Option<String> = None;
+    for _ in 0..50 {
+        let get_run = post_json_rpc(
+            &rpc_base,
+            9404,
+            "openhuman.flows_get_run",
+            json!({ "run_id": run_id }),
+        )
+        .await;
+        let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&get_run, "flows_get_run"));
+        let status = run_row
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if status != "running" {
+            terminal_status = Some(status);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(
+        matches!(
+            terminal_status.as_deref(),
+            Some("completed") | Some("completed_with_warnings")
+        ),
+        "the detached run must settle to a terminal status on its own, got: {terminal_status:?}"
     );
 
     api_join.abort();

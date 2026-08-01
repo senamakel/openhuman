@@ -107,10 +107,16 @@ pub(crate) fn composio_connection_id(conn: &str) -> Option<&str> {
     (!id.is_empty()).then_some(id)
 }
 
-/// Parses a `"http_cred:<name>"` `connection_ref` for [`OpenHumanHttp`]. No
-/// host-side HTTP credential store exists yet — this only extracts the name
-/// so the adapter can log a clear, actionable warning instead of silently
-/// ignoring the reference. See [`OpenHumanHttp::request`]'s doc.
+/// Parses a `"http_cred:<name>"` `connection_ref` for [`OpenHumanHttp`],
+/// returning the trailing credential name. The host-side
+/// [`HttpCredentialsStore`] (encrypted-at-rest bearer/basic/header
+/// templates) is real and load-bearing — [`resolve_http_credential`] looks
+/// the extracted name up in it and injects the resolved auth header
+/// server-side. This function only does the parse; a malformed or missing
+/// name (`None`) is what lets the caller fail the request closed instead of
+/// silently sending it unauthenticated. See [`OpenHumanHttp::request`]'s doc
+/// and the "Phase 2" note on the [`OpenHumanHttp`] struct for the full
+/// resolution flow.
 pub(crate) fn http_cred_name(conn: &str) -> Option<&str> {
     let name = conn.strip_prefix("http_cred:")?.trim();
     (!name.is_empty()).then_some(name)
@@ -328,7 +334,11 @@ async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
 /// the agent"), not for deciding whether a real side-effecting call skips
 /// a human approval prompt. A "SEARCH"/"GET"-shaped uncurated slug must
 /// still prompt until OpenHuman has actually hand-curated it as `Read`.
-async fn classify_composio_action_for_tier(slug: &str) -> CommandClass {
+/// `pub(crate)` so `flows::ops::compute_approval_manifest` can reuse the
+/// exact runtime classifier at save time — the manifest must never drift
+/// from what actually gates (a parallel re-implementation would list
+/// permissions that never prompt, or miss ones that do).
+pub(crate) async fn classify_composio_action_for_tier(slug: &str) -> CommandClass {
     use crate::openhuman::memory_sync::composio::providers::{curated_scope_for, ToolScope};
 
     match curated_scope_for(slug) {
@@ -404,9 +414,15 @@ async fn resolve_composio_account(
 ///   now parsed and forwarded to `direct_execute` (Composio Direct mode).
 ///   Backend mode's `execute_tool` still has no per-call account-scoping
 ///   path — that's a backend API gap, not something this seam can close
-///   alone — so a `connection_ref` under Backend mode logs a warning and
-///   falls back to the ambient signed-in account (documented stub; see
-///   `composio_connection_id`).
+///   alone — so under Backend mode, a `connection_ref` naming a SPECIFIC
+///   connected account is NOT honored: the call executes against whatever
+///   account happens to be the ambient signed-in session instead (E-m3),
+///   which — when the flow author connected/expected a *different* account
+///   for this action — means the action runs as the wrong identity, not a
+///   graceful no-op. This proceeds rather than failing closed; it logs a
+///   `warn!` naming both the requested and actually-used account so the
+///   mismatch is at least visible in logs, but nothing currently blocks the
+///   call. Documented backend-API-gap stub; see `composio_connection_id`.
 /// - **Trust gate**: invocation is also routed through the OpenHuman
 ///   `ApprovalGate` (mirrors `tinyagents/middleware.rs::ApprovalSecurityMiddleware`)
 ///   before dispatch, closing the Codex P1 finding that flow tool nodes
@@ -605,13 +621,18 @@ impl ToolInvoker for OpenHumanTools {
     }
 }
 
-/// Builds the [`Capabilities`] bundle for one run, wiring each of the six
-/// host-injected traits to a real OpenHuman adapter (see each adapter above for
-/// its contract).
+/// Builds the [`Capabilities`] bundle for one run, wiring each of the seven
+/// host-injected traits to a real OpenHuman adapter (see each adapter above,
+/// and [`super::memory_adapter::OpenHumanMemory`] for `memory`, for its
+/// contract).
 ///
 /// `state_namespace` scopes the [`FlowStateStore`] KV so two saved flows that
 /// use the same state key never read or overwrite each other — callers pass a
-/// per-flow namespace (e.g. `"flow:<id>"`).
+/// per-flow namespace (e.g. `"flow:<id>"`). Note this is **not** the same
+/// namespace `OpenHumanMemory` writes flow-scoped memory under — that one is
+/// derived independently from the run's trusted origin via
+/// `flows::flow_namespace`, so the two never need to agree on separator
+/// conventions.
 pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String>) -> Capabilities {
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
@@ -636,7 +657,7 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         }),
         code: Arc::new(OpenHumanCode {
             config: config.clone(),
-            security,
+            security: security.clone(),
         }),
         state: Arc::new(FlowStateStore {
             config: config.clone(),
@@ -644,6 +665,10 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         }),
         agent: Some(Arc::new(OpenHumanAgentRunner {
             config: config.clone(),
+        })),
+        memory: Some(Arc::new(super::memory_adapter::OpenHumanMemory {
+            config: config.clone(),
+            security,
         })),
         resolver: Arc::new(OpenHumanWorkflowResolver { config }),
     }
@@ -1305,6 +1330,51 @@ mod tests {
                 Some(&["FlowsTestKit".to_string()])
             )
             .await
+        );
+    }
+
+    /// E-m8: an EXPIRED `LIVE_CATALOG_CACHE` entry must be treated as a cache
+    /// miss, not a permanent hit. Before the TTL fix, seeding the cache once
+    /// (as `connected_uncatalogued_toolkit_now_passes` does above) made a
+    /// slug pass forever, for the life of the process — a Composio action
+    /// added after the first fetch would stay invisible until restart. Here
+    /// the seeded entry is pre-expired, so `fetch_live_toolkit_catalog` must
+    /// re-fetch — which fails in this test (no live Composio backend) — and
+    /// `flow_tool_allowed` must fail CLOSED, unlike the fresh-seed case above
+    /// which passes.
+    #[tokio::test]
+    async fn expired_live_catalog_entry_is_treated_as_a_cache_miss() {
+        use crate::openhuman::memory_sync::composio::providers::{
+            catalog_for_toolkit, get_provider,
+        };
+        assert!(catalog_for_toolkit("flowsexpiredkit").is_none());
+        assert!(get_provider("flowsexpiredkit").is_none());
+
+        let config = Config::default();
+        seed_live_catalog_cache_expired(
+            "flowsexpiredkit",
+            vec![ToolContract {
+                slug: "FLOWSEXPIREDKIT_DO_THING".to_string(),
+                toolkit: "flowsexpiredkit".to_string(),
+                description: None,
+                required_args: Vec::new(),
+                input_schema: None,
+                output_fields: Vec::new(),
+                output_schema: None,
+                primary_array_path: None,
+                is_curated: false,
+            }],
+        );
+
+        assert!(
+            !flow_tool_allowed(
+                &config,
+                "FLOWSEXPIREDKIT_DO_THING",
+                Some(&["flowsexpiredkit".to_string()])
+            )
+            .await,
+            "an expired cache entry must be re-fetched (and, with no live backend in this test, \
+             fail closed) rather than served as a permanent hit"
         );
     }
 

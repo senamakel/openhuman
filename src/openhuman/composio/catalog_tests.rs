@@ -180,6 +180,31 @@ fn apply_probe_override_passes_through_unchanged_without_a_cached_probe() {
     assert_eq!(overridden.output_fields, contract.output_fields);
 }
 
+/// E-m8: an EXPIRED `PROBE_CACHE` entry must behave exactly like "never
+/// probed" — `apply_probe_override` must NOT apply it. Before the TTL
+/// fix a probe result was permanent for the process's lifetime, so a
+/// corrected/changed real response stayed masked by the first-ever probe
+/// until restart.
+#[test]
+fn apply_probe_override_ignores_an_expired_cached_probe() {
+    seed_probe_cache_expired(
+        "PROBETEST_EXPIRED_ACTION",
+        ProbedOutputSample {
+            primary_array_path: Some("data.issues".to_string()),
+            output_fields: vec!["issues".to_string()],
+            sample: json!({ "data": { "issues": [] } }),
+        },
+    );
+    let contract = bare_contract("PROBETEST_EXPIRED_ACTION");
+    let overridden = apply_probe_override(contract.clone());
+    assert_eq!(
+        overridden.primary_array_path, contract.primary_array_path,
+        "an expired probe must not overlay onto the contract"
+    );
+    assert_eq!(overridden.output_fields, contract.output_fields);
+    assert!(probed_output_sample("PROBETEST_EXPIRED_ACTION").is_none());
+}
+
 /// CodeRabbit (PR #4702 review): a probe that OBSERVED the real response
 /// and found no array anywhere must CLEAR a stale schema-derived
 /// `primary_array_path`, not merely leave it in place because the probe's

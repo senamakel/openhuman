@@ -367,7 +367,7 @@ pub fn all_tools_with_runtime(
         // toolkits a flow still needs (Phase 5, item 19). Read-only.
         #[cfg(feature = "flows")]
         Box::new(ListConnectableToolkitsTool::new(config.clone())),
-        // Queryable DSL schema (F2): enumerate the 12 node kinds and fetch one
+        // Queryable DSL schema (F2): enumerate the 13 node kinds and fetch one
         // kind's full config-field/port/example/gotcha contract — the DSL
         // analogue of search_tool_catalog + get_tool_contract, so an agent need
         // not rely on prompt prose or memory for node config shapes. Read-only.
@@ -376,7 +376,7 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "flows")]
         Box::new(GetNodeKindContractTool::new()),
         #[cfg(feature = "flows")]
-        Box::new(DryRunWorkflowTool::new(security.clone(), config.clone())),
+        Box::new(DryRunWorkflowTool::new(config.clone())),
         // Real end-to-end test run of a SAVED flow (Write / external-effect). The
         // workflow-builder prompt requires it to ask the user for confirmation
         // first, and the flow's own approval gate still pauses outbound nodes.
@@ -399,10 +399,14 @@ pub fn all_tools_with_runtime(
         // Per-flow sandboxed memory (issue #5173): lets a running flow
         // (e.g. a scheduled newsletter-digest) remember what it already did
         // — dedupe across runs — without ever touching the user's own
-        // memory. Namespace is derived internally from `flow_id`; there is
-        // no code path by which either tool can address a namespace other
-        // than the calling flow's own (`flow_memory_recall`'s `scope:
-        // "flows"` is read-only cross-flow visibility, not a write path).
+        // memory. Namespace is derived internally from `flow_id`.
+        // `flow_memory_remember` (write) only resolves that `flow_id` from
+        // the run's own trusted `TrustedAutomation { Workflow }` turn origin
+        // (T-M2 fix) — a chat/orchestrator turn with no trusted run origin
+        // is refused outright, never routed to a model-supplied `flow_id`.
+        // `flow_memory_recall`'s `scope: "flows"` is a deliberate read-only
+        // cross-flow exception — it can see every flow's namespace by
+        // design, but can never be used to write outside a flow's own.
         #[cfg(feature = "flows")]
         Box::new(FlowMemoryRecallTool::new(memory.clone())),
         #[cfg(feature = "flows")]

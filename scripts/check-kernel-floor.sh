@@ -18,9 +18,16 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 LIMITS="scripts/kernel-floor.limits"
 VERBOSE="${1:-}"
 # How far under a limit a profile may sit before we insist the limit be lowered.
-# Small enough to catch a real shed, large enough to absorb an upstream crate
-# splitting or merging on its own.
-SLACK=5
+#
+# Was 5, which was too loose to do its job: the M2 gating wave sheds 2, 3, 3, 4
+# and 5 names in five of its eight steps, and every one of those would have
+# passed CI with a stale limit — i.e. the majority of the work this ratchet
+# exists to protect could have silently grown back.
+#
+# 1 still absorbs the only benign case (an upstream crate splitting or merging
+# on its own, which moves the count by one) while forcing a ratchet update for
+# any shed of 2 or more.
+SLACK=1
 
 status=0
 

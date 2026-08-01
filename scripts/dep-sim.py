@@ -113,20 +113,39 @@ def build_graph(text: str):
     return root, children
 
 
-def reachable(root, children, cut: set[str]) -> set[tuple[str, str]]:
-    """Reachability from root, skipping any node whose NAME is cut.
+def reachable(root, children, cut: set[str], global_cut: bool = False) -> set[tuple[str, str]]:
+    """Reachability from root with `cut` crates removed.
 
-    Cutting by name rather than name+version means `--cut reqwest` removes every
-    major version, which is what you want when asking whether a crate is in the
-    supply chain at all.
+    Two very different questions, and confusing them inflates every projection:
+
+    `global_cut=False` (**the default — models a Cargo feature gate**). Removes
+    only the ROOT's own edges to the cut crates. A crate with another parent
+    survives, because gating openhuman's dependency on it cannot remove someone
+    else's. This is what "make dep X optional behind a feature" actually does.
+
+    `global_cut=True` (`--global-cut`) removes the crate from the graph however
+    it is reached. That answers "what if this crate did not exist at all", which
+    is only achievable by also changing the OTHER parents — usually an upstream
+    PR, not a feature flag.
+
+    The gap between them is not academic. The `encryption` cohort measures -17
+    globally but **-4** as a gate, because `hmac`/`hkdf`/`x25519-dalek` arrive via
+    `tinyplace` and `zeroize` via `aws-lc-rs -> rustls -> reqwest`. Quoting the
+    global number as a gate's value overstates it by a factor of four.
     """
     if root[0] in cut:
         return set()
     seen = {root}
     stack = [root]
     while stack:
-        for child in children.get(stack.pop(), ()):
-            if child[0] in cut or child in seen:
+        cur = stack.pop()
+        at_root = cur == root
+        for child in children.get(cur, ()):
+            # A gate can only sever the root's own edge; deeper edges belong to
+            # other crates and survive it.
+            if child[0] in cut and (global_cut or at_root):
+                continue
+            if child in seen:
                 continue
             seen.add(child)
             stack.append(child)
@@ -153,6 +172,11 @@ def main() -> int:
                     help="file with one crate name per line ('#' comments allowed)")
     ap.add_argument("--cut-nothing", action="store_true",
                     help="calibration mode: cut nothing, print the baseline")
+    ap.add_argument("--global-cut", action="store_true",
+                    help="remove the crate however it is reached, not just the root's "
+                         "edge. Answers 'what if this crate did not exist', which a "
+                         "feature gate CANNOT deliver when another parent pulls it in. "
+                         "Default (off) models a real gate.")
     ap.add_argument("--expect-names", type=int,
                     help="exit non-zero unless the resulting name count matches")
     ap.add_argument("--json", action="store_true")
@@ -171,7 +195,7 @@ def main() -> int:
         run_tree(args.features, args.default_features, args.all_features))
 
     base = summarize(reachable(root, children, set()))
-    after = summarize(reachable(root, children, cut)) if cut else base
+    after = summarize(reachable(root, children, cut, args.global_cut)) if cut else base
 
     profile = ("all-features" if args.all_features
                else ("default + " if args.default_features else "no-default + ")
@@ -180,6 +204,7 @@ def main() -> int:
     if args.json:
         print(json.dumps({
             "profile": profile, "cut": sorted(cut),
+            "mode": "global" if args.global_cut else "gate",
             "baseline": base, "after": after,
             "delta_names": base["names"] - after["names"],
             "delta_packages": base["packages"] - after["packages"],
@@ -192,6 +217,8 @@ def main() -> int:
             if base["native"]:
                 print(f"          native: {' '.join(base['native'])}")
         else:
+            mode = "global (not achievable by a feature gate)" if args.global_cut else "gate (root edge only)"
+            print(f"mode:     {mode}")
             print(f"cut:      {', '.join(sorted(cut))}")
             print(f"after:    {after['packages']} packages / {after['names']} names / "
                   f"{len(after['native'])} native")

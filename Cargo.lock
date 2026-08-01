@@ -7317,7 +7317,7 @@ source = "git+https://github.com/tinyhumansai/sdk.git?rev=3ee4123ba3b7a76c5f167d
 dependencies = [
  "base64 0.22.1",
  "percent-encoding",
- "reqwest 0.12.28",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

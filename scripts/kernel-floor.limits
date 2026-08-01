@@ -13,6 +13,9 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   384/6  2026-08-01  M2 step 3: starship-battery behind default-ON
+#                      `scheduler-gate` (-3). Off-state = "on AC, no charge
+#                      signal", i.e. require_ac_power is not enforced.
 #   387/6  2026-08-01  M2 step 2: clap + env_logger behind default-OFF
 #                      `bin-tools`; the six src/bin/ targets declare it as a
 #                      required-feature (-14, a whole CLI stack).
@@ -23,4 +26,4 @@
 #                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
 #                      lzma-sys ring. Target after gating is 222 names / 2 native
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
-flows:387:6
+flows:384:6

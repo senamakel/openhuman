@@ -16,19 +16,25 @@ use crate::openhuman::tools::traits::Tool;
 use crate::rpc::RpcOutcome;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    vec![
+    #[allow(unused_mut)]
+    let mut v = vec![
         tools_schemas("tools_composio_execute"),
         tools_schemas("tools_web_search"),
         tools_schemas("tools_seltz_search"),
         tools_schemas("tools_querit_search"),
         tools_schemas("tools_searxng_search"),
         tools_schemas("tools_apify_linkedin_scrape"),
-        tools_schemas("tools_polymarket_execute"),
-    ]
+    ];
+    // Leaf gate: with `prediction-markets` off the method is absent from
+    // `/schema` and unknown over `/rpc`, rather than advertised and failing.
+    #[cfg(feature = "prediction-markets")]
+    v.push(tools_schemas("tools_polymarket_execute"));
+    v
 }
 
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
-    vec![
+    #[allow(unused_mut)]
+    let mut v = vec![
         RegisteredController {
             schema: tools_schemas("tools_composio_execute"),
             handler: handle_composio_execute,
@@ -53,11 +59,13 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
             schema: tools_schemas("tools_apify_linkedin_scrape"),
             handler: handle_apify_linkedin_scrape,
         },
-        RegisteredController {
-            schema: tools_schemas("tools_polymarket_execute"),
-            handler: handle_polymarket_execute,
-        },
-    ]
+    ];
+    #[cfg(feature = "prediction-markets")]
+    v.push(RegisteredController {
+        schema: tools_schemas("tools_polymarket_execute"),
+        handler: handle_polymarket_execute,
+    });
+    v
 }
 
 pub fn tools_schemas(function: &str) -> ControllerSchema {
@@ -840,6 +848,7 @@ fn optional_string_array(params: &Map<String, Value>, key: &str) -> Result<Vec<S
         .collect()
 }
 
+#[cfg(feature = "prediction-markets")]
 fn handle_polymarket_execute(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let action = params

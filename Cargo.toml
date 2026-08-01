@@ -3,6 +3,12 @@ name = "openhuman"
 version = "0.63.5"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
+# The crate ships a verbatim GPLv3 `LICENSE` file but carried no `license` key,
+# which left the grant ambiguous to every tool that reads metadata rather than
+# the file (cargo-deny, crates.io, SBOM generators). Declared explicitly as
+# `only` — not `or-later` — to match `medulla-public` and the `GPL-3.0-only`
+# first-party crates in the closure (`tinyagents`).
+license = "GPL-3.0-only"
 autobins = false
 # build.rs globs tests/raw_coverage/*.rs into the single `raw_coverage_all`
 # integration target (see tests/raw_coverage_all.rs). Those files used to be ~76

@@ -421,8 +421,9 @@ fn format_contract(action_slug: &str, contract: &ToolContract) -> String {
     out
 }
 
-// The gate's unit tests seed the flows/tinyflows live-catalog cache, so they
-// only compile and run with the `flows` feature on.
-#[cfg(all(test, feature = "flows"))]
+// The live-catalog cache these tests seed now lives in this domain, which is
+// always compiled — so they run in every build, including the `flows`-off lane
+// the gate itself used to be absent from.
+#[cfg(test)]
 #[path = "contract_gate_tests.rs"]
 mod tests;

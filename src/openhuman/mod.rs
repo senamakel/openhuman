@@ -65,6 +65,12 @@ pub mod image;
 pub mod inference;
 pub mod integrations;
 pub mod javascript;
+// Vendor-neutral JSON Schema / JSON value walking, shared by the Composio
+// catalog and the tinyflows capability adapters. Deliberately owned by neither:
+// if it lived in either, the other would need a dependency edge into it, and
+// one of those directions is the back-edge the kernelization work removes.
+// Ungated — `composio` is always compiled, `tinyflows` is behind `flows`.
+pub mod json_schema;
 pub mod keyring;
 pub mod keyring_consent;
 pub mod learning;

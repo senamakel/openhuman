@@ -61,6 +61,10 @@ pub(crate) use crate::openhuman::composio::catalog::{
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{seed_live_catalog_cache, seed_probe_cache};
 
+pub(crate) mod tools;
+
+pub(crate) use tools::NATIVE_TOOL_PREFIX;
+
 pub(crate) use crate::openhuman::json_schema::{
     compute_primary_array_path, compute_primary_array_path_from_value, missing_required_args,
     response_fields_from_schema, unsupported_arg_names,
@@ -1846,12 +1850,6 @@ pub struct OpenHumanTools {
     pub security: Arc<SecurityPolicy>,
 }
 
-/// Prefix marking a `tool_call` node's slug as a NATIVE OpenHuman tool (the
-/// "Tool" node) rather than a Composio action (the "App action" node). e.g.
-/// `oh:web_search`. Native tools run through the same agent tool registry the
-/// assistant uses (`runtime_node::ops::execute_tool`), so a flow can call
-/// search / media generation / file / shell / etc. — the full toolset.
-pub(crate) const NATIVE_TOOL_PREFIX: &str = "oh:";
 
 /// Required-arg preflight for a Composio `tool_call`: fails **before** the
 /// Composio dispatch when a required arg is missing or resolved to `null`,
@@ -2004,8 +2002,12 @@ pub struct PreflightToolInvoker {
 #[async_trait]
 impl ToolInvoker for PreflightToolInvoker {
     async fn invoke(&self, slug: &str, args: Value, conn: Option<&str>) -> Result<Value> {
-        if !slug.starts_with(NATIVE_TOOL_PREFIX) {
-            preflight_composio_args(&self.config, slug, &args).await?;
+        // Ask the backend that owns this slug to validate the args. Previously
+        // this called the Composio preflight directly behind a
+        // `!slug.starts_with("oh:")` test, which duplicated the dispatch rule
+        // and hard-wired one namespace's knowledge into a generic wrapper.
+        if let Some(backend) = tools::backend_for(slug) {
+            backend.preflight(&self.config, slug, &args).await?;
         }
         self.inner.invoke(slug, args, conn).await
     }
@@ -2014,245 +2016,14 @@ impl ToolInvoker for PreflightToolInvoker {
 #[async_trait]
 impl ToolInvoker for OpenHumanTools {
     async fn invoke(&self, slug: &str, args: Value, conn: Option<&str>) -> Result<Value> {
-        // Native OpenHuman tool path (the "Tool" node): `oh:<tool_name>`. Bypasses
-        // the Composio curation gate (it isn't a Composio slug) but still runs
-        // through the autonomy-tier + approval gates, then dispatches to the
-        // agent tool registry.
-        if let Some(tool_name) = slug.strip_prefix(NATIVE_TOOL_PREFIX) {
-            let tool_name = tool_name.trim();
-            if tool_name.is_empty() {
-                return Err(EngineError::Capability(
-                    "tool_call node: native tool slug is empty (expected `oh:<tool_name>`)"
-                        .to_string(),
-                ));
-            }
-
-            let class = crate::openhuman::runtime_node::ops::classify_tool_call(
-                &self.config,
-                tool_name,
-                &args,
-            )
-            .map_err(EngineError::Capability)?;
-            let tier_decision = enforce_node_tier_gate(&self.security, class, "tool_call")?;
-            let summary = crate::openhuman::approval::summarize_action(tool_name, &args);
-            let redacted = crate::openhuman::approval::redact_args(&args);
-            let (outcome, _request_id) =
-                gate_call_for_tier(tier_decision, tool_name, &summary, redacted).await;
-            if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
-                return Err(EngineError::Capability(reason));
-            }
-            tracing::debug!(
-                target: "flows",
-                %tool_name,
-                ?class,
-                ?tier_decision,
-                "[flows] tool_call: dispatching NATIVE OpenHuman tool"
-            );
-            let outcome = crate::openhuman::runtime_node::ops::execute_tool(
-                &self.config,
-                tool_name,
-                args,
-                false,
-            )
-            .await
-            .map_err(EngineError::Capability)?;
-            return reject_failed_native_tool_result(slug, &outcome.result)
-                .map(|_| native_tool_payload(&outcome.result));
-        }
-
-        // Autonomy-tier gate (Phase 2, made effect-aware): the node's
-        // [`CommandClass`] is derived from the action's curated
-        // [`ToolScope`](crate::openhuman::memory_sync::composio::providers::ToolScope)
-        // via [`classify_composio_action_for_tier`] — a curated Read action
-        // (e.g. `TWITTER_RECENT_SEARCH`) is `CommandClass::Read`, which every
-        // tier `Allow`s; a curated Write/Admin action, or anything not
-        // curated, is `CommandClass::Network` (same class `http_request`
-        // uses — fail-safe: only a curated Read skips the prompt). A
-        // read-only run `Block`s on a non-Read class here and never reaches
-        // curation, the preflight, or the approval gate; Supervised/Full
-        // fall through to `gate_call_for_tier` below. Runs BEFORE the
-        // curation check (unlike the pre-fix behavior) so a read-only tier
-        // can never even probe which slugs are curated.
-        let composio_class = classify_composio_action_for_tier(slug).await;
-        let tier_decision = enforce_node_tier_gate(&self.security, composio_class, "tool_call")?;
-        tracing::debug!(
-            target: "flows",
-            %slug,
-            ?composio_class,
-            ?tier_decision,
-            tier = ?self.security.autonomy,
-            "[flows] tool_call: composio node tier gate evaluated"
-        );
-
-        // Curation + scope gate — hard allowlist (see [`is_curated_flow_tool`]'s
-        // doc for why this differs from the general agent tool-call path).
-        // Runs before anything else — a rejected slug never reaches the
-        // composio client at all.
-        if !is_curated_flow_tool(&self.config, slug).await {
-            tracing::warn!(
-                target: "flows",
-                %slug,
-                "[flows] tool_call: rejected — not a recognized curated toolkit action, or out \
-                 of the user's configured scope"
-            );
-            return Err(EngineError::Capability(format!(
-                "tool not permitted: {slug}"
-            )));
-        }
-
-        // Required-arg preflight — fail with an actionable, field-naming error
-        // BEFORE the approval gate and the Composio dispatch, so a mis-wired
-        // arg (`=`-expression that resolved to null) never reaches the
-        // provider or asks the user to approve a call that cannot succeed.
-        preflight_composio_args(&self.config, slug, &args).await?;
-
-        // Approval gate (see the struct doc). Mirrors `OpenHumanHttp::request`'s
-        // shape exactly: `gate_call_for_tier` is what actually performs the
-        // `Prompt` round-trip — it escalates a Supervised `Prompt` decision
-        // into a forced approval regardless of the flow's own
-        // `require_approval` toggle (Codex P1), same as the `http_request` and
-        // `code` node paths. Deny short-circuits before any composio call;
-        // Allow records an audit id to close out after the call resolves.
-        //
-        // Effect-aware short-circuit: when the tier decision is already
-        // `Allow` (a curated Read action — the only `CommandClass` this
-        // classifier maps to `Read`), skip `gate_call_for_tier`/
-        // `intercept_audited` entirely. This matters
-        // because `flows/ops.rs`'s Rule 2 force-sets `require_approval: true`
-        // on any saved flow that contains a `tool_call` node, regardless of
-        // which actions it calls — without this short-circuit, that forced
-        // `Workflow { require_approval: true }` origin would still route a
-        // curated-Read `Allow` decision through `intercept_audited`'s normal
-        // parking flow, re-introducing the "reads wait for approval" bug via
-        // a different path than the one this fix closes at the tier gate.
-        // Refining Rule 2 itself to be scope-aware is a deferred follow-up.
-        let summary = crate::openhuman::approval::summarize_action(slug, &args);
-        let redacted = crate::openhuman::approval::redact_args(&args);
-        let (outcome, audit_id) = if tier_decision == GateDecision::Allow {
-            (crate::openhuman::approval::GateOutcome::Allow, None)
-        } else {
-            gate_call_for_tier(tier_decision, slug, &summary, redacted).await
+        let ctx = tools::ToolCallCtx {
+            config: &self.config,
+            security: &self.security,
         };
-        if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
-            tracing::warn!(
-                target: "flows",
-                %slug,
-                ?tier_decision,
-                "[flows] tool_call: approval gate denied before Composio dispatch"
-            );
-            return Err(EngineError::Capability(reason));
+        match tools::backend_for(slug) {
+            Some(backend) => backend.invoke(&ctx, slug, args, conn).await,
+            None => Err(tools::unclaimed_slug_error(slug)),
         }
-
-        let kind = create_composio_client(&self.config)
-            .map_err(|e| EngineError::Capability(e.to_string()))?;
-        let args_opt = if args.is_null() { None } else { Some(args) };
-        let connection_id = conn.and_then(composio_connection_id);
-
-        // Resolve the connection_ref to the SPECIFIC connected account it names,
-        // so we can log which account executes and validate it against the
-        // user's live connected set. Ambient-session fallback is used ONLY when
-        // no connection_ref was supplied.
-        let resolved_account = match connection_id {
-            Some(id) => Some((id, resolve_composio_account(&self.config, id).await)),
-            None => None,
-        };
-
-        tracing::debug!(
-            target: "flows",
-            %slug,
-            mode = kind.mode(),
-            has_connection_ref = connection_id.is_some(),
-            "[flows] tool_call: invoking composio tool"
-        );
-
-        let response = match kind {
-            ComposioClientKind::Backend(client) => {
-                if let Some((id, resolved)) = &resolved_account {
-                    match resolved {
-                        Some((toolkit, label)) => tracing::warn!(
-                            target: "flows",
-                            %slug,
-                            connection_id = %id,
-                            %toolkit,
-                            account = label.as_deref().unwrap_or("<unlabeled>"),
-                            "[flows] tool_call: connection_ref resolves to a specific account, but \
-                             backend mode has no per-call account-scoping path yet — using the \
-                             ambient session account instead (documented stub, see caps.rs's \
-                             OpenHumanTools doc)"
-                        ),
-                        None => tracing::warn!(
-                            target: "flows",
-                            %slug,
-                            connection_id = %id,
-                            "[flows] tool_call: connection_ref set but backend mode has no per-call \
-                             account-scoping path yet — using the ambient session account \
-                             (documented stub, see caps.rs's OpenHumanTools doc)"
-                        ),
-                    }
-                }
-                client
-                    .execute_tool(slug, args_opt)
-                    .await
-                    .map_err(|e| EngineError::Capability(e.to_string()))
-            }
-            ComposioClientKind::Direct(tool) => {
-                match &resolved_account {
-                    Some((id, Some((toolkit, label)))) => tracing::info!(
-                        target: "flows",
-                        %slug,
-                        connection_id = %id,
-                        %toolkit,
-                        account = label.as_deref().unwrap_or("<unlabeled>"),
-                        "[flows] tool_call: executing against the resolved connected account"
-                    ),
-                    Some((id, None)) => tracing::warn!(
-                        target: "flows",
-                        %slug,
-                        connection_id = %id,
-                        "[flows] tool_call: connection_ref connection_id not found among the user's \
-                         live connected accounts (stale cache or foreign id) — forwarding to \
-                         Composio Direct mode as-is"
-                    ),
-                    None => tracing::debug!(
-                        target: "flows",
-                        %slug,
-                        "[flows] tool_call: no connection_ref — using the ambient signed-in account"
-                    ),
-                }
-                direct_execute(
-                    &tool,
-                    slug,
-                    args_opt,
-                    &self.config.composio.entity_id,
-                    connection_id,
-                )
-                .await
-                .map_err(|e| EngineError::Capability(e.to_string()))
-            }
-        };
-
-        // A successful HTTP round-trip can still carry a provider-side failure
-        // (`{successful: false, error: "..."}`, e.g. a Slack 400 on
-        // `SLACK_SEND_MESSAGE`) — reject it into a real capability error, see
-        // `reject_unsuccessful_composio_response`'s doc.
-        let response = response.and_then(|resp| reject_unsuccessful_composio_response(slug, resp));
-
-        if let Some(id) = audit_id {
-            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
-                let exec = if response.is_ok() {
-                    crate::openhuman::approval::ExecutionOutcome::Success
-                } else {
-                    crate::openhuman::approval::ExecutionOutcome::Failure
-                };
-                gate.record_execution(
-                    &id,
-                    exec,
-                    response.as_ref().err().map(ToString::to_string).as_deref(),
-                );
-            }
-        }
-
-        serde_json::to_value(response?).map_err(|e| EngineError::Capability(e.to_string()))
     }
 }
 

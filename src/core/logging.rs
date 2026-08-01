@@ -19,6 +19,7 @@ use std::sync::{Mutex, Once, OnceLock};
 
 use nu_ansi_term::{Color, Style};
 use tracing::{Event, Level};
+#[cfg(feature = "file-logging")]
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::fmt::format::{FormatEvent, FormatFields, Writer};
 use tracing_subscriber::fmt::FmtContext;
@@ -42,6 +43,7 @@ static INIT: Once = Once::new();
 /// After a `take`, the file layer's writer becomes a no-op (the background
 /// thread has exited); see [`shutdown_file_guard`] docs for the consequence
 /// on subsequent log records.
+#[cfg(feature = "file-logging")]
 static FILE_GUARD: Mutex<Option<WorkerGuard>> = Mutex::new(None);
 
 /// Resolved path to the active log file directory. Populated by
@@ -262,7 +264,11 @@ pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
             .with(sentry_tracing_layer())
             .try_init();
 
-        // Bridge the `log` crate.
+        // Bridge the `log` crate. Rides with `file-logging` because
+        // `tracing-log` is the other crate that gate owns; with it off, `log::*`
+        // records from dependencies stop reaching tracing in EVERY init path,
+        // not only the file ones.
+        #[cfg(feature = "file-logging")]
         let _ = tracing_log::LogTracer::init();
     });
 }
@@ -376,6 +382,7 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
             }
         }
 
+        #[cfg(feature = "file-logging")]
         let _ = tracing_log::LogTracer::init();
     });
 }
@@ -465,6 +472,7 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
             }
         }
 
+        #[cfg(feature = "file-logging")]
         let _ = tracing_log::LogTracer::init();
     });
 
@@ -512,11 +520,22 @@ pub fn log_directory() -> Option<&'static Path> {
 /// `reset_local_data` is followed by `ensure_running()` which restarts the
 /// embedded core but does *not* re-install the subscriber — by design, the
 /// user is expected to restart the app shortly after a reset.
+#[cfg(feature = "file-logging")]
 pub fn shutdown_file_guard() -> bool {
     let Ok(mut slot) = FILE_GUARD.lock() else {
         return false;
     };
     slot.take().is_some()
+}
+
+/// Off-state: there is no file writer to shut down, so nothing was taken.
+///
+/// Kept as a real function rather than `#[cfg]`-ing the caller, because the
+/// Tauri `reset_local_data` command calls this unconditionally and has no
+/// reason to know whether file logging was compiled in.
+#[cfg(not(feature = "file-logging"))]
+pub fn shutdown_file_guard() -> bool {
+    false
 }
 
 fn seed_rust_log(verbose: bool, default_scope: CliLogDefault) {

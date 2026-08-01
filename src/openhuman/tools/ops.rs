@@ -1170,6 +1170,9 @@ pub fn all_tools_with_runtime(
         );
     }
 
+    // Leaf gate: the registration site wants ABSENCE when the feature is off,
+    // not a tool that registers and then errors.
+    #[cfg(feature = "prediction-markets")]
     if root_config.integrations.polymarket.enabled {
         tools.push(Box::new(PolymarketTool::new(
             &root_config.integrations.polymarket,

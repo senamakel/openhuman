@@ -264,8 +264,8 @@ fs2 = "0.4"
 # only by `openhuman::scheduler_gate::signals` to decide when to throttle
 # background LLM work on laptops.
 starship-battery = { version = "0.10", optional = true }
-ethers-core = { version = "2.0.14", default-features = false }
-ethers-signers = { version = "2.0.14", default-features = false }
+ethers-core = { version = "2.0.14", default-features = false, optional = true }
+ethers-signers = { version = "2.0.14", default-features = false, optional = true }
 # Multi-chain wallet signing.
 # - bitcoin: P2WPKH PSBT build/sign/broadcast (includes secp256k1).
 # - ed25519-dalek: Solana transaction signing.
@@ -277,7 +277,7 @@ bs58 = { version = "0.5", default-features = false, features = ["std", "check"] 
 # Tron secp256k1 derivation, Solana ed25519 SLIP-0010 derivation). Same crate
 # ethers-signers uses internally, exposed as a direct dep so we can derive
 # off the recovery phrase without going through the EVM signer wrapper.
-coins-bip39 = "0.8"
+coins-bip39 = { version = "0.8", optional = true }
 # Solana off-curve check for ATA derivation (find_program_address).
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"], optional = true }
 
@@ -389,7 +389,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate", "file-logging"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate", "file-logging", "prediction-markets"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -469,7 +469,31 @@ voice = ["inference", "dep:hound", "dep:lettre", "dep:arboard", "dep:enigo", "de
 # Polymarket tools + tinyplace on-chain payments + orchestration and stay
 # always-on. When off, tinyplace payments + Polymarket writes degrade to
 # graceful "wallet disabled" errors via the wallet/web3/x402 stub facades.
-web3 = ["dep:bitcoin", "dep:curve25519-dalek"]
+# The EVM/mnemonic crypto stack now belongs to this gate. It previously did
+# not, because the Polymarket tools (`tools/impl/network/polymarket*`,
+# `clob_auth`) consumed `ethers-*`/`coins-bip39` while living outside the
+# wallet/web3/x402 domains — so the gate could not shed them and AGENTS.md said
+# so in writing. `prediction-markets` below resolves that by giving Polymarket
+# its own gate that implies this one, which makes the whole cohort droppable:
+# -67 crates, the largest single shed in the kernelization work.
+#
+# `bs58` and `ed25519-dalek` deliberately stay always-on: `orchestration/ingest`
+# and `tinyplace/payment` use them for agent-network identity, which has nothing
+# to do with the wallet. Measured: excluding them costs 0, because tinyplace
+# pulls them in regardless.
+web3 = [
+    "dep:bitcoin",
+    "dep:curve25519-dalek",
+    "dep:ethers-core",
+    "dep:ethers-signers",
+    "dep:coins-bip39",
+]
+
+# Polymarket prediction-market tools (read + trading). Implies `web3` because it
+# signs orders with the same EVM stack the wallet uses — an honest dependency
+# rather than a hidden one. Separate from `web3` so a build can have a wallet
+# without a trading surface; the reverse is not meaningful.
+prediction-markets = ["web3"]
 # Media-generation + image domains: the `media_generate_*` agent tools
 # (image/video via GMI through the backend) and the `openhuman::image` tool
 # contracts scaffold. Default-ON. Slim builds opt out via

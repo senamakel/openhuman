@@ -193,6 +193,10 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
     # The packaged app's only durable log. Without this, a support request
     # comes back with nothing to attach — and the absence is silent.
     "file-logging",
+    # Polymarket read + trading tools. Implies `web3`, which is already
+    # forwarded — but the checker does literal set membership with no
+    # transitive resolution, so this needs its own line.
+    "prediction-markets",
 ] }
 tinyjuice = { version = "0.2.1", default-features = false }
 

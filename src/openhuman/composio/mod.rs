@@ -38,6 +38,7 @@
 pub mod action_tool;
 pub mod auth_retry;
 pub mod bus;
+pub mod catalog;
 pub mod client;
 mod connected_integrations;
 pub mod contract_gate;

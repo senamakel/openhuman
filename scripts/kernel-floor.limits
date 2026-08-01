@@ -13,6 +13,12 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   308/6  2026-08-02  web3 cohort: ethers-core/ethers-signers/coins-bip39
+#                      join the `web3` gate, unblocked by giving Polymarket its
+#                      own `prediction-markets` feature that implies it (-67 —
+#                      the largest single shed in the program). bs58 and
+#                      ed25519-dalek stay always-on (orchestration + tinyplace
+#                      identity), and curve25519-dalek survives under them.
 #   375/6  2026-08-01  M2 step 4: tracing-appender + tracing-log behind
 #                      default-ON `file-logging` (-9). Off-state keeps stderr
 #                      and Sentry but writes nothing to disk, and drops the
@@ -30,4 +36,4 @@
 #                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
 #                      lzma-sys ring. Target after gating is 222 names / 2 native
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
-flows:375:6
+flows:308:6

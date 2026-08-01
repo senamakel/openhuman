@@ -53,13 +53,13 @@ use crate::openhuman::tools::HttpRequestTool;
 // that owns Composio's vocabulary. This import is the edge pointing the right
 // way round: the feature-gated seam depends on the always-compiled domain, not
 // the reverse. See that module's docs.
-use crate::openhuman::composio::catalog::{
+pub(crate) use crate::openhuman::composio::catalog::{
     apply_probe_override, composio_required_args, composio_response_fields,
     compute_composio_array_path, fetch_live_toolkit_catalog, probe_tool_output_sample,
     probed_output_sample, ProbedOutputSample, ToolContract, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT,
 };
 #[cfg(test)]
-use crate::openhuman::composio::catalog::{seed_live_catalog_cache, seed_probe_cache};
+pub(crate) use crate::openhuman::composio::catalog::{seed_live_catalog_cache, seed_probe_cache};
 
 pub(crate) use crate::openhuman::json_schema::{
     compute_primary_array_path, compute_primary_array_path_from_value, missing_required_args,

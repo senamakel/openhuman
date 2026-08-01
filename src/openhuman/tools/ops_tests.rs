@@ -2015,32 +2015,88 @@ fn knowledge_always_on() -> Vec<&'static str> {
 fn knowledge_tools_are_registered() {
     let tmp = TempDir::new().unwrap();
     let names = tool_names(&expansion_tools_for(&tmp));
-    assert_contains_all(&names, KNOWLEDGE_TOOLS);
 
-    // Also check that gated knowledge tools are absent when their feature is off
-    let off_tools = knowledge_default_off();
-    for off_tool in &off_tools {
-        let in_list = names.iter().any(|n| n == off_tool);
-        // If the tool is in off_tools, it should be absent unless its feature is on
-        if !cfg!(feature = "skills") && *off_tool == "create_skill" {
+    // Base knowledge tools that are always present
+    let mut expected_tools = vec![
+        "people_list",
+        "people_resolve",
+        "people_score",
+        "people_get",
+        "people_add_alias",
+        "people_record_interaction",
+        "people_refresh_address_book",
+        "thread_list",
+        "thread_read",
+        "thread_create",
+        "thread_update_title",
+        "thread_update_labels",
+        "thread_message_list",
+        "thread_message_append",
+        "thread_message_update",
+        "thread_title_generate",
+        "thread_turn_state_get",
+        "thread_turn_state_list",
+        "thread_turn_state_clear",
+        "thread_task_board_read",
+        "thread_task_board_write",
+        "thread_delete",
+        "thread_purge_all",
+        "learning_list_facets",
+        "learning_get_facet",
+        "learning_cache_stats",
+        "learning_update_facet",
+        "learning_pin_facet",
+        "learning_unpin_facet",
+        "learning_forget_facet",
+        "learning_rebuild_cache",
+        "learning_reset_cache",
+        "learning_save_profile",
+        "learning_enrich_profile",
+    ];
+
+    // Add gated tools only when their feature is enabled
+    if cfg!(feature = "flows") {
+        expected_tools.extend(&[
+            "list_workflows",
+            "describe_workflow",
+            "read_workflow_resource",
+            "list_workflow_runs",
+            "read_workflow_run_log",
+            "install_workflow_from_url",
+            "uninstall_workflow",
+        ]);
+    }
+    if cfg!(feature = "skills") {
+        expected_tools.push("create_skill");
+    }
+
+    assert_contains_all(&names, &expected_tools);
+
+    // Verify that gated tools are absent when their feature is off
+    if !cfg!(feature = "skills") {
+        assert!(
+            !names.iter().any(|n| n == "create_skill"),
+            "create_skill should be absent when skills feature is off"
+        );
+    }
+    if !cfg!(feature = "flows") {
+        let flow_tools = [
+            "list_workflows",
+            "describe_workflow",
+            "read_workflow_resource",
+            "list_workflow_runs",
+            "read_workflow_run_log",
+            "install_workflow_from_url",
+            "uninstall_workflow",
+        ];
+        for tool in &flow_tools {
             assert!(
-                !in_list,
-                "create_skill should be absent when skills feature is off"
-            );
-        }
-        if !cfg!(feature = "flows")
-            && (*off_tool == "install_workflow_from_url" || *off_tool == "uninstall_workflow")
-        {
-            assert!(
-                !in_list,
+                !names.iter().any(|n| n == tool),
                 "{} should be absent when flows feature is off",
-                off_tool
+                tool
             );
         }
     }
-
-    let always_on = knowledge_always_on();
-    assert_contains_all(&names, &always_on);
 }
 
 #[test]

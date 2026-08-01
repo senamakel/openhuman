@@ -305,6 +305,12 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
         // path even though no file layer is attached. Errors are surfaced via
         // `eprintln!` (the tracing subscriber isn't installed yet here) using
         // the same `[logging]` prefix as the dir-creation diagnostic.
+        // The file appender and its layer are the whole of this gate. Their
+        // concrete type embeds `tracing_appender`'s `NonBlocking` writer, which
+        // is why the off-state cannot simply be a `None` of the same type — the
+        // type does not exist in that build. Hence paired `.with()` chains
+        // below rather than one chain and an optional layer.
+        #[cfg(feature = "file-logging")]
         let pending_file: Option<(_, tracing_appender::non_blocking::WorkerGuard, PathBuf)> =
             match std::fs::create_dir_all(&logs_dir) {
                 Ok(()) => match tracing_appender::rolling::Builder::new()
@@ -335,6 +341,7 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
                 }
             };
 
+        #[cfg(feature = "file-logging")]
         let file_layer = pending_file.as_ref().map(|(writer, _, _)| {
             let constraints = parse_log_file_constraints();
             tracing_subscriber::fmt::layer()
@@ -356,14 +363,26 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
                 event_matches_file_constraints(meta, &stderr_constraints)
             }));
 
-        match tracing_subscriber::registry()
+        #[cfg(feature = "file-logging")]
+        let init_result = tracing_subscriber::registry()
             .with(filter)
             .with(stderr_layer)
             .with(file_layer)
             .with(sentry_tracing_layer())
-            .try_init()
-        {
+            .try_init();
+        // Same chain minus the file layer. Stderr and Sentry are unaffected by
+        // this gate, so a build without file logging still logs everywhere it
+        // did before — it just keeps nothing on disk.
+        #[cfg(not(feature = "file-logging"))]
+        let init_result = tracing_subscriber::registry()
+            .with(filter)
+            .with(stderr_layer)
+            .with(sentry_tracing_layer())
+            .try_init();
+
+        match init_result {
             Ok(()) => {
+                #[cfg(feature = "file-logging")]
                 if let Some((_, guard, dir)) = pending_file {
                     if let Ok(mut slot) = FILE_GUARD.lock() {
                         *slot = Some(guard);
@@ -410,6 +429,7 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
         let filter = build_env_filter(verbose, scope);
 
         let logs_dir = data_dir.join("logs");
+        #[cfg(feature = "file-logging")]
         let pending_file: Option<(_, tracing_appender::non_blocking::WorkerGuard, PathBuf)> =
             match std::fs::create_dir_all(&logs_dir) {
                 Ok(()) => match tracing_appender::rolling::Builder::new()
@@ -434,6 +454,7 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
                 Err(_) => None,
             };
 
+        #[cfg(feature = "file-logging")]
         let file_layer = pending_file.as_ref().map(|(writer, _, _)| {
             let constraints = parse_log_file_constraints();
             tracing_subscriber::fmt::layer()
@@ -455,15 +476,29 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
 
         // NOTE: no stderr layer here — that is the whole point of this entry
         // point. Only the file layer + Sentry are attached.
-        if tracing_subscriber::registry()
+        // NOTE: still no stderr layer in either arm. A stderr fallback here
+        // would write into the alternate screen and corrupt the TUI, so the
+        // off-state keeps only the in-memory `tui_layer` — which is what the
+        // Logs tab reads anyway.
+        #[cfg(feature = "file-logging")]
+        let tui_init_ok = tracing_subscriber::registry()
             .with(filter)
             .with(file_layer)
             .with(tui_layer)
             .with(sentry_tracing_layer())
             .try_init()
-            .is_ok()
-        {
+            .is_ok();
+        #[cfg(not(feature = "file-logging"))]
+        let tui_init_ok = tracing_subscriber::registry()
+            .with(filter)
+            .with(tui_layer)
+            .with(sentry_tracing_layer())
+            .try_init()
+            .is_ok();
+
+        if tui_init_ok {
             let _ = TUI_LOG_BUFFER.set(tui_buffer);
+            #[cfg(feature = "file-logging")]
             if let Some((_, guard, dir)) = pending_file {
                 if let Ok(mut slot) = FILE_GUARD.lock() {
                     *slot = Some(guard);

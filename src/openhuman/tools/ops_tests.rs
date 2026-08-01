@@ -1970,39 +1970,71 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "learning_enrich_profile",
 ];
 
-const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
-    "people_refresh_address_book",
-    "create_skill",
-    "install_workflow_from_url",
-    "uninstall_workflow",
-    "thread_delete",
-    "thread_purge_all",
-    "learning_update_facet",
-    "learning_pin_facet",
-    "learning_unpin_facet",
-    "learning_forget_facet",
-    "learning_rebuild_cache",
-    "learning_reset_cache",
-    "learning_save_profile",
-    "learning_enrich_profile",
-];
+fn knowledge_default_off() -> Vec<&'static str> {
+    let mut tools = vec![
+        "people_refresh_address_book",
+        "thread_delete",
+        "thread_purge_all",
+        "learning_update_facet",
+        "learning_pin_facet",
+        "learning_unpin_facet",
+        "learning_forget_facet",
+        "learning_rebuild_cache",
+        "learning_reset_cache",
+        "learning_save_profile",
+        "learning_enrich_profile",
+    ];
+    // These tools exist only when their feature gates are on
+    if cfg!(feature = "skills") {
+        tools.push("create_skill");
+    }
+    if cfg!(feature = "flows") {
+        tools.push("install_workflow_from_url");
+        tools.push("uninstall_workflow");
+    }
+    tools
+}
 
-const KNOWLEDGE_ALWAYS_ON: &[&str] = &[
-    "people_list",
-    "people_resolve",
-    "list_workflows",
-    "list_workflow_runs",
-    "thread_list",
-    "thread_create",
-    "learning_list_facets",
-    "learning_cache_stats",
-];
+fn knowledge_always_on() -> Vec<&'static str> {
+    let mut tools = vec![
+        "people_list",
+        "people_resolve",
+        "thread_list",
+        "thread_create",
+        "learning_list_facets",
+        "learning_cache_stats",
+    ];
+    // These tools exist only when flows feature is on
+    if cfg!(feature = "flows") {
+        tools.extend(&[
+            "list_workflows",
+            "list_workflow_runs",
+        ]);
+    }
+    tools
+}
 
 #[test]
 fn knowledge_tools_are_registered() {
     let tmp = TempDir::new().unwrap();
     let names = tool_names(&expansion_tools_for(&tmp));
     assert_contains_all(&names, KNOWLEDGE_TOOLS);
+
+    // Also check that gated knowledge tools are absent when their feature is off
+    let off_tools = knowledge_default_off();
+    for off_tool in &off_tools {
+        let in_list = names.iter().any(|n| n == off_tool);
+        // If the tool is in off_tools, it should be absent unless its feature is on
+        if !cfg!(feature = "skills") && *off_tool == "create_skill" {
+            assert!(!in_list, "create_skill should be absent when skills feature is off");
+        }
+        if !cfg!(feature = "flows") && (*off_tool == "install_workflow_from_url" || *off_tool == "uninstall_workflow") {
+            assert!(!in_list, "{} should be absent when flows feature is off", off_tool);
+        }
+    }
+
+    let always_on = knowledge_always_on();
+    assert_contains_all(&names, &always_on);
 }
 
 #[test]
@@ -2011,13 +2043,15 @@ fn knowledge_default_off_tools_are_filtered_when_not_opted_in() {
     let mut tools = expansion_tools_for(&tmp);
     filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
     let names = tool_names(&tools);
-    for off in KNOWLEDGE_DEFAULT_OFF {
+    let off_tools = knowledge_default_off();
+    for off in &off_tools {
         assert!(
             !names.iter().any(|n| n == off),
             "default-off tool `{off}` must be filtered out when not opted in; got: {names:?}"
         );
     }
-    for on in KNOWLEDGE_ALWAYS_ON {
+    let on_tools = knowledge_always_on();
+    for on in &on_tools {
         assert!(
             names.iter().any(|n| n == on),
             "always-on tool `{on}` must be retained regardless of preferences"

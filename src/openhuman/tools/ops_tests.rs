@@ -2006,10 +2006,7 @@ fn knowledge_always_on() -> Vec<&'static str> {
     ];
     // These tools exist only when flows feature is on
     if cfg!(feature = "flows") {
-        tools.extend(&[
-            "list_workflows",
-            "list_workflow_runs",
-        ]);
+        tools.extend(&["list_workflows", "list_workflow_runs"]);
     }
     tools
 }
@@ -2026,10 +2023,19 @@ fn knowledge_tools_are_registered() {
         let in_list = names.iter().any(|n| n == off_tool);
         // If the tool is in off_tools, it should be absent unless its feature is on
         if !cfg!(feature = "skills") && *off_tool == "create_skill" {
-            assert!(!in_list, "create_skill should be absent when skills feature is off");
+            assert!(
+                !in_list,
+                "create_skill should be absent when skills feature is off"
+            );
         }
-        if !cfg!(feature = "flows") && (*off_tool == "install_workflow_from_url" || *off_tool == "uninstall_workflow") {
-            assert!(!in_list, "{} should be absent when flows feature is off", off_tool);
+        if !cfg!(feature = "flows")
+            && (*off_tool == "install_workflow_from_url" || *off_tool == "uninstall_workflow")
+        {
+            assert!(
+                !in_list,
+                "{} should be absent when flows feature is off",
+                off_tool
+            );
         }
     }
 

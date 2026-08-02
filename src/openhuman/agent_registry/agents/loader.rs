@@ -2007,6 +2007,45 @@ mod tests {
         );
     }
 
+    /// Companion to the above, asserting the real gated shape: with
+    /// `prediction-markets` compiled out, `markets_agent` is genuinely absent
+    /// from the loaded set — its only implemented venue tool (`polymarket`)
+    /// is gone too — while the orchestrator's `agent.toml` (DATA, can't be
+    /// `#[cfg]`'d) still lists it. `load_builtins` (which runs
+    /// `validate_tier_hierarchy` internally, already proven tolerant of an
+    /// unresolvable subagent id by `orchestrator_tolerates_unresolvable_subagent_id`)
+    /// must still succeed — i.e. the core boots. Mirrors
+    /// `orchestrator_tolerates_absent_mcp_agent`.
+    #[test]
+    #[cfg(not(feature = "prediction-markets"))]
+    fn orchestrator_tolerates_absent_markets_agent() {
+        use crate::openhuman::agent::harness::definition::SubagentEntry;
+
+        let defs = load_builtins().expect(
+            "load_builtins must succeed with `prediction-markets` compiled out — the \
+             orchestrator's dangling `markets_agent` subagent reference must not fail the boot",
+        );
+
+        assert!(
+            !defs.iter().any(|d| d.id == "markets_agent"),
+            "`markets_agent` must be compiled out when the `prediction-markets` feature is off \
+             — its only implemented venue tool (`polymarket`) is gone too"
+        );
+
+        let orchestrator = defs
+            .iter()
+            .find(|d| d.id == "orchestrator")
+            .expect("orchestrator must still load");
+        assert!(
+            orchestrator.subagents.iter().any(|e| matches!(
+                e,
+                SubagentEntry::AgentId(id) if id == "markets_agent"
+            )),
+            "orchestrator.agent.toml is data and still lists `markets_agent` — this dangling \
+             reference must resolve to nothing rather than fail the boot"
+        );
+    }
+
     /// `tools_agent` must explicitly disallow specialist-owned external action
     /// families so the wildcard inventory does not surface raw paid/write
     /// tools to the generalist, bypassing specialist prompts.

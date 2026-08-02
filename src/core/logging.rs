@@ -433,6 +433,7 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
         seed_rust_log(verbose, scope);
         let filter = build_env_filter(verbose, scope);
 
+        #[cfg(feature = "file-logging")]
         let logs_dir = data_dir.join("logs");
         #[cfg(feature = "file-logging")]
         let pending_file: Option<(

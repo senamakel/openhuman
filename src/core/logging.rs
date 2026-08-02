@@ -291,6 +291,7 @@ pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
 /// across re-execs; subsequent calls are no-ops. The first caller wins, so
 /// the Tauri shell should call this before any CLI path could initialize a
 /// stderr-only subscriber.
+#[allow(unused_variables)]
 pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
     INIT.call_once(|| {
         let scope = CliLogDefault::Global;

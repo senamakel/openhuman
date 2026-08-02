@@ -269,21 +269,23 @@ GGML_NATIVE=OFF cargo check --manifest-path Cargo.toml \
 
 `--no-default-features --features flows` is the **kernel profile**: the surface a
 second host would embed to get workflow execution and nothing else. It is measured
-and ratcheted, because unmeasured it grows — seven heavy dependencies are
-unconditional today (`git2`/vendored-libgit2, `rusqlite`/bundled, `enigo`, `arboard`,
-`ethers-core`, `ethers-signers`, `tokio-tungstenite`), and none would likely have
+and ratcheted, because unmeasured it grows — three heavy dependencies remain
+unconditional today (`git2`/vendored-libgit2, `rusqlite`/bundled, and
+`tokio-tungstenite`), and none would likely have
 landed that way had a number moved in CI when they did.
 
 ```bash
-scripts/kernel-floor.sh flows        # → 454 packages / 418 names / 6 native
+scripts/kernel-floor.sh flows        # CI Linux: 312 packages / 285 names / 6 native
 scripts/kernel-floor.sh flows --json
 scripts/check-kernel-floor.sh        # the CI ratchet (Rust Feature-Gate Smoke lane)
 scripts/dep-sim.py --cut-nothing     # calibration: must equal kernel-floor.sh
 scripts/dep-sim.py --cut arboard,enigo,rdev   # project a cohort before doing it
 ```
 
-**Baseline 2026-08-01: 454 packages / 418 unique names / 6 native builds**
+**CI Linux baseline 2026-08-02: 312 packages / 285 unique names / 6 native builds**
 (`aws-lc-sys`, `libgit2-sys`, `libsqlite3-sys`, `libz-sys`, `lzma-sys`, `ring`).
+On macOS the same target-specific graph currently resolves to 319 packages / 292
+names / 6 native builds; the CI ratchet is intentionally calibrated on Linux.
 Limits live in `scripts/kernel-floor.limits`; the ratchet fails on growth **and** on
 a shed that was not written back, since an unratcheted improvement grows back
 unnoticed.
@@ -298,7 +300,7 @@ with cargo's feature resolution by construction. CI asserts that calibration.
 
 **49 of 84 direct dependencies contribute zero exclusive crates.** "Make dep X
 optional" usually saves nothing on its own — `git2`, `rusqlite`, `reqwest`,
-`ethers-core`, `tokio` and `tokio-tungstenite` all have multiple parents. Gate the
+`tokio` and `tokio-tungstenite` have multiple parents. Gate the
 whole cohort or expect a delta of 0.
 
 | Feature | Default | Gates | Drops deps |

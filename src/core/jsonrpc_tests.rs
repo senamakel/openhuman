@@ -1,5 +1,6 @@
 use serde_json::json;
 use std::ffi::OsString;
+#[cfg(all(feature = "crash-reporting", feature = "http-server"))]
 use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::time::Duration;

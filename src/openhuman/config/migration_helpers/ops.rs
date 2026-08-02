@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
+use crate::openhuman::config::migration_helpers::{self, MigrationReport};
 use crate::openhuman::config::Config;
-use crate::openhuman::migration::{self, MigrationReport};
 use crate::rpc::RpcOutcome;
 
 pub async fn migrate_openclaw(
@@ -11,7 +11,7 @@ pub async fn migrate_openclaw(
     source_workspace: Option<PathBuf>,
     dry_run: bool,
 ) -> Result<RpcOutcome<MigrationReport>, String> {
-    let report = migration::migrate_openclaw_memory(config, source_workspace, dry_run)
+    let report = migration_helpers::migrate_openclaw_memory(config, source_workspace, dry_run)
         .await
         .map_err(|e| e.to_string())?;
     Ok(RpcOutcome::single_log(report, "migration completed"))
@@ -22,7 +22,7 @@ pub async fn migrate_hermes(
     source_workspace: Option<PathBuf>,
     dry_run: bool,
 ) -> Result<RpcOutcome<MigrationReport>, String> {
-    let report = migration::migrate_hermes_memory(config, source_workspace, dry_run)
+    let report = migration_helpers::migrate_hermes_memory(config, source_workspace, dry_run)
         .await
         .map_err(|e| e.to_string())?;
     Ok(RpcOutcome::single_log(report, "migration completed"))

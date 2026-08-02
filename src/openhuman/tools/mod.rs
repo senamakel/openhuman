@@ -22,6 +22,7 @@ pub use crate::openhuman::artifacts::tools::*;
 pub use crate::openhuman::channels::whatsapp_data::tools::*;
 pub use crate::openhuman::composio::tools::*;
 pub use crate::openhuman::config::tools::*;
+pub use crate::openhuman::config::workspace::tools::*;
 pub use crate::openhuman::credentials::tools::*;
 pub use crate::openhuman::cron::tools::*;
 pub use crate::openhuman::desktop::dashboard::tools::*;
@@ -69,7 +70,6 @@ pub use crate::openhuman::tinyplace::tools::*;
 pub use crate::openhuman::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]
 pub use crate::openhuman::web3::wallet::tools::*;
-pub use crate::openhuman::workspace::tools::*;
 pub use implementations::*;
 pub use ops::*;
 pub use policy::{DefaultToolPolicy, PolicyDecision, ToolPolicy};

@@ -24,7 +24,7 @@ pub struct MigrationStats {
 }
 
 /// Returns `anyhow::Result` to match the shared migration-step signature that
-/// [`crate::openhuman::migrations::run_pending`] dispatches (`Ok` → bump +
+/// [`crate::openhuman::config::migrations::run_pending`] dispatches (`Ok` → bump +
 /// save, `Err` → log + retry next launch). This step is a pure in-memory
 /// transform and is currently infallible, but keeping the `Result` lets a
 /// future I/O-backed repair slot in without churning the runner or callers.

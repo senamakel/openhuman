@@ -4,7 +4,7 @@ use serde_json::{Map, Value};
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::workspace::rpc as workspace_rpc;
+use crate::openhuman::config::workspace::rpc as workspace_rpc;
 use crate::rpc::RpcOutcome;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {

@@ -14,7 +14,7 @@
 //!    branch that calls the new module and bumps `config.schema_version`
 //!    on success.
 //!
-//! ## Distinction from `crate::openhuman::migration`
+//! ## Distinction from `crate::openhuman::config::migration_helpers`
 //!
 //! The sibling `migration` (singular) module is a user-triggered RPC
 //! that imports memory from a legacy OpenClaw workspace. This module

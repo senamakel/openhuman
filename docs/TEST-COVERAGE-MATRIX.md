@@ -239,7 +239,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | ID    | Feature                    | Layer | Test path(s)                                                                                     | Status | Notes                                                                                        |
 | ----- | -------------------------- | ----- | ------------------------------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------------------------- |
 | 5.2.1 | Persona Name & Description | VU    | `app/src/store/personaSlice.test.ts`, `app/src/components/settings/panels/PersonaPanel.test.tsx` | ✅     | Slice validation + persist REHYDRATE scrub; Settings identity fields persist on save (#2345) |
-| 5.2.2 | SOUL.md Edit & Reset       | RU+VU | `src/openhuman/workspace/rpc.rs`, `app/src/components/settings/panels/PersonaPanel.test.tsx`     | ✅     | Core read/write/reset with allowlist + size cap; panel loads, saves, resets over RPC (#2345) |
+| 5.2.2 | SOUL.md Edit & Reset       | RU+VU | `src/openhuman/config/workspace/rpc.rs`, `app/src/components/settings/panels/PersonaPanel.test.tsx`     | ✅     | Core read/write/reset with allowlist + size cap; panel loads, saves, resets over RPC (#2345) |
 | 5.2.3 | Persona Settings Surface   | VU    | `app/src/components/settings/panels/PersonaPanel.test.tsx`                                       | ✅     | Bundles identity + SOUL.md + link to Mascot avatar/voice (#2345)                             |
 
 ---
@@ -581,7 +581,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 13.5.1 | Clear App Data                              | WD    | `app/test/e2e/specs/settings-data-management.spec.ts`                                                               | ✅     | Destructive — confirm-then-reset                                                                                                               |
 | 13.5.2 | Cache Reset                                 | WD    | `app/test/e2e/specs/settings-data-management.spec.ts`                                                               | ✅     |                                                                                                                                                |
 | 13.5.3 | Full State Reset                            | WD    | `app/test/e2e/specs/settings-data-management.spec.ts`                                                               | ✅     | Restart-and-verify fresh-install state                                                                                                         |
-| 13.5.4 | Migration from another assistant (OpenClaw) | VU+RU | `app/src/components/settings/panels/__tests__/MigrationPanel.test.tsx`, `src/openhuman/migration/ops.rs` (existing) | ✅     | Was ❌ — UI now wraps the existing `openhuman.migrate_openclaw` RPC with preview-then-apply + confirm. Hermes tracked as follow-up under #1440 |
+| 13.5.4 | Migration from another assistant (OpenClaw) | VU+RU | `app/src/components/settings/panels/__tests__/MigrationPanel.test.tsx`, `src/openhuman/config/migration_helpers/ops.rs` (existing) | ✅     | Was ❌ — UI now wraps the existing `openhuman.migrate_openclaw` RPC with preview-then-apply + confirm. Hermes tracked as follow-up under #1440 |
 
 ### 13.6 Keyboard Shortcuts & Command Surface
 

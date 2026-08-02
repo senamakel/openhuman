@@ -2,7 +2,7 @@
 
 Data-migration helpers that import memory from **other AI assistants' workspaces** (OpenClaw, Hermes Agent) into the current OpenHuman workspace's memory backend. It scans a source workspace for SQLite (`brain.db`) and Markdown memory artifacts, normalizes them into `Memory` entries, backs up the target's existing memory, and writes the imported entries — supporting a `dry_run` plan-only mode and idempotent re-runs (unchanged entries are skipped, conflicts are renamed). Exposes two RPC controllers under the `migrate` namespace.
 
-> Not to be confused with `crate::openhuman::migrations` (plural), which handles internal config **schema** version upgrades. This module migrates **user memory data** from foreign vendors.
+> Not to be confused with `crate::openhuman::config::migrations` (plural), which handles internal config **schema** version upgrades. This module migrates **user memory data** from foreign vendors.
 
 ## Responsibilities
 
@@ -22,7 +22,7 @@ Data-migration helpers that import memory from **other AI assistants' workspaces
 | `src/openhuman/migration/mod.rs` | Export-only: declares `core`/`ops`/`schemas`, re-exports `core::*` and `ops::*`, aliases `ops as rpc`, and exports the `all_migration_controller_schemas` / `all_migration_registered_controllers` pair. |
 | `src/openhuman/migration/core.rs` | Core logic. `MigrationStats`, `MigrationReport`, `SourceEntry`; `migrate_openclaw_memory` / `migrate_hermes_memory`; source readers (SQLite + Markdown), workspace resolution, key/category normalization, backup, conflict-rename helpers. Inline `#[cfg(test)]` unit tests. |
 | `src/openhuman/migration/ops.rs` | JSON-RPC/CLI adapter (the canonical handler file, re-exported as `rpc`). `migrate_openclaw` / `migrate_hermes` wrap the core fns, map `anyhow::Error` → `String`, and return `RpcOutcome<MigrationReport>` with a `"migration completed"` log. Tests cover dry-run, apply, missing-source, and self-migration. |
-| `src/openhuman/migration/schemas.rs` | Controller schemas + handlers. Defines `MigrateOpenClawParams` / `MigrateHermesParams`, `all_controller_schemas`, `all_registered_controllers`, `schemas(function)`, and `handle_migrate_openclaw` / `handle_migrate_hermes` which load config and delegate to `migration::rpc::*`. |
+| `src/openhuman/config/migration_helpers/schemas.rs` | Controller schemas + handlers. Defines `MigrateOpenClawParams` / `MigrateHermesParams`, `all_controller_schemas`, `all_registered_controllers`, `schemas(function)`, and `handle_migrate_openclaw` / `handle_migrate_hermes` which load config and delegate to `migration_helpers::rpc::*`. |
 
 ## Public surface
 

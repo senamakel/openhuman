@@ -3,7 +3,7 @@
 //!
 //! Backs the Persona Pack settings surface (issue #2345). The editable set is
 //! restricted to the bundled bootstrap files (see
-//! [`crate::openhuman::workspace::ops::bundled_default_contents`]) so a caller
+//! [`crate::openhuman::config::workspace::ops::bundled_default_contents`]) so a caller
 //! can never read or overwrite an arbitrary path under the workspace.
 
 use std::io::Read;
@@ -11,7 +11,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::openhuman::workspace::ops::bundled_default_contents;
+use crate::openhuman::config::workspace::ops::bundled_default_contents;
 use crate::rpc::RpcOutcome;
 
 /// Hard cap on the size accepted by [`write_workspace_file`] and tolerated by

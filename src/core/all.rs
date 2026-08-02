@@ -421,7 +421,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::migration::all_migration_registered_controllers(),
+        crate::openhuman::config::migration_helpers::all_migration_registered_controllers(),
     );
     // Background command monitors for agent-scoped event sources
     push(
@@ -504,7 +504,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::workspace::all_workspace_registered_controllers(),
+        crate::openhuman::config::workspace::all_workspace_registered_controllers(),
     );
     // Workflow tool registry
     push(

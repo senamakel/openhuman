@@ -8,11 +8,14 @@
 //! - Handling the schema definitions for all agent and system settings.
 
 pub mod daemon;
+pub mod migration_helpers;
+pub mod migrations;
 pub mod ops;
 pub mod schema;
 mod schemas;
 pub mod settings_cli;
 pub mod tools;
+pub mod workspace;
 
 #[allow(unused_imports)]
 pub use daemon::DaemonConfig;

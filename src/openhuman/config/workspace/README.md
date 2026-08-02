@@ -28,7 +28,7 @@ From `mod.rs` re-exports (`ops::*` plus the schema pair):
 - `bundled_default_contents(filename: &str) -> Option<&'static str>` — editable allowlist / default lookup.
 - `all_workspace_controller_schemas()`, `all_workspace_registered_controllers()` — registry wiring.
 
-`rpc.rs` items (`WorkspaceFile`, `read_/write_/reset_workspace_file`, `MAX_WORKSPACE_FILE_BYTES`) are `pub` and reached via `crate::openhuman::workspace::rpc::*`.
+`rpc.rs` items (`WorkspaceFile`, `read_/write_/reset_workspace_file`, `MAX_WORKSPACE_FILE_BYTES`) are `pub` and reached via `crate::openhuman::config::workspace::rpc::*`.
 
 ## RPC / controllers
 
@@ -58,7 +58,7 @@ The editable surface is restricted to the `BOOTSTRAP_FILES` allowlist (`SOUL.md`
 - `crate::openhuman::subconscious::heartbeat::engine::HeartbeatEngine::ensure_heartbeat_file` — ensures `HEARTBEAT.md` during `init_workspace`.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller registry types.
 - `crate::rpc::RpcOutcome` — uniform RPC return type.
-- Bundled prompt assets via `include_str!("../agent/prompts/SOUL.md" | "IDENTITY.md")`.
+- Bundled prompt assets via `include_str!("../../agent/prompts/SOUL.md" | "IDENTITY.md")`.
 
 ## Used by
 

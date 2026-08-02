@@ -6,8 +6,11 @@ use crate::openhuman::subconscious::heartbeat::engine::HeartbeatEngine;
 use std::path::Path;
 
 const BOOTSTRAP_FILES: [(&str, &str); 2] = [
-    ("SOUL.md", include_str!("../agent/prompts/SOUL.md")),
-    ("IDENTITY.md", include_str!("../agent/prompts/IDENTITY.md")),
+    ("SOUL.md", include_str!("../../agent/prompts/SOUL.md")),
+    (
+        "IDENTITY.md",
+        include_str!("../../agent/prompts/IDENTITY.md"),
+    ),
 ];
 
 /// Bundled default contents for a bootstrap workspace file, or `None` when the

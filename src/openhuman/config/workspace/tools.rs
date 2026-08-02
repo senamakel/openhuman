@@ -13,9 +13,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
+use crate::openhuman::config::workspace::{ops, rpc};
 use crate::openhuman::config::Config;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
-use crate::openhuman::workspace::{ops, rpc};
 
 fn req_str(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
     args.get(key)

@@ -95,7 +95,7 @@ pub struct Config {
     #[serde(skip)]
     pub config_path: PathBuf,
     /// Workspace data-schema version. Bumped each time a one-shot data
-    /// migration under [`crate::openhuman::migrations`] runs successfully.
+    /// migration under [`crate::openhuman::config::migrations`] runs successfully.
     /// `#[serde(default)]` so existing `config.toml` files (which predate
     /// the field) load as version `0` and pick up pending migrations on
     /// the first launch of the new build.

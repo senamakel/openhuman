@@ -109,7 +109,7 @@ fn handle_migrate_openclaw(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("invalid params: {e}"))?;
         let source = payload.source_workspace.map(std::path::PathBuf::from);
         to_json(
-            crate::openhuman::migration::rpc::migrate_openclaw(
+            crate::openhuman::config::migration_helpers::rpc::migrate_openclaw(
                 &config,
                 source,
                 payload.dry_run.unwrap_or(true),
@@ -126,7 +126,7 @@ fn handle_migrate_hermes(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("invalid params: {e}"))?;
         let source = payload.source_workspace.map(std::path::PathBuf::from);
         to_json(
-            crate::openhuman::migration::rpc::migrate_hermes(
+            crate::openhuman::config::migration_helpers::rpc::migrate_hermes(
                 &config,
                 source,
                 payload.dry_run.unwrap_or(true),

@@ -480,6 +480,7 @@ jobs:
           EXPECTED=$(cat <<'EOF'
           core/all_tests.rs
           core/cli_tests.rs
+          core/dispatch.rs
           core/jsonrpc_tests.rs
           core/legacy_aliases.rs
           core/runtime/services.rs
@@ -488,19 +489,20 @@ jobs:
           openhuman/agent/harness/session/tests.rs
           openhuman/agent/harness/subagent_runner/tool_prep.rs
           openhuman/agent_registry/agents/loader.rs
-          openhuman/composio/action_tool.rs
           openhuman/inference/local/mod.rs
           openhuman/socket/ops.rs
+          openhuman/tinyplace/manifest.rs
           openhuman/tool_registry/ops_tests.rs
           openhuman/tool_registry/schemas.rs
           openhuman/tools/ops_tests.rs
+          openhuman/tools/schemas.rs
           openhuman/voice/compile_status.rs
           openhuman/wallet/stub.rs
           openhuman/web3/stub.rs
           openhuman/x402/stub.rs
           EOF
           )
-          ACTUAL=$(grep -rlE '#\[cfg\((not\()?feature = "(voice|media|web3|meet|mcp|skills|flows|channels)"' src --include='*.rs' \
+          ACTUAL=$(grep -rlE '#\[cfg\((not\()?feature = "(voice|media|web3|meet|mcp|skills|flows|channels|prediction-markets)"' src --include='*.rs' \
             | xargs grep -lE '#\[test\]|#\[tokio::test\]|fn .*_test' 2>/dev/null | sed 's|^src/||' | sort -u)
           if ! diff <(echo "$EXPECTED" | sed 's/^ *//' | sort -u) <(echo "$ACTUAL"); then
             echo "::error::Gated-test file set changed. Update the EXPECTED allowlist in the rust-feature-gate-smoke lane, and extend the scoped 'cargo test' filter if the new module can carry an ungated-assert regression (see #5022)."

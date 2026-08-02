@@ -2056,8 +2056,12 @@ fn knowledge_tools_are_registered() {
         "learning_enrich_profile",
     ];
 
-    // Add gated tools only when their feature is enabled
-    if cfg!(feature = "flows") {
+    // Add gated tools only when their feature is enabled. All of these —
+    // list/describe/read_resource/recent_runs/read_run_log,
+    // install_workflow_from_url, uninstall_workflow, and create_skill — are
+    // registered under `#[cfg(feature = "skills")]` in ops.rs (skill/workflow
+    // metadata + registry tools), not `flows`.
+    if cfg!(feature = "skills") {
         expected_tools.extend(&[
             "list_workflows",
             "describe_workflow",
@@ -2066,23 +2070,16 @@ fn knowledge_tools_are_registered() {
             "read_workflow_run_log",
             "install_workflow_from_url",
             "uninstall_workflow",
+            "create_skill",
         ]);
-    }
-    if cfg!(feature = "skills") {
-        expected_tools.push("create_skill");
     }
 
     assert_contains_all(&names, &expected_tools);
 
     // Verify that gated tools are absent when their feature is off
     if !cfg!(feature = "skills") {
-        assert!(
-            !names.iter().any(|n| n == "create_skill"),
-            "create_skill should be absent when skills feature is off"
-        );
-    }
-    if !cfg!(feature = "flows") {
-        let flow_tools = [
+        let skill_tools = [
+            "create_skill",
             "list_workflows",
             "describe_workflow",
             "read_workflow_resource",
@@ -2091,10 +2088,10 @@ fn knowledge_tools_are_registered() {
             "install_workflow_from_url",
             "uninstall_workflow",
         ];
-        for tool in &flow_tools {
+        for tool in &skill_tools {
             assert!(
                 !names.iter().any(|n| n == tool),
-                "{} should be absent when flows feature is off",
+                "{} should be absent when skills feature is off",
                 tool
             );
         }

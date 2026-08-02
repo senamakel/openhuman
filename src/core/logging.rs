@@ -291,8 +291,14 @@ pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
 /// across re-execs; subsequent calls are no-ops. The first caller wins, so
 /// the Tauri shell should call this before any CLI path could initialize a
 /// stderr-only subscriber.
-#[allow(unused_variables)]
 pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
+    // `data_dir` is only read to build the rolling-file appender's directory,
+    // which the `file-logging` gate compiles out. Discarded explicitly here
+    // rather than silencing the whole function with `#[allow(unused_variables)]`
+    // — a blanket allow on a body this size would also hide the next genuinely
+    // unused binding someone adds.
+    #[cfg(not(feature = "file-logging"))]
+    let _ = data_dir;
     INIT.call_once(|| {
         let scope = CliLogDefault::Global;
         seed_rust_log(verbose, scope);
@@ -428,8 +434,10 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
 /// whatever destination the first caller chose — still never stderr from *this*
 /// path. Returns the resolved log directory on success (for a status line), or
 /// `None` when the file appender could not be created.
-#[allow(unused_variables)]
 pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
+    // See `init_for_embedded` — same reason, same narrow discard.
+    #[cfg(not(feature = "file-logging"))]
+    let _ = data_dir;
     INIT.call_once(|| {
         let scope = CliLogDefault::Global;
         seed_rust_log(verbose, scope);

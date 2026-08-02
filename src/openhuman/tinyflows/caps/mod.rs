@@ -57,7 +57,9 @@ pub(crate) use crate::openhuman::composio::catalog::{
     ProbedOutputSample, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT,
 };
 #[cfg(test)]
-pub(crate) use crate::openhuman::composio::catalog::{seed_live_catalog_cache, seed_probe_cache};
+pub(crate) use crate::openhuman::composio::catalog::{
+    seed_live_catalog_cache, seed_live_catalog_cache_expired, seed_probe_cache,
+};
 
 mod agent;
 mod code;

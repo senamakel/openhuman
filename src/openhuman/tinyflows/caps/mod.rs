@@ -18,16 +18,13 @@ use serde_json::{json, Value};
 use tinyagents::graph::SqliteCheckpointer;
 use tinyagents::harness::model::ModelRequest;
 use tinyflows::caps::{
-    AgentRunner, Capabilities, CodeLanguage, CodeRunner, HttpClient, ToolInvoker,
+    Capabilities, ToolInvoker,
 };
 use tinyflows::error::{EngineError, Result};
 use tinyflows::model::WorkflowGraph;
 
 use crate::openhuman::agent::harness::definition::SandboxMode;
 use crate::openhuman::agent::messages::ChatMessage;
-use crate::openhuman::composio::client::{
-    create_composio_client, direct_execute, direct_list_tools, ComposioClientKind,
-};
 use crate::openhuman::config::{Config, HttpRequestConfig};
 use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;

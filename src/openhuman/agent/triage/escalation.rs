@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner::{self, SubagentRunOptions};
-use crate::openhuman::agent_orchestration::parent_context::build_root_parent;
+use crate::openhuman::agent::orchestration::parent_context::build_root_parent;
 use crate::openhuman::config::Config;
 
 use super::decision::TriageAction;

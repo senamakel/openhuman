@@ -701,9 +701,9 @@ fn route_for_agent_ref_selects_harness_for_definitions_else_fallback() {
 // ── B38 (Gap 2): a custom agent_ref must route to the harness (real tools),
 // not the persona-only completion fallback ─────────────────────────────────
 
-fn custom_registry_entry(enabled: bool) -> crate::openhuman::agent_registry::AgentRegistryEntry {
-    use crate::openhuman::agent_registry::types::{AgentRegistrySource, AgentSubagentPolicy};
-    crate::openhuman::agent_registry::AgentRegistryEntry {
+fn custom_registry_entry(enabled: bool) -> crate::openhuman::agent::registry::AgentRegistryEntry {
+    use crate::openhuman::agent::registry::types::{AgentRegistrySource, AgentSubagentPolicy};
+    crate::openhuman::agent::registry::AgentRegistryEntry {
         id: "finance_analyst".to_string(),
         name: "Finance Analyst".to_string(),
         description: "Reviews spend and drafts finance summaries.".to_string(),

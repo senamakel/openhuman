@@ -9,7 +9,7 @@
 
 use super::super::definition::{PromptSource, ToolScope};
 use super::types::SubagentRunError;
-use crate::openhuman::context::prompt::PromptContext;
+use crate::openhuman::agent::context::prompt::PromptContext;
 use crate::openhuman::tools::Tool;
 
 // ── Heavy-schema toolkit accounting ─────────────────────────────────────

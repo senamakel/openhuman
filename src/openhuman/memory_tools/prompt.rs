@@ -22,7 +22,7 @@
 
 use anyhow::Result;
 
-use crate::openhuman::context::prompt::{PromptContext, PromptSection};
+use crate::openhuman::agent::context::prompt::{PromptContext, PromptSection};
 
 pub use tinycortex::memory::tool_memory::render::{
     render_tool_memory_rules, ToolMemoryRulesSection, TOOL_MEMORY_HEADING,

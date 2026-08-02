@@ -211,7 +211,7 @@ fn outcome_to_result(
 /// workflow.
 pub struct RunWorkflowTool {
     /// Full active profile context inherited by the autonomous workflow agent.
-    active_profile: Option<crate::openhuman::profiles::AgentProfile>,
+    active_profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
     /// Per-profile allowlist of runnable workflow `dir_name` slugs. `None`
     /// (the default) means every installed workflow may be run.
     skill_allowlist: Option<std::collections::HashSet<String>>,
@@ -238,7 +238,7 @@ impl RunWorkflowTool {
 
     pub fn with_active_profile(
         mut self,
-        profile: Option<crate::openhuman::profiles::AgentProfile>,
+        profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
     ) -> Self {
         self.active_profile = profile;
         self
@@ -452,7 +452,7 @@ impl AwaitWorkflowTool {
 
     pub fn with_active_profile(
         mut self,
-        profile: Option<crate::openhuman::profiles::AgentProfile>,
+        profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
     ) -> Self {
         self.active_profile_id = profile.map(|profile| profile.id);
         self

@@ -15,7 +15,9 @@ use tinyagents::harness::store::Store;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::task_board::normalize_cards_for_wire;
 pub use crate::openhuman::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
-use crate::openhuman::tinyagents::todos::{scratch_todos_store, todos_store, SCRATCH_THREAD_ID};
+use crate::openhuman::agent::tinyagents::todos::{
+    scratch_todos_store, todos_store, SCRATCH_THREAD_ID,
+};
 
 pub const USER_TASKS_THREAD_ID: &str = "user-tasks";
 pub const ORCHESTRATOR_TASKS_THREAD_ID: &str = "orchestrator-tasks";

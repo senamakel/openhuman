@@ -178,7 +178,7 @@ pub fn load_workflows_with_profile(
 
     let mut workflows: Vec<WorkflowDefinition> = Vec::new();
 
-    if let Ok(builtins) = crate::openhuman::agent_registry::agents::load_builtins() {
+    if let Ok(builtins) = crate::openhuman::agent::registry::agents::load_builtins() {
         for definition in builtins {
             workflows.push(WorkflowDefinition {
                 definition,

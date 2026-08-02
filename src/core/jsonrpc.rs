@@ -1214,10 +1214,11 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
     // bypass for `/run` and `/jobs/{id}` is unconditional in
     // [`crate::core::auth`]; the router-side gate is what actually exposes
     // the handlers. The spawned sweep loop lives until process exit.
-    if crate::openhuman::agentbox::agentbox_mode_enabled() {
-        let store = crate::openhuman::agentbox::JobStore::new(std::time::Duration::from_secs(3600));
-        let invoker: std::sync::Arc<dyn crate::openhuman::agentbox::invoker::AgentInvoker> =
-            std::sync::Arc::new(crate::openhuman::agentbox::invoker::CoreAgentInvoker);
+    if crate::openhuman::agent::agentbox::agentbox_mode_enabled() {
+        let store =
+            crate::openhuman::agent::agentbox::JobStore::new(std::time::Duration::from_secs(3600));
+        let invoker: std::sync::Arc<dyn crate::openhuman::agent::agentbox::invoker::AgentInvoker> =
+            std::sync::Arc::new(crate::openhuman::agent::agentbox::invoker::CoreAgentInvoker);
         let job_timeout = std::env::var("OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
@@ -1238,7 +1239,7 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
         });
 
         log::info!("[agentbox] enabled; public routes: POST /run, GET /jobs/{{id}}, GET /health");
-        router = router.merge(crate::openhuman::agentbox::agentbox_router(
+        router = router.merge(crate::openhuman::agent::agentbox::agentbox_router(
             store,
             invoker,
             job_timeout,
@@ -2117,7 +2118,7 @@ fn register_domain_subscribers(
             // when no channel is configured — silently dropping ALL learning for
             // channel-less users (#5003). Registered here on the unconditional
             // Platform boot path; idempotent, so it never double-registers.
-            crate::openhuman::learning::startup::register_learning_subscribers(
+            crate::openhuman::agent::learning::startup::register_learning_subscribers(
                 workspace_dir.clone(),
             );
         }
@@ -2264,14 +2265,14 @@ fn register_domain_subscribers(
             // Background-completion delivery: when a detached sub-agent
             // (spawn_async_subagent) finishes, surface its result back into the
             // originating chat as an idle-gated, batched, system-injected turn.
-            crate::openhuman::agent_orchestration::background_delivery::register_background_delivery();
+            crate::openhuman::agent::orchestration::background_delivery::register_background_delivery();
             // Run-ledger finalizer: detached `spawn_async_subagent` runs outlive
             // their parent turn, so their terminal `AgentProgress` never reaches
             // the per-turn progress bridge that settles the ledger. This
             // global-bus subscriber settles `agent_runs` from
             // `DomainEvent::Subagent{Completed,Failed}`, preventing rows from
             // leaking as perpetual `running` timeline entries on thread reopen.
-            crate::openhuman::agent_orchestration::run_ledger_finalize::register_run_ledger_finalize_subscriber(&config);
+            crate::openhuman::agent::orchestration::run_ledger_finalize::register_run_ledger_finalize_subscriber(&config);
         }
     } else {
         log::debug!(
@@ -2324,7 +2325,7 @@ pub async fn bootstrap_core_runtime(
     // --- Event bus bootstrap ---
     // Ensure the global event bus is initialized (no-op if already done by start_channels).
     crate::core::event_bus::init_global(crate::core::event_bus::DEFAULT_CAPACITY);
-    crate::openhuman::file_state::init_global();
+    crate::openhuman::agent::file_state::init_global();
     // Register domain subscribers for cross-module event handling. Ungated infra
     // runs once (INFRA: Once) and each DomainGroup installs at most once via the
     // per-group `group_first_time` set, so repeated calls to
@@ -2359,7 +2360,7 @@ pub async fn bootstrap_core_runtime(
     // at boot is orphaned — its driver died without firing a terminal event, so
     // the finalizer never settled it. Stamp such rows `interrupted` so they stop
     // rendering as perpetual "running" timeline entries on thread reopen.
-    match crate::openhuman::session_db::run_ledger::interrupt_orphaned_agent_runs(&cfg) {
+    match crate::openhuman::agent::session_db::run_ledger::interrupt_orphaned_agent_runs(&cfg) {
         Ok(0) => {}
         Ok(count) => log::info!("[runtime] settled {count} orphaned agent run(s) on startup"),
         Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
@@ -2375,7 +2376,7 @@ pub async fn bootstrap_core_runtime(
     // non-fatal (issue #4249 / 07.2 steps 2 & 4).
     {
         let reconciled =
-            crate::openhuman::agent_orchestration::running_subagents::reconcile_orphaned_tasks_on_boot(
+            crate::openhuman::agent::orchestration::running_subagents::reconcile_orphaned_tasks_on_boot(
                 &workspace_dir,
             );
         if reconciled > 0 {
@@ -2611,7 +2612,7 @@ pub async fn start_core_runtime_services(
     // block the ready signal — the core becomes RPC-ready immediately and the
     // frontend watches per-step progress via `openhuman.harness_init_status`.
     // On a warm host every step's `is_done` probe passes and this settles
-    // instantly. See `crate::openhuman::harness_init`.
+    // instantly. See `crate::openhuman::agent::harness_init`.
     crate::core::runtime::services::start_boot_once_jobs(services, cfg).await;
 
     // Long-lived bootstrap loops selected by ServiceSet. These start only

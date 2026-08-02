@@ -29,7 +29,7 @@ pub(super) struct ResolvedExecutor {
     /// built-in / default executors → unrestricted (legacy behaviour). When
     /// present, the autonomous run applies the profile's tool/skill/MCP/
     /// connector and memory-source gates, not just its SOUL/MEMORY text.
-    pub(super) profile: Option<crate::openhuman::profiles::AgentProfile>,
+    pub(super) profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
     pub(super) label: String,
 }
 

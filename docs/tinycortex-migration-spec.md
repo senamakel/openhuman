@@ -124,7 +124,7 @@ activation is now in place: `[dependencies] tinycortex = "0.1"` is active in the
 - **Content-store host surfaces the crate explicitly excludes:** `content::wiki_git`,
   `content::obsidian`, `content::obsidian_registry`.
 
-### The adapter seam: `src/openhuman/tinycortex/` (W1, mirrors `src/openhuman/tinyagents/`)
+### The adapter seam: `src/openhuman/tinycortex/` (W1, mirrors `src/openhuman/agent/tinyagents/`)
 
 **W1 seam files** (all against seam traits already present in the crate, §0.2):
 `embeddings.rs` (`EmbeddingBackend`/`Embedder`), `chat.rs` (`ChatProvider`/`Summariser`×2/

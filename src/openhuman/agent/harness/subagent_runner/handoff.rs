@@ -28,7 +28,7 @@ use std::sync::Mutex as StdMutex;
 /// Token threshold above which a tool result is routed to the handoff
 /// cache instead of being pushed into history raw. Token count is
 /// estimated at ~4 chars/token (mirrors
-/// `crate::openhuman::tinyagents::payload_summarizer` and
+/// `crate::openhuman::agent::tinyagents::payload_summarizer` and
 /// `crate::openhuman::memory_tree::tree_runtime::types::estimate_tokens`).
 ///
 /// Set at `50_000` so the clean Gmail / Notion envelopes emitted by provider

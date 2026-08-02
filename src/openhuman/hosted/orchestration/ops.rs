@@ -75,7 +75,7 @@ pub fn start_message_drain_supervisor() {
             // paired wrapped-agent that re-established contact is unblocked before
             // this same cycle drains its mailbox. Non-linked requesters are left
             // pending for the human (accepting a contact is a trust decision).
-            match crate::openhuman::agent_orchestration::pairing::auto_accept_linked_contact_requests(
+            match crate::openhuman::agent::orchestration::pairing::auto_accept_linked_contact_requests(
                 &config,
             )
             .await
@@ -222,8 +222,8 @@ const ATTENTION_RUN_LIMIT: u32 = 100;
 pub(super) fn command_center_needs_input(
     config: &Config,
 ) -> Vec<super::attention::NeedsInputSignal> {
-    use crate::openhuman::agent_orchestration::command_center::build_view;
-    use crate::openhuman::session_db::run_ledger::{
+    use crate::openhuman::agent::orchestration::command_center::build_view;
+    use crate::openhuman::agent::session_db::run_ledger::{
         list_agent_runs, AgentRunListRequest, AgentRunStatus,
     };
     let request = AgentRunListRequest {
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn command_center_needs_input_surfaces_only_blocked_runs() {
-        use crate::openhuman::session_db::run_ledger::{
+        use crate::openhuman::agent::session_db::run_ledger::{
             upsert_agent_run, AgentRunKind, AgentRunStatus, AgentRunUpsert,
         };
         let tmp = tempfile::tempdir().unwrap();

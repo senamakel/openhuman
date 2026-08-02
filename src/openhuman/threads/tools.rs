@@ -366,7 +366,7 @@ impl Tool for ThreadTranscriptSearchTool {
             .get("exclude_thread_id")
             .and_then(serde_json::Value::as_str)
         {
-            None => crate::openhuman::tinyagents::thread_context::current_thread_id(),
+            None => crate::openhuman::agent::tinyagents::thread_context::current_thread_id(),
             Some(s) if s.trim().is_empty() => None,
             Some(s) => Some(s.trim().to_string()),
         };

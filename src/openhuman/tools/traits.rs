@@ -367,7 +367,7 @@ pub trait Tool: Send + Sync {
     /// tools will ignore it.
     ///
     /// **Wiring note:** the tinyagents harness loop (see
-    /// `crate::openhuman::tinyagents::tools`) currently executes tool
+    /// `crate::openhuman::agent::tinyagents::tools`) currently executes tool
     /// calls serially regardless of this flag. Annotating tools is
     /// still load-bearing: it lets a parallel-dispatch refactor land
     /// without coordinating with every tool author. See the

@@ -112,7 +112,7 @@ pub async fn agent_chat(
     let response = match thread_id.as_deref() {
         Some(id) if !id.trim().is_empty() => {
             log::debug!("[inference] agent_chat routing with thread_id={id}");
-            crate::openhuman::tinyagents::thread_context::with_thread_id(id, run).await
+            crate::openhuman::agent::tinyagents::thread_context::with_thread_id(id, run).await
         }
         _ => {
             log::debug!("[inference] agent_chat routing without thread_id");
@@ -170,7 +170,7 @@ pub async fn agent_chat_simple(
     let response = match thread_id.as_deref() {
         Some(id) if !id.trim().is_empty() => {
             log::debug!("[inference] agent_chat_simple routing with thread_id={id}");
-            crate::openhuman::tinyagents::thread_context::with_thread_id(id, run).await
+            crate::openhuman::agent::tinyagents::thread_context::with_thread_id(id, run).await
         }
         _ => {
             log::debug!("[inference] agent_chat_simple routing without thread_id");

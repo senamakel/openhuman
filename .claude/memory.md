@@ -216,7 +216,7 @@ Quick reference for anyone starting with Claude on this project. Updated by the 
 
 ## Artifacts Domain (Issue #2776)
 
-- **Filesystem-backed persistence, no SQLite** — `src/openhuman/artifacts/` stores JSON metadata (`meta.json`) + binary blobs under `<workspace_dir>/artifacts/<uuid>/`. Pattern mirrors `memory/ops/files.rs` but simpler.
+- **Filesystem-backed persistence, no SQLite** — `src/openhuman/agent/artifacts/` stores JSON metadata (`meta.json`) + binary blobs under `<workspace_dir>/artifacts/<uuid>/`. Pattern mirrors `memory/ops/files.rs` but simpler.
 - **`"ai"` namespace in controller registry** — RPC methods are `openhuman.ai_list_artifacts`, `openhuman.ai_get_artifact`, `openhuman.ai_delete_artifact`. Future `ai_*` methods should use this same namespace.
 - **Two-layer path validation required** — (1) `validate_artifact_id` rejects empty strings, `/`, `\`, `..`, absolute Unix paths, Windows `C:` and UNC `\\` paths; (2) `assert_within_root` canonicalizes and checks containment. Replicate this pattern for any new filesystem-backed domain.
 - **`cargo test --lib` required for lib crate tests** — `cargo test -p openhuman -- "artifacts"` lists tests but filters to 0. Must use `cargo test -p openhuman --lib -- "artifacts"` because tests are in the lib crate, not integration test binaries.

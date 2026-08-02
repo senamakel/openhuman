@@ -69,12 +69,12 @@ async fn resolve_cron_profile_present_and_deleted_fallback() {
     );
 
     // Seed the profile → it now resolves.
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = "alice".into();
     profile.name = "Alice".into();
     profile.built_in = false;
     profile.is_master = false;
-    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+    crate::openhuman::agent::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
         .upsert(profile)
         .expect("seed profile");
     let resolved = resolve_cron_profile(&config, &job)
@@ -94,12 +94,12 @@ async fn existing_profile_agent_build_failure_does_not_fall_back_profile_less() 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp).await;
 
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = "alice".into();
     profile.agent_id = "removed-agent-definition".into();
     profile.built_in = false;
     profile.is_master = false;
-    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+    crate::openhuman::agent::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
         .upsert(profile)
         .expect("seed profile");
 
@@ -122,12 +122,12 @@ async fn attributed_cron_build_retains_profile_gates() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp).await;
 
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = "alice".into();
     profile.built_in = false;
     profile.allowed_tools = Some(vec!["file_read".into()]);
     profile.memory_sources = Some(vec!["slack:#eng".into()]);
-    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+    crate::openhuman::agent::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
         .upsert(profile)
         .expect("seed profile");
 
@@ -154,13 +154,13 @@ async fn attributed_cron_build_applies_profile_runtime_defaults() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp).await;
 
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = "alice-runtime".into();
     profile.built_in = false;
     profile.model_override = Some("profile-runtime-model".into());
     profile.temperature = Some(0.17);
     profile.system_prompt_suffix = Some("CRON_PROFILE_SUFFIX_SENTINEL".into());
-    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+    crate::openhuman::agent::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
         .upsert(profile)
         .expect("seed profile");
 
@@ -184,7 +184,7 @@ fn cron_job_model_override_wins_over_profile_model() {
         default_model: Some("config-model".into()),
         ..Config::default()
     };
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.model_override = Some("profile-model".into());
     profile.temperature = Some(0.23);
     let mut job = test_job("");

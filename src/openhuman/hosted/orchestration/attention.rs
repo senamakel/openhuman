@@ -304,9 +304,9 @@ pub(crate) fn approval_signals(
 /// the handler passes the already-fetched view. A run deep-links to its worker
 /// thread (then parent thread); its display name falls back to the run id.
 pub(crate) fn needs_input_from_command_center(
-    view: crate::openhuman::agent_orchestration::command_center::CommandCenterView,
+    view: crate::openhuman::agent::orchestration::command_center::CommandCenterView,
 ) -> Vec<NeedsInputSignal> {
-    use crate::openhuman::agent_orchestration::command_center::AgentWorkBucket;
+    use crate::openhuman::agent::orchestration::command_center::AgentWorkBucket;
     view.groups
         .into_iter()
         .find(|g| g.bucket == AgentWorkBucket::NeedsInput)
@@ -583,7 +583,7 @@ mod tests {
 
     // ── command-center mapping ──────────────────────────────────────────────
 
-    use crate::openhuman::agent_orchestration::command_center::{
+    use crate::openhuman::agent::orchestration::command_center::{
         AgentWorkBucket, AgentWorkRow, CommandCenterGroup, CommandCenterView,
     };
 

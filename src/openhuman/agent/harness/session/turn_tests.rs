@@ -2,14 +2,14 @@ use super::*;
 use crate::openhuman::agent::dispatcher::{
     PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
 };
+use crate::openhuman::agent::experience::{
+    AgentExperience, AgentExperienceStore, ExperienceOutcome, ExperienceSource,
+};
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,
-};
-use crate::openhuman::agent_experience::{
-    AgentExperience, AgentExperienceStore, ExperienceOutcome, ExperienceSource,
 };
 use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::inference::provider::{ChatResponse, UsageInfo};
@@ -92,7 +92,7 @@ impl ChatModel<()> for SequenceProvider {
         );
         match self.responses.lock().await.remove(0) {
             Ok(response) => Ok(
-                crate::openhuman::tinyagents::model::native_model_response_for_request(
+                crate::openhuman::agent::tinyagents::model::native_model_response_for_request(
                     &response, &request,
                 ),
             ),

@@ -97,11 +97,10 @@ fn stub_parent_context() -> ParentExecutionContext {
         allowed_subagent_ids: ["test".to_string(), "researcher".to_string()]
             .into_iter()
             .collect(),
-        turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
-                "ok",
-            ])),
-        ),
+        turn_model_source:
+            openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                tinyagents::harness::testkit::ScriptedModel::replies(vec!["ok"]),
+            )),
         all_tools: Arc::new(vec![]),
         all_tool_specs: Arc::new(vec![]),
         visible_tool_names: std::collections::HashSet::new(),
@@ -117,7 +116,8 @@ fn stub_parent_context() -> ParentExecutionContext {
         session_id: "test-session".into(),
         channel: "test-channel".into(),
         connected_integrations: vec![],
-        tool_call_format: openhuman_core::openhuman::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format:
+            openhuman_core::openhuman::agent::context::prompt::ToolCallFormat::PFormat,
         session_key: "test-session".into(),
         session_parent_prefix: None,
         on_progress: None,

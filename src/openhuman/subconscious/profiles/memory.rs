@@ -21,8 +21,8 @@ use tracing::{debug, info, warn};
 use super::super::instance::SubconsciousInstance;
 use super::super::profile::{Observation, Reflection, SubconsciousProfile};
 use super::super::store;
+use crate::openhuman::agent::orchestration::parent_context::with_root_parent;
 use crate::openhuman::agent::turn_origin::TrustedAutomationSource;
-use crate::openhuman::agent_orchestration::parent_context::with_root_parent;
 use crate::openhuman::config::schema::SubconsciousMode;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory_diff::types::CrossSourceDiff;
@@ -134,7 +134,7 @@ impl MemoryProfile {
 
         // Flatten: outer Err = root-parent build failure, inner = scout result.
         let scout = with_root_parent(config, "subconscious", "subconscious", "subconscious", {
-            crate::openhuman::agent_orchestration::tools::run_context_scout_with_catalog(
+            crate::openhuman::agent::orchestration::tools::run_context_scout_with_catalog(
                 &question,
                 None,
                 SUBCONSCIOUS_TOOL_CATALOG,

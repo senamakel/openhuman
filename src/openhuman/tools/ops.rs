@@ -101,7 +101,7 @@ pub fn all_tools_with_runtime(
     action_dir: &std::path::Path,
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::openhuman::config::Config,
-    active_profile: Option<&crate::openhuman::profiles::AgentProfile>,
+    active_profile: Option<&crate::openhuman::agent::profiles::AgentProfile>,
     skill_allowlist: Option<&std::collections::HashSet<String>>,
     mcp_allowlist: Option<&[String]>,
     profile_skills_root: Option<&std::path::Path>,
@@ -227,7 +227,7 @@ pub fn all_tools_with_runtime(
         Box::new(TodoTool::new()),
         // Interactive plan-review gate: parks the live turn on a thread-scoped
         // plan the user must approve before execution (Codex/Claude plan mode).
-        Box::new(crate::openhuman::plan_review::RequestPlanReviewTool::new()),
+        Box::new(crate::openhuman::agent::plan_review::RequestPlanReviewTool::new()),
         // Move/update a specific task card by id on a target board (defaults to
         // the proactive `task-sources` board) — lets the agent advance the task
         // it's working (in_progress / done+evidence / blocked+reason) from any

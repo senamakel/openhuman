@@ -13,7 +13,7 @@
 //!    definition asks to omit (`omit_identity`, `omit_memory_context`,
 //!    `omit_safety_preamble`, `omit_skills_catalog`).
 //! 5. Runs the child turn on the TinyAgents harness (`ops::graph` →
-//!    [`crate::openhuman::tinyagents::run_turn_via_tinyagents_shared`]) using
+//!    [`crate::openhuman::agent::tinyagents::run_turn_via_tinyagents_shared`]) using
 //!    the parent's [`crate::openhuman::inference::provider::Provider`], then
 //!    mirrors the child transcript/progress and returns one compact tool result
 //!    to the parent.

@@ -45,12 +45,12 @@ pub(crate) fn model_response_to_completion_value(
         "tool_calls": response
             .tool_calls()
             .iter()
-            .map(crate::openhuman::tinyagents::ta_call_to_oh_call)
+            .map(crate::openhuman::agent::tinyagents::ta_call_to_oh_call)
             .collect::<Vec<_>>(),
         "usage": usage_to_json(
-            &crate::openhuman::tinyagents::model::usage_info_from_response(response)
+            &crate::openhuman::agent::tinyagents::model::usage_info_from_response(response)
         ),
-        "reasoning_content": crate::openhuman::tinyagents::reasoning_from_content(
+        "reasoning_content": crate::openhuman::agent::tinyagents::reasoning_from_content(
             &response.message.content
         ),
     })

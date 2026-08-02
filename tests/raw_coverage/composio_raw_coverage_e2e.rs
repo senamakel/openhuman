@@ -56,7 +56,7 @@ use openhuman_core::openhuman::integrations::composio::{
     ComposioClient, FetchConnectedIntegrationsStatus,
 };
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
+use openhuman_core::openhuman::agent::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };

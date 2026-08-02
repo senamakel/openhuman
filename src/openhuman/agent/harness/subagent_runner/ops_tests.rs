@@ -3,7 +3,7 @@ use crate::openhuman::agent::harness::definition::{ModelSpec, ToolScope};
 
 #[test]
 fn lazy_resolver_tolerates_near_miss_slugs() {
-    use crate::openhuman::context::prompt::ConnectedIntegrationTool;
+    use crate::openhuman::agent::context::prompt::ConnectedIntegrationTool;
     let mk = |name: &str| ConnectedIntegrationTool {
         name: name.into(),
         description: "d".into(),
@@ -372,7 +372,9 @@ fn make_parent(
         allowed_subagent_ids: ["test".to_string(), "child".to_string(), "inner".to_string()]
             .into_iter()
             .collect(),
-        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(provider),
+        turn_model_source: crate::openhuman::agent::tinyagents::TurnModelSource::from_model(
+            provider,
+        ),
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(tool_specs),
         visible_tool_names: std::collections::HashSet::new(),
@@ -387,7 +389,7 @@ fn make_parent(
         session_id: "test-session".into(),
         channel: "test".into(),
         connected_integrations: vec![],
-        tool_call_format: crate::openhuman::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: crate::openhuman::agent::context::prompt::ToolCallFormat::PFormat,
         session_key: "0_test".into(),
         session_parent_prefix: None,
         on_progress: None,
@@ -1194,7 +1196,8 @@ async fn typed_mode_progress_emission_is_a_noop_without_sink() {
 #[test]
 fn resolve_subagent_source_inherit_uses_parent_source_and_model() {
     let parent: Arc<dyn ChatModel<()>> = ScriptedProvider::new(vec![]);
-    let parent_source = crate::openhuman::tinyagents::TurnModelSource::from_model(parent.clone());
+    let parent_source =
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent.clone());
     let (_resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Inherit,
         "test_agent",
@@ -1218,7 +1221,7 @@ fn resolve_subagent_source_exact_overrides_only_model() {
         &ModelSpec::Exact("haiku-mini".to_string()),
         "test_agent",
         None,
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent.clone()),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent.clone()),
         "parent-model-x".to_string(),
         false,
         None,
@@ -1234,7 +1237,7 @@ fn resolve_subagent_source_spawn_override_wins_over_definition_model() {
         &ModelSpec::Exact("definition-model".to_string()),
         "test_agent",
         None,
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent.clone()),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent.clone()),
         "parent-model-x".to_string(),
         false,
         Some("spawn-model-y"),
@@ -1261,7 +1264,7 @@ fn resolve_subagent_source_config_model_wins_over_definition_model() {
         &ModelSpec::Exact("definition-model".to_string()),
         "test_agent",
         Some(&config),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent.clone()),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent.clone()),
         "parent-model-x".to_string(),
         false,
         None,
@@ -1288,7 +1291,7 @@ fn resolve_subagent_source_inline_override_wins_over_config_model() {
         &ModelSpec::Exact("definition-model".to_string()),
         "test_agent",
         Some(&config),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent),
         "parent-model-x".to_string(),
         false,
         Some("inline-model"),
@@ -1315,7 +1318,7 @@ fn resolve_subagent_source_config_alias_matches_issue_team_examples() {
         &ModelSpec::Hint("agentic".to_string()),
         "researcher",
         Some(&config),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent),
         "parent-model-x".to_string(),
         false,
         None,
@@ -1336,7 +1339,7 @@ fn resolve_subagent_source_hint_with_no_config_falls_back() {
         &ModelSpec::Hint("agentic".to_string()),
         "test_agent",
         None, // no config loaded
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent.clone()),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent.clone()),
         "real-claude-id".to_string(),
         false,
         None,
@@ -1375,7 +1378,7 @@ fn resolve_subagent_source_hint_with_config_routes_via_factory() {
         &ModelSpec::Hint("agentic".to_string()),
         "test_agent",
         Some(&config),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent),
         "parent-model-ignored-on-hint".to_string(),
         false,
         None,
@@ -1404,7 +1407,7 @@ fn resolve_subagent_source_hint_falls_back_on_factory_error() {
         &ModelSpec::Hint("agentic".to_string()),
         "test_agent",
         Some(&config),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(parent.clone()),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(parent.clone()),
         "fallback-model".to_string(),
         false,
         None,
@@ -1561,7 +1564,7 @@ fn nested_subagent_dispatch_runs_on_a_constrained_worker_stack() {
 // by `lazy_resolver_tolerates_near_miss_slugs`).
 #[test]
 fn repro_3152_near_miss_write_slug_resolves_uniquely() {
-    use crate::openhuman::context::prompt::ConnectedIntegrationTool;
+    use crate::openhuman::agent::context::prompt::ConnectedIntegrationTool;
     let mk = |name: &str| ConnectedIntegrationTool {
         name: name.into(),
         description: "d".into(),
@@ -1590,7 +1593,7 @@ fn repro_3152_near_miss_write_slug_resolves_uniquely() {
 // the length gate: a too-short request never fans out.
 #[test]
 fn prefix_tier_refuses_ambiguous_and_short_slugs() {
-    use crate::openhuman::context::prompt::ConnectedIntegrationTool;
+    use crate::openhuman::agent::context::prompt::ConnectedIntegrationTool;
     let mk = |name: &str| ConnectedIntegrationTool {
         name: name.into(),
         description: "d".into(),

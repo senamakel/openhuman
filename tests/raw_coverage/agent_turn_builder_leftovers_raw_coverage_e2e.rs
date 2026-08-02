@@ -4,7 +4,7 @@ use openhuman_core::openhuman::agent::dispatcher::{NativeToolDispatcher, XmlTool
 use openhuman_core::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::config::{AgentConfig, ContextConfig};
-use openhuman_core::openhuman::context::session_memory::SessionMemoryConfig;
+use openhuman_core::openhuman::agent::context::session_memory::SessionMemoryConfig;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };

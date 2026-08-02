@@ -32,9 +32,9 @@ use tokio::sync::mpsc::Sender;
 
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::agent::tinyagents::run_turn_via_tinyagents_shared;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
-use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
-use crate::openhuman::tinyagents::TurnModelSource;
 use crate::openhuman::tools::Tool;
 
 /// Drive a channel/CLI turn on the graph engine. Returns the final assistant
@@ -140,7 +140,7 @@ pub(crate) async fn run_channel_turn_via_graph(
         Some(crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS),
         // Context middlewares: cache-align + default tool-result byte cap (the
         // channel path has no session `ContextManager` to source config from).
-        crate::openhuman::tinyagents::TurnContextMiddleware::defaults(),
+        crate::openhuman::agent::tinyagents::TurnContextMiddleware::defaults(),
         // Channel/CLI path carries its own gating; no session `.tool_policy()`.
         None,
         // Channel turns do not yet carry SDK workspace descriptors.

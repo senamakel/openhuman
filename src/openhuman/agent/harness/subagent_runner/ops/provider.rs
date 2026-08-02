@@ -9,12 +9,12 @@ pub(crate) fn resolve_subagent_source(
     spec: &crate::openhuman::agent::harness::definition::ModelSpec,
     agent_id: &str,
     config: Option<&crate::openhuman::config::Config>,
-    parent_source: crate::openhuman::tinyagents::TurnModelSource,
+    parent_source: crate::openhuman::agent::tinyagents::TurnModelSource,
     parent_model: String,
     is_team_lead: bool,
     model_override: Option<&str>,
     temperature: f64,
-) -> (crate::openhuman::tinyagents::TurnModelSource, String) {
+) -> (crate::openhuman::agent::tinyagents::TurnModelSource, String) {
     use crate::openhuman::agent::harness::definition::ModelSpec;
     if let Some(model) = model_override
         .map(str::trim)
@@ -51,7 +51,7 @@ pub(crate) fn resolve_subagent_source(
                             "[subagent_runner] resolved crate-native workload source"
                         );
                         (
-                            crate::openhuman::tinyagents::TurnModelSource::new_crate_native(
+                            crate::openhuman::agent::tinyagents::TurnModelSource::new_crate_native(
                                 workload.clone(),
                                 Arc::new(config.clone()),
                             ),
@@ -133,7 +133,7 @@ pub(crate) fn user_is_signed_in_to_composio(config: &crate::openhuman::config::C
 /// safety net that handles the re-delegation pattern even without caching.
 pub(crate) struct LazyToolkitResolver {
     pub(super) config: std::sync::Arc<crate::openhuman::config::Config>,
-    pub(super) actions: Vec<crate::openhuman::context::prompt::ConnectedIntegrationTool>,
+    pub(super) actions: Vec<crate::openhuman::agent::context::prompt::ConnectedIntegrationTool>,
     /// Cache of resolved tools keyed by action slug. Once a tool is built
     /// for a slug, subsequent `resolve()` calls for the same slug reuse the
     /// cached instance — sharing its [`ContractGate`] state (#5119).
@@ -221,7 +221,7 @@ impl LazyToolkitResolver {
     fn find_action(
         &self,
         name: &str,
-    ) -> Option<&crate::openhuman::context::prompt::ConnectedIntegrationTool> {
+    ) -> Option<&crate::openhuman::agent::context::prompt::ConnectedIntegrationTool> {
         if let Some(action) = self.actions.iter().find(|a| a.name == name) {
             return Some(action);
         }

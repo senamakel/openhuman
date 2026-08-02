@@ -1,7 +1,7 @@
 //! Flow-domain agents: the specialist agents that author and discover flows.
 //!
 //! These are first-class built-in agents (registered in the global
-//! `agent_registry` via [`crate::openhuman::agent_registry::agents::loader`]),
+//! `agent_registry` via [`crate::openhuman::agent::registry::agents::loader`]),
 //! but their definitions live here — inside the flows high-level module —
 //! alongside the flows data model, tools, and RPCs they operate on, so the whole
 //! feature is one cohesive unit. The loader's `BUILTINS` slice points at these

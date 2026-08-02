@@ -12,10 +12,10 @@ use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::definition::PromptSource;
 use crate::openhuman::agent::harness::session::Agent;
 use crate::openhuman::agent::harness::subagent_runner::with_autonomous_iter_cap;
+use crate::openhuman::agent::profiles::PersonalityContext;
 use crate::openhuman::agent::task_board::TaskCardStatus;
 use crate::openhuman::agent::task_session;
 use crate::openhuman::config::Config;
-use crate::openhuman::profiles::PersonalityContext;
 use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
 use crate::openhuman::threads::todos::runs::{self, RunOutcome};
 
@@ -47,7 +47,7 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
     }
 
     // 1) Personality (#2895): a user-defined profile with scoped identity.
-    if let Ok(state) = crate::openhuman::profiles::load_profiles(workspace_dir) {
+    if let Ok(state) = crate::openhuman::agent::profiles::load_profiles(workspace_dir) {
         if let Some(profile) = state.profiles.iter().find(|p| p.id == handle) {
             let ctx = PersonalityContext::from_profile(workspace_dir, profile.clone());
             let mut preamble = format!(
@@ -232,8 +232,11 @@ pub(super) async fn run_autonomous(
     );
     let result = match session_thread_id.as_deref() {
         Some(thread_id) => {
-            crate::openhuman::tinyagents::thread_context::with_thread_id(thread_id.to_string(), run)
-                .await
+            crate::openhuman::agent::tinyagents::thread_context::with_thread_id(
+                thread_id.to_string(),
+                run,
+            )
+            .await
         }
         None => run.await,
     }

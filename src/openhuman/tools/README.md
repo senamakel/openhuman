@@ -96,15 +96,15 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 - `openhuman::runtime::javascript` — `NodeBootstrap` shared by shell/node_exec/npm_exec.
 - `openhuman::mcp::config_servers` / `openhuman::mcp::registry` — generic remote MCP server registry + bridge tools.
 - `openhuman::skills` — `skills::types::{ToolResult, ToolContent}` (the unified result type) + skill-run spawning.
-- `openhuman::learning` — LinkedIn enrichment scrape/render for the Apify RPC handler.
+- `openhuman::agent::learning` — LinkedIn enrichment scrape/render for the Apify RPC handler.
 - `openhuman::web3::wallet`, `openhuman::cron`, `openhuman::codegraph`, `openhuman::voice::audio_toolkit`, `openhuman::channels::whatsapp_data` — domain-owned tools re-exported and registered.
-- `openhuman::security::approval`, `openhuman::context`, `openhuman::security::credentials`, `openhuman::platform::update`, `openhuman::util` — supporting types used by individual tools.
+- `openhuman::security::approval`, `openhuman::agent::context`, `openhuman::security::credentials`, `openhuman::platform::update`, `openhuman::util` — supporting types used by individual tools.
 - `core::all` — `ControllerSchema`, `FieldSchema`, `TypeSchema`, `RegisteredController`, `ControllerFuture` for the RPC controller surface.
 
 ## Used by
 
 - `src/core/all.rs` — registers the `tools` RPC controllers + schemas.
-- `openhuman::agent` harness (`session/builder`, `dispatcher`, `subagent_runner`, `agent/tools/*`) and the `openhuman::tinyagents` seam (`SharedToolAdapter`, `ToolPolicyMiddleware`) — primary consumers; build the registry and execute/police tools on the tinyagents harness path.
+- `openhuman::agent` harness (`session/builder`, `dispatcher`, `subagent_runner`, `agent/tools/*`) and the `openhuman::agent::tinyagents` seam (`SharedToolAdapter`, `ToolPolicyMiddleware`) — primary consumers; build the registry and execute/police tools on the tinyagents harness path.
 - `openhuman::channels`, `openhuman::routing`, `openhuman::inference::provider` — build tool sets / clean schemas per provider.
 - `openhuman::tools::agent_policy`, `openhuman::security::approval` — read tool metadata (category, external-effect) for policy/approval decisions.
 - `openhuman::tools::registry`, `openhuman::runtime::node`, `openhuman::mcp::server` — registry/exposure consumers.

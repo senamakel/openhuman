@@ -60,7 +60,7 @@ No owned persistence. `diagnostics()` reads (read-only) the `mcp_writes` table v
 ## Used by
 
 - `src/core/all.rs` — registers controllers/schemas and routes the `tool_registry` namespace.
-- `src/openhuman/tinyagents/middleware.rs` — calls `tool_registry::denials::record(...)` to log agent-tool policy denials.
+- `src/openhuman/agent/tinyagents/middleware.rs` — calls `tool_registry::denials::record(...)` to log agent-tool policy denials.
 - `src/openhuman/about_app/catalog.rs` — capability catalog references the registry surface.
 - `src/openhuman/mcp_registry/connections.rs` — provides `all_connected_tools()` for registry integration.
 

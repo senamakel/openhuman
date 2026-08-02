@@ -18,7 +18,7 @@
 //! The allowlist entries are matched against tree `scope` strings — the same
 //! identifiers the `memory_tree_query_source` tool accepts as `source_id`.
 //!
-//! [`thread_context`]: crate::openhuman::tinyagents::thread_context
+//! [`thread_context`]: crate::openhuman::agent::tinyagents::thread_context
 //!
 //! ```ignore
 //! use crate::openhuman::memory::source_scope::{with_source_scope, current_source_scope};

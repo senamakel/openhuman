@@ -668,7 +668,7 @@ async fn ingest_one(
     //    never be decrypted or consumed here; it stays readable by the existing
     //    Messaging UI via messages.list / signal.decryptMessage.
     let linked =
-        crate::openhuman::agent_orchestration::pairing::linked_agent_ids(&workspace_dir).await;
+        crate::openhuman::agent::orchestration::pairing::linked_agent_ids(&workspace_dir).await;
     if !agent_id_in_linked_set(&agent_id, &linked) {
         log::debug!(
             target: LOG,

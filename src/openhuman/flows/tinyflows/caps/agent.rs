@@ -39,7 +39,7 @@ use crate::openhuman::inference::provider::{is_raw_passthrough_model, role_for_m
 ///    the flow's tinyagents graph.
 /// 2. **Persona-shaping completion fallback** (no regression for custom agents).
 ///    When `agent_ref` only resolves to a custom
-///    [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+///    [`AgentRegistryEntry`](crate::openhuman::agent::registry::AgentRegistryEntry)
 ///    (no harness definition), the node keeps the original single-completion
 ///    behavior: the entry's `system_prompt` / `model` are shaped on top of the
 ///    node request and run through [`OpenHumanLlm::complete`].
@@ -404,7 +404,7 @@ impl AgentRunner for OpenHumanAgentRunner {
                 // harness registry AND the custom config registry (or that
                 // are disabled, which `run_via_registry_fallback` already
                 // rejects with a clear error).
-                let custom_entry = crate::openhuman::agent_registry::find_custom_in_config(
+                let custom_entry = crate::openhuman::agent::registry::find_custom_in_config(
                     &self.config,
                     agent_ref,
                 );
@@ -456,7 +456,7 @@ impl AgentRunner for OpenHumanAgentRunner {
 /// over the lookup result so the decision is unit-testable without a live
 /// `Config`/registry.
 pub(crate) fn route_custom_entry_lookup(
-    entry: Option<&crate::openhuman::agent_registry::AgentRegistryEntry>,
+    entry: Option<&crate::openhuman::agent::registry::AgentRegistryEntry>,
 ) -> AgentRoute {
     match entry {
         Some(e) if e.enabled => AgentRoute::Harness,
@@ -649,7 +649,7 @@ impl OpenHumanAgentRunner {
     }
 
     /// Persona-shaping single-completion fallback for a custom
-    /// [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+    /// [`AgentRegistryEntry`](crate::openhuman::agent::registry::AgentRegistryEntry)
     /// with no harness definition — the pre-Phase-A behavior, kept so custom
     /// agents don't regress.
     async fn run_via_registry_fallback(
@@ -659,7 +659,7 @@ impl OpenHumanAgentRunner {
         conn: Option<&str>,
     ) -> Result<Value> {
         // Resolve + validate the requested agent kind against the registry.
-        let entry = crate::openhuman::agent_registry::get_agent(agent_ref)
+        let entry = crate::openhuman::agent::registry::get_agent(agent_ref)
             .await
             .map_err(EngineError::Capability)?
             .ok_or_else(|| {

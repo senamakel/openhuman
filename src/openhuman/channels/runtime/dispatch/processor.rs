@@ -471,7 +471,7 @@ pub(crate) async fn process_channel_runtime_message(
         // `config`) stay on an injected model source.
         turn_model_source: match &ctx.config {
             Some(cfg) => {
-                crate::openhuman::tinyagents::TurnModelSource::new_crate_native_from_string(
+                crate::openhuman::agent::tinyagents::TurnModelSource::new_crate_native_from_string(
                     "chat",
                     route.provider.clone(),
                     cfg.clone(),

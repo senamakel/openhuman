@@ -24,7 +24,7 @@
 //!
 //! The triage agent has `named = []` in its TOML (zero tools). The
 //! tinyagents-backed turn path (`run_turn_via_tinyagents_shared` in
-//! `src/openhuman/tinyagents/mod.rs`) handles an empty registry by simply
+//! `src/openhuman/agent/tinyagents/mod.rs`) handles an empty registry by simply
 //! sending no tool schemas to the backend — the turn degrades to a plain
 //! chat completion.
 
@@ -724,7 +724,7 @@ fn extract_inline_prompt(def: &AgentDefinition) -> Option<String> {
     match &def.system_prompt {
         PromptSource::Inline(body) if !body.is_empty() => Some(body.clone()),
         PromptSource::Dynamic(build) => {
-            use crate::openhuman::context::prompt::{
+            use crate::openhuman::agent::context::prompt::{
                 ConnectedIntegration, LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
             };
             let empty_tools: Vec<PromptTool<'_>> = Vec::new();

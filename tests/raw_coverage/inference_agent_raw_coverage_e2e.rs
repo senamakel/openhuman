@@ -103,7 +103,7 @@ use openhuman_core::openhuman::agent::{
 use openhuman_core::openhuman::agent_memory::memory_loader::{
     collect_recall_citations, DefaultMemoryLoader, MemoryLoader, CROSS_CHAT_HEADER,
 };
-use openhuman_core::openhuman::agent_registry::agents::BUILTINS;
+use openhuman_core::openhuman::agent::registry::agents::BUILTINS;
 use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
@@ -156,19 +156,19 @@ use openhuman_core::openhuman::inference::{
     DeviceProfile,
 };
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
-use openhuman_core::openhuman::profiles::{
+use openhuman_core::openhuman::agent::profiles::{
     all_profiles_controller_schemas, all_profiles_registered_controllers,
 };
-use openhuman_core::openhuman::profiles::{
+use openhuman_core::openhuman::agent::profiles::{
     filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
     resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
     HasToolkit, PersonalityContext,
 };
-use openhuman_core::openhuman::profiles::{
+use openhuman_core::openhuman::agent::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
 use openhuman_core::openhuman::security::SecurityPolicy;
-use openhuman_core::openhuman::tinyagents::thread_context::{current_thread_id, with_thread_id};
+use openhuman_core::openhuman::agent::tinyagents::thread_context::{current_thread_id, with_thread_id};
 use openhuman_core::openhuman::threads::todos::ops::BoardLocation;
 use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::{Tool, ToolResult, ToolSpec};
@@ -2492,7 +2492,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
     let blocked = match request_native_global::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             history: vec![ChatMessage::user(
@@ -2540,7 +2540,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
         },
     );
     let cloud = ResolvedProvider {
-        turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
+        turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
             Arc::new(EchoModel),
         ),
         provider_name: "cloud-mock".into(),
@@ -2568,7 +2568,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
     );
     let deferred = run_triage_with_arms(
         ResolvedProvider {
-            turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             provider_name: "cloud-mock".into(),
@@ -2610,7 +2610,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
     );
     let fallback = run_triage_with_arms(
         ResolvedProvider {
-            turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             provider_name: "cloud-mock".into(),
@@ -2618,7 +2618,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
             used_local: false,
         },
         Some(ResolvedProvider {
-            turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             provider_name: "local-mock".into(),

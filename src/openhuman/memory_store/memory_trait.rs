@@ -143,7 +143,8 @@ impl Memory for UnifiedMemory {
         // the very request that triggered it. Outside a chat turn (cron,
         // CLI, tests, standalone) the ambient id is `None` and this is a
         // no-op — behavior is byte-for-byte unchanged.
-        let exclude_session_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
+        let exclude_session_id =
+            crate::openhuman::agent::tinyagents::thread_context::current_thread_id();
         if let Some(ref excluded) = exclude_session_id {
             tracing::debug!(
                 "[memory-trait] recall applying same-session exclusion namespace={namespace} \
@@ -930,7 +931,7 @@ mod tests {
 
     #[tokio::test]
     async fn recall_excludes_document_from_ambient_current_thread() {
-        use crate::openhuman::tinyagents::thread_context::with_thread_id;
+        use crate::openhuman::agent::tinyagents::thread_context::with_thread_id;
 
         let (_tmp, mem) = fresh_mem();
         mem.store(

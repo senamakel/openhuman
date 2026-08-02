@@ -62,7 +62,7 @@ impl Agent {
     /// parent-context builder to share the parent's provider instance with
     /// spawned sub-agents (so they share connection pools, retry budgets, and
     /// rate-limit state) — issue #4249, Phase 3 / Motion A.
-    pub fn turn_model_source(&self) -> crate::openhuman::tinyagents::TurnModelSource {
+    pub fn turn_model_source(&self) -> crate::openhuman::agent::tinyagents::TurnModelSource {
         self.turn_model_source.clone()
     }
 
@@ -130,7 +130,7 @@ impl Agent {
     /// Active Composio integrations fetched at session start.
     pub fn connected_integrations(
         &self,
-    ) -> &[crate::openhuman::context::prompt::ConnectedIntegration] {
+    ) -> &[crate::openhuman::agent::context::prompt::ConnectedIntegration] {
         &self.connected_integrations
     }
 
@@ -153,7 +153,7 @@ impl Agent {
     /// fetch result when the agent was built outside the normal turn loop).
     pub fn set_connected_integrations(
         &mut self,
-        integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration>,
+        integrations: Vec<crate::openhuman::agent::context::prompt::ConnectedIntegration>,
     ) {
         self.connected_integrations = integrations;
         self.connected_integrations_initialized = true;

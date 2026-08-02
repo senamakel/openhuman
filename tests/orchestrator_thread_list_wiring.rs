@@ -17,10 +17,10 @@
 //! prefixed name (`thread_list_v2`) can't satisfy the assertion accidentally.
 
 const ORCHESTRATOR_TOML: &str =
-    include_str!("../src/openhuman/agent_registry/agents/orchestrator/agent.toml");
+    include_str!("../src/openhuman/agent/registry/agents/orchestrator/agent.toml");
 
 const ORCHESTRATOR_PROMPT: &str =
-    include_str!("../src/openhuman/agent_registry/agents/orchestrator/prompt.md");
+    include_str!("../src/openhuman/agent/registry/agents/orchestrator/prompt.md");
 
 /// True if `toml` lists `name` as a bare quoted array entry (`"name"` or
 /// `"name",`), matching how the `named = [ … ]` / subagent allowlists are

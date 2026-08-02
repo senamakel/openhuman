@@ -159,7 +159,7 @@ fn alice_phoenix_thread() -> EmailThread {
 /// most turns don't need a deep tree walk).
 #[test]
 fn orchestrator_reaches_memory_agent_on_demand() {
-    let toml = include_str!("../src/openhuman/agent_registry/agents/orchestrator/agent.toml");
+    let toml = include_str!("../src/openhuman/agent/registry/agents/orchestrator/agent.toml");
     // Eager pre-fetch must be gone.
     assert!(
         !toml

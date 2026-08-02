@@ -6,18 +6,18 @@
 //! `impl Agent`/`impl AgentBuilder` can see them without the whole
 //! crate gaining field access.
 
+use crate::openhuman::agent::context::prompt::SystemPromptBuilder;
+use crate::openhuman::agent::context::ContextManager;
 use crate::openhuman::agent::dispatcher::ToolDispatcher;
 use crate::openhuman::agent::harness::archivist::ArchivistHook;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::hooks::PostTurnHook;
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::agent::tool_policy::ToolPolicy;
 use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
-use crate::openhuman::context::prompt::SystemPromptBuilder;
-use crate::openhuman::context::ContextManager;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::tinyagents::TurnModelSource;
 use crate::openhuman::tools::agent_policy::ToolPolicySession;
 use crate::openhuman::tools::{Tool, ToolSpec};
 use std::path::PathBuf;
@@ -199,7 +199,7 @@ pub struct Agent {
     /// summarizer that runs when the pipeline asks for autocompaction.
     /// Constructed once at session start so its budget counters and
     /// session-memory deltas persist across turns. See
-    /// [`crate::openhuman::context`] for the full surface.
+    /// [`crate::openhuman::agent::context`] for the full surface.
     pub(super) context: ContextManager,
     /// Optional progress event sender for real-time turn progress.
     /// When set, the turn loop emits [`AgentProgress`] events through
@@ -213,7 +213,8 @@ pub struct Agent {
     /// agent build time and threaded into each agent's `prompt.rs` so
     /// the delegator / skill-executor voices can render their own
     /// integration blocks.
-    pub(super) connected_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration>,
+    pub(super) connected_integrations:
+        Vec<crate::openhuman::agent::context::prompt::ConnectedIntegration>,
     /// Whether `connected_integrations` is an authoritative session-start
     /// snapshot (prewarmed from the shared Composio cache or fetched
     /// explicitly) versus the default empty placeholder installed by
@@ -242,7 +243,7 @@ pub struct Agent {
     /// when oversized tool results need summarizer-subagent compression before
     /// they enter agent history.
     pub(super) payload_summarizer:
-        Option<Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>>,
+        Option<Arc<dyn crate::openhuman::agent::tinyagents::payload_summarizer::PayloadSummarizer>>,
     /// Mirrors the agent definition's `trigger_memory_agent` policy.
     /// `Always` runs the dedicated memory retrieval agent once before
     /// the user's prompt is sent to this agent.
@@ -437,7 +438,7 @@ pub struct AgentBuilder {
     /// [`super::builder::Agent::build_session_agent_inner`] sets this
     /// to a `SubagentPayloadSummarizer` instance.
     pub(super) payload_summarizer:
-        Option<Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>>,
+        Option<Arc<dyn crate::openhuman::agent::tinyagents::payload_summarizer::PayloadSummarizer>>,
     /// Forwarded to [`Agent::trigger_memory_agent`] at build time.
     pub(super) trigger_memory_agent: Option<TriggerMemoryAgent>,
     /// Per-agent TokenJuice tool-output compression profile.

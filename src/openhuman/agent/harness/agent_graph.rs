@@ -29,7 +29,7 @@ use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::harness::subagent_runner::SubagentRunError;
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::tinyagents::TurnModelSource;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::tools::{Tool, ToolSpec};
 
 /// The assembled inputs for one sub-agent turn, handed to a custom

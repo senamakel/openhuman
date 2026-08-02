@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use crate::openhuman::agent::profiles::AgentProfileStore;
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::profiles::AgentProfileStore;
 use crate::openhuman::threads::turn_state::TurnStateStore;
 
 use super::ops::{key_for, BudgetCorrelation, THREAD_SESSIONS};
@@ -256,7 +256,7 @@ pub(crate) async fn run_chat_task(
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
     let turn = Box::pin(agent.run_single(message));
-    let result = match crate::openhuman::tinyagents::thread_context::with_thread_id(
+    let result = match crate::openhuman::agent::tinyagents::thread_context::with_thread_id(
         thread_id.to_string(),
         crate::openhuman::memory::source_scope::with_source_scope(
             profile.memory_sources.clone(),

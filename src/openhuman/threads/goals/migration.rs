@@ -8,7 +8,7 @@ use ::tinyagents::graph::goals::store::GOALS_NAMESPACE;
 use ::tinyagents::harness::store::Store;
 
 use super::ThreadGoal;
-use crate::openhuman::session_import::ops::open_session_stores;
+use crate::openhuman::agent::session_import::ops::open_session_stores;
 
 const LEGACY_GOALS_DIR: &str = "thread_goals";
 const LEGACY_GOALS_EXTENSION: &str = "json";

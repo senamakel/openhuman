@@ -111,7 +111,7 @@ const PUBLIC_PATHS: &[&str] = &[
     "/oauth/mcp/callback",
     "/schema",
     "/events",
-    // AgentBox marketplace surface — see `openhuman::agentbox::http`.
+    // AgentBox marketplace surface — see `openhuman::agent::agentbox::http`.
     // Mounted only when `OPENHUMAN_AGENTBOX_MODE=1`; the public-path entry is
     // unconditional so the matcher remains a pure function of the path string.
     "/run",

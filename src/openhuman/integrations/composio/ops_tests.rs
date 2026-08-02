@@ -1,5 +1,5 @@
 use super::*;
-use crate::openhuman::context::prompt::IntegrationConnection;
+use crate::openhuman::agent::context::prompt::IntegrationConnection;
 
 #[test]
 fn parse_sync_reason_accepts_known_values() {

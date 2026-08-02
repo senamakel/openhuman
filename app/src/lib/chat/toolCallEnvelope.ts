@@ -10,7 +10,7 @@ import createDebug from 'debug';
  *
  * The Rust core's `NativeToolDispatcher::to_provider_messages`
  * (`src/openhuman/agent/dispatcher.rs`) and the tinyagents bridge's
- * `message_to_native_chat_message` (`src/openhuman/tinyagents/convert.rs`)
+ * `message_to_native_chat_message` (`src/openhuman/agent/tinyagents/convert.rs`)
  * serialize an assistant turn that both talks AND calls a tool into a
  * `{ "content": "...", "tool_calls": [...] }` JSON envelope — the provider
  * wire format used to round-trip tool-calling history on the NEXT request.

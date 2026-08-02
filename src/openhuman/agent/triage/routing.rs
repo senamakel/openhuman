@@ -20,7 +20,7 @@ use crate::openhuman::inference::provider::{self, INFERENCE_BACKEND_ID};
 /// should use for this particular triage turn.
 pub struct ResolvedProvider {
     /// Model source for this arm. Production sources are crate-native.
-    pub turn_model_source: crate::openhuman::tinyagents::TurnModelSource,
+    pub turn_model_source: crate::openhuman::agent::tinyagents::TurnModelSource,
     /// Provider name token — always `"openhuman"` (remote backend).
     /// Kept for telemetry / observability compat with the previous two-path design.
     pub provider_name: String,
@@ -101,7 +101,7 @@ pub fn build_local_provider_with_config(config: &Config) -> Option<ResolvedProvi
     );
     Some(ResolvedProvider {
         turn_model_source:
-            crate::openhuman::tinyagents::TurnModelSource::new_crate_native_from_string(
+            crate::openhuman::agent::tinyagents::TurnModelSource::new_crate_native_from_string(
                 "subconscious",
                 provider_string,
                 Arc::new(config.clone()),
@@ -194,7 +194,7 @@ fn build_remote_provider(config: &Config) -> anyhow::Result<ResolvedProvider> {
         };
         Ok(ResolvedProvider {
             turn_model_source:
-                crate::openhuman::tinyagents::TurnModelSource::new_crate_native_from_string(
+                crate::openhuman::agent::tinyagents::TurnModelSource::new_crate_native_from_string(
                     "subconscious",
                     provider_string,
                     Arc::new(config.clone()),

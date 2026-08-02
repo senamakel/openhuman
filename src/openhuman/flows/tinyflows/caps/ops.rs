@@ -653,7 +653,7 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
 /// Deliberately **not** a bespoke checkpointer: the crate ships its own
 /// SQLite-backed `Checkpointer<State>` impl (feature `sqlite`, already enabled
 /// on the `tinyagents` dependency), so the seam just opens it — mirrors the
-/// construction in `src/openhuman/agent_orchestration/delegation.rs`.
+/// construction in `src/openhuman/agent/orchestration/delegation.rs`.
 pub fn open_flow_checkpointer(
     config: &Config,
 ) -> anyhow::Result<Arc<dyn tinyflows::engine::Checkpointer<serde_json::Value>>> {
@@ -2424,7 +2424,7 @@ mod tests {
             },
             usage: Some(usage),
             finish_reason: Some("tool_calls".to_string()),
-            raw: crate::openhuman::tinyagents::model::merge_openhuman_usage_meta(
+            raw: crate::openhuman::agent::tinyagents::model::merge_openhuman_usage_meta(
                 None, 0.125, 128_000,
             ),
             resolved_model: None,

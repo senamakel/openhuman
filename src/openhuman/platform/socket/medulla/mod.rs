@@ -486,7 +486,7 @@ fn emit_result(result: TaskResult) {
 /// Built from the shipped default agent definitions. The backend clears the
 /// roster on socket disconnect.
 pub fn emit_register_agents() {
-    let agents: Vec<AgentDescriptor> = crate::openhuman::agent_registry::default_agents()
+    let agents: Vec<AgentDescriptor> = crate::openhuman::agent::registry::default_agents()
         .into_iter()
         .map(|entry| AgentDescriptor {
             id: entry.id,
@@ -592,7 +592,7 @@ async fn describe_self(
     // ready by definition; per-agent gating lives in the task path, not here.
     caps.insert("ready".to_string(), serde_json::Value::Bool(true));
 
-    if let Some(entry) = crate::openhuman::agent_registry::default_agents()
+    if let Some(entry) = crate::openhuman::agent::registry::default_agents()
         .into_iter()
         .find(|entry| entry.id == agent_id)
     {

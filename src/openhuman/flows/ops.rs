@@ -1720,8 +1720,8 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
 /// to a harness [`AgentDefinition`](crate::openhuman::agent::harness::definition::AgentDefinition)
 /// (`AgentRoute::Harness`), OR — when it routes to `AgentRoute::RegistryFallback`
 /// — resolves to an *enabled*
-/// [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
-/// via [`crate::openhuman::agent_registry::get_agent`]. Both are exactly the
+/// [`AgentRegistryEntry`](crate::openhuman::agent::registry::AgentRegistryEntry)
+/// via [`crate::openhuman::agent::registry::get_agent`]. Both are exactly the
 /// checks `OpenHumanAgentRunner::run_agent` performs at run time, reused here
 /// rather than duplicated so the two planes cannot drift.
 ///
@@ -1754,7 +1754,7 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
 /// still never reads it at all.
 pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     use crate::openhuman::agent::harness::AgentDefinitionRegistry;
-    use crate::openhuman::agent_registry::AgentRegistryEntry;
+    use crate::openhuman::agent::registry::AgentRegistryEntry;
     use crate::openhuman::flows::tinyflows::caps::{route_for_agent_ref, AgentRoute};
 
     let mut errors = Vec::new();
@@ -1797,7 +1797,7 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
             AgentRoute::RegistryFallback => {
                 if custom_registry.is_none() {
                     custom_registry =
-                        Some(crate::openhuman::agent_registry::list_agents(true).await);
+                        Some(crate::openhuman::agent::registry::list_agents(true).await);
                 }
                 match custom_registry.as_ref().expect("just populated") {
                     Ok(entries) => match entries.iter().find(|entry| entry.id == agent_ref) {
@@ -2009,12 +2009,12 @@ async fn cached_probe_inference_readiness(role: &str, config: &Config) -> Result
 /// 1. Node `config.model` — a managed tier or `hint:*` alias, translated via
 ///    [`role_for_model_tier`](crate::openhuman::inference::provider::role_for_model_tier).
 /// 2. A static (non-`=`) `agent_ref` whose custom
-///    [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+///    [`AgentRegistryEntry`](crate::openhuman::agent::registry::AgentRegistryEntry)
 ///    itself pins a `model` (e.g. `hint:reasoning`) — resolved the same way
 ///    [`OpenHumanAgentRunner::run_via_harness`](crate::openhuman::flows::tinyflows::caps::OpenHumanAgentRunner)
 ///    does via `resolve_node_model(&request, entry_model)`, using the same
 ///    sync, config-only accessor
-///    ([`find_custom_in_config`](crate::openhuman::agent_registry::find_custom_in_config))
+///    ([`find_custom_in_config`](crate::openhuman::agent::registry::find_custom_in_config))
 ///    it calls.
 /// 3. Otherwise, caps.rs's own default role (`"summarization"`, its fallback
 ///    absent a `role` field on the completion request).
@@ -2048,7 +2048,7 @@ fn agent_node_role(config: &Config, node: &tinyflows::model::Node) -> &'static s
         .filter(|s| !s.is_empty() && !s.starts_with('='));
     if let Some(agent_ref) = static_agent_ref {
         if let Some(entry_model) =
-            crate::openhuman::agent_registry::find_custom_in_config(config, agent_ref)
+            crate::openhuman::agent::registry::find_custom_in_config(config, agent_ref)
                 .and_then(|entry| entry.model)
         {
             let entry_model = entry_model.trim();
@@ -6531,7 +6531,7 @@ pub async fn flows_discover(
     );
     let timed = match &stream {
         Some(target) => {
-            crate::openhuman::tinyagents::thread_context::with_thread_id(
+            crate::openhuman::agent::tinyagents::thread_context::with_thread_id(
                 target.thread_id.clone(),
                 run,
             )
@@ -6909,7 +6909,7 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
             );
             let run =
                 tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run);
-            let run = crate::openhuman::tinyagents::thread_context::with_thread_id(
+            let run = crate::openhuman::agent::tinyagents::thread_context::with_thread_id(
                 target.thread_id.clone(),
                 run,
             );

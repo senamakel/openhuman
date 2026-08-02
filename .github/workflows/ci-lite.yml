@@ -440,7 +440,7 @@ jobs:
         run: |
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             --no-default-features --features tokenjuice-treesitter --lib -- \
-            core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent_registry::agents::loader:: tools::schemas:: tools::ops::tests::
+            core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent::registry::agents::loader:: tools::schemas:: tools::ops::tests::
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             --no-default-features --features tokenjuice-treesitter,mcp --lib -- \
             mcp::server::resources::
@@ -491,7 +491,7 @@ jobs:
           openhuman/agent/harness/definition_tests.rs
           openhuman/agent/harness/session/tests.rs
           openhuman/agent/harness/subagent_runner/tool_prep.rs
-          openhuman/agent_registry/agents/loader.rs
+          openhuman/agent/registry/agents/loader.rs
           openhuman/inference/local/mod.rs
           openhuman/mcp/server/resources.rs
           openhuman/platform/socket/ops.rs

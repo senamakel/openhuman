@@ -25,7 +25,7 @@
 //! `tool-{tool_name}` namespace, never in `global` or
 //! `tool_effectiveness`.
 //!
-//! [`ToolTrackerHook`]: crate::openhuman::learning::ToolTrackerHook
+//! [`ToolTrackerHook`]: crate::openhuman::agent::learning::ToolTrackerHook
 //! [`ToolMemoryStore`]: super::store::ToolMemoryStore
 
 use std::collections::HashMap;

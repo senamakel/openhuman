@@ -80,7 +80,7 @@ TinyCortex lives at **`vendor/tinycortex`** as a git submodule. Any change to en
 
 ### The adapter seam: `src/openhuman/tinycortex/`
 
-New sibling module mirroring `src/openhuman/tinyagents/`, holding every impl of a TinyCortex trait over an OpenHuman service:
+New sibling module mirroring `src/openhuman/agent/tinyagents/`, holding every impl of a TinyCortex trait over an OpenHuman service:
 
 - `embeddings.rs` — `impl tinycortex EmbeddingBackend` over `openhuman::embeddings` (dim/model/signature from `Config`).
 - `chat.rs` — `impl ChatProvider` + `impl Summariser` over `memory::chat::build_chat_provider` / `inference::provider`.

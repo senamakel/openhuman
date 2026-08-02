@@ -7,7 +7,7 @@
 //! real external effect (the "propose, never persist" invariant lives in the
 //! archetype body instead).
 
-use crate::openhuman::context::prompt::{
+use crate::openhuman::agent::context::prompt::{
     render_tools, render_user_files, render_workspace, PromptContext,
 };
 use anyhow::Result;
@@ -43,7 +43,7 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::context::prompt::{LearnedContextData, ToolCallFormat};
+    use crate::openhuman::agent::context::prompt::{LearnedContextData, ToolCallFormat};
     use std::collections::HashSet;
 
     fn ctx() -> PromptContext<'static> {

@@ -104,7 +104,7 @@ Let an `agent` node declare **which agent** runs it, by referencing an OpenHuman
 }
 ```
 
-When `agent_ref` is set, the host runs that **registered agent** — with _its_ curated toolset, model hint, sandbox mode, and iteration policy — as a full multi-turn agent loop, instead of the current single `provider.chat` call. A coding step gets coding tools; a research step gets `web_search`/`web_fetch`; a crypto step gets market tools. This is exactly the registry's existing contract (`src/openhuman/agent_registry/agents/*/agent.toml`).
+When `agent_ref` is set, the host runs that **registered agent** — with _its_ curated toolset, model hint, sandbox mode, and iteration policy — as a full multi-turn agent loop, instead of the current single `provider.chat` call. A coding step gets coding tools; a research step gets `web_search`/`web_fetch`; a crypto step gets market tools. This is exactly the registry's existing contract (`src/openhuman/agent/registry/agents/*/agent.toml`).
 
 ### B1. Crate seam — new `AgentRunner` capability (host-agnostic)
 
@@ -139,7 +139,7 @@ pub trait AgentRunner: Send + Sync {
 
 - **Builder tool** `list_agent_profiles` in `src/openhuman/flows/builder_tools.rs`, backed by `agent_registry::ops::list_agents(false)`, returning `{ id, display_name, when_to_use, tools, sandbox_mode }`. Mirrors the existing `search_tool_catalog` pattern so the `workflow_builder` sub-agent picks a real `agent_ref` instead of hallucinating one.
 - **Validation** (`vendor/tinyflows/src/validate.rs` + host): an `agent` node with an `agent_ref` that doesn't resolve is a structured validation error (needs the host to pass the known-agent set into validation, or validate host-side in `flows::ops::validate`).
-- **workflow_builder prompt** (`src/openhuman/agent_registry/agents/workflow_builder/prompt.md`): document `agent_ref` and when to prefer a specialized agent over a bare completion.
+- **workflow_builder prompt** (`src/openhuman/agent/registry/agents/workflow_builder/prompt.md`): document `agent_ref` and when to prefer a specialized agent over a bare completion.
 
 ### B4. UI — agent-kind picker
 

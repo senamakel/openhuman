@@ -922,10 +922,10 @@ pub(crate) fn parse_tool_calls(response: &str) -> (String, Vec<ParsedToolCall>) 
 /// P-Format-aware wrapper over [`parse_tool_calls`] (issue #4465).
 ///
 /// The migrated tinyagents parse path
-/// (`crate::openhuman::tinyagents::model`) kept the XML/JSON/markdown/GLM
+/// (`crate::openhuman::agent::tinyagents::model`) kept the XML/JSON/markdown/GLM
 /// grammars but dropped the legacy **P-Format** positional grammar
 /// (`<tool_call>name[arg1|arg2]</tool_call>`) — even though `PFormat` is the
-/// default [`ToolCallFormat`](crate::openhuman::context::prompt::ToolCallFormat)
+/// default [`ToolCallFormat`](crate::openhuman::agent::context::prompt::ToolCallFormat)
 /// and ~10 builtin agent prompts still *teach* the `name[a|b]` form. A model
 /// that followed its own instructions therefore emitted calls that
 /// [`parse_tool_calls`] logged as "malformed `<tool_call>` JSON" and silently

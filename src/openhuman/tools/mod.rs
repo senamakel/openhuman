@@ -14,10 +14,11 @@ pub(crate) mod user_filter;
 #[path = "impl/mod.rs"]
 pub(crate) mod implementations;
 
+pub use crate::openhuman::agent::artifacts::tools::*;
+pub use crate::openhuman::agent::learning::tools::*;
+pub use crate::openhuman::agent::orchestration::tools::*;
 pub use crate::openhuman::agent::tools::*;
 pub use crate::openhuman::agent_memory::tools::*;
-pub use crate::openhuman::agent_orchestration::tools::*;
-pub use crate::openhuman::artifacts::tools::*;
 #[cfg(feature = "channels")]
 pub use crate::openhuman::channels::whatsapp_data::tools::*;
 pub use crate::openhuman::config::tools::*;
@@ -41,7 +42,6 @@ pub use crate::openhuman::hosted::team::tools::*;
 pub use crate::openhuman::integrations::composio::tools::*;
 pub use crate::openhuman::integrations::task_sources::tools::*;
 pub use crate::openhuman::integrations::tools::*;
-pub use crate::openhuman::learning::tools::*;
 #[cfg(feature = "mcp")]
 pub use crate::openhuman::mcp::registry::tools::*;
 pub use crate::openhuman::memory::tools::*;

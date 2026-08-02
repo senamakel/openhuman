@@ -15,21 +15,13 @@
 #![allow(dead_code)]
 
 pub mod agent;
-pub mod agent_experience;
 pub mod agent_memory;
-pub mod agent_orchestration;
-pub mod agent_registry;
-pub mod agentbox;
-pub mod artifacts;
 pub mod channels;
 pub mod config;
-pub mod context;
 pub mod cron;
 pub mod desktop;
-pub mod file_state;
 #[cfg(feature = "flows")]
 pub mod flows;
-pub mod harness_init;
 pub mod hosted;
 // The whole http_host domain is an axum static-directory server, so it is
 // exclusive to the `http-server` feature (#5048). Its only outside reference is
@@ -46,7 +38,6 @@ pub mod integrations;
 // one of those directions is the back-edge the kernelization work removes.
 // Ungated — `composio` is always compiled, `tinyflows` is behind `flows`.
 pub mod json_schema;
-pub mod learning;
 // Ungated family root: `mcp/http_client` is always compiled, and the
 // `server`/`registry`/`audit` facades each need their `stub` to resolve in an
 // `mcp`-less build. The gate is pushed onto each member inside `mcp/mod.rs`.
@@ -72,21 +63,16 @@ pub mod memory_sync;
 pub mod memory_tools;
 pub mod memory_tree;
 pub mod people;
-pub mod plan_review;
 pub mod platform;
-pub mod profiles;
 pub mod runtime;
 pub mod sandbox;
 pub mod search;
 pub mod security;
-pub mod session_db;
-pub mod session_import;
 pub mod skills;
 pub mod subconscious;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;
 pub mod threads;
-pub mod tinyagents;
 pub mod tinycortex;
 pub mod tinyplace;
 pub mod tools;

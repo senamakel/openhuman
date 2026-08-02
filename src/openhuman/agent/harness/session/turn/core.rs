@@ -5,16 +5,16 @@ use super::{
     integration_announcement_note, mcp_announcement_note, newly_connected_slugs,
     skill_announcement_note, skill_retraction_note,
 };
+use crate::openhuman::agent::experience::{
+    prepend_experience_block, render_experience_hits, retrieve_across_stores, AgentExperienceStore,
+    ExperienceQuery,
+};
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::hooks::{self, TurnContext};
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::agent_experience::{
-    prepend_experience_block, render_experience_hits, retrieve_across_stores, AgentExperienceStore,
-    ExperienceQuery,
-};
 use crate::openhuman::agent_memory::memory_loader::collect_recall_citations;
 use crate::openhuman::memory::MemoryCategory;
 use crate::openhuman::util::truncate_with_ellipsis;
@@ -302,7 +302,7 @@ fn should_run_super_context(
 /// engine's honest per-call accounting instead of recording every call as ok.
 fn tool_records_from_conversation(
     conversation: &[ConversationMessage],
-    tool_outcomes: &[crate::openhuman::tinyagents::ToolCallOutcome],
+    tool_outcomes: &[crate::openhuman::agent::tinyagents::ToolCallOutcome],
 ) -> Vec<hooks::ToolCallRecord> {
     let mut records = Vec::new();
     for msg in conversation {
@@ -346,7 +346,7 @@ fn tool_records_from_conversation(
 /// with no matching outcome, and successful calls are left untouched.
 fn stamp_tool_failures(
     messages: &mut [ChatMessage],
-    tool_outcomes: &[crate::openhuman::tinyagents::ToolCallOutcome],
+    tool_outcomes: &[crate::openhuman::agent::tinyagents::ToolCallOutcome],
 ) {
     use crate::openhuman::agent::harness::session::transcript;
     if tool_outcomes.is_empty() {
@@ -667,7 +667,7 @@ impl Agent {
             // turn, so the agent's own on-demand memory search doesn't echo
             // its own triggering request back as a "relevant" result.
             let session_id_for_autosave =
-                crate::openhuman::tinyagents::thread_context::current_thread_id();
+                crate::openhuman::agent::tinyagents::thread_context::current_thread_id();
             log::debug!(
                 "[agent_autosave] enqueue user-message store key={autosave_key} chars={chars} \
                  session_id={}",
@@ -816,7 +816,7 @@ impl Agent {
         // spawn get an empty block and no injection. Rides per-turn context (like
         // the goal block) so status is always live.
         if let Some(block) =
-            crate::openhuman::agent_orchestration::running_subagents::active_subagents_context_block(
+            crate::openhuman::agent::orchestration::running_subagents::active_subagents_context_block(
                 &self.event_session_id,
                 &self.workspace_dir,
             )
@@ -1270,7 +1270,7 @@ impl Agent {
         // detection is owned by the crate `PromptCacheGuardMiddleware` (fed by
         // `PromptCacheSegmentMiddleware`); the warn-only `CacheAlignMiddleware`
         // was deleted in C3.
-        let context_mw = crate::openhuman::tinyagents::TurnContextMiddleware {
+        let context_mw = crate::openhuman::agent::tinyagents::TurnContextMiddleware {
             tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
             payload_summarizer: self.payload_summarizer.clone(),
             artifact_store,
@@ -1285,7 +1285,7 @@ impl Agent {
             // node — enabled only when its gate passed above. The node runs the
             // scout on the first model call and folds the bundle into the message.
             super_context: run_super_context.then(|| {
-                crate::openhuman::tinyagents::SuperContextConfig {
+                crate::openhuman::agent::tinyagents::SuperContextConfig {
                     user_message: user_message.to_string(),
                 }
             }),
@@ -1316,7 +1316,7 @@ impl Agent {
                     context_mw,
                     // Enforce the builder-configured tool policy at the tool
                     // boundary (the tinyagents path otherwise bypasses it).
-                    tool_policy: Some(crate::openhuman::tinyagents::ToolPolicyEnforcement {
+                    tool_policy: Some(crate::openhuman::agent::tinyagents::ToolPolicyEnforcement {
                         policy: self.tool_policy.clone(),
                         session: self.tool_policy_session.clone(),
                         session_id: self.event_session_id.clone(),

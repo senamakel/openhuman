@@ -19,7 +19,7 @@
 //! - **[`fork_context`]**: Task-local storage for parent context sharing.
 //!
 //! Cancellation is handled by the tinyagents steering channel (see
-//! `crate::openhuman::tinyagents`); there is no in-house interrupt fence.
+//! `crate::openhuman::agent::tinyagents`); there is no in-house interrupt fence.
 
 pub mod agent_graph;
 pub mod archivist;
@@ -49,7 +49,7 @@ pub mod turn_subagent_usage;
 
 pub use agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult, AgentTurnUsage};
 // NOTE: deliberately no flat re-export here. `artifact_offload::ArtifactKind`
-// would shadow the unrelated `openhuman::artifacts::ArtifactKind` for anyone
+// would shadow the unrelated `openhuman::agent::artifacts::ArtifactKind` for anyone
 // glob-importing this module; callers use the `artifact_offload::` path.
 pub use definition::{
     AgentDefinition, AgentDefinitionRegistry, DefinitionSource, ModelSpec, PromptSource,

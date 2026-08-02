@@ -1,7 +1,7 @@
-use crate::openhuman::config::Config;
-use crate::openhuman::context::prompt::{
+use crate::openhuman::agent::context::prompt::{
     ConnectedIntegration, ConnectedIntegrationTool, GatedIntegrationTool,
 };
+use crate::openhuman::config::Config;
 
 use super::client::ComposioClient;
 use super::ops::should_forward_tags;
@@ -923,37 +923,38 @@ async fn fetch_connected_integrations_uncached(
                 (Vec::new(), Vec::new())
             };
 
-        let integration_connections: Vec<crate::openhuman::context::prompt::IntegrationConnection> =
-            if connected {
-                let mut conns: Vec<_> = connections
-                    .iter()
-                    .filter(|c| c.is_active() && c.normalized_toolkit() == *slug)
-                    .collect();
-                conns.sort_by(|a, b| a.created_at.cmp(&b.created_at));
-                conns
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, c)| {
-                        let label = [
-                            c.account_email.as_deref(),
-                            c.workspace.as_deref(),
-                            c.username.as_deref(),
-                        ]
-                        .into_iter()
-                        .flatten()
-                        .map(str::trim)
-                        .find(|s| !s.is_empty())
-                        .map(str::to_string);
-                        crate::openhuman::context::prompt::IntegrationConnection {
-                            connection_id: c.id.clone(),
-                            label,
-                            is_default: idx == 0,
-                        }
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
+        let integration_connections: Vec<
+            crate::openhuman::agent::context::prompt::IntegrationConnection,
+        > = if connected {
+            let mut conns: Vec<_> = connections
+                .iter()
+                .filter(|c| c.is_active() && c.normalized_toolkit() == *slug)
+                .collect();
+            conns.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+            conns
+                .iter()
+                .enumerate()
+                .map(|(idx, c)| {
+                    let label = [
+                        c.account_email.as_deref(),
+                        c.workspace.as_deref(),
+                        c.username.as_deref(),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .map(str::trim)
+                    .find(|s| !s.is_empty())
+                    .map(str::to_string);
+                    crate::openhuman::agent::context::prompt::IntegrationConnection {
+                        connection_id: c.id.clone(),
+                        label,
+                        is_default: idx == 0,
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         integrations.push(ConnectedIntegration {
             toolkit: slug.clone(),

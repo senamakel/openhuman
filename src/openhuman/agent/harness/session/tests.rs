@@ -50,7 +50,7 @@ impl ChatModel<()> for MockProvider {
             guard.remove(0)
         };
         Ok(
-            crate::openhuman::tinyagents::model::native_model_response_for_request(
+            crate::openhuman::agent::tinyagents::model::native_model_response_for_request(
                 &response, &request,
             ),
         )
@@ -115,7 +115,7 @@ impl ChatModel<()> for RecordingProvider {
             guard.remove(0)
         };
         Ok(
-            crate::openhuman::tinyagents::model::native_model_response_for_request(
+            crate::openhuman::agent::tinyagents::model::native_model_response_for_request(
                 &response, &request,
             ),
         )
@@ -276,7 +276,7 @@ fn set_connected_integrations_marks_session_initialized_and_updates_hash() {
     );
 
     agent.set_connected_integrations(vec![
-        crate::openhuman::context::prompt::ConnectedIntegration {
+        crate::openhuman::agent::context::prompt::ConnectedIntegration {
             toolkit: "gmail".into(),
             description: "Email".into(),
             tools: vec![],
@@ -305,7 +305,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent.set_connected_integrations(vec![
-        crate::openhuman::context::prompt::ConnectedIntegration {
+        crate::openhuman::agent::context::prompt::ConnectedIntegration {
             toolkit: "gmail".into(),
             description: "Email".into(),
             tools: vec![],
@@ -325,7 +325,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
     // Simulate an in-flight turn holding a shared Arc clone.
     let _shared_tools = agent.tools_arc();
     agent.set_connected_integrations(vec![
-        crate::openhuman::context::prompt::ConnectedIntegration {
+        crate::openhuman::agent::context::prompt::ConnectedIntegration {
             toolkit: "gmail".into(),
             description: "Email".into(),
             tools: vec![],
@@ -334,7 +334,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
             connections: Vec::new(),
             non_active_status: None,
         },
-        crate::openhuman::context::prompt::ConnectedIntegration {
+        crate::openhuman::agent::context::prompt::ConnectedIntegration {
             toolkit: "notion".into(),
             description: "Docs".into(),
             tools: vec![],
@@ -368,15 +368,16 @@ fn refresh_delegation_tools_no_duplicate_specs_across_shared_arc_connects() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
 
-    let conn = |slug: &str, desc: &str| crate::openhuman::context::prompt::ConnectedIntegration {
-        toolkit: slug.into(),
-        description: desc.into(),
-        tools: vec![],
-        gated_tools: vec![],
-        connected: true,
-        connections: Vec::new(),
-        non_active_status: None,
-    };
+    let conn =
+        |slug: &str, desc: &str| crate::openhuman::agent::context::prompt::ConnectedIntegration {
+            toolkit: slug.into(),
+            description: desc.into(),
+            tools: vec![],
+            gated_tools: vec![],
+            connected: true,
+            connections: Vec::new(),
+            non_active_status: None,
+        };
 
     let delegate_spec_count = |agent: &Agent| -> usize {
         agent

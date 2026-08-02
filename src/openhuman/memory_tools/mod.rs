@@ -4,7 +4,7 @@
 //! [issue #1400](https://github.com/tinyhumansai/openhuman/issues/1400):
 //! a first-class storage and retrieval surface for **actionable**
 //! tool-specific guidance, distinct from the
-//! [`tool_effectiveness`](crate::openhuman::learning::tool_tracker)
+//! [`tool_effectiveness`](crate::openhuman::agent::learning::tool_tracker)
 //! statistics namespace and from the generic `global` / `skill-*`
 //! namespaces.
 //!

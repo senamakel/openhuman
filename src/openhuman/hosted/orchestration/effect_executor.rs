@@ -208,7 +208,7 @@ async fn run_local_subagent(
     use crate::openhuman::agent::harness::subagent_runner::{
         run_subagent, SubagentRunOptions, SubagentRunStatus,
     };
-    use crate::openhuman::agent_orchestration::parent_context::with_root_parent;
+    use crate::openhuman::agent::orchestration::parent_context::with_root_parent;
 
     // `integrations_agent` MUST be scoped to a single Composio toolkit — mirror the
     // `SpawnSubagentTool` pre-flight so a device run can't reason over the full,

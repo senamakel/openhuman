@@ -169,7 +169,7 @@ fn load_cached_model_preview(workspace_dir: &Path, provider_name: &str) -> Vec<S
 pub(crate) async fn get_or_create_turn_model_source(
     ctx: &ChannelRuntimeContext,
     provider_name: &str,
-) -> anyhow::Result<crate::openhuman::tinyagents::TurnModelSource> {
+) -> anyhow::Result<crate::openhuman::agent::tinyagents::TurnModelSource> {
     if provider_name == ctx.default_provider.as_str() {
         return ctx.turn_model_source.as_ref().cloned().ok_or_else(|| {
             anyhow::anyhow!("no injected channel model source for '{provider_name}'")

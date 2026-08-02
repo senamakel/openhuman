@@ -629,11 +629,11 @@ async fn thread_delete_inner(
     // completion in the gap between the two calls, then discard anything already
     // queued for delivery. Both target a thread that's being deleted, so there's
     // nowhere left to deliver to — abort + cleanup is the whole behavior.
-    let cancelled = crate::openhuman::agent_orchestration::running_subagents::cancel_for_thread(
+    let cancelled = crate::openhuman::agent::orchestration::running_subagents::cancel_for_thread(
         &request.thread_id,
     );
     let discarded =
-        crate::openhuman::agent_orchestration::background_completions::discard_for_thread(
+        crate::openhuman::agent::orchestration::background_completions::discard_for_thread(
             &request.thread_id,
         );
     log::debug!(
@@ -685,7 +685,7 @@ async fn threads_purge_inner(
     // cancelled sub-agent's thread BEFORE the final wipe so a straggler that
     // wins the cooperative-abort race (records after the wipe) is still dropped
     // by `record_completion` rather than delivered into a purged thread.
-    use crate::openhuman::agent_orchestration::{background_completions, running_subagents};
+    use crate::openhuman::agent::orchestration::{background_completions, running_subagents};
     let cancelled_threads = running_subagents::cancel_all();
     let mut discarded = 0;
     for thread_id in &cancelled_threads {

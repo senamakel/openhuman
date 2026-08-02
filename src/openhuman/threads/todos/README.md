@@ -20,4 +20,4 @@ OpenHuman keeps this module to preserve app-specific integration:
 `agent::task_board` re-exports the TinyAgents board types and keeps the legacy
 `TaskBoardStore` facade for existing callers. Legacy
 `agent_task_boards/*.json` values are imported at startup through
-`openhuman::tinyagents::todos`; existing TinyAgents values are never replaced.
+`openhuman::agent::tinyagents::todos`; existing TinyAgents values are never replaced.

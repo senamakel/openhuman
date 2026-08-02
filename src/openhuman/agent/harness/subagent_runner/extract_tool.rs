@@ -33,7 +33,7 @@ use crate::openhuman::agent::harness::session::transcript::{
     resolve_keyed_transcript_path, write_transcript, MessageUsage, TranscriptMeta, TurnUsage,
 };
 use crate::openhuman::agent::messages::ChatMessage;
-use crate::openhuman::tinyagents::TurnModelSource;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::tools::{Tool, ToolCategory, ToolResult};
 use tinyagents::harness::message::Message;
 use tinyagents::harness::model::ModelRequest;
@@ -571,7 +571,7 @@ fn write_extract_transcript(
         output_tokens: 0,
         cached_input_tokens: 0,
         charged_amount_usd: 0.0,
-        thread_id: crate::openhuman::tinyagents::thread_context::current_thread_id(),
+        thread_id: crate::openhuman::agent::tinyagents::thread_context::current_thread_id(),
         task_id: None,
     };
 

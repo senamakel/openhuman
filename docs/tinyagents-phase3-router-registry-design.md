@@ -5,7 +5,7 @@
 Phase 3's client cutover landed in #4783/#4784; this document is retained as
 historical design rationale, not current status. Grounded in a full read of both the crate
 (`vendor/tinyagents/src/harness/model`, `harness/agent_loop`, `harness/retry`,
-`registry/`) and the host seam (`src/openhuman/tinyagents/{mod,routes,model}.rs`,
+`registry/`) and the host seam (`src/openhuman/agent/tinyagents/{mod,routes,model}.rs`,
 `inference/provider/{router,factory}.rs`).
 **Relates to:** `docs/tinyagents-inference-migration-plan.md` (Phase 3),
 `docs/tinyagents-drift-ledger.md` (P1-9), issue #4249.

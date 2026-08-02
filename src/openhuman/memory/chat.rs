@@ -130,7 +130,7 @@ impl InferenceChatProvider {
         }
         // Recover the full host usage (real token counts + backend-charged USD +
         // context window) the adapter round-tripped through the response (G1).
-        let usage = crate::openhuman::tinyagents::model::usage_info_from_response(&response);
+        let usage = crate::openhuman::agent::tinyagents::model::usage_info_from_response(&response);
 
         log::debug!(
             "[memory::chat] provider={} kind={} response_chars={} usage_present={} input_tokens={} output_tokens={} charged_usd={}",

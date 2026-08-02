@@ -44,8 +44,8 @@ use super::provider::{
     RATE_CAP_HALT_REASON, TOOL_UNSUPPORTED_REASON,
 };
 use super::types::{SubconsciousStatus, TickResult};
+use crate::openhuman::agent::tinyagents::observability::GraphTracingSink;
 use crate::openhuman::config::Config;
-use crate::openhuman::tinyagents::observability::GraphTracingSink;
 
 /// Hard timeout for a single subconscious tick.
 const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);

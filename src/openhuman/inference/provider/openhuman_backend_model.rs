@@ -37,8 +37,8 @@ use tinyagents::{Result as TaResult, TinyAgentsError};
 
 use super::ProviderRuntimeOptions;
 use crate::api::config::effective_api_url;
+use crate::openhuman::agent::tinyagents::thread_context;
 use crate::openhuman::security::credentials::{AuthService, APP_SESSION_PROVIDER};
-use crate::openhuman::tinyagents::thread_context;
 
 pub const PROVIDER_LABEL: &str = "OpenHuman";
 
@@ -355,7 +355,7 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
         }
     }
 
-    response.raw = crate::openhuman::tinyagents::model::merge_openhuman_usage_meta(
+    response.raw = crate::openhuman::agent::tinyagents::model::merge_openhuman_usage_meta(
         response.raw,
         charged_amount_usd,
         context_window,
@@ -503,7 +503,7 @@ mod tests {
     /// tokens, and context window — exactly as the legacy legacy model-adapter path did.
     #[test]
     fn project_managed_usage_recovers_charged_and_cached() {
-        use crate::openhuman::tinyagents::model::usage_info_from_response;
+        use crate::openhuman::agent::tinyagents::model::usage_info_from_response;
         use tinyagents::harness::message::AssistantMessage;
         use tinyagents::harness::usage::Usage;
 
@@ -548,7 +548,7 @@ mod tests {
     /// charged USD — so non-managed/billing-free responses aren't fabricated.
     #[test]
     fn project_managed_usage_is_noop_without_envelope() {
-        use crate::openhuman::tinyagents::model::usage_info_from_response;
+        use crate::openhuman::agent::tinyagents::model::usage_info_from_response;
         use tinyagents::harness::message::AssistantMessage;
         use tinyagents::harness::usage::Usage;
 

@@ -151,7 +151,8 @@ impl Tool for MemoryHybridSearchTool {
         // the web channel around the turn) so a search issued mid-turn
         // never retrieves the very request that triggered it. `None`
         // outside a chat turn — unchanged behavior for cron/CLI/tests.
-        let exclude_session_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
+        let exclude_session_id =
+            crate::openhuman::agent::tinyagents::thread_context::current_thread_id();
         if let Some(ref excluded) = exclude_session_id {
             log::debug!(
                 "[tool][memory_hybrid_search] applying same-session exclusion exclude_session_id={excluded}"

@@ -162,7 +162,7 @@ pub(super) fn collect_tree_root_summaries(
     memory_subdir: &str,
     per_namespace_cap: usize,
     total_cap: usize,
-) -> Vec<crate::openhuman::context::prompt::NamespaceSummary> {
+) -> Vec<crate::openhuman::agent::context::prompt::NamespaceSummary> {
     let rows = if memory_subdir == "memory" {
         crate::openhuman::memory_tree::tree_runtime::store::collect_root_summaries_with_caps(
             workspace_dir,
@@ -177,13 +177,13 @@ pub(super) fn collect_tree_root_summaries(
         )
     };
     rows.into_iter()
-        .map(
-            |(namespace, body, updated_at)| crate::openhuman::context::prompt::NamespaceSummary {
+        .map(|(namespace, body, updated_at)| {
+            crate::openhuman::agent::context::prompt::NamespaceSummary {
                 namespace,
                 body,
                 updated_at,
-            },
-        )
+            }
+        })
         .collect()
 }
 
@@ -267,7 +267,7 @@ pub(crate) use super::turn_checkpoint::assistant_message_has_tool_calls;
 #[cfg(test)]
 pub(crate) use super::types::Agent;
 #[cfg(test)]
-pub(crate) use crate::openhuman::context::prompt::LearnedContextData;
+pub(crate) use crate::openhuman::agent::context::prompt::LearnedContextData;
 #[cfg(test)]
 pub(crate) use anyhow::Result;
 

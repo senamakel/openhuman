@@ -81,17 +81,17 @@ Commit:
 
 Files:
 
-- Delete `src/openhuman/agent_registry/agents/screen_awareness_agent/` and
+- Delete `src/openhuman/agent/registry/agents/screen_awareness_agent/` and
   remove its module and `BuiltinAgent` entry from
-  `src/openhuman/agent_registry/agents/{mod.rs,loader.rs}`.
+  `src/openhuman/agent/registry/agents/{mod.rs,loader.rs}`.
 - Remove it from the orchestrator's allowed subagents in
-  `src/openhuman/agent_registry/agents/orchestrator/agent.toml`, from the
+  `src/openhuman/agent/registry/agents/orchestrator/agent.toml`, from the
   built-in-definition assertion in
   `src/openhuman/agent/harness/builtin_definitions.rs`, and from expected agent
   counts/worker lists in `src/openhuman/agent/harness/definition_tests.rs` and
-  `src/openhuman/agent_registry/agents/loader.rs` tests.
+  `src/openhuman/agent/registry/agents/loader.rs` tests.
 - Keep `vision_agent` but remove its two `screen_intelligence_*` tools and
-  revise `src/openhuman/agent_registry/agents/vision_agent/{agent.toml,prompt.md}`
+  revise `src/openhuman/agent/registry/agents/vision_agent/{agent.toml,prompt.md}`
   to refer only to attached or on-disk user-provided images.
 - Delete the screen-awareness prompt resource from
   `src/openhuman/mcp/server/resources.rs`.

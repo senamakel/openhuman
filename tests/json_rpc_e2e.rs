@@ -3338,15 +3338,15 @@ async fn json_rpc_run_ledger_lifecycle() {
         .await
         .expect("load config");
 
-    openhuman_core::openhuman::session_db::run_ledger::upsert_agent_run(
+    openhuman_core::openhuman::agent::session_db::run_ledger::upsert_agent_run(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::AgentRunUpsert {
+        openhuman_core::openhuman::agent::session_db::run_ledger::AgentRunUpsert {
             id: "sub-run-1".to_string(),
-            kind: openhuman_core::openhuman::session_db::run_ledger::AgentRunKind::WorkerThread,
+            kind: openhuman_core::openhuman::agent::session_db::run_ledger::AgentRunKind::WorkerThread,
             parent_run_id: Some("req-run-1".to_string()),
             parent_thread_id: Some("thread-run-1".to_string()),
             agent_id: Some("researcher".to_string()),
-            status: openhuman_core::openhuman::session_db::run_ledger::AgentRunStatus::AwaitingUser,
+            status: openhuman_core::openhuman::agent::session_db::run_ledger::AgentRunStatus::AwaitingUser,
             prompt_ref: Some("thread:worker-1:message:seed".to_string()),
             worker_thread_id: Some("worker-1".to_string()),
             task_board_id: Some("thread-run-1".to_string()),
@@ -3365,9 +3365,9 @@ async fn json_rpc_run_ledger_lifecycle() {
     )
     .expect("seed run");
 
-    openhuman_core::openhuman::session_db::run_ledger::append_run_event(
+    openhuman_core::openhuman::agent::session_db::run_ledger::append_run_event(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::RunEventAppend {
+        openhuman_core::openhuman::agent::session_db::run_ledger::RunEventAppend {
             run_id: "sub-run-1".to_string(),
             event_type: "subagent_awaiting_user".to_string(),
             payload: json!({ "question": "Which repo should I inspect?" }),
@@ -3457,7 +3457,7 @@ async fn json_rpc_agent_work_list_groups_runs_by_bucket() {
         .await
         .expect("load config");
 
-    use openhuman_core::openhuman::session_db::run_ledger::{
+    use openhuman_core::openhuman::agent::session_db::run_ledger::{
         upsert_agent_run, AgentRunKind, AgentRunStatus, AgentRunUpsert,
     };
     let seed = |id: &str, status: AgentRunStatus| AgentRunUpsert {
@@ -3572,16 +3572,16 @@ async fn json_rpc_workflow_run_definitions_and_runs_roundtrip() {
     );
 
     // Seed a durable workflow run, then list + get it.
-    openhuman_core::openhuman::session_db::run_ledger::upsert_workflow_run(
+    openhuman_core::openhuman::agent::session_db::run_ledger::upsert_workflow_run(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::WorkflowRunUpsert {
+        openhuman_core::openhuman::agent::session_db::run_ledger::WorkflowRunUpsert {
             id: "wf-run-1".to_string(),
             definition_id: "parallel_research_cross_check".to_string(),
             parent_thread_id: Some("thread-wf-1".to_string()),
             input: json!({ "question": "test" }),
             phase_states: json!({ "decompose": "completed" }),
             child_run_ids: vec!["child-1".to_string()],
-            status: openhuman_core::openhuman::session_db::run_ledger::WorkflowRunStatus::Running,
+            status: openhuman_core::openhuman::agent::session_db::run_ledger::WorkflowRunStatus::Running,
             summary: None,
             started_at: None,
             completed_at: None,
@@ -3770,18 +3770,20 @@ async fn json_rpc_agent_team_coordination_roundtrip() {
     );
 
     // Mark A done directly via the run ledger, then B claims fine.
-    let task_a =
-        openhuman_core::openhuman::session_db::run_ledger::get_agent_team_task(&config, &task_a_id)
-            .expect("get task A")
-            .expect("task A present");
-    openhuman_core::openhuman::session_db::run_ledger::upsert_agent_team_task(
+    let task_a = openhuman_core::openhuman::agent::session_db::run_ledger::get_agent_team_task(
+        &config, &task_a_id,
+    )
+    .expect("get task A")
+    .expect("task A present");
+    openhuman_core::openhuman::agent::session_db::run_ledger::upsert_agent_team_task(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::AgentTeamTaskUpsert {
+        openhuman_core::openhuman::agent::session_db::run_ledger::AgentTeamTaskUpsert {
             id: task_a.id.clone(),
             team_id: task_a.team_id.clone(),
             title: task_a.title.clone(),
             objective: task_a.objective.clone(),
-            status: openhuman_core::openhuman::session_db::run_ledger::AgentTeamTaskStatus::Done,
+            status:
+                openhuman_core::openhuman::agent::session_db::run_ledger::AgentTeamTaskStatus::Done,
             owner_member_id: task_a.owner_member_id.clone(),
             depends_on: task_a.depends_on.clone(),
             gate_status: Some(task_a.gate_status.clone()),

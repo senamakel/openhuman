@@ -14,7 +14,7 @@ status, and present-tense inventory are not current.
 
 ## 1. Why
 
-The agent loop already runs on tinyagents; `run_turn_via_tinyagents_shared` drives every turn. But the **model layer underneath it is still entirely in-house**: the harness reaches a crate `ChatModel` only through the `ProviderModel` adapter (`src/openhuman/tinyagents/model.rs`), which wraps openhuman's own `Box<dyn Provider>` stack from `src/openhuman/inference/provider/` — ~29.6k lines that re-implement what tinyagents 1.7 now ships natively:
+The agent loop already runs on tinyagents; `run_turn_via_tinyagents_shared` drives every turn. But the **model layer underneath it is still entirely in-house**: the harness reaches a crate `ChatModel` only through the `ProviderModel` adapter (`src/openhuman/agent/tinyagents/model.rs`), which wraps openhuman's own `Box<dyn Provider>` stack from `src/openhuman/inference/provider/` — ~29.6k lines that re-implement what tinyagents 1.7 now ships natively:
 
 | openhuman (`inference/provider/`, etc.)                                  | tinyagents 1.7 equivalent                                                                              |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
@@ -56,7 +56,7 @@ Maintaining both stacks means every fix (streaming edge case, retry policy, cont
 | `provider/factory.rs` | **shrinks, stays**: resolves openhuman provider strings (`openhuman`, `cloud`, `ollama:<model>`, `<slug>:<model>[@temp]`) + config + credentials → crate `ProviderSpec`/`Arc<dyn ChatModel>` | This is the host↔crate boundary after migration. `BYOK_INCOMPLETE_SENTINEL` stays. |
 | `provider/ops.rs` (`list_configured_models`, SessionExpired publishing) | **stays**, retargeted to crate types | SessionExpired needs an auth-failure signal from the crate client (gap G3). |
 | embeddings dispatch | crate `harness::embeddings` traits (seam `tinyagents/embeddings.rs` already exists — finish it) | Local (Ollama) embedding stays a host impl of the crate trait. |
-| `provider/thread_context.rs`, `resolved_route.rs`, `auth_error_registry.rs` | **re-home** into `src/openhuman/tinyagents/` (they're seam concerns, not provider concerns) | `thread_context` task-locals already consumed by `model.rs`. |
+| `provider/thread_context.rs`, `resolved_route.rs`, `auth_error_registry.rs` | **re-home** into `src/openhuman/agent/tinyagents/` (they're seam concerns, not provider concerns) | `thread_context` task-locals already consumed by `model.rs`. |
 
 ### Stays in `inference/` (host concerns, out of scope for the crate)
 
@@ -131,10 +131,10 @@ Each phase compiles green in both Cargo worlds, keeps ≥80% diff coverage, and 
 
 ### Phase 5 — Seam shrink
 - Delete `ProviderModel`, `ThinkingForwarder` remnants, `ProviderUsageCarry`, and the `ChatMessage`↔crate-message conversion layer in `tinyagents/convert.rs` (the harness now receives crate types natively).
-- Re-home `thread_context.rs` / `resolved_route.rs` / `auth_error_registry.rs` into `src/openhuman/tinyagents/`.
+- Re-home `thread_context.rs` / `resolved_route.rs` / `auth_error_registry.rs` into `src/openhuman/agent/tinyagents/`.
 - `inference/provider/` collapses to: `factory.rs` (string grammar → `ChatModel`), bespoke impls, host error classifier, `ops.rs`, `schemas.rs`.
 
-**Exit:** `src/openhuman/tinyagents/model.rs` deleted; adapter inventory test updated.
+**Exit:** `src/openhuman/agent/tinyagents/model.rs` deleted; adapter inventory test updated.
 
 ### Phase 6 — One-shot inference ops onto the crate
 - `sentiment.rs`, `should_react`, `summarize`, vision prompts, triage-style single calls: rewrite onto `ChatModel` + crate structured output (`harness/structured`) instead of hand-rolled parse (`parse.rs` shrinks or dies).

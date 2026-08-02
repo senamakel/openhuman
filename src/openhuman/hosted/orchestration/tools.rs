@@ -488,7 +488,7 @@ impl Tool for SendToAgentTool {
         // while the workspace-local orchestration pairing/session stores start
         // empty.
         let linked =
-            crate::openhuman::agent_orchestration::pairing::linked_agent_ids(&workspace).await;
+            crate::openhuman::agent::orchestration::pairing::linked_agent_ids(&workspace).await;
         let known_session = store::with_connection(&workspace, |conn| {
             store::latest_session_for_agent(conn, &recipient)
         })
@@ -496,7 +496,7 @@ impl Tool for SendToAgentTool {
         let accepted_contact = if linked.contains(&recipient) || known_session.is_some() {
             false
         } else {
-            match crate::openhuman::agent_orchestration::pairing::is_accepted_contact(&recipient)
+            match crate::openhuman::agent::orchestration::pairing::is_accepted_contact(&recipient)
                 .await
             {
                 Ok(accepted) => accepted,

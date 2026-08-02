@@ -63,7 +63,7 @@ fn compact_sender_history_keeps_recent_truncated_messages() {
 
     let ctx = ChannelRuntimeContext {
         channels_by_name: Arc::new(HashMap::new()),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::new(
+        turn_model_source: Some(crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
             DummyModel,
         ))),
         default_provider: Arc::new("test-provider".to_string()),

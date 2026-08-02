@@ -4,7 +4,7 @@
 //! co-located files as identified by a coverage gap analysis:
 //!
 //! 1. Full user→LLM→tool→result→final turn cycle — now covered by the
-//!    tinyagents route's tests (`src/openhuman/tinyagents/tests.rs`), which
+//!    tinyagents route's tests (`src/openhuman/agent/tinyagents/tests.rs`), which
 //!    exercise `run_turn_via_tinyagents_shared` end to end.
 //! 2. `MaxIterationsExceeded` downcasts to the typed `AgentError` variant.
 //! 3. `visible_tool_names` whitelist: tools outside the set are treated as unknown.

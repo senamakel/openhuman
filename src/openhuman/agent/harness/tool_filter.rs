@@ -28,7 +28,7 @@
 
 use std::collections::HashSet;
 
-use crate::openhuman::context::prompt::ConnectedIntegrationTool;
+use crate::openhuman::agent::context::prompt::ConnectedIntegrationTool;
 
 /// Minimum number of hits the filter must produce to be trusted. Below this,
 /// the caller should fall back to the unfiltered toolkit — a too-narrow filter

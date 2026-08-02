@@ -1,6 +1,6 @@
+use crate::openhuman::agent::profiles::{AgentProfile, DEFAULT_PROFILE_ID};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::Config;
-use crate::openhuman::profiles::{AgentProfile, DEFAULT_PROFILE_ID};
 use serde_json::json;
 
 use super::types::SessionCacheFingerprint;
@@ -184,7 +184,7 @@ pub(super) fn build_session_fingerprint(
         model_registry_signature: model_registry_signature(config),
         // Any change to the resolved profile record or its canonical on-disk
         // SOUL/MEMORY files forces a session-agent rebuild — see the field doc.
-        profile_signature: crate::openhuman::profiles::profile_session_signature(
+        profile_signature: crate::openhuman::agent::profiles::profile_session_signature(
             &config.workspace_dir,
             profile,
         ),

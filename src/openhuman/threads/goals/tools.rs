@@ -7,7 +7,7 @@
 //! system-driven and have no model tool.
 //!
 //! The target thread is resolved from the ambient
-//! [`current_thread_id`](crate::openhuman::tinyagents::thread_context::current_thread_id)
+//! [`current_thread_id`](crate::openhuman::agent::tinyagents::thread_context::current_thread_id)
 //! task-local set by the chat channel — tools never take a `thread_id` arg, so
 //! the model can't address another thread's goal. Each tool is sandboxed to a
 //! single `workspace_dir` captured at construction.
@@ -19,7 +19,7 @@ use serde_json::json;
 
 use super::store;
 use super::ThreadGoal;
-use crate::openhuman::tinyagents::thread_context::current_thread_id;
+use crate::openhuman::agent::tinyagents::thread_context::current_thread_id;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 /// Render a goal as a compact, model-readable block.
@@ -225,7 +225,7 @@ impl Tool for GoalCompleteTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tinyagents::thread_context::with_thread_id;
+    use crate::openhuman::agent::tinyagents::thread_context::with_thread_id;
 
     #[tokio::test]
     async fn set_get_complete_via_tools_in_thread_scope() {

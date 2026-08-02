@@ -284,7 +284,11 @@ impl ChatModel<()> for ClaudeAgentSdkProvider {
             .await
             .map_err(|error| TinyAgentsError::Model(error.to_string()))?;
 
-        Ok(crate::openhuman::tinyagents::model::prompt_guided_text_response(output, &request))
+        Ok(
+            crate::openhuman::agent::tinyagents::model::prompt_guided_text_response(
+                output, &request,
+            ),
+        )
     }
 }
 

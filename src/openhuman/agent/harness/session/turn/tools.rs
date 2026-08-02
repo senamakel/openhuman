@@ -338,7 +338,7 @@ impl Agent {
         // skills root so profile-local installs are tracked/announced too. `None`
         // for the profile-less session reproduces the prior behaviour.
         let profile_skills_root = self.active_profile_id.as_deref().and_then(|id| {
-            crate::openhuman::profiles::profile_skills_root(&self.workspace_dir, id)
+            crate::openhuman::agent::profiles::profile_skills_root(&self.workspace_dir, id)
         });
         // An invalid/absent active profile id silently falls back to shared
         // discovery. Log the branch id-free (boolean only, never the profile id or

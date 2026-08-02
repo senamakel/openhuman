@@ -25,9 +25,11 @@ async fn process_channel_message_executes_native_tool_calls() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(ToolCallingModel),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                ToolCallingModel,
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
@@ -89,18 +91,22 @@ async fn process_channel_message_handles_models_command_without_llm_call() {
     let mut provider_cache_seed = HashMap::new();
     provider_cache_seed.insert(
         "test-provider".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::clone(&default_provider)),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::clone(
+            &default_provider,
+        )),
     );
     provider_cache_seed.insert(
         "openrouter".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(fallback_provider),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(fallback_provider),
     );
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::clone(&default_provider),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::clone(
+                &default_provider,
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -171,11 +177,13 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
     let mut provider_cache_seed = HashMap::new();
     provider_cache_seed.insert(
         "test-provider".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::clone(&default_provider)),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::clone(
+            &default_provider,
+        )),
     );
     provider_cache_seed.insert(
         "openrouter".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(routed_provider),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(routed_provider),
     );
 
     let routed_msg = traits::ChannelMessage {
@@ -199,9 +207,11 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::clone(&default_provider),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::clone(
+                &default_provider,
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -250,11 +260,13 @@ async fn process_channel_message_respects_configured_max_tool_iterations_above_d
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(IterativeToolModel {
-                required_tool_iterations: 11,
-            }),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                IterativeToolModel {
+                    required_tool_iterations: 11,
+                },
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
@@ -310,11 +322,13 @@ async fn process_channel_message_reports_configured_max_tool_iterations_limit() 
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(IterativeToolModel {
-                required_tool_iterations: 20,
-            }),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                IterativeToolModel {
+                    required_tool_iterations: 20,
+                },
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),

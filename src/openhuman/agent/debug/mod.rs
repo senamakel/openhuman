@@ -27,14 +27,14 @@ use anyhow::{anyhow, Context, Result};
 pub mod dump_writer;
 pub use dump_writer::{write_prompt_dumps, DumpWriteSummary};
 
+use crate::openhuman::agent::context::prompt::{
+    LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
+};
 use crate::openhuman::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, PromptSource,
 };
 use crate::openhuman::agent::harness::session::Agent;
 use crate::openhuman::config::Config;
-use crate::openhuman::context::prompt::{
-    LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
-};
 use crate::openhuman::integrations::composio::ComposioActionTool;
 use crate::openhuman::tools::{Tool, ToolCategory};
 

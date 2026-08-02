@@ -231,7 +231,9 @@ async fn orchestrator_runs_workflow_tool_and_gets_inner_result() {
     let mut history = vec![ChatMessage::user("Triage my inbox.")];
 
     let result = run_channel_turn_via_graph(
-        crate::openhuman::tinyagents::TurnModelSource::from_model_with_profile(model, profile),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model_with_profile(
+            model, profile,
+        ),
         &mut history,
         tools,
         vec![],

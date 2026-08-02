@@ -18,7 +18,7 @@
 //! RPC ops.
 
 use super::ProviderUserProfile;
-use crate::openhuman::learning::candidate::{
+use crate::openhuman::agent::learning::candidate::{
     self as learning_candidate, CueFamily, EvidenceRef, FacetClass, LearningCandidate,
 };
 use crate::openhuman::memory_store::profile::{self, FacetType};

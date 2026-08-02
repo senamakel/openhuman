@@ -87,7 +87,7 @@ impl ChatModel<()> for ScriptedProvider {
             guard.remove(0)
         };
         Ok(
-            crate::openhuman::tinyagents::model::native_model_response_for_request(
+            crate::openhuman::agent::tinyagents::model::native_model_response_for_request(
                 &response, &request,
             ),
         )

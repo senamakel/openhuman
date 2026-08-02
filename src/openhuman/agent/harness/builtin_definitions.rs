@@ -1,7 +1,7 @@
 //! Built-in [`AgentDefinition`]s.
 //!
 //! The authoritative list of built-in agents lives in
-//! [`crate::openhuman::agent_registry::agents`] — each agent is a subfolder
+//! [`crate::openhuman::agent::registry::agents`] — each agent is a subfolder
 //! containing `agent.toml` + `prompt.md`. This module is a thin
 //! wrapper that loads that set.
 //!
@@ -17,8 +17,8 @@ use super::definition::DefinitionSource;
 /// Panics if the baked-in built-in TOML fails to parse. `include_str!`
 /// guarantees at compile time that each file exists, but the actual
 /// TOML parse happens at runtime; the unit tests in
-/// [`crate::openhuman::agent_registry::agents`] verify in CI that every entry in
-/// [`crate::openhuman::agent_registry::agents::BUILTINS`] still parses cleanly.
+/// [`crate::openhuman::agent::registry::agents`] verify in CI that every entry in
+/// [`crate::openhuman::agent::registry::agents::BUILTINS`] still parses cleanly.
 ///
 /// In `#[cfg(test)]` builds the list additionally contains
 /// [`test_inherit_echo_def`] — a sub-agent with `ModelSpec::Inherit`
@@ -29,7 +29,7 @@ use super::definition::DefinitionSource;
 /// test's `MockProvider`). It is never compiled into release builds.
 pub fn all() -> Vec<AgentDefinition> {
     #[allow(unused_mut)]
-    let mut defs = crate::openhuman::agent_registry::agents::load_builtins()
+    let mut defs = crate::openhuman::agent::registry::agents::load_builtins()
         .expect("built-in agent TOML must always parse (see agents/*/agent.toml)");
     #[cfg(test)]
     {
@@ -182,7 +182,7 @@ mod tests {
     fn all_definitions_present() {
         let defs = all();
         // Count enabled built-ins, accounting for feature gates (e.g., presentation_agent only when documents is on).
-        let enabled_builtins = crate::openhuman::agent_registry::agents::BUILTINS
+        let enabled_builtins = crate::openhuman::agent::registry::agents::BUILTINS
             .iter()
             .filter(|_b| {
                 #[cfg(not(feature = "documents"))]

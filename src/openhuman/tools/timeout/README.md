@@ -50,7 +50,7 @@ The global timeout governs **non-scripting** tools only — a hung network/MCP c
 
 ## Used by
 
-- `src/openhuman/tinyagents/tools.rs` — OpenHuman tools execute through `execute_with_options`, which applies each tool's [`Tool::timeout_policy`]: `Inherit` uses `tool_execution_timeout_secs()`; `Secs(n)` uses a clamped value plus grace; `Unbounded` runs with no deadline.
+- `src/openhuman/agent/tinyagents/tools.rs` — OpenHuman tools execute through `execute_with_options`, which applies each tool's [`Tool::timeout_policy`]: `Inherit` uses `tool_execution_timeout_secs()`; `Secs(n)` uses a clamped value plus grace; `Unbounded` runs with no deadline.
 - `src/openhuman/tools/impl/system/{shell,node_exec,npm_exec}.rs` — scripting tools: unbounded by default, explicit `timeout_secs` via `explicit_call_timeout_*`.
 - `src/openhuman/agent/tools/delegate.rs` — bounds the delegated provider chat call with `tool_execution_timeout_secs`.
 - `src/openhuman/config/ops.rs` — `apply_agent_settings` calls `set_tool_timeout_secs` after persisting; `get_agent_settings` reports `effective_timeout_secs` / `env_override`.

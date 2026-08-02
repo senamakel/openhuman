@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::openhuman::learning::candidate::EvidenceRef;
+use crate::openhuman::agent::learning::candidate::EvidenceRef;
 
 /// SQL to create the user_profile table. Called during UnifiedMemory init.
 pub const PROFILE_INIT_SQL: &str = r#"

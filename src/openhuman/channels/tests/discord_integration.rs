@@ -107,9 +107,9 @@ fn make_discord_ctx(
 
     Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            model,
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(model),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),

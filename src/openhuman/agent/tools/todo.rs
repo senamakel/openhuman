@@ -8,8 +8,8 @@
 //! rendering so transcripts read cleanly.
 
 use crate::openhuman::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
+use crate::openhuman::agent::tinyagents::thread_context;
 use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
-use crate::openhuman::tinyagents::thread_context;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;

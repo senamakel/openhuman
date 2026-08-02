@@ -6,11 +6,11 @@
 //!   agent and synthesise its delegation tool surface.
 //! * [`build_visible_tool_set`] — union of named tools + extra (delegation) tools.
 
+use crate::openhuman::agent::context::prompt::ConnectedIntegration;
 use crate::openhuman::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, ToolScope,
 };
 use crate::openhuman::config::Config;
-use crate::openhuman::context::prompt::ConnectedIntegration;
 use crate::openhuman::integrations::composio::{
     cached_active_integrations_including_expired, fetch_connected_integrations_status,
     FetchConnectedIntegrationsStatus,

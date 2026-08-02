@@ -2,10 +2,10 @@
 
 use super::super::transcript;
 use super::super::types::Agent;
+use crate::openhuman::agent::context::ARCHIVIST_EXTRACTION_PROMPT;
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::context::ARCHIVIST_EXTRACTION_PROMPT;
 use crate::openhuman::inference::provider::{
     ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
 };
@@ -117,7 +117,7 @@ impl Agent {
         let request = ModelRequest::new(
             messages
                 .iter()
-                .map(crate::openhuman::tinyagents::chat_message_to_message)
+                .map(crate::openhuman::agent::tinyagents::chat_message_to_message)
                 .collect(),
         )
         .with_model(effective_model)
@@ -158,7 +158,7 @@ impl Agent {
             tracing::warn!("[agent::session] wrap-up stream ended without completion");
             return (String::new(), None);
         };
-        let usage = crate::openhuman::tinyagents::model::usage_info_from_response(&response);
+        let usage = crate::openhuman::agent::tinyagents::model::usage_info_from_response(&response);
         let text = response.text();
         // Tools are disabled for wrap-up calls, but text-protocol models can
         // still ignore that instruction. Parse through the active dispatcher
@@ -406,7 +406,7 @@ impl Agent {
         let request = ModelRequest::new(
             base_messages
                 .iter()
-                .map(crate::openhuman::tinyagents::chat_message_to_message)
+                .map(crate::openhuman::agent::tinyagents::chat_message_to_message)
                 .collect(),
         )
         .with_model(effective_model)
@@ -448,7 +448,7 @@ impl Agent {
             tracing::warn!("[agent::session] required-output re-prompt ended without completion");
             return (String::new(), None);
         };
-        let usage = crate::openhuman::tinyagents::model::usage_info_from_response(&response);
+        let usage = crate::openhuman::agent::tinyagents::model::usage_info_from_response(&response);
         let text = response.text();
         let out = if !text.trim().is_empty() {
             text
@@ -548,7 +548,7 @@ impl Agent {
             output_tokens,
             cached_input_tokens,
             charged_amount_usd,
-            thread_id: crate::openhuman::tinyagents::thread_context::current_thread_id(),
+            thread_id: crate::openhuman::agent::tinyagents::thread_context::current_thread_id(),
             task_id: None,
         };
 
@@ -599,7 +599,7 @@ impl Agent {
     /// store write is fired best-effort on a background task and any error is
     /// logged (`[session-store]`) and swallowed, so it can never fail or alter a
     /// chat turn. Records reuse the importer's normalization
-    /// ([`crate::openhuman::session_import`]) so live and imported records are
+    /// ([`crate::openhuman::agent::session_import`]) so live and imported records are
     /// shape-identical. Reads stay 100% legacy until 04.2.
     fn maybe_dual_write_session_store(
         &self,
@@ -608,7 +608,7 @@ impl Agent {
         meta: &transcript::TranscriptMeta,
         turn_usage: Option<&transcript::TurnUsage>,
     ) {
-        use crate::openhuman::session_import::live;
+        use crate::openhuman::agent::session_import::live;
 
         // Config flag (default ON) gates the mirror; the env kill switch can
         // still force it off. `self.config` is the effective per-agent config.
@@ -676,7 +676,7 @@ impl Agent {
         path: &std::path::Path,
         session: &transcript::SessionTranscript,
     ) {
-        use crate::openhuman::session_import::live;
+        use crate::openhuman::agent::session_import::live;
 
         // Config flag (default OFF) gates the shadow read; the env kill switch
         // can still force it off. `self.config` is the effective per-agent config.
@@ -815,7 +815,7 @@ impl Agent {
     /// Issue #1399: complements `spawn_session_memory_extraction`. The
     /// archivist path writes dense bullets into `MEMORY.md`; this path
     /// extracts importance-tagged, provenance-bearing memories via the
-    /// heuristic [`crate::openhuman::learning::transcript_ingest`]
+    /// heuristic [`crate::openhuman::agent::learning::transcript_ingest`]
     /// pipeline. The two are deliberately independent so the prompt
     /// retrieval layer can pull from `conversation_memory` without
     /// needing the archivist's extraction to have fired this session.
@@ -829,7 +829,7 @@ impl Agent {
         let memory = std::sync::Arc::clone(&self.memory);
 
         tokio::spawn(async move {
-            match crate::openhuman::learning::transcript_ingest::ingest_transcript_path(
+            match crate::openhuman::agent::learning::transcript_ingest::ingest_transcript_path(
                 memory.as_ref(),
                 &path,
             )

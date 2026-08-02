@@ -18,6 +18,14 @@ use std::sync::Arc;
 use serde_json::json;
 use tempfile::tempdir;
 
+use openhuman_core::openhuman::agent::profiles::{
+    built_in_profiles, AgentProfile, AgentProfileStore, DEFAULT_PROFILE_ID,
+};
+use openhuman_core::openhuman::agent::profiles::{
+    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
+    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
+    HasToolkit, PersonalityContext,
+};
 use openhuman_core::openhuman::agent::prompts::types::LearnedContextData;
 use openhuman_core::openhuman::agent::prompts::{
     IdentitySection, PersonalityRosterEntry, PersonalityRosterSection, PromptContext,
@@ -27,14 +35,6 @@ use openhuman_core::openhuman::inference::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::{NamespaceDocumentInput, UnifiedMemory};
 use openhuman_core::openhuman::memory_conversations::{
     ensure_thread, list_threads, update_thread_title, ConversationStore, CreateConversationThread,
-};
-use openhuman_core::openhuman::profiles::{
-    built_in_profiles, AgentProfile, AgentProfileStore, DEFAULT_PROFILE_ID,
-};
-use openhuman_core::openhuman::profiles::{
-    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
-    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
-    HasToolkit, PersonalityContext,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

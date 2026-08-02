@@ -3,8 +3,8 @@
 use super::super::turn_checkpoint::assistant_message_has_tool_calls;
 use super::super::types::Agent;
 use super::{collect_tree_root_summaries, sanitize_learned_entry};
+use crate::openhuman::agent::context::prompt::{LearnedContextData, PromptContext, PromptTool};
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
-use crate::openhuman::context::prompt::{LearnedContextData, PromptContext, PromptTool};
 use crate::openhuman::memory::MemoryCategory;
 use crate::openhuman::tools::agent_policy::render_tool_policy_boundary;
 use crate::openhuman::tools::Tool;
@@ -222,9 +222,9 @@ impl Agent {
         let reflection_entries = self
             .memory
             .list(
-                Some(crate::openhuman::learning::reflection::REFLECTIONS_NAMESPACE),
+                Some(crate::openhuman::agent::learning::reflection::REFLECTIONS_NAMESPACE),
                 Some(&MemoryCategory::Custom(
-                    crate::openhuman::learning::reflection::REFLECTIONS_NAMESPACE.into(),
+                    crate::openhuman::agent::learning::reflection::REFLECTIONS_NAMESPACE.into(),
                 )),
                 None,
             )

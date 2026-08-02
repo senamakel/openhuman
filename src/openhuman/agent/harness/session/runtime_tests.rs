@@ -36,7 +36,7 @@ impl ChatModel<()> for StaticModel {
         });
         match response {
             Ok(response) => Ok(
-                crate::openhuman::tinyagents::model::native_model_response_for_request(
+                crate::openhuman::agent::tinyagents::model::native_model_response_for_request(
                     &response, &request,
                 ),
             ),

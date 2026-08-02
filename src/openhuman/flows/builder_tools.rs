@@ -2513,7 +2513,7 @@ impl Tool for ListAgentProfilesTool {
 
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
         tracing::debug!(target: "flows", "[flows] list_agent_profiles: listing registered agent kinds (read-only)");
-        match crate::openhuman::agent_registry::list_agents(false).await {
+        match crate::openhuman::agent::registry::list_agents(false).await {
             Ok(agents) => {
                 let profiles: Vec<Value> = agents
                     .iter()

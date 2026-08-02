@@ -1027,11 +1027,11 @@ const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 fn resolve_cron_profile(
     config: &Config,
     job: &CronJob,
-) -> anyhow::Result<Option<crate::openhuman::profiles::AgentProfile>> {
+) -> anyhow::Result<Option<crate::openhuman::agent::profiles::AgentProfile>> {
     let Some(profile_id) = job.profile_id.as_deref() else {
         return Ok(None);
     };
-    match crate::openhuman::profiles::load_profiles(&config.workspace_dir) {
+    match crate::openhuman::agent::profiles::load_profiles(&config.workspace_dir) {
         Ok(state) => {
             let found = state.profiles.into_iter().find(|p| p.id == profile_id);
             if found.is_none() {
@@ -1052,13 +1052,13 @@ fn resolve_cron_profile(
 
 struct BuiltCronAgent {
     agent: Agent,
-    profile: Option<crate::openhuman::profiles::AgentProfile>,
+    profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
 }
 
 fn apply_cron_profile_runtime_defaults(
     config: &Config,
     job: &CronJob,
-    profile: &crate::openhuman::profiles::AgentProfile,
+    profile: &crate::openhuman::agent::profiles::AgentProfile,
 ) -> Config {
     let mut effective = config.clone();
     if let Some(model) = profile.model_override.clone() {

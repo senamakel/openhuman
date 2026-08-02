@@ -211,7 +211,7 @@ pub struct Config {
     /// Global context management configuration — budget thresholds,
     /// summarization trigger, microcompact/autocompact toggles, and the
     /// session-memory extraction cadence. Consumed by
-    /// [`crate::openhuman::context::ContextManager`].
+    /// [`crate::openhuman::agent::context::ContextManager`].
     #[serde(default)]
     pub context: ContextConfig,
 
@@ -316,7 +316,7 @@ pub struct Config {
     /// User-facing agent registry — shipped default agents plus user-authored
     /// custom agents and persisted enable/disable/tool-policy overrides.
     #[serde(default)]
-    pub agent_registry: crate::openhuman::agent_registry::types::AgentRegistryConfig,
+    pub agent_registry: crate::openhuman::agent::registry::types::AgentRegistryConfig,
 
     #[serde(default)]
     pub agents: HashMap<String, DelegateAgentConfig>,
@@ -788,7 +788,8 @@ impl Default for Config {
             proxy: ProxyConfig::default(),
             cost: CostConfig::default(),
             memory_sources: Vec::new(),
-            agent_registry: crate::openhuman::agent_registry::types::AgentRegistryConfig::default(),
+            agent_registry: crate::openhuman::agent::registry::types::AgentRegistryConfig::default(
+            ),
             agents: HashMap::new(),
             local_ai: LocalAiConfig::default(),
             claude_agent_sdk: ClaudeAgentSdkConfig::default(),

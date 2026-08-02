@@ -61,8 +61,8 @@ meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel regi
 `integrations/{composio,recall_calendar,file_storage,task_sources}`,
 `skills/{catalog,runtime,webhooks}`, `inference/{embeddings,tokenjuice}`, and step 7's kernel
 `security/{approval,credentials,keyring,keyring_consent,encryption,prompt_injection,devices}`.
-The `heartbeat/` re-export shim is deleted. The remaining two big families (`agent/`, `memory/`)
-are still ahead.
+The `heartbeat/` re-export shim is deleted, and step 8 folded fourteen domains into `agent/`.
+The last big family (`memory/`) is still ahead.
 
 **That is what this document is about.** The remaining dependency sheds are blocked on it or are
 cross-repo; the structural work is what makes the next twenty gates cheap instead of expensive.
@@ -163,7 +163,7 @@ renames.
 | Family | Absorbs |
 | --- | --- |
 | `memory/` | `memory_store→store`, `memory_sync→sync`, `memory_tree→tree`, `memory_search→search`, `memory_sources→sources`, `memory_queue→queue`, `memory_diff→diff`, `memory_goals→goals`, `memory_conversations→conversations`, `memory_tools→tool_memory`, `tinycortex`, `agent_memory→agent`, `people` |
-| `agent/` | `agent_experience→experience`, `agent_orchestration→orchestration`, `agent_registry→registry`, `agentbox`, `harness_init`, `session_db`, `session_import`, `context`, `profiles`, `learning`, `plan_review`, `file_state`, `artifacts`, `tinyagents` |
+| `agent/` | ✅ **landed** — `agent_experience→experience`, `agent_orchestration→orchestration`, `agent_registry→registry`, `agentbox`, `harness_init`, `session_db`, `session_import`, `context`, `profiles`, `learning`, `plan_review`, `file_state`, `artifacts`, `tinyagents`; parent stays ungated (kernel) and keeps its own name — no `agent/core` rename |
 | `inference/` | ✅ **landed** — `embeddings`, `tokenjuice`; parent stays ungated (kernel). NB the `inference` Cargo feature gates only `local/service/whisper_engine` + the cpal probe, *not* this directory |
 | `skills/` | ✅ **landed** — `skill_registry→catalog` (not `registry` — `skills/registry.rs` and the stub's inner `pub mod registry` both already own that name), `skill_runtime→runtime`, `webhooks`; parent stays ungated (three facades, two with `stub.rs`), and `webhooks` is a permanently-ungated child |
 | `flows/` | ✅ **landed** — `tinyflows`, `rhai_workflows→rhai`; parent is leaf-gated on `flows` (no stub — every external site is a registration site) |
@@ -237,7 +237,9 @@ goes to `platform/`.
    `config_servers` (leaf-gated), `http_client` (ungated carve-out), `sanitize` → `util/`.
 6. ✅ `threads/`, `tools/`, `platform/`, `config/`, `integrations/`, `skills/`, `inference/` — seven independent families, one commit each.
 7. ✅ `security/` — the kernel security family; `kernel.md` §3.4's `Guard<D>` draw set made physical.
-8. `agent/`.
+8. ✅ `agent/` — fourteen domains folded in; `agent/` itself stayed put as the parent (an
+   `agent → agent/core` rename would have cost ~999 extra import rewrites and buys no gate).
+   Kernel: no `#[cfg]` anywhere in the family.
 9. `memory/` — **last**, deliberately: it is [`kernel.md`](kernel.md) §5's pilot subsystem, so its
    layout gets drawn with the driver contract in hand rather than guessed.
 

@@ -763,7 +763,7 @@ pub fn inject_workspace_file_capped(
 pub fn default_workspace_file_content(filename: &str) -> &'static str {
     // The bundled identity files live at `src/openhuman/agent/prompts/`
     // (owned by the `agent/` tree because they describe agent identity).
-    // This module is under `src/openhuman/context/`, so the relative path
+    // This module is under `src/openhuman/agent/context/`, so the relative path
     // walks up one level and back into `agent/prompts/`.
     match filename {
         "SOUL.md" => include_str!("SOUL.md"),

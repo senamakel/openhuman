@@ -15,7 +15,7 @@ use crate::openhuman::skills::{preflight, registry, run_log};
 use crate::openhuman::skills::schemas::resolve_workspace_dir;
 
 async fn with_profile_memory_source_scope<F, T>(
-    active_profile: Option<&crate::openhuman::profiles::AgentProfile>,
+    active_profile: Option<&crate::openhuman::agent::profiles::AgentProfile>,
     fut: F,
 ) -> T
 where
@@ -70,7 +70,7 @@ pub async fn spawn_workflow_run_background_with_profile(
     skill_id_param: String,
     inputs_param: Option<Value>,
     profile_skills_root: Option<std::path::PathBuf>,
-    active_profile: Option<crate::openhuman::profiles::AgentProfile>,
+    active_profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
 ) -> Result<WorkflowRunStarted, String> {
     let workspace = resolve_workspace_dir().await;
     let skill = registry::get_workflow_with_profile(
@@ -382,7 +382,7 @@ mod tests {
 
     #[tokio::test]
     async fn workflow_profile_installs_memory_source_scope() {
-        let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+        let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
         profile.memory_sources = Some(vec!["slack:#eng".into(), "github:openhuman".into()]);
 
         let visible = with_profile_memory_source_scope(Some(&profile), async {

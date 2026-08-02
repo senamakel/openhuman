@@ -19,7 +19,7 @@ pub use tinyagents::graph::todos::{
     normalise_board, TaskApprovalMode, TaskBoard, TaskBoardCard, TaskCardStatus,
 };
 
-use crate::openhuman::tinyagents::todos::todos_store;
+use crate::openhuman::agent::tinyagents::todos::todos_store;
 
 #[derive(Debug, Clone)]
 pub struct TaskBoardStore {

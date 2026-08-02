@@ -338,7 +338,7 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     if services.harness_init {
         let cfg_for_init = config.clone();
         tokio::spawn(async move {
-            crate::openhuman::harness_init::run_harness_init(cfg_for_init).await;
+            crate::openhuman::agent::harness_init::run_harness_init(cfg_for_init).await;
         });
     } else {
         log::debug!("[runtime] harness init disabled by ServiceSet");
@@ -390,8 +390,10 @@ async fn run_legacy_migrations(config: &Config) {
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
     // As above, each core boot must inspect its own workspace.
-    match crate::openhuman::tinyagents::todos::migrate_legacy_task_boards(&config.workspace_dir)
-        .await
+    match crate::openhuman::agent::tinyagents::todos::migrate_legacy_task_boards(
+        &config.workspace_dir,
+    )
+    .await
     {
         Ok(report) if report.total > 0 => {
             log::info!(

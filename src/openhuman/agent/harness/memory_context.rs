@@ -46,7 +46,7 @@ pub(crate) async fn build_context(
     // retrieval facade (issue #4249, 09.2) so recall is swappable and emits
     // `MemoryLoaded`. The facade wraps `Memory::recall` verbatim, so the
     // rendered `[Memory context]` block stays byte-identical.
-    if let Ok(entries) = crate::openhuman::tinyagents::retriever::recall_through_facade(
+    if let Ok(entries) = crate::openhuman::agent::tinyagents::retriever::recall_through_facade(
         mem,
         user_msg,
         5,
@@ -81,7 +81,7 @@ pub(crate) async fn build_context(
     // Explicitly load bounded user working memory entries so sync-derived profile
     // facts can influence the turn in a controlled way.
     let working_query = format!("working.user {user_msg}");
-    if let Ok(entries) = crate::openhuman::tinyagents::retriever::recall_through_facade(
+    if let Ok(entries) = crate::openhuman::agent::tinyagents::retriever::recall_through_facade(
         mem,
         &working_query,
         WORKING_MEMORY_LIMIT + 2,
@@ -118,14 +118,15 @@ pub(crate) async fn build_context(
     // enforced at the SQLite layer (one DB per workspace == one user);
     // the current chat is excluded by passing `session_id` so the block
     // never duplicates the same-chat history.
-    let current_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
+    let current_thread_id =
+        crate::openhuman::agent::tinyagents::thread_context::current_thread_id();
     let cross_session_opts = crate::openhuman::memory::RecallOpts {
         session_id: current_thread_id.as_deref(),
         cross_session: true,
         min_score: Some(min_relevance_score),
         ..Default::default()
     };
-    if let Ok(entries) = crate::openhuman::tinyagents::retriever::recall_through_facade(
+    if let Ok(entries) = crate::openhuman::agent::tinyagents::retriever::recall_through_facade(
         mem,
         user_msg,
         CROSS_CHAT_LIMIT * 3,

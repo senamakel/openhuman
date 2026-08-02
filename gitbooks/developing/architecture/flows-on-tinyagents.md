@@ -26,7 +26,7 @@ runs, and how the two runtimes compose.
 | Crate | Role | Where |
 | --- | --- | --- |
 | `tinyflows` | Host-agnostic workflow model + validate + compile + run. Never hard-codes a vendor; every outside-world effect goes through a capability trait. | [`vendor/tinyflows/`](../../../vendor/tinyflows/) |
-| `tinyagents` | The published state-graph + agent-loop harness both runtimes lower onto. | crate; OpenHuman seam in [`src/openhuman/tinyagents/`](../../../src/openhuman/tinyagents/) |
+| `tinyagents` | The published state-graph + agent-loop harness both runtimes lower onto. | crate; OpenHuman seam in [`src/openhuman/agent/tinyagents/`](../../../src/openhuman/agent/tinyagents/) |
 | `openhuman::flows` | The host: CRUD/run/resume RPCs, SQLite store, triggers, the builder/scout agents. | [`src/openhuman/flows/`](../../../src/openhuman/flows/) |
 | `openhuman::flows::tinyflows` | The **capability seam** - adapters implementing the `tinyflows` traits over real OpenHuman services. | [`src/openhuman/flows/tinyflows/`](../../../src/openhuman/flows/tinyflows/) |
 
@@ -167,7 +167,7 @@ A flow `agent` node names a **registered agent kind** through a trusted
   (`Agent::from_config_for_agent`) and run the node's request through
   `run_single`. That is the *same* entry the builder/scout and cron/subconscious
   jobs use, and internally it drives `run_turn_via_tinyagents_shared`
-  ([`src/openhuman/tinyagents/mod.rs`](../../../src/openhuman/tinyagents/mod.rs)) -
+  ([`src/openhuman/agent/tinyagents/mod.rs`](../../../src/openhuman/agent/tinyagents/mod.rs)) -
   the tinyagents `AgentHarness` tool-call loop. The definition's ToolScope,
   `sandbox_mode`, and `max_iterations` govern the inner turn.
 - **Only a custom `AgentRegistryEntry` exists** (no full definition) → the

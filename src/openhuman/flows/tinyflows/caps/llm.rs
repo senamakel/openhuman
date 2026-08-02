@@ -107,7 +107,7 @@ impl LlmProvider for OpenHumanLlm {
         let mut model_request = ModelRequest::new(
             messages
                 .iter()
-                .map(crate::openhuman::tinyagents::chat_message_to_message)
+                .map(crate::openhuman::agent::tinyagents::chat_message_to_message)
                 .collect(),
         )
         .with_model(model.clone())

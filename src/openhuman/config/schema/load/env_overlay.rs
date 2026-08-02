@@ -1012,7 +1012,7 @@ impl Config {
             }
         }
 
-        let context_default = crate::openhuman::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
+        let context_default = crate::openhuman::agent::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
         let context_env_set = env.contains("OPENHUMAN_CONTEXT_TOOL_RESULT_BUDGET_BYTES");
         if !context_env_set
             && self.context.tool_result_budget_bytes == context_default

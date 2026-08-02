@@ -207,7 +207,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::agentbox::all_agentbox_registered_controllers(),
+        crate::openhuman::agent::agentbox::all_agentbox_registered_controllers(),
     );
     // Core application shell state
     push(
@@ -277,25 +277,25 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::tinyagents::replay::all_agent_replay_registered_controllers(),
+        crate::openhuman::agent::tinyagents::replay::all_agent_replay_registered_controllers(),
     );
     // Persistent agent profiles (flavours): name, soul, memory sources, skills, MCP, connectors.
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::profiles::all_profiles_registered_controllers(),
+        crate::openhuman::agent::profiles::all_profiles_registered_controllers(),
     );
     // User-facing agent registry: defaults, enablement, custom agents, tool policy.
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_registry::all_agent_registry_registered_controllers(),
+        crate::openhuman::agent::registry::all_agent_registry_registered_controllers(),
     );
     // Local procedural operating experience for agent self-learning
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_experience::all_agent_experience_registered_controllers(),
+        crate::openhuman::agent::experience::all_agent_experience_registered_controllers(),
     );
     // System and process health monitoring
     push(
@@ -307,7 +307,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::harness_init::all_harness_init_registered_controllers(),
+        crate::openhuman::agent::harness_init::all_harness_init_registered_controllers(),
     );
     // Diagnostic tools
     push(
@@ -343,13 +343,13 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Security,
-        crate::openhuman::plan_review::all_plan_review_registered_controllers(),
+        crate::openhuman::agent::plan_review::all_plan_review_registered_controllers(),
     );
     // Agent-generated artifact storage, retrieval, and lifecycle management
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::artifacts::all_artifacts_registered_controllers(),
+        crate::openhuman::agent::artifacts::all_artifacts_registered_controllers(),
     );
     // Background heartbeat loop controls
     push(
@@ -667,7 +667,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::learning::all_learning_registered_controllers(),
+        crate::openhuman::agent::learning::all_learning_registered_controllers(),
     );
     // Conversation thread and message management
     push(
@@ -735,43 +735,43 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::session_db::all_session_db_registered_controllers(),
+        crate::openhuman::agent::session_db::all_session_db_registered_controllers(),
     );
     // One-time legacy session import into TinyAgents stores
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::session_import::all_session_import_registered_controllers(),
+        crate::openhuman::agent::session_import::all_session_import_registered_controllers(),
     );
     // Background agent command center — read-only grouped view over the run ledger
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_orchestration::all_command_center_registered_controllers(),
+        crate::openhuman::agent::orchestration::all_command_center_registered_controllers(),
     );
     // Durable dynamic workflow runs — definitions + read surface over the run ledger
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_orchestration::all_workflow_run_registered_controllers(),
+        crate::openhuman::agent::orchestration::all_workflow_run_registered_controllers(),
     );
     // Durable agent-team coordination — teams, members, dependency-aware task claiming, messaging
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_orchestration::all_agent_team_registered_controllers(),
+        crate::openhuman::agent::orchestration::all_agent_team_registered_controllers(),
     );
     // Git-worktree isolation manager — list / status / diff / remove worker worktrees (#3376)
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_orchestration::all_worktree_registered_controllers(),
+        crate::openhuman::agent::orchestration::all_worktree_registered_controllers(),
     );
     // User-driven cancel of detached background sub-agents (#3711)
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_orchestration::all_subagent_control_registered_controllers(),
+        crate::openhuman::agent::orchestration::all_subagent_control_registered_controllers(),
     );
     controllers
 }
@@ -803,7 +803,7 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::agent_orchestration::all_pairing_registered_controllers(),
+        crate::openhuman::agent::orchestration::all_pairing_registered_controllers(),
     );
     // Orchestration read surface (stage 7): the TinyPlaceOrchestrationTab reads
     // sessions/messages, sends Master steering DMs, marks read, and polls status.

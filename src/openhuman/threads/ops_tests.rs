@@ -499,7 +499,7 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
 
     // Queue a finished background sub-agent result for this thread; deleting the
     // thread must discard it so it's never delivered into a dead thread.
-    use crate::openhuman::agent_orchestration::background_completions as bg;
+    use crate::openhuman::agent::orchestration::background_completions as bg;
     bg::record_completion(
         "sess-del",
         "sub-del-1",
@@ -557,7 +557,7 @@ async fn threads_purge_removes_valid_and_corrupted_turn_state_files() {
 
     // Queue background sub-agent results across sessions; a full purge must wipe
     // them all since no parent thread survives.
-    use crate::openhuman::agent_orchestration::background_completions as bg;
+    use crate::openhuman::agent::orchestration::background_completions as bg;
     bg::record_completion(
         "sess-p1",
         "sub-p1",

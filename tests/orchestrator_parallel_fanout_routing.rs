@@ -15,10 +15,10 @@
 //! These assertions pin that guidance so a future edit can't silently drop it.
 
 const ORCHESTRATOR_PROMPT: &str =
-    include_str!("../src/openhuman/agent_registry/agents/orchestrator/prompt.md");
+    include_str!("../src/openhuman/agent/registry/agents/orchestrator/prompt.md");
 
 const SPAWN_SUBAGENT_SRC: &str =
-    include_str!("../src/openhuman/agent_orchestration/tools/spawn_subagent.rs");
+    include_str!("../src/openhuman/agent/orchestration/tools/spawn_subagent.rs");
 
 #[test]
 fn prompt_routes_parallel_and_council_to_spawn_parallel_agents() {

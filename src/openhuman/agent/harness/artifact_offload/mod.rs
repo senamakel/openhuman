@@ -6,7 +6,7 @@
 //! For minutes-to-hours runs, keeping compressed results *in context* still
 //! accumulates summary text step after step, and it can never restore full
 //! fidelity. The summarizer detour
-//! ([`crate::openhuman::tinyagents::payload_summarizer`]) shrinks one oversized
+//! ([`crate::openhuman::agent::tinyagents::payload_summarizer`]) shrinks one oversized
 //! payload at a time; it does not stop the aggregate from growing.
 //!
 //! ## The convention

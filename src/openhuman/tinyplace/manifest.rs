@@ -5817,6 +5817,11 @@ mod tests {
     /// `Some` with the parsed USDC amount. Before the fix `wallet_usdc_balance`
     /// queried the public cluster directly and ignored this endpoint, so the
     /// confirm card showed "Unknown".
+    // `wallet_usdc_balance` resolves the USDC mint and RPC endpoints through
+    // `crate::openhuman::wallet`, which the `web3` stub disables — so without
+    // the feature the balance is unconditionally None and this test asserts a
+    // capability that is not compiled in.
+    #[cfg(feature = "web3")]
     #[tokio::test]
     async fn wallet_usdc_balance_reads_from_tinyplace_settlement_rpc() {
         let _lock = crate::openhuman::config::TEST_ENV_LOCK

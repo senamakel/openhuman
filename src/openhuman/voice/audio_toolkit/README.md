@@ -15,12 +15,12 @@ Text-to-speech "podcast" toolkit. Synthesizes text into a workspace audio file v
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/audio_toolkit/mod.rs` | Export-only module surface: re-exports ops fns, schema registries, and types. |
-| `src/openhuman/audio_toolkit/types.rs` | Serde domain types: `AudioFormat`, request/result structs. |
-| `src/openhuman/audio_toolkit/ops.rs` | Business logic: `generate_podcast`, `email_podcast`, `generate_and_email_podcast`, `resolve_email_capture_dir`, plus private helpers (path/format/voice resolution, base64 decode, MIME enforcement, slugify, email build/capture). Contains the unit-test suite. |
-| `src/openhuman/audio_toolkit/schemas.rs` | RPC controller schemas + `handle_*` handlers delegating to `ops.rs`; loads `Config` via `config::rpc`. |
-| `src/openhuman/audio_toolkit/tools.rs` | Re-exports the three agent tool structs from `tools/podcast.rs`. |
-| `src/openhuman/audio_toolkit/tools/podcast.rs` | `Tool` impls: `AudioGeneratePodcastTool`, `AudioEmailPodcastTool`, `AudioGenerateAndEmailPodcastTool`; security gating + arg parsing. |
+| `src/openhuman/voice/audio_toolkit/mod.rs` | Export-only module surface: re-exports ops fns, schema registries, and types. |
+| `src/openhuman/voice/audio_toolkit/types.rs` | Serde domain types: `AudioFormat`, request/result structs. |
+| `src/openhuman/voice/audio_toolkit/ops.rs` | Business logic: `generate_podcast`, `email_podcast`, `generate_and_email_podcast`, `resolve_email_capture_dir`, plus private helpers (path/format/voice resolution, base64 decode, MIME enforcement, slugify, email build/capture). Contains the unit-test suite. |
+| `src/openhuman/voice/audio_toolkit/schemas.rs` | RPC controller schemas + `handle_*` handlers delegating to `ops.rs`; loads `Config` via `config::rpc`. |
+| `src/openhuman/voice/audio_toolkit/tools.rs` | Re-exports the three agent tool structs from `tools/podcast.rs`. |
+| `src/openhuman/voice/audio_toolkit/tools/podcast.rs` | `Tool` impls: `AudioGeneratePodcastTool`, `AudioEmailPodcastTool`, `AudioGenerateAndEmailPodcastTool`; security gating + arg parsing. |
 
 ## Public surface
 

@@ -3,13 +3,13 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::openhuman::audio_toolkit::{
-    email_podcast, generate_and_email_podcast, generate_podcast, AudioGenerateRequest,
-    EmailPodcastRequest,
-};
 use crate::openhuman::config::Config;
 use crate::openhuman::security::{SecurityPolicy, ToolOperation};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::voice::audio_toolkit::{
+    email_podcast, generate_and_email_podcast, generate_podcast, AudioGenerateRequest,
+    EmailPodcastRequest,
+};
 
 pub struct AudioGeneratePodcastTool {
     config: Arc<Config>,
@@ -216,13 +216,17 @@ fn optional_string(args: &serde_json::Value, key: &str) -> Option<String> {
 fn optional_format(
     args: &serde_json::Value,
     key: &str,
-) -> anyhow::Result<Option<crate::openhuman::audio_toolkit::AudioFormat>> {
+) -> anyhow::Result<Option<crate::openhuman::voice::audio_toolkit::AudioFormat>> {
     let Some(raw) = args.get(key).and_then(|v| v.as_str()) else {
         return Ok(None);
     };
     match raw.trim() {
-        "mp3" => Ok(Some(crate::openhuman::audio_toolkit::AudioFormat::Mp3)),
-        "wav" => Ok(Some(crate::openhuman::audio_toolkit::AudioFormat::Wav)),
+        "mp3" => Ok(Some(
+            crate::openhuman::voice::audio_toolkit::AudioFormat::Mp3,
+        )),
+        "wav" => Ok(Some(
+            crate::openhuman::voice::audio_toolkit::AudioFormat::Wav,
+        )),
         other => Err(anyhow::anyhow!("invalid format `{other}`")),
     }
 }

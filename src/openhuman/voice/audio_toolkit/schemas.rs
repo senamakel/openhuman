@@ -3,10 +3,10 @@ use serde_json::{Map, Value};
 
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
-use crate::openhuman::audio_toolkit::types::{
+use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::voice::audio_toolkit::types::{
     AudioFormat, AudioGenerateRequest, EmailPodcastRequest,
 };
-use crate::openhuman::config::rpc as config_rpc;
 use crate::rpc::RpcOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -131,7 +131,7 @@ fn handle_generate_podcast(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let request: AudioGenerateRequest =
             serde_json::from_value(Value::Object(params)).map_err(|e| e.to_string())?;
-        to_json(crate::openhuman::audio_toolkit::generate_podcast(&config, request).await?)
+        to_json(crate::openhuman::voice::audio_toolkit::generate_podcast(&config, request).await?)
     })
 }
 
@@ -140,7 +140,7 @@ fn handle_email_podcast(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let request: EmailPodcastRequest =
             serde_json::from_value(Value::Object(params)).map_err(|e| e.to_string())?;
-        to_json(crate::openhuman::audio_toolkit::email_podcast(&config, request).await?)
+        to_json(crate::openhuman::voice::audio_toolkit::email_podcast(&config, request).await?)
     })
 }
 
@@ -165,8 +165,10 @@ fn handle_generate_and_email_podcast(params: Map<String, Value>) -> ControllerFu
             attachment_name: request.attachment_name,
         };
         to_json(
-            crate::openhuman::audio_toolkit::generate_and_email_podcast(&config, generated, email)
-                .await?,
+            crate::openhuman::voice::audio_toolkit::generate_and_email_podcast(
+                &config, generated, email,
+            )
+            .await?,
         )
     })
 }

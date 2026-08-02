@@ -264,7 +264,7 @@ Per-domain Cargo features drop whole domains **at compile time** (smaller binary
 **Slim-profile convention** (no `full` meta-feature): build slim variants with `cargo build --no-default-features --features "<explicit list of gates you want>"`. This mirrors the existing standalone-feature style (`sandbox-landlock`, `browser-native`, …). Example — everything except voice:
 
 ```bash
-# check / build without the voice + audio_toolkit domains
+# check / build without the voice family (incl. audio_toolkit)
 GGML_NATIVE=OFF cargo check --manifest-path Cargo.toml \
   --no-default-features --features tokenjuice-treesitter
 ```
@@ -309,7 +309,7 @@ whole cohort or expect a delta of 0.
 
 | Feature | Default | Gates | Drops deps |
 | ------- | ------- | ----- | ---------- |
-| `voice` | ON | `openhuman::voice` + `openhuman::audio_toolkit` domains — STT/TTS providers, dictation server, always-on listening, podcast audio + email | `hound`, `lettre` |
+| `voice` | ON | the `openhuman::voice` family (incl. `voice::audio_toolkit`) — STT/TTS providers, dictation server, always-on listening, podcast audio + email | `hound`, `lettre` |
 | `web3` | ON | `openhuman::wallet` + `openhuman::web3` + `openhuman::x402` domains — crypto wallet (multi-chain sign/broadcast), swaps/bridges/dapp calls, x402 machine payments | `bitcoin`, `curve25519-dalek` |
 | `media` | ON | `openhuman::media_generation` (the `media_generate_*` agent tools) + `openhuman::image` scaffold | none (surface-only) |
 | `meet` | ON | `openhuman::meet` (join-URL validation) + `openhuman::meet::agent` (live STT/LLM/TTS loop) + `openhuman::meet::backend_bot` (backend-delegated Meet bot over Socket.IO) | none — see note |
@@ -414,12 +414,12 @@ Leaf-gate pattern with **two ungated carve-outs and no stub file** — the reach
 
   That mattered: gating the crate out would have required stubbing ~28 items, among them `constant_time_eq`/`hash_token` (a wrong stub is a security bug) and `build_session_key_for_inbound_envelope`, which derives a **persisted** conversation key that `memory_conversations/bus.rs` writes — silent data regrouping if it ever drifted. Gate the providers, never the crate.
 
-  Two couplings to keep in mind when touching this: **`voice` also requires `tinychannels/email`**, because `audio_toolkit::ops` delivers generated podcasts through `EmailChannel` — a voice-enabled, channels-less build still needs the provider. And `providers/discord/api_tests.rs` uses `axum` for a mock server unrelated to Lark, so axum is dual-declared as a dev-dependency in tinychannels and must stay that way.
+  Two couplings to keep in mind when touching this: **`voice` also requires `tinychannels/email`**, because `voice::audio_toolkit::ops` delivers generated podcasts through `EmailChannel` — a voice-enabled, channels-less build still needs the provider. And `providers/discord/api_tests.rs` uses `axum` for a mock server unrelated to Lark, so axum is dual-declared as a dev-dependency in tinychannels and must stay that way.
 
   (`whatsapp-web` is a **refinement inside** the gate — `whatsapp-web = ["channels", "tinychannels/whatsapp-web"]`.)
 - **Two ungated carve-outs.** `pub mod traits;` (a one-line `tinychannels` `Channel`/`SendMessage` re-export) and `pub mod cli;` (`CliChannel`, a dependency-free local stdin/stdout REPL) stay compiled in **all** builds — both are reached by the always-on agent-harness interactive loop (`agent::harness::session::runtime::run_interactive`). Same shape as the `meet::agent::wav` carve-out. `channels::mod.rs` `#[cfg(feature = "channels")]`s everything else; nothing inside the gated submodules changes.
 - **The in-app web chat is NOT gated.** `openhuman::web_chat` (RPC namespace `channel`, decoupled from `channels/` in #5002 + #5003 which also moved `learning` out) is core product surface and stays always-compiled even though its runtime tag is `DomainGroup::Channels`. Its registration push in `src/core/all.rs` is deliberately left ungated; the both-ways test pins `channel` present with the feature OFF.
-- **Three mis-housed imports were retargeted to `tinychannels` (no stub needed).** `cron/bus.rs` (`Channel`/`SendMessage`/`ChannelMessage`), `memory_conversations/bus.rs` (`ChannelMessage` + `context::conversation_history_key`), and `audio_toolkit/ops.rs` (`providers::email_channel::EmailChannel`) reached the gated domain only to pick up symbols that actually live in `tinychannels`; pointing them straight at the crate removes the always-on → gated edge (and the voice→channels cross-gate edge). The old `channels::` paths were 1-line delegations / `pub use` re-exports of exactly these.
+- **Three mis-housed imports were retargeted to `tinychannels` (no stub needed).** `cron/bus.rs` (`Channel`/`SendMessage`/`ChannelMessage`), `memory_conversations/bus.rs` (`ChannelMessage` + `context::conversation_history_key`), and `voice/audio_toolkit/ops.rs` (`providers::email_channel::EmailChannel`) reached the gated domain only to pick up symbols that actually live in `tinychannels`; pointing them straight at the crate removes the always-on → gated edge (and the voice→channels cross-gate edge). The old `channels::` paths were 1-line delegations / `pub use` re-exports of exactly these.
 - **Leaf-gated call sites** (each carries its own `#[cfg]`): the 5 controller-registration pushes in `src/core/all.rs` (channels controllers, `webview_apis`, `webview_notifications`, public + internal `whatsapp_data`), the `ChannelInboundSubscriber` + web-only-proactive block in `src/core/jsonrpc.rs`, `spawn_channels_service` in `src/core/runtime/services.rs`, the `whatsapp_data::global::init` block in `src/core/runtime/context.rs`, and the `whatsapp_data::tools::*` glob + 3 `WhatsAppData*Tool` registrations in `src/openhuman/tools/{mod,ops}.rs`. The `webview_accounts` / `webview_apis` / `webview_notifications` / `whatsapp_data` `pub mod` declarations in `src/openhuman/mod.rs` are leaf-gated too. String-match arms (`"channels" =>` descriptions, `whatsapp_data_` in `group_for_namespace`) stay **ungated** — they are data.
 - **`start_bootstrap_jobs`' `services.channels` block keeps running slim** — it drives composio sync / workspace-memory sync / orchestration drain and names **no** `channels::` symbol, so it stays ungated by design.
 - **No CLI change.** There is no `openhuman channels` subcommand; generic namespace resolution yields "unknown namespace" when off (the `flows` precedent — acceptable).

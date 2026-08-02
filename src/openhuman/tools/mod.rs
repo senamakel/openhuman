@@ -14,8 +14,6 @@ pub use crate::openhuman::agent::tools::*;
 pub use crate::openhuman::agent_memory::tools::*;
 pub use crate::openhuman::agent_orchestration::tools::*;
 pub use crate::openhuman::artifacts::tools::*;
-#[cfg(feature = "voice")]
-pub use crate::openhuman::audio_toolkit::tools::*;
 pub use crate::openhuman::composio::tools::*;
 pub use crate::openhuman::config::tools::*;
 pub use crate::openhuman::cost::tools::*;
@@ -61,6 +59,8 @@ pub use crate::openhuman::task_sources::tools::*;
 pub use crate::openhuman::threads::tools::*;
 pub use crate::openhuman::tinyplace::tools::*;
 pub use crate::openhuman::todos::tools::*;
+#[cfg(feature = "voice")]
+pub use crate::openhuman::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]
 pub use crate::openhuman::wallet::tools::*;
 #[cfg(feature = "channels")]

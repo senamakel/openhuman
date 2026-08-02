@@ -24,8 +24,6 @@ pub mod agent_tool_policy;
 pub mod agentbox;
 pub mod approval;
 pub mod artifacts;
-#[cfg(feature = "voice")]
-pub mod audio_toolkit;
 pub mod channels;
 pub mod composio;
 pub mod config;

@@ -220,7 +220,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Voice,
-        crate::openhuman::audio_toolkit::all_audio_toolkit_registered_controllers(),
+        crate::openhuman::voice::audio_toolkit::all_audio_toolkit_registered_controllers(),
     );
     // Composio integration controllers
     push(

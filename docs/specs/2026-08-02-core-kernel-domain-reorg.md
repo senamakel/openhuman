@@ -162,7 +162,7 @@ renames.
 | `mcp/` *(new)* | `mcp_server→server`, `mcp_registry→registry`, `mcp_audit→audit`, `mcp_client::{registry,stdio,spawn_env,setup_agent}→config_servers`, `mcp_client::{client,client_helpers}→http_client` *(ungated carve-out)*, `mcp_client::sanitize→util/sanitize` |
 | `channels/` | `whatsapp_data`, `webview_accounts` |
 | `meet/` | ✅ **landed** — `meet_agent→agent`, `agent_meetings→backend_bot` |
-| `voice/` | `audio_toolkit` |
+| `voice/` | ✅ **landed** — `audio_toolkit`; parent stays ungated (facade + `stub.rs`), gate pushed onto the child |
 | `web3/` | `wallet`, `x402` |
 | `media/` *(new)* | ✅ **landed** — `media_generation→generation`, `image`; parent is leaf-gated on `media` since both children were wholly gated |
 | `medulla/` | `medulla_chat→chat` |

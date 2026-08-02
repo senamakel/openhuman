@@ -20,6 +20,7 @@
 //! tinyagents harness.
 
 pub(crate) mod abort_guard;
+pub mod config;
 mod convert;
 pub(crate) mod delegation;
 mod embeddings;

@@ -202,11 +202,40 @@ shadow-read parity, mismatch logged never panicked, legacy `DDMMYYYY/` and
 `read_transcript_legacy_md` paths covered.
 *Exit:* resume works across upgrade on a real workspace; parity soak clean.
 
-**Phase 3 — Config mapping (§4.1 Option A).**
+**Phase 3 — Config mapping (§4.1 Option A).** — *in progress (2026-08-02)*
 Introduce crate config structs + a host `session_config_from(&Config)` mapper.
 Repoint `agent/` internals to the crate structs *in place*, before moving.
 *Exit:* zero `crate::openhuman::config::` references inside the code slated to
 move.
+
+Landed so far — foundation only, nothing repointed yet:
+
+- `tinyagents::harness::config` — `SessionConfig`, `TurnConfig`, `ToolConfig`,
+  `MemoryLimits`, `RequiredOutput`, `ToolDispatcher`. Inert (serde + std only),
+  defaults pinned to OpenHuman's current values.
+- `src/openhuman/tinyagents/config.rs` — `session_config_from` plus
+  `apply_team_models` / `apply_delegate`, following the
+  `tinycortex::config::memory_config_from` precedent. Split three ways because
+  OpenHuman's model pins are **not global**: `Config::teams` is keyed by team
+  and `Config::agents` by delegate, so one flat mapper would have to invent the
+  model for a session.
+- 23 tests across both sides. The load-bearing one is
+  `default_config_maps_to_the_crate_defaults`, which fails if the two default
+  sets ever drift.
+
+Measured surface (`agent/` production only, excluding tests): **71 distinct
+config field accesses across 37 files**. Note the spec's headline "195 refs"
+counts fully-qualified paths including tests; the production surface the
+repoint actually has to cover is smaller than that number suggests.
+
+Remaining for Phase 3: repoint those 37 files, then assert the exit condition.
+
+`ToolDispatcher` is an enum where the host has a `String`. The four accepted
+spellings are `auto` / `native` / `xml` / `pformat` — **not** the
+`auto`/`native`/`parsed` triple a reasonable person would guess. An unknown
+value maps to `Auto` with a warning rather than failing: the host's own schema
+lets a typo through validation, so refusing to build the session would turn a
+cosmetic config error into an agent that cannot run.
 
 **Phase 4 — Implement the traits host-side, still in place.**
 `MemoryProvider`, `ContextComposer`, `SecurityGate`, `BudgetGate`,

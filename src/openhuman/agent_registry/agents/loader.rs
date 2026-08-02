@@ -1895,6 +1895,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "prediction-markets")]
     fn markets_agent_has_narrow_prediction_market_tools_and_safety_on() {
         let def = find("markets_agent");
         // Hint must be agentic — the agent reasons about market shape vs.

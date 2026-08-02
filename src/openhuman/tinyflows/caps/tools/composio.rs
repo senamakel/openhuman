@@ -205,12 +205,11 @@ impl ToolBackend for ComposioToolBackend {
             }
             ComposioClientKind::Direct(tool) => {
                 match &resolved_account {
-                    Some((id, Some((toolkit, label)))) => tracing::info!(
+                    Some((id, Some((toolkit, _label)))) => tracing::info!(
                         target: "flows",
                         %slug,
                         connection_id = %id,
                         %toolkit,
-                        account = label.as_deref().unwrap_or("<unlabeled>"),
                         "[flows] tool_call: executing against the resolved connected account"
                     ),
                     Some((id, None)) => tracing::warn!(

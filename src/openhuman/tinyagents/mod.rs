@@ -44,8 +44,10 @@ pub mod todos;
 pub(crate) mod tools;
 mod topology;
 
+pub(crate) use crate::openhuman::agent::message_convert::chat_message_to_message;
+#[cfg(feature = "flows")]
 pub(crate) use crate::openhuman::agent::message_convert::{
-    chat_message_to_message, reasoning_from_content, ta_call_to_oh_call,
+    reasoning_from_content, ta_call_to_oh_call,
 };
 use std::sync::Arc;
 

@@ -1,0 +1,293 @@
+# Core kernelization, part 2 — the domain-family reorg
+
+**Status:** in progress · **Date:** 2026-08-02 · **Scope:** `src/openhuman/**`
+**Companions:** [`kernel.md`](kernel.md) (the subsystem/driver model this feeds into) ·
+[`../plans/pluggable-core/README.md`](../plans/pluggable-core/README.md) (the host-side
+`CoreBuilder`/`CoreContext` work) · `AGENTS.md` § *Compile-time domain gates*
+
+---
+
+## 1. Where the program stands
+
+The kernelization program has two halves. **The dependency half is largely done**; the
+**structural half has not started**.
+
+### Done (#4795 epic, then #5314)
+
+`#5314` took the `--no-default-features --features flows` profile from **418 → 280** unique crate
+names by gating dependency cohorts, and — more importantly — **built the ruler**:
+
+| Tool | What it does | CI-wired? |
+| --- | --- | --- |
+| `scripts/kernel-floor.sh` | Counts packages / unique names / native-toolchain builds for a profile | via the checker |
+| `scripts/kernel-floor.limits` | The ratchet. Only goes down; raising a number needs written justification | yes |
+| `scripts/check-kernel-floor.sh` | Fails CI when a profile exceeds its limit | `ci-lite.yml:460` |
+| `scripts/assert-shed.sh` | Proves a crate is absent from the **normal** edge graph | manual |
+| `scripts/ci/check-feature-forwarding.mjs` | Fails when a default-ON gate is not forwarded to the desktop shell | yes |
+
+> **`assert-shed.sh`, not `cargo tree -i`.** The older checklists (including the first draft of
+> this plan) said to prove a shed with `cargo tree -i <crate>`. That is wrong twice over: it
+> *exits non-zero* when the crate is absent, so a naive `if` inverts the result; and `-i` resolves
+> against the whole package set, so a crate that survives only as a dev-dependency is reported as
+> present. Use `scripts/assert-shed.sh <profile> <crate>...`.
+
+Current floor, measured 2026-08-02: **312 packages / 285 names / 6 native**
+(`aws-lc-sys`, `libgit2-sys`, `libsqlite3-sys`, `libz-sys`, `lzma-sys`, `ring`).
+Stated target: **222 names / 2 native** (`libsqlite3-sys`, `ring`).
+
+The 312/285 line is above the 280 low-water mark because merging `origin/main` inherited +5 names
+from unrelated upstream work (#5232 SDK vendoring, #5202/#5233 backend-client refactors). All
+seventeen previously-shed crates were re-asserted absent. Do not raise it again without re-running
+that assertion — a merge silently re-adding a shed crate looks identical to upstream growth if you
+only compare totals.
+
+### Not done — the structural half
+
+`src/openhuman/` is still **124 flat directories** plus two root-level `*.rs` files
+(`util.rs`, `dev_paths.rs`) that violate the AGENTS.md "no new root-level `*.rs`" rule. Only
+**12 of them carry a module-level `#[cfg]`**. A single capability is spread across sibling
+top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` is 3 — so every gate
+means `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
+(`DomainGroup`, `DomainSet`, `StoreInitPlan`, `DomainSubscriberPlan`, `tool_group()`).
+
+**That is what this document is about.** The remaining dependency sheds are blocked on it or are
+cross-repo; the structural work is what makes the next twenty gates cheap instead of expensive.
+
+---
+
+## 2. The organizing rule
+
+> **A family directory exists if and only if its members would be compiled out together.**
+
+Family boundary == future gate boundary. Directories whose names merely rhyme do not merge
+(`orchestration` vs `agent_orchestration`; `web_chat` is **not** part of `channels`).
+
+Kernel vs subsystem is decided by [`kernel.md`](kernel.md) §4: *would a build whose only driver is
+a third-party external backend still need this file?* Yes → kernel. No → subsystem.
+
+### Why the move is safe
+
+RPC namespaces are **string literals in `ControllerSchema`**, not derived from module paths. So
+the `/rpc` surface, `/schema` output, agent-tool names, `DomainEvent::domain()`, and the frontend
+catalog are **byte-identical after a move**. All `include_str!`/`include_bytes!` sites and all
+`#[path = "…"]` attributes are intra-directory and travel with their directory. There are zero
+`module_path!()` call sites in `src/`.
+
+Corollary, and the pilot proved it: after moving `agent_meetings` → `meet/backend_bot`, the
+namespace string is still `"agent_meetings"`. **Do not "fix" namespace strings to match new
+paths** — directory layout and wire surface are independent axes.
+
+### Rules for a move PR
+
+- One PR per family. `git mv` + a mechanical path rewrite. No logic change, no behaviour change.
+  If a hunk isn't a path, it doesn't belong in the PR.
+- **No `pub use` transition shims.** The compiler catches 100% of intra-crate breakage.
+  `src/openhuman/heartbeat/` is the standing counter-example: a 10-line shim added "so external
+  paths keep compiling without a crate-wide rename", still there, still with live call sites.
+  Worse, a shim is an always-compiled `pub mod` re-exporting into a gated tree, which defeats the
+  gate.
+- Do not touch `DomainGroup`/`DomainSet`. That realignment is Phase 5 and needs its own tests.
+- **A `#[cfg]` may move, but the compiled set may not change.** Nesting a facade+stub domain under
+  a leaf-gated parent forces the parent to become a facade (see the pilot). That is a mechanical
+  consequence, not a behaviour change, and the both-ways tests prove it.
+
+---
+
+## 3. Pilot — `meet/` (landed)
+
+```
+src/openhuman/meet_agent/     -> src/openhuman/meet/agent/
+src/openhuman/agent_meetings/ -> src/openhuman/meet/backend_bot/
+```
+
+Chosen as the pilot because it is the smallest family that already has a gate *and* exercises all
+three module patterns at once: `meet` was leaf-gated, `meet/agent` is leaf-gated internally, and
+`meet/backend_bot` is facade+stub with three always-compiled callers.
+
+It surfaced the one non-obvious rule above: `pub mod meet;` had to become **ungated**, with the
+`#[cfg(feature = "meet")]` pushed down onto each submodule in `meet/mod.rs`, because
+`backend_bot`'s stub must resolve in a `meet`-less build. Same set of items compiles either way.
+
+Verification that a family-move PR must reproduce:
+
+```bash
+GGML_NATIVE=OFF cargo check --all-targets
+GGML_NATIVE=OFF cargo check --lib --no-default-features --features tokenjuice-treesitter
+GGML_NATIVE=OFF cargo check --manifest-path app/src-tauri/Cargo.toml
+GGML_NATIVE=OFF cargo test --lib core::                                             # gates on
+GGML_NATIVE=OFF cargo test --lib --no-default-features \
+  --features tokenjuice-treesitter core::                                           # gates off
+cargo fmt --check
+bash scripts/check-kernel-floor.sh --verbose      # must not move
+node scripts/ci/check-feature-forwarding.mjs
+node scripts/generate-test-inventory.mjs --check  # keyed on namespaces, so it should pass unchanged
+```
+
+Expect `cargo fmt` fallout: longer paths re-wrap imports. That is the whole diff outside the
+renames.
+
+---
+
+## 4. Target tree — 124 dirs + 2 root files → ~30 dirs + 0 root files
+
+### Subsystems (gateable families)
+
+| Family | Absorbs |
+| --- | --- |
+| `memory/` | `memory_store→store`, `memory_sync→sync`, `memory_tree→tree`, `memory_search→search`, `memory_sources→sources`, `memory_queue→queue`, `memory_diff→diff`, `memory_goals→goals`, `memory_conversations→conversations`, `memory_tools→tool_memory`, `tinycortex`, `agent_memory→agent`, `people` |
+| `agent/` | `agent_experience→experience`, `agent_orchestration→orchestration`, `agent_registry→registry`, `agentbox`, `harness_init`, `session_db`, `session_import`, `context`, `profiles`, `learning`, `plan_review`, `file_state`, `artifacts`, `tinyagents` |
+| `inference/` | `embeddings`, `tokenjuice` |
+| `skills/` | `skill_registry→registry`, `skill_runtime→runtime`, `webhooks` |
+| `flows/` | `tinyflows`, `rhai_workflows→rhai` |
+| `mcp/` *(new)* | `mcp_server→server`, `mcp_registry→registry`, `mcp_audit→audit`, `mcp_client::{registry,stdio,spawn_env,setup_agent}→config_servers`, `mcp_client::{client,client_helpers}→http_client` *(ungated carve-out)*, `mcp_client::sanitize→util/sanitize` |
+| `channels/` | `whatsapp_data`, `webview_accounts` |
+| `meet/` | ✅ **landed** — `meet_agent→agent`, `agent_meetings→backend_bot` |
+| `voice/` | `audio_toolkit` |
+| `web3/` | `wallet`, `x402` |
+| `media/` *(new)* | `media_generation→generation`, `image` |
+| `medulla/` | `medulla_chat→chat` |
+| `runtime/` *(new)* | `runtime_node→node`, `runtime_python→python`, `runtime_python_server→python_server`, `runtime_pool→pool`, `javascript` |
+| `integrations/` | `composio`, `recall_calendar`, `file_storage`, `task_sources` |
+| `hosted/` *(new)* | `billing`, `referral`, `announcements`, `team`, `orchestration` |
+| `desktop/` *(new)* | `accessibility`, `overlay`, `dashboard`, `provider_surfaces`, `notifications`, `app_state` |
+| `subconscious/` | `subconscious_triggers→triggers`, `monitor→monitors`; **delete the `heartbeat/` shim** |
+| standalone | `search/`, `tinyplace/`, `web_chat/`, `http_host/`, `test_support/` |
+
+### Kernel (never gated)
+
+| Family | Absorbs |
+| --- | --- |
+| `config/` | `migrations`, `migration→migration_helpers`, `workspace` |
+| `security/` | `approval`, `credentials`, `keyring`, `keyring_consent`, `encryption`, `prompt_injection`, `devices` |
+| `tools/` | `tool_registry→registry`, `tool_status→status`, `tool_timeout→timeout`, `agent_tool_policy→agent_policy` |
+| `platform/` *(new)* | `service`, `startup`, `update`, `doctor`, `health`, `proc_metrics`, `connectivity`, `about_app`, `cost`, `socket` |
+| `threads/` | `thread_goals→goals`, `todos` |
+| `cron/` | `scheduler_gate` |
+| `sandbox/` | `cwd_jail` |
+| `util/` *(new)* | `util.rs→util/mod.rs` (+ split), `tls`, `mcp_client::sanitize`; **delete `dev_paths.rs`** (verified zero call sites) |
+
+### Name collisions — dodge, don't pay
+
+`memory/` already contains `sync.rs` and `tools/`. Renaming `memory → memory/core` costs ~545
+import rewrites; instead rename `memory/sync.rs → memory/sync_events.rs` (6 external refs) and
+land `memory_tools` as `memory/tool_memory/` (3 refs). Likewise `agent/tool_policy.rs` already
+exists, so `agent_tool_policy` goes to `tools/agent_policy/`; `agent/cost.rs` exists, so `cost`
+goes to `platform/`.
+
+### Must not move / must not change
+
+1. **`web_chat/` stays top-level** — deliberately decoupled from `channels` in #5002/#5003;
+   always-compiled despite its `DomainGroup::Channels` tag; the channels both-ways test asserts
+   `channel` survives with the feature OFF.
+2. `channels::{traits, cli}` stay ungated carve-outs — reached by the always-on
+   `agent::harness::session::runtime::run_interactive`.
+3. `skills::{types, ops_types}` stay ungated and stay put — ~236 files consume `ToolResult` /
+   `ToolContent` through `tools/traits.rs`. This is the largest import fan-out in the crate.
+4. `tools/` ownership rule untouched — domain tools stay in each domain's `tools.rs`, re-exported
+   through the globs in `tools/mod.rs`. Only the glob's *path* changes.
+5. `mcp_registry::types`, `mcp_audit::types`, `mcp_server::tools::types` stay ungated.
+6. `tinyplace/` does **not** go under `web3/` — its signer works via ed25519 independently.
+7. Do not merge `migration/` into `migrations/` during a move (pure moves only).
+8. **`scripts/ci/orch-ip-gate.sh` hard-codes `src/openhuman/orchestration/…` and
+   `src/openhuman/subconscious/profiles/tinyplace.rs`, and fails *open* on a wrong path.** Update
+   it in the same PR as the `hosted/` and `subconscious/` moves or the IP-leak gate goes silently
+   dead.
+9. `scripts/agent-batch/` specs use `owned_paths: ["src/openhuman/<dom>/"]` — sweep live specs.
+
+### Order
+
+1. ✅ `meet/` — pilot.
+2. `util/` + `sandbox/` + `cron/` — clears both root `*.rs` violations, deletes dead
+   `dev_paths.rs`, relocates `sanitize` out of `mcp_client`.
+3. `runtime/`, `media/`, `desktop/`, `hosted/`, `subconscious/` — new parents, no existing gates.
+4. `voice/`, `web3/`, `medulla/`, `flows/`, `channels/` — existing gates; each validates that its
+   `stub.rs` survives relocation.
+5. `mcp/` — the only family with a genuine *split*; after the pure moves prove the tooling.
+6. `threads/`, `tools/`, `platform/`, `config/`, `integrations/`, `skills/`, `inference/`.
+7. `security/`.
+8. `agent/`.
+9. `memory/` — **last**, deliberately: it is [`kernel.md`](kernel.md) §5's pilot subsystem, so its
+   layout gets drawn with the driver contract in hand rather than guessed.
+
+Rationale for biggest-last: the tooling (rewrite script, check matrix, PR template) gets proven on
+fifteen cheap families before being pointed at the two that are ~57% of the total churn.
+
+---
+
+## 5. Remaining dependency sheds
+
+Target is 6 → 2 native builds. Four of the six are addressable, and two of those are unblocked by
+the reorg:
+
+| Native crate | Owner | Gate | Status |
+| --- | --- | --- | --- |
+| `libgit2-sys` (via `git2`) | `memory_store/content/wiki_git` **and** `tinycortex/git-diff` | `memory-git` | **cross-repo** — see below |
+| `lzma-sys` (via `xz2`) | `runtime_node/extractor.rs` only | `runtime-node` | ready; do with the `runtime/` move |
+| `libz-sys` | shared (`flate2`/`zip`/`git2`) | — | partly falls out of the above |
+| `aws-lc-sys` | TLS stack | — | needs a rustls-provider decision, own slice |
+| `libsqlite3-sys`, `ring` | kernel | — | **target keeps these** |
+
+Also ready, no native build: `objc2-contacts` (macOS, sole owner `people/address_book.rs`) behind
+a `contacts` gate.
+
+### `memory-git` is a cross-repo change
+
+`vendor/tinycortex` is its own submodule (`tinyhumansai/tinycortex`) and the root pins it with
+`features = ["git-diff", …]`, so gating the host's `wiki_git` alone sheds nothing — `git2` still
+arrives through the crate. The host's `memory_diff` domain also re-exports
+`tinycortex::memory::diff::*`, which lives behind that same feature, and has two real
+non-registration callers (`subconscious/profiles/memory.rs`, `memory_sources/sync.rs`).
+
+The clean shape, and the vendor crate is already 90% of the way there —
+`vendor/tinycortex/src/memory/diff/types.rs` exists and `git2` is confined to `ledger.rs` +
+`ledger_helpers.rs`:
+
+1. **tinycortex PR** — carve `memory::diff::{types, source, snapshot, checkpoint, diff}` out from
+   behind `git-diff`, leaving only `ledger`/`ledger_helpers`/`DiffEngine` gated. Same "inert types
+   stay ungated, only behaviour gates" rule the `skills` and `mcp` gates follow.
+2. **openhuman PR** — `memory-git = ["dep:git2", "tinycortex/git-diff"]`; pin tinycortex with
+   `default-features = false, features = ["persona", "sync"]`; leaf-gate host `wiki_git`; make
+   `memory_diff` facade+stub with `types` ungated so the two callers need no `#[cfg]`.
+3. Bump the gitlink; lower `kernel-floor.limits` in the same PR.
+
+Off-state semantics: wiki content is still written to disk, just not versioned; diff/checkpoint
+RPCs are unregistered and the `MemoryDiffTool` is absent.
+
+---
+
+## 6. Superseded by #5314 — do not re-do
+
+- A `check-gate-sheds.mjs` that parses `# SHEDS:` comments → **`assert-shed.sh` +
+  the `kernel-floor.limits` ratchet already cover this**, and the ratchet is the stronger guard: a
+  gate that stops shedding raises the floor and fails CI.
+- A binary-size budget lane → **`check-kernel-floor.sh` is wired at `ci-lite.yml:460`** and counts
+  crates/native builds, which is a better proxy for an embeddable library than stripped bytes.
+- Making `enigo`/`arboard`/`rdev` optional, the Polymarket/ethers cohort, `starship-battery` →
+  all landed in #5314.
+
+## 7. Out of scope — do not re-litigate
+
+- **Gating `agent` wholesale** — `agent::harness` has ~448 external references; `tools/`,
+  `web_chat`, and `medulla_session` all depend on it. The harness *is* the kernel's execution engine.
+- **Gating `tools` wholesale** — `tools::traits` has ~248 external references. Kernel, permanently.
+  Only the `tools/impl/*` families gate.
+- **Gating `memory` wholesale** — it becomes a subsystem *slot* ([`kernel.md`](kernel.md) §5), not
+  a feature.
+- **Dropping `keyring`, `rusqlite`, `tinyagents`, `tinychannels`, `tinycortex`, `tinyplace`** —
+  load-bearing across always-on domains. `tinychannels` in particular was addressed by gating
+  *providers inside the vendored crate* (`email`, `lark`), not by gating the crate out; repeat
+  that shape rather than proposing the crate-level gate again.
+
+---
+
+## 8. Definition of done
+
+1. `src/openhuman/` is ~30 directories, zero root-level `*.rs` besides `mod.rs`.
+2. Every family directory maps 1:1 to a gate or is declared kernel in this document.
+3. `kernel-floor.limits` reaches 222 names / 2 native.
+4. Each gate has both-ways tests in `src/core/all_tests.rs` and `tools/ops_tests.rs`.
+5. `DomainGroup` gains at most four variants (`Integrations`, `Automation`, `Relay`, `Runtimes`);
+   the rest stay `Platform` at the runtime axis. `DomainSet::kernel()` exists, with
+   `examples/embed_kernel.rs`.
+6. Hand off to [`kernel.md`](kernel.md)'s subsystem registry (`src/core/subsystem/`, `Driver`,
+   `Guard`, `subsystems_status`).

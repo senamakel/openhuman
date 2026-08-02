@@ -428,6 +428,7 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
 /// whatever destination the first caller chose — still never stderr from *this*
 /// path. Returns the resolved log directory on success (for a status line), or
 /// `None` when the file appender could not be created.
+#[allow(unused_variables)]
 pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
     INIT.call_once(|| {
         let scope = CliLogDefault::Global;

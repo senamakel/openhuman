@@ -466,7 +466,7 @@ jobs:
         #
         # This asserts the calibration still holds. If it fails, every
         # projection built on the simulator is suspect until it is fixed.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 418
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 285
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on

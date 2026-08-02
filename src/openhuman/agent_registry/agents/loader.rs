@@ -114,6 +114,18 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::flow_memory_agent::prompt::build,
         graph_fn: None,
     },
+    // `markets_agent`'s only implemented venue tool is `polymarket`
+    // (`kalshi` is named in its allowlist but has no
+    // `src/openhuman/tools/impl/network/kalshi.rs` implementation yet). With
+    // `prediction-markets` compiled out, `polymarket` is unregistered
+    // (`all_web3_agent_tools` / `tools/ops.rs`), so an unconditional
+    // markets_agent would be a dead delegation surface — the orchestrator
+    // would route `do_prediction_markets` to a worker with zero working
+    // venue tools. Gate it like the other tool-backed specialists
+    // (`crypto_agent` is intentionally NOT gated behind `web3` because its
+    // wallet-status/read tools degrade gracefully via the web3 stub;
+    // markets_agent has no such stub path, so absence is correct here).
+    #[cfg(feature = "prediction-markets")]
     BuiltinAgent {
         id: "markets_agent",
         toml: include_str!("markets_agent/agent.toml"),

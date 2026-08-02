@@ -415,7 +415,8 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("trigger_triage", 2),
         ("video_agent", 8),
         ("vision_agent", 6),
-        // Unchanged.
+        // Compiled out with the `documents` gate — see `openhuman::agent_registry::agents::loader::builtin_enabled`.
+        #[cfg(feature = "documents")]
         ("presentation_agent", 10),
         // Compiled out with the `skills` gate — see `openhuman::skills::stub`.
         #[cfg(feature = "skills")]

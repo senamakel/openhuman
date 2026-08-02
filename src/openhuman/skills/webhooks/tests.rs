@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use base64::Engine;
 use serde_json::json;
 
-use crate::openhuman::webhooks::{ops::build_echo_response, WebhookRequest};
+use crate::openhuman::skills::webhooks::{ops::build_echo_response, WebhookRequest};
 
 #[test]
 fn echo_response_round_trips_request_payload() {

@@ -21,7 +21,7 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::Duration;
 
 use crate::api::models::socket::{ConnectionStatus, SocketState};
-use crate::openhuman::webhooks::WebhookRouter;
+use crate::openhuman::skills::webhooks::WebhookRouter;
 
 use super::token_provider::{static_token_provider, TokenProvider};
 use super::ws_loop::ws_loop;

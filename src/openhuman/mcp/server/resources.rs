@@ -274,14 +274,14 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         uri: "openhuman://prompts/agents/skill_setup",
         name: "skill_setup",
         description: "Worker that guides skill installation and backend configuration.",
-        content: include_str!("../../skill_registry/agent/skill_setup/prompt.md"),
+        content: include_str!("../../skills/catalog/agent/skill_setup/prompt.md"),
     },
     #[cfg(feature = "skills")]
     PromptResource {
         uri: "openhuman://prompts/agents/skill_executor",
         name: "skill_executor",
         description: "Sandboxed worker that runs installed skill packages.",
-        content: include_str!("../../skill_runtime/agent/skill_executor/prompt.md"),
+        content: include_str!("../../skills/runtime/agent/skill_executor/prompt.md"),
     },
 ];
 

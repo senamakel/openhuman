@@ -2,7 +2,7 @@ use crate::api::config::effective_backend_api_url;
 use crate::api::jwt::get_session_token;
 use crate::api::BackendOAuthClient;
 use crate::openhuman::config::Config;
-use crate::openhuman::webhooks::{
+use crate::openhuman::skills::webhooks::{
     WebhookDebugLogListResult, WebhookDebugLogsClearedResult, WebhookDebugRegistrationsResult,
     WebhookRequest, WebhookResponseData,
 };
@@ -42,7 +42,8 @@ async fn get_authed_value(
 
 /// Retrieve the global webhook router, returning an error if the socket
 /// manager or router is not yet initialised.
-fn get_router() -> Result<std::sync::Arc<crate::openhuman::webhooks::WebhookRouter>, String> {
+fn get_router() -> Result<std::sync::Arc<crate::openhuman::skills::webhooks::WebhookRouter>, String>
+{
     crate::openhuman::platform::socket::global_socket_manager()
         .ok_or_else(|| "socket manager not initialized".to_string())?
         .webhook_router()

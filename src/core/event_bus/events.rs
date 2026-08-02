@@ -780,7 +780,7 @@ pub enum DomainEvent {
     // ── Webhooks ────────────────────────────────────────────────────────
     /// An incoming webhook request from the transport layer, ready for routing.
     WebhookIncomingRequest {
-        request: crate::openhuman::webhooks::WebhookRequest,
+        request: crate::openhuman::skills::webhooks::WebhookRequest,
         raw_data: serde_json::Value,
     },
     /// A webhook was received and routed to a skill.

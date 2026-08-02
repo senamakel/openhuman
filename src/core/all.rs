@@ -493,13 +493,13 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Skills,
-        crate::openhuman::skill_runtime::all_skill_runtime_registered_controllers(),
+        crate::openhuman::skills::runtime::all_skill_runtime_registered_controllers(),
     );
     // Skill registry: browse, search, install from remote registries
     push(
         &mut controllers,
         DomainGroup::Skills,
-        crate::openhuman::skill_registry::all_skill_registry_registered_controllers(),
+        crate::openhuman::skills::catalog::all_skill_registry_registered_controllers(),
     );
     // User workspace and file management
     push(
@@ -649,7 +649,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::webhooks::all_webhooks_registered_controllers(),
+        crate::openhuman::skills::webhooks::all_webhooks_registered_controllers(),
     );
     // Core binary update management
     push(

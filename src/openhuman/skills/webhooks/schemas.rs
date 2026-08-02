@@ -378,25 +378,27 @@ pub fn schemas(function: &str) -> ControllerSchema {
 }
 
 fn handle_list_registrations(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async { to_json(crate::openhuman::webhooks::ops::list_registrations().await?) })
+    Box::pin(async {
+        to_json(crate::openhuman::skills::webhooks::ops::list_registrations().await?)
+    })
 }
 
 fn handle_list_logs(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<WebhookListLogsParams>(params)?;
-        to_json(crate::openhuman::webhooks::ops::list_logs(payload.limit).await?)
+        to_json(crate::openhuman::skills::webhooks::ops::list_logs(payload.limit).await?)
     })
 }
 
 fn handle_clear_logs(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async { to_json(crate::openhuman::webhooks::ops::clear_logs().await?) })
+    Box::pin(async { to_json(crate::openhuman::skills::webhooks::ops::clear_logs().await?) })
 }
 
 fn handle_register_echo(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<WebhookRegisterEchoParams>(params)?;
         to_json(
-            crate::openhuman::webhooks::ops::register_echo(
+            crate::openhuman::skills::webhooks::ops::register_echo(
                 &payload.tunnel_uuid,
                 payload.tunnel_name,
                 payload.backend_tunnel_id,
@@ -409,7 +411,9 @@ fn handle_register_echo(params: Map<String, Value>) -> ControllerFuture {
 fn handle_unregister_echo(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<WebhookUnregisterEchoParams>(params)?;
-        to_json(crate::openhuman::webhooks::ops::unregister_echo(&payload.tunnel_uuid).await?)
+        to_json(
+            crate::openhuman::skills::webhooks::ops::unregister_echo(&payload.tunnel_uuid).await?,
+        )
     })
 }
 
@@ -417,7 +421,7 @@ fn handle_register_agent(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<WebhookRegisterAgentParams>(params)?;
         to_json(
-            crate::openhuman::webhooks::ops::register_agent(
+            crate::openhuman::skills::webhooks::ops::register_agent(
                 &payload.tunnel_uuid,
                 payload.agent_id,
                 payload.tunnel_name,
@@ -435,7 +439,7 @@ fn handle_trigger_agent(params: Map<String, Value>) -> ControllerFuture {
         let reason = payload.reason.as_deref().unwrap_or("rpc_trigger");
         let trigger_payload = payload.payload.unwrap_or_else(|| serde_json::json!({}));
         to_json(
-            crate::openhuman::webhooks::ops::trigger_agent(
+            crate::openhuman::skills::webhooks::ops::trigger_agent(
                 source,
                 &payload.caller_id,
                 reason,
@@ -449,7 +453,7 @@ fn handle_trigger_agent(params: Map<String, Value>) -> ControllerFuture {
 fn handle_list_tunnels(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::webhooks::ops::list_tunnels(&config).await?)
+        to_json(crate::openhuman::skills::webhooks::ops::list_tunnels(&config).await?)
     })
 }
 
@@ -458,7 +462,7 @@ fn handle_create_tunnel(params: Map<String, Value>) -> ControllerFuture {
         let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
         let payload = deserialize_params::<WebhookCreateTunnelParams>(params)?;
         to_json(
-            crate::openhuman::webhooks::ops::create_tunnel(
+            crate::openhuman::skills::webhooks::ops::create_tunnel(
                 &config,
                 payload.name.trim(),
                 payload.description,
@@ -472,7 +476,10 @@ fn handle_delete_tunnel(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
         let payload = deserialize_params::<WebhookTunnelIdParams>(params)?;
-        to_json(crate::openhuman::webhooks::ops::delete_tunnel(&config, payload.id.trim()).await?)
+        to_json(
+            crate::openhuman::skills::webhooks::ops::delete_tunnel(&config, payload.id.trim())
+                .await?,
+        )
     })
 }
 
@@ -480,7 +487,9 @@ fn handle_get_tunnel(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
         let payload = deserialize_params::<WebhookTunnelIdParams>(params)?;
-        to_json(crate::openhuman::webhooks::ops::get_tunnel(&config, payload.id.trim()).await?)
+        to_json(
+            crate::openhuman::skills::webhooks::ops::get_tunnel(&config, payload.id.trim()).await?,
+        )
     })
 }
 
@@ -500,8 +509,12 @@ fn handle_update_tunnel(params: Map<String, Value>) -> ControllerFuture {
         }
         let body = Value::Object(body);
         to_json(
-            crate::openhuman::webhooks::ops::update_tunnel(&config, payload.id.trim(), body)
-                .await?,
+            crate::openhuman::skills::webhooks::ops::update_tunnel(
+                &config,
+                payload.id.trim(),
+                body,
+            )
+            .await?,
         )
     })
 }
@@ -509,7 +522,7 @@ fn handle_update_tunnel(params: Map<String, Value>) -> ControllerFuture {
 fn handle_get_bandwidth(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
-        to_json(crate::openhuman::webhooks::ops::get_bandwidth(&config).await?)
+        to_json(crate::openhuman::skills::webhooks::ops::get_bandwidth(&config).await?)
     })
 }
 

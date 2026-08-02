@@ -9,7 +9,7 @@ icon: plug
 
 # MCP Registry (`src/openhuman/mcp/registry/`)
 
-`src/openhuman/mcp/registry/` is the **dynamic, user-facing** half of OpenHuman's Model Context Protocol client support. It lets a user browse the supported upstream registries (Smithery and the official modelcontextprotocol registry), install a chosen server, persist that choice to SQLite, and (for servers launched as local subprocesses or HTTP-remote endpoints) supervise the connection lifecycle. Installed servers' tools are surfaced to agents via the unified tool registry (`crate::openhuman::tool_registry`).
+`src/openhuman/mcp/registry/` is the **dynamic, user-facing** half of OpenHuman's Model Context Protocol client support. It lets a user browse the supported upstream registries (Smithery and the official modelcontextprotocol registry), install a chosen server, persist that choice to SQLite, and (for servers launched as local subprocesses or HTTP-remote endpoints) supervise the connection lifecycle. Installed servers' tools are surfaced to agents via the unified tool registry (`crate::openhuman::tools::registry`).
 
 > **Naming note**: the Rust module path is `mcp_registry`, but the RPC namespace and on-disk SQLite filename are still `mcp_clients` for backward compatibility with existing frontend code and stored user state. Grep both names when chasing call sites.
 
@@ -93,7 +93,7 @@ Everything else (`boot`, `bus`, `connections`, `store`, `setup`, `setup_ops`) is
 ## Calls into
 
 - `crate::openhuman::mcp::config_servers::McpStdioClient`: the actual stdio transport.
-- `crate::openhuman::tool_registry`: installed servers' tools land here so agents see them alongside native tools.
+- `crate::openhuman::tools::registry`: installed servers' tools land here so agents see them alongside native tools.
 - `memory_store` / workspace SQLite, for `mcp_clients.db` persistence.
 - Smithery.ai HTTP, for registry browsing.
 

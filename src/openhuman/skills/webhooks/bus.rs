@@ -7,7 +7,7 @@
 
 use crate::core::event_bus::{publish_global, DomainEvent, EventHandler};
 use crate::openhuman::platform::socket::global_socket_manager;
-use crate::openhuman::webhooks::WebhookResponseData;
+use crate::openhuman::skills::webhooks::WebhookResponseData;
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;
@@ -88,7 +88,7 @@ impl EventHandler for WebhookRequestSubscriber {
                     "[webhook] echo tunnel {} — returning echo response",
                     tunnel_uuid
                 );
-                let resp = crate::openhuman::webhooks::ops::build_echo_response(request);
+                let resp = crate::openhuman::skills::webhooks::ops::build_echo_response(request);
                 (resp, Some("echo".to_string()), None)
             }
             Some(ref reg) if reg.target_kind == "agent" => {
@@ -344,7 +344,7 @@ fn build_agent_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::webhooks::WebhookRequest;
+    use crate::openhuman::skills::webhooks::WebhookRequest;
     use base64::Engine;
     use std::collections::HashMap;
 

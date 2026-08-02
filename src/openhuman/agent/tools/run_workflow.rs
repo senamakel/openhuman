@@ -33,7 +33,7 @@
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::openhuman::skill_runtime::{
+use crate::openhuman::skills::runtime::{
     await_run_outcome, spawn_workflow_run_background_with_profile,
 };
 use crate::openhuman::skills::schemas::resolve_workspace_dir;

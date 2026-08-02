@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 
 use crate::api::models::socket::ConnectionStatus;
 use crate::core::event_bus::{publish_global, BackendMeetTurn, DomainEvent};
-use crate::openhuman::webhooks::WebhookRequest;
+use crate::openhuman::skills::webhooks::WebhookRequest;
 
 use super::manager::{emit_server_event, emit_state_change, SharedState};
 

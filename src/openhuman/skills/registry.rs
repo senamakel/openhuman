@@ -74,7 +74,7 @@ pub struct WorkflowDefinition {
     /// Optional GitHub preflight gate. When `Some(..)` with
     /// `required = true`, the preflight runs before the orchestrator
     /// boots — see
-    /// [`crate::openhuman::skill_runtime::spawn_workflow_run_background`].
+    /// [`crate::openhuman::skills::runtime::spawn_workflow_run_background`].
     #[serde(default)]
     pub github: Option<WorkflowGithubConfig>,
 }

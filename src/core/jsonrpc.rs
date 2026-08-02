@@ -2087,7 +2087,7 @@ fn register_domain_subscribers(
     if plan.platform {
         if group_first_time(DomainGroup::Platform) {
             if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
-                crate::openhuman::webhooks::bus::WebhookRequestSubscriber::new(),
+                crate::openhuman::skills::webhooks::bus::WebhookRequestSubscriber::new(),
             )) {
                 std::mem::forget(handle);
             } else {

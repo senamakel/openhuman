@@ -57,9 +57,9 @@ pub use crate::openhuman::platform::service::tools::*;
 pub use crate::openhuman::search::tools::*;
 pub use crate::openhuman::security::tools::*;
 #[cfg(feature = "skills")]
-pub use crate::openhuman::skill_registry::tools::*;
+pub use crate::openhuman::skills::catalog::tools::*;
 #[cfg(feature = "skills")]
-pub use crate::openhuman::skill_runtime::tools::*;
+pub use crate::openhuman::skills::runtime::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::openhuman::skills::tools::*;
 pub use crate::openhuman::subconscious::monitors::tools::*;

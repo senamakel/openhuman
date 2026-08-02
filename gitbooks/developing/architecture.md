@@ -145,8 +145,8 @@ Responsibilities are split across three domains:
 | Domain                            | Role |
 | --------------------------------- | ---- |
 | `src/openhuman/skills/`           | Skill metadata: create/discover/install/parse `SKILL.md`, inject descriptors into agent prompts (`ops_create`, `ops_discover`, `ops_install`, `ops_parse`, `inject`). |
-| `src/openhuman/skill_registry/`   | Registry of installed skills. |
-| `src/openhuman/skill_runtime/`    | Execution of installed `SKILL.md` workflows: starts/cancels runs, reads run metadata/logs, resolves language runtimes, hosts the built-in `skill_executor` agent. |
+| `src/openhuman/skills/catalog/`   | Registry of installed skills. |
+| `src/openhuman/skills/runtime/`    | Execution of installed `SKILL.md` workflows: starts/cancels runs, reads run metadata/logs, resolves language runtimes, hosts the built-in `skill_executor` agent. |
 
 **Skill discovery** uses `SKILL.md` plus optional bundled resources:
 

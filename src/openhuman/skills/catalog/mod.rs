@@ -6,7 +6,7 @@
 //!
 //! `pub mod skill_registry;` is ALWAYS compiled — it is a facade. The real
 //! implementation is gated behind the default-ON `skills` Cargo feature (the
-//! same gate as `openhuman::skills` and `openhuman::skill_runtime` — the three
+//! same gate as `openhuman::skills` and `openhuman::skills::runtime` — the three
 //! domains ship as one unit). When the feature is off, [`stub`] takes its
 //! place with no-op / empty bodies. See `src/openhuman/skills/mod.rs` for the
 //! pattern and the type carve-out.

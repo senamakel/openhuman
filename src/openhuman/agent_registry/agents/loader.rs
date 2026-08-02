@@ -302,15 +302,15 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     #[cfg(feature = "skills")]
     BuiltinAgent {
         id: "skill_setup",
-        toml: include_str!("../../skill_registry/agent/skill_setup/agent.toml"),
-        prompt_fn: crate::openhuman::skill_registry::agent::skill_setup::prompt::build,
+        toml: include_str!("../../skills/catalog/agent/skill_setup/agent.toml"),
+        prompt_fn: crate::openhuman::skills::catalog::agent::skill_setup::prompt::build,
         graph_fn: None,
     },
     #[cfg(feature = "skills")]
     BuiltinAgent {
         id: "skill_executor",
-        toml: include_str!("../../skill_runtime/agent/skill_executor/agent.toml"),
-        prompt_fn: crate::openhuman::skill_runtime::agent::skill_executor::prompt::build,
+        toml: include_str!("../../skills/runtime/agent/skill_executor/agent.toml"),
+        prompt_fn: crate::openhuman::skills::runtime::agent::skill_executor::prompt::build,
         graph_fn: None,
     },
     BuiltinAgent {

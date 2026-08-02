@@ -342,7 +342,7 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     }
 
     if services.skill_catalog_refresh {
-        crate::openhuman::skill_registry::ops::start_boot_catalog_refresh();
+        crate::openhuman::skills::catalog::ops::start_boot_catalog_refresh();
     } else {
         log::debug!("[runtime] boot catalog refresh disabled by ServiceSet");
     }

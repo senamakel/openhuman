@@ -3,7 +3,7 @@
 use serde_json::{Map, Value};
 
 use crate::core::all::ControllerFuture;
-use crate::openhuman::skill_registry::ops;
+use crate::openhuman::skills::catalog::ops;
 use crate::rpc::RpcOutcome;
 
 use super::controller_schemas::all_skill_registry_controller_schemas;

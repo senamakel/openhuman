@@ -778,7 +778,7 @@ mod tests {
     const CACHE_DIR_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_CACHE_DIR";
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-        crate::openhuman::skill_registry::TEST_ENV_LOCK
+        crate::openhuman::skills::catalog::TEST_ENV_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner())
     }

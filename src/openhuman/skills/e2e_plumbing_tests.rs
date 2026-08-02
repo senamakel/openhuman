@@ -31,13 +31,13 @@ use crate::openhuman::agent::harness::run_channel_turn_via_graph;
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::tools::RunWorkflowTool;
 use crate::openhuman::config::{Config, MultimodalConfig, MultimodalFileConfig};
-use crate::openhuman::skill_runtime::await_run_outcome;
 use crate::openhuman::skills::ops_create::{
     create_workflow_inner, CreateWorkflowParams, WorkflowCreateInputDef,
 };
 use crate::openhuman::skills::ops_types::WorkflowScope;
 use crate::openhuman::skills::registry::get_workflow;
 use crate::openhuman::skills::run_log;
+use crate::openhuman::skills::runtime::await_run_outcome;
 use crate::openhuman::tools::traits::Tool;
 use tinyagents::harness::message::AssistantMessage;
 use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};

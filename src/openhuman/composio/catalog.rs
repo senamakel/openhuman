@@ -172,6 +172,19 @@ static LIVE_CATALOG_IN_FLIGHT: std::sync::OnceLock<
     std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>>,
 > = std::sync::OnceLock::new();
 
+fn live_catalog_fetch_lock(toolkit: &str) -> Option<std::sync::Arc<tokio::sync::Mutex<()>>> {
+    let mut in_flight = LIVE_CATALOG_IN_FLIGHT
+        .get_or_init(Default::default)
+        .lock()
+        .ok()?;
+    Some(
+        in_flight
+            .entry(toolkit.to_string())
+            .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
+            .clone(),
+    )
+}
+
 /// Seeds the live-catalog cache for a toolkit — test hook so preflight /
 /// search / contract-validation behavior can be exercised without a live
 /// Composio backend. Replaces the narrower `seed_required_args_cache` /
@@ -294,16 +307,7 @@ pub(crate) async fn fetch_live_toolkit_catalog(
         return Some(cached.clone());
     }
 
-    let fetch_lock = {
-        let mut in_flight = LIVE_CATALOG_IN_FLIGHT
-            .get_or_init(Default::default)
-            .lock()
-            .ok()?;
-        in_flight
-            .entry(key.clone())
-            .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
-            .clone()
-    };
+    let fetch_lock = live_catalog_fetch_lock(&key)?;
     let _fetch_guard = fetch_lock.lock().await;
 
     // Another caller may have filled the cache while this one waited.
@@ -364,6 +368,20 @@ pub(crate) async fn fetch_live_toolkit_catalog(
         cache.insert(key, CacheEntry::fresh(contracts.clone()));
     }
     Some(contracts)
+}
+
+#[cfg(test)]
+mod in_flight_tests {
+    use super::*;
+
+    #[test]
+    fn catalog_miss_locks_are_shared_per_toolkit_only() {
+        let first = live_catalog_fetch_lock("test-lock-a").unwrap();
+        let same = live_catalog_fetch_lock("test-lock-a").unwrap();
+        let other = live_catalog_fetch_lock("test-lock-b").unwrap();
+        assert!(std::sync::Arc::ptr_eq(&first, &same));
+        assert!(!std::sync::Arc::ptr_eq(&first, &other));
+    }
 }
 
 /// [`compute_primary_array_path`], adjusted for the wrapper EVERY Composio

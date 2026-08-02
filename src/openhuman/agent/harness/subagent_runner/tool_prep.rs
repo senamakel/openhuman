@@ -262,6 +262,10 @@ mod tests {
             "research",
             "review_code",
             "do_crypto",
+            // `do_prediction_markets` is `markets_agent`'s `delegate_name`; the
+            // agent — and therefore this delegate tool — is compiled out with
+            // the `prediction-markets` feature.
+            #[cfg(feature = "prediction-markets")]
             "do_prediction_markets",
             "schedule_task",
             // `make_presentation` is `presentation_agent`'s `delegate_name`; the agent —

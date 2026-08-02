@@ -12,11 +12,11 @@
 //! # Fresh workspace (forces cold-start path)
 //! rm -rf /tmp/mt-smoke
 //! OPENHUMAN_WORKSPACE=/tmp/mt-smoke \
-//!   cargo run --bin memory-tree-init-smoke -- 32
+//!   cargo run --features bin-tools --bin memory-tree-init-smoke -- 32
 //!
 //! # Re-run against warm DB (should also be Ok; exercises fast path)
 //! OPENHUMAN_WORKSPACE=/tmp/mt-smoke \
-//!   cargo run --bin memory-tree-init-smoke -- 32
+//!   cargo run --features bin-tools --bin memory-tree-init-smoke -- 32
 //! ```
 //!
 //! Arg is thread count (default 16, must be > 0). Higher = more contention.

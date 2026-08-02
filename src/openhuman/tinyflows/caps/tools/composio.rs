@@ -26,6 +26,7 @@ use crate::openhuman::composio::client::{
     create_composio_client, direct_execute, ComposioClientKind,
 };
 use crate::openhuman::config::Config;
+use crate::openhuman::config::ops as config_rpc;
 use crate::openhuman::security::GateDecision;
 
 /// Dispatches a Composio action slug through the tier, curation, preflight and
@@ -59,6 +60,16 @@ impl ToolBackend for ComposioToolBackend {
         args: Value,
         conn: Option<&str>,
     ) -> Result<Value> {
+        // A capability object can outlive a Settings change. Reload once and
+        // use the same snapshot for curation, contract preflight, client mode,
+        // credentials, account resolution, and direct dispatch.
+        let live_config = config_rpc::reload_config_snapshot_with_timeout(ctx.config)
+            .await
+            .map_err(|e| {
+                EngineError::Capability(format!(
+                    "tool_call node: failed to load live Composio config: {e}"
+                ))
+            })?;
         // Autonomy-tier gate (Phase 2, made effect-aware): the node's
         // [`CommandClass`] is derived from the action's curated
         // [`ToolScope`](crate::openhuman::memory_sync::composio::providers::ToolScope)
@@ -88,7 +99,7 @@ impl ToolBackend for ComposioToolBackend {
         // doc for why this differs from the general agent tool-call path).
         // Runs before anything else — a rejected slug never reaches the
         // composio client at all.
-        if !super::super::is_curated_flow_tool(ctx.config, slug).await {
+        if !super::super::is_curated_flow_tool(&live_config, slug).await {
             tracing::warn!(
                 target: "flows",
                 %slug,
@@ -104,7 +115,7 @@ impl ToolBackend for ComposioToolBackend {
         // BEFORE the approval gate and the Composio dispatch, so a mis-wired
         // arg (`=`-expression that resolved to null) never reaches the
         // provider or asks the user to approve a call that cannot succeed.
-        super::super::preflight_composio_args(ctx.config, slug, &args).await?;
+        super::super::preflight_composio_args(&live_config, slug, &args).await?;
 
         // Approval gate (see the struct doc). Mirrors `OpenHumanHttp::request`'s
         // shape exactly: `gate_call_for_tier` is what actually performs the
@@ -143,7 +154,7 @@ impl ToolBackend for ComposioToolBackend {
             return Err(EngineError::Capability(reason));
         }
 
-        let kind = create_composio_client(ctx.config)
+        let kind = create_composio_client(&live_config)
             .map_err(|e| EngineError::Capability(e.to_string()))?;
         let args_opt = if args.is_null() { None } else { Some(args) };
         let connection_id = conn.and_then(super::super::composio_connection_id);
@@ -155,7 +166,7 @@ impl ToolBackend for ComposioToolBackend {
         let resolved_account = match connection_id {
             Some(id) => Some((
                 id,
-                super::super::resolve_composio_account(ctx.config, id).await,
+                super::super::resolve_composio_account(&live_config, id).await,
             )),
             None => None,
         };
@@ -230,7 +241,7 @@ impl ToolBackend for ComposioToolBackend {
                     &tool,
                     slug,
                     args_opt,
-                    &ctx.config.composio.entity_id,
+                    &live_config.composio.entity_id,
                     connection_id,
                 )
                 .await

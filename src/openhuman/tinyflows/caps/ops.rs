@@ -2484,6 +2484,27 @@ mod tests {
     }
 
     #[test]
+    fn structured_json_extraction_ignores_braces_inside_strings() {
+        let text = r#"Result: {"note":"use } to close and \\"quote\\" safely","ok":true}"#;
+        assert_eq!(
+            extract_structured_json(text),
+            Some(json!({"note": "use } to close and \"quote\" safely", "ok": true}))
+        );
+    }
+
+    #[test]
+    fn structured_json_extraction_uses_fenced_then_balanced_fallbacks() {
+        assert_eq!(
+            extract_structured_json("preface\n```json\n{\"fenced\":true}\n```"),
+            Some(json!({"fenced": true}))
+        );
+        assert_eq!(
+            extract_structured_json("preface {\"embedded\":true} suffix"),
+            Some(json!({"embedded": true}))
+        );
+    }
+
+    #[test]
     fn build_agent_result_falls_back_to_text_when_no_json_found_in_prose() {
         // Pure prose with no JSON-like content must still fall back to the
         // safe {text, agent_ref} shape.

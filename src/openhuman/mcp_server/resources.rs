@@ -79,6 +79,7 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         description: "Specialist worker for wallet and on-chain operations.",
         content: include_str!("../agent_registry/agents/crypto_agent/prompt.md"),
     },
+    #[cfg(feature = "prediction-markets")]
     PromptResource {
         uri: "openhuman://prompts/agents/markets_agent",
         name: "markets_agent",

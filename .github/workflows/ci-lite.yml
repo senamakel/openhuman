@@ -440,7 +440,7 @@ jobs:
         run: |
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             --no-default-features --features tokenjuice-treesitter --lib -- \
-            core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent_registry::agents::loader::
+            core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent_registry::agents::loader:: tools::schemas:: tools::ops_tests::
 
       - name: Guard — the kernel dependency floor may not grow
         # The `--no-default-features --features flows` profile is the surface a

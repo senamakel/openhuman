@@ -7,7 +7,10 @@ fn schema_array_path_prefers_the_shallowest_array() {
         "nested": {"properties": {"items": {"type": "array"}}},
         "top": {"type": "array"}
     }});
-    assert_eq!(compute_primary_array_path(Some(&schema)).as_deref(), Some("top"));
+    assert_eq!(
+        compute_primary_array_path(Some(&schema)).as_deref(),
+        Some("top")
+    );
 }
 
 #[test]
@@ -42,5 +45,8 @@ fn unsupported_arguments_follow_schema_openness() {
         Some(vec!["extra".to_string()])
     );
     let open = json!({"properties": {"known": {}}, "additionalProperties": true});
-    assert_eq!(unsupported_arg_names(Some(&open), &json!({"extra": 2})), None);
+    assert_eq!(
+        unsupported_arg_names(Some(&open), &json!({"extra": 2})),
+        None
+    );
 }

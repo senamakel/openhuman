@@ -536,11 +536,12 @@ impl OpenHumanAgentRunner {
             None => Cow::Borrowed(self.config.as_ref()),
         };
 
-        let mut agent = Agent::from_config_for_agent(effective.as_ref(), agent_ref).map_err(|e| {
-            EngineError::Capability(format!(
-                "agent node: failed to build harness agent '{agent_ref}': {e:#}"
-            ))
-        })?;
+        let mut agent =
+            Agent::from_config_for_agent(effective.as_ref(), agent_ref).map_err(|e| {
+                EngineError::Capability(format!(
+                    "agent node: failed to build harness agent '{agent_ref}': {e:#}"
+                ))
+            })?;
         agent.set_agent_definition_name(agent_ref.to_string());
 
         let prompt = build_harness_run_prompt(&request);

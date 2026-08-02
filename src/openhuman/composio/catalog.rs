@@ -169,9 +169,7 @@ static LIVE_CATALOG_CACHE: std::sync::OnceLock<
 /// the cache's synchronous mutex; callers for the same key wait here, then
 /// re-check the cache and reuse the first caller's result.
 static LIVE_CATALOG_IN_FLIGHT: std::sync::OnceLock<
-    std::sync::Mutex<
-        std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>,
-    >,
+    std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>>,
 > = std::sync::OnceLock::new();
 
 /// Seeds the live-catalog cache for a toolkit — test hook so preflight /

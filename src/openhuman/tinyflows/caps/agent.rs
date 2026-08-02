@@ -8,6 +8,7 @@
 
 #![allow(unused_imports)]
 
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -526,12 +527,16 @@ impl OpenHumanAgentRunner {
         // with a new `default_model`, so we never mutate the shared config or
         // invent a new Agent setter API. The tier is normalised to the
         // `hint:<role>` form the session builder routes on.
-        let mut effective = (*self.config).clone();
-        if let Some(model) = node_model.as_deref() {
-            effective.default_model = Some(harness_model_default_override(model));
-        }
+        let effective: Cow<'_, Config> = match node_model.as_deref() {
+            Some(model) => {
+                let mut config = (*self.config).clone();
+                config.default_model = Some(harness_model_default_override(model));
+                Cow::Owned(config)
+            }
+            None => Cow::Borrowed(self.config.as_ref()),
+        };
 
-        let mut agent = Agent::from_config_for_agent(&effective, agent_ref).map_err(|e| {
+        let mut agent = Agent::from_config_for_agent(effective.as_ref(), agent_ref).map_err(|e| {
             EngineError::Capability(format!(
                 "agent node: failed to build harness agent '{agent_ref}': {e:#}"
             ))
@@ -745,20 +750,28 @@ mod tests {
         assert_eq!(super::max_parallel_harness_agents(Some(" 16 ")), 16);
     }
 
+    #[test]
+    fn explicit_timeout_is_clamped_but_never_scaled() {
+        assert_eq!(super::resolve_run_timeout_secs(Some(120), 50), 120);
+        assert_eq!(super::resolve_run_timeout_secs(Some(5), 50), 10);
+        assert_eq!(super::resolve_run_timeout_secs(Some(9_000), 50), 600);
+    }
+
+    #[test]
+    fn default_timeout_scales_with_iteration_cap_and_caps_at_600() {
+        assert_eq!(super::resolve_run_timeout_secs(None, 10), 240);
+        assert_eq!(super::resolve_run_timeout_secs(None, 25), 300);
+        assert_eq!(super::resolve_run_timeout_secs(None, 50), 600);
+        assert_eq!(super::resolve_run_timeout_secs(None, usize::MAX), 600);
+    }
+
     #[tokio::test]
-    async fn the_harness_ceiling_throttles_rather_than_rejects() {
-        // The contract the fan-out relies on: an over-wide batch waits for a
-        // slot and still completes. If this ever started returning an error
-        // instead, `concurrency: "all"` over a large array would fail the run
-        // rather than run it more slowly.
-        let slots = tokio::sync::Semaphore::new(2);
-        let held = slots.acquire().await.expect("first permit");
-        let held2 = slots.acquire().await.expect("second permit");
-        assert_eq!(slots.available_permits(), 0);
-        // A third acquirer is pending, not refused.
-        assert!(slots.try_acquire().is_err(), "no permits left");
+    async fn production_harness_ceiling_is_open_and_reusable() {
+        let held = super::HARNESS_AGENT_SLOTS
+            .acquire()
+            .await
+            .expect("the production limiter must remain open");
         drop(held);
-        assert!(slots.try_acquire().is_ok(), "a released slot is reusable");
-        drop(held2);
+        assert!(!super::HARNESS_AGENT_SLOTS.is_closed());
     }
 }

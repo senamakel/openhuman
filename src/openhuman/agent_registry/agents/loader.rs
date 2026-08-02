@@ -929,15 +929,22 @@ mod tests {
     /// drops `resolve_time`, this test fails loudly.
     #[test]
     fn time_sensitive_agents_expose_resolve_time() {
-        for id in [
+        #[cfg_attr(not(feature = "prediction-markets"), allow(unused_mut))]
+        let mut ids = vec![
             "orchestrator",
             "integrations_agent",
             "scheduler_agent",
             "task_manager_agent",
             "crypto_agent",
-            "markets_agent",
             "tinyplace_agent",
-        ] {
+        ];
+        // `markets_agent` is compiled out when `prediction-markets` is off
+        // (its only implemented venue tool, `polymarket`, disappears with
+        // it) — see the `#[cfg(feature = "prediction-markets")]` on its
+        // `BuiltinAgent` entry.
+        #[cfg(feature = "prediction-markets")]
+        ids.push("markets_agent");
+        for id in ids {
             let def = find(id);
             match def.tools {
                 ToolScope::Named(tools) => assert!(

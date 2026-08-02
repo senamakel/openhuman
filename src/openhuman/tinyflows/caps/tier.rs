@@ -8,7 +8,9 @@
 use serde_json::Value;
 use tinyflows::error::{EngineError, Result};
 
-use super::*;
+use crate::openhuman::security::{
+    CommandClass, GateDecision, SecurityPolicy, POLICY_BLOCKED_MARKER,
+};
 
 /// Hard autonomy-tier gate for an *acting* flow node (Phase 2).
 ///

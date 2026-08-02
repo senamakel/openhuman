@@ -15,6 +15,8 @@ use tinyflows::caps::*;
 use tinyflows::error::{EngineError, Result};
 
 use super::*;
+use crate::openhuman::agent::messages::ChatMessage;
+use crate::openhuman::inference::provider::{is_raw_passthrough_model, UsageInfo};
 use crate::openhuman::config::Config;
 
 /// Maps a `UsageInfo` (not `Serialize`) into a JSON value field-by-field, so

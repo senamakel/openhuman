@@ -13,7 +13,10 @@ use tinyflows::caps::*;
 use tinyflows::error::{EngineError, Result};
 
 use super::*;
+use crate::openhuman::agent::harness::definition::SandboxMode;
 use crate::openhuman::config::Config;
+use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
+use crate::openhuman::security::{CommandClass, SecurityPolicy};
 
 /// [`CodeRunner`] adapter running sandboxed user code via
 /// `src/openhuman/sandbox/ops.rs` (`resolve_sandbox_policy` +

@@ -13,6 +13,8 @@ use tinyflows::error::{EngineError, Result};
 
 use super::*;
 use crate::openhuman::config::Config;
+use crate::openhuman::flows;
+use tinyflows::model::WorkflowGraph;
 
 /// [`WorkflowResolver`] adapter over the `flows::` domain's saved-flow store.
 ///

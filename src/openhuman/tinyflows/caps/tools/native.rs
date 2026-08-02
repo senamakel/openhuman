@@ -15,7 +15,6 @@ use serde_json::Value;
 use tinyflows::error::{EngineError, Result};
 
 use super::{ToolBackend, ToolCallCtx, NATIVE_TOOL_PREFIX};
-use crate::openhuman::config::Config;
 
 /// Dispatches `oh:<tool_name>` to the agent tool registry.
 pub(crate) struct NativeToolBackend;

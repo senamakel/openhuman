@@ -14,6 +14,10 @@ use tinyflows::error::{EngineError, Result};
 
 use super::*;
 use crate::openhuman::config::Config;
+use crate::openhuman::inference::provider::{
+    create_chat_model_with_model_id, role_for_model_tier,
+};
+use tinyagents::harness::model::ModelRequest;
 
 /// [`LlmProvider`] adapter over OpenHuman's inference stack
 /// (`src/openhuman/inference/provider/`).

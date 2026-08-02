@@ -18,6 +18,7 @@ use tinyflows::error::{EngineError, Result};
 
 use super::*;
 use crate::openhuman::config::Config;
+use crate::openhuman::inference::provider::{is_raw_passthrough_model, role_for_model_tier};
 
 /// [`AgentRunner`] backing an `agent` node's `agent_ref`. It runs the selected
 /// agent kind by one of two paths, chosen by [`route_for_agent_ref`]:

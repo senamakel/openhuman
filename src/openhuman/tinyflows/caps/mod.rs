@@ -22,7 +22,7 @@ pub(crate) use code::*;
 pub(crate) use http::*;
 pub(crate) use llm::*;
 pub(crate) use mocks::*;
-pub(crate) use ops::*;
+pub use ops::*;
 pub(crate) use prompt::*;
 pub(crate) use resolver::*;
 pub(crate) use state::*;

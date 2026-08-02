@@ -17,7 +17,11 @@ use tinyflows::caps::*;
 use tinyflows::error::{EngineError, Result};
 
 use super::*;
-use crate::openhuman::config::Config;
+use crate::openhuman::config::{Config, HttpRequestConfig};
+use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
+use crate::openhuman::security::{CommandClass, SecurityPolicy};
+use crate::openhuman::tools::traits::Tool as _;
+use crate::openhuman::tools::HttpRequestTool;
 
 /// [`HttpClient`] adapter over `HttpRequestTool`
 /// (`src/openhuman/tools/impl/network/http_request.rs`). Allowlist + DNS-rebind

@@ -13,6 +13,7 @@ use tinyflows::error::{EngineError, Result};
 
 use super::*;
 use crate::openhuman::config::Config;
+use crate::openhuman::flows;
 
 /// [`StateStore`] adapter over the `flows::` domain's `flow_state` KV table.
 pub struct FlowStateStore {

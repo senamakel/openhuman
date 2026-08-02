@@ -16,7 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tinyagents::graph::SqliteCheckpointer;
-use tinyflows::caps::{Capabilities, ToolInvoker, WorkflowResolver};
+use tinyflows::caps::*;
 use tinyflows::error::{EngineError, Result};
 use tinyflows::model::WorkflowGraph;
 

@@ -329,7 +329,7 @@ mod tests {
     #[test]
     fn balanced_json_ignores_delimiters_and_escapes_inside_strings() {
         assert_eq!(
-            extract_balanced_json(r#"before {"text":"} and \\"quoted\\"","ok":true} after"#),
+            extract_balanced_json(r#"before {"text":"} and \"quoted\"","ok":true} after"#),
             Some(json!({"text": "} and \"quoted\"", "ok": true}))
         );
         assert_eq!(extract_balanced_json("no structured value"), None);

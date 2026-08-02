@@ -165,6 +165,15 @@ static LIVE_CATALOG_CACHE: std::sync::OnceLock<
     std::sync::Mutex<std::collections::HashMap<String, CacheEntry<Vec<ToolContract>>>>,
 > = std::sync::OnceLock::new();
 
+/// Per-toolkit miss coordination. The network fetch happens without holding
+/// the cache's synchronous mutex; callers for the same key wait here, then
+/// re-check the cache and reuse the first caller's result.
+static LIVE_CATALOG_IN_FLIGHT: std::sync::OnceLock<
+    std::sync::Mutex<
+        std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>,
+    >,
+> = std::sync::OnceLock::new();
+
 /// Seeds the live-catalog cache for a toolkit — test hook so preflight /
 /// search / contract-validation behavior can be exercised without a live
 /// Composio backend. Replaces the narrower `seed_required_args_cache` /
@@ -277,6 +286,29 @@ pub(crate) async fn fetch_live_toolkit_catalog(
         return None;
     }
 
+    if let Some(cached) = LIVE_CATALOG_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .ok()?
+        .get(&key)
+        .and_then(CacheEntry::if_fresh)
+    {
+        return Some(cached.clone());
+    }
+
+    let fetch_lock = {
+        let mut in_flight = LIVE_CATALOG_IN_FLIGHT
+            .get_or_init(Default::default)
+            .lock()
+            .ok()?;
+        in_flight
+            .entry(key.clone())
+            .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
+            .clone()
+    };
+    let _fetch_guard = fetch_lock.lock().await;
+
+    // Another caller may have filled the cache while this one waited.
     if let Some(cached) = LIVE_CATALOG_CACHE
         .get_or_init(Default::default)
         .lock()

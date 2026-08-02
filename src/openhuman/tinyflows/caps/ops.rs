@@ -2484,7 +2484,7 @@ mod tests {
 
     #[test]
     fn structured_json_extraction_ignores_braces_inside_strings() {
-        let text = r#"Result: {"note":"use } to close and \\"quote\\" safely","ok":true}"#;
+        let text = r#"Result: {"note":"use } to close and \"quote\" safely","ok":true}"#;
         assert_eq!(
             extract_structured_json(text),
             Some(json!({"note": "use } to close and \"quote\" safely", "ok": true}))

@@ -81,17 +81,27 @@ pub async fn init_workspace(force: bool) -> Result<serde_json::Value, String> {
         .await
         .map_err(|e| format!("failed to initialize HEARTBEAT.md: {e}"))?;
 
-    if had_skills_readme {
-        existing_files.push(skills_readme.display().to_string());
-    } else {
-        created_files.push(skills_readme.display().to_string());
-    }
-
-    if had_heartbeat {
-        existing_files.push(heartbeat.display().to_string());
-    } else {
-        created_files.push(heartbeat.display().to_string());
-    }
+    // Report what the call actually did, not what it was expected to do.
+    //
+    // These two were previously classified from the pre-check alone, which
+    // reports a file as "created" whenever it did not exist beforehand — even
+    // if nothing subsequently created it. That is wrong in any build where
+    // `skills` is compiled out: `init_workflows_dir` resolves to the stub,
+    // which is a deliberate no-op, so `skills/README.md` is never written and
+    // every call reports it as freshly created, forever. Re-checking existence
+    // afterwards makes all three lists honest: absent stays absent.
+    classify_workspace_entry(
+        &skills_readme,
+        had_skills_readme,
+        &mut created_files,
+        &mut existing_files,
+    );
+    classify_workspace_entry(
+        &heartbeat,
+        had_heartbeat,
+        &mut created_files,
+        &mut existing_files,
+    );
 
     Ok(json!({
         "result": {

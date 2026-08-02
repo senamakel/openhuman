@@ -264,6 +264,10 @@ mod tests {
             "do_crypto",
             "do_prediction_markets",
             "schedule_task",
+            // `make_presentation` is `presentation_agent`'s `delegate_name`; the agent —
+            // and therefore this delegate tool — is compiled out with the
+            // `documents` feature.
+            #[cfg(feature = "documents")]
             "make_presentation",
             "archive_session",
             // `use_mcp_server` is `mcp_agent`'s `delegate_name`; the agent —

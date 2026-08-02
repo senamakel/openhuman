@@ -5,17 +5,10 @@
 //! is allowed outright, needs a human, or is refused; the approval gate is what
 //! actually performs the round-trip when a human is needed.
 
-#![allow(unused_imports)]
-
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use serde_json::{json, Value};
-use tinyflows::caps::*;
+use serde_json::Value;
 use tinyflows::error::{EngineError, Result};
 
 use super::*;
-use crate::openhuman::config::Config;
 
 /// Hard autonomy-tier gate for an *acting* flow node (Phase 2).
 ///
@@ -141,11 +134,16 @@ pub(crate) fn escalated_origin_for_prompt(
     tier_decision: GateDecision,
     origin: Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin>,
 ) -> Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin> {
+    (tier_decision == GateDecision::Prompt)
+        .then(|| force_workflow_approval(origin))
+        .flatten()
+}
+
+fn force_workflow_approval(
+    origin: Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin>,
+) -> Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin> {
     use crate::openhuman::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 
-    if tier_decision != GateDecision::Prompt {
-        return None;
-    }
     match origin {
         Some(AgentTurnOrigin::TrustedAutomation {
             job_id,
@@ -189,21 +187,5 @@ pub(crate) fn escalated_origin_for_prompt(
 pub(crate) fn escalated_origin_for_nested_harness(
     origin: Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin>,
 ) -> Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin> {
-    use crate::openhuman::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
-
-    match origin {
-        Some(AgentTurnOrigin::TrustedAutomation {
-            job_id,
-            source:
-                TrustedAutomationSource::Workflow {
-                    require_approval: false,
-                },
-        }) => Some(AgentTurnOrigin::TrustedAutomation {
-            job_id,
-            source: TrustedAutomationSource::Workflow {
-                require_approval: true,
-            },
-        }),
-        _ => None,
-    }
+    force_workflow_approval(origin)
 }

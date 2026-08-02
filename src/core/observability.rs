@@ -2465,12 +2465,14 @@ pub const REPORT_ERROR_TRACING_TARGET: &str = "openhuman::observability::report_
 /// Within this window, the same (domain, operation) pair that carries
 /// `(os error 665)` is suppressed — Sentry never receives a duplicate
 /// Sentry event, and only a `debug!` log line is emitted.
+#[cfg(feature = "crash-reporting")]
 const FS_ERROR_COOLDOWN: std::time::Duration = std::time::Duration::from_secs(300); // 5 min
 
 /// In-process state tracking the last-reported time of `ERROR_FILE_SYSTEM_LIMITATION`
 /// (os error 665) events, keyed by `(domain, operation)`. This prevents
 /// unthrottled retry loops from flooding Sentry (TAURI-RUST-QT0: 6,050 events /
 /// 1 user).
+#[cfg(feature = "crash-reporting")]
 static LAST_FS_LIMIT_REPORT: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashMap<(String, String), std::time::Instant>>,
 > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
@@ -2478,6 +2480,7 @@ static LAST_FS_LIMIT_REPORT: std::sync::LazyLock<
 /// Returns `true` when `(domain, operation)` was already reported with
 /// an error-665 message within [`FS_ERROR_COOLDOWN`]. Cleans up stale
 /// entries older than the cooldown on every call.
+#[cfg(feature = "crash-reporting")]
 fn was_recently_reported(domain: &str, operation: &str) -> bool {
     let mut guard = LAST_FS_LIMIT_REPORT
         .lock()

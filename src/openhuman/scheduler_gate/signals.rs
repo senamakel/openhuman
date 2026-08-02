@@ -128,11 +128,7 @@ fn probe_battery() -> Result<BatteryProbe, starship_battery::Error> {
         if matches!(battery.state(), starship_battery::State::Discharging) {
             on_ac = false;
         }
-        include_charge_sample(
-            &mut total,
-            &mut count,
-            battery.state_of_charge().value,
-        );
+        include_charge_sample(&mut total, &mut count, battery.state_of_charge().value);
     }
     let charge = if any && count > 0.0 {
         Some((total / count).clamp(0.0, 1.0))

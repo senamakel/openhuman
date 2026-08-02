@@ -38,13 +38,11 @@ use crate::openhuman::security::{
 // that owns Composio's vocabulary. This import is the edge pointing the right
 // way round: the feature-gated seam depends on the always-compiled domain, not
 // the reverse. See that module's docs.
+#[cfg(test)]
+pub(crate) use crate::openhuman::composio::catalog::ProbedOutputSample;
 pub(crate) use crate::openhuman::composio::catalog::{
     apply_probe_override, composio_required_args, fetch_live_toolkit_catalog,
     probe_tool_output_sample, ToolContract,
-};
-#[cfg(test)]
-pub(crate) use crate::openhuman::composio::catalog::{
-    ProbedOutputSample,
 };
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{

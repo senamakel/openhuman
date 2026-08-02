@@ -27,16 +27,11 @@
 //! for its primary array and its field names) is in
 //! [`crate::openhuman::json_schema`], owned by neither side.
 
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
-
-use anyhow::Result;
 use serde_json::Value;
 
 use super::client::{
     create_composio_client, direct_execute, direct_list_tools, ComposioClientKind,
 };
-use super::types::ComposioExecuteResponse;
 use crate::openhuman::config::Config;
 use crate::openhuman::json_schema::{
     compute_primary_array_path, compute_primary_array_path_from_value, response_fields_from_schema,

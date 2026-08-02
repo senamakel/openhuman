@@ -467,6 +467,24 @@ fn config_hint(node: &Node) -> Option<String> {
             .and_then(Value::as_str)
             .map(|p| format!("path: {p}")),
         NodeKind::SubWorkflow => Some("embedded sub-workflow".to_string()),
+        // Neither kind is advertised by `node_contracts` on this host yet (see
+        // `HOST_UNSUPPORTED_NODE_KINDS`), but a graph can still carry one —
+        // imported, hand-authored, or written by an older/newer core — and this
+        // renders a saved graph for display, so it must not panic or go blank.
+        NodeKind::Memory => {
+            let op = cfg
+                .get("operation")
+                .and_then(Value::as_str)
+                .unwrap_or("recall");
+            match cfg.get("scope").and_then(Value::as_str) {
+                Some(scope) => Some(format!("{op} ({scope})")),
+                None => Some(op.to_string()),
+            }
+        }
+        NodeKind::Dedup => cfg
+            .get("key")
+            .and_then(Value::as_str)
+            .map(|k| format!("key: {k}")),
         NodeKind::Merge | NodeKind::OutputParser | NodeKind::Trigger => None,
     }
 }

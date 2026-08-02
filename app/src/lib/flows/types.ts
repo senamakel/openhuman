@@ -36,7 +36,15 @@ export interface Position {
 }
 
 /**
- * The 12 node kinds `tinyflows` currently defines (`tinyflows::model::NodeKind`).
+ * The node kinds this host can actually run.
+ *
+ * `tinyflows::model::NodeKind` defines 14; the core withholds `memory` and
+ * `dedup` because the capabilities backing them are not wired here yet (see
+ * `flows::node_contracts::HOST_UNSUPPORTED_NODE_KINDS` for why each is held
+ * back). They are absent from `list_node_kinds`, so the builder never proposes
+ * one — hence absent from this union too. Add a kind here in the same change
+ * that removes it from that list.
+ *
  * Wire values are `snake_case` (`#[serde(rename_all = "snake_case")]`).
  */
 export type NodeKind =

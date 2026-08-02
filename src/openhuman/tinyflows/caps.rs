@@ -3553,9 +3553,10 @@ impl WorkflowResolver for OpenHumanWorkflowResolver {
     }
 }
 
-/// Builds the [`Capabilities`] bundle for one run, wiring each of the six
+/// Builds the [`Capabilities`] bundle for one run, wiring six of the seven
 /// host-injected traits to a real OpenHuman adapter (see each adapter above for
-/// its contract).
+/// its contract). The seventh, `memory`, is intentionally left `None` — see the
+/// comment on that field below.
 ///
 /// `state_namespace` scopes the [`FlowStateStore`] KV so two saved flows that
 /// use the same state key never read or overwrite each other — callers pass a
@@ -3594,6 +3595,24 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
             config: config.clone(),
         })),
         resolver: Arc::new(OpenHumanWorkflowResolver { config }),
+        // Deliberately unwired for now (tinyflows 0.5.1 added the `memory`
+        // node + its optional `MemoryProvider` capability).
+        //
+        // OpenHuman obviously *has* a memory store, but a flow reaching it is a
+        // policy-bearing act: `recall`/`search` read user memory (taint,
+        // `source_scope`, redaction) and `remember`/`forget` write it. Those
+        // guarantees are enforced inside the memory domain today, so wiring a
+        // raw adapter here would route flow traffic around them. The kernel
+        // spec (`docs/specs/kernel.md` §3.4) puts that enforcement in a
+        // kernel-side `Guard`; this capability gets wired to a guarded memory
+        // driver as part of that work, not before.
+        //
+        // `None` is a first-class state in the crate contract: a `memory` node
+        // then fails with a capability error rather than silently no-opping.
+        // We additionally hide the kind from the advertised catalog
+        // (`flows::node_contracts::HOST_UNSUPPORTED_NODE_KINDS`) so the
+        // workflow builder never proposes a node that cannot run here.
+        memory: None,
     }
 }
 

@@ -16,6 +16,37 @@
 
 pub use tinyflows::catalog::{ConfigField, NodeKindContract, PortSpec, NODE_KINDS};
 
+/// Node kinds the crate defines but **this host cannot currently run**, so they
+/// are withheld from the advertised catalog.
+///
+/// A kind lands here when the capability backing it is not wired in
+/// [`crate::openhuman::tinyflows::caps::build_capabilities`]. Advertising it
+/// anyway would let `propose_workflow` build a graph that validates, saves, and
+/// then hard-fails at run time with a capability error — and teach the model
+/// the kind is available, so it retries. Absence beats a surface that errors
+/// (the same rule the Cargo domain gates follow, and `docs/specs/kernel.md`
+/// §3.3 generalises).
+///
+/// - `memory` — needs `Capabilities::memory`, which stays `None` until flow
+///   access to user memory runs through the kernel-side policy guard
+///   (`kernel.md` §3.4). Remove this entry in the same change that wires it.
+/// - `dedup` — the node only *stages* tentative keys; it never commits them.
+///   The crate leaves commit-on-success to the host (it exports
+///   `tinyflows::nodes::control_flow::dedup::{committed_key, tentative_key}`
+///   for exactly that, and nothing in the engine calls them). Until OpenHuman
+///   runs a subscriber that promotes tentative keys to committed on a
+///   successful run and releases them on a failed one, a `dedup` node
+///   de-duplicates *within* a run but never *across* runs — so
+///   "skip already-published" would republish every time. That is a silent
+///   wrong answer rather than a visible error, which is worse than absence.
+pub const HOST_UNSUPPORTED_NODE_KINDS: [&str; 2] = ["memory", "dedup"];
+
+/// Whether this host can actually execute `kind`, i.e. every capability the
+/// kind needs is wired.
+fn is_host_supported(kind: &str) -> bool {
+    !HOST_UNSUPPORTED_NODE_KINDS.contains(&kind)
+}
+
 /// Appends this host's vendor-specific caveats to a portable tinyflows
 /// contract. One arm per kind that has host-owned facts; the rest pass through
 /// unchanged.
@@ -77,18 +108,22 @@ fn apply_host_overlay(contract: NodeKindContract) -> NodeKindContract {
     }
 }
 
-/// All 12 node-kind contracts with this host's overlay applied, in
-/// [`NODE_KINDS`] order.
+/// Every host-runnable node-kind contract with this host's overlay applied, in
+/// [`NODE_KINDS`] order. Kinds in [`HOST_UNSUPPORTED_NODE_KINDS`] are omitted.
 pub fn all_node_kind_contracts() -> Vec<NodeKindContract> {
     tinyflows::catalog::all_contracts()
         .into_iter()
+        .filter(|c| is_host_supported(&c.kind))
         .map(apply_host_overlay)
         .collect()
 }
 
-/// The overlaid contract for one node kind, or `None` if `kind` is not one of
-/// the 12.
+/// The overlaid contract for one node kind, or `None` if `kind` is unknown to
+/// the crate **or** listed in [`HOST_UNSUPPORTED_NODE_KINDS`].
 pub fn node_kind_contract(kind: &str) -> Option<NodeKindContract> {
+    if !is_host_supported(kind) {
+        return None;
+    }
     tinyflows::catalog::contract_for(kind).map(apply_host_overlay)
 }
 
@@ -137,12 +172,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn overlay_preserves_all_12_kinds() {
-        assert_eq!(all_node_kind_contracts().len(), 12);
-        for kind in NODE_KINDS {
+    fn overlay_preserves_every_host_supported_kind() {
+        // Derived from the crate catalog, not hard-coded: a tinyflows bump that
+        // adds a kind should surface it here automatically rather than fail on
+        // a stale count.
+        let expected = NODE_KINDS.iter().filter(|k| is_host_supported(k)).count();
+        assert_eq!(all_node_kind_contracts().len(), expected);
+        for kind in NODE_KINDS.iter().filter(|k| is_host_supported(k)) {
             assert!(node_kind_contract(kind).is_some(), "missing {kind}");
         }
         assert!(node_kind_contract("not_a_kind").is_none());
+    }
+
+    #[test]
+    fn unsupported_kinds_exist_in_the_crate_but_are_withheld_here() {
+        for kind in HOST_UNSUPPORTED_NODE_KINDS {
+            // The entry must be a real crate kind — otherwise it is a typo that
+            // silently stops filtering anything.
+            assert!(
+                NODE_KINDS.contains(&kind),
+                "{kind} is not a tinyflows node kind"
+            );
+            assert!(
+                tinyflows::catalog::contract_for(kind).is_some(),
+                "{kind} has no crate contract"
+            );
+            // ...but must not reach the advertised catalog.
+            assert!(node_kind_contract(kind).is_none(), "{kind} leaked");
+            assert!(
+                !all_node_kind_contracts().iter().any(|c| c.kind == kind),
+                "{kind} leaked into the list"
+            );
+            assert!(!render_node_kinds_line().contains(kind), "{kind} leaked");
+        }
     }
 
     #[test]

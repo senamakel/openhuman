@@ -130,6 +130,10 @@ pub(crate) fn map_n8n_workflow(value: &Value) -> Result<N8nImportResult, String>
         schema_version: tinyflows::model::CURRENT_SCHEMA_VERSION,
         id: None,
         name,
+        // n8n has no equivalent of a tinyflows declared workflow input, so an
+        // imported graph never has a public signature. Callers pass data in
+        // through the trigger instead.
+        inputs: Vec::new(),
         nodes,
         edges,
     };

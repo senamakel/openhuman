@@ -1,7 +1,7 @@
 # Dependency-floor ratchet. `scripts/check-kernel-floor.sh` fails when a profile
 # exceeds its limit here.
 #
-# Format: <profile>:<max unique crate names>:<max native builds>
+# Format: <profile>:<max packages>:<max unique crate names>:<max native builds>
 #
 # The ratchet only goes DOWN. Lowering a number is the point — every gating step
 # that sheds crates should lower it in the same PR, which is what stops the floor
@@ -13,7 +13,7 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
-#   285/6  2026-08-02  merge origin/main (+5) — INHERITED, not introduced here.
+#   312/285/6  2026-08-02  merge origin/main (+5 names) — INHERITED, not introduced here.
 #                      A rise in this number is the one thing this file exists
 #                      to make someone justify, so: main grew the graph on its
 #                      own (the #5232 tinyhumans-sdk vendoring and the #5202 /
@@ -62,4 +62,4 @@
 #                      Native: aws-lc-sys libgit2-sys libsqlite3-sys libz-sys
 #                      lzma-sys ring. Target after gating is 222 names / 2 native
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
-flows:285:6
+flows:312:285:6

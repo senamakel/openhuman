@@ -36,22 +36,42 @@ while IFS= read -r line; do
   line="$(echo "$line" | tr -d '[:space:]')"
   [[ -z "$line" ]] && continue
 
-  profile="${line%%:*}"
-  rest="${line#*:}"
-  max_names="${rest%%:*}"
-  max_native="${rest##*:}"
+  IFS=: read -r profile max_packages max_names max_native extra <<< "$line"
+  if [[ -n "${extra:-}" || -z "$profile" || -z "$max_packages" || \
+        -z "$max_names" || -z "$max_native" ]]; then
+    echo "::error::invalid kernel-floor limit entry: '$line'" >&2
+    exit 1
+  fi
 
   if ! json_output="$(./scripts/kernel-floor.sh "$profile" --json)"; then
     echo "::error::kernel-floor.sh failed to measure profile '$profile'" >&2
     exit 1
   fi
-  read -r names native <<< "$(
-    python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["names"], d["native"])' \
+  read -r packages names native <<< "$(
+    python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["packages"], d["names"], d["native"])' \
       <<< "$json_output"
   )"
 
   [[ "$VERBOSE" == "--verbose" ]] && \
-    echo "profile=$profile names=$names/$max_names native=$native/$max_native"
+    echo "profile=$profile packages=$packages/$max_packages names=$names/$max_names native=$native/$max_native"
+
+  if (( packages > max_packages )); then
+    echo "::error::kernel floor REGRESSED: profile '$profile' resolves $packages" \
+         "packages, limit is $max_packages. A second version of an existing" \
+         "crate still counts as dependency growth."
+    echo "  Find the duplicate or new dependency with:"
+    echo "    scripts/kernel-floor.sh $profile"
+    echo "    cargo tree --duplicates --no-default-features --features $profile"
+    echo "  If the growth is genuinely required, raise the limit in $LIMITS and"
+    echo "  justify it in the PR body — do not raise it silently."
+    status=1
+  elif (( packages + SLACK < max_packages )); then
+    echo "::error::kernel floor IMPROVED but was not ratcheted: profile '$profile'" \
+         "resolves $packages packages, limit still $max_packages."
+    echo "  Lower it to $packages in $LIMITS in this same PR, or the shed grows back"
+    echo "  unnoticed."
+    status=1
+  fi
 
   if (( names > max_names )); then
     echo "::error::kernel floor REGRESSED: profile '$profile' resolves $names crate" \

@@ -136,7 +136,7 @@ const FLOW_MEMORY_NAMESPACE_LISTED_PREFIX: &str = FLOW_MEMORY_NAMESPACE_PREFIX;
 ///
 /// Shared by [`FlowMemoryRecallTool`]'s `scope: "flows"` arm and the
 /// tinyflows `memory` node's `scope: "flows"` (`OpenHumanMemory::recall` in
-/// `crate::openhuman::tinyflows::memory_adapter`) — both surfaces must see
+/// `crate::openhuman::flows::tinyflows::memory_adapter`) — both surfaces must see
 /// identical cross-flow results, so this is the one place that walks
 /// [`Memory::namespace_summaries`] and filters to `flow_*`. A per-namespace
 /// recall failure is logged and skipped rather than failing the whole call,

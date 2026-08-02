@@ -1810,7 +1810,7 @@ impl SearchToolCatalogTool {
 const MAX_CATALOG_RESULTS: usize = 40;
 
 /// Search the FULL LIVE Composio catalog (via
-/// [`crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog`]) for
+/// [`crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog`]) for
 /// actions whose slug or description matches every whitespace-separated term
 /// in `query` (case-insensitive AND). When `toolkit` is set, only that
 /// toolkit is scanned — this is how the builder can search ANY named app
@@ -1853,13 +1853,13 @@ pub(crate) struct CatalogSearchOutcome {
     pub note: Option<String>,
 }
 
-/// Shape one live-catalog [`ToolContract`](crate::openhuman::tinyflows::caps::ToolContract)
+/// Shape one live-catalog [`ToolContract`](crate::openhuman::flows::tinyflows::caps::ToolContract)
 /// into a search-result row. The SINGLE row-construction site shared by both
 /// the primary AND-match path and the per-keyword fallback path, so every row
 /// carries the same fields — including WS3's `runtime_gated: true` on an
 /// uncurated action of a toolkit that ships a curated-only allowlist.
 fn shape_catalog_row(
-    tool: &crate::openhuman::tinyflows::caps::ToolContract,
+    tool: &crate::openhuman::flows::tinyflows::caps::ToolContract,
     toolkit: &str,
     toolkit_curated: bool,
 ) -> Value {
@@ -1900,8 +1900,8 @@ pub(crate) async fn search_catalog(
     toolkit_filter: Option<&str>,
     limit: usize,
 ) -> CatalogSearchOutcome {
+    use crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog;
     use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
-    use crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog;
 
     let terms: Vec<String> = query
         .split_whitespace()
@@ -1922,7 +1922,7 @@ pub(crate) async fn search_catalog(
     // round trip back-to-back (the per-toolkit cache only helps repeats).
     let fetched: Vec<(
         String,
-        Option<Vec<crate::openhuman::tinyflows::caps::ToolContract>>,
+        Option<Vec<crate::openhuman::flows::tinyflows::caps::ToolContract>>,
     )> = futures::future::join_all(toolkits.into_iter().map(|toolkit| async move {
         let catalog = fetch_live_toolkit_catalog(config, &toolkit).await;
         (toolkit, catalog)
@@ -1931,7 +1931,10 @@ pub(crate) async fn search_catalog(
 
     // Drop toolkits whose fetch failed (no backend session / network error) —
     // they contribute zero results rather than erroring the whole search.
-    let fetched: Vec<(String, Vec<crate::openhuman::tinyflows::caps::ToolContract>)> = fetched
+    let fetched: Vec<(
+        String,
+        Vec<crate::openhuman::flows::tinyflows::caps::ToolContract>,
+    )> = fetched
         .into_iter()
         .filter_map(|(tk, catalog)| catalog.map(|c| (tk, c)))
         .collect();
@@ -2157,7 +2160,7 @@ impl Tool for SearchToolCatalogTool {
 // get_tool_contract — read-only: the FULL live contract for one action slug
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// `get_tool_contract`: fetch the FULL live [`ToolContract`](crate::openhuman::tinyflows::caps::ToolContract)
+/// `get_tool_contract`: fetch the FULL live [`ToolContract`](crate::openhuman::flows::tinyflows::caps::ToolContract)
 /// for one Composio action slug — the grounding step the builder MUST take
 /// before wiring a `search_tool_catalog` match's args or a downstream
 /// binding/`split_out.path` off it. Where `search_tool_catalog` is for
@@ -2242,9 +2245,11 @@ impl Tool for GetToolContractTool {
             "[flows] get_tool_contract: fetching the live contract (read-only)"
         );
 
-        let Some(catalog) =
-            crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog(&self.config, &toolkit)
-                .await
+        let Some(catalog) = crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog(
+            &self.config,
+            &toolkit,
+        )
+        .await
         else {
             return Ok(ToolResult::error(format!(
                 "Could not fetch the live Composio catalog for toolkit '{toolkit}' (no backend \
@@ -2262,8 +2267,9 @@ impl Tool for GetToolContractTool {
                 // every GitHub action verified live as of this fix), where
                 // `contract.primary_array_path` would otherwise be
                 // permanently `None`.
-                let contract =
-                    crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+                let contract = crate::openhuman::flows::tinyflows::caps::apply_probe_override(
+                    contract.clone(),
+                );
 
                 // WS3 — EARLY runtime-gate warning (transcript failure #2): a
                 // real-but-uncurated action of a toolkit that ships a curated
@@ -2283,7 +2289,7 @@ impl Tool for GetToolContractTool {
                     struct ContractWithRuntimeGate {
                         runtime_gate: &'static str,
                         #[serde(flatten)]
-                        contract: crate::openhuman::tinyflows::caps::ToolContract,
+                        contract: crate::openhuman::flows::tinyflows::caps::ToolContract,
                     }
                     let payload = ContractWithRuntimeGate {
                         runtime_gate: "This action will be REJECTED on every real run — the \
@@ -2315,7 +2321,7 @@ impl Tool for GetToolContractTool {
 /// for `slug` and derive its `primary_array_path`/`output_fields` from the
 /// ACTUAL response, overriding `get_tool_contract`'s schema-derived hint for
 /// this slug from then on (see
-/// [`crate::openhuman::tinyflows::caps::apply_probe_override`]).
+/// [`crate::openhuman::flows::tinyflows::caps::apply_probe_override`]).
 ///
 /// **Exists because a schema-derived hint sometimes doesn't exist at all**:
 /// Composio's live listing genuinely omits `output_parameters` for some
@@ -2331,7 +2337,7 @@ impl Tool for GetToolContractTool {
 /// "propose/read only, no composio_execute" invariant** (see this module's
 /// top doc): unlike `composio_execute`, this tool can ONLY ever perform a
 /// `Read`-scope action (gated by
-/// [`crate::openhuman::tinyflows::caps::probe_tool_output_sample`]'s scope
+/// [`crate::openhuman::flows::tinyflows::caps::probe_tool_output_sample`]'s scope
 /// check, which ignores the user's per-toolkit scope preference — a probe
 /// must never perform a real mutation no matter what the user has toggled
 /// on) against a toolkit the user has ALREADY connected. No message is sent,
@@ -2423,7 +2429,7 @@ impl Tool for GetToolOutputSampleTool {
             "[flows] get_tool_output_sample: tool invoked"
         );
 
-        match crate::openhuman::tinyflows::caps::probe_tool_output_sample(
+        match crate::openhuman::flows::tinyflows::caps::probe_tool_output_sample(
             &self.config,
             &slug,
             call_args,
@@ -2714,7 +2720,7 @@ impl Tool for GetNodeKindContractTool {
 /// simulation has no tier to gate against).
 ///
 /// **Wiring preflight:** the mock tool invoker is wrapped in the host's
-/// [`PreflightToolInvoker`](crate::openhuman::tinyflows::caps::PreflightToolInvoker),
+/// [`PreflightToolInvoker`](crate::openhuman::flows::tinyflows::caps::PreflightToolInvoker),
 /// so a Composio `tool_call` whose required arg is missing or `=`-resolved to
 /// null fails the dry run with the same actionable, field-naming error a real
 /// run would produce — the echo mocks alone would happily accept a null `to`.
@@ -3033,20 +3039,23 @@ impl Tool for DryRunWorkflowTool {
         // so the null-resolution check below doesn't false-positive on an
         // agent node that correctly declared a schema.
         let mut caps = tinyflows::caps::mock::mock_capabilities_with_agent(
-            crate::openhuman::tinyflows::caps::SchemaAwareMockAgentRunner,
+            crate::openhuman::flows::tinyflows::caps::SchemaAwareMockAgentRunner,
         );
         // Plain agent nodes (no `agent_ref`) never reach the runner above —
         // the vendored `agent` node routes them to the `llm` slot instead (see
         // `SchemaAwareMockLlm`'s doc). Swap the vendored `MockLlm` echo for the
         // schema-aware mock so their `output_parser.schema` is honored too,
         // instead of the echo shape failing the sub-port's validation.
-        caps.llm = std::sync::Arc::new(crate::openhuman::tinyflows::caps::SchemaAwareMockLlm);
+        caps.llm =
+            std::sync::Arc::new(crate::openhuman::flows::tinyflows::caps::SchemaAwareMockLlm);
         // Wiring preflight over the echo mocks (see the struct doc): required
         // Composio args must be present and non-null even in the sandbox.
-        caps.tools = std::sync::Arc::new(crate::openhuman::tinyflows::caps::PreflightToolInvoker {
-            config: self.config.clone(),
-            inner: caps.tools.clone(),
-        });
+        caps.tools = std::sync::Arc::new(
+            crate::openhuman::flows::tinyflows::caps::PreflightToolInvoker {
+                config: self.config.clone(),
+                inner: caps.tools.clone(),
+            },
+        );
 
         // Which node ids are `tool_call` nodes — the null-resolution check
         // below is scoped to just these (see the struct doc: a null in an

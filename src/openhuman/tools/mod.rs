@@ -28,6 +28,8 @@ pub use crate::openhuman::flows::discovery_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::memory_tools::*;
 #[cfg(feature = "flows")]
+pub use crate::openhuman::flows::rhai::tools::*;
+#[cfg(feature = "flows")]
 pub use crate::openhuman::flows::tools::*;
 pub use crate::openhuman::health::tools::*;
 pub use crate::openhuman::hosted::billing::tools::*;
@@ -43,8 +45,6 @@ pub use crate::openhuman::memory_diff::tools::*;
 pub use crate::openhuman::memory_goals::tools::*;
 pub use crate::openhuman::memory_search::*;
 pub use crate::openhuman::people::tools::*;
-#[cfg(feature = "flows")]
-pub use crate::openhuman::rhai_workflows::tools::*;
 pub use crate::openhuman::search::tools::*;
 pub use crate::openhuman::security::tools::*;
 pub use crate::openhuman::service::tools::*;

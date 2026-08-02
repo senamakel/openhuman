@@ -1,6 +1,6 @@
 mod doctor;
 // `pub(crate)` (not `mod`): the tinyflows `memory` node's `OpenHumanMemory`
-// adapter (`crate::openhuman::tinyflows::memory_adapter`) reaches
+// adapter (`crate::openhuman::flows::tinyflows::memory_adapter`) reaches
 // `flavour::lookup_flavour` / `flavour::FlavourLookup` directly so the node's
 // `flavour` operation and `MemoryFlavourTool` share one flavoured-tree read
 // path — see `lookup_flavour`'s doc comment.

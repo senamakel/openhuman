@@ -3127,7 +3127,7 @@ async fn flows_run_finished_event_skips_pending_approval_and_fires_once_on_resum
 
 // ── Live run observation (issue G2) ───────────────────────────────────────
 
-use crate::openhuman::tinyflows::observability::FlowRunObserver;
+use crate::openhuman::flows::tinyflows::observability::FlowRunObserver;
 use std::sync::Arc as StdArc;
 // `RunObserver` must be in scope to call `on_step_finish` on the observer.
 use tinyflows::observability::{ExecutionStep, RunObserver as _, StepStatus};
@@ -3760,7 +3760,7 @@ fn build_flow_connections_emits_parseable_refs_for_both_kinds() {
     // exact parser the caps seam uses on execution.
     assert_eq!(gmail.connection_ref, "composio:gmail:ca_abc");
     assert_eq!(
-        crate::openhuman::tinyflows::caps::composio_connection_id(&gmail.connection_ref),
+        crate::openhuman::flows::tinyflows::caps::composio_connection_id(&gmail.connection_ref),
         Some("ca_abc")
     );
     assert_eq!(gmail.toolkit.as_deref(), Some("gmail"));
@@ -3772,7 +3772,7 @@ fn build_flow_connections_emits_parseable_refs_for_both_kinds() {
     assert_eq!(stripe.kind, "http");
     assert_eq!(stripe.connection_ref, "http_cred:stripe");
     assert_eq!(
-        crate::openhuman::tinyflows::caps::http_cred_name(&stripe.connection_ref),
+        crate::openhuman::flows::tinyflows::caps::http_cred_name(&stripe.connection_ref),
         Some("stripe")
     );
     assert_eq!(stripe.scheme.as_deref(), Some("bearer"));
@@ -4755,7 +4755,7 @@ async fn cached_probe_inference_readiness_caches_a_negative_result() {
 // test below seeds the exact toolkit it needs via `seed_live_catalog_cache`
 // so none of this touches a live Composio backend.
 
-use crate::openhuman::tinyflows::caps::{
+use crate::openhuman::flows::tinyflows::caps::{
     seed_live_catalog_cache, seed_probe_cache, ProbedOutputSample, ToolContract,
 };
 

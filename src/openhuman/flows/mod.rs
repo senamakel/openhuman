@@ -4,12 +4,29 @@
 //!
 //! Business logic lives in [`ops`]; persistence in `store` (private, with a
 //! handful of functions re-exported below for the capability seam's
-//! [`crate::openhuman::tinyflows::caps::FlowStateStore`]); the RPC/CLI
+//! [`crate::openhuman::flows::tinyflows::caps::FlowStateStore`]); the RPC/CLI
 //! controller surface in `schemas` (private, re-exported below).
 //!
 //! [`medulla_bridge`] adapts this store onto the medulla harness protocol's
 //! workflow plane, so a remote orchestrator can read these graphs and brief the
 //! authoring copilot without any of that reaching back into `ops`.
+//!
+//! # Gate shape — leaf, not facade
+//!
+//! The whole family (this module plus [`tinyflows`] and [`rhai`]) is gated at
+//! `pub mod flows;` in `src/openhuman/mod.rs` on `#[cfg(feature = "flows")]`,
+//! and the submodules below inherit that gate. There is **no `stub.rs`**:
+//! every symbol reached from outside is a *registration site* (`core::all`,
+//! `core::jsonrpc`'s `FlowTriggerSubscriber`, `core::runtime::services`' boot
+//! reconcile, the agent-tool `vec!` in `tools::ops`, the `workflow_builder` /
+//! `flow_discovery` entries in `agent_registry`), and a registration site wants
+//! *absence*, not a disabled-error stub — otherwise `flows.*` becomes a known
+//! method that fails at runtime.
+//!
+//! The leaf gate holds only because no always-compiled domain has a real code
+//! edge into this tree. `memory/tools.rs` and `memory/tools/flavour.rs` name
+//! `flows::tinyflows` in **comments only**. If either ever becomes a real
+//! `use`, this family must convert to the facade+stub shape (see `voice/`).
 
 pub mod agents;
 mod build_registry;
@@ -22,9 +39,13 @@ pub mod memory_tools;
 mod n8n_import;
 pub mod node_contracts;
 pub mod ops;
+/// The `.ragsh` language-workflow tool (formerly `openhuman::rhai_workflows`).
+pub mod rhai;
 mod run_registry;
 mod schemas;
 mod store;
+/// The tinyflows engine seam (formerly `openhuman::tinyflows`).
+pub mod tinyflows;
 pub mod tools;
 mod types;
 

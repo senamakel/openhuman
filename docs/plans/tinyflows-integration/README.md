@@ -29,11 +29,11 @@ Host-agnostic library crate on the `tinyagents` state-graph runtime. Pipeline: `
 
 Engine-side gaps (see Phase 7): `agent` node sub-ports (chat_model/memory/tool/output_parser) stubbed; `output_parser` is identity passthrough; README/Roadmap lag the code (claim jq and retry backoff are pending when both ship).
 
-### 1.2 Rust core seam (`src/openhuman/flows/` + `src/openhuman/tinyflows/` — implemented, with holes)
+### 1.2 Rust core seam (`src/openhuman/flows/` + `src/openhuman/flows/tinyflows/` — implemented, with holes)
 
 - **Domain** `flows::` (~3,700 lines + tests): `types.rs` (`Flow` wraps `WorkflowGraph` + `enabled`/`require_approval`/`last_status`; `FlowRun`, `FlowRunStep`, `FlowRunTrigger::{Rpc,Schedule,AppEvent,Resume}`), `store.rs` (SQLite incl. `flow_state` kv), `ops.rs` (validate/migrate + full run/resume under `TrustedAutomation → Workflow` origin, 600 s timeout), `schemas.rs`, `tools.rs` (`ProposeWorkflowTool` — validate-only, never persists), `bus.rs` (`FlowTriggerSubscriber`).
 - **RPC surface** (10 methods, wired in `src/core/all.rs`): `openhuman.flows_{create,get,list,update,delete,set_enabled,run,resume,list_runs,get_run}`.
-- **Capability seam** `src/openhuman/tinyflows/`: `caps.rs` (LLM/Composio-tools/HTTP/code/state adapters), `observability.rs` (currently `NoopObserver`), `langfuse_export.rs` (post-run trace export).
+- **Capability seam** `src/openhuman/flows/tinyflows/`: `caps.rs` (LLM/Composio-tools/HTTP/code/state adapters), `observability.rs` (currently `NoopObserver`), `langfuse_export.rs` (post-run trace export).
 - **Schedule triggers work end-to-end**: `flows::ops::bind_schedule_trigger` registers a cron `JobType::Flow` → scheduler publishes `DomainEvent::FlowScheduleTick` → `FlowTriggerSubscriber` runs the flow.
 - **Composio `app_event` triggers also work end-to-end**: `flows/bus.rs::handle_app_event` matches `DomainEvent::ComposioTriggerReceived { toolkit, trigger }` against enabled `app_event` flows (case-insensitive toolkit/slug match, per-flow concurrency guard) and runs them under `FlowRunTrigger::AppEvent`. Since Composio triggers are delivered by the platform, this **is** our webhook story for third-party apps — no tunnel needed.
 
@@ -142,7 +142,7 @@ Product decision: **Composio triggers are the webhook story.** `app_event` dispa
 
 **1c. Live run observation (G2).**
 
-- Implement a real `RunObserver` in `src/openhuman/tinyflows/observability.rs`: `on_step_finish` → persist `FlowRunStep` incrementally (timing, attempt count, status, output) via `flows::store`, and publish a new `DomainEvent::FlowRunProgress { run_id, node_id, status }`.
+- Implement a real `RunObserver` in `src/openhuman/flows/tinyflows/observability.rs`: `on_step_finish` → persist `FlowRunStep` incrementally (timing, attempt count, status, output) via `flows::store`, and publish a new `DomainEvent::FlowRunProgress { run_id, node_id, status }`.
 - Bridge to the frontend socket (`socket` domain) so the inspector can subscribe instead of polling (UI lands in Phase 2/3; keep polling as fallback).
 - Wire the journaled run variants so Langfuse export happens per-step, not only post-run.
 

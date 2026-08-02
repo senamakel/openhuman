@@ -94,8 +94,6 @@ pub mod proc_metrics;
 pub mod profiles;
 pub mod prompt_injection;
 pub mod recall_calendar;
-#[cfg(feature = "flows")]
-pub mod rhai_workflows;
 pub mod runtime;
 pub mod sandbox;
 pub mod search;
@@ -116,8 +114,6 @@ pub mod thread_goals;
 pub mod threads;
 pub mod tinyagents;
 pub mod tinycortex;
-#[cfg(feature = "flows")]
-pub mod tinyflows;
 pub mod tinyplace;
 pub mod todos;
 pub mod tokenjuice;

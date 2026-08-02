@@ -1206,7 +1206,7 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[lsp] capability gate off (set OPENHUMAN_LSP_ENABLED=1 to register)");
     }
 
-    // Language-workflow `rhai_workflows` tool (`.ragsh` REPL, `openhuman::rhai_workflows`): lets
+    // Language-workflow `rhai_workflows` tool (`.ragsh` REPL, `openhuman::flows::rhai`): lets
     // the orchestrator author and run its own Rhai workflow cells (fan-out,
     // loops, dedup/verify pipelines). Registered on the `supervised`/`full`
     // tiers only — dark on `readonly` (it can drive effectful tools/sub-agents)
@@ -1224,7 +1224,7 @@ pub fn all_tools_with_runtime(
     if rhai_workflows_enabled
         && security.autonomy != crate::openhuman::security::policy::AutonomyLevel::ReadOnly
     {
-        tools.push(Box::new(crate::openhuman::rhai_workflows::RhaiTool::new()));
+        tools.push(Box::new(crate::openhuman::flows::rhai::RhaiTool::new()));
         tracing::debug!("[rhai_workflows] registered rhai_workflows language-workflow tool");
     } else {
         tracing::debug!(

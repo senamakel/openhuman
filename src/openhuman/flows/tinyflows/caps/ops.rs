@@ -37,7 +37,7 @@ use crate::openhuman::security::{GateDecision, POLICY_BLOCKED_MARKER};
 // neither this seam nor `composio` — see that module's docs for why neutral
 // ownership is load-bearing rather than tidiness.
 //
-// Re-exported so `crate::openhuman::tinyflows::caps::<fn>` keeps resolving for
+// Re-exported so `crate::openhuman::flows::tinyflows::caps::<fn>` keeps resolving for
 // the callers outside this module (`flows::ops`, `tinyflows::tests`) — the
 // relocation is an internal reorganization, not an API change.
 // The live Composio catalog and probe moved to `composio::catalog` -- the domain
@@ -635,7 +635,7 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
             config: config.clone(),
         })),
         memory: Some(Arc::new(
-            crate::openhuman::tinyflows::memory_adapter::OpenHumanMemory {
+            crate::openhuman::flows::tinyflows::memory_adapter::OpenHumanMemory {
                 config: config.clone(),
                 security,
             },

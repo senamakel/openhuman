@@ -205,7 +205,7 @@ fn list_flow_connections_json_surfaces_platform_user_id() {
 // share a toolkit key (same discipline the pre-fix required-args/response-
 // fields caches already required).
 
-use crate::openhuman::tinyflows::caps::{
+use crate::openhuman::flows::tinyflows::caps::{
     seed_live_catalog_cache, seed_probe_cache, ProbedOutputSample, ToolContract,
 };
 

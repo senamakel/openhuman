@@ -1004,7 +1004,7 @@ pub(crate) fn graph_trigger_warnings(graph: &WorkflowGraph) -> Vec<String> {
 /// Composio schema). Best-effort like the runtime preflight — no schema, no
 /// warning, never a block.
 pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
-    use crate::openhuman::tinyflows::caps::{composio_required_args, missing_required_args};
+    use crate::openhuman::flows::tinyflows::caps::{composio_required_args, missing_required_args};
 
     let mut warnings = Vec::new();
     for node in &graph.nodes {
@@ -1055,7 +1055,7 @@ pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph
 /// message) when the binding is missing the `data.` segment entirely — a
 /// Composio `tool_call`'s real runtime output always wraps its payload in
 /// `data` (`ComposioExecuteResponse`; see
-/// [`crate::openhuman::tinyflows::caps::ToolContract::output_fields`]'s doc),
+/// [`crate::openhuman::flows::tinyflows::caps::ToolContract::output_fields`]'s doc),
 /// so `=nodes.<id>.item.json.<field>` (no `data.`) is GUARANTEED to resolve
 /// `null` even when `<field>` names a real output field — that used to be
 /// silently accepted here (B1: the exact bug that produces a hollow run).
@@ -1082,8 +1082,8 @@ pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph
 /// "missing the `data.` segment" would rewire an already-correct binding to
 /// a nonsense path (e.g. suggesting `.item.json.data.successful`).
 async fn graph_output_field_warnings(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    use crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog;
     use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
-    use crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog;
 
     let mut warnings = Vec::new();
     for node in &graph.nodes {
@@ -1123,7 +1123,7 @@ async fn graph_output_field_warnings(config: &Config, graph: &WorkflowGraph) -> 
             // relevant for an action whose live listing publishes no output
             // schema at all (e.g. every GitHub action, verified live).
             let contract =
-                crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+                crate::openhuman::flows::tinyflows::caps::apply_probe_override(contract.clone());
             // Nothing real to check `field_path` against — schema unknown AND
             // no probed output fields either.
             if contract.output_schema.is_none() && contract.output_fields.is_empty() {
@@ -1195,7 +1195,7 @@ async fn graph_output_field_warnings(config: &Config, graph: &WorkflowGraph) -> 
 }
 
 /// Given a Composio action's payload-only `output_schema` (see
-/// [`crate::openhuman::tinyflows::caps::ToolContract::output_fields`]'s doc —
+/// [`crate::openhuman::flows::tinyflows::caps::ToolContract::output_fields`]'s doc —
 /// NEVER includes the runtime `data` envelope) and a `split_out.path`
 /// addressed relative to the ENVELOPE (`json.<envelope_field…>`, e.g.
 /// `"json.data"` or `"json.data.issues"`), resolves whether the path lands on
@@ -1234,11 +1234,11 @@ fn schema_says_path_is_non_array(output_schema: &Value, configured_path: &str) -
 /// a REAL Composio action, checked two ways:
 ///
 /// 1. **KNOWN `primary_array_path`** (see
-///    [`crate::openhuman::tinyflows::caps::compute_composio_array_path`] —
+///    [`crate::openhuman::flows::tinyflows::caps::compute_composio_array_path`] —
 ///    this already bakes in the `data.` segment Composio's execute-response
 ///    wrapper adds, so `expected` below comes out `"json.data.<…>"` with no
 ///    extra handling needed here — and, via
-///    [`crate::openhuman::tinyflows::caps::apply_probe_override`], a real
+///    [`crate::openhuman::flows::tinyflows::caps::apply_probe_override`], a real
 ///    `get_tool_output_sample` probe for this slug overrides a schema that
 ///    never named an array at all): if the configured `config.path` doesn't match the
 ///    `json.<primary_array_path>` convention, suggest the real path.
@@ -1260,8 +1260,10 @@ fn schema_says_path_is_non_array(output_schema: &Value, configured_path: &str) -
 /// `primary_array_path` NOR an `output_schema` is known (truly nothing to
 /// check against).
 async fn graph_split_out_path_warnings(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    use crate::openhuman::flows::tinyflows::caps::{
+        apply_probe_override, fetch_live_toolkit_catalog,
+    };
     use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
-    use crate::openhuman::tinyflows::caps::{apply_probe_override, fetch_live_toolkit_catalog};
 
     let mut warnings = Vec::new();
     for node in &graph.nodes {
@@ -1432,7 +1434,7 @@ fn collect_expressions(value: &Value) -> Vec<(String, String)> {
 /// `field_path` captures the FULL remaining dotted path, not just its first
 /// segment — e.g. `"data.messages"` for `.item.json.data.messages`. This
 /// matters for a Composio `tool_call` ref, whose real output additionally
-/// wraps the field in `data` (see [`crate::openhuman::tinyflows::caps::ToolContract::output_fields`]'s
+/// wraps the field in `data` (see [`crate::openhuman::flows::tinyflows::caps::ToolContract::output_fields`]'s
 /// doc): callers that need to check field membership against a schema with
 /// no such wrapper (e.g. an `agent` node's `output_parser.schema`) should
 /// compare against just `field_path`'s first segment.
@@ -1714,7 +1716,7 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
 /// Rejects an `agent` node whose `config.agent_ref` would hit the runtime's
 /// `RegistryFallback` "unknown agent_ref" hard error mid-run
 /// (`run_via_registry_fallback` in `tinyflows/caps.rs`) — a real ref is one
-/// that resolves via [`crate::openhuman::tinyflows::caps::route_for_agent_ref`]
+/// that resolves via [`crate::openhuman::flows::tinyflows::caps::route_for_agent_ref`]
 /// to a harness [`AgentDefinition`](crate::openhuman::agent::harness::definition::AgentDefinition)
 /// (`AgentRoute::Harness`), OR — when it routes to `AgentRoute::RegistryFallback`
 /// — resolves to an *enabled*
@@ -1753,7 +1755,7 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
 pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     use crate::openhuman::agent::harness::AgentDefinitionRegistry;
     use crate::openhuman::agent_registry::AgentRegistryEntry;
-    use crate::openhuman::tinyflows::caps::{route_for_agent_ref, AgentRoute};
+    use crate::openhuman::flows::tinyflows::caps::{route_for_agent_ref, AgentRoute};
 
     let mut errors = Vec::new();
     let mut harness_registry_init_attempted = false;
@@ -2009,7 +2011,7 @@ async fn cached_probe_inference_readiness(role: &str, config: &Config) -> Result
 /// 2. A static (non-`=`) `agent_ref` whose custom
 ///    [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
 ///    itself pins a `model` (e.g. `hint:reasoning`) — resolved the same way
-///    [`OpenHumanAgentRunner::run_via_harness`](crate::openhuman::tinyflows::caps::OpenHumanAgentRunner)
+///    [`OpenHumanAgentRunner::run_via_harness`](crate::openhuman::flows::tinyflows::caps::OpenHumanAgentRunner)
 ///    does via `resolve_node_model(&request, entry_model)`, using the same
 ///    sync, config-only accessor
 ///    ([`find_custom_in_config`](crate::openhuman::agent_registry::find_custom_in_config))
@@ -2321,7 +2323,7 @@ pub(crate) async fn validate_inference_readiness(
 // which 404s at runtime) or omit a genuinely required arg, and
 // `validate_binding_resolvability` would have nothing to say about either.
 // [`validate_tool_contracts`] is that missing HARD gate, grounded in
-// [`crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog`] — the
+// [`crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog`] — the
 // FULL LIVE Composio catalog, not the static curated subset.
 
 /// Statically proves every `tool_call` node's `config.slug` is a REAL action
@@ -2363,10 +2365,10 @@ pub(crate) fn toolkit_has_curated_catalog(toolkit: &str) -> bool {
 }
 
 pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
-    use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
-    use crate::openhuman::tinyflows::caps::{
+    use crate::openhuman::flows::tinyflows::caps::{
         fetch_live_toolkit_catalog, missing_required_args, unsupported_arg_names,
     };
+    use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
 
     let mut errors = Vec::new();
     for node in &graph.nodes {
@@ -2546,7 +2548,7 @@ pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGra
 // account of that toolkit, naming the correct ref when it can.
 
 /// Parses a `composio:<toolkit>:<id>` connection_ref into its `(toolkit, id)`
-/// segments. Mirrors [`crate::openhuman::tinyflows::caps::composio_connection_id`]'s
+/// segments. Mirrors [`crate::openhuman::flows::tinyflows::caps::composio_connection_id`]'s
 /// rsplit for the id (everything after the LAST `:`), taking everything between
 /// the `composio:` prefix and that last `:` as the toolkit. Returns `None` for
 /// anything that isn't this shape (missing `composio:` prefix, no `:` after it,
@@ -2831,7 +2833,7 @@ const REQUIRED_ARG_NULL_CHECK_TIMEOUT_SECS: u64 = 15;
 /// `subject`), which stays broken no matter what the trigger payload is.
 ///
 /// Deliberately does **not** wrap the mock `ToolInvoker` in
-/// [`crate::openhuman::tinyflows::caps::PreflightToolInvoker`] the way
+/// [`crate::openhuman::flows::tinyflows::caps::PreflightToolInvoker`] the way
 /// `DryRunWorkflowTool` does: that wrapper aborts the WHOLE sandbox run the
 /// instant a node with a `stop` `on_error` policy (the default) hits a
 /// schema-required null arg, which would lose the per-field diagnostic this
@@ -2848,7 +2850,9 @@ const REQUIRED_ARG_NULL_CHECK_TIMEOUT_SECS: u64 = 15;
 /// check only ever adds a diagnostic the sandbox actually observed.
 pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -> Vec<String> {
     use crate::openhuman::flows::builder_tools::CapturingObserver;
-    use crate::openhuman::tinyflows::caps::{SchemaAwareMockAgentRunner, SchemaAwareMockLlm};
+    use crate::openhuman::flows::tinyflows::caps::{
+        SchemaAwareMockAgentRunner, SchemaAwareMockLlm,
+    };
 
     let Ok(compiled) = tinyflows::compiler::compile(graph) else {
         return Vec::new();
@@ -3023,7 +3027,7 @@ fn explicit_nodes_ref(expr: &str) -> Option<&str> {
 /// doc comment and the Codex feedback it links).
 ///
 /// - `=run...` always addresses the trigger payload/metadata directly
-///   (`crate::openhuman::tinyflows`'s `expr_scope` docs) — always
+///   (`crate::openhuman::flows::tinyflows`'s `expr_scope` docs) — always
 ///   trigger-scoped.
 /// - `=nodes.<id>...` / `=.nodes["<id>"]...` explicitly names an upstream
 ///   node. Trigger-scoped only if `<id>` IS the trigger node; naming any
@@ -4399,7 +4403,7 @@ async fn export_run_to_langfuse(
         observation_count = observations.len(),
         "[flows] exporting flow run trace to Langfuse"
     );
-    crate::openhuman::tinyflows::langfuse_export::export_flow_run_trace(
+    crate::openhuman::flows::tinyflows::langfuse_export::export_flow_run_trace(
         config,
         flow_name,
         flow_id,
@@ -4889,11 +4893,11 @@ async fn run_flow_body(
     };
 
     // Scope the state store per-flow so two flows never collide on a state key.
-    let caps = crate::openhuman::tinyflows::build_capabilities(
+    let caps = crate::openhuman::flows::tinyflows::build_capabilities(
         config_arc.clone(),
         format!("flow:{flow_id}"),
     );
-    let checkpointer = match crate::openhuman::tinyflows::open_flow_checkpointer(config) {
+    let checkpointer = match crate::openhuman::flows::tinyflows::open_flow_checkpointer(config) {
         Ok(checkpointer) => checkpointer,
         Err(e) => {
             let msg = e.to_string();
@@ -4950,7 +4954,7 @@ async fn run_flow_body(
     // `flow_runs` row as it happens and streams a `FlowRunProgress` event to
     // the frontend, so the durable + journaled path also reports live.
     let observer: Arc<dyn tinyflows::observability::RunObserver> = Arc::new(
-        crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+        crate::openhuman::flows::tinyflows::observability::FlowRunObserver::new(
             Arc::new(config.clone()),
             flow_id,
             thread_id.clone(),
@@ -5310,12 +5314,12 @@ pub async fn flows_resume(
     }
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
     let config_arc = Arc::new(config.clone());
-    let caps = crate::openhuman::tinyflows::build_capabilities(
+    let caps = crate::openhuman::flows::tinyflows::build_capabilities(
         config_arc.clone(),
         format!("flow:{flow_id}"),
     );
-    let checkpointer =
-        crate::openhuman::tinyflows::open_flow_checkpointer(config).map_err(|e| e.to_string())?;
+    let checkpointer = crate::openhuman::flows::tinyflows::open_flow_checkpointer(config)
+        .map_err(|e| e.to_string())?;
 
     // Run-lifecycle parity with `flows_run` (R-M1). A resume executes the flow's
     // real approved side effects for up to `FLOW_RUN_TIMEOUT_SECS`, so it needs
@@ -5385,7 +5389,7 @@ pub async fn flows_resume(
     // node that runs after the interrupt boundary, so downstream steps are
     // persisted + streamed live too, keyed by the same `thread_id`/run row.
     let observer: Arc<dyn tinyflows::observability::RunObserver> = Arc::new(
-        crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+        crate::openhuman::flows::tinyflows::observability::FlowRunObserver::new(
             Arc::new(config.clone()),
             flow_id,
             thread_id.to_string(),
@@ -5877,7 +5881,7 @@ pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcom
 /// rejects any non-`pending_approval` status); dropping the checkpoint is
 /// belt-and-suspenders that also reclaims the storage.
 async fn drop_checkpoint(config: &Config, thread_id: &str) {
-    match crate::openhuman::tinyflows::open_flow_checkpointer(config) {
+    match crate::openhuman::flows::tinyflows::open_flow_checkpointer(config) {
         Ok(checkpointer) => match checkpointer.delete_thread(thread_id).await {
             Ok(()) => {
                 tracing::debug!(target: "flows", thread_id, "[flows] dropped durable checkpoint for cancelled/expired run")
@@ -6143,7 +6147,7 @@ fn reconstruct_steps(output: &Value) -> Vec<FlowRunStep> {
 /// caller still writes a terminal row), never propagating an error into the
 /// run's settle path.
 ///
-/// [`FlowRunObserver`]: crate::openhuman::tinyflows::observability::FlowRunObserver
+/// [`FlowRunObserver`]: crate::openhuman::flows::tinyflows::observability::FlowRunObserver
 fn current_persisted_steps(config: &Config, run_id: &str) -> Vec<FlowRunStep> {
     store::get_flow_run(config, run_id)
         .ok()
@@ -7606,7 +7610,7 @@ pub async fn flows_required_connections(
 /// ask for all of them in one shot instead of parking the run node-by-node.
 ///
 /// Mirrors — never re-implements — the runtime gating in
-/// `crate::openhuman::tinyflows::caps` (`OpenHumanTools::invoke` /
+/// `crate::openhuman::flows::tinyflows::caps` (`OpenHumanTools::invoke` /
 /// `OpenHumanHttp` / `OpenHumanCode`) and `approval::gate`'s Workflow-origin
 /// branch. Because Rule 2 (`enforce_side_effect_approval`) forces
 /// `require_approval: true` onto every graph with outbound side-effect nodes,
@@ -7631,8 +7635,8 @@ pub async fn flows_required_connections(
 /// is `Allow` under every tier and the runtime skips the gate for them, so
 /// listing them would request grants that are never checked.
 pub async fn compute_approval_manifest(config: &Config, graph: &WorkflowGraph) -> Vec<Value> {
+    use crate::openhuman::flows::tinyflows::caps::classify_composio_action_for_tier;
     use crate::openhuman::security::{CommandClass, GateDecision, SecurityPolicy};
-    use crate::openhuman::tinyflows::caps::classify_composio_action_for_tier;
 
     let security =
         SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir, &config.action_dir);
@@ -7708,11 +7712,13 @@ pub async fn compute_approval_manifest(config: &Config, graph: &WorkflowGraph) -
                         }));
                     }
                     Some(s)
-                        if s.starts_with(crate::openhuman::tinyflows::caps::NATIVE_TOOL_PREFIX) =>
+                        if s.starts_with(
+                            crate::openhuman::flows::tinyflows::caps::NATIVE_TOOL_PREFIX,
+                        ) =>
                     {
                         let tool_name = s
                             .trim_start_matches(
-                                crate::openhuman::tinyflows::caps::NATIVE_TOOL_PREFIX,
+                                crate::openhuman::flows::tinyflows::caps::NATIVE_TOOL_PREFIX,
                             )
                             .trim()
                             .to_string();
@@ -7895,7 +7901,8 @@ pub async fn flows_get_tool_contract(
     };
     tracing::debug!(target: "flows", %slug, %toolkit, "[flows] flows_get_tool_contract: fetching contract");
     let Some(catalog) =
-        crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog(config, &toolkit).await
+        crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog(config, &toolkit)
+            .await
     else {
         return Err(format!(
             "Could not fetch the live Composio catalog for toolkit '{toolkit}'."
@@ -7904,7 +7911,7 @@ pub async fn flows_get_tool_contract(
     match catalog.iter().find(|c| c.slug.eq_ignore_ascii_case(slug)) {
         Some(contract) => {
             let contract =
-                crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+                crate::openhuman::flows::tinyflows::caps::apply_probe_override(contract.clone());
             let value = serde_json::to_value(&contract).map_err(|e| e.to_string())?;
             Ok(RpcOutcome::single_log(
                 json!({ "contract": value }),

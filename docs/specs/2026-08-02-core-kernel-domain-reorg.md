@@ -158,7 +158,7 @@ renames.
 | `agent/` | `agent_experience→experience`, `agent_orchestration→orchestration`, `agent_registry→registry`, `agentbox`, `harness_init`, `session_db`, `session_import`, `context`, `profiles`, `learning`, `plan_review`, `file_state`, `artifacts`, `tinyagents` |
 | `inference/` | `embeddings`, `tokenjuice` |
 | `skills/` | `skill_registry→registry`, `skill_runtime→runtime`, `webhooks` |
-| `flows/` | `tinyflows`, `rhai_workflows→rhai` |
+| `flows/` | ✅ **landed** — `tinyflows`, `rhai_workflows→rhai`; parent is leaf-gated on `flows` (no stub — every external site is a registration site) |
 | `mcp/` *(new)* | `mcp_server→server`, `mcp_registry→registry`, `mcp_audit→audit`, `mcp_client::{registry,stdio,spawn_env,setup_agent}→config_servers`, `mcp_client::{client,client_helpers}→http_client` *(ungated carve-out)*, `mcp_client::sanitize→util/sanitize` |
 | `channels/` | `whatsapp_data`, `webview_accounts` |
 | `meet/` | ✅ **landed** — `meet_agent→agent`, `agent_meetings→backend_bot` |

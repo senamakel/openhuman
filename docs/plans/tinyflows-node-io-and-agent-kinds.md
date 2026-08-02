@@ -41,7 +41,7 @@ Rules: `=item.text` always resolves (or is explicitly `null`); `=item.json.<fiel
 ### A1. Normalize the `agent` node output — _highest leverage, do first_
 
 - **Crate** (`vendor/tinyflows/src/nodes/integration/agent.rs:115`): wrap the completion in the envelope instead of `Item::new(value)`. If `output_parser` ran, the coerced value goes in `json`; the completion text (when present) in `text`; the untouched response in `raw`; a model-elected tool result stays under `json.tool_result` **and** mirrors to a stable `tool_result` accessor (see A2).
-- **Host** (`src/openhuman/tinyflows/caps.rs` `OpenHumanLlm::complete`): return `{ json: <parsed-or-null>, text: <response.text>, raw: <full response> }` rather than either the bare parsed object _or_ the `{text}` fallback. Removes the runtime shape-flip (audit M1).
+- **Host** (`src/openhuman/flows/tinyflows/caps.rs` `OpenHumanLlm::complete`): return `{ json: <parsed-or-null>, text: <response.text>, raw: <full response> }` rather than either the bare parsed object _or_ the `{text}` fallback. Removes the runtime shape-flip (audit M1).
 - **Tests**: update `agent.rs` unit tests + `caps.rs` seam tests; add an e2e asserting `=item.text` resolves on both a JSON-emitting and a prose-emitting model (mock both).
 
 ### A2. Unify inline-tool vs `tool_call`-node result shape (audit M2)
@@ -126,7 +126,7 @@ pub trait AgentRunner: Send + Sync {
 
 ### B2. Host adapter — implement `AgentRunner` over the registry + delegate runtime
 
-- `src/openhuman/tinyflows/caps.rs`: new `OpenHumanAgentRunner` implementing `AgentRunner`.
+- `src/openhuman/flows/tinyflows/caps.rs`: new `OpenHumanAgentRunner` implementing `AgentRunner`.
 - `run_agent(agent_ref, request, conn)`:
   1. `agent_registry::ops::get_agent(agent_ref)` → resolve the entry (tools, model hint, sandbox, `max_iterations`, `iteration_policy`).
   2. Apply optional per-node overrides (`model`, `max_iterations`, and a **narrowing-only** `tools_allow` — a node may _subset_ the agent's tools, never add).

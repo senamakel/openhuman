@@ -6,8 +6,8 @@ use crate::openhuman::channels::email_channel::{EmailChannel, EmailConfig};
 use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
 use crate::openhuman::channels::traits::Channel;
 use crate::openhuman::config::{Config, DiscordConfig, IMessageConfig, TelegramConfig};
-use crate::openhuman::memory_store::chunks::store as memory_tree_store;
-use crate::openhuman::memory_store::chunks::types::SourceKind;
+use crate::openhuman::memory::store::chunks::store as memory_tree_store;
+use crate::openhuman::memory::store::chunks::types::SourceKind;
 use crate::openhuman::security::credentials;
 use crate::rpc::RpcOutcome;
 

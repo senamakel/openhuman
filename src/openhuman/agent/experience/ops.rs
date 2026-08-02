@@ -100,7 +100,7 @@ async fn open_store_in_subdir(
     memory_subdir: &str,
 ) -> Result<AgentExperienceStore, String> {
     if memory_subdir != "memory" {
-        let memory = crate::openhuman::memory_store::UnifiedMemory::new_with_memory_dir(
+        let memory = crate::openhuman::memory::store::UnifiedMemory::new_with_memory_dir(
             &config.workspace_dir,
             memory_subdir,
             crate::openhuman::inference::embeddings::default_embedding_provider(),

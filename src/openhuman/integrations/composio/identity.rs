@@ -7,7 +7,7 @@
 //! `git config user.name`).
 //!
 //! The lookup goes through the per-toolkit
-//! [`ComposioProvider::fetch_user_profile`](crate::openhuman::memory_sync::composio::providers::ComposioProvider::fetch_user_profile)
+//! [`ComposioProvider::fetch_user_profile`](crate::openhuman::memory::sync::composio::providers::ComposioProvider::fetch_user_profile)
 //! call, which already knows the right Composio action slug for each
 //! toolkit (`GITHUB_GET_THE_AUTHENTICATED_USER`,
 //! `GMAIL_GET_PROFILE`, …) and the JSON field that holds the username.
@@ -115,7 +115,7 @@ pub async fn connection_identity(config: &Config, toolkit: &str) -> Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         register_provider, ComposioProvider, ProviderArc, ProviderUserProfile,
     };
     use async_trait::async_trait;

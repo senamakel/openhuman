@@ -5,8 +5,8 @@ use crate::openhuman::agent::context::prompt::{ConnectedIntegration, ToolCallFor
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::{with_parent_context, ParentExecutionContext};
 use crate::openhuman::agent::messages::ChatMessage;
+use crate::openhuman::memory::conversations;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::openhuman::memory_conversations as conversations;
 use crate::openhuman::tools::Tool;
 use async_trait::async_trait;
 use parking_lot::Mutex;

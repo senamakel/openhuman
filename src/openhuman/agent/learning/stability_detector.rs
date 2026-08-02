@@ -39,7 +39,7 @@ use crate::openhuman::agent::learning::cache::FacetCache;
 use crate::openhuman::agent::learning::candidate::{
     self, CueFamily, FacetClass, LearningCandidate,
 };
-use crate::openhuman::memory_store::profile::{FacetState, FacetType, ProfileFacet, UserState};
+use crate::openhuman::memory::store::profile::{FacetState, FacetType, ProfileFacet, UserState};
 
 // ── Thresholds ────────────────────────────────────────────────────────────────
 
@@ -578,7 +578,7 @@ mod tests {
     use crate::openhuman::agent::learning::candidate::{
         Buffer, EvidenceRef, FacetClass, LearningCandidate,
     };
-    use crate::openhuman::memory_store::profile::PROFILE_INIT_SQL;
+    use crate::openhuman::memory::store::profile::PROFILE_INIT_SQL;
     use parking_lot::Mutex;
     use rusqlite::Connection;
     use std::sync::Arc;
@@ -812,7 +812,7 @@ mod tests {
         let now = 1_000_000.0;
 
         // Manually insert a Pinned row.
-        use crate::openhuman::memory_store::profile::{FacetState, FacetType, UserState};
+        use crate::openhuman::memory::store::profile::{FacetState, FacetType, UserState};
         let pinned = ProfileFacet {
             facet_id: "f-pinned".into(),
             facet_type: FacetType::Preference,

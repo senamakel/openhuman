@@ -12,7 +12,7 @@
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
 use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
-use crate::openhuman::memory_conversations::{self as conversations};
+use crate::openhuman::memory::conversations::{self as conversations};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -307,7 +307,7 @@ mod tests {
     use super::*;
     use crate::openhuman::agent::harness::fork_context::with_parent_context;
     use crate::openhuman::agent::harness::ParentExecutionContext;
-    use crate::openhuman::memory_conversations::CreateConversationThread;
+    use crate::openhuman::memory::conversations::CreateConversationThread;
     use std::path::PathBuf;
     use std::sync::Arc;
     use tempfile::TempDir;

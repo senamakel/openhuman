@@ -15,7 +15,6 @@
 #![allow(dead_code)]
 
 pub mod agent;
-pub mod agent_memory;
 pub mod channels;
 pub mod config;
 pub mod cron;
@@ -52,17 +51,6 @@ pub mod medulla;
 // submodule carries its own `#[cfg(feature = "meet")]` (see `meet/mod.rs`).
 pub mod meet;
 pub mod memory;
-pub mod memory_conversations;
-pub mod memory_diff;
-pub mod memory_goals;
-pub mod memory_queue;
-pub mod memory_search;
-pub mod memory_sources;
-pub mod memory_store;
-pub mod memory_sync;
-pub mod memory_tools;
-pub mod memory_tree;
-pub mod people;
 pub mod platform;
 pub mod runtime;
 pub mod sandbox;
@@ -73,7 +61,6 @@ pub mod subconscious;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;
 pub mod threads;
-pub mod tinycortex;
 pub mod tinyplace;
 pub mod tools;
 pub mod util;

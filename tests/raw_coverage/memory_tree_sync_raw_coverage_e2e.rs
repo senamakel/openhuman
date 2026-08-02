@@ -15,32 +15,32 @@ use tempfile::TempDir;
 
 use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::memory_store::chunks::store::upsert_chunks;
-use openhuman_core::openhuman::memory_store::chunks::types::{
+use openhuman_core::openhuman::memory::store::chunks::store::upsert_chunks;
+use openhuman_core::openhuman::memory::store::chunks::types::{
     approx_token_count, chunk_id, Chunk, Metadata, SourceKind as ChunkSourceKind, SourceRef,
 };
-use openhuman_core::openhuman::memory_store::content;
-use openhuman_core::openhuman::memory_store::trees::types::TreeKind;
-use openhuman_core::openhuman::memory_store::trees::types::INPUT_TOKEN_BUDGET;
-use openhuman_core::openhuman::memory_sync::composio::bus::{
+use openhuman_core::openhuman::memory::store::content;
+use openhuman_core::openhuman::memory::store::trees::types::TreeKind;
+use openhuman_core::openhuman::memory::store::trees::types::INPUT_TOKEN_BUDGET;
+use openhuman_core::openhuman::memory::sync::composio::bus::{
     ComposioConfigChangedSubscriber, ComposioTriggerSubscriber,
 };
-use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::{
+use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::{
     extract_item_id, DailyBudget, SyncState,
 };
-use openhuman_core::openhuman::memory_sync::composio::providers::{
+use openhuman_core::openhuman::memory::sync::composio::providers::{
     agent_ready_toolkits, capability_matrix, catalog_for_toolkit, classify_unknown, find_curated,
     is_action_visible_with_pref, toolkit_from_slug, toolkit_has_scope, ComposioProvider,
     CuratedTool, ProviderContext, ProviderUserProfile, SyncOutcome, SyncReason, TaskFetchFilter,
     ToolScope, UserScopePref,
 };
-use openhuman_core::openhuman::memory_tree::score::extract::{EntityKind, ExtractedEntities};
-use openhuman_core::openhuman::memory_tree::score::resolver::canonicalise;
-use openhuman_core::openhuman::memory_tree::tree::bucket_seal::append_leaf;
-use openhuman_core::openhuman::memory_tree::tree::{
+use openhuman_core::openhuman::memory::tree::score::extract::{EntityKind, ExtractedEntities};
+use openhuman_core::openhuman::memory::tree::score::resolver::canonicalise;
+use openhuman_core::openhuman::memory::tree::tree::bucket_seal::append_leaf;
+use openhuman_core::openhuman::memory::tree::tree::{
     append_leaf_deferred, get_or_create_tree, store as tree_store, LabelStrategy, LeafRef,
 };
-use openhuman_core::openhuman::memory_tree::tree_runtime::{
+use openhuman_core::openhuman::memory::tree::tree_runtime::{
     engine, rpc as tree_runtime_rpc, store as runtime_store,
 };
 use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse};
@@ -125,7 +125,7 @@ fn staged_chunk(cfg: &Config, source_id: &str, seq: u32, tokens: u32) -> Chunk {
     std::fs::create_dir_all(&content_root).expect("content root");
     let staged = content::stage_chunks(&content_root, std::slice::from_ref(&chunk))
         .expect("stage chunk body");
-    openhuman_core::openhuman::memory_store::chunks::store::with_connection(cfg, |conn| {
+    openhuman_core::openhuman::memory::store::chunks::store::with_connection(cfg, |conn| {
         for staged_chunk in &staged {
             conn.execute(
                 "UPDATE mem_tree_chunks
@@ -491,14 +491,14 @@ async fn default_composio_provider_hooks_cover_defaults_and_sync_preconditions()
 
     let extracted = ExtractedEntities {
         entities: vec![
-            openhuman_core::openhuman::memory_tree::score::extract::ExtractedEntity {
+            openhuman_core::openhuman::memory::tree::score::extract::ExtractedEntity {
                 kind: EntityKind::Email,
                 text: "Round14@Example.COM".into(),
                 span_start: 0,
                 span_end: 19,
                 score: 0.9,
             },
-            openhuman_core::openhuman::memory_tree::score::extract::ExtractedEntity {
+            openhuman_core::openhuman::memory::tree::score::extract::ExtractedEntity {
                 kind: EntityKind::Person,
                 text: "Round Fourteen".into(),
                 span_start: 20,

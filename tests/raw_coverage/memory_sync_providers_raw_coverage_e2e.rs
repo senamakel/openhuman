@@ -19,18 +19,18 @@ use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::memory::global as memory_global;
-use openhuman_core::openhuman::memory_queue::drain_until_idle;
-use openhuman_core::openhuman::memory_sync::composio::bus::{
+use openhuman_core::openhuman::memory::queue::drain_until_idle;
+use openhuman_core::openhuman::memory::sync::composio::bus::{
     ComposioConfigChangedSubscriber, ComposioConnectionCreatedSubscriber, ComposioTriggerSubscriber,
 };
-use openhuman_core::openhuman::memory_sync::composio::providers::clickup::ClickUpProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::github::GitHubProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::gmail::GmailProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::linear::LinearProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::notion::NotionProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::slack::SlackProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::SyncState;
-use openhuman_core::openhuman::memory_sync::composio::providers::{
+use openhuman_core::openhuman::memory::sync::composio::providers::clickup::ClickUpProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::github::GitHubProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::gmail::GmailProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::linear::LinearProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::notion::NotionProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::slack::SlackProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::SyncState;
+use openhuman_core::openhuman::memory::sync::composio::providers::{
     ComposioProvider, ProviderContext, SyncReason, TaskFetchFilter,
 };
 
@@ -775,7 +775,7 @@ async fn gmail_sync_stops_after_an_all_already_synced_page() {
         state.mark_synced(format!("gmail-cap-msg-{i}"));
     }
     let state_adapter =
-        openhuman_core::openhuman::tinycortex::HostSyncAdapter::new(memory.clone());
+        openhuman_core::openhuman::memory::tinycortex::HostSyncAdapter::new(memory.clone());
     state
         .save(&state_adapter)
         .await

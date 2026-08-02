@@ -64,7 +64,7 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 
 - `crate::openhuman::config::{Config, rpc}` — reads the live config for all probes; `config_rpc::load_config_with_timeout` in the handlers.
 - `crate::openhuman::platform::service::daemon` — `state_file_path` for the daemon heartbeat/component snapshot.
-- `crate::openhuman::memory_store::{chunks::store, factories}` — `with_connection` for the DB probe; `effective_embedding_settings` to resolve the intended embedding provider/model.
+- `crate::openhuman::memory::store::{chunks::store, factories}` — `with_connection` for the DB probe; `effective_embedding_settings` to resolve the intended embedding provider/model.
 - `crate::openhuman::inference::{provider, local}` — `provider::list_providers` (model targets) and `local::ollama_base_url` (embedding probe).
 - `crate::api::{config, jwt}` — `effective_api_url` fallback resolution and `get_session_token` for sign-in state.
 - `crate::core::all::{ControllerFuture, RegisteredController}`, `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller/schema plumbing.

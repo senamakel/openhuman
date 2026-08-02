@@ -48,7 +48,7 @@ fn jwt_with_payload(payload: serde_json::Value) -> String {
 }
 
 fn count_reembed_backfill_jobs(config: &Config) -> i64 {
-    crate::openhuman::memory_store::chunks::store::with_connection(config, |conn| {
+    crate::openhuman::memory::store::chunks::store::with_connection(config, |conn| {
         Ok(conn.query_row(
             "SELECT COUNT(*) FROM mem_tree_jobs WHERE kind = 'reembed_backfill'",
             [],
@@ -328,11 +328,11 @@ async fn store_session_defers_minimal_live_jwt_when_auth_me_transient_and_allowe
 
 #[tokio::test]
 async fn store_session_requeues_reembed_backfill_after_login() {
-    use crate::openhuman::memory_store::chunks::store::{upsert_chunks, upsert_staged_chunks_tx};
-    use crate::openhuman::memory_store::chunks::types::{
+    use crate::openhuman::memory::store::chunks::store::{upsert_chunks, upsert_staged_chunks_tx};
+    use crate::openhuman::memory::store::chunks::types::{
         chunk_id, Chunk, Metadata, SourceKind, SourceRef,
     };
-    use crate::openhuman::memory_store::content as content_store;
+    use crate::openhuman::memory::store::content as content_store;
     use chrono::TimeZone;
 
     let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
@@ -367,7 +367,7 @@ async fn store_session_requeues_reembed_backfill_after_login() {
     let content_root = config.memory_tree_content_root();
     std::fs::create_dir_all(&content_root).unwrap();
     let staged = content_store::stage_chunks(&content_root, &[chunk]).unwrap();
-    crate::openhuman::memory_store::chunks::store::with_connection(&config, |conn| {
+    crate::openhuman::memory::store::chunks::store::with_connection(&config, |conn| {
         let tx = conn.unchecked_transaction()?;
         upsert_staged_chunks_tx(&tx, &staged)?;
         tx.commit()?;

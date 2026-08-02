@@ -2,8 +2,8 @@ use super::*;
 use crate::openhuman::channels::email_channel::EmailConfig;
 use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
 use crate::openhuman::config::schema::{DiscordConfig, IMessageConfig};
-use crate::openhuman::memory_store::chunks::store as memory_tree_store;
-use crate::openhuman::memory_store::chunks::types::{
+use crate::openhuman::memory::store::chunks::store as memory_tree_store;
+use crate::openhuman::memory::store::chunks::types::{
     chunk_id, Chunk, Metadata, SourceKind, SourceRef,
 };
 use chrono::{TimeZone, Utc};

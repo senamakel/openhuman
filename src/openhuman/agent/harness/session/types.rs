@@ -16,7 +16,7 @@ use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::agent::tool_policy::ToolPolicy;
-use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
+use crate::openhuman::memory::agent::memory_loader::MemoryLoader;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tools::agent_policy::ToolPolicySession;
 use crate::openhuman::tools::{Tool, ToolSpec};
@@ -89,7 +89,7 @@ pub struct Agent {
     /// Citation metadata collected from memory recall for the most recent turn.
     /// Consumed by web-channel delivery to render source chips in the UI.
     pub(super) last_turn_citations:
-        Vec<crate::openhuman::agent_memory::memory_loader::MemoryCitation>,
+        Vec<crate::openhuman::memory::agent::memory_loader::MemoryCitation>,
     /// Holistic token/cost/context accounting for the most recent turn (parent +
     /// any sub-agents spawned during it). Consumed by web-channel delivery to
     /// surface session token/cost/context meters in the UI footer. `None` until

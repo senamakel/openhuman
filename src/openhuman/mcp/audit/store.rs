@@ -3,7 +3,7 @@ use rusqlite::{params, types::Type, Row, ToSql};
 use serde_json::Value;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::store as chunk_store;
+use crate::openhuman::memory::store::chunks::store as chunk_store;
 
 use super::types::{McpWriteListQuery, McpWriteRecord, NewMcpWriteRecord};
 

@@ -31,8 +31,8 @@ use crate::openhuman::channels::yuanbao::YuanbaoChannel;
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::provider;
+use crate::openhuman::memory::store as memory_store;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::memory_store;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools;
 use anyhow::Result;
@@ -154,10 +154,10 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     let bus = event_bus::init_global(DEFAULT_CAPACITY);
     let _tracing_handle = bus.subscribe(Arc::new(TracingSubscriber));
     crate::openhuman::platform::health::bus::register_health_subscriber();
-    crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
+    crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
         config.workspace_dir.clone(),
     );
-    crate::openhuman::memory::sync::register_sync_stage_bridge(&config);
+    crate::openhuman::memory::sync_events::register_sync_stage_bridge(&config);
     crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
     crate::openhuman::meet::backend_bot::calendar::register_meet_calendar_subscriber();
     crate::openhuman::meet::backend_bot::bus::register_meeting_event_subscriber();
@@ -820,7 +820,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     };
     // Register the tree summarizer event subscriber for observability logging.
     let _tree_summarizer_handle = bus.subscribe(Arc::new(
-        crate::openhuman::memory_tree::tree_runtime::bus::TreeSummarizerEventSubscriber::new(),
+        crate::openhuman::memory::tree::tree_runtime::bus::TreeSummarizerEventSubscriber::new(),
     ));
 
     let listener_count = channels.len() + relay_config.as_ref().map(|_| 1).unwrap_or_default();

@@ -15,7 +15,7 @@ stays the row-level ledger but its anchors are stale — see §2).
 delete the in-tree duplicates and staging code, migrate/retire the affected
 tests, and clean up every dangling doc/code reference.
 **Method:** fresh four-way audit — (1) the crate surface, (2) the core memory
-domains, (3) the periphery + the `src/openhuman/tinycortex/` seam, (4) the
+domains, (3) the periphery + the `src/openhuman/memory/tinycortex/` seam, (4) the
 docs/tests/git history — against the working tree at `main` (`5b8a9f269`,
 2026-07-22).
 
@@ -143,7 +143,7 @@ these are context, not deletion blockers): `memory::` 166 files,
 `memory_store::` 132, `memory_tree::` 67, `memory_queue::` 18,
 `memory_tools::` 11, `memory_search::` 3.
 
-### 4.2 The seam — `src/openhuman/tinycortex/` (11 files, ~3.2k LOC)
+### 4.2 The seam — `src/openhuman/memory/tinycortex/` (11 files, ~3.2k LOC)
 
 `config.rs`, `embeddings.rs`, `chat.rs`, `summariser.rs`, `ingest.rs`,
 `seal.rs`, `sync.rs` (679), `queue_driver.rs` (1,007), `persona.rs` (446),
@@ -413,5 +413,5 @@ re-export except deliberate facades recorded in the spec.
 | `memory/` (orchestration/RPC/tools/tree-policy) | STAYS |
 | `memory_sources/` | STAYS (product registry over crate readers) |
 | `agent_memory/`, `subconscious/`, `learning/` | STAYS (consumers, no duplication) |
-| Seam `src/openhuman/tinycortex/` | STAYS, shrinks; fix stale module docs (WP-0), thin `queue_driver.rs` (WP-4) |
+| Seam `src/openhuman/memory/tinycortex/` | STAYS, shrinks; fix stale module docs (WP-0), thin `queue_driver.rs` (WP-4) |
 | Golden-parity harness | FINISH or DESCOPE by decision (WP-0); `MemoryTaint`/format pins KEEP |

@@ -17,7 +17,7 @@ use crate::openhuman::agent::orchestration::subagent_sessions::{
     SubagentSessionUpsert,
 };
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::memory_conversations::{self as conversations, ConversationMessage};
+use crate::openhuman::memory::conversations::{self as conversations, ConversationMessage};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -1242,7 +1242,7 @@ mod tests {
 
     #[test]
     fn attach_workflow_proposal_persists_thread_message_and_extends_summary() {
-        use crate::openhuman::memory_conversations::CreateConversationThread;
+        use crate::openhuman::memory::conversations::CreateConversationThread;
         let temp = tempfile::tempdir().expect("tempdir");
         conversations::ensure_thread(
             temp.path().to_path_buf(),

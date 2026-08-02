@@ -1,6 +1,6 @@
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::store as memory_store;
 use crate::openhuman::memory::{Memory, MemoryCategory};
-use crate::openhuman::memory_store;
 use anyhow::{bail, Context, Result};
 use directories::UserDirs;
 use rusqlite::{Connection, OpenFlags, OptionalExtension};

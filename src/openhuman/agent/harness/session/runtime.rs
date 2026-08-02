@@ -499,7 +499,7 @@ impl Agent {
     /// Drain and return memory citations collected for the latest completed turn.
     pub fn take_last_turn_citations(
         &mut self,
-    ) -> Vec<crate::openhuman::agent_memory::memory_loader::MemoryCitation> {
+    ) -> Vec<crate::openhuman::memory::agent::memory_loader::MemoryCitation> {
         std::mem::take(&mut self.last_turn_citations)
     }
 

@@ -85,7 +85,7 @@ None. This module owns no agent tools (`tools.rs` does not exist).
 - `crate::openhuman::config` — `Config`, config load (`load_config_with_timeout`), user-dir activation (`default_root_openhuman_dir`, `user_openhuman_dir`, `read/write/clear_active_user`, `pre_login_user_dir`), onboarding state.
 - `crate::openhuman::security::keyring` — `SecretStore` (encrypt/decrypt) and OS keychain `get`/`set`/`delete`/`is_available`.
 - `crate::openhuman::cron::scheduler_gate` — signed-out override flipped on login/logout/session-expiry.
-- `crate::openhuman::memory_conversations` — purge pre-login threads, bind conversation persistence after login.
+- `crate::openhuman::memory::conversations` — purge pre-login threads, bind conversation persistence after login.
 - `crate::openhuman::memory` — bind memory client to the active workspace after login.
 - `crate::openhuman::subconscious` — post-login bootstrap / user-switch reset.
 - `crate::openhuman::inference`, `::voice`, `::autocomplete` — login-gated services started/stopped.

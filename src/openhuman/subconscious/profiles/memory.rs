@@ -25,7 +25,7 @@ use crate::openhuman::agent::orchestration::parent_context::with_root_parent;
 use crate::openhuman::agent::turn_origin::TrustedAutomationSource;
 use crate::openhuman::config::schema::SubconsciousMode;
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_diff::types::CrossSourceDiff;
+use crate::openhuman::memory::diff::types::CrossSourceDiff;
 
 /// Per-tool-call timeout injected into the decision agent config.
 const TOOL_CALL_TIMEOUT_SECS: u64 = 5 * 60;
@@ -303,21 +303,23 @@ impl SubconsciousProfile for MemoryProfile {
         });
 
         let diff: Option<CrossSourceDiff> = match &baseline {
-            Some(checkpoint_id) => match crate::openhuman::memory_diff::ops::diff_since_checkpoint(
-                checkpoint_id,
-                config,
-                false,
-            )
-            .await
-            {
-                Ok(d) => Some(d),
-                Err(e) => {
-                    warn!(
+            Some(checkpoint_id) => {
+                match crate::openhuman::memory::diff::ops::diff_since_checkpoint(
+                    checkpoint_id,
+                    config,
+                    false,
+                )
+                .await
+                {
+                    Ok(d) => Some(d),
+                    Err(e) => {
+                        warn!(
                         "[subconscious:memory] memory_diff failed (baseline={checkpoint_id}): {e}"
                     );
-                    None
+                        None
+                    }
                 }
-            },
+            }
             None => {
                 debug!("[subconscious:memory] no world baseline yet — first tick establishes one");
                 None
@@ -379,7 +381,7 @@ impl SubconsciousProfile for MemoryProfile {
         // Re-snapshot the world and persist the new checkpoint as the baseline
         // the next tick diffs against. Best-effort — a failure leaves the old
         // baseline in place (the next tick diffs against a slightly older window).
-        match crate::openhuman::memory_diff::ops::create_checkpoint(
+        match crate::openhuman::memory::diff::ops::create_checkpoint(
             BASELINE_CHECKPOINT_LABEL,
             config,
         )
@@ -457,9 +459,9 @@ pub(crate) fn render_world_diff(diff: &CrossSourceDiff) -> String {
         ));
         for change in source.changes.iter().take(MAX_ITEMS_PER_SOURCE) {
             let verb = match change.kind {
-                crate::openhuman::memory_diff::types::ChangeKind::Added => "added",
-                crate::openhuman::memory_diff::types::ChangeKind::Removed => "removed",
-                crate::openhuman::memory_diff::types::ChangeKind::Modified => "modified",
+                crate::openhuman::memory::diff::types::ChangeKind::Added => "added",
+                crate::openhuman::memory::diff::types::ChangeKind::Removed => "removed",
+                crate::openhuman::memory::diff::types::ChangeKind::Modified => "modified",
             };
             let label = if change.title.trim().is_empty() {
                 change.item_id.as_str()

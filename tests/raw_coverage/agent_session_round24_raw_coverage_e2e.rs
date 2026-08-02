@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use openhuman_core::openhuman::agent::dispatcher::XmlToolDispatcher;
 use openhuman_core::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
+use openhuman_core::openhuman::memory::agent::memory_loader::MemoryLoader;
 use openhuman_core::openhuman::config::{AgentConfig, ContextConfig};
 use openhuman_core::openhuman::agent::context::prompt::{
     ConnectedIntegration, LearnedContextData, PersonalityRosterEntry, PersonalityRosterSection,

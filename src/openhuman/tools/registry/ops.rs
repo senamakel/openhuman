@@ -6,7 +6,7 @@ use crate::core::all;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::Config;
 use crate::openhuman::mcp::server::McpToolSpec;
-use crate::openhuman::memory_store::chunks::store as chunk_store;
+use crate::openhuman::memory::store::chunks::store as chunk_store;
 use crate::rpc::RpcOutcome;
 
 use super::providers::capability_provider_diagnostics;

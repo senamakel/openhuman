@@ -19,7 +19,7 @@ use crate::openhuman::config::{
     default_root_openhuman_dir, pre_login_user_dir, read_active_user_id, user_openhuman_dir,
     write_active_user_id,
 };
-use crate::openhuman::memory_conversations as conversations;
+use crate::openhuman::memory::conversations;
 
 const AUTH_ME_STORE_RETRY_DELAY: Duration = Duration::from_millis(150);
 const AUTH_ME_STORE_TRANSIENT_STATUSES: &[u16] = &[408, 429, 500, 502, 503, 504, 520];
@@ -551,7 +551,9 @@ async fn store_session_inner(
     // Rebind the people store to the per-user workspace too — the boot seed may
     // have bound it to the pre-login workspace, and it must follow the active
     // user like the memory client does (#4378).
-    match crate::openhuman::people::store::init_from_workspace(&effective_config.workspace_dir) {
+    match crate::openhuman::memory::people::store::init_from_workspace(
+        &effective_config.workspace_dir,
+    ) {
         Ok(_) => logs.push(format!(
             "people store bound to workspace {}",
             effective_config.workspace_dir.display()
@@ -561,7 +563,7 @@ async fn store_session_inner(
             logs.push(format!("people store bind warning: {e}"));
         }
     }
-    crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
+    crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
         effective_config.workspace_dir.clone(),
     );
     logs.push("conversation persistence bound to active workspace".to_string());
@@ -593,7 +595,7 @@ async fn store_session_inner(
         operation = "store_session",
         "[credentials][auth-store] scheduler gate cleared; ensuring re-embed backfill after login"
     );
-    crate::openhuman::memory_queue::ensure_reembed_backfill(&effective_config);
+    crate::openhuman::memory::queue::ensure_reembed_backfill(&effective_config);
     logs.push("memory re-embed backfill checked after login".to_string());
 
     // Bind the Sentry scope to this user so background events that fire
@@ -747,10 +749,12 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
             {
                 tracing::warn!(%error, "failed to rebind core context after logout");
             }
-            if let Err(error) = crate::openhuman::people::store::init_from_workspace(&workspace) {
+            if let Err(error) =
+                crate::openhuman::memory::people::store::init_from_workspace(&workspace)
+            {
                 tracing::warn!(%error, "failed to rebind people store after logout");
             }
-            crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
+            crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
                 workspace.clone(),
             );
             logs.push(format!(

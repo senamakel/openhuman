@@ -75,7 +75,7 @@ Records are stored through the shared `Memory` abstraction (no dedicated DB):
 - `crate::openhuman::agent::hooks` — `PostTurnHook`, `TurnContext`, `ToolCallRecord` (capture hook contract / turn inputs).
 - `crate::core::all` — `ControllerFuture`, `RegisteredController` for RPC registration.
 - `crate::core` — `ControllerSchema`, `FieldSchema`, `TypeSchema` (schema types); `crate::rpc::RpcOutcome`.
-- `crate::openhuman::memory_tools::test_helpers::MockMemory` — tests only.
+- `crate::openhuman::memory::tool_memory::test_helpers::MockMemory` — tests only.
 
 ## Used by
 
@@ -83,7 +83,7 @@ Records are stored through the shared `Memory` abstraction (no dedicated DB):
 - `src/openhuman/agent/harness/session/builder.rs` — constructs `AgentExperienceCaptureHook::new(...)` and registers it for the learning/capture flow.
 - `src/openhuman/agent/harness/session/turn.rs` — imports from this module and `inject_agent_experience_context` to retrieve + prepend the experience block into the enriched user message before a turn runs.
 - `src/openhuman/mod.rs` — declares the module.
-- `src/openhuman/memory_sync/workspace/mod.rs` — references it (doc comment) as a peer memory writer.
+- `src/openhuman/memory/sync/workspace/mod.rs` — references it (doc comment) as a peer memory writer.
 
 ## Notes / gotchas
 

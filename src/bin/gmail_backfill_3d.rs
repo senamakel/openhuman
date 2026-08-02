@@ -29,7 +29,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::memory_queue::drain_until_idle;
+use openhuman_core::openhuman::memory::queue::drain_until_idle;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -150,7 +150,7 @@ async fn main() -> Result<()> {
         .map(str::to_owned)
         .or_else(|| {
             config.memory_sources.iter().find_map(|source| {
-                (source.kind == openhuman_core::openhuman::memory_sources::SourceKind::Composio
+                (source.kind == openhuman_core::openhuman::memory::sources::SourceKind::Composio
                     && source.toolkit.as_deref() == Some("gmail"))
                 .then(|| source.connection_id.clone())
                 .flatten()
@@ -161,7 +161,7 @@ async fn main() -> Result<()> {
                 "no Gmail connection configured; pass --connection-id or add a Gmail memory source"
             )
         })?;
-    let outcome = openhuman_core::openhuman::tinycortex::run_gmail_backfill(
+    let outcome = openhuman_core::openhuman::memory::tinycortex::run_gmail_backfill(
         &connection_id,
         &query,
         cli.max_pages as usize,
@@ -215,7 +215,7 @@ async fn main() -> Result<()> {
 }
 
 async fn gmail_document_count(
-    memory: &openhuman_core::openhuman::memory_store::MemoryClientRef,
+    memory: &openhuman_core::openhuman::memory::store::MemoryClientRef,
 ) -> Result<usize> {
     let value = memory
         .list_documents(Some("skill-gmail"))

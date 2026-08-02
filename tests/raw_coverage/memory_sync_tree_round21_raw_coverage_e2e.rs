@@ -20,24 +20,24 @@ use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::memory::global as memory_global;
-use openhuman_core::openhuman::memory_store::chunks::store::with_connection;
-use openhuman_core::openhuman::memory_store::content::atomic::stage_summary;
-use openhuman_core::openhuman::memory_store::content::{SummaryComposeInput, SummaryTreeKind};
-use openhuman_core::openhuman::memory_store::trees::types::{SummaryNode, Tree, TreeKind};
-use openhuman_core::openhuman::memory_sync::composio::periodic::record_sync_success;
-use openhuman_core::openhuman::memory_sync::composio::providers::gmail::GmailProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::linear::LinearProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::slack::rpc::{
+use openhuman_core::openhuman::memory::store::chunks::store::with_connection;
+use openhuman_core::openhuman::memory::store::content::atomic::stage_summary;
+use openhuman_core::openhuman::memory::store::content::{SummaryComposeInput, SummaryTreeKind};
+use openhuman_core::openhuman::memory::store::trees::types::{SummaryNode, Tree, TreeKind};
+use openhuman_core::openhuman::memory::sync::composio::periodic::record_sync_success;
+use openhuman_core::openhuman::memory::sync::composio::providers::gmail::GmailProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::linear::LinearProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::slack::rpc::{
     sync_status_rpc, SyncStatusRequest,
 };
-use openhuman_core::openhuman::memory_sync::composio::providers::sync_state::SyncState;
-use openhuman_core::openhuman::memory_sync::composio::providers::{
+use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::SyncState;
+use openhuman_core::openhuman::memory::sync::composio::providers::{
     ComposioProvider, ProviderContext, SyncReason, TaskFetchFilter,
 };
-use openhuman_core::openhuman::memory_tree::retrieval::source::query_source;
+use openhuman_core::openhuman::memory::tree::retrieval::source::query_source;
 use tinycortex::memory::score::embed::{pack_embedding, EMBEDDING_DIM};
-use openhuman_core::openhuman::memory_tree::tree::store as tree_store;
-use openhuman_core::openhuman::memory_tree::tree::TreeStatus;
+use openhuman_core::openhuman::memory::tree::tree::store as tree_store;
+use openhuman_core::openhuman::memory::tree::tree::TreeStatus;
 
 static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -423,7 +423,7 @@ async fn slack_sync_status_rpc_reads_mock_connections_and_persisted_state() {
     state.mark_synced("C21:1714003200.000100");
     state.record_requests(7);
     let state_adapter =
-        openhuman_core::openhuman::tinycortex::HostSyncAdapter::new(memory.clone());
+        openhuman_core::openhuman::memory::tinycortex::HostSyncAdapter::new(memory.clone());
     state
         .save(&state_adapter)
         .await
@@ -477,7 +477,7 @@ async fn memory_tree_source_query_filters_reranks_and_hydrates_manual_summaries(
     let chat = query_source(
         &config,
         None,
-        Some(openhuman_core::openhuman::memory_store::chunks::types::SourceKind::Chat),
+        Some(openhuman_core::openhuman::memory::store::chunks::types::SourceKind::Chat),
         None,
         Some("semantic query keeps embedded rows first"),
         10,

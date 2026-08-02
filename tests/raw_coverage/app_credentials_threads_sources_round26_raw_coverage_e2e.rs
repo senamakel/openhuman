@@ -19,7 +19,7 @@ use openhuman_core::openhuman::memory::{
     AppendConversationMessageRequest, ConversationMessageRecord, CreateConversationThreadRequest,
     GenerateConversationThreadTitleRequest, UpsertConversationThreadRequest,
 };
-use openhuman_core::openhuman::memory_sources::reconcile::ensure_composio_sources;
+use openhuman_core::openhuman::memory::sources::reconcile::ensure_composio_sources;
 use openhuman_core::openhuman::threads::ops::{
     message_append, thread_create_new, thread_generate_title, thread_upsert,
 };

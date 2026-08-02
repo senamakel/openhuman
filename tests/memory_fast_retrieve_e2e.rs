@@ -23,7 +23,7 @@ use tempfile::TempDir;
 
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory::ingest_pipeline::ingest_chat;
-use openhuman_core::openhuman::memory_tree::retrieval::{fast_retrieve, FastRetrieveOptions};
+use openhuman_core::openhuman::memory::tree::retrieval::{fast_retrieve, FastRetrieveOptions};
 use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 fn test_config() -> (TempDir, Config) {

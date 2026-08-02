@@ -2,7 +2,7 @@ use super::*;
 use crate::openhuman::config::Config;
 use crate::openhuman::integrations::task_sources::store;
 use crate::openhuman::integrations::task_sources::types::{FilterSpec, ProviderSlug, SourceTarget};
-use crate::openhuman::memory_sync::composio::providers::{
+use crate::openhuman::memory::sync::composio::providers::{
     register_provider, ComposioProvider, NormalizedTask, ProviderContext, ProviderUserProfile,
     TaskFetchFilter,
 };

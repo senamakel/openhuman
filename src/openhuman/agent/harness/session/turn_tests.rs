@@ -11,8 +11,8 @@ use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,
 };
-use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::inference::provider::{ChatResponse, UsageInfo};
+use crate::openhuman::memory::agent::memory_loader::MemoryLoader;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tools::ToolResult;
 use crate::openhuman::tools::{PermissionLevel, Tool};
@@ -347,7 +347,7 @@ fn make_agent(visible_tool_names: Option<HashSet<String>>) -> Agent {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut builder = Agent::builder()
@@ -405,7 +405,7 @@ fn make_agent_with_builder_and_dispatcher(
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     Agent::builder()
@@ -574,8 +574,8 @@ fn collect_tree_root_summaries_maps_namespace_body_and_timestamp() {
     // #2944: the wrapper must carry the root node's `updated_at` from the
     // store tuple into the `NamespaceSummary` the prompt renderer stamps.
     use crate::openhuman::config::Config;
-    use crate::openhuman::memory_tree::tree_runtime::store::write_node;
-    use crate::openhuman::memory_tree::tree_runtime::types::{
+    use crate::openhuman::memory::tree::tree_runtime::store::write_node;
+    use crate::openhuman::memory::tree::tree_runtime::types::{
         derive_parent_id, estimate_tokens, level_from_node_id, TreeNode,
     };
 
@@ -615,8 +615,8 @@ fn collect_tree_root_summaries_maps_namespace_body_and_timestamp() {
 #[test]
 fn collect_tree_root_summaries_reads_only_profile_memory_subtree() {
     use crate::openhuman::config::Config;
-    use crate::openhuman::memory_tree::tree_runtime::store::write_node;
-    use crate::openhuman::memory_tree::tree_runtime::types::{
+    use crate::openhuman::memory::tree::tree_runtime::store::write_node;
+    use crate::openhuman::memory::tree::tree_runtime::types::{
         derive_parent_id, estimate_tokens, level_from_node_id, TreeNode,
     };
 
@@ -963,7 +963,7 @@ async fn turn_triggers_configured_memory_agent_before_parent_prompt() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut agent = Agent::builder()
@@ -2104,7 +2104,7 @@ fn make_agent_with_memory(
 
 fn make_real_memory(workspace: &std::path::Path) -> Arc<dyn Memory> {
     use crate::openhuman::inference::embeddings::NoopEmbedding;
-    use crate::openhuman::memory_store::UnifiedMemory;
+    use crate::openhuman::memory::store::UnifiedMemory;
     Arc::new(UnifiedMemory::new(workspace, Arc::new(NoopEmbedding), None).unwrap())
 }
 

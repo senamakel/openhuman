@@ -34,7 +34,7 @@ From `mod.rs`:
 
 ## Persistence
 
-- Table `mcp_writes` in the memory-tree chunk SQLite DB; schema and indexes (`idx_mcp_writes_timestamp`, `idx_mcp_writes_client`, `idx_mcp_writes_tool`) are created in `src/openhuman/memory_store/chunks/store.rs`, not here.
+- Table `mcp_writes` in the memory-tree chunk SQLite DB; schema and indexes (`idx_mcp_writes_timestamp`, `idx_mcp_writes_client`, `idx_mcp_writes_tool`) are created in `src/openhuman/memory/store/chunks/store.rs`, not here.
 - Columns: `id`, `timestamp_ms`, `client_info`, `tool_name`, `args_summary` (JSON text), `resulting_chunk_id`, `success` (0/1), `error_message`.
 - Connections are obtained via `chunk_store::with_connection(config, …)`; this module does not own a DB handle.
 
@@ -42,7 +42,7 @@ From `mod.rs`:
 
 - `crate::openhuman::config::Config` — workspace location used to resolve the DB.
 - `crate::openhuman::config::rpc` (`load_config_with_timeout`) — loads config in the RPC handler.
-- `crate::openhuman::memory_store::chunks::store` — provides `with_connection`; the audit table is co-located in the chunk DB.
+- `crate::openhuman::memory::store::chunks::store` — provides `with_connection`; the audit table is co-located in the chunk DB.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core` (`ControllerSchema`, `FieldSchema`, `TypeSchema`) — controller/schema plumbing.
 - External crates: `rusqlite`, `serde`/`serde_json`, `anyhow`.
 

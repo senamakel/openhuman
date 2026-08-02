@@ -231,8 +231,8 @@ fn invalidate_connected_integrations_cache_is_safe_without_prior_insert() {
 
 // ── Mock-backend integration tests for ops ─────────────────────
 
-use crate::openhuman::memory_store::chunks::store as memory_tree_store;
-use crate::openhuman::memory_store::chunks::types::{
+use crate::openhuman::memory::store::chunks::store as memory_tree_store;
+use crate::openhuman::memory::store::chunks::types::{
     chunk_id, Chunk, Metadata, SourceKind, SourceRef,
 };
 use axum::{
@@ -580,9 +580,9 @@ async fn composio_delete_connection_clear_memory_deletes_slack_source() {
 /// content file sits at the production `content_path` location.
 #[tokio::test]
 async fn composio_delete_connection_clear_memory_cascades_source_tree_and_content_file() {
+    use crate::openhuman::memory::store::trees::store as tree_store;
+    use crate::openhuman::memory::store::trees::types::{SummaryNode, TreeKind};
     use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
-    use crate::openhuman::memory_store::trees::store as tree_store;
-    use crate::openhuman::memory_store::trees::types::{SummaryNode, TreeKind};
     use rusqlite::params;
 
     let app = Router::new()
@@ -699,14 +699,14 @@ async fn composio_delete_connection_clear_memory_cascades_source_tree_and_conten
 /// tree, the summary row, AND the seal-produced content file away.
 #[tokio::test]
 async fn composio_delete_connection_clear_memory_cascades_live_sealed_tree_and_file() {
-    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
-    use crate::openhuman::memory_store::chunks::store::{
+    use crate::openhuman::memory::store::chunks::store::{
         get_summary_content_pointers, upsert_staged_chunks_tx,
     };
-    use crate::openhuman::memory_store::content::stage_chunks;
-    use crate::openhuman::memory_store::trees::store as tree_store;
-    use crate::openhuman::memory_store::trees::types::{Buffer, TreeKind};
-    use crate::openhuman::memory_tree::tree::bucket_seal::{seal_one_level, LabelStrategy};
+    use crate::openhuman::memory::store::content::stage_chunks;
+    use crate::openhuman::memory::store::trees::store as tree_store;
+    use crate::openhuman::memory::store::trees::types::{Buffer, TreeKind};
+    use crate::openhuman::memory::tree::tree::bucket_seal::{seal_one_level, LabelStrategy};
+    use crate::openhuman::memory::tree_source::registry::get_or_create_source_tree;
 
     let app = Router::new()
         .route(
@@ -905,7 +905,7 @@ async fn notion_cleanup_targets_include_synced_page_sources() {
     let mut state = SyncState::new("notion", "conn-1");
     state.mark_synced("page-a@2026-01-01T00:00:00Z");
     state.mark_synced("page-b");
-    let adapter = crate::openhuman::tinycortex::HostSyncAdapter::new(memory);
+    let adapter = crate::openhuman::memory::tinycortex::HostSyncAdapter::new(memory);
     state.save(&adapter).await.expect("sync state should save");
 
     let targets = composio_memory_targets_for_connection(&config, Some("notion"), "conn-1")
@@ -2498,7 +2498,7 @@ async fn enrich_does_nothing_when_no_cached_identities() {
 
 #[tokio::test]
 async fn enrich_populates_email_from_cached_profile() {
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();
@@ -2533,7 +2533,7 @@ async fn enrich_populates_email_from_cached_profile() {
 
 #[tokio::test]
 async fn enrich_populates_handle_for_github() {
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();
@@ -2576,7 +2576,7 @@ async fn enrich_skips_connection_already_having_identity() {
 #[tokio::test]
 async fn enrich_handles_multiple_connections_same_toolkit() {
     // Two Gmail accounts — each gets its own identity label, not "Account N".
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();
@@ -2617,7 +2617,7 @@ async fn enrich_handles_multiple_connections_same_toolkit() {
 async fn enrich_leaves_unmatched_connection_unchanged() {
     // Connection whose id has no cached profile row is returned with all
     // identity fields as None — the UI falls back to "toolkit · connection_id".
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();

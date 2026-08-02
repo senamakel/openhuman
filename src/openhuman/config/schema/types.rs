@@ -311,7 +311,7 @@ pub struct Config {
     /// describes a data connector (Composio OAuth, local folder, GitHub
     /// repo, RSS feed, Twitter query, web page) that feeds memory.
     #[serde(default)]
-    pub memory_sources: Vec<crate::openhuman::memory_sources::types::MemorySourceEntry>,
+    pub memory_sources: Vec<crate::openhuman::memory::sources::types::MemorySourceEntry>,
 
     /// User-facing agent registry — shipped default agents plus user-authored
     /// custom agents and persisted enable/disable/tool-policy overrides.

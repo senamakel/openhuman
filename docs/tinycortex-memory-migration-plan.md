@@ -25,9 +25,9 @@ remaining consolidation work is tracked in
 | Host module | LOC (approx) | Role |
 | --- | --- | --- |
 | `src/openhuman/memory/` | ~20,700 (79 files) | Orchestration/policy layer: `Memory` trait, RPC ops/schemas, agent tools, ingest orchestrator, sync lifecycle, preferences, source-scope task-locals, redaction |
-| `src/openhuman/memory_store/` | ~32,800 | Storage: `UnifiedMemory`/`MemoryClient`, chunks DB, content store, vectors, KV, safety |
-| `src/openhuman/memory_tree/` | ~25,300 | Summary trees, retrieval, scoring, health |
-| `src/openhuman/memory_sync/` | ~30,700 | Live sync: Composio, MCP, OAuth, pollers |
+| `src/openhuman/memory/store/` | ~32,800 | Storage: `UnifiedMemory`/`MemoryClient`, chunks DB, content store, vectors, KV, safety |
+| `src/openhuman/memory/tree/` | ~25,300 | Summary trees, retrieval, scoring, health |
+| `src/openhuman/memory/sync/` | ~30,700 | Live sync: Composio, MCP, OAuth, pollers |
 | `memory_queue`, `memory_sources`, `memory_diff`, `memory_goals`, `memory_entities`, `memory_graph`, `memory_archivist`, `memory_tools`, `memory_search` | ~20k combined | Engine long tail |
 
 **TinyCortex** (`vendor/tinycortex`, crate `tinycortex` v0.1.1, MIT, single crate, ~49,500 lines under `src/memory/`): an **already-completed port** of the engine layers — `store/` (content markdown + YAML, SQLite vectors, KV, entity_index, safety), `chunks/`, `tree/`, `queue/`, `retrieval/`, `score/`, `ingest/` (canonicalize/extract/pipeline), `conversations/`, `archivist/`, `diff/`, `sources/` (local readers only), `entities/`, `graph/`, `goals/`, `tool_memory/`. Its git history is explicitly "port X from OpenHuman" commits, and its types (`MemoryEntry`, `MemoryCategory`, `MemoryTaint`, `RecallOpts`, `NamespaceSummary`, the `Memory` trait) are wire-compatible with the host's `memory::traits`.
@@ -78,7 +78,7 @@ TinyCortex lives at **`vendor/tinycortex`** as a git submodule. Any change to en
 - **Policy/UX**: `preferences.rs`, `remember.rs`, `tree_policy.rs`, `util/redact.rs`, config mapping (`Config` → `tinycortex::MemoryConfig`).
 - **Namespace document/graph store** (until/unless deliberately upstreamed — TinyCortex explicitly excludes it today).
 
-### The adapter seam: `src/openhuman/tinycortex/`
+### The adapter seam: `src/openhuman/memory/tinycortex/`
 
 New sibling module mirroring `src/openhuman/agent/tinyagents/`, holding every impl of a TinyCortex trait over an OpenHuman service:
 
@@ -114,7 +114,7 @@ This phase produces documents and upstream issues only; it is the gate for every
 
 Per the tinyagents rules: **adapter first → prove parity → flip ownership → delete legacy**, deletion mandatory and enumerated per step. Ordering follows the engine's dependency graph (storage first, surfaces last). Within every workstream, **implementation lands first, tests second** (see §5).
 
-**W1 — Seam scaffolding.** Create `src/openhuman/tinycortex/` with the adapters in §1 (config, embeddings, chat/summariser, queue driver, sinks, bus bridge, facade). No behavior flips yet; adapters are constructed and unit-verified against the crate's inert defaults. *Deliverable: crate is linked, adapters compile, `MemoryConfig` derived from real `Config`.*
+**W1 — Seam scaffolding.** Create `src/openhuman/memory/tinycortex/` with the adapters in §1 (config, embeddings, chat/summariser, queue driver, sinks, bus bridge, facade). No behavior flips yet; adapters are constructed and unit-verified against the crate's inert defaults. *Deliverable: crate is linked, adapters compile, `MemoryConfig` derived from real `Config`.*
 
 **W2 — Types & trait cutover.** `memory/traits.rs` becomes re-exports of `tinycortex` types (per 0.5 decision). All 30+ external consumers (`agent/harness`, `learning`, `channels/runtime`, `subconscious`, `threads`, …) compile unchanged through the re-export. `sqlite_conn()` escape hatch on the host trait is reviewed: either upstreamed or kept as a host-side extension trait.
 
@@ -179,7 +179,7 @@ Ordering rule for this migration: **within each workstream, the implementation (
 ## 7. Definition of done
 
 - `memory_store`, `memory_tree`, `memory_queue`, `memory_diff`, `memory_entities`, `memory_graph`, `memory_goals`, `memory_archivist`, engine parts of `memory_sources`/`memory_tools`/conversations deleted from `src/openhuman/`; deletion ledger fully checked off.
-- Host memory code = policy/surfaces only: `memory/` (RPC, tools, sync lifecycle, preferences, scope, redact, global) + `src/openhuman/tinycortex/` seam + `memory_sync/`.
+- Host memory code = policy/surfaces only: `memory/` (RPC, tools, sync lifecycle, preferences, scope, redact, global) + `src/openhuman/memory/tinycortex/` seam + `memory_sync/`.
 - All engine logic served by `tinycortex` at a tagged, crates.io-published version, submodule pinned in lockstep.
 - JSON-RPC method names/payloads unchanged; existing user workspaces open and recall identically (golden-workspace parity green).
 - Full suites green on both CI lanes; gitbooks/AGENTS.md updated; spec + ledgers archived.
@@ -218,7 +218,7 @@ pure, network-free library):
 watcher — crate exposes `sync::tick_all`/`tick_pipeline(id)`, host owns tokio timers, same pattern
 as `queue::run_once`); credentials/OAuth (keychain slot `composio-direct`, RPC
 `composio.{get_mode,set_api_key,clear_api_key}`, connection lifecycle); event bus (new
-**`SyncEventSink`** trait in the crate, host adapter `src/openhuman/tinycortex/sync_sink.rs`
+**`SyncEventSink`** trait in the crate, host adapter `src/openhuman/memory/tinycortex/sync_sink.rs`
 translates to `MemorySyncStage` bus events); RPC wrappers (`memory/ops/sync.rs`,
 `memory/schemas/sync.rs`, `memory_sources/rpc.rs` — JSON-RPC names/payloads unchanged); the
 UnifiedMemory writeback path via a new **`SkillDocSink`** trait (providers call
@@ -257,7 +257,7 @@ ledger's **D4** entry.
   into the existing `OpenAiEmbeddingModel`.
 - **W-EMB.2 (tinycortex PR):** add a `tinyagents` dependency; bridge/replace `EmbeddingBackend`
   with `tinyagents::harness::embeddings::EmbeddingModel` (re-export or blanket impl).
-- **W-EMB.3 (host PR):** dual submodule bump; `src/openhuman/tinycortex/embeddings.rs` constructs
+- **W-EMB.3 (host PR):** dual submodule bump; `src/openhuman/memory/tinycortex/embeddings.rs` constructs
   tinyagents providers from `Config`; delete `src/openhuman/inference/embeddings/` provider impls; keep
   `factory.rs` (thin), `rpc.rs`, `schemas.rs`, catalog + config wiring host-side; signature-parity
   seam tests in the same PR.

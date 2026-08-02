@@ -28,7 +28,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, types::Type, Connection};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::safety::sanitize_text;
+use crate::openhuman::memory::store::safety::sanitize_text;
 
 use super::types::{
     ApprovalAuditEntry, ApprovalDecision, ApprovalSourceContext, ExecutionOutcome, PendingApproval,

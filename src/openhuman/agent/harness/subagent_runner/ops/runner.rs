@@ -42,7 +42,9 @@ use crate::openhuman::agent::harness::{
     current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
 use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
-use crate::openhuman::memory_tree::retrieval::{fast_retrieve, FastRetrieveOptions, QueryResponse};
+use crate::openhuman::memory::tree::retrieval::{
+    fast_retrieve, FastRetrieveOptions, QueryResponse,
+};
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 use tinyagents::harness::tool::SandboxMode as TinyagentsSandboxMode;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
@@ -247,7 +249,7 @@ async fn try_deterministic_memory_retrieval(
     // extraction here is deterministic and cheap (regex, or one spaCy call);
     // `fast_retrieve` repeats it internally, which is the same work its first
     // model-driven tool call would have done.
-    if crate::openhuman::memory_tree::nlp::extract_query_entities(&config, query)
+    if crate::openhuman::memory::tree::nlp::extract_query_entities(&config, query)
         .await
         .is_empty()
     {
@@ -1573,8 +1575,8 @@ mod fast_path_tests {
         apply_max_result_chars, format_deterministic_memory_hits, parse_memory_fast_path_enabled,
         MEMORY_FAST_PATH_LIMIT,
     };
-    use crate::openhuman::memory_store::trees::types::TreeKind;
-    use crate::openhuman::memory_tree::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
+    use crate::openhuman::memory::store::trees::types::TreeKind;
+    use crate::openhuman::memory::tree::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
     use chrono::Utc;
 
     fn hit(content: &str, scope: &str, score: f32) -> RetrievalHit {

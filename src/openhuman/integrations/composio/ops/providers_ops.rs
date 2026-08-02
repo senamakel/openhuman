@@ -189,7 +189,7 @@ pub async fn composio_sync(
     let connection_id_for_log = connection_id.to_string();
 
     tokio::spawn(async move {
-        match crate::openhuman::tinycortex::run_composio_connection(
+        match crate::openhuman::memory::tinycortex::run_composio_connection(
             &toolkit_for_outcome,
             &connection_id_for_log,
             &config_for_task,

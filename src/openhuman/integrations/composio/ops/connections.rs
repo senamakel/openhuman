@@ -215,7 +215,7 @@ pub async fn composio_delete_connection(
             );
         }
     }
-    match crate::openhuman::memory_sources::registry::remove_composio_source_by_connection_id(
+    match crate::openhuman::memory::sources::registry::remove_composio_source_by_connection_id(
         connection_id,
     )
     .await

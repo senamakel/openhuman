@@ -106,7 +106,7 @@ Published from `ops.rs`: `DomainEvent::ComposioConnectionCreated` (authorize), `
 - `crate::openhuman::integrations` — shared `IntegrationClient` (Bearer JWT, timeouts, envelope parsing, proxy) backing backend-mode calls.
 - `crate::openhuman::config` — `Config` / `ComposioConfig` (`mode`, `entity_id`), `config::rpc` config loading.
 - `crate::openhuman::memory`, `memory_store`, `memory_tree` — memory client + chunk store/tree for ingestion and connection-scoped memory cleanup.
-- `crate::openhuman::memory_sync::composio` — the actual home of providers, periodic sync, and bus subscribers (this module re-exports them via shims).
+- `crate::openhuman::memory::sync::composio` — the actual home of providers, periodic sync, and bus subscribers (this module re-exports them via shims).
 - `crate::openhuman::agent::harness` — sandbox mode (`current_sandbox_mode` / `SandboxMode`) for tool gating.
 - `crate::openhuman::tools::traits` — `Tool`, `ToolResult`, `ToolCategory`, `PermissionLevel`, `ToolCallOptions`.
 - `crate::openhuman::security` — `SecurityPolicy` / `ToolOperation` for direct-tool gating.
@@ -130,7 +130,7 @@ Published from `ops.rs`: `DomainEvent::ComposioConnectionCreated` (authorize), `
 
 ## Notes / gotchas
 
-- **`bus.rs`, `periodic.rs`, `providers/mod.rs` are compatibility shims** — the real implementations live under `src/openhuman/memory_sync/composio/`. Edit there.
+- **`bus.rs`, `periodic.rs`, `providers/mod.rs` are compatibility shims** — the real implementations live under `src/openhuman/memory/sync/composio/`. Edit there.
 - **Mode-aware routing (#1710)**: `authorize`/`execute`/`list_*` go through `create_composio_client` so a `composio.mode` toggle is honoured per call; direct mode never surfaces backend-tenant data (empty allowlist, user's own connections). Backend-only ops (`delete_connection`, `list_github_repos`, the `triggers/*` family, provider profile/sync) use `resolve_client` and require a backend session token.
 - **`ops.rs` is large (~2380 lines)** — only the first ~1363 lines were read in full when authoring this doc; mode/api-key ops and `sync_cache_with_connections` were located by grep at lines ~1574–2354.
 - **Error classification matters for the UI**: `execute` may return pre-classified `[composio:error:<class>] …` strings (parsed by `app/src/lib/composio/formatters.ts`); `ops.rs` preserves them rather than re-wrapping.

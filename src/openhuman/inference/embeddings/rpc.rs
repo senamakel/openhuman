@@ -364,7 +364,7 @@ pub async fn update_settings(
     config.save().await.map_err(|e| e.to_string())?;
 
     if sig_changed {
-        crate::openhuman::memory_queue::ensure_reembed_backfill(&config);
+        crate::openhuman::memory::queue::ensure_reembed_backfill(&config);
     }
 
     tracing::info!(

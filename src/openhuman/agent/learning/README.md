@@ -94,7 +94,7 @@ These are subscriber registrations rather than a single `bus.rs`; subscriptions 
 
 ## Dependencies
 
-- `crate::openhuman::memory_store::profile` — the `ProfileFacet` / `FacetState` / `UserState` types and the SQL helpers backing `FacetCache` (heaviest dependency).
+- `crate::openhuman::memory::store::profile` — the `ProfileFacet` / `FacetState` / `UserState` types and the SQL helpers backing `FacetCache` (heaviest dependency).
 - `crate::openhuman::memory` / `memory_store` — the `Memory` trait, `MemoryClient`, categories; all KV persistence and the global memory client used by RPC handlers.
 - `crate::openhuman::agent::hooks` — `PostTurnHook` / `TurnContext` / `ToolCallRecord` implemented by the three hooks.
 - `crate::openhuman::agent::harness::session::transcript` — `SessionTranscript` parsing for transcript ingestion.
@@ -111,7 +111,7 @@ These are subscriber registrations rather than a single `bus.rs`; subscriptions 
 - `src/core/all.rs` — registers the `learning.*` controllers + schemas.
 - `src/openhuman/agent/harness/session/{builder,turn}.rs` and `agent_memory/memory_loader.rs` — wire the post-turn hooks, prompt sections, and learned-context loading into the agent loop.
 - `src/openhuman/channels/runtime/startup.rs` — likely registers schedulers/subscribers at startup.
-- `src/openhuman/memory_store/namespace_store/profile.rs`, `memory_sync/composio/providers/profile.rs`, `memory_tools/{capture,mod}.rs`, `tools/impl/system/tool_stats.rs`, `tools/schemas.rs` — consume facet/learning types.
+- `src/openhuman/memory/store/namespace_store/profile.rs`, `memory_sync/composio/providers/profile.rs`, `memory_tools/{capture,mod}.rs`, `tools/impl/system/tool_stats.rs`, `tools/schemas.rs` — consume facet/learning types.
 
 ## Notes / gotchas
 

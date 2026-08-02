@@ -15,7 +15,7 @@ use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::hooks::{self, TurnContext};
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::agent_memory::memory_loader::collect_recall_citations;
+use crate::openhuman::memory::agent::memory_loader::collect_recall_citations;
 use crate::openhuman::memory::MemoryCategory;
 use crate::openhuman::util::truncate_with_ellipsis;
 

@@ -13,7 +13,7 @@ use std::collections::HashSet;
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_sync::composio::providers::{get_provider, ProviderContext};
+use crate::openhuman::memory::sync::composio::providers::{get_provider, ProviderContext};
 
 use super::types::{FetchOutcome, FetchReason, TaskSource};
 use super::{enrich, filter, route, store};

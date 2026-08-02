@@ -21,7 +21,7 @@ use tinyagents::harness::model::ModelRequest;
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::memory_tree::all_memory_tree_registered_controllers;
+use openhuman_core::openhuman::memory::tree::all_memory_tree_registered_controllers;
 use openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port;
 
 const TEST_RPC_TOKEN: &str = "json-rpc-e2e-local-token";
@@ -11216,7 +11216,7 @@ async fn json_rpc_task_sources_crud_and_status() {
 /// without a live Composio connection.
 mod task_sources_stub {
     use async_trait::async_trait;
-    use openhuman_core::openhuman::memory_sync::composio::providers::{
+    use openhuman_core::openhuman::memory::sync::composio::providers::{
         ComposioProvider, NormalizedTask, ProviderContext, ProviderUserProfile, TaskFetchFilter,
     };
 
@@ -11278,7 +11278,7 @@ async fn json_rpc_task_sources_fetch_pipeline_e2e() {
 
     // Register the stub github provider BEFORE serving so the fetch RPC
     // resolves it from the global registry.
-    openhuman_core::openhuman::memory_sync::composio::providers::register_provider(Arc::new(
+    openhuman_core::openhuman::memory::sync::composio::providers::register_provider(Arc::new(
         task_sources_stub::StubGithubProvider {
             tasks: vec![
                 task_sources_stub::task("101", "Fix flaky test", "2025-01-01T00:00:00Z"),
@@ -11399,7 +11399,7 @@ async fn json_rpc_task_sources_fetch_pipeline_e2e() {
     // Restore the global provider registry so the stub "github" provider
     // does not leak into other tests in this binary (re-registers the
     // real built-in providers).
-    openhuman_core::openhuman::memory_sync::composio::providers::init_default_providers();
+    openhuman_core::openhuman::memory::sync::composio::providers::init_default_providers();
 
     rpc_join.abort();
 }

@@ -18,7 +18,7 @@ use crate::openhuman::memory::{
 // sync entry points directly from these handlers parked async worker threads on
 // the store's `parking_lot` mutex, which starved the runtime and made
 // `threads_create_new` blow the frontend's 30 s RPC budget (#5156).
-use crate::openhuman::memory_conversations::{
+use crate::openhuman::memory::conversations::{
     self as conversations, ConversationMessage, ConversationMessagePatch, ConversationThread,
     CreateConversationThread, CrossThreadHit,
 };

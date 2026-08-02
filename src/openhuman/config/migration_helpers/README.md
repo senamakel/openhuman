@@ -62,7 +62,7 @@ No own store. It writes imported entries through the **target memory backend** o
 
 - `crate::openhuman::config::Config` — source of `workspace_dir` and `memory` config; `config::rpc::load_config_with_timeout` in handlers.
 - `crate::openhuman::memory` (`Memory`, `MemoryCategory`) — target backend trait + category enum entries are mapped into.
-- `crate::openhuman::memory_store` — `create_memory_for_migration` constructs the target memory backend.
+- `crate::openhuman::memory::store` — `create_memory_for_migration` constructs the target memory backend.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller registry/schema types.
 - `crate::rpc::RpcOutcome` — RPC response envelope.
 - External crates: `rusqlite` (read OpenClaw `brain.db`), `directories::UserDirs` (home dir), `anyhow`, `serde`/`serde_json`.

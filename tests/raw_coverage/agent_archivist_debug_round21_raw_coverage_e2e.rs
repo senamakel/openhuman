@@ -15,7 +15,7 @@ use openhuman_core::openhuman::agent::context::prompt::ToolCallFormat;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::memory_store::{events, fts5, profile, segments};
+use openhuman_core::openhuman::memory::store::{events, fts5, profile, segments};
 use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolResult};
 use parking_lot::Mutex;

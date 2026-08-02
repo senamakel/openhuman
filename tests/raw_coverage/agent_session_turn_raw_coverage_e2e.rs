@@ -12,13 +12,13 @@ use openhuman_core::openhuman::agent::tool_policy::{
     ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
 };
 use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
+use openhuman_core::openhuman::memory::agent::memory_loader::MemoryLoader;
 use openhuman_core::openhuman::config::{AgentConfig, ContextConfig, MemoryConfig};
 use openhuman_core::openhuman::agent::messages::ConversationMessage;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::memory_store;
+use openhuman_core::openhuman::memory::store as memory_store;
 use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::traits::ToolCallOptions;
 use openhuman_core::openhuman::tools::{

@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::store::chunks::store as memory_tree_store;
+use crate::openhuman::memory::store::chunks::types::SourceKind;
 use crate::openhuman::memory::MemoryClient;
-use crate::openhuman::memory_store::chunks::store as memory_tree_store;
-use crate::openhuman::memory_store::chunks::types::SourceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MemoryCleanupTarget {
@@ -94,7 +94,7 @@ async fn notion_memory_targets_for_connection(
             )
         })?,
     );
-    let adapter = crate::openhuman::tinycortex::HostSyncAdapter::new(memory);
+    let adapter = crate::openhuman::memory::tinycortex::HostSyncAdapter::new(memory);
     let state = tinycortex::memory::sync::SyncState::load(&adapter, "notion", connection_id)
         .await
         .map_err(|error| {

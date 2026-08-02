@@ -155,7 +155,7 @@ async fn flow_tool_allowed(
     slug: &str,
     connected_toolkits: Option<&[String]>,
 ) -> bool {
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         catalog_for_toolkit, classify_unknown, find_curated, get_provider,
         load_user_scope_or_default, toolkit_from_slug,
     };
@@ -228,7 +228,7 @@ async fn flow_tool_allowed(
 /// offline (a registry lookup) so the common cataloged-toolkit path never pays
 /// for a connected-set fetch.
 fn slug_needs_connected_set(slug: &str) -> bool {
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         catalog_for_toolkit, get_provider, toolkit_from_slug,
     };
     match toolkit_from_slug(slug) {
@@ -283,7 +283,7 @@ async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
 /// [`CommandClass`] the autonomy-tier gate ([`enforce_node_tier_gate`])
 /// evaluates it under.
 ///
-/// Reuses [`curated_scope_for`](crate::openhuman::memory_sync::composio::providers::curated_scope_for),
+/// Reuses [`curated_scope_for`](crate::openhuman::memory::sync::composio::providers::curated_scope_for),
 /// the same catalog walk `composio::ops`'s `gated_tools` hints use — a
 /// registered native provider's `curated_tools()` first, then the static
 /// `catalog_for_toolkit` fallback. **Fail-safe by construction:** only a
@@ -296,7 +296,7 @@ async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
 /// (prompts under Supervised/Full, blocks under ReadOnly).
 ///
 /// Deliberately does **not** fall back to
-/// [`classify_unknown`](crate::openhuman::memory_sync::composio::providers::classify_unknown)
+/// [`classify_unknown`](crate::openhuman::memory::sync::composio::providers::classify_unknown)
 /// for uncurated slugs: that heuristic is tuned for the *curation*
 /// allowlist (`flow_tool_allowed`'s Path B — "is this slug even visible to
 /// the agent"), not for deciding whether a real side-effecting call skips
@@ -307,7 +307,7 @@ async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
 /// from what actually gates (a parallel re-implementation would list
 /// permissions that never prompt, or miss ones that do).
 pub(crate) async fn classify_composio_action_for_tier(slug: &str) -> CommandClass {
-    use crate::openhuman::memory_sync::composio::providers::{curated_scope_for, ToolScope};
+    use crate::openhuman::memory::sync::composio::providers::{curated_scope_for, ToolScope};
 
     match curated_scope_for(slug) {
         Some(ToolScope::Read) => CommandClass::Read,
@@ -1232,7 +1232,7 @@ mod tests {
     /// but simply doesn't contain it.
     #[tokio::test]
     async fn unknown_toolkit_still_rejects() {
-        use crate::openhuman::memory_sync::composio::providers::{
+        use crate::openhuman::memory::sync::composio::providers::{
             catalog_for_toolkit, get_provider,
         };
         let config = Config::default();
@@ -1263,7 +1263,7 @@ mod tests {
     /// The exact same slug rejects above without a connection.
     #[tokio::test]
     async fn connected_uncatalogued_toolkit_now_passes() {
-        use crate::openhuman::memory_sync::composio::providers::{
+        use crate::openhuman::memory::sync::composio::providers::{
             catalog_for_toolkit, get_provider,
         };
         assert!(catalog_for_toolkit("flowstestkit").is_none());
@@ -1315,7 +1315,7 @@ mod tests {
     /// which passes.
     #[tokio::test]
     async fn expired_live_catalog_entry_is_treated_as_a_cache_miss() {
-        use crate::openhuman::memory_sync::composio::providers::{
+        use crate::openhuman::memory::sync::composio::providers::{
             catalog_for_toolkit, get_provider,
         };
         assert!(catalog_for_toolkit("flowsexpiredkit").is_none());
@@ -1355,7 +1355,7 @@ mod tests {
     /// sufficient, the slug itself must be real.
     #[tokio::test]
     async fn connected_uncatalogued_toolkit_rejects_a_hallucinated_slug() {
-        use crate::openhuman::memory_sync::composio::providers::{
+        use crate::openhuman::memory::sync::composio::providers::{
             catalog_for_toolkit, get_provider,
         };
         assert!(catalog_for_toolkit("flowstestkit").is_none());

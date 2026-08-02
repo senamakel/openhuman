@@ -30,7 +30,7 @@ use std::sync::OnceLock;
 
 use crate::core::event_bus::SubscriptionHandle;
 use crate::openhuman::memory::global::client_if_ready;
-use crate::openhuman::memory_store::MemoryClientRef;
+use crate::openhuman::memory::store::MemoryClientRef;
 
 static EMAIL_SIG_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
 
@@ -171,7 +171,7 @@ mod tests {
     use crate::openhuman::agent::learning::extract::signature::{
         parse_signature, register_email_signature_subscriber_on,
     };
-    use crate::openhuman::memory_store::MemoryClient;
+    use crate::openhuman::memory::store::MemoryClient;
     use std::sync::Arc;
     use std::time::Duration;
     use tempfile::TempDir;

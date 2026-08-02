@@ -66,7 +66,7 @@ No dependencies on other `openhuman` domains — capability metadata for other d
 ## Used by
 
 - `src/core/all.rs` — registers the controllers/schemas into the global RPC/CLI registry and supplies the `about_app` namespace description.
-- `src/openhuman/memory_sync/composio/periodic.rs` — references this catalog only in a doc comment, as the place to add the user-visible status for that flow (no code dependency).
+- `src/openhuman/memory/sync/composio/periodic.rs` — references this catalog only in a doc comment, as the place to add the user-visible status for that flow (no code dependency).
 
 ## Notes / gotchas
 

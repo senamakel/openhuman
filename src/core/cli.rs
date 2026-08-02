@@ -90,7 +90,7 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         "tui" | "chat" => run_tui_from_cli(&args[1..]),
         "call" => run_call_command(&args[1..]),
         "tree-summarizer" => {
-            crate::openhuman::memory_tree::tree_runtime::cli::run_tree_summarizer_command(
+            crate::openhuman::memory::tree::tree_runtime::cli::run_tree_summarizer_command(
                 &args[1..],
             )
         }

@@ -152,7 +152,7 @@ Do not attempt to run them with `run_skill` — they have been removed. Tell the
 }
 
 /// Wrapper around
-/// [`crate::openhuman::memory_tree::tree_runtime::store::collect_root_summaries_with_caps`]
+/// [`crate::openhuman::memory::tree::tree_runtime::store::collect_root_summaries_with_caps`]
 /// that takes user-resolved per-namespace and total caps. The actual
 /// limits are derived from the active
 /// [`crate::openhuman::config::schema::agent::MemoryContextWindow`]
@@ -164,7 +164,7 @@ pub(super) fn collect_tree_root_summaries(
     total_cap: usize,
 ) -> Vec<crate::openhuman::agent::context::prompt::NamespaceSummary> {
     let rows = if memory_subdir == "memory" {
-        crate::openhuman::memory_tree::tree_runtime::store::collect_root_summaries_with_caps(
+        crate::openhuman::memory::tree::tree_runtime::store::collect_root_summaries_with_caps(
             workspace_dir,
             per_namespace_cap,
             total_cap,

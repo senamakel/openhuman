@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::openhuman::memory_store::safety::sanitize_text;
+use crate::openhuman::memory::store::safety::sanitize_text;
 use crate::openhuman::security::SecurityPolicy;
 
 use super::paths::{relative_to_action_dir, resolve_artifact_path, sanitize_component};

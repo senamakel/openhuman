@@ -14,7 +14,7 @@ Orchestration layer over the memory stack. Owns:
   memory\_\* RPC namespace.
 
 Does **not** own any storage primitives — those live in
-[`memory_store`](../memory_store/). See that module for raw md, chunks,
+[`memory_store`](store/). See that module for raw md, chunks,
 entities, trees, vectors, kv, and contacts.
 
 ## Sibling memory\_\* modules
@@ -24,11 +24,11 @@ one job. memory orchestrates and routes between them.
 
 | Module                                     | Role                                                                                                |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| [`memory_store`](../memory_store/)         | Storage primitives: raw / chunks / entities / trees / vectors / kv / contacts. SQLite + on-disk md. |
-| [`memory_tree`](../memory_tree/)           | Generic tree mechanics: bucket-seal, flush, summarise, and retrieval/traversal backends.            |
+| [`memory_store`](store/)         | Storage primitives: raw / chunks / entities / trees / vectors / kv / contacts. SQLite + on-disk md. |
+| [`memory_tree`](tree/)           | Generic tree mechanics: bucket-seal, flush, summarise, and retrieval/traversal backends.            |
 | `tinycortex::memory::archivist`            | Chat conversation → clip tool-calls → push to tree; called directly by the host harness.            |
-| [`memory_tools`](../memory_tools/)         | Tool-scoped rules + agent read/write tools.                                                         |
-| [`memory_sync`](../memory_sync/)           | Composio + workspace + MCP sync pipelines.                                                          |
+| [`tool_memory`](tool_memory/)         | Tool-scoped rules + agent read/write tools.                                                         |
+| [`memory_sync`](sync/)           | Composio + workspace + MCP sync pipelines.                                                          |
 
 ## What lives here
 
@@ -44,7 +44,7 @@ one job. memory orchestrates and routes between them.
 | [`chat/`](chat.rs)                                | Chat-source canonicalisation helpers.                                                                                                                                   |
 | [`read_rpc/`](read_rpc/)                           | RPC handlers for memory reads.                                                                                                                                          |
 | [`schemas/`](schemas/) + [`schema/`](schema/)      | Controller schema definitions for the memory + memory_tree RPC namespaces.                                                                                              |
-| [`sync_status/`](../memory_sync/sync_status/)     | Sync freshness tracking + RPC.                                                                                                                                          |
+| [`sync_status/`](sync/sync_status/)     | Sync freshness tracking + RPC.                                                                                                                                          |
 | [`ops/`](ops/)                                    | RPC operation handlers + the shared `active_memory_client` helper.                                                                                                      |
 | [`preferences.rs`](preferences.rs)                | User preference read/write helpers.                                                                                                                                     |
 | [`rpc_models.rs`](rpc_models.rs)                  | Shared RPC request/response shapes.                                                                                                                                     |

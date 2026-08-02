@@ -9,7 +9,7 @@ use openhuman_core::core::event_bus::init_global;
 use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::inference::provider::factory::test_provider_override;
-use openhuman_core::openhuman::memory_store::MemoryClient;
+use openhuman_core::openhuman::memory::store::MemoryClient;
 
 use crate::harness::{fixture, measure, ProfileResult};
 use crate::mock::PlainTextMock;

@@ -315,8 +315,8 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     },
     BuiltinAgent {
         id: "agent_memory",
-        toml: include_str!("../../../agent_memory/agent/agent.toml"),
-        prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,
+        toml: include_str!("../../../memory/agent/agent/agent.toml"),
+        prompt_fn: crate::openhuman::memory::agent::agent::prompt::build,
         graph_fn: None,
     },
     BuiltinAgent {

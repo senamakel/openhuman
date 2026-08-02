@@ -441,7 +441,7 @@ async fn main() -> Result<()> {
         let started = Instant::now();
         let mut total_buckets = 0usize;
         for conn in &slack_conns {
-            match openhuman_core::openhuman::tinycortex::run_slack_search_backfill(
+            match openhuman_core::openhuman::memory::tinycortex::run_slack_search_backfill(
                 &conn.id,
                 cli.days,
                 config.as_ref(),
@@ -536,7 +536,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        match openhuman_core::openhuman::tinycortex::run_composio_connection(
+        match openhuman_core::openhuman::memory::tinycortex::run_composio_connection(
             "slack",
             &conn.id,
             config.as_ref(),

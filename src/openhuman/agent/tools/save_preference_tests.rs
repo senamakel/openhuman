@@ -3,7 +3,7 @@
 use super::*;
 
 use crate::openhuman::inference::embeddings::NoopEmbedding;
-use crate::openhuman::memory_store::UnifiedMemory;
+use crate::openhuman::memory::store::UnifiedMemory;
 use crate::openhuman::security::SecurityPolicy;
 use serde_json::json;
 use tempfile::TempDir;

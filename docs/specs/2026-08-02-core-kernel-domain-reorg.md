@@ -1,6 +1,6 @@
 # Core kernelization, part 2 — the domain-family reorg
 
-**Status:** in progress · **Date:** 2026-08-02 · **Scope:** `src/openhuman/**`
+**Status:** structural half complete · **Date:** 2026-08-02 · **Scope:** `src/openhuman/**`
 **Companions:** [`kernel.md`](kernel.md) (the subsystem/driver model this feeds into) ·
 [`../plans/pluggable-core/README.md`](../plans/pluggable-core/README.md) (the host-side
 `CoreBuilder`/`CoreContext` work) · `AGENTS.md` § *Compile-time domain gates*
@@ -10,7 +10,7 @@
 ## 1. Where the program stands
 
 The kernelization program has two halves. **The dependency half is largely done**; the
-**structural half is underway** — 124 top-level domain directories are down to 58, and both
+**structural half is complete** — 124 top-level domain directories are down to 31, and both
 root-level `*.rs` violations are gone.
 
 ### Done (#4795 epic, then #5314)
@@ -51,7 +51,7 @@ top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` was
 meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
 (`DomainGroup`, `DomainSet`, `StoreInitPlan`, `DomainSubscriberPlan`, `tool_group()`).
 
-**Steps 1–7 landed: 124 → 58 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
+**Steps 1–9 landed: 124 → 31 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
 `util/`, `sandbox/cwd_jail`, `cron/scheduler_gate`, `runtime/`, `media/`, `desktop/`, `hosted/`,
 `subconscious/{triggers,monitors}`, and `mcp/`, and the existing-gate families `voice/audio_toolkit`,
 `web3/{wallet,x402}`, `medulla/chat`, `flows/{tinyflows,rhai}`,
@@ -61,8 +61,8 @@ meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel regi
 `integrations/{composio,recall_calendar,file_storage,task_sources}`,
 `skills/{catalog,runtime,webhooks}`, `inference/{embeddings,tokenjuice}`, and step 7's kernel
 `security/{approval,credentials,keyring,keyring_consent,encryption,prompt_injection,devices}`.
-The `heartbeat/` re-export shim is deleted, and step 8 folded fourteen domains into `agent/`.
-The last big family (`memory/`) is still ahead.
+The `heartbeat/` re-export shim is deleted, step 8 folded fourteen domains into `agent/`, and
+step 9 folded thirteen domains into `memory/` — the last and largest family.
 
 **That is what this document is about.** The remaining dependency sheds are blocked on it or are
 cross-repo; the structural work is what makes the next twenty gates cheap instead of expensive.
@@ -162,7 +162,7 @@ renames.
 
 | Family | Absorbs |
 | --- | --- |
-| `memory/` | `memory_store→store`, `memory_sync→sync`, `memory_tree→tree`, `memory_search→search`, `memory_sources→sources`, `memory_queue→queue`, `memory_diff→diff`, `memory_goals→goals`, `memory_conversations→conversations`, `memory_tools→tool_memory`, `tinycortex`, `agent_memory→agent`, `people` |
+| `memory/` | ✅ **landed** — `memory_store→store`, `memory_sync→sync`, `memory_tree→tree`, `memory_search→search`, `memory_sources→sources`, `memory_queue→queue`, `memory_diff→diff`, `memory_goals→goals`, `memory_conversations→conversations`, `memory_tools→tool_memory`, `tinycortex`, `agent_memory→agent`, `people`; parent stays put (kernel, ungated) — `memory/sync.rs` renamed to `memory/sync_events.rs` first to free the name, and `memory_tools` lands as `tool_memory` to dodge the pre-existing `memory/tools/` |
 | `agent/` | ✅ **landed** — `agent_experience→experience`, `agent_orchestration→orchestration`, `agent_registry→registry`, `agentbox`, `harness_init`, `session_db`, `session_import`, `context`, `profiles`, `learning`, `plan_review`, `file_state`, `artifacts`, `tinyagents`; parent stays ungated (kernel) and keeps its own name — no `agent/core` rename |
 | `inference/` | ✅ **landed** — `embeddings`, `tokenjuice`; parent stays ungated (kernel). NB the `inference` Cargo feature gates only `local/service/whisper_engine` + the cpal probe, *not* this directory |
 | `skills/` | ✅ **landed** — `skill_registry→catalog` (not `registry` — `skills/registry.rs` and the stub's inner `pub mod registry` both already own that name), `skill_runtime→runtime`, `webhooks`; parent stays ungated (three facades, two with `stub.rs`), and `webhooks` is a permanently-ungated child |
@@ -231,7 +231,7 @@ goes to `platform/`.
    should not also carve a module out of an unrelated domain.)
 3. ✅ `runtime/`, `media/`, `desktop/`, `hosted/`, `subconscious/` — new parents. `hosted/` also
    retargeted `scripts/ci/orch-ip-gate.sh` (see rule 8).
-4. `voice/`, `web3/`, `medulla/`, `flows/`, `channels/` — existing gates; each validates that its
+4. ✅ `voice/`, `web3/`, `medulla/`, `flows/`, `channels/` — existing gates; each validates that its
    `stub.rs` survives relocation.
 5. ✅ `mcp/` — the only family with a genuine *split*. `mcp_client` divided three ways:
    `config_servers` (leaf-gated), `http_client` (ungated carve-out), `sanitize` → `util/`.
@@ -240,7 +240,7 @@ goes to `platform/`.
 8. ✅ `agent/` — fourteen domains folded in; `agent/` itself stayed put as the parent (an
    `agent → agent/core` rename would have cost ~999 extra import rewrites and buys no gate).
    Kernel: no `#[cfg]` anywhere in the family.
-9. `memory/` — **last**, deliberately: it is [`kernel.md`](kernel.md) §5's pilot subsystem, so its
+9. ✅ `memory/` — **last**, deliberately: it is [`kernel.md`](kernel.md) §5's pilot subsystem, so its
    layout gets drawn with the driver contract in hand rather than guessed.
 
 Rationale for biggest-last: the tooling (rewrite script, check matrix, PR template) gets proven on

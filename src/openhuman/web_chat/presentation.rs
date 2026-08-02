@@ -56,7 +56,7 @@ pub(crate) async fn deliver_response(
     request_id: &str,
     full_response: &str,
     user_message: &str,
-    citations: &[crate::openhuman::agent_memory::memory_loader::MemoryCitation],
+    citations: &[crate::openhuman::memory::agent::memory_loader::MemoryCitation],
     usage: Option<&LastTurnUsage>,
 ) {
     let usage_payload = usage_payload(usage);
@@ -481,7 +481,7 @@ async fn try_reaction(user_message: &str) -> Option<String> {
 
 #[cfg(any(test, debug_assertions))]
 pub mod test_support {
-    use crate::openhuman::agent_memory::memory_loader::MemoryCitation;
+    use crate::openhuman::memory::agent::memory_loader::MemoryCitation;
 
     pub fn segment_for_delivery_for_test(text: &str) -> Vec<String> {
         super::segment_for_delivery(text)

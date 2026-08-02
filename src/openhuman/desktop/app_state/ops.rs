@@ -497,7 +497,7 @@ async fn activate_revalidated_user_dir(user_id: &str) -> Result<Config, String> 
     );
     if previous_active.is_none() {
         let pre_ws = crate::openhuman::config::pre_login_user_dir(&root_dir).join("workspace");
-        if let Err(error) = crate::openhuman::memory_conversations::purge_threads(pre_ws) {
+        if let Err(error) = crate::openhuman::memory::conversations::purge_threads(pre_ws) {
             debug!(
                 "{LOG_PREFIX} pre-login conversation purge skipped after pending session revalidation: {error}"
             );
@@ -529,13 +529,13 @@ async fn finish_revalidated_user_activation(
     // memory-client rebind so people controllers/tools follow the active user
     // instead of the pre-switch workspace (#4378).
     if let Err(error) =
-        crate::openhuman::people::store::init_from_workspace(&target_config.workspace_dir)
+        crate::openhuman::memory::people::store::init_from_workspace(&target_config.workspace_dir)
     {
         warn!(
             "{LOG_PREFIX} failed to bind people store after pending session revalidation: {error}"
         );
     }
-    crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
+    crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
         target_config.workspace_dir.clone(),
     );
     if let Err(error) = crate::openhuman::subconscious::registry::bootstrap_after_login().await {

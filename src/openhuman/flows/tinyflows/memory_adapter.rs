@@ -397,9 +397,10 @@ impl MemoryProvider for OpenHumanMemory {
             })?;
 
         const DEFAULT_PEOPLE_LIMIT: usize = 100;
-        let outcome = crate::openhuman::people::rpc::handle_list(&store, DEFAULT_PEOPLE_LIMIT)
-            .await
-            .map_err(EngineError::Capability)?;
+        let outcome =
+            crate::openhuman::memory::people::rpc::handle_list(&store, DEFAULT_PEOPLE_LIMIT)
+                .await
+                .map_err(EngineError::Capability)?;
 
         let shaped = match query {
             None => outcome.value,
@@ -447,7 +448,7 @@ impl MemoryProvider for OpenHumanMemory {
         // up front rather than spend that approval round-trip on a write
         // that was always going to be rejected (review fix — see #5227).
         let content = value_to_content(&value);
-        if crate::openhuman::memory_store::safety::has_likely_secret(&content) {
+        if crate::openhuman::memory::store::safety::has_likely_secret(&content) {
             tracing::warn!(
                 target: "flows",
                 key_chars = key.chars().count(),

@@ -191,9 +191,11 @@ impl CoreContext {
     /// stores; the same context always gets the same cached store. Handlers
     /// migrate off `people::store::get()` by reading through
     /// `CoreContext::current()?.people()` instead.
-    pub fn people(&self) -> Result<Arc<crate::openhuman::people::store::PeopleStore>, String> {
+    pub fn people(
+        &self,
+    ) -> Result<Arc<crate::openhuman::memory::people::store::PeopleStore>, String> {
         let workspace_dir = self.workspace_dir()?;
-        crate::openhuman::people::store::for_workspace(&workspace_dir)
+        crate::openhuman::memory::people::store::for_workspace(&workspace_dir)
     }
 
     /// The context for the current dispatch: the one scoped by
@@ -381,7 +383,7 @@ pub async fn init_stores(
     // Ok(cfg) arm so it inherits the wrong-workspace guard above
     // (never seed against a Config::default fallback).
     if plan.people {
-        match crate::openhuman::people::store::init_from_workspace(&cfg.workspace_dir) {
+        match crate::openhuman::memory::people::store::init_from_workspace(&cfg.workspace_dir) {
             Ok(_) => log::info!(
                 "[boot] people::store initialized (workspace={})",
                 cfg.workspace_dir.display()
@@ -580,7 +582,7 @@ mod tests {
 
     #[tokio::test]
     async fn people_rpc_uses_scoped_context_store() {
-        use crate::openhuman::people::types::Handle;
+        use crate::openhuman::memory::people::types::Handle;
 
         let dir_a = tempfile::tempdir().unwrap();
         let dir_b = tempfile::tempdir().unwrap();

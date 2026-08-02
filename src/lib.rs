@@ -22,7 +22,7 @@ pub mod rpc;
 pub mod tui;
 
 pub use openhuman::config::DaemonConfig;
-pub use openhuman::memory_store::{MemoryClient, MemoryState};
+pub use openhuman::memory::store::{MemoryClient, MemoryState};
 
 /// Embeddable core composition API. Host the OpenHuman core in any process —
 /// the Tauri shell, a CLI, a stdio MCP server, or a cloud/team server — via

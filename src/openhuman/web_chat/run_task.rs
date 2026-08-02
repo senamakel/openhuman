@@ -185,7 +185,7 @@ pub(crate) async fn run_chat_task(
             // Blocking pool: the store takes a process-global mutex and reads
             // the thread's whole JSONL under it, so doing this inline parked an
             // async worker on the chat hot path (#5156).
-            match crate::openhuman::memory_conversations::blocking::get_messages(
+            match crate::openhuman::memory::conversations::blocking::get_messages(
                 config.workspace_dir.clone(),
                 thread_id.to_string(),
             )

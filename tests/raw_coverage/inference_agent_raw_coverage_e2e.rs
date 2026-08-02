@@ -100,7 +100,7 @@ use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
-use openhuman_core::openhuman::agent_memory::memory_loader::{
+use openhuman_core::openhuman::memory::agent::memory_loader::{
     collect_recall_citations, DefaultMemoryLoader, MemoryLoader, CROSS_CHAT_HEADER,
 };
 use openhuman_core::openhuman::agent::registry::agents::BUILTINS;

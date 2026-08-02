@@ -777,7 +777,7 @@ pub fn all_tools_with_runtime(
     // Memory diff — structured "what changed in the agent's world since a
     // checkpoint/last sync". Drives the subconscious tick's first stage and is
     // available to any agent that lists it. Unit struct, no runtime deps.
-    tools.push(Box::new(crate::openhuman::memory_diff::MemoryDiffTool));
+    tools.push(Box::new(crate::openhuman::memory::diff::MemoryDiffTool));
 
     // Subconscious user-facing handoff — notify_user proactive delivery.
     tools.extend(crate::openhuman::subconscious::user_thread::all_user_thread_tools());
@@ -819,16 +819,16 @@ pub fn all_tools_with_runtime(
     {
         let goals_dir = root_config.workspace_dir.clone();
         tools.push(Box::new(
-            crate::openhuman::memory_goals::GoalsListTool::new(goals_dir.clone()),
-        ));
-        tools.push(Box::new(crate::openhuman::memory_goals::GoalsAddTool::new(
-            goals_dir.clone(),
-        )));
-        tools.push(Box::new(
-            crate::openhuman::memory_goals::GoalsEditTool::new(goals_dir.clone()),
+            crate::openhuman::memory::goals::GoalsListTool::new(goals_dir.clone()),
         ));
         tools.push(Box::new(
-            crate::openhuman::memory_goals::GoalsDeleteTool::new(goals_dir),
+            crate::openhuman::memory::goals::GoalsAddTool::new(goals_dir.clone()),
+        ));
+        tools.push(Box::new(
+            crate::openhuman::memory::goals::GoalsEditTool::new(goals_dir.clone()),
+        ));
+        tools.push(Box::new(
+            crate::openhuman::memory::goals::GoalsDeleteTool::new(goals_dir),
         ));
     }
 

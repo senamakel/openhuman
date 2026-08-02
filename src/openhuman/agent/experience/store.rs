@@ -1,8 +1,8 @@
 use crate::openhuman::agent::experience::types::{
     stable_experience_id_for_profile, AgentExperience, ExperienceHit,
 };
+use crate::openhuman::memory::store::safety::sanitize_text;
 use crate::openhuman::memory::{Memory, MemoryCategory};
-use crate::openhuman::memory_store::safety::sanitize_text;
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -445,7 +445,7 @@ mod tests {
     use crate::openhuman::agent::experience::types::{
         AgentExperience, ExperienceOutcome, ExperienceSource,
     };
-    use crate::openhuman::memory_tools::test_helpers::MockMemory;
+    use crate::openhuman::memory::tool_memory::test_helpers::MockMemory;
     use std::sync::Arc;
 
     fn sample_experience(
@@ -528,8 +528,8 @@ mod tests {
     #[tokio::test]
     async fn experience_survives_content_sanitizer_with_luhn_valid_timestamp() {
         use crate::openhuman::inference::embeddings::NoopEmbedding;
+        use crate::openhuman::memory::store::UnifiedMemory;
         use crate::openhuman::memory::Memory;
-        use crate::openhuman::memory_store::UnifiedMemory;
 
         let tmp = tempfile::TempDir::new().unwrap();
         let memory: Arc<dyn Memory> =
@@ -571,8 +571,8 @@ mod tests {
     #[tokio::test]
     async fn secrets_in_free_text_are_redacted_before_storage() {
         use crate::openhuman::inference::embeddings::NoopEmbedding;
+        use crate::openhuman::memory::store::UnifiedMemory;
         use crate::openhuman::memory::Memory;
-        use crate::openhuman::memory_store::UnifiedMemory;
 
         let tmp = tempfile::TempDir::new().unwrap();
         let memory: Arc<dyn Memory> =

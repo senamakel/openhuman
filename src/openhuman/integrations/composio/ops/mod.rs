@@ -82,11 +82,11 @@ pub(crate) use super::connected_integrations::sync_cache_with_connections;
 #[cfg(test)]
 pub(crate) use crate::openhuman::config::Config;
 #[cfg(test)]
-pub(crate) use crate::openhuman::memory_store::MemoryClient;
+pub(crate) use crate::openhuman::memory::store::MemoryClient;
 #[cfg(test)]
-pub(crate) use crate::openhuman::memory_sync::composio::providers::sync_state::SyncState;
+pub(crate) use crate::openhuman::memory::sync::composio::providers::sync_state::SyncState;
 #[cfg(test)]
-pub(crate) use crate::openhuman::memory_sync::composio::providers::SyncReason;
+pub(crate) use crate::openhuman::memory::sync::composio::providers::SyncReason;
 #[cfg(test)]
 pub(crate) use connections::enrich_connections_with_identity;
 #[cfg(test)]

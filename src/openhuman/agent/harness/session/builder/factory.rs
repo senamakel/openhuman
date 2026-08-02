@@ -12,12 +12,12 @@ use crate::openhuman::agent::harness::definition::{
 };
 use crate::openhuman::agent::harness::session::types::Agent;
 use crate::openhuman::agent::host_runtime;
-use crate::openhuman::agent_memory::memory_loader::DefaultMemoryLoader;
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::provider;
+use crate::openhuman::memory::agent::memory_loader::DefaultMemoryLoader;
+use crate::openhuman::memory::store as memory_store;
+use crate::openhuman::memory::tool_memory::ToolMemoryCaptureHook;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::memory_store;
-use crate::openhuman::memory_tools::ToolMemoryCaptureHook;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::{self, Tool};
 use anyhow::Result;

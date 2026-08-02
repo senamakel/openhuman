@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::store::RawRef;
+use crate::openhuman::memory::store::chunks::store::RawRef;
 use tinycortex::memory::ingest::canonicalize::{
     chat::{self, ChatBatch},
     document::{self, DocumentInput},
@@ -23,7 +23,7 @@ pub async fn ingest_chat(
 ) -> Result<IngestResult> {
     let canonical =
         chat::canonicalise(source_id, owner, &tags, batch.clone()).map_err(anyhow::Error::msg)?;
-    let (memory, sink, scoring) = crate::openhuman::tinycortex::ingest_context(config);
+    let (memory, sink, scoring) = crate::openhuman::memory::tinycortex::ingest_context(config);
     let result = tinycortex::memory::ingest::ingest_chat(
         &memory, source_id, owner, tags, batch, &sink, &scoring,
     )
@@ -41,7 +41,7 @@ pub async fn ingest_email(
 ) -> Result<IngestResult> {
     let canonical =
         email::canonicalise(source_id, owner, &tags, thread.clone()).map_err(anyhow::Error::msg)?;
-    let (memory, sink, scoring) = crate::openhuman::tinycortex::ingest_context(config);
+    let (memory, sink, scoring) = crate::openhuman::memory::tinycortex::ingest_context(config);
     let result = tinycortex::memory::ingest::ingest_email(
         &memory, source_id, owner, tags, thread, &sink, &scoring,
     )
@@ -60,7 +60,7 @@ pub async fn ingest_email_with_raw_refs(
 ) -> Result<IngestResult> {
     let canonical =
         email::canonicalise(source_id, owner, &tags, thread.clone()).map_err(anyhow::Error::msg)?;
-    let (memory, sink, scoring) = crate::openhuman::tinycortex::ingest_context(config);
+    let (memory, sink, scoring) = crate::openhuman::memory::tinycortex::ingest_context(config);
     let result = tinycortex::memory::ingest::ingest_email_with_raw_refs(
         &memory, source_id, owner, tags, thread, raw_refs, &sink, &scoring,
     )
@@ -102,7 +102,7 @@ pub async fn ingest_document_versioned(
     let canonical =
         document::canonicalise(source_id, owner, &tags, doc.clone(), path_scope.clone())
             .map_err(anyhow::Error::msg)?;
-    let (memory, sink, scoring) = crate::openhuman::tinycortex::ingest_context(config);
+    let (memory, sink, scoring) = crate::openhuman::memory::tinycortex::ingest_context(config);
     let result = tinycortex::memory::ingest::ingest_document_versioned(
         &memory, source_id, owner, tags, doc, path_scope, version_ms, &sink, &scoring,
     )

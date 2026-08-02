@@ -180,7 +180,7 @@ fn build_minimal_agent_with_definition_name(definition_name: Option<&str>) -> Ag
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut builder = Agent::builder()
@@ -539,7 +539,7 @@ fn refresh_workflows_picks_up_skill_installed_on_disk() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &wsp).unwrap());
+        Arc::from(crate::openhuman::memory::store::create_memory(&memory_cfg, &wsp).unwrap());
     let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![]),
     });
@@ -609,7 +609,7 @@ fn refresh_workflows_retracts_skill_removed_from_disk() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &wsp).unwrap());
+        Arc::from(crate::openhuman::memory::store::create_memory(&memory_cfg, &wsp).unwrap());
     let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![]),
     });
@@ -708,7 +708,7 @@ async fn turn_without_tools_returns_text() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut agent = Agent::builder()
@@ -754,7 +754,7 @@ async fn last_turn_usage_is_public_and_non_draining() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut agent = Agent::builder()
@@ -834,7 +834,7 @@ async fn turn_with_native_dispatcher_handles_tool_results_variant() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut agent = Agent::builder()
@@ -884,7 +884,7 @@ async fn turn_with_native_dispatcher_persists_fallback_tool_calls() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut agent = Agent::builder()
@@ -1015,7 +1015,7 @@ async fn turn_dispatches_spawn_subagent_through_full_path_inner() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     // Tools include SpawnSubagentTool so the parent can call it.
@@ -1107,7 +1107,7 @@ async fn system_prompt_and_model_are_byte_stable_across_turns() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> = Arc::from(
-        crate::openhuman::memory_store::create_memory(&memory_cfg, &workspace_path).unwrap(),
+        crate::openhuman::memory::store::create_memory(&memory_cfg, &workspace_path).unwrap(),
     );
 
     let mut agent = Agent::builder()
@@ -1478,7 +1478,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
         ..crate::openhuman::config::MemoryConfig::default()
     };
     let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &wsp).unwrap());
+        Arc::from(crate::openhuman::memory::store::create_memory(&memory_cfg, &wsp).unwrap());
     let mut agent = Agent::builder()
         .chat_model(Arc::new(MockProvider {
             responses: Mutex::new(vec![]),

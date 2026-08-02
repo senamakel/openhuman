@@ -276,7 +276,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
 
     if plan.memory_queue {
         log::debug!("[runtime.bootstrap] starting memory queue workers");
-        crate::openhuman::memory_queue::start(config.clone());
+        crate::openhuman::memory::queue::start(config.clone());
     } else {
         log::debug!("[runtime.bootstrap] memory queue workers disabled by ServiceSet");
     }
@@ -288,7 +288,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
         crate::openhuman::integrations::composio::start_periodic_sync();
         tokio::spawn(async {
             log::debug!("[runtime.bootstrap] composio source reconcile started");
-            crate::openhuman::memory_sources::reconcile::ensure_composio_sources().await;
+            crate::openhuman::memory::sources::reconcile::ensure_composio_sources().await;
             log::debug!("[runtime.bootstrap] composio source reconcile completed");
         });
     } else {
@@ -302,7 +302,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // walks Composio connections.
     if plan.workspace_memory_sync {
         log::debug!("[runtime.bootstrap] starting workspace memory-source periodic sync");
-        crate::openhuman::memory_sync::workspace::start_workspace_periodic_sync();
+        crate::openhuman::memory::sync::workspace::start_workspace_periodic_sync();
     } else {
         log::debug!("[runtime.bootstrap] workspace periodic sync disabled by ServiceSet");
     }

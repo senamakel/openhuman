@@ -21,7 +21,7 @@ fn tick_origin_with_external_sync_chunk_uses_tainted_source() {
 
 // ── World-diff rendering (Stage 1) ──────────────────────────────────────
 
-use crate::openhuman::memory_diff::types::{
+use crate::openhuman::memory::diff::types::{
     ChangeKind, CrossSourceDiff, DiffResult, DiffSummary, ItemChange,
 };
 

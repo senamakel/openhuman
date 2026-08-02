@@ -217,7 +217,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                         &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
                     );
                 }
-            } else if crate::openhuman::memory_tree::tree::rpc::is_invalid_ingest_payload_message(
+            } else if crate::openhuman::memory::tree::tree::rpc::is_invalid_ingest_payload_message(
                 &display_message,
             ) {
                 // The caller submitted an ingest payload that does not match
@@ -2231,10 +2231,10 @@ fn register_domain_subscribers(
     // Memory: conversation-persistence + sync-stage bridge.
     if plan.memory {
         if group_first_time(DomainGroup::Memory) {
-            crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
+            crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
                 workspace_dir.clone(),
             );
-            crate::openhuman::memory::sync::register_sync_stage_bridge(&config);
+            crate::openhuman::memory::sync_events::register_sync_stage_bridge(&config);
         }
     } else {
         log::debug!(

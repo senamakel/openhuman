@@ -18,7 +18,6 @@ pub use crate::openhuman::agent::artifacts::tools::*;
 pub use crate::openhuman::agent::learning::tools::*;
 pub use crate::openhuman::agent::orchestration::tools::*;
 pub use crate::openhuman::agent::tools::*;
-pub use crate::openhuman::agent_memory::tools::*;
 #[cfg(feature = "channels")]
 pub use crate::openhuman::channels::whatsapp_data::tools::*;
 pub use crate::openhuman::config::tools::*;
@@ -44,11 +43,12 @@ pub use crate::openhuman::integrations::task_sources::tools::*;
 pub use crate::openhuman::integrations::tools::*;
 #[cfg(feature = "mcp")]
 pub use crate::openhuman::mcp::registry::tools::*;
+pub use crate::openhuman::memory::agent::tools::*;
+pub use crate::openhuman::memory::diff::tools::*;
+pub use crate::openhuman::memory::goals::tools::*;
+pub use crate::openhuman::memory::people::tools::*;
+pub use crate::openhuman::memory::search::*;
 pub use crate::openhuman::memory::tools::*;
-pub use crate::openhuman::memory_diff::tools::*;
-pub use crate::openhuman::memory_goals::tools::*;
-pub use crate::openhuman::memory_search::*;
-pub use crate::openhuman::people::tools::*;
 pub use crate::openhuman::platform::cost::tools::*;
 pub use crate::openhuman::platform::doctor::tools::*;
 pub use crate::openhuman::platform::health::tools::*;

@@ -2383,10 +2383,10 @@ mod streaming_support {
     use async_trait::async_trait;
     use openhuman_core::openhuman::agent::dispatcher::NativeToolDispatcher;
     use openhuman_core::openhuman::agent::Agent;
-    use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
     use openhuman_core::openhuman::config::{AgentConfig, ContextConfig, MemoryConfig};
+    use openhuman_core::openhuman::memory::agent::memory_loader::MemoryLoader;
+    use openhuman_core::openhuman::memory::store as memory_store;
     use openhuman_core::openhuman::memory::Memory;
-    use openhuman_core::openhuman::memory_store;
     use openhuman_core::openhuman::tools::traits::ToolCallOptions;
     use openhuman_core::openhuman::tools::{
         PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,

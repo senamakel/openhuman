@@ -216,7 +216,7 @@ export function classifyIntegration(
 
 /**
  * Built-in glyph for each known provider key from `memory_sync_status_list`.
- * Source: `MemorySyncStatus.provider` in `src/openhuman/memory_sync/sync_status/types.rs`
+ * Source: `MemorySyncStatus.provider` in `src/openhuman/memory/sync/sync_status/types.rs`
  * — that file's doc comment enumerates the providers ("slack", "gmail",
  * "discord", "telegram", "whatsapp", "notion", "meeting_notes",
  * "drive_docs", etc.). Anything not in this map falls back to a generic

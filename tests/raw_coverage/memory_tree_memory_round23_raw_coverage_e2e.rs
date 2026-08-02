@@ -17,8 +17,8 @@ use openhuman_core::openhuman::inference::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::{
     ExtractionMode, MemoryIngestionConfig, MemoryIngestionRequest,
 };
-use openhuman_core::openhuman::memory_store::{NamespaceDocumentInput, UnifiedMemory};
-use openhuman_core::openhuman::memory_tree::tree_runtime::{
+use openhuman_core::openhuman::memory::store::{NamespaceDocumentInput, UnifiedMemory};
+use openhuman_core::openhuman::memory::tree::tree_runtime::{
     all_tree_summarizer_registered_controllers, engine, rpc as tree_runtime_rpc,
     store as tree_runtime_store,
 };

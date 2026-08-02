@@ -32,10 +32,10 @@ use openhuman_core::openhuman::agent::prompts::{
     PromptSection, ToolCallFormat, UserFilesSection,
 };
 use openhuman_core::openhuman::inference::embeddings::NoopEmbedding;
-use openhuman_core::openhuman::memory::{NamespaceDocumentInput, UnifiedMemory};
-use openhuman_core::openhuman::memory_conversations::{
+use openhuman_core::openhuman::memory::conversations::{
     ensure_thread, list_threads, update_thread_title, ConversationStore, CreateConversationThread,
 };
+use openhuman_core::openhuman::memory::{NamespaceDocumentInput, UnifiedMemory};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test helpers

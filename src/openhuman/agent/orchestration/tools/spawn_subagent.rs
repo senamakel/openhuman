@@ -18,7 +18,7 @@ use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
 };
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::memory_conversations::{
+use crate::openhuman::memory::conversations::{
     self as conversations, ConversationMessage, CreateConversationThread,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};

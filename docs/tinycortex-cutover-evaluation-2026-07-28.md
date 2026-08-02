@@ -25,7 +25,7 @@ and runtime composition.
 ## Audit result
 
 The audit covered `src/openhuman/memory/`, every `memory_*` domain, the
-`src/openhuman/tinycortex/` seam, and `vendor/tinycortex/src/memory/`.
+`src/openhuman/memory/tinycortex/` seam, and `vendor/tinycortex/src/memory/`.
 
 | Host area | Disposition |
 | --- | --- |
@@ -62,7 +62,7 @@ those files would create broad source churn without changing runtime ownership.
 - New generic memory behavior belongs in `vendor/tinycortex`.
 - OpenHuman may add adapters, policy, RPC, tools, lifecycle, and product
   projections, but must not fork TinyCortex engine logic.
-- Persisted format parity tests in `openhuman::tinycortex::parity` remain the
+- Persisted format parity tests in `openhuman::memory::tinycortex::parity` remain the
   cutover guard for existing workspaces.
 - `MemoryTaint`, redaction, and source-scope behavior remain security-sensitive
   review points.

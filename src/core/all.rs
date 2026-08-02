@@ -452,7 +452,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::people::all_people_registered_controllers(),
+        crate::openhuman::memory::people::all_people_registered_controllers(),
     );
     // Sandbox execution backends (Docker, local jail, policy, cleanup)
     push(
@@ -529,7 +529,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::memory_goals::all_memory_goals_registered_controllers(),
+        crate::openhuman::memory::goals::all_memory_goals_registered_controllers(),
     );
     // Thread-level goal (Codex-style per-thread completion contract)
     push(
@@ -541,13 +541,13 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::memory_tree::all_memory_tree_registered_controllers(),
+        crate::openhuman::memory::tree::all_memory_tree_registered_controllers(),
     );
     // Memory tree retrieval layer (#710 — LLM-callable read tools over the tree)
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::memory_tree::all_retrieval_registered_controllers(),
+        crate::openhuman::memory::tree::all_retrieval_registered_controllers(),
     );
     // Slack → memory-tree ingestion engine (per-message ingest, no bucketing)
     push(
@@ -559,19 +559,20 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::memory_sync::sync_status::all_memory_sync_status_registered_controllers(),
+        crate::openhuman::memory::sync::sync_status::all_memory_sync_status_registered_controllers(
+        ),
     );
     // Memory sources — user-configured data connectors registry
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::memory_sources::all_memory_sources_registered_controllers(),
+        crate::openhuman::memory::sources::all_memory_sources_registered_controllers(),
     );
     // Memory diff — snapshot-based change tracking for memory sources
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::memory_diff::all_memory_diff_registered_controllers(),
+        crate::openhuman::memory::diff::all_memory_diff_registered_controllers(),
     );
     // Referral and growth tracking
     push(
@@ -661,7 +662,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::memory_tree::all_tree_summarizer_registered_controllers(),
+        crate::openhuman::memory::tree::all_tree_summarizer_registered_controllers(),
     );
     // Self-learning and user context enrichment
     push(

@@ -1463,7 +1463,7 @@ impl Tool for ListConnectableToolkitsTool {
     }
 
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
-        use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
+        use crate::openhuman::memory::sync::composio::providers::agent_ready_toolkits;
         tracing::debug!(target: "flows", "[flows] list_connectable_toolkits: listing toolkits + connected state (read-only)");
         let connected = ops::connected_toolkits(&self.config).await;
         let toolkits: Vec<Value> = agent_ready_toolkits()
@@ -1815,7 +1815,7 @@ const MAX_CATALOG_RESULTS: usize = 40;
 /// in `query` (case-insensitive AND). When `toolkit` is set, only that
 /// toolkit is scanned — this is how the builder can search ANY named app
 /// (connected or not) rather than only the toolkits already
-/// [`agent_ready_toolkits`](crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits);
+/// [`agent_ready_toolkits`](crate::openhuman::memory::sync::composio::providers::agent_ready_toolkits);
 /// with no `toolkit` filter, the search is scoped to that agent-ready set (a
 /// bare keyword query with no app named would otherwise have to fan out to
 /// every toolkit Composio knows about).
@@ -1901,7 +1901,7 @@ pub(crate) async fn search_catalog(
     limit: usize,
 ) -> CatalogSearchOutcome {
     use crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog;
-    use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
+    use crate::openhuman::memory::sync::composio::providers::agent_ready_toolkits;
 
     let terms: Vec<String> = query
         .split_whitespace()
@@ -2230,7 +2230,7 @@ impl Tool for GetToolContractTool {
             _ => return Ok(ToolResult::error("Missing 'slug' parameter".to_string())),
         };
         let Some(toolkit) =
-            crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(&slug)
+            crate::openhuman::memory::sync::composio::providers::toolkit_from_slug(&slug)
         else {
             return Ok(ToolResult::error(format!(
                 "Could not extract a toolkit from slug '{slug}' — it must look like \

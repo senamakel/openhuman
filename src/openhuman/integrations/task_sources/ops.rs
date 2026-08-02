@@ -10,7 +10,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_sync::composio::providers::{
+use crate::openhuman::memory::sync::composio::providers::{
     get_provider, NormalizedTask, ProviderContext, TaskContainer,
 };
 use crate::rpc::RpcOutcome;

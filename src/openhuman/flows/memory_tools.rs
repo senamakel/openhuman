@@ -77,7 +77,7 @@ fn trusted_flow_id() -> Option<String> {
 ///
 /// **Deviates from the originally specced `"flow:"` (colon) separator —
 /// deliberately.** The `Memory` trait's `UnifiedMemory` backend
-/// (`src/openhuman/memory_store/`) is internally inconsistent about
+/// (`src/openhuman/memory/store/`) is internally inconsistent about
 /// namespace sanitization: `store_with_taint`/`recall`/`list`/
 /// `MemoryClient::clear_namespace` all route through
 /// `UnifiedMemory::sanitize_namespace`
@@ -474,7 +474,7 @@ impl Tool for FlowMemoryRememberTool {
             return Ok(ToolResult::error("key cannot be empty".to_string()));
         }
 
-        if crate::openhuman::memory_store::safety::has_likely_secret(content) {
+        if crate::openhuman::memory::store::safety::has_likely_secret(content) {
             log::warn!(
                 "[flows:memory:safety] flow_memory_remember rejected secret-like content flow_id_chars={} key_chars={} content_chars={}",
                 flow_id.chars().count(),
@@ -518,7 +518,7 @@ impl Tool for FlowMemoryRememberTool {
 mod tests {
     use super::*;
     use crate::openhuman::inference::embeddings::NoopEmbedding;
-    use crate::openhuman::memory_store::UnifiedMemory;
+    use crate::openhuman::memory::store::UnifiedMemory;
     use crate::openhuman::security::AutonomyLevel;
     use tempfile::TempDir;
 

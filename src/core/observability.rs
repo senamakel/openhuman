@@ -371,7 +371,7 @@ pub enum ExpectedErrorKind {
     ///
     /// The PII half of the family no longer rejects at all: those identifiers
     /// are canonicalized on write and on read (see
-    /// [`crate::openhuman::memory_store::safety::canonical_identifier`]). This
+    /// [`crate::openhuman::memory::store::safety::canonical_identifier`]). This
     /// arm covers the rejections that remain deliberate — a secret must never
     /// be persisted as a storage address (#4947), and an empty key has no row
     /// to address — and keeps their retry volume out of the error stream.

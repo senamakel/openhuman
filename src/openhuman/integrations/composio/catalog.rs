@@ -288,7 +288,7 @@ pub(crate) async fn fetch_live_toolkit_catalog(
     config: &Config,
     toolkit: &str,
 ) -> Option<Vec<ToolContract>> {
-    use crate::openhuman::memory_sync::composio::providers::{
+    use crate::openhuman::memory::sync::composio::providers::{
         catalog_for_toolkit, find_curated, get_provider,
     };
 
@@ -599,8 +599,8 @@ pub(crate) fn apply_probe_override(mut contract: ToolContract) -> ToolContract {
 /// "assume Read".
 fn resolve_composio_action_scope(
     slug: &str,
-) -> Option<crate::openhuman::memory_sync::composio::providers::ToolScope> {
-    use crate::openhuman::memory_sync::composio::providers::{
+) -> Option<crate::openhuman::memory::sync::composio::providers::ToolScope> {
+    use crate::openhuman::memory::sync::composio::providers::{
         catalog_for_toolkit, classify_unknown, find_curated, get_provider, toolkit_from_slug,
     };
 
@@ -647,7 +647,7 @@ pub(crate) async fn probe_tool_output_sample(
     }
 
     match resolve_composio_action_scope(slug) {
-        Some(crate::openhuman::memory_sync::composio::providers::ToolScope::Read) => {}
+        Some(crate::openhuman::memory::sync::composio::providers::ToolScope::Read) => {}
         Some(other) => {
             tracing::warn!(
                 target: "flows",
@@ -682,7 +682,8 @@ pub(crate) async fn probe_tool_output_sample(
         }
     }
 
-    let Some(toolkit) = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)
+    let Some(toolkit) =
+        crate::openhuman::memory::sync::composio::providers::toolkit_from_slug(slug)
     else {
         return Err(format!(
             "get_tool_output_sample: could not extract a toolkit from slug '{slug}' — it must \
@@ -774,7 +775,7 @@ pub(crate) async fn probe_tool_output_sample(
 /// in the toolkit's live catalog — so callers can skip the preflight rather
 /// than block execution on a catalog hiccup.
 pub(crate) async fn composio_required_args(config: &Config, slug: &str) -> Option<Vec<String>> {
-    let toolkit = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)?;
+    let toolkit = crate::openhuman::memory::sync::composio::providers::toolkit_from_slug(slug)?;
     let contracts = fetch_live_toolkit_catalog(config, &toolkit).await?;
     contracts
         .iter()
@@ -795,7 +796,7 @@ pub(crate) async fn composio_required_args(config: &Config, slug: &str) -> Optio
 /// unknown" rather than blocking or guessing. `Some(vec![])` means the
 /// schema was found but names no top-level properties.
 pub(crate) async fn composio_response_fields(config: &Config, slug: &str) -> Option<Vec<String>> {
-    let toolkit = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)?;
+    let toolkit = crate::openhuman::memory::sync::composio::providers::toolkit_from_slug(slug)?;
     let contracts = fetch_live_toolkit_catalog(config, &toolkit).await?;
     let contract = contracts
         .iter()

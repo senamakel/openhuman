@@ -20,14 +20,14 @@ use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::memory::global as memory_global;
-use openhuman_core::openhuman::memory_sync::composio::bus::{
+use openhuman_core::openhuman::memory::sync::composio::bus::{
     ComposioConfigChangedSubscriber, ComposioConnectionCreatedSubscriber, ComposioTriggerSubscriber,
 };
-use openhuman_core::openhuman::memory_sync::composio::providers::gmail::GmailProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::slack::{
+use openhuman_core::openhuman::memory::sync::composio::providers::gmail::GmailProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::slack::{
     run_backfill_via_search, SlackProvider,
 };
-use openhuman_core::openhuman::memory_sync::composio::providers::{
+use openhuman_core::openhuman::memory::sync::composio::providers::{
     ComposioProvider, ProviderContext, SyncReason,
 };
 

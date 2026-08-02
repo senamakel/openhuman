@@ -324,7 +324,7 @@ pub(crate) async fn classify_composio_action_for_tier(slug: &str) -> CommandClas
 /// Deny-by-default curation gate for a flow `tool_call` slug (see
 /// [`flow_tool_allowed`] for the decision matrix). Fetches the user's live
 /// connected-toolkit set only when the slug's toolkit has no static catalog.
-async fn is_curated_flow_tool(config: &Config, slug: &str) -> bool {
+pub(crate) async fn is_curated_flow_tool(config: &Config, slug: &str) -> bool {
     let connected = if slug_needs_connected_set(slug) {
         connected_toolkit_slugs(config).await
     } else {
@@ -354,7 +354,7 @@ fn resolve_account<'a>(
 /// targets, for logging "which account was used". Best-effort: `None` when the
 /// id isn't found in the user's live connected accounts (stale cache / foreign
 /// id) or the backend is unreachable.
-async fn resolve_composio_account(
+pub(crate) async fn resolve_composio_account(
     config: &Config,
     connection_id: &str,
 ) -> Option<(String, Option<String>)> {
@@ -477,7 +477,7 @@ pub(crate) async fn preflight_composio_args(
 /// which the engine turns into `StepStatus::Error` and — via
 /// `degrade_completed_status` — a degraded/failed run instead of a false
 /// "Completed".
-fn reject_unsuccessful_composio_response(
+pub(crate) fn reject_unsuccessful_composio_response(
     slug: &str,
     resp: crate::openhuman::composio::ComposioExecuteResponse,
 ) -> Result<crate::openhuman::composio::ComposioExecuteResponse> {
@@ -508,7 +508,7 @@ fn reject_unsuccessful_composio_response(
 /// Mirrors the Composio branch's contract so both paths turn a failed step into
 /// `StepStatus::Error` (and, via `degrade_completed_status`, a failed run)
 /// rather than a false "Completed".
-fn reject_failed_native_tool_result(
+pub(crate) fn reject_failed_native_tool_result(
     slug: &str,
     result: &crate::openhuman::skills::types::ToolResult,
 ) -> Result<()> {
@@ -544,7 +544,7 @@ fn reject_failed_native_tool_result(
 /// binds with the same `=nodes.<id>.item.json.<field>` shape used everywhere
 /// else. Anything else (plain text, or mixed/multiple blocks) collapses to
 /// `{ "text": <output()> }` so there is always a predictable field to bind.
-fn native_tool_payload(result: &crate::openhuman::skills::types::ToolResult) -> Value {
+pub(crate) fn native_tool_payload(result: &crate::openhuman::skills::types::ToolResult) -> Value {
     use crate::openhuman::skills::types::ToolContent;
     match result.content.as_slice() {
         [ToolContent::Json { data }] => data.clone(),
@@ -640,7 +640,7 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         agent: Some(Arc::new(OpenHumanAgentRunner {
             config: config.clone(),
         })),
-        memory: Some(Arc::new(super::memory_adapter::OpenHumanMemory {
+        memory: Some(Arc::new(crate::openhuman::tinyflows::memory_adapter::OpenHumanMemory {
             config: config.clone(),
             security,
         })),

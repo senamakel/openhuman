@@ -38,6 +38,7 @@ pub use error_code::{
     is_backend_malformed_bad_request, is_managed_backend_envelope, managed_error_skips_sentry,
     BackendErrorCode,
 };
+#[cfg(feature = "flows")]
 pub(crate) use factory::is_raw_passthrough_model;
 pub use factory::{
     create_chat_model, create_chat_model_from_string, create_chat_model_from_string_with_model_id,

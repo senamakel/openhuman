@@ -14,6 +14,8 @@ pub use crate::openhuman::agent::tools::*;
 pub use crate::openhuman::agent_memory::tools::*;
 pub use crate::openhuman::agent_orchestration::tools::*;
 pub use crate::openhuman::artifacts::tools::*;
+#[cfg(feature = "channels")]
+pub use crate::openhuman::channels::whatsapp_data::tools::*;
 pub use crate::openhuman::composio::tools::*;
 pub use crate::openhuman::config::tools::*;
 pub use crate::openhuman::cost::tools::*;
@@ -63,8 +65,6 @@ pub use crate::openhuman::todos::tools::*;
 pub use crate::openhuman::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]
 pub use crate::openhuman::web3::wallet::tools::*;
-#[cfg(feature = "channels")]
-pub use crate::openhuman::whatsapp_data::tools::*;
 pub use crate::openhuman::workspace::tools::*;
 pub use implementations::*;
 pub use ops::*;

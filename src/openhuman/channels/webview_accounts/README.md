@@ -15,10 +15,10 @@ Core-side support for the third-party accounts the Tauri shell hosts in CEF webv
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/webview_accounts/mod.rs` | Module docstring (explains the cookie-store heuristic) + `mod`/`pub mod` decls + `pub use` re-exports. No logic. |
-| `src/openhuman/webview_accounts/ops.rs` | Cookie-store probe: `Provider` table, `detect_webview_logins()`, SQLite `file:` URI construction, LIKE-escaping, plus inline unit tests. |
-| `src/openhuman/webview_accounts/wechat_ingest.rs` | WeChat Web ingest contract: payload types, validation, context envelope/payload builders, memory-doc param builders, and self-contained date/time helpers. Includes inline tests. |
-| `src/openhuman/webview_accounts/wechat_ingest_tests.rs` | Sibling test suite for the WeChat ingest contract (wired via `#[path = "wechat_ingest_tests.rs"] mod tests;`). |
+| `src/openhuman/channels/webview_accounts/mod.rs` | Module docstring (explains the cookie-store heuristic) + `mod`/`pub mod` decls + `pub use` re-exports. No logic. |
+| `src/openhuman/channels/webview_accounts/ops.rs` | Cookie-store probe: `Provider` table, `detect_webview_logins()`, SQLite `file:` URI construction, LIKE-escaping, plus inline unit tests. |
+| `src/openhuman/channels/webview_accounts/wechat_ingest.rs` | WeChat Web ingest contract: payload types, validation, context envelope/payload builders, memory-doc param builders, and self-contained date/time helpers. Includes inline tests. |
+| `src/openhuman/channels/webview_accounts/wechat_ingest_tests.rs` | Sibling test suite for the WeChat ingest contract (wired via `#[path = "wechat_ingest_tests.rs"] mod tests;`). |
 
 ## Public surface
 

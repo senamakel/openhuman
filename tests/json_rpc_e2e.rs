@@ -9491,13 +9491,13 @@ async fn json_rpc_meet_agent_session_lifecycle() {
 #[tokio::test(flavor = "multi_thread")]
 async fn whatsapp_data_agent_tools_e2e_1341() {
     use openhuman_core::core::event_bus::register_native_global;
+    use openhuman_core::openhuman::channels::whatsapp_data::methods;
+    use openhuman_core::openhuman::channels::whatsapp_data::types::{
+        ListChatsRequest, ListMessagesRequest, SearchMessagesRequest, WhatsAppChat, WhatsAppMessage,
+    };
     use openhuman_core::openhuman::tools::traits::Tool;
     use openhuman_core::openhuman::tools::{
         WhatsAppDataListChatsTool, WhatsAppDataListMessagesTool, WhatsAppDataSearchMessagesTool,
-    };
-    use openhuman_core::openhuman::whatsapp_data::methods;
-    use openhuman_core::openhuman::whatsapp_data::types::{
-        ListChatsRequest, ListMessagesRequest, SearchMessagesRequest, WhatsAppChat, WhatsAppMessage,
     };
 
     fn sample_chat(chat_id: &str) -> WhatsAppChat {

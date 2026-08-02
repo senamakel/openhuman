@@ -10,7 +10,7 @@
 ## 1. Where the program stands
 
 The kernelization program has two halves. **The dependency half is largely done**; the
-**structural half is underway** — 124 top-level domain directories are down to 103, and both
+**structural half is underway** — 124 top-level domain directories are down to 95, and both
 root-level `*.rs` violations are gone.
 
 ### Done (#4795 epic, then #5314)
@@ -51,9 +51,11 @@ top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` was
 meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
 (`DomainGroup`, `DomainSet`, `StoreInitPlan`, `DomainSubscriberPlan`, `tool_group()`).
 
-**Steps 1–3 landed: 124 → 103 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
+**Steps 1–4 landed: 124 → 95 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
 `util/`, `sandbox/cwd_jail`, `cron/scheduler_gate`, `runtime/`, `media/`, `desktop/`, `hosted/`,
-`subconscious/{triggers,monitors}`. The `heartbeat/` re-export shim is deleted. The big three
+`subconscious/{triggers,monitors}`, and the existing-gate families `voice/audio_toolkit`,
+`web3/{wallet,x402}`, `medulla/chat`, `flows/{tinyflows,rhai}`,
+`channels/{whatsapp_data,webview_accounts}`. The `heartbeat/` re-export shim is deleted. The big three
 (`security/`, `agent/`, `memory/`) are still ahead.
 
 **That is what this document is about.** The remaining dependency sheds are blocked on it or are
@@ -160,7 +162,7 @@ renames.
 | `skills/` | `skill_registry→registry`, `skill_runtime→runtime`, `webhooks` |
 | `flows/` | ✅ **landed** — `tinyflows`, `rhai_workflows→rhai`; parent is leaf-gated on `flows` (no stub — every external site is a registration site) |
 | `mcp/` *(new)* | `mcp_server→server`, `mcp_registry→registry`, `mcp_audit→audit`, `mcp_client::{registry,stdio,spawn_env,setup_agent}→config_servers`, `mcp_client::{client,client_helpers}→http_client` *(ungated carve-out)*, `mcp_client::sanitize→util/sanitize` |
-| `channels/` | `whatsapp_data`, `webview_accounts` |
+| `channels/` | ✅ **landed** — `whatsapp_data`, `webview_accounts`; parent stays ungated (the `traits`/`cli` carve-outs), gate pushed onto each child |
 | `meet/` | ✅ **landed** — `meet_agent→agent`, `agent_meetings→backend_bot` |
 | `voice/` | ✅ **landed** — `audio_toolkit`; parent stays ungated (facade + `stub.rs`), gate pushed onto the child |
 | `web3/` | ✅ **landed** — `wallet`, `x402`; parent stays ungated (all three are facades with their own `stub.rs`) |

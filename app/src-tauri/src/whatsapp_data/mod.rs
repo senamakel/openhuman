@@ -11,14 +11,14 @@
 //!
 //! - **The scanner** (`whatsapp_scanner`) writes via the `whatsapp_data.ingest`
 //!   native request (see [`register_native_handlers`]).
-//! - **The core agent tools** (`openhuman::whatsapp_data::tools`) query via the
+//! - **The core agent tools** (`openhuman::channels::whatsapp_data::tools`) query via the
 //!   `whatsapp_data.{list_chats,list_messages,search_messages}` native requests.
 //! - **The frontend** reads via the Tauri commands
 //!   [`whatsapp_data_list_chats`] / [`whatsapp_data_list_messages`] /
 //!   [`whatsapp_data_search_messages`].
 //!
 //! The shared DTOs (request/response/row types) are defined once in the core
-//! crate (`openhuman_core::openhuman::whatsapp_data::types`) so both sides agree
+//! crate (`openhuman_core::openhuman::channels::whatsapp_data::types`) so both sides agree
 //! on a single definition and the native-request `TypeId` checks line up.
 
 mod global;
@@ -28,8 +28,8 @@ mod store;
 
 use std::sync::Arc;
 
-use openhuman_core::openhuman::whatsapp_data::methods;
-use openhuman_core::openhuman::whatsapp_data::types::{
+use openhuman_core::openhuman::channels::whatsapp_data::methods;
+use openhuman_core::openhuman::channels::whatsapp_data::types::{
     IngestRequest, IngestResult, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
     WhatsAppChat, WhatsAppMessage,
 };
@@ -57,7 +57,7 @@ pub async fn ensure_store() -> Result<Arc<WhatsAppDataStore>, String> {
 /// tools + scanner) to this shell store. Call once during Tauri `setup`.
 ///
 /// Keyed by the method-name constants the core owns
-/// (`openhuman_core::openhuman::whatsapp_data::methods`) so the two sides never
+/// (`openhuman_core::openhuman::channels::whatsapp_data::methods`) so the two sides never
 /// drift on the string key.
 pub fn register_native_handlers() {
     use openhuman_core::core::event_bus::register_native_global;

@@ -1,8 +1,8 @@
 use crate::core::event_bus::request_native_global;
+use crate::openhuman::channels::whatsapp_data::methods;
+use crate::openhuman::channels::whatsapp_data::tools::{is_handler_absent, UNAVAILABLE_NOTE};
+use crate::openhuman::channels::whatsapp_data::types::{ListChatsRequest, WhatsAppChat};
 use crate::openhuman::tools::traits::{Tool, ToolResult};
-use crate::openhuman::whatsapp_data::methods;
-use crate::openhuman::whatsapp_data::tools::{is_handler_absent, UNAVAILABLE_NOTE};
-use crate::openhuman::whatsapp_data::types::{ListChatsRequest, WhatsAppChat};
 use async_trait::async_trait;
 use serde_json::json;
 

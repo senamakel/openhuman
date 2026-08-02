@@ -722,7 +722,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     // Structured WhatsApp Web data has NO core RPC controllers: the SQLite
     // store + ingest + list/search moved to the Tauri shell
     // (`app/src-tauri/src/whatsapp_data/`). The agent's read-only query tools
-    // live in `openhuman::whatsapp_data::tools` and reach the shell store via
+    // live in `openhuman::channels::whatsapp_data::tools` and reach the shell store via
     // the in-process native request bus, not the controller registry.
     // Mobile device pairing and management
     push(

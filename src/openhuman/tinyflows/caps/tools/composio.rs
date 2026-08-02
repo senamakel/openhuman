@@ -25,8 +25,8 @@ use super::{ToolBackend, ToolCallCtx};
 use crate::openhuman::composio::client::{
     create_composio_client, direct_execute, ComposioClientKind,
 };
-use crate::openhuman::config::Config;
 use crate::openhuman::config::ops as config_rpc;
+use crate::openhuman::config::Config;
 use crate::openhuman::security::GateDecision;
 
 /// Dispatches a Composio action slug through the tier, curation, preflight and

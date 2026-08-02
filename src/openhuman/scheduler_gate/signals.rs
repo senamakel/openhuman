@@ -65,7 +65,10 @@ fn resolve_power(
     probe: Option<BatteryProbe>,
 ) -> (bool, Option<f32>) {
     match probe {
-        Some(probe) => (env_on_ac.unwrap_or(probe.on_ac), env_charge.or(probe.charge)),
+        Some(probe) => (
+            env_on_ac.unwrap_or(probe.on_ac),
+            env_charge.or(probe.charge),
+        ),
         // No probe answer — either it failed, or the `scheduler-gate` feature is
         // compiled out. Treat as "plugged in, no battery", which yields
         // Normal/Aggressive rather than Throttled. Erring the other way would
@@ -246,8 +249,17 @@ mod tests {
             on_ac: false,
             charge: Some(0.25),
         };
-        assert_eq!(resolve_power(Some(true), None, Some(probe())), (true, Some(0.25)));
-        assert_eq!(resolve_power(None, Some(0.8), Some(probe())), (false, Some(0.8)));
-        assert_eq!(resolve_power(Some(false), Some(0.4), None), (false, Some(0.4)));
+        assert_eq!(
+            resolve_power(Some(true), None, Some(probe())),
+            (true, Some(0.25))
+        );
+        assert_eq!(
+            resolve_power(None, Some(0.8), Some(probe())),
+            (false, Some(0.8))
+        );
+        assert_eq!(
+            resolve_power(Some(false), Some(0.4), None),
+            (false, Some(0.4))
+        );
     }
 }

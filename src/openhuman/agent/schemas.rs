@@ -490,7 +490,7 @@ fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
 /// (cloud/BYOK) rows are skipped — those are owned by the priced catalog layers.
 fn local_catalog_models_from_config(
     config: &crate::openhuman::config::Config,
-) -> Vec<crate::openhuman::cost::catalog::LocalCatalogModel> {
+) -> Vec<crate::openhuman::platform::cost::catalog::LocalCatalogModel> {
     use crate::openhuman::inference::local::profile::{
         profile_for_kind, LocalProviderKind, ToolSupport,
     };
@@ -506,13 +506,15 @@ fn local_catalog_models_from_config(
             } else {
                 profile.default_context_window
             };
-            Some(crate::openhuman::cost::catalog::LocalCatalogModel {
-                provider: entry.provider.clone(),
-                model_id: entry.id.clone(),
-                context_window,
-                tool_calling: matches!(profile.tool_support, ToolSupport::Native),
-                streaming: profile.supports_streaming,
-            })
+            Some(
+                crate::openhuman::platform::cost::catalog::LocalCatalogModel {
+                    provider: entry.provider.clone(),
+                    model_id: entry.id.clone(),
+                    context_window,
+                    tool_calling: matches!(profile.tool_support, ToolSupport::Native),
+                    streaming: profile.supports_streaming,
+                },
+            )
         })
         .collect()
 }
@@ -538,7 +540,8 @@ fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
                 Vec::new()
             }
         };
-        let catalog = crate::openhuman::cost::catalog::unified_model_catalog(&local_models);
+        let catalog =
+            crate::openhuman::platform::cost::catalog::unified_model_catalog(&local_models);
         let model_count = catalog.models.len();
         for entry in catalog.models {
             let mut meta = ComponentMetadata::new(entry.model_id.clone(), ComponentKind::Model)

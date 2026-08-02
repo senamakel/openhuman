@@ -1875,7 +1875,7 @@ impl Middleware<()> for MemoryProtocolMiddleware {
 
 /// `before_model`: enforce OpenHuman's daily/monthly cost budgets **before** a
 /// model call spends (issue #4249, Phase 5). Reads the global
-/// [`CostTracker`](crate::openhuman::cost) and, when cost budgets are configured
+/// [`CostTracker`](crate::openhuman::platform::cost) and, when cost budgets are configured
 /// and already exceeded, fails the run before the provider call; a warning
 /// threshold logs but proceeds. This enforcement path stays **authoritative**.
 ///
@@ -1938,8 +1938,8 @@ impl Middleware<()> for CostBudgetMiddleware {
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
-        use crate::openhuman::cost::types::BudgetCheck;
-        let Some(tracker) = crate::openhuman::cost::try_global() else {
+        use crate::openhuman::platform::cost::types::BudgetCheck;
+        let Some(tracker) = crate::openhuman::platform::cost::try_global() else {
             return Ok(());
         };
 
@@ -1950,7 +1950,7 @@ impl Middleware<()> for CostBudgetMiddleware {
         // provider OpenHuman never bills for, which is the whole bug. Classify
         // this call's route and skip the gate when OpenHuman is not the biller.
         if let Some(model) = request.model.as_deref() {
-            let route = crate::openhuman::cost::route::route_for_model(model);
+            let route = crate::openhuman::platform::cost::route::route_for_model(model);
             if !route.counts_toward_budget() {
                 tracing::debug!(
                     %model,

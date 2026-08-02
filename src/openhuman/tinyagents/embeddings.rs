@@ -111,7 +111,7 @@ impl TaEmbeddingModel for ProviderEmbeddingModel {
             // the recorded cost is zero regardless.
             let total_chars: usize = texts.iter().map(|t| t.chars().count()).sum();
             let approx_input_tokens = (total_chars as u64).div_ceil(4);
-            crate::openhuman::cost::record_embedding_usage(
+            crate::openhuman::platform::cost::record_embedding_usage(
                 self.provider.name(),
                 self.provider.model_id(),
                 approx_input_tokens,

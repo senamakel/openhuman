@@ -1424,8 +1424,8 @@ pub(super) fn with_cors_headers(mut response: Response, origin: Option<&str>) ->
 /// can still see partial failures.
 #[cfg(feature = "http-server")]
 async fn health_handler() -> impl IntoResponse {
-    let snapshot = crate::openhuman::health::snapshot();
-    let verdict = crate::openhuman::health::verdict(&snapshot);
+    let snapshot = crate::openhuman::platform::health::snapshot();
+    let verdict = crate::openhuman::platform::health::verdict(&snapshot);
 
     let status = if verdict.healthy {
         StatusCode::OK
@@ -2011,7 +2011,7 @@ fn register_domain_subscribers(
     // (`SubscriptionHandle::drop` aborts the task).
     static INFRA: Once = Once::new();
     INFRA.call_once(|| {
-        crate::openhuman::health::bus::register_health_subscriber();
+        crate::openhuman::platform::health::bus::register_health_subscriber();
 
         // Initialise the scheduler gate before any background AI workers start
         // so they observe a real policy on their first iteration (otherwise they
@@ -2067,7 +2067,7 @@ fn register_domain_subscribers(
 
         // Restart requests go through a subscriber so every trigger path shares
         // the same respawn logic.
-        crate::openhuman::service::bus::register_restart_subscriber();
+        crate::openhuman::platform::service::bus::register_restart_subscriber();
         if embedded_core {
             log::info!(
                 "[event_bus] embedded core: service shutdown subscriber not registered; Tauri cancellation token owns shutdown"
@@ -2075,7 +2075,7 @@ fn register_domain_subscribers(
         } else {
             // Shutdown requests use the same pattern; the standalone CLI
             // subscriber exits the current process after a short grace period.
-            crate::openhuman::service::bus::register_shutdown_subscriber();
+            crate::openhuman::platform::service::bus::register_shutdown_subscriber();
         }
     });
 
@@ -2306,7 +2306,7 @@ pub async fn bootstrap_core_runtime(
     config: Option<crate::openhuman::config::Config>,
     domains: crate::core::runtime::DomainSet,
 ) {
-    use crate::openhuman::socket::{set_global_socket_manager, SocketManager};
+    use crate::openhuman::platform::socket::{set_global_socket_manager, SocketManager};
     use std::sync::Arc;
     // `embedded_core` derived from host_kind so the rest of the function (which
     // already keys behavior off the boolean) stays unchanged.
@@ -2387,7 +2387,7 @@ pub async fn bootstrap_core_runtime(
     // Activates the previously-dormant CostTracker so the dashboard RPC
     // surface (`openhuman.cost_get_dashboard`) and `record_provider_usage`
     // share one JSONL-backed store. Idempotent.
-    crate::openhuman::cost::init_global(cfg.cost.clone(), &workspace_dir);
+    crate::openhuman::platform::cost::init_global(cfg.cost.clone(), &workspace_dir);
 
     // --- x402 payment ledger ---
     // Initializes the JSONL-backed spending ledger for machine-payable API
@@ -2575,7 +2575,7 @@ pub async fn bootstrap_core_runtime(
     crate::openhuman::web_chat::register_artifact_surface_subscriber();
 
     // --- Workspace migrations --------------------------------------------
-    crate::openhuman::startup::run_workspace_migrations(&workspace_dir);
+    crate::openhuman::platform::startup::run_workspace_migrations(&workspace_dir);
 
     // --- Socket manager bootstrap ---
     let socket_mgr = Arc::new(SocketManager::new());
@@ -2614,7 +2614,7 @@ pub async fn start_core_runtime_services(
     // after the legacy goal/task-board migrations above have completed.
     crate::core::runtime::services::start_bootstrap_jobs(services, cfg);
 
-    match crate::openhuman::socket::global_socket_manager() {
+    match crate::openhuman::platform::socket::global_socket_manager() {
         Some(socket_mgr) => {
             crate::core::runtime::services::spawn_socket_auto_connect(
                 services,

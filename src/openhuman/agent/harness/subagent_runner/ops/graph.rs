@@ -435,7 +435,7 @@ pub(super) async fn run_subagent_via_graph(
                         if u.charged_amount_usd.is_finite() && u.charged_amount_usd > 0.0 {
                             u.charged_amount_usd
                         } else {
-                            crate::openhuman::cost::catalog::estimate_cost_usd(
+                            crate::openhuman::platform::cost::catalog::estimate_cost_usd(
                                 model,
                                 u.input_tokens,
                                 u.output_tokens,
@@ -443,7 +443,7 @@ pub(super) async fn run_subagent_via_graph(
                             )
                         };
                     usage.charged_amount_usd += call_cost;
-                    crate::openhuman::cost::record_provider_usage(
+                    crate::openhuman::platform::cost::record_provider_usage(
                         model,
                         &crate::openhuman::inference::provider::UsageInfo {
                             input_tokens: u.input_tokens,

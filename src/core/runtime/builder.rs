@@ -605,7 +605,7 @@ impl CoreRuntime {
 
         let preferred_port = resolved_port;
         let host = resolved_host;
-        let pick = crate::openhuman::connectivity::rpc::pick_listen_port_for_host(
+        let pick = crate::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
             host.as_str(),
             preferred_port,
         )

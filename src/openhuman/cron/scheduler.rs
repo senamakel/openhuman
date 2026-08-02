@@ -169,7 +169,7 @@ pub async fn run(config: Config) -> Result<()> {
     // Ensure the global event bus is initialized so cron delivery events
     // are not silently dropped. This is a no-op if already initialized.
     crate::core::event_bus::init_global(crate::core::event_bus::DEFAULT_CAPACITY);
-    crate::openhuman::health::bus::register_health_subscriber();
+    crate::openhuman::platform::health::bus::register_health_subscriber();
 
     let poll_secs = config.reliability.scheduler_poll_secs.max(MIN_POLL_SECONDS);
     let mut interval = time::interval(Duration::from_secs(poll_secs));

@@ -460,7 +460,10 @@ async fn channel_status_surfaces_live_listener_error() {
     });
 
     // Simulate the supervisor reporting the listener as failed.
-    crate::openhuman::health::mark_component_error("channel:discord", "gateway closed (4004)");
+    crate::openhuman::platform::health::mark_component_error(
+        "channel:discord",
+        "gateway closed (4004)",
+    );
 
     let result = channel_status(&config, Some("discord"))
         .await
@@ -485,7 +488,7 @@ async fn channel_status_surfaces_live_listener_error() {
 
     // Recovery: once the supervisor marks the listener healthy, status flips
     // back to connected with the error cleared.
-    crate::openhuman::health::mark_component_ok("channel:discord");
+    crate::openhuman::platform::health::mark_component_ok("channel:discord");
     let recovered = channel_status(&config, Some("discord"))
         .await
         .expect("channel_status should succeed");

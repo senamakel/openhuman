@@ -153,7 +153,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // subscriber for debug logging of all domain events.
     let bus = event_bus::init_global(DEFAULT_CAPACITY);
     let _tracing_handle = bus.subscribe(Arc::new(TracingSubscriber));
-    crate::openhuman::health::bus::register_health_subscriber();
+    crate::openhuman::platform::health::bus::register_health_subscriber();
     crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
         config.workspace_dir.clone(),
     );

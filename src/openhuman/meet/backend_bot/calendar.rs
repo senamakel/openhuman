@@ -748,7 +748,7 @@ async fn auto_join_meeting(
     listen_only: bool,
     owner_display_name: Option<String>,
 ) {
-    use crate::openhuman::socket::global_socket_manager;
+    use crate::openhuman::platform::socket::global_socket_manager;
 
     let mgr = match global_socket_manager() {
         Some(mgr) if mgr.is_connected() => mgr,

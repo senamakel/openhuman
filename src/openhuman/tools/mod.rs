@@ -22,11 +22,9 @@ pub use crate::openhuman::artifacts::tools::*;
 pub use crate::openhuman::channels::whatsapp_data::tools::*;
 pub use crate::openhuman::composio::tools::*;
 pub use crate::openhuman::config::tools::*;
-pub use crate::openhuman::cost::tools::*;
 pub use crate::openhuman::credentials::tools::*;
 pub use crate::openhuman::cron::tools::*;
 pub use crate::openhuman::desktop::dashboard::tools::*;
-pub use crate::openhuman::doctor::tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::builder_tools::*;
 #[cfg(feature = "flows")]
@@ -37,7 +35,6 @@ pub use crate::openhuman::flows::memory_tools::*;
 pub use crate::openhuman::flows::rhai::tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::tools::*;
-pub use crate::openhuman::health::tools::*;
 pub use crate::openhuman::hosted::billing::tools::*;
 pub use crate::openhuman::hosted::orchestration::tools::*;
 pub use crate::openhuman::hosted::referral::tools::*;
@@ -51,9 +48,12 @@ pub use crate::openhuman::memory_diff::tools::*;
 pub use crate::openhuman::memory_goals::tools::*;
 pub use crate::openhuman::memory_search::*;
 pub use crate::openhuman::people::tools::*;
+pub use crate::openhuman::platform::cost::tools::*;
+pub use crate::openhuman::platform::doctor::tools::*;
+pub use crate::openhuman::platform::health::tools::*;
+pub use crate::openhuman::platform::service::tools::*;
 pub use crate::openhuman::search::tools::*;
 pub use crate::openhuman::security::tools::*;
-pub use crate::openhuman::service::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::openhuman::skill_registry::tools::*;
 #[cfg(feature = "skills")]

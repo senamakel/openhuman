@@ -71,7 +71,7 @@
   `src/openhuman/agent_registry/agents/orchestrator/prompt.md`: when to
   prefer `rlm` over `spawn_parallel_agents` (ad-hoc control flow, loops,
   dedup/verify pipelines), the one-cell-per-call model, and session reuse.
-- Update `src/openhuman/about_app/` feature inventory (new user-facing
+- Update `src/openhuman/platform/about_app/` feature inventory (new user-facing
   capability).
 - `docs`/gitbooks: extend
   `gitbooks/developing/architecture/agent-harness.md` with the RLM section.

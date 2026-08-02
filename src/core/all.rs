@@ -201,7 +201,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::about_app::all_about_app_registered_controllers(),
+        crate::openhuman::platform::about_app::all_about_app_registered_controllers(),
     );
     // AgentBox marketplace adapter status
     push(
@@ -300,7 +300,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::health::all_health_registered_controllers(),
+        crate::openhuman::platform::health::all_health_registered_controllers(),
     );
     // One-time first-run initialization (Python/spaCy/Node provisioning)
     push(
@@ -312,7 +312,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::doctor::all_doctor_registered_controllers(),
+        crate::openhuman::platform::doctor::all_doctor_registered_controllers(),
     );
     // Secret storage and encryption
     push(
@@ -369,7 +369,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::cost::all_cost_registered_controllers(),
+        crate::openhuman::platform::cost::all_cost_registered_controllers(),
     );
     // x402 machine-payable API payment protocol
     push(
@@ -403,7 +403,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::connectivity::all_connectivity_registered_controllers(),
+        crate::openhuman::platform::connectivity::all_connectivity_registered_controllers(),
     );
     // User credentials and session management
     push(
@@ -415,7 +415,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::service::all_service_registered_controllers(),
+        crate::openhuman::platform::service::all_service_registered_controllers(),
     );
     // Data migration utilities
     push(
@@ -463,7 +463,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::socket::all_socket_registered_controllers(),
+        crate::openhuman::platform::socket::all_socket_registered_controllers(),
     );
     // Managed Node.js runtime bridge (tool listing + dispatch)
     push(
@@ -654,7 +654,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::update::all_update_registered_controllers(),
+        crate::openhuman::platform::update::all_update_registered_controllers(),
     );
     // Hierarchical knowledge summarization
     push(

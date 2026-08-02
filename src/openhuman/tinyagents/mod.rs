@@ -460,7 +460,7 @@ pub(crate) async fn run_turn_via_tinyagents(
         input_tokens: run.usage.usage.input_tokens,
         output_tokens: run.usage.usage.output_tokens,
         cached_input_tokens: run.usage.usage.cache_read_tokens,
-        charged_amount_usd: crate::openhuman::cost::catalog::estimate_cost_usd(
+        charged_amount_usd: crate::openhuman::platform::cost::catalog::estimate_cost_usd(
             model,
             run.usage.usage.input_tokens,
             run.usage.usage.output_tokens,
@@ -1078,8 +1078,9 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             let input = run.usage.usage.input_tokens;
             let output = run.usage.usage.output_tokens;
             let cached = run.usage.usage.cache_read_tokens;
-            let charged =
-                crate::openhuman::cost::catalog::estimate_cost_usd(model, input, output, cached);
+            let charged = crate::openhuman::platform::cost::catalog::estimate_cost_usd(
+                model, input, output, cached,
+            );
             record_unobserved_turn_usage(model, input, output, cached, charged);
             (input, output, cached, charged)
         });
@@ -2355,7 +2356,7 @@ fn record_unobserved_turn_usage(
         charged_usd = charged_amount_usd,
         "[tinyagents] recording unobserved-turn usage into the global cost tracker"
     );
-    crate::openhuman::cost::record_provider_usage(
+    crate::openhuman::platform::cost::record_provider_usage(
         model,
         &crate::openhuman::inference::provider::UsageInfo {
             input_tokens,

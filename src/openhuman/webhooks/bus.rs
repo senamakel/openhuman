@@ -6,7 +6,7 @@
 //! This decouples the socket module from webhook routing logic.
 
 use crate::core::event_bus::{publish_global, DomainEvent, EventHandler};
-use crate::openhuman::socket::global_socket_manager;
+use crate::openhuman::platform::socket::global_socket_manager;
 use crate::openhuman::webhooks::WebhookResponseData;
 use async_trait::async_trait;
 use serde_json::json;

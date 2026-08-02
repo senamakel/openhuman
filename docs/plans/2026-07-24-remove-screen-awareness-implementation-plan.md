@@ -97,7 +97,7 @@ Files:
   `src/openhuman/mcp/server/resources.rs`.
 - Delete `CapabilityCategory::ScreenIntelligence`, parsing/serialization tests,
   and all `screen_intelligence.*` catalog entries from
-  `src/openhuman/about_app/{types.rs,catalog_data.rs,catalog_tests.rs,README.md}`.
+  `src/openhuman/platform/about_app/{types.rs,catalog_data.rs,catalog_tests.rs,README.md}`.
   Also remove the stale `screen_intelligence` example in
   `src/openhuman/overlay/types.rs` and screen-only mentions in
   `src/openhuman/inference/README.md`.

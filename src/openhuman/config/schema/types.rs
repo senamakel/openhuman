@@ -48,7 +48,7 @@ pub struct ModelRegistryEntry {
     /// with [`Self::cost_per_1m_output`]) to estimate request cost when the
     /// provider doesn't echo an authoritative `charged_amount_usd`. `0.0` means
     /// "unknown" — callers fall back to the tier/catalog estimate. Pre-filled
-    /// for known vendor models from [`crate::openhuman::cost::catalog`].
+    /// for known vendor models from [`crate::openhuman::platform::cost::catalog`].
     #[serde(default)]
     pub cost_per_1m_input: f64,
     /// Cached-prefix prompt rate, USD per million cached input tokens (KV-cache
@@ -61,7 +61,7 @@ pub struct ModelRegistryEntry {
     /// Maximum context window in tokens (published max input). `0` means
     /// "unknown". Providers differ widely (128K–1M+); callers use this to
     /// budget prompts, trigger compaction, and route work. Pre-filled for known
-    /// vendor models from [`crate::openhuman::cost::catalog`].
+    /// vendor models from [`crate::openhuman::platform::cost::catalog`].
     #[serde(default)]
     pub context_window: u32,
     #[serde(default)]

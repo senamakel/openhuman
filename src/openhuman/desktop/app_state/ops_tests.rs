@@ -316,7 +316,7 @@ fn degraded_runtime_snapshot_has_expected_degraded_fields() {
     assert!(
         matches!(
             snapshot.service.state,
-            crate::openhuman::service::ServiceState::Unknown(_)
+            crate::openhuman::platform::service::ServiceState::Unknown(_)
         ),
         "service state should be Unknown in degraded snapshot"
     );

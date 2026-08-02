@@ -494,7 +494,7 @@ jobs:
           openhuman/agent_registry/agents/loader.rs
           openhuman/inference/local/mod.rs
           openhuman/mcp/server/resources.rs
-          openhuman/socket/ops.rs
+          openhuman/platform/socket/ops.rs
           openhuman/tinyplace/manifest.rs
           openhuman/tools/registry/ops_tests.rs
           openhuman/tools/registry/schemas.rs

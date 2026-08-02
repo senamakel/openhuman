@@ -390,7 +390,7 @@ samply record --save-only --unstable-presymbolicate \
 ## Artifacts and code added during the session
 
 - `src/bin/library_profile/main.rs`: hermetic memory-ingestion and subagent workloads, peak RSS sampler, isolation controls, warm-up control, and debugger hold points.
-- `src/openhuman/proc_metrics/mod.rs`: macOS RSS, peak RSS, thread-count, and binary-size sampling.
+- `src/openhuman/platform/proc_metrics/mod.rs`: macOS RSS, peak RSS, thread-count, and binary-size sampling.
 - `src/openhuman/inference/provider/factory.rs`: deterministic provider override enabled under the default-off profiling feature.
 - `src/openhuman/inference/provider/ops/provider_factory.rs`: routed-provider support for the same profiling override.
 - `src/openhuman/agent/prompts/render_helpers.rs`: profiling-only UTC control under `rss-bench`.

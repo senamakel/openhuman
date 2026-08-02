@@ -3782,7 +3782,7 @@ fn publish_flow_changed(flow_id: &str, kind: &str, actor: &str) {
     // reasoning about a set that no longer exists. A no-op (one debug log, no
     // task spawned) when no bridge is installed, which is every build that is
     // not talking to a backend, and every test.
-    crate::openhuman::socket::medulla::workflows::emit_register_workflows();
+    crate::openhuman::platform::socket::medulla::workflows::emit_register_workflows();
 }
 
 /// Maps a store-level [`FlowUpdateError`](store::FlowUpdateError) to the RPC

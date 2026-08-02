@@ -1,5 +1,5 @@
 //! Backs the medulla harness protocol's workflow plane
-//! ([`crate::openhuman::socket::medulla::workflows::WorkflowBridge`]) with this
+//! ([`crate::openhuman::platform::socket::medulla::workflows::WorkflowBridge`]) with this
 //! host's own `flows::` store.
 //!
 //! The transport half is host-agnostic on purpose — it moves adverts, opaque
@@ -38,7 +38,7 @@
 //! **Threading.** The three reads are synchronous on the trait but every
 //! `flows::` op is `async`, so they bridge with a `Handle::block_on` — legal
 //! because the transport only ever calls them from `spawn_blocking` (see
-//! [`super::super::socket::medulla::workflows`]), never on a runtime worker.
+//! [`super::super::platform::socket::medulla::workflows`]), never on a runtime worker.
 //! `copilot` is `async` end to end and needs no hop.
 
 use std::sync::Arc;
@@ -52,10 +52,10 @@ use super::node_contracts::{all_node_kind_contracts, node_kind_contract, NODE_KI
 use super::ops;
 use super::types::Flow;
 use crate::openhuman::config::Config;
-use crate::openhuman::socket::medulla::payloads::{
+use crate::openhuman::platform::socket::medulla::payloads::{
     CopilotOutcome, WorkflowDescriptor, WorkflowInputDescriptor,
 };
-use crate::openhuman::socket::medulla::workflows::{set_workflow_bridge, WorkflowBridge};
+use crate::openhuman::platform::socket::medulla::workflows::{set_workflow_bridge, WorkflowBridge};
 
 /// How many runs a `runs` read returns. The orchestrator wants "did this
 /// workflow work lately", not an audit log, and the server caps a result at

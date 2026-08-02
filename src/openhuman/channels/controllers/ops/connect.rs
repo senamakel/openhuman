@@ -688,7 +688,7 @@ pub async fn channel_status(
     // Snapshot live listener health once so every entry reflects the same
     // moment. The supervisor keeps `channel:<id>` components current via
     // `ChannelConnected`/`ChannelDisconnected` (issue #3712).
-    let health = crate::openhuman::health::snapshot();
+    let health = crate::openhuman::platform::health::snapshot();
 
     let mut entries = Vec::new();
     for def in &defs {

@@ -19,7 +19,7 @@ family-wide, not single-pid.
 - **`app/src-tauri/profiling/`** — an offline Tauri process-family profiler
   (own small crate: `src/main.rs` ~813 lines, README) added in commit
   `ce6cd2291`. Start here; extend it rather than writing a new sampler.
-- **`src/openhuman/proc_metrics/`** — RSS/peak/threads/CPU-ms/fds sampling
+- **`src/openhuman/platform/proc_metrics/`** — RSS/peak/threads/CPU-ms/fds sampling
   plus `tree.rs` (descendant process-tree walker, macOS `proc_listchildpids`
   + Linux `/proc` ppid walk). The tree sampler is exactly what family-wide
   measurement needs.

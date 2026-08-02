@@ -421,7 +421,7 @@ async fn raw_round13_connectivity_picker_identifies_openhuman_probe_listener() {
         return;
     };
 
-    let result = openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host(
+    let result = openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
         "127.0.0.1",
         preferred,
     )
@@ -430,7 +430,7 @@ async fn raw_round13_connectivity_picker_identifies_openhuman_probe_listener() {
     assert!(
         matches!(
             err,
-            openhuman_core::openhuman::connectivity::rpc::PickListenPortError::WouldTakeOver {
+            openhuman_core::openhuman::platform::connectivity::rpc::PickListenPortError::WouldTakeOver {
                 preferred: p,
                 ref fingerprint
             } if p == preferred && fingerprint == "openhuman-core"
@@ -454,7 +454,7 @@ async fn raw_round13_connectivity_picker_falls_back_for_non_success_probe_status
         return;
     };
 
-    let picked = openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host(
+    let picked = openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
         "127.0.0.1",
         preferred,
     )
@@ -476,7 +476,7 @@ async fn raw_round13_connectivity_picker_falls_back_for_non_identifying_probe_bo
         return;
     };
 
-    let picked = openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host(
+    let picked = openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
         "127.0.0.1",
         preferred,
     )

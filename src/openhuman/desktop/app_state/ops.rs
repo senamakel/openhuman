@@ -26,7 +26,7 @@ use crate::openhuman::credentials::session_support::{
 };
 use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 use crate::openhuman::inference::LocalAiStatus;
-use crate::openhuman::service::{ServiceState, ServiceStatus};
+use crate::openhuman::platform::service::{ServiceState, ServiceStatus};
 use crate::rpc::RpcOutcome;
 
 const LOG_PREFIX: &str = "[app_state]";
@@ -170,7 +170,7 @@ pub struct AppStateSnapshot {
     /// hydrates the daemon-health store from the same poll instead of running a
     /// second `health_snapshot` poller. Fields stay snake_case (the type has no
     /// camelCase rename) to match the frontend's existing health parser.
-    pub health: crate::openhuman::health::HealthSnapshot,
+    pub health: crate::openhuman::platform::health::HealthSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -861,7 +861,7 @@ async fn build_runtime_snapshot(config: &Config, req_id: u64) -> RuntimeSnapshot
         async {
             let t = Instant::now();
             let status = tokio::task::spawn_blocking(move || {
-                crate::openhuman::service::status(&config_for_service)
+                crate::openhuman::platform::service::status(&config_for_service)
             })
             .await
             .unwrap_or_else(|_| Err(anyhow::anyhow!("service status task panicked")));
@@ -1167,7 +1167,7 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
     );
 
     let keyring_status = crate::openhuman::keyring_consent::policy::current_status();
-    let health = crate::openhuman::health::snapshot();
+    let health = crate::openhuman::platform::health::snapshot();
 
     Ok(RpcOutcome::new(
         AppStateSnapshot {

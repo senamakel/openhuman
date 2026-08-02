@@ -78,7 +78,7 @@ pub fn spawn_update_scheduler() {
     tokio::spawn(async {
         match crate::openhuman::config::Config::load_or_init().await {
             Ok(config) => {
-                crate::openhuman::update::scheduler::run(config.update).await;
+                crate::openhuman::platform::update::scheduler::run(config.update).await;
             }
             Err(err) => {
                 log::warn!("[core] config load failed, skipping update scheduler: {err}");
@@ -415,7 +415,7 @@ fn spawn_mcp_reconnect_supervisor(config: Config) {
 /// Auto-connect Socket.IO to the backend when enabled by the service selection.
 pub fn spawn_socket_auto_connect(
     services: ServiceSet,
-    socket_mgr: std::sync::Arc<crate::openhuman::socket::SocketManager>,
+    socket_mgr: std::sync::Arc<crate::openhuman::platform::socket::SocketManager>,
     _flows_enabled: bool,
 ) {
     if services.socketio {
@@ -460,7 +460,9 @@ pub fn spawn_socket_auto_connect(
                 crate::openhuman::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
             }
             let provider =
-                crate::openhuman::socket::token_provider::token_provider_from_config(config);
+                crate::openhuman::platform::socket::token_provider::token_provider_from_config(
+                    config,
+                );
             if let Err(e) = socket_mgr.connect_with_provider(&api_url, provider).await {
                 log::error!("[socket] Auto-connect failed: {e}");
             } else {

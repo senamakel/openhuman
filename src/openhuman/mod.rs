@@ -14,7 +14,6 @@
 // Many types/functions are intended for future use or integration with the frontend.
 #![allow(dead_code)]
 
-pub mod about_app;
 pub mod agent;
 pub mod agent_experience;
 pub mod agent_memory;
@@ -26,14 +25,11 @@ pub mod artifacts;
 pub mod channels;
 pub mod composio;
 pub mod config;
-pub mod connectivity;
 pub mod context;
-pub mod cost;
 pub mod credentials;
 pub mod cron;
 pub mod desktop;
 pub mod devices;
-pub mod doctor;
 pub mod embeddings;
 pub mod encryption;
 pub mod file_state;
@@ -41,7 +37,6 @@ pub mod file_storage;
 #[cfg(feature = "flows")]
 pub mod flows;
 pub mod harness_init;
-pub mod health;
 pub mod hosted;
 // The whole http_host domain is an axum static-directory server, so it is
 // exclusive to the `http-server` feature (#5048). Its only outside reference is
@@ -89,7 +84,7 @@ pub mod migration;
 pub mod migrations;
 pub mod people;
 pub mod plan_review;
-pub mod proc_metrics;
+pub mod platform;
 pub mod profiles;
 pub mod prompt_injection;
 pub mod recall_calendar;
@@ -97,14 +92,11 @@ pub mod runtime;
 pub mod sandbox;
 pub mod search;
 pub mod security;
-pub mod service;
 pub mod session_db;
 pub mod session_import;
 pub mod skill_registry;
 pub mod skill_runtime;
 pub mod skills;
-pub mod socket;
-pub mod startup;
 pub mod subconscious;
 pub mod task_sources;
 #[cfg(feature = "e2e-test-support")]
@@ -115,7 +107,6 @@ pub mod tinycortex;
 pub mod tinyplace;
 pub mod tokenjuice;
 pub mod tools;
-pub mod update;
 pub mod util;
 pub mod voice;
 pub mod web3;

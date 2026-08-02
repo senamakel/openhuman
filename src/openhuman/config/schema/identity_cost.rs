@@ -12,14 +12,14 @@ use std::collections::HashMap;
 pub struct CostConfig {
     /// Enable budget enforcement (default: true).
     ///
-    /// When `true`, [`crate::openhuman::cost::CostTracker::check_budget`]
+    /// When `true`, [`crate::openhuman::platform::cost::CostTracker::check_budget`]
     /// honours `daily_limit_usd` / `monthly_limit_usd` and refuses
     /// over-budget requests via `BudgetCheck::Exceeded`.
     ///
     /// **Important:** as of the cost-dashboard PR this flag controls
     /// **enforcement only**, not telemetry capture. The dashboard
     /// JSONL store at `{workspace}/state/costs.jsonl` is populated by
-    /// [`crate::openhuman::cost::record_provider_usage`] regardless of
+    /// [`crate::openhuman::platform::cost::record_provider_usage`] regardless of
     /// this flag, so users can review historical spend before opting
     /// into hard caps. Set `dashboard.enabled = false` to hide the
     /// Settings panel; delete the JSONL file to clear collected
@@ -30,7 +30,7 @@ pub struct CostConfig {
     /// Daily spending limit in USD (default: 10.00).
     ///
     /// Applies to **managed (OpenHuman-credit) inference only** — see
-    /// [`crate::openhuman::cost::route`]. Bring-your-own-key and local
+    /// [`crate::openhuman::platform::cost::route`]. Bring-your-own-key and local
     /// inference is billed by the user's own provider, so it is recorded for
     /// the dashboard but never counted against this limit and can never
     /// refuse a request (#5016).

@@ -21,7 +21,7 @@
 //! `cargo build --release --features rss-bench --bin rss-bench`.
 //!
 //! The pure sampling/aggregation logic lives in
-//! [`openhuman_core::openhuman::proc_metrics`]; this binary is the fixture +
+//! [`openhuman_core::openhuman::platform::proc_metrics`]; this binary is the fixture +
 //! process driver.
 
 use anyhow::{Context, Result};
@@ -31,7 +31,7 @@ use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::proc_metrics::{
+use openhuman_core::openhuman::platform::proc_metrics::{
     self, BenchReport, ProcSample, RosterResult, REPORT_SCHEMA_VERSION, RSS_BUDGET_KIB,
     RSS_HARD_CAP_KIB,
 };

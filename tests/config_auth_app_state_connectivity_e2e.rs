@@ -46,10 +46,6 @@ use openhuman_core::openhuman::config::{
     Config, DaemonConfig, DelegateAgentConfig, DictationActivationMode, LlmBackend,
     ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
-use openhuman_core::openhuman::connectivity::{
-    all_connectivity_controller_schemas, all_connectivity_registered_controllers,
-    connectivity_controller_schema,
-};
 use openhuman_core::openhuman::credentials::bus::SessionExpiredSubscriber;
 use openhuman_core::openhuman::credentials::cli::{
     cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
@@ -66,6 +62,10 @@ use openhuman_core::openhuman::credentials::{
     store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
 use openhuman_core::openhuman::desktop::app_state::app_state_schemas;
+use openhuman_core::openhuman::platform::connectivity::{
+    all_connectivity_controller_schemas, all_connectivity_registered_controllers,
+    connectivity_controller_schema,
+};
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
 
@@ -5852,9 +5852,9 @@ fn connectivity_public_helpers_cover_schemas_and_port_probe() {
 
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
     let port = listener.local_addr().expect("probe local addr").port();
-    assert!(openhuman_core::openhuman::connectivity::ops::is_port_in_use(port));
+    assert!(openhuman_core::openhuman::platform::connectivity::ops::is_port_in_use(port));
     drop(listener);
-    let _ = openhuman_core::openhuman::connectivity::ops::is_port_in_use(port);
+    let _ = openhuman_core::openhuman::platform::connectivity::ops::is_port_in_use(port);
 }
 
 #[tokio::test]
@@ -5874,7 +5874,7 @@ async fn connectivity_pick_listen_port_uses_fallback_when_preferred_is_busy() {
     }
     let held_listener = held_listener.expect("find preferred port with fallback room");
 
-    let picked = openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host(
+    let picked = openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
         "127.0.0.1",
         preferred,
     )
@@ -5890,10 +5890,12 @@ async fn connectivity_pick_listen_port_uses_fallback_when_preferred_is_busy() {
 async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallbacks() {
     let _lock = env_lock();
 
-    let direct =
-        openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host("127.0.0.1", 0)
-            .await
-            .expect("port 0 should bind directly");
+    let direct = openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
+        "127.0.0.1",
+        0,
+    )
+    .await
+    .expect("port 0 should bind directly");
     assert_eq!(direct.fallback_from, None);
     drop(direct.listener);
 
@@ -5923,14 +5925,15 @@ async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallback
         }
     }
     let preferred = preferred.expect("reserve preferred port and fallback range");
-    let exhausted = openhuman_core::openhuman::connectivity::rpc::pick_listen_port_for_host(
-        "127.0.0.1",
-        preferred,
-    )
-    .await
-    .expect_err("busy preferred and fallback range should fail");
+    let exhausted =
+        openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
+            "127.0.0.1",
+            preferred,
+        )
+        .await
+        .expect_err("busy preferred and fallback range should fail");
     match &exhausted {
-        openhuman_core::openhuman::connectivity::rpc::PickListenPortError::NoAvailablePort {
+        openhuman_core::openhuman::platform::connectivity::rpc::PickListenPortError::NoAvailablePort {
             preferred: err_preferred,
             attempted,
             fingerprint,
@@ -5952,7 +5955,7 @@ async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallback
     );
 
     let takeover =
-        openhuman_core::openhuman::connectivity::rpc::PickListenPortError::WouldTakeOver {
+        openhuman_core::openhuman::platform::connectivity::rpc::PickListenPortError::WouldTakeOver {
             preferred,
             fingerprint: "openhuman-core".into(),
         };
@@ -5960,7 +5963,7 @@ async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallback
         .to_string()
         .contains("stale-listener takeover required"));
     let bind_failed =
-        openhuman_core::openhuman::connectivity::rpc::PickListenPortError::BindFailed {
+        openhuman_core::openhuman::platform::connectivity::rpc::PickListenPortError::BindFailed {
             port: preferred,
             reason: "synthetic bind failure".into(),
         };
@@ -6007,19 +6010,19 @@ async fn connectivity_diag_reports_runtime_port_sources() {
     {
         let _rpc_url = EnvVarGuard::set("OPENHUMAN_CORE_RPC_URL", "http://127.0.0.1:4567/rpc");
         let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "7788");
-        let snapshot = openhuman_core::openhuman::connectivity::rpc::snapshot();
+        let snapshot = openhuman_core::openhuman::platform::connectivity::rpc::snapshot();
         assert_eq!(snapshot.listen_port, 4567);
     }
     {
         let _rpc_url = EnvVarGuard::set("OPENHUMAN_CORE_RPC_URL", "not a url");
         let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "4568");
-        let snapshot = openhuman_core::openhuman::connectivity::rpc::snapshot();
+        let snapshot = openhuman_core::openhuman::platform::connectivity::rpc::snapshot();
         assert_eq!(snapshot.listen_port, 4568);
     }
     {
         let _rpc_url = EnvVarGuard::unset("OPENHUMAN_CORE_RPC_URL");
         let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "not-a-port");
-        let snapshot = openhuman_core::openhuman::connectivity::rpc::snapshot();
+        let snapshot = openhuman_core::openhuman::platform::connectivity::rpc::snapshot();
         assert_eq!(snapshot.listen_port, 7788);
     }
 

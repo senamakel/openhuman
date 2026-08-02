@@ -88,4 +88,4 @@ The MCP server enforces `SecurityPolicy::ToolOperation` checks; all tools except
 
 - Vision input is not forwarded. Set the `vision_provider` to a different provider when you need images.
 - `agentic` runs share the same `Semaphore(4)`; under load a CC turn waits in queue rather than failing fast.
-- Cost accounting from the CLI's `result.total_cost_usd` is captured in the mapper but not yet wired into OpenHuman's billing layer ([`src/openhuman/cost/`](../../../src/openhuman/cost/)).
+- Cost accounting from the CLI's `result.total_cost_usd` is captured in the mapper but not yet wired into OpenHuman's billing layer ([`src/openhuman/platform/cost/`](../../../src/openhuman/platform/cost/)).

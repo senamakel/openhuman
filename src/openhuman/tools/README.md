@@ -98,7 +98,7 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 - `openhuman::skills` — `skills::types::{ToolResult, ToolContent}` (the unified result type) + skill-run spawning.
 - `openhuman::learning` — LinkedIn enrichment scrape/render for the Apify RPC handler.
 - `openhuman::web3::wallet`, `openhuman::cron`, `openhuman::codegraph`, `openhuman::voice::audio_toolkit`, `openhuman::channels::whatsapp_data` — domain-owned tools re-exported and registered.
-- `openhuman::approval`, `openhuman::context`, `openhuman::credentials`, `openhuman::update`, `openhuman::util` — supporting types used by individual tools.
+- `openhuman::approval`, `openhuman::context`, `openhuman::credentials`, `openhuman::platform::update`, `openhuman::util` — supporting types used by individual tools.
 - `core::all` — `ControllerSchema`, `FieldSchema`, `TypeSchema`, `RegisteredController`, `ControllerFuture` for the RPC controller surface.
 
 ## Used by

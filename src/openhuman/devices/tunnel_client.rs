@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::openhuman::socket::global_socket_manager;
+use crate::openhuman::platform::socket::global_socket_manager;
 
 // ---------------------------------------------------------------------------
 // Wire types

@@ -483,7 +483,7 @@ Specify → prove in Rust → prove over RPC → surface in UI → test.
 5. **App unit tests** — Vitest.
 6. **App E2E** — desktop specs.
 
-Update `src/openhuman/about_app/` when adding/removing/renaming user-facing features. Define E2E scenarios up front covering happy paths, failures, auth gates.
+Update `src/openhuman/platform/about_app/` when adding/removing/renaming user-facing features. Define E2E scenarios up front covering happy paths, failures, auth gates.
 
 ---
 

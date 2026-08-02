@@ -80,7 +80,7 @@ The router also runs a separate `tokio::sync::broadcast` channel of `WebhookDebu
 - `crate::core::all` — `ControllerFuture`, `RegisteredController` for controller registration.
 - `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — RPC schema types.
 - `crate::core::observability::report_error` — error reporting for body-decode / agent-trigger failures.
-- `crate::openhuman::socket::global_socket_manager` — obtain the `WebhookRouter` (stored on the socket manager) and `emit` responses over the socket.
+- `crate::openhuman::platform::socket::global_socket_manager` — obtain the `WebhookRouter` (stored on the socket manager) and `emit` responses over the socket.
 - `crate::openhuman::agent::triage` — `TriggerEnvelope`, `run_triage`, `apply_decision`, `TriageOutcome` for agent-tunnel routing and `trigger_agent`.
 - `crate::openhuman::config::{Config, rpc::load_config_with_timeout}` — config for backend-proxy RPCs.
 - `crate::api::{BackendOAuthClient, config::effective_backend_api_url, jwt::get_session_token}` — authenticated backend tunnel CRUD/bandwidth calls.

@@ -1590,7 +1590,7 @@ fn is_upstream_edge_block_message(lower: &str) -> bool {
 /// 5xx is intentionally **not** classified here — server-side failures from
 /// our backend are real bugs that should reach Sentry. The transient
 /// 502/503/504 deduplication is handled by the threshold logic in callers
-/// (see e.g. `openhuman::socket::ws_loop::FAIL_ESCALATE_THRESHOLD`).
+/// (see e.g. `openhuman::platform::socket::ws_loop::FAIL_ESCALATE_THRESHOLD`).
 fn is_backend_user_error_message(lower: &str) -> bool {
     let Some(rest) = lower.split_once("backend returned ").map(|(_, r)| r) else {
         return false;

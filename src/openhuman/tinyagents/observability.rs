@@ -436,7 +436,7 @@ impl OpenhumanEventBridge {
             .map(|u| u.context_window)
             .filter(|w| *w > 0)
             .unwrap_or_else(|| {
-                crate::openhuman::cost::catalog::lookup(&self.model)
+                crate::openhuman::platform::cost::catalog::lookup(&self.model)
                     .map(|p| u64::from(p.context_window))
                     .unwrap_or(0)
             });
@@ -509,7 +509,7 @@ impl OpenhumanEventBridge {
                 cache_creation_tokens
             );
         }
-        crate::openhuman::cost::record_provider_usage(&self.model, &usage_info);
+        crate::openhuman::platform::cost::record_provider_usage(&self.model, &usage_info);
 
         // The cost footer is a top-level surface; for a child run the global
         // cost tracker feed above is the authoritative accounting and the parent

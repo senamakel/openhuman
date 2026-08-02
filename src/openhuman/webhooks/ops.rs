@@ -43,7 +43,7 @@ async fn get_authed_value(
 /// Retrieve the global webhook router, returning an error if the socket
 /// manager or router is not yet initialised.
 fn get_router() -> Result<std::sync::Arc<crate::openhuman::webhooks::WebhookRouter>, String> {
-    crate::openhuman::socket::global_socket_manager()
+    crate::openhuman::platform::socket::global_socket_manager()
         .ok_or_else(|| "socket manager not initialized".to_string())?
         .webhook_router()
         .ok_or_else(|| "webhook router not initialized".to_string())

@@ -87,7 +87,7 @@ Separately, encrypted X25519 private keys are persisted as `enc2:` strings (via 
 
 - `crate::openhuman::config` (`Config`, `config::rpc::load_config_with_timeout`) — workspace paths and config loading for handlers.
 - `crate::openhuman::keyring::SecretStore` — encrypt/decrypt the X25519 private key at rest.
-- `crate::openhuman::socket::global_socket_manager` — reuse the shared backend Socket.IO connection to emit `tunnel:*` events (no second WebSocket).
+- `crate::openhuman::platform::socket::global_socket_manager` — reuse the shared backend Socket.IO connection to emit `tunnel:*` events (no second WebSocket).
 - `crate::core::event_bus` (`publish_global`, `DomainEvent`, `EventHandler`, `SubscriptionHandle`, `subscribe_global`) — pub/sub for device tunnel events.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller registry contract.
 - `crate::rpc::RpcOutcome` — RPC handler return type.

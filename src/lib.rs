@@ -44,7 +44,7 @@ pub use core::types::HostKind;
 /// Returns an error if command execution fails.
 pub fn run_core_from_args(args: &[String]) -> anyhow::Result<()> {
     core::cli::load_dotenv_for_cli()?;
-    openhuman::service::apply_startup_restart_delay_from_env();
+    openhuman::platform::service::apply_startup_restart_delay_from_env();
     openhuman::keyring::init_master_key();
     core::cli::run_from_cli_args(args)
 }

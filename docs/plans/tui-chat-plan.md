@@ -86,7 +86,7 @@ gated behind a Cargo feature `tui`.
 
 - AGENTS.md: add `tui` row to the feature table + a short gate section
   (leaf-ish gate, sheds `ratatui`+`crossterm`, intentionally not forwarded to desktop).
-- `src/openhuman/about_app/`: add user-facing feature entry for the terminal chat UI.
+- `src/openhuman/platform/about_app/`: add user-facing feature entry for the terminal chat UI.
 
 ## Non-goals (v1)
 

@@ -128,8 +128,11 @@ fn probe_battery() -> Result<BatteryProbe, starship_battery::Error> {
         if matches!(battery.state(), starship_battery::State::Discharging) {
             on_ac = false;
         }
-        total += battery.state_of_charge().value;
-        count += 1.0;
+        let state_of_charge = battery.state_of_charge().value;
+        if state_of_charge.is_finite() {
+            total += state_of_charge;
+            count += 1.0;
+        }
     }
     let charge = if any && count > 0.0 {
         Some((total / count).clamp(0.0, 1.0))

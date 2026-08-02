@@ -178,16 +178,26 @@ mod tests {
     #[test]
     fn all_definitions_present() {
         let defs = all();
-        let builtins_count = crate::openhuman::agent_registry::agents::BUILTINS.len();
+        // Count enabled built-ins, accounting for feature gates (e.g., presentation_agent only when documents is on).
+        let enabled_builtins = crate::openhuman::agent_registry::agents::BUILTINS
+            .iter()
+            .filter(|b| {
+                #[cfg(not(feature = "documents"))]
+                if b.id == "presentation_agent" {
+                    return false;
+                }
+                true
+            })
+            .count();
         // +3 for the cfg(test) default parent and inherit-based test defs appended by all().
-        let expected = builtins_count + 3;
+        let expected = enabled_builtins + 3;
         assert_eq!(
             defs.len(),
             expected,
-            "Expected {} definitions but got {} (BUILTINS={}, +3 test overrides)",
+            "Expected {} definitions but got {} (enabled BUILTINS={}, +3 test overrides)",
             expected,
             defs.len(),
-            builtins_count
+            enabled_builtins
         );
     }
 

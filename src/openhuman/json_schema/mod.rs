@@ -36,6 +36,8 @@
 //! is the reason this doc states it without naming one.
 
 mod ops;
+#[cfg(test)]
+mod ops_tests;
 
 pub(crate) use ops::{
     compute_primary_array_path, compute_primary_array_path_from_value, missing_required_args,

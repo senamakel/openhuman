@@ -1984,11 +1984,12 @@ fn knowledge_default_off() -> Vec<&'static str> {
         "learning_save_profile",
         "learning_enrich_profile",
     ];
-    // These tools exist only when their feature gates are on
+    // These tools exist only when their feature gates are on. All of
+    // create_skill / install_workflow_from_url / uninstall_workflow are
+    // registered under `#[cfg(feature = "skills")]` in ops.rs — none of
+    // them are behind `flows`.
     if cfg!(feature = "skills") {
         tools.push("create_skill");
-    }
-    if cfg!(feature = "flows") {
         tools.push("install_workflow_from_url");
         tools.push("uninstall_workflow");
     }

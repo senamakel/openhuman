@@ -105,11 +105,4 @@ impl ToolBackend for NativeToolBackend {
 
         exec_result
     }
-
-    /// Native tools have no published arg schema to check against, so a dry run
-    /// validates nothing here rather than inventing a check the real path does
-    /// not perform.
-    async fn preflight(&self, _config: &Config, _slug: &str, _args: &Value) -> Result<()> {
-        Ok(())
-    }
 }

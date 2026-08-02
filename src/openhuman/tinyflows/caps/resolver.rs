@@ -18,7 +18,7 @@ use crate::openhuman::config::Config;
 ///
 /// A `sub_workflow` node that references a child by `workflow_id` (rather than
 /// embedding it inline) resolves through this adapter: the id is a saved flow's
-/// id, and [`flows::ops::load_flow_graph`] loads that flow's portable
+/// id, and [`flows::ops::load_engine_compatible_flow_graph`] loads that flow's portable
 /// [`WorkflowGraph`] from the SQLite store. An unknown id maps to
 /// [`EngineError::Capability`], so the referencing node fails with a clear "no
 /// such workflow" error rather than silently no-op'ing.

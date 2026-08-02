@@ -41,10 +41,14 @@ while IFS= read -r line; do
   max_names="${rest%%:*}"
   max_native="${rest##*:}"
 
-  read -r names native < <(
-    ./scripts/kernel-floor.sh "$profile" --json \
-      | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["names"], d["native"])'
-  )
+  if ! json_output="$(./scripts/kernel-floor.sh "$profile" --json)"; then
+    echo "::error::kernel-floor.sh failed to measure profile '$profile'" >&2
+    exit 1
+  fi
+  read -r names native <<< "$(
+    python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["names"], d["native"])' \
+      <<< "$json_output"
+  )"
 
   [[ "$VERBOSE" == "--verbose" ]] && \
     echo "profile=$profile names=$names/$max_names native=$native/$max_native"

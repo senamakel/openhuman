@@ -77,7 +77,9 @@ pub(crate) trait ToolBackend: Send + Sync {
     ///
     /// Runs in the dry-run path, where the real invocation is replaced by an
     /// echo mock that would happily accept a `null` required arg. Defaults to
-    /// accepting everything: a backend with nothing to check need not opt out.
+    /// accepting everything: native tools have no published argument schema,
+    /// so they inherit this no-op instead of inventing a validation contract
+    /// their real execution path does not enforce.
     ///
     /// Takes `config` rather than a full [`ToolCallCtx`] because a preflight
     /// makes no outbound call and so needs no security decision — which is what

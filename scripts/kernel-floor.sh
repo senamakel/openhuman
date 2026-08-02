@@ -91,6 +91,9 @@ else
   echo "names:    $NAMES   (unique crate names)"
   echo "native:   $NATIVE   (crates with a C/C++/asm build)"
   if [[ -n "$NATIVE_LIST" ]]; then
-    printf '          %s\n' $NATIVE_LIST
+    while IFS= read -r c; do
+      [[ -z "$c" ]] && continue
+      printf '          %s\n' "$c"
+    done <<< "$NATIVE_LIST"
   fi
 fi

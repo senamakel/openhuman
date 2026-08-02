@@ -211,10 +211,9 @@ async fn flow_tool_allowed(
         tracing::warn!(target: "flows", %slug, %toolkit, "[flows] tool_call curation: reject — connected but the live catalog fetch failed (fail-closed)");
         return false;
     };
-    if live_catalog
+    if !live_catalog
         .iter()
-        .find(|c| c.slug.eq_ignore_ascii_case(slug))
-        .is_none()
+        .any(|c| c.slug.eq_ignore_ascii_case(slug))
     {
         tracing::debug!(target: "flows", %slug, %toolkit, "[flows] tool_call curation: reject — slug is not a real action in this toolkit's live catalog");
         return false;
@@ -232,7 +231,7 @@ async fn flow_tool_allowed(
 
 /// Whether `slug`'s toolkit lacks a static curated catalog, i.e. the curation
 /// decision must consult the user's live connected-toolkit set. Kept cheap and
-/// offline (a static `match`) so the common cataloged-toolkit path never pays
+/// offline (a registry lookup) so the common cataloged-toolkit path never pays
 /// for a connected-set fetch.
 fn slug_needs_connected_set(slug: &str) -> bool {
     use crate::openhuman::memory_sync::composio::providers::{

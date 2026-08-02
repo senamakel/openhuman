@@ -128,11 +128,11 @@ fn probe_battery() -> Result<BatteryProbe, starship_battery::Error> {
         if matches!(battery.state(), starship_battery::State::Discharging) {
             on_ac = false;
         }
-        let state_of_charge = battery.state_of_charge().value;
-        if state_of_charge.is_finite() {
-            total += state_of_charge;
-            count += 1.0;
-        }
+        include_charge_sample(
+            &mut total,
+            &mut count,
+            battery.state_of_charge().value,
+        );
     }
     let charge = if any && count > 0.0 {
         Some((total / count).clamp(0.0, 1.0))
@@ -140,6 +140,13 @@ fn probe_battery() -> Result<BatteryProbe, starship_battery::Error> {
         None
     };
     Ok(BatteryProbe { on_ac, charge })
+}
+
+fn include_charge_sample(total: &mut f32, count: &mut f32, charge: f32) {
+    if charge.is_finite() {
+        *total += charge;
+        *count += 1.0;
+    }
 }
 
 // ---- cpu -----------------------------------------------------------------
@@ -244,6 +251,16 @@ mod tests {
     #[test]
     fn missing_battery_probe_falls_back_to_ac_without_charge() {
         assert_eq!(resolve_power(None, None, None), (true, None));
+    }
+
+    #[test]
+    fn non_finite_battery_readings_are_ignored() {
+        let mut total = 0.0;
+        let mut count = 0.0;
+        include_charge_sample(&mut total, &mut count, f32::NAN);
+        include_charge_sample(&mut total, &mut count, f32::INFINITY);
+        include_charge_sample(&mut total, &mut count, 0.75);
+        assert_eq!((total, count), (0.75, 1.0));
     }
 
     #[test]

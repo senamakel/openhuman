@@ -17,9 +17,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tinyagents::graph::SqliteCheckpointer;
 use tinyagents::harness::model::ModelRequest;
-use tinyflows::caps::{
-    Capabilities, ToolInvoker,
-};
+use tinyflows::caps::{Capabilities, ToolInvoker};
 use tinyflows::error::{EngineError, Result};
 use tinyflows::model::WorkflowGraph;
 
@@ -50,13 +48,13 @@ use crate::openhuman::tools::HttpRequestTool;
 // way round: the feature-gated seam depends on the always-compiled domain, not
 // the reverse. See that module's docs.
 pub(crate) use crate::openhuman::composio::catalog::{
-    apply_probe_override, composio_required_args, fetch_live_toolkit_catalog, probe_tool_output_sample,
-    ToolContract,
+    apply_probe_override, composio_required_args, fetch_live_toolkit_catalog,
+    probe_tool_output_sample, ToolContract,
 };
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{
-    composio_response_fields, compute_composio_array_path, probed_output_sample, ProbedOutputSample,
-    COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT,
+    composio_response_fields, compute_composio_array_path, probed_output_sample,
+    ProbedOutputSample, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT,
 };
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{seed_live_catalog_cache, seed_probe_cache};
@@ -89,13 +87,11 @@ pub(crate) use tier::*;
 
 pub(crate) use tools::NATIVE_TOOL_PREFIX;
 
-pub(crate) use crate::openhuman::json_schema::{
-    missing_required_args, unsupported_arg_names,
-};
 #[cfg(test)]
 pub(crate) use crate::openhuman::json_schema::{
     compute_primary_array_path, compute_primary_array_path_from_value, response_fields_from_schema,
 };
+pub(crate) use crate::openhuman::json_schema::{missing_required_args, unsupported_arg_names};
 
 /// Parses a `"composio:<toolkit>:<connection_id>"` `connection_ref` (see the
 /// node catalog, `my_docs/ohxtf/commons/12-node-catalog-0.2.md`) and returns

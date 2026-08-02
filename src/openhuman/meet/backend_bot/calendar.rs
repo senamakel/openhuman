@@ -857,7 +857,7 @@ fn build_auto_join_payload(
 mod tests {
     use super::*;
     // The free-form URL extractor now lives in `ops` (finding #9 consolidation).
-    use crate::openhuman::agent_meetings::ops::extract_url_from_text as extract_meeting_url_from_text;
+    use crate::openhuman::meet::backend_bot::ops::extract_url_from_text as extract_meeting_url_from_text;
     use serde_json::json;
 
     #[test]
@@ -1357,11 +1357,11 @@ mod tests {
 
     #[test]
     fn session_persists_calendar_event_id_round_trip() {
-        use crate::openhuman::agent_meetings::store;
-        use crate::openhuman::agent_meetings::types::{
+        use crate::openhuman::config::Config;
+        use crate::openhuman::meet::backend_bot::store;
+        use crate::openhuman::meet::backend_bot::types::{
             AutoJoinSource, MeetingSession, MeetingSessionStatus,
         };
-        use crate::openhuman::config::Config;
         use tempfile::TempDir;
 
         let dir = TempDir::new().unwrap();
@@ -1468,17 +1468,21 @@ mod tests {
         // The saved anchor made this a reply-mode join, so in-call agency must be
         // enabled for THIS meeting (mirrors the manual handle_join path).
         let session =
-            crate::openhuman::agent_meetings::store::get_session_by_meet_url(&cfg, &meet_url)
+            crate::openhuman::meet::backend_bot::store::get_session_by_meet_url(&cfg, &meet_url)
                 .unwrap()
                 .expect("always-join must persist a session");
         assert!(
-            crate::openhuman::agent_meetings::in_call::is_meeting_active(Some(session.id.as_str()))
-                .await,
+            crate::openhuman::meet::backend_bot::in_call::is_meeting_active(Some(
+                session.id.as_str()
+            ))
+            .await,
             "reply-mode auto-join must mark the meeting in-call-active"
         );
         // Don't leak the global active-set entry into sibling tests.
-        crate::openhuman::agent_meetings::in_call::clear_meeting_agent(Some(session.id.as_str()))
-            .await;
+        crate::openhuman::meet::backend_bot::in_call::clear_meeting_agent(Some(
+            session.id.as_str(),
+        ))
+        .await;
     }
 
     #[tokio::test]
@@ -1514,11 +1518,11 @@ mod tests {
         assert!(!owned);
 
         let session =
-            crate::openhuman::agent_meetings::store::get_session_by_meet_url(&cfg, &meet_url)
+            crate::openhuman::meet::backend_bot::store::get_session_by_meet_url(&cfg, &meet_url)
                 .unwrap()
                 .expect("always-join persists a session even when listen-only");
         assert!(
-            !crate::openhuman::agent_meetings::in_call::is_meeting_active(Some(
+            !crate::openhuman::meet::backend_bot::in_call::is_meeting_active(Some(
                 session.id.as_str()
             ))
             .await,

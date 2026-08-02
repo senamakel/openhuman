@@ -488,7 +488,7 @@ pub async fn append_summary_prompt_message(
 }
 
 fn detail_transcript_to_turns(
-    detail: &crate::openhuman::meet_agent::store::MeetCallDetail,
+    detail: &crate::openhuman::meet::agent::store::MeetCallDetail,
 ) -> Vec<BackendMeetTurn> {
     detail
         .transcript
@@ -506,8 +506,8 @@ fn detail_transcript_to_turns(
 }
 
 async fn recorded_meeting_duration_ms(meeting_id: &str) -> Result<u64, String> {
-    let records = crate::openhuman::meet_agent::store::read_recent(
-        crate::openhuman::meet_agent::store::MAX_RECENT_CALLS,
+    let records = crate::openhuman::meet::agent::store::read_recent(
+        crate::openhuman::meet::agent::store::MAX_RECENT_CALLS,
     )
     .await?;
     let Some(record) = records
@@ -551,7 +551,7 @@ pub async fn handle_generate_summary(params: Map<String, Value>) -> Result<Value
         "[agent_meetings] manual summary requested"
     );
 
-    let detail = crate::openhuman::meet_agent::store::read_detail(meeting_id)
+    let detail = crate::openhuman::meet::agent::store::read_detail(meeting_id)
         .await?
         .ok_or_else(|| format!("[agent_meetings] no recorded meeting detail for {meeting_id}"))?;
     let turns = detail_transcript_to_turns(&detail);
@@ -566,7 +566,7 @@ pub async fn handle_generate_summary(params: Map<String, Value>) -> Result<Value
         .ok_or_else(|| format!("[agent_meetings] summary generation failed for {meeting_id}"))?;
 
     let updated = super::recent_calls::build_detail(meeting_id, &turns, Some(&generated));
-    crate::openhuman::meet_agent::store::write_detail(&updated).await?;
+    crate::openhuman::meet::agent::store::write_detail(&updated).await?;
     let duration_ms = recorded_meeting_duration_ms(meeting_id).await?;
 
     let thread_id = create_meeting_thread_with_transcript_with_summary_mode_strict(
@@ -2047,7 +2047,7 @@ mod tests {
 
     #[test]
     fn rive_colors_deserialize() {
-        use crate::openhuman::agent_meetings::types::RiveColors;
+        use crate::openhuman::meet::backend_bot::types::RiveColors;
         let rc: RiveColors =
             serde_json::from_value(json!({"primary_color": "#abc", "secondary_color": "#def"}))
                 .unwrap();
@@ -2085,7 +2085,7 @@ mod tests {
         );
 
         // Per-event override wins over per-platform.
-        crate::openhuman::agent_meetings::store::set_event_policy(&config, "evt-zoom-1", "skip")
+        crate::openhuman::meet::backend_bot::store::set_event_policy(&config, "evt-zoom-1", "skip")
             .unwrap();
         assert_eq!(
             resolve_effective_join_policy(Some("evt-zoom-1"), Some("zoom"), &config),
@@ -2128,8 +2128,8 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let _env = EnvGuard::set_workspace(tmp.path());
 
-        crate::openhuman::meet_agent::store::append_record(
-            &crate::openhuman::meet_agent::store::MeetCallRecord {
+        crate::openhuman::meet::agent::store::append_record(
+            &crate::openhuman::meet::agent::store::MeetCallRecord {
                 request_id: "duration-call".to_string(),
                 meet_url: "https://meet.google.com/abc-defg-hij".to_string(),
                 bot_display_name: "OpenHuman".to_string(),

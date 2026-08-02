@@ -158,7 +158,7 @@ pub async fn evaluate_and_dispatch(config: &Config, now: DateTime<Utc>) -> Plann
                     "[heartbeat:planner] forwarding imminent meeting to auto-join policy"
                 );
                 let owns_notification =
-                    crate::openhuman::agent_meetings::calendar::handle_calendar_meeting_candidate(
+                    crate::openhuman::meet::backend_bot::calendar::handle_calendar_meeting_candidate(
                         meeting_url,
                         event.title.clone(),
                         // Heartbeat-polled events carry only a title + URL; the

@@ -73,7 +73,7 @@ pub(super) const MIN_TURN_SAMPLES: usize = 4_000;
 /// boundary check) immediately breaks the WAV / duration math here
 /// at compile time. Today the same constant is used in both places —
 /// the ops boundary check rejects anything else outright.
-pub(super) const SAMPLE_RATE_HZ: u32 = crate::openhuman::meet_agent::ops::REQUIRED_SAMPLE_RATE;
+pub(super) const SAMPLE_RATE_HZ: u32 = crate::openhuman::meet::agent::ops::REQUIRED_SAMPLE_RATE;
 
 /// Delay between wake-word match and prompt drain. Long enough that
 /// 2-3 caption fragments can join up; short enough that the user

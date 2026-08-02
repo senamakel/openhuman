@@ -3,7 +3,7 @@
 
 use super::constants::MAX_TTS_CHARS;
 use super::llm::ConversationTurn;
-use crate::openhuman::meet_agent::types::{SessionEvent, SessionEventKind};
+use crate::openhuman::meet::agent::types::{SessionEvent, SessionEventKind};
 
 /// Trim characters that sound bad when read aloud by TTS but routinely
 /// leak from a chat-completions response (markdown asterisks, fenced

@@ -4,7 +4,7 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use serde_json::json;
 
 use super::constants::{SAMPLE_RATE_HZ, TTS_MODEL_ID};
-use crate::openhuman::meet_agent::wav;
+use crate::openhuman::meet::agent::wav;
 
 // ─── Real STT adapter ───────────────────────────────────────────────
 

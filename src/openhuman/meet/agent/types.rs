@@ -22,7 +22,7 @@ pub struct StartSessionRequest {
     #[serde(default = "default_sample_rate")]
     pub sample_rate_hz: u32,
     /// Display name of the call owner — the human who launched the
-    /// bot. Used by the wake-word gate in [`crate::openhuman::meet_agent::session`]
+    /// bot. Used by the wake-word gate in [`crate::openhuman::meet::agent::session`]
     /// as the *only* speaker allowed to issue tool calls. Captions
     /// from any other participant are dropped without recording an
     /// event. Empty string fails closed (no wake fires) so a
@@ -205,7 +205,7 @@ pub struct StopSessionResponse {
     pub ok: bool,
     pub request_id: String,
     /// Total seconds of inbound audio the session processed — useful
-    /// for telemetry and the smoke test in [`crate::openhuman::meet_agent`].
+    /// for telemetry and the smoke test in [`crate::openhuman::meet::agent`].
     pub listened_seconds: f32,
     /// Total seconds of outbound audio the session synthesized.
     pub spoken_seconds: f32,

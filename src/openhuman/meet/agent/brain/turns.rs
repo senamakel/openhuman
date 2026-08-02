@@ -17,8 +17,8 @@ use super::llm::llm_meeting_agentic;
 use super::speech::{stt, tts};
 use super::stubs::{stub_stt, stub_tts};
 use super::text::recent_dialog_history;
-use crate::openhuman::meet_agent::session::registry;
-use crate::openhuman::meet_agent::types::SessionEventKind;
+use crate::openhuman::meet::agent::session::registry;
+use crate::openhuman::meet::agent::types::SessionEventKind;
 
 /// Canned acknowledgements the agent speaks out loud after capturing
 /// a note. Selected by hashing the prompt (deterministic, rotates across

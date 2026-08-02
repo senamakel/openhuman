@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use crate::core::event_bus::BackendMeetTurn;
-use crate::openhuman::meet_agent::store::{
+use crate::openhuman::meet::agent::store::{
     self, MeetCallActionItem, MeetCallDetail, MeetCallRecord, MeetCallSummary,
     MeetCallTranscriptLine,
 };

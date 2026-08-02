@@ -1,6 +1,6 @@
 use super::*;
-use crate::openhuman::meet_agent::session::registry;
-use crate::openhuman::meet_agent::types::{SessionEvent, SessionEventKind};
+use crate::openhuman::meet::agent::session::registry;
+use crate::openhuman::meet::agent::types::{SessionEvent, SessionEventKind};
 use serde_json::json;
 
 #[tokio::test]

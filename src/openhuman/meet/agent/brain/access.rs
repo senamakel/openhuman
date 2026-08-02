@@ -3,8 +3,8 @@
 
 use super::speech::tts;
 use super::stubs::stub_tts;
-use crate::openhuman::meet_agent::session::registry;
-use crate::openhuman::meet_agent::types::SessionEventKind;
+use crate::openhuman::meet::agent::session::registry;
+use crate::openhuman::meet::agent::types::SessionEventKind;
 
 // ─── Intent classification ──────────────────────────────────────────
 

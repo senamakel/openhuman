@@ -18,7 +18,6 @@ pub mod about_app;
 pub mod accessibility;
 pub mod agent;
 pub mod agent_experience;
-pub mod agent_meetings;
 pub mod agent_memory;
 pub mod agent_orchestration;
 pub mod agent_registry;
@@ -83,9 +82,10 @@ pub mod media_generation;
 pub mod medulla;
 #[cfg(feature = "medulla")]
 pub mod medulla_chat;
-#[cfg(feature = "meet")]
+// The `meet` family is a facade: the parent module is always compiled so the
+// always-on callers of `meet::backend_bot`'s stub keep resolving, and each
+// submodule carries its own `#[cfg(feature = "meet")]` (see `meet/mod.rs`).
 pub mod meet;
-pub mod meet_agent;
 pub mod memory;
 pub mod memory_conversations;
 pub mod memory_diff;

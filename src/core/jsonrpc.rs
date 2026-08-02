@@ -2242,8 +2242,8 @@ fn register_domain_subscribers(
     // Meet: calendar + meeting-event subscribers.
     if plan.meet {
         if group_first_time(DomainGroup::Meet) {
-            crate::openhuman::agent_meetings::calendar::register_meet_calendar_subscriber();
-            crate::openhuman::agent_meetings::bus::register_meeting_event_subscriber();
+            crate::openhuman::meet::backend_bot::calendar::register_meet_calendar_subscriber();
+            crate::openhuman::meet::backend_bot::bus::register_meeting_event_subscriber();
         }
     } else {
         log::debug!("[event_bus] agent_meetings subscribers SKIPPED — Meet domain disabled");

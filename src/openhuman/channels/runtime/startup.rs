@@ -159,8 +159,8 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     );
     crate::openhuman::memory::sync::register_sync_stage_bridge(&config);
     crate::openhuman::composio::register_composio_trigger_subscriber();
-    crate::openhuman::agent_meetings::calendar::register_meet_calendar_subscriber();
-    crate::openhuman::agent_meetings::bus::register_meeting_event_subscriber();
+    crate::openhuman::meet::backend_bot::calendar::register_meet_calendar_subscriber();
+    crate::openhuman::meet::backend_bot::bus::register_meeting_event_subscriber();
     // Surface parked ApprovalGate requests as chat messages so the user can
     // answer yes/no in the thread (chat-native approval, issue #1339).
     crate::openhuman::web_chat::register_approval_surface_subscriber();

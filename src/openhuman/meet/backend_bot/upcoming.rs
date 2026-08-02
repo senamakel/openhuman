@@ -566,7 +566,7 @@ fn datetime_field<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::agent_meetings::ops::infer_platform_from_url;
+    use crate::openhuman::meet::backend_bot::ops::infer_platform_from_url;
     use serde_json::json;
 
     fn recall_meeting(

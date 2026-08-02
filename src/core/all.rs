@@ -707,7 +707,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Meet,
-        crate::openhuman::agent_meetings::all_agent_meetings_registered_controllers(),
+        crate::openhuman::meet::backend_bot::all_agent_meetings_registered_controllers(),
     );
     // Live meet-agent loop: STT/LLM/TTS over the open call's audio
     // (gated with meet).
@@ -715,7 +715,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Meet,
-        crate::openhuman::meet_agent::all_meet_agent_registered_controllers(),
+        crate::openhuman::meet::agent::all_meet_agent_registered_controllers(),
     );
     // Structured WhatsApp Web data has NO core RPC controllers: the SQLite
     // store + ingest + list/search moved to the Tauri shell

@@ -401,14 +401,14 @@ mod tests {
         let _env = EnvGuard::set_workspace(tmp.path());
 
         send_transcript_for_policy(AutoSummarizePolicy::Never, "policy-never").await;
-        let never_detail = crate::openhuman::meet_agent::store::read_detail("policy-never")
+        let never_detail = crate::openhuman::meet::agent::store::read_detail("policy-never")
             .await
             .expect("read never detail")
             .expect("never detail exists");
         assert!(never_detail.summary.is_none());
 
         send_transcript_for_policy(AutoSummarizePolicy::Ask, "policy-ask").await;
-        let ask_detail = crate::openhuman::meet_agent::store::read_detail("policy-ask")
+        let ask_detail = crate::openhuman::meet::agent::store::read_detail("policy-ask")
             .await
             .expect("read ask detail")
             .expect("ask detail exists");

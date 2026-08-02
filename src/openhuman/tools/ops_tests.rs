@@ -2005,8 +2005,9 @@ fn knowledge_always_on() -> Vec<&'static str> {
         "learning_list_facets",
         "learning_cache_stats",
     ];
-    // These tools exist only when flows feature is on
-    if cfg!(feature = "flows") {
+    // These tools exist only when the skills feature is on (`WorkflowListTool`
+    // / `WorkflowRecentRunsTool` — both `#[cfg(feature = "skills")]`).
+    if cfg!(feature = "skills") {
         tools.extend(&["list_workflows", "list_workflow_runs"]);
     }
     tools

@@ -124,18 +124,18 @@ impl LlmProvider for OpenHumanLlm {
         // configured schema (and auto-fixes when it doesn't parse here).
         if structured {
             let text = response.text();
-            if let Some(parsed) = parse_llm_json(&text) {
+            if let Some(parsed) = extract_structured_json(&text) {
                 tracing::debug!(
                     target: "flows",
-                    "[flows] llm.complete: structured output parsed from completion text"
+                    "[flows] llm.complete: structured output extracted from completion text"
                 );
                 return Ok(parsed);
             }
             tracing::warn!(
                 target: "flows",
-                "[flows] llm.complete: structured output requested but the completion did not \
-                 parse as JSON — falling back to the {{text}} shape (the output_parser sub-port \
-                 may still coerce it)"
+                "[flows] llm.complete: structured output requested but no JSON extraction \
+                 strategy succeeded — falling back to the {{text}} shape (the output_parser \
+                 sub-port may still coerce it)"
             );
         }
 

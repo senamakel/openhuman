@@ -90,51 +90,59 @@ impl CodeRunner for OpenHumanCode {
             .await
             .map_err(|e| EngineError::Capability(format!("failed to create code work dir: {e}")))?;
 
-        let (script_name, interpreter, script_body) = match language {
-            CodeLanguage::JavaScript => ("script.js", "node", js_harness(source)),
-            CodeLanguage::Python => ("script.py", "python3", python_harness(source)),
-        };
-        let script_path = work_dir.join(script_name);
-        let input_path = work_dir.join("input.json");
+        // Keep every fallible staging and dispatch step inside one result so
+        // the cleanup below runs for serialization/write failures as well as
+        // sandbox failures.
+        let exec_result = async {
+            let (script_name, interpreter, script_body) = match language {
+                CodeLanguage::JavaScript => ("script.js", "node", js_harness(source)),
+                CodeLanguage::Python => ("script.py", "python3", python_harness(source)),
+            };
+            let script_path = work_dir.join(script_name);
+            let input_path = work_dir.join("input.json");
 
-        let input_json = serde_json::to_string(&input)
-            .map_err(|e| EngineError::Capability(format!("failed to serialize code input: {e}")))?;
-        tokio::fs::write(&script_path, script_body)
+            let input_json = serde_json::to_string(&input).map_err(|e| {
+                EngineError::Capability(format!("failed to serialize code input: {e}"))
+            })?;
+            tokio::fs::write(&script_path, script_body)
+                .await
+                .map_err(|e| EngineError::Capability(format!("failed to write code script: {e}")))?;
+            tokio::fs::write(&input_path, input_json)
+                .await
+                .map_err(|e| EngineError::Capability(format!("failed to write code input: {e}")))?;
+
+            // Backend-agnostic, `action_dir`-relative command paths (see above).
+            let rel_script = rel_dir.join(script_name);
+            let rel_input = rel_dir.join("input.json");
+            let command = format!(
+                "{} {} {}",
+                shell_quote(interpreter),
+                shell_quote(&rel_script.to_string_lossy()),
+                shell_quote(&rel_input.to_string_lossy()),
+            );
+
+            let mut extra_env = std::collections::HashMap::new();
+            if let Ok(host_path) = std::env::var("PATH") {
+                extra_env.insert("PATH".to_string(), host_path);
+            }
+
+            tracing::debug!(
+                target: "flows",
+                ?language,
+                work_dir = %work_dir.display(),
+                "[flows] code: running sandboxed script"
+            );
+
+            execute_in_sandbox(
+                &policy,
+                &command,
+                &self.config.action_dir,
+                extra_env,
+                std::time::Duration::from_secs(CODE_RUN_TIMEOUT_SECS),
+            )
             .await
-            .map_err(|e| EngineError::Capability(format!("failed to write code script: {e}")))?;
-        tokio::fs::write(&input_path, input_json)
-            .await
-            .map_err(|e| EngineError::Capability(format!("failed to write code input: {e}")))?;
-
-        // Backend-agnostic, `action_dir`-relative command paths (see above).
-        let rel_script = rel_dir.join(script_name);
-        let rel_input = rel_dir.join("input.json");
-        let command = format!(
-            "{} {} {}",
-            shell_quote(interpreter),
-            shell_quote(&rel_script.to_string_lossy()),
-            shell_quote(&rel_input.to_string_lossy()),
-        );
-
-        let mut extra_env = std::collections::HashMap::new();
-        if let Ok(host_path) = std::env::var("PATH") {
-            extra_env.insert("PATH".to_string(), host_path);
+            .map_err(|e| EngineError::Capability(format!("sandbox execution failed: {e}")))
         }
-
-        tracing::debug!(
-            target: "flows",
-            ?language,
-            work_dir = %work_dir.display(),
-            "[flows] code: running sandboxed script"
-        );
-
-        let exec_result = execute_in_sandbox(
-            &policy,
-            &command,
-            &self.config.action_dir,
-            extra_env,
-            std::time::Duration::from_secs(CODE_RUN_TIMEOUT_SECS),
-        )
         .await;
 
         // Always clean up the work dir — even when `execute_in_sandbox` itself
@@ -143,8 +151,7 @@ impl CodeRunner for OpenHumanCode {
             tracing::debug!(target: "flows", error = %e, "[flows] code: failed to clean up work dir (non-fatal)");
         }
 
-        let result = exec_result
-            .map_err(|e| EngineError::Capability(format!("sandbox execution failed: {e}")))?;
+        let result = exec_result?;
 
         if !result.success() {
             return Err(EngineError::Capability(format!(

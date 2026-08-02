@@ -38,7 +38,14 @@ impl WorkflowResolver for OpenHumanWorkflowResolver {
             %workflow_id,
             "[flows] sub_workflow resolver: resolving workflow_id to a saved flow graph"
         );
-        match flows::ops::load_engine_compatible_flow_graph(&self.config, workflow_id) {
+        let config = self.config.clone();
+        let workflow_id_owned = workflow_id.to_string();
+        let loaded = tokio::task::spawn_blocking(move || {
+            flows::ops::load_engine_compatible_flow_graph(&config, &workflow_id_owned)
+        })
+        .await
+        .map_err(|e| EngineError::Capability(format!("sub_workflow resolver task failed: {e}")))?;
+        match loaded {
             Ok(Some(graph)) => {
                 tracing::debug!(
                     target: "flows",

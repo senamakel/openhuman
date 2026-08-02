@@ -245,9 +245,9 @@ pub(crate) fn extract_fenced_json_block(text: &str) -> Option<Value> {
     matches!(parsed, Value::Object(_) | Value::Array(_)).then_some(parsed)
 }
 
-/// Find and parse the first balanced `{…}` or `[…}` span in `text`. Walks
-/// through the text character by character tracking brace depth; when a span
-/// is found and parses as JSON, it is returned. `None` when no span parses.
+/// Find and parse the first balanced `{…}` or `[…]` span in `text`. Walks
+/// through the text byte by byte tracking brace depth, skipping JSON string
+/// literals and their escapes so braces inside values cannot close the span.
 pub(crate) fn extract_balanced_json(text: &str) -> Option<Value> {
     let text = text.trim();
     let bytes = text.as_bytes();
@@ -260,8 +260,24 @@ pub(crate) fn extract_balanced_json(text: &str) -> Option<Value> {
             _ => continue,
         };
         let mut depth = 0u32;
+        let mut in_string = false;
+        let mut escaped = false;
         for end in start..len {
             let b = bytes[end];
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if b == b'\\' {
+                    escaped = true;
+                } else if b == b'"' {
+                    in_string = false;
+                }
+                continue;
+            }
+            if b == b'"' {
+                in_string = true;
+                continue;
+            }
             if b == open {
                 depth = depth.checked_add(1)?;
             } else if b == close {
@@ -282,6 +298,13 @@ pub(crate) fn extract_balanced_json(text: &str) -> Option<Value> {
         }
     }
     None
+}
+
+/// Apply the shared ordered extraction chain for structured model output.
+pub(crate) fn extract_structured_json(text: &str) -> Option<Value> {
+    parse_llm_json(text)
+        .or_else(|| extract_fenced_json_block(text))
+        .or_else(|| extract_balanced_json(text))
 }
 
 /// Select the model an `agent` node completion actually runs on.

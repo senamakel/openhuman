@@ -23,12 +23,22 @@ pub struct FlowStateStore {
 #[async_trait]
 impl StateStore for FlowStateStore {
     async fn load(&self, key: &str) -> Result<Option<Value>> {
-        flows::kv_get(&self.config, &self.namespace, key)
+        let config = self.config.clone();
+        let namespace = self.namespace.clone();
+        let key = key.to_string();
+        tokio::task::spawn_blocking(move || flows::kv_get(&config, &namespace, &key))
+            .await
+            .map_err(|e| EngineError::Capability(format!("flow state load task failed: {e}")))?
             .map_err(|e| EngineError::Capability(e.to_string()))
     }
 
     async fn store(&self, key: &str, value: Value) -> Result<()> {
-        flows::kv_set(&self.config, &self.namespace, key, &value)
+        let config = self.config.clone();
+        let namespace = self.namespace.clone();
+        let key = key.to_string();
+        tokio::task::spawn_blocking(move || flows::kv_set(&config, &namespace, &key, &value))
+            .await
+            .map_err(|e| EngineError::Capability(format!("flow state store task failed: {e}")))?
             .map_err(|e| EngineError::Capability(e.to_string()))
     }
 }

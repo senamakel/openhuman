@@ -327,31 +327,11 @@ pub(crate) fn build_harness_run_prompt(request: &Value) -> String {
 /// still applies.
 pub(crate) fn build_agent_result(agent_ref: &str, final_text: &str, request: &Value) -> Value {
     if structured_output_requested(request) {
-        // Try 1: bare JSON parsing and full-text fence blocks (existing).
-        if let Some(parsed) = parse_llm_json(final_text) {
+        if let Some(parsed) = extract_structured_json(final_text) {
             tracing::debug!(
                 target: "flows",
                 agent_ref,
-                "[flows] agent_runner: structured output parsed from harness turn (parse_llm_json)"
-            );
-            return parsed;
-        }
-        // Try 2: find a fenced ```json … ``` block anywhere in the text.
-        if let Some(parsed) = extract_fenced_json_block(final_text) {
-            tracing::debug!(
-                target: "flows",
-                agent_ref,
-                "[flows] agent_runner: structured output extracted from fenced JSON block in prose"
-            );
-            return parsed;
-        }
-        // Try 3: find the first balanced {…} / […} span in the text (handles
-        // cases where the LLM wraps JSON in prose without fence blocks).
-        if let Some(parsed) = extract_balanced_json(final_text) {
-            tracing::debug!(
-                target: "flows",
-                agent_ref,
-                "[flows] agent_runner: structured output extracted from balanced brace/bracket span in prose"
+                "[flows] agent_runner: structured output extracted from harness turn"
             );
             return parsed;
         }

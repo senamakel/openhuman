@@ -293,7 +293,7 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
             // `scrub_secret_patterns` and truncates.
             //
             // Local-session protection is handled by `SessionExpiredSubscriber`
-            // in `src/openhuman/credentials/bus.rs` — it checks `is_local_session_token`
+            // in `src/openhuman/security/credentials/bus.rs` — it checks `is_local_session_token`
             // after config load and short-circuits teardown with
             // `scheduler_gate::set_signed_out(false)`. Duplicating that check
             // here would pull a domain concern into the transport layer and would
@@ -912,7 +912,7 @@ async fn telegram_auth_handler(
     };
 
     // Store the resulting session token in the local configuration.
-    match crate::openhuman::credentials::ops::store_session_with_deferred_validation(
+    match crate::openhuman::security::credentials::ops::store_session_with_deferred_validation(
         &config, &jwt_token, None, None,
     )
     .await
@@ -1034,7 +1034,7 @@ async fn desktop_auth_handler(
         }
     };
 
-    match crate::openhuman::credentials::ops::store_session_with_deferred_validation(
+    match crate::openhuman::security::credentials::ops::store_session_with_deferred_validation(
         &config, &jwt_token, None, None,
     )
     .await
@@ -2037,7 +2037,7 @@ fn register_domain_subscribers(
                     "[auth] no session token at startup — scheduler gate set to signed_out \
                      (config_path={}, keyring_backend={})",
                     config.config_path.display(),
-                    crate::openhuman::keyring::backend_name(),
+                    crate::openhuman::security::keyring::backend_name(),
                 );
                 crate::openhuman::cron::scheduler_gate::set_signed_out(true);
             }
@@ -2046,7 +2046,7 @@ fn register_domain_subscribers(
                     "[auth] failed to read session token at startup ({err}) — assuming signed_out \
                      (config_path={}, keyring_backend={})",
                     config.config_path.display(),
-                    crate::openhuman::keyring::backend_name(),
+                    crate::openhuman::security::keyring::backend_name(),
                 );
                 crate::openhuman::cron::scheduler_gate::set_signed_out(true);
             }
@@ -2056,7 +2056,7 @@ fn register_domain_subscribers(
         // publish 401-derived events, so the very first 401 is routed through
         // `clear_session` + the scheduler-gate override.
         if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
-            crate::openhuman::credentials::bus::SessionExpiredSubscriber::new(),
+            crate::openhuman::security::credentials::bus::SessionExpiredSubscriber::new(),
         )) {
             std::mem::forget(handle);
         } else {
@@ -2110,7 +2110,7 @@ fn register_domain_subscribers(
             // Device tunnel subscriber: handles tunnel:frame handshakes,
             // peer-status events, and register acks. Must be live before any
             // tunnel:frame events can arrive.
-            crate::openhuman::devices::bus::register_device_tunnel_subscriber();
+            crate::openhuman::security::devices::bus::register_device_tunnel_subscriber();
             // Always-on learning subscribers (email-signature producer, rebuild
             // trigger + periodic loop, ProfileMdRenderer). Previously wired only
             // in `channels::runtime::startup::start_channels`, which is skipped
@@ -2497,8 +2497,8 @@ pub async fn bootstrap_core_runtime(
     // Record the boot decision before publishing the warning event so the
     // first poll of `approval_get_gate_state` after boot reflects the same
     // host-aware verdict the event itself describes — no race.
-    crate::openhuman::approval::gate::record_boot_state(
-        crate::openhuman::approval::gate::ApprovalGateBootState {
+    crate::openhuman::security::approval::gate::record_boot_state(
+        crate::openhuman::security::approval::gate::ApprovalGateBootState {
             installed: decision.install_gate,
             disabled_by_env: decision.gate_disabled_by_override,
             override_ignored: decision.override_ignored,
@@ -2546,8 +2546,10 @@ pub async fn bootstrap_core_runtime(
         // from prior launches remain visible after restart; only the
         // per-session audit grouping changes across launches.
         let session_id = format!("session-{}", uuid::Uuid::new_v4());
-        let _ =
-            crate::openhuman::approval::ApprovalGate::init_global(cfg.clone(), session_id.clone());
+        let _ = crate::openhuman::security::approval::ApprovalGate::init_global(
+            cfg.clone(),
+            session_id.clone(),
+        );
         log::info!(
             "[runtime] approval gate installed (on by default; set OPENHUMAN_APPROVAL_GATE=0 to disable, session_id={session_id}) — \
              Prompt-class external-effect tool calls park for approval in interactive chat turns"

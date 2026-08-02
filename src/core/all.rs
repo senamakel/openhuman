@@ -319,13 +319,13 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Security,
-        crate::openhuman::encryption::all_encryption_registered_controllers(),
+        crate::openhuman::security::encryption::all_encryption_registered_controllers(),
     );
     // Keyring consent — user approval before local secret storage fallback
     push(
         &mut controllers,
         DomainGroup::Security,
-        crate::openhuman::keyring_consent::all_keyring_consent_registered_controllers(),
+        crate::openhuman::security::keyring_consent::all_keyring_consent_registered_controllers(),
     );
     // Security policy metadata
     push(
@@ -337,7 +337,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Security,
-        crate::openhuman::approval::all_approval_registered_controllers(),
+        crate::openhuman::security::approval::all_approval_registered_controllers(),
     );
     // Interactive plan-review gate — parks a live turn on a thread-scoped plan
     push(
@@ -410,7 +410,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::credentials::all_credentials_registered_controllers(),
+        crate::openhuman::security::credentials::all_credentials_registered_controllers(),
     );
     // Desktop service management
     push(
@@ -729,7 +729,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::devices::all_devices_registered_controllers(),
+        crate::openhuman::security::devices::all_devices_registered_controllers(),
     );
     // Durable agent session database — queryable index over transcripts, lineage, tool calls
     push(

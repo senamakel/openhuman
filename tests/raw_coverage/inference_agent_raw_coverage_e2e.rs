@@ -112,8 +112,8 @@ use openhuman_core::openhuman::config::{
     Config, DelegateAgentConfig, DockerRuntimeConfig, MultimodalConfig, MultimodalFileConfig,
     RuntimeConfig,
 };
-use openhuman_core::openhuman::credentials::profiles::{AuthProfile, TokenSet};
-use openhuman_core::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_core::openhuman::security::credentials::profiles::{AuthProfile, TokenSet};
+use openhuman_core::openhuman::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::openhuman::inference::context_window_for_model;
 use openhuman_core::openhuman::inference::local::{
     global as local_ai_global, model_artifact_path, try_global as local_ai_try_global,
@@ -3717,8 +3717,8 @@ fn inference_openai_oauth_store_covers_persist_lookup_and_empty_profiles() {
     AuthService::from_config(&config)
         .load_profiles()
         .expect("profiles load before upsert");
-    openhuman_core::openhuman::credentials::profiles::AuthProfilesStore::new(
-        &openhuman_core::openhuman::credentials::state_dir_from_config(&config),
+    openhuman_core::openhuman::security::credentials::profiles::AuthProfilesStore::new(
+        &openhuman_core::openhuman::security::credentials::state_dir_from_config(&config),
         config.secrets.encrypt,
     )
     .upsert_profile(profile.clone(), true)
@@ -3757,8 +3757,8 @@ fn inference_openai_oauth_store_covers_persist_lookup_and_empty_profiles() {
             scope: None,
         },
     );
-    openhuman_core::openhuman::credentials::profiles::AuthProfilesStore::new(
-        &openhuman_core::openhuman::credentials::state_dir_from_config(&config),
+    openhuman_core::openhuman::security::credentials::profiles::AuthProfilesStore::new(
+        &openhuman_core::openhuman::security::credentials::state_dir_from_config(&config),
         config.secrets.encrypt,
     )
     .upsert_profile(blank, true)

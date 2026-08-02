@@ -11,7 +11,7 @@
 //! the background dispatcher runs on the `user-tasks` / `task-sources` boards):
 //! the dispatcher never sweeps conversation thread boards, so a chat plan must be
 //! gated on the turn itself, not via a board status. Modelled on
-//! [`crate::openhuman::approval`] but in-memory only.
+//! [`crate::openhuman::security::approval`] but in-memory only.
 
 pub mod gate;
 pub mod schemas;

@@ -4,7 +4,7 @@ use super::super::http_client::{
 use super::stdio::McpStdioClient;
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::{Config, McpAuthConfig, McpClientIdentityConfig, McpServerConfig};
-use crate::openhuman::prompt_injection::scan_tool_definition;
+use crate::openhuman::security::prompt_injection::scan_tool_definition;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;

@@ -37,7 +37,8 @@ pub async fn run() -> Result<ProfileResult> {
 
         // d. detectors — force the lazy PII + prompt-injection statics.
         let _ = openhuman_core::openhuman::security::pii::scan("");
-        let _ = openhuman_core::openhuman::prompt_injection::scan_tool_definition("x", "");
+        let _ =
+            openhuman_core::openhuman::security::prompt_injection::scan_tool_definition("x", "");
         rec.checkpoint("detectors")?;
 
         // e. memory-store — build and hold a unified-memory client until teardown.

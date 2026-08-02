@@ -14,7 +14,7 @@ use crate::openhuman::agent::error::AgentError;
 use crate::openhuman::agent::messages::ConversationMessage;
 use crate::openhuman::inference::provider::{self, ToolCall};
 use crate::openhuman::memory::Memory;
-use crate::openhuman::prompt_injection::{
+use crate::openhuman::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
 use crate::openhuman::tools::agent_policy::ToolPolicyEngine;

@@ -77,7 +77,7 @@ use openhuman_core::openhuman::config::schema::{
 };
 use openhuman_core::openhuman::config::{Config, IMessageConfig, WebhookConfig};
 use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::runtime::javascript::NodeBootstrap;

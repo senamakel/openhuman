@@ -92,7 +92,7 @@ pub struct ArtifactMeta {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     /// Chat thread that produced the artifact, captured from
-    /// [`crate::openhuman::approval::APPROVAL_CHAT_CONTEXT`] at create-time
+    /// [`crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT`] at create-time
     /// (#3226). `None` for CLI / cron / sub-agent paths and for legacy
     /// `meta.json` files written before this field existed — same convention
     /// as the `thread_id` carried on the producer events

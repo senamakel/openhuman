@@ -1,6 +1,6 @@
 //! In-memory peer presence for orchestration contacts / instances.
 //!
-//! Mirrors the devices-tunnel [`PEER_STATUS`](crate::openhuman::devices) pattern:
+//! Mirrors the devices-tunnel [`PEER_STATUS`](crate::openhuman::security::devices) pattern:
 //! a process-local map keyed by peer `agent_id`, updated whenever we hear from a
 //! peer (any inbound envelope, or a heartbeat `pong`), and read back at
 //! `sessions_list` time to overlay a live `peerOnline` / `lastSeenAt` onto each

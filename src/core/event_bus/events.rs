@@ -692,7 +692,7 @@ pub enum DomainEvent {
     /// [`crate::openhuman::artifacts::store::finalize_artifact`].
     /// Bridged to the web channel as an `artifact_ready` socket event
     /// when the publishing turn carries an `APPROVAL_CHAT_CONTEXT`
-    /// (see [`crate::openhuman::approval::ApprovalChatContext`]).
+    /// (see [`crate::openhuman::security::approval::ApprovalChatContext`]).
     /// Sub-task #2779 of #1535.
     ArtifactReady {
         /// UUID of the artifact record.

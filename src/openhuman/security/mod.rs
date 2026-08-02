@@ -4,21 +4,33 @@ mod schemas;
 pub mod tools;
 
 pub mod audit;
+// Kernel security family (step 7 of the domain reorg). These seven domains are
+// the physical form of `kernel.md` §3.4: `SecurityPolicy`, the approval gate,
+// taint/redaction, credentials and the keychain are exactly the set a future
+// `Guard<D>` decorator draws from, and a swapped driver must never see any of
+// it. None of them is gated — the family is kernel, permanently.
+pub mod approval;
 pub mod bubblewrap;
+pub mod credentials;
 pub mod detect;
+pub mod devices;
 pub mod docker;
 pub mod egress;
+pub mod encryption;
 pub mod firejail;
+pub mod keyring;
+pub mod keyring_consent;
 pub mod landlock;
 pub mod live_policy;
 pub mod pairing;
 pub mod pii;
 pub mod policy;
+pub mod prompt_injection;
 pub mod secrets;
 pub mod traits;
 
 #[allow(unused_imports)]
-pub use crate::openhuman::keyring::SecretStore;
+pub use self::keyring::SecretStore;
 #[allow(unused_imports)]
 pub use audit::{
     get_or_create_workspace_audit_logger, AuditEvent, AuditEventType, AuditLogger,

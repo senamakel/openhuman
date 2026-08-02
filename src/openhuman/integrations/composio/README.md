@@ -110,7 +110,7 @@ Published from `ops.rs`: `DomainEvent::ComposioConnectionCreated` (authorize), `
 - `crate::openhuman::agent::harness` — sandbox mode (`current_sandbox_mode` / `SandboxMode`) for tool gating.
 - `crate::openhuman::tools::traits` — `Tool`, `ToolResult`, `ToolCategory`, `PermissionLevel`, `ToolCallOptions`.
 - `crate::openhuman::security` — `SecurityPolicy` / `ToolOperation` for direct-tool gating.
-- `crate::openhuman::credentials` — encrypted store for the direct-mode API key.
+- `crate::openhuman::security::credentials` — encrypted store for the direct-mode API key.
 - `crate::openhuman::context::prompt`, `agent::prompts` — prompt/profile injection of connected identities.
 - `crate::core::all` — `ControllerFuture` / `RegisteredController` registry types.
 - `crate::core::event_bus` — `DomainEvent`, `publish_global`.
@@ -126,7 +126,7 @@ Published from `ops.rs`: `DomainEvent::ComposioConnectionCreated` (authorize), `
 - `src/openhuman/heartbeat/planner/collectors.rs`, `subconscious/situation_report` — read connected integrations / calendar.
 - `src/openhuman/learning/{linkedin_enrichment,profile_md_renderer}.rs`, `memory/read_rpc.rs`, `memory_tree/score/store.rs` — profile/identity + memory consumers.
 - `src/openhuman/skills/preflight.rs` — identity gate via `connection_identity`.
-- `src/openhuman/credentials/ops.rs`, `channels/runtime/dispatch.rs`, `src/bin/slack_backfill.rs`.
+- `src/openhuman/security/credentials/ops.rs`, `channels/runtime/dispatch.rs`, `src/bin/slack_backfill.rs`.
 
 ## Notes / gotchas
 

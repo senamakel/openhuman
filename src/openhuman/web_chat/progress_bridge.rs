@@ -216,7 +216,9 @@ fn subagent_worktree_detail(
 /// user id. `None` when signed out or the profile is unreadable — the caller
 /// then falls back to the transport client id.
 fn session_profile_user_attribution(config: &crate::openhuman::config::Config) -> Option<String> {
-    let state = crate::openhuman::credentials::session_support::build_session_state(config).ok()?;
+    let state =
+        crate::openhuman::security::credentials::session_support::build_session_state(config)
+            .ok()?;
     state
         .user
         .as_ref()
@@ -1580,7 +1582,7 @@ mod tests {
             config_path: tmp.path().join("config.toml"),
             ..Default::default()
         };
-        let service = crate::openhuman::credentials::AuthService::from_config(&config);
+        let service = crate::openhuman::security::credentials::AuthService::from_config(&config);
         let mut metadata = std::collections::HashMap::new();
         metadata.insert(
             "user_json".to_string(),
@@ -1589,8 +1591,8 @@ mod tests {
         metadata.insert("user_id".to_string(), "u-1".to_string());
         service
             .store_provider_token(
-                crate::openhuman::credentials::APP_SESSION_PROVIDER,
-                crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+                crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+                crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
                 "session-token",
                 metadata,
                 true,

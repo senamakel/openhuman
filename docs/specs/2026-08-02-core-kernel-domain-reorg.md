@@ -10,7 +10,7 @@
 ## 1. Where the program stands
 
 The kernelization program has two halves. **The dependency half is largely done**; the
-**structural half is underway** — 124 top-level domain directories are down to 65, and both
+**structural half is underway** — 124 top-level domain directories are down to 58, and both
 root-level `*.rs` violations are gone.
 
 ### Done (#4795 epic, then #5314)
@@ -51,7 +51,7 @@ top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` was
 meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
 (`DomainGroup`, `DomainSet`, `StoreInitPlan`, `DomainSubscriberPlan`, `tool_group()`).
 
-**Steps 1–6 landed: 124 → 65 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
+**Steps 1–7 landed: 124 → 58 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
 `util/`, `sandbox/cwd_jail`, `cron/scheduler_gate`, `runtime/`, `media/`, `desktop/`, `hosted/`,
 `subconscious/{triggers,monitors}`, and `mcp/`, and the existing-gate families `voice/audio_toolkit`,
 `web3/{wallet,x402}`, `medulla/chat`, `flows/{tinyflows,rhai}`,
@@ -59,8 +59,10 @@ meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel regi
 `threads/{goals,todos}`, `tools/{registry,status,timeout,agent_policy}`, the new `platform/`
 (ten host-platform domains), `config/{migrations,migration_helpers,workspace}`,
 `integrations/{composio,recall_calendar,file_storage,task_sources}`,
-`skills/{catalog,runtime,webhooks}`, and `inference/{embeddings,tokenjuice}`. The `heartbeat/`
-re-export shim is deleted. The big three (`security/`, `agent/`, `memory/`) are still ahead.
+`skills/{catalog,runtime,webhooks}`, `inference/{embeddings,tokenjuice}`, and step 7's kernel
+`security/{approval,credentials,keyring,keyring_consent,encryption,prompt_injection,devices}`.
+The `heartbeat/` re-export shim is deleted. The remaining two big families (`agent/`, `memory/`)
+are still ahead.
 
 **That is what this document is about.** The remaining dependency sheds are blocked on it or are
 cross-repo; the structural work is what makes the next twenty gates cheap instead of expensive.
@@ -184,7 +186,7 @@ renames.
 | Family | Absorbs |
 | --- | --- |
 | `config/` | ✅ **landed** — `migrations`, `migration→migration_helpers`, `workspace`; the two migration dirs stay distinct per rule 7 |
-| `security/` | `approval`, `credentials`, `keyring`, `keyring_consent`, `encryption`, `prompt_injection`, `devices` |
+| `security/` | ✅ **landed** — `approval`, `credentials`, `keyring`, `keyring_consent`, `encryption`, `prompt_injection`, `devices`; parent and every child stay ungated (kernel). No collision with the pre-existing `security/pairing.rs` |
 | `tools/` | ✅ **landed** — `tool_registry→registry`, `tool_status→status`, `tool_timeout→timeout`, `agent_tool_policy→agent_policy` |
 | `platform/` *(new)* | ✅ **landed** — `service`, `startup`, `update`, `doctor`, `health`, `proc_metrics`, `connectivity`, `about_app`, `cost`, `socket` |
 | `threads/` | ✅ **landed** — `thread_goals→goals`, `todos` |
@@ -234,7 +236,7 @@ goes to `platform/`.
 5. ✅ `mcp/` — the only family with a genuine *split*. `mcp_client` divided three ways:
    `config_servers` (leaf-gated), `http_client` (ungated carve-out), `sanitize` → `util/`.
 6. ✅ `threads/`, `tools/`, `platform/`, `config/`, `integrations/`, `skills/`, `inference/` — seven independent families, one commit each.
-7. `security/`.
+7. ✅ `security/` — the kernel security family; `kernel.md` §3.4's `Guard<D>` draw set made physical.
 8. `agent/`.
 9. `memory/` — **last**, deliberately: it is [`kernel.md`](kernel.md) §5's pilot subsystem, so its
    layout gets drawn with the driver contract in hand rather than guessed.

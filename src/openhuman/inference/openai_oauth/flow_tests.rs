@@ -4,9 +4,6 @@ use super::{
     complete_openai_oauth, disconnect_openai_oauth, openai_oauth_status, start_openai_oauth,
 };
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::profiles::{
-    AuthProfile, AuthProfileKind, AuthProfilesStore, TokenSet,
-};
 use crate::openhuman::inference::openai_oauth::store::{
     import_codex_cli_auth_from_path, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
 };
@@ -14,6 +11,9 @@ use crate::openhuman::inference::openai_oauth::{
     lookup_openai_bearer_token, lookup_openai_oauth_credentials,
 };
 use crate::openhuman::inference::provider::factory::lookup_key_for_slug;
+use crate::openhuman::security::credentials::profiles::{
+    AuthProfile, AuthProfileKind, AuthProfilesStore, TokenSet,
+};
 use chrono::{Duration, Utc};
 use motosan_ai_oauth::{OAuthConfig, StateStrategy, TokenBodyFormat};
 use tempfile::tempdir;

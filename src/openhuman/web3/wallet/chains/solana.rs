@@ -368,10 +368,12 @@ pub async fn execute_solana_quote(
 
     let secret = secret_material(WalletChain::Solana).await?;
     let config = config_rpc::load_config_with_timeout().await?;
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await?
+    .value;
     let signing_key = derive_solana_keypair(&mnemonic, &secret.derivation_path)?;
     let from_pk = signing_key.verifying_key().to_bytes();
     let expected_from = b58_to_pubkey(&from_addr)?;
@@ -491,10 +493,12 @@ pub(crate) async fn sign_and_broadcast_versioned(
     // Derive our signing key.
     let secret = secret_material(WalletChain::Solana).await?;
     let config = config_rpc::load_config_with_timeout().await?;
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await?
+    .value;
     let signing_key = derive_solana_keypair(&mnemonic, &secret.derivation_path)?;
     let our_pubkey = signing_key.verifying_key().to_bytes();
 
@@ -647,10 +651,12 @@ pub(crate) async fn tinyplace_signer_seed() -> Result<[u8; 32], String> {
     let secret = secret_material(WalletChain::Solana).await?;
     let config = config_rpc::load_config_with_timeout().await?;
     // Mirror exactly the decrypt call at solana.rs:371-374 (.value extraction).
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await?
+    .value;
     let signing_key = derive_solana_keypair(&mnemonic, &secret.derivation_path)?;
     // Extract 32-byte SLIP-0010 secret — same bytes LocalSigner::from_seed expects.
     // Never logged: the log below omits the seed.

@@ -10,7 +10,7 @@ use tinyagents::harness::embeddings::{
 
 use super::{EmbeddingProvider, TinyAgentsEmbeddingProvider};
 use crate::api::config::effective_api_url;
-use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
+use crate::openhuman::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
 pub const DEFAULT_CLOUD_EMBEDDING_MODEL: &str = DEFAULT_CLOUD_MODEL;
 pub const DEFAULT_CLOUD_EMBEDDING_DIMENSIONS: usize = DEFAULT_CLOUD_DIMENSIONS;

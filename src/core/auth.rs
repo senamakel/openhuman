@@ -82,9 +82,9 @@ use serde_json::json;
 #[cfg(feature = "http-server")]
 use crate::openhuman::config::Config;
 #[cfg(feature = "http-server")]
-use crate::openhuman::credentials::AuthService;
-#[cfg(feature = "http-server")]
 use crate::openhuman::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
+#[cfg(feature = "http-server")]
+use crate::openhuman::security::credentials::AuthService;
 
 static RPC_TOKEN: OnceLock<String> = OnceLock::new();
 

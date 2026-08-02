@@ -18,13 +18,13 @@ Authoritative TOML-backed configuration layer. Owns the `Config` schema (every d
 ## Calls into
 
 - Std + serde TOML for serialization.
-- `src/openhuman/encryption/` indirectly when secrets sections need at-rest crypto (read direction only).
+- `src/openhuman/security/encryption/` indirectly when secrets sections need at-rest crypto (read direction only).
 - Filesystem under `~/.openhuman/<user-id>/` via `schema/identity_cost.rs`.
 
 ## Called by
 
 - ~177 sites across the workspace — every domain pulls `Config` for its slice.
-- Hot consumers: `src/openhuman/agent/` (model + autonomy), `src/openhuman/channels/` (provider tokens), `src/openhuman/memory/` (storage paths), `src/openhuman/cron/` (scheduler poll), `src/openhuman/inference/local/` (Ollama / device routing), `src/openhuman/security/` (sandbox backend), `src/openhuman/voice/`, `src/openhuman/notifications/`, `src/openhuman/tools/`, `src/openhuman/encryption/`, `src/openhuman/tree_summarizer/`, `src/openhuman/referral/`.
+- Hot consumers: `src/openhuman/agent/` (model + autonomy), `src/openhuman/channels/` (provider tokens), `src/openhuman/memory/` (storage paths), `src/openhuman/cron/` (scheduler poll), `src/openhuman/inference/local/` (Ollama / device routing), `src/openhuman/security/` (sandbox backend), `src/openhuman/voice/`, `src/openhuman/notifications/`, `src/openhuman/tools/`, `src/openhuman/security/encryption/`, `src/openhuman/tree_summarizer/`, `src/openhuman/referral/`.
 - `src/core/all.rs` — registers `all_config_*`.
 
 ## Tests

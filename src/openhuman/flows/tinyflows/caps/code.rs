@@ -64,11 +64,11 @@ impl CodeRunner for OpenHumanCode {
         // of the request, never the raw source secrets, matching the other
         // acting adapters.
         let action = json!({ "language": format!("{language:?}"), "source": source });
-        let summary = crate::openhuman::approval::summarize_action("flows_code", &action);
-        let redacted = crate::openhuman::approval::redact_args(&action);
+        let summary = crate::openhuman::security::approval::summarize_action("flows_code", &action);
+        let redacted = crate::openhuman::security::approval::redact_args(&action);
         let (gate_outcome, audit_id) =
             gate_call_for_tier(tier_decision, "flows_code", &summary, redacted).await;
-        if let crate::openhuman::approval::GateOutcome::Deny { reason } = gate_outcome {
+        if let crate::openhuman::security::approval::GateOutcome::Deny { reason } = gate_outcome {
             return Err(EngineError::Capability(reason));
         }
 
@@ -171,11 +171,11 @@ impl CodeRunner for OpenHumanCode {
         // Close out the approval audit with the run's success/failure (mirrors
         // OpenHumanTools/OpenHumanHttp).
         if let Some(id) = audit_id {
-            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+            if let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() {
                 let exec = if outcome.is_ok() {
-                    crate::openhuman::approval::ExecutionOutcome::Success
+                    crate::openhuman::security::approval::ExecutionOutcome::Success
                 } else {
-                    crate::openhuman::approval::ExecutionOutcome::Failure
+                    crate::openhuman::security::approval::ExecutionOutcome::Failure
                 };
                 gate.record_execution(
                     &id,

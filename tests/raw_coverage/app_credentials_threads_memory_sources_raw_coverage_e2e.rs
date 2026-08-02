@@ -7,10 +7,10 @@ use openhuman_core::openhuman::desktop::app_state::{
     snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
 use openhuman_core::openhuman::config::rpc as config_rpc;
-use openhuman_core::openhuman::credentials::profiles::{
+use openhuman_core::openhuman::security::credentials::profiles::{
     profile_id, AuthProfile, AuthProfilesStore, TokenSet,
 };
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::{
     list_provider_credentials_by_prefix, AuthService, APP_SESSION_PROVIDER,
     DEFAULT_AUTH_PROFILE_NAME,
 };

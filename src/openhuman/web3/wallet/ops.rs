@@ -60,15 +60,15 @@ fn wallet_user_id(config: &Config) -> String {
 ///
 /// Returns `None` if the keychain is unavailable or the entry does not exist.
 fn keychain_load_mnemonic(config: &Config) -> Option<String> {
-    let policy = crate::openhuman::keyring_consent::policy::check_secret_access();
-    if policy != crate::openhuman::keyring_consent::PolicyDecision::Proceed
-        || !crate::openhuman::keyring::is_available()
+    let policy = crate::openhuman::security::keyring_consent::policy::check_secret_access();
+    if policy != crate::openhuman::security::keyring_consent::PolicyDecision::Proceed
+        || !crate::openhuman::security::keyring::is_available()
     {
         log::debug!("{LOG_PREFIX} keychain unavailable or consent pending, skipping mnemonic load policy={policy:?}");
         return None;
     }
     let user_id = wallet_user_id(config);
-    match crate::openhuman::keyring::get(&user_id, KEYCHAIN_MNEMONIC_KEY) {
+    match crate::openhuman::security::keyring::get(&user_id, KEYCHAIN_MNEMONIC_KEY) {
         Ok(Some(val)) => {
             log::debug!("{LOG_PREFIX} keychain mnemonic loaded user_id={user_id}");
             Some(val)
@@ -88,15 +88,19 @@ fn keychain_load_mnemonic(config: &Config) -> Option<String> {
 ///
 /// Returns `true` if the write succeeded.
 fn keychain_save_mnemonic(config: &Config, encrypted_mnemonic: &str) -> bool {
-    let policy = crate::openhuman::keyring_consent::policy::check_secret_access();
-    if policy != crate::openhuman::keyring_consent::PolicyDecision::Proceed
-        || !crate::openhuman::keyring::is_available()
+    let policy = crate::openhuman::security::keyring_consent::policy::check_secret_access();
+    if policy != crate::openhuman::security::keyring_consent::PolicyDecision::Proceed
+        || !crate::openhuman::security::keyring::is_available()
     {
         log::debug!("{LOG_PREFIX} keychain unavailable or consent pending, skipping mnemonic save policy={policy:?}");
         return false;
     }
     let user_id = wallet_user_id(config);
-    match crate::openhuman::keyring::set(&user_id, KEYCHAIN_MNEMONIC_KEY, encrypted_mnemonic) {
+    match crate::openhuman::security::keyring::set(
+        &user_id,
+        KEYCHAIN_MNEMONIC_KEY,
+        encrypted_mnemonic,
+    ) {
         Ok(()) => {
             log::debug!("{LOG_PREFIX} keychain mnemonic saved user_id={user_id}");
             true
@@ -110,15 +114,15 @@ fn keychain_save_mnemonic(config: &Config, encrypted_mnemonic: &str) -> bool {
 
 /// Whether a keychain entry exists for the encrypted mnemonic.
 fn keychain_has_mnemonic(config: &Config) -> bool {
-    let policy = crate::openhuman::keyring_consent::policy::check_secret_access();
-    if policy != crate::openhuman::keyring_consent::PolicyDecision::Proceed
-        || !crate::openhuman::keyring::is_available()
+    let policy = crate::openhuman::security::keyring_consent::policy::check_secret_access();
+    if policy != crate::openhuman::security::keyring_consent::PolicyDecision::Proceed
+        || !crate::openhuman::security::keyring::is_available()
     {
         return false;
     }
     let user_id = wallet_user_id(config);
     matches!(
-        crate::openhuman::keyring::get(&user_id, KEYCHAIN_MNEMONIC_KEY),
+        crate::openhuman::security::keyring::get(&user_id, KEYCHAIN_MNEMONIC_KEY),
         Ok(Some(_))
     )
 }
@@ -707,7 +711,7 @@ pub async fn reveal_recovery_phrase() -> Result<RpcOutcome<RevealRecoveryPhraseR
 
     debug!("{LOG_PREFIX} reveal_recovery_phrase decrypting mnemonic");
 
-    let phrase = crate::openhuman::credentials::ops::decrypt_secret(&config, &ciphertext)
+    let phrase = crate::openhuman::security::credentials::ops::decrypt_secret(&config, &ciphertext)
         .await
         .map_err(|e| {
             log::warn!("{LOG_PREFIX} reveal_recovery_phrase decrypt failed: {e}");

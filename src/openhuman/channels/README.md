@@ -16,11 +16,11 @@ Multi-platform messaging integration. Owns the `Channel` trait, per-provider con
 ## Calls into
 
 - `src/openhuman/agent/` — inbound messages spawn or resume agent runs through `runtime/dispatch.rs`.
-- `src/openhuman/credentials/` — per-channel auth tokens, refresh flow.
+- `src/openhuman/security/credentials/` — per-channel auth tokens, refresh flow.
 - `src/openhuman/config/schema/channels.rs` — runtime channel configuration.
 - `src/openhuman/threads/` — thread state for platforms with native threading (Slack `thread_ts`).
 - `src/openhuman/notifications/` — surface inbound deliveries to the UI.
-- `src/openhuman/encryption/` — at-rest secret protection.
+- `src/openhuman/security/encryption/` — at-rest secret protection.
 - `src/core/event_bus/` — emits `DomainEvent::Channel(*)`; `channels/bus.rs` registers `ChannelInboundSubscriber`.
 
 ## Called by

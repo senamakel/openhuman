@@ -353,10 +353,10 @@ fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
     c.api_url = Some(base);
-    crate::openhuman::credentials::AuthService::from_config(&c)
+    crate::openhuman::security::credentials::AuthService::from_config(&c)
         .store_provider_token(
-            crate::openhuman::credentials::APP_SESSION_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,
@@ -1862,10 +1862,10 @@ fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
     c.composio.mode = crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT.into();
-    crate::openhuman::credentials::AuthService::from_config(&c)
+    crate::openhuman::security::credentials::AuthService::from_config(&c)
         .store_provider_token(
-            crate::openhuman::credentials::ops::COMPOSIO_DIRECT_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::ops::COMPOSIO_DIRECT_PROVIDER,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_test_direct_key",
             std::collections::HashMap::new(),
             true,
@@ -2006,7 +2006,7 @@ async fn composio_list_connections_returns_empty_when_direct_mode_no_key() {
 #[tokio::test]
 async fn composio_set_api_key_rejects_invalid_direct_key_before_persisting() {
     use crate::openhuman::config::TEST_ENV_LOCK;
-    use crate::openhuman::credentials::get_composio_api_key;
+    use crate::openhuman::security::credentials::get_composio_api_key;
 
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let app = Router::new().route(
@@ -2043,7 +2043,7 @@ async fn composio_set_api_key_rejects_invalid_direct_key_before_persisting() {
 #[tokio::test]
 async fn composio_set_api_key_validates_candidate_key_even_when_stored_key_exists() {
     use crate::openhuman::config::TEST_ENV_LOCK;
-    use crate::openhuman::credentials::{get_composio_api_key, store_composio_api_key};
+    use crate::openhuman::security::credentials::{get_composio_api_key, store_composio_api_key};
     use std::sync::{Arc, Mutex};
 
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());

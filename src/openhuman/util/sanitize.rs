@@ -19,7 +19,7 @@
 //!    LLM context window.
 //!
 //! The complementary
-//! [`crate::openhuman::prompt_injection::scan_tool_definition`] entry
+//! [`crate::openhuman::security::prompt_injection::scan_tool_definition`] entry
 //! point runs the project's existing detector across remote tool
 //! definitions; registry-side code rejects any tool whose description
 //! or title trips a detector rule.

@@ -240,7 +240,7 @@ Memory encryption keys derive from user credentials via Argon2id, ensuring memor
 - **Auth handoff**: Web-to-desktop authentication uses single-use login tokens with 5-minute TTL, exchanged via Rust HTTP client (bypasses CORS)
 - **Network TLS**: All WebSocket and HTTP connections use rustls, no dependency on platform OpenSSL
 - **State management**: Sensitive data lives in Redux (memory) and OS keychain (persistent). No localStorage for credentials or tokens
-- **Prompt injection guard**: User prompts are normalized/scored and enforced server-side (`allow | review | block`) before model/tool execution. See `src/openhuman/prompt_injection/`
+- **Prompt injection guard**: User prompts are normalized/scored and enforced server-side (`allow | review | block`) before model/tool execution. See `src/openhuman/security/prompt_injection/`
 
 ---
 
@@ -355,7 +355,7 @@ Transport is selected by `ConnectionProfile` stored in secure storage. On pairin
 
 | Path | Purpose |
 | --- | --- |
-| `src/openhuman/devices/` | Rust devices domain (pairing, store, crypto, event bus) |
+| `src/openhuman/security/devices/` | Rust devices domain (pairing, store, crypto, event bus) |
 | `app/src/services/transport/` | TS transport strategies + manager |
 | `app/src/lib/tunnel/` | TS tunnel crypto (X25519 + XChaCha20-Poly1305) |
 | `app/src/pages/ios/` | iOS-specific screens (PairScreen, MascotScreen) |

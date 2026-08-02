@@ -37,7 +37,7 @@ use tinyagents::TinyAgentsError;
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
-use crate::openhuman::approval::{
+use crate::openhuman::security::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
 };
 use crate::openhuman::tinyagents::tools::{

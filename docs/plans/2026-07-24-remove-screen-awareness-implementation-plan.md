@@ -39,7 +39,7 @@ Files:
   produce a live config field.
 - Remove the runtime snapshot type/build/degraded data and tests from
   `src/openhuman/app_state/{ops.rs,ops_tests.rs,README.md}` and the login/start/
-  stop hooks/tests/docs in `src/openhuman/credentials/{ops.rs,ops_tests.rs,README.md}`.
+  stop hooks/tests/docs in `src/openhuman/security/credentials/{ops.rs,ops_tests.rs,README.md}`.
 - Remove the screen-derived app-state/config RPC cases and replace the current
   positive integration assertions in
   `tests/{config_auth_app_state_connectivity_e2e.rs,json_rpc_e2e.rs}` with one

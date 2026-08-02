@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::AuthService;
+use crate::openhuman::security::credentials::AuthService;
 use crate::rpc::RpcOutcome;
 
 use super::catalog;

@@ -290,11 +290,13 @@ async fn derive_wallet_signing_key() -> Result<SigningKey, X402Error> {
         .await
         .map_err(|e| X402Error::Wallet(format!("load config: {e}")))?;
 
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await
-            .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await
+    .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
+    .value;
 
     derive_solana_keypair_from_mnemonic(&mnemonic, &secret.derivation_path)
 }
@@ -712,11 +714,13 @@ async fn derive_evm_signer(
         .await
         .map_err(|e| X402Error::Wallet(format!("load config: {e}")))?;
 
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await
-            .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await
+    .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
+    .value;
 
     let wallet = MnemonicBuilder::<English>::default()
         .phrase(mnemonic.as_str())

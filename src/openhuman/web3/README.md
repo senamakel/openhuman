@@ -63,7 +63,7 @@ rejected at quote time.
 
 - [`crate::openhuman::web3::wallet`] — `sign_and_broadcast_evm` / `sign_and_broadcast_solana` (crate-internal), `status` for address resolution, `EvmNetwork` / `WalletChain`.
 - [`crate::openhuman::integrations`] (`IntegrationClient`, `build_client`) — backend auth + transport.
-- `crate::openhuman::approval::APPROVAL_CHAT_CONTEXT` — quote-owner binding.
+- `crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT` — quote-owner binding.
 - `crate::core::all` / `crate::core` — RPC controller registry wiring.
 
 ## Notes / gotchas

@@ -60,7 +60,7 @@ pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
     if config.composio.mode.trim() != crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT {
         return Ok(false);
     }
-    let has_key = crate::openhuman::credentials::get_composio_api_key(config)
+    let has_key = crate::openhuman::security::credentials::get_composio_api_key(config)
         .map_err(|e| format!("[composio] get_composio_api_key failed: {e}"))?
         .or_else(|| {
             config

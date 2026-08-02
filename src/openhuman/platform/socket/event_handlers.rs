@@ -238,9 +238,10 @@ pub(super) fn handle_sio_event(
         // Device tunnel — peer-status update.
         "tunnel:peer-status" => {
             log::info!("[socket] tunnel:peer-status received");
-            match serde_json::from_value::<crate::openhuman::devices::tunnel_client::TunnelPeerStatus>(
-                data.clone(),
-            ) {
+            match serde_json::from_value::<
+                crate::openhuman::security::devices::tunnel_client::TunnelPeerStatus,
+            >(data.clone())
+            {
                 Ok(status) => {
                     if status.online {
                         publish_global(DomainEvent::DevicePeerOnline {
@@ -260,9 +261,10 @@ pub(super) fn handle_sio_event(
         // Device tunnel — encrypted frame from the iOS device.
         "tunnel:frame" => {
             log::debug!("[socket] tunnel:frame received");
-            match serde_json::from_value::<crate::openhuman::devices::tunnel_client::TunnelFrame>(
-                data.clone(),
-            ) {
+            match serde_json::from_value::<
+                crate::openhuman::security::devices::tunnel_client::TunnelFrame,
+            >(data.clone())
+            {
                 Ok(frame) => {
                     publish_global(DomainEvent::DeviceTunnelFrame {
                         channel_id: frame.channel_id,

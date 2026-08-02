@@ -788,7 +788,7 @@ impl ComposioClientKind {
 ///   `Err("no backend session")` when the user is not signed in.
 /// - `"direct"` — BYO key against `backend.composio.dev`. Requires a
 ///   stored Composio API key under the
-///   [`crate::openhuman::credentials::COMPOSIO_DIRECT_PROVIDER`]
+///   [`crate::openhuman::security::credentials::COMPOSIO_DIRECT_PROVIDER`]
 ///   slot **or** an `api_key` value in `config.composio.api_key`. The
 ///   stored key takes precedence so the encrypted keychain remains the
 ///   source of truth — `config.toml` is a fallback for power users.
@@ -818,7 +818,7 @@ pub fn create_composio_client(
         }
         MODE_DIRECT_PAT => {
             // Prefer keychain-stored key; fall back to `config.toml`.
-            let stored = crate::openhuman::credentials::get_composio_api_key(config)
+            let stored = crate::openhuman::security::credentials::get_composio_api_key(config)
                 .map_err(|e| anyhow::anyhow!("failed to read stored composio api key: {e}"))?;
             let api_key = stored
                 .or_else(|| {

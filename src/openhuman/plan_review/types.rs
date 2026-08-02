@@ -5,7 +5,7 @@
 //! resumes the SAME turn with the user's decision. Unlike the task-board
 //! approval lifecycle (which the background dispatcher runs on the
 //! `user-tasks` / `task-sources` boards), this gate is a parked-future on the
-//! live turn — modelled on [`crate::openhuman::approval::ApprovalGate`] but
+//! live turn — modelled on [`crate::openhuman::security::approval::ApprovalGate`] but
 //! in-memory only: an interactive turn that can't resume across a restart has
 //! nothing to persist.
 

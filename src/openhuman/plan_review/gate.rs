@@ -1,7 +1,7 @@
 //! `PlanReviewGate` — parks a live interactive turn on a plan the user must
 //! review before execution.
 //!
-//! Flow (mirrors [`crate::openhuman::approval::ApprovalGate`], in-memory):
+//! Flow (mirrors [`crate::openhuman::security::approval::ApprovalGate`], in-memory):
 //! 1. The orchestrator calls the `request_plan_review` tool after laying out a
 //!    thread-scoped plan. The tool calls [`PlanReviewGate::request_review`].
 //! 2. The gate registers a `oneshot::Sender` keyed by `request_id`, publishes

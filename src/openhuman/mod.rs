@@ -20,16 +20,12 @@ pub mod agent_memory;
 pub mod agent_orchestration;
 pub mod agent_registry;
 pub mod agentbox;
-pub mod approval;
 pub mod artifacts;
 pub mod channels;
 pub mod config;
 pub mod context;
-pub mod credentials;
 pub mod cron;
 pub mod desktop;
-pub mod devices;
-pub mod encryption;
 pub mod file_state;
 #[cfg(feature = "flows")]
 pub mod flows;
@@ -50,8 +46,6 @@ pub mod integrations;
 // one of those directions is the back-edge the kernelization work removes.
 // Ungated — `composio` is always compiled, `tinyflows` is behind `flows`.
 pub mod json_schema;
-pub mod keyring;
-pub mod keyring_consent;
 pub mod learning;
 // Ungated family root: `mcp/http_client` is always compiled, and the
 // `server`/`registry`/`audit` facades each need their `stub` to resolve in an
@@ -81,7 +75,6 @@ pub mod people;
 pub mod plan_review;
 pub mod platform;
 pub mod profiles;
-pub mod prompt_injection;
 pub mod runtime;
 pub mod sandbox;
 pub mod search;

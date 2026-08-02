@@ -137,14 +137,17 @@ impl ToolBackend for ComposioToolBackend {
         // parking flow, re-introducing the "reads wait for approval" bug via
         // a different path than the one this fix closes at the tier gate.
         // Refining Rule 2 itself to be scope-aware is a deferred follow-up.
-        let summary = crate::openhuman::approval::summarize_action(slug, &args);
-        let redacted = crate::openhuman::approval::redact_args(&args);
+        let summary = crate::openhuman::security::approval::summarize_action(slug, &args);
+        let redacted = crate::openhuman::security::approval::redact_args(&args);
         let (outcome, audit_id) = if tier_decision == GateDecision::Allow {
-            (crate::openhuman::approval::GateOutcome::Allow, None)
+            (
+                crate::openhuman::security::approval::GateOutcome::Allow,
+                None,
+            )
         } else {
             super::super::gate_call_for_tier(tier_decision, slug, &summary, redacted).await
         };
-        if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
+        if let crate::openhuman::security::approval::GateOutcome::Deny { reason } = outcome {
             tracing::warn!(
                 target: "flows",
                 %slug,
@@ -257,11 +260,11 @@ impl ToolBackend for ComposioToolBackend {
             .and_then(|resp| super::super::reject_unsuccessful_composio_response(slug, resp));
 
         if let Some(id) = audit_id {
-            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+            if let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() {
                 let exec = if response.is_ok() {
-                    crate::openhuman::approval::ExecutionOutcome::Success
+                    crate::openhuman::security::approval::ExecutionOutcome::Success
                 } else {
-                    crate::openhuman::approval::ExecutionOutcome::Failure
+                    crate::openhuman::security::approval::ExecutionOutcome::Failure
                 };
                 gate.record_execution(
                     &id,

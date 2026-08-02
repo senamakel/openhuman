@@ -940,7 +940,7 @@ fn resolve_yuanbao_app_secret(
     if !yb_cfg.app_secret.is_empty() {
         return yb_cfg;
     }
-    let auth = crate::openhuman::credentials::AuthService::from_config(config);
+    let auth = crate::openhuman::security::credentials::AuthService::from_config(config);
     match auth.get_profile("channel:yuanbao:api_key", None) {
         Ok(Some(profile)) => {
             let stored_app_key = profile.metadata.get("app_key").map(String::as_str);
@@ -982,7 +982,7 @@ fn resolve_email_password(
     if !email_cfg.password.is_empty() {
         return email_cfg;
     }
-    let auth = crate::openhuman::credentials::AuthService::from_config(config);
+    let auth = crate::openhuman::security::credentials::AuthService::from_config(config);
     match auth.get_profile("channel:email:api_key", None) {
         Ok(Some(profile)) => {
             let stored_username = profile.metadata.get("username").map(String::as_str);
@@ -1028,7 +1028,7 @@ mod tests;
 mod yuanbao_secret_tests {
     use super::*;
     use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
-    use crate::openhuman::credentials::AuthService;
+    use crate::openhuman::security::credentials::AuthService;
     use std::collections::HashMap;
     use tempfile::tempdir;
 
@@ -1124,7 +1124,7 @@ mod yuanbao_secret_tests {
 mod email_secret_tests {
     use super::*;
     use crate::openhuman::channels::email_channel::EmailConfig;
-    use crate::openhuman::credentials::AuthService;
+    use crate::openhuman::security::credentials::AuthService;
     use std::collections::HashMap;
     use tempfile::tempdir;
 

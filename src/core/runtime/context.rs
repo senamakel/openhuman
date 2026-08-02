@@ -83,7 +83,7 @@ impl CoreContext {
         // 2. Load the master encryption key before any config/credential op that
         //    needs to decrypt secrets. No-op if already called (e.g. from
         //    run_core_from_args for the CLI).
-        crate::openhuman::keyring::init_master_key();
+        crate::openhuman::security::keyring::init_master_key();
 
         // 3. AgentBox GMI MaaS provider bridge — no-op when env vars absent. Must
         //    run before the router mounts the AgentBox routes so the inference
@@ -332,7 +332,7 @@ pub async fn init_stores(
 ) {
     let plan = StoreInitPlan::for_domains(domains);
 
-    let keyring_dir = crate::openhuman::keyring::store::workspace_dir_for_file_backend();
+    let keyring_dir = crate::openhuman::security::keyring::store::workspace_dir_for_file_backend();
     // Keyring path log + credentials Sentry bind (below) are unguarded — they
     // are core infra every DomainSet needs. Each workspace-bound store init is
     // gated on its owning DomainGroup so an excluded domain's store stays
@@ -342,7 +342,7 @@ pub async fn init_stores(
         cfg.config_path.display(),
         cfg.workspace_dir.display(),
         keyring_dir.display(),
-        crate::openhuman::keyring::backend_name(),
+        crate::openhuman::security::keyring::backend_name(),
         domains,
     );
     if plan.memory {
@@ -406,10 +406,10 @@ pub async fn init_stores(
     // (Composio sync tick, heartbeat, etc.) fires its first event.
     // Reading from the store here means subsequent events carry
     // `user.id` even when no `app_state_snapshot` RPC has run yet.
-    match crate::openhuman::credentials::session_support::build_session_state(cfg) {
+    match crate::openhuman::security::credentials::session_support::build_session_state(cfg) {
         Ok(state) => {
             if let Some(uid) = state.user_id.as_deref() {
-                crate::openhuman::credentials::sentry_scope::bind(uid);
+                crate::openhuman::security::credentials::sentry_scope::bind(uid);
             }
         }
         Err(e) => {

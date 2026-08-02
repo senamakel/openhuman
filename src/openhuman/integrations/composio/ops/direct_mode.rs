@@ -46,7 +46,7 @@ async fn validate_direct_api_key_before_store(config: &Config, api_key: &str) ->
 /// flag so the UI can show a "Connected" / "Not set" status.
 pub async fn composio_get_mode(config: &Config) -> OpResult<RpcOutcome<serde_json::Value>> {
     let mode = config.composio.mode.trim().to_string();
-    let key_present = crate::openhuman::credentials::get_composio_api_key(config)
+    let key_present = crate::openhuman::security::credentials::get_composio_api_key(config)
         .map_err(|e| format!("[composio-direct] get_composio_api_key failed: {e}"))?
         .is_some();
     tracing::debug!(
@@ -87,7 +87,7 @@ pub async fn composio_set_api_key(
     );
     validate_direct_api_key_before_store(config, trimmed).await?;
 
-    crate::openhuman::credentials::store_composio_api_key(config, trimmed)
+    crate::openhuman::security::credentials::store_composio_api_key(config, trimmed)
         .await
         .map_err(|e| format!("[composio-direct] store_composio_api_key failed: {e}"))?;
 
@@ -135,7 +135,7 @@ pub async fn composio_set_api_key(
 /// `config.composio.mode` back to `"backend"`.
 pub async fn composio_clear_api_key(config: &Config) -> OpResult<RpcOutcome<serde_json::Value>> {
     tracing::debug!("[composio-direct] clear_api_key");
-    crate::openhuman::credentials::clear_composio_api_key(config)
+    crate::openhuman::security::credentials::clear_composio_api_key(config)
         .await
         .map_err(|e| format!("[composio-direct] clear_composio_api_key failed: {e}"))?;
 

@@ -423,7 +423,7 @@ fn sanitize_filename_stem(title: &str) -> String {
 /// reuses the same `artifact_id`, so the card swaps in place without
 /// flicker. Same chat-context routing rules as the Ready/Failed pair —
 /// `thread_id` / `client_id` come from the
-/// [`crate::openhuman::approval::ApprovalChatContext`] task-local and
+/// [`crate::openhuman::security::approval::ApprovalChatContext`] task-local and
 /// are `None` for CLI / cron / sub-agent paths, in which case the web
 /// bridge silently drops the event for lack of a routing target.
 pub async fn create_artifact(
@@ -541,7 +541,7 @@ pub async fn create_artifact(
 /// [`DomainEvent::ArtifactReady`] on the global bus so the web
 /// channel can surface a download card to the originating thread.
 /// When the calling task carries no
-/// [`ApprovalChatContext`](crate::openhuman::approval::ApprovalChatContext)
+/// [`ApprovalChatContext`](crate::openhuman::security::approval::ApprovalChatContext)
 /// (CLI / cron / sub-agent paths), the event is still published but
 /// `thread_id` / `client_id` are `None` so the socket bridge silently
 /// drops it. Idempotent calls (already-Ready) skip the publish so we
@@ -622,7 +622,7 @@ pub async fn fail_artifact(
 /// gracefully — the event is still published but the web subscriber
 /// drops it for lack of a routing target.
 fn current_chat_context() -> (Option<String>, Option<String>) {
-    crate::openhuman::approval::APPROVAL_CHAT_CONTEXT
+    crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT
         .try_with(|ctx| (Some(ctx.thread_id.clone()), Some(ctx.client_id.clone())))
         .unwrap_or((None, None))
 }

@@ -98,9 +98,10 @@ pub(crate) async fn setup_wallet_in(temp: &TempDir) -> Result<WorkspaceEnvGuard,
     // parallel tests after this test's TempDir has been dropped.
     let workspace_guard = set_workspace_env_for_test(temp);
     let config = config_rpc::load_config_with_timeout().await?;
-    let encrypted = crate::openhuman::encryption::rpc::encrypt_secret(&config, TEST_MNEMONIC)
-        .await?
-        .value;
+    let encrypted =
+        crate::openhuman::security::encryption::rpc::encrypt_secret(&config, TEST_MNEMONIC)
+            .await?
+            .value;
     setup(WalletSetupParams {
         consent_granted: true,
         source: WalletSetupSource::Imported,

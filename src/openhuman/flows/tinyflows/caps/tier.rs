@@ -70,7 +70,7 @@ pub(crate) fn enforce_node_tier_gate(
     Ok(decision)
 }
 
-/// Dispatches to the process-global [`ApprovalGate`](crate::openhuman::approval::ApprovalGate),
+/// Dispatches to the process-global [`ApprovalGate`](crate::openhuman::security::approval::ApprovalGate),
 /// escalating a `Prompt`-tier decision into a forced human-in-the-loop round
 /// trip regardless of the running flow's own `require_approval` toggle.
 ///
@@ -96,11 +96,17 @@ pub(crate) async fn gate_call_for_tier(
     tool_name: &str,
     action_summary: &str,
     args_redacted: Value,
-) -> (crate::openhuman::approval::GateOutcome, Option<String>) {
+) -> (
+    crate::openhuman::security::approval::GateOutcome,
+    Option<String>,
+) {
     use crate::openhuman::agent::turn_origin;
 
-    let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() else {
-        return (crate::openhuman::approval::GateOutcome::Allow, None);
+    let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() else {
+        return (
+            crate::openhuman::security::approval::GateOutcome::Allow,
+            None,
+        );
     };
 
     match escalated_origin_for_prompt(tier_decision, turn_origin::current()) {
@@ -166,7 +172,7 @@ fn force_workflow_approval(
 /// Pure decision core of the nested agent-node harness escalation (issue
 /// #4595): when the flow run's origin is a `Workflow { require_approval: false }`
 /// trust root, returns a clone with `require_approval` flipped to `true` so the
-/// [`ApprovalGate`](crate::openhuman::approval::ApprovalGate)'s pre-declared-
+/// [`ApprovalGate`](crate::openhuman::security::approval::ApprovalGate)'s pre-declared-
 /// action shortcut (`gate.rs::intercept_audited`, `Workflow { require_approval:
 /// false }` → `Allow` without prompt) does NOT apply to tool calls the nested
 /// harness picks at runtime.

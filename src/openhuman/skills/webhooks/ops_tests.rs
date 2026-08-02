@@ -1,5 +1,7 @@
 use super::*;
-use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::openhuman::security::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use axum::{
     extract::Path,
     http::HeaderMap,

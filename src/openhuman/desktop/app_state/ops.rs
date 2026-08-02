@@ -20,13 +20,15 @@ use crate::api::jwt::bearer_authorization_value;
 use crate::api::rest::user_id_from_profile_payload;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::session_support::{
+use crate::openhuman::inference::LocalAiStatus;
+use crate::openhuman::platform::service::{ServiceState, ServiceStatus};
+use crate::openhuman::security::credentials::session_support::{
     is_local_session_token, load_app_session_profile, session_state_from_profile,
     session_token_from_profile,
 };
-use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
-use crate::openhuman::inference::LocalAiStatus;
-use crate::openhuman::platform::service::{ServiceState, ServiceStatus};
+use crate::openhuman::security::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use crate::rpc::RpcOutcome;
 
 const LOG_PREFIX: &str = "[app_state]";
@@ -140,13 +142,13 @@ pub struct StoredAppState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub onboarding_tasks: Option<StoredOnboardingTasks>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub keyring_consent: Option<crate::openhuman::keyring_consent::ConsentPreference>,
+    pub keyring_consent: Option<crate::openhuman::security::keyring_consent::ConsentPreference>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppStateSnapshot {
-    pub auth: crate::openhuman::credentials::responses::AuthStateResponse,
+    pub auth: crate::openhuman::security::credentials::responses::AuthStateResponse,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -164,7 +166,7 @@ pub struct AppStateSnapshot {
     /// issue #1299.
     pub meet_auto_orchestrator_handoff: bool,
     pub local_state: StoredAppState,
-    pub keyring_status: crate::openhuman::keyring_consent::KeyringStatus,
+    pub keyring_status: crate::openhuman::security::keyring_consent::KeyringStatus,
     pub runtime: RuntimeSnapshot,
     /// Process + component health, folded into this snapshot so the frontend
     /// hydrates the daemon-health store from the same poll instead of running a
@@ -188,7 +190,8 @@ pub struct StoredAppStatePatch {
     #[serde(default)]
     pub onboarding_tasks: Option<Option<StoredOnboardingTasks>>,
     #[serde(default)]
-    pub keyring_consent: Option<Option<crate::openhuman::keyring_consent::ConsentPreference>>,
+    pub keyring_consent:
+        Option<Option<crate::openhuman::security::keyring_consent::ConsentPreference>>,
 }
 
 fn app_state_path(config: &Config) -> Result<PathBuf, String> {
@@ -539,15 +542,15 @@ async fn finish_revalidated_user_activation(
         warn!("{LOG_PREFIX} subconscious bootstrap failed after pending session revalidation: {error}");
     }
     if let Some(source_config) = service_rebind_source {
-        crate::openhuman::credentials::stop_login_gated_services(source_config).await;
-        crate::openhuman::credentials::start_login_gated_services(target_config).await;
+        crate::openhuman::security::credentials::stop_login_gated_services(source_config).await;
+        crate::openhuman::security::credentials::start_login_gated_services(target_config).await;
     } else {
         debug!(
             "{LOG_PREFIX} pending session revalidation left login-gated services running without restart"
         );
     }
     crate::openhuman::cron::scheduler_gate::set_signed_out(false);
-    crate::openhuman::credentials::sentry_scope::bind(user_id);
+    crate::openhuman::security::credentials::sentry_scope::bind(user_id);
 }
 
 async fn remove_revalidated_source_profile(config: &Config) -> Result<(), String> {
@@ -677,9 +680,9 @@ async fn clear_deferred_session_after_backend_rejection(
         }
         Err(_) => {}
     }
-    crate::openhuman::credentials::stop_login_gated_services(config).await;
+    crate::openhuman::security::credentials::stop_login_gated_services(config).await;
     crate::openhuman::subconscious::registry::reset_engine_for_user_switch().await;
-    crate::openhuman::credentials::sentry_scope::clear();
+    crate::openhuman::security::credentials::sentry_scope::clear();
 
     clear_result
 }
@@ -1145,7 +1148,9 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
 
     let t_local_state = Instant::now();
     let local_state = load_stored_app_state(&snapshot_config)?;
-    crate::openhuman::keyring_consent::policy::initialize(local_state.keyring_consent.clone());
+    crate::openhuman::security::keyring_consent::policy::initialize(
+        local_state.keyring_consent.clone(),
+    );
     let local_state_ms = t_local_state.elapsed().as_millis();
 
     let total_ms = t_total.elapsed().as_millis();
@@ -1166,7 +1171,7 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
         runtime.service.state
     );
 
-    let keyring_status = crate::openhuman::keyring_consent::policy::current_status();
+    let keyring_status = crate::openhuman::security::keyring_consent::policy::current_status();
     let health = crate::openhuman::platform::health::snapshot();
 
     Ok(RpcOutcome::new(

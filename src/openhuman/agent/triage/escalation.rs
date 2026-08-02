@@ -142,9 +142,9 @@ pub async fn apply_decision(run: TriageRun, envelope: &TriggerEnvelope) -> anyho
             // allowlist after the first approval).
             let mut approval_request_id: Option<String> = None;
             let mut approval_gate_for_audit: Option<
-                std::sync::Arc<crate::openhuman::approval::ApprovalGate>,
+                std::sync::Arc<crate::openhuman::security::approval::ApprovalGate>,
             > = None;
-            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+            if let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() {
                 let summary = format!(
                     "triage::{} target={} prompt_chars={}",
                     action_str,
@@ -162,13 +162,13 @@ pub async fn apply_decision(run: TriageRun, envelope: &TriggerEnvelope) -> anyho
                 let (outcome, request_id) =
                     gate.intercept_audited(&tool_key, &summary, redacted).await;
                 match outcome {
-                    crate::openhuman::approval::GateOutcome::Allow => {
+                    crate::openhuman::security::approval::GateOutcome::Allow => {
                         approval_request_id = request_id;
                         if approval_request_id.is_some() {
                             approval_gate_for_audit = Some(gate);
                         }
                     }
-                    crate::openhuman::approval::GateOutcome::Deny { reason } => {
+                    crate::openhuman::security::approval::GateOutcome::Deny { reason } => {
                         tracing::warn!(
                             action = %action_str,
                             target_agent = %target,
@@ -194,9 +194,12 @@ pub async fn apply_decision(run: TriageRun, envelope: &TriggerEnvelope) -> anyho
                 approval_request_id.as_ref(),
             ) {
                 let (exec_outcome, err_text) = match &dispatch_result {
-                    Ok(_) => (crate::openhuman::approval::ExecutionOutcome::Success, None),
+                    Ok(_) => (
+                        crate::openhuman::security::approval::ExecutionOutcome::Success,
+                        None,
+                    ),
                     Err(e) => (
-                        crate::openhuman::approval::ExecutionOutcome::Failure,
+                        crate::openhuman::security::approval::ExecutionOutcome::Failure,
                         Some(e.to_string()),
                     ),
                 };

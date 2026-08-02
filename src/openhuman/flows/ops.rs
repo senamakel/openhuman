@@ -13,10 +13,6 @@ use tinyflows::model::{NodeKind, TriggerKind, WorkflowGraph};
 use tokio_util::sync::CancellationToken;
 
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
-use crate::openhuman::approval::{
-    ApprovalChatContext, FlowRunContext, APPROVAL_CHAT_CONTEXT, APPROVAL_COPILOT_STREAM_CONTEXT,
-    APPROVAL_FLOW_RUN_CONTEXT,
-};
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::build_registry;
 use crate::openhuman::flows::bus;
@@ -28,6 +24,10 @@ use crate::openhuman::flows::types::{
 };
 use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
 use crate::openhuman::memory_store::MemoryClientRef;
+use crate::openhuman::security::approval::{
+    ApprovalChatContext, FlowRunContext, APPROVAL_CHAT_CONTEXT, APPROVAL_COPILOT_STREAM_CONTEXT,
+    APPROVAL_FLOW_RUN_CONTEXT,
+};
 use crate::rpc::RpcOutcome;
 
 /// Overall safety bound on a single `flows_run` / `flows_resume`. Individual
@@ -38,7 +38,7 @@ const FLOW_RUN_TIMEOUT_SECS: u64 = 600;
 /// How long a run may sit parked at a human-in-the-loop approval gate
 /// (`pending_approval`) before the TTL sweep expires it to a terminal
 /// `"cancelled"` (issue G4). Aligned with the agent tool-call `ApprovalGate`'s
-/// 10-minute fail-closed TTL (`src/openhuman/approval/`), so a flow HITL gate a
+/// 10-minute fail-closed TTL (`src/openhuman/security/approval/`), so a flow HITL gate a
 /// human never answers doesn't wedge a run — and its durable checkpoint —
 /// forever. The two are distinct mechanisms (flow runs execute as
 /// `TrustedAutomation { Workflow }`, which the tool-call gate lets through), so
@@ -3591,7 +3591,9 @@ pub async fn flows_list_connections(
     //    out secret material here; injection happens server-side in
     //    `tinyflows::caps::OpenHumanHttp`).
     let http_creds =
-        match crate::openhuman::credentials::HttpCredentialsStore::from_config(config).list() {
+        match crate::openhuman::security::credentials::HttpCredentialsStore::from_config(config)
+            .list()
+        {
             Ok(list) => {
                 tracing::debug!(
                     count = list.len(),
@@ -3650,7 +3652,7 @@ pub async fn flows_list_connections(
 /// guessing a public channel.
 fn build_flow_connections(
     composio: Vec<crate::openhuman::integrations::composio::ComposioConnection>,
-    http: Vec<crate::openhuman::credentials::HttpCredentialSummary>,
+    http: Vec<crate::openhuman::security::credentials::HttpCredentialSummary>,
     identities: &[crate::openhuman::integrations::composio::providers::profile::ConnectedIdentity],
 ) -> Vec<FlowConnection> {
     use crate::openhuman::integrations::composio::providers::profile::normalize_connection_identifier;
@@ -3742,7 +3744,9 @@ fn composio_connection_display(
 
 /// Human-readable picker label for a named HTTP credential, e.g.
 /// `"stripe (bearer)"`. Only the (non-secret) name + scheme — never the value.
-fn http_credential_display(cred: &crate::openhuman::credentials::HttpCredentialSummary) -> String {
+fn http_credential_display(
+    cred: &crate::openhuman::security::credentials::HttpCredentialSummary,
+) -> String {
     format!("{} ({})", cred.name, cred.scheme)
 }
 
@@ -4128,7 +4132,7 @@ async fn flows_delete_impl(
     // a deleted flow must not leave dangling `flow_tool_trust` grants that a
     // future flow reusing the same id (or a stale run) could inherit. Never
     // fails the delete: the flow row is already gone regardless.
-    if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+    if let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() {
         match gate.delete_flow_trust(id, None) {
             Ok(removed) if removed > 0 => {
                 tracing::info!(target: "flows", flow_id = %id, removed, "[flows] flows_delete: purged flow tool trust grants");
@@ -6599,7 +6603,7 @@ const FLOW_BUILD_TIMEOUT_SECS: u64 = 600;
 ///
 /// `flows_build` runs the builder under [`AgentTurnOrigin::Cli`] so the approval
 /// gate does not fail-closed in a headless/streamed run — but that same origin
-/// makes [`crate::openhuman::approval::ApprovalGate`] **auto-allow** every
+/// makes [`crate::openhuman::security::approval::ApprovalGate`] **auto-allow** every
 /// `external_effect` tool. The flows live-runner (`run_flow`,
 /// [`crate::openhuman::flows::tools`]'s `RunFlowTool`) executes a *live* saved
 /// flow (real Slack/Gmail/HTTP/code effects via [`flows_run`]), so a stray call
@@ -6673,7 +6677,7 @@ fn restrict_builder_toolset(agent: &mut crate::openhuman::agent::Agent) {
 /// [`AgentTurnOrigin::WebChat`] with [`APPROVAL_CHAT_CONTEXT`] scoped
 /// alongside it — the exact same double-scope the main web-chat delegate uses
 /// (`web_chat::ops::run_turn_under_cancel_and_deadline`). Under that origin
-/// the [`crate::openhuman::approval::ApprovalGate`] no longer auto-allows
+/// the [`crate::openhuman::security::approval::ApprovalGate`] no longer auto-allows
 /// `external_effect` tools; it PARKS them for a real human decision, routed
 /// back to this thread via the existing `approval_request` socket event and
 /// rendered with the existing `ApprovalRequestCard` in the copilot panel. So
@@ -6803,7 +6807,8 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
     // absent, so the WebChat origin below would NOT park and the unhidden
     // live-run tools would execute unapproved. Fall back to the full hide-list
     // whenever the gate is not installed, regardless of `stream`. (codex #5090)
-    let approval_gate_active = crate::openhuman::approval::ApprovalGate::try_global().is_some();
+    let approval_gate_active =
+        crate::openhuman::security::approval::ApprovalGate::try_global().is_some();
     if stream.is_some() && approval_gate_active {
         restrict_builder_toolset_for_copilot(&mut agent);
     } else {
@@ -7816,7 +7821,7 @@ pub async fn flows_approval_manifest(
 
     let entries = compute_approval_manifest(config, &graph).await;
 
-    let gate = crate::openhuman::approval::ApprovalGate::try_global();
+    let gate = crate::openhuman::security::approval::ApprovalGate::try_global();
     let gate_installed = gate.is_some();
     let trusted: HashSet<String> = match (&gate, &flow_id) {
         (Some(gate), Some(flow_id)) => gate

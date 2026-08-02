@@ -831,7 +831,7 @@ impl Tool for ComposioConnectTool {
         // background / cron turns there is no UI to click Connect, so fail
         // closed with a clear message rather than parking forever — mirrors
         // the `install_tool` guard (#3993).
-        if crate::openhuman::approval::APPROVAL_CHAT_CONTEXT
+        if crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT
             .try_with(|_| ())
             .is_err()
         {
@@ -911,7 +911,7 @@ impl Tool for ComposioConnectTool {
         // Raise the inline connect card via the approval gate. The frontend
         // resolves it with `approve_once` once it polls the connection ACTIVE;
         // an explicit decline or the 10-minute TTL resolves it as denied.
-        let gate = match crate::openhuman::approval::ApprovalGate::try_global() {
+        let gate = match crate::openhuman::security::approval::ApprovalGate::try_global() {
             Some(g) => g,
             None => {
                 return Ok(ToolResult::error(
@@ -965,7 +965,7 @@ impl Tool for ComposioConnectTool {
             }
         };
         match outcome {
-            crate::openhuman::approval::GateOutcome::Allow => {
+            crate::openhuman::security::approval::GateOutcome::Allow => {
                 // `Allow` only means the prompt was approved — re-check liveness
                 // with a fresh read, because non-card approval surfaces (typed
                 // "yes", Telegram, auto-approve) resolve Allow without running
@@ -1002,7 +1002,7 @@ impl Tool for ComposioConnectTool {
                     }
                 }
             }
-            crate::openhuman::approval::GateOutcome::Deny { reason } => {
+            crate::openhuman::security::approval::GateOutcome::Deny { reason } => {
                 tracing::info!(toolkit = %toolkit, reason = %reason, "[composio] connect.execute: declined");
                 Ok(ToolResult::success(serde_json::to_string(&json!({
                     "toolkit": toolkit,

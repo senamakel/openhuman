@@ -25,7 +25,7 @@ use openhuman_core::openhuman::channels::providers::yuanbao::{
 use openhuman_core::openhuman::channels::test_support::resolve_yuanbao_app_secret_for_test;
 use openhuman_core::openhuman::channels::{Channel, SendMessage};
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::credentials::AuthService;
+use openhuman_core::openhuman::security::credentials::AuthService;
 use serde_json::{json, Value};
 use tempfile::tempdir;
 use tokio::time::{timeout, Duration};

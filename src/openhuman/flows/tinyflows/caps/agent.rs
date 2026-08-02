@@ -586,7 +586,7 @@ impl OpenHumanAgentRunner {
         // inherit a `Workflow { require_approval: false }` origin,
         // `ApprovalGate::intercept_audited` treats it as a trust root and
         // auto-`Allow`s external_effect tools (see
-        // `src/openhuman/approval/gate.rs` `Workflow { require_approval: false }`
+        // `src/openhuman/security/approval/gate.rs` `Workflow { require_approval: false }`
         // branch), which would let a scheduled / app-event flow reach out to
         // Slack / email / desktop control with no HITL. We force
         // `require_approval: true` around `run_single` so external_effect tools

@@ -6,7 +6,7 @@
 use super::super::{DataKind, EgressDescriptor, EgressReason, IdentificationRisk};
 use super::*;
 use crate::core::event_bus::{init_global, publish_global, DomainEvent, DEFAULT_CAPACITY};
-use crate::openhuman::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
+use crate::openhuman::security::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
 
 /// Drain `rx` until an `ExternalTransferPending` whose descriptor `service`
 /// matches `marker` arrives, returning it. Tolerates unrelated events and

@@ -88,7 +88,10 @@ pub async fn run(
         return Err("input is required".to_string());
     }
 
-    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
+    let token =
+        crate::openhuman::security::credentials::session_support::require_live_session_token(
+            config,
+        )?;
     let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendOAuthClient::new(&api_url).map_err(|err| err.to_string())?;
     ensure_paid_plan(&client, &token).await?;

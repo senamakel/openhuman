@@ -8,8 +8,8 @@ use crate::openhuman::config::schema::cloud_providers::{
     generate_provider_id, AuthStyle, CloudProviderCreds,
 };
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::AuthService;
 use crate::openhuman::inference::provider::factory::auth_key_for_slug;
+use crate::openhuman::security::credentials::AuthService;
 
 /// Slug used to identify the GMI MaaS provider in `Config::cloud_providers`
 /// and in auth-profiles (keyed by `provider:<slug>`).

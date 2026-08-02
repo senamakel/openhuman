@@ -6,7 +6,7 @@ use crate::rpc::RpcOutcome;
 // Imports used only by the `documents`-gated presentation regeneration helper
 // below; when the feature is off the PresentationTool is compiled out.
 #[cfg(feature = "documents")]
-use crate::openhuman::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
+use crate::openhuman::security::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
 #[cfg(feature = "documents")]
 use crate::openhuman::security::SecurityPolicy;
 #[cfg(feature = "documents")]

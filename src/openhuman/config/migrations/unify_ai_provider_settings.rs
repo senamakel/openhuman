@@ -33,7 +33,7 @@
 //! - Idempotent: gated on `*.is_none()` per field. A re-run after a previous
 //!   successful run is a no-op.
 //! - Never touches keys / secrets. API keys remain in
-//!   `auth-profiles.json` via [`crate::openhuman::credentials::AuthService`].
+//!   `auth-profiles.json` via [`crate::openhuman::security::credentials::AuthService`].
 //! - Always seeds an `Openhuman` entry into `cloud_providers` (idempotent —
 //!   only when the list is empty).
 //! - Migrates `inference_url` into a `Custom` cloud provider entry when the

@@ -22,7 +22,7 @@ use crate::rpc::RpcOutcome;
 /// which rejects an expired token locally (publishing `SessionExpired`) instead
 /// of firing a doomed backend 401 — see #3297 / `session_support`.
 fn require_token(config: &Config) -> Result<String, String> {
-    crate::openhuman::credentials::session_support::require_live_session_token(config)
+    crate::openhuman::security::credentials::session_support::require_live_session_token(config)
 }
 
 async fn get_authed_value(

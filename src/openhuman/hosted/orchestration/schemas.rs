@@ -837,7 +837,7 @@ fn handle_attention(_params: Map<String, Value>) -> ControllerFuture {
         //    installed — never an error path). Mapping is the unit-tested pure
         //    `attention::approval_signals`.
         let approvals = attention::approval_signals(
-            crate::openhuman::approval::rpc::approval_list_pending()
+            crate::openhuman::security::approval::rpc::approval_list_pending()
                 .await
                 .map_err(|e| format!("attention.approvals: {e}"))?
                 .value,

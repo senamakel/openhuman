@@ -15,7 +15,7 @@ struct UpdateLocalStateParams {
     #[serde(default, deserialize_with = "deserialize_nullable_patch")]
     onboarding_tasks: Option<Option<super::ops::StoredOnboardingTasks>>,
     #[serde(default, deserialize_with = "deserialize_nullable_patch")]
-    keyring_consent: Option<Option<crate::openhuman::keyring_consent::ConsentPreference>>,
+    keyring_consent: Option<Option<crate::openhuman::security::keyring_consent::ConsentPreference>>,
 }
 
 pub fn all_app_state_controller_schemas() -> Vec<ControllerSchema> {

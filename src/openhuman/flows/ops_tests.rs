@@ -3716,8 +3716,10 @@ async fn flows_set_enabled_schedule_flow_has_no_warning() {
 
 // ── flows_list_connections (picker source) ──────────────────────────────
 
-use crate::openhuman::credentials::{HttpCredential, HttpCredentialSummary, HttpCredentialsStore};
 use crate::openhuman::integrations::composio::ComposioConnection;
+use crate::openhuman::security::credentials::{
+    HttpCredential, HttpCredentialSummary, HttpCredentialsStore,
+};
 
 fn composio_conn(id: &str, toolkit: &str, status: &str, email: Option<&str>) -> ComposioConnection {
     ComposioConnection {
@@ -4206,7 +4208,7 @@ async fn agent_ref_unknown_is_rejected() {
 // configured for slug" branch), before any HTTP client is built.
 
 fn seed_app_session_for_gate_test(tmp: &TempDir) {
-    use crate::openhuman::credentials::{
+    use crate::openhuman::security::credentials::{
         AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };
     // `verify_session_active` reads from `config.config_path.parent()`, which

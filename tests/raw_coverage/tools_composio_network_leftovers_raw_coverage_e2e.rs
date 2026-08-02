@@ -16,7 +16,7 @@ use tempfile::{Builder, TempDir};
 
 use openhuman_core::openhuman::integrations::composio::ops::{composio_authorize, composio_list_tools};
 use openhuman_core::openhuman::config::{Config, PolymarketClobCredentials};
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::security::SecurityPolicy;

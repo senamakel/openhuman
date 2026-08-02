@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
-use crate::openhuman::approval::APPROVAL_CHAT_CONTEXT;
+use crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 use super::gate;

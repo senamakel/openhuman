@@ -86,15 +86,15 @@ None. The module publishes/subscribes no `DomainEvent`s and has no `bus.rs`. Cha
 ## Persistence
 
 - **`{workspace_dir}/state/wallet-state.json`** — `StoredWalletState`: consent flag, source, mnemonic word count, accounts, `updated_at_ms`, and (only as fallback) the encrypted mnemonic. Written atomically (temp file + `sync_all` + dir fsync + `persist`), guarded by a process-wide `WALLET_STATE_FILE_LOCK`. Corrupt/unreadable/invalid files are quarantined to `…json.corrupted.<ts>`.
-- **OS keychain** — preferred home for the encrypted mnemonic under key `wallet.mnemonic`, scoped by a workspace-derived user id (`crate::openhuman::keyring`). When available, the secret is stripped from JSON; load promotes any JSON-resident secret into the keychain.
+- **OS keychain** — preferred home for the encrypted mnemonic under key `wallet.mnemonic`, scoped by a workspace-derived user id (`crate::openhuman::security::keyring`). When available, the secret is stripped from JSON; load promotes any JSON-resident secret into the keychain.
 - **In-memory quote store** (`execution.rs`) — `PreparedTransaction`s, 5-minute TTL, cap 64, pruned on access. Not persisted across restarts.
 
 ## Dependencies
 
 - `crate::openhuman::config` (`Config`, `config::rpc::load_config_with_timeout`) — resolves workspace dir and config for state paths, keychain user id, and decryption.
-- `crate::openhuman::keyring` (`is_available`/`get`/`set`) — OS keychain storage for the encrypted mnemonic.
-- `crate::openhuman::encryption::rpc` (`encrypt_secret`/`decrypt_secret`) — chain signers decrypt the recovery phrase before derivation.
-- `crate::openhuman::approval::APPROVAL_CHAT_CONTEXT` — task-local chat owner (`thread_id`/`client_id`) used to bind quotes to their originating thread.
+- `crate::openhuman::security::keyring` (`is_available`/`get`/`set`) — OS keychain storage for the encrypted mnemonic.
+- `crate::openhuman::security::encryption::rpc` (`encrypt_secret`/`decrypt_secret`) — chain signers decrypt the recovery phrase before derivation.
+- `crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT` — task-local chat owner (`thread_id`/`client_id`) used to bind quotes to their originating thread.
 - `crate::openhuman::tools::traits` — `Tool`/`ToolResult`/`ToolCallOptions` for the agent tools.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core` (`ControllerSchema`, `FieldSchema`, `TypeSchema`) — RPC controller registry wiring.
 - `crate::rpc::RpcOutcome` — standard RPC return shape.

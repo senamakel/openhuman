@@ -410,8 +410,8 @@ fn owner_b() -> QuoteOwner {
     }
 }
 
-fn chat_ctx_from(owner: &QuoteOwner) -> crate::openhuman::approval::ApprovalChatContext {
-    crate::openhuman::approval::ApprovalChatContext {
+fn chat_ctx_from(owner: &QuoteOwner) -> crate::openhuman::security::approval::ApprovalChatContext {
+    crate::openhuman::security::approval::ApprovalChatContext {
         thread_id: owner.thread_id.clone(),
         client_id: owner.client_id.clone(),
     }
@@ -421,7 +421,7 @@ fn chat_ctx_from(owner: &QuoteOwner) -> crate::openhuman::approval::ApprovalChat
 /// (mismatched caller cannot poison it by consuming on Alice's behalf).
 #[tokio::test]
 async fn execute_prepared_rejects_cross_owner_execution() {
-    use crate::openhuman::approval::APPROVAL_CHAT_CONTEXT;
+    use crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT;
     let _guard = TEST_LOCK.lock();
     reset_quote_store_for_tests();
     let q = insert_owned_quote("q_xowner_1", Some(owner_a()));
@@ -454,7 +454,7 @@ async fn execute_prepared_rejects_cross_owner_execution() {
 /// must not be the "not found" oracle — that proves we got past the gate).
 #[tokio::test]
 async fn execute_prepared_allows_same_owner_execution() {
-    use crate::openhuman::approval::APPROVAL_CHAT_CONTEXT;
+    use crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT;
     let _guard = TEST_LOCK.lock();
     reset_quote_store_for_tests();
     let q = insert_owned_quote("q_same_owner_1", Some(owner_a()));
@@ -528,7 +528,7 @@ async fn execute_prepared_rejects_chat_quote_from_no_context_caller() {
 /// the enumeration-oracle gap.
 #[tokio::test]
 async fn execute_prepared_owner_mismatch_error_matches_not_found_shape() {
-    use crate::openhuman::approval::APPROVAL_CHAT_CONTEXT;
+    use crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT;
     let _guard = TEST_LOCK.lock();
     reset_quote_store_for_tests();
 
@@ -568,7 +568,7 @@ async fn execute_prepared_owner_mismatch_error_matches_not_found_shape() {
 /// actually stamps `owner` via the task-local — not just via test helpers.
 #[tokio::test]
 async fn prepare_stamps_owner_via_task_local() {
-    use crate::openhuman::approval::APPROVAL_CHAT_CONTEXT;
+    use crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT;
     let _guard = TEST_LOCK.lock();
     reset_quote_store_for_tests();
     let temp = TempDir::new().unwrap();

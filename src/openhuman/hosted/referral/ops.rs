@@ -73,7 +73,7 @@ pub async fn claim_referral(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::credentials::{
+    use crate::openhuman::security::credentials::{
         AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };
     use axum::{

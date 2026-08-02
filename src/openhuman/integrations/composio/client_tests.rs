@@ -16,10 +16,10 @@ fn build_composio_client_some_with_auth_token() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = Config::default();
     config.config_path = tmp.path().join("config.toml");
-    crate::openhuman::credentials::AuthService::from_config(&config)
+    crate::openhuman::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::openhuman::credentials::APP_SESSION_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,
@@ -986,10 +986,10 @@ async fn execute_tool_sends_tool_slug_in_request_body() {
 fn config_with_session_token(tmp: &tempfile::TempDir) -> crate::openhuman::config::Config {
     let mut config = crate::openhuman::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
-    crate::openhuman::credentials::AuthService::from_config(&config)
+    crate::openhuman::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::openhuman::credentials::APP_SESSION_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,
@@ -1041,10 +1041,10 @@ fn create_composio_client_direct_variant_with_stored_key() {
     config.config_path = tmp.path().join("config.toml");
     config.composio.mode = "direct".into();
     // Persist the key the way the RPC layer would.
-    crate::openhuman::credentials::AuthService::from_config(&config)
+    crate::openhuman::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::openhuman::credentials::COMPOSIO_DIRECT_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::COMPOSIO_DIRECT_PROVIDER,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_test_key_redacted",
             std::collections::HashMap::new(),
             true,
@@ -1105,7 +1105,7 @@ fn create_composio_client_unknown_mode_errors() {
 
 #[test]
 fn store_get_clear_composio_api_key_roundtrip() {
-    use crate::openhuman::credentials::{get_composio_api_key, COMPOSIO_DIRECT_PROVIDER};
+    use crate::openhuman::security::credentials::{get_composio_api_key, COMPOSIO_DIRECT_PROVIDER};
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::openhuman::config::Config::default();
@@ -1118,10 +1118,10 @@ fn store_get_clear_composio_api_key_roundtrip() {
     );
 
     // Store under the direct-mode provider slot.
-    crate::openhuman::credentials::AuthService::from_config(&config)
+    crate::openhuman::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
             COMPOSIO_DIRECT_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "ck_secret_value_redacted",
             std::collections::HashMap::new(),
             true,
@@ -1134,10 +1134,10 @@ fn store_get_clear_composio_api_key_roundtrip() {
     );
 
     // Clearing the profile must remove it again.
-    crate::openhuman::credentials::AuthService::from_config(&config)
+    crate::openhuman::security::credentials::AuthService::from_config(&config)
         .remove_profile(
             COMPOSIO_DIRECT_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
         )
         .expect("remove");
     assert_eq!(

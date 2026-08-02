@@ -20,7 +20,7 @@
 
 use crate::api::config::effective_backend_api_url;
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::session_support::get_session_token;
+use crate::openhuman::security::credentials::session_support::get_session_token;
 
 use super::client::MedullaClient;
 

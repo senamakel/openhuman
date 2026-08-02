@@ -25,10 +25,10 @@ use crate::openhuman::config::Config;
 #[cfg(test)]
 use crate::openhuman::config::HttpRequestConfig;
 #[cfg(test)]
-use crate::openhuman::credentials::HttpCredential;
-use crate::openhuman::credentials::HttpCredentialsStore;
-#[cfg(test)]
 use crate::openhuman::flows;
+#[cfg(test)]
+use crate::openhuman::security::credentials::HttpCredential;
+use crate::openhuman::security::credentials::HttpCredentialsStore;
 use crate::openhuman::security::{CommandClass, SecurityPolicy};
 #[cfg(test)]
 use crate::openhuman::security::{GateDecision, POLICY_BLOCKED_MARKER};
@@ -1520,7 +1520,7 @@ mod tests {
 
         let mut request = json!({ "method": "GET", "url": "https://api.example.com" });
         // Pre-injection redaction — what the approval UI / audit trail sees.
-        let redacted = crate::openhuman::approval::redact_args(&request);
+        let redacted = crate::openhuman::security::approval::redact_args(&request);
         assert!(!serde_json::to_string(&redacted).unwrap().contains(secret));
 
         inject_http_credential(&mut request, &cred).unwrap();

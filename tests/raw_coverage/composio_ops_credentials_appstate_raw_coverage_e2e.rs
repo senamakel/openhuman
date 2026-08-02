@@ -30,8 +30,8 @@ use openhuman_core::openhuman::integrations::composio::{
     all_composio_agent_tools, invalidate_connected_integrations_cache,
 };
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::tools::{

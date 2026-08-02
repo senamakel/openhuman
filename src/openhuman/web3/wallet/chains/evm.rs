@@ -50,10 +50,12 @@ async fn sign_and_broadcast(
     let rpc_url = rpc_url_for_evm_network(network);
     let secret = secret_material(WalletChain::Evm).await?;
     let config = config_rpc::load_config_with_timeout().await?;
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await?
+    .value;
     let signer = MnemonicBuilder::<English>::default()
         .phrase(mnemonic.as_str())
         .derivation_path(&secret.derivation_path)

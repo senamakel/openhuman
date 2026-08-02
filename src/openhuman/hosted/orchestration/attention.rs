@@ -287,7 +287,7 @@ pub(crate) fn assemble_attention(
 /// Map pending approvals into neutral signals, stamping the creation time as
 /// RFC3339 for the newest-first sort.
 pub(crate) fn approval_signals(
-    pending: Vec<crate::openhuman::approval::types::PendingApproval>,
+    pending: Vec<crate::openhuman::security::approval::types::PendingApproval>,
 ) -> Vec<ApprovalSignal> {
     pending
         .into_iter()
@@ -666,7 +666,7 @@ mod tests {
 
     #[test]
     fn approval_signals_map_fields_and_stamp_created_at() {
-        use crate::openhuman::approval::types::PendingApproval;
+        use crate::openhuman::security::approval::types::PendingApproval;
         let p = PendingApproval::new("r1", "shell", "run ls", serde_json::json!({}), None);
         let sigs = approval_signals(vec![p]);
         assert_eq!(sigs.len(), 1);

@@ -1308,7 +1308,7 @@ async fn subagent_clarification_flow_inner() {
 
 fn ensure_approval_gate() {
     use openhuman_core::core::event_bus;
-    use openhuman_core::openhuman::approval::ApprovalGate;
+    use openhuman_core::openhuman::security::approval::ApprovalGate;
 
     // The global event bus must be initialized before registering subscribers.
     // `build_core_http_router` does NOT call `bootstrap_core_runtime`, so the bus
@@ -1394,7 +1394,7 @@ fn approval_gate_installed_after_ensure() {
 
 async fn approval_gate_installed_after_ensure_inner() {
     let _lock = env_lock();
-    use openhuman_core::openhuman::approval::ApprovalGate;
+    use openhuman_core::openhuman::security::approval::ApprovalGate;
     ensure_approval_gate();
     assert!(
         ApprovalGate::try_global().is_some(),

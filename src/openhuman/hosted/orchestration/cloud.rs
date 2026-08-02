@@ -41,7 +41,10 @@ pub async fn push_event(
     config: &Config,
     envelope: &OrchestrationEventEnvelopeWire,
 ) -> Result<Option<String>, String> {
-    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
+    let token =
+        crate::openhuman::security::credentials::session_support::require_live_session_token(
+            config,
+        )?;
     let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
     push_event_with(&client, &token, envelope, &DEFAULT_BACKOFFS).await
@@ -54,7 +57,10 @@ pub async fn push_world_diff(config: &Config, batch: &WorldDiffBatchWire) -> Res
     if batch.entries.is_empty() {
         return Ok(());
     }
-    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
+    let token =
+        crate::openhuman::security::credentials::session_support::require_live_session_token(
+            config,
+        )?;
     let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
     post_with_retry(
@@ -186,7 +192,10 @@ pub struct ReadPass {
 /// Resolve the token + client for one sync read pass. `Err` (no live session) → the
 /// caller degrades the whole pass to the local render cache.
 pub fn read_pass(config: &Config) -> Result<ReadPass, String> {
-    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
+    let token =
+        crate::openhuman::security::credentials::session_support::require_live_session_token(
+            config,
+        )?;
     let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
     Ok(ReadPass { client, token })

@@ -22,7 +22,6 @@ pub use crate::openhuman::artifacts::tools::*;
 pub use crate::openhuman::channels::whatsapp_data::tools::*;
 pub use crate::openhuman::config::tools::*;
 pub use crate::openhuman::config::workspace::tools::*;
-pub use crate::openhuman::credentials::tools::*;
 pub use crate::openhuman::cron::tools::*;
 pub use crate::openhuman::desktop::dashboard::tools::*;
 #[cfg(feature = "flows")]
@@ -55,6 +54,7 @@ pub use crate::openhuman::platform::doctor::tools::*;
 pub use crate::openhuman::platform::health::tools::*;
 pub use crate::openhuman::platform::service::tools::*;
 pub use crate::openhuman::search::tools::*;
+pub use crate::openhuman::security::credentials::tools::*;
 pub use crate::openhuman::security::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::openhuman::skills::catalog::tools::*;

@@ -25,7 +25,6 @@
 
 use crate::openhuman::config::schema::cloud_providers::AuthStyle;
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::AuthService;
 use crate::openhuman::inference::provider::auth::AuthStyle as CompatAuthStyle;
 use crate::openhuman::inference::provider::claude_agent_sdk::subprocess::ClaudeAgentSdkProvider;
 use crate::openhuman::inference::provider::openai_codex::{
@@ -34,6 +33,7 @@ use crate::openhuman::inference::provider::openai_codex::{
 };
 use crate::openhuman::inference::provider::openhuman_backend_model::OpenHumanBackendModel;
 use crate::openhuman::inference::provider::ProviderRuntimeOptions;
+use crate::openhuman::security::credentials::AuthService;
 use std::sync::Arc;
 use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
 
@@ -1905,7 +1905,10 @@ pub(crate) fn verify_session_active(config: &Config) -> anyhow::Result<()> {
         });
     let auth = AuthService::new(&state_dir, config.secrets.encrypt);
     let has_session = auth
-        .get_provider_bearer_token(crate::openhuman::credentials::APP_SESSION_PROVIDER, None)?
+        .get_provider_bearer_token(
+            crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+            None,
+        )?
         .filter(|s| !s.trim().is_empty())
         .is_some();
     if !has_session {

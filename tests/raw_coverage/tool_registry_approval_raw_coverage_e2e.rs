@@ -18,11 +18,11 @@ use tempfile::{tempdir, TempDir};
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
-use openhuman_core::openhuman::approval::gate::{
+use openhuman_core::openhuman::security::approval::gate::{
     parse_approval_reply, ApprovalChatContext, ApprovalGate, APPROVAL_CHAT_CONTEXT,
 };
-use openhuman_core::openhuman::approval::store as approval_store;
-use openhuman_core::openhuman::approval::{
+use openhuman_core::openhuman::security::approval::store as approval_store;
+use openhuman_core::openhuman::security::approval::{
     all_approval_controller_schemas, all_approval_registered_controllers, redact_args,
     summarize_action, ApprovalDecision, ExecutionOutcome, GateOutcome, PendingApproval,
 };
@@ -1066,7 +1066,7 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
             "preauthorize_flow"
         ]
     );
-    let unknown = openhuman_core::openhuman::approval::schemas::schemas("missing");
+    let unknown = openhuman_core::openhuman::security::approval::schemas::schemas("missing");
     assert_eq!(unknown.namespace, "approval");
     assert_eq!(unknown.function, "unknown");
     assert_eq!(unknown.outputs[0].name, "error");
@@ -1304,7 +1304,7 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
     let (outcome, approved_id) = approval_task.await.expect("approval task");
     assert!(matches!(
         outcome,
-        openhuman_core::openhuman::approval::GateOutcome::Allow
+        openhuman_core::openhuman::security::approval::GateOutcome::Allow
     ));
     assert_eq!(approved_id.as_deref(), Some(request_id.as_str()));
     gate.record_execution(
@@ -1369,7 +1369,7 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
         )
         .await;
     match &no_chat.0 {
-        openhuman_core::openhuman::approval::GateOutcome::Deny { reason } => {
+        openhuman_core::openhuman::security::approval::GateOutcome::Deny { reason } => {
             assert!(
                 reason.contains("no origin label"),
                 "unlabelled call should be denied for missing origin: {reason}"
@@ -1420,7 +1420,7 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
     .await;
     assert!(matches!(
         auto_approved.0,
-        openhuman_core::openhuman::approval::GateOutcome::Allow
+        openhuman_core::openhuman::security::approval::GateOutcome::Allow
     ));
     assert_eq!(
         auto_approved.1, None,
@@ -1525,7 +1525,7 @@ async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
     );
     let (deny_outcome, deny_approved_id) = deny_task.await.expect("deny task");
     match deny_outcome {
-        openhuman_core::openhuman::approval::GateOutcome::Deny { reason } => {
+        openhuman_core::openhuman::security::approval::GateOutcome::Deny { reason } => {
             assert!(reason.contains("User denied"));
         }
         other => panic!("expected deny outcome, got {other:?}"),

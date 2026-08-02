@@ -221,7 +221,7 @@ pub struct Flow {
     /// approval gate does NOT auto-allow this flow's `TrustedAutomation
     /// { Workflow }` trust root — every external_effect tool/HTTP call the
     /// flow makes still parks for a real decision, regardless of how the run
-    /// was triggered. See `src/openhuman/approval/gate.rs` and
+    /// was triggered. See `src/openhuman/security/approval/gate.rs` and
     /// `src/openhuman/agent/turn_origin.rs::TrustedAutomationSource::Workflow`.
     #[serde(default)]
     pub require_approval: bool,

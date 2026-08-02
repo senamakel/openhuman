@@ -10,11 +10,11 @@ use openhuman_core::openhuman::desktop::app_state::{
     StoredOnboardingTasks,
 };
 use openhuman_core::openhuman::config::rpc as config_rpc;
-use openhuman_core::openhuman::credentials::ops::store_session;
-use openhuman_core::openhuman::credentials::profiles::{
+use openhuman_core::openhuman::security::credentials::ops::store_session;
+use openhuman_core::openhuman::security::credentials::profiles::{
     AuthProfile, AuthProfileKind, AuthProfilesStore, TokenSet,
 };
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::{
     list_provider_credentials_by_prefix, AuthService, APP_SESSION_PROVIDER,
     DEFAULT_AUTH_PROFILE_NAME,
 };
@@ -1419,20 +1419,20 @@ async fn round14_credentials_prefix_listing_and_composio_direct_edges() {
     let config = harness.config().await;
 
     let empty =
-        openhuman_core::openhuman::credentials::store_composio_api_key(&config, "   ").await;
+        openhuman_core::openhuman::security::credentials::store_composio_api_key(&config, "   ").await;
     assert_eq!(
         empty.expect_err("empty composio key rejected"),
         "composio api_key must not be empty"
     );
 
-    openhuman_core::openhuman::credentials::store_composio_api_key(
+    openhuman_core::openhuman::security::credentials::store_composio_api_key(
         &config,
         "  composio-round14-key  ",
     )
     .await
     .expect("store composio key");
     assert_eq!(
-        openhuman_core::openhuman::credentials::get_composio_api_key(&config)
+        openhuman_core::openhuman::security::credentials::get_composio_api_key(&config)
             .expect("get composio key")
             .as_deref(),
         Some("composio-round14-key")
@@ -1473,16 +1473,16 @@ async fn round14_credentials_prefix_listing_and_composio_direct_edges() {
         .iter()
         .any(|profile| profile.metadata_keys == vec!["chat_id"]));
 
-    let cleared = openhuman_core::openhuman::credentials::clear_composio_api_key(&config)
+    let cleared = openhuman_core::openhuman::security::credentials::clear_composio_api_key(&config)
         .await
         .expect("clear composio key");
     assert_eq!(cleared.value["removed"], true);
     assert_eq!(
-        openhuman_core::openhuman::credentials::get_composio_api_key(&config)
+        openhuman_core::openhuman::security::credentials::get_composio_api_key(&config)
             .expect("get cleared composio key"),
         None
     );
-    let cleared_again = openhuman_core::openhuman::credentials::clear_composio_api_key(&config)
+    let cleared_again = openhuman_core::openhuman::security::credentials::clear_composio_api_key(&config)
         .await
         .expect("clear composio key idempotent");
     assert_eq!(cleared_again.value["removed"], false);

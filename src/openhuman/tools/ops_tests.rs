@@ -1,6 +1,8 @@
 use super::*;
 use crate::openhuman::config::{BrowserConfig, Config, MemoryConfig};
-use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::openhuman::security::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use crate::openhuman::security::AuditLogger;
 use crate::openhuman::skills::types::ToolContent;
 use tempfile::TempDir;

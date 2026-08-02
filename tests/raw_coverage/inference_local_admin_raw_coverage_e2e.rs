@@ -20,7 +20,7 @@ use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
+use openhuman_core::openhuman::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use openhuman_core::openhuman::inference::local::ops::{
     local_ai_chat, local_ai_download_asset, local_ai_downloads_progress, local_ai_should_react,
     LocalAiChatMessage,

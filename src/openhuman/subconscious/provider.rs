@@ -9,7 +9,7 @@
 //! [`super::instance`] runner and every [`super::profiles`] world.
 
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
+use crate::openhuman::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
 /// Actionable reason surfaced (via `SubconsciousStatus.provider_unavailable_reason`)
 /// when a subconscious tick fails because the configured chat model has no

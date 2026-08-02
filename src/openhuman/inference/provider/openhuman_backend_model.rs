@@ -37,7 +37,7 @@ use tinyagents::{Result as TaResult, TinyAgentsError};
 
 use super::ProviderRuntimeOptions;
 use crate::api::config::effective_api_url;
-use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
+use crate::openhuman::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use crate::openhuman::tinyagents::thread_context;
 
 pub const PROVIDER_LABEL: &str = "OpenHuman";
@@ -671,7 +671,7 @@ mod tests {
     }
 
     fn seed_app_session(dir: &std::path::Path) {
-        use crate::openhuman::credentials::{
+        use crate::openhuman::security::credentials::{
             AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
         };
         AuthService::new(dir, false)

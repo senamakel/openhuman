@@ -323,7 +323,7 @@ pub enum ExpectedErrorKind {
     /// openhuman@0.57.53, `Cohere embed API error (403 Forbidden):
     /// <!doctype html>…<title>403</title>…`).
     UpstreamEdgeBlock,
-    /// `approval_decide` (`src/openhuman/approval/rpc.rs`) resolved a request_id
+    /// `approval_decide` (`src/openhuman/security/approval/rpc.rs`) resolved a request_id
     /// whose pending row was **already decided, lazily expired, or superseded**
     /// — `store::decide` updated 0 rows because `decided_at` was already set,
     /// and `store::get_decision` confirms a persisted decision exists. The
@@ -2855,7 +2855,7 @@ pub fn is_session_expired_event(event: &sentry::protocol::Event<'_>) -> bool {
 /// RPC failures whose message body has been collapsed to just the bare
 /// HTTP method + path (`"GET /auth/me"`) with no underlying transport error.
 ///
-/// Pairs with the primary fix at `openhuman::credentials::ops::auth_get_me`,
+/// Pairs with the primary fix at `openhuman::security::credentials::ops::auth_get_me`,
 /// which replaced `e.to_string()` with `format!("{e:#}")` so the full
 /// `anyhow` context chain reaches the rpc dispatcher. Before that
 /// fix, every transient network failure under this RPC — reqwest timeout,
@@ -8357,7 +8357,7 @@ mod tests {
     // `operation=invoke_method`, `method=openhuman.auth_get_me`, message
     // body = exactly "GET /auth/me" (no underlying chain). See the
     // function docstring + the `auth_get_me` fix in
-    // `openhuman::credentials::ops::auth_get_me` for the broader
+    // `openhuman::security::credentials::ops::auth_get_me` for the broader
     // context.
 
     #[cfg(feature = "crash-reporting")]

@@ -77,7 +77,7 @@ None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`
 - `crate::core::observability::report_error_or_expected` — one-shot sustained-outage classification at the failure threshold.
 - `crate::openhuman::skills::webhooks` — `WebhookRouter` (attached for parse-error logging / response emission) and `WebhookRequest`.
 - `crate::openhuman::integrations::composio` — `ComposioTriggerEvent` DTO for `composio:trigger` deserialization.
-- `crate::openhuman::devices::tunnel_client` — `TunnelPeerStatus`, `TunnelFrame` DTOs for tunnel events.
+- `crate::openhuman::security::devices::tunnel_client` — `TunnelPeerStatus`, `TunnelFrame` DTOs for tunnel events.
 - `crate::openhuman::config` — `Config` + `rpc::load_config_with_timeout` for `connect_with_session`.
 - `crate::openhuman::util::utf8_safe_prefix_at_byte_boundary` — UTF-8-safe log truncation of raw packets.
 
@@ -87,7 +87,7 @@ None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`
 - `src/core/jsonrpc.rs`, `src/core/observability.rs` — reference the socket namespace/state.
 - `src/openhuman/connectivity/rpc.rs` — connectivity/status surfacing.
 - `src/openhuman/webhooks/{ops.rs,bus.rs}` — emit webhook responses back through the global manager.
-- `src/openhuman/devices/tunnel_client.rs` — emits tunnel frames/registration over the socket.
+- `src/openhuman/security/devices/tunnel_client.rs` — emits tunnel frames/registration over the socket.
 
 ## Notes / gotchas
 

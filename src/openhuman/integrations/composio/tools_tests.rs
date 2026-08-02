@@ -287,7 +287,7 @@ fn canonicalize_toolkit_slug_maps_known_aliases_and_passes_through() {
 
 #[tokio::test]
 async fn connect_tool_validates_before_gating_in_chat_context() {
-    use crate::openhuman::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
+    use crate::openhuman::security::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
     // With a chat context the interactive guard passes; with no composio
     // credentials the client factory errors — so execute canonicalizes the
     // slug, reloads config, checks connected state, and returns a clean error
@@ -396,10 +396,10 @@ fn agent_tools_register_when_backend_signed_in() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = crate::openhuman::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
-    crate::openhuman::credentials::AuthService::from_config(&config)
+    crate::openhuman::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::openhuman::credentials::APP_SESSION_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,
@@ -845,10 +845,10 @@ fn execute_tool_resolves_to_backend_kind_when_mode_is_backend() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = crate::openhuman::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
-    crate::openhuman::credentials::AuthService::from_config(&config)
+    crate::openhuman::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
-            crate::openhuman::credentials::APP_SESSION_PROVIDER,
-            crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+            crate::openhuman::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
             "test-token",
             std::collections::HashMap::new(),
             true,

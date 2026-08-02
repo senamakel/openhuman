@@ -52,7 +52,7 @@ pub struct ComposioConfig {
     ///
     /// The user-provided API key for direct mode is *not* stored in the
     /// TOML — it lives in the encrypted keychain via
-    /// [`crate::openhuman::credentials`] under the
+    /// [`crate::openhuman::security::credentials`] under the
     /// `composio-direct` provider slot. We only persist the mode here so
     /// the factory can pick the right client at construction time.
     #[serde(default = "default_composio_mode")]

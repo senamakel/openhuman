@@ -254,10 +254,12 @@ pub async fn execute_tron_quote(mut quote: PreparedTransaction) -> Result<Execut
 
     let secret = secret_material(WalletChain::Tron).await?;
     let config = config_rpc::load_config_with_timeout().await?;
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await?
+    .value;
     let (sk, derived_addr) = derive_tron_keypair(&mnemonic, &secret.derivation_path)?;
     if derived_addr != quote.from_address {
         return Err(format!(

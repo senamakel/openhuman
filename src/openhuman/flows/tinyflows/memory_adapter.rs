@@ -39,13 +39,13 @@ use crate::openhuman::agent::harness::memory_context_safety::{
     is_potentially_untrusted, wrap_untrusted_for_agent,
 };
 use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource};
-use crate::openhuman::approval::{
-    redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
-};
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::{cross_flow_recall, flow_namespace};
 use crate::openhuman::memory::tools::flavour::{lookup_flavour, FlavourLookup};
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, MemoryTaint, RecallOpts};
+use crate::openhuman::security::approval::{
+    redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
+};
 use crate::openhuman::security::{CommandClass, SecurityPolicy};
 
 use super::caps::{enforce_node_tier_gate, gate_call_for_tier};

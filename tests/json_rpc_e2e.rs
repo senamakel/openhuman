@@ -951,8 +951,8 @@ async fn encrypt_test_mnemonic() -> String {
     let config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for encrypted test mnemonic");
-    openhuman_core::openhuman::keyring::init_workspace(&config.workspace_dir);
-    openhuman_core::openhuman::encryption::rpc::encrypt_secret(
+    openhuman_core::openhuman::security::keyring::init_workspace(&config.workspace_dir);
+    openhuman_core::openhuman::security::encryption::rpc::encrypt_secret(
         &config,
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
     )
@@ -12786,9 +12786,13 @@ async fn json_rpc_flows_list_connections_aggregates_secret_free() {
         .await
         .expect("load config to seed http_cred");
     const SECRET: &str = "sk_live_flows_list_connections_seed";
-    openhuman_core::openhuman::credentials::HttpCredentialsStore::from_config(&seed_config)
-        .upsert(&openhuman_core::openhuman::credentials::HttpCredential::bearer("stripe", SECRET))
-        .expect("seed http_cred");
+    openhuman_core::openhuman::security::credentials::HttpCredentialsStore::from_config(
+        &seed_config,
+    )
+    .upsert(
+        &openhuman_core::openhuman::security::credentials::HttpCredential::bearer("stripe", SECRET),
+    )
+    .expect("seed http_cred");
 
     let resp = post_json_rpc(
         &rpc_base,

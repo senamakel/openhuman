@@ -539,7 +539,7 @@ fn composio_config(
     use tinycortex::memory::config::{ComposioMode, ComposioSyncConfig, SecretString};
 
     if config.composio.mode.eq_ignore_ascii_case("direct") {
-        let api_key = crate::openhuman::credentials::get_composio_api_key(config)?
+        let api_key = crate::openhuman::security::credentials::get_composio_api_key(config)?
             .or_else(|| config.composio.api_key.clone())
             .ok_or_else(|| "Composio direct API key is not configured".to_string())?;
         Ok(ComposioSyncConfig {

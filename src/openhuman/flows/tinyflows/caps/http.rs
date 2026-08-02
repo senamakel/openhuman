@@ -18,7 +18,7 @@ use tinyflows::error::{EngineError, Result};
 
 use super::*;
 use crate::openhuman::config::{Config, HttpRequestConfig};
-use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
+use crate::openhuman::security::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::security::{CommandClass, SecurityPolicy};
 use crate::openhuman::tools::traits::Tool as _;
 use crate::openhuman::tools::HttpRequestTool;
@@ -177,11 +177,11 @@ impl HttpClient for OpenHumanHttp {
         // The approval gate summarizes/redacts the request BEFORE any credential
         // is injected, so a stored secret never lands in the approval UI or
         // audit trail. Injection happens strictly after this point.
-        let summary = crate::openhuman::approval::summarize_action(TOOL_NAME, &request);
-        let redacted = crate::openhuman::approval::redact_args(&request);
+        let summary = crate::openhuman::security::approval::summarize_action(TOOL_NAME, &request);
+        let redacted = crate::openhuman::security::approval::redact_args(&request);
         let (outcome, audit_id) =
             gate_call_for_tier(tier_decision, TOOL_NAME, &summary, redacted).await;
-        if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
+        if let crate::openhuman::security::approval::GateOutcome::Deny { reason } = outcome {
             return Err(EngineError::Capability(reason));
         }
 
@@ -225,11 +225,11 @@ impl HttpClient for OpenHumanHttp {
         };
 
         if let Some(id) = audit_id {
-            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+            if let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() {
                 let exec = if outcome.is_ok() {
-                    crate::openhuman::approval::ExecutionOutcome::Success
+                    crate::openhuman::security::approval::ExecutionOutcome::Success
                 } else {
-                    crate::openhuman::approval::ExecutionOutcome::Failure
+                    crate::openhuman::security::approval::ExecutionOutcome::Failure
                 };
                 gate.record_execution(
                     &id,

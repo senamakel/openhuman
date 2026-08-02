@@ -30,10 +30,10 @@ use openhuman_core::openhuman::config::{
     BrowserConfig, Config, HttpRequestConfig, McpAuthConfig, McpServerConfig,
 };
 use openhuman_core::openhuman::context::prompt::ToolCallFormat;
-use openhuman_core::openhuman::credentials::profiles::{
+use openhuman_core::openhuman::security::credentials::profiles::{
     AuthProfile, AuthProfileKind, AuthProfilesStore, TokenSet,
 };
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};

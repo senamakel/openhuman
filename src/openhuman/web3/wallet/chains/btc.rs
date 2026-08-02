@@ -212,10 +212,12 @@ pub async fn execute_btc_quote(mut quote: PreparedTransaction) -> Result<Executi
 
     let secret = secret_material(WalletChain::Btc).await?;
     let config = config_rpc::load_config_with_timeout().await?;
-    let mnemonic =
-        crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-            .await?
-            .value;
+    let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+        &config,
+        &secret.encrypted_mnemonic,
+    )
+    .await?
+    .value;
     let (private_key, public_key) = derive_btc_private_key(&mnemonic, &secret.derivation_path)?;
 
     let from_spk = script_pubkey_for_addr(&from_addr)?;

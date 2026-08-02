@@ -43,7 +43,10 @@ pub fn spawn_login_gated_services(embedded_core: bool) {
                 if already_logged_in {
                     // User has an active session — start all services now.
                     log::info!("[services] existing session found, starting services");
-                    crate::openhuman::credentials::ops::start_login_gated_services(&config).await;
+                    crate::openhuman::security::credentials::ops::start_login_gated_services(
+                        &config,
+                    )
+                    .await;
 
                     // Subconscious engine + heartbeat.
                     if !config.heartbeat.enabled {

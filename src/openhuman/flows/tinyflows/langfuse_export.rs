@@ -30,8 +30,8 @@ use tinyagents::{
 
 use crate::api::config::effective_backend_api_url;
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::session_support::require_live_session_token;
 use crate::openhuman::flows::FlowRunTrigger;
+use crate::openhuman::security::credentials::session_support::require_live_session_token;
 
 const LOG_TARGET: &str = "flows::langfuse";
 /// Backend proxy route for Langfuse ingestion (relative to the backend

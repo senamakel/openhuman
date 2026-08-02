@@ -46,25 +46,27 @@ use openhuman_core::openhuman::config::{
     Config, DaemonConfig, DelegateAgentConfig, DictationActivationMode, LlmBackend,
     ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
-use openhuman_core::openhuman::credentials::bus::SessionExpiredSubscriber;
-use openhuman_core::openhuman::credentials::cli::{
-    cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
-};
-use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use openhuman_core::openhuman::credentials::session_support::{
-    build_session_state, get_session_token, is_local_session_token, load_app_session_profile,
-    parse_fields_value, profile_name_or_default, session_state_from_profile,
-    session_token_from_profile, summarize_auth_profile,
-};
-use openhuman_core::openhuman::credentials::{
-    clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
-    list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
-    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
-};
 use openhuman_core::openhuman::desktop::app_state::app_state_schemas;
 use openhuman_core::openhuman::platform::connectivity::{
     all_connectivity_controller_schemas, all_connectivity_registered_controllers,
     connectivity_controller_schema,
+};
+use openhuman_core::openhuman::security::credentials::bus::SessionExpiredSubscriber;
+use openhuman_core::openhuman::security::credentials::cli::{
+    cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
+};
+use openhuman_core::openhuman::security::credentials::profiles::{
+    AuthProfile, AuthProfilesStore, TokenSet,
+};
+use openhuman_core::openhuman::security::credentials::session_support::{
+    build_session_state, get_session_token, is_local_session_token, load_app_session_profile,
+    parse_fields_value, profile_name_or_default, session_state_from_profile,
+    session_token_from_profile, summarize_auth_profile,
+};
+use openhuman_core::openhuman::security::credentials::{
+    clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
+    list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
+    store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
@@ -2601,45 +2603,53 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
     std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
         .expect("create config parent");
 
-    openhuman_core::openhuman::credentials::start_login_gated_services(&config).await;
-    openhuman_core::openhuman::credentials::stop_login_gated_services(&config).await;
+    openhuman_core::openhuman::security::credentials::start_login_gated_services(&config).await;
+    openhuman_core::openhuman::security::credentials::stop_login_gated_services(&config).await;
 
     assert!(
-        openhuman_core::openhuman::credentials::auth_create_channel_link_token(&config, "   ")
-            .await
-            .expect_err("blank channel should fail")
-            .contains("channel is required")
+        openhuman_core::openhuman::security::credentials::auth_create_channel_link_token(
+            &config, "   "
+        )
+        .await
+        .expect_err("blank channel should fail")
+        .contains("channel is required")
     );
     assert!(
-        openhuman_core::openhuman::credentials::auth_create_channel_link_token(&config, "matrix")
-            .await
-            .expect_err("unsupported channel should fail")
-            .contains("unsupported channel")
+        openhuman_core::openhuman::security::credentials::auth_create_channel_link_token(
+            &config, "matrix"
+        )
+        .await
+        .expect_err("unsupported channel should fail")
+        .contains("unsupported channel")
     );
     assert!(
-        openhuman_core::openhuman::credentials::auth_create_channel_link_token(&config, "telegram")
-            .await
-            .expect_err("missing session should fail")
-            .contains("session JWT required")
+        openhuman_core::openhuman::security::credentials::auth_create_channel_link_token(
+            &config, "telegram"
+        )
+        .await
+        .expect_err("missing session should fail")
+        .contains("session JWT required")
     );
-    assert!(openhuman_core::openhuman::credentials::oauth_connect(
-        &config,
-        "github",
-        Some("skill"),
-        Some("code"),
-        Some("handoff"),
-    )
-    .await
-    .expect_err("oauth connect without session should fail")
-    .contains("session JWT required"));
     assert!(
-        openhuman_core::openhuman::credentials::oauth_list_integrations(&config)
+        openhuman_core::openhuman::security::credentials::oauth_connect(
+            &config,
+            "github",
+            Some("skill"),
+            Some("code"),
+            Some("handoff"),
+        )
+        .await
+        .expect_err("oauth connect without session should fail")
+        .contains("session JWT required")
+    );
+    assert!(
+        openhuman_core::openhuman::security::credentials::oauth_list_integrations(&config)
             .await
             .expect_err("oauth list without session should fail")
             .contains("session JWT required")
     );
     assert!(
-        openhuman_core::openhuman::credentials::oauth_fetch_integration_tokens(
+        openhuman_core::openhuman::security::credentials::oauth_fetch_integration_tokens(
             &config,
             "0123456789abcdef01234567",
             "0123456789abcdef0123456789abcdef",
@@ -2649,7 +2659,7 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .contains("session JWT required")
     );
     assert!(
-        openhuman_core::openhuman::credentials::oauth_fetch_client_key(
+        openhuman_core::openhuman::security::credentials::oauth_fetch_client_key(
             &config,
             "0123456789abcdef01234567",
         )
@@ -2658,7 +2668,7 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .contains("session JWT required")
     );
     assert!(
-        openhuman_core::openhuman::credentials::oauth_revoke_integration(
+        openhuman_core::openhuman::security::credentials::oauth_revoke_integration(
             &config,
             "0123456789abcdef01234567",
         )
@@ -5402,7 +5412,7 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
     let tmp = tempdir().expect("tempdir");
 
     let default_profiles =
-        openhuman_core::openhuman::credentials::profiles::AuthProfilesData::default();
+        openhuman_core::openhuman::security::credentials::profiles::AuthProfilesData::default();
     assert_eq!(default_profiles.schema_version, 1);
     assert!(default_profiles.profiles.is_empty());
 
@@ -5642,7 +5652,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
     let hit_dir = tmp.path().join("keychain-hit");
     std::fs::create_dir_all(&hit_dir).expect("create keychain hit dir");
     let hit_profile_id = "github:main";
-    openhuman_core::openhuman::keyring::set(
+    openhuman_core::openhuman::security::keyring::set(
         "keychain-hit",
         &format!("auth:{hit_profile_id}"),
         &json!({
@@ -5741,7 +5751,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
             .and_then(|profile| profile.token.as_deref()),
         Some("plain-token-for-migration")
     );
-    let migrated_keychain = openhuman_core::openhuman::keyring::get(
+    let migrated_keychain = openhuman_core::openhuman::security::keyring::get(
         "keychain-migrate",
         &format!("auth:{migrate_profile_id}"),
     )
@@ -5755,7 +5765,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
     let fallback_dir = tmp.path().join("keychain-fallback");
     std::fs::create_dir_all(&fallback_dir).expect("create keychain fallback dir");
     let fallback_profile_id = "slack:bot";
-    openhuman_core::openhuman::keyring::set(
+    openhuman_core::openhuman::security::keyring::set(
         "keychain-fallback",
         &format!("auth:{fallback_profile_id}"),
         "not-json",
@@ -5801,7 +5811,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
         "migrated profile should be removable"
     );
     assert!(
-        openhuman_core::openhuman::keyring::get(
+        openhuman_core::openhuman::security::keyring::get(
             "keychain-migrate",
             &format!("auth:{migrate_profile_id}"),
         )

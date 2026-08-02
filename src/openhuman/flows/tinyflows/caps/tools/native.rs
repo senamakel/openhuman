@@ -47,11 +47,11 @@ impl ToolBackend for NativeToolBackend {
             crate::openhuman::runtime::node::ops::classify_tool_call(ctx.config, tool_name, &args)
                 .map_err(EngineError::Capability)?;
         let tier_decision = super::super::enforce_node_tier_gate(ctx.security, class, "tool_call")?;
-        let summary = crate::openhuman::approval::summarize_action(tool_name, &args);
-        let redacted = crate::openhuman::approval::redact_args(&args);
+        let summary = crate::openhuman::security::approval::summarize_action(tool_name, &args);
+        let redacted = crate::openhuman::security::approval::redact_args(&args);
         let (outcome, audit_id) =
             super::super::gate_call_for_tier(tier_decision, tool_name, &summary, redacted).await;
-        if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
+        if let crate::openhuman::security::approval::GateOutcome::Deny { reason } = outcome {
             return Err(EngineError::Capability(reason));
         }
         tracing::debug!(
@@ -76,11 +76,11 @@ impl ToolBackend for NativeToolBackend {
         // native `oh:` tool_call's audit trail stuck open with no
         // Success/Failure terminal outcome).
         if let Some(id) = &audit_id {
-            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+            if let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() {
                 let exec = if exec_result.is_ok() {
-                    crate::openhuman::approval::ExecutionOutcome::Success
+                    crate::openhuman::security::approval::ExecutionOutcome::Success
                 } else {
-                    crate::openhuman::approval::ExecutionOutcome::Failure
+                    crate::openhuman::security::approval::ExecutionOutcome::Failure
                 };
                 tracing::debug!(
                     target: "flows",

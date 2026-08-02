@@ -29,12 +29,12 @@ use tokio::sync::{mpsc, Mutex as TokioMutex, Notify};
 use crate::core::event_bus::BackendMeetTurn;
 use crate::openhuman::agent::harness::session::Agent;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::approval::{
+use crate::openhuman::meet::agent::brain::strip_for_speech;
+use crate::openhuman::platform::socket::global_socket_manager;
+use crate::openhuman::security::approval::{
     parse_approval_reply, ApprovalChatContext, ApprovalDecision, ApprovalGate,
     InCallApprovalContext, APPROVAL_CHAT_CONTEXT, APPROVAL_IN_CALL_CONTEXT,
 };
-use crate::openhuman::meet::agent::brain::strip_for_speech;
-use crate::openhuman::platform::socket::global_socket_manager;
 
 const LOG_PREFIX: &str = "[agent_meetings::in_call]";
 

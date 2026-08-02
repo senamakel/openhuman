@@ -14,7 +14,7 @@ use crate::openhuman::inference::{
     LocalAiAssetsStatus, LocalAiDownloadsProgress, LocalAiEmbeddingResult, LocalAiSpeechResult,
     LocalAiStatus, LocalAiTtsResult,
 };
-use crate::openhuman::prompt_injection::{
+use crate::openhuman::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
 use crate::rpc::RpcOutcome;

@@ -178,8 +178,8 @@ pub struct CoreApprovalGate;
 
 impl ApprovalGate for CoreApprovalGate {
     fn parse_reply(&self, message: &str) -> Option<ApprovalDecision> {
-        crate::openhuman::approval::parse_approval_reply(message).map(|decision| {
-            use crate::openhuman::approval::ApprovalDecision as Core;
+        crate::openhuman::security::approval::parse_approval_reply(message).map(|decision| {
+            use crate::openhuman::security::approval::ApprovalDecision as Core;
             match decision {
                 Core::ApproveOnce => ApprovalDecision::Approve,
                 Core::ApproveAlwaysForTool => {

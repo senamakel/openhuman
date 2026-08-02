@@ -89,7 +89,7 @@ No dedicated `store.rs`. State is persisted into the shared TOML `Config` via th
 - `src/core/all.rs` — registers the voice controllers.
 - `src/core/socketio.rs` — subscribes to the dictation/transcription broadcast buses; `streaming::handle_dictation_ws`.
 - `src/core/jsonrpc.rs` — wiring.
-- `src/openhuman/desktop_companion/pipeline.rs`, `src/openhuman/meet_agent/brain.rs`, `src/openhuman/voice/audio_toolkit/ops.rs`, `src/openhuman/credentials/ops.rs` — call factory / TTS / transcription helpers.
+- `src/openhuman/desktop_companion/pipeline.rs`, `src/openhuman/meet_agent/brain.rs`, `src/openhuman/voice/audio_toolkit/ops.rs`, `src/openhuman/security/credentials/ops.rs` — call factory / TTS / transcription helpers.
 - `src/openhuman/inference/local/{install_whisper,install_piper}.rs` — reference voice constants/presets.
 
 ## Notes / gotchas

@@ -367,7 +367,7 @@ async fn channel_status_reports_managed_dm_credential_as_connected() {
     // Simulate the post-link state: `telegram_login_check` stored a
     // credential marker under `channel:telegram:managed_dm` with no
     // corresponding `channels_config.telegram` block.
-    crate::openhuman::credentials::ops::store_provider_credentials(
+    crate::openhuman::security::credentials::ops::store_provider_credentials(
         &config,
         "channel:telegram:managed_dm",
         None,
@@ -575,7 +575,7 @@ async fn connected_channel_slugs_merges_credentials_and_config() {
     });
 
     // Layer 2: credential-only channel (telegram managed_dm).
-    crate::openhuman::credentials::ops::store_provider_credentials(
+    crate::openhuman::security::credentials::ops::store_provider_credentials(
         &config,
         "channel:telegram:managed_dm",
         None,
@@ -608,7 +608,7 @@ async fn connected_channel_slugs_dedupes_when_both_layers_present() {
     });
 
     // Same slug appears in both layers — should collapse to one entry.
-    crate::openhuman::credentials::ops::store_provider_credentials(
+    crate::openhuman::security::credentials::ops::store_provider_credentials(
         &config,
         "channel:discord:managed_dm",
         None,
@@ -760,7 +760,7 @@ async fn connect_yuanbao_persists_when_credentials_valid() {
     );
 
     // The credentials store should contain the secret so startup can recover it.
-    let auth = crate::openhuman::credentials::AuthService::from_config(&config);
+    let auth = crate::openhuman::security::credentials::AuthService::from_config(&config);
     let profile = auth
         .get_profile("channel:yuanbao:api_key", None)
         .expect("credentials lookup succeeds")

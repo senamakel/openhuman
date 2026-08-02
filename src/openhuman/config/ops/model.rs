@@ -22,7 +22,7 @@ pub struct ModelSettingsPatch {
     pub model_routes: Option<Vec<crate::openhuman::config::ModelRouteConfig>>,
     /// When `Some`, REPLACES the entire `config.cloud_providers` array with
     /// the supplied entries (each lacking the API key — those live in
-    /// `auth-profiles.json` via [`crate::openhuman::credentials::AuthService`]).
+    /// `auth-profiles.json` via [`crate::openhuman::security::credentials::AuthService`]).
     /// Pass `Some(vec![])` to clear all third-party cloud providers.
     pub cloud_providers:
         Option<Vec<crate::openhuman::config::schema::cloud_providers::CloudProviderCreds>>,

@@ -780,7 +780,8 @@ impl Agent {
         // building the session with a knowingly stale `&[]` integration view
         // and then paying a repair pass on turn 1 just to recover the real
         // delegation surface.
-        let prewarmed_integrations = crate::openhuman::composio::cached_active_integrations(config);
+        let prewarmed_integrations =
+            crate::openhuman::integrations::composio::cached_active_integrations(config);
         // Per-profile connector gate: scope the connected-integration view to the
         // active profile's `composio_integrations` allowlist (None = all). This
         // governs both the system-prompt "connected integrations" surface and the
@@ -1292,7 +1293,9 @@ impl Agent {
         agent.connected_integrations_initialized = connected_integrations_initialized;
         agent.integration_runtime_config = Some(config.clone());
         agent.last_seen_integrations_hash =
-            crate::openhuman::composio::connected_set_hash(&agent.connected_integrations);
+            crate::openhuman::integrations::composio::connected_set_hash(
+                &agent.connected_integrations,
+            );
         agent.synthesized_tool_names = synthesized_tool_names;
         Ok(agent)
     }

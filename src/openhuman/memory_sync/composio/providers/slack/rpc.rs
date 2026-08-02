@@ -12,11 +12,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::composio::client::{
+use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
-use crate::openhuman::composio::types::ComposioConnectionsResponse;
-use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::types::ComposioConnectionsResponse;
 use crate::openhuman::memory_sync::composio::providers::SyncOutcome;
 use crate::rpc::RpcOutcome;
 

@@ -1,6 +1,6 @@
 use super::*;
-use crate::openhuman::composio::providers::sync_state::KV_NAMESPACE;
 use crate::openhuman::embeddings::NoopEmbedding;
+use crate::openhuman::integrations::composio::providers::sync_state::KV_NAMESPACE;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory_queue::drain_until_idle;
 use crate::openhuman::memory_store::content::raw::{write_raw_items, RawItem, RawKind};

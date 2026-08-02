@@ -102,7 +102,7 @@ pub(crate) fn resolve_subagent_source(
 /// the same probe the runner uses without spinning up the full
 /// `run_typed_mode` plumbing.
 pub(crate) fn user_is_signed_in_to_composio(config: &crate::openhuman::config::Config) -> bool {
-    crate::openhuman::composio::client::create_composio_client(config).is_ok()
+    crate::openhuman::integrations::composio::client::create_composio_client(config).is_ok()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,9 +117,9 @@ pub(crate) fn user_is_signed_in_to_composio(config: &crate::openhuman::config::C
 /// `Error: tool '...' is not available`.
 ///
 /// Holds an [`Arc<Config>`] rather than a pre-baked
-/// [`crate::openhuman::composio::ComposioClient`] so the live
+/// [`crate::openhuman::integrations::composio::ComposioClient`] so the live
 /// `composio.mode` toggle is honoured per execute — see
-/// [`crate::openhuman::composio::ComposioActionTool`] and issue #1710.
+/// [`crate::openhuman::integrations::composio::ComposioActionTool`] and issue #1710.
 ///
 /// ## Tool caching (#5119)
 ///
@@ -189,13 +189,14 @@ impl LazyToolkitResolver {
         }
 
         let action = self.find_action(name)?;
-        let tool: std::sync::Arc<dyn crate::openhuman::tools::Tool> =
-            std::sync::Arc::new(crate::openhuman::composio::ComposioActionTool::new(
+        let tool: std::sync::Arc<dyn crate::openhuman::tools::Tool> = std::sync::Arc::new(
+            crate::openhuman::integrations::composio::ComposioActionTool::new(
                 self.config.clone(),
                 action.name.clone(),
                 action.description.clone(),
                 action.parameters.clone(),
-            ));
+            ),
+        );
 
         // Store in cache for future lookups.
         {

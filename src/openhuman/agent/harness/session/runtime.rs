@@ -158,7 +158,9 @@ impl Agent {
         self.connected_integrations = integrations;
         self.connected_integrations_initialized = true;
         self.last_seen_integrations_hash =
-            crate::openhuman::composio::connected_set_hash(&self.connected_integrations);
+            crate::openhuman::integrations::composio::connected_set_hash(
+                &self.connected_integrations,
+            );
     }
 
     /// The agent's runtime config snapshot.

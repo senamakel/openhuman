@@ -18,11 +18,11 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 use serde_json::json;
 
-use crate::openhuman::composio::client::{
+use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::client::{
     create_composio_client, direct_execute, direct_list_connections, ComposioClientKind,
 };
-use crate::openhuman::composio::types::ComposioConnection;
-use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::types::ComposioConnection;
 
 use super::types::UpcomingMeeting;
 
@@ -44,14 +44,16 @@ async fn fetch_recall_upcoming(
     limit: u32,
     join_policy: &str,
 ) -> Result<Vec<UpcomingMeeting>, String> {
-    let meetings = match crate::openhuman::recall_calendar::ops::fetch_recall_meetings(config).await
-    {
-        Ok(m) => m,
-        Err(e) => {
-            tracing::info!(error = %e, "[meet:upcoming] recall calendar unavailable — skipping");
-            return Ok(Vec::new());
-        }
-    };
+    let meetings =
+        match crate::openhuman::integrations::recall_calendar::ops::fetch_recall_meetings(config)
+            .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::info!(error = %e, "[meet:upcoming] recall calendar unavailable — skipping");
+                return Ok(Vec::new());
+            }
+        };
     let out = build_recall_upcoming(&meetings, now, end_window, limit, join_policy);
     tracing::info!(total = out.len(), "[meet:upcoming] recall fetch complete");
     Ok(out)
@@ -61,13 +63,14 @@ async fn fetch_recall_upcoming(
 /// then soonest-first + limit. Split out so it is unit-testable without a
 /// backend session.
 fn build_recall_upcoming(
-    meetings: &[crate::openhuman::recall_calendar::types::RecallMeeting],
+    meetings: &[crate::openhuman::integrations::recall_calendar::types::RecallMeeting],
     now: DateTime<Utc>,
     end_window: DateTime<Utc>,
     limit: u32,
     join_policy: &str,
 ) -> Vec<UpcomingMeeting> {
-    let data = crate::openhuman::recall_calendar::ops::meetings_to_gcal_json(meetings);
+    let data =
+        crate::openhuman::integrations::recall_calendar::ops::meetings_to_gcal_json(meetings);
     let mut seen_ids = HashSet::new();
     let mut out = extract_upcoming_meetings(&data, now, end_window, join_policy, &mut seen_ids);
     out.sort_by_key(|m| m.start_time_ms);
@@ -115,7 +118,7 @@ pub(crate) async fn fetch_upcoming_meetings(
     let recall_connected = if recall_selected {
         true
     } else {
-        crate::openhuman::recall_calendar::ops::is_connected_cached(config).await
+        crate::openhuman::integrations::recall_calendar::ops::is_connected_cached(config).await
     };
     if recall_connected {
         return fetch_recall_upcoming(config, now, end_window, limit, join_policy).await;
@@ -276,8 +279,9 @@ async fn fetch_events_for_connection(
         "timeMax": end_window.to_rfc3339(),
         "maxResults": max_results,
     });
-    let iana = crate::openhuman::composio::googlecalendar_args::current_iana_timezone();
-    let arguments = crate::openhuman::composio::googlecalendar_args::apply_calendar_query_defaults(
+    let iana =
+        crate::openhuman::integrations::composio::googlecalendar_args::current_iana_timezone();
+    let arguments = crate::openhuman::integrations::composio::googlecalendar_args::apply_calendar_query_defaults(
         "GOOGLECALENDAR_EVENTS_LIST",
         Some(arguments),
         &iana,
@@ -573,8 +577,8 @@ mod tests {
         id: &str,
         url: &str,
         mins: i64,
-    ) -> crate::openhuman::recall_calendar::types::RecallMeeting {
-        crate::openhuman::recall_calendar::types::RecallMeeting {
+    ) -> crate::openhuman::integrations::recall_calendar::types::RecallMeeting {
+        crate::openhuman::integrations::recall_calendar::types::RecallMeeting {
             id: id.to_string(),
             title: Some("Recall sync".to_string()),
             meeting_url: Some(url.to_string()),

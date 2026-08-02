@@ -14,7 +14,7 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::openhuman::composio::ops::{composio_authorize, composio_list_tools};
+use openhuman_core::openhuman::integrations::composio::ops::{composio_authorize, composio_list_tools};
 use openhuman_core::openhuman::config::{Config, PolymarketClobCredentials};
 use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,

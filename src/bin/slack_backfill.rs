@@ -27,7 +27,7 @@
 //! export OPENHUMAN_MEMORY_EXTRACT_MODEL=qwen2.5:0.5b
 //! export OPENHUMAN_MEMORY_SUMMARISE_ENDPOINT=http://localhost:11434
 //! export OPENHUMAN_MEMORY_SUMMARISE_MODEL=llama3.1:8b
-//! export RUST_LOG=info,openhuman_core::openhuman::composio::providers::slack=debug,openhuman_core::openhuman::memory=debug
+//! export RUST_LOG=info,openhuman_core::openhuman::integrations::composio::providers::slack=debug,openhuman_core::openhuman::memory=debug
 //!
 //! cargo run --features bin-tools --bin slack-backfill                          # all active slack connections
 //! cargo run --features bin-tools --bin slack-backfill -- --connection conn_abc # one specific connection
@@ -39,14 +39,14 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 
-use openhuman_core::openhuman::composio::client::{
+use openhuman_core::openhuman::config::Config;
+use openhuman_core::openhuman::integrations::composio::client::{
     create_composio_client, direct_execute, direct_list_connections, ComposioClientKind,
 };
-use openhuman_core::openhuman::composio::providers::registry::init_default_providers;
-use openhuman_core::openhuman::composio::types::{
+use openhuman_core::openhuman::integrations::composio::providers::registry::init_default_providers;
+use openhuman_core::openhuman::integrations::composio::types::{
     ComposioConnectionsResponse, ComposioExecuteResponse,
 };
-use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory;
 
 /// Dispatch a Composio action through the live `ComposioClientKind`.

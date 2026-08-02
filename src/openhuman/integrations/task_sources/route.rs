@@ -316,8 +316,8 @@ pub async fn remove_card(config: &Config, card_id: &str) -> Result<bool, String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::task_sources::types::ProviderSlug;
-    use crate::openhuman::task_sources::NormalizedTask;
+    use crate::openhuman::integrations::task_sources::types::ProviderSlug;
+    use crate::openhuman::integrations::task_sources::NormalizedTask;
     use chrono::Utc;
 
     #[test]
@@ -363,7 +363,8 @@ mod tests {
         };
         // Objective is derived in enrichment — mirror that here so the helper
         // stays truthful (generic kind → bare title).
-        let objective = crate::openhuman::task_sources::enrich::derive_objective(&task);
+        let objective =
+            crate::openhuman::integrations::task_sources::enrich::derive_objective(&task);
         EnrichedTask {
             task,
             summary: "Fix the bug".into(),
@@ -457,7 +458,8 @@ mod tests {
             ..Default::default()
         };
         task.kind = TaskKind::PullRequest;
-        let objective = crate::openhuman::task_sources::enrich::derive_objective(&task);
+        let objective =
+            crate::openhuman::integrations::task_sources::enrich::derive_objective(&task);
         let e = EnrichedTask {
             task,
             summary: "Add retry".into(),

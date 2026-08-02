@@ -144,7 +144,9 @@ pub(crate) async fn run_one_tick() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::task_sources::types::{FilterSpec, ProviderSlug, SourceTarget};
+    use crate::openhuman::integrations::task_sources::types::{
+        FilterSpec, ProviderSlug, SourceTarget,
+    };
     use chrono::Utc;
     use serde_json::json;
 

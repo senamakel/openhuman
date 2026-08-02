@@ -2099,12 +2099,14 @@ fn register_domain_subscribers(
                 config.clone(),
             );
             if let Err(error) =
-                crate::openhuman::composio::init_composio_trigger_history(workspace_dir.clone())
+                crate::openhuman::integrations::composio::init_composio_trigger_history(
+                    workspace_dir.clone(),
+                )
             {
                 log::warn!("[composio][history] failed to initialize trigger archive: {error}");
             }
-            crate::openhuman::composio::register_composio_trigger_subscriber();
-            crate::openhuman::task_sources::bus::register_task_sources_subscriber();
+            crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
+            crate::openhuman::integrations::task_sources::bus::register_task_sources_subscriber();
             // Device tunnel subscriber: handles tunnel:frame handshakes,
             // peer-status events, and register acks. Must be live before any
             // tunnel:frame events can arrive.

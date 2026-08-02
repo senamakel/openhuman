@@ -40,7 +40,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::core::event_bus::{subscribe_global, DomainEvent, EventHandler, SubscriptionHandle};
-use crate::openhuman::composio::providers::profile_md::replace_managed_block;
+use crate::openhuman::integrations::composio::providers::profile_md::replace_managed_block;
 use crate::openhuman::learning::cache::FacetCache;
 use crate::openhuman::memory_store::profile::UserState;
 
@@ -214,7 +214,7 @@ impl EventHandler for RendererSubscriber {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::composio::providers::profile_md::{block_end, block_start};
+    use crate::openhuman::integrations::composio::providers::profile_md::{block_end, block_start};
     use crate::openhuman::memory_store::profile::{
         FacetState, FacetType, ProfileFacet, UserState, PROFILE_INIT_SQL,
     };

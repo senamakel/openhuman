@@ -91,7 +91,7 @@ impl ComposioTool {
     }
 
     pub(crate) fn auth_key_fingerprint(&self) -> u64 {
-        crate::openhuman::composio::direct_auth::fingerprint_api_key(&self.api_key)
+        crate::openhuman::integrations::composio::direct_auth::fingerprint_api_key(&self.api_key)
     }
 
     /// Debug-test seam for raw integration coverage: construct a direct
@@ -326,7 +326,7 @@ impl ComposioTool {
     /// `tags` narrows the result by Composio action tag (OR semantics —
     /// multiple tags broaden the result). This is the direct-mode (BYO
     /// key) counterpart to the backend proxy's `tags` query param wired
-    /// in [`crate::openhuman::composio::client::ComposioClient::list_tools`];
+    /// in [`crate::openhuman::integrations::composio::client::ComposioClient::list_tools`];
     /// without it a self-key user's `composio_list_tools(..., tags)`
     /// request would silently drop the tag filter. Blank/empty `tags`
     /// are treated as no filter.

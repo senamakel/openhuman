@@ -59,10 +59,10 @@ use crate::openhuman::memory_sources::{
 };
 
 use super::providers::{get_provider, ComposioUsage};
-use crate::openhuman::composio::client::{
+use crate::openhuman::integrations::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
-use crate::openhuman::composio::ops;
+use crate::openhuman::integrations::composio::ops;
 use crate::openhuman::tinycortex::{append_audit_entry, try_read_audit_log, SyncAuditEntry};
 use chrono::{DateTime, Utc};
 

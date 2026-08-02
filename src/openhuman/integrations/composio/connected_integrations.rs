@@ -1058,7 +1058,7 @@ pub async fn fetch_toolkit_actions(
 #[cfg(test)]
 mod connectable_slug_tests {
     use super::connectable_toolkit_slugs;
-    use crate::openhuman::composio::types::ComposioToolkitCatalogEntry;
+    use crate::openhuman::integrations::composio::types::ComposioToolkitCatalogEntry;
 
     fn entry(slug: &str, enabled: bool) -> ComposioToolkitCatalogEntry {
         ComposioToolkitCatalogEntry {
@@ -1132,7 +1132,7 @@ mod catalog_description_tests {
         let got = resolve_toolkit_description(&catalog, "gmail");
         assert_eq!(
             got,
-            crate::openhuman::composio::providers::toolkit_description("gmail")
+            crate::openhuman::integrations::composio::providers::toolkit_description("gmail")
         );
         assert!(!got.is_empty());
     }
@@ -1145,7 +1145,7 @@ mod catalog_description_tests {
         catalog.insert("notion".to_string(), "Notion from catalog".to_string());
         assert_eq!(
             resolve_toolkit_description(&catalog, "gmail"),
-            crate::openhuman::composio::providers::toolkit_description("gmail")
+            crate::openhuman::integrations::composio::providers::toolkit_description("gmail")
         );
     }
 }

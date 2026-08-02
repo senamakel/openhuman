@@ -256,7 +256,7 @@ pub struct Agent {
     pub(super) tool_policy: Arc<dyn ToolPolicy>,
     /// Hash of the Composio connection set this Agent last reconciled
     /// against. Compared at top-of-turn to a fresh hash computed from
-    /// [`crate::openhuman::composio::cached_active_integrations`]; on
+    /// [`crate::openhuman::integrations::composio::cached_active_integrations`]; on
     /// diff, [`Agent::refresh_delegation_tools`] re-synthesises the
     /// `delegate_<toolkit>` surface to match the live connected set.
     ///

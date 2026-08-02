@@ -282,7 +282,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // reconcile. Both no-op without active Composio connections.
     if plan.composio_integration_sync {
         log::debug!("[runtime.bootstrap] starting composio integration sync + source reconcile");
-        crate::openhuman::composio::start_periodic_sync();
+        crate::openhuman::integrations::composio::start_periodic_sync();
         tokio::spawn(async {
             log::debug!("[runtime.bootstrap] composio source reconcile started");
             crate::openhuman::memory_sources::reconcile::ensure_composio_sources().await;
@@ -314,7 +314,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
 
     if plan.proactive_task_pollers {
         log::debug!("[runtime.bootstrap] starting proactive task pollers (task sources + board)");
-        crate::openhuman::task_sources::start_periodic_poll();
+        crate::openhuman::integrations::task_sources::start_periodic_poll();
         crate::openhuman::agent::task_dispatcher::start_board_poller();
     } else {
         log::debug!("[runtime.bootstrap] proactive task pollers disabled by ServiceSet");

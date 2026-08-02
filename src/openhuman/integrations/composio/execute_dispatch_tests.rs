@@ -5,7 +5,7 @@ use axum::{routing::post, Json, Router};
 use serde_json::json;
 
 use super::execute_composio_action;
-use crate::openhuman::composio::client::ComposioClient;
+use crate::openhuman::integrations::composio::client::ComposioClient;
 use crate::openhuman::integrations::IntegrationClient;
 
 async fn start_mock_backend(app: Router) -> String {

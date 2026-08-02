@@ -115,8 +115,8 @@ async fn fetch_live_connected_toolkit_slugs_once() -> Option<Vec<String>> {
     let config = crate::openhuman::config::Config::load_or_init()
         .await
         .ok()?;
-    match crate::openhuman::composio::fetch_connected_integrations_status(&config).await {
-        crate::openhuman::composio::FetchConnectedIntegrationsStatus::Authoritative(entries) => {
+    match crate::openhuman::integrations::composio::fetch_connected_integrations_status(&config).await {
+        crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus::Authoritative(entries) => {
             let mut toolkits: Vec<String> = entries
                 .into_iter()
                 .filter(|entry| entry.connected)
@@ -126,7 +126,7 @@ async fn fetch_live_connected_toolkit_slugs_once() -> Option<Vec<String>> {
             toolkits.dedup();
             Some(toolkits)
         }
-        crate::openhuman::composio::FetchConnectedIntegrationsStatus::Unavailable => None,
+        crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus::Unavailable => None,
     }
 }
 

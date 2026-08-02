@@ -1,6 +1,6 @@
 use super::*;
-use crate::openhuman::composio::providers::tool_scope::{CuratedTool, ToolScope};
-use crate::openhuman::composio::providers::{
+use crate::openhuman::integrations::composio::providers::tool_scope::{CuratedTool, ToolScope};
+use crate::openhuman::integrations::composio::providers::{
     registry::register_provider, ComposioProvider, ProviderContext, ProviderUserProfile,
 };
 use async_trait::async_trait;
@@ -611,7 +611,7 @@ async fn sandbox_sandboxed_mode_does_not_trigger_readonly_gate() {
 
 #[test]
 fn render_tools_markdown_groups_by_toolkit_and_drops_schemas() {
-    use crate::openhuman::composio::types::{
+    use crate::openhuman::integrations::composio::types::{
         ComposioToolFunction, ComposioToolSchema, ComposioToolsResponse,
     };
 
@@ -687,7 +687,7 @@ fn render_tools_markdown_groups_by_toolkit_and_drops_schemas() {
 
 #[test]
 fn retain_connected_tools_drops_unconnected_toolkits_case_insensitively() {
-    use crate::openhuman::composio::types::{
+    use crate::openhuman::integrations::composio::types::{
         ComposioToolFunction, ComposioToolSchema, ComposioToolsResponse,
     };
     use std::collections::HashSet;
@@ -787,7 +787,7 @@ fn empty_uncurated_toolkits_message_uses_provider_curated_tools() {
 
 #[test]
 fn render_tools_markdown_handles_empty_response() {
-    use crate::openhuman::composio::types::ComposioToolsResponse;
+    use crate::openhuman::integrations::composio::types::ComposioToolsResponse;
 
     let resp = ComposioToolsResponse { tools: vec![] };
     let md = render_tools_markdown(&resp);
@@ -827,7 +827,7 @@ fn execute_tool_resolves_to_direct_kind_when_mode_is_direct() {
     // breakage. We assert by independently calling the same factory the
     // tool calls per-execute.
     let config = direct_mode_config();
-    let kind = crate::openhuman::composio::client::create_composio_client(&config)
+    let kind = crate::openhuman::integrations::composio::client::create_composio_client(&config)
         .expect("direct mode with inline api_key must resolve");
     assert_eq!(
         kind.mode(),
@@ -854,7 +854,7 @@ fn execute_tool_resolves_to_backend_kind_when_mode_is_backend() {
             true,
         )
         .expect("store test session token");
-    let kind = crate::openhuman::composio::client::create_composio_client(&config)
+    let kind = crate::openhuman::integrations::composio::client::create_composio_client(&config)
         .expect("backend mode with session token must resolve");
     assert_eq!(
         kind.mode(),
@@ -1030,7 +1030,7 @@ fn list_connections_in_direct_mode_resolves_to_direct_client_kind() {
     // Previously the tool short-circuited to empty-success in direct mode
     // which caused the agent to incorrectly see no connections (#1710).
     let config = direct_mode_config();
-    let kind = crate::openhuman::composio::client::create_composio_client(&config)
+    let kind = crate::openhuman::integrations::composio::client::create_composio_client(&config)
         .expect("direct mode with inline api_key must resolve");
     assert_eq!(
         kind.mode(),
@@ -1054,7 +1054,8 @@ async fn authorize_in_direct_mode_refuses_with_app_composio_dev_hint() {
     // Also hold the composio cache lock so we don't race against ops_tests
     // that mutate INTEGRATIONS_CACHE at the same time as we reload config.
     let _cache_guard =
-        crate::openhuman::composio::connected_integrations::composio_cache_test_lock();
+        crate::openhuman::integrations::composio::connected_integrations::composio_cache_test_lock(
+        );
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
     let tmp = tempfile::tempdir().expect("tempdir");

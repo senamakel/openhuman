@@ -9,12 +9,12 @@
 use crate::openhuman::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, ToolScope,
 };
-use crate::openhuman::composio::{
+use crate::openhuman::config::Config;
+use crate::openhuman::context::prompt::ConnectedIntegration;
+use crate::openhuman::integrations::composio::{
     cached_active_integrations_including_expired, fetch_connected_integrations_status,
     FetchConnectedIntegrationsStatus,
 };
-use crate::openhuman::config::Config;
-use crate::openhuman::context::prompt::ConnectedIntegration;
 use crate::openhuman::tools::{orchestrator_tools, Tool};
 use std::collections::HashSet;
 use std::time::Duration;

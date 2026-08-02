@@ -292,7 +292,9 @@ fn set_connected_integrations_marks_session_initialized_and_updates_hash() {
     assert_eq!(agent.connected_integrations()[0].toolkit, "gmail");
     assert_eq!(
         agent.last_seen_integrations_hash,
-        crate::openhuman::composio::connected_set_hash(agent.connected_integrations())
+        crate::openhuman::integrations::composio::connected_set_hash(
+            agent.connected_integrations()
+        )
     );
 }
 

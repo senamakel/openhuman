@@ -53,14 +53,14 @@ use async_trait::async_trait;
 
 use crate::core::event_bus::{subscribe_global, DomainEvent, EventHandler, SubscriptionHandle};
 use crate::openhuman::agent::triage::{apply_decision, run_triage, TriageOutcome, TriggerEnvelope};
-use crate::openhuman::composio::trigger_history;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT;
+use crate::openhuman::integrations::composio::trigger_history;
 
 use super::providers::{get_provider, ProviderContext};
-use crate::openhuman::composio::client::ComposioClient;
-use crate::openhuman::composio::ops;
-use crate::openhuman::composio::FetchConnectedIntegrationsStatus;
+use crate::openhuman::integrations::composio::client::ComposioClient;
+use crate::openhuman::integrations::composio::ops;
+use crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus;
 
 /// Whether a Composio `toolkit` may be auto-registered as a memory source.
 ///

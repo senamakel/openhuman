@@ -198,7 +198,7 @@ async fn composio_list_trigger_history_errors_when_store_not_init() {
 /// The actual lock lives in `connected_integrations` so it is shared
 /// with `tools_tests` and any other test module that touches the cache.
 fn cache_guard() -> std::sync::MutexGuard<'static, ()> {
-    crate::openhuman::composio::connected_integrations::composio_cache_test_lock()
+    crate::openhuman::integrations::composio::connected_integrations::composio_cache_test_lock()
 }
 
 #[test]
@@ -306,15 +306,18 @@ struct DirectAuthFailureGuard {
 
 impl DirectAuthFailureGuard {
     fn new(api_key: &str) -> Self {
-        let key_id = crate::openhuman::composio::direct_auth::fingerprint_api_key(api_key);
-        crate::openhuman::composio::direct_auth::reset_direct_auth_failure(key_id);
+        let key_id =
+            crate::openhuman::integrations::composio::direct_auth::fingerprint_api_key(api_key);
+        crate::openhuman::integrations::composio::direct_auth::reset_direct_auth_failure(key_id);
         Self { key_id }
     }
 }
 
 impl Drop for DirectAuthFailureGuard {
     fn drop(&mut self) {
-        crate::openhuman::composio::direct_auth::reset_direct_auth_failure(self.key_id);
+        crate::openhuman::integrations::composio::direct_auth::reset_direct_auth_failure(
+            self.key_id,
+        );
     }
 }
 
@@ -981,7 +984,7 @@ async fn composio_get_user_profile_via_mock_returns_provider_profile() {
     // TEST_ENV_LOCK alone does not serialize against those. Hold both.
     let _backend_env_guard = crate::api::config::backend_env_test_lock();
 
-    crate::openhuman::composio::providers::init_default_providers();
+    crate::openhuman::integrations::composio::providers::init_default_providers();
 
     let app = Router::new()
         .route(
@@ -1129,7 +1132,7 @@ async fn composio_sync_gmail_via_mock_stores_skill_document_and_updates_outcome(
     // medulla's tests on the same process-global var.
     let _backend_env_guard = crate::api::config::backend_env_test_lock();
 
-    crate::openhuman::composio::providers::init_default_providers();
+    crate::openhuman::integrations::composio::providers::init_default_providers();
 
     let app = Router::new()
         .route(
@@ -1638,7 +1641,7 @@ fn including_expired_serves_stale_snapshot_for_transient_fallback() {
     let _guard = cache_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let key = crate::openhuman::composio::connected_integrations::cache_key(&config);
+    let key = crate::openhuman::integrations::composio::connected_integrations::cache_key(&config);
     clear_cache_key(&key);
     seed_cache(&key, vec![integration("gmail", true)]);
 

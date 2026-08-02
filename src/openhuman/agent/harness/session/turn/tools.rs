@@ -105,13 +105,13 @@ impl Agent {
     /// Fetches the user's active Composio connections and populates
     /// `self.connected_integrations` so the system prompt can surface them.
     ///
-    /// Delegates to the shared [`crate::openhuman::composio::fetch_connected_integrations`]
+    /// Delegates to the shared [`crate::openhuman::integrations::composio::fetch_connected_integrations`]
     /// which is the single source of truth for integration discovery.
     ///
     /// **No session-scoped Composio client is cached on the agent any
     /// more (#1710 Wave 2)**. Every downstream caller that needs to
     /// dispatch a Composio action now resolves a fresh client via
-    /// [`crate::openhuman::composio::client::create_composio_client`]
+    /// [`crate::openhuman::integrations::composio::client::create_composio_client`]
     /// at call time so the live `composio.mode` toggle is honoured
     /// without rebuilding the session — see `ComposioActionTool`,
     /// `ProviderContext::execute`, the 5 migrated agent tools in
@@ -131,7 +131,7 @@ impl Agent {
             },
         };
         self.connected_integrations =
-            crate::openhuman::composio::fetch_connected_integrations(&config).await;
+            crate::openhuman::integrations::composio::fetch_connected_integrations(&config).await;
         self.connected_integrations_initialized = true;
     }
 
@@ -262,11 +262,13 @@ impl Agent {
         let Some(cfg) = self.integration_runtime_config.as_ref() else {
             return false;
         };
-        let Some(cache_view) = crate::openhuman::composio::cached_active_integrations(cfg) else {
+        let Some(cache_view) =
+            crate::openhuman::integrations::composio::cached_active_integrations(cfg)
+        else {
             return false;
         };
 
-        let new_hash = crate::openhuman::composio::connected_set_hash(&cache_view);
+        let new_hash = crate::openhuman::integrations::composio::connected_set_hash(&cache_view);
         if new_hash == self.last_seen_integrations_hash {
             return false;
         }
@@ -499,7 +501,7 @@ impl Agent {
     /// subsequent turn where the connection set has changed since the
     /// last reconcile (detected via
     /// [`Self::last_seen_integrations_hash`] vs.
-    /// [`crate::openhuman::composio::cached_active_integrations`]).
+    /// [`crate::openhuman::integrations::composio::cached_active_integrations`]).
     ///
     /// **Shared-Arc behavior**: when `self.tools` is currently shared
     /// (e.g. an in-flight turn cloned the Arc into its tool source), we

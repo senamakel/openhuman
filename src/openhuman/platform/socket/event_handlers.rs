@@ -202,9 +202,10 @@ pub(super) fn handle_sio_event(
         // clear log line instead of being silently coerced to empty strings.
         "composio:trigger" => {
             log::info!("[socket] Publishing composio:trigger to event bus");
-            match serde_json::from_value::<crate::openhuman::composio::ComposioTriggerEvent>(
-                data.clone(),
-            ) {
+            match serde_json::from_value::<
+                crate::openhuman::integrations::composio::ComposioTriggerEvent,
+            >(data.clone())
+            {
                 Ok(event) => {
                     if event.toolkit.is_empty() || event.trigger.is_empty() {
                         log::warn!(

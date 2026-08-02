@@ -504,7 +504,7 @@ pub fn render_profile_markdown(url: &str, data: &serde_json::Value) -> String {
 /// `payload.parts[].body.data`. We must decode those parts before
 /// regex-matching; searching the raw JSON alone misses them.
 async fn search_gmail_for_linkedin(config: &Config) -> anyhow::Result<Option<String>> {
-    use crate::openhuman::composio::client::{
+    use crate::openhuman::integrations::composio::client::{
         create_composio_client, direct_execute, ComposioClientKind,
     };
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;

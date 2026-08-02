@@ -59,7 +59,9 @@ fn handles_no_match() {
 
 #[tokio::test]
 async fn search_gmail_for_linkedin_routes_through_factory_in_direct_mode() {
-    use crate::openhuman::composio::client::{create_composio_client, ComposioClientKind};
+    use crate::openhuman::integrations::composio::client::{
+        create_composio_client, ComposioClientKind,
+    };
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::openhuman::config::Config::default();
     config.config_path = tmp.path().join("config.toml");

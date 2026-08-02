@@ -1,11 +1,11 @@
 use super::*;
 use crate::openhuman::config::Config;
+use crate::openhuman::integrations::task_sources::store;
+use crate::openhuman::integrations::task_sources::types::{FilterSpec, ProviderSlug, SourceTarget};
 use crate::openhuman::memory_sync::composio::providers::{
     register_provider, ComposioProvider, NormalizedTask, ProviderContext, ProviderUserProfile,
     TaskFetchFilter,
 };
-use crate::openhuman::task_sources::store;
-use crate::openhuman::task_sources::types::{FilterSpec, ProviderSlug, SourceTarget};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};

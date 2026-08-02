@@ -1159,7 +1159,7 @@ pub async fn store_composio_api_key(
 /// Read the user-provided Composio API key from the encrypted credential
 /// store. Returns `Ok(None)` when no key has been stored yet.
 ///
-/// Used by [`crate::openhuman::composio::client::create_composio_client`]
+/// Used by [`crate::openhuman::integrations::composio::client::create_composio_client`]
 /// to decide whether direct mode can actually be activated.
 pub fn get_composio_api_key(config: &Config) -> Result<Option<String>, String> {
     let auth = AuthService::from_config(config);

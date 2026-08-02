@@ -20,7 +20,6 @@ pub use crate::openhuman::agent_orchestration::tools::*;
 pub use crate::openhuman::artifacts::tools::*;
 #[cfg(feature = "channels")]
 pub use crate::openhuman::channels::whatsapp_data::tools::*;
-pub use crate::openhuman::composio::tools::*;
 pub use crate::openhuman::config::tools::*;
 pub use crate::openhuman::config::workspace::tools::*;
 pub use crate::openhuman::credentials::tools::*;
@@ -40,6 +39,8 @@ pub use crate::openhuman::hosted::billing::tools::*;
 pub use crate::openhuman::hosted::orchestration::tools::*;
 pub use crate::openhuman::hosted::referral::tools::*;
 pub use crate::openhuman::hosted::team::tools::*;
+pub use crate::openhuman::integrations::composio::tools::*;
+pub use crate::openhuman::integrations::task_sources::tools::*;
 pub use crate::openhuman::integrations::tools::*;
 pub use crate::openhuman::learning::tools::*;
 #[cfg(feature = "mcp")]
@@ -62,7 +63,6 @@ pub use crate::openhuman::skill_runtime::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::openhuman::skills::tools::*;
 pub use crate::openhuman::subconscious::monitors::tools::*;
-pub use crate::openhuman::task_sources::tools::*;
 pub use crate::openhuman::threads::todos::tools::*;
 pub use crate::openhuman::threads::tools::*;
 pub use crate::openhuman::tinyplace::tools::*;

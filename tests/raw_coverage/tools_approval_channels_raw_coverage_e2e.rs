@@ -71,7 +71,7 @@ use openhuman_core::openhuman::channels::{
     IrcChannel, LinqChannel, MattermostChannel, QQChannel, SendMessage, SignalChannel,
     SlackChannel, WhatsAppChannel,
 };
-use openhuman_core::openhuman::composio::all_composio_agent_tools;
+use openhuman_core::openhuman::integrations::composio::all_composio_agent_tools;
 use openhuman_core::openhuman::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState, NodeConfig, WhatsAppConfig,
 };

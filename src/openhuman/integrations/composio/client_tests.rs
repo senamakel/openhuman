@@ -1203,14 +1203,16 @@ struct DirectAuthFailureGuard {
 impl DirectAuthFailureGuard {
     fn for_tool(tool: &std::sync::Arc<crate::openhuman::tools::ComposioTool>) -> Self {
         let key_id = tool.auth_key_fingerprint();
-        crate::openhuman::composio::direct_auth::reset_direct_auth_failure(key_id);
+        crate::openhuman::integrations::composio::direct_auth::reset_direct_auth_failure(key_id);
         Self { key_id }
     }
 }
 
 impl Drop for DirectAuthFailureGuard {
     fn drop(&mut self) {
-        crate::openhuman::composio::direct_auth::reset_direct_auth_failure(self.key_id);
+        crate::openhuman::integrations::composio::direct_auth::reset_direct_auth_failure(
+            self.key_id,
+        );
     }
 }
 

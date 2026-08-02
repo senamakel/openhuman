@@ -22,11 +22,11 @@ use tempfile::{Builder, TempDir};
 use openhuman_core::openhuman::desktop::app_state::{
     snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
-use openhuman_core::openhuman::composio::ops::{
+use openhuman_core::openhuman::integrations::composio::ops::{
     composio_execute, composio_list_tools, composio_list_trigger_history,
 };
-use openhuman_core::openhuman::composio::trigger_history::ComposioTriggerHistoryStore;
-use openhuman_core::openhuman::composio::{
+use openhuman_core::openhuman::integrations::composio::trigger_history::ComposioTriggerHistoryStore;
+use openhuman_core::openhuman::integrations::composio::{
     init_composio_trigger_history, invalidate_connected_integrations_cache,
 };
 use openhuman_core::openhuman::config::Config;

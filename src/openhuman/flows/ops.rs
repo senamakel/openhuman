@@ -2591,7 +2591,8 @@ pub(crate) async fn validate_connection_refs(
     graph: &WorkflowGraph,
 ) -> Vec<String> {
     let connections: Option<Vec<FlowConnection>> =
-        match crate::openhuman::composio::ops::composio_list_connections(config).await {
+        match crate::openhuman::integrations::composio::ops::composio_list_connections(config).await
+        {
             Ok(outcome) => Some(build_flow_connections(
                 outcome.value.connections,
                 Vec::new(),
@@ -3564,7 +3565,8 @@ pub async fn flows_list_connections(
     //    error); a backend outage returns Err — tolerate it so the picker still
     //    surfaces HTTP credentials.
     let composio_conns =
-        match crate::openhuman::composio::ops::composio_list_connections(config).await {
+        match crate::openhuman::integrations::composio::ops::composio_list_connections(config).await
+        {
             Ok(outcome) => {
                 tracing::debug!(
                     count = outcome.value.connections.len(),
@@ -3614,7 +3616,8 @@ pub async fn flows_list_connections(
     // via each toolkit's whoami-style call (e.g. Slack `SLACK_TEST_AUTH`) on
     // connection sync. Loaded once here so `build_flow_connections` can stay
     // a pure, unit-testable matcher.
-    let identities = crate::openhuman::composio::providers::profile::load_connected_identities();
+    let identities =
+        crate::openhuman::integrations::composio::providers::profile::load_connected_identities();
     tracing::debug!(
         count = identities.len(),
         "[flows] flows_list_connections: identity-cache load"
@@ -3646,11 +3649,11 @@ pub async fn flows_list_connections(
 /// self-targeted action ("DM me") to the user's own account instead of
 /// guessing a public channel.
 fn build_flow_connections(
-    composio: Vec<crate::openhuman::composio::ComposioConnection>,
+    composio: Vec<crate::openhuman::integrations::composio::ComposioConnection>,
     http: Vec<crate::openhuman::credentials::HttpCredentialSummary>,
-    identities: &[crate::openhuman::composio::providers::profile::ConnectedIdentity],
+    identities: &[crate::openhuman::integrations::composio::providers::profile::ConnectedIdentity],
 ) -> Vec<FlowConnection> {
-    use crate::openhuman::composio::providers::profile::normalize_connection_identifier;
+    use crate::openhuman::integrations::composio::providers::profile::normalize_connection_identifier;
 
     let identity_lookup: std::collections::HashMap<(String, String), &_> = identities
         .iter()
@@ -3721,7 +3724,7 @@ fn build_flow_connections(
 /// `composio_list_connections`), never secret material.
 fn composio_connection_display(
     toolkit: &str,
-    conn: &crate::openhuman::composio::ComposioConnection,
+    conn: &crate::openhuman::integrations::composio::ComposioConnection,
 ) -> String {
     let title = title_case_toolkit(toolkit);
     let identity = conn

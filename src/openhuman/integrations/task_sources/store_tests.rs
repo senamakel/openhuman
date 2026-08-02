@@ -219,7 +219,7 @@ fn dedup_detects_seen_and_edited_tasks() {
 
 #[tokio::test]
 async fn add_with_assigned_executor_persists_and_filters_blank() {
-    use crate::openhuman::task_sources::ops;
+    use crate::openhuman::integrations::task_sources::ops;
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -266,7 +266,7 @@ async fn add_with_assigned_executor_persists_and_filters_blank() {
 
 #[tokio::test]
 async fn ops_remove_prunes_routed_cards_for_source() {
-    use crate::openhuman::task_sources::{ops, route};
+    use crate::openhuman::integrations::task_sources::{ops, route};
     use crate::openhuman::threads::todos::ops::{add as todo_add, BoardLocation, CardPatch};
 
     let tmp = TempDir::new().unwrap();

@@ -8,7 +8,7 @@
 //! - trigger / connection-created event subscribers (`bus.rs`)
 //! - sync-state persistence and profile-to-memory shaping
 //!
-//! The sibling [`crate::openhuman::composio`] domain still owns auth,
+//! The sibling [`crate::openhuman::integrations::composio`] domain still owns auth,
 //! connection management, action execution, and general Composio RPC/tool
 //! surfaces. This submodule is specifically the memory-sync half of that
 //! integration boundary.
@@ -17,11 +17,11 @@ pub mod bus;
 pub mod periodic;
 pub mod providers;
 
-use crate::openhuman::composio::client::{
+use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::client::{
     create_composio_client, direct_list_connections, ComposioClientKind,
 };
-use crate::openhuman::composio::types::ComposioConnection;
-use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::types::ComposioConnection;
 
 pub use bus::{
     register_composio_trigger_subscriber, ComposioConfigChangedSubscriber,

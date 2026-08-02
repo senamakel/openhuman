@@ -3,12 +3,12 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
-use crate::openhuman::composio::client::{
-    create_composio_client, direct_execute, ComposioClient, ComposioClientKind,
-};
-use crate::openhuman::composio::types::ComposioExecuteResponse;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::client::{
+    create_composio_client, direct_execute, ComposioClient, ComposioClientKind,
+};
+use crate::openhuman::integrations::composio::types::ComposioExecuteResponse;
 
 /// Reason a sync was triggered. Providers can use this to decide
 /// whether to do a full backfill or an incremental pull.
@@ -262,7 +262,7 @@ impl TaskFetchFilter {
 /// routing through the backend tinyhumans tenant. The current shape
 /// keeps an [`Arc<Config>`] and resolves the underlying client per call
 /// through [`ProviderContext::execute`], mirroring the agent-tool
-/// migration in [`crate::openhuman::composio::tools::ComposioExecuteTool`].
+/// migration in [`crate::openhuman::integrations::composio::tools::ComposioExecuteTool`].
 /// Per-sync accumulator for Composio billable-action usage.
 ///
 /// Lives behind a shared handle on [`ProviderContext`] so the single

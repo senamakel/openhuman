@@ -145,7 +145,8 @@ pub(crate) async fn poll_once() -> Result<bool, String> {
         boards.push((
             BoardLocation::Thread {
                 workspace_dir: config.workspace_dir.clone(),
-                thread_id: crate::openhuman::task_sources::TASK_SOURCES_THREAD_ID.to_string(),
+                thread_id: crate::openhuman::integrations::task_sources::TASK_SOURCES_THREAD_ID
+                    .to_string(),
             },
             false,
         ));

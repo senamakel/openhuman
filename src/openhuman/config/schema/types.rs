@@ -235,7 +235,7 @@ pub struct Config {
 
     /// Task-sources domain defaults — master switch + new-source
     /// defaults. Per-source records live in the domain's SQLite store.
-    /// See [`crate::openhuman::task_sources`].
+    /// See [`crate::openhuman::integrations::task_sources`].
     #[serde(default)]
     pub task_sources: TaskSourcesConfig,
 

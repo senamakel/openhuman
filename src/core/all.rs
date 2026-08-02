@@ -226,13 +226,14 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::composio::all_composio_registered_controllers(),
+        crate::openhuman::integrations::composio::all_composio_registered_controllers(),
     );
     // Recall.ai Calendar V1 (backend-proxied) controllers
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::recall_calendar::all_recall_calendar_registered_controllers(),
+        crate::openhuman::integrations::recall_calendar::all_recall_calendar_registered_controllers(
+        ),
     );
     // Scheduled job management
     push(
@@ -252,7 +253,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::task_sources::all_task_sources_registered_controllers(),
+        crate::openhuman::integrations::task_sources::all_task_sources_registered_controllers(),
     );
     push(
         &mut controllers,
@@ -552,7 +553,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Memory,
-        crate::openhuman::composio::providers::slack::all_slack_memory_registered_controllers(),
+        crate::openhuman::integrations::composio::providers::slack::all_slack_memory_registered_controllers(),
     );
     // Per-connection memory sync status, controls, and progress (#1136)
     push(

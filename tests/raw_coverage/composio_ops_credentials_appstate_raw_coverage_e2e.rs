@@ -22,11 +22,11 @@ use openhuman_core::openhuman::desktop::app_state::{
     peek_cached_current_user_identity, snapshot, update_local_state, StoredAppStatePatch,
     StoredOnboardingTasks,
 };
-use openhuman_core::openhuman::composio::ops::{
+use openhuman_core::openhuman::integrations::composio::ops::{
     composio_authorize, composio_execute, composio_list_connections, composio_list_toolkits,
     composio_list_tools,
 };
-use openhuman_core::openhuman::composio::{
+use openhuman_core::openhuman::integrations::composio::{
     all_composio_agent_tools, invalidate_connected_integrations_cache,
 };
 use openhuman_core::openhuman::config::Config;

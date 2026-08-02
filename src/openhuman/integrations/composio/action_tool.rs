@@ -532,8 +532,10 @@ mod tests {
         // well-formed query) instead of running with the thin spawn-time
         // schema; the retry then proceeds to real dispatch. A unique toolkit is
         // seeded so this is deterministic and never touches the network.
-        use crate::openhuman::composio::catalog::{seed_live_catalog_cache, ToolContract};
         use crate::openhuman::config::TEST_ENV_LOCK;
+        use crate::openhuman::integrations::composio::catalog::{
+            seed_live_catalog_cache, ToolContract,
+        };
         let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
         let toolkit = "cgateexec";
@@ -621,10 +623,12 @@ mod tests {
 
         // `ComposioClientKind` isn't `Debug`, so match rather than
         // `expect_err` (which would need to format the unexpected `Ok`).
-        let msg = match crate::openhuman::composio::client::create_composio_client(&config) {
-            Ok(_) => panic!("backend mode with no session must error, but a client resolved"),
-            Err(e) => e.to_string(),
-        };
+        let msg =
+            match crate::openhuman::integrations::composio::client::create_composio_client(&config)
+            {
+                Ok(_) => panic!("backend mode with no session must error, but a client resolved"),
+                Err(e) => e.to_string(),
+            };
         assert!(
             msg.contains("backend") || msg.contains("session"),
             "expected backend-mode session error, got: {msg}"
@@ -647,12 +651,13 @@ mod tests {
         // Direct mode + an api key must resolve to the Direct variant —
         // never the backend branch. (Deterministic: pure factory call, no
         // env / reload / await; see the note on the backend test.)
-        let kind = crate::openhuman::composio::client::create_composio_client(&config)
-            .expect("direct mode with an api key must resolve");
+        let kind =
+            crate::openhuman::integrations::composio::client::create_composio_client(&config)
+                .expect("direct mode with an api key must resolve");
         assert!(
             matches!(
                 kind,
-                crate::openhuman::composio::client::ComposioClientKind::Direct(_)
+                crate::openhuman::integrations::composio::client::ComposioClientKind::Direct(_)
             ),
             "direct-mode config must route to the Direct client, not backend"
         );

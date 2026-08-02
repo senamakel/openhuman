@@ -36,8 +36,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::openhuman::composio::{self};
 use crate::openhuman::config::Config;
+use crate::openhuman::integrations::composio::{self};
 
 use super::registry::{IdentityMatch, WorkflowGithubConfig};
 

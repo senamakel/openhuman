@@ -16,7 +16,7 @@ use tempfile::tempdir;
 use openhuman_core::openhuman::agent::task_board::{
     board_for_thread, TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
 };
-use openhuman_core::openhuman::composio::ComposioClient;
+use openhuman_core::openhuman::integrations::composio::ComposioClient;
 use openhuman_core::openhuman::config::{
     CapabilityProviderConfig, CapabilityProviderTrustState, Config, McpServerConfig,
 };

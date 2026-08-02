@@ -3716,8 +3716,8 @@ async fn flows_set_enabled_schedule_flow_has_no_warning() {
 
 // ── flows_list_connections (picker source) ──────────────────────────────
 
-use crate::openhuman::composio::ComposioConnection;
 use crate::openhuman::credentials::{HttpCredential, HttpCredentialSummary, HttpCredentialsStore};
+use crate::openhuman::integrations::composio::ComposioConnection;
 
 fn composio_conn(id: &str, toolkit: &str, status: &str, email: Option<&str>) -> ComposioConnection {
     ComposioConnection {
@@ -3818,7 +3818,7 @@ fn build_flow_connections_never_carries_secret_fields() {
 
 #[test]
 fn build_flow_connections_attaches_platform_user_id_from_a_seeded_identity() {
-    use crate::openhuman::composio::providers::profile::ConnectedIdentity;
+    use crate::openhuman::integrations::composio::providers::profile::ConnectedIdentity;
 
     let composio = vec![composio_conn("ca_slack1", "slack", "ACTIVE", None)];
     let identities = vec![ConnectedIdentity {
@@ -3835,7 +3835,7 @@ fn build_flow_connections_attaches_platform_user_id_from_a_seeded_identity() {
 
 #[test]
 fn build_flow_connections_platform_user_id_is_none_without_a_matching_identity() {
-    use crate::openhuman::composio::providers::profile::ConnectedIdentity;
+    use crate::openhuman::integrations::composio::providers::profile::ConnectedIdentity;
 
     // No identities at all.
     let composio = vec![composio_conn("ca_slack1", "slack", "ACTIVE", None)];

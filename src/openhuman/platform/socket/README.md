@@ -76,7 +76,7 @@ None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`
 - `crate::core::event_bus` — `publish_global` / `DomainEvent` for routing inbound events.
 - `crate::core::observability::report_error_or_expected` — one-shot sustained-outage classification at the failure threshold.
 - `crate::openhuman::webhooks` — `WebhookRouter` (attached for parse-error logging / response emission) and `WebhookRequest`.
-- `crate::openhuman::composio` — `ComposioTriggerEvent` DTO for `composio:trigger` deserialization.
+- `crate::openhuman::integrations::composio` — `ComposioTriggerEvent` DTO for `composio:trigger` deserialization.
 - `crate::openhuman::devices::tunnel_client` — `TunnelPeerStatus`, `TunnelFrame` DTOs for tunnel events.
 - `crate::openhuman::config` — `Config` + `rpc::load_config_with_timeout` for `connect_with_session`.
 - `crate::openhuman::util::utf8_safe_prefix_at_byte_boundary` — UTF-8-safe log truncation of raw packets.

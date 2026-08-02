@@ -92,7 +92,7 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 - `openhuman::security` — `SecurityPolicy` (host/path/command gating threaded into nearly every tool) + `AuditLogger`.
 - `openhuman::memory` — `Memory` trait, injected into memory/preference/stats tools.
 - `openhuman::integrations` — `build_client` backend HTTP client + the integration tool structs (apify, brave, parallel, stock, twilio, tinyfish, google_places, querit, seltz, searxng).
-- `openhuman::composio` — `all_composio_agent_tools`, mode-aware client for `tools.composio_execute`.
+- `openhuman::integrations::composio` — `all_composio_agent_tools`, mode-aware client for `tools.composio_execute`.
 - `openhuman::runtime::javascript` — `NodeBootstrap` shared by shell/node_exec/npm_exec.
 - `openhuman::mcp::config_servers` / `openhuman::mcp::registry` — generic remote MCP server registry + bridge tools.
 - `openhuman::skills` — `skills::types::{ToolResult, ToolContent}` (the unified result type) + skill-run spawning.

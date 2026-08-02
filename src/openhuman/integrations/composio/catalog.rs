@@ -225,7 +225,7 @@ pub(crate) fn seed_live_catalog_cache_expired(toolkit: &str, contracts: Vec<Tool
 /// not, curated or not), not the narrower curated subset the pre-fix
 /// `search_tool_catalog` searched.
 ///
-/// - **Backend mode** calls [`crate::openhuman::composio::client::ComposioClient::list_tools`]
+/// - **Backend mode** calls [`crate::openhuman::integrations::composio::client::ComposioClient::list_tools`]
 ///   directly — already unfiltered (`composio_list_tools`'s backend branch
 ///   applies no filter either), so this is not a behavior change there.
 /// - **Direct mode** calls [`direct_list_tools`] directly instead of going
@@ -239,7 +239,7 @@ pub(crate) fn seed_live_catalog_cache_expired(toolkit: &str, contracts: Vec<Tool
 async fn fetch_raw_toolkit_tools(
     config: &Config,
     toolkit: &str,
-) -> Option<crate::openhuman::composio::types::ComposioToolsResponse> {
+) -> Option<crate::openhuman::integrations::composio::types::ComposioToolsResponse> {
     let kind = create_composio_client(config)
         .map_err(|e| {
             tracing::debug!(target: "flows", %toolkit, error = %e, "[flows] live catalog: composio client unavailable — skipping");
@@ -416,7 +416,7 @@ pub(crate) fn compute_composio_array_path(schema: Option<&Value>) -> Option<Stri
 //
 // [`compute_composio_array_path`] above is entirely schema-derived — it has
 // nothing to walk when Composio (or the backend-proxied listing path, see
-// [`crate::openhuman::composio::ComposioToolFunction::output_parameters`]'s
+// [`crate::openhuman::integrations::composio::ComposioToolFunction::output_parameters`]'s
 // doc) simply never publishes `output_parameters` for an action. Verified
 // live: EVERY GitHub action's `get_tool_contract` (including the curated
 // `GITHUB_LIST_REPOSITORY_ISSUES`) comes back `output_fields: [],
@@ -432,7 +432,7 @@ pub(crate) fn compute_composio_array_path(schema: Option<&Value>) -> Option<Stri
 // of the real `"json.data.issues"`, and the downstream condition/agent saw
 // the wrong shape and produced zero reminders.
 
-/// Top-level [`crate::openhuman::composio::ComposioExecuteResponse`] fields
+/// Top-level [`crate::openhuman::integrations::composio::ComposioExecuteResponse`] fields
 /// that are never part of the tool's own payload — skipped at the ROOT by
 /// [`compute_primary_array_path_from_value`]'s scan so an envelope field
 /// never masquerades as (or shadows) the real array. None of these are ever
@@ -690,7 +690,8 @@ pub(crate) async fn probe_tool_output_sample(
         ));
     };
 
-    let integrations = crate::openhuman::composio::fetch_connected_integrations(config).await;
+    let integrations =
+        crate::openhuman::integrations::composio::fetch_connected_integrations(config).await;
     let connected = integrations
         .iter()
         .any(|i| i.connected && i.toolkit.eq_ignore_ascii_case(&toolkit));

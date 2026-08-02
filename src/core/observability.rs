@@ -1569,7 +1569,7 @@ fn is_upstream_edge_block_message(lower: &str) -> bool {
 ///
 /// The canonical wire format from
 /// [`crate::openhuman::integrations::client::IntegrationClient::post`] / `get`
-/// and [`crate::openhuman::composio::client::ComposioClient`] is:
+/// and [`crate::openhuman::integrations::composio::client::ComposioClient`] is:
 /// `"Backend returned <status> <reason> for <METHOD> <url>: <detail>"` — e.g.
 /// `"Backend returned 400 Bad Request for POST https://api.tinyhumans.ai/agent-integrations/composio/authorize: Composio authorization failed: 400 …"`
 /// (OPENHUMAN-TAURI-BC: user submitted SharePoint authorize without filling in
@@ -1771,7 +1771,9 @@ fn is_provider_user_state_message(lower: &str) -> bool {
     // anchor const (not a copied literal) and coupled to the typed source by
     // `demotes_composio_set_key_invalid_key_rejection` so a reword that drops the
     // phrase fails CI instead of silently re-opening the leak.
-    if lower.contains(crate::openhuman::composio::direct_auth::COMPOSIO_INVALID_API_KEY_ANCHOR) {
+    if lower.contains(
+        crate::openhuman::integrations::composio::direct_auth::COMPOSIO_INVALID_API_KEY_ANCHOR,
+    ) {
         return true;
     }
 
@@ -3023,7 +3025,7 @@ pub fn is_skill_install_user_fetch_failure(event: &sentry::protocol::Event<'_>) 
 /// [`crate::openhuman::integrations::IntegrationClient`] HTTP wrapper that
 /// fronts every backend-proxied integration) and `domain="composio"` (errors
 /// reported from the Composio op layer in
-/// [`crate::openhuman::composio::ops`]). Composio routes through the same
+/// [`crate::openhuman::integrations::composio::ops`]). Composio routes through the same
 /// `IntegrationClient`, so the failure shape is identical — but op-level
 /// reporters that wrap and re-emit those errors with their own domain tag
 /// would otherwise escape the integrations-scoped filter (OPENHUMAN-TAURI-35
@@ -6097,7 +6099,7 @@ mod tests {
         // instead of silently re-opening the TAURI-RUST-K27 leak.
         assert_eq!(
             expected_error_kind(
-                crate::openhuman::composio::direct_auth::COMPOSIO_INVALID_API_KEY_USER_MESSAGE
+                crate::openhuman::integrations::composio::direct_auth::COMPOSIO_INVALID_API_KEY_USER_MESSAGE
             ),
             Some(ExpectedErrorKind::ProviderUserState),
             "composio_set_api_key invalid-key rejection must demote to ProviderUserState"
@@ -6110,7 +6112,7 @@ mod tests {
         // `COMPOSIO_INVALID_API_KEY_ANCHOR`; it is only correct if that anchor is a
         // genuine lowercase substring of the message the probe returns. Assert the
         // two consts stay in sync so neither can be reworded independently.
-        use crate::openhuman::composio::direct_auth::{
+        use crate::openhuman::integrations::composio::direct_auth::{
             COMPOSIO_INVALID_API_KEY_ANCHOR, COMPOSIO_INVALID_API_KEY_USER_MESSAGE,
         };
         assert!(

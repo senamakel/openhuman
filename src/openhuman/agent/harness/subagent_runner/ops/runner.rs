@@ -683,8 +683,8 @@ async fn run_typed_mode(
         } else {
             match crate::openhuman::config::Config::load_or_init().await {
                 Ok(config) => {
-                    use crate::openhuman::composio::FetchConnectedIntegrationsStatus;
-                    match crate::openhuman::composio::fetch_connected_integrations_status(&config)
+                    use crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus;
+                    match crate::openhuman::integrations::composio::fetch_connected_integrations_status(&config)
                         .await
                     {
                         FetchConnectedIntegrationsStatus::Authoritative(fresh) => {
@@ -797,7 +797,9 @@ async fn run_typed_mode(
                 }
             };
 
-            use crate::openhuman::composio::client::{create_composio_client, ComposioClientKind};
+            use crate::openhuman::integrations::composio::client::{
+                create_composio_client, ComposioClientKind,
+            };
             let client_kind = match create_composio_client(arc_config.as_ref()) {
                 Ok(k) => Some(k),
                 Err(e) => {
@@ -817,8 +819,10 @@ async fn run_typed_mode(
             {
                 let fresh_actions = match &client_kind {
                     Some(ComposioClientKind::Backend(client)) => {
-                        match crate::openhuman::composio::fetch_toolkit_actions(client, tk, None)
-                            .await
+                        match crate::openhuman::integrations::composio::fetch_toolkit_actions(
+                            client, tk, None,
+                        )
+                        .await
                         {
                             Ok(actions) if !actions.is_empty() => actions,
                             Ok(_) => {
@@ -899,7 +903,7 @@ async fn run_typed_mode(
 
                 for action in selected {
                     dynamic_tools.push(Box::new(
-                        crate::openhuman::composio::ComposioActionTool::new(
+                        crate::openhuman::integrations::composio::ComposioActionTool::new(
                             arc_config.clone(),
                             action.name.clone(),
                             action.description.clone(),

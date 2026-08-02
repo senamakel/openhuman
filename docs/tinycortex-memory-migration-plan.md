@@ -207,7 +207,7 @@ pure, network-free library):
 | --- | --- |
 | `memory_sync/traits.rs` (`SyncPipeline`/`SyncOutcome`/`SyncPipelineKind`) | `src/memory/sync/traits.rs` (init/tick take `&MemoryConfig` + a `SyncContext`) |
 | `memory_sync/composio/providers/*` (all 6 toolkits + registry, orchestrator, sync_state, catalogs, user_scopes) | `src/memory/sync/composio/providers/*` |
-| New Composio HTTP client (modeled on `src/openhuman/composio/client.rs`, minus keychain) | `src/memory/sync/composio/client.rs` — **direct** (BYO key → backend.composio.dev) and **proxied** (base_url + bearer; OpenHuman-backend default) modes |
+| New Composio HTTP client (modeled on `src/openhuman/integrations/composio/client.rs`, minus keychain) | `src/memory/sync/composio/client.rs` — **direct** (BYO key → backend.composio.dev) and **proxied** (base_url + bearer; OpenHuman-backend default) modes |
 | `memory_sync/canonicalize/` | merged into the crate's existing `ingest/canonicalize` |
 | `memory_sync/workspace/` scan logic (not the timers) | `src/memory/sync/workspace.rs` |
 | `memory_sync/sources/{audit,rebuild}.rs` | `src/memory/sync/{audit,rebuild}.rs` |

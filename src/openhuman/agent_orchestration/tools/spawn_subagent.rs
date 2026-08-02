@@ -294,14 +294,14 @@ impl Tool for SpawnSubagentTool {
             let live_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration> = {
                 match crate::openhuman::config::Config::load_or_init().await {
                     Ok(config) => {
-                        use crate::openhuman::composio::FetchConnectedIntegrationsStatus;
+                        use crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus;
                         // Use the status-discriminating fetch so we can
                         // tell "user has zero active integrations" (truth
                         // — adopt it) apart from "backend unavailable"
                         // (preserve the parent's frozen snapshot so the
                         // pre-flight doesn't reject every toolkit during
                         // a transient 5xx).
-                        match crate::openhuman::composio::fetch_connected_integrations_status(
+                        match crate::openhuman::integrations::composio::fetch_connected_integrations_status(
                             &config,
                         )
                         .await

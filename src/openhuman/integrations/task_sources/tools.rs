@@ -3,7 +3,7 @@
 //! These tools let the agent inspect external task sources (GitHub / Notion
 //! / Linear / ClickUp issue & task feeds), trigger an on-demand fetch, list
 //! ingested tasks, and dry-run a filter. Each tool is a thin shim over the
-//! async functions in [`crate::openhuman::task_sources::ops`], which return
+//! async functions in [`crate::openhuman::integrations::task_sources::ops`], which return
 //! `RpcOutcome<T>`; the wrapper emits the inner value as JSON.
 //!
 //! The read/observe tools (`list` / `get` / `fetch` / `list_tasks` /
@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::task_sources::{FilterSpec, ProviderSlug, TaskSourcePatch};
+use crate::openhuman::integrations::task_sources::{FilterSpec, ProviderSlug, TaskSourcePatch};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;

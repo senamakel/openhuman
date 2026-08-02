@@ -11,7 +11,7 @@
 //! single-`in_progress` invariant, and emits the board-progress event that the
 //! Tasks board UI listens on.
 
-use crate::openhuman::task_sources::TASK_SOURCES_THREAD_ID;
+use crate::openhuman::integrations::task_sources::TASK_SOURCES_THREAD_ID;
 use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;

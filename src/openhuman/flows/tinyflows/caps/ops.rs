@@ -45,13 +45,13 @@ use crate::openhuman::security::{GateDecision, POLICY_BLOCKED_MARKER};
 // way round: the feature-gated seam depends on the always-compiled domain, not
 // the reverse. See that module's docs.
 #[cfg(test)]
-pub(crate) use crate::openhuman::composio::catalog::ProbedOutputSample;
-pub(crate) use crate::openhuman::composio::catalog::{
+pub(crate) use crate::openhuman::integrations::composio::catalog::ProbedOutputSample;
+pub(crate) use crate::openhuman::integrations::composio::catalog::{
     apply_probe_override, composio_required_args, fetch_live_toolkit_catalog,
     probe_tool_output_sample, ToolContract,
 };
 #[cfg(test)]
-pub(crate) use crate::openhuman::composio::catalog::{
+pub(crate) use crate::openhuman::integrations::composio::catalog::{
     seed_live_catalog_cache, seed_live_catalog_cache_expired, seed_probe_cache,
 };
 
@@ -249,7 +249,7 @@ fn slug_needs_connected_set(slug: &str) -> bool {
 /// collapse the allowlist to empty, and only return `None` when there is truly
 /// nothing to go on (the caller then fails closed).
 async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
-    use crate::openhuman::composio::{
+    use crate::openhuman::integrations::composio::{
         cached_active_integrations_including_expired, fetch_connected_integrations_status,
         FetchConnectedIntegrationsStatus,
     };
@@ -332,7 +332,7 @@ pub(crate) async fn is_curated_flow_tool(config: &Config, slug: &str) -> bool {
 /// UI-safe: the label is the pre-derived [`IntegrationConnection::label`], never
 /// a raw account-identity field. Pure over the snapshot so it is unit-testable.
 fn resolve_account<'a>(
-    integrations: &'a [crate::openhuman::composio::ConnectedIntegration],
+    integrations: &'a [crate::openhuman::integrations::composio::ConnectedIntegration],
     connection_id: &str,
 ) -> Option<(&'a str, Option<&'a str>)> {
     integrations.iter().find_map(|integ| {
@@ -352,7 +352,8 @@ pub(crate) async fn resolve_composio_account(
     config: &Config,
     connection_id: &str,
 ) -> Option<(String, Option<String>)> {
-    let integrations = crate::openhuman::composio::fetch_connected_integrations(config).await;
+    let integrations =
+        crate::openhuman::integrations::composio::fetch_connected_integrations(config).await;
     resolve_account(&integrations, connection_id)
         .map(|(toolkit, label)| (toolkit.to_string(), label.map(str::to_string)))
 }
@@ -473,8 +474,8 @@ pub(crate) async fn preflight_composio_args(
 /// "Completed".
 pub(crate) fn reject_unsuccessful_composio_response(
     slug: &str,
-    resp: crate::openhuman::composio::ComposioExecuteResponse,
-) -> Result<crate::openhuman::composio::ComposioExecuteResponse> {
+    resp: crate::openhuman::integrations::composio::ComposioExecuteResponse,
+) -> Result<crate::openhuman::integrations::composio::ComposioExecuteResponse> {
     if resp.successful {
         return Ok(resp);
     }
@@ -672,7 +673,7 @@ pub fn open_flow_checkpointer(
 mod tests {
     use super::*;
     use crate::openhuman::agent::prompts::types::IntegrationConnection;
-    use crate::openhuman::composio::{ComposioExecuteResponse, ConnectedIntegration};
+    use crate::openhuman::integrations::composio::{ComposioExecuteResponse, ConnectedIntegration};
     use crate::openhuman::skills::types::{ToolContent, ToolResult};
 
     // ── native `oh:` tool result handling ──────────────────────────────────

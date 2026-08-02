@@ -1015,10 +1015,12 @@ pub fn all_tools_with_runtime(
 
     // Managed cloud file storage (S3 via the backend). Skipped when no
     // integration client is configured; downloads land under `action_dir`.
-    tools.extend(crate::openhuman::file_storage::build_file_storage_tools(
-        root_config,
-        action_dir,
-    ));
+    tools.extend(
+        crate::openhuman::integrations::file_storage::build_file_storage_tools(
+            root_config,
+            action_dir,
+        ),
+    );
 
     // High-level web3 tools (swaps / bridges / dapp calls) built on the wallet.
     // They call the backend deBridge proxy per-invocation and error gracefully
@@ -1165,7 +1167,8 @@ pub fn all_tools_with_runtime(
         // five agent tools (list_toolkits, list_connections, authorize,
         // list_tools, execute) when the composio toggle is on. See
         // `src/openhuman/composio/tools.rs` for per-tool details.
-        let composio_tools = crate::openhuman::composio::all_composio_agent_tools(root_config);
+        let composio_tools =
+            crate::openhuman::integrations::composio::all_composio_agent_tools(root_config);
         if !composio_tools.is_empty() {
             tracing::debug!(
                 count = composio_tools.len(),

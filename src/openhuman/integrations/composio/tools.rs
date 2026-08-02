@@ -1021,7 +1021,7 @@ pub struct ComposioListToolsTool {
     /// Held instead of a pre-baked `ComposioClient` so the
     /// [`crate::openhuman::config::ComposioConfig::mode`] toggle is
     /// honoured on every call. Resolving the client per call mirrors
-    /// [`crate::openhuman::composio::ops::composio_execute`] and avoids
+    /// [`crate::openhuman::integrations::composio::ops::composio_execute`] and avoids
     /// the staged-routing bug (#1710) where a long-lived backend client
     /// would survive a user switch into `direct` mode.
     config: Arc<Config>,
@@ -1265,7 +1265,7 @@ pub struct ComposioExecuteTool {
     /// tenant. Resolving the client per call via
     /// [`create_composio_client`] keeps dispatch in lockstep with the
     /// live config, matching
-    /// [`crate::openhuman::composio::ops::composio_execute`]. See
+    /// [`crate::openhuman::integrations::composio::ops::composio_execute`]. See
     /// issue #1710.
     config: Arc<Config>,
 }

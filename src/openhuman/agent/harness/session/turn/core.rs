@@ -535,7 +535,9 @@ impl Agent {
             // hash of whatever Composio actually returned just now.
             // Subsequent turns short-circuit unless this hash changes.
             self.last_seen_integrations_hash =
-                crate::openhuman::composio::connected_set_hash(&self.connected_integrations);
+                crate::openhuman::integrations::composio::connected_set_hash(
+                    &self.connected_integrations,
+                );
             // Seed the announced set with the startup connected toolkits so
             // only genuinely-new mid-session connects get announced later.
             self.announced_integrations = self
@@ -579,12 +581,12 @@ impl Agent {
             // against.
             //
             // The signal we react to is the process-wide
-            // [`crate::openhuman::composio::INTEGRATIONS_CACHE`], kept
+            // [`crate::openhuman::integrations::composio::INTEGRATIONS_CACHE`], kept
             // current by (a) the desktop UI's 5 s
             // `composio_list_connections` poll, (b) the post-OAuth
             // `ComposioConnectionCreatedSubscriber` invalidation, and
             // (c) the 60 s TTL fallback. We read it via the read-only
-            // [`crate::openhuman::composio::cached_active_integrations`]
+            // [`crate::openhuman::integrations::composio::cached_active_integrations`]
             // helper — never trigger a backend fetch ourselves, never
             // block on a writer.
             // Session agents built through `from_config_*` carry their

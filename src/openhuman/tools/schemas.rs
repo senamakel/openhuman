@@ -443,7 +443,7 @@ fn handle_composio_execute(params: Map<String, Value>) -> ControllerFuture {
         // backend-only `build_composio_client` and silently 4xx'd for
         // direct-mode users (#1710). Mirrors
         // `composio::ops::composio_execute`.
-        use crate::openhuman::composio::client::{
+        use crate::openhuman::integrations::composio::client::{
             create_composio_client, direct_execute, ComposioClientKind,
         };
         let kind =

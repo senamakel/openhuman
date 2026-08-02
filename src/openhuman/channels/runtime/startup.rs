@@ -158,7 +158,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         config.workspace_dir.clone(),
     );
     crate::openhuman::memory::sync::register_sync_stage_bridge(&config);
-    crate::openhuman::composio::register_composio_trigger_subscriber();
+    crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
     crate::openhuman::meet::backend_bot::calendar::register_meet_calendar_subscriber();
     crate::openhuman::meet::backend_bot::bus::register_meeting_event_subscriber();
     // Surface parked ApprovalGate requests as chat messages so the user can
@@ -179,12 +179,12 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // `bootstrap_core_runtime` may also start it — `start_periodic_sync`
     // is intentionally cheap and the loop body no-ops when there are
     // no connections.
-    crate::openhuman::composio::start_periodic_sync();
+    crate::openhuman::integrations::composio::start_periodic_sync();
     // Task-sources: subscribe to Composio connection-created events for
     // one-shot fetches, and spawn the periodic poll that pulls work from
     // configured external sources onto the agent's todo board.
-    crate::openhuman::task_sources::bus::register_task_sources_subscriber();
-    crate::openhuman::task_sources::start_periodic_poll();
+    crate::openhuman::integrations::task_sources::bus::register_task_sources_subscriber();
+    crate::openhuman::integrations::task_sources::start_periodic_poll();
     // Board poller: dispatch the highest-urgency `todo` card on the
     // task-sources board (catch-all for cards without a proactive trigger).
     crate::openhuman::agent::task_dispatcher::start_board_poller();

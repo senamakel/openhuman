@@ -21,7 +21,9 @@ use tinyagents::harness::config::{
     MemoryLimits, RequiredOutput, SessionConfig, ToolConfig, ToolDispatcher, TurnConfig,
 };
 
-use crate::openhuman::config::{Config, DelegateAgentConfig, DEFAULT_MODEL};
+use crate::openhuman::config::{
+    AgentConfig, Config, DelegateAgentConfig, RequiredOutputContract, DEFAULT_MODEL,
+};
 
 /// Translates OpenHuman's free-form `agent.tool_dispatcher` string into the
 /// crate enum.
@@ -57,9 +59,6 @@ fn dispatcher_from(raw: &str) -> ToolDispatcher {
 /// see [`apply_delegate`]. A caller that wants the plain single-agent case gets
 /// exactly that, with no delegation implied by accident.
 pub fn session_config_from(config: &Config) -> SessionConfig {
-    let agent = &config.agent;
-    let limits = agent.resolved_memory_limits();
-
     let mut session = SessionConfig::new(
         config.workspace_dir.clone(),
         config.action_dir.clone(),
@@ -70,9 +69,27 @@ pub fn session_config_from(config: &Config) -> SessionConfig {
     );
 
     session.temperature = Some(config.default_temperature);
-    session.agents_md_enabled = agent.agents_md_enabled;
+    apply_agent_config(&mut session, &config.agent);
+    session
+}
 
-    session.turn = TurnConfig {
+/// Overlays one [`AgentConfig`] onto `session`, replacing its turn, tool, and
+/// memory sections and the `agents_md_enabled` flag.
+///
+/// Split out from [`session_config_from`] because a session's `AgentConfig` is
+/// **not always `config.agent`** — the session builder takes a per-agent
+/// override. Mapping only from the global `Config` would silently discard that
+/// override and run every agent on the global limits.
+pub fn apply_agent_config(session: &mut SessionConfig, agent: &AgentConfig) {
+    session.agents_md_enabled = agent.agents_md_enabled;
+    session.turn = turn_config_from(agent);
+    session.tools = tool_config_from(agent);
+    session.memory = memory_limits_from(agent);
+}
+
+/// Maps the per-turn limits out of an [`AgentConfig`].
+pub fn turn_config_from(agent: &AgentConfig) -> TurnConfig {
+    TurnConfig {
         max_tool_iterations: agent.max_tool_iterations,
         max_history_messages: agent.max_history_messages,
         compact_context: agent.compact_context,
@@ -80,28 +97,42 @@ pub fn session_config_from(config: &Config) -> SessionConfig {
         max_parallel_tools: agent.max_parallel_tools,
         tool_result_budget_bytes: agent.tool_result_budget_bytes,
         timeout_secs: agent.agent_timeout_secs,
-        required_output: agent.required_output.as_ref().map(|r| RequiredOutput {
-            block_key: r.block_key.clone(),
-            required_keys: r.required_keys.clone(),
-        }),
-    };
+        required_output: agent.required_output.as_ref().map(required_output_from),
+    }
+}
 
-    session.tools = ToolConfig {
+/// Maps tool dispatch and reachability out of an [`AgentConfig`].
+pub fn tool_config_from(agent: &AgentConfig) -> ToolConfig {
+    ToolConfig {
         dispatcher: dispatcher_from(&agent.tool_dispatcher),
         channel_permissions: agent.channel_permissions.clone(),
-    };
+    }
+}
 
-    // Read through `resolved_memory_limits()` rather than the legacy
-    // `max_memory_context_chars` field directly: that helper is what applies
-    // the `memory_window` preset and the hard ceiling, and bypassing it would
-    // silently drop both.
-    session.memory = MemoryLimits {
+/// Maps memory character budgets out of an [`AgentConfig`].
+///
+/// Reads through `resolved_memory_limits()` rather than the legacy
+/// `max_memory_context_chars` scalar: that helper is what applies the
+/// `memory_window` preset and the hard ceiling, and bypassing it drops both.
+pub fn memory_limits_from(agent: &AgentConfig) -> MemoryLimits {
+    let limits = agent.resolved_memory_limits();
+    MemoryLimits {
         max_memory_context_chars: limits.max_memory_context_chars,
         per_namespace_max_chars: limits.per_namespace_max_chars,
         total_tree_max_chars: limits.total_tree_max_chars,
-    };
+    }
+}
 
-    session
+/// Converts the host's structured-output contract into the crate's.
+///
+/// The two types are field-identical by design; this is the one place that
+/// equivalence is asserted, so a divergence shows up here rather than as a
+/// silently unenforced contract.
+pub fn required_output_from(contract: &RequiredOutputContract) -> RequiredOutput {
+    RequiredOutput {
+        block_key: contract.block_key.clone(),
+        required_keys: contract.required_keys.clone(),
+    }
 }
 
 /// Applies the `[teams.<team>]` model pins to an already-mapped `session`.
@@ -244,6 +275,64 @@ mod tests {
         assert_eq!(r.block_key, "thoughts");
         assert_eq!(r.required_keys, vec!["next_action".to_string()]);
         assert!(r.is_active());
+    }
+
+    #[test]
+    fn apply_agent_config_overrides_the_global_agent_section() {
+        // The session builder takes a per-agent AgentConfig override. Mapping
+        // only from the global Config would silently discard it and run every
+        // agent on the global limits — this is the regression that guards it.
+        let mut c = base();
+        c.agent.max_tool_iterations = 3;
+
+        let mut s = session_config_from(&c);
+        assert_eq!(s.turn.max_tool_iterations, 3, "global applies first");
+
+        let mut per_agent = AgentConfig::default();
+        per_agent.max_tool_iterations = 25;
+        per_agent.agents_md_enabled = false;
+        apply_agent_config(&mut s, &per_agent);
+
+        assert_eq!(s.turn.max_tool_iterations, 25);
+        assert!(!s.agents_md_enabled);
+        // Path roots and model are session-level and must survive the overlay.
+        assert_eq!(s.workspace_dir, c.workspace_dir);
+        assert_eq!(s.model, session_config_from(&c).model);
+    }
+
+    #[test]
+    fn per_section_mappers_agree_with_the_composed_one() {
+        let mut c = base();
+        c.agent.max_history_messages = 9;
+        c.agent.tool_dispatcher = "pformat".into();
+
+        let s = session_config_from(&c);
+        assert_eq!(s.turn, turn_config_from(&c.agent));
+        assert_eq!(s.tools, tool_config_from(&c.agent));
+        assert_eq!(s.memory, memory_limits_from(&c.agent));
+        assert_eq!(s.tools.dispatcher, ToolDispatcher::Pformat);
+    }
+
+    #[test]
+    fn required_output_from_preserves_key_semantics() {
+        let host = RequiredOutputContract {
+            block_key: "thoughts".into(),
+            required_keys: vec!["next_action".into()],
+        };
+        let crate_side = required_output_from(&host);
+        assert_eq!(crate_side.all_keys(), host.all_keys());
+        assert_eq!(crate_side.is_active(), host.is_active());
+
+        // The inert case must agree too — that is the one that decides whether
+        // enforcement runs at all.
+        let inert = RequiredOutputContract {
+            block_key: "  ".into(),
+            required_keys: vec!["next_action".into()],
+        };
+        let inert_crate = required_output_from(&inert);
+        assert_eq!(inert_crate.all_keys(), inert.all_keys());
+        assert!(!inert_crate.is_active());
+        assert!(!inert.is_active());
     }
 
     #[test]

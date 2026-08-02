@@ -223,19 +223,84 @@ Landed so far — foundation only, nothing repointed yet:
   `default_config_maps_to_the_crate_defaults`, which fails if the two default
   sets ever drift.
 
-Measured surface (`agent/` production only, excluding tests): **71 distinct
-config field accesses across 37 files**. Note the spec's headline "195 refs"
-counts fully-qualified paths including tests; the production surface the
-repoint actually has to cover is smaller than that number suggests.
-
-Remaining for Phase 3: repoint those 37 files, then assert the exit condition.
-
 `ToolDispatcher` is an enum where the host has a `String`. The four accepted
 spellings are `auto` / `native` / `xml` / `pformat` — **not** the
 `auto`/`native`/`parsed` triple a reasonable person would guess. An unknown
 value maps to `Auto` with a warning rather than failing: the host's own schema
 lets a typo through validation, so refusing to build the session would turn a
 cosmetic config error into an agent that cannot run.
+
+#### Repointing: what the "37 files" actually decomposes into
+
+The 37-file figure counts every `agent/` production file with a qualified
+`config::` path. **Only ~19 are in the moving set** — the rest (`host_runtime`,
+`bus`, `triage/`, `schemas`, `multimodal`, `prompts/`, `agent/tools/`,
+`archivist/`, `progress_tracing/`) stay host-side per §3 and *should* keep
+reading `Config`; they are the mapper's callers. Repointing them would be
+actively wrong. Within the moving set: **41 qualified refs**, which split into
+three very different problems.
+
+**1. Ambient config loads — 11 sites. Not a repoint; a signature refactor.**
+
+`Config::load_or_init().await` appears 11 times inside code slated to move
+(7 of them in `subagent_runner/ops/runner.rs` alone, plus `task_dispatcher/`
+×3, `subagent_runner/ops/graph.rs`, `session/turn/tools.rs`,
+`harness/definition.rs`). A generic runtime has no config file and no
+`load_or_init`, so these cannot be pointed at a struct — the config has to be
+**threaded in from the caller**, which changes signatures up each call chain.
+This is the single largest piece of remaining Phase 3 work and was not visible
+in the original field-access estimate.
+
+**2. Blocked on Phase 2 — the session cannot drop `AgentConfig` yet.**
+
+The session reads only **9 distinct `AgentConfig` fields**, 7 of which the crate
+structs already cover. The two that do not — `session_dual_write` and
+`session_shadow_reads` (`session/turn/session_io.rs`) — are *transcript*
+live-store migration flags. They have no crate home until Phase 2 decides where
+the transcript lives, so `Agent.config: AgentConfig` has to stay for now.
+
+Adding a crate `SessionConfig` *alongside* it was considered and rejected:
+`session/runtime.rs:181` mutates `self.config.max_tool_iterations` after build
+(the iteration-cap override), so two configs would silently diverge on exactly
+the field most read. One source of truth or none.
+
+**3. Blocked on Phase 4 — `builder/factory.rs`.**
+
+`factory.rs` reaches 21 domains and is going to be *split* into host trait impls,
+not moved verbatim. Repointing its `Config` usage now is rework.
+
+#### Done in this pass
+
+`RequiredOutputContract` → crate `RequiredOutput`, the one clean type swap
+available: `harness/required_output.rs` (pure logic, no host domains) and
+`session/turn/session_io.rs`, converting at the read site in
+`session/turn/core.rs` via `tinyagents::config::required_output_from`. The
+crate type gained `all_keys()` with semantics identical to the host's, including
+the subtle one — a blank `block_key` makes the contract inert *even when
+`required_keys` lists siblings*. The 12 existing `required_output` tests pass
+unchanged against the crate type, which is the proof the swap is behaviour-
+preserving.
+
+The mapper was also split into per-section functions (`turn_config_from`,
+`tool_config_from`, `memory_limits_from`, `apply_agent_config`) because the
+session builder takes a **per-agent `AgentConfig` override** — mapping only from
+the global `Config` would have discarded it and run every agent on the global
+limits.
+
+#### Revised remaining work
+
+1. Thread config through the 11 ambient-load sites (largest item).
+2. After Phase 2: replace `Agent.config` with crate config; migrate the two real
+   external `agent_config()` consumers (`agent_orchestration/parent_context/`,
+   `subconscious/session.rs`).
+3. After Phase 4: `factory.rs`.
+
+> **Test note.** `openhuman::agent::` needs `RUST_MIN_STACK=16777216` or
+> `session::tests::turn_dispatches_spawn_subagent_through_full_path` overflows
+> the stack (already flagged in §6). With it set, the suite is 1080 pass / 1 fail
+> — `builder_tests::profile_allowed_tools_restrict_shared_session_builder` fails
+> **on a clean tree too** when run with the full suite and passes in isolation, so
+> it is a pre-existing order-dependence, not Phase 3 fallout.
 
 **Phase 4 — Implement the traits host-side, still in place.**
 `MemoryProvider`, `ContextComposer`, `SecurityGate`, `BudgetGate`,

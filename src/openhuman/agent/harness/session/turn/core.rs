@@ -1489,7 +1489,16 @@ impl Agent {
         // The trailing assistant message is rewritten to match, and the repair
         // call's usage is folded into the turn accounting. `required_output`
         // defaults to `None`, so existing agents are entirely unaffected.
-        let reply = if let Some(contract) = self.config.required_output.clone() {
+        // Converted to the crate contract at the read site: the enforcement
+        // helpers below are part of the runtime slated to move into TinyAgents
+        // and so speak the crate type, while the session still holds the host's
+        // `AgentConfig`. See `tinyagents::config::required_output_from`.
+        let reply = if let Some(contract) = self
+            .config
+            .required_output
+            .as_ref()
+            .map(crate::openhuman::tinyagents::config::required_output_from)
+        {
             match self
                 .enforce_required_output(
                     &reply,

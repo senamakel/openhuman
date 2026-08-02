@@ -284,7 +284,7 @@ impl Agent {
     pub(in super::super) async fn enforce_required_output(
         &self,
         reply: &str,
-        contract: &crate::openhuman::config::RequiredOutputContract,
+        contract: &tinyagents::harness::config::RequiredOutput,
         effective_model: &str,
         iteration_for_stream: u32,
     ) -> Option<(String, Option<UsageInfo>)> {

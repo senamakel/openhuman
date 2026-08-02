@@ -19,13 +19,13 @@
 //! provider call and reconcile with streaming; keeping the logic here pure keeps
 //! it unit-testable without a provider.
 
-use crate::openhuman::config::RequiredOutputContract;
+use tinyagents::harness::config::RequiredOutput;
 
 /// Whether `text` satisfies `contract`: it contains a JSON object carrying every
 /// required key with a non-null value, in the expected leading position. An
 /// inert contract (no non-blank keys) is treated as always satisfied so
 /// enforcement is a no-op.
-pub(crate) fn output_satisfies_contract(text: &str, contract: &RequiredOutputContract) -> bool {
+pub(crate) fn output_satisfies_contract(text: &str, contract: &RequiredOutput) -> bool {
     if !contract.is_active() {
         return true;
     }
@@ -44,7 +44,7 @@ pub(crate) fn output_satisfies_contract(text: &str, contract: &RequiredOutputCon
 /// whole-object replies are all recognised.
 pub(crate) fn find_required_block(
     text: &str,
-    contract: &RequiredOutputContract,
+    contract: &RequiredOutput,
 ) -> Option<serde_json::Value> {
     let keys = contract.all_keys();
     if keys.is_empty() {
@@ -67,7 +67,7 @@ pub(crate) fn find_required_block(
 /// empty string so downstream parsing always has a well-formed object to
 /// consume. Returns `"{}"` only for an inert contract (which enforcement never
 /// reaches).
-pub(crate) fn synthesize_block(contract: &RequiredOutputContract) -> String {
+pub(crate) fn synthesize_block(contract: &RequiredOutput) -> String {
     let mut obj = serde_json::Map::new();
     for key in contract.all_keys() {
         obj.insert(key, serde_json::Value::String(String::new()));
@@ -84,7 +84,7 @@ pub(crate) fn synthesize_block(contract: &RequiredOutputContract) -> String {
 /// re-prompt as the whole reply (the non-streamed *replace* path) or appends it
 /// after prose that was already streamed (the *append* path); see
 /// `Agent::enforce_required_output`.
-pub(crate) fn repair_instruction(contract: &RequiredOutputContract) -> String {
+pub(crate) fn repair_instruction(contract: &RequiredOutput) -> String {
     let keys = contract.all_keys().join("\", \"");
     format!(
         "Your previous reply omitted the required JSON `{}` block that every turn must include. \
@@ -98,8 +98,8 @@ and non-null — then continue with your answer. Do not call any tools.",
 mod tests {
     use super::*;
 
-    fn thoughts_contract() -> RequiredOutputContract {
-        RequiredOutputContract {
+    fn thoughts_contract() -> RequiredOutput {
+        RequiredOutput {
             block_key: "thoughts".into(),
             required_keys: vec!["next_action".into()],
         }
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn null_valued_required_key_fails() {
-        let contract = RequiredOutputContract::new("thoughts");
+        let contract = RequiredOutput::new("thoughts");
         assert!(!output_satisfies_contract(
             "{\"thoughts\": null}",
             &contract
@@ -182,7 +182,7 @@ mod tests {
         // A blank block key is inert even when sibling keys are listed — the
         // contract's defining key can never be enforced, so enforcement is
         // skipped instead of accepting a block missing that key.
-        let contract = RequiredOutputContract {
+        let contract = RequiredOutput {
             block_key: "   ".into(),
             required_keys: vec!["next_action".into()],
         };
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn inert_contract_is_always_satisfied() {
-        let contract = RequiredOutputContract::default();
+        let contract = RequiredOutput::default();
         assert!(!contract.is_active());
         assert!(output_satisfies_contract("no block here", &contract));
         assert!(find_required_block("no block here", &contract).is_none());
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn all_keys_trims_and_dedupes() {
-        let contract = RequiredOutputContract {
+        let contract = RequiredOutput {
             block_key: "  thoughts  ".into(),
             required_keys: vec![
                 "thoughts".into(),

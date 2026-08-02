@@ -90,8 +90,11 @@ pub(crate) use tier::*;
 pub(crate) use tools::NATIVE_TOOL_PREFIX;
 
 pub(crate) use crate::openhuman::json_schema::{
-    compute_primary_array_path, compute_primary_array_path_from_value, missing_required_args,
-    response_fields_from_schema, unsupported_arg_names,
+    missing_required_args, unsupported_arg_names,
+};
+#[cfg(test)]
+pub(crate) use crate::openhuman::json_schema::{
+    compute_primary_array_path, compute_primary_array_path_from_value, response_fields_from_schema,
 };
 
 /// Parses a `"composio:<toolkit>:<connection_id>"` `connection_ref` (see the

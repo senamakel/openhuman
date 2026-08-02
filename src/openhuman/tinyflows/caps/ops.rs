@@ -24,9 +24,9 @@ use tinyflows::model::WorkflowGraph;
 use crate::openhuman::config::Config;
 #[cfg(test)]
 use crate::openhuman::config::HttpRequestConfig;
-use crate::openhuman::credentials::HttpCredentialsStore;
 #[cfg(test)]
 use crate::openhuman::credentials::HttpCredential;
+use crate::openhuman::credentials::HttpCredentialsStore;
 #[cfg(test)]
 use crate::openhuman::flows;
 use crate::openhuman::security::{CommandClass, SecurityPolicy};

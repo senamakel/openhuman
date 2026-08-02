@@ -241,15 +241,53 @@ actively wrong. Within the moving set: **41 qualified refs**, which split into
 three very different problems.
 
 **1. Ambient config loads — 11 sites. Not a repoint; a signature refactor.**
+*(Done 2026-08-02 — 11 sites → 2 genuine + 1 boundary snapshot.)*
 
-`Config::load_or_init().await` appears 11 times inside code slated to move
-(7 of them in `subagent_runner/ops/runner.rs` alone, plus `task_dispatcher/`
-×3, `subagent_runner/ops/graph.rs`, `session/turn/tools.rs`,
-`harness/definition.rs`). A generic runtime has no config file and no
-`load_or_init`, so these cannot be pointed at a struct — the config has to be
-**threaded in from the caller**, which changes signatures up each call chain.
-This is the single largest piece of remaining Phase 3 work and was not visible
-in the original field-access estimate.
+`Config::load_or_init().await` appeared 11 times inside code slated to move.
+A generic runtime has no config file and no `load_or_init`, so these could not
+be pointed at a struct — the config had to be **threaded in from the caller**.
+
+`load_or_init` is **not cached**: it re-resolves the config dirs and re-reads
+`config.toml` on every call. `run_typed_mode` called it six times, so one
+sub-agent spawn hit the disk six times and could observe six *different*
+configs mid-spawn. `run_subagent` now takes a single snapshot
+(`LoadedConfig = Result<Arc<Config>, String>`) and hands it down.
+
+`Result<_, String>` rather than `Option` because the `integrations_agent` path
+reports the load error to its caller while the other five degrade silently —
+keeping both shapes lets each site preserve its original failure behaviour. The
+snapshot is taken **after** `tier_gate_decision`: `load_or_init` can initialize
+config on first run, and a spawn the tier gate rejects should not have that
+side effect.
+
+The sub-agent graph got the same treatment: `build_subagent_context_mw` now
+takes `Option<&Config>` (and is no longer `async`), plumbed through
+`run_subagent_via_graph` and a new `AgentTurnRequest::config` field so the
+custom-graph path keeps its `[context]` knobs rather than silently falling back
+to defaults. The four graph tests pass `None`, which makes them hermetic — they
+previously read whatever `config.toml` was on the developer's machine.
+
+**Scope correction: `task_dispatcher/` is not in the moving set.** §3 lists it
+beside `dispatcher.rs`, both mapping to `harness::{tool_calling, hooks}`. That
+conflates two unrelated modules. `dispatcher.rs` parses tool calls out of model
+output and is genuinely generic. `task_dispatcher/` is a task-**card board**
+dispatcher reaching `task_sources`, `threads`, `web_chat`, `todos`, `profiles`
+and `scheduler_gate` — product logic that stays host-side. Its three
+`load_or_init` calls are boundary code and are correct as they are. **§3's row
+should be split.**
+
+Two loads remain in moving files, both host-boundary code that gets extracted
+rather than moved:
+
+- `session/turn/tools.rs:123` — Composio integration fetch. Config is *already*
+  threaded via the session's `integration_runtime_config` (set in
+  `factory.rs:1280`); this is only the fallback when a session is built through
+  the raw setter path. Composio is host product logic and becomes a `Tool` impl
+  in Phase 4, so the fallback was left rather than risk silently disabling
+  integration fetching for setter-built sessions.
+- `harness/definition.rs:781` — `load_for_default_workspace()`, a convenience
+  constructor with exactly one caller: `src/core/agent_cli.rs:415`. It is a CLI
+  boundary helper that stays host-side when `definition.rs` moves.
 
 **2. Blocked on Phase 2 — the session cannot drop `AgentConfig` yet.**
 
@@ -289,11 +327,12 @@ limits.
 
 #### Revised remaining work
 
-1. Thread config through the 11 ambient-load sites (largest item).
+1. ~~Thread config through the ambient-load sites.~~ **Done 2026-08-02.**
 2. After Phase 2: replace `Agent.config` with crate config; migrate the two real
    external `agent_config()` consumers (`agent_orchestration/parent_context/`,
    `subconscious/session.rs`).
-3. After Phase 4: `factory.rs`.
+3. After Phase 4: `factory.rs`, and the Composio fetch in `session/turn/tools.rs`.
+4. Split §3's `task_dispatcher/` + `dispatcher.rs` row — only the latter moves.
 
 > **Test note.** `openhuman::agent::` needs `RUST_MIN_STACK=16777216` or
 > `session::tests::turn_dispatches_spawn_subagent_through_full_path` overflows

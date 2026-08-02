@@ -24,7 +24,7 @@ hint = "burst"
 [tools]
 # Narrow allowlist. Wallet + web3 + market primitives only — no shell, no
 # file_write, no broad HTTP, no integration delegation. Wallet names line up
-# with the wallet RPC controllers in `src/openhuman/wallet/schemas.rs`
+# with the wallet RPC controllers in `src/openhuman/web3/wallet/schemas.rs`
 # (read: status/balances/supported_assets/chain_status + tx_status/tx_receipt/
 # lookup_tx; quote/prepare: prepare_transfer; execute: execute_prepared). The
 # higher-level swap/bridge/dapp surface lives in the `web3_*` tools, which

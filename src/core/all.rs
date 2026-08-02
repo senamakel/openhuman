@@ -375,7 +375,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Web3,
-        crate::openhuman::x402::all_x402_registered_controllers(),
+        crate::openhuman::web3::x402::all_x402_registered_controllers(),
     );
     // External messaging channels (Web, Telegram, etc.)
     push(
@@ -610,7 +610,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Web3,
-        crate::openhuman::wallet::all_wallet_registered_controllers(),
+        crate::openhuman::web3::wallet::all_wallet_registered_controllers(),
     );
     // High-level web3 surface (swaps / bridges / dapp calls) over the wallet
     push(

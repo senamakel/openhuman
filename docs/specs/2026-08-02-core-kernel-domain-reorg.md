@@ -163,7 +163,7 @@ renames.
 | `channels/` | `whatsapp_data`, `webview_accounts` |
 | `meet/` | ✅ **landed** — `meet_agent→agent`, `agent_meetings→backend_bot` |
 | `voice/` | ✅ **landed** — `audio_toolkit`; parent stays ungated (facade + `stub.rs`), gate pushed onto the child |
-| `web3/` | `wallet`, `x402` |
+| `web3/` | ✅ **landed** — `wallet`, `x402`; parent stays ungated (all three are facades with their own `stub.rs`) |
 | `media/` *(new)* | ✅ **landed** — `media_generation→generation`, `image`; parent is leaf-gated on `media` since both children were wholly gated |
 | `medulla/` | `medulla_chat→chat` |
 | `runtime/` *(new)* | ✅ **landed** — `runtime_node→node`, `runtime_python→python`, `runtime_python_server→python_server`, `runtime_pool→pool`, `javascript` |

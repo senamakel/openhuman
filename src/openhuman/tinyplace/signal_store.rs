@@ -604,7 +604,7 @@ async fn init_signal_store() -> std::result::Result<Arc<FileSessionStore>, Strin
 
     // 1. Derive the identity key from the wallet seed.
     //    The seed is never logged or persisted.
-    let seed = crate::openhuman::wallet::tinyplace_signer_seed().await?;
+    let seed = crate::openhuman::web3::wallet::tinyplace_signer_seed().await?;
     let identity = ed25519_seed_to_x25519_keypair(&seed);
     log::debug!("[signal_store] identity key derived (key not logged)");
 

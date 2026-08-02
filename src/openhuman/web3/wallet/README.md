@@ -19,23 +19,23 @@ Higher-level DeFi affordances (swaps, bridges, generic dapp/contract calls) live
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/wallet/mod.rs` | Export-focused module root; module docstring, `mod`/`pub use` re-exports. |
-| `src/openhuman/wallet/ops.rs` | Onboarding metadata + secret persistence: `WalletChain`/`WalletAccount`/`WalletStatus` types, `setup`/`status`, atomic `wallet-state.json` writes (temp-file + fsync), corrupt-state quarantine, keychain load/save/migrate, `validate_setup`, and `secret_material` (crate-internal) used by chain signers. |
-| `src/openhuman/wallet/execution.rs` | Execution surface: balances/network_defaults/supported_assets/chain_status reads, `prepare_transfer`/`execute_prepared` (native + token transfers only), `tx_status`/`tx_receipt`/`lookup_tx` readers, the crate-internal `sign_and_broadcast_evm`/`sign_and_broadcast_solana` re-exports, the in-memory quote store (TTL'd, capped at 64), `QuoteOwner` chat-thread binding, amount/address/calldata validation, fee estimation, hex/u256 helpers. |
-| `src/openhuman/wallet/defaults.rs` | `EvmNetwork` enum (chain id, default RPC, explorer base, env var), default RPC/REST URLs for BTC/Solana/Tron, env-override resolution, and per-chain/per-network asset catalogs. |
-| `src/openhuman/wallet/abi.rs` | `encode_erc20_transfer` — encodes `transfer(address,uint256)` calldata via `ethers_core::abi`. |
-| `src/openhuman/wallet/schemas.rs` | RPC controller schemas + `handle_*` dispatchers delegating to `ops`/`execution`; `all_wallet_controller_schemas` / `all_wallet_registered_controllers`. |
-| `src/openhuman/wallet/rpc.rs` | **Network transport** (not RPC controllers): shared `reqwest::Client`, JSON-RPC POST (`rpc_call`, `evm_rpc_call`, `rpc_call_to`), REST GET/POST helpers, URL redaction for logs. |
-| `src/openhuman/wallet/tools.rs` | Re-exports the three agent tool structs from `tools/`. |
-| `src/openhuman/wallet/tools/status.rs` | `WalletStatusTool` (`wallet_status`). |
-| `src/openhuman/wallet/tools/chain_status.rs` | `WalletChainStatusTool` (`wallet_chain_status`). |
-| `src/openhuman/wallet/tools/prepare_transfer.rs` | `WalletPrepareTransferTool` (`wallet_prepare_transfer`). |
-| `src/openhuman/wallet/chains/mod.rs` | Per-chain executor namespace; docstring of the small per-chain surface (`execute_*_quote`, `native_balance`, `validate_*_address`). |
-| `src/openhuman/wallet/chains/evm.rs` | EVM key derivation (`ethers_signers` BIP-39), EIP-1559/typed-tx signing, `eth_*` balance/gas/broadcast. |
-| `src/openhuman/wallet/chains/btc.rs` | Bitcoin P2WPKH derivation/signing (`bitcoin` crate, secp256k1, BIP-32) + Esplora REST balance/broadcast. |
-| `src/openhuman/wallet/chains/solana.rs` | Solana ed25519 (`ed25519_dalek`) derivation, native + SPL transfers, JSON-RPC balance/broadcast. |
-| `src/openhuman/wallet/chains/tron.rs` | Tron derivation/signing + TronGrid REST native + TRC20 transfers. |
-| `src/openhuman/wallet/test_support.rs` | `#[cfg(test)]` shared plumbing: `TEST_LOCK`, `setup_wallet_in` (deterministic "abandon … about" mnemonic), per-chain sample addresses. |
+| `src/openhuman/web3/wallet/mod.rs` | Export-focused module root; module docstring, `mod`/`pub use` re-exports. |
+| `src/openhuman/web3/wallet/ops.rs` | Onboarding metadata + secret persistence: `WalletChain`/`WalletAccount`/`WalletStatus` types, `setup`/`status`, atomic `wallet-state.json` writes (temp-file + fsync), corrupt-state quarantine, keychain load/save/migrate, `validate_setup`, and `secret_material` (crate-internal) used by chain signers. |
+| `src/openhuman/web3/wallet/execution.rs` | Execution surface: balances/network_defaults/supported_assets/chain_status reads, `prepare_transfer`/`execute_prepared` (native + token transfers only), `tx_status`/`tx_receipt`/`lookup_tx` readers, the crate-internal `sign_and_broadcast_evm`/`sign_and_broadcast_solana` re-exports, the in-memory quote store (TTL'd, capped at 64), `QuoteOwner` chat-thread binding, amount/address/calldata validation, fee estimation, hex/u256 helpers. |
+| `src/openhuman/web3/wallet/defaults.rs` | `EvmNetwork` enum (chain id, default RPC, explorer base, env var), default RPC/REST URLs for BTC/Solana/Tron, env-override resolution, and per-chain/per-network asset catalogs. |
+| `src/openhuman/web3/wallet/abi.rs` | `encode_erc20_transfer` — encodes `transfer(address,uint256)` calldata via `ethers_core::abi`. |
+| `src/openhuman/web3/wallet/schemas.rs` | RPC controller schemas + `handle_*` dispatchers delegating to `ops`/`execution`; `all_wallet_controller_schemas` / `all_wallet_registered_controllers`. |
+| `src/openhuman/web3/wallet/rpc.rs` | **Network transport** (not RPC controllers): shared `reqwest::Client`, JSON-RPC POST (`rpc_call`, `evm_rpc_call`, `rpc_call_to`), REST GET/POST helpers, URL redaction for logs. |
+| `src/openhuman/web3/wallet/tools.rs` | Re-exports the three agent tool structs from `tools/`. |
+| `src/openhuman/web3/wallet/tools/status.rs` | `WalletStatusTool` (`wallet_status`). |
+| `src/openhuman/web3/wallet/tools/chain_status.rs` | `WalletChainStatusTool` (`wallet_chain_status`). |
+| `src/openhuman/web3/wallet/tools/prepare_transfer.rs` | `WalletPrepareTransferTool` (`wallet_prepare_transfer`). |
+| `src/openhuman/web3/wallet/chains/mod.rs` | Per-chain executor namespace; docstring of the small per-chain surface (`execute_*_quote`, `native_balance`, `validate_*_address`). |
+| `src/openhuman/web3/wallet/chains/evm.rs` | EVM key derivation (`ethers_signers` BIP-39), EIP-1559/typed-tx signing, `eth_*` balance/gas/broadcast. |
+| `src/openhuman/web3/wallet/chains/btc.rs` | Bitcoin P2WPKH derivation/signing (`bitcoin` crate, secp256k1, BIP-32) + Esplora REST balance/broadcast. |
+| `src/openhuman/web3/wallet/chains/solana.rs` | Solana ed25519 (`ed25519_dalek`) derivation, native + SPL transfers, JSON-RPC balance/broadcast. |
+| `src/openhuman/web3/wallet/chains/tron.rs` | Tron derivation/signing + TronGrid REST native + TRC20 transfers. |
+| `src/openhuman/web3/wallet/test_support.rs` | `#[cfg(test)]` shared plumbing: `TEST_LOCK`, `setup_wallet_in` (deterministic "abandon … about" mnemonic), per-chain sample addresses. |
 
 ## Public surface
 

@@ -15,7 +15,7 @@ use serde::Serialize;
 use tokio::fs;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::wallet::prepared_quotes_for_test;
+use crate::openhuman::web3::wallet::prepared_quotes_for_test;
 use crate::openhuman::web_chat::in_flight_entries_for_test;
 use crate::rpc::RpcOutcome;
 
@@ -278,7 +278,7 @@ pub async fn in_flight_chats() -> Result<RpcOutcome<InFlightResult>, String> {
 #[serde(rename_all = "camelCase")]
 pub struct PreparedQuotesResult {
     pub count: usize,
-    pub quotes: Vec<crate::openhuman::wallet::PreparedTransaction>,
+    pub quotes: Vec<crate::openhuman::web3::wallet::PreparedTransaction>,
 }
 
 pub async fn wallet_prepared_quotes() -> Result<RpcOutcome<PreparedQuotesResult>, String> {

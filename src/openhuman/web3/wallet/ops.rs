@@ -1002,9 +1002,9 @@ mod tests {
     #[tokio::test]
     async fn reveal_recovery_phrase_returns_error_when_no_wallet() {
         let temp = tempfile::tempdir().expect("temp dir");
-        let _wallet_lock = crate::openhuman::wallet::test_support::TEST_LOCK.lock();
+        let _wallet_lock = crate::openhuman::web3::wallet::test_support::TEST_LOCK.lock();
         let _workspace_guard =
-            crate::openhuman::wallet::test_support::set_workspace_env_for_test(&temp);
+            crate::openhuman::web3::wallet::test_support::set_workspace_env_for_test(&temp);
         let result = reveal_recovery_phrase().await;
         let err = result.expect_err("should error when no wallet configured");
         assert!(
@@ -1016,8 +1016,8 @@ mod tests {
     #[tokio::test]
     async fn reveal_recovery_phrase_returns_phrase_for_existing_wallet() {
         let temp = tempfile::tempdir().expect("temp dir");
-        let _wallet_lock = crate::openhuman::wallet::test_support::TEST_LOCK.lock();
-        let _workspace_guard = crate::openhuman::wallet::test_support::setup_wallet_in(&temp)
+        let _wallet_lock = crate::openhuman::web3::wallet::test_support::TEST_LOCK.lock();
+        let _workspace_guard = crate::openhuman::web3::wallet::test_support::setup_wallet_in(&temp)
             .await
             .expect("setup wallet");
         let result = reveal_recovery_phrase()
@@ -1025,7 +1025,7 @@ mod tests {
             .expect("reveal should succeed");
         assert_eq!(
             result.value.phrase,
-            crate::openhuman::wallet::test_support::TEST_MNEMONIC
+            crate::openhuman::web3::wallet::test_support::TEST_MNEMONIC
         );
         assert_eq!(result.value.word_count, 12);
     }

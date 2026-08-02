@@ -130,7 +130,6 @@ pub mod tools;
 pub mod update;
 pub mod util;
 pub mod voice;
-pub mod wallet;
 pub mod web3;
 pub mod web_chat;
 pub mod webhooks;
@@ -139,4 +138,3 @@ pub mod webview_accounts;
 #[cfg(feature = "channels")]
 pub mod whatsapp_data;
 pub mod workspace;
-pub mod x402;

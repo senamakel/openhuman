@@ -5,7 +5,7 @@ use crate::openhuman::config::{PolymarketClobCredentials, PolymarketConfig};
 use crate::openhuman::security::policy::ToolOperation;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{Tool, ToolCategory, ToolResult};
-use crate::openhuman::wallet::{secret_material, status as wallet_status, WalletChain};
+use crate::openhuman::web3::wallet::{secret_material, status as wallet_status, WalletChain};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use ethers_core::types::Address;

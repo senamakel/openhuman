@@ -899,7 +899,7 @@ pub fn all_tools_with_runtime(
     // feature (the x402 domain is compiled out when web3 is disabled).
     #[cfg(feature = "web3")]
     tools.push(Box::new(
-        crate::openhuman::x402::tools::X402RequestTool::new(),
+        crate::openhuman::web3::x402::tools::X402RequestTool::new(),
     ));
 
     // Coding-harness baseline `web_fetch` (issue #1205) — single-purpose

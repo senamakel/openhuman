@@ -310,7 +310,7 @@ whole cohort or expect a delta of 0.
 | Feature | Default | Gates | Drops deps |
 | ------- | ------- | ----- | ---------- |
 | `voice` | ON | the `openhuman::voice` family (incl. `voice::audio_toolkit`) — STT/TTS providers, dictation server, always-on listening, podcast audio + email | `hound`, `lettre` |
-| `web3` | ON | `openhuman::wallet` + `openhuman::web3` + `openhuman::x402` domains — crypto wallet (multi-chain sign/broadcast), swaps/bridges/dapp calls, x402 machine payments | `bitcoin`, `curve25519-dalek` |
+| `web3` | ON | the `openhuman::web3` family (`web3`, `web3::wallet`, `web3::x402`) — crypto wallet (multi-chain sign/broadcast), swaps/bridges/dapp calls, x402 machine payments | `bitcoin`, `curve25519-dalek` |
 | `media` | ON | `openhuman::media_generation` (the `media_generate_*` agent tools) + `openhuman::image` scaffold | none (surface-only) |
 | `meet` | ON | `openhuman::meet` (join-URL validation) + `openhuman::meet::agent` (live STT/LLM/TTS loop) + `openhuman::meet::backend_bot` (backend-delegated Meet bot over Socket.IO) | none — see note |
 | `skills` | ON | `openhuman::skills` + `openhuman::skill_runtime` + `openhuman::skill_registry` domains — SKILL.md discovery/parse/install, workflow execution + run logs, remote catalogs, the `skill_setup` / `skill_executor` builtin agents, and the 16 skill agent tools | none (see below) |

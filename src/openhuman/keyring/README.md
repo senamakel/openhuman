@@ -76,7 +76,7 @@ Discovered consumers (`crate::openhuman::keyring::*`):
 - `src/openhuman/security/secrets.rs`, `src/openhuman/security/mod.rs` — secret handling.
 - `src/openhuman/config/schema/load.rs` — `SecretStore::new` / `is_encrypted` to encrypt/decrypt config fields on load.
 - `src/openhuman/credentials/profiles.rs`, `credentials/ops.rs` — `SecretStore`, `is_available`, `get`/`set`/`delete` for per-profile credential storage.
-- `src/openhuman/wallet/ops.rs` — `is_available`/`get`/`set` for the wallet mnemonic.
+- `src/openhuman/web3/wallet/ops.rs` — `is_available`/`get`/`set` for the wallet mnemonic.
 - `src/openhuman/devices/rpc.rs` — device secret handling.
 
 ## Notes / gotchas

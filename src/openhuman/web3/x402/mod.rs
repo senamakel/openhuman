@@ -12,7 +12,7 @@
 //!
 //! `pub mod x402;` is ALWAYS compiled — it is a facade. The real payment
 //! machinery is gated behind the default-ON `web3` Cargo feature (shared with
-//! `openhuman::wallet` + `openhuman::web3`). When the feature is off, [`stub`]
+//! `openhuman::web3::wallet` + `openhuman::web3`). When the feature is off, [`stub`]
 //! takes its place and exposes the always-on entry points (`init_ledger`,
 //! `all_x402_registered_controllers`, `all_x402_controller_schemas`) with
 //! no-op / empty bodies. The `X402RequestTool` and the http_request 402-retry

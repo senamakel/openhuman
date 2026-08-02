@@ -7,7 +7,7 @@ use tempfile::TempDir;
 use tokio::net::TcpListener;
 
 use super::*;
-use crate::openhuman::wallet::test_support::{setup_wallet_in, TEST_LOCK};
+use crate::openhuman::web3::wallet::test_support::{setup_wallet_in, TEST_LOCK};
 
 #[derive(Clone)]
 struct MockRpcState {

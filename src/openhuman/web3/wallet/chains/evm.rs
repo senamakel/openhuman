@@ -344,8 +344,8 @@ pub fn validate_evm_address(addr: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::wallet::execution::TxState;
-    use crate::openhuman::wallet::test_support::{setup_wallet_in, TEST_LOCK};
+    use crate::openhuman::web3::wallet::execution::TxState;
+    use crate::openhuman::web3::wallet::test_support::{setup_wallet_in, TEST_LOCK};
     use axum::{routing::post, Router};
     use serde_json::Value as JsonValue;
     use std::sync::Arc;

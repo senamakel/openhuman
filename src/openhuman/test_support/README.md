@@ -57,7 +57,7 @@ This module owns no state of its own — it mutates/reads state owned by other d
 - `crate::openhuman::cron` — `clear_all_jobs` to wipe scheduled jobs during reset.
 - `crate::openhuman::memory::read_rpc` — `wipe_all_rpc` to clear memory-tree rows, content dirs, and sync state.
 - `crate::openhuman::web_chat` — `in_flight_entries_for_test` to snapshot the live `IN_FLIGHT` chat map.
-- `crate::openhuman::wallet` — `prepared_quotes_for_test` and `PreparedTransaction` to snapshot prepared quotes.
+- `crate::openhuman::web3::wallet` — `prepared_quotes_for_test` and `PreparedTransaction` to snapshot prepared quotes.
 - `crate::core::all` — `ControllerFuture`, `RegisteredController` for handler wiring.
 - `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller schema types.
 - `crate::rpc::RpcOutcome` — standard RPC result envelope.

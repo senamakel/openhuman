@@ -366,7 +366,7 @@ pub fn wallet_schemas(function: &str) -> ControllerSchema {
 
 fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        crate::openhuman::wallet::status()
+        crate::openhuman::web3::wallet::status()
             .await?
             .into_cli_compatible_json()
     })
@@ -376,7 +376,7 @@ fn handle_setup(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload: SetupWalletParams = serde_json::from_value(Value::Object(params))
             .map_err(|e| format!("invalid params: {e}"))?;
-        crate::openhuman::wallet::setup(WalletSetupParams {
+        crate::openhuman::web3::wallet::setup(WalletSetupParams {
             consent_granted: payload.consent_granted,
             source: payload.source,
             mnemonic_word_count: payload.mnemonic_word_count,
@@ -468,7 +468,7 @@ fn handle_lookup_tx(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_reveal_recovery_phrase(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        crate::openhuman::wallet::reveal_recovery_phrase()
+        crate::openhuman::web3::wallet::reveal_recovery_phrase()
             .await?
             .into_cli_compatible_json()
     })

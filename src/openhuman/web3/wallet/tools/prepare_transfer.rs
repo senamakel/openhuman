@@ -1,5 +1,5 @@
 use crate::openhuman::tools::traits::{Tool, ToolCallOptions, ToolResult};
-use crate::openhuman::wallet::{self, PrepareTransferParams};
+use crate::openhuman::web3::wallet::{self, PrepareTransferParams};
 use async_trait::async_trait;
 use serde_json::json;
 

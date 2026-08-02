@@ -2,7 +2,7 @@ use super::*;
 use crate::openhuman::config::Config;
 use crate::openhuman::config::{PolymarketClobCredentials, PolymarketConfig};
 use crate::openhuman::security::{AutonomyLevel, SecurityPolicy};
-use crate::openhuman::wallet::{
+use crate::openhuman::web3::wallet::{
     self, WalletAccount, WalletChain, WalletSetupParams, WalletSetupSource,
 };
 use ethers_signers::{coins_bip39::English, MnemonicBuilder, Signer};

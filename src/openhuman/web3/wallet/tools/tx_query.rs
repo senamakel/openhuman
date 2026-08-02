@@ -4,7 +4,7 @@
 //! `wallet::*` dispatcher.
 
 use crate::openhuman::tools::traits::{Tool, ToolCallOptions, ToolResult};
-use crate::openhuman::wallet::{self, EvmNetwork, WalletChain};
+use crate::openhuman::web3::wallet::{self, EvmNetwork, WalletChain};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;

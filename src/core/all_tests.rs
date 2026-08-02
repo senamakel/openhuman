@@ -330,7 +330,7 @@ fn wallet_web3_x402_controllers_registered_when_feature_on() {
 /// controllers never enter the registry (wallet/web3/x402 RPC methods are
 /// unknown-method and absent from `/schema`) and the web3 agent tools are
 /// gone. This is the compile-time stub-facade correctness gate (see
-/// `openhuman::{wallet,web3,x402}::stub`).
+/// `openhuman::web3::{self,wallet,x402}::stub`).
 #[test]
 #[cfg(not(feature = "web3"))]
 fn wallet_web3_x402_controllers_absent_when_feature_off() {

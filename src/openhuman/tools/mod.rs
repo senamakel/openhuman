@@ -62,7 +62,7 @@ pub use crate::openhuman::todos::tools::*;
 #[cfg(feature = "voice")]
 pub use crate::openhuman::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]
-pub use crate::openhuman::wallet::tools::*;
+pub use crate::openhuman::web3::wallet::tools::*;
 #[cfg(feature = "channels")]
 pub use crate::openhuman::whatsapp_data::tools::*;
 pub use crate::openhuman::workspace::tools::*;

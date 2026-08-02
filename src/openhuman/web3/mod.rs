@@ -1,4 +1,4 @@
-//! High-level web3 surface built on top of the [`crate::openhuman::wallet`]
+//! High-level web3 surface built on top of the [`crate::openhuman::web3::wallet`]
 //! signing primitives. Focuses on EVM/Solana dapp interactions: swaps, bridges,
 //! and generic contract calls.
 //!
@@ -15,7 +15,7 @@
 //!
 //! `pub mod web3;` is ALWAYS compiled — it is a facade. The real swap/bridge/
 //! dapp implementation is gated behind the default-ON `web3` Cargo feature
-//! (shared with `openhuman::wallet` + `openhuman::x402`). When the feature is
+//! (shared with `openhuman::web3::wallet` + `openhuman::web3::x402`). When the feature is
 //! off, [`stub`] takes its place and exposes the controller/agent-tool
 //! registration entry points (`all_web3_registered_controllers`,
 //! `all_web3_controller_schemas`, `all_web3_agent_tools`) returning empty
@@ -35,6 +35,14 @@ pub mod store;
 pub mod swap;
 #[cfg(feature = "web3")]
 pub mod types;
+
+// Ungated family members: `wallet` and `x402` are facades in their own right —
+// each keeps its own `stub.rs` and gates its real submodules on the same
+// default-ON `web3` feature. Always-compiled callers resolve through those
+// stubs (`tinyplace/*` -> `wallet`, `tools/impl/network/http_request.rs` ->
+// `x402`), so these declarations must NOT carry a `#[cfg]`.
+pub mod wallet;
+pub mod x402;
 
 #[cfg(all(test, feature = "web3"))]
 #[path = "web3_tests.rs"]

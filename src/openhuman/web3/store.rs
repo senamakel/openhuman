@@ -16,7 +16,7 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::openhuman::wallet;
+use crate::openhuman::web3::wallet;
 
 use super::types::{ExecuteQuoteParams, UnsignedTx, Web3QuoteKind};
 

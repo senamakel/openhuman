@@ -431,7 +431,7 @@ fn is_param_validation_error(msg: &str) -> bool {
 /// Several `tinyplace_*` RPCs derive a signer seed from the wallet before they
 /// can run (the feed, signal/messaging, etc. — backend `GraphQLAuth::Agent`
 /// requires a signer). For a user who has not set up a wallet, the wallet layer
-/// returns [`crate::openhuman::wallet::WALLET_NOT_CONFIGURED_MESSAGE`]. That is
+/// returns [`crate::openhuman::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE`]. That is
 /// an expected user-state, not an internal failure: the UI already renders a
 /// "set up wallet" prompt, and there is no local lever to make the call succeed
 /// until the user creates a wallet. Classifying it here — at the single Sentry
@@ -445,7 +445,7 @@ fn is_param_validation_error(msg: &str) -> bool {
 /// rather than silently letting the noise back into Sentry.
 #[cfg(feature = "http-server")]
 fn is_wallet_not_configured_error(msg: &str) -> bool {
-    msg == crate::openhuman::wallet::WALLET_NOT_CONFIGURED_MESSAGE
+    msg == crate::openhuman::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
 }
 
 /// Internal method invocation logic.
@@ -2397,7 +2397,7 @@ pub async fn bootstrap_core_runtime(
     // their ledger must not initialize either.
     if domains.allows(crate::core::all::DomainGroup::Web3) {
         let x402_session = format!("x402-{}", uuid::Uuid::new_v4());
-        crate::openhuman::x402::init_ledger(&workspace_dir, &x402_session);
+        crate::openhuman::web3::x402::init_ledger(&workspace_dir, &x402_session);
     } else {
         log::debug!("[boot] x402 payment ledger SKIPPED — Web3 domain disabled");
     }

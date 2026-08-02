@@ -280,9 +280,9 @@ pub async fn handle_402_and_pay(
 
 /// Derive the wallet's Solana ed25519 signing key from the encrypted mnemonic.
 async fn derive_wallet_signing_key() -> Result<SigningKey, X402Error> {
-    use crate::openhuman::wallet::WalletChain;
+    use crate::openhuman::web3::wallet::WalletChain;
 
-    let secret = crate::openhuman::wallet::secret_material(WalletChain::Solana)
+    let secret = crate::openhuman::web3::wallet::secret_material(WalletChain::Solana)
         .await
         .map_err(|e| X402Error::Wallet(format!("wallet secret: {e}")))?;
 
@@ -701,10 +701,10 @@ pub(crate) fn build_evm_payment_with_signer(
 /// Derive the wallet's EVM signer from the encrypted mnemonic.
 async fn derive_evm_signer(
 ) -> Result<(ethers_signers::LocalWallet, ethers_core::types::Address), X402Error> {
-    use crate::openhuman::wallet::WalletChain;
+    use crate::openhuman::web3::wallet::WalletChain;
     use ethers_signers::{coins_bip39::English, MnemonicBuilder, Signer};
 
-    let secret = crate::openhuman::wallet::secret_material(WalletChain::Evm)
+    let secret = crate::openhuman::web3::wallet::secret_material(WalletChain::Evm)
         .await
         .map_err(|e| X402Error::Wallet(format!("wallet secret: {e}")))?;
 
@@ -970,7 +970,7 @@ fn random_memo_nonce() -> Vec<u8> {
 }
 
 async fn fetch_recent_blockhash_for_x402() -> Result<[u8; 32], X402Error> {
-    use crate::openhuman::wallet::WalletChain;
+    use crate::openhuman::web3::wallet::WalletChain;
 
     #[derive(serde::Deserialize)]
     struct BlockhashResponse {
@@ -981,7 +981,7 @@ async fn fetch_recent_blockhash_for_x402() -> Result<[u8; 32], X402Error> {
         blockhash: String,
     }
 
-    let result: BlockhashResponse = crate::openhuman::wallet::rpc::rpc_call(
+    let result: BlockhashResponse = crate::openhuman::web3::wallet::rpc::rpc_call(
         WalletChain::Solana,
         "getLatestBlockhash",
         serde_json::json!([{"commitment": "finalized"}]),

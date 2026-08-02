@@ -176,7 +176,7 @@ impl HttpRequestTool {
         headers: Vec<(String, String)>,
         body: Option<&str>,
     ) -> Result<reqwest::Response, String> {
-        use crate::openhuman::x402;
+        use crate::openhuman::web3::x402;
 
         log::debug!("[tool.http_request] 402 received with PAYMENT-REQUIRED, attempting x402 payment for {url}");
 

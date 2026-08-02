@@ -475,7 +475,7 @@ voice = [
     # EmailChannel, so the provider has to exist even in a channels-less build.
     "tinychannels/email",
 ]
-# Web3 domains: openhuman::wallet + openhuman::web3 + openhuman::x402 — the
+# Web3 family: openhuman::web3 + web3::wallet + web3::x402 — the
 # crypto wallet (multi-chain sign/broadcast), the high-level swap/bridge/dapp
 # surface, and the x402 machine-payment protocol. Default-ON — the desktop app
 # always ships with the wallet. Slim / headless builds opt out via

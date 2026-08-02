@@ -8,7 +8,7 @@
 //! `pub mod wallet;` is ALWAYS compiled — it is a facade. The real
 //! implementation (the submodules below and their re-exports) is gated behind
 //! the default-ON `web3` Cargo feature (shared with `openhuman::web3` +
-//! `openhuman::x402`). When the feature is off, [`stub`] takes its place and
+//! `openhuman::web3::x402`). When the feature is off, [`stub`] takes its place and
 //! exposes the same public surface that always-on / other-gated callers depend
 //! on (`WALLET_NOT_CONFIGURED_MESSAGE`, `status`, `secret_material`,
 //! `WalletChain`, `prepare_transfer`, `execute_prepared`, the prepare/execute

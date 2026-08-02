@@ -661,11 +661,11 @@ pub(crate) async fn tinyplace_signer_seed() -> Result<[u8; 32], String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::wallet::execution::{
+    use crate::openhuman::web3::wallet::execution::{
         insert_quote_for_test, now_ms, reset_quote_store_for_tests, PreparedKind, PreparedStatus,
         PreparedTransaction,
     };
-    use crate::openhuman::wallet::test_support::{
+    use crate::openhuman::web3::wallet::test_support::{
         sample_solana_address, setup_wallet_in, TEST_LOCK,
     };
     use axum::{routing::post, Router};
@@ -1135,7 +1135,7 @@ mod tests {
         let info = tx_status("somesig").await.unwrap();
         assert_eq!(
             info.state,
-            crate::openhuman::wallet::execution::TxState::Confirmed
+            crate::openhuman::web3::wallet::execution::TxState::Confirmed
         );
         assert_eq!(info.block_number, Some(123));
     }

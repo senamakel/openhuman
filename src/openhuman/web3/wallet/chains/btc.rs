@@ -434,11 +434,13 @@ pub async fn lookup_tx(hash: &str) -> Result<TxLookupInfo, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::wallet::execution::{
+    use crate::openhuman::web3::wallet::execution::{
         insert_quote_for_test, now_ms, reset_quote_store_for_tests, PreparedKind, PreparedStatus,
         PreparedTransaction,
     };
-    use crate::openhuman::wallet::test_support::{sample_btc_address, setup_wallet_in, TEST_LOCK};
+    use crate::openhuman::web3::wallet::test_support::{
+        sample_btc_address, setup_wallet_in, TEST_LOCK,
+    };
     use axum::{
         routing::{get, post},
         Router,
@@ -711,7 +713,7 @@ mod tests {
         let info = tx_status("deadbeef").await.unwrap();
         assert_eq!(
             info.state,
-            crate::openhuman::wallet::execution::TxState::Confirmed
+            crate::openhuman::web3::wallet::execution::TxState::Confirmed
         );
         assert_eq!(info.block_number, Some(800_000));
         assert_eq!(info.confirmations, Some(3));

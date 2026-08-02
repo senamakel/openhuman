@@ -1,9 +1,13 @@
+pub mod agent_policy;
 pub mod generated;
 pub mod ops;
 pub mod orchestrator_tools;
 pub mod policy;
+pub mod registry;
 pub mod schema;
 mod schemas;
+pub mod status;
+pub mod timeout;
 pub mod traits;
 pub(crate) mod user_filter;
 

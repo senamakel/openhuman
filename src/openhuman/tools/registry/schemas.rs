@@ -92,7 +92,7 @@ fn handle_list(params: Map<String, Value>) -> ControllerFuture {
             "[tool_registry] rpc list requested param_count={}",
             params.len()
         );
-        to_json(crate::openhuman::tool_registry::ops::list_tools())
+        to_json(crate::openhuman::tools::registry::ops::list_tools())
     })
 }
 
@@ -100,7 +100,7 @@ fn handle_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let tool_id = required_tool_id(&params)?;
         log::debug!("[tool_registry] rpc get requested tool_id={tool_id}");
-        to_json(crate::openhuman::tool_registry::ops::get_tool(tool_id)?)
+        to_json(crate::openhuman::tools::registry::ops::get_tool(tool_id)?)
     })
 }
 
@@ -110,7 +110,7 @@ fn handle_diagnostics(params: Map<String, Value>) -> ControllerFuture {
             "[tool_registry] rpc diagnostics requested param_count={}",
             params.len()
         );
-        let result = crate::openhuman::tool_registry::ops::diagnostics()
+        let result = crate::openhuman::tools::registry::ops::diagnostics()
             .await
             .and_then(to_json);
         log::debug!(

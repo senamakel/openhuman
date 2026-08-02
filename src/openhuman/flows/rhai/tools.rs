@@ -128,9 +128,9 @@ pipeline over results. Pass a `session_id` to continue a prior cell's bindings; 
         // Always an explicit bound (never Inherit/Unbounded): a legitimate
         // fan-out outlives the default inherit budget, but must still be capped.
         let requested = args.get("timeout_secs").and_then(Value::as_u64);
-        let secs = crate::openhuman::tool_timeout::explicit_call_timeout_secs(
+        let secs = crate::openhuman::tools::timeout::explicit_call_timeout_secs(
             requested,
-            crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS,
+            crate::openhuman::tools::timeout::MAX_TIMEOUT_SECS,
         )
         .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
         // The harness backstop must sit strictly above the outer
@@ -235,9 +235,9 @@ mod tests {
     fn harness_backstop_is_always_above_the_outer_backstop() {
         let tool = RhaiTool::new();
         for requested in [None, Some(1u64), Some(42), Some(3600), Some(100_000)] {
-            let secs = crate::openhuman::tool_timeout::explicit_call_timeout_secs(
+            let secs = crate::openhuman::tools::timeout::explicit_call_timeout_secs(
                 requested,
-                crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS,
+                crate::openhuman::tools::timeout::MAX_TIMEOUT_SECS,
             )
             .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
             let args = match requested {

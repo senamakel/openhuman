@@ -115,7 +115,7 @@ pub(crate) struct ToolPolicyEnforcement {
     /// The session's channel-permission snapshot — enforces the per-channel
     /// permission ceiling (deny + per-call permission-level gate) the in-house
     /// engine ran in `agent_tool_exec`.
-    pub session: crate::openhuman::agent_tool_policy::ToolPolicySession,
+    pub session: crate::openhuman::tools::agent_policy::ToolPolicySession,
     pub session_id: String,
     pub channel: String,
     pub agent_definition_id: String,

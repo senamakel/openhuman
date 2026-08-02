@@ -66,7 +66,7 @@ pub(crate) type ToolFailureMap = Arc<
             String,
             (
                 bool,
-                Option<crate::openhuman::tool_status::ClassifiedFailure>,
+                Option<crate::openhuman::tools::status::ClassifiedFailure>,
                 u64,
                 usize,
             ),
@@ -846,8 +846,8 @@ impl EventListener for OpenhumanEventBridge {
                 // tool call. Classified `Unknown` (recoverable) — the model got the
                 // "valid tools: [...]" corrective and can retry a real tool.
                 let iteration = self.iteration();
-                let failure = Some(crate::openhuman::tool_status::describe(
-                    crate::openhuman::tool_status::ToolFailureClass::Unknown,
+                let failure = Some(crate::openhuman::tools::status::describe(
+                    crate::openhuman::tools::status::ToolFailureClass::Unknown,
                 ));
                 let label = format!("{} (unavailable)", humanize_tool_name(requested_name));
                 match &self.scope {

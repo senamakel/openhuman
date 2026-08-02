@@ -106,8 +106,8 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 - `src/core/all.rs` — registers the `tools` RPC controllers + schemas.
 - `openhuman::agent` harness (`session/builder`, `dispatcher`, `subagent_runner`, `agent/tools/*`) and the `openhuman::tinyagents` seam (`SharedToolAdapter`, `ToolPolicyMiddleware`) — primary consumers; build the registry and execute/police tools on the tinyagents harness path.
 - `openhuman::channels`, `openhuman::routing`, `openhuman::inference::provider` — build tool sets / clean schemas per provider.
-- `openhuman::agent_tool_policy`, `openhuman::approval` — read tool metadata (category, external-effect) for policy/approval decisions.
-- `openhuman::tool_registry`, `openhuman::runtime::node`, `openhuman::mcp::server` — registry/exposure consumers.
+- `openhuman::tools::agent_policy`, `openhuman::approval` — read tool metadata (category, external-effect) for policy/approval decisions.
+- `openhuman::tools::registry`, `openhuman::runtime::node`, `openhuman::mcp::server` — registry/exposure consumers.
 - Many domains re-export their own tools through this module (cron, memory, wallet, composio, integrations, codegraph, whatsapp_data, voice::audio_toolkit).
 
 ## Notes / gotchas

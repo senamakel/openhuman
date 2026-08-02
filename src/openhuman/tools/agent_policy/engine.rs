@@ -51,7 +51,7 @@ impl ToolPolicyEngine {
                 ToolPolicyAction::Allow
             };
             log::trace!(
-                target: "openhuman::agent_tool_policy",
+                target: "openhuman::tools::agent_policy",
                 "[tool-policy] classified tool name={} required={} allowed={} explicitly_hidden={} exceeds_permission={} action={:?}",
                 name,
                 required_permission,
@@ -116,7 +116,7 @@ fn permission_for_channel(
         // first boot after upgrade. Once any entry exists, unknown
         // channels fall back to ReadOnly (the `None` arm below).
         log::debug!(
-            target: "openhuman::agent_tool_policy",
+            target: "openhuman::tools::agent_policy",
             "[tool-policy] channel permissions empty; preserving legacy unrestricted surface channel={} (config migration seeds per-channel defaults on first boot)",
             channel
         );
@@ -127,7 +127,7 @@ fn permission_for_channel(
         Some(raw) => match parse_permission_level(raw) {
             Some(permission) => {
                 log::debug!(
-                    target: "openhuman::agent_tool_policy",
+                    target: "openhuman::tools::agent_policy",
                     "[tool-policy] resolved channel permission channel={} raw={} permission={}",
                     channel,
                     raw,
@@ -137,7 +137,7 @@ fn permission_for_channel(
             }
             None => {
                 log::debug!(
-                    target: "openhuman::agent_tool_policy",
+                    target: "openhuman::tools::agent_policy",
                     "[tool-policy] invalid channel permission; falling back to readonly channel={} raw={}",
                     channel,
                     raw
@@ -147,7 +147,7 @@ fn permission_for_channel(
         },
         None => {
             log::debug!(
-                target: "openhuman::agent_tool_policy",
+                target: "openhuman::tools::agent_policy",
                 "[tool-policy] channel permission missing; falling back to readonly channel={}",
                 channel
             );
@@ -168,7 +168,7 @@ fn parse_permission_level(value: &str) -> Option<PermissionLevel> {
     };
     if parsed.is_none() {
         log::trace!(
-            target: "openhuman::agent_tool_policy",
+            target: "openhuman::tools::agent_policy",
             "[tool-policy] permission token did not match raw={} normalized={}",
             value,
             normalized

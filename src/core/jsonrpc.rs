@@ -1994,7 +1994,7 @@ fn register_domain_subscribers(
     // (a plain atomic store honouring the env override), so re-seeding on every
     // call is correct and cheap and re-applies the current config each boot.
     let effective_timeout =
-        crate::openhuman::tool_timeout::set_tool_timeout_secs(config.agent.agent_timeout_secs);
+        crate::openhuman::tools::timeout::set_tool_timeout_secs(config.agent.agent_timeout_secs);
     log::debug!(
         "[tool_timeout] seeded tool-execution timeout from config: configured={}s effective={}s",
         config.agent.agent_timeout_secs,

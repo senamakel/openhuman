@@ -1,6 +1,6 @@
 //! Agent turn origin — the trust/routing label attached to every agent
 //! `run_turn` invocation. Read by [`crate::openhuman::approval::ApprovalGate`]
-//! and [`crate::openhuman::agent_tool_policy::ToolPolicyEngine`] to make
+//! and [`crate::openhuman::tools::agent_policy::ToolPolicyEngine`] to make
 //! consistent decisions across web, channel, subconscious, and cron entry
 //! points without relying on the *absence* of other task-locals as a signal.
 //!

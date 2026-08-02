@@ -178,7 +178,7 @@ impl PythonExecTool {
             })
             .unwrap_or_default();
 
-        let explicit_timeout = crate::openhuman::tool_timeout::explicit_call_timeout_duration(
+        let explicit_timeout = crate::openhuman::tools::timeout::explicit_call_timeout_duration(
             args.get("timeout_secs").and_then(|v| v.as_u64()),
             PYTHON_TIMEOUT_MAX_SECS,
         );
@@ -423,7 +423,7 @@ impl PythonExecTool {
         use crate::openhuman::sandbox;
 
         let effective = timeout.unwrap_or_else(|| {
-            Duration::from_secs(crate::openhuman::tool_timeout::SANDBOX_UNBOUNDED_CAP_SECS)
+            Duration::from_secs(crate::openhuman::tools::timeout::SANDBOX_UNBOUNDED_CAP_SECS)
         });
 
         let runtime_cfg = match crate::openhuman::config::ops::load_config_with_timeout().await {

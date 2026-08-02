@@ -233,8 +233,9 @@ pub(crate) async fn execute_openhuman_tool(
     let options = crate::openhuman::tools::ToolCallOptions {
         prefer_markdown: true,
     };
-    let (deadline, timeout_secs) =
-        crate::openhuman::tool_timeout::resolve_tool_deadline(tool.timeout_policy(&call.arguments));
+    let (deadline, timeout_secs) = crate::openhuman::tools::timeout::resolve_tool_deadline(
+        tool.timeout_policy(&call.arguments),
+    );
     let exec = tool.execute_with_context(call.arguments.clone(), options, context);
     let outcome = match deadline {
         Some(d) => match tokio::time::timeout(d, exec).await {

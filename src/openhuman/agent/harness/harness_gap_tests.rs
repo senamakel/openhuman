@@ -23,7 +23,7 @@
 //! - `<invoke tool=…>` XML attribute form — the parser does not parse attributes;
 //!   only the tag body (JSON) is used.
 
-use crate::openhuman::tool_timeout::parse_tool_timeout_secs;
+use crate::openhuman::tools::timeout::parse_tool_timeout_secs;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Item 1 — Full turn cycle: user → LLM emits tool call → tool executes →

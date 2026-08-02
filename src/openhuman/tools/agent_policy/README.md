@@ -33,7 +33,7 @@ Re-exported from `mod.rs`:
 ## Dependencies
 
 - `crate::openhuman::tools` — `PermissionLevel` (the ceiling/ordering, parsed and compared) and the `Tool` trait (`name()`, `permission_level()`). The only openhuman/core dependency.
-- stdlib `std::collections` (`BTreeSet`/`HashMap`/`HashSet`) and `log` for grep-friendly `[tool-policy]` diagnostics under target `openhuman::agent_tool_policy`.
+- stdlib `std::collections` (`BTreeSet`/`HashMap`/`HashSet`) and `log` for grep-friendly `[tool-policy]` diagnostics under target `openhuman::tools::agent_policy`.
 
 ## Used by
 

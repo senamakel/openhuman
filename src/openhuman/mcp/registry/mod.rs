@@ -4,7 +4,7 @@
 //! Smithery.ai MCP registry, persists the user's chosen installs to SQLite,
 //! and (for local-spawn servers) supervises their subprocess lifecycle.
 //! Installed servers' tools are surfaced to agents via the unified tool
-//! registry ([`crate::openhuman::tool_registry`]).
+//! registry ([`crate::openhuman::tools::registry`]).
 //!
 //! # Server transport model
 //!

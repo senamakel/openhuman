@@ -217,7 +217,7 @@ impl NpmExecTool {
 
         // No default deadline — only a caller-supplied `timeout_secs` (capped)
         // bounds the run. `None` ⇒ run to completion.
-        let explicit_timeout = crate::openhuman::tool_timeout::explicit_call_timeout_duration(
+        let explicit_timeout = crate::openhuman::tools::timeout::explicit_call_timeout_duration(
             args.get("timeout_secs").and_then(|v| v.as_u64()),
             NPM_TIMEOUT_MAX_SECS,
         );
@@ -405,7 +405,7 @@ impl NpmExecTool {
         // eventually reclaim a wedged sandbox process. The native path runs
         // truly unbounded.
         let effective = timeout.unwrap_or_else(|| {
-            Duration::from_secs(crate::openhuman::tool_timeout::SANDBOX_UNBOUNDED_CAP_SECS)
+            Duration::from_secs(crate::openhuman::tools::timeout::SANDBOX_UNBOUNDED_CAP_SECS)
         });
 
         // Load the live `RuntimeConfig` so `resolve_sandbox_policy` derives

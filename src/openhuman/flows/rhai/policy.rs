@@ -12,7 +12,7 @@ use std::time::Duration;
 use tinyagents::ReplPolicy;
 
 use crate::openhuman::security::policy::AutonomyLevel;
-use crate::openhuman::tool_timeout;
+use crate::openhuman::tools::timeout;
 
 use super::types::RhaiLimitsOverride;
 
@@ -86,9 +86,8 @@ pub fn resolve_policy(
 
     // Wall-clock timeout: clamp the caller's request to [1, 3600] and cap it,
     // defaulting to DEFAULT_RHAI_TIMEOUT_SECS. Never unbounded.
-    let secs =
-        tool_timeout::explicit_call_timeout_secs(timeout_secs, tool_timeout::MAX_TIMEOUT_SECS)
-            .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
+    let secs = timeout::explicit_call_timeout_secs(timeout_secs, timeout::MAX_TIMEOUT_SECS)
+        .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
 
     let ov = overrides.cloned().unwrap_or_default();
     let policy = ReplPolicy {

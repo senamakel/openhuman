@@ -14,7 +14,7 @@ mod setters;
 mod builder_tests;
 
 use crate::openhuman::agent::harness::definition::{AgentDefinition, ToolScope};
-use crate::openhuman::agent_tool_policy::ToolPolicySession;
+use crate::openhuman::tools::agent_policy::ToolPolicySession;
 use crate::openhuman::tools::ToolSpec;
 
 /// Drop entries with duplicate `name` fields, first occurrence wins.

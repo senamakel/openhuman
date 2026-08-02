@@ -496,8 +496,8 @@ jobs:
           openhuman/mcp/server/resources.rs
           openhuman/socket/ops.rs
           openhuman/tinyplace/manifest.rs
-          openhuman/tool_registry/ops_tests.rs
-          openhuman/tool_registry/schemas.rs
+          openhuman/tools/registry/ops_tests.rs
+          openhuman/tools/registry/schemas.rs
           openhuman/tools/ops_tests.rs
           openhuman/tools/schemas.rs
           openhuman/voice/compile_status.rs

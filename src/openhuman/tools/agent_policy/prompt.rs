@@ -75,7 +75,7 @@ fn truncate_utf8(mut input: String, max_bytes: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::agent_tool_policy::ToolPolicyEngine;
+    use crate::openhuman::tools::agent_policy::ToolPolicyEngine;
     use crate::openhuman::tools::{PermissionLevel, Tool, ToolResult};
     use async_trait::async_trait;
     use std::collections::{HashMap, HashSet};

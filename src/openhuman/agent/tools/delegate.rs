@@ -4,7 +4,7 @@ use crate::openhuman::inference::provider::{
 };
 use crate::openhuman::security::policy::ToolOperation;
 use crate::openhuman::security::SecurityPolicy;
-use crate::openhuman::tool_timeout::tool_execution_timeout_secs;
+use crate::openhuman::tools::timeout::tool_execution_timeout_secs;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;

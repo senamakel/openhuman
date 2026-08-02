@@ -1283,7 +1283,7 @@ pub(super) struct ToolPolicyMiddleware {
     policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
     /// The session's channel-permission snapshot — enforces the per-channel deny
     /// + per-call permission-level ceiling the engine ran in `agent_tool_exec`.
-    session: crate::openhuman::agent_tool_policy::ToolPolicySession,
+    session: crate::openhuman::tools::agent_policy::ToolPolicySession,
     /// Shared tool sets (same `Arc`s the runner registers) so a call's OpenHuman
     /// `Tool` can be resolved for its generated-tool runtime context and its
     /// per-call permission level.
@@ -1296,7 +1296,7 @@ pub(super) struct ToolPolicyMiddleware {
 impl ToolPolicyMiddleware {
     pub(super) fn new(
         policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
-        session: crate::openhuman::agent_tool_policy::ToolPolicySession,
+        session: crate::openhuman::tools::agent_policy::ToolPolicySession,
         tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
         session_id: String,
         channel: String,
@@ -1419,7 +1419,7 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
                 ToolPolicyDecision::Deny { .. } => "denied",
                 ToolPolicyDecision::Allow => "allowed",
             };
-            crate::openhuman::tool_registry::denials::record(
+            crate::openhuman::tools::registry::denials::record(
                 call.name.as_str(),
                 self.policy.name(),
                 blocked_action,
@@ -1541,7 +1541,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
                 std::borrow::Cow::Owned(format!("{error}\n{}", result.content))
             };
             let timed_out = combined.contains("timed out");
-            Some(crate::openhuman::tool_status::classify(
+            Some(crate::openhuman::tools::status::classify(
                 &combined, timed_out,
             ))
         };
@@ -2345,10 +2345,10 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
             && !hard_reject
             && (is_recoverable_tool_failure(&failure_text)
                 || matches!(
-                    crate::openhuman::tool_status::classify(&failure_text, false).class,
-                    crate::openhuman::tool_status::ToolFailureClass::Timeout
-                        | crate::openhuman::tool_status::ToolFailureClass::ServiceUnavailable
-                        | crate::openhuman::tool_status::ToolFailureClass::ModelConnection
+                    crate::openhuman::tools::status::classify(&failure_text, false).class,
+                    crate::openhuman::tools::status::ToolFailureClass::Timeout
+                        | crate::openhuman::tools::status::ToolFailureClass::ServiceUnavailable
+                        | crate::openhuman::tools::status::ToolFailureClass::ModelConnection
                 ));
         if recoverable {
             if let Some(summary) = self.record_recoverable(&result.name, &arg_fp, &failure_text) {

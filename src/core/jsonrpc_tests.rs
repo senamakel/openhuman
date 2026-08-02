@@ -131,7 +131,7 @@ async fn tool_timeout_seeds_on_channelless_core_boot() {
     );
 
     assert_eq!(
-        crate::openhuman::tool_timeout::tool_execution_timeout_secs(),
+        crate::openhuman::tools::timeout::tool_execution_timeout_secs(),
         1234,
         "channel-less core boot must seed the tool-execution timeout from [agent].agent_timeout_secs"
     );

@@ -173,11 +173,11 @@ impl ShellTool {
     /// deadline applies only when the caller passes `timeout_secs` (issue
     /// #4023). A `0` explicitly disables it. Any positive value is clamped to
     /// `1..=3600`. See
-    /// [`crate::openhuman::tool_timeout::explicit_call_timeout_duration`].
+    /// [`crate::openhuman::tools::timeout::explicit_call_timeout_duration`].
     fn explicit_timeout(&self, requested: Option<u64>) -> Option<Duration> {
-        crate::openhuman::tool_timeout::explicit_call_timeout_duration(
+        crate::openhuman::tools::timeout::explicit_call_timeout_duration(
             requested,
-            crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS,
+            crate::openhuman::tools::timeout::MAX_TIMEOUT_SECS,
         )
     }
 }
@@ -546,7 +546,7 @@ impl ShellTool {
         // long command isn't killed while still bounding a wedged sandbox.
         let explicit_timeout = self.explicit_timeout(requested_timeout);
         let effective = explicit_timeout.unwrap_or_else(|| {
-            Duration::from_secs(crate::openhuman::tool_timeout::SANDBOX_UNBOUNDED_CAP_SECS)
+            Duration::from_secs(crate::openhuman::tools::timeout::SANDBOX_UNBOUNDED_CAP_SECS)
         });
         tracing::debug!(
             timeout_secs = effective.as_secs(),
@@ -1317,7 +1317,7 @@ mod tests {
         assert_eq!(
             tool.explicit_timeout(Some(9_999)),
             Some(Duration::from_secs(
-                crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS
+                crate::openhuman::tools::timeout::MAX_TIMEOUT_SECS
             ))
         );
     }

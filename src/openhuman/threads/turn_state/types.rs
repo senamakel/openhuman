@@ -71,8 +71,8 @@ pub struct PersistedToolFailure {
     pub next_action: String,
 }
 
-impl From<&crate::openhuman::tool_status::ClassifiedFailure> for PersistedToolFailure {
-    fn from(f: &crate::openhuman::tool_status::ClassifiedFailure) -> Self {
+impl From<&crate::openhuman::tools::status::ClassifiedFailure> for PersistedToolFailure {
+    fn from(f: &crate::openhuman::tools::status::ClassifiedFailure) -> Self {
         // Serialize the enums to their wire variant name so the persisted
         // `class`/`category` strings match exactly what the live socket emits
         // (`ClassifiedFailure` serializes each as its bare variant name).

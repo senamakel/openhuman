@@ -1861,7 +1861,7 @@ async fn apply_agent_settings_updates_timeout_and_persists_snapshot() {
         .any(|l| l.contains("agent settings saved to")));
     // With no env override, the live runtime now reflects the saved value.
     assert_eq!(
-        crate::openhuman::tool_timeout::tool_execution_timeout_secs(),
+        crate::openhuman::tools::timeout::tool_execution_timeout_secs(),
         300
     );
 }

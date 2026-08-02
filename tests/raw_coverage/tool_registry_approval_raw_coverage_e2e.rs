@@ -33,7 +33,7 @@ use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::mcp::registry::connections;
 use openhuman_core::openhuman::mcp::registry::types::{CommandKind, InstalledServer, Transport};
 use openhuman_core::openhuman::security::{live_policy, SecurityPolicy};
-use openhuman_core::openhuman::tool_registry::{
+use openhuman_core::openhuman::tools::registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
     capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
     denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
@@ -595,7 +595,7 @@ fn tool_registry_diagnostics_for_config_reports_audit_success_and_policy_shape()
     };
 
     let diagnostics =
-        openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config(&config)
+        openhuman_core::openhuman::tools::registry::ops::diagnostics_for_config(&config)
             .into_cli_compatible_json()
             .expect("diagnostics json");
     assert!(diagnostics
@@ -750,7 +750,7 @@ async fn tool_registry_diagnostics_reports_config_and_audit_store_failures() {
     std::fs::write(&workspace_file, "not a directory").expect("workspace sentinel");
     let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace_file);
 
-    let err = openhuman_core::openhuman::tool_registry::ops::diagnostics()
+    let err = openhuman_core::openhuman::tools::registry::ops::diagnostics()
         .await
         .expect_err("workspace file should prevent config load");
     assert!(err.contains("failed to load config for tool registry diagnostics"));
@@ -760,7 +760,7 @@ async fn tool_registry_diagnostics_reports_config_and_audit_store_failures() {
         ..Config::default()
     };
     let diagnostics =
-        openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config(&broken_audit_config);
+        openhuman_core::openhuman::tools::registry::ops::diagnostics_for_config(&broken_audit_config);
     assert!(diagnostics.value.mcp_write_audit.enabled);
     assert_eq!(diagnostics.value.mcp_write_audit.recent_rows, None);
     assert!(diagnostics

@@ -21,13 +21,13 @@ use openhuman_core::openhuman::config::{
     CapabilityProviderConfig, CapabilityProviderTrustState, Config, McpServerConfig,
 };
 use openhuman_core::openhuman::integrations::IntegrationClient;
-use openhuman_core::openhuman::tool_registry::{
+use openhuman_core::openhuman::tools::registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
     capability_provider_by_id, capability_provider_diagnostics, get_tool,
     is_capability_provider_trusted_enabled, list_capability_providers, list_tools,
     normalize_capability_provider_id,
 };
-use openhuman_core::openhuman::tool_registry::{
+use openhuman_core::openhuman::tools::registry::{
     denials as tool_registry_denials, ops as tool_registry_ops,
 };
 

@@ -273,7 +273,7 @@ pub struct AgentConfig {
     /// "write", "execute", "dangerous".
     ///
     /// Runtime semantics (see
-    /// [`crate::openhuman::agent_tool_policy::engine::ToolPolicyEngine`]):
+    /// [`crate::openhuman::tools::agent_policy::engine::ToolPolicyEngine`]):
     ///
     /// * **Empty map** — the policy engine preserves the legacy
     ///   unrestricted surface and returns `PermissionLevel::Dangerous`
@@ -311,7 +311,7 @@ pub struct AgentConfig {
     /// (120). Surfaced in **Settings → Agent OS access → Action timeout** so
     /// users running large local models can extend it without editing config
     /// files (issue #3100). Pushed into the live
-    /// [`crate::openhuman::tool_timeout`] runtime on save; the
+    /// [`crate::openhuman::tools::timeout`] runtime on save; the
     /// `OPENHUMAN_TOOL_TIMEOUT_SECS` env var still overrides it when set.
     #[serde(default = "default_agent_timeout_secs")]
     pub agent_timeout_secs: u64,
@@ -390,7 +390,7 @@ fn default_tool_result_budget_bytes() -> usize {
 }
 
 fn default_agent_timeout_secs() -> u64 {
-    crate::openhuman::tool_timeout::DEFAULT_TIMEOUT_SECS
+    crate::openhuman::tools::timeout::DEFAULT_TIMEOUT_SECS
 }
 
 fn default_agent_max_tool_iterations() -> usize {

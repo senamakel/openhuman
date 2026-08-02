@@ -10946,8 +10946,8 @@ async fn json_rpc_config_agent_timeout_settings_roundtrip() {
 
     // Restore the process-global timeout so later tests in this binary don't
     // inherit the 300s value set above (the AtomicU64 is per-process, not per-test).
-    openhuman_core::openhuman::tool_timeout::set_tool_timeout_secs(
-        openhuman_core::openhuman::tool_timeout::DEFAULT_TIMEOUT_SECS,
+    openhuman_core::openhuman::tools::timeout::set_tool_timeout_secs(
+        openhuman_core::openhuman::tools::timeout::DEFAULT_TIMEOUT_SECS,
     );
 
     mock_join.abort();

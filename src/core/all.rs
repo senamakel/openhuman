@@ -516,7 +516,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::tool_registry::all_tool_registry_registered_controllers(),
+        crate::openhuman::tools::registry::all_tool_registry_registered_controllers(),
     );
     // Document and knowledge graph storage
     push(

@@ -17,19 +17,19 @@ Proactive ingestion of work items from external tools. A **task source** is a us
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/task_sources/mod.rs` | Export-only: module docstring, `mod`/`pub mod` decls, `pub use` re-exports, and the `all_task_sources_*` controller registry pair. |
-| `src/openhuman/task_sources/types.rs` | Serde domain types: `ProviderSlug`, `FilterSpec` (provider-tagged enum), `SourceTarget`, `FetchReason`, `TaskSource`, `TaskSourcePatch`, `EnrichedTask`, `FetchOutcome`. |
-| `src/openhuman/task_sources/store.rs` | SQLite persistence (`<workspace>/task_sources/sources.db`): `task_sources` + `ingested_tasks` tables, dedup `content_hash`, card-id ledger, migrate-on-open. |
-| `src/openhuman/task_sources/ops.rs` | RPC-facing business logic returning `RpcOutcome<T>`: `list`/`get`/`add`/`update`/`remove`/`fetch`/`list_tasks`/`preview_filter`/`status`. |
-| `src/openhuman/task_sources/schemas.rs` | `task_sources` controller schemas + `all_controller_schemas` / `all_registered_controllers` + thin `handle_*` param parsers delegating to `ops.rs`. |
-| `src/openhuman/task_sources/pipeline.rs` | `run_source_once` — the infallible fetch → dedup → enrich → route pass shared by poll, manual RPC, and connection hook; publishes domain events. |
-| `src/openhuman/task_sources/filter.rs` | `to_fetch_filter` — flattens a `FilterSpec` variant into the shared `TaskFetchFilter`. |
-| `src/openhuman/task_sources/enrich.rs` | Deterministic, dependency-free `enrich_task`: urgency heuristic, summary, linked assignee, agent prompt. No LLM call. |
-| `src/openhuman/task_sources/route.rs` | `route_enriched` / `add_card` / `board_cards` — appends todo cards to the `task-sources` board (`TASK_SOURCES_THREAD_ID`), removes stale cards on re-ingest, and dispatches a scheduler-gated triage turn for proactive sources. |
-| `src/openhuman/task_sources/periodic.rs` | `start_periodic_poll` — global tick scheduler; per-source due-timing in a process-global map; `run_one_tick` is `pub(crate)` for tests. |
-| `src/openhuman/task_sources/bus.rs` | `TaskSourcesConnectionSubscriber` + `register_task_sources_subscriber` — one-shot fetch on `ComposioConnectionCreated`. |
-| `src/openhuman/task_sources/store_tests.rs` | Sibling test suite for `store.rs`. |
-| `src/openhuman/task_sources/pipeline_tests.rs` | Sibling test suite for `pipeline.rs`. |
+| `src/openhuman/integrations/task_sources/mod.rs` | Export-only: module docstring, `mod`/`pub mod` decls, `pub use` re-exports, and the `all_task_sources_*` controller registry pair. |
+| `src/openhuman/integrations/task_sources/types.rs` | Serde domain types: `ProviderSlug`, `FilterSpec` (provider-tagged enum), `SourceTarget`, `FetchReason`, `TaskSource`, `TaskSourcePatch`, `EnrichedTask`, `FetchOutcome`. |
+| `src/openhuman/integrations/task_sources/store.rs` | SQLite persistence (`<workspace>/task_sources/sources.db`): `task_sources` + `ingested_tasks` tables, dedup `content_hash`, card-id ledger, migrate-on-open. |
+| `src/openhuman/integrations/task_sources/ops.rs` | RPC-facing business logic returning `RpcOutcome<T>`: `list`/`get`/`add`/`update`/`remove`/`fetch`/`list_tasks`/`preview_filter`/`status`. |
+| `src/openhuman/integrations/task_sources/schemas.rs` | `task_sources` controller schemas + `all_controller_schemas` / `all_registered_controllers` + thin `handle_*` param parsers delegating to `ops.rs`. |
+| `src/openhuman/integrations/task_sources/pipeline.rs` | `run_source_once` — the infallible fetch → dedup → enrich → route pass shared by poll, manual RPC, and connection hook; publishes domain events. |
+| `src/openhuman/integrations/task_sources/filter.rs` | `to_fetch_filter` — flattens a `FilterSpec` variant into the shared `TaskFetchFilter`. |
+| `src/openhuman/integrations/task_sources/enrich.rs` | Deterministic, dependency-free `enrich_task`: urgency heuristic, summary, linked assignee, agent prompt. No LLM call. |
+| `src/openhuman/integrations/task_sources/route.rs` | `route_enriched` / `add_card` / `board_cards` — appends todo cards to the `task-sources` board (`TASK_SOURCES_THREAD_ID`), removes stale cards on re-ingest, and dispatches a scheduler-gated triage turn for proactive sources. |
+| `src/openhuman/integrations/task_sources/periodic.rs` | `start_periodic_poll` — global tick scheduler; per-source due-timing in a process-global map; `run_one_tick` is `pub(crate)` for tests. |
+| `src/openhuman/integrations/task_sources/bus.rs` | `TaskSourcesConnectionSubscriber` + `register_task_sources_subscriber` — one-shot fetch on `ComposioConnectionCreated`. |
+| `src/openhuman/integrations/task_sources/store_tests.rs` | Sibling test suite for `store.rs`. |
+| `src/openhuman/integrations/task_sources/pipeline_tests.rs` | Sibling test suite for `pipeline.rs`. |
 
 ## Public surface
 

@@ -133,7 +133,7 @@ Everything lives under the `[tokenjuice]` config block (`src/openhuman/config/sc
 * **Per-kind:** `search_enabled`, `code_enabled`, `html_enabled`, plus the `ml_*` keys.
 * **RPC** (`openhuman.tokenjuice_*`): `detect`, `compress` (dry-run the pipeline), `settings_get` / `settings_update` (live partial patch), `cache_stats`, `retrieve`, `savings_stats`, `savings_reset`.
 * **Agent tool:** `tokenjuice_retrieve` (read-only) recovers offloaded originals.
-* **Debugging:** start the core with `RUST_LOG=openhuman_core::openhuman::tokenjuice=debug` to watch detection, matching, and how much each blob is trimmed.
+* **Debugging:** start the core with `RUST_LOG=openhuman_core::openhuman::inference::tokenjuice=debug` to watch detection, matching, and how much each blob is trimmed.
 
 ***
 

@@ -391,7 +391,7 @@ named = [
     # is dangerous, requires explicit user consent through
     # `ask_user_clarification`, and respects
     # `config.update.rpc_mutations_enabled`. Implementation re-uses
-    # `src/openhuman/update/` end-to-end — no parallel release logic.
+    # `src/openhuman/platform/update/` end-to-end — no parallel release logic.
     "update_check",
     "update_apply",
     # NOTE: `generate_presentation` is intentionally NOT listed here — deck

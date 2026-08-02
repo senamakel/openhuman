@@ -15,10 +15,10 @@ Profiles and enforces the tool boundary for a single agent session, keeping the 
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/agent_tool_policy/mod.rs` | Export-only: module docstring + `mod` decls + `pub use` re-exports of the engine, prompt renderer, and types. |
-| `src/openhuman/agent_tool_policy/types.rs` | Serde-free domain types: `TaskRiskLevel`, `TaskProfile`, `ToolPolicyAction`, `ToolPolicyDecision`, `ToolCapability`, `ToolPolicySession` (with query helpers). Holds the `NO_TOOLS_ALLOWED_SENTINEL`. |
-| `src/openhuman/agent_tool_policy/engine.rs` | `ToolPolicyEngine::build_session` — the classification logic; private `permission_for_channel` / `parse_permission_level` helpers. Includes inline `#[cfg(test)]` suite. |
-| `src/openhuman/agent_tool_policy/prompt.rs` | `render_tool_policy_boundary` + `TOOL_POLICY_BOUNDARY_HEADING`; UTF-8-safe `truncate_utf8`. Includes inline `#[cfg(test)]` suite. |
+| `src/openhuman/tools/agent_policy/mod.rs` | Export-only: module docstring + `mod` decls + `pub use` re-exports of the engine, prompt renderer, and types. |
+| `src/openhuman/tools/agent_policy/types.rs` | Serde-free domain types: `TaskRiskLevel`, `TaskProfile`, `ToolPolicyAction`, `ToolPolicyDecision`, `ToolCapability`, `ToolPolicySession` (with query helpers). Holds the `NO_TOOLS_ALLOWED_SENTINEL`. |
+| `src/openhuman/tools/agent_policy/engine.rs` | `ToolPolicyEngine::build_session` — the classification logic; private `permission_for_channel` / `parse_permission_level` helpers. Includes inline `#[cfg(test)]` suite. |
+| `src/openhuman/tools/agent_policy/prompt.rs` | `render_tool_policy_boundary` + `TOOL_POLICY_BOUNDARY_HEADING`; UTF-8-safe `truncate_utf8`. Includes inline `#[cfg(test)]` suite. |
 
 ## Public surface
 

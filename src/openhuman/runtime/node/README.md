@@ -14,15 +14,15 @@ Managed **Node.js runtime** for the core, plus a thin **tool bridge** that lists
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/runtime_node/mod.rs` | Export-focused: submodule decls + `pub use` re-exports, including `all_runtime_node_controller_schemas` / `all_runtime_node_registered_controllers`. |
-| `src/openhuman/runtime_node/resolver.rs` | Synchronous system-node probe. `detect_system_node`, `parse_node_version`, `SystemNode`. `PATH` walk with execute-bit filtering, `node --version` / `npm --version` probes with a 5s timeout. Major-version match only. |
-| `src/openhuman/runtime_node/bootstrap.rs` | Orchestrator. `NodeBootstrap` (serialised + memoised `resolve()`, `try_cached()`), `ResolvedNode`, `NodeSource`. Picks system vs managed, computes the cache root (user cache by default, never workspace-local unless forced), guards against cache-root escape / spoofed installs via canonicalised `starts_with`. |
-| `src/openhuman/runtime_node/downloader.rs` | `NodeDistribution` (host triple → archive name/URL), `fetch_shasums`, `download_distribution`. Streams to disk while hashing; **mandatory** SHA-256 match or the partial file is deleted. |
-| `src/openhuman/runtime_node/extractor.rs` | `extract_distribution` (`.tar.xz` via `xz2`+`tar`, `.zip` via `zip`, both in `spawn_blocking`), `atomic_install` (rename into place with backup/restore). Asserts a single top-level folder per archive. |
-| `src/openhuman/runtime_node/ops.rs` | Bridge logic: `build_runtime_tools` (assembles `SecurityPolicy`, audit logger, `NativeRuntime`, `Memory`, then `tools::all_tools_with_runtime`), `list_tools`, `execute_tool` (event publish + timing). |
-| `src/openhuman/runtime_node/rpc.rs` | RPC param structs (`ListToolsParams`, `ExecuteToolParams`) and `*_handler` fns; loads config via `config::rpc` and delegates through the `javascript` alias, wrapping results in `RpcOutcome`. |
-| `src/openhuman/runtime_node/schemas.rs` | Controller schemas + registered controllers for `javascript_list_tools` / `javascript_execute_tool`; `handle_*` deserialise params and call `rpc.rs`. |
-| `src/openhuman/runtime_node/types.rs` | `RuntimeToolSummary`, `ExecuteToolOutcome` serde types. |
+| `src/openhuman/runtime/node/mod.rs` | Export-focused: submodule decls + `pub use` re-exports, including `all_runtime_node_controller_schemas` / `all_runtime_node_registered_controllers`. |
+| `src/openhuman/runtime/node/resolver.rs` | Synchronous system-node probe. `detect_system_node`, `parse_node_version`, `SystemNode`. `PATH` walk with execute-bit filtering, `node --version` / `npm --version` probes with a 5s timeout. Major-version match only. |
+| `src/openhuman/runtime/node/bootstrap.rs` | Orchestrator. `NodeBootstrap` (serialised + memoised `resolve()`, `try_cached()`), `ResolvedNode`, `NodeSource`. Picks system vs managed, computes the cache root (user cache by default, never workspace-local unless forced), guards against cache-root escape / spoofed installs via canonicalised `starts_with`. |
+| `src/openhuman/runtime/node/downloader.rs` | `NodeDistribution` (host triple → archive name/URL), `fetch_shasums`, `download_distribution`. Streams to disk while hashing; **mandatory** SHA-256 match or the partial file is deleted. |
+| `src/openhuman/runtime/node/extractor.rs` | `extract_distribution` (`.tar.xz` via `xz2`+`tar`, `.zip` via `zip`, both in `spawn_blocking`), `atomic_install` (rename into place with backup/restore). Asserts a single top-level folder per archive. |
+| `src/openhuman/runtime/node/ops.rs` | Bridge logic: `build_runtime_tools` (assembles `SecurityPolicy`, audit logger, `NativeRuntime`, `Memory`, then `tools::all_tools_with_runtime`), `list_tools`, `execute_tool` (event publish + timing). |
+| `src/openhuman/runtime/node/rpc.rs` | RPC param structs (`ListToolsParams`, `ExecuteToolParams`) and `*_handler` fns; loads config via `config::rpc` and delegates through the `javascript` alias, wrapping results in `RpcOutcome`. |
+| `src/openhuman/runtime/node/schemas.rs` | Controller schemas + registered controllers for `javascript_list_tools` / `javascript_execute_tool`; `handle_*` deserialise params and call `rpc.rs`. |
+| `src/openhuman/runtime/node/types.rs` | `RuntimeToolSummary`, `ExecuteToolOutcome` serde types. |
 
 ## Public surface
 
@@ -86,10 +86,10 @@ External crates: `reqwest`, `sha2`, `hex`, `xz2`, `tar`, `zip`, `tokio`, `wait_t
 
 ## Used by
 
-- `src/openhuman/javascript/mod.rs` — re-exports this entire surface under `javascript`-prefixed names (the public language slot).
+- `src/openhuman/runtime/javascript/mod.rs` — re-exports this entire surface under `javascript`-prefixed names (the public language slot).
 - `src/openhuman/tools/impl/system/{node_exec,npm_exec,shell}.rs` — hold an `Arc<NodeBootstrap>`; `node_exec`/`npm_exec` call `resolve()`, `shell` uses non-blocking `try_cached()` for transparent `PATH` injection.
 - `src/openhuman/tools/ops.rs` and `src/openhuman/agent/tools/delegate_to_personality.rs` — reference the bootstrap/runtime surface.
-- `src/openhuman/runtime_python/bootstrap.rs` — a sibling runtime modeled on the same pattern.
+- `src/openhuman/runtime/python/bootstrap.rs` — a sibling runtime modeled on the same pattern.
 - `src/core/all.rs` — registers the `javascript.*` controllers via the `javascript` aliases.
 
 ## Notes / gotchas

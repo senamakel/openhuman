@@ -158,7 +158,7 @@ export const preauthorizeFlow = async (
 
 /**
  * Snapshot of the host-aware approval-gate boot decision. Mirrors the Rust
- * `ApprovalGateBootState` struct in `src/openhuman/approval/gate.rs`.
+ * `ApprovalGateBootState` struct in `src/openhuman/security/approval/gate.rs`.
  *
  * - `installed` — gate was installed at boot and `external_effect` tool calls
  *   will be intercepted.

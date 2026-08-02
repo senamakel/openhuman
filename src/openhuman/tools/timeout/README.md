@@ -22,7 +22,7 @@ Highest precedence first:
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/tool_timeout/mod.rs` | Entire module: constants, env parsing, pure resolver, atomic-backed runtime value, setter, public accessors, and inline unit tests. |
+| `src/openhuman/tools/timeout/mod.rs` | Entire module: constants, env parsing, pure resolver, atomic-backed runtime value, setter, public accessors, and inline unit tests. |
 
 ## Public surface
 

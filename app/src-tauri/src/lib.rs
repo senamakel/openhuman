@@ -3292,7 +3292,7 @@ pub fn run() {
                             // after the <key>ProgramArguments</key> marker. The
                             // service installer always writes it as an absolute
                             // path to the openhuman-core binary (see
-                            // src/openhuman/service/macos.rs).
+                            // src/openhuman/platform/service/macos.rs).
                             let after_key = contents.split("<key>ProgramArguments</key>").nth(1)?;
                             let start = after_key.find("<string>")? + "<string>".len();
                             let rest = &after_key[start..];

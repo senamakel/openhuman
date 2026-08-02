@@ -14,9 +14,9 @@ Thin RPC adapter domain for the referral program. It does **not** own any busine
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/referral/mod.rs` | Export-only. Re-exports `ops::*` and the schema/controller pair (`all_referral_controller_schemas`, `all_referral_registered_controllers`, `referral_schemas`). |
-| `src/openhuman/referral/ops.rs` | Business logic: `require_token`, `get_stats`, `claim_referral`. Builds a `BackendOAuthClient` against the effective backend URL and issues authed JSON requests. Includes inline tests against an Axum mock backend. |
-| `src/openhuman/referral/schemas.rs` | Controller schemas + `handle_*` fns that load config and delegate to `ops`. Defines `ReferralClaimParams` (camelCase deserialization) and helpers (`to_json`, `deserialize_params`, `json_output`). |
+| `src/openhuman/hosted/referral/mod.rs` | Export-only. Re-exports `ops::*` and the schema/controller pair (`all_referral_controller_schemas`, `all_referral_registered_controllers`, `referral_schemas`). |
+| `src/openhuman/hosted/referral/ops.rs` | Business logic: `require_token`, `get_stats`, `claim_referral`. Builds a `BackendOAuthClient` against the effective backend URL and issues authed JSON requests. Includes inline tests against an Axum mock backend. |
+| `src/openhuman/hosted/referral/schemas.rs` | Controller schemas + `handle_*` fns that load config and delegate to `ops`. Defines `ReferralClaimParams` (camelCase deserialization) and helpers (`to_json`, `deserialize_params`, `json_output`). |
 
 ## Public surface
 

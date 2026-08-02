@@ -17,14 +17,14 @@ Persistent, Rust-native Socket.IO client to the OpenHuman backend. The `socket` 
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/socket/mod.rs` | Module docstring + exports only. Re-exports `SocketManager`, `global_socket_manager`, `set_global_socket_manager`, and the `all_socket_controller_schemas` / `all_socket_registered_controllers` pair. |
-| `src/openhuman/socket/manager.rs` | `SocketManager` handle + `SharedState`; global `OnceLock` accessor; `connect` / `connect_with_provider` / `disconnect` / `emit` / `emit_with_ack` / `get_state`; spawns the background `ws_loop`. Holds emit/shutdown channels, ACK waiters, and the loop join handle. |
-| `src/openhuman/socket/ws_loop.rs` | The background reconnection loop and a single connection attempt: Engine.IO/Socket.IO handshake, Socket.IO ACK packet dispatch, redirect-following connect, ping-timeout deadline, backoff, invalid-token decision logic, failure-escalation logging. |
-| `src/openhuman/socket/event_handlers.rs` | Inbound SIO event dispatch (`handle_sio_event`), SIO frame parsing (`parse_sio_event`), outbound frame helper (`emit_via_channel`). Maps event names → `DomainEvent` publishes. Redacts payload content from logs. |
-| `src/openhuman/socket/token_provider.rs` | `TokenProvider` type alias + `static_token_provider`, `token_provider_from_config`, and `is_invalid_token_error` (strict double-anchor matcher). |
-| `src/openhuman/socket/schemas.rs` | Controller schemas + RPC handlers for the `socket` namespace. |
-| `src/openhuman/socket/types.rs` | `WsStream` alias, `ConnectionOutcome` enum, observability event-name constants; re-exports `ConnectionStatus` / `SocketState` from `crate::api::models::socket`. |
-| `src/openhuman/socket/ws_loop_tests.rs` | Out-of-line test suite for `ws_loop.rs` (via `#[path = ...]`). |
+| `src/openhuman/platform/socket/mod.rs` | Module docstring + exports only. Re-exports `SocketManager`, `global_socket_manager`, `set_global_socket_manager`, and the `all_socket_controller_schemas` / `all_socket_registered_controllers` pair. |
+| `src/openhuman/platform/socket/manager.rs` | `SocketManager` handle + `SharedState`; global `OnceLock` accessor; `connect` / `connect_with_provider` / `disconnect` / `emit` / `emit_with_ack` / `get_state`; spawns the background `ws_loop`. Holds emit/shutdown channels, ACK waiters, and the loop join handle. |
+| `src/openhuman/platform/socket/ws_loop.rs` | The background reconnection loop and a single connection attempt: Engine.IO/Socket.IO handshake, Socket.IO ACK packet dispatch, redirect-following connect, ping-timeout deadline, backoff, invalid-token decision logic, failure-escalation logging. |
+| `src/openhuman/platform/socket/event_handlers.rs` | Inbound SIO event dispatch (`handle_sio_event`), SIO frame parsing (`parse_sio_event`), outbound frame helper (`emit_via_channel`). Maps event names → `DomainEvent` publishes. Redacts payload content from logs. |
+| `src/openhuman/platform/socket/token_provider.rs` | `TokenProvider` type alias + `static_token_provider`, `token_provider_from_config`, and `is_invalid_token_error` (strict double-anchor matcher). |
+| `src/openhuman/platform/socket/schemas.rs` | Controller schemas + RPC handlers for the `socket` namespace. |
+| `src/openhuman/platform/socket/types.rs` | `WsStream` alias, `ConnectionOutcome` enum, observability event-name constants; re-exports `ConnectionStatus` / `SocketState` from `crate::api::models::socket`. |
+| `src/openhuman/platform/socket/ws_loop_tests.rs` | Out-of-line test suite for `ws_loop.rs` (via `#[path = ...]`). |
 
 ## Public surface
 
@@ -85,8 +85,8 @@ None of its own. State (`status`, `socket_id`, `error`, attached `WebhookRouter`
 
 - `src/core/all.rs` — registers the socket controllers.
 - `src/core/jsonrpc.rs`, `src/core/observability.rs` — reference the socket namespace/state.
-- `src/openhuman/connectivity/rpc.rs` — connectivity/status surfacing.
-- `src/openhuman/webhooks/{ops.rs,bus.rs}` — emit webhook responses back through the global manager.
+- `src/openhuman/platform/connectivity/rpc.rs` — connectivity/status surfacing.
+- `src/openhuman/skills/webhooks/{ops.rs,bus.rs}` — emit webhook responses back through the global manager.
 - `src/openhuman/security/devices/tunnel_client.rs` — emits tunnel frames/registration over the socket.
 
 ## Notes / gotchas

@@ -17,16 +17,16 @@ The **listening + speaking loop for a live Google Meet call**. Where `meet/` is 
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/meet_agent/mod.rs` | Module docstring + exports; re-exports controller schema pair and session registry types. Export-focused only. |
-| `src/openhuman/meet_agent/types.rs` | Serde request/response types for all RPC endpoints + `SessionEvent` / `SessionEventKind` transcript record. Audio crosses the boundary as base64 PCM16LE. |
-| `src/openhuman/meet_agent/ops.rs` | Pure, tokio-free helpers: sample-rate validation, `request_id` sanitization, `frame_rms`, and the stateful `Vad` (energy + hangover). |
-| `src/openhuman/meet_agent/session.rs` | `MeetAgentSession` (ring buffers, VAD state, transcript log, counters, wake-word state machine, owner/allowlist privacy gate) + `MeetAgentSessionRegistry` + the `SESSION_REGISTRY` `OnceLock` singleton. |
-| `src/openhuman/meet_agent/brain.rs` | Turn orchestration: STT → LLM → TTS. Owns the per-meet cached orchestrator `Agent`, the audio `run_turn` and caption `run_caption_turn`, soft-deny / grant turns, system prompts, and speech-cleanup helpers. |
-| `src/openhuman/meet_agent/rpc.rs` | JSON-RPC handlers (deserialize-validate-dispatch only); spawns brain turns, persists the call record on stop. |
-| `src/openhuman/meet_agent/schemas.rs` | Controller schema definitions + `handle_*` futures delegating to `rpc.rs`; the registry `all_controller_schemas` / `all_registered_controllers`. |
-| `src/openhuman/meet_agent/store.rs` | `MeetCallRecord` type + append-only JSONL persistence (`append_record`, `read_recent`) under the workspace data dir. |
-| `src/openhuman/meet_agent/wav.rs` | `pack_pcm16le_mono_wav` — minimal RIFF/WAVE header wrapper so raw PCM batches can be posted to the cloud Whisper endpoint as `audio/wav`. |
-| `src/openhuman/meet_agent/ops_tests.rs` | Sibling test suite for `ops.rs` (`#[path]`-included). |
+| `src/openhuman/meet/agent/mod.rs` | Module docstring + exports; re-exports controller schema pair and session registry types. Export-focused only. |
+| `src/openhuman/meet/agent/types.rs` | Serde request/response types for all RPC endpoints + `SessionEvent` / `SessionEventKind` transcript record. Audio crosses the boundary as base64 PCM16LE. |
+| `src/openhuman/meet/agent/ops.rs` | Pure, tokio-free helpers: sample-rate validation, `request_id` sanitization, `frame_rms`, and the stateful `Vad` (energy + hangover). |
+| `src/openhuman/meet/agent/session.rs` | `MeetAgentSession` (ring buffers, VAD state, transcript log, counters, wake-word state machine, owner/allowlist privacy gate) + `MeetAgentSessionRegistry` + the `SESSION_REGISTRY` `OnceLock` singleton. |
+| `src/openhuman/meet/agent/brain.rs` | Turn orchestration: STT → LLM → TTS. Owns the per-meet cached orchestrator `Agent`, the audio `run_turn` and caption `run_caption_turn`, soft-deny / grant turns, system prompts, and speech-cleanup helpers. |
+| `src/openhuman/meet/agent/rpc.rs` | JSON-RPC handlers (deserialize-validate-dispatch only); spawns brain turns, persists the call record on stop. |
+| `src/openhuman/meet/agent/schemas.rs` | Controller schema definitions + `handle_*` futures delegating to `rpc.rs`; the registry `all_controller_schemas` / `all_registered_controllers`. |
+| `src/openhuman/meet/agent/store.rs` | `MeetCallRecord` type + append-only JSONL persistence (`append_record`, `read_recent`) under the workspace data dir. |
+| `src/openhuman/meet/agent/wav.rs` | `pack_pcm16le_mono_wav` — minimal RIFF/WAVE header wrapper so raw PCM batches can be posted to the cloud Whisper endpoint as `audio/wav`. |
+| `src/openhuman/meet/agent/ops_tests.rs` | Sibling test suite for `ops.rs` (`#[path]`-included). |
 
 ## Public surface
 
@@ -77,7 +77,7 @@ None via the event bus. There is no `bus.rs` and no `DomainEvent` publish/subscr
 
 - `src/core/all.rs` — registers the controllers/schemas and routes the `"meet_agent"` namespace.
 - `src/openhuman/mod.rs` — declares the domain module.
-- `src/openhuman/about_app/catalog.rs` — capability catalog entry.
+- `src/openhuman/platform/about_app/catalog.rs` — capability catalog entry.
 - `src/openhuman/desktop_companion/pipeline.rs` — reuses `meet_agent::wav::pack_pcm16le_mono_wav` and is modelled on `meet_agent::brain`'s STT/LLM/TTS pipeline.
 
 ## Notes / gotchas

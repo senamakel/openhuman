@@ -141,7 +141,7 @@ describe('rpcMethods catalog', () => {
         'utf8'
       ),
       fs.readFileSync(
-        path.resolve(__dirname, '../../../../src/openhuman/embeddings/schemas.rs'),
+        path.resolve(__dirname, '../../../../src/openhuman/inference/embeddings/schemas.rs'),
         'utf8'
       ),
       fs.readFileSync(
@@ -149,11 +149,11 @@ describe('rpcMethods catalog', () => {
         'utf8'
       ),
       fs.readFileSync(
-        path.resolve(__dirname, '../../../../src/openhuman/tool_registry/schemas.rs'),
+        path.resolve(__dirname, '../../../../src/openhuman/tools/registry/schemas.rs'),
         'utf8'
       ),
       fs.readFileSync(
-        path.resolve(__dirname, '../../../../src/openhuman/health/schemas.rs'),
+        path.resolve(__dirname, '../../../../src/openhuman/platform/health/schemas.rs'),
         'utf8'
       ),
       fs.readFileSync(

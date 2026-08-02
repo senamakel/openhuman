@@ -13,12 +13,12 @@ Local assistive surfaces for third-party provider apps. This domain owns a norma
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/provider_surfaces/mod.rs` | Export-only: declares submodules; re-exports `all_provider_surfaces_controller_schemas` / `all_provider_surfaces_registered_controllers`. |
-| `src/openhuman/provider_surfaces/types.rs` | Serde domain types: `ProviderEvent`, `RespondQueueItem`, `RespondQueueListResponse`. Snake_case contract shared by request and response. |
-| `src/openhuman/provider_surfaces/ops.rs` | Business logic / entry points: `ingest_event`, `list_queue`. Wrap results in `ApiEnvelope` + `RpcOutcome`. Contains the inline test suite. |
-| `src/openhuman/provider_surfaces/store.rs` | In-memory persistence: process-global `RESPOND_QUEUE` (`OnceLock<Mutex<Vec<…>>>`), `upsert_queue_item`, `list_queue_items`, `clear_queue` (test-only). |
-| `src/openhuman/provider_surfaces/schemas.rs` | Controller registry: `ControllerSchema`s + `handle_*` fns delegating to `ops.rs`. Inline schema tests. |
-| `src/openhuman/provider_surfaces/rpc.rs` | Docstring-only placeholder; no code. The handler delegation lives in `schemas.rs`, not here. |
+| `src/openhuman/desktop/provider_surfaces/mod.rs` | Export-only: declares submodules; re-exports `all_provider_surfaces_controller_schemas` / `all_provider_surfaces_registered_controllers`. |
+| `src/openhuman/desktop/provider_surfaces/types.rs` | Serde domain types: `ProviderEvent`, `RespondQueueItem`, `RespondQueueListResponse`. Snake_case contract shared by request and response. |
+| `src/openhuman/desktop/provider_surfaces/ops.rs` | Business logic / entry points: `ingest_event`, `list_queue`. Wrap results in `ApiEnvelope` + `RpcOutcome`. Contains the inline test suite. |
+| `src/openhuman/desktop/provider_surfaces/store.rs` | In-memory persistence: process-global `RESPOND_QUEUE` (`OnceLock<Mutex<Vec<…>>>`), `upsert_queue_item`, `list_queue_items`, `clear_queue` (test-only). |
+| `src/openhuman/desktop/provider_surfaces/schemas.rs` | Controller registry: `ControllerSchema`s + `handle_*` fns delegating to `ops.rs`. Inline schema tests. |
+| `src/openhuman/desktop/provider_surfaces/rpc.rs` | Docstring-only placeholder; no code. The handler delegation lives in `schemas.rs`, not here. |
 
 ## Public surface
 
@@ -64,7 +64,7 @@ In-memory only. State lives in a process-global `RESPOND_QUEUE` (`static OnceLoc
 
 - `src/core/all.rs` — registers the controllers/schemas into the global registry (`all_provider_surfaces_registered_controllers`, `all_provider_surfaces_controller_schemas`, and a `"provider_surfaces"` dispatch arm).
 - `src/openhuman/desktop_companion/handoff.rs` — reads `store::list_queue_items()` and matches `RespondQueueItem`s to correlate desktop companion handoff actions against the queue (light-touch, read-only against the store).
-- `src/openhuman/task_sources/pipeline_tests.rs` — references the queue in tests.
+- `src/openhuman/integrations/task_sources/pipeline_tests.rs` — references the queue in tests.
 
 ## Notes / gotchas
 

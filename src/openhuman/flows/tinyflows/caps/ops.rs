@@ -358,7 +358,7 @@ pub(crate) async fn resolve_composio_account(
         .map(|(toolkit, label)| (toolkit.to_string(), label.map(str::to_string)))
 }
 
-/// [`ToolInvoker`] adapter over Composio (`src/openhuman/composio/client.rs`).
+/// [`ToolInvoker`] adapter over Composio (`src/openhuman/integrations/composio/client.rs`).
 ///
 /// **B2 (closes two B1 deviations, see
 /// `my_docs/ohxtf/b2-triggers-trust/01-triggers-and-trust.md` §4-5):**

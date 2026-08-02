@@ -15,10 +15,10 @@ Diagnostics for the local core's reachability and the live backend Socket.IO sta
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/connectivity/mod.rs` | Module docstring + exports; re-exports schema entry points as `all_connectivity_controller_schemas` / `all_connectivity_registered_controllers`. |
-| `src/openhuman/connectivity/ops.rs` | Pure helper `is_port_in_use(port)` — binds an ephemeral loopback listener to detect an occupied port; unit-tested in isolation. |
-| `src/openhuman/connectivity/rpc.rs` | Core logic: `ConnectivityDiagResponse`, `snapshot()`, `diag()` RPC, env port resolution, socket-state snapshot, and the `pick_listen_port*` family with fingerprinting (`identify_listener`) and OS-exclusion handling. |
-| `src/openhuman/connectivity/schemas.rs` | Controller schema for the single `connectivity_diag` controller + `handle_diag` delegating to `rpc::diag()`. |
+| `src/openhuman/platform/connectivity/mod.rs` | Module docstring + exports; re-exports schema entry points as `all_connectivity_controller_schemas` / `all_connectivity_registered_controllers`. |
+| `src/openhuman/platform/connectivity/ops.rs` | Pure helper `is_port_in_use(port)` — binds an ephemeral loopback listener to detect an occupied port; unit-tested in isolation. |
+| `src/openhuman/platform/connectivity/rpc.rs` | Core logic: `ConnectivityDiagResponse`, `snapshot()`, `diag()` RPC, env port resolution, socket-state snapshot, and the `pick_listen_port*` family with fingerprinting (`identify_listener`) and OS-exclusion handling. |
+| `src/openhuman/platform/connectivity/schemas.rs` | Controller schema for the single `connectivity_diag` controller + `handle_diag` delegating to `rpc::diag()`. |
 
 ## Public surface
 

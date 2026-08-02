@@ -8,11 +8,11 @@
 //! - `flow_definitions` — one row per saved [`Flow`], with the graph stored as
 //!   JSON text (`graph_json`).
 //! - `flow_state` — a generic namespaced key/value table backing
-//!   `tinyflows::caps::StateStore` (see `src/openhuman/tinyflows/caps.rs`).
+//!   `tinyflows::caps::StateStore` (see `src/openhuman/flows/tinyflows/caps.rs`).
 //!
 //! There is deliberately **no** `flow_checkpoints` table here: the crate's own
 //! `tinyagents::SqliteCheckpointer` owns checkpoint persistence in a separate
-//! `checkpoints.db` (see `src/openhuman/tinyflows/mod.rs::open_flow_checkpointer`).
+//! `checkpoints.db` (see `src/openhuman/flows/tinyflows/mod.rs::open_flow_checkpointer`).
 
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::types::{
@@ -746,7 +746,7 @@ fn sql_conversion_error<E: std::error::Error + Send + Sync + 'static>(err: E) ->
 /// Loads a value from the `flow_state` KV table, scoped to `namespace`.
 ///
 /// Backs `tinyflows::caps::StateStore::load` via
-/// `src/openhuman/tinyflows/caps.rs::FlowStateStore`.
+/// `src/openhuman/flows/tinyflows/caps.rs::FlowStateStore`.
 pub fn kv_get(config: &Config, namespace: &str, key: &str) -> Result<Option<serde_json::Value>> {
     with_connection(config, |conn| {
         let mut stmt =
@@ -767,7 +767,7 @@ pub fn kv_get(config: &Config, namespace: &str, key: &str) -> Result<Option<serd
 /// Stores a value into the `flow_state` KV table, scoped to `namespace`.
 ///
 /// Backs `tinyflows::caps::StateStore::store` via
-/// `src/openhuman/tinyflows/caps.rs::FlowStateStore`.
+/// `src/openhuman/flows/tinyflows/caps.rs::FlowStateStore`.
 pub fn kv_set(
     config: &Config,
     namespace: &str,

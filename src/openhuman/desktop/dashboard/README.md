@@ -14,10 +14,10 @@ Aggregate, operator-facing views over local config. Today it owns a single read-
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/dashboard/mod.rs` | Export-only: module docstring + `mod`/`pub use` re-exports of ops, schemas, and types. |
-| `src/openhuman/dashboard/types.rs` | Wire types: `ModelHealthEntry`, `ModelHealthConfigView`, `ModelHealthResponse` (serde). |
-| `src/openhuman/dashboard/ops.rs` | Business logic: `model_health(&Config)` joins registry + thresholds, returns `RpcOutcome<ModelHealthResponse>`. Inline tests cover mapping, thresholds, disabled feature, empty registry. |
-| `src/openhuman/dashboard/schemas.rs` | Controller schemas + registered controller + `handle_dashboard_model_health` handler (loads config via timeout, delegates to `ops::model_health`). Inline tests assert schema stability and list-length parity. |
+| `src/openhuman/desktop/dashboard/mod.rs` | Export-only: module docstring + `mod`/`pub use` re-exports of ops, schemas, and types. |
+| `src/openhuman/desktop/dashboard/types.rs` | Wire types: `ModelHealthEntry`, `ModelHealthConfigView`, `ModelHealthResponse` (serde). |
+| `src/openhuman/desktop/dashboard/ops.rs` | Business logic: `model_health(&Config)` joins registry + thresholds, returns `RpcOutcome<ModelHealthResponse>`. Inline tests cover mapping, thresholds, disabled feature, empty registry. |
+| `src/openhuman/desktop/dashboard/schemas.rs` | Controller schemas + registered controller + `handle_dashboard_model_health` handler (loads config via timeout, delegates to `ops::model_health`). Inline tests assert schema stability and list-length parity. |
 
 ## Public surface
 

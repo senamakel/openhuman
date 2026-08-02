@@ -14,15 +14,15 @@ Cross-platform directory-jail facade. Given a declarative description of a works
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/cwd_jail/mod.rs` | Module docstring + the thin facade: `spawn` / `spawn_with` / `default_backend` (cached via `OnceLock`). Re-exports the public surface. Inline tests. |
-| `src/openhuman/cwd_jail/jail.rs` | Core types: the `Jail` description struct (builder + `canonicalize`/`canonicalize_or_log`) and the `JailBackend` trait (`name`/`is_available`/`spawn`). |
-| `src/openhuman/cwd_jail/detect.rs` | `pick_backend()` — cfg-gated platform selection; returns the first available backend or `NoopBackend`. |
-| `src/openhuman/cwd_jail/noop.rs` | `NoopBackend` — no enforcement, plain `Command::spawn`. Always available. |
-| `src/openhuman/cwd_jail/linux.rs` | `LandlockBackend` — kernel 5.13+ Landlock LSM applied in `pre_exec` (child-side, after fork, before exec). Gated on the `sandbox-landlock` cargo feature. |
-| `src/openhuman/cwd_jail/macos.rs` | `SeatbeltBackend` — wraps the command in `/usr/bin/sandbox-exec -p '<profile>'`. Renders an allow-default-reads / deny-default-writes Seatbelt profile. |
-| `src/openhuman/cwd_jail/windows.rs` | `AppContainerBackend` — `CreateAppContainerProfile` + DACL grant + `STARTUPINFOEX`/`CreateProcessW` via `windows-sys`. |
-| `src/openhuman/cwd_jail/registry.rs` | `JailRegistry` + `JailRecord` — multi-jail manager persisted to `index.json`, with atomic-rename writes and containment checks. |
-| `src/openhuman/cwd_jail/registry_tests.rs` | Sibling test suite for the registry (`#[path]`-included from `registry.rs`). |
+| `src/openhuman/sandbox/cwd_jail/mod.rs` | Module docstring + the thin facade: `spawn` / `spawn_with` / `default_backend` (cached via `OnceLock`). Re-exports the public surface. Inline tests. |
+| `src/openhuman/sandbox/cwd_jail/jail.rs` | Core types: the `Jail` description struct (builder + `canonicalize`/`canonicalize_or_log`) and the `JailBackend` trait (`name`/`is_available`/`spawn`). |
+| `src/openhuman/sandbox/cwd_jail/detect.rs` | `pick_backend()` — cfg-gated platform selection; returns the first available backend or `NoopBackend`. |
+| `src/openhuman/sandbox/cwd_jail/noop.rs` | `NoopBackend` — no enforcement, plain `Command::spawn`. Always available. |
+| `src/openhuman/sandbox/cwd_jail/linux.rs` | `LandlockBackend` — kernel 5.13+ Landlock LSM applied in `pre_exec` (child-side, after fork, before exec). Gated on the `sandbox-landlock` cargo feature. |
+| `src/openhuman/sandbox/cwd_jail/macos.rs` | `SeatbeltBackend` — wraps the command in `/usr/bin/sandbox-exec -p '<profile>'`. Renders an allow-default-reads / deny-default-writes Seatbelt profile. |
+| `src/openhuman/sandbox/cwd_jail/windows.rs` | `AppContainerBackend` — `CreateAppContainerProfile` + DACL grant + `STARTUPINFOEX`/`CreateProcessW` via `windows-sys`. |
+| `src/openhuman/sandbox/cwd_jail/registry.rs` | `JailRegistry` + `JailRecord` — multi-jail manager persisted to `index.json`, with atomic-rename writes and containment checks. |
+| `src/openhuman/sandbox/cwd_jail/registry_tests.rs` | Sibling test suite for the registry (`#[path]`-included from `registry.rs`). |
 
 ## Public surface
 

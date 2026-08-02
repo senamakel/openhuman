@@ -63,7 +63,7 @@ Subscriber registered at startup from `src/core/jsonrpc.rs` via `register_device
 - `DevicePaired` (after successful handshake + persistence).
 - `DeviceRevoked` (from `devices_revoke`).
 
-Note: the `DevicePeerOnline/Offline` and `DeviceTunnelFrame` events are *originated* by `src/openhuman/socket/event_handlers.rs` (which parses the raw `tunnel:peer-status` / `tunnel:frame` / `tunnel:evicted` Socket.IO events and re-publishes them as `DomainEvent`s). This domain consumes them; it does not re-publish peer-status itself.
+Note: the `DevicePeerOnline/Offline` and `DeviceTunnelFrame` events are *originated* by `src/openhuman/platform/socket/event_handlers.rs` (which parses the raw `tunnel:peer-status` / `tunnel:frame` / `tunnel:evicted` Socket.IO events and re-publishes them as `DomainEvent`s). This domain consumes them; it does not re-publish peer-status itself.
 
 ## Persistence
 
@@ -97,7 +97,7 @@ Separately, encrypted X25519 private keys are persisted as `enc2:` strings (via 
 
 - `src/core/all.rs` — registers the `devices` controllers/schemas and namespace branch.
 - `src/core/jsonrpc.rs` — calls `register_device_tunnel_subscriber()` at startup.
-- `src/openhuman/socket/event_handlers.rs` — parses raw `tunnel:*` Socket.IO events into `DomainEvent`s that this domain consumes, using this domain's `tunnel_client` wire types (`TunnelPeerStatus`, `TunnelFrame`).
+- `src/openhuman/platform/socket/event_handlers.rs` — parses raw `tunnel:*` Socket.IO events into `DomainEvent`s that this domain consumes, using this domain's `tunnel_client` wire types (`TunnelPeerStatus`, `TunnelFrame`).
 
 ## Notes / gotchas
 

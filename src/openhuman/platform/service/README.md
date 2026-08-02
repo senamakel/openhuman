@@ -16,21 +16,21 @@ Service-management domain for the OpenHuman core daemon. It installs/uninstalls 
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/service/mod.rs` | Export-focused module root; declares submodules and re-exports the public surface + controller-schema pair. |
-| `src/openhuman/service/core.rs` | `ServiceState` / `ServiceStatus` types and the cross-platform `install`/`start`/`stop`/`status`/`uninstall` dispatchers that route to the mock or the per-OS impl via `cfg`. |
-| `src/openhuman/service/ops.rs` | RPC handler layer (`service_install`, `service_start`, `service_stop`, `service_status`, `service_restart`, `service_shutdown`, `service_uninstall`, `daemon_host_get`/`set`) returning `RpcOutcome<T>`. Re-exported as `rpc`. |
-| `src/openhuman/service/schemas.rs` | Controller schemas + `handle_*` adapters for the `service` namespace; `all_controller_schemas` / `all_registered_controllers`. |
-| `src/openhuman/service/restart.rs` | Self-restart orchestration: `service_restart` (publishes event), `trigger_self_restart_now` (respawns current exe with original args), `apply_startup_restart_delay_from_env`, `RestartStatus`. |
-| `src/openhuman/service/shutdown.rs` | Graceful-shutdown orchestration: `service_shutdown` (publishes event), `ShutdownStatus`. |
-| `src/openhuman/service/bus.rs` | Event-bus subscribers `RestartSubscriber` / `ShutdownSubscriber` (filter domain `system`) and idempotent `register_*_subscriber` helpers; one-shot atomic gates so only the first request acts. |
-| `src/openhuman/service/common.rs` | Shared OS helpers: service labels, `resolve_daemon_executable`, `daemon_program_args` (`["run"]`), `xml_escape`, command runners (`run_checked`/`run_capture`/`run_best_effort`/`run_check_silent`), Windows `CREATE_NO_WINDOW` suppression. |
-| `src/openhuman/service/macos.rs` | LaunchAgent (`com.openhuman.core.plist`) install/start/stop/status/uninstall via `launchctl`; migrates legacy labels. |
-| `src/openhuman/service/linux.rs` | systemd user-unit install/lifecycle via `systemctl --user`. |
-| `src/openhuman/service/windows.rs` | Scheduled-task install/lifecycle via `schtasks`. |
-| `src/openhuman/service/daemon.rs` | `state_file_path(config)` → `<config_dir>/daemon_state.json`, used by doctor/health. |
-| `src/openhuman/service/daemon_host.rs` | `DaemonHostConfig { show_tray }` + async `load_for_config_dir` / `save_for_config_dir` (JSON next to config, `daemon_host_config.json`). |
-| `src/openhuman/service/mock.rs` | File-backed deterministic mock backend gated on `OPENHUMAN_SERVICE_MOCK`; supports forced failures and an `agent_running` flag (`mock_agent_running`). |
-| `src/openhuman/service/mock_tests.rs` | Sibling test suite for `mock.rs`. |
+| `src/openhuman/platform/service/mod.rs` | Export-focused module root; declares submodules and re-exports the public surface + controller-schema pair. |
+| `src/openhuman/platform/service/core.rs` | `ServiceState` / `ServiceStatus` types and the cross-platform `install`/`start`/`stop`/`status`/`uninstall` dispatchers that route to the mock or the per-OS impl via `cfg`. |
+| `src/openhuman/platform/service/ops.rs` | RPC handler layer (`service_install`, `service_start`, `service_stop`, `service_status`, `service_restart`, `service_shutdown`, `service_uninstall`, `daemon_host_get`/`set`) returning `RpcOutcome<T>`. Re-exported as `rpc`. |
+| `src/openhuman/platform/service/schemas.rs` | Controller schemas + `handle_*` adapters for the `service` namespace; `all_controller_schemas` / `all_registered_controllers`. |
+| `src/openhuman/platform/service/restart.rs` | Self-restart orchestration: `service_restart` (publishes event), `trigger_self_restart_now` (respawns current exe with original args), `apply_startup_restart_delay_from_env`, `RestartStatus`. |
+| `src/openhuman/platform/service/shutdown.rs` | Graceful-shutdown orchestration: `service_shutdown` (publishes event), `ShutdownStatus`. |
+| `src/openhuman/platform/service/bus.rs` | Event-bus subscribers `RestartSubscriber` / `ShutdownSubscriber` (filter domain `system`) and idempotent `register_*_subscriber` helpers; one-shot atomic gates so only the first request acts. |
+| `src/openhuman/platform/service/common.rs` | Shared OS helpers: service labels, `resolve_daemon_executable`, `daemon_program_args` (`["run"]`), `xml_escape`, command runners (`run_checked`/`run_capture`/`run_best_effort`/`run_check_silent`), Windows `CREATE_NO_WINDOW` suppression. |
+| `src/openhuman/platform/service/macos.rs` | LaunchAgent (`com.openhuman.core.plist`) install/start/stop/status/uninstall via `launchctl`; migrates legacy labels. |
+| `src/openhuman/platform/service/linux.rs` | systemd user-unit install/lifecycle via `systemctl --user`. |
+| `src/openhuman/platform/service/windows.rs` | Scheduled-task install/lifecycle via `schtasks`. |
+| `src/openhuman/platform/service/daemon.rs` | `state_file_path(config)` → `<config_dir>/daemon_state.json`, used by doctor/health. |
+| `src/openhuman/platform/service/daemon_host.rs` | `DaemonHostConfig { show_tray }` + async `load_for_config_dir` / `save_for_config_dir` (JSON next to config, `daemon_host_config.json`). |
+| `src/openhuman/platform/service/mock.rs` | File-backed deterministic mock backend gated on `OPENHUMAN_SERVICE_MOCK`; supports forced failures and an `agent_running` flag (`mock_agent_running`). |
+| `src/openhuman/platform/service/mock_tests.rs` | Sibling test suite for `mock.rs`. |
 
 ## Public surface
 
@@ -94,8 +94,8 @@ Both subscribers are registered idempotently from `src/core/jsonrpc.rs` at start
 
 - `src/core/all.rs` — registers the service controllers (`all_service_registered_controllers`).
 - `src/core/jsonrpc.rs` — registers the restart/shutdown event-bus subscribers at startup.
-- `src/openhuman/doctor/core.rs` — reads `service::daemon::state_file_path`.
-- `src/openhuman/update/ops.rs`, `src/openhuman/config/ops.rs`, `src/openhuman/app_state/ops.rs` — reference `openhuman::platform::service` (status/lifecycle/restart paths).
+- `src/openhuman/platform/doctor/core.rs` — reads `service::daemon::state_file_path`.
+- `src/openhuman/platform/update/ops.rs`, `src/openhuman/config/ops.rs`, `src/openhuman/desktop/app_state/ops.rs` — reference `openhuman::platform::service` (status/lifecycle/restart paths).
 - `src/lib.rs` — module wiring.
 
 ## Notes / gotchas

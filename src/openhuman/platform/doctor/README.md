@@ -17,11 +17,11 @@ Diagnostic / self-check domain for OpenHuman. Runs a synchronous battery of prob
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/doctor/mod.rs` | Module docstring + exports. Declares `core`, `ops`, `schemas`; re-exports `core::*`, `ops::*` (also aliased `pub use ops as rpc`), and the schema controller pair. |
-| `src/openhuman/doctor/core.rs` | All diagnostic logic + types. `run()` entry point and every `check_*` probe; `run_models()`; severity helpers; OS-specific disk/command helpers. |
-| `src/openhuman/doctor/ops.rs` | Async JSON-RPC/CLI controller surface (`doctor_report`, `doctor_models`) wrapping the sync `core` logic in `spawn_blocking` and returning `RpcOutcome<T>`. |
-| `src/openhuman/doctor/schemas.rs` | Controller schemas + registry (`all_controller_schemas`, `all_registered_controllers`, `handle_report`/`handle_models`). |
-| `src/openhuman/doctor/core_tests.rs` | Test suite for `core.rs` (via `#[path = "core_tests.rs"] mod tests`). |
+| `src/openhuman/platform/doctor/mod.rs` | Module docstring + exports. Declares `core`, `ops`, `schemas`; re-exports `core::*`, `ops::*` (also aliased `pub use ops as rpc`), and the schema controller pair. |
+| `src/openhuman/platform/doctor/core.rs` | All diagnostic logic + types. `run()` entry point and every `check_*` probe; `run_models()`; severity helpers; OS-specific disk/command helpers. |
+| `src/openhuman/platform/doctor/ops.rs` | Async JSON-RPC/CLI controller surface (`doctor_report`, `doctor_models`) wrapping the sync `core` logic in `spawn_blocking` and returning `RpcOutcome<T>`. |
+| `src/openhuman/platform/doctor/schemas.rs` | Controller schemas + registry (`all_controller_schemas`, `all_registered_controllers`, `handle_report`/`handle_models`). |
+| `src/openhuman/platform/doctor/core_tests.rs` | Test suite for `core.rs` (via `#[path = "core_tests.rs"] mod tests`). |
 
 ## Public surface
 

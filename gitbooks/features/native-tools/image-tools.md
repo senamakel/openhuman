@@ -6,7 +6,7 @@ single provider runtime.
 
 ## Scope
 
-The contract lives in the top-level `src/openhuman/image/` module and
+The contract lives in the top-level `src/openhuman/media/image/` module and
 currently covers two model-facing tools:
 
 | Tool | Purpose | Permission | Output |

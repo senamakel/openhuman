@@ -55,7 +55,7 @@ pub use schemas::{
 };
 // `kv_get`/`kv_set` are re-exported (not just `pub(crate)`-visible within this
 // domain's own module tree) because `tinyflows::caps::FlowStateStore`
-// (`src/openhuman/tinyflows/caps.rs`) lives in a sibling domain and needs
+// (`src/openhuman/flows/tinyflows/caps.rs`) lives in a sibling domain and needs
 // them to implement `tinyflows::caps::StateStore` without duplicating the
 // `flow_state` table's persistence logic.
 // `upsert_flow_run_step` is likewise re-exported for the tinyflows seam: the

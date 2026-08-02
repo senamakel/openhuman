@@ -14,13 +14,13 @@ Self-update domain for the `openhuman-core` binary. Checks GitHub Releases (`tin
 ## Key files
 | File | Role |
 | --- | --- |
-| `src/openhuman/update/mod.rs` | Export-focused. `pub use core::*`, `pub use ops as rpc`, `pub use types::*`, and the `all_update_controller_schemas` / `all_update_registered_controllers` re-exports. |
-| `src/openhuman/update/core.rs` | Core logic: `current_version`, `platform_triple`, `check_available` (GitHub fetch + parse), `download_and_stage[_with_version]` (atomic staging), asset selection, semver compare, transport-failure classifier. |
-| `src/openhuman/update/ops.rs` | RPC handlers (`update_version`/`update_check`/`update_apply`/`update_run`), mutation-policy enforcement, URL/asset-name validation, and `UpdateRunResult` builders per restart strategy. Aliased as `update::rpc`. |
-| `src/openhuman/update/scheduler.rs` | `run(UpdateConfig)` periodic checker loop + `tick()`; publishes startup/health events. Floor `MIN_INTERVAL_MINUTES = 10`. |
-| `src/openhuman/update/schemas.rs` | Controller registry: `all_controller_schemas`, `all_registered_controllers`, `schemas(fn)`, and `handle_*` thunks delegating to `ops`. |
-| `src/openhuman/update/types.rs` | Serde types: `UpdateInfo`, `VersionInfo`, `UpdateRunResult`, `UpdateApplyResult`, `GitHubRelease`, `GitHubAsset`. |
-| `src/openhuman/update/ops_tests.rs` | Sibling test suite for `ops.rs` (via `#[path]`). |
+| `src/openhuman/platform/update/mod.rs` | Export-focused. `pub use core::*`, `pub use ops as rpc`, `pub use types::*`, and the `all_update_controller_schemas` / `all_update_registered_controllers` re-exports. |
+| `src/openhuman/platform/update/core.rs` | Core logic: `current_version`, `platform_triple`, `check_available` (GitHub fetch + parse), `download_and_stage[_with_version]` (atomic staging), asset selection, semver compare, transport-failure classifier. |
+| `src/openhuman/platform/update/ops.rs` | RPC handlers (`update_version`/`update_check`/`update_apply`/`update_run`), mutation-policy enforcement, URL/asset-name validation, and `UpdateRunResult` builders per restart strategy. Aliased as `update::rpc`. |
+| `src/openhuman/platform/update/scheduler.rs` | `run(UpdateConfig)` periodic checker loop + `tick()`; publishes startup/health events. Floor `MIN_INTERVAL_MINUTES = 10`. |
+| `src/openhuman/platform/update/schemas.rs` | Controller registry: `all_controller_schemas`, `all_registered_controllers`, `schemas(fn)`, and `handle_*` thunks delegating to `ops`. |
+| `src/openhuman/platform/update/types.rs` | Serde types: `UpdateInfo`, `VersionInfo`, `UpdateRunResult`, `UpdateApplyResult`, `GitHubRelease`, `GitHubAsset`. |
+| `src/openhuman/platform/update/ops_tests.rs` | Sibling test suite for `ops.rs` (via `#[path]`). |
 
 ## Public surface
 - Types (`types.rs`): `UpdateInfo`, `VersionInfo`, `UpdateRunResult`, `UpdateApplyResult`, `GitHubRelease`, `GitHubAsset`.

@@ -19,7 +19,7 @@ Multi-platform messaging integration. Owns the `Channel` trait, per-provider con
 - `src/openhuman/security/credentials/` — per-channel auth tokens, refresh flow.
 - `src/openhuman/config/schema/channels.rs` — runtime channel configuration.
 - `src/openhuman/threads/` — thread state for platforms with native threading (Slack `thread_ts`).
-- `src/openhuman/notifications/` — surface inbound deliveries to the UI.
+- `src/openhuman/desktop/notifications/` — surface inbound deliveries to the UI.
 - `src/openhuman/security/encryption/` — at-rest secret protection.
 - `src/core/event_bus/` — emits `DomainEvent::Channel(*)`; `channels/bus.rs` registers `ChannelInboundSubscriber`.
 

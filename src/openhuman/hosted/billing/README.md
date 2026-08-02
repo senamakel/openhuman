@@ -16,10 +16,10 @@ Thin RPC adapter domain over the hosted backend's payment API. It exposes plan l
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/billing/mod.rs` | Export-focused module root; re-exports `ops::*` and the schemas/controllers pair. |
-| `src/openhuman/billing/ops.rs` | Business logic: one async fn per backend endpoint; auth helper (`require_token`, `get_authed_value`); input validation + gateway normalization. Returns `RpcOutcome<Value>`. |
-| `src/openhuman/billing/schemas.rs` | Controller schemas, `all_billing_controller_schemas` / `all_billing_registered_controllers`, param structs, and `handle_billing_*` handlers delegating to `ops`. |
-| `src/openhuman/billing/schemas_tests.rs` | Sibling test suite for `schemas.rs` (wired via `#[path]` mod). |
+| `src/openhuman/hosted/billing/mod.rs` | Export-focused module root; re-exports `ops::*` and the schemas/controllers pair. |
+| `src/openhuman/hosted/billing/ops.rs` | Business logic: one async fn per backend endpoint; auth helper (`require_token`, `get_authed_value`); input validation + gateway normalization. Returns `RpcOutcome<Value>`. |
+| `src/openhuman/hosted/billing/schemas.rs` | Controller schemas, `all_billing_controller_schemas` / `all_billing_registered_controllers`, param structs, and `handle_billing_*` handlers delegating to `ops`. |
+| `src/openhuman/hosted/billing/schemas_tests.rs` | Sibling test suite for `schemas.rs` (wired via `#[path]` mod). |
 
 ## Public surface
 

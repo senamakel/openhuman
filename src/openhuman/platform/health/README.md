@@ -15,11 +15,11 @@ In-process health registry for the OpenHuman core. Tracks per-component liveness
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/health/mod.rs` | Export-only: declares modules, re-exports `core::*`, `ops::*`, `pub use ops as rpc`, and the controller-schema pair (`all_health_controller_schemas` / `all_health_registered_controllers`). |
-| `src/openhuman/health/core.rs` | The registry itself: `ComponentHealth`/`HealthSnapshot` types, the `OnceLock<HealthRegistry>` singleton (`started_at` + `Mutex<BTreeMap>`), and the mutators/`snapshot`/`snapshot_json` functions. |
-| `src/openhuman/health/ops.rs` | RPC handler logic returning `RpcOutcome<T>`: `health_snapshot()` and `system_info()` (+ `SystemInfo` type). |
-| `src/openhuman/health/schemas.rs` | Controller schemas + `handle_snapshot`/`handle_system_info` async handlers that delegate to `ops` and serialize via `into_cli_compatible_json`. |
-| `src/openhuman/health/bus.rs` | `HealthSubscriber` (`EventHandler`) and `register_health_subscriber()`; maps domain events to registry mutations. |
+| `src/openhuman/platform/health/mod.rs` | Export-only: declares modules, re-exports `core::*`, `ops::*`, `pub use ops as rpc`, and the controller-schema pair (`all_health_controller_schemas` / `all_health_registered_controllers`). |
+| `src/openhuman/platform/health/core.rs` | The registry itself: `ComponentHealth`/`HealthSnapshot` types, the `OnceLock<HealthRegistry>` singleton (`started_at` + `Mutex<BTreeMap>`), and the mutators/`snapshot`/`snapshot_json` functions. |
+| `src/openhuman/platform/health/ops.rs` | RPC handler logic returning `RpcOutcome<T>`: `health_snapshot()` and `system_info()` (+ `SystemInfo` type). |
+| `src/openhuman/platform/health/schemas.rs` | Controller schemas + `handle_snapshot`/`handle_system_info` async handlers that delegate to `ops` and serialize via `into_cli_compatible_json`. |
+| `src/openhuman/platform/health/bus.rs` | `HealthSubscriber` (`EventHandler`) and `register_health_subscriber()`; maps domain events to registry mutations. |
 
 ## Public surface
 
@@ -77,7 +77,7 @@ None on disk. State lives in a process-global `OnceLock<HealthRegistry>` (lazy-i
 - `src/core/all.rs` — registers `all_health_*` controllers into the registry.
 - `src/core/jsonrpc.rs` — references health (snapshot/system_info surface).
 - `src/openhuman/channels/runtime/{startup,supervision}.rs` and `src/openhuman/channels/tests/health.rs` — channel runtime updates component health.
-- `src/openhuman/cron/scheduler.rs`, `src/openhuman/update/scheduler.rs` — emit/consume health signals.
+- `src/openhuman/cron/scheduler.rs`, `src/openhuman/platform/update/scheduler.rs` — emit/consume health signals.
 
 ## Notes / gotchas
 

@@ -16,14 +16,14 @@ The notifications domain owns two complementary sub-systems. The **core-bridge**
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/notifications/mod.rs` | Export-focused module root; docstring + re-exports of bus helpers, schema registries, and types. |
-| `src/openhuman/notifications/types.rs` | Serde domain types: `CoreNotificationEvent`/`CoreNotificationCategory` (bridge), `IntegrationNotification`, `NotificationStatus`, `NotificationSettings`, `NotificationStats`, and RPC request types. |
-| `src/openhuman/notifications/bus.rs` | `NotificationBridgeSubscriber` (`EventHandler`), the `NOTIFICATION_BUS` broadcast static, `publish_core_notification`/`subscribe_core_notifications`, the pure `event_to_notification` translator, and `register_notification_bridge_subscriber`. |
-| `src/openhuman/notifications/rpc.rs` | Async RPC handler fns (`handle_ingest`, `handle_list`, `handle_mark_read`, `handle_dismiss`, `handle_mark_acted`, `handle_settings_get`/`_set`, `handle_stats`) + `triage_action_to_score` heuristic. |
-| `src/openhuman/notifications/schemas.rs` | Controller schema defs, the `NOTIFICATION_CONTROLLER_DEFS` table, `all_controller_schemas`/`all_registered_controllers`, and handler wrappers delegating to `rpc.rs`. |
-| `src/openhuman/notifications/store.rs` | SQLite persistence (`integration_notifications` + `notification_settings` + `core_notifications` tables) via a per-call `with_connection` helper; insert/list/dedup/triage-update/status/settings/stats queries plus core-notification persistence (#3805). |
-| `src/openhuman/notifications/bus_tests.rs` | Sibling test suite for the bridge. |
-| `src/openhuman/notifications/store_tests.rs` | Sibling test suite for the store. |
+| `src/openhuman/desktop/notifications/mod.rs` | Export-focused module root; docstring + re-exports of bus helpers, schema registries, and types. |
+| `src/openhuman/desktop/notifications/types.rs` | Serde domain types: `CoreNotificationEvent`/`CoreNotificationCategory` (bridge), `IntegrationNotification`, `NotificationStatus`, `NotificationSettings`, `NotificationStats`, and RPC request types. |
+| `src/openhuman/desktop/notifications/bus.rs` | `NotificationBridgeSubscriber` (`EventHandler`), the `NOTIFICATION_BUS` broadcast static, `publish_core_notification`/`subscribe_core_notifications`, the pure `event_to_notification` translator, and `register_notification_bridge_subscriber`. |
+| `src/openhuman/desktop/notifications/rpc.rs` | Async RPC handler fns (`handle_ingest`, `handle_list`, `handle_mark_read`, `handle_dismiss`, `handle_mark_acted`, `handle_settings_get`/`_set`, `handle_stats`) + `triage_action_to_score` heuristic. |
+| `src/openhuman/desktop/notifications/schemas.rs` | Controller schema defs, the `NOTIFICATION_CONTROLLER_DEFS` table, `all_controller_schemas`/`all_registered_controllers`, and handler wrappers delegating to `rpc.rs`. |
+| `src/openhuman/desktop/notifications/store.rs` | SQLite persistence (`integration_notifications` + `notification_settings` + `core_notifications` tables) via a per-call `with_connection` helper; insert/list/dedup/triage-update/status/settings/stats queries plus core-notification persistence (#3805). |
+| `src/openhuman/desktop/notifications/bus_tests.rs` | Sibling test suite for the bridge. |
+| `src/openhuman/desktop/notifications/store_tests.rs` | Sibling test suite for the store. |
 
 ## Public surface
 

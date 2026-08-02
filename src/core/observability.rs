@@ -887,7 +887,7 @@ fn is_embedding_backend_auth_failure(lower: &str) -> bool {
 /// Detect a custom embeddings endpoint that exposes **no embeddings API** —
 /// the `OpenAiEmbedding` client POSTed `/embeddings` and the host answered
 /// `404 Not Found` (route absent) or `405 Method Not Allowed`. Canonical wire
-/// shape from `src/openhuman/embeddings/openai.rs`:
+/// shape from `src/openhuman/inference/embeddings/openai.rs`:
 ///
 /// ```text
 /// Embedding API error (404 Not Found): <body>
@@ -915,7 +915,7 @@ pub(crate) fn is_embedding_endpoint_absent(lower: &str) -> bool {
 /// Detect a custom/cloud embeddings endpoint that IS an embeddings API but
 /// **rejected the configured model id** — the user pasted a non-embedding
 /// (chat/reasoning) model into the embeddings model field. Canonical wire shape
-/// from `src/openhuman/embeddings/openai.rs` (TAURI-RUST-9SK, ~2205 events):
+/// from `src/openhuman/inference/embeddings/openai.rs` (TAURI-RUST-9SK, ~2205 events):
 ///
 /// ```text
 /// Embedding API error (400 Bad Request): {"error":{"message":"Model nvidia/nemotron-3-super-120b-a12b does not exist","code":400}}
@@ -1001,7 +1001,7 @@ fn is_memory_store_breaker_open(lower: &str) -> bool {
 /// - `"Embedding API error (401 Unauthorized): {…\"error\":\"Invalid token\"…}"`
 ///   — TAURI-RUST-4K5 (~118 events, escalating on 0.56.0). Same OpenHuman
 ///   backend session-expired envelope as 4P0, but the embedding client at
-///   `src/openhuman/embeddings/openai.rs:139` wraps it with the
+///   `src/openhuman/inference/embeddings/openai.rs:139` wraps it with the
 ///   `"Embedding API error"` prefix instead of `"OpenHuman API error"`.
 ///   Uses the same conjunctive-anchor pattern so BYO-key embedding 401s
 ///   from third-party providers (OpenAI / Voyage / Cohere) still escalate
@@ -1044,7 +1044,7 @@ pub fn is_session_expired_message(msg: &str) -> bool {
         || (msg.contains("OpenHuman API error (401")
             && msg.contains("\"error\":\"Invalid token\""))
         // TAURI-RUST-4K5 — same OpenHuman backend "Invalid token" envelope
-        // wrapped by `src/openhuman/embeddings/openai.rs:139` with the
+        // wrapped by `src/openhuman/inference/embeddings/openai.rs:139` with the
         // `"Embedding API error"` prefix instead of `"OpenHuman API error"`.
         // Same conjunctive-anchor pattern as 4P0: the embedding-scoped
         // prefix gates the match so a third-party BYO-key embedding 401
@@ -1722,7 +1722,7 @@ fn is_provider_user_state_message(lower: &str) -> bool {
     // personal Composio v3 tenant rejected with a 401 because the stored
     // API key is invalid / revoked / has the wrong prefix. The canonical
     // wire shape rendered by
-    // `src/openhuman/composio/tools/impl/network/composio.rs::response_error`
+    // `src/openhuman/integrations/composio/tools/impl/network/composio.rs::response_error`
     // and the various direct-mode op wrappers is:
     //
     //   `[composio-direct] list_connections failed: Composio v3
@@ -5893,7 +5893,7 @@ mod tests {
     fn classifies_embedding_endpoint_absent_as_config_rejection() {
         // TAURI-RUST-5JR — custom embeddings provider pointed at a chat-only
         // base URL (DeepSeek) that has no `/embeddings` route. Verbatim shape
-        // produced by `src/openhuman/embeddings/openai.rs` (prefix preserved
+        // produced by `src/openhuman/inference/embeddings/openai.rs` (prefix preserved
         // even after the actionable-hint suffix is appended).
         assert_eq!(
             expected_error_kind(
@@ -6539,7 +6539,7 @@ mod tests {
     }
 
     /// TAURI-RUST-4K5 (118 events, escalating on 0.56.0): the embedding
-    /// client at `src/openhuman/embeddings/openai.rs:139` wraps the same
+    /// client at `src/openhuman/inference/embeddings/openai.rs:139` wraps the same
     /// OpenHuman backend `{"success":false,"error":"Invalid token"}` 401
     /// envelope as 4P0, but with the `"Embedding API error"` prefix
     /// instead of `"OpenHuman API error"` (different emit-site format
@@ -7240,7 +7240,7 @@ mod tests {
     fn updater_real_panic_still_reported() {
         let event = event_with_tags_and_message(
             &[("domain", "update"), ("operation", "check_releases")],
-            "thread 'main' panicked at src/openhuman/update/core.rs: index out of bounds",
+            "thread 'main' panicked at src/openhuman/platform/update/core.rs: index out of bounds",
         );
         assert!(
             !is_updater_transient_event(&event),

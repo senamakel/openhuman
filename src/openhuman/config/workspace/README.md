@@ -15,10 +15,10 @@ Owns workspace layout bootstrap and the editable "Persona Pack" prompt files (`S
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/workspace/mod.rs` | Export-focused. Re-exports `ops::*` and the RPC controller-schema pair (`all_workspace_controller_schemas` / `all_workspace_registered_controllers`). |
-| `src/openhuman/workspace/ops.rs` | `init_workspace(force)` bootstrap logic, the `BOOTSTRAP_FILES` table (`SOUL.md`, `IDENTITY.md`), `bundled_default_contents` (the editable allowlist + reset source of truth), and `ensure_workspace_file`. |
-| `src/openhuman/workspace/rpc.rs` | Pure-domain persona file API: `WorkspaceFile` type, `read_workspace_file` / `write_workspace_file` / `reset_workspace_file`, `MAX_WORKSPACE_FILE_BYTES`, allowlist enforcement (`ensure_editable`). Returns `RpcOutcome<WorkspaceFile>`. |
-| `src/openhuman/workspace/schemas.rs` | Controller schemas + `handle_*` fns delegating to `rpc.rs`; loads config to resolve `workspace_dir`. |
+| `src/openhuman/config/workspace/mod.rs` | Export-focused. Re-exports `ops::*` and the RPC controller-schema pair (`all_workspace_controller_schemas` / `all_workspace_registered_controllers`). |
+| `src/openhuman/config/workspace/ops.rs` | `init_workspace(force)` bootstrap logic, the `BOOTSTRAP_FILES` table (`SOUL.md`, `IDENTITY.md`), `bundled_default_contents` (the editable allowlist + reset source of truth), and `ensure_workspace_file`. |
+| `src/openhuman/config/workspace/rpc.rs` | Pure-domain persona file API: `WorkspaceFile` type, `read_workspace_file` / `write_workspace_file` / `reset_workspace_file`, `MAX_WORKSPACE_FILE_BYTES`, allowlist enforcement (`ensure_editable`). Returns `RpcOutcome<WorkspaceFile>`. |
+| `src/openhuman/config/workspace/schemas.rs` | Controller schemas + `handle_*` fns delegating to `rpc.rs`; loads config to resolve `workspace_dir`. |
 
 ## Public surface
 

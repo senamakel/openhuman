@@ -14,15 +14,15 @@ Managed Python runtime for Python-backed integrations. This domain owns interpre
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/runtime_python/mod.rs` | Export-focused module root; module docstring + `pub use` re-exports of the public surface. |
-| `src/openhuman/runtime_python/bootstrap.rs` | Orchestrator. `PythonBootstrap` ties resolve → (system probe \| managed install) → memoized `ResolvedPython`; exposes `spawn_stdio`. Holds the per-install file lock, cache-root selection, and managed-install probing. |
-| `src/openhuman/runtime_python/resolver.rs` | System Python discovery. Walks candidate commands / `PATH`, probes `--version` (5s timeout), parses semver, enforces the minimum-version floor. |
-| `src/openhuman/runtime_python/downloader.rs` | Managed distribution fetch. Queries the GitHub releases API, selects a host-compatible `install_only` asset ≥ minimum, downloads and verifies the published SHA-256 digest. |
-| `src/openhuman/runtime_python/extractor.rs` | `tar.gz` extraction (gzip via `flate2`, preserves perms) + `atomic_install` (rename-into-place with backup/rollback). |
-| `src/openhuman/runtime_python/process.rs` | `PythonLaunchSpec` + `spawn_stdio_process`: builds a `tokio::process::Command` with piped stdio, `-u`, `kill_on_drop`. |
-| `src/openhuman/runtime_python/bootstrap_tests.rs` | Tests for the bootstrap orchestrator (`#[path]`-included). |
-| `src/openhuman/runtime_python/resolver_tests.rs` | Tests for version parsing / system detection. |
-| `src/openhuman/runtime_python/downloader_tests.rs` | Tests for release-metadata parse and asset selection. |
+| `src/openhuman/runtime/python/mod.rs` | Export-focused module root; module docstring + `pub use` re-exports of the public surface. |
+| `src/openhuman/runtime/python/bootstrap.rs` | Orchestrator. `PythonBootstrap` ties resolve → (system probe \| managed install) → memoized `ResolvedPython`; exposes `spawn_stdio`. Holds the per-install file lock, cache-root selection, and managed-install probing. |
+| `src/openhuman/runtime/python/resolver.rs` | System Python discovery. Walks candidate commands / `PATH`, probes `--version` (5s timeout), parses semver, enforces the minimum-version floor. |
+| `src/openhuman/runtime/python/downloader.rs` | Managed distribution fetch. Queries the GitHub releases API, selects a host-compatible `install_only` asset ≥ minimum, downloads and verifies the published SHA-256 digest. |
+| `src/openhuman/runtime/python/extractor.rs` | `tar.gz` extraction (gzip via `flate2`, preserves perms) + `atomic_install` (rename-into-place with backup/rollback). |
+| `src/openhuman/runtime/python/process.rs` | `PythonLaunchSpec` + `spawn_stdio_process`: builds a `tokio::process::Command` with piped stdio, `-u`, `kill_on_drop`. |
+| `src/openhuman/runtime/python/bootstrap_tests.rs` | Tests for the bootstrap orchestrator (`#[path]`-included). |
+| `src/openhuman/runtime/python/resolver_tests.rs` | Tests for version parsing / system detection. |
+| `src/openhuman/runtime/python/downloader_tests.rs` | Tests for release-metadata parse and asset selection. |
 
 ## Public surface
 
@@ -64,7 +64,7 @@ External crates: `reqwest` (HTTP), `serde` (release metadata), `sha2`/`hex` (dig
 
 ## Used by
 
-Referenced from `src/openhuman/mod.rs` (module declaration) and surfaced in the capability catalog (`src/openhuman/about_app/catalog.rs`). Config wiring lives in `src/openhuman/config/schema/{runtime_python.rs,types.rs,load.rs,mod.rs}`. No other domain currently constructs `PythonBootstrap` directly in `src/` outside this wiring — the intended consumer is Python-backed integrations such as stdio MCP servers.
+Referenced from `src/openhuman/mod.rs` (module declaration) and surfaced in the capability catalog (`src/openhuman/platform/about_app/catalog.rs`). Config wiring lives in `src/openhuman/config/schema/{runtime_python.rs,types.rs,load.rs,mod.rs}`. No other domain currently constructs `PythonBootstrap` directly in `src/` outside this wiring — the intended consumer is Python-backed integrations such as stdio MCP servers.
 
 ## Notes / gotchas
 

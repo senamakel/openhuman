@@ -1,6 +1,6 @@
 // [composio-direct] Settings panel for the Composio routing mode toggle
 // (Backend / Direct BYO API key). Shipped in PR3 of #1710 — see
-// `src/openhuman/composio/client.rs::create_composio_client` for the
+// `src/openhuman/integrations/composio/client.rs::create_composio_client` for the
 // matching Rust factory.
 //
 // Why a separate panel from ComposioTriagePanel:

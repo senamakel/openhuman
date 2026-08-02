@@ -635,7 +635,7 @@ pub fn unified_model_catalog(
     // Record OpenHuman's own provenance alongside the crate seed's sources.
     sources.push(tinyagents::registry::ModelCatalogSource {
         name: TINYAGENTS_CATALOG_SOURCE.to_string(),
-        url: "repo:src/openhuman/cost/catalog.rs".to_string(),
+        url: "repo:src/openhuman/platform/cost/catalog.rs".to_string(),
         retrieved_at: format!("{PRICING_AS_OF}-01T00:00:00Z"),
     });
 

@@ -150,6 +150,14 @@ renames.
   separated list as *one* argument under zsh (which does not word-split unquoted parameters), so
   the rewrite silently does nothing and the greps still show old paths. Use
   `grep -rlZ … | xargs -0 sed -i …`.
+- **One observable string DID change, deliberately.** The tracing target in
+  `tools/agent_policy/engine.rs` went from `"openhuman::agent_tool_policy"` to
+  `"openhuman::tools::agent_policy"` (6 sites). Tracing targets mirror module paths by
+  convention — the other three `target: "openhuman::…"` literals in the crate all do — so
+  leaving the old value would have pointed a log filter at a module that no longer exists.
+  Nothing operator-facing referenced it (no docs, scripts, or CI). Recorded here because a
+  pure-move commit must never change an observable string *silently*; `RUST_LOG=openhuman::
+  agent_tool_policy=debug` now matches nothing, and tracing's EnvFilter fails open.
 - **Pre-existing failures to not chase.** `cron::scheduler::tests::{run_agent_job_returns_error_without_provider_key,
   cron_agent_job_short_loopback_send_error_stays_retryable}` overflow the stack on `main`, before
   any reorg. Verify with `git stash -u` + rerun before assuming a move caused a failure.
@@ -180,6 +188,7 @@ renames.
 | `desktop/` *(new)* | ✅ **landed** — `accessibility`, `overlay`, `dashboard`, `provider_surfaces`, `notifications`, `app_state` |
 | `subconscious/` | ✅ **landed** — `subconscious_triggers→triggers`, `monitor→monitors`, `heartbeat/` shim deleted |
 | standalone | `search/`, `tinyplace/`, `web_chat/`, `http_host/`, `test_support/` |
+| `json_schema/` | **kernel, deliberately unowned.** Vendor-neutral JSON Schema / JSON value walking, shared by the Composio catalog (`integrations/composio`, always compiled) and the tinyflows capability adapters (`flows/tinyflows`, gated). It belongs to neither: housing it in either would force a dependency edge from the other, and one of those directions is the always-on → gated back-edge the kernelization work exists to remove. Ungated, no gate planned. |
 
 ### Kernel (never gated)
 

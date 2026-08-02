@@ -1,4 +1,4 @@
-//! Seam tests for `src/openhuman/tinyflows/`.
+//! Seam tests for `src/openhuman/flows/tinyflows/`.
 //!
 //! **Deviation from the original test plan** (see
 //! `my_docs/ohxtf/b1-engine-seam-domain/09-testing-and-verification.md` item 2

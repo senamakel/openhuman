@@ -17,25 +17,25 @@ Backend-proxied (and optionally direct/BYO-key) access to Composio's 1000+ OAuth
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/composio/mod.rs` | Export-focused module root; re-exports types, ops, schemas, agent tools, trigger-history, and (via `memory_sync::composio`) bus/periodic/providers. |
-| `src/openhuman/composio/types.rs` | Serde domain types mirroring backend response envelopes (toolkits, connections, tools, execute, triggers, trigger events/history). Includes drift-tolerant `de_string_or_object` deserializers. |
-| `src/openhuman/composio/ops.rs` | RPC-facing `composio_*` operations returning `RpcOutcome<T>`; mode-aware client routing, memory-cleanup targets on delete, provider dispatch for profile/sync, mode + api-key ops, Sentry funnel `report_composio_op_error`. |
-| `src/openhuman/composio/schemas.rs` | Controller schemas + `handle_*` handlers; `all_controller_schemas` / `all_registered_controllers`. |
-| `src/openhuman/composio/client.rs` | `ComposioClient` (thin HTTP wrapper over `IntegrationClient` for backend routes) + `ComposioClientKind` (Backend/Direct), `create_composio_client`, and direct-mode v3 helpers (`direct_list_connections`, `direct_list_tools`, `direct_execute`, `direct_authorize`). |
-| `src/openhuman/composio/tools.rs` | Agent tools (`ComposioListToolkitsTool`, `ComposioListConnectionsTool`, `ComposioAuthorizeTool`, `ComposioListToolsTool`, `ComposioExecuteTool`) + `all_composio_agent_tools`; scope/visibility gating (`resolve_action_scope`, `evaluate_tool_visibility`). |
-| `src/openhuman/composio/tools/direct.rs` | Direct-mode Composio tool provider hitting Composio v2/v3 APIs with the user's key (`ComposioTool`, `ComposioAction`, `ComposioConnectedAccount`). |
-| `src/openhuman/composio/action_tool.rs` | `ComposioActionTool` — a `Tool` wrapping exactly one Composio action, constructed dynamically when `integrations_agent` is spawned with a toolkit. |
-| `src/openhuman/composio/execute_dispatch.rs` | Centralized execute path: prepare args → retry policy (auth/rate-limit) → error mapping; mode-aware over backend/direct. |
-| `src/openhuman/composio/execute_prepare.rs` | Local pre-flight argument validation/preparation for action calls. |
-| `src/openhuman/composio/auth_retry.rs` | Single-shot retry for the post-OAuth token-propagation gap ("Connection error, try to authenticate"). |
-| `src/openhuman/composio/error_mapping.rs` | `ComposioErrorClass` + classifier/formatter so tool failures aren't bucketed as generic gateway 502s (#1797). |
-| `src/openhuman/composio/oauth_handoff.rs` | OAuth handoff helpers + Meta (Instagram/Facebook) rate-limit mitigations (#1952); rate-limit error wrapping. |
-| `src/openhuman/composio/googlecalendar_args.rs` | Default-args transformer for Google Calendar list/find slugs (timezone/`singleEvents` defaults, #1714). |
-| `src/openhuman/composio/identity.rs` | Resolves the connected account username for a toolkit via the provider `fetch_user_profile` path (used by skill preflight identity gate). |
-| `src/openhuman/composio/trigger_history.rs` | Persistent JSONL trigger-event archive partitioned by UTC day; global `OnceLock` store (`init_global`/`global`). |
-| `src/openhuman/composio/bus.rs` | Compatibility shim re-exporting `memory_sync::composio::bus`. |
-| `src/openhuman/composio/periodic.rs` | Compatibility shim re-exporting `memory_sync::composio::periodic` (periodic sync loop). |
-| `src/openhuman/composio/providers/mod.rs` | Compatibility shim re-exporting `memory_sync::composio::providers` (native per-toolkit provider registry, curated catalogs, user-scope prefs). |
+| `src/openhuman/integrations/composio/mod.rs` | Export-focused module root; re-exports types, ops, schemas, agent tools, trigger-history, and (via `memory_sync::composio`) bus/periodic/providers. |
+| `src/openhuman/integrations/composio/types.rs` | Serde domain types mirroring backend response envelopes (toolkits, connections, tools, execute, triggers, trigger events/history). Includes drift-tolerant `de_string_or_object` deserializers. |
+| `src/openhuman/integrations/composio/ops.rs` | RPC-facing `composio_*` operations returning `RpcOutcome<T>`; mode-aware client routing, memory-cleanup targets on delete, provider dispatch for profile/sync, mode + api-key ops, Sentry funnel `report_composio_op_error`. |
+| `src/openhuman/integrations/composio/schemas.rs` | Controller schemas + `handle_*` handlers; `all_controller_schemas` / `all_registered_controllers`. |
+| `src/openhuman/integrations/composio/client.rs` | `ComposioClient` (thin HTTP wrapper over `IntegrationClient` for backend routes) + `ComposioClientKind` (Backend/Direct), `create_composio_client`, and direct-mode v3 helpers (`direct_list_connections`, `direct_list_tools`, `direct_execute`, `direct_authorize`). |
+| `src/openhuman/integrations/composio/tools.rs` | Agent tools (`ComposioListToolkitsTool`, `ComposioListConnectionsTool`, `ComposioAuthorizeTool`, `ComposioListToolsTool`, `ComposioExecuteTool`) + `all_composio_agent_tools`; scope/visibility gating (`resolve_action_scope`, `evaluate_tool_visibility`). |
+| `src/openhuman/integrations/composio/tools/direct.rs` | Direct-mode Composio tool provider hitting Composio v2/v3 APIs with the user's key (`ComposioTool`, `ComposioAction`, `ComposioConnectedAccount`). |
+| `src/openhuman/integrations/composio/action_tool.rs` | `ComposioActionTool` — a `Tool` wrapping exactly one Composio action, constructed dynamically when `integrations_agent` is spawned with a toolkit. |
+| `src/openhuman/integrations/composio/execute_dispatch.rs` | Centralized execute path: prepare args → retry policy (auth/rate-limit) → error mapping; mode-aware over backend/direct. |
+| `src/openhuman/integrations/composio/execute_prepare.rs` | Local pre-flight argument validation/preparation for action calls. |
+| `src/openhuman/integrations/composio/auth_retry.rs` | Single-shot retry for the post-OAuth token-propagation gap ("Connection error, try to authenticate"). |
+| `src/openhuman/integrations/composio/error_mapping.rs` | `ComposioErrorClass` + classifier/formatter so tool failures aren't bucketed as generic gateway 502s (#1797). |
+| `src/openhuman/integrations/composio/oauth_handoff.rs` | OAuth handoff helpers + Meta (Instagram/Facebook) rate-limit mitigations (#1952); rate-limit error wrapping. |
+| `src/openhuman/integrations/composio/googlecalendar_args.rs` | Default-args transformer for Google Calendar list/find slugs (timezone/`singleEvents` defaults, #1714). |
+| `src/openhuman/integrations/composio/identity.rs` | Resolves the connected account username for a toolkit via the provider `fetch_user_profile` path (used by skill preflight identity gate). |
+| `src/openhuman/integrations/composio/trigger_history.rs` | Persistent JSONL trigger-event archive partitioned by UTC day; global `OnceLock` store (`init_global`/`global`). |
+| `src/openhuman/integrations/composio/bus.rs` | Compatibility shim re-exporting `memory_sync::composio::bus`. |
+| `src/openhuman/integrations/composio/periodic.rs` | Compatibility shim re-exporting `memory_sync::composio::periodic` (periodic sync loop). |
+| `src/openhuman/integrations/composio/providers/mod.rs` | Compatibility shim re-exporting `memory_sync::composio::providers` (native per-toolkit provider registry, curated catalogs, user-scope prefs). |
 | `*_tests.rs` | Sibling test suites for each file. |
 
 ## Public surface
@@ -122,7 +122,7 @@ Published from `ops.rs`: `DomainEvent::ComposioConnectionCreated` (authorize), `
 - `src/core/all.rs` — registers the controllers.
 - `src/openhuman/tools/{mod,ops,schemas}.rs` — wires agent tools into the tool registry.
 - `src/openhuman/agent/**` — harness/session/subagent spawning (`integrations_agent`), triage escalation, debug.
-- `src/openhuman/socket/event_handlers.rs` — parses `composio:trigger` and publishes `ComposioTriggerReceived`.
+- `src/openhuman/platform/socket/event_handlers.rs` — parses `composio:trigger` and publishes `ComposioTriggerReceived`.
 - `src/openhuman/heartbeat/planner/collectors.rs`, `subconscious/situation_report` — read connected integrations / calendar.
 - `src/openhuman/agent/learning/{linkedin_enrichment,profile_md_renderer}.rs`, `memory/read_rpc.rs`, `memory_tree/score/store.rs` — profile/identity + memory consumers.
 - `src/openhuman/skills/preflight.rs` — identity gate via `connection_identity`.

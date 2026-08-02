@@ -13,7 +13,7 @@ Platform-conditional TLS backend selection for `reqwest` HTTP clients. A single 
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/tls/mod.rs` | Entire module. Module docstring (policy) + the single `tls_client_builder()` function. No `mod`/`pub mod` decls; no submodules. |
+| `src/openhuman/util/tls/mod.rs` | Entire module. Module docstring (policy) + the single `tls_client_builder()` function. No `mod`/`pub mod` decls; no submodules. |
 
 ## Public surface
 
@@ -46,7 +46,7 @@ Every HTTP-client construction site that talks to external HTTPS endpoints, incl
 - `src/openhuman/config/schema/proxy.rs` — proxy-aware client builders (primary + fallback).
 - `src/openhuman/integrations/client.rs` and integration tools (`tools/searxng.rs`, `tools/brave.rs`, `tools/querit.rs`, `tools/seltz.rs`).
 - `src/openhuman/inference/provider/compatible.rs` — OpenAI-compatible inference provider clients.
-- `src/openhuman/composio/client.rs`, `src/openhuman/app_state/ops.rs`.
+- `src/openhuman/integrations/composio/client.rs`, `src/openhuman/desktop/app_state/ops.rs`.
 - `src/api/rest.rs` (REST API client).
 
 Registered in the domain tree via `pub mod tls;` in `src/openhuman/mod.rs`.

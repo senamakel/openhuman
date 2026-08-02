@@ -77,7 +77,7 @@ Namespace `heartbeat` (wired into the registry in `src/core/all.rs`):
 
 - `src/core/all.rs` — registers the heartbeat controllers + schemas into the RPC registry.
 - `src/openhuman/subconscious/global.rs` — constructs `HeartbeatEngine` and owns its run lifecycle.
-- `src/openhuman/workspace/ops.rs` — calls `HeartbeatEngine::ensure_heartbeat_file` during workspace setup.
+- `src/openhuman/config/workspace/ops.rs` — calls `HeartbeatEngine::ensure_heartbeat_file` during workspace setup.
 
 ## Notes / gotchas
 

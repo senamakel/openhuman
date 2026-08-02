@@ -183,7 +183,7 @@ pub fn humanize_tool_name(name: &str) -> String {
 /// Scans a prioritized list of common argument keys (recipient, query,
 /// path, command, …) and returns the first present, non-empty value as a
 /// trimmed, length-capped string — so a row can read "reading messages from
-/// steven@gmail.com" / `Read(src/openhuman/wallet/ops.rs)` without every tool
+/// steven@gmail.com" / `Read(src/openhuman/web3/wallet/ops.rs)` without every tool
 /// hand-writing a [`Tool::display_detail`] override. Returns `None` when no
 /// recognized key carries a usable scalar.
 pub fn context_detail_from_args(args: &serde_json::Value) -> Option<String> {

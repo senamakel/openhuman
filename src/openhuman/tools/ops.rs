@@ -1166,7 +1166,7 @@ pub fn all_tools_with_runtime(
         // Composio — backend-proxied 1000+ OAuth integrations. Registers
         // five agent tools (list_toolkits, list_connections, authorize,
         // list_tools, execute) when the composio toggle is on. See
-        // `src/openhuman/composio/tools.rs` for per-tool details.
+        // `src/openhuman/integrations/composio/tools.rs` for per-tool details.
         let composio_tools =
             crate::openhuman::integrations::composio::all_composio_agent_tools(root_config);
         if !composio_tools.is_empty() {

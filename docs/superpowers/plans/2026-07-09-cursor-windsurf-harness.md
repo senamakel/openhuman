@@ -25,7 +25,7 @@
 ### Task 1: Rust core — widen the recognition gate
 
 **Files:**
-- Modify: `src/openhuman/orchestration/schemas.rs` (fn `harness_type_for`, its two doc comments, and the test `harness_type_only_for_known_providers`)
+- Modify: `src/openhuman/hosted/orchestration/schemas.rs` (fn `harness_type_for`, its two doc comments, and the test `harness_type_only_for_known_providers`)
 
 **Interfaces:**
 - Consumes: nothing (leaf change).
@@ -33,7 +33,7 @@
 
 - [ ] **Step 1: Extend the failing test**
 
-In `src/openhuman/orchestration/schemas.rs`, find the test `fn harness_type_only_for_known_providers()`. It contains these assertions:
+In `src/openhuman/hosted/orchestration/schemas.rs`, find the test `fn harness_type_only_for_known_providers()`. It contains these assertions:
 
 ```rust
         assert_eq!(harness_type_for("claude").as_deref(), Some("claude"));
@@ -94,7 +94,7 @@ Expected: PASS (`test result: ok. 1 passed`).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/openhuman/orchestration/schemas.rs
+git add src/openhuman/hosted/orchestration/schemas.rs
 git commit -m "feat(orchestration): recognize cursor & windsurf harness providers"
 ```
 

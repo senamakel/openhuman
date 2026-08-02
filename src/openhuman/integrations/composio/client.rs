@@ -683,7 +683,7 @@ pub(super) fn build_composio_client(
 
 // ── Direct-mode factory ─────────────────────────────────────────────
 //
-// Mirrors `src/openhuman/embeddings/factory.rs` so anyone reading both
+// Mirrors `src/openhuman/inference/embeddings/factory.rs` so anyone reading both
 // can pattern-match between domains: string-matched mode, explicit error
 // on unknown mode, explicit error when `direct` is selected without an
 // API key.

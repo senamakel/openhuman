@@ -15,13 +15,13 @@ Unified **read-only** tool registry for OpenHuman. It builds a single discovery 
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/tool_registry/mod.rs` | Export-focused. Re-exports ops, providers, schemas (as `all_tool_registry_*`), and types. |
-| `src/openhuman/tool_registry/ops.rs` | Core logic: `registry_entries()`, `list_tools()`, `get_tool()`, `diagnostics()` / `diagnostics_for_config()`, plus schema→JSON-Schema conversion, tagging, write-capability heuristics, MCP write-audit health query. |
-| `src/openhuman/tool_registry/types.rs` | Serde response types: `ToolRegistryEntry`, `ToolRegistryList`, `ToolRegistryTransport`, `ToolRegistryHealth`, `ToolPolicyDiagnostics` + sub-structs, `RecentPolicyDenial`, `CapabilityProviderDiagnostics`. |
-| `src/openhuman/tool_registry/schemas.rs` | Controller schemas + `handle_list` / `handle_get` / `handle_diagnostics` handlers delegating to `ops.rs`. Inline tests. |
-| `src/openhuman/tool_registry/providers.rs` | `CapabilityProviderRegistry` over config: id normalization, dedupe, trust checks, redacted diagnostics. Inline tests. |
-| `src/openhuman/tool_registry/denials.rs` | Static `Mutex<VecDeque>` ring buffer (max 50) of recent policy denials; `record()` / `list()`; redacts secret markers, truncates reasons. Inline tests. |
-| `src/openhuman/tool_registry/ops_tests.rs` | Sibling test module for `ops.rs` (`#[path]`-included). |
+| `src/openhuman/tools/registry/mod.rs` | Export-focused. Re-exports ops, providers, schemas (as `all_tool_registry_*`), and types. |
+| `src/openhuman/tools/registry/ops.rs` | Core logic: `registry_entries()`, `list_tools()`, `get_tool()`, `diagnostics()` / `diagnostics_for_config()`, plus schema→JSON-Schema conversion, tagging, write-capability heuristics, MCP write-audit health query. |
+| `src/openhuman/tools/registry/types.rs` | Serde response types: `ToolRegistryEntry`, `ToolRegistryList`, `ToolRegistryTransport`, `ToolRegistryHealth`, `ToolPolicyDiagnostics` + sub-structs, `RecentPolicyDenial`, `CapabilityProviderDiagnostics`. |
+| `src/openhuman/tools/registry/schemas.rs` | Controller schemas + `handle_list` / `handle_get` / `handle_diagnostics` handlers delegating to `ops.rs`. Inline tests. |
+| `src/openhuman/tools/registry/providers.rs` | `CapabilityProviderRegistry` over config: id normalization, dedupe, trust checks, redacted diagnostics. Inline tests. |
+| `src/openhuman/tools/registry/denials.rs` | Static `Mutex<VecDeque>` ring buffer (max 50) of recent policy denials; `record()` / `list()`; redacts secret markers, truncates reasons. Inline tests. |
+| `src/openhuman/tools/registry/ops_tests.rs` | Sibling test module for `ops.rs` (`#[path]`-included). |
 
 ## Public surface
 
@@ -61,8 +61,8 @@ No owned persistence. `diagnostics()` reads (read-only) the `mcp_writes` table v
 
 - `src/core/all.rs` — registers controllers/schemas and routes the `tool_registry` namespace.
 - `src/openhuman/agent/tinyagents/middleware.rs` — calls `tool_registry::denials::record(...)` to log agent-tool policy denials.
-- `src/openhuman/about_app/catalog.rs` — capability catalog references the registry surface.
-- `src/openhuman/mcp_registry/connections.rs` — provides `all_connected_tools()` for registry integration.
+- `src/openhuman/platform/about_app/catalog.rs` — capability catalog references the registry surface.
+- `src/openhuman/mcp/registry/connections.rs` — provides `all_connected_tools()` for registry integration.
 
 ## Notes / gotchas
 

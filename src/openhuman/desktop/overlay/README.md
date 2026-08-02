@@ -13,9 +13,9 @@ Signals pushed from the core to the desktop **overlay window** — a separate Ta
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/overlay/mod.rs` | Module docstring + re-exports only (`publish_attention`, `subscribe_attention_events`, `OverlayAttentionEvent`, `OverlayAttentionTone`). |
-| `src/openhuman/overlay/types.rs` | `OverlayAttentionEvent` (message + optional `id` / `tone` / `ttl_ms` / `source`) with builder helpers, and the `OverlayAttentionTone` enum (`neutral` / `accent` / `success`). |
-| `src/openhuman/overlay/bus.rs` | `Lazy` `tokio::sync::broadcast` channel (capacity 64) plus `publish_attention` / `subscribe_attention_events`; includes inline `#[cfg(test)]` tests. |
+| `src/openhuman/desktop/overlay/mod.rs` | Module docstring + re-exports only (`publish_attention`, `subscribe_attention_events`, `OverlayAttentionEvent`, `OverlayAttentionTone`). |
+| `src/openhuman/desktop/overlay/types.rs` | `OverlayAttentionEvent` (message + optional `id` / `tone` / `ttl_ms` / `source`) with builder helpers, and the `OverlayAttentionTone` enum (`neutral` / `accent` / `success`). |
+| `src/openhuman/desktop/overlay/bus.rs` | `Lazy` `tokio::sync::broadcast` channel (capacity 64) plus `publish_attention` / `subscribe_attention_events`; includes inline `#[cfg(test)]` tests. |
 
 ## Public surface
 
@@ -39,7 +39,7 @@ None. State is purely an in-memory broadcast channel; events not consumed when p
 ## Used by
 
 - `src/core/socketio.rs` — subscribes to the bus and forwards events to the overlay WebView over Socket.IO.
-- `src/openhuman/notifications/bus.rs` — references this module's bus only as a documented pattern to mirror (no code dependency).
+- `src/openhuman/desktop/notifications/bus.rs` — references this module's bus only as a documented pattern to mirror (no code dependency).
 - Per the module docstring, intended publishers include the subconscious loop and heartbeat via `publish_attention`.
 
 ## Notes / gotchas

@@ -246,7 +246,7 @@ pub fn classify_embed_error_str(msg: &str) -> PipelineFailure {
     // bails *before any HTTP round-trip* when the desktop/backend session
     // bearer is absent (user signed out), with the literal phrase
     // "No backend session for cloud embeddings ..." (see
-    // `src/openhuman/embeddings/cloud.rs`). Being a client-side bail it carries
+    // `src/openhuman/inference/embeddings/cloud.rs`). Being a client-side bail it carries
     // no `Embedding API error (<status>)` shape, so without this match it falls
     // through to `Transient` — the Memory Tree then shows "temporary error…
     // will retry automatically" and the worker retries an auth failure that a

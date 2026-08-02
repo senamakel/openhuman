@@ -51,7 +51,7 @@ From `mod.rs`:
 - `src/openhuman/mcp/server/write_dispatch.rs` — calls `mcp::audit::record_write` after each write attempt and `mcp::audit::list_writes` for its own surfaces/tests.
 - `src/openhuman/mcp/server/tools_tests.rs` — reads back audit rows in tests.
 - `src/core/all.rs` — registers the internal controller.
-- `src/openhuman/tool_registry/ops.rs` — independently `COUNT`s `mcp_writes` rows (queries the shared table directly, not via this module's API).
+- `src/openhuman/tools/registry/ops.rs` — independently `COUNT`s `mcp_writes` rows (queries the shared table directly, not via this module's API).
 
 ## Notes / gotchas
 

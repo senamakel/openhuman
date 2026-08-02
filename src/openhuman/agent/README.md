@@ -29,9 +29,9 @@ Multi-agent orchestration domain. Owns the LLM tool-calling loop, sub-agent disp
 
 - `src/openhuman/channels/runtime/dispatch.rs` and `web_chat/` — drive chat turns from inbound channel messages.
 - `src/openhuman/cron/scheduler.rs` — fire scheduled triggers through `triage::run_triage` + `apply_decision`.
-- `src/openhuman/webhooks/ops.rs` — webhook ingestion routes through triage.
-- `src/openhuman/composio/bus.rs` — Composio trigger envelopes go through `agent::triage`.
-- `src/openhuman/notifications/rpc.rs` — surfaces agent runs to the UI.
+- `src/openhuman/skills/webhooks/ops.rs` — webhook ingestion routes through triage.
+- `src/openhuman/integrations/composio/bus.rs` — Composio trigger envelopes go through `agent::triage`.
+- `src/openhuman/desktop/notifications/rpc.rs` — surfaces agent runs to the UI.
 - `src/openhuman/agent/learning/{reflection,tool_tracker,user_profile}.rs` — read transcripts + tool outcomes.
 - `src/openhuman/agent/orchestration/tools/{dispatch,spawn_subagent}.rs` — `spawn_subagent` tool delegates here.
 - `src/core/all.rs` — controller registry wires `all_agent_registered_controllers`.

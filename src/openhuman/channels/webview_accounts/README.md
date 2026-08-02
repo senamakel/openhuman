@@ -63,7 +63,7 @@ No `use crate::openhuman::` or `use crate::core::` imports — the module depend
 
 ## Used by
 
-Declared at `src/openhuman/mod.rs:108` (`pub mod webview_accounts;`). No current in-tree Rust callers of its exported functions were found (`detect_webview_logins` and the WeChat ingest helpers have no callers under `src/` outside this module today; the only other match is an unrelated test-pattern comment in `src/openhuman/connectivity/rpc.rs`). The exports are public API kept ready for snapshot/context/memory consumers and align with the shell-side `app/src-tauri/src/webview_accounts/` provider list.
+Declared at `src/openhuman/mod.rs:108` (`pub mod webview_accounts;`). No current in-tree Rust callers of its exported functions were found (`detect_webview_logins` and the WeChat ingest helpers have no callers under `src/` outside this module today; the only other match is an unrelated test-pattern comment in `src/openhuman/platform/connectivity/rpc.rs`). The exports are public API kept ready for snapshot/context/memory consumers and align with the shell-side `app/src-tauri/src/webview_accounts/` provider list.
 
 ## Notes / gotchas
 

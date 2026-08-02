@@ -533,7 +533,7 @@ fn render_run_digest(flow_name: &str, run: &FlowRun) -> String {
 ///
 /// Reuses the exact same per-flow `StateStore` namespace
 /// (`"flow:<flow_id>"`, see `tinyflows::caps::build_capabilities` in
-/// `src/openhuman/tinyflows/caps.rs`) the engine's `FlowStateStore` hands the
+/// `src/openhuman/flows/tinyflows/caps.rs`) the engine's `FlowStateStore` hands the
 /// `dedup` node during the run — that collision with the node's own keys is
 /// the entire point.
 ///
@@ -1430,7 +1430,7 @@ mod tests {
 
     fn dedup_state_namespace(flow_id: &str) -> String {
         // MUST match `tinyflows::build_capabilities`'s `state_namespace`
-        // (`src/openhuman/tinyflows/caps.rs`) — this test asserts the
+        // (`src/openhuman/flows/tinyflows/caps.rs`) — this test asserts the
         // subscriber collides with the SAME keys the engine's `dedup` node
         // itself reads/writes, not just "some" namespace.
         format!("flow:{flow_id}")

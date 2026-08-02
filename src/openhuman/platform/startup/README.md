@@ -13,8 +13,8 @@ Generic OpenHuman process-startup helpers. Currently a thin, stateless module wh
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/startup/mod.rs` | Export-only: module docstring + `pub mod ops;` + re-export of `run_workspace_migrations`. |
-| `src/openhuman/startup/ops.rs` | Implementation of `run_workspace_migrations` — orchestrates the two workspace migrations and logging. |
+| `src/openhuman/platform/startup/mod.rs` | Export-only: module docstring + `pub mod ops;` + re-export of `run_workspace_migrations`. |
+| `src/openhuman/platform/startup/ops.rs` | Implementation of `run_workspace_migrations` — orchestrates the two workspace migrations and logging. |
 
 ## Public surface
 

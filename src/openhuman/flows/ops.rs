@@ -71,7 +71,7 @@ const GRAPH_CHANGED_SINCE_PARK_ERROR: &str = "the workflow changed after this ru
 // `tinyflows::caps::build_capabilities`.
 //
 // Before an acting node dispatches, its capability adapter
-// (`src/openhuman/tinyflows/caps.rs::enforce_node_tier_gate`) maps the node to a
+// (`src/openhuman/flows/tinyflows/caps.rs::enforce_node_tier_gate`) maps the node to a
 // `CommandClass` and consults `SecurityPolicy::gate_decision`. `Block` refuses
 // outright (`[policy-blocked]` error, no dispatch); `Prompt`/`Allow` fall through
 // to the process-global `ApprovalGate`, which performs the human round-trip for
@@ -1375,7 +1375,7 @@ async fn graph_split_out_path_warnings(config: &Config, graph: &WorkflowGraph) -
 // the wiring rather than merely being told about it.
 
 /// Node kinds whose real capability adapter wraps its structured output in
-/// the stable `{ json, text, raw }` envelope (`src/openhuman/tinyflows/caps.rs`):
+/// the stable `{ json, text, raw }` envelope (`src/openhuman/flows/tinyflows/caps.rs`):
 /// a binding into one of these must dereference `.item.json.<field>`, never
 /// `.item.<field>` directly — the latter reads the envelope wrapper itself
 /// (an object with `json`/`text`/`raw` keys), not the field inside it, and
@@ -3477,7 +3477,7 @@ pub async fn flows_get(config: &Config, id: &str) -> Result<RpcOutcome<Flow>, St
 /// Loads a saved flow's portable [`WorkflowGraph`] by id, for the
 /// `sub_workflow`-by-`workflow_id` resolver capability
 /// (`tinyflows::caps::WorkflowResolver`, implemented in
-/// `src/openhuman/tinyflows/caps.rs`).
+/// `src/openhuman/flows/tinyflows/caps.rs`).
 ///
 /// Returns `Ok(None)` when no flow with that id exists (the resolver turns that
 /// into a capability error naming the missing id), and `Err` only on a store

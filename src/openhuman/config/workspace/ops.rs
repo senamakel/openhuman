@@ -18,7 +18,7 @@ const BOOTSTRAP_FILES: [(&str, &str); 2] = [
 ///
 /// This is the single source of truth for both "which workspace files may be
 /// edited from the Persona surface" and "what to restore on reset" — the
-/// Persona Pack RPCs (`src/openhuman/workspace/rpc.rs`) treat membership here
+/// Persona Pack RPCs (`src/openhuman/config/workspace/rpc.rs`) treat membership here
 /// as the editable allowlist so a caller can never read or clobber an
 /// arbitrary path under the workspace.
 pub fn bundled_default_contents(filename: &str) -> Option<&'static str> {

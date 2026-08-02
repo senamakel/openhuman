@@ -12,9 +12,9 @@ First-class **JavaScript language slot** for the core. This module is a thin re-
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/javascript/mod.rs` | Entire module. Module docstring + `pub use` re-exports from `runtime_node`. No types, no logic, no tests. |
+| `src/openhuman/runtime/javascript/mod.rs` | Entire module. Module docstring + `pub use` re-exports from `runtime_node`. No types, no logic, no tests. |
 
-> All behavior lives in `src/openhuman/runtime_node/` (`bootstrap.rs`, `downloader.rs`, `extractor.rs`, `resolver.rs`, `ops.rs`, `schemas.rs`, `rpc.rs`, `types.rs`). This facade only renames/forwards their public surface.
+> All behavior lives in `src/openhuman/runtime/node/` (`bootstrap.rs`, `downloader.rs`, `extractor.rs`, `resolver.rs`, `ops.rs`, `schemas.rs`, `rpc.rs`, `types.rs`). This facade only renames/forwards their public surface.
 
 ## Public surface
 
@@ -70,7 +70,7 @@ No persisted domain state (`store.rs`). The managed-Node install path (`extracto
 
 - `src/core/all.rs` — wires `all_javascript_registered_controllers` / `all_javascript_controller_schemas` into the controller registry; the about-app catalog describes namespace `javascript`.
 - `src/openhuman/tools/ops.rs`, `tools/impl/system/shell.rs`, `node_exec.rs`, `npm_exec.rs` — import `openhuman::runtime::javascript::NodeBootstrap` for Node binary resolution.
-- `src/openhuman/runtime_node/rpc.rs` — calls `javascript::list_tools` through the facade.
+- `src/openhuman/runtime/node/rpc.rs` — calls `javascript::list_tools` through the facade.
 
 ## Notes / gotchas
 

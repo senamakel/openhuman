@@ -15,12 +15,12 @@ The single source of truth for the OpenHuman desktop app's **user-facing capabil
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/about_app/mod.rs` | Export-only module root + docstring. Re-exports catalog reads, ops entry points, schema registry hooks, and types. |
-| `src/openhuman/about_app/types.rs` | Serde domain types: `Capability`, `CapabilityCategory` (with `as_str` / `FromStr` incl. aliases), `CapabilityStatus`, `CapabilityPrivacy`, `PrivacyDataKind`. Inline serde/roundtrip tests. |
-| `src/openhuman/about_app/catalog.rs` | The static `CAPABILITIES` table plus shared `CapabilityPrivacy` constants. Implements `all_capabilities`, `capabilities_by_category`, `lookup`, `search`, and the `ensure_validated` integrity check. |
-| `src/openhuman/about_app/ops.rs` | RPC-facing logic returning `RpcOutcome<T>`: `list_capabilities`, `lookup_capability`, `search_capabilities`. Thin wrappers over `catalog.rs` with summary logs. |
-| `src/openhuman/about_app/schemas.rs` | Controller schemas + `handle_*` async handlers for the three RPC methods; param structs; the `all_about_app_controller_schemas` / `all_about_app_registered_controllers` registry pair. |
-| `src/openhuman/about_app/catalog_tests.rs` | Sibling test module (`#[path]`-included by `catalog.rs`) covering catalog behavior. |
+| `src/openhuman/platform/about_app/mod.rs` | Export-only module root + docstring. Re-exports catalog reads, ops entry points, schema registry hooks, and types. |
+| `src/openhuman/platform/about_app/types.rs` | Serde domain types: `Capability`, `CapabilityCategory` (with `as_str` / `FromStr` incl. aliases), `CapabilityStatus`, `CapabilityPrivacy`, `PrivacyDataKind`. Inline serde/roundtrip tests. |
+| `src/openhuman/platform/about_app/catalog.rs` | The static `CAPABILITIES` table plus shared `CapabilityPrivacy` constants. Implements `all_capabilities`, `capabilities_by_category`, `lookup`, `search`, and the `ensure_validated` integrity check. |
+| `src/openhuman/platform/about_app/ops.rs` | RPC-facing logic returning `RpcOutcome<T>`: `list_capabilities`, `lookup_capability`, `search_capabilities`. Thin wrappers over `catalog.rs` with summary logs. |
+| `src/openhuman/platform/about_app/schemas.rs` | Controller schemas + `handle_*` async handlers for the three RPC methods; param structs; the `all_about_app_controller_schemas` / `all_about_app_registered_controllers` registry pair. |
+| `src/openhuman/platform/about_app/catalog_tests.rs` | Sibling test module (`#[path]`-included by `catalog.rs`) covering catalog behavior. |
 
 ## Public surface
 

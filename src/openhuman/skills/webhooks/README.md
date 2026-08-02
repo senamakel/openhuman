@@ -15,13 +15,13 @@ Client-side webhook **tunnel routing** for OpenHuman. The backend provisions and
 
 | File | Role |
 | --- | --- |
-| `src/openhuman/webhooks/mod.rs` | Export-only: module docstring, `pub mod` decls, re-exports of `WebhookRouter`, types, and the `all_webhooks_*` controller pair. |
-| `src/openhuman/webhooks/types.rs` | Serde domain types: `WebhookRequest`, `WebhookResponseData`, `TunnelRegistration`, `WebhookActivityEntry`, `WebhookDebugLogEntry`, debug result wrappers, `WebhookDebugEvent`. Inline tests. |
-| `src/openhuman/webhooks/router.rs` | `WebhookRouter` — route map + ownership rules, disk persistence (generation-counter, spawn_blocking offload), bounded debug log ring (`MAX_DEBUG_LOG_ENTRIES = 250`), debug-event broadcast channel. |
-| `src/openhuman/webhooks/ops.rs` | RPC handler logic returning `RpcOutcome<T>`: local routing ops (`list_registrations`, `list_logs`, `clear_logs`, `register_echo`, `unregister_echo`, `register_agent`, `trigger_agent`), `build_echo_response`, and backend-proxied tunnel CRUD (`list/create/get/update/delete_tunnel`, `get_bandwidth`). |
-| `src/openhuman/webhooks/schemas.rs` | Controller schemas + `handle_*` fns + `all_controller_schemas` / `all_registered_controllers`; deserializes params, delegates to `ops.rs`. |
-| `src/openhuman/webhooks/bus.rs` | `WebhookRequestSubscriber` (`EventHandler`) — the incoming-request routing flow; helpers `decode_webhook_body`, `run_agent_trigger`, `build_agent_response`. Inline tests. |
-| `src/openhuman/webhooks/{tests,ops_tests,router_tests,schemas_tests}.rs` | Test suites (module-level + per-file via `#[path]`). |
+| `src/openhuman/skills/webhooks/mod.rs` | Export-only: module docstring, `pub mod` decls, re-exports of `WebhookRouter`, types, and the `all_webhooks_*` controller pair. |
+| `src/openhuman/skills/webhooks/types.rs` | Serde domain types: `WebhookRequest`, `WebhookResponseData`, `TunnelRegistration`, `WebhookActivityEntry`, `WebhookDebugLogEntry`, debug result wrappers, `WebhookDebugEvent`. Inline tests. |
+| `src/openhuman/skills/webhooks/router.rs` | `WebhookRouter` — route map + ownership rules, disk persistence (generation-counter, spawn_blocking offload), bounded debug log ring (`MAX_DEBUG_LOG_ENTRIES = 250`), debug-event broadcast channel. |
+| `src/openhuman/skills/webhooks/ops.rs` | RPC handler logic returning `RpcOutcome<T>`: local routing ops (`list_registrations`, `list_logs`, `clear_logs`, `register_echo`, `unregister_echo`, `register_agent`, `trigger_agent`), `build_echo_response`, and backend-proxied tunnel CRUD (`list/create/get/update/delete_tunnel`, `get_bandwidth`). |
+| `src/openhuman/skills/webhooks/schemas.rs` | Controller schemas + `handle_*` fns + `all_controller_schemas` / `all_registered_controllers`; deserializes params, delegates to `ops.rs`. |
+| `src/openhuman/skills/webhooks/bus.rs` | `WebhookRequestSubscriber` (`EventHandler`) — the incoming-request routing flow; helpers `decode_webhook_body`, `run_agent_trigger`, `build_agent_response`. Inline tests. |
+| `src/openhuman/skills/webhooks/{tests,ops_tests,router_tests,schemas_tests}.rs` | Test suites (module-level + per-file via `#[path]`). |
 
 ## Public surface
 
@@ -89,8 +89,8 @@ The router also runs a separate `tokio::sync::broadcast` channel of `WebhookDebu
 ## Used by
 
 - `src/core/all.rs` — registers the controllers/schemas into the RPC registry.
-- `src/openhuman/socket/manager.rs` — stores the `WebhookRouter` (`set_webhook_router` / `webhook_router`) on the socket manager; ops/bus retrieve it from there.
-- `src/openhuman/socket/event_handlers.rs` — publishes `WebhookIncomingRequest` from the socket and reads the shared router slot.
+- `src/openhuman/platform/socket/manager.rs` — stores the `WebhookRouter` (`set_webhook_router` / `webhook_router`) on the socket manager; ops/bus retrieve it from there.
+- `src/openhuman/platform/socket/event_handlers.rs` — publishes `WebhookIncomingRequest` from the socket and reads the shared router slot.
 - `src/openhuman/channels/runtime/startup.rs` — registers `WebhookRequestSubscriber` at startup.
 - `src/core/event_bus/events.rs` — defines the `Webhook*` `DomainEvent` variants this module uses.
 - `src/core/jsonrpc.rs` — RPC transport surface.

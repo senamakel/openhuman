@@ -50,9 +50,13 @@ use crate::openhuman::tools::HttpRequestTool;
 // way round: the feature-gated seam depends on the always-compiled domain, not
 // the reverse. See that module's docs.
 pub(crate) use crate::openhuman::composio::catalog::{
-    apply_probe_override, composio_required_args, composio_response_fields,
-    compute_composio_array_path, fetch_live_toolkit_catalog, probe_tool_output_sample,
-    probed_output_sample, ProbedOutputSample, ToolContract, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT,
+    apply_probe_override, composio_required_args, fetch_live_toolkit_catalog, probe_tool_output_sample,
+    ToolContract,
+};
+#[cfg(test)]
+pub(crate) use crate::openhuman::composio::catalog::{
+    composio_response_fields, compute_composio_array_path, probed_output_sample, ProbedOutputSample,
+    COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT,
 };
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{seed_live_catalog_cache, seed_probe_cache};

@@ -30,7 +30,7 @@ scheduler (1 task)       → daily wall-clock tick → `digest_daily(yesterday)`
 - `mod.rs` — module surface and re-exports.
 - `types.rs` — `JobKind`, `JobStatus`, payload structs, `NewJob` builders. Each payload owns its `dedupe_key()` so duplicates in flight are silently suppressed.
 - `store.rs` — SQLite persistence: `INSERT OR IGNORE` + partial unique index on `dedupe_key WHERE status IN ('ready','running')` for at-most-one-active dedupe; `claim_next` is a single `UPDATE ... RETURNING`; `mark_done`/`mark_failed` are claim-token gated to make stale-worker settlements no-ops.
-- `worker.rs` — three worker tasks plus startup `recover_stale_locks` and a 3-permit semaphore around LLM-bound jobs. Calls into `crate::openhuman::scheduler_gate::wait_for_capacity()` before claiming so Throttled / Paused modes back off without holding DB leases.
+- `worker.rs` — three worker tasks plus startup `recover_stale_locks` and a 3-permit semaphore around LLM-bound jobs. Calls into `crate::openhuman::cron::scheduler_gate::wait_for_capacity()` before claiming so Throttled / Paused modes back off without holding DB leases.
 - `scheduler.rs` — daily tick at UTC 00:05 that enqueues `digest_daily(yesterday)` + `flush_stale(today)`; `trigger_digest` and `backfill_missing_digests` are manual catch-up helpers.
 - `testing.rs` — `drain_until_idle` for tests that need the pipeline to settle synchronously.
 

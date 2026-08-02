@@ -248,7 +248,8 @@ async fn wait_until_port_released(port: u16) {
 #[tokio::test]
 #[ignore = "calls full server bootstrap; leaks process-global state into sibling tests (#1552). Re-cover via integration test."]
 async fn shutdown_token_stops_axum_listener_within_timeout() {
-    let _signed_out_restore = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(false);
+    let _signed_out_restore =
+        crate::openhuman::cron::scheduler_gate::SignedOutTestGuard::set(false);
 
     let workspace = tempfile::tempdir().expect("workspace tempdir");
 

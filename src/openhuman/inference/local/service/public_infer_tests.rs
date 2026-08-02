@@ -270,7 +270,7 @@ async fn inline_complete_interactive_does_not_block_on_held_permit() {
     let _guard = crate::openhuman::inference::inference_test_guard();
 
     // Hold the global LLM permit for the duration of the test.
-    let _held = crate::openhuman::scheduler_gate::gate::try_acquire_llm_permit()
+    let _held = crate::openhuman::cron::scheduler_gate::gate::try_acquire_llm_permit()
         .expect("test must start with a free permit; previous test leaked one");
 
     let app = Router::new().route(
@@ -309,7 +309,7 @@ async fn inline_complete_interactive_does_not_block_on_held_permit() {
 async fn prompt_interactive_does_not_block_on_held_permit() {
     let _guard = crate::openhuman::inference::inference_test_guard();
 
-    let _held = crate::openhuman::scheduler_gate::gate::try_acquire_llm_permit()
+    let _held = crate::openhuman::cron::scheduler_gate::gate::try_acquire_llm_permit()
         .expect("test must start with a free permit");
 
     let app = Router::new().route(
@@ -346,7 +346,7 @@ async fn prompt_interactive_does_not_block_on_held_permit() {
 async fn summarize_interactive_does_not_block_on_held_permit() {
     let _guard = crate::openhuman::inference::inference_test_guard();
 
-    let _held = crate::openhuman::scheduler_gate::gate::try_acquire_llm_permit()
+    let _held = crate::openhuman::cron::scheduler_gate::gate::try_acquire_llm_permit()
         .expect("test must start with a free permit");
 
     let app = Router::new().route(
@@ -392,7 +392,7 @@ async fn summarize_interactive_does_not_block_on_held_permit() {
 async fn chat_with_history_interactive_does_not_block_on_held_permit() {
     let _guard = crate::openhuman::inference::inference_test_guard();
 
-    let _held = crate::openhuman::scheduler_gate::gate::try_acquire_llm_permit()
+    let _held = crate::openhuman::cron::scheduler_gate::gate::try_acquire_llm_permit()
         .expect("test must start with a free permit");
 
     let app = Router::new().route(
@@ -449,7 +449,7 @@ async fn chat_with_history_interactive_does_not_block_on_held_permit() {
 async fn gated_inline_complete_blocks_on_held_permit() {
     let _guard = crate::openhuman::inference::inference_test_guard();
 
-    let held = crate::openhuman::scheduler_gate::gate::try_acquire_llm_permit()
+    let held = crate::openhuman::cron::scheduler_gate::gate::try_acquire_llm_permit()
         .expect("test must start with a free permit");
 
     let app = Router::new().route(

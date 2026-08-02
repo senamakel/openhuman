@@ -123,7 +123,7 @@ pub(crate) async fn poll_once() -> Result<bool, String> {
     // permit immediately is fine: this is a "may background work start now"
     // check; the run itself is detached. No capacity → an idle tick (returns
     // `false` so the caller backs off, #4090).
-    let Some(_permit) = crate::openhuman::scheduler_gate::wait_for_capacity().await else {
+    let Some(_permit) = crate::openhuman::cron::scheduler_gate::wait_for_capacity().await else {
         tracing::debug!("[task_dispatcher:poller] scheduler gate denied capacity; idle tick");
         return Ok(false);
     };

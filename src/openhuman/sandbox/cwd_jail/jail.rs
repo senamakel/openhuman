@@ -2,7 +2,7 @@
 //!
 //! A [`Jail`] describes *what* the agent is allowed to see; a [`JailBackend`]
 //! enforces it on a specific OS. Callers only interact with [`Jail`] and the
-//! top-level [`crate::openhuman::cwd_jail::spawn`] function — they
+//! top-level [`crate::openhuman::sandbox::cwd_jail::spawn`] function — they
 //! never pick a backend by name.
 
 use std::path::{Path, PathBuf};
@@ -75,7 +75,7 @@ impl Jail {
 
     /// Best-effort canonicalize that swallows errors and logs them. Most
     /// callers should use the validating [`Jail::canonicalize`] path that
-    /// [`crate::openhuman::cwd_jail::spawn`] runs automatically.
+    /// [`crate::openhuman::sandbox::cwd_jail::spawn`] runs automatically.
     pub fn canonicalize_or_log(&mut self) {
         if let Err(e) = self.canonicalize() {
             log::warn!(

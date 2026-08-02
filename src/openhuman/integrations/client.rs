@@ -326,11 +326,11 @@ impl IntegrationClient {
         // to fix up the input so the regression is observable in logs.
         let backend_url = sanitize_backend_url(&backend_url);
 
-        // Platform-appropriate TLS backend — see [`crate::openhuman::tls`].
+        // Platform-appropriate TLS backend — see [`crate::openhuman::util::tls`].
         // Windows uses schannel (native-tls) to honor the OS cert store;
         // macOS / Linux keep rustls which avoids the OpenSSL runtime dep and
         // has historically been more reliable on staging TLS handshakes.
-        let http_client = crate::openhuman::tls::tls_client_builder()
+        let http_client = crate::openhuman::util::tls::tls_client_builder()
             .http1_only()
             .timeout(Duration::from_secs(60))
             .connect_timeout(Duration::from_secs(15))
@@ -339,7 +339,7 @@ impl IntegrationClient {
         let sdk = TinyHumansClient::new(&backend_url)
             .with_token(Some(auth_token.clone()))
             .with_http_client(http_client.clone());
-        let download_client = crate::openhuman::tls::tls_client_builder()
+        let download_client = crate::openhuman::util::tls::tls_client_builder()
             .http1_only()
             .timeout(Duration::from_secs(15 * 60))
             .connect_timeout(Duration::from_secs(15))

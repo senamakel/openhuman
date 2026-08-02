@@ -21,7 +21,7 @@
 //! ## Quick start
 //!
 //! ```ignore
-//! use openhuman::openhuman::cwd_jail::{spawn, Jail};
+//! use openhuman::openhuman::sandbox::cwd_jail::{spawn, Jail};
 //! use std::process::Command;
 //!
 //! let mut jail = Jail::new("/Users/x/work/proj", "agent.delegate")

@@ -2017,7 +2017,7 @@ fn register_domain_subscribers(
         // so they observe a real policy on their first iteration (otherwise they
         // fall back to `Policy::Normal` and miss the initial throttle decision on
         // battery-powered hosts).
-        crate::openhuman::scheduler_gate::init_global(&config);
+        crate::openhuman::cron::scheduler_gate::init_global(&config);
 
         // Install the TokenJuice content-router runtime config (compressor
         // toggles + CCR cache limits + optional on-disk tier). Compaction runs on
@@ -2030,7 +2030,7 @@ fn register_domain_subscribers(
         // spin up cron / channel loops and fire LLM requests that all 401.
         match crate::api::jwt::get_session_token(&config) {
             Ok(Some(_)) => {
-                crate::openhuman::scheduler_gate::set_signed_out(false);
+                crate::openhuman::cron::scheduler_gate::set_signed_out(false);
             }
             Ok(None) => {
                 log::info!(
@@ -2039,7 +2039,7 @@ fn register_domain_subscribers(
                     config.config_path.display(),
                     crate::openhuman::keyring::backend_name(),
                 );
-                crate::openhuman::scheduler_gate::set_signed_out(true);
+                crate::openhuman::cron::scheduler_gate::set_signed_out(true);
             }
             Err(err) => {
                 log::warn!(
@@ -2048,7 +2048,7 @@ fn register_domain_subscribers(
                     config.config_path.display(),
                     crate::openhuman::keyring::backend_name(),
                 );
-                crate::openhuman::scheduler_gate::set_signed_out(true);
+                crate::openhuman::cron::scheduler_gate::set_signed_out(true);
             }
         }
 

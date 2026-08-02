@@ -567,7 +567,7 @@ pub async fn apply_activity_level_settings(
     config.save().await.map_err(|e| e.to_string())?;
 
     let gate_cfg = config.scheduler_gate.clone();
-    crate::openhuman::scheduler_gate::gate::update_config(gate_cfg);
+    crate::openhuman::cron::scheduler_gate::gate::update_config(gate_cfg);
 
     tracing::info!(
         level = %level.as_str(),

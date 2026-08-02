@@ -64,7 +64,7 @@ The Linux backend's docstring references `crate::openhuman::security::landlock` 
 
 ## Used by
 
-- Declared at `src/openhuman/mod.rs:37` (`pub mod cwd_jail;`). No other `src/` Rust files currently reference `openhuman::cwd_jail` — it is a self-standing facade not yet wired into a calling domain.
+- Declared at `src/openhuman/mod.rs:37` (`pub mod cwd_jail;`). No other `src/` Rust files currently reference `openhuman::sandbox::cwd_jail` — it is a self-standing facade not yet wired into a calling domain.
 
 ## Notes / gotchas
 

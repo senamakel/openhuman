@@ -7,7 +7,7 @@
 //! - A stable **id** (UUID-ish, used in paths and the index).
 //! - A user-visible **label** (free text, displayed in UI, used for
 //!   AppContainer profile derivation on Windows).
-//! - A **directory** at `<base>/<id>/` that the [`crate::openhuman::cwd_jail::Jail`]
+//! - A **directory** at `<base>/<id>/` that the [`crate::openhuman::sandbox::cwd_jail::Jail`]
 //!   is rooted in.
 //! - **Metadata**: created/updated timestamps, backend used at create
 //!   time, optional notes.

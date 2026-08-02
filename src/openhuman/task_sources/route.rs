@@ -17,7 +17,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::todos::ops::{
     add as todo_add, remove as todo_remove, BoardLocation, CardPatch,
 };
-use crate::openhuman::{scheduler_gate, todos};
+use crate::openhuman::{cron::scheduler_gate, todos};
 
 use super::types::{EnrichedTask, FilterSpec, SourceTarget, TaskSource};
 use super::TaskKind;

@@ -272,8 +272,8 @@ fn build_backend_reqwest_client() -> Result<Client> {
 
     // Platform-appropriate TLS backend: Windows → schannel (honors the OS
     // cert store, required for corporate TLS-inspection proxies); macOS /
-    // Linux → rustls. See [`crate::openhuman::tls::tls_client_builder`].
-    crate::openhuman::tls::tls_client_builder()
+    // Linux → rustls. See [`crate::openhuman::util::tls::tls_client_builder`].
+    crate::openhuman::util::tls::tls_client_builder()
         .default_headers(default_headers)
         .http1_only()
         .timeout(Duration::from_secs(120))

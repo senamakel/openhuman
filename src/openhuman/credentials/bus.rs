@@ -21,7 +21,7 @@
 //! cron-driven LLM calls after session expiry).
 
 use crate::core::event_bus::{DomainEvent, EventHandler};
-use crate::openhuman::scheduler_gate;
+use crate::openhuman::cron::scheduler_gate;
 use async_trait::async_trait;
 
 /// Subscribes to [`DomainEvent::SessionExpired`] and runs the canonical

@@ -106,7 +106,7 @@ impl OpenHumanBackendModel {
     }
 
     fn resolve_bearer(&self) -> anyhow::Result<String> {
-        if crate::openhuman::scheduler_gate::is_signed_out() {
+        if crate::openhuman::cron::scheduler_gate::is_signed_out() {
             anyhow::bail!(
                 "SESSION_EXPIRED: backend session not active — sign in to resume LLM work"
             );

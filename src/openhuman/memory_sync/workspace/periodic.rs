@@ -34,12 +34,12 @@ use tokio::time::interval;
 
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::DEFAULT_MEMORY_SYNC_INTERVAL_SECS;
+use crate::openhuman::cron::scheduler_gate::gate::resume_notify;
 use crate::openhuman::memory_sources::sync::sync_source;
 use crate::openhuman::memory_sources::types::{MemorySourceEntry, SourceKind};
 use crate::openhuman::memory_sync::composio::periodic::{
     connection_is_due, effective_interval_secs, periodic_pause_reason,
 };
-use crate::openhuman::scheduler_gate::gate::resume_notify;
 use crate::openhuman::tinycortex::{try_read_audit_log, SyncAuditEntry};
 
 /// How often the scheduler wakes up to look for due syncs. Matches the

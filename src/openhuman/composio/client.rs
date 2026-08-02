@@ -496,8 +496,8 @@ impl ComposioClient {
         //
         // Mirror the TLS settings of the shared client so this path has the
         // same connection behaviour as the other backend calls.
-        // Platform-appropriate TLS backend — see [`crate::openhuman::tls`].
-        let http_client = crate::openhuman::tls::tls_client_builder()
+        // Platform-appropriate TLS backend — see [`crate::openhuman::util::tls`].
+        let http_client = crate::openhuman::util::tls::tls_client_builder()
             .http1_only()
             .timeout(std::time::Duration::from_secs(60))
             .connect_timeout(std::time::Duration::from_secs(15))

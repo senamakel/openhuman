@@ -52,11 +52,11 @@ use tokio::time::interval;
 
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::DEFAULT_MEMORY_SYNC_INTERVAL_SECS;
+use crate::openhuman::cron::scheduler_gate::gate::{current_policy, resume_notify};
+use crate::openhuman::cron::scheduler_gate::policy::PauseReason;
 use crate::openhuman::memory_sources::{
     memory_sync_defaults_for_toolkit, MemorySourceEntry, SourceKind,
 };
-use crate::openhuman::scheduler_gate::gate::{current_policy, resume_notify};
-use crate::openhuman::scheduler_gate::policy::PauseReason;
 
 use super::providers::{get_provider, ComposioUsage};
 use crate::openhuman::composio::client::{

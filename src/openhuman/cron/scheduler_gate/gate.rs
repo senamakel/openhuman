@@ -13,8 +13,8 @@ use parking_lot::RwLock;
 use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore};
 
 use crate::openhuman::config::{Config, SchedulerGateConfig};
-use crate::openhuman::scheduler_gate::policy::{decide, PauseReason, Policy};
-use crate::openhuman::scheduler_gate::signals::Signals;
+use crate::openhuman::cron::scheduler_gate::policy::{decide, PauseReason, Policy};
+use crate::openhuman::cron::scheduler_gate::signals::Signals;
 
 /// Process-wide ceiling on concurrent LLM-bound work.
 ///

@@ -107,7 +107,7 @@ impl QueritSearchTool {
         timeout_secs: u64,
     ) -> Self {
         let timeout = timeout_secs.max(1);
-        let http_client = crate::openhuman::tls::tls_client_builder()
+        let http_client = crate::openhuman::util::tls::tls_client_builder()
             .http1_only()
             .timeout(Duration::from_secs(timeout))
             .connect_timeout(Duration::from_secs(10))

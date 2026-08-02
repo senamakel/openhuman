@@ -1,6 +1,6 @@
 //! Host signals: power state, CPU pressure, deployment mode.
 //!
-//! Sampled on a 30s cadence by [`crate::openhuman::scheduler_gate::gate`]; this
+//! Sampled on a 30s cadence by [`crate::openhuman::cron::scheduler_gate::gate`]; this
 //! file just captures one snapshot at a time.
 
 use std::path::Path;

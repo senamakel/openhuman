@@ -586,7 +586,7 @@ async fn store_session_inner(
     // Clear the scheduler-gate signed-out override now that a fresh JWT is
     // in place. Workers that were sleeping in the paused poll loop will
     // pick this up at their next iteration and resume LLM-bound work.
-    crate::openhuman::scheduler_gate::set_signed_out(false);
+    crate::openhuman::cron::scheduler_gate::set_signed_out(false);
     tracing::debug!(
         domain = "credentials",
         operation = "store_session",
@@ -695,7 +695,7 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
     // is mid-iteration (or wakes up while we tear down) stalls at its next
     // `wait_for_capacity()` call instead of firing requests at a backend
     // we're about to invalidate. Idempotent.
-    crate::openhuman::scheduler_gate::set_signed_out(true);
+    crate::openhuman::cron::scheduler_gate::set_signed_out(true);
 
     let auth = AuthService::from_config(config);
     let removed = auth

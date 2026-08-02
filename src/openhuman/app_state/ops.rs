@@ -331,8 +331,8 @@ pub fn save_app_state(config: &Config, state: &StoredAppState) -> Result<(), Str
 }
 
 fn build_client() -> Result<Client, String> {
-    // Platform-appropriate TLS backend — see [`crate::openhuman::tls`].
-    crate::openhuman::tls::tls_client_builder()
+    // Platform-appropriate TLS backend — see [`crate::openhuman::util::tls`].
+    crate::openhuman::util::tls::tls_client_builder()
         .http1_only()
         .timeout(Duration::from_secs(30))
         .connect_timeout(Duration::from_secs(10))
@@ -546,7 +546,7 @@ async fn finish_revalidated_user_activation(
             "{LOG_PREFIX} pending session revalidation left login-gated services running without restart"
         );
     }
-    crate::openhuman::scheduler_gate::set_signed_out(false);
+    crate::openhuman::cron::scheduler_gate::set_signed_out(false);
     crate::openhuman::credentials::sentry_scope::bind(user_id);
 }
 
@@ -648,7 +648,7 @@ async fn clear_deferred_session_after_backend_rejection(
     });
 
     *CURRENT_USER_CACHE.lock() = None;
-    crate::openhuman::scheduler_gate::set_signed_out(true);
+    crate::openhuman::cron::scheduler_gate::set_signed_out(true);
 
     match crate::openhuman::config::default_root_openhuman_dir() {
         Ok(root_dir) => {

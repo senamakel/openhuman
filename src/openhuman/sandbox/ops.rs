@@ -9,7 +9,7 @@ use super::types::{
 use crate::openhuman::agent::harness::definition::SandboxMode;
 use crate::openhuman::agent::platform_shell;
 use crate::openhuman::config::RuntimeConfig;
-use crate::openhuman::cwd_jail::{self, Jail, NoopBackend};
+use crate::openhuman::sandbox::cwd_jail::{self, Jail, NoopBackend};
 use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;

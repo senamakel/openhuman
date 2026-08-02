@@ -1960,7 +1960,7 @@ static INFERENCE_PROBE_CACHE: LazyLock<std::sync::Mutex<InferenceProbeCacheMap>>
 /// window. Clears the whole cache rather than just the current key: a
 /// sign-out is a session-wide event, not scoped to one role.
 fn invalidate_inference_probe_cache_if_signed_out() {
-    if crate::openhuman::scheduler_gate::is_signed_out() {
+    if crate::openhuman::cron::scheduler_gate::is_signed_out() {
         INFERENCE_PROBE_CACHE
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -2126,7 +2126,7 @@ async fn evaluate_inference_readiness(
 
     // Layer 1: signed-out is the cheapest, most decisive check. Session-wide
     // — checked once for the whole graph, not per node/role.
-    if crate::openhuman::scheduler_gate::is_signed_out() {
+    if crate::openhuman::cron::scheduler_gate::is_signed_out() {
         tracing::debug!(
             target: "flows",
             node = %first_node.id,

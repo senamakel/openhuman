@@ -126,6 +126,19 @@ node scripts/generate-test-inventory.mjs --check  # keyed on namespaces, so it s
 Expect `cargo fmt` fallout: longer paths re-wrap imports. That is the whole diff outside the
 renames.
 
+### Gotchas the first two moves hit
+
+- **Braced imports.** `use crate::openhuman::{scheduler_gate, todos};` is invisible to a
+  `s/openhuman::scheduler_gate/…/` rewrite. There are only a handful crate-wide; the compiler
+  finds them immediately, but budget for a hand-fix per family.
+- **The rewrite loop must not word-split in zsh.** `sed -i … $files` passes the whole newline-
+  separated list as *one* argument under zsh (which does not word-split unquoted parameters), so
+  the rewrite silently does nothing and the greps still show old paths. Use
+  `grep -rlZ … | xargs -0 sed -i …`.
+- **Pre-existing failures to not chase.** `cron::scheduler::tests::{run_agent_job_returns_error_without_provider_key,
+  cron_agent_job_short_loopback_send_error_stays_retryable}` overflow the stack on `main`, before
+  any reorg. Verify with `git stash -u` + rerun before assuming a move caused a failure.
+
 ---
 
 ## 4. Target tree — 124 dirs + 2 root files → ~30 dirs + 0 root files
@@ -162,9 +175,9 @@ renames.
 | `tools/` | `tool_registry→registry`, `tool_status→status`, `tool_timeout→timeout`, `agent_tool_policy→agent_policy` |
 | `platform/` *(new)* | `service`, `startup`, `update`, `doctor`, `health`, `proc_metrics`, `connectivity`, `about_app`, `cost`, `socket` |
 | `threads/` | `thread_goals→goals`, `todos` |
-| `cron/` | `scheduler_gate` |
-| `sandbox/` | `cwd_jail` |
-| `util/` *(new)* | `util.rs→util/mod.rs` (+ split), `tls`, `mcp_client::sanitize`; **delete `dev_paths.rs`** (verified zero call sites) |
+| `cron/` | ✅ **landed** — `scheduler_gate` |
+| `sandbox/` | ✅ **landed** — `cwd_jail` |
+| `util/` *(new)* | ✅ **landed** — `util.rs` split into `util/{mod,text,retry,types}.rs`, `tls→util/tls`, `dev_paths.rs` deleted. Still to come: `mcp_client::sanitize→util/sanitize` (with the `mcp/` move) |
 
 ### Name collisions — dodge, don't pay
 
@@ -197,8 +210,9 @@ goes to `platform/`.
 ### Order
 
 1. ✅ `meet/` — pilot.
-2. `util/` + `sandbox/` + `cron/` — clears both root `*.rs` violations, deletes dead
-   `dev_paths.rs`, relocates `sanitize` out of `mcp_client`.
+2. ✅ `util/` + `sandbox/` + `cron/` — cleared both root `*.rs` violations and deleted dead
+   `dev_paths.rs`. (`sanitize` moves out of `mcp_client` with step 5, not here — a pure move PR
+   should not also carve a module out of an unrelated domain.)
 3. `runtime/`, `media/`, `desktop/`, `hosted/`, `subconscious/` — new parents, no existing gates.
 4. `voice/`, `web3/`, `medulla/`, `flows/`, `channels/` — existing gates; each validates that its
    `stub.rs` survives relocation.

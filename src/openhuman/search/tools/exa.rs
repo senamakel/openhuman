@@ -137,7 +137,7 @@ impl ExaClient {
     /// TLS-backend failure surfaces as a tool error instead of aborting the
     /// process while a session is being constructed.
     fn http_client(&self) -> anyhow::Result<reqwest::Client> {
-        crate::openhuman::tls::tls_client_builder()
+        crate::openhuman::util::tls::tls_client_builder()
             .timeout(Duration::from_secs(self.timeout_secs))
             .connect_timeout(Duration::from_secs(10))
             .build()

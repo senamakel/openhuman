@@ -126,7 +126,7 @@ impl LocalAiService {
 
         // Vision generation is background LLM-bound work; gate it through
         // the scheduler's global LLM permit.
-        let _gate_permit = crate::openhuman::scheduler_gate::wait_for_capacity().await;
+        let _gate_permit = crate::openhuman::cron::scheduler_gate::wait_for_capacity().await;
 
         let body = OllamaGenerateRequest {
             model: vision_model,
@@ -231,7 +231,7 @@ impl LocalAiService {
         // Embeds are bge-m3 calls (8K context, ~1.3 GB resident) — the
         // single concurrent embed that has historically crashed the
         // user's laptop when stacked with other Ollama work. Gate it.
-        let _gate_permit = crate::openhuman::scheduler_gate::wait_for_capacity().await;
+        let _gate_permit = crate::openhuman::cron::scheduler_gate::wait_for_capacity().await;
 
         let embed_base = ollama_base_url_from_config(config);
         let dimensions = embedding_dimensions(&embedding_model);

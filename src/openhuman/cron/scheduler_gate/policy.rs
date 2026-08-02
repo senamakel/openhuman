@@ -1,7 +1,7 @@
 //! Decision logic — turn raw [`Signals`] + user config into a [`Policy`].
 
 use crate::openhuman::config::SchedulerGateConfig;
-use crate::openhuman::scheduler_gate::signals::Signals;
+use crate::openhuman::cron::scheduler_gate::signals::Signals;
 
 /// Why the gate is currently paused. Carried by [`Policy::Paused`] so
 /// downstream consumers (UI, logging, observability) can surface a

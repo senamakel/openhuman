@@ -41,7 +41,7 @@ pub fn build_tokio_command(command: &str) -> tokio::process::Command {
 }
 
 /// [`std::process::Command`] variant for callers that hand the command
-/// to [`crate::openhuman::cwd_jail::spawn`], which is built around
+/// to [`crate::openhuman::sandbox::cwd_jail::spawn`], which is built around
 /// `std::process::Command` (not the tokio variant).
 pub fn build_std_command(command: &str) -> std::process::Command {
     let mut cmd = std::process::Command::new(shell_program());

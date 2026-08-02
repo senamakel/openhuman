@@ -38,7 +38,7 @@ pub(crate) fn subconscious_provider_unavailable_reason(config: &Config) -> Optio
     match resolve_subconscious_route(config) {
         SubconsciousProviderRoute::LocalOllama { .. } => None,
         SubconsciousProviderRoute::OpenHumanCloud => {
-            if crate::openhuman::scheduler_gate::is_signed_out() {
+            if crate::openhuman::cron::scheduler_gate::is_signed_out() {
                 return Some(
                     "Sign in to use the OpenHuman cloud Subconscious provider.".to_string(),
                 );

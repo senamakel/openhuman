@@ -25,7 +25,7 @@ use std::time::Duration;
 const DEFAULT_API_BASE: &str = "https://api.search.brave.com/res/v1";
 
 fn http_client(timeout_secs: u64) -> anyhow::Result<reqwest::Client> {
-    crate::openhuman::tls::tls_client_builder()
+    crate::openhuman::util::tls::tls_client_builder()
         .timeout(Duration::from_secs(timeout_secs.max(1)))
         .connect_timeout(Duration::from_secs(10))
         .build()

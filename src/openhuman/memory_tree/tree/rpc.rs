@@ -868,7 +868,7 @@ pub async fn set_enabled_rpc(
 
     // Hot-reload the live gate state — workers re-poll inside
     // `wait_for_capacity` and pick up the new policy without a restart.
-    crate::openhuman::scheduler_gate::gate::update_config(config.scheduler_gate.clone());
+    crate::openhuman::cron::scheduler_gate::gate::update_config(config.scheduler_gate.clone());
 
     log::info!(
         "[memory-tree][rpc] set_enabled: scheduler_gate.mode {} -> {} (enabled={})",

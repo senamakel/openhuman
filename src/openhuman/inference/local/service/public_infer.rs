@@ -251,7 +251,7 @@ impl LocalAiService {
         }
 
         let _gate_permit = if gated {
-            crate::openhuman::scheduler_gate::wait_for_capacity().await
+            crate::openhuman::cron::scheduler_gate::wait_for_capacity().await
         } else {
             None
         };
@@ -409,7 +409,7 @@ impl LocalAiService {
         // skips this via `gated = false` from
         // `inline_complete_interactive`.
         let _gate_permit = if gated {
-            crate::openhuman::scheduler_gate::wait_for_capacity().await
+            crate::openhuman::cron::scheduler_gate::wait_for_capacity().await
         } else {
             None
         };

@@ -4255,7 +4255,7 @@ async fn run_builder_gates_does_not_reject_when_signed_out() {
     // Authoring is never blocked by inference readiness (design correction,
     // B45): a signed-out session must NOT appear among `run_builder_gates`'
     // errors for an otherwise-valid agent-node graph.
-    let _signed_out = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(true);
+    let _signed_out = crate::openhuman::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -4280,7 +4280,7 @@ async fn proposal_surfaces_signed_out_inference_status() {
     // The proposal still WARNS about the signed-out state (advisory, never a
     // rejection) so the UI can render a "sign in" nudge alongside the built
     // workflow.
-    let _signed_out = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(true);
+    let _signed_out = crate::openhuman::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -4487,7 +4487,7 @@ async fn inference_gate_reports_signed_out_for_dynamic_agent_ref_only_graph() {
     // dynamic-ref filter excluded such nodes entirely, so a graph made up
     // only of them returned `None` (no readiness signal at all) and a
     // signed-out session went completely unreported.
-    let _signed_out = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(true);
+    let _signed_out = crate::openhuman::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -4614,7 +4614,7 @@ async fn proposal_omits_inference_status_for_tool_call_only_graph() {
 /// negative-cache test below (through `cached_probe_inference_readiness`).
 #[tokio::test]
 async fn flows_run_fails_cleanly_without_invoking_engine_when_inference_not_ready() {
-    let _signed_out = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(true);
+    let _signed_out = crate::openhuman::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);

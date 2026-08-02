@@ -4,7 +4,7 @@
 //! `handlers` engine that used to own dispatch was deleted at the flip.
 //!
 //! Concurrency control for LLM-bound work is delegated to
-//! [`crate::openhuman::scheduler_gate`] — its global single-slot
+//! [`crate::openhuman::cron::scheduler_gate`] — its global single-slot
 //! semaphore (`LlmPermit`) is the one source of truth across this
 //! worker, voice cleanup, autocomplete, triage, and reflection. The
 //! worker itself just calls `wait_for_capacity()`; non-LLM jobs
@@ -273,7 +273,7 @@ pub async fn run_once(config: &Config) -> Result<bool> {
     // voice/autocomplete/triage under load (Throttled/Paused modes), exactly as
     // the legacy pool did. Held across the single crate step below; returns
     // immediately in Aggressive/Normal so idle desktops pay zero cost.
-    let _gate_permit = crate::openhuman::scheduler_gate::wait_for_capacity().await;
+    let _gate_permit = crate::openhuman::cron::scheduler_gate::wait_for_capacity().await;
 
     // W4 flip: TinyCortex now owns claim → dispatch → settle. `queue::run_once`
     // claims one `mem_tree_jobs` row (the same table host producers enqueue

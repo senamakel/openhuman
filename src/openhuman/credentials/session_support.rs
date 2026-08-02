@@ -213,7 +213,7 @@ pub fn require_live_session_token(config: &Config) -> Result<String, String> {
         SessionTokenCheck::Expired => {
             // Dedupe the publish via the scheduler gate so N parallel authed
             // callers in one tick don't emit N SessionExpired events.
-            if !crate::openhuman::scheduler_gate::is_signed_out() {
+            if !crate::openhuman::cron::scheduler_gate::is_signed_out() {
                 tracing::info!(
                     domain = "credentials",
                     operation = "require_live_session_token",

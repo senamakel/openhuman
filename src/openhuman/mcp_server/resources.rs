@@ -236,18 +236,21 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         description: "Specialist worker for connected account and integration administration.",
         content: include_str!("../agent_registry/agents/account_admin_agent/prompt.md"),
     },
+    #[cfg(feature = "flows")]
     PromptResource {
         uri: "openhuman://prompts/agents/flow_discovery",
         name: "flow_discovery",
         description: "Flow Scout — read-only workflow discovery agent that suggests automations from memory, threads, and integrations.",
         content: include_str!("../flows/agents/flow_discovery/prompt.md"),
     },
+    #[cfg(feature = "flows")]
     PromptResource {
         uri: "openhuman://prompts/agents/workflow_builder",
         name: "workflow_builder",
         description: "Workflow authoring specialist that builds tinyflows automation graphs and returns proposals for review.",
         content: include_str!("../flows/agents/workflow_builder/prompt.md"),
     },
+    #[cfg(feature = "flows")]
     PromptResource {
         uri: "openhuman://prompts/agents/flow_memory_agent",
         name: "flow_memory_agent",
@@ -266,12 +269,14 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         description: "Background awareness agent: diffs the user's world, prepares context, and decides what to do.",
         content: include_str!("../subconscious/agent/prompt.md"),
     },
+    #[cfg(feature = "skills")]
     PromptResource {
         uri: "openhuman://prompts/agents/skill_setup",
         name: "skill_setup",
         description: "Worker that guides skill installation and backend configuration.",
         content: include_str!("../skill_registry/agent/skill_setup/prompt.md"),
     },
+    #[cfg(feature = "skills")]
     PromptResource {
         uri: "openhuman://prompts/agents/skill_executor",
         name: "skill_executor",

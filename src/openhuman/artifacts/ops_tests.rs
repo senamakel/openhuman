@@ -223,6 +223,11 @@ async fn regenerate_rejects_non_presentation_kind() {
     );
 }
 
+// Both regeneration tests drive a *presentation* artifact, and the producer
+// behind that lives under the `documents` gate — with it off, `ai_regenerate`
+// short-circuits with "built without the `documents` feature" before it can
+// reach either behaviour these tests are about.
+#[cfg(feature = "documents")]
 #[tokio::test]
 async fn regenerate_errors_when_args_missing() {
     use crate::openhuman::artifacts::store::create_artifact;
@@ -241,6 +246,7 @@ async fn regenerate_errors_when_args_missing() {
     assert!(err.contains("not regenerable"), "unexpected error: {err}");
 }
 
+#[cfg(feature = "documents")]
 #[tokio::test]
 async fn regenerate_reruns_producer_and_reuses_id() {
     use crate::openhuman::artifacts::store::{create_artifact, get_artifact, save_artifact_args};

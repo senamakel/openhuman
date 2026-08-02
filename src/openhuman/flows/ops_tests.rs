@@ -1555,7 +1555,7 @@ async fn reconcile_schedule_triggers_on_boot_survives_a_corrupt_row() {
 
 #[tokio::test]
 async fn flows_delete_clears_flow_memory_namespace() {
-    use crate::openhuman::memory::{Memory, MemoryCategory, MemoryTaint};
+    use crate::openhuman::memory::{MemoryCategory, MemoryTaint};
     use crate::openhuman::memory_store::MemoryClient;
 
     let tmp = TempDir::new().unwrap();

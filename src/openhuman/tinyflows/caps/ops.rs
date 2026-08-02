@@ -44,8 +44,7 @@ pub(crate) use crate::openhuman::composio::catalog::{
 };
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{
-    composio_response_fields, compute_composio_array_path, probed_output_sample,
-    ProbedOutputSample, COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT,
+    ProbedOutputSample,
 };
 #[cfg(test)]
 pub(crate) use crate::openhuman::composio::catalog::{
@@ -56,7 +55,7 @@ use super::*;
 
 #[cfg(test)]
 pub(crate) use crate::openhuman::json_schema::{
-    compute_primary_array_path, compute_primary_array_path_from_value, response_fields_from_schema,
+    compute_primary_array_path, response_fields_from_schema,
 };
 pub(crate) use crate::openhuman::json_schema::{missing_required_args, unsupported_arg_names};
 

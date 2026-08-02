@@ -181,9 +181,9 @@ mod tests {
         // Count enabled built-ins, accounting for feature gates (e.g., presentation_agent only when documents is on).
         let enabled_builtins = crate::openhuman::agent_registry::agents::BUILTINS
             .iter()
-            .filter(|b| {
+            .filter(|_b| {
                 #[cfg(not(feature = "documents"))]
-                if b.id == "presentation_agent" {
+                if _b.id == "presentation_agent" {
                     return false;
                 }
                 true

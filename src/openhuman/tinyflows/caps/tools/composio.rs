@@ -172,12 +172,11 @@ impl ToolBackend for ComposioToolBackend {
             ComposioClientKind::Backend(client) => {
                 if let Some((id, resolved)) = &resolved_account {
                     match resolved {
-                        Some((toolkit, label)) => tracing::warn!(
+                        Some((toolkit, _label)) => tracing::warn!(
                             target: "flows",
                             %slug,
                             connection_id = %id,
                             %toolkit,
-                            requested_account = label.as_deref().unwrap_or("<unlabeled>"),
                             "[flows] tool_call: EXECUTING ON THE WRONG ACCOUNT — connection_ref \
                              names a specific connected account, but backend mode has no per-call \
                              account-scoping path yet, so this call runs against the AMBIENT \

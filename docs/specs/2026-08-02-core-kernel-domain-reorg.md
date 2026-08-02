@@ -165,7 +165,7 @@ renames.
 | `voice/` | ✅ **landed** — `audio_toolkit`; parent stays ungated (facade + `stub.rs`), gate pushed onto the child |
 | `web3/` | ✅ **landed** — `wallet`, `x402`; parent stays ungated (all three are facades with their own `stub.rs`) |
 | `media/` *(new)* | ✅ **landed** — `media_generation→generation`, `image`; parent is leaf-gated on `media` since both children were wholly gated |
-| `medulla/` | `medulla_chat→chat` |
+| `medulla/` | ✅ **landed** — `medulla_chat→chat`; parent stays ungated (facade + `contract`/`events` type carve-out), gate pushed onto the child |
 | `runtime/` *(new)* | ✅ **landed** — `runtime_node→node`, `runtime_python→python`, `runtime_python_server→python_server`, `runtime_pool→pool`, `javascript` |
 | `integrations/` | `composio`, `recall_calendar`, `file_storage`, `task_sources` |
 | `hosted/` *(new)* | ✅ **landed** — `billing`, `referral`, `announcements`, `team`, `orchestration` |

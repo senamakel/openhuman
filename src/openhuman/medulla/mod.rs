@@ -27,6 +27,10 @@
 //! [`contract`] and [`events`] type modules are **ungated carve-outs** — see
 //! [`events`] for why.
 
+/// Medulla chat-session store (`medulla_chat`). Gated on the same `medulla`
+/// feature as the rest of the family.
+#[cfg(feature = "medulla")]
+pub mod chat;
 #[cfg(feature = "medulla")]
 pub mod client;
 pub mod contract;

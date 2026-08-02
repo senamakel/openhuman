@@ -71,8 +71,6 @@ pub mod mcp_server;
 #[cfg(feature = "media")]
 pub mod media;
 pub mod medulla;
-#[cfg(feature = "medulla")]
-pub mod medulla_chat;
 // The `meet` family is a facade: the parent module is always compiled so the
 // always-on callers of `meet::backend_bot`'s stub keep resolving, and each
 // submodule carries its own `#[cfg(feature = "meet")]` (see `meet/mod.rs`).

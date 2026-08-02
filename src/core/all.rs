@@ -83,7 +83,7 @@ pub enum DomainGroup {
     Voice,
     Media,
     /// Medulla integration: the cloud client (`medulla`), the folded session
-    /// runtime (`medulla_session`), the chat store (`medulla_chat`), and
+    /// runtime (`medulla_session`), the chat store (`medulla::chat`), and
     /// authored harness workflows (`medulla_workflows`).
     ///
     /// One coarse family rather than four, because these are never

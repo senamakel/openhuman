@@ -3,13 +3,13 @@
 //! Dispatches on the `op` field so a single tool exposes
 //! `add` / `edit` / `update_status` / `remove` / `replace` / `clear` /
 //! `list`. The board is persisted to the active thread (when there is
-//! one) via [`crate::openhuman::todos::ops`]; without a thread context the
+//! one) via [`crate::openhuman::threads::todos::ops`]; without a thread context the
 //! tool falls back to a process-global scratch list. Returns a markdown
 //! rendering so transcripts read cleanly.
 
 use crate::openhuman::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
+use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
 use crate::openhuman::tinyagents::thread_context;
-use crate::openhuman::todos::ops::{self, BoardLocation, CardPatch};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -313,11 +313,11 @@ mod tests {
     /// `todos::ops` tests. Same lock — otherwise the two test modules race
     /// under `cargo test`'s thread pool.
     fn scratch_lock() -> std::sync::MutexGuard<'static, ()> {
-        crate::openhuman::todos::ops::scratch_test_lock()
+        crate::openhuman::threads::todos::ops::scratch_test_lock()
     }
 
     async fn reset_scratch() {
-        crate::openhuman::todos::ops::clear(&BoardLocation::Scratch)
+        crate::openhuman::threads::todos::ops::clear(&BoardLocation::Scratch)
             .await
             .expect("clear scratch");
     }

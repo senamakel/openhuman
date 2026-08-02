@@ -419,7 +419,7 @@ async fn run_context_scout_with_catalog_and_workspace(
                 // super-context first turn). Best-effort — never fails the call.
                 if let (Some(parent), Some(thread_id)) = (current_parent(), current_thread_id()) {
                     if let Some(objective) = AgentPrepareContextTool::parse_proposed_goal(&bundle) {
-                        match crate::openhuman::thread_goals::store::set_if_absent(
+                        match crate::openhuman::threads::goals::store::set_if_absent(
                             &parent.workspace_dir,
                             &thread_id,
                             &objective,

@@ -1,6 +1,6 @@
 //! Shared types for the task dispatcher.
 
-use crate::openhuman::todos::ops::BoardLocation;
+use crate::openhuman::threads::todos::ops::BoardLocation;
 
 /// Handle to an in-flight autonomous run, keyed by its session `thread_id`.
 ///

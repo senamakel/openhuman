@@ -92,7 +92,7 @@ Additive idempotent column migrations (`add_column_if_missing`) backfill `ingest
 - `crate::openhuman::config` (+ `config::rpc`) — `Config`, `load_config_with_timeout`; reads the `[task_sources]` block for defaults and the master switch.
 - `crate::openhuman::memory_sync::composio::providers` — `get_provider`, `ProviderContext`, `NormalizedTask`, `TaskFetchFilter`, `ComposioProvider::fetch_tasks`; the actual external fetch + normalized task shape.
 - `crate::openhuman::agent::triage` — `run_triage`, `apply_decision`, `TriageOutcome`, `TriggerEnvelope`; dispatches the proactive agent turn for `AgentTodoProactive` sources.
-- `crate::openhuman::todos` (`todos::ops`) — `add`/`remove`, `BoardLocation`, `CardPatch`; the thread-scoped board cards are stored here. Also references `agent::task_board::TaskBoardCard` for `board_cards`.
+- `crate::openhuman::threads::todos` (`todos::ops`) — `add`/`remove`, `BoardLocation`, `CardPatch`; the thread-scoped board cards are stored here. Also references `agent::task_board::TaskBoardCard` for `board_cards`.
 - `crate::openhuman::cron::scheduler_gate` — `wait_for_capacity` capacity semaphore; gates proactive triage turns behind background-AI throttling.
 
 ## Used by

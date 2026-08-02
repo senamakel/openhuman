@@ -110,12 +110,10 @@ pub mod subconscious;
 pub mod task_sources;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;
-pub mod thread_goals;
 pub mod threads;
 pub mod tinyagents;
 pub mod tinycortex;
 pub mod tinyplace;
-pub mod todos;
 pub mod tokenjuice;
 pub mod tool_registry;
 pub mod tool_status;

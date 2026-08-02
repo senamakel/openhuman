@@ -5,7 +5,7 @@ use openhuman_core::openhuman::agent::task_dispatcher::{dispatch_card, DispatchO
 use openhuman_core::openhuman::agent::triage::{
     apply_decision, TriageAction, TriageDecision, TriageResolutionPath, TriageRun, TriggerEnvelope,
 };
-use openhuman_core::openhuman::todos::ops::{self, BoardLocation, CardPatch};
+use openhuman_core::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
 use serde_json::json;
 use std::path::Path;
 use std::sync::Mutex;

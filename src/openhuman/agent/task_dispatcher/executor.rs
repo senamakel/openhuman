@@ -16,8 +16,8 @@ use crate::openhuman::agent::task_board::TaskCardStatus;
 use crate::openhuman::agent::task_session;
 use crate::openhuman::config::Config;
 use crate::openhuman::profiles::PersonalityContext;
-use crate::openhuman::todos::ops::{self, BoardLocation, CardPatch};
-use crate::openhuman::todos::runs::{self, RunOutcome};
+use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
+use crate::openhuman::threads::todos::runs::{self, RunOutcome};
 
 use super::types::ResolvedExecutor;
 

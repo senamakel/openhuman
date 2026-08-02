@@ -58,9 +58,9 @@ pub use crate::openhuman::skill_runtime::tools::*;
 pub use crate::openhuman::skills::tools::*;
 pub use crate::openhuman::subconscious::monitors::tools::*;
 pub use crate::openhuman::task_sources::tools::*;
+pub use crate::openhuman::threads::todos::tools::*;
 pub use crate::openhuman::threads::tools::*;
 pub use crate::openhuman::tinyplace::tools::*;
-pub use crate::openhuman::todos::tools::*;
 #[cfg(feature = "voice")]
 pub use crate::openhuman::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]

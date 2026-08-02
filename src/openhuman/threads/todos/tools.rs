@@ -2,7 +2,7 @@
 //!
 //! These tools let the agent read and mutate the kanban-style task board
 //! that scopes per conversation thread. Each tool is a thin shim over the
-//! free functions in [`crate::openhuman::todos::ops`], constructing a
+//! free functions in [`crate::openhuman::threads::todos::ops`], constructing a
 //! [`BoardLocation`] from the optional `thread_id` argument plus the
 //! configured workspace dir (falling back to the in-memory scratch board
 //! when no thread is supplied).

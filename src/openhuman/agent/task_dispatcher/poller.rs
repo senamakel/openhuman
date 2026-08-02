@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use crate::openhuman::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 use crate::openhuman::config::Config;
-use crate::openhuman::todos::ops::{self, BoardLocation, USER_TASKS_THREAD_ID};
-use crate::openhuman::todos::runs::{self, RunLimits};
+use crate::openhuman::threads::todos::ops::{self, BoardLocation, USER_TASKS_THREAD_ID};
+use crate::openhuman::threads::todos::runs::{self, RunLimits};
 
 use super::dispatch::dispatch_card;
 

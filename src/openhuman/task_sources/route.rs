@@ -14,10 +14,10 @@ use serde_json::json;
 
 use crate::openhuman::agent::triage::{apply_decision, run_triage, TriageOutcome, TriggerEnvelope};
 use crate::openhuman::config::Config;
-use crate::openhuman::todos::ops::{
+use crate::openhuman::threads::todos::ops::{
     add as todo_add, remove as todo_remove, BoardLocation, CardPatch,
 };
-use crate::openhuman::{cron::scheduler_gate, todos};
+use crate::openhuman::{cron::scheduler_gate, threads::todos};
 
 use super::types::{EnrichedTask, FilterSpec, SourceTarget, TaskSource};
 use super::TaskKind;

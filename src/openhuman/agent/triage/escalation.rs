@@ -313,7 +313,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
 async fn dispatch_linked_card(
     link: &TaskCardLink,
 ) -> Result<crate::openhuman::agent::task_dispatcher::DispatchOutcome, String> {
-    let snapshot = crate::openhuman::todos::ops::list(&link.location).await?;
+    let snapshot = crate::openhuman::threads::todos::ops::list(&link.location).await?;
     let card = snapshot
         .cards
         .into_iter()
@@ -330,7 +330,7 @@ async fn dispatch_linked_card(
 /// logged, never propagated — the trigger was already evaluated.
 async fn gate_linked_card_terminal(envelope: &TriggerEnvelope, decision: &str) {
     use crate::openhuman::agent::task_board::TaskCardStatus;
-    use crate::openhuman::todos::ops;
+    use crate::openhuman::threads::todos::ops;
 
     let Some(link) = &envelope.card_link else {
         return;
@@ -568,10 +568,10 @@ mod tests {
 
     async fn seed_task_card() -> (
         tempfile::TempDir,
-        crate::openhuman::todos::ops::BoardLocation,
+        crate::openhuman::threads::todos::ops::BoardLocation,
         String,
     ) {
-        use crate::openhuman::todos::ops::{self, BoardLocation, CardPatch};
+        use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
         let dir = tempfile::tempdir().unwrap();
         let location = BoardLocation::Thread {
             workspace_dir: dir.path().to_path_buf(),
@@ -589,7 +589,7 @@ mod tests {
     #[tokio::test]
     async fn apply_decision_drop_gates_linked_card_to_rejected() {
         use crate::openhuman::agent::task_board::TaskCardStatus;
-        use crate::openhuman::todos::ops;
+        use crate::openhuman::threads::todos::ops;
 
         let _events_guard = test_events_guard().await;
         let _ = init_global(32);
@@ -617,7 +617,7 @@ mod tests {
     #[tokio::test]
     async fn apply_decision_acknowledge_gates_linked_card_to_rejected() {
         use crate::openhuman::agent::task_board::TaskCardStatus;
-        use crate::openhuman::todos::ops;
+        use crate::openhuman::threads::todos::ops;
 
         let _events_guard = test_events_guard().await;
         let _ = init_global(32);

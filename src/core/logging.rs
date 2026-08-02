@@ -297,7 +297,6 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
         seed_rust_log(verbose, scope);
         let filter = build_env_filter(verbose, scope);
 
-        let logs_dir = data_dir.join("logs");
         // Build the file appender first, but keep the writer guard + path in
         // locals — only commit to `FILE_GUARD` / `LOG_DIR` after `try_init()`
         // succeeds. Otherwise a competing global subscriber would cause
@@ -310,6 +309,8 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
         // is why the off-state cannot simply be a `None` of the same type — the
         // type does not exist in that build. Hence paired `.with()` chains
         // below rather than one chain and an optional layer.
+        #[cfg(feature = "file-logging")]
+        let logs_dir = data_dir.join("logs");
         #[cfg(feature = "file-logging")]
         let pending_file: Option<(
             _,

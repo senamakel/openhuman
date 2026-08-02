@@ -18,14 +18,20 @@ use serde_json::{json, Value};
 use tinyagents::graph::SqliteCheckpointer;
 use tinyflows::caps::*;
 use tinyflows::error::{EngineError, Result};
+#[cfg(test)]
 use tinyflows::model::WorkflowGraph;
 
-use crate::openhuman::config::{Config, HttpRequestConfig};
-use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
+use crate::openhuman::config::Config;
+#[cfg(test)]
+use crate::openhuman::config::HttpRequestConfig;
+use crate::openhuman::credentials::HttpCredentialsStore;
+#[cfg(test)]
+use crate::openhuman::credentials::HttpCredential;
+#[cfg(test)]
 use crate::openhuman::flows;
-use crate::openhuman::security::{
-    CommandClass, GateDecision, SecurityPolicy, POLICY_BLOCKED_MARKER,
-};
+use crate::openhuman::security::{CommandClass, SecurityPolicy};
+#[cfg(test)]
+use crate::openhuman::security::{GateDecision, POLICY_BLOCKED_MARKER};
 
 // The JSON Schema walkers moved to `openhuman::json_schema`, a domain owned by
 // neither this seam nor `composio` — see that module's docs for why neutral

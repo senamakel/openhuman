@@ -631,10 +631,12 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         agent: Some(Arc::new(OpenHumanAgentRunner {
             config: config.clone(),
         })),
-        memory: Some(Arc::new(crate::openhuman::tinyflows::memory_adapter::OpenHumanMemory {
-            config: config.clone(),
-            security,
-        })),
+        memory: Some(Arc::new(
+            crate::openhuman::tinyflows::memory_adapter::OpenHumanMemory {
+                config: config.clone(),
+                security,
+            },
+        )),
         resolver: Arc::new(OpenHumanWorkflowResolver { config }),
     }
 }

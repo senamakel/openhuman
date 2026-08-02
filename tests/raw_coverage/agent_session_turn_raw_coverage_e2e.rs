@@ -19,7 +19,7 @@ use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::openhuman::memory_store;
-use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::traits::ToolCallOptions;
 use openhuman_core::openhuman::tools::{
     PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,

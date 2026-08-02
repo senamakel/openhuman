@@ -150,7 +150,8 @@ mod tests {
             sandbox_mode: SandboxMode::ReadOnly,
             background: false,
             trigger_memory_agent: Default::default(),
-            tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Auto,
+            tokenjuice_compression:
+                crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Auto,
             subagents: vec![
                 SubagentEntry::AgentId("critic".to_string()),
                 SubagentEntry::Skills(SkillsWildcard {

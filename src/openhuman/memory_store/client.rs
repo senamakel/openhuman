@@ -11,7 +11,7 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::openhuman::embeddings::{self, EmbeddingProvider};
+use crate::openhuman::inference::embeddings::{self, EmbeddingProvider};
 use crate::openhuman::memory::ingestion::queue as ingestion_queue;
 use crate::openhuman::memory::ingestion::{
     IngestionJob, IngestionQueue, IngestionState, MemoryIngestionConfig, MemoryIngestionRequest,
@@ -37,7 +37,7 @@ pub struct MemoryState(pub std::sync::Mutex<Option<MemoryClientRef>>);
 /// Embedding generation is delegated to whichever provider the
 /// [`MemoryConfig.embedding_provider`](crate::openhuman::config::MemoryConfig)
 /// resolves to — cloud (OpenHuman backend, the default returned by
-/// [`crate::openhuman::embeddings::default_embedding_provider`]) or local Ollama
+/// [`crate::openhuman::inference::embeddings::default_embedding_provider`]) or local Ollama
 /// when explicitly opted into. The cloud embedder resolves its session JWT
 /// lazily, so an unauthenticated session will surface as a clear error on the
 /// first `embed` call rather than at client construction.

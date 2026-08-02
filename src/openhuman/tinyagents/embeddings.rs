@@ -25,7 +25,7 @@ use async_trait::async_trait;
 use tinyagents::harness::embeddings::EmbeddingModel as TaEmbeddingModel;
 use tinyagents::{Result as TaResult, TinyAgentsError};
 
-use crate::openhuman::embeddings::EmbeddingProvider;
+use crate::openhuman::inference::embeddings::EmbeddingProvider;
 
 /// Wraps an OpenHuman [`EmbeddingProvider`] as a `tinyagents`
 /// [`EmbeddingModel`](TaEmbeddingModel).

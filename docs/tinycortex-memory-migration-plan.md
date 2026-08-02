@@ -184,7 +184,7 @@ Ordering rule for this migration: **within each workstream, the implementation (
 - JSON-RPC method names/payloads unchanged; existing user workspaces open and recall identically (golden-workspace parity green).
 - Full suites green on both CI lanes; gitbooks/AGENTS.md updated; spec + ledgers archived.
 - **(Amended)** `memory_sync/` engine deleted from the host per §8 (W-SYNC); host retains only
-  schedulers, credentials/OAuth, event-bus bridges, and RPC wrappers. `src/openhuman/embeddings/`
+  schedulers, credentials/OAuth, event-bus bridges, and RPC wrappers. `src/openhuman/inference/embeddings/`
   provider impls deleted per §8 (W-EMB); embeddings served by `tinyagents::harness::embeddings`.
 
 ---
@@ -258,7 +258,7 @@ ledger's **D4** entry.
 - **W-EMB.2 (tinycortex PR):** add a `tinyagents` dependency; bridge/replace `EmbeddingBackend`
   with `tinyagents::harness::embeddings::EmbeddingModel` (re-export or blanket impl).
 - **W-EMB.3 (host PR):** dual submodule bump; `src/openhuman/tinycortex/embeddings.rs` constructs
-  tinyagents providers from `Config`; delete `src/openhuman/embeddings/` provider impls; keep
+  tinyagents providers from `Config`; delete `src/openhuman/inference/embeddings/` provider impls; keep
   `factory.rs` (thin), `rpc.rs`, `schemas.rs`, catalog + config wiring host-side; signature-parity
   seam tests in the same PR.
 

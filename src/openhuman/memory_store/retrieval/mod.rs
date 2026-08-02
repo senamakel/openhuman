@@ -153,7 +153,7 @@ impl RetrievalFacade {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::embeddings::NoopEmbedding;
+    use crate::openhuman::inference::embeddings::NoopEmbedding;
     use crate::openhuman::memory_store::chunks::store::upsert_chunks;
     use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata};
     use chrono::{TimeZone, Utc};

@@ -103,7 +103,7 @@ async fn open_store_in_subdir(
         let memory = crate::openhuman::memory_store::UnifiedMemory::new_with_memory_dir(
             &config.workspace_dir,
             memory_subdir,
-            crate::openhuman::embeddings::default_embedding_provider(),
+            crate::openhuman::inference::embeddings::default_embedding_provider(),
             config.memory.sqlite_open_timeout_secs,
         )
         .map_err(|e| format!("open agent experience store '{memory_subdir}': {e:#}"))?;

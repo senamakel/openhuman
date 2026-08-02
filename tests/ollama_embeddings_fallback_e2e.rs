@@ -24,7 +24,7 @@ use std::sync::{Mutex, OnceLock};
 use axum::{routing::get, Json, Router};
 
 use openhuman_core::openhuman::config::MemoryConfig;
-use openhuman_core::openhuman::embeddings::{
+use openhuman_core::openhuman::inference::embeddings::{
     DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL, DEFAULT_OLLAMA_DIMENSIONS,
     DEFAULT_OLLAMA_MODEL,
 };

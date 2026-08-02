@@ -5,7 +5,7 @@ use std::sync::Arc;
 use serde_json::json;
 use tempfile::TempDir;
 
-use crate::openhuman::embeddings::NoopEmbedding;
+use crate::openhuman::inference::embeddings::NoopEmbedding;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::memory_store::{NamespaceDocumentInput, UnifiedMemory};
 
@@ -597,7 +597,7 @@ async fn format_context_text_includes_entity_types() {
 
 use async_trait::async_trait;
 
-use crate::openhuman::embeddings::EmbeddingProvider;
+use crate::openhuman::inference::embeddings::EmbeddingProvider;
 
 /// Embedder stub that returns a fixed vector for any text, with a controllable
 /// name + dimension so tests can produce distinct embedding signatures and

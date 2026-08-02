@@ -446,7 +446,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::embeddings::all_embeddings_registered_controllers(),
+        crate::openhuman::inference::embeddings::all_embeddings_registered_controllers(),
     );
     // People resolution and interaction scoring
     push(
@@ -682,7 +682,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::tokenjuice::all_tokenjuice_registered_controllers(),
+        crate::openhuman::inference::tokenjuice::all_tokenjuice_registered_controllers(),
     );
     // Per-thread todo list (agent task board CRUD over RPC)
     push(

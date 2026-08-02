@@ -25,7 +25,7 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::PathBuf;
 
-use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
+use crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 
 /// Iteration ceiling for an [`IterationPolicy::Extended`] agent — the higher
 /// bound a long-running agent (orchestrator, deep research) is allowed to reach

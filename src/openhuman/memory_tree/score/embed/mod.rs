@@ -90,13 +90,13 @@ pub trait Embedder: Send + Sync {
 /// `tinyagents::harness::embeddings`; this bridge owns only dimension checks
 /// and the memory tree's per-position batch fallback contract.
 pub struct ProviderEmbedder {
-    inner: Box<dyn crate::openhuman::embeddings::EmbeddingProvider>,
+    inner: Box<dyn crate::openhuman::inference::embeddings::EmbeddingProvider>,
     label: &'static str,
 }
 
 impl ProviderEmbedder {
     pub fn new(
-        inner: Box<dyn crate::openhuman::embeddings::EmbeddingProvider>,
+        inner: Box<dyn crate::openhuman::inference::embeddings::EmbeddingProvider>,
         label: &'static str,
     ) -> Self {
         Self { inner, label }
@@ -181,7 +181,7 @@ fn split_into_sub_batches<'a>(texts: &[&'a str]) -> Vec<Vec<&'a str>> {
 /// single transient blip cannot fail — and, in the backfill, *tombstone* —
 /// every row in the batch.
 pub(crate) async fn embed_batch_via_provider(
-    inner: &dyn crate::openhuman::embeddings::EmbeddingProvider,
+    inner: &dyn crate::openhuman::inference::embeddings::EmbeddingProvider,
     label: &str,
     texts: &[&str],
 ) -> Vec<Result<Vec<f32>>> {
@@ -209,7 +209,7 @@ pub(crate) async fn embed_batch_via_provider(
 /// Embed a single sub-batch via the provider, with per-text fallback on
 /// batch failure.
 async fn embed_one_sub_batch(
-    inner: &dyn crate::openhuman::embeddings::EmbeddingProvider,
+    inner: &dyn crate::openhuman::inference::embeddings::EmbeddingProvider,
     label: &str,
     texts: &[&str],
     batch_idx: usize,
@@ -250,7 +250,7 @@ async fn embed_one_sub_batch(
 /// result is interchangeable with the happy-path mapping in
 /// [`embed_batch_via_provider`].
 async fn embed_each_via_provider(
-    inner: &dyn crate::openhuman::embeddings::EmbeddingProvider,
+    inner: &dyn crate::openhuman::inference::embeddings::EmbeddingProvider,
     label: &str,
     texts: &[&str],
 ) -> Vec<Result<Vec<f32>>> {
@@ -440,7 +440,7 @@ mod tests {
 
     // --- batch-embedding (variant B) scaffolding + tests ---
 
-    use crate::openhuman::embeddings::EmbeddingProvider;
+    use crate::openhuman::inference::embeddings::EmbeddingProvider;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
 

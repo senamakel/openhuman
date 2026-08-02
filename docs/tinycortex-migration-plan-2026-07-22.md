@@ -304,7 +304,7 @@ orchestration/product glue; D4 rows CLOSED; no duplicated provider parsing.
 Two host clusters now duplicate `tinyagents::harness::embeddings` (post-#58:
 openai/cohere/voyage/ollama/cloud + rate-limit/retry-after):
 
-1. `src/openhuman/embeddings/` adapters (`openai/voyage/cohere/ollama/
+1. `src/openhuman/inference/embeddings/` adapters (`openai/voyage/cohere/ollama/
    cloud_adapter.rs`, `provider_trait.rs`) → construct crate
    `EmbeddingModel`s directly; host keeps `rpc.rs` (1,479), `schemas.rs`,
    `catalog.rs`, `factory.rs` (config/BYOK selection, #4056 dimension

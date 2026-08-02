@@ -127,7 +127,7 @@ pub async fn update_settings(
     confirm_wipe: bool,
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     use crate::openhuman::config::ops as config_rpc;
-    use crate::openhuman::embeddings::format_embedding_signature;
+    use crate::openhuman::inference::embeddings::format_embedding_signature;
 
     let mut config = config_rpc::load_config_with_timeout().await?;
 

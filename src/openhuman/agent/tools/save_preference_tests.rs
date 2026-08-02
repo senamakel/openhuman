@@ -2,7 +2,7 @@
 
 use super::*;
 
-use crate::openhuman::embeddings::NoopEmbedding;
+use crate::openhuman::inference::embeddings::NoopEmbedding;
 use crate::openhuman::memory_store::UnifiedMemory;
 use crate::openhuman::security::SecurityPolicy;
 use serde_json::json;
@@ -207,7 +207,7 @@ use async_trait::async_trait;
 struct KwEmbedder;
 
 #[async_trait]
-impl crate::openhuman::embeddings::EmbeddingProvider for KwEmbedder {
+impl crate::openhuman::inference::embeddings::EmbeddingProvider for KwEmbedder {
     fn name(&self) -> &str {
         "kw"
     }

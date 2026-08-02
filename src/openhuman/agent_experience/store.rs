@@ -527,7 +527,7 @@ mod tests {
     /// deterministically rather than depending on the wall clock.
     #[tokio::test]
     async fn experience_survives_content_sanitizer_with_luhn_valid_timestamp() {
-        use crate::openhuman::embeddings::NoopEmbedding;
+        use crate::openhuman::inference::embeddings::NoopEmbedding;
         use crate::openhuman::memory::Memory;
         use crate::openhuman::memory_store::UnifiedMemory;
 
@@ -570,7 +570,7 @@ mod tests {
     /// that base64 now shields).
     #[tokio::test]
     async fn secrets_in_free_text_are_redacted_before_storage() {
-        use crate::openhuman::embeddings::NoopEmbedding;
+        use crate::openhuman::inference::embeddings::NoopEmbedding;
         use crate::openhuman::memory::Memory;
         use crate::openhuman::memory_store::UnifiedMemory;
 

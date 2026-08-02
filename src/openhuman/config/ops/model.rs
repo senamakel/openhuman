@@ -288,7 +288,9 @@ pub async fn apply_memory_settings(
         // would otherwise be stored unchecked and 400 "does not exist" on every
         // memory re-embed (2205 events from one user). Conservative check — see
         // `embeddings::non_embedding_model_reason`.
-        if let Some(reason) = crate::openhuman::embeddings::non_embedding_model_reason(&model) {
+        if let Some(reason) =
+            crate::openhuman::inference::embeddings::non_embedding_model_reason(&model)
+        {
             return Err(format!("invalid embeddings model `{model}`: {reason}"));
         }
         config.memory.embedding_model = model;

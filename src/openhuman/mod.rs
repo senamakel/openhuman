@@ -29,7 +29,6 @@ pub mod credentials;
 pub mod cron;
 pub mod desktop;
 pub mod devices;
-pub mod embeddings;
 pub mod encryption;
 pub mod file_state;
 #[cfg(feature = "flows")]
@@ -97,7 +96,6 @@ pub mod threads;
 pub mod tinyagents;
 pub mod tinycortex;
 pub mod tinyplace;
-pub mod tokenjuice;
 pub mod tools;
 pub mod util;
 pub mod voice;

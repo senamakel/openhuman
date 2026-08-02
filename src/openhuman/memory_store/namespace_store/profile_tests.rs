@@ -701,7 +701,7 @@ fn phase3_indexes_idempotent() {
 #[test]
 fn unified_memory_new_applies_phase3_indexes_to_existing_db() {
     use super::super::UnifiedMemory;
-    use crate::openhuman::embeddings::NoopEmbedding;
+    use crate::openhuman::inference::embeddings::NoopEmbedding;
     use rusqlite::Connection;
     use std::sync::Arc;
 

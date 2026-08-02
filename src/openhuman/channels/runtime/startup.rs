@@ -291,8 +291,10 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     )?;
     let temperature = config.default_temperature;
     let local_embedding = config.workload_local_model("embeddings");
-    let embedding_api_key =
-        crate::openhuman::embeddings::resolve_api_key(&config, &config.memory.embedding_provider);
+    let embedding_api_key = crate::openhuman::inference::embeddings::resolve_api_key(
+        &config,
+        &config.memory.embedding_provider,
+    );
     // Build the memory store. A misconfigured/removed embedding provider (e.g. a
     // stale `embedding_provider = "fastembed"` that the factory no longer knows)
     // makes the embedder build fail — but that must NOT take every messaging

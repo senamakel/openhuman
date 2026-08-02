@@ -11,7 +11,7 @@ use openhuman_core::openhuman::agent::progress::AgentProgress;
 use openhuman_core::openhuman::config::AgentConfig;
 use openhuman_core::openhuman::context::prompt::ToolCallFormat;
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
-use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::SpawnSubagentTool;
 use openhuman_core::openhuman::tools::{Tool, ToolResult};
 use parking_lot::Mutex;

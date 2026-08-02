@@ -263,19 +263,19 @@ fn build_ollama_embedder(endpoint: &str, model: &str, timeout_ms: u64) -> Result
         )
         .with_client(client);
     Ok(ProviderEmbedder::new(
-        crate::openhuman::embeddings::TinyAgentsEmbeddingProvider::boxed(model),
+        crate::openhuman::inference::embeddings::TinyAgentsEmbeddingProvider::boxed(model),
         "ollama",
     ))
 }
 
 fn build_cloud_embedder(config: &Config) -> ProviderEmbedder {
     let openhuman_dir = config.config_path.parent().map(std::path::PathBuf::from);
-    let provider = crate::openhuman::embeddings::cloud::OpenHumanCloudEmbedding::new(
+    let provider = crate::openhuman::inference::embeddings::cloud::OpenHumanCloudEmbedding::new(
         None,
         openhuman_dir,
         config.secrets.encrypt,
-        crate::openhuman::embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_MODEL,
-        crate::openhuman::embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
+        crate::openhuman::inference::embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_MODEL,
+        crate::openhuman::inference::embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
     );
     ProviderEmbedder::new(Box::new(provider), "cloud")
 }

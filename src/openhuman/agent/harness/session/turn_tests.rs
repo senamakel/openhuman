@@ -2103,7 +2103,7 @@ fn make_agent_with_memory(
 }
 
 fn make_real_memory(workspace: &std::path::Path) -> Arc<dyn Memory> {
-    use crate::openhuman::embeddings::NoopEmbedding;
+    use crate::openhuman::inference::embeddings::NoopEmbedding;
     use crate::openhuman::memory_store::UnifiedMemory;
     Arc::new(UnifiedMemory::new(workspace, Arc::new(NoopEmbedding), None).unwrap())
 }

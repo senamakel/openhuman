@@ -36,8 +36,8 @@ use crate::openhuman::agent::harness::agent_graph::{
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
-use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::tools::{Tool, ToolSpec};
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 

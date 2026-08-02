@@ -10,7 +10,7 @@
 ## 1. Where the program stands
 
 The kernelization program has two halves. **The dependency half is largely done**; the
-**structural half is underway** — 124 top-level domain directories are down to 92, and both
+**structural half is underway** — 124 top-level domain directories are down to 65, and both
 root-level `*.rs` violations are gone.
 
 ### Done (#4795 epic, then #5314)
@@ -51,12 +51,16 @@ top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` was
 meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
 (`DomainGroup`, `DomainSet`, `StoreInitPlan`, `DomainSubscriberPlan`, `tool_group()`).
 
-**Steps 1–5 landed: 124 → 92 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
+**Steps 1–6 landed: 124 → 65 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
 `util/`, `sandbox/cwd_jail`, `cron/scheduler_gate`, `runtime/`, `media/`, `desktop/`, `hosted/`,
 `subconscious/{triggers,monitors}`, and `mcp/`, and the existing-gate families `voice/audio_toolkit`,
 `web3/{wallet,x402}`, `medulla/chat`, `flows/{tinyflows,rhai}`,
-`channels/{whatsapp_data,webview_accounts}`. The `heartbeat/` re-export shim is deleted. The big three
-(`security/`, `agent/`, `memory/`) are still ahead.
+`channels/{whatsapp_data,webview_accounts}`, and step 6's seven medium families —
+`threads/{goals,todos}`, `tools/{registry,status,timeout,agent_policy}`, the new `platform/`
+(ten host-platform domains), `config/{migrations,migration_helpers,workspace}`,
+`integrations/{composio,recall_calendar,file_storage,task_sources}`,
+`skills/{catalog,runtime,webhooks}`, and `inference/{embeddings,tokenjuice}`. The `heartbeat/`
+re-export shim is deleted. The big three (`security/`, `agent/`, `memory/`) are still ahead.
 
 **That is what this document is about.** The remaining dependency sheds are blocked on it or are
 cross-repo; the structural work is what makes the next twenty gates cheap instead of expensive.
@@ -158,8 +162,8 @@ renames.
 | --- | --- |
 | `memory/` | `memory_store→store`, `memory_sync→sync`, `memory_tree→tree`, `memory_search→search`, `memory_sources→sources`, `memory_queue→queue`, `memory_diff→diff`, `memory_goals→goals`, `memory_conversations→conversations`, `memory_tools→tool_memory`, `tinycortex`, `agent_memory→agent`, `people` |
 | `agent/` | `agent_experience→experience`, `agent_orchestration→orchestration`, `agent_registry→registry`, `agentbox`, `harness_init`, `session_db`, `session_import`, `context`, `profiles`, `learning`, `plan_review`, `file_state`, `artifacts`, `tinyagents` |
-| `inference/` | `embeddings`, `tokenjuice` |
-| `skills/` | `skill_registry→registry`, `skill_runtime→runtime`, `webhooks` |
+| `inference/` | ✅ **landed** — `embeddings`, `tokenjuice`; parent stays ungated (kernel). NB the `inference` Cargo feature gates only `local/service/whisper_engine` + the cpal probe, *not* this directory |
+| `skills/` | ✅ **landed** — `skill_registry→catalog` (not `registry` — `skills/registry.rs` and the stub's inner `pub mod registry` both already own that name), `skill_runtime→runtime`, `webhooks`; parent stays ungated (three facades, two with `stub.rs`), and `webhooks` is a permanently-ungated child |
 | `flows/` | ✅ **landed** — `tinyflows`, `rhai_workflows→rhai`; parent is leaf-gated on `flows` (no stub — every external site is a registration site) |
 | `mcp/` *(new)* | ✅ **landed** — `mcp_server→server`, `mcp_registry→registry`, `mcp_audit→audit`, `mcp_client::{registry,stdio,spawn_env,setup_agent}→config_servers` *(leaf-gated)*, `mcp_client::{client,client_helpers}→http_client` *(ungated carve-out)*, `mcp_client::sanitize→util/sanitize`; parent stays ungated (three facades with `stub.rs` + the always-compiled `http_client`) |
 | `channels/` | ✅ **landed** — `whatsapp_data`, `webview_accounts`; parent stays ungated (the `traits`/`cli` carve-outs), gate pushed onto each child |
@@ -169,7 +173,7 @@ renames.
 | `media/` *(new)* | ✅ **landed** — `media_generation→generation`, `image`; parent is leaf-gated on `media` since both children were wholly gated |
 | `medulla/` | ✅ **landed** — `medulla_chat→chat`; parent stays ungated (facade + `contract`/`events` type carve-out), gate pushed onto the child |
 | `runtime/` *(new)* | ✅ **landed** — `runtime_node→node`, `runtime_python→python`, `runtime_python_server→python_server`, `runtime_pool→pool`, `javascript` |
-| `integrations/` | `composio`, `recall_calendar`, `file_storage`, `task_sources` |
+| `integrations/` | ✅ **landed** — `composio`, `recall_calendar`, `file_storage`, `task_sources` (a move into an already-populated parent) |
 | `hosted/` *(new)* | ✅ **landed** — `billing`, `referral`, `announcements`, `team`, `orchestration` |
 | `desktop/` *(new)* | ✅ **landed** — `accessibility`, `overlay`, `dashboard`, `provider_surfaces`, `notifications`, `app_state` |
 | `subconscious/` | ✅ **landed** — `subconscious_triggers→triggers`, `monitor→monitors`, `heartbeat/` shim deleted |
@@ -179,11 +183,11 @@ renames.
 
 | Family | Absorbs |
 | --- | --- |
-| `config/` | `migrations`, `migration→migration_helpers`, `workspace` |
+| `config/` | ✅ **landed** — `migrations`, `migration→migration_helpers`, `workspace`; the two migration dirs stay distinct per rule 7 |
 | `security/` | `approval`, `credentials`, `keyring`, `keyring_consent`, `encryption`, `prompt_injection`, `devices` |
-| `tools/` | `tool_registry→registry`, `tool_status→status`, `tool_timeout→timeout`, `agent_tool_policy→agent_policy` |
-| `platform/` *(new)* | `service`, `startup`, `update`, `doctor`, `health`, `proc_metrics`, `connectivity`, `about_app`, `cost`, `socket` |
-| `threads/` | `thread_goals→goals`, `todos` |
+| `tools/` | ✅ **landed** — `tool_registry→registry`, `tool_status→status`, `tool_timeout→timeout`, `agent_tool_policy→agent_policy` |
+| `platform/` *(new)* | ✅ **landed** — `service`, `startup`, `update`, `doctor`, `health`, `proc_metrics`, `connectivity`, `about_app`, `cost`, `socket` |
+| `threads/` | ✅ **landed** — `thread_goals→goals`, `todos` |
 | `cron/` | ✅ **landed** — `scheduler_gate` |
 | `sandbox/` | ✅ **landed** — `cwd_jail` |
 | `util/` *(new)* | ✅ **landed** — `util.rs` split into `util/{mod,text,retry,types}.rs`, `tls→util/tls`, `dev_paths.rs` deleted, `mcp_client::sanitize→util/sanitize` (landed with the `mcp/` move) |
@@ -229,7 +233,7 @@ goes to `platform/`.
    `stub.rs` survives relocation.
 5. ✅ `mcp/` — the only family with a genuine *split*. `mcp_client` divided three ways:
    `config_servers` (leaf-gated), `http_client` (ungated carve-out), `sanitize` → `util/`.
-6. `threads/`, `tools/`, `platform/`, `config/`, `integrations/`, `skills/`, `inference/`.
+6. ✅ `threads/`, `tools/`, `platform/`, `config/`, `integrations/`, `skills/`, `inference/` — seven independent families, one commit each.
 7. `security/`.
 8. `agent/`.
 9. `memory/` — **last**, deliberately: it is [`kernel.md`](kernel.md) §5's pilot subsystem, so its

@@ -203,7 +203,7 @@ fn definition_visible_tool_permissions(
                 ToolScope::Named(names) => {
                     names.iter().any(|allowed| allowed == name)
                         || definition.extra_tools.iter().any(|extra| extra == name)
-                        || (crate::openhuman::tokenjuice::is_recovery_tool(name)
+                        || (crate::openhuman::inference::tokenjuice::is_recovery_tool(name)
                             && !names.is_empty())
                 }
             };

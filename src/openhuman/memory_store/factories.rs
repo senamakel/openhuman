@@ -16,7 +16,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::openhuman::config::{EmbeddingRouteConfig, MemoryConfig, StorageProviderConfig};
-use crate::openhuman::embeddings::{
+use crate::openhuman::inference::embeddings::{
     self, format_embedding_signature, EmbeddingProvider, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
     DEFAULT_CLOUD_EMBEDDING_MODEL, DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL,
 };
@@ -318,7 +318,7 @@ pub fn create_memory(
 ///
 /// `embedding_api_key` is the user's stored credential for the selected BYO
 /// embedding provider, resolved by the caller via
-/// [`crate::openhuman::embeddings::resolve_api_key`] (empty string when none is
+/// [`crate::openhuman::inference::embeddings::resolve_api_key`] (empty string when none is
 /// configured). It is threaded into the keyed providers (cohere/openai/voyage/
 /// custom) so they authenticate instead of sending an empty bearer; cloud /
 /// managed / ollama / none ignore it.
@@ -634,7 +634,7 @@ mod tests {
         assert_eq!(model, "nomic-embed-text:latest");
         assert_eq!(
             dims,
-            crate::openhuman::embeddings::DEFAULT_OLLAMA_DIMENSIONS,
+            crate::openhuman::inference::embeddings::DEFAULT_OLLAMA_DIMENSIONS,
             "dimensions must default to Ollama default"
         );
     }
@@ -648,12 +648,12 @@ mod tests {
         assert_eq!(provider, "ollama");
         assert_eq!(
             model,
-            crate::openhuman::embeddings::DEFAULT_OLLAMA_MODEL,
+            crate::openhuman::inference::embeddings::DEFAULT_OLLAMA_MODEL,
             "empty model ID must fall back to default Ollama model"
         );
         assert_eq!(
             dims,
-            crate::openhuman::embeddings::DEFAULT_OLLAMA_DIMENSIONS
+            crate::openhuman::inference::embeddings::DEFAULT_OLLAMA_DIMENSIONS
         );
     }
 
@@ -737,7 +737,7 @@ mod tests {
     /// the legacy `local_ai.usage.embeddings = true` flag was set. Used so
     /// the existing test scenarios continue to drive the local code path.
     fn local_embedding_for_test() -> &'static str {
-        crate::openhuman::embeddings::DEFAULT_OLLAMA_MODEL
+        crate::openhuman::inference::embeddings::DEFAULT_OLLAMA_MODEL
     }
 
     #[tokio::test]

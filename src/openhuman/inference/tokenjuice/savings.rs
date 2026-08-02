@@ -17,7 +17,7 @@ use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::tokenjuice::types::{CompressorKind, ContentKind};
+use crate::openhuman::inference::tokenjuice::types::{CompressorKind, ContentKind};
 
 /// Per-key (model / compressor) rolled-up savings.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -127,7 +127,7 @@ fn resolve_attribution_model(default: &str) -> String {
 }
 
 /// Install the attribution model and snapshot location, loading any prior
-/// snapshot. Called once at startup from [`crate::openhuman::tokenjuice::install_config`].
+/// snapshot. Called once at startup from [`crate::openhuman::inference::tokenjuice::install_config`].
 pub fn configure(attribution_model: String, workspace_dir: &std::path::Path) {
     let path = workspace_dir.join("state").join("tokenjuice_savings.json");
     let loaded = std::fs::read_to_string(&path)

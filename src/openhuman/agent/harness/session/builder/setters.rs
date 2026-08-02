@@ -54,7 +54,8 @@ impl AgentBuilder {
             omit_memory_md: None,
             payload_summarizer: None,
             trigger_memory_agent: None,
-            tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Full,
+            tokenjuice_compression:
+                crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Full,
             tool_policy: None,
             archivist_hook: None,
         }
@@ -423,7 +424,7 @@ impl AgentBuilder {
     /// Set the per-agent TokenJuice tool-output compression profile.
     pub fn tokenjuice_compression(
         mut self,
-        profile: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
+        profile: crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression,
     ) -> Self {
         self.tokenjuice_compression = profile;
         self

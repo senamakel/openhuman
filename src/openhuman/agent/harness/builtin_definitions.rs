@@ -75,7 +75,8 @@ pub(crate) fn test_main_def() -> AgentDefinition {
         sandbox_mode: SandboxMode::None,
         background: false,
         trigger_memory_agent: Default::default(),
-        tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Auto,
+        tokenjuice_compression:
+            crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Auto,
         subagents: vec![
             SubagentEntry::AgentId("__test_inherit_echo".into()),
             SubagentEntry::AgentId("__test_inherit_parallel_worker".into()),
@@ -122,7 +123,8 @@ pub(crate) fn test_inherit_echo_def() -> AgentDefinition {
         sandbox_mode: SandboxMode::None,
         background: false,
         trigger_memory_agent: Default::default(),
-        tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Auto,
+        tokenjuice_compression:
+            crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Auto,
         subagents: vec![],
         delegate_name: None,
         agent_tier: crate::openhuman::agent::harness::definition::AgentTier::Worker,
@@ -162,7 +164,8 @@ pub(crate) fn test_inherit_parallel_worker_def() -> AgentDefinition {
         sandbox_mode: SandboxMode::None,
         background: false,
         trigger_memory_agent: Default::default(),
-        tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Auto,
+        tokenjuice_compression:
+            crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Auto,
         subagents: vec![],
         delegate_name: None,
         agent_tier: crate::openhuman::agent::harness::definition::AgentTier::Worker,

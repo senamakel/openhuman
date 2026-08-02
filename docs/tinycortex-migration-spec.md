@@ -113,7 +113,7 @@ activation is now in place: `[dependencies] tinycortex = "0.1"` is active in the
   credentials/OAuth (keychain `composio-direct`), event-bus bridges via a new **`SyncEventSink`**
   seam trait, RPC wrappers (`memory/{ops,schemas}/sync.rs`, `memory_sources/rpc.rs`), and the
   UnifiedMemory writeback via a new **`SkillDocSink`** seam trait. MCP transport stays host.
-- **Process glue:** `memory/global.rs` singleton + queue worker; `memory/source_scope.rs` task-locals; `memory/chat.rs`; embeddings provider wiring. *(Amended, plan §8 / W-EMB: the provider **implementations** in `src/openhuman/embeddings/` migrate upstream into `tinyagents::harness::embeddings` — trait gains `name`/`model_id`/`signature` byte-pinned to `provider={name};model={model};dims={dims}` (P10) — and tinycortex bridges `EmbeddingBackend` to that trait; the host keeps factory/config/RPC wiring only.)*
+- **Process glue:** `memory/global.rs` singleton + queue worker; `memory/source_scope.rs` task-locals; `memory/chat.rs`; embeddings provider wiring. *(Amended, plan §8 / W-EMB: the provider **implementations** in `src/openhuman/inference/embeddings/` migrate upstream into `tinyagents::harness::embeddings` — trait gains `name`/`model_id`/`signature` byte-pinned to `provider={name};model={model};dims={dims}` (P10) — and tinycortex bridges `EmbeddingBackend` to that trait; the host keeps factory/config/RPC wiring only.)*
 - **Policy/UX:** `preferences.rs`, `remember.rs`, `tree_policy.rs`, `util/redact.rs`, config mapping.
 - **Host-retained `UnifiedMemory` namespace-document tier** (0.3 key finding) — the 10 tables that
   coexist in the shared DB but **do not move**: `memory_docs`, `graph_global`, `graph_namespace`,
@@ -168,7 +168,7 @@ audit SHA.
 | `memory_archivist/` | 6 (0) | W7 | `TreeLeafSink` seam wired |
 | `memory_sources/` | 16 (0) | W7 / W-SYNC | registry + local readers move (W7); `sync.rs` dispatcher + `reconcile.rs` move in W-SYNC; `rpc.rs` kept host |
 | `memory_sync/` (engine) | — | **W-SYNC.3** | drift **D4** closed; W6 landed (crate ingest live); mocked + live Composio test pair green; sync-status parity green; schedulers/bus/RPC/keychain kept host |
-| `src/openhuman/embeddings/` (provider impls) | — | **W-EMB.3** | tinyagents provider port merged; signature parity (P10) green; `factory.rs`(thin)/`rpc.rs`/`schemas.rs`/catalog kept host |
+| `src/openhuman/inference/embeddings/` (provider impls) | — | **W-EMB.3** | tinyagents provider port merged; signature parity (P10) green; `factory.rs`(thin)/`rpc.rs`/`schemas.rs`/catalog kept host |
 | `memory_tools/` | 10 (1) | W7 | engine → `tool_memory/`; tool surface kept host |
 | `memory_search/` | 8 (0) | W5 | `vector`/`scoring` → crate `retrieval`/`score`; `tools/` kept host |
 | `memory/ingest_pipeline.rs` internals | (thin entry points kept) | W6 | `ingest_chat`/`ingest_document_with_scope` signatures unchanged; 11 call sites untouched |

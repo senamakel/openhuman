@@ -69,7 +69,7 @@ pub struct AgentTurnRequest {
     /// (`definition.effective_tokenjuice_compression()`), threaded into the
     /// sub-agent `TurnContextMiddleware` so tool outputs compact like the chat
     /// path instead of taking a blunt byte-cap truncation (#4466).
-    pub tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
+    pub tokenjuice_compression: crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression,
 }
 
 /// Token/cost totals a custom runner reports back. Mirrors the runner's internal

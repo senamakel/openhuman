@@ -5,7 +5,7 @@ use super::super::context::{
 use super::super::runtime::process_channel_message;
 use super::super::{traits, Channel};
 use super::common::{HistoryCaptureModel, NoopMemory, RecordingChannel};
-use crate::openhuman::embeddings::NoopEmbedding;
+use crate::openhuman::inference::embeddings::NoopEmbedding;
 use crate::openhuman::inference::provider;
 use crate::openhuman::memory::{Memory, MemoryCategory};
 use crate::openhuman::memory_store::UnifiedMemory;

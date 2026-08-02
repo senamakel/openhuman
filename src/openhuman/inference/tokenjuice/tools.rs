@@ -2,7 +2,7 @@
 //!
 //! The content router may replace a large tool result with a compacted view and
 //! a `⟦tj:<hash>⟧` marker, stashing the original in the CCR store
-//! ([`crate::openhuman::tokenjuice::cache::store`]). This tool hands the
+//! ([`crate::openhuman::inference::tokenjuice::cache::store`]). This tool hands the
 //! original back on demand — fully or by a byte/line range — so even lossy
 //! compaction stays reversible.
 //!
@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use crate::openhuman::tokenjuice::cache::{self, store::RangeUnit};
+use crate::openhuman::inference::tokenjuice::cache::{self, store::RangeUnit};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 pub struct TokenjuiceRetrieveTool;
@@ -127,7 +127,7 @@ fn miss_message(token: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tokenjuice::cache::store;
+    use crate::openhuman::inference::tokenjuice::cache::store;
 
     #[tokio::test]
     async fn retrieves_offloaded_original() {

@@ -23,7 +23,7 @@ use async_trait::async_trait;
 use tinycortex::memory::score::embed::Embedder;
 use tinycortex::memory::store::vectors::EmbeddingBackend;
 
-use crate::openhuman::embeddings::EmbeddingProvider;
+use crate::openhuman::inference::embeddings::EmbeddingProvider;
 
 /// Wraps an OpenHuman [`EmbeddingProvider`] as the crate's [`EmbeddingBackend`]
 /// (vector store) and [`Embedder`] (retrieval / seal scoring).

@@ -13,7 +13,7 @@ use serde_json::{json, Map, Value};
 use tempfile::TempDir;
 
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::embeddings::NoopEmbedding;
+use openhuman_core::openhuman::inference::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::{
     ExtractionMode, MemoryIngestionConfig, MemoryIngestionRequest,
 };

@@ -17,7 +17,7 @@ use std::sync::{OnceLock, RwLock};
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::tokenjuice::types::CompressOptions;
+use crate::openhuman::inference::tokenjuice::types::CompressOptions;
 
 /// Global config snapshot the Kompress backend runs against. Held behind a
 /// `RwLock` (not a `OnceLock`) so a live settings update — e.g. toggling

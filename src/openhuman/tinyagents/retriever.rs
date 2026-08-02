@@ -49,7 +49,7 @@ use tinyagents::harness::embeddings::{
 use tinyagents::harness::events::{AgentEvent, EventSink};
 
 use super::ProviderEmbeddingModel;
-use crate::openhuman::embeddings::EmbeddingProvider;
+use crate::openhuman::inference::embeddings::EmbeddingProvider;
 use crate::openhuman::memory::{Memory, MemoryEntry, RecallOpts};
 
 /// Process-global [`EventSink`] the facade emits [`AgentEvent::MemoryLoaded`]

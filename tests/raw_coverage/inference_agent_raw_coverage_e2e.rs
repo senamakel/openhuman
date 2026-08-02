@@ -170,7 +170,7 @@ use openhuman_core::openhuman::profiles::{
 use openhuman_core::openhuman::security::SecurityPolicy;
 use openhuman_core::openhuman::tinyagents::thread_context::{current_thread_id, with_thread_id};
 use openhuman_core::openhuman::threads::todos::ops::BoardLocation;
-use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::{Tool, ToolResult, ToolSpec};
 use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 

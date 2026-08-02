@@ -2023,7 +2023,7 @@ fn register_domain_subscribers(
         // toggles + CCR cache limits + optional on-disk tier). Compaction runs on
         // every agent's tool output, so this must be set before any agent loop
         // executes a tool.
-        crate::openhuman::tokenjuice::install_from_config(&config);
+        crate::openhuman::inference::tokenjuice::install_from_config(&config);
 
         // Seed the scheduler-gate signed-out override from the on-disk session.
         // Without this, a sidecar that boots with no stored JWT would happily

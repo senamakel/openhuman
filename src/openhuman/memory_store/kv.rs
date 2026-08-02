@@ -110,7 +110,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use crate::openhuman::embeddings::NoopEmbedding;
+    use crate::openhuman::inference::embeddings::NoopEmbedding;
 
     fn test_memory() -> (TempDir, UnifiedMemory) {
         let tmp = TempDir::new().unwrap();

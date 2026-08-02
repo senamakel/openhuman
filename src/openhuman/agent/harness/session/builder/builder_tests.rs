@@ -16,7 +16,7 @@ fn spec(name: &str) -> ToolSpec {
 
 #[test]
 fn recovery_tool_joins_a_named_allowlist() {
-    use crate::openhuman::tokenjuice::RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
+    use crate::openhuman::inference::tokenjuice::RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
     use std::collections::HashSet;
 
     // A curated Named-scope allowlist gains retrieve_tool_output as a *real*
@@ -573,7 +573,7 @@ async fn from_config_for_agent_synthesizes_custom_registry_entry_with_named_scop
     use crate::openhuman::agent_registry::types::{
         AgentRegistryEntry, AgentRegistrySource, AgentSubagentPolicy,
     };
-    use crate::openhuman::tokenjuice::RETRIEVE_TOOL_NAME;
+    use crate::openhuman::inference::tokenjuice::RETRIEVE_TOOL_NAME;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let mut config = test_config(&tmp);

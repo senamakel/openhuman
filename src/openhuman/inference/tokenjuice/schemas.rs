@@ -321,7 +321,7 @@ fn handle_settings_update(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("save config: {e}"))?;
 
         // Re-install so router flags / CCR limits / threshold take effect live.
-        crate::openhuman::tokenjuice::install_from_config(&config);
+        crate::openhuman::inference::tokenjuice::install_from_config(&config);
 
         let settings = serde_json::to_value(&config.tokenjuice)
             .map_err(|e| format!("serialize tokenjuice settings: {e}"))?;

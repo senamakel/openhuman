@@ -250,7 +250,7 @@ impl Agent {
         )?;
 
         let local_embedding = config.workload_local_model("embeddings");
-        let embedding_api_key = crate::openhuman::embeddings::resolve_api_key(
+        let embedding_api_key = crate::openhuman::inference::embeddings::resolve_api_key(
             config,
             &config.memory.embedding_provider,
         );
@@ -1096,7 +1096,7 @@ impl Agent {
             .unwrap_or_default();
         let effective_tokenjuice_compression = target_def
             .map(|def| def.effective_tokenjuice_compression())
-            .unwrap_or(crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Full);
+            .unwrap_or(crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Full);
 
         // Stamp the resolved agent definition id onto the Agent via the
         // builder. Without this call, `agent_definition_name` falls

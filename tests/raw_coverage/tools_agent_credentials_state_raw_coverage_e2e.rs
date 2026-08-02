@@ -38,7 +38,7 @@ use openhuman_core::openhuman::credentials::{
 };
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
 use openhuman_core::openhuman::security::{AuditLogger, SecurityPolicy};
-use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::{
     all_tools, BrowserTool, ComputerUseConfig, SpawnSubagentTool, Tool, ToolResult,
 };

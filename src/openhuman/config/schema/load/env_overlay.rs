@@ -50,7 +50,7 @@ impl Config {
 
         set_runtime_proxy_config(self.proxy.clone());
 
-        crate::openhuman::embeddings::rate_limit::set_embedding_rate_limit(
+        crate::openhuman::inference::embeddings::rate_limit::set_embedding_rate_limit(
             self.memory.embedding_rate_limit_per_min,
         );
     }

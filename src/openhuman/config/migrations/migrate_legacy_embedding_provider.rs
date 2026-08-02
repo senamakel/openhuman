@@ -5,7 +5,7 @@
 //! Older builds shipped a local `"fastembed"` embedding provider (BGE models,
 //! 384 dims). It has since been removed from the binary entirely — it is not a
 //! cargo feature, it simply no longer exists in
-//! [`crate::openhuman::embeddings::factory::create_embedding_provider`], which
+//! [`crate::openhuman::inference::embeddings::factory::create_embedding_provider`], which
 //! hard-errors on any unknown provider string.
 //!
 //! Users who selected (or defaulted to) `"fastembed"` on an older build keep
@@ -52,7 +52,7 @@
 //! - Never touches keys/secrets or any other config field.
 
 use crate::openhuman::config::Config;
-use crate::openhuman::embeddings::{
+use crate::openhuman::inference::embeddings::{
     DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL, DEFAULT_OLLAMA_DIMENSIONS,
     DEFAULT_OLLAMA_MODEL,
 };

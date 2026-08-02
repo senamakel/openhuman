@@ -85,7 +85,7 @@ use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::openhuman::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
-use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::registry::ops::diagnostics_for_config;
 use openhuman_core::openhuman::tools::registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,

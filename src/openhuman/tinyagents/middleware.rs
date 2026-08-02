@@ -52,8 +52,8 @@ use crate::openhuman::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
 };
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
+use crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer;
-use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::tools::Tool;
 
 use super::policy_denial::PolicyDenial;
@@ -878,7 +878,7 @@ impl Middleware<()> for ToolOutputMiddleware {
             //    `agent_tool_exec` stage that ran after semantic summarization and
             //    before the hard output caps.
             let before_tokenjuice_bytes = result.content.len();
-            let compacted = crate::openhuman::tokenjuice::compact_output_with_policy(
+            let compacted = crate::openhuman::inference::tokenjuice::compact_output_with_policy(
                 std::mem::take(&mut result.content),
                 &result.name,
                 self.tokenjuice_compaction_enabled,

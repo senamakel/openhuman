@@ -498,7 +498,7 @@ mod tests {
     use crate::openhuman::agent::harness::definition::{
         ModelSpec, SandboxMode, SubagentEntry, ToolScope, TriggerMemoryAgent,
     };
-    use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
+    use crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 
     #[test]
     fn all_builtins_parse() {

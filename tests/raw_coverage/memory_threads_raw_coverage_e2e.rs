@@ -20,7 +20,7 @@ use tempfile::TempDir;
 use openhuman_core::openhuman::agent::progress::AgentProgress;
 use openhuman_core::openhuman::agent::task_board::{TaskBoard, TaskBoardCard, TaskCardStatus};
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::embeddings::NoopEmbedding;
+use openhuman_core::openhuman::inference::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::query::{
     MemoryQueryTool, MemoryTreeDrillDownTool, MemoryTreeFetchLeavesTool,
     MemoryTreeIngestDocumentTool, MemoryTreeQuerySourceTool, MemoryTreeSearchEntitiesTool,

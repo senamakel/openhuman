@@ -16,25 +16,16 @@ use anyhow::Context;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tinyagents::graph::SqliteCheckpointer;
-use tinyagents::harness::model::ModelRequest;
 use tinyflows::caps::{Capabilities, ToolInvoker, WorkflowResolver};
 use tinyflows::error::{EngineError, Result};
 use tinyflows::model::WorkflowGraph;
 
-use crate::openhuman::agent::harness::definition::SandboxMode;
-use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::config::{Config, HttpRequestConfig};
 use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;
-use crate::openhuman::inference::provider::{
-    create_chat_model_with_model_id, is_raw_passthrough_model, role_for_model_tier, UsageInfo,
-};
-use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
 use crate::openhuman::security::{
     CommandClass, GateDecision, SecurityPolicy, POLICY_BLOCKED_MARKER,
 };
-use crate::openhuman::tools::traits::Tool as _;
-use crate::openhuman::tools::HttpRequestTool;
 
 // The JSON Schema walkers moved to `openhuman::json_schema`, a domain owned by
 // neither this seam nor `composio` — see that module's docs for why neutral

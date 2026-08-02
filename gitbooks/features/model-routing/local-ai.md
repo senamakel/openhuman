@@ -17,7 +17,7 @@ This is deliberate scoping. The previous design tried to put every modality on-d
 | ------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | **Memory embeddings**     | `bge-m3`                          | `src/openhuman/embeddings/ollama.rs` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search.    |
 | **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `src/openhuman/tree_summarizer/ops.rs` - source / topic / global summary builders for the Memory Tree.                  |
-| **Heartbeat loop**        | small chat model                  | `src/openhuman/heartbeat/` - periodic background reflection.                                                            |
+| **Heartbeat loop**        | small chat model                  | `src/openhuman/subconscious/heartbeat/` - periodic background reflection.                                                            |
 | **Learning / reflection** | small chat model                  | `src/openhuman/learning/reflection.rs` - passes that consolidate what was learned.                                      |
 | **Subconscious**          | small chat model                  | `src/openhuman/subconscious/executor.rs` - background evaluation loop.                                                  |
 | **Chat**                  | configured local chat model       | `Config::workload_local_model("chat")` reads `chat_provider`; `src/openhuman/routing/provider.rs` handles hint routing. |

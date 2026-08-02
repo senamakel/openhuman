@@ -13,7 +13,7 @@
 //! same `<kind>:<value>` namespace as the indexed chunk entities. No id
 //! mismatch, no bespoke join.
 
-pub use crate::openhuman::runtime_python_server::{
+pub use crate::openhuman::runtime::python_server::{
     ensure_spacy, spacy_provisioned, SpacyResponse, SPACY_MODEL,
 };
 
@@ -50,7 +50,7 @@ pub async fn extract_query_entities(config: &Config, query: &str) -> Vec<Canonic
     }
 
     if config.memory_tree.spacy_enabled {
-        match crate::openhuman::runtime_python_server::extract_spacy(config, trimmed).await {
+        match crate::openhuman::runtime::python_server::extract_spacy(config, trimmed).await {
             Ok(resp) => {
                 let extracted = spacy_to_extracted(&resp);
                 let canon = canonicalise(&extracted);
@@ -169,7 +169,7 @@ mod tests {
     fn spacy_response_maps_nouns_to_topics() {
         let resp = SpacyResponse {
             entities: vec![
-                crate::openhuman::runtime_python_server::spacy::SpacyEntity {
+                crate::openhuman::runtime::python_server::spacy::SpacyEntity {
                     text: "Alice".into(),
                     label: "PERSON".into(),
                     start: 0,

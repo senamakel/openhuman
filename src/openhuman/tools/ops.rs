@@ -2,9 +2,9 @@ use super::*;
 
 use crate::openhuman::agent::host_runtime::{NativeRuntime, RuntimeAdapter};
 use crate::openhuman::config::{Config, DelegateAgentConfig};
-use crate::openhuman::javascript::NodeBootstrap;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::runtime_python::PythonBootstrap;
+use crate::openhuman::runtime::javascript::NodeBootstrap;
+use crate::openhuman::runtime::python::PythonBootstrap;
 use crate::openhuman::security::{AuditLogger, SecurityPolicy};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -274,13 +274,19 @@ pub fn all_tools_with_runtime(
         Box::new(InstallToolTool::new(security.clone())),
         // Orchestration session-history read tools — browse persisted
         // OpenHuman↔agent transcripts. Read-only; workspace-internal store access.
-        Box::new(crate::openhuman::orchestration::tools::ListSessionsTool::new(config.clone())),
-        Box::new(crate::openhuman::orchestration::tools::ReadSessionTool::new(config.clone())),
+        Box::new(
+            crate::openhuman::hosted::orchestration::tools::ListSessionsTool::new(config.clone()),
+        ),
+        Box::new(
+            crate::openhuman::hosted::orchestration::tools::ReadSessionTool::new(config.clone()),
+        ),
         // List the agent's tiny.place contacts (browse-loop entry point).
-        Box::new(crate::openhuman::orchestration::tools::ListContactsTool),
+        Box::new(crate::openhuman::hosted::orchestration::tools::ListContactsTool),
         // Send-on-behalf: DM another agent for the user. Linked-peers-only,
         // reuse-or-mint per-peer session id; Write-class external effect.
-        Box::new(crate::openhuman::orchestration::tools::SendToAgentTool::new(config.clone())),
+        Box::new(
+            crate::openhuman::hosted::orchestration::tools::SendToAgentTool::new(config.clone()),
+        ),
         Box::new(CronAddTool::new(config.clone(), security.clone())),
         Box::new(CronListTool::new(config.clone())),
         Box::new(CronRemoveTool::new(config.clone())),
@@ -1001,7 +1007,7 @@ pub fn all_tools_with_runtime(
     // Gated by the `media` compile-time feature (#4804); absent from slim
     // builds. Runtime `DomainSet::media` (#4796) still gates it when compiled.
     #[cfg(feature = "media")]
-    tools.extend(crate::openhuman::media_generation::build_media_tools(
+    tools.extend(crate::openhuman::media::generation::build_media_tools(
         root_config,
         action_dir,
     ));

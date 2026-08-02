@@ -68,7 +68,7 @@ pub(super) fn handle_sio_event(
             emit_via_channel(
                 emit_tx,
                 "orch:register_tools",
-                crate::openhuman::orchestration::effect_executor::device_tool_manifest(),
+                crate::openhuman::hosted::orchestration::effect_executor::device_tool_manifest(),
             );
             // Advertise this core's agent roster to the backend so a medulla
             // operator can delegate `medulla:task_run` to a named agent. The
@@ -93,7 +93,8 @@ pub(super) fn handle_sio_event(
             let tx = emit_tx.clone();
             tokio::spawn(async move {
                 if let Some((call_id, ack)) =
-                    crate::openhuman::orchestration::effect_executor::handle_send_dm(&data).await
+                    crate::openhuman::hosted::orchestration::effect_executor::handle_send_dm(&data)
+                        .await
                 {
                     log::debug!("[socket] orch:effect:send_dm acked call_id={call_id}");
                     emit_via_channel(&tx, "orch:effect:result", ack);
@@ -106,7 +107,10 @@ pub(super) fn handle_sio_event(
             let tx = emit_tx.clone();
             tokio::spawn(async move {
                 if let Some((call_id, result)) =
-                    crate::openhuman::orchestration::effect_executor::handle_tool_call(&data).await
+                    crate::openhuman::hosted::orchestration::effect_executor::handle_tool_call(
+                        &data,
+                    )
+                    .await
                 {
                     log::debug!("[socket] orch:tool_call result call_id={call_id}");
                     emit_via_channel(&tx, "orch:tool_result", result);
@@ -121,7 +125,8 @@ pub(super) fn handle_sio_event(
             let tx = emit_tx.clone();
             tokio::spawn(async move {
                 if let Some((call_id, ack)) =
-                    crate::openhuman::orchestration::effect_executor::handle_evict(&data).await
+                    crate::openhuman::hosted::orchestration::effect_executor::handle_evict(&data)
+                        .await
                 {
                     log::debug!("[socket] orch:effect:evict acked call_id={call_id}");
                     emit_via_channel(&tx, "orch:effect:result", ack);

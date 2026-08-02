@@ -1161,7 +1161,7 @@ async fn run_typed_mode(
         include_profile: !definition.omit_profile,
         include_memory_md: !definition.omit_memory_md,
         curated_snapshot: None,
-        user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
+        user_identity: crate::openhuman::desktop::app_state::peek_cached_current_user_identity(),
         personality_soul_md: None,
         personality_memory_md: None,
         personality_roster: vec![],

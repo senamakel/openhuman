@@ -16,13 +16,12 @@ pub use crate::openhuman::agent_orchestration::tools::*;
 pub use crate::openhuman::artifacts::tools::*;
 #[cfg(feature = "voice")]
 pub use crate::openhuman::audio_toolkit::tools::*;
-pub use crate::openhuman::billing::tools::*;
 pub use crate::openhuman::composio::tools::*;
 pub use crate::openhuman::config::tools::*;
 pub use crate::openhuman::cost::tools::*;
 pub use crate::openhuman::credentials::tools::*;
 pub use crate::openhuman::cron::tools::*;
-pub use crate::openhuman::dashboard::tools::*;
+pub use crate::openhuman::desktop::dashboard::tools::*;
 pub use crate::openhuman::doctor::tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::builder_tools::*;
@@ -33,6 +32,10 @@ pub use crate::openhuman::flows::memory_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::tools::*;
 pub use crate::openhuman::health::tools::*;
+pub use crate::openhuman::hosted::billing::tools::*;
+pub use crate::openhuman::hosted::orchestration::tools::*;
+pub use crate::openhuman::hosted::referral::tools::*;
+pub use crate::openhuman::hosted::team::tools::*;
 pub use crate::openhuman::integrations::tools::*;
 pub use crate::openhuman::learning::tools::*;
 #[cfg(feature = "mcp")]
@@ -41,10 +44,7 @@ pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::memory_diff::tools::*;
 pub use crate::openhuman::memory_goals::tools::*;
 pub use crate::openhuman::memory_search::*;
-pub use crate::openhuman::monitor::tools::*;
-pub use crate::openhuman::orchestration::tools::*;
 pub use crate::openhuman::people::tools::*;
-pub use crate::openhuman::referral::tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::rhai_workflows::tools::*;
 pub use crate::openhuman::search::tools::*;
@@ -56,8 +56,8 @@ pub use crate::openhuman::skill_registry::tools::*;
 pub use crate::openhuman::skill_runtime::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::openhuman::skills::tools::*;
+pub use crate::openhuman::subconscious::monitors::tools::*;
 pub use crate::openhuman::task_sources::tools::*;
-pub use crate::openhuman::team::tools::*;
 pub use crate::openhuman::threads::tools::*;
 pub use crate::openhuman::tinyplace::tools::*;
 pub use crate::openhuman::todos::tools::*;

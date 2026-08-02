@@ -241,7 +241,8 @@ async fn push_cron_alert_deduplicates_repeated_morning_briefing_failures() {
     push_cron_alert(&config, &job, AGENT_JOB_USER_FAILURE_MESSAGE);
 
     let items =
-        crate::openhuman::notifications::store::list(&config, 10, 0, Some("cron"), None).unwrap();
+        crate::openhuman::desktop::notifications::store::list(&config, 10, 0, Some("cron"), None)
+            .unwrap();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].body, MORNING_BRIEFING_FAILURE_NOTIFICATION);
 }
@@ -267,7 +268,8 @@ async fn deliver_if_configured_alerts_no_delivery_failure() {
         .unwrap();
 
     let items =
-        crate::openhuman::notifications::store::list(&config, 10, 0, Some("cron"), None).unwrap();
+        crate::openhuman::desktop::notifications::store::list(&config, 10, 0, Some("cron"), None)
+            .unwrap();
     assert_eq!(
         items.len(),
         1,
@@ -294,7 +296,8 @@ async fn deliver_if_configured_does_not_alert_successful_empty_no_delivery() {
         .unwrap();
 
     let items =
-        crate::openhuman::notifications::store::list(&config, 10, 0, Some("cron"), None).unwrap();
+        crate::openhuman::desktop::notifications::store::list(&config, 10, 0, Some("cron"), None)
+            .unwrap();
     assert!(
         items.is_empty(),
         "a successful empty run must not spam the alerts tab"
@@ -1937,7 +1940,7 @@ fn proactive_job() -> CronJob {
 }
 
 async fn cron_alerts(config: &Config) -> usize {
-    crate::openhuman::notifications::store::list(config, 10, 0, Some("cron"), None)
+    crate::openhuman::desktop::notifications::store::list(config, 10, 0, Some("cron"), None)
         .unwrap()
         .len()
 }
@@ -1966,7 +1969,8 @@ async fn deliver_if_configured_empty_failure_alerts_with_fallback_body() {
         .await
         .is_ok());
     let items =
-        crate::openhuman::notifications::store::list(&config, 10, 0, Some("cron"), None).unwrap();
+        crate::openhuman::desktop::notifications::store::list(&config, 10, 0, Some("cron"), None)
+            .unwrap();
     assert_eq!(items.len(), 1);
     assert!(items[0].body.contains("failed without output"));
 }

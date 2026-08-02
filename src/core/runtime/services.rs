@@ -307,7 +307,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // Orchestration — relay-mailbox drain supervisor.
     if plan.orchestration_drain {
         log::debug!("[runtime.bootstrap] starting orchestration message drain supervisor");
-        crate::openhuman::orchestration::start_message_drain_supervisor();
+        crate::openhuman::hosted::orchestration::start_message_drain_supervisor();
     } else {
         log::debug!("[runtime.bootstrap] message drain supervisor disabled by ServiceSet");
     }

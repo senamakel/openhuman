@@ -361,7 +361,7 @@ impl IntegrationClient {
             return Ok(());
         }
         if let Some(config) = &self.budget_config {
-            if crate::openhuman::team::managed_tool_budget_exhausted(config).await {
+            if crate::openhuman::hosted::team::managed_tool_budget_exhausted(config).await {
                 anyhow::bail!(
                     "Managed cloud tools are disabled because your OpenHuman AI credits are exhausted. Add credits or route the task to user-supplied providers."
                 );

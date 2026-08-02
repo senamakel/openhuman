@@ -52,11 +52,11 @@ pub async fn keyring_retry_probe() -> Result<RpcOutcome<KeyringStatus>, String> 
 }
 
 async fn persist_consent(pref: &ConsentPreference) -> Result<(), String> {
-    let patch = crate::openhuman::app_state::StoredAppStatePatch {
+    let patch = crate::openhuman::desktop::app_state::StoredAppStatePatch {
         keyring_consent: Some(Some(pref.clone())),
         ..Default::default()
     };
-    crate::openhuman::app_state::update_local_state(patch).await?;
+    crate::openhuman::desktop::app_state::update_local_state(patch).await?;
     log::debug!("{LOG_PREFIX} consent persisted to app state");
     Ok(())
 }

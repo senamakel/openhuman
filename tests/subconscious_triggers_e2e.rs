@@ -21,13 +21,13 @@ use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 
 use openhuman_core::core::event_bus::{global, init_global, DomainEvent};
 use openhuman_core::openhuman::agent::triage::{TriageAction, TriageDecision};
-use openhuman_core::openhuman::subconscious::{
-    notify_user, ORCHESTRATOR_THREAD_ID, USER_THREAD_ID,
-};
-use openhuman_core::openhuman::subconscious_triggers::gate::{apply_budget, map_triage_to_gate};
-use openhuman_core::openhuman::subconscious_triggers::{
+use openhuman_core::openhuman::subconscious::triggers::gate::{apply_budget, map_triage_to_gate};
+use openhuman_core::openhuman::subconscious::triggers::{
     normalize, AdmitOutcome, DedupeWindow, EnqueueOutcome, GateDecision, OrchestratorQueue,
     PromotionBudget, RateLimiter, Trigger, TriggerPriority, TriggerRegistry, TriggerSource,
+};
+use openhuman_core::openhuman::subconscious::{
+    notify_user, ORCHESTRATOR_THREAD_ID, USER_THREAD_ID,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

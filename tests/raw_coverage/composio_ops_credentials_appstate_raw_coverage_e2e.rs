@@ -18,7 +18,7 @@ use chrono::{Duration as ChronoDuration, Utc};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::openhuman::app_state::{
+use openhuman_core::openhuman::desktop::app_state::{
     peek_cached_current_user_identity, snapshot, update_local_state, StoredAppStatePatch,
     StoredOnboardingTasks,
 };

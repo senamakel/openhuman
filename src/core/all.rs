@@ -213,7 +213,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::app_state::all_app_state_registered_controllers(),
+        crate::openhuman::desktop::app_state::all_app_state_registered_controllers(),
     );
     // Audio generation + podcast-style email delivery (gated with voice).
     #[cfg(feature = "voice")]
@@ -257,7 +257,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::dashboard::all_dashboard_registered_controllers(),
+        crate::openhuman::desktop::dashboard::all_dashboard_registered_controllers(),
     );
     // MCP client subsystem: Smithery registry browser, local server install/connect, tool dispatch
     push(
@@ -354,7 +354,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::heartbeat::all_heartbeat_registered_controllers(),
+        crate::openhuman::subconscious::heartbeat::all_heartbeat_registered_controllers(),
     );
     // Ad-hoc static directory HTTP hosting for local file sharing / previews.
     // Gated with the `http-server` feature (#5048): the domain is an axum server,
@@ -427,7 +427,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::monitor::all_monitor_registered_controllers(),
+        crate::openhuman::subconscious::monitors::all_monitor_registered_controllers(),
     );
     // Unified inference domain: text / vision / local runtime / cloud providers.
     // (Formerly split across inference, local AI, and providers modules.)
@@ -469,7 +469,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::javascript::all_javascript_registered_controllers(),
+        crate::openhuman::runtime::javascript::all_javascript_registered_controllers(),
     );
     // Medulla integration: readiness, durable sessions, and the connected worker
     // roster against the Medulla orchestration backend. Registration-site gate
@@ -576,25 +576,25 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::referral::all_referral_registered_controllers(),
+        crate::openhuman::hosted::referral::all_referral_registered_controllers(),
     );
     // Billing and subscription management
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::billing::all_billing_registered_controllers(),
+        crate::openhuman::hosted::billing::all_billing_registered_controllers(),
     );
     // Announcements surfaced on harness init
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::announcements::all_announcements_registered_controllers(),
+        crate::openhuman::hosted::announcements::all_announcements_registered_controllers(),
     );
     // Team and role management
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::team::all_team_registered_controllers(),
+        crate::openhuman::hosted::team::all_team_registered_controllers(),
     );
     // E2E test support — `openhuman.test_reset` wipes sidecar state in-place.
     // Gated behind the `e2e-test-support` cargo feature so shipped binaries
@@ -622,7 +622,8 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::provider_surfaces::all_provider_surfaces_registered_controllers(),
+        crate::openhuman::desktop::provider_surfaces::all_provider_surfaces_registered_controllers(
+        ),
     );
     // Voice transcription and synthesis (gated behind the `voice` feature).
     #[cfg(feature = "voice")]
@@ -640,7 +641,8 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::subconscious_triggers::all_subconscious_triggers_registered_controllers(),
+        crate::openhuman::subconscious::triggers::all_subconscious_triggers_registered_controllers(
+        ),
     );
     // Webhook tunnel management
     push(
@@ -691,7 +693,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::openhuman::notifications::all_notifications_registered_controllers(),
+        crate::openhuman::desktop::notifications::all_notifications_registered_controllers(),
     );
     // Google Meet call-join request validation (shell handles the webview).
     // Gated behind the `meet` feature.
@@ -808,7 +810,7 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Agent,
-        crate::openhuman::orchestration::all_registered_controllers(),
+        crate::openhuman::hosted::orchestration::all_registered_controllers(),
     );
     controllers
 }

@@ -144,7 +144,8 @@ pub async fn start_login_gated_services(config: &Config) {
             "orchestration",
             tokio::spawn(async move {
                 let step = std::time::Instant::now();
-                crate::openhuman::orchestration::start_hosted_client_services(&config).await;
+                crate::openhuman::hosted::orchestration::start_hosted_client_services(&config)
+                    .await;
                 log::debug!(
                     "[services] orchestration hosted-client started ({} ms)",
                     step.elapsed().as_millis()
@@ -201,7 +202,7 @@ pub async fn stop_login_gated_services(config: &Config) {
     crate::openhuman::voice::always_on::stop();
 
     // 7. Orchestration hosted-client loops (read-sync + world-diff uploader).
-    crate::openhuman::orchestration::stop_hosted_client_services();
+    crate::openhuman::hosted::orchestration::stop_hosted_client_services();
 
     log::info!("[services] all login-gated services stopped");
 }

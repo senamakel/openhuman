@@ -55,7 +55,7 @@ The editable surface is restricted to the `BOOTSTRAP_FILES` allowlist (`SOUL.md`
 
 - `crate::openhuman::config::rpc` — loads `Config` (timeout-bounded) to resolve `workspace_dir` and `config_path` in both `ops.rs` and `schemas.rs`.
 - `crate::openhuman::skills::init_skills_dir` — seeds the `skills/` directory README during `init_workspace`.
-- `crate::openhuman::heartbeat::engine::HeartbeatEngine::ensure_heartbeat_file` — ensures `HEARTBEAT.md` during `init_workspace`.
+- `crate::openhuman::subconscious::heartbeat::engine::HeartbeatEngine::ensure_heartbeat_file` — ensures `HEARTBEAT.md` during `init_workspace`.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller registry types.
 - `crate::rpc::RpcOutcome` — uniform RPC return type.
 - Bundled prompt assets via `include_str!("../agent/prompts/SOUL.md" | "IDENTITY.md")`.

@@ -165,7 +165,7 @@ pub struct Config {
     pub scheduler_gate: SchedulerGateConfig,
 
     /// tiny.place harness session-DM ingest layer. See
-    /// [`crate::openhuman::orchestration`].
+    /// [`crate::openhuman::hosted::orchestration`].
     #[serde(default)]
     pub orchestration: OrchestrationConfig,
 

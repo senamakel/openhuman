@@ -6273,8 +6273,8 @@ fn notify_pending_approval(flow: &Flow, thread_id: &str, pending_approvals: &[St
         return;
     }
 
-    use crate::openhuman::notifications::bus::publish_core_notification;
-    use crate::openhuman::notifications::types::{
+    use crate::openhuman::desktop::notifications::bus::publish_core_notification;
+    use crate::openhuman::desktop::notifications::types::{
         CoreNotificationAction, CoreNotificationCategory, CoreNotificationEvent,
     };
 
@@ -7725,7 +7725,7 @@ pub async fn compute_approval_manifest(config: &Config, graph: &WorkflowGraph) -
                         // error (unknown tool, etc.) degrades conservatively
                         // to Network — over-asking is safe, under-asking
                         // re-introduces the mid-run park this feature removes.
-                        let class = crate::openhuman::runtime_node::ops::classify_tool_call(
+                        let class = crate::openhuman::runtime::node::ops::classify_tool_call(
                             config, &tool_name, &args,
                         )
                         .unwrap_or(CommandClass::Network);

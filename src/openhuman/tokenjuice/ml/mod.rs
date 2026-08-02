@@ -2,7 +2,7 @@
 //!
 //! Plain text has no structural skeleton to exploit, so high-quality
 //! compression needs a learned model (ModernBERT token/sentence salience). That
-//! runs inside the shared [`crate::openhuman::runtime_python_server`] as the
+//! runs inside the shared [`crate::openhuman::runtime::python_server`] as the
 //! `kompress` backend — this module is just the thin Rust callback the
 //! TinyJuice `ml_text` compressor calls.
 //!
@@ -57,7 +57,7 @@ pub async fn compress(text: &str, _opts: &CompressOptions) -> Result<Option<Stri
         return Ok(None);
     }
 
-    let resp = crate::openhuman::runtime_python_server::request_kompress(&config, text).await?;
+    let resp = crate::openhuman::runtime::python_server::request_kompress(&config, text).await?;
     if resp.compressed_text.is_empty() || resp.compressed_text.len() >= text.len() {
         return Ok(None);
     }

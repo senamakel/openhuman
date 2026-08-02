@@ -1432,8 +1432,8 @@ fn publish_flow_gate_notification(
     tool_name: &str,
     summary: &str,
 ) {
-    use crate::openhuman::notifications::bus::publish_core_notification;
-    use crate::openhuman::notifications::types::{
+    use crate::openhuman::desktop::notifications::bus::publish_core_notification;
+    use crate::openhuman::desktop::notifications::types::{
         CoreNotificationAction, CoreNotificationCategory, CoreNotificationEvent,
     };
 
@@ -3298,7 +3298,8 @@ mod tests {
         let mut event_rx = crate::core::event_bus::global()
             .expect("event bus initialized above")
             .raw_receiver();
-        let mut notif_rx = crate::openhuman::notifications::bus::subscribe_core_notifications();
+        let mut notif_rx =
+            crate::openhuman::desktop::notifications::bus::subscribe_core_notifications();
 
         let (gate, _dir) = test_gate();
         let gate = Arc::new(gate);
@@ -3379,10 +3380,10 @@ mod tests {
     /// tolerated and skipped.
     async fn find_flow_gate_notification(
         rx: &mut tokio::sync::broadcast::Receiver<
-            crate::openhuman::notifications::types::CoreNotificationEvent,
+            crate::openhuman::desktop::notifications::types::CoreNotificationEvent,
         >,
         request_id: &str,
-    ) -> crate::openhuman::notifications::types::CoreNotificationEvent {
+    ) -> crate::openhuman::desktop::notifications::types::CoreNotificationEvent {
         let expected_id = format!("flow-gate-approval:{request_id}");
         loop {
             match rx.recv().await {

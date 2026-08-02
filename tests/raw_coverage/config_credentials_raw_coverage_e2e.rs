@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
-use openhuman_core::openhuman::app_state::{snapshot, update_local_state, StoredAppStatePatch};
+use openhuman_core::openhuman::desktop::app_state::{snapshot, update_local_state, StoredAppStatePatch};
 use openhuman_core::openhuman::config::rpc as config_rpc;
 use openhuman_core::openhuman::credentials::{
     auth_get_session_token_json, clear_session, list_provider_credentials,

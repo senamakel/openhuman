@@ -10,10 +10,10 @@ use openhuman_core::openhuman::config::AgentConfig;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::monitor::tools::{
+use openhuman_core::openhuman::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
+use openhuman_core::openhuman::subconscious::monitors::tools::{
     MonitorListTool, MonitorReadTool, MonitorStopTool, MonitorTool,
 };
-use openhuman_core::openhuman::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
 use openhuman_core::openhuman::tinyagents::thread_context::with_thread_id;
 use openhuman_core::openhuman::tools::Tool;
 use parking_lot::Mutex;

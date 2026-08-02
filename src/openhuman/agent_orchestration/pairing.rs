@@ -17,7 +17,7 @@ use chrono::{DateTime, Duration, Utc};
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
-use crate::openhuman::orchestration::ingest::resolve_linked_id;
+use crate::openhuman::hosted::orchestration::ingest::resolve_linked_id;
 use crate::openhuman::tinyplace::ops::{global_state as tinyplace_state, map_err};
 
 const LOG_TARGET: &str = "orchestration_pairing";

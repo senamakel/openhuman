@@ -12,7 +12,7 @@ use filetime::FileTime;
 use serde_json::Value;
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::openhuman::app_state::{snapshot, update_local_state, StoredAppStatePatch};
+use openhuman_core::openhuman::desktop::app_state::{snapshot, update_local_state, StoredAppStatePatch};
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 use openhuman_core::openhuman::memory::{

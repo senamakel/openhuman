@@ -329,7 +329,7 @@ impl Agent {
         // things below: granting the App UI Control / App Automation mutation
         // opt-in (#3762) and filtering the tool set to the enabled snapshot.
         let enabled_tools: Vec<String> = {
-            use crate::openhuman::app_state::load_stored_app_state;
+            use crate::openhuman::desktop::app_state::load_stored_app_state;
             match load_stored_app_state(config) {
                 Ok(stored) => stored
                     .onboarding_tasks

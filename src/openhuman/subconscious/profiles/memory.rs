@@ -62,7 +62,7 @@ const SUBCONSCIOUS_ROLE: &str = "subconscious";
 /// (TAURI-RUST-HMW, #5308). Gating here stops the load at source; the
 /// emit-site demotion in `agent_prepare_context` remains the backstop for the
 /// races this can't see (a balance that runs out mid-flight, or the 30s
-/// [`crate::openhuman::team::managed_tool_budget_exhausted`] cache being stale).
+/// [`crate::openhuman::hosted::team::managed_tool_budget_exhausted`] cache being stale).
 ///
 /// Scoped to *managed* funding: a `subconscious_provider` pointing at a BYO key
 /// or a local runtime is unaffected by the OpenHuman balance, so
@@ -77,7 +77,7 @@ async fn credits_gate_blocks_scout(config: &Config) -> bool {
     ) {
         return false;
     }
-    crate::openhuman::team::managed_tool_budget_exhausted(config).await
+    crate::openhuman::hosted::team::managed_tool_budget_exhausted(config).await
 }
 
 /// Construct the live `memory` instance from config (used by the registry /

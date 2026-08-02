@@ -27,7 +27,6 @@ use openhuman_core::api::config::{
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::event_bus::{DomainEvent, EventHandler};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::app_state::app_state_schemas;
 use openhuman_core::openhuman::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
     migrate_legacy_fields, AuditConfig, AuthStyle, CapabilityProviderConfig,
@@ -66,6 +65,7 @@ use openhuman_core::openhuman::credentials::{
     list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
     store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
+use openhuman_core::openhuman::desktop::app_state::app_state_schemas;
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
 
@@ -4282,8 +4282,9 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
         "the second snapshot should reuse the current-user cache"
     );
 
-    let identity = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
-        .expect("snapshot should seed cached identity");
+    let identity =
+        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
+            .expect("snapshot should seed cached identity");
     assert_eq!(identity.id.as_deref(), Some("remote-user-1"));
     assert_eq!(identity.name.as_deref(), Some("Remote Worker"));
     assert_eq!(
@@ -4401,7 +4402,8 @@ async fn app_state_snapshot_clears_empty_current_user_cache_and_falls_back_to_st
         "empty backend users should clear the cache and fall back to stored identity"
     );
     assert!(
-        openhuman_core::openhuman::app_state::peek_cached_current_user_identity().is_none(),
+        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
+            .is_none(),
         "empty backend user should clear the process current-user cache"
     );
 
@@ -4548,7 +4550,8 @@ async fn app_state_snapshot_clears_null_current_user_cache_and_falls_back_to_sto
         "null backend users should clear the cache and fall back to stored identity"
     );
     assert!(
-        openhuman_core::openhuman::app_state::peek_cached_current_user_identity().is_none(),
+        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
+            .is_none(),
         "null backend user should clear the process current-user cache"
     );
 
@@ -4608,8 +4611,9 @@ async fn app_state_cached_identity_peek_accepts_legacy_current_user_fields() {
         2,
         "store_session and snapshot should each fetch the static backend once"
     );
-    let identity = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
-        .expect("legacy current-user keys should produce a prompt identity");
+    let identity =
+        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
+            .expect("legacy current-user keys should produce a prompt identity");
     assert_eq!(identity.id.as_deref(), Some("legacy-user-id"));
     assert_eq!(identity.name.as_deref(), Some("Legacy Display"));
     assert_eq!(
@@ -4667,8 +4671,9 @@ async fn app_state_cached_identity_peek_accepts_camel_case_fallback_fields() {
             .and_then(Value::as_str),
         Some("camel-user-id")
     );
-    let identity = openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
-        .expect("camel-case current-user keys should produce a prompt identity");
+    let identity =
+        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
+            .expect("camel-case current-user keys should produce a prompt identity");
     assert_eq!(identity.id.as_deref(), Some("camel-user-id"));
     assert_eq!(identity.name.as_deref(), Some("Camel Full Name"));
     assert_eq!(identity.email, None);
@@ -4728,7 +4733,8 @@ async fn app_state_cached_identity_peek_ignores_current_user_without_identity_fi
         "store_session and snapshot should each fetch the no-identity backend once"
     );
     assert!(
-        openhuman_core::openhuman::app_state::peek_cached_current_user_identity().is_none(),
+        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
+            .is_none(),
         "current-user objects without id/name/email should not produce prompt identity"
     );
 

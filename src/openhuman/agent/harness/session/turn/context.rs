@@ -321,7 +321,8 @@ impl Agent {
             include_profile: !self.omit_profile,
             include_memory_md: !self.omit_memory_md,
             curated_snapshot: None,
-            user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
+            user_identity: crate::openhuman::desktop::app_state::peek_cached_current_user_identity(
+            ),
             // Profile SOUL.md and curated MEMORY.md are bound at session
             // construction so the normal identity/user-files sections use
             // them instead of their workspace-root fallbacks.

@@ -82,7 +82,7 @@ runtime adapter, not in the hosted contract module.
 ## Media generation (GMI): image and video tools
 
 Separate from the high-level `image_generation` contract above, the
-`src/openhuman/media_generation/` domain ships **wired, executing** tools that
+`src/openhuman/media/generation/` domain ships **wired, executing** tools that
 generate images and video through the OpenHuman backend's `media_generation`
 provider (GMI Cloud: Seedream, SeedEdit, Seedance, Veo).
 

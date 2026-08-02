@@ -67,7 +67,7 @@ Namespace `heartbeat` (wired into the registry in `src/core/all.rs`):
 - `crate::openhuman::subconscious::global` — `get_or_init_engine` (shared engine for inference ticks), `bootstrap_after_login`, `stop_heartbeat_loop`.
 - `crate::openhuman::cron` — `list_jobs`, `CronJob` to surface reminder-like jobs.
 - `crate::openhuman::composio` — `client` (mode-aware factory, backend/direct list+execute), `types`, `googlecalendar_args` to poll Google Calendar events.
-- `crate::openhuman::notifications` — `store` (read unread/urgent items, `insert_if_not_recent`), `bus::publish_core_notification`, `types` (`IntegrationNotification`, `NotificationStatus`, `CoreNotificationEvent`/`CoreNotificationCategory`).
+- `crate::openhuman::desktop::notifications` — `store` (read unread/urgent items, `insert_if_not_recent`), `bus::publish_core_notification`, `types` (`IntegrationNotification`, `NotificationStatus`, `CoreNotificationEvent`/`CoreNotificationCategory`).
 - `crate::core::event_bus` — `publish_global` / `DomainEvent` for proactive-message dispatch.
 - `crate::core::all` / `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` — controller registration.
 - `crate::rpc::RpcOutcome` — RPC return contract.

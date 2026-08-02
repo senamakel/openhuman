@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use chrono::Utc;
-use openhuman_core::openhuman::app_state::{
+use openhuman_core::openhuman::desktop::app_state::{
     peek_cached_current_user_identity, snapshot, update_local_state, StoredAppStatePatch,
     StoredOnboardingTasks,
 };

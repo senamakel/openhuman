@@ -2095,7 +2095,7 @@ fn register_domain_subscribers(
                     "[event_bus] failed to register webhook subscriber — bus not initialized"
                 );
             }
-            crate::openhuman::notifications::register_notification_bridge_subscriber(
+            crate::openhuman::desktop::notifications::register_notification_bridge_subscriber(
                 config.clone(),
             );
             if let Err(error) =
@@ -2254,7 +2254,7 @@ fn register_domain_subscribers(
     if plan.agent {
         if group_first_time(DomainGroup::Agent) {
             // Orchestration: ingest tiny.place harness session DMs off the stream bus.
-            crate::openhuman::orchestration::register_orchestration_ingest_subscriber();
+            crate::openhuman::hosted::orchestration::register_orchestration_ingest_subscriber();
             // Native request handlers — the agent `agent.run_turn` handler is
             // what channel dispatch calls instead of importing
             // `run_tool_call_loop` directly.

@@ -93,7 +93,7 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 - `openhuman::memory` — `Memory` trait, injected into memory/preference/stats tools.
 - `openhuman::integrations` — `build_client` backend HTTP client + the integration tool structs (apify, brave, parallel, stock, twilio, tinyfish, google_places, querit, seltz, searxng).
 - `openhuman::composio` — `all_composio_agent_tools`, mode-aware client for `tools.composio_execute`.
-- `openhuman::javascript` — `NodeBootstrap` shared by shell/node_exec/npm_exec.
+- `openhuman::runtime::javascript` — `NodeBootstrap` shared by shell/node_exec/npm_exec.
 - `openhuman::mcp_client` / `openhuman::mcp_registry` — generic remote MCP server registry + bridge tools.
 - `openhuman::skills` — `skills::types::{ToolResult, ToolContent}` (the unified result type) + skill-run spawning.
 - `openhuman::learning` — LinkedIn enrichment scrape/render for the Apify RPC handler.
@@ -107,7 +107,7 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 - `openhuman::agent` harness (`session/builder`, `dispatcher`, `subagent_runner`, `agent/tools/*`) and the `openhuman::tinyagents` seam (`SharedToolAdapter`, `ToolPolicyMiddleware`) — primary consumers; build the registry and execute/police tools on the tinyagents harness path.
 - `openhuman::channels`, `openhuman::routing`, `openhuman::inference::provider` — build tool sets / clean schemas per provider.
 - `openhuman::agent_tool_policy`, `openhuman::approval` — read tool metadata (category, external-effect) for policy/approval decisions.
-- `openhuman::tool_registry`, `openhuman::runtime_node`, `openhuman::mcp_server` — registry/exposure consumers.
+- `openhuman::tool_registry`, `openhuman::runtime::node`, `openhuman::mcp_server` — registry/exposure consumers.
 - Many domains re-export their own tools through this module (cron, memory, wallet, composio, integrations, codegraph, whatsapp_data, audio_toolkit).
 
 ## Notes / gotchas

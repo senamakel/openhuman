@@ -86,7 +86,7 @@ fn python_runtime_step() -> HarnessInitStep {
 /// skills, Python MCP servers) still resolve the interpreter on first use.
 fn python_needed_eagerly(config: &Config) -> bool {
     config.runtime_python.enabled
-        && !crate::openhuman::runtime_python_server::enabled_backends(config).is_empty()
+        && !crate::openhuman::runtime::python_server::enabled_backends(config).is_empty()
 }
 
 async fn python_is_done(config: &Config) -> bool {
@@ -98,7 +98,7 @@ async fn python_is_done(config: &Config) -> bool {
     // Durable on-disk probe: survives restarts (unlike the process-local
     // `try_cached`), so an already-installed interpreter is detected without
     // entering a user-visible provisioning run (GH-5047). Never downloads.
-    use crate::openhuman::runtime_python::PythonBootstrap;
+    use crate::openhuman::runtime::python::PythonBootstrap;
     PythonBootstrap::new(config.runtime_python.clone())
         .probe_installed()
         .await
@@ -109,7 +109,7 @@ async fn python_run(config: &Config) -> Result<(), String> {
     if !python_needed_eagerly(config) {
         return Ok(());
     }
-    use crate::openhuman::runtime_python::PythonBootstrap;
+    use crate::openhuman::runtime::python::PythonBootstrap;
     PythonBootstrap::new(config.runtime_python.clone())
         .resolve()
         .await
@@ -140,18 +140,18 @@ fn runtime_python_server_step() -> HarnessInitStep {
 }
 
 async fn runtime_python_server_is_done(config: &Config) -> bool {
-    if crate::openhuman::runtime_python_server::enabled_backends(config).is_empty() {
+    if crate::openhuman::runtime::python_server::enabled_backends(config).is_empty() {
         return true;
     }
-    let status = crate::openhuman::runtime_python_server::status().await;
+    let status = crate::openhuman::runtime::python_server::status().await;
     status.running
 }
 
 async fn runtime_python_server_run(config: &Config) -> Result<(), String> {
-    if crate::openhuman::runtime_python_server::enabled_backends(config).is_empty() {
+    if crate::openhuman::runtime::python_server::enabled_backends(config).is_empty() {
         return Ok(());
     }
-    crate::openhuman::runtime_python_server::ensure_started(config)
+    crate::openhuman::runtime::python_server::ensure_started(config)
         .await
         .map(|_| {
             log::info!("[harness_init] runtime Python server ready");
@@ -174,14 +174,14 @@ async fn spacy_is_done(config: &Config) -> bool {
     if !config.runtime_python.enabled || !config.memory_tree.spacy_enabled {
         return true;
     }
-    crate::openhuman::runtime_python_server::spacy_provisioned(config)
+    crate::openhuman::runtime::python_server::spacy_provisioned(config)
 }
 
 async fn spacy_run(config: &Config) -> Result<(), String> {
     if !config.runtime_python.enabled || !config.memory_tree.spacy_enabled {
         return Ok(());
     }
-    crate::openhuman::runtime_python_server::ensure_spacy(config)
+    crate::openhuman::runtime::python_server::ensure_spacy(config)
         .await
         .map(|_| {
             log::info!("[harness_init] spaCy provisioned");
@@ -216,7 +216,7 @@ async fn kompress_is_done(config: &Config) -> bool {
     if !kompress_needs_dedicated_venv(config) {
         return true;
     }
-    crate::openhuman::runtime_python_server::kompress_provisioned(config)
+    crate::openhuman::runtime::python_server::kompress_provisioned(config)
 }
 
 async fn kompress_run(config: &Config) -> Result<(), String> {
@@ -224,7 +224,7 @@ async fn kompress_run(config: &Config) -> Result<(), String> {
         // Shared-venv case (spaCy on) is provisioned by the server launch step.
         return Ok(());
     }
-    crate::openhuman::runtime_python_server::ensure_kompress(config)
+    crate::openhuman::runtime::python_server::ensure_kompress(config)
         .await
         .map(|_| {
             log::info!("[harness_init] Kompress (torch) provisioned");
@@ -243,8 +243,8 @@ fn node_runtime_step() -> HarnessInitStep {
     }
 }
 
-fn build_node_bootstrap(config: &Config) -> crate::openhuman::runtime_node::NodeBootstrap {
-    crate::openhuman::runtime_node::NodeBootstrap::new(
+fn build_node_bootstrap(config: &Config) -> crate::openhuman::runtime::node::NodeBootstrap {
+    crate::openhuman::runtime::node::NodeBootstrap::new(
         config.node.clone(),
         config.workspace_dir.clone(),
         reqwest::Client::new(),

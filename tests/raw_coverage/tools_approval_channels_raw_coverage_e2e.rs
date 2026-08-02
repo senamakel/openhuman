@@ -80,7 +80,7 @@ use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
 use openhuman_core::openhuman::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::javascript::NodeBootstrap;
+use openhuman_core::openhuman::runtime::javascript::NodeBootstrap;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };

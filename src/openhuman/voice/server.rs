@@ -14,9 +14,9 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-#[cfg(target_os = "macos")]
-use crate::openhuman::accessibility;
 use crate::openhuman::config::Config;
+#[cfg(target_os = "macos")]
+use crate::openhuman::desktop::accessibility;
 
 use super::audio_capture::{self, RecordingHandle};
 use super::hotkey::{self, ActivationMode, HotkeyEvent};
@@ -589,7 +589,7 @@ fn start_globe_hotkey_listener(
     ),
     String,
 > {
-    use crate::openhuman::accessibility::{globe_listener_poll, globe_listener_start};
+    use crate::openhuman::desktop::accessibility::{globe_listener_poll, globe_listener_start};
 
     info!("{LOG_PREFIX} hotkey is Fn on macOS — using Swift globe listener instead of rdev");
 

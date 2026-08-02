@@ -3,8 +3,8 @@
 use serde::Serialize;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::runtime_node::{NodeBootstrap, NodeSource};
-use crate::openhuman::runtime_python::{PythonBootstrap, PythonSource};
+use crate::openhuman::runtime::node::{NodeBootstrap, NodeSource};
+use crate::openhuman::runtime::python::{PythonBootstrap, PythonSource};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeRequirement {

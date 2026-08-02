@@ -27,7 +27,7 @@ use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolR
 pub const USER_THREAD_ID: &str = "subconscious:user";
 
 /// Source tag on proactive deliveries originating from the subconscious.
-/// Mirrors [`crate::openhuman::subconscious_triggers::SUBCONSCIOUS_SENDER_MARKER`]
+/// Mirrors [`crate::openhuman::subconscious::triggers::SUBCONSCIOUS_SENDER_MARKER`]
 /// so the trigger fan-in can recognise (and skip) the orchestrator's own
 /// output.
 pub const SUBCONSCIOUS_PROACTIVE_SOURCE: &str = "subconscious";
@@ -170,7 +170,7 @@ mod tests {
     fn proactive_source_matches_trigger_marker() {
         assert_eq!(
             SUBCONSCIOUS_PROACTIVE_SOURCE,
-            crate::openhuman::subconscious_triggers::SUBCONSCIOUS_SENDER_MARKER
+            crate::openhuman::subconscious::triggers::SUBCONSCIOUS_SENDER_MARKER
         );
     }
 }

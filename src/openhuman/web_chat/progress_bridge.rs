@@ -389,7 +389,8 @@ pub(crate) fn spawn_progress_bridge(
             // the separate `client.id` metadata attribute. When no identity is
             // cached (signed-out / fresh install), fall back to the client id
             // so the trace still carries some attribution.
-            let identity = crate::openhuman::app_state::peek_cached_current_user_identity();
+            let identity =
+                crate::openhuman::desktop::app_state::peek_cached_current_user_identity();
             let user_attributed = identity.is_some();
             let user_id = identity
                 .and_then(|i| i.id.or(i.email))

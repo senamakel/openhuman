@@ -1107,7 +1107,7 @@ pub async fn handle_notification_action(params: Map<String, Value>) -> Result<Va
     // auto-join anchor). Falls back to the signed-in account identity so a
     // notification raised before the anchor wiring still knows who to reply to.
     let respond_to_participant = anchor_from_action_payload(&payload).or_else(|| {
-        crate::openhuman::app_state::peek_cached_current_user_identity()
+        crate::openhuman::desktop::app_state::peek_cached_current_user_identity()
             .and_then(|i| i.name)
             .map(|n| n.trim().to_string())
             .filter(|s| !s.is_empty())

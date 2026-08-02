@@ -10,7 +10,8 @@
 ## 1. Where the program stands
 
 The kernelization program has two halves. **The dependency half is largely done**; the
-**structural half has not started**.
+**structural half is underway** — 124 top-level domain directories are down to 103, and both
+root-level `*.rs` violations are gone.
 
 ### Done (#4795 epic, then #5314)
 
@@ -41,14 +42,19 @@ seventeen previously-shed crates were re-asserted absent. Do not raise it again 
 that assertion — a merge silently re-adding a shed crate looks identical to upstream growth if you
 only compare totals.
 
-### Not done — the structural half
+### In progress — the structural half
 
-`src/openhuman/` is still **124 flat directories** plus two root-level `*.rs` files
-(`util.rs`, `dev_paths.rs`) that violate the AGENTS.md "no new root-level `*.rs`" rule. Only
-**12 of them carry a module-level `#[cfg]`**. A single capability is spread across sibling
-top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` is 3 — so every gate
-means `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
+At the start of this work `src/openhuman/` was **124 flat directories** plus two root-level
+`*.rs` files (`util.rs`, `dev_paths.rs`) violating the AGENTS.md "no new root-level `*.rs`" rule,
+with only **12** carrying a module-level `#[cfg]`. A single capability was spread across sibling
+top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` was 3 — so every gate
+meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
 (`DomainGroup`, `DomainSet`, `StoreInitPlan`, `DomainSubscriberPlan`, `tool_group()`).
+
+**Steps 1–3 landed: 124 → 103 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
+`util/`, `sandbox/cwd_jail`, `cron/scheduler_gate`, `runtime/`, `media/`, `desktop/`, `hosted/`,
+`subconscious/{triggers,monitors}`. The `heartbeat/` re-export shim is deleted. The big three
+(`security/`, `agent/`, `memory/`) are still ahead.
 
 **That is what this document is about.** The remaining dependency sheds are blocked on it or are
 cross-repo; the structural work is what makes the next twenty gates cheap instead of expensive.
@@ -82,10 +88,11 @@ paths** — directory layout and wire surface are independent axes.
 - One PR per family. `git mv` + a mechanical path rewrite. No logic change, no behaviour change.
   If a hunk isn't a path, it doesn't belong in the PR.
 - **No `pub use` transition shims.** The compiler catches 100% of intra-crate breakage.
-  `src/openhuman/heartbeat/` is the standing counter-example: a 10-line shim added "so external
-  paths keep compiling without a crate-wide rename", still there, still with live call sites.
-  Worse, a shim is an always-compiled `pub mod` re-exporting into a gated tree, which defeats the
-  gate.
+  `src/openhuman/heartbeat/` was the standing counter-example: a 10-line shim added "so external
+  paths keep compiling without a crate-wide rename", which then sat there indefinitely with live
+  call sites. It had three real callers; step 3 retargeted them and deleted it. Worse than
+  useless, a shim is an always-compiled `pub mod` re-exporting into a gated tree, which defeats
+  the gate it fronts.
 - Do not touch `DomainGroup`/`DomainSet`. That realignment is Phase 5 and needs its own tests.
 - **A `#[cfg]` may move, but the compiled set may not change.** Nesting a facade+stub domain under
   a leaf-gated parent forces the parent to become a facade (see the pilot). That is a mechanical
@@ -157,13 +164,13 @@ renames.
 | `meet/` | ✅ **landed** — `meet_agent→agent`, `agent_meetings→backend_bot` |
 | `voice/` | `audio_toolkit` |
 | `web3/` | `wallet`, `x402` |
-| `media/` *(new)* | `media_generation→generation`, `image` |
+| `media/` *(new)* | ✅ **landed** — `media_generation→generation`, `image`; parent is leaf-gated on `media` since both children were wholly gated |
 | `medulla/` | `medulla_chat→chat` |
-| `runtime/` *(new)* | `runtime_node→node`, `runtime_python→python`, `runtime_python_server→python_server`, `runtime_pool→pool`, `javascript` |
+| `runtime/` *(new)* | ✅ **landed** — `runtime_node→node`, `runtime_python→python`, `runtime_python_server→python_server`, `runtime_pool→pool`, `javascript` |
 | `integrations/` | `composio`, `recall_calendar`, `file_storage`, `task_sources` |
-| `hosted/` *(new)* | `billing`, `referral`, `announcements`, `team`, `orchestration` |
-| `desktop/` *(new)* | `accessibility`, `overlay`, `dashboard`, `provider_surfaces`, `notifications`, `app_state` |
-| `subconscious/` | `subconscious_triggers→triggers`, `monitor→monitors`; **delete the `heartbeat/` shim** |
+| `hosted/` *(new)* | ✅ **landed** — `billing`, `referral`, `announcements`, `team`, `orchestration` |
+| `desktop/` *(new)* | ✅ **landed** — `accessibility`, `overlay`, `dashboard`, `provider_surfaces`, `notifications`, `app_state` |
+| `subconscious/` | ✅ **landed** — `subconscious_triggers→triggers`, `monitor→monitors`, `heartbeat/` shim deleted |
 | standalone | `search/`, `tinyplace/`, `web_chat/`, `http_host/`, `test_support/` |
 
 ### Kernel (never gated)
@@ -201,10 +208,11 @@ goes to `platform/`.
 5. `mcp_registry::types`, `mcp_audit::types`, `mcp_server::tools::types` stay ungated.
 6. `tinyplace/` does **not** go under `web3/` — its signer works via ed25519 independently.
 7. Do not merge `migration/` into `migrations/` during a move (pure moves only).
-8. **`scripts/ci/orch-ip-gate.sh` hard-codes `src/openhuman/orchestration/…` and
-   `src/openhuman/subconscious/profiles/tinyplace.rs`, and fails *open* on a wrong path.** Update
-   it in the same PR as the `hosted/` and `subconscious/` moves or the IP-leak gate goes silently
-   dead.
+8. **`scripts/ci/orch-ip-gate.sh` hard-codes domain paths and fails *open* on a wrong path.**
+   Retargeted to `src/openhuman/hosted/orchestration/…` in step 3; its
+   `src/openhuman/subconscious/profiles/tinyplace.rs` reference is still valid because
+   `subconscious/` stayed put. Re-check this script on any move that touches either path, and
+   confirm the directory it names actually exists — a pass proves nothing on its own.
 9. `scripts/agent-batch/` specs use `owned_paths: ["src/openhuman/<dom>/"]` — sweep live specs.
 
 ### Order
@@ -213,7 +221,8 @@ goes to `platform/`.
 2. ✅ `util/` + `sandbox/` + `cron/` — cleared both root `*.rs` violations and deleted dead
    `dev_paths.rs`. (`sanitize` moves out of `mcp_client` with step 5, not here — a pure move PR
    should not also carve a module out of an unrelated domain.)
-3. `runtime/`, `media/`, `desktop/`, `hosted/`, `subconscious/` — new parents, no existing gates.
+3. ✅ `runtime/`, `media/`, `desktop/`, `hosted/`, `subconscious/` — new parents. `hosted/` also
+   retargeted `scripts/ci/orch-ip-gate.sh` (see rule 8).
 4. `voice/`, `web3/`, `medulla/`, `flows/`, `channels/` — existing gates; each validates that its
    `stub.rs` survives relocation.
 5. `mcp/` — the only family with a genuine *split*; after the pure moves prove the tooling.

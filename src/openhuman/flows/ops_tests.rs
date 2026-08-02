@@ -2821,7 +2821,7 @@ async fn flows_get_run_missing_run_errors() {
 async fn flows_run_emits_pending_approval_notification() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let mut rx = crate::openhuman::notifications::bus::subscribe_core_notifications();
+    let mut rx = crate::openhuman::desktop::notifications::bus::subscribe_core_notifications();
 
     let created = flows_create(
         &config,
@@ -2862,7 +2862,7 @@ async fn flows_run_emits_pending_approval_notification() {
 
     assert_eq!(
         notification.category,
-        crate::openhuman::notifications::types::CoreNotificationCategory::Agents
+        crate::openhuman::desktop::notifications::types::CoreNotificationCategory::Agents
     );
     let actions = notification
         .actions
@@ -2884,7 +2884,7 @@ async fn flows_run_emits_pending_approval_notification() {
 async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let mut rx = crate::openhuman::notifications::bus::subscribe_core_notifications();
+    let mut rx = crate::openhuman::desktop::notifications::bus::subscribe_core_notifications();
 
     let created = flows_create(&config, "no-gate".to_string(), trigger_only_graph(), false)
         .await

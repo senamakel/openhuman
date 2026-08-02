@@ -2599,7 +2599,7 @@ pub fn run() {
             // (the original userCount=0 root cause).
             if event.user.is_none() {
                 event.user =
-                    openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+                    openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
                         .and_then(|identity| identity.id)
                         .map(|id| sentry::User {
                             id: Some(id),

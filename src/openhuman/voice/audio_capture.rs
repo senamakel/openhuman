@@ -227,7 +227,7 @@ fn record_on_thread(
     setup_tx: std::sync::mpsc::SyncSender<Result<(), String>>,
 ) -> Result<RecordingResult, String> {
     // --- Cross-platform microphone permission pre-check ---
-    use crate::openhuman::accessibility::{
+    use crate::openhuman::desktop::accessibility::{
         detect_microphone_permission, microphone_denied_message, request_microphone_access,
         PermissionState,
     };

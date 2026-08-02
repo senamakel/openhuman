@@ -9,7 +9,7 @@ use crate::openhuman::composio::client::{
 use crate::openhuman::composio::types::{ComposioConnection, ComposioExecuteResponse};
 use crate::openhuman::config::Config;
 use crate::openhuman::cron;
-use crate::openhuman::notifications::store as notifications_store;
+use crate::openhuman::desktop::notifications::store as notifications_store;
 
 use super::types::{HeartbeatCategory, PendingEvent};
 use super::utils::{compute_overlap_key, sanitize_preview, stable_key};
@@ -733,7 +733,8 @@ pub(crate) fn collect_relevant_notifications(
         // with a fresh ID that bypasses the dedupe store.
         .filter(|item| item.provider != "heartbeat")
         .filter(|item| {
-            item.status == crate::openhuman::notifications::types::NotificationStatus::Unread
+            item.status
+                == crate::openhuman::desktop::notifications::types::NotificationStatus::Unread
         })
         .filter(|item| {
             item.triage_action

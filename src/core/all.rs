@@ -263,7 +263,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Mcp,
-        crate::openhuman::mcp_registry::all_mcp_registry_registered_controllers(),
+        crate::openhuman::mcp::registry::all_mcp_registry_registered_controllers(),
     );
     // Agent definition and prompt inspection
     push(
@@ -788,7 +788,7 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Mcp,
-        crate::openhuman::mcp_audit::all_mcp_audit_internal_controllers(),
+        crate::openhuman::mcp::audit::all_mcp_audit_internal_controllers(),
     );
     // tiny.place A2A social-network integration: renderer-callable via core_rpc_relay
     // but NOT advertised to agents in tool listings or schema discovery.

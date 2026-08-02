@@ -5,7 +5,7 @@ use serde_json::{json, Map, Value};
 use crate::core::all;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::Config;
-use crate::openhuman::mcp_server::McpToolSpec;
+use crate::openhuman::mcp::server::McpToolSpec;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
 use crate::rpc::RpcOutcome;
 
@@ -200,13 +200,13 @@ pub fn get_tool(tool_id: &str) -> Result<RpcOutcome<ToolRegistryEntry>, String> 
 /// Build sorted registry entries from the current MCP and controller metadata.
 ///
 /// This includes:
-/// 1. MCP stdio server tools (existing `mcp_server` surface)
+/// 1. MCP stdio server tools (existing `mcp::server` surface)
 /// 2. Controller-backed tools (existing `tools` namespace)
 /// 3. Connected MCP client server tools (new `mcp_clients` domain)
 pub fn registry_entries() -> Vec<ToolRegistryEntry> {
     let mut entries = BTreeMap::new();
 
-    for spec in crate::openhuman::mcp_server::tool_specs() {
+    for spec in crate::openhuman::mcp::server::tool_specs() {
         let entry = mcp_tool_entry(spec);
         insert_registry_entry(&mut entries, entry, "mcp_stdio");
     }
@@ -220,7 +220,7 @@ pub fn registry_entries() -> Vec<ToolRegistryEntry> {
     // `block_in_place` requires the multi-threaded tokio runtime; fall back
     // silently to an empty list in single-threaded contexts (e.g. unit tests).
     let client_tools = {
-        use crate::openhuman::mcp_registry::connections;
+        use crate::openhuman::mcp::registry::connections;
         match tokio::runtime::Handle::try_current() {
             Ok(handle) => {
                 // Only use block_in_place when we are on the multi-threaded

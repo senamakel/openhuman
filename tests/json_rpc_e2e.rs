@@ -9810,7 +9810,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp_registry::store::set_cached(
+    openhuman_core::openhuman::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -9998,7 +9998,7 @@ async fn mcp_clients_set_enabled_smoke() {
     let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp_registry::store::set_cached(
+    openhuman_core::openhuman::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -10111,7 +10111,7 @@ async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
     let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp_registry::store::set_cached(
+    openhuman_core::openhuman::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),

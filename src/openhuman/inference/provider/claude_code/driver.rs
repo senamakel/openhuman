@@ -252,7 +252,7 @@ pub async fn run_turn(ctx: TurnContext<'_>) -> anyhow::Result<ChatResponse> {
     // Point CC at OpenHuman's in-process HTTP MCP server (unjailed core), so
     // the memory bridge survives CC's `.openhuman` jail deny.
     let mut mcp_config_path: Option<PathBuf> = None;
-    match crate::openhuman::mcp_server::ensure_local_http().await {
+    match crate::openhuman::mcp::server::ensure_local_http().await {
         Ok(endpoint) => match write_mcp_http_config(scratch.path(), endpoint.addr, &endpoint.token) {
             Ok(p) => {
                 log::debug!(

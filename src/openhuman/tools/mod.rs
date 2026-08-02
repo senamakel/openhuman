@@ -41,7 +41,7 @@ pub use crate::openhuman::hosted::team::tools::*;
 pub use crate::openhuman::integrations::tools::*;
 pub use crate::openhuman::learning::tools::*;
 #[cfg(feature = "mcp")]
-pub use crate::openhuman::mcp_registry::tools::*;
+pub use crate::openhuman::mcp::registry::tools::*;
 pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::memory_diff::tools::*;
 pub use crate::openhuman::memory_goals::tools::*;

@@ -350,7 +350,7 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     if services.mcp_boot {
         let cfg_for_mcp = config.clone();
         tokio::spawn(async move {
-            crate::openhuman::mcp_registry::boot::spawn_installed_servers(&cfg_for_mcp).await;
+            crate::openhuman::mcp::registry::boot::spawn_installed_servers(&cfg_for_mcp).await;
         });
         spawn_mcp_reconnect_supervisor(config.clone());
     } else {
@@ -407,7 +407,7 @@ fn spawn_mcp_reconnect_supervisor(config: Config) {
     static SUPERVISOR_SPAWNED: Once = Once::new();
     SUPERVISOR_SPAWNED.call_once(|| {
         tokio::spawn(async move {
-            crate::openhuman::mcp_registry::supervisor::run(config).await;
+            crate::openhuman::mcp::registry::supervisor::run(config).await;
         });
     });
 }

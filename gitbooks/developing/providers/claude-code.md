@@ -74,7 +74,7 @@ The `openhuman.inference_claude_code_auth_status` RPC probes sources 1 and 3 wit
 
 ## Tool surface exposed to the CLI
 
-The CLI sees these tools as `mcp__openhuman__<name>` (delivered by the existing stdio MCP server in [`src/openhuman/mcp_server/`](../../../src/openhuman/mcp_server/)):
+The CLI sees these tools as `mcp__openhuman__<name>` (delivered by the existing stdio MCP server in [`src/openhuman/mcp/server/`](../../../src/openhuman/mcp/server/)):
 
 - `core.list_tools`, `core.tool_instructions`
 - `memory.search`, `memory.recall`

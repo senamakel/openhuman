@@ -222,7 +222,7 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
 /// through to generic namespace resolution and die with `unknown namespace:
 /// mcp`, which reads like the user typo'd a command rather than like a
 /// property of this build. Instead `cli.rs` is untouched and the arm resolves
-/// to `mcp_server::stub::run_stdio_from_cli`, which bails with the message
+/// to `mcp::server::stub::run_stdio_from_cli`, which bails with the message
 /// asserted below. An MCP host (Claude Desktop, Cursor, …) spawning
 /// `openhuman mcp` therefore gets a non-zero exit + a one-line reason on
 /// stderr instead of hanging on stdout that never speaks JSON-RPC.

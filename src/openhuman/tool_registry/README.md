@@ -52,8 +52,8 @@ No owned persistence. `diagnostics()` reads (read-only) the `mcp_writes` table v
 - `crate::core::all` — `all_controller_schemas()` / `rpc_method_name()` to enumerate controller tools and resolve their RPC method names for routes/policy surfaces.
 - `crate::core::{ControllerSchema, FieldSchema, TypeSchema}` and `core::all::{ControllerFuture, RegisteredController}` — schema model and controller registration contract.
 - `crate::openhuman::config` (`Config`, `config::schema::CapabilityProviderTrustState`) — autonomy posture, MCP client allowlists, capability-provider config.
-- `crate::openhuman::mcp_server` (`McpToolSpec`, `tool_specs()`) — MCP stdio tool source for registry entries.
-- `crate::openhuman::mcp_registry::connections` (`all_connected_tools()`) — live MCP client server tools, fetched via `block_in_place` only on the multi-thread runtime.
+- `crate::openhuman::mcp::server` (`McpToolSpec`, `tool_specs()`) — MCP stdio tool source for registry entries.
+- `crate::openhuman::mcp::registry::connections` (`all_connected_tools()`) — live MCP client server tools, fetched via `block_in_place` only on the multi-thread runtime.
 - `crate::openhuman::memory_store::chunks::store` — read-only `mcp_writes` audit query.
 - `crate::rpc::RpcOutcome` — RPC result envelope.
 

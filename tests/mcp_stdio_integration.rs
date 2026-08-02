@@ -11,7 +11,7 @@
 #![cfg(feature = "mcp")]
 
 use openhuman_core::openhuman::config::McpClientIdentityConfig;
-use openhuman_core::openhuman::mcp_client::McpStdioClient;
+use openhuman_core::openhuman::mcp::config_servers::McpStdioClient;
 use std::path::PathBuf;
 
 const LATEST_PROTOCOL_VERSION: &str = "2025-11-25";

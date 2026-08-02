@@ -548,7 +548,7 @@ impl Agent {
             // prompt's `## Connected MCP Servers` block, so only servers that
             // connect *mid-session* should later be announced on the user turn.
             self.announced_mcp_servers =
-                crate::openhuman::mcp_registry::connections::connected_overview()
+                crate::openhuman::mcp::registry::connections::connected_overview()
                     .await
                     .into_iter()
                     .map(|s| s.qualified_name)
@@ -621,7 +621,7 @@ impl Agent {
             // cheap. Like the Composio block, the frozen `## Connected MCP
             // Servers` system-prompt section stays as the turn-1 snapshot.
             let connected_mcp: Vec<String> =
-                crate::openhuman::mcp_registry::connections::connected_overview()
+                crate::openhuman::mcp::registry::connections::connected_overview()
                     .await
                     .into_iter()
                     .map(|s| s.qualified_name)

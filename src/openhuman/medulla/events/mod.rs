@@ -13,7 +13,7 @@
 //! coupling to their gated siblings, and `src/embed/` names them in public
 //! signatures — gating them would take the facade down with them.
 //!
-//! This follows the rule `AGENTS.md` draws from the `skills` / `mcp_registry`
+//! This follows the rule `AGENTS.md` draws from the `skills` / `mcp`
 //! gates: put a domain's inert types in a dependency-free submodule and leave it
 //! ungated; gate only behaviour. Both builds then share one definition, so
 //! fields cannot drift between them.

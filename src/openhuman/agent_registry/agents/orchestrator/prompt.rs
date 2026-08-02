@@ -124,7 +124,7 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
             // chars / instruction fences) and cap so a single installed
             // skill can't bloat the prompt or smuggle routing instructions;
             // full details stay one `describe_workflow` call away.
-            crate::openhuman::mcp_client::sanitize::sanitize_for_llm(&skill.description, 240)
+            crate::openhuman::util::sanitize::sanitize_for_llm(&skill.description, 240)
                 .replace(['\n', '\t'], " ")
                 .trim()
                 .to_string()
@@ -148,7 +148,7 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
 /// requires the multi-threaded runtime; single-threaded contexts (unit
 /// tests) fall back to an empty list and the section is omitted.
 fn render_connected_mcp_servers() -> String {
-    use crate::openhuman::mcp_registry::connections;
+    use crate::openhuman::mcp::registry::connections;
     let servers = match tokio::runtime::Handle::try_current() {
         Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
             tokio::task::block_in_place(|| handle.block_on(connections::connected_overview()))
@@ -162,7 +162,7 @@ fn render_connected_mcp_servers() -> String {
 /// [`render_connected_mcp_servers`] so it is unit-testable without a live
 /// connection registry. Empty input → empty string (section omitted).
 fn format_connected_mcp_block(
-    servers: &[crate::openhuman::mcp_registry::connections::ConnectedServerOverview],
+    servers: &[crate::openhuman::mcp::registry::connections::ConnectedServerOverview],
 ) -> String {
     if servers.is_empty() {
         return String::new();
@@ -199,7 +199,7 @@ fn format_connected_mcp_block(
         let desc = if desc_raw.is_empty() {
             String::new()
         } else {
-            crate::openhuman::mcp_client::sanitize::sanitize_for_llm(desc_raw, 240)
+            crate::openhuman::util::sanitize::sanitize_for_llm(desc_raw, 240)
                 .replace(['\n', '\t'], " ")
                 .trim()
                 .to_string()
@@ -511,8 +511,8 @@ mod tests {
 
     #[test]
     fn connected_mcp_block_lists_servers_with_description_and_routes_via_delegate() {
-        use crate::openhuman::mcp_registry::connections::ConnectedServerOverview;
-        use crate::openhuman::mcp_registry::types::McpTool;
+        use crate::openhuman::mcp::registry::connections::ConnectedServerOverview;
+        use crate::openhuman::mcp::registry::types::McpTool;
         let mk = |n: &str| McpTool {
             name: n.to_string(),
             description: None,
@@ -540,7 +540,7 @@ mod tests {
         // A connected server's description is untrusted registry metadata. A
         // prompt-injection attempt (instruction-fence token) must be stripped
         // before it reaches the orchestrator system prompt.
-        use crate::openhuman::mcp_registry::connections::ConnectedServerOverview;
+        use crate::openhuman::mcp::registry::connections::ConnectedServerOverview;
         let block = format_connected_mcp_block(&[ConnectedServerOverview {
             server_id: "id-1".into(),
             qualified_name: "evil/server".into(),
@@ -558,8 +558,8 @@ mod tests {
 
     #[test]
     fn connected_mcp_block_falls_back_to_tool_count_and_qualified_name() {
-        use crate::openhuman::mcp_registry::connections::ConnectedServerOverview;
-        use crate::openhuman::mcp_registry::types::McpTool;
+        use crate::openhuman::mcp::registry::connections::ConnectedServerOverview;
+        use crate::openhuman::mcp::registry::types::McpTool;
         let tools: Vec<McpTool> = (0..3)
             .map(|i| McpTool {
                 name: format!("tool{i}"),

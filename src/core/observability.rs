@@ -343,9 +343,9 @@ pub enum ExpectedErrorKind {
     ApprovalNoPendingRace,
     /// A remote MCP server answered the connect handshake with HTTP 401 — it
     /// needs OAuth sign-in, not a code fix. `McpHttpClient::read_response`
-    /// (`src/openhuman/mcp_client/client.rs`) raises the typed
-    /// [`crate::openhuman::mcp_client::McpUnauthorizedError`], and
-    /// `mcp_registry::connections::connect` already classifies it and stores a
+    /// (`src/openhuman/mcp/http_client/client.rs`) raises the typed
+    /// [`crate::openhuman::mcp::http_client::McpUnauthorizedError`], and
+    /// `mcp::registry::connections::connect` already classifies it and stores a
     /// `needs_auth` flag so the UI prompts the user to authenticate (the
     /// `needs_auth` UX shipped in #3733 / #3719). But `mcp_clients_connect`
     /// still returns `Err(e.to_string())`, which propagates to the RPC
@@ -1084,7 +1084,7 @@ pub fn is_session_expired_message(msg: &str) -> bool {
 
 /// Detect a remote MCP server's connect-time 401 — the user must sign in to
 /// that server (OAuth), not a code defect. Anchored on the canonical
-/// [`crate::openhuman::mcp_client::McpUnauthorizedError`] `Display`
+/// [`crate::openhuman::mcp::http_client::McpUnauthorizedError`] `Display`
 /// body, which renders as `"MCP unauthorized for \`<endpoint>\` (HTTP 401…)"`.
 ///
 /// Conjunctive match — both anchors must hit (input already lower-cased):
@@ -2071,7 +2071,7 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
         }
         ExpectedErrorKind::McpServerNeedsAuth => {
             // A remote MCP server rejected the connect handshake with HTTP 401:
-            // it needs OAuth sign-in. `mcp_registry::connections::connect`
+            // it needs OAuth sign-in. `mcp::registry::connections::connect`
             // already stores a `needs_auth` flag and the UI prompts the user to
             // authenticate (#3733 / #3719) — but `mcp_clients_connect` re-raises
             // the stringified error to the RPC dispatcher, where it was being
@@ -3776,7 +3776,7 @@ mod tests {
     /// the dispatcher.
     #[test]
     fn classifies_mcp_connect_401_as_needs_auth() {
-        use crate::openhuman::mcp_client::McpUnauthorizedError;
+        use crate::openhuman::mcp::http_client::McpUnauthorizedError;
 
         let bare = McpUnauthorizedError {
             endpoint: "https://youtube.run.tools".to_string(),

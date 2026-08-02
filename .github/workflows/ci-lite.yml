@@ -419,7 +419,7 @@ jobs:
       - name: Check core builds with the default domain gates disabled
         # Lib-scoped on purpose. `--all-targets` would additionally compile the
         # `tests/` integration crates, which today name gated symbols
-        # (voice::reply_speech::test_seam, mcp_registry::store, x402::tools) without
+        # (voice::reply_speech::test_seam, mcp::registry::store, web3::x402::tools) without
         # a #[cfg] and so do not compile with the gates off. That cleanup is tracked
         # in #5021 alongside running the full gates-off suite; until it lands, this
         # lane checks the lib and RUNS the gate-contract lib tests below.
@@ -443,7 +443,7 @@ jobs:
             core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent_registry::agents::loader:: tools::schemas:: tools::ops::tests::
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             --no-default-features --features tokenjuice-treesitter,mcp --lib -- \
-            mcp_server::resources::
+            mcp::server::resources::
 
       - name: Guard — the kernel dependency floor may not grow
         # The `--no-default-features --features flows` profile is the surface a
@@ -493,7 +493,7 @@ jobs:
           openhuman/agent/harness/subagent_runner/tool_prep.rs
           openhuman/agent_registry/agents/loader.rs
           openhuman/inference/local/mod.rs
-          openhuman/mcp_server/resources.rs
+          openhuman/mcp/server/resources.rs
           openhuman/socket/ops.rs
           openhuman/tinyplace/manifest.rs
           openhuman/tool_registry/ops_tests.rs
@@ -501,9 +501,9 @@ jobs:
           openhuman/tools/ops_tests.rs
           openhuman/tools/schemas.rs
           openhuman/voice/compile_status.rs
-          openhuman/wallet/stub.rs
           openhuman/web3/stub.rs
-          openhuman/x402/stub.rs
+          openhuman/web3/wallet/stub.rs
+          openhuman/web3/x402/stub.rs
           EOF
           )
           ACTUAL=$(grep -rlE '#\[cfg\((not\()?feature = "(voice|media|web3|meet|mcp|skills|flows|channels|prediction-markets)"' src --include='*.rs' \

@@ -62,10 +62,10 @@ pub mod json_schema;
 pub mod keyring;
 pub mod keyring_consent;
 pub mod learning;
-pub mod mcp_audit;
-pub mod mcp_client;
-pub mod mcp_registry;
-pub mod mcp_server;
+// Ungated family root: `mcp/http_client` is always compiled, and the
+// `server`/`registry`/`audit` facades each need their `stub` to resolve in an
+// `mcp`-less build. The gate is pushed onto each member inside `mcp/mod.rs`.
+pub mod mcp;
 // Both children (`generation`, `image`) are wholly gated, so the parent is a
 // leaf gate — a slim build omits the family outright.
 #[cfg(feature = "media")]

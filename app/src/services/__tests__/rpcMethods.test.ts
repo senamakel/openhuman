@@ -145,7 +145,7 @@ describe('rpcMethods catalog', () => {
         'utf8'
       ),
       fs.readFileSync(
-        path.resolve(__dirname, '../../../../src/openhuman/mcp_registry/schemas.rs'),
+        path.resolve(__dirname, '../../../../src/openhuman/mcp/registry/schemas.rs'),
         'utf8'
       ),
       fs.readFileSync(

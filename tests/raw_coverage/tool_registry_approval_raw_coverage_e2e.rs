@@ -30,8 +30,8 @@ use openhuman_core::openhuman::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState,
 };
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::mcp_registry::connections;
-use openhuman_core::openhuman::mcp_registry::types::{CommandKind, InstalledServer, Transport};
+use openhuman_core::openhuman::mcp::registry::connections;
+use openhuman_core::openhuman::mcp::registry::types::{CommandKind, InstalledServer, Transport};
 use openhuman_core::openhuman::security::{live_policy, SecurityPolicy};
 use openhuman_core::openhuman::tool_registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,

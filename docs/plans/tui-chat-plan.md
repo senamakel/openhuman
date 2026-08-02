@@ -22,7 +22,7 @@ gated behind a Cargo feature `tui`.
      `#[cfg(not(feature = "tui"))] mod stub;` exposing the same `run_from_cli`.
    - `stub.rs` `run_from_cli` bails with
      `"tui feature disabled at compile time … rebuild with --features tui"`
-     (mirror `src/openhuman/mcp_server/stub.rs:42`).
+     (mirror `src/openhuman/mcp/server/stub.rs:42`).
    - No controllers, no agent tools, no `all.rs` changes (leaf client, like `flows`'
      philosophy: absence, not degraded registration — but here the only outside
      touch-point is the CLI arm, which uses the stub for a build-fact error).

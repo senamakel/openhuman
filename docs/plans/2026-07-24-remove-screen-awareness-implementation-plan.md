@@ -94,7 +94,7 @@ Files:
   revise `src/openhuman/agent_registry/agents/vision_agent/{agent.toml,prompt.md}`
   to refer only to attached or on-disk user-provided images.
 - Delete the screen-awareness prompt resource from
-  `src/openhuman/mcp_server/resources.rs`.
+  `src/openhuman/mcp/server/resources.rs`.
 - Delete `CapabilityCategory::ScreenIntelligence`, parsing/serialization tests,
   and all `screen_intelligence.*` catalog entries from
   `src/openhuman/about_app/{types.rs,catalog_data.rs,catalog_tests.rs,README.md}`.

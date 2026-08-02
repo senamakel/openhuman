@@ -405,7 +405,7 @@ default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "docu
 # server (`openhuman::http_host`), the AgentBox `/run` HTTP surface
 # (`agentbox::http`), the WebSocket dictation stream
 # (`inference::voice::streaming`), the `openhuman text-input run` dev server,
-# the MCP Streamable-HTTP transport (`mcp_server::http`, additionally gated by
+# the MCP Streamable-HTTP transport (`mcp::server::http`, additionally gated by
 # `mcp`), and the Socket.IO live-event bridge (`core::socketio`). Default-ON —
 # the desktop shell REQUIRES it (see the `HTTP_SERVER_COMPILED_IN` compile
 # assert in `app/src-tauri/src/lib.rs`). Slim / headless-embedding builds opt
@@ -571,10 +571,11 @@ meet = []
 # types are a type carve-out, not part of the gated behaviour. See
 # `src/openhuman/skills/stub.rs`.
 skills = []
-# MCP domains: `mcp_server` (the `openhuman mcp` stdio/HTTP server exposing our
-# tool surface), `mcp_registry` (dynamic Smithery installs — SQLite, lifecycle,
-# `mcp_clients` RPC namespace), `mcp_audit` (write-audit log), and the
-# static/config-declared server set in `mcp_client`. Default-ON — the desktop
+# MCP domains, all under the `mcp/` family: `mcp::server` (the `openhuman mcp`
+# stdio/HTTP server exposing our tool surface), `mcp::registry` (dynamic
+# Smithery installs — SQLite, lifecycle, `mcp_clients` RPC namespace),
+# `mcp::audit` (write-audit log), and the static/config-declared server set in
+# `mcp::config_servers`. Default-ON — the desktop
 # app always ships with MCP. Composes with the runtime `DomainSet::mcp` flag
 # (#4796): this feature narrows the compile-time surface, `DomainSet` gates it
 # at runtime.
@@ -586,11 +587,13 @@ skills = []
 # dependencies. The issue-level DoD line claiming it "sheds the MCP SDK /
 # transport stack" is superseded by this correction (see AGENTS.md).
 #
-# NOTE: `mcp_client::{sanitize, client}` stay ALWAYS compiled — they are
-# mis-housed shared utilities (the gitbooks docs tool dials `McpHttpClient`;
-# the orchestrator prompt sanitises *skill* descriptions through
-# `sanitize::sanitize_for_llm`). The gate follows the real dependency graph,
-# not the directory name.
+# NOTE: the family root `pub mod mcp;` and `mcp::http_client` stay ALWAYS
+# compiled. `http_client` is a mis-housed shared utility (the gitbooks docs
+# tool dials `McpHttpClient`; `core::observability` names
+# `McpUnauthorizedError`), and the server/registry/audit stubs need their
+# parent compiled. `sanitize` left the family entirely for `util::sanitize` —
+# the orchestrator prompt sanitises *skill* descriptions through it. The gate
+# follows the real dependency graph, not the directory name.
 mcp = []
 # Sentry crash/error reporting: the `sentry::init` guard + secret-scrubbing
 # `before_send` hook (src/main.rs), the sentry-tracing bridge layer
@@ -644,7 +647,7 @@ tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
 # compiled, and `medulla::contract` + `medulla::events` stay compiled in BOTH
 # builds because `src/embed/` names those types in public signatures. Only
 # `medulla::client` — everything that touches reqwest — is gated. This follows
-# the rule the `skills` / `mcp_registry` gates established: carve inert types
+# the rule the `skills` / `mcp` gates established: carve inert types
 # out and gate behaviour, so the two builds share one type definition and
 # cannot drift.
 #

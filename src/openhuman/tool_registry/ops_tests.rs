@@ -9,7 +9,7 @@ fn registry_entries_include_mcp_and_controller_tools() {
     let entries = registry_entries();
 
     // The MCP-transport half of the inventory is sourced from
-    // `mcp_server::tool_specs()`, which the `mcp` feature compiles out (the
+    // `mcp::server::tool_specs()`, which the `mcp` feature compiles out (the
     // stub returns an empty catalog). Only this half is gated — the
     // controller half below must keep its coverage in BOTH builds.
     #[cfg(feature = "mcp")]
@@ -66,7 +66,7 @@ fn diagnostics_reports_inventory_and_policy_surfaces() {
     assert!(outcome.value.total_tools > 0);
     assert_eq!(outcome.value.total_tools, outcome.value.enabled_tools);
     // MCP-transport tools only exist when the `mcp` feature is compiled in;
-    // with it off the count is legitimately zero (see `mcp_server::stub`).
+    // with it off the count is legitimately zero (see `mcp::server::stub`).
     #[cfg(feature = "mcp")]
     assert!(outcome.value.mcp_stdio_tools > 0);
     #[cfg(not(feature = "mcp"))]

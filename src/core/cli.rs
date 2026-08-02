@@ -84,7 +84,7 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
     // Match on the first argument to determine the subcommand.
     match args[0].as_str() {
         "run" | "serve" => run_server_command(&args[1..]),
-        "mcp" | "mcp-server" => crate::openhuman::mcp_server::run_stdio_from_cli(&args[1..]),
+        "mcp" | "mcp-server" => crate::openhuman::mcp::server::run_stdio_from_cli(&args[1..]),
         // Keep the command present in slim builds so users get a build-fact
         // diagnostic rather than a misleading "unknown namespace" error.
         "tui" | "chat" => run_tui_from_cli(&args[1..]),

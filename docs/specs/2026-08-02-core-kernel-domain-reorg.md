@@ -10,7 +10,7 @@
 ## 1. Where the program stands
 
 The kernelization program has two halves. **The dependency half is largely done**; the
-**structural half is underway** — 124 top-level domain directories are down to 95, and both
+**structural half is underway** — 124 top-level domain directories are down to 92, and both
 root-level `*.rs` violations are gone.
 
 ### Done (#4795 epic, then #5314)
@@ -51,9 +51,9 @@ top-level dirs — `memory*` is 13, `agent*` is 6, `mcp_*` is 4, `runtime_*` was
 meant `#[cfg]`-ing scattered `pub mod` lines and hand-syncing five parallel registries
 (`DomainGroup`, `DomainSet`, `StoreInitPlan`, `DomainSubscriberPlan`, `tool_group()`).
 
-**Steps 1–4 landed: 124 → 95 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
+**Steps 1–5 landed: 124 → 92 directories, 2 → 0 root-level `*.rs`.** Families so far: `meet/`,
 `util/`, `sandbox/cwd_jail`, `cron/scheduler_gate`, `runtime/`, `media/`, `desktop/`, `hosted/`,
-`subconscious/{triggers,monitors}`, and the existing-gate families `voice/audio_toolkit`,
+`subconscious/{triggers,monitors}`, and `mcp/`, and the existing-gate families `voice/audio_toolkit`,
 `web3/{wallet,x402}`, `medulla/chat`, `flows/{tinyflows,rhai}`,
 `channels/{whatsapp_data,webview_accounts}`. The `heartbeat/` re-export shim is deleted. The big three
 (`security/`, `agent/`, `memory/`) are still ahead.
@@ -161,7 +161,7 @@ renames.
 | `inference/` | `embeddings`, `tokenjuice` |
 | `skills/` | `skill_registry→registry`, `skill_runtime→runtime`, `webhooks` |
 | `flows/` | ✅ **landed** — `tinyflows`, `rhai_workflows→rhai`; parent is leaf-gated on `flows` (no stub — every external site is a registration site) |
-| `mcp/` *(new)* | `mcp_server→server`, `mcp_registry→registry`, `mcp_audit→audit`, `mcp_client::{registry,stdio,spawn_env,setup_agent}→config_servers`, `mcp_client::{client,client_helpers}→http_client` *(ungated carve-out)*, `mcp_client::sanitize→util/sanitize` |
+| `mcp/` *(new)* | ✅ **landed** — `mcp_server→server`, `mcp_registry→registry`, `mcp_audit→audit`, `mcp_client::{registry,stdio,spawn_env,setup_agent}→config_servers` *(leaf-gated)*, `mcp_client::{client,client_helpers}→http_client` *(ungated carve-out)*, `mcp_client::sanitize→util/sanitize`; parent stays ungated (three facades with `stub.rs` + the always-compiled `http_client`) |
 | `channels/` | ✅ **landed** — `whatsapp_data`, `webview_accounts`; parent stays ungated (the `traits`/`cli` carve-outs), gate pushed onto each child |
 | `meet/` | ✅ **landed** — `meet_agent→agent`, `agent_meetings→backend_bot` |
 | `voice/` | ✅ **landed** — `audio_toolkit`; parent stays ungated (facade + `stub.rs`), gate pushed onto the child |
@@ -186,7 +186,7 @@ renames.
 | `threads/` | `thread_goals→goals`, `todos` |
 | `cron/` | ✅ **landed** — `scheduler_gate` |
 | `sandbox/` | ✅ **landed** — `cwd_jail` |
-| `util/` *(new)* | ✅ **landed** — `util.rs` split into `util/{mod,text,retry,types}.rs`, `tls→util/tls`, `dev_paths.rs` deleted. Still to come: `mcp_client::sanitize→util/sanitize` (with the `mcp/` move) |
+| `util/` *(new)* | ✅ **landed** — `util.rs` split into `util/{mod,text,retry,types}.rs`, `tls→util/tls`, `dev_paths.rs` deleted, `mcp_client::sanitize→util/sanitize` (landed with the `mcp/` move) |
 
 ### Name collisions — dodge, don't pay
 
@@ -207,7 +207,7 @@ goes to `platform/`.
    `ToolContent` through `tools/traits.rs`. This is the largest import fan-out in the crate.
 4. `tools/` ownership rule untouched — domain tools stay in each domain's `tools.rs`, re-exported
    through the globs in `tools/mod.rs`. Only the glob's *path* changes.
-5. `mcp_registry::types`, `mcp_audit::types`, `mcp_server::tools::types` stay ungated.
+5. `mcp::registry::types`, `mcp::audit::types`, `mcp::server::tools::types` stay ungated.
 6. `tinyplace/` does **not** go under `web3/` — its signer works via ed25519 independently.
 7. Do not merge `migration/` into `migrations/` during a move (pure moves only).
 8. **`scripts/ci/orch-ip-gate.sh` hard-codes domain paths and fails *open* on a wrong path.**
@@ -227,7 +227,8 @@ goes to `platform/`.
    retargeted `scripts/ci/orch-ip-gate.sh` (see rule 8).
 4. `voice/`, `web3/`, `medulla/`, `flows/`, `channels/` — existing gates; each validates that its
    `stub.rs` survives relocation.
-5. `mcp/` — the only family with a genuine *split*; after the pure moves prove the tooling.
+5. ✅ `mcp/` — the only family with a genuine *split*. `mcp_client` divided three ways:
+   `config_servers` (leaf-gated), `http_client` (ungated carve-out), `sanitize` → `util/`.
 6. `threads/`, `tools/`, `platform/`, `config/`, `integrations/`, `skills/`, `inference/`.
 7. `security/`.
 8. `agent/`.

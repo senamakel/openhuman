@@ -971,12 +971,13 @@ pub fn all_tools_with_runtime(
     //
     // Backed by the STATIC, config-declared server set (`[[mcp_client.servers]]`
     // in TOML) — despite the local binding's name, this is NOT the dynamic
-    // `mcp_registry` domain gated above. Both are compiled out by the `mcp`
+    // `mcp::registry` domain gated above. Both are compiled out by the `mcp`
     // feature; see the static-vs-dynamic note in AGENTS.md.
     #[cfg(feature = "mcp")]
     {
         let mcp_registry = {
-            let base = crate::openhuman::mcp_client::McpServerRegistry::from_config(root_config);
+            let base =
+                crate::openhuman::mcp::config_servers::McpServerRegistry::from_config(root_config);
             // Scope the MCP surface to the active profile's allowlist. `None` keeps
             // every configured server; `Some(&[])` yields an empty registry.
             match mcp_allowlist {

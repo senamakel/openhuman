@@ -619,7 +619,7 @@ struct OAuthMcpCallbackQuery {
 
 /// Loopback redirect target for MCP browser OAuth (RFC 8252). The authorization
 /// server redirects the browser here with `?code=…&state=…`; we hand it to
-/// `mcp_registry::oauth::complete`, which exchanges the code for a token, stores
+/// `mcp::registry::oauth::complete`, which exchanges the code for a token, stores
 /// it as the server's `Authorization` header, and reconnects.
 #[cfg(feature = "http-server")]
 async fn oauth_mcp_callback_handler(
@@ -677,7 +677,7 @@ async fn oauth_mcp_callback_handler(
         }
     };
 
-    match crate::openhuman::mcp_registry::oauth::complete(&config, &state, &code).await {
+    match crate::openhuman::mcp::registry::oauth::complete(&config, &state, &code).await {
         Ok(server_id) => {
             log::info!("[oauth:mcp] completed sign-in for server_id={server_id}");
             html(
@@ -1903,7 +1903,7 @@ pub struct DomainSubscriberPlan {
     pub meet: bool,
     /// agent handlers + background delivery + run-ledger finalizer + orchestration ingest.
     pub agent: bool,
-    /// mcp_registry lifecycle bus init.
+    /// mcp::registry lifecycle bus init.
     pub mcp: bool,
 }
 
@@ -2284,7 +2284,7 @@ fn register_domain_subscribers(
     // connect events are observed (issue #3039 gap A1).
     if plan.mcp {
         if group_first_time(DomainGroup::Mcp) {
-            crate::openhuman::mcp_registry::bus::init();
+            crate::openhuman::mcp::registry::bus::init();
         }
     } else {
         log::debug!("[event_bus] mcp_registry bus init SKIPPED — Mcp domain disabled");

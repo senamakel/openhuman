@@ -340,11 +340,18 @@ pub struct AgentConfig {
     /// compare, and log any divergence (`[session_shadow_read]`, issue #4249,
     /// sessions 04.2 phase 2).
     ///
-    /// Defaults **OFF** (unlike `session_dual_write`, which defaults ON): this
-    /// is an observation-only parity probe with no product effect. The legacy
-    /// JSONL read stays authoritative — the shadow read only observes and logs
-    /// on a background task; a store-read failure is treated as "no shadow
-    /// available" and never breaks or slows the authoritative read. The
+    /// Defaults **ON** as of the Phase 2 parity soak (`plan-agents.md` §5): the
+    /// reader flip cannot be justified without divergence data from real
+    /// workspaces, and a probe that ships off produces none. This is safe to
+    /// default on precisely because it is observation-only — see the paragraph
+    /// below — and it is the last step before readers move to the store.
+    ///
+    /// The legacy JSONL read stays authoritative: the shadow read only observes
+    /// and logs, on a background task, once per session resume rather than per
+    /// turn. A store-read failure is treated as "no shadow available" and never
+    /// breaks or slows the authoritative read. Sessions written before the
+    /// store existed have no stream and report `Unavailable`, not divergence,
+    /// so an upgrading user's old transcripts do not generate warnings. The
     /// `OPENHUMAN_SESSION_SHADOW_READS` env var is a pure **kill switch**: a
     /// falsy value (`0`/`false`/`no`/`off`/`disable`) forces the shadow read
     /// OFF regardless of config; it can never force it ON. See
@@ -382,7 +389,11 @@ fn default_session_dual_write() -> bool {
 }
 
 fn default_session_shadow_reads() -> bool {
-    false
+    // ON for the Phase 2 parity soak. Observation-only: the legacy read stays
+    // authoritative and the probe runs on a background task, so the worst case
+    // of a bad soak is log noise, not a broken resume. Disable per-workspace in
+    // config, or globally with `OPENHUMAN_SESSION_SHADOW_READS=0`.
+    true
 }
 
 fn default_tool_result_budget_bytes() -> usize {

@@ -126,7 +126,7 @@ program can be halted at any phase boundary without leaving the tree broken.
 | `harness/session/{runtime,types,builder}` — session lifecycle & assembly | ~3,700 | `harness::session` — `Session<State>` + builder over capability traits |
 | `harness/session/turn/*` — turn orchestration shell | ~4,476 | `harness::session::turn` — generic loop + `TurnPreparation` pipeline |
 | `harness/subagent_runner/` | ~5,541 | merges into existing `harness::subagent` + `graph::orchestration` |
-| `harness/session/transcript.rs` + `turn_checkpoint.rs` | ~2,100 | `harness::memory::JsonlChatHistory` (this is Option B of the transcript spec — **the move decision selects B**) |
+| `harness/session/transcript.rs` + `turn_checkpoint.rs` | ~2,100 | the crate **`Store`/`AppendStore` session journal** (`{workspace}/tinyagents_store/`), via the in-flight #4249 migration — **not** a `JsonlChatHistory`; corrected 2026-08-03, see §5 Phase 2 |
 | `harness/{parse,definition,definition_loader,tool_filter,required_output,graph,agent_graph,fork_context}.rs` | ~3,300 | `harness::{tool_calling, definition, graph}` — merges with #55/#57 |
 | `harness/artifact_offload/`, `tool_result_artifacts/` | ~1,400 | `harness::artifacts` |
 | `harness/run_queue/`, `harness/memory_context*.rs` | ~1,000 | `harness::runtime`, behind `MemoryProvider` |
@@ -165,12 +165,20 @@ Pick A. It is the pattern the org already uses successfully one crate over.
 
 ### 4.2 `ChatMessage` and the transcript format
 
-Moving the session runtime down forces the transcript decision to **Option B**
-of the transcript spec: the `session_raw` JSONL format becomes crate-owned
-public API, and `ChatMessage`'s durable fields must survive as crate `Message` +
-a `raw` passthrough (the `ToolResult::raw` precedent). This is the change with
-real user-visible risk — existing installs have live transcripts and resume must
-keep working. Phase 2 exists solely to de-risk it.
+Moving the session runtime down forces the durable conversation record to
+become crate-owned, and `ChatMessage`'s durable fields must survive as crate
+`Message` + a `raw` passthrough (the `ToolResult::raw` precedent). This is the
+change with real user-visible risk — existing installs have live transcripts and
+resume must keep working. Phase 2 exists solely to de-risk it.
+
+> **Corrected 2026-08-03.** This section previously said the decision was
+> "**Option B** of the transcript spec: the `session_raw` JSONL format becomes
+> crate-owned public API". It is not. The in-flight migration (issue #4249,
+> `src/openhuman/session_import/`) converges on the crate's **`Store` /
+> `AppendStore` journal**, not on promoting the legacy JSONL layout to crate
+> API. The legacy `session_raw/*.jsonl` format stays a host implementation
+> detail and is retired once readers move; it never becomes public crate
+> surface. See the Phase 2 note in §5.
 
 ---
 
@@ -196,11 +204,68 @@ being a name collision: `tinyflows` 0.5.1 shipped its own, unrelated
 Add the traits + no-op/in-memory default impls to the crate. No host change.
 *Exit:* crate `cargo test --all-features` green; version bump; both lockfiles.
 
-**Phase 2 — Transcript to crate `JsonlChatHistory` (transcript spec Option B).**
+**Phase 2 — Transcript to the crate session store.** — *soak started
+(2026-08-03)*
 Do this early and alone: it is the only phase with on-disk risk. One release of
 shadow-read parity, mismatch logged never panicked, legacy `DDMMYYYY/` and
 `read_transcript_legacy_md` paths covered.
 *Exit:* resume works across upgrade on a real workspace; parity soak clean.
+
+> **This phase was mis-specified, and most of it was already built.** Two
+> corrections, found on starting it:
+>
+> **1. The target is not `JsonlChatHistory`.** The heading previously read
+> "Transcript to crate `JsonlChatHistory` (transcript spec Option B)". No such
+> convergence is in progress. The real target — already chosen and half-shipped
+> under issue #4249 — is the crate's `Store` / `AppendStore` journal at
+> `{workspace}/tinyagents_store/{kv,journal}`. Building a `JsonlChatHistory`
+> would have introduced a **third** store alongside the legacy JSONL and the
+> one being migrated to.
+>
+> **2. It was ~2/3 done before this phase opened.** `src/openhuman/session_import/`
+> (2,452 LOC) already implements:
+>
+> | Slice | State |
+> | --- | --- |
+> | Phase 1 — importer (legacy JSONL → store) | done |
+> | 04.1 — live dual-write, `session_dual_write` | done, **defaults ON** |
+> | shadow-read comparison + `ShadowReadOutcome` | done, was default OFF |
+> | 04.2 — flip readers to the store | **not started** |
+>
+> Legacy `session_raw/*.jsonl` remains the authoritative reader *and* writer;
+> the store is mirror-only. That is the correct sequencing and it was already
+> right — this phase's job is to finish it, not restart it.
+
+**Done this pass.**
+
+- **Closed the two legacy-shape coverage gaps this phase's own exit criteria
+  name**, neither of which had a test (`session_import/live_tests.rs`):
+  - date-grouped `session_raw/DDMMYYYY/` resolves the same store stream as a
+    flat transcript. The session key is the file *stem*, so the enclosing
+    directory must not change it; if it ever did, every pre-migration session
+    would read as `Unavailable` and the soak would look clean while covering
+    nothing.
+  - a legacy `.md` session reads as `Unavailable`, never `Divergence`. These
+    predate the store, so no stream exists — reporting divergence would flood
+    the soak with false positives from every old transcript on disk, and the
+    point of the soak is that a warning means something.
+- **`session_shadow_reads` now defaults ON**, starting the parity soak. Safe to
+  default on because it is observation-only: legacy stays authoritative, the
+  probe runs on a background task once per *resume* (not per turn), a store-read
+  failure degrades to `Unavailable`, and `OPENHUMAN_SESSION_SHADOW_READS=0` is a
+  kill switch. Worst case of a bad soak is log noise, not a broken resume.
+
+**Remaining for Phase 2** — and the reason it is not yet done:
+
+1. **Soak.** Collect `[session_shadow_read]` divergence rates from real
+   workspaces across one release. There is no data yet, so nothing below is
+   justified.
+2. **04.2 — flip readers**, gated on the same flag, only once the soak is clean.
+3. Retire the legacy writer once reads have run on the store for a release.
+
+**Do not skip to 2.** The whole design of this phase is that the reader flip is
+bought with evidence, and the evidence does not exist until a release has
+shipped with the probe on.
 
 **Phase 3 — Config mapping (§4.1 Option A).** — *in progress (2026-08-02)*
 Introduce crate config structs + a host `session_config_from(&Config)` mapper.
@@ -410,8 +475,8 @@ rust:check`, deletion-ledger totals reconciled, architecture docs rewritten.
 | Enabler | the crate is already generic over `State`; 18 extension traits use the pattern today |
 | Inversion | 45 outbound domains → **~10 capability traits** |
 | Reality check | `agent/` does not empty — ~20–25k LOC stays as the host adapter (`ChatMessage`, `AgentProgress`, prompts, triage, bus, trait impls) |
-| Gating decisions | config mapping (§4.1 → Option A); transcript format goes crate-owned (§4.2 → transcript spec Option B) |
+| Gating decisions | config mapping (§4.1 → Option A); durable conversation record converges on the crate **store**, not a crate-owned JSONL (§4.2, corrected 2026-08-03) |
 | Highest-value / lowest-risk phase | **Phase 4** — trait injection in place. Cuts coupling 45 → 10 without moving a file; a legitimate stopping point |
-| Highest-risk phase | **Phase 2** — on-disk transcript format, isolated and sequenced first |
+| Highest-risk phase | **Phase 2** — on-disk transcript format, isolated and sequenced first. Was mis-specified and already ~2/3 built under #4249; parity soak started 2026-08-03 |
 | Honest cost | multi-quarter program; every phase leaves the tree green and shippable |
 

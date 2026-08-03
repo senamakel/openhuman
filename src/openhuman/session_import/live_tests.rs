@@ -303,7 +303,8 @@ async fn shadow_read_unavailable_and_divergence() {
 }
 
 /// The shadow read is driven by the `AgentConfig::session_shadow_reads` config
-/// flag (default **OFF**) with the `OPENHUMAN_SESSION_SHADOW_READS` env var as a
+/// flag (default **ON** since the Phase 2 parity soak) with the
+/// `OPENHUMAN_SESSION_SHADOW_READS` env var as a
 /// pure kill switch (can only force OFF, never ON). This exercises the decision
 /// matrix directly — the gate `maybe_shadow_read_session_store` early-returns
 /// (never invoking the reader) whenever this returns `false`. Env mutation is
@@ -352,4 +353,97 @@ fn shadow_read_flag_and_env_kill_switch() {
         Some(v) => std::env::set_var(ENV, v),
         None => std::env::remove_var(ENV),
     }
+}
+
+// ── Legacy on-disk shapes (plan-agents.md Phase 2) ────────────────────────────
+//
+// Phase 2's exit criteria name two legacy layouts that must survive the
+// migration: the date-grouped `session_raw/DDMMYYYY/` directory and the
+// markdown transcripts `read_transcript_legacy_md` still parses. Both predate
+// the store, so both reach the shadow read by a different route than the happy
+// path above — and a real user upgrading has them on disk today.
+
+/// A resume off the legacy **date-grouped** layout (`session_raw/DDMMYYYY/`)
+/// shadow-reads correctly.
+///
+/// The session key is the file *stem*, so the enclosing directory must not
+/// change it — a date-grouped transcript has to find the same store stream a
+/// flat one would. If the key were ever derived from the path instead, every
+/// pre-migration session would silently read as `Unavailable` and the parity
+/// soak would look clean while covering nothing.
+#[tokio::test]
+async fn shadow_read_matches_across_the_legacy_date_grouped_layout() {
+    let ws = TempDir::new().expect("tempdir");
+    let stem = "1719_orchestrator";
+    // The legacy layout nests the transcript under a DDMMYYYY directory.
+    let dated_dir = ws.path().join("session_raw").join("01012024");
+    std::fs::create_dir_all(&dated_dir).expect("create legacy dated dir");
+    let jsonl_path = dated_dir.join(format!("{stem}.jsonl"));
+
+    let base_messages = vec![ChatMessage::user("hi"), ChatMessage::assistant("done")];
+    let meta = meta("t-root");
+    let usage = turn_usage();
+
+    write_transcript(&jsonl_path, &base_messages, &meta, Some(&usage)).expect("legacy write");
+
+    let mut live_messages = base_messages.clone();
+    let last_assistant = live_messages
+        .iter()
+        .rposition(|m| m.role == "assistant")
+        .expect("assistant message present");
+    attach_turn_usage_metadata(&mut live_messages[last_assistant], &usage);
+    write_live_turn(
+        ws.path(),
+        stem,
+        &SessionTranscript {
+            meta,
+            messages: live_messages,
+        },
+    )
+    .await
+    .expect("live dual-write");
+
+    let legacy = read_transcript(&jsonl_path).expect("read legacy dated transcript");
+    assert_eq!(
+        shadow_read_compare(ws.path(), stem, &legacy).await,
+        ShadowReadOutcome::Match {
+            messages: legacy.messages.len()
+        },
+        "a date-grouped transcript must resolve the same store stream as a flat one"
+    );
+}
+
+/// A legacy **markdown** session shadow-reads as `Unavailable`, never as a
+/// divergence.
+///
+/// These transcripts predate the store entirely, so no dual-write ever ran for
+/// them and no stream exists. That must read as "no shadow to compare",
+/// because reporting it as divergence would flood the parity soak with false
+/// positives from every old session on disk — and the whole point of the soak
+/// is that a warning means something.
+#[tokio::test]
+async fn shadow_read_of_a_legacy_markdown_session_is_unavailable_not_divergent() {
+    let ws = TempDir::new().expect("tempdir");
+    let stem = "1719_orchestrator";
+    let md_path = ws.path().join("sessions").join("01012024");
+    std::fs::create_dir_all(&md_path).expect("create legacy md dir");
+    let md_file = md_path.join(format!("{stem}.md"));
+
+    // The pre-JSONL on-disk shape: an HTML-comment header plus `<!--MSG-->`
+    // delimited bodies.
+    std::fs::write(
+        &md_file,
+        "<!-- session_transcript\nagent: test_agent\ndispatcher: native\ncreated: 2026-01-01T00:00:00Z\nupdated: 2026-01-01T00:01:00Z\nturn_count: 1\ninput_tokens: 10\noutput_tokens: 5\ncached_input_tokens: 3\n-->\n\n<!--MSG role=\"user\"-->\nhello\n<!--/MSG-->\n<!--MSG role=\"assistant\"-->\nhi back\n<!--/MSG-->\n",
+    )
+    .expect("write legacy md");
+
+    // `read_transcript` routes a `.md` path to the legacy parser.
+    let legacy = read_transcript(&md_file).expect("read legacy md transcript");
+    assert_eq!(legacy.messages.len(), 2, "fixture parsed as two messages");
+
+    assert_eq!(
+        shadow_read_compare(ws.path(), stem, &legacy).await,
+        ShadowReadOutcome::Unavailable,
+        "a pre-store markdown session has no stream and must not read as divergence"
+    );
 }

@@ -39,9 +39,10 @@ use super::types::{DescriptorSource, JournalMessage, NS_SESSIONS};
 const DUAL_WRITE_ENV: &str = "OPENHUMAN_SESSION_DUAL_WRITE";
 
 /// Kill-switch env var for the store-backed session shadow read. The config
-/// flag (`AgentConfig::session_shadow_reads`) defaults OFF; setting this env
-/// var to a falsey value forces the shadow read OFF even when the flag is ON.
-/// It can never force the shadow read ON. See [`shadow_reads_enabled`].
+/// flag (`AgentConfig::session_shadow_reads`) defaults ON since the Phase 2
+/// parity soak; setting this env var to a falsey value forces the shadow read
+/// OFF even when the flag is ON. It can never force the shadow read ON. See
+/// [`shadow_reads_enabled`].
 const SHADOW_READ_ENV: &str = "OPENHUMAN_SESSION_SHADOW_READS";
 
 /// Whether `var` is set to a case-insensitive falsey value
@@ -220,13 +221,14 @@ pub async fn write_live_turn(
 /// Whether the store-backed session **shadow read** is enabled for this read.
 ///
 /// `config_enabled` is the `AgentConfig::session_shadow_reads` flag, which
-/// **defaults OFF** (unlike `session_dual_write`). The
+/// **defaults ON** since the Phase 2 parity soak, as `session_dual_write`
+/// already did. The
 /// `OPENHUMAN_SESSION_SHADOW_READS` env var is a pure kill switch: an explicit
 /// falsey value (case-insensitive `0`/`false`/`no`/`off`/`disable`/`disabled`)
 /// forces the shadow read OFF regardless of config; it can never force it ON.
 /// Read live (never cached) so a config reload / env change is honored on the
-/// next read. Mirrors the [`dual_write_enabled`] flag/env idiom exactly, only
-/// with the default flipped and no default-on behavior.
+/// next read. Mirrors the [`dual_write_enabled`] flag/env idiom exactly: the
+/// env var can only ever force OFF, never ON.
 pub fn shadow_reads_enabled(config_enabled: bool) -> bool {
     let killed = env_kill_switch_engaged(SHADOW_READ_ENV);
     let enabled = config_enabled && !killed;

@@ -1424,9 +1424,15 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         || name.contains("subagent")
         || matches!(
             name,
-            "agent_prepare_context"
+            "ask_user_clarification"
+                | "agent_prepare_context"
+                | "delegate"
                 | "delegate_graph"
                 | "delegate_to_personality"
+                | "todo"
+                | "update_task"
+                | "wait"
+                | "wait_loop"
                 | "request_plan_review"
                 | "plan_exit"
         )
@@ -1436,7 +1442,14 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     if name.starts_with("config_") || name.starts_with("workspace_") {
         return DomainGroup::Config;
     }
-    if name.starts_with("security_") || name.starts_with("credential_") {
+    if name.starts_with("people_") {
+        return DomainGroup::Memory;
+    }
+    if name.starts_with("security_")
+        || name.starts_with("credential_")
+        || name.starts_with("session_")
+        || name.starts_with("oauth_")
+    {
         return DomainGroup::Security;
     }
     // ── Families carved out of Platform by the DomainGroup realignment ──────

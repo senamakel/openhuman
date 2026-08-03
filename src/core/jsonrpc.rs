@@ -2395,7 +2395,12 @@ pub async fn bootstrap_core_runtime(
     // --- Event bus bootstrap ---
     // Ensure the global event bus is initialized (no-op if already done by start_channels).
     crate::core::event_bus::init_global(crate::core::event_bus::DEFAULT_CAPACITY);
-    crate::openhuman::agent::file_state::init_global();
+    let agent_enabled = domains.allows(crate::core::all::DomainGroup::Agent);
+    if agent_enabled {
+        crate::openhuman::agent::file_state::init_global();
+    } else {
+        log::debug!("[boot] agent file-state coordinator SKIPPED — Agent domain disabled");
+    }
     // Register domain subscribers for cross-module event handling. Ungated infra
     // runs once (INFRA: Once) and each DomainGroup installs at most once via the
     // per-group `group_first_time` set, so repeated calls to
@@ -2430,11 +2435,12 @@ pub async fn bootstrap_core_runtime(
     // at boot is orphaned — its driver died without firing a terminal event, so
     // the finalizer never settled it. Stamp such rows `interrupted` so they stop
     // rendering as perpetual "running" timeline entries on thread reopen.
-    match crate::openhuman::agent::session_db::run_ledger::interrupt_orphaned_agent_runs(&cfg) {
-        Ok(0) => {}
-        Ok(count) => log::info!("[runtime] settled {count} orphaned agent run(s) on startup"),
-        Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
-    }
+    if agent_enabled {
+        match crate::openhuman::agent::session_db::run_ledger::interrupt_orphaned_agent_runs(&cfg) {
+            Ok(0) => {}
+            Ok(count) => log::info!("[runtime] settled {count} orphaned agent run(s) on startup"),
+            Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
+        }
 
     // --- Detached sub-agent TaskStore reconciliation -------------------
     // The durable orchestration TaskStore (`<workspace>/.openhuman/
@@ -2444,7 +2450,6 @@ pub async fn bootstrap_core_runtime(
     // re-attached. Reconcile each orphan to a terminal state and emit the typed
     // terminal lifecycle event so the run ledger finalizes. Best-effort and
     // non-fatal (issue #4249 / 07.2 steps 2 & 4).
-    {
         let reconciled =
             crate::openhuman::agent::orchestration::running_subagents::reconcile_orphaned_tasks_on_boot(
                 &workspace_dir,
@@ -2454,6 +2459,10 @@ pub async fn bootstrap_core_runtime(
                 "[runtime] reconciled {reconciled} orphaned detached sub-agent task(s) on startup"
             );
         }
+    } else {
+        log::debug!(
+            "[boot] agent run-ledger + orchestration task reconciliation SKIPPED — Agent domain disabled"
+        );
     }
 
     // --- Cost dashboard tracker ---
@@ -2479,13 +2488,17 @@ pub async fn bootstrap_core_runtime(
     // Loads built-in archetype definitions plus any custom TOML files
     // under `<workspace>/agents/*.toml`. Idempotent — safe to call
     // multiple times. Uses the per-user scoped workspace_dir.
-    if let Err(err) =
-        crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&workspace_dir)
-    {
-        log::warn!(
-            "[runtime] AgentDefinitionRegistry::init_global failed: {err} — \
-             spawn_subagent will be unavailable until restart"
-        );
+    if agent_enabled {
+        if let Err(err) =
+            crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&workspace_dir)
+        {
+            log::warn!(
+                "[runtime] AgentDefinitionRegistry::init_global failed: {err} — \
+                 spawn_subagent will be unavailable until restart"
+            );
+        }
+    } else {
+        log::debug!("[boot] agent definition registry SKIPPED — Agent domain disabled");
     }
 
     // --- Agent sandbox + projects dirs ---

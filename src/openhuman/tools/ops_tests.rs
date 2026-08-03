@@ -2566,10 +2566,23 @@ fn tool_group_classifies_gate_and_harness_families() {
     assert_eq!(tool_group("artifact_list"), DomainGroup::Agent);
     assert_eq!(tool_group("learning_list_facets"), DomainGroup::Agent);
     assert_eq!(tool_group("spawn_subagent"), DomainGroup::Agent);
+    for name in [
+        "ask_user_clarification",
+        "wait",
+        "wait_loop",
+        "delegate",
+        "todo",
+        "update_task",
+    ] {
+        assert_eq!(tool_group(name), DomainGroup::Agent);
+    }
+    assert_eq!(tool_group("people_list"), DomainGroup::Memory);
     assert_eq!(tool_group("config_snapshot"), DomainGroup::Config);
     assert_eq!(tool_group("workspace_init"), DomainGroup::Config);
     assert_eq!(tool_group("security_policy_info"), DomainGroup::Security);
     assert_eq!(tool_group("credential_list"), DomainGroup::Security);
+    assert_eq!(tool_group("session_state"), DomainGroup::Security);
+    assert_eq!(tool_group("oauth_list"), DomainGroup::Security);
 
     // Everything else → Platform (dropped under harness()).
     assert_eq!(tool_group("shell"), DomainGroup::Platform);

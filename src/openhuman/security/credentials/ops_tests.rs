@@ -675,7 +675,17 @@ fn normalize_local_session_user_overwrites_id_fields() {
 
 #[tokio::test]
 async fn clear_session_on_empty_store_reports_removed_false() {
+    // `clear_session` clears the active-user marker under
+    // `default_root_openhuman_dir()`, which is derived from the *process-global*
+    // HOME. Without pinning HOME to this test's tempdir (under the shared env
+    // lock) it deletes whichever concurrently-running test currently owns HOME —
+    // e.g. `deferred_session_without_user_id_does_not_replace_active_user_profile`,
+    // whose active-session guard then silently stops firing.
+    let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
+    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
     let config = test_config(&tmp);
     let result = clear_session(&config).await.unwrap();
     assert_eq!(result.value["removed"], false);
@@ -1117,8 +1127,14 @@ async fn credentials_stored_under_one_workspace_dir_invisible_to_another() {
 
 #[tokio::test]
 async fn clear_session_on_one_account_does_not_affect_another() {
+    // See `clear_session_on_empty_store_reports_removed_false`: `clear_session`
+    // reaches the HOME-derived root, so this test must own HOME while it runs.
+    let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let tmp_a = TempDir::new().unwrap();
     let tmp_b = TempDir::new().unwrap();
+    let _home = EnvVarGuard::set_to_path("HOME", tmp_a.path());
     let config_a = test_config(&tmp_a);
     let config_b = test_config(&tmp_b);
 

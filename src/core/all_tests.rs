@@ -986,6 +986,10 @@ fn group_mapping_smoke() {
     assert_eq!(group_for_namespace("config"), Some(DomainGroup::Config));
     assert_eq!(group_for_namespace("security"), Some(DomainGroup::Security));
     assert_eq!(group_for_namespace("agent"), Some(DomainGroup::Agent));
+    assert_eq!(
+        group_for_namespace("plan_review"),
+        Some(DomainGroup::Agent)
+    );
     // …and a representative gated one maps to its gate group. `group_for_namespace`
     // reads the real controller registry, so a compile-time-gated family has no
     // entry to map when its feature is off.

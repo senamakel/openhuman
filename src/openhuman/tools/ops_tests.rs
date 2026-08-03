@@ -2586,6 +2586,16 @@ fn tool_group_classifies_gate_and_harness_families() {
     assert_eq!(tool_group("oauth_list"), DomainGroup::Security);
     assert_eq!(tool_group("schedule"), DomainGroup::Automation);
     assert_eq!(tool_group("polymarket"), DomainGroup::Integrations);
+    for name in [
+        "web_search_tool",
+        "tinyfish_search",
+        "exa_get_contents",
+        "brave_news_search",
+        "parallel_search",
+        "querit_search",
+    ] {
+        assert_eq!(tool_group(name), DomainGroup::Integrations);
+    }
 
     // Everything else → Platform (dropped under harness()).
     assert_eq!(tool_group("shell"), DomainGroup::Platform);

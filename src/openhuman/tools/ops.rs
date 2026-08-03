@@ -1466,6 +1466,12 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     }
     // Integrations: every external connector reached on the user's behalf.
     if name.starts_with("composio")
+        || name == "web_search_tool"
+        || name.starts_with("tinyfish_")
+        || name.starts_with("exa_")
+        || name.starts_with("brave_")
+        || name.starts_with("parallel_")
+        || name.starts_with("querit_")
         || name.starts_with("apify_")
         || name.starts_with("google_places_")
         || name.starts_with("stock_")

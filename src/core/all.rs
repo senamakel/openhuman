@@ -390,7 +390,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     // Interactive plan-review gate — parks a live turn on a thread-scoped plan
     push(
         &mut controllers,
-        DomainGroup::Security,
+        DomainGroup::Agent,
         crate::openhuman::agent::plan_review::all_plan_review_registered_controllers(),
     );
     // Agent-generated artifact storage, retrieval, and lifecycle management

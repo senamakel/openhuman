@@ -406,8 +406,9 @@ limits.
 > **on a clean tree too** when run with the full suite and passes in isolation, so
 > it is a pre-existing order-dependence, not Phase 3 fallout.
 
-**Phase 4 — Implement the traits host-side, still in place.**
-`MemoryProvider`, `ContextComposer`, `SecurityGate`, `BudgetGate`,
+**Phase 4 — Implement the traits host-side, still in place.** — *adapters
+landed (2026-08-03); call sites not yet repointed*
+`AgentMemory`, `ContextComposer`, `SecurityGate`, `BudgetGate`,
 `DefinitionRegistry`, `ExperienceStore`, `LearningSink`, `ProgressSink`,
 `ToolOutcomeClassifier`, `ModelResolver`. `agent/` calls them instead of
 reaching into domains directly. **This phase delivers most of the architectural
@@ -415,7 +416,56 @@ value with none of the relocation risk** — after it, `agent/`'s outbound
 coupling is ~10 traits instead of 45 domains, and the program can legitimately
 stop here.
 *Exit:* `grep -c "crate::openhuman::" src/openhuman/agent/harness/session/` down
-from ~2,000 refs to the adapter layer only.
+from its baseline to the adapter layer only.
+
+> **Exit-criterion baseline corrected.** The figure above read "~2,000 refs".
+> Measured: **295** in `session/` production code (548 including tests). The
+> larger number counted a wider tree. 295 is the number to drive down.
+
+**Landed: all ten adapters** in `src/openhuman/tinyagents/host/`
+(~6,000 LOC, 140 tests). Each wires one crate trait to the real OpenHuman
+domains, with policy enforced adapter-side. `agent/` **does not call them yet**,
+so the exit criterion is still at 295 — writing the adapters and repointing the
+callers are two separate pieces of work and only the first is done.
+
+Two defects were found and fixed at integration, both of the kind that compiles
+cleanly and fails silently:
+
+- **`security_gate`: a channel `RequireApproval` verdict was resolving to
+  `Allow`.** The mapping returned "no verdict" on the theory the call would fall
+  through to the approval park — but the park is reached only from the `shell`
+  and external-effect branches, so any ordinary tool was authorized with nobody
+  asked. `agent_tool_policy::engine` files `RequireApproval` under
+  `blocked_tool_names` alongside `Deny`, so this inverted the host's own
+  semantics. Latent only because `build_session` does not currently emit
+  `RequireApproval` — i.e. a trap armed for whoever turns it on. Now routed to
+  the park, and **denied** when no approval gate exists (the one place this
+  adapter set denies where the legacy middleware allows, argued in the module
+  header). Pinned by `require_approval_never_silently_allows_a_plain_tool`.
+- **`experience_store`: cross-agent record collision.** The domain's
+  `stable_experience_id_for_profile` hashes task + tool sequence + outcome +
+  profile and deliberately **excludes `agent_id`**; the native capture hook is
+  protected only incidentally, by always supplying a real tool sequence. This
+  adapter has none to supply, so two agents recording the same task with the
+  same outcome collided on one id and `put` upserted — the second writer
+  silently destroying the first's record. The agent id is now folded into the
+  hashed tool-sequence slot.
+
+**Remaining for Phase 4 — repointing, which is the harder half.** It runs into
+the same two blockers Phase 3 hit, so it is not simply "more of the same":
+
+1. `builder/factory.rs` reaches 21 domains and is the assembly point. It gets
+   *split* into trait impls rather than repointed, so most of its coupling
+   moves rather than disappearing.
+2. The session still holds `AgentConfig` until Phase 2's reader flip rehomes
+   `session_dual_write` / `session_shadow_reads`.
+
+**21 `TODO(phase4)` markers** remain across the adapters, each naming a domain
+surface that was not reachable. They are honest gaps, not stubs pretending to
+work; the notable ones are `AgentMemory::thread_summary` (no host-authored
+per-thread prose rollup exists) and `SecurityGate::screen_input` never returning
+`Redacted` (OpenHuman can detect PII but exposes no public text-rewriting
+helper).
 
 **Phase 5 — Relocate, module family at a time.**
 Order by inbound coupling, lowest first: `artifact_offload` → `run_queue` →

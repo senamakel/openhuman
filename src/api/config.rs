@@ -992,6 +992,10 @@ mod tests {
 
     #[test]
     fn app_env_empty_primary_falls_through_to_secondary() {
+        // Same staging-root hazard as `app_env_from_env_reads_runtime_var`.
+        let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _guard = env_lock();
         let prev_p = std::env::var(APP_ENV_VAR).ok();
         let prev_s = std::env::var(VITE_APP_ENV_VAR).ok();

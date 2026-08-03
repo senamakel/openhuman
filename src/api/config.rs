@@ -972,6 +972,13 @@ mod tests {
 
     #[test]
     fn app_env_from_env_reads_runtime_var() {
+        // Setting APP_ENV to "staging" flips `default_root_dir_name()` to
+        // `.openhuman-staging` process-wide, which breaks any concurrent test
+        // resolving the root openhuman dir. Hold the crate-wide env lock too,
+        // in the established order (TEST_ENV_LOCK before the backend lock).
+        let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _guard = env_lock();
         let prev = std::env::var(APP_ENV_VAR).ok();
         std::env::set_var(APP_ENV_VAR, "staging");

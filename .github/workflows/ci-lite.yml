@@ -645,7 +645,9 @@ jobs:
           # and `docker exec` then fails to START the step —
           # "Argument list too long" — before the script can apply its own
           # MAX_CHANGED_FILES fallback. Blanking it here keeps the step launchable.
-          CHANGED_FILES: ${{ needs.changes.outputs['rust-core-full'] == 'true' && '' || needs.changes.outputs['rust-core-src-files'] }}
+          # Condition inverted so the file list is on the `&&` side — `a && '' || b`
+          # always falls through to `b` because `''` is falsy.
+          CHANGED_FILES: ${{ needs.changes.outputs['rust-core-full'] != 'true' && needs.changes.outputs['rust-core-src-files'] || '' }}
           OUT: lcov-core.info
           # The tinyagents harness is the agent engine on every build now
           # (issue #4249); the suite exercises it by default. The legacy engine

@@ -2573,6 +2573,7 @@ fn tool_group_classifies_gate_and_harness_families() {
         "delegate",
         "todo",
         "update_task",
+        "spawn_parallel_agents",
     ] {
         assert_eq!(tool_group(name), DomainGroup::Agent);
     }
@@ -2583,6 +2584,8 @@ fn tool_group_classifies_gate_and_harness_families() {
     assert_eq!(tool_group("credential_list"), DomainGroup::Security);
     assert_eq!(tool_group("session_state"), DomainGroup::Security);
     assert_eq!(tool_group("oauth_list"), DomainGroup::Security);
+    assert_eq!(tool_group("schedule"), DomainGroup::Automation);
+    assert_eq!(tool_group("polymarket"), DomainGroup::Integrations);
 
     // Everything else → Platform (dropped under harness()).
     assert_eq!(tool_group("shell"), DomainGroup::Platform);

@@ -1435,6 +1435,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
                 | "wait_loop"
                 | "request_plan_review"
                 | "plan_exit"
+                | "spawn_parallel_agents"
         )
     {
         return DomainGroup::Agent;
@@ -1460,7 +1461,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     //
     // Automation: scheduled jobs (`cron_*`) plus the subconscious monitor +
     // proactive-notify surface.
-    if name.starts_with("cron_") || MONITORS.contains(&name) {
+    if name.starts_with("cron_") || name == "schedule" || MONITORS.contains(&name) {
         return DomainGroup::Automation;
     }
     // Integrations: every external connector reached on the user's behalf.
@@ -1468,6 +1469,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         || name.starts_with("apify_")
         || name.starts_with("google_places_")
         || name.starts_with("stock_")
+        || name == "polymarket"
         || name.starts_with("storage_")
         || name.starts_with("task_source_")
         || name == "twilio_call"

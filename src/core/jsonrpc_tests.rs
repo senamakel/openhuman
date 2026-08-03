@@ -31,6 +31,10 @@ fn domain_subscriber_plan_full_registers_every_gated_subscriber() {
         plan,
         DomainSubscriberPlan {
             platform: true,
+            integrations: true,
+            security: true,
+            desktop: true,
+            skills: true,
             channels: true,
             flows: true,
             memory: true,
@@ -49,6 +53,10 @@ fn domain_subscriber_plan_none_registers_no_gated_subscriber() {
         plan,
         DomainSubscriberPlan {
             platform: false,
+            integrations: false,
+            security: false,
+            desktop: false,
+            skills: false,
             channels: false,
             flows: false,
             memory: false,

@@ -209,6 +209,20 @@ pub struct DomainSet {
     /// authored harness workflows.
     pub medulla: bool,
     /// Everything not in a named family — always on in `full()`.
+    /// Model inference: providers, routing, local engines, embeddings.
+    pub inference: bool,
+    /// External connectors (Composio, calendar, file storage, task sources).
+    pub integrations: bool,
+    /// Background initiative: cron + the subconscious tick loop.
+    pub automation: bool,
+    /// Code-execution substrate: Node/Python runtimes, pool, sandbox.
+    pub runtimes: bool,
+    /// Desktop-shell-facing surfaces.
+    pub desktop: bool,
+    /// Clients of the hosted TinyHumans backend.
+    pub hosted: bool,
+    /// The multi-agent relay surface (tinyplace).
+    pub relay: bool,
     pub platform: bool,
 }
 
@@ -231,6 +245,13 @@ impl DomainSet {
             voice: true,
             media: true,
             medulla: true,
+            inference: true,
+            integrations: true,
+            automation: true,
+            runtimes: true,
+            desktop: true,
+            hosted: true,
+            relay: true,
             platform: true,
         }
     }
@@ -254,6 +275,13 @@ impl DomainSet {
             voice: false,
             media: false,
             medulla: false,
+            inference: false,
+            integrations: false,
+            automation: false,
+            runtimes: false,
+            desktop: false,
+            hosted: false,
+            relay: false,
             platform: false,
         }
     }
@@ -294,7 +322,50 @@ impl DomainSet {
             voice: false,
             media: false,
             medulla: true,
+            inference: true,
+            integrations: false,
+            automation: true,
+            runtimes: true,
+            desktop: false,
+            hosted: false,
+            relay: false,
             platform: true,
+        }
+    }
+
+    /// The kernel floor: threads, config, security — and nothing else.
+    ///
+    /// Distinct from [`DomainSet::none`], which is "no domains at all". This is
+    /// "the minimum a host needs before opting a subsystem back in", so an
+    /// embedder can request kernel + exactly one family. `agent` and `memory`
+    /// are OFF on purpose: they are the two largest subsystems and the ones an
+    /// alternative driver would replace, so a host that wants them says so.
+    ///
+    /// See `examples/embed_kernel.rs`.
+    pub fn kernel() -> Self {
+        Self {
+            agent: false,
+            memory: false,
+            threads: true,
+            config: true,
+            security: true,
+            flows: false,
+            skills: false,
+            mcp: false,
+            meet: false,
+            channels: false,
+            web3: false,
+            voice: false,
+            media: false,
+            medulla: false,
+            inference: false,
+            integrations: false,
+            automation: false,
+            runtimes: false,
+            desktop: false,
+            hosted: false,
+            relay: false,
+            platform: false,
         }
     }
 
@@ -315,6 +386,13 @@ impl DomainSet {
             voice: false,
             media: false,
             medulla: false,
+            inference: false,
+            integrations: false,
+            automation: false,
+            runtimes: false,
+            desktop: false,
+            hosted: false,
+            relay: false,
             platform: false,
         }
     }
@@ -336,6 +414,13 @@ impl DomainSet {
             DomainGroup::Voice => self.voice,
             DomainGroup::Media => self.media,
             DomainGroup::Medulla => self.medulla,
+            DomainGroup::Inference => self.inference,
+            DomainGroup::Integrations => self.integrations,
+            DomainGroup::Automation => self.automation,
+            DomainGroup::Runtimes => self.runtimes,
+            DomainGroup::Desktop => self.desktop,
+            DomainGroup::Hosted => self.hosted,
+            DomainGroup::Relay => self.relay,
             DomainGroup::Platform => self.platform,
         }
     }

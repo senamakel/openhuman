@@ -1892,8 +1892,18 @@ async fn run_server_with_services(
 /// always registered as core/platform infra and intentionally absent here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DomainSubscriberPlan {
-    /// webhook + notification-bridge + composio trigger + task-sources + device-tunnel.
+    /// Reserved for subscribers with no family of their own. Currently none:
+    /// the reorg gave every subscriber that used to live here a real family
+    /// (see the fields below), so this stays for future kernel-level ones.
     pub platform: bool,
+    /// composio trigger archive + trigger subscriber + task-sources poller.
+    pub integrations: bool,
+    /// device tunnel handshake/peer-status subscriber.
+    pub security: bool,
+    /// notification bridge (desktop-shell delivery).
+    pub desktop: bool,
+    /// webhook request subscriber (skills own inbound webhook routing).
+    pub skills: bool,
     /// channel-inbound + web-only proactive.
     pub channels: bool,
     /// flows trigger dispatch.
@@ -1914,6 +1924,10 @@ impl DomainSubscriberPlan {
         use crate::core::all::DomainGroup;
         Self {
             platform: domains.allows(DomainGroup::Platform),
+            integrations: domains.allows(DomainGroup::Integrations),
+            security: domains.allows(DomainGroup::Security),
+            desktop: domains.allows(DomainGroup::Desktop),
+            skills: domains.allows(DomainGroup::Skills),
             channels: domains.allows(DomainGroup::Channels),
             flows: domains.allows(DomainGroup::Flows),
             memory: domains.allows(DomainGroup::Memory),
@@ -1975,6 +1989,23 @@ fn register_domain_subscribers(
             .lock()
             .expect("domain-subscriber registry lock poisoned")
             .insert(group)
+    }
+
+    /// Learning subscribers need their own idempotency token rather than
+    /// `group_first_time(DomainGroup::Agent)`: the Agent block below already
+    /// consumes that token, and whichever ran second would silently skip.
+    fn learning_first_time() -> bool {
+        static DONE: OnceLock<Mutex<bool>> = OnceLock::new();
+        let mut done = DONE
+            .get_or_init(|| Mutex::new(false))
+            .lock()
+            .expect("learning-subscriber registry lock poisoned");
+        if *done {
+            false
+        } else {
+            *done = true;
+            true
+        }
     }
 
     // Seed the live tool-execution timeout from the persisted `[agent]` config
@@ -2085,8 +2116,8 @@ fn register_domain_subscribers(
 
     // Platform: webhook + notification bridge + composio trigger + task-sources
     // proactive ingestion + device tunnel.
-    if plan.platform {
-        if group_first_time(DomainGroup::Platform) {
+    if plan.skills {
+        if group_first_time(DomainGroup::Skills) {
             if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
                 crate::openhuman::skills::webhooks::bus::WebhookRequestSubscriber::new(),
             )) {
@@ -2096,9 +2127,23 @@ fn register_domain_subscribers(
                     "[event_bus] failed to register webhook subscriber — bus not initialized"
                 );
             }
+        }
+    } else {
+        log::debug!("[event_bus] webhook subscriber SKIPPED — Skills domain disabled");
+    }
+
+    if plan.desktop {
+        if group_first_time(DomainGroup::Desktop) {
             crate::openhuman::desktop::notifications::register_notification_bridge_subscriber(
                 config.clone(),
             );
+        }
+    } else {
+        log::debug!("[event_bus] notification bridge SKIPPED — Desktop domain disabled");
+    }
+
+    if plan.integrations {
+        if group_first_time(DomainGroup::Integrations) {
             if let Err(error) =
                 crate::openhuman::integrations::composio::init_composio_trigger_history(
                     workspace_dir.clone(),
@@ -2108,24 +2153,39 @@ fn register_domain_subscribers(
             }
             crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
             crate::openhuman::integrations::task_sources::bus::register_task_sources_subscriber();
+        }
+    } else {
+        log::debug!(
+            "[event_bus] composio + task-sources subscribers SKIPPED — Integrations domain disabled"
+        );
+    }
+
+    if plan.security {
+        if group_first_time(DomainGroup::Security) {
             // Device tunnel subscriber: handles tunnel:frame handshakes,
             // peer-status events, and register acks. Must be live before any
             // tunnel:frame events can arrive.
             crate::openhuman::security::devices::bus::register_device_tunnel_subscriber();
+        }
+    } else {
+        log::debug!("[event_bus] device-tunnel subscriber SKIPPED — Security domain disabled");
+    }
+
+    if plan.agent {
+        if learning_first_time() {
             // Always-on learning subscribers (email-signature producer, rebuild
             // trigger + periodic loop, ProfileMdRenderer). Previously wired only
             // in `channels::runtime::startup::start_channels`, which is skipped
             // when no channel is configured — silently dropping ALL learning for
-            // channel-less users (#5003). Registered here on the unconditional
-            // Platform boot path; idempotent, so it never double-registers.
+            // channel-less users (#5003). `agent::learning` is an Agent-family
+            // domain; it sat on the Platform boot path only because `learning`
+            // used to be a top-level directory. Idempotent.
             crate::openhuman::agent::learning::startup::register_learning_subscribers(
                 workspace_dir.clone(),
             );
         }
     } else {
-        log::debug!(
-            "[event_bus] Platform subscribers (webhook/notification/composio/task-sources/device-tunnel) SKIPPED — Platform domain disabled"
-        );
+        log::debug!("[event_bus] learning subscribers SKIPPED — Agent domain disabled");
     }
 
     // Channels: inbound dispatch + web-only proactive messaging.

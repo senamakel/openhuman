@@ -302,8 +302,12 @@ jobs:
         env:
           NODE_ENV: test
           FULL: ${{ needs.changes.outputs['frontend-full'] }}
-          # Same argument-limit guard as the rust-core lane below.
-          CHANGED_FILES: ${{ needs.changes.outputs['frontend-full'] == 'true' && '' || needs.changes.outputs['frontend-src-files'] }}
+          # Same argument-limit guard as the rust-core lane below. The condition is
+          # inverted so the file list sits on the `&&` (truthy) side: GitHub's
+          # `a && b || c` ternary falls through to `c` whenever `b` is falsy, so
+          # `... == 'true' && '' || <files>` would hand back the full list in
+          # exactly the full-suite case this is meant to blank.
+          CHANGED_FILES: ${{ needs.changes.outputs['frontend-full'] != 'true' && needs.changes.outputs['frontend-src-files'] || '' }}
 
       - name: Normalize lcov source paths to repo root
         if: needs.changes.outputs.frontend == 'true'

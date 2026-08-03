@@ -1914,6 +1914,8 @@ pub struct DomainSubscriberPlan {
     pub meet: bool,
     /// agent handlers + background delivery + run-ledger finalizer + orchestration ingest.
     pub agent: bool,
+    /// hosted orchestration ingest.
+    pub hosted: bool,
     /// mcp::registry lifecycle bus init.
     pub mcp: bool,
 }
@@ -1933,6 +1935,7 @@ impl DomainSubscriberPlan {
             memory: domains.allows(DomainGroup::Memory),
             meet: domains.allows(DomainGroup::Meet),
             agent: domains.allows(DomainGroup::Agent),
+            hosted: domains.allows(DomainGroup::Hosted),
             mcp: domains.allows(DomainGroup::Mcp),
         }
     }
@@ -2114,8 +2117,8 @@ fn register_domain_subscribers(
     // ---- Gated domain subscribers — each group installed at most once, the
     // first time its owning DomainGroup is enabled. -------------------------
 
-    // Platform: webhook + notification bridge + composio trigger + task-sources
-    // proactive ingestion + device tunnel.
+    // Carved-out families: webhook (Skills), notification bridge (Desktop),
+    // composio + task-sources (Integrations), and device tunnel (Security).
     if plan.skills {
         if group_first_time(DomainGroup::Skills) {
             if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
@@ -2312,12 +2315,19 @@ fn register_domain_subscribers(
         log::debug!("[event_bus] agent_meetings subscribers SKIPPED — Meet domain disabled");
     }
 
-    // Agent: orchestration ingest + native agent handlers + background-completion
-    // delivery + run-ledger finalizer.
+    // Hosted: ingest tiny.place harness session DMs off the stream bus.
+    if plan.hosted {
+        if group_first_time(DomainGroup::Hosted) {
+            crate::openhuman::hosted::orchestration::register_orchestration_ingest_subscriber();
+        }
+    } else {
+        log::debug!("[event_bus] orchestration ingest SKIPPED — Hosted domain disabled");
+    }
+
+    // Agent: native agent handlers + background-completion delivery +
+    // run-ledger finalizer.
     if plan.agent {
         if group_first_time(DomainGroup::Agent) {
-            // Orchestration: ingest tiny.place harness session DMs off the stream bus.
-            crate::openhuman::hosted::orchestration::register_orchestration_ingest_subscriber();
             // Native request handlers — the agent `agent.run_turn` handler is
             // what channel dispatch calls instead of importing
             // `run_tool_call_loop` directly.
@@ -2336,7 +2346,7 @@ fn register_domain_subscribers(
         }
     } else {
         log::debug!(
-            "[event_bus] agent handlers + background delivery + run-ledger finalizer + orchestration ingest SKIPPED — Agent domain disabled"
+            "[event_bus] agent handlers + background delivery + run-ledger finalizer SKIPPED — Agent domain disabled"
         );
     }
 

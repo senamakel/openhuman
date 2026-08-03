@@ -40,6 +40,7 @@ fn domain_subscriber_plan_full_registers_every_gated_subscriber() {
             memory: true,
             meet: true,
             agent: true,
+            hosted: true,
             mcp: true,
         },
         "full() must register every gated domain subscriber"
@@ -62,6 +63,7 @@ fn domain_subscriber_plan_none_registers_no_gated_subscriber() {
             memory: false,
             meet: false,
             agent: false,
+            hosted: false,
             mcp: false,
         },
         "none() must register no gated domain subscriber (core infra still runs, ungated)"
@@ -74,7 +76,7 @@ fn domain_subscriber_plan_harness_gates_by_owning_group() {
     // harness() = agent + memory + threads + config + security.
     assert!(
         plan.agent,
-        "harness keeps agent + orchestration subscribers"
+        "harness keeps agent subscribers"
     );
     assert!(
         plan.memory,
@@ -91,6 +93,7 @@ fn domain_subscriber_plan_harness_gates_by_owning_group() {
     );
     assert!(!plan.flows, "harness must skip flows trigger dispatch");
     assert!(!plan.meet, "harness must skip agent_meetings subscribers");
+    assert!(!plan.hosted, "harness must skip hosted orchestration ingest");
     assert!(!plan.mcp, "harness must skip mcp_registry bus init");
 }
 

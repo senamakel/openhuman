@@ -1,7 +1,8 @@
 # Core kernelization, part 2 — the domain-family reorg
 
 **Status:** structural half complete · **Date:** 2026-08-02 · **Scope:** `src/openhuman/**`
-**Companions:** [`kernel.md`](kernel.md) (the subsystem/driver model this feeds into) ·
+**Companions:** `docs/specs/kernel.md` — the subsystem/driver model this feeds into, still an
+uncommitted design draft, so it is referenced by name rather than linked ·
 [`../plans/pluggable-core/README.md`](../plans/pluggable-core/README.md) (the host-side
 `CoreBuilder`/`CoreContext` work) · `AGENTS.md` § *Compile-time domain gates*
 
@@ -76,7 +77,7 @@ cross-repo; the structural work is what makes the next twenty gates cheap instea
 Family boundary == future gate boundary. Directories whose names merely rhyme do not merge
 (`orchestration` vs `agent_orchestration`; `web_chat` is **not** part of `channels`).
 
-Kernel vs subsystem is decided by [`kernel.md`](kernel.md) §4: *would a build whose only driver is
+Kernel vs subsystem is decided by the `kernel.md` §4 criterion: *would a build whose only driver is
 a third-party external backend still need this file?* Yes → kernel. No → subsystem.
 
 ### Why the move is safe
@@ -249,7 +250,7 @@ goes to `platform/`.
 8. ✅ `agent/` — fourteen domains folded in; `agent/` itself stayed put as the parent (an
    `agent → agent/core` rename would have cost ~999 extra import rewrites and buys no gate).
    Kernel: no `#[cfg]` anywhere in the family.
-9. ✅ `memory/` — **last**, deliberately: it is [`kernel.md`](kernel.md) §5's pilot subsystem, so its
+9. ✅ `memory/` — **last**, deliberately: it is `kernel.md` §5's pilot subsystem, so its
    layout gets drawn with the driver contract in hand rather than guessed.
 
 Rationale for biggest-last: the tooling (rewrite script, check matrix, PR template) gets proven on
@@ -314,7 +315,7 @@ RPCs are unregistered and the `MemoryDiffTool` is absent.
   `web_chat`, and `medulla_session` all depend on it. The harness *is* the kernel's execution engine.
 - **Gating `tools` wholesale** — `tools::traits` has ~248 external references. Kernel, permanently.
   Only the `tools/impl/*` families gate.
-- **Gating `memory` wholesale** — it becomes a subsystem *slot* ([`kernel.md`](kernel.md) §5), not
+- **Gating `memory` wholesale** — it becomes a subsystem *slot* (`kernel.md` §5), not
   a feature.
 - **Dropping `keyring`, `rusqlite`, `tinyagents`, `tinychannels`, `tinycortex`, `tinyplace`** —
   load-bearing across always-on domains. `tinychannels` in particular was addressed by gating
@@ -332,5 +333,5 @@ RPCs are unregistered and the `MemoryDiffTool` is absent.
 5. `DomainGroup` gains at most four variants (`Integrations`, `Automation`, `Relay`, `Runtimes`);
    the rest stay `Platform` at the runtime axis. `DomainSet::kernel()` exists, with
    `examples/embed_kernel.rs`.
-6. Hand off to [`kernel.md`](kernel.md)'s subsystem registry (`src/core/subsystem/`, `Driver`,
+6. Hand off to `kernel.md`'s subsystem registry (`src/core/subsystem/`, `Driver`,
    `Guard`, `subsystems_status`).

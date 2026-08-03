@@ -1,6 +1,6 @@
 # web3
 
-High-level web3 surface built **on top of** the [`wallet`](../wallet/README.md)
+High-level web3 surface built **on top of** the [`wallet`](wallet/README.md)
 module. The wallet stays basic (keys, balances, transfers, tx inspection); this
 module focuses on EVM/Solana(/BTC) dapp interactions: **swaps**, **bridges**, and
 generic **dapp contract calls**.

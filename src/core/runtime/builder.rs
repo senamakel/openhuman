@@ -945,8 +945,8 @@ mod tests {
     #[test]
     fn embedded_is_not_harness_plus_medulla() {
         // Guards the most tempting future "simplification": deriving this
-        // preset from harness(). harness() sets platform:false, which drops
-        // credentials/config/cron/task_sources/todos.
+        // preset from harness(), which leaves the supporting Platform,
+        // Channels, and Integrations families off.
         let harness = DomainSet::harness();
         let tui = DomainSet::embedded();
 
@@ -954,6 +954,8 @@ mod tests {
         assert!(tui.allows(DomainGroup::Platform));
         assert!(!harness.allows(DomainGroup::Channels));
         assert!(tui.allows(DomainGroup::Channels));
+        assert!(!harness.allows(DomainGroup::Integrations));
+        assert!(tui.allows(DomainGroup::Integrations));
     }
 
     #[test]

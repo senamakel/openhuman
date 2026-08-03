@@ -87,6 +87,14 @@ fn pre_login_user_dir_is_under_users_tree() {
 
 #[test]
 fn default_root_dir_name_uses_staging_suffix_for_staging_env() {
+    // APP_ENV is process-global and `default_root_dir_name()` reads it on every
+    // call, so flipping it here races any concurrent test that resolves the root
+    // openhuman dir (e.g. the credentials active-session guard, which silently
+    // stops finding `active_user.toml` once the root becomes `.openhuman-staging`).
+    // Take the same lock those tests hold.
+    let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let prior = std::env::var(crate::api::config::APP_ENV_VAR).ok();
 
     std::env::set_var(crate::api::config::APP_ENV_VAR, "staging");

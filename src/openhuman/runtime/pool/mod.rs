@@ -27,6 +27,11 @@
 
 pub mod env;
 pub mod node;
+// `module_inception` is a byproduct of the domain-family reorg: the parent was
+// renamed from `runtime_pool` to `runtime/pool`, which shortened it to match this
+// long-standing inner module. Renaming the inner module would be a real rename
+// on top of a pure move, so it is allowed here and left as follow-up.
+#[allow(clippy::module_inception)]
 pub mod pool;
 pub mod protocol;
 pub mod python;

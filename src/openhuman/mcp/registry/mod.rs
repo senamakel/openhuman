@@ -81,6 +81,11 @@ pub mod ops;
 #[cfg(feature = "mcp")]
 mod registries;
 #[cfg(feature = "mcp")]
+// `module_inception` is a byproduct of the domain-family reorg: the parent was
+// renamed from `mcp_registry` to `mcp/registry`, which shortened it to match this
+// long-standing inner module. Renaming the inner module would be a real rename
+// on top of a pure move, so it is allowed here and left as follow-up.
+#[allow(clippy::module_inception)]
 mod registry;
 #[cfg(feature = "mcp")]
 mod schemas;

@@ -74,10 +74,7 @@ fn domain_subscriber_plan_none_registers_no_gated_subscriber() {
 fn domain_subscriber_plan_harness_gates_by_owning_group() {
     let plan = DomainSubscriberPlan::for_domains(crate::core::runtime::DomainSet::harness());
     // harness() = agent + memory + threads + config + security.
-    assert!(
-        plan.agent,
-        "harness keeps agent subscribers"
-    );
+    assert!(plan.agent, "harness keeps agent subscribers");
     assert!(
         plan.memory,
         "harness keeps memory conversation-persistence + sync bridge"
@@ -93,7 +90,10 @@ fn domain_subscriber_plan_harness_gates_by_owning_group() {
     );
     assert!(!plan.flows, "harness must skip flows trigger dispatch");
     assert!(!plan.meet, "harness must skip agent_meetings subscribers");
-    assert!(!plan.hosted, "harness must skip hosted orchestration ingest");
+    assert!(
+        !plan.hosted,
+        "harness must skip hosted orchestration ingest"
+    );
     assert!(!plan.mcp, "harness must skip mcp_registry bus init");
 }
 

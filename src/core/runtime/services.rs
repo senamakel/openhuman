@@ -43,7 +43,10 @@ pub fn spawn_login_gated_services(embedded_core: bool) {
                 if already_logged_in {
                     // User has an active session — start all services now.
                     log::info!("[services] existing session found, starting services");
-                    crate::openhuman::credentials::ops::start_login_gated_services(&config).await;
+                    crate::openhuman::security::credentials::ops::start_login_gated_services(
+                        &config,
+                    )
+                    .await;
 
                     // Subconscious engine + heartbeat.
                     if !config.heartbeat.enabled {
@@ -78,7 +81,7 @@ pub fn spawn_update_scheduler() {
     tokio::spawn(async {
         match crate::openhuman::config::Config::load_or_init().await {
             Ok(config) => {
-                crate::openhuman::update::scheduler::run(config.update).await;
+                crate::openhuman::platform::update::scheduler::run(config.update).await;
             }
             Err(err) => {
                 log::warn!("[core] config load failed, skipping update scheduler: {err}");
@@ -273,7 +276,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
 
     if plan.memory_queue {
         log::debug!("[runtime.bootstrap] starting memory queue workers");
-        crate::openhuman::memory_queue::start(config.clone());
+        crate::openhuman::memory::queue::start(config.clone());
     } else {
         log::debug!("[runtime.bootstrap] memory queue workers disabled by ServiceSet");
     }
@@ -282,10 +285,10 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // reconcile. Both no-op without active Composio connections.
     if plan.composio_integration_sync {
         log::debug!("[runtime.bootstrap] starting composio integration sync + source reconcile");
-        crate::openhuman::composio::start_periodic_sync();
+        crate::openhuman::integrations::composio::start_periodic_sync();
         tokio::spawn(async {
             log::debug!("[runtime.bootstrap] composio source reconcile started");
-            crate::openhuman::memory_sources::reconcile::ensure_composio_sources().await;
+            crate::openhuman::memory::sources::reconcile::ensure_composio_sources().await;
             log::debug!("[runtime.bootstrap] composio source reconcile completed");
         });
     } else {
@@ -299,7 +302,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // walks Composio connections.
     if plan.workspace_memory_sync {
         log::debug!("[runtime.bootstrap] starting workspace memory-source periodic sync");
-        crate::openhuman::memory_sync::workspace::start_workspace_periodic_sync();
+        crate::openhuman::memory::sync::workspace::start_workspace_periodic_sync();
     } else {
         log::debug!("[runtime.bootstrap] workspace periodic sync disabled by ServiceSet");
     }
@@ -307,14 +310,14 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // Orchestration — relay-mailbox drain supervisor.
     if plan.orchestration_drain {
         log::debug!("[runtime.bootstrap] starting orchestration message drain supervisor");
-        crate::openhuman::orchestration::start_message_drain_supervisor();
+        crate::openhuman::hosted::orchestration::start_message_drain_supervisor();
     } else {
         log::debug!("[runtime.bootstrap] message drain supervisor disabled by ServiceSet");
     }
 
     if plan.proactive_task_pollers {
         log::debug!("[runtime.bootstrap] starting proactive task pollers (task sources + board)");
-        crate::openhuman::task_sources::start_periodic_poll();
+        crate::openhuman::integrations::task_sources::start_periodic_poll();
         crate::openhuman::agent::task_dispatcher::start_board_poller();
     } else {
         log::debug!("[runtime.bootstrap] proactive task pollers disabled by ServiceSet");
@@ -335,14 +338,14 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     if services.harness_init {
         let cfg_for_init = config.clone();
         tokio::spawn(async move {
-            crate::openhuman::harness_init::run_harness_init(cfg_for_init).await;
+            crate::openhuman::agent::harness_init::run_harness_init(cfg_for_init).await;
         });
     } else {
         log::debug!("[runtime] harness init disabled by ServiceSet");
     }
 
     if services.skill_catalog_refresh {
-        crate::openhuman::skill_registry::ops::start_boot_catalog_refresh();
+        crate::openhuman::skills::catalog::ops::start_boot_catalog_refresh();
     } else {
         log::debug!("[runtime] boot catalog refresh disabled by ServiceSet");
     }
@@ -350,7 +353,7 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     if services.mcp_boot {
         let cfg_for_mcp = config.clone();
         tokio::spawn(async move {
-            crate::openhuman::mcp_registry::boot::spawn_installed_servers(&cfg_for_mcp).await;
+            crate::openhuman::mcp::registry::boot::spawn_installed_servers(&cfg_for_mcp).await;
         });
         spawn_mcp_reconnect_supervisor(config.clone());
     } else {
@@ -367,10 +370,8 @@ async fn run_legacy_migrations(config: &Config) {
     //
     // Both copies are idempotent and must run for each workspace so an
     // in-process restart with a different workspace migrates that workspace.
-    match crate::openhuman::thread_goals::crate_adapter::migrate_legacy_goals_into_crate_store(
-        &config.workspace_dir,
-    )
-    .await
+    match crate::openhuman::threads::goals::migration::migrate_legacy_goals(&config.workspace_dir)
+        .await
     {
         Ok(report) if report.total > 0 => {
             log::info!(
@@ -389,7 +390,7 @@ async fn run_legacy_migrations(config: &Config) {
     // `graph.todos` store, which is now authoritative. Idempotent and returns
     // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
     // As above, each core boot must inspect its own workspace.
-    match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
+    match crate::openhuman::agent::tinyagents::todos::migrate_legacy_task_boards(
         &config.workspace_dir,
     )
     .await
@@ -411,7 +412,7 @@ fn spawn_mcp_reconnect_supervisor(config: Config) {
     static SUPERVISOR_SPAWNED: Once = Once::new();
     SUPERVISOR_SPAWNED.call_once(|| {
         tokio::spawn(async move {
-            crate::openhuman::mcp_registry::supervisor::run(config).await;
+            crate::openhuman::mcp::registry::supervisor::run(config).await;
         });
     });
 }
@@ -419,20 +420,21 @@ fn spawn_mcp_reconnect_supervisor(config: Config) {
 /// Auto-connect Socket.IO to the backend when enabled by the service selection.
 pub fn spawn_socket_auto_connect(
     services: ServiceSet,
-    socket_mgr: std::sync::Arc<crate::openhuman::socket::SocketManager>,
+    socket_mgr: std::sync::Arc<crate::openhuman::platform::socket::SocketManager>,
+    _flows_enabled: bool,
 ) {
     if services.socketio {
         tokio::spawn(async move {
             log::info!("[socket] Checking for stored session to auto-connect...");
             let config = match Config::load_or_init().await {
-                Ok(c) => c,
+                Ok(c) => std::sync::Arc::new(c),
                 Err(e) => {
                     log::debug!("[socket] Config not available for auto-connect: {e}");
                     return;
                 }
             };
             let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-            let token = match crate::api::jwt::get_session_token(&config) {
+            let _initial_token = match crate::api::jwt::get_session_token(&config) {
                 Ok(Some(t)) => t,
                 Ok(None) => {
                     log::info!(
@@ -449,7 +451,24 @@ pub fn spawn_socket_auto_connect(
                 "[socket] Session token found — auto-connecting to {}",
                 api_url
             );
-            if let Err(e) = socket_mgr.connect(&api_url, &token).await {
+            // Keep the authenticated token and user-scoped workflow bridge in
+            // one serialized identity transaction. The active profile may have
+            // changed since CoreRuntime::build(), so the build-time Config is
+            // not authoritative here.
+            let _rebind = socket_mgr.lock_identity_rebind().await;
+            if let Err(e) = socket_mgr.disconnect().await {
+                log::error!("[socket] Auto-connect could not stop the prior connection: {e}");
+                return;
+            }
+            #[cfg(feature = "flows")]
+            if _flows_enabled {
+                crate::openhuman::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
+            }
+            let provider =
+                crate::openhuman::platform::socket::token_provider::token_provider_from_config(
+                    config,
+                );
+            if let Err(e) = socket_mgr.connect_with_provider(&api_url, provider).await {
                 log::error!("[socket] Auto-connect failed: {e}");
             } else {
                 log::info!("[socket] Auto-connect initiated successfully");

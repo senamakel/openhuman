@@ -50,7 +50,7 @@ impl Config {
 
         set_runtime_proxy_config(self.proxy.clone());
 
-        crate::openhuman::embeddings::rate_limit::set_embedding_rate_limit(
+        crate::openhuman::inference::embeddings::rate_limit::set_embedding_rate_limit(
             self.memory.embedding_rate_limit_per_min,
         );
     }
@@ -261,6 +261,11 @@ impl Config {
         if let Some(key) = env.get_any(&["OPENHUMAN_QUERIT_API_KEY", "QUERIT_API_KEY"]) {
             if !key.trim().is_empty() {
                 self.search.querit.api_key = Some(key);
+            }
+        }
+        if let Some(key) = env.get_any(&["OPENHUMAN_EXA_API_KEY", "EXA_API_KEY"]) {
+            if !key.trim().is_empty() {
+                self.search.exa.api_key = Some(key);
             }
         }
         if let Some(max) = env.get_any(&["OPENHUMAN_SEARCH_MAX_RESULTS", "SEARCH_MAX_RESULTS"]) {
@@ -1007,7 +1012,7 @@ impl Config {
             }
         }
 
-        let context_default = crate::openhuman::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
+        let context_default = crate::openhuman::agent::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
         let context_env_set = env.contains("OPENHUMAN_CONTEXT_TOOL_RESULT_BUDGET_BYTES");
         if !context_env_set
             && self.context.tool_result_budget_bytes == context_default

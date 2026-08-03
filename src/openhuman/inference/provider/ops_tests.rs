@@ -1,7 +1,7 @@
 use super::*;
 use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::AuthService;
+use crate::openhuman::security::credentials::AuthService;
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},

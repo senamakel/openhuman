@@ -1,3 +1,4 @@
+import type { Translate } from '../../lib/flows/cron';
 import type { FlowRunStatus as FlowRunStatusValue } from '../../services/api/flowsApi';
 
 export const FLOW_RUN_STATUS_ACCENT: Record<FlowRunStatusValue, string> = {
@@ -36,6 +37,37 @@ export const FLOW_RUN_STATUS_KEY: Record<FlowRunStatusValue, string> = {
   interrupted: 'flowRuns.status.interrupted',
 };
 
+// Fallback styling/label for a wire status this build doesn't recognize.
+// Run payloads come off the RPC as a cast, not a validated enum (`flowsApi.ts`),
+// so a future/renamed `FlowRunStatus` the backend introduces must not index
+// these `Record`s with an unknown key and render `undefined` — see F-m8.
+const UNKNOWN_STATUS_ACCENT = 'border-line bg-surface-muted text-content-secondary';
+const UNKNOWN_STATUS_DOT = 'bg-surface-strong';
+
+/** Runtime-safe accent class lookup — falls back for an unrecognized status. */
+export function flowRunStatusAccentClass(status: FlowRunStatusValue): string {
+  return FLOW_RUN_STATUS_ACCENT[status] ?? UNKNOWN_STATUS_ACCENT;
+}
+
+/** Runtime-safe dot class lookup — falls back for an unrecognized status. */
+export function flowRunStatusDotClass(status: FlowRunStatusValue): string {
+  return FLOW_RUN_STATUS_DOT[status] ?? UNKNOWN_STATUS_DOT;
+}
+
+/**
+ * Runtime-safe, localized label for a run status. Mirrors
+ * `WorkflowRunsPage.tsx`'s `statusLabel` fallback pattern (an English
+ * space-separated fallback passed as `t`'s second argument) rather than
+ * indexing {@link FLOW_RUN_STATUS_KEY} directly and handing `t` a possibly
+ * `undefined` key, which renders literally as "undefined" for a status this
+ * build doesn't recognize yet.
+ */
+export function flowRunStatusLabel(status: FlowRunStatusValue, t: Translate): string {
+  const fallback = status.replace(/_/g, ' ');
+  const key = FLOW_RUN_STATUS_KEY[status];
+  return key ? t(key, fallback) : fallback;
+}
+
 export type FlowRunStatusPresentation = 'badge' | 'dot';
 
 export interface FlowRunStatusProps {
@@ -57,7 +89,7 @@ export function FlowRunStatus({
     return (
       <span
         data-testid={testId}
-        className={`h-2 w-2 shrink-0 rounded-full ${FLOW_RUN_STATUS_DOT[status]} ${className}`.trim()}
+        className={`h-2 w-2 shrink-0 rounded-full ${flowRunStatusDotClass(status)} ${className}`.trim()}
         aria-hidden
       />
     );
@@ -66,7 +98,7 @@ export function FlowRunStatus({
   return (
     <span
       data-testid={testId}
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${FLOW_RUN_STATUS_ACCENT[status]} ${className}`.trim()}>
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${flowRunStatusAccentClass(status)} ${className}`.trim()}>
       {label}
     </span>
   );

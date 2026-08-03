@@ -3,10 +3,10 @@
 use super::super::turn_checkpoint::assistant_message_has_tool_calls;
 use super::super::types::Agent;
 use super::{collect_tree_root_summaries, sanitize_learned_entry};
+use crate::openhuman::agent::context::prompt::{LearnedContextData, PromptContext, PromptTool};
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
-use crate::openhuman::agent_tool_policy::render_tool_policy_boundary;
-use crate::openhuman::context::prompt::{LearnedContextData, PromptContext, PromptTool};
 use crate::openhuman::memory::MemoryCategory;
+use crate::openhuman::tools::agent_policy::render_tool_policy_boundary;
 use crate::openhuman::tools::Tool;
 
 use anyhow::Result;
@@ -222,9 +222,9 @@ impl Agent {
         let reflection_entries = self
             .memory
             .list(
-                Some(crate::openhuman::learning::reflection::REFLECTIONS_NAMESPACE),
+                Some(crate::openhuman::agent::learning::reflection::REFLECTIONS_NAMESPACE),
                 Some(&MemoryCategory::Custom(
-                    crate::openhuman::learning::reflection::REFLECTIONS_NAMESPACE.into(),
+                    crate::openhuman::agent::learning::reflection::REFLECTIONS_NAMESPACE.into(),
                 )),
                 None,
             )
@@ -321,7 +321,8 @@ impl Agent {
             include_profile: !self.omit_profile,
             include_memory_md: !self.omit_memory_md,
             curated_snapshot: None,
-            user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
+            user_identity: crate::openhuman::desktop::app_state::peek_cached_current_user_identity(
+            ),
             // Profile SOUL.md and curated MEMORY.md are bound at session
             // construction so the normal identity/user-files sections use
             // them instead of their workspace-root fallbacks.

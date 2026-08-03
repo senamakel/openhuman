@@ -8,14 +8,14 @@
  * that agent's profile modal on click / Enter / Space (GH-4927). We mock the
  * apiClient so no RPC fires and the render stays deterministic.
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
-import DirectorySection from './DirectorySection';
+import DirectorySection, { DIRECTORY_PAGE_SIZE } from './DirectorySection';
 
 // ── Mock apiClient ────────────────────────────────────────────────────────────
 
@@ -521,5 +521,139 @@ describe('follow button', () => {
     await user.click(followingBtn);
     expect(followUnfollow).toHaveBeenCalledWith('other-agent-004');
     expect(await screen.findByText('Follow')).toBeInTheDocument();
+  });
+});
+
+// ── Search + pagination (#4776 §6) ───────────────────────────────────────────────
+
+describe('search + pagination', () => {
+  /** Minimal valid AgentCard for grid/pagination assertions. */
+  function agent(i: number) {
+    return { agentId: `ag-${i}`, username: `user${i}`, name: `User ${i}` };
+  }
+
+  test('typing a query searches server-side (debounced) and replaces the list', async () => {
+    const user = userEvent.setup();
+    listAgents
+      .mockResolvedValueOnce({ agents: [{ agentId: 'a1', username: 'alpha', name: 'Alpha' }] })
+      .mockResolvedValueOnce({ agents: [{ agentId: 'b1', username: 'beta', name: 'Beta' }] });
+    render(<DirectorySection />);
+    expect(await screen.findByText('@alpha')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('searchbox'), 'bet');
+
+    // The debounced fetch carries the query and resets the offset to 0.
+    await waitFor(() =>
+      expect(listAgents).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'bet', offset: 0 }))
+    );
+    // Proves the debounce, not just the final args: the three keystrokes collapse
+    // into a single search request (mount + one search = 2), not one per keystroke
+    // (which would be 4). Guards against a regression that fires on every keypress.
+    expect(listAgents).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText('@beta')).toBeInTheDocument();
+    // The previous (unfiltered) result is replaced, not appended.
+    expect(screen.queryByText('@alpha')).not.toBeInTheDocument();
+  });
+
+  test('Load more fetches the next offset, appends, and dedupes by agentId', async () => {
+    const user = userEvent.setup();
+    const firstPage = Array.from({ length: DIRECTORY_PAGE_SIZE }, (_, i) => agent(i));
+    // Second page overlaps ag-0 (a shifted offset) plus one fresh agent.
+    const secondPage = [agent(0), { agentId: 'ag-100', username: 'fresh', name: 'Fresh' }];
+    listAgents
+      .mockResolvedValueOnce({ agents: firstPage })
+      .mockResolvedValueOnce({ agents: secondPage });
+    render(<DirectorySection />);
+    await screen.findByText('@user0');
+
+    await user.click(await screen.findByRole('button', { name: /load more/i }));
+
+    await waitFor(() =>
+      expect(listAgents).toHaveBeenLastCalledWith(
+        expect.objectContaining({ offset: DIRECTORY_PAGE_SIZE })
+      )
+    );
+    // Fresh agent appended.
+    expect(await screen.findByText('@fresh')).toBeInTheDocument();
+    // The overlapping agent renders exactly once (deduped by agentId).
+    expect(screen.getAllByText('@user0')).toHaveLength(1);
+  });
+
+  test('hides Load more when the first page is shorter than a full page', async () => {
+    listAgents.mockResolvedValueOnce({ agents: [agent(1), agent(2)] });
+    render(<DirectorySection />);
+    await screen.findByText('@user1');
+    expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument();
+  });
+
+  test('renders a no-results message when a search returns nothing', async () => {
+    const user = userEvent.setup();
+    listAgents.mockResolvedValueOnce({ agents: [agent(1)] }).mockResolvedValueOnce({ agents: [] });
+    render(<DirectorySection />);
+    await screen.findByText('@user1');
+
+    await user.type(screen.getByRole('searchbox'), 'zzz');
+
+    expect(await screen.findByText(/No agents match/i)).toBeInTheDocument();
+    // Distinct from the pristine empty-directory copy.
+    expect(
+      screen.queryByText(/No agents are registered in the directory yet/i)
+    ).not.toBeInTheDocument();
+  });
+
+  test('a failed Load more surfaces an error and keeps the existing rows', async () => {
+    const user = userEvent.setup();
+    const firstPage = Array.from({ length: DIRECTORY_PAGE_SIZE }, (_, i) => agent(i));
+    listAgents
+      .mockResolvedValueOnce({ agents: firstPage })
+      .mockRejectedValueOnce(new Error('nope'));
+    render(<DirectorySection />);
+    await screen.findByText('@user0');
+
+    await user.click(await screen.findByRole('button', { name: /load more/i }));
+
+    expect(await screen.findByText(/Couldn't load more/i)).toBeInTheDocument();
+    // Existing rows survive the failed append.
+    expect(screen.getByText('@user0')).toBeInTheDocument();
+  });
+
+  test('discards a stale Load more response after the query changes', async () => {
+    const user = userEvent.setup();
+    const firstPage = Array.from({ length: DIRECTORY_PAGE_SIZE }, (_, i) => agent(i));
+    // The load-more response (for the empty query) is held open until after the
+    // search has replaced the list, so its append must be dropped.
+    let resolveStale: (v: { agents: Array<ReturnType<typeof agent>> }) => void = () => {};
+    const staleLoadMore = new Promise<{ agents: Array<ReturnType<typeof agent>> }>(res => {
+      resolveStale = res;
+    });
+    listAgents.mockImplementation(params => {
+      const p = params ?? {};
+      if (!p.q && p.offset === 0) return Promise.resolve({ agents: firstPage });
+      if (!p.q && p.offset === DIRECTORY_PAGE_SIZE) return staleLoadMore; // stale (old query)
+      if (p.q === 'x' && p.offset === 0)
+        return Promise.resolve({ agents: [{ agentId: 'ag-x', username: 'xray', name: 'Xray' }] });
+      return Promise.resolve({ agents: [] });
+    });
+
+    render(<DirectorySection />);
+    await screen.findByText('@user0');
+    // Start Load more (old query), then change the search before it resolves.
+    await user.click(await screen.findByRole('button', { name: /load more/i }));
+    await user.type(screen.getByRole('searchbox'), 'x');
+    await screen.findByText('@xray');
+
+    // Resolve the in-flight old-query page and await its (guarded) continuation
+    // inside act, so the assertion runs *after* the stale response has had its
+    // chance to append. A bare `waitFor(not present)` would pass immediately —
+    // before the continuation ran — and green even if the guard were broken.
+    await act(async () => {
+      resolveStale({ agents: [{ agentId: 'ag-stale', username: 'stale', name: 'Stale' }] });
+      await staleLoadMore;
+    });
+    // The stale response was dropped by the generation guard: no @stale row,
+    // the new search's result is intact, and the old query's rows are gone.
+    expect(screen.queryByText('@stale')).not.toBeInTheDocument();
+    expect(screen.getByText('@xray')).toBeInTheDocument();
+    expect(screen.queryByText('@user0')).not.toBeInTheDocument();
   });
 });

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use openhuman_core::openhuman::agent::context::prompt::SystemPromptBuilder;
 use openhuman_core::openhuman::agent::dispatcher::XmlToolDispatcher;
 use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::context::prompt::SystemPromptBuilder;
 use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry};
 use openhuman_core::openhuman::tools::{Tool, ToolResult};
 use std::collections::HashSet;

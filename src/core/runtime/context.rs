@@ -83,12 +83,12 @@ impl CoreContext {
         // 2. Load the master encryption key before any config/credential op that
         //    needs to decrypt secrets. No-op if already called (e.g. from
         //    run_core_from_args for the CLI).
-        crate::openhuman::keyring::init_master_key();
+        crate::openhuman::security::keyring::init_master_key();
 
         // 3. AgentBox GMI MaaS provider bridge — no-op when env vars absent. Must
         //    run before the router mounts the AgentBox routes so the inference
         //    catalog knows about "gmi-maas" by the time `/run` accepts traffic.
-        crate::openhuman::agentbox::register_gmi_provider_if_present();
+        crate::openhuman::agent::agentbox::register_gmi_provider_if_present();
 
         // 4. Seed the per-process RPC bearer. `Fixed` seeds the in-memory value
         //    directly (never touches the env); `EnvOrFile` reads
@@ -191,9 +191,11 @@ impl CoreContext {
     /// stores; the same context always gets the same cached store. Handlers
     /// migrate off `people::store::get()` by reading through
     /// `CoreContext::current()?.people()` instead.
-    pub fn people(&self) -> Result<Arc<crate::openhuman::people::store::PeopleStore>, String> {
+    pub fn people(
+        &self,
+    ) -> Result<Arc<crate::openhuman::memory::people::store::PeopleStore>, String> {
         let workspace_dir = self.workspace_dir()?;
-        crate::openhuman::people::store::for_workspace(&workspace_dir)
+        crate::openhuman::memory::people::store::for_workspace(&workspace_dir)
     }
 
     /// The context for the current dispatch: the one scoped by
@@ -332,7 +334,7 @@ pub async fn init_stores(
 ) {
     let plan = StoreInitPlan::for_domains(domains);
 
-    let keyring_dir = crate::openhuman::keyring::store::workspace_dir_for_file_backend();
+    let keyring_dir = crate::openhuman::security::keyring::store::workspace_dir_for_file_backend();
     // Keyring path log + credentials Sentry bind (below) are unguarded — they
     // are core infra every DomainSet needs. Each workspace-bound store init is
     // gated on its owning DomainGroup so an excluded domain's store stays
@@ -342,7 +344,7 @@ pub async fn init_stores(
         cfg.config_path.display(),
         cfg.workspace_dir.display(),
         keyring_dir.display(),
-        crate::openhuman::keyring::backend_name(),
+        crate::openhuman::security::keyring::backend_name(),
         domains,
     );
     if plan.memory {
@@ -381,7 +383,7 @@ pub async fn init_stores(
     // Ok(cfg) arm so it inherits the wrong-workspace guard above
     // (never seed against a Config::default fallback).
     if plan.people {
-        match crate::openhuman::people::store::init_from_workspace(&cfg.workspace_dir) {
+        match crate::openhuman::memory::people::store::init_from_workspace(&cfg.workspace_dir) {
             Ok(_) => log::info!(
                 "[boot] people::store initialized (workspace={})",
                 cfg.workspace_dir.display()
@@ -406,10 +408,10 @@ pub async fn init_stores(
     // (Composio sync tick, heartbeat, etc.) fires its first event.
     // Reading from the store here means subsequent events carry
     // `user.id` even when no `app_state_snapshot` RPC has run yet.
-    match crate::openhuman::credentials::session_support::build_session_state(cfg) {
+    match crate::openhuman::security::credentials::session_support::build_session_state(cfg) {
         Ok(state) => {
             if let Some(uid) = state.user_id.as_deref() {
-                crate::openhuman::credentials::sentry_scope::bind(uid);
+                crate::openhuman::security::credentials::sentry_scope::bind(uid);
             }
         }
         Err(e) => {
@@ -580,7 +582,7 @@ mod tests {
 
     #[tokio::test]
     async fn people_rpc_uses_scoped_context_store() {
-        use crate::openhuman::people::types::Handle;
+        use crate::openhuman::memory::people::types::Handle;
 
         let dir_a = tempfile::tempdir().unwrap();
         let dir_b = tempfile::tempdir().unwrap();

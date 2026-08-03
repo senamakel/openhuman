@@ -4,13 +4,13 @@
 //! required fields are present and assembles the final [`Agent`].
 
 use super::{dedup_visible_tool_specs, visible_tool_specs_for_policy};
+use crate::openhuman::agent::context::ContextManager;
 use crate::openhuman::agent::harness::session::types::{Agent, AgentBuilder};
 use crate::openhuman::agent::harness::TriggerMemoryAgent;
-use crate::openhuman::agent_memory::memory_loader::DefaultMemoryLoader;
-use crate::openhuman::agent_tool_policy::ToolPolicyEngine;
 use crate::openhuman::config::ContextConfig;
-use crate::openhuman::context::ContextManager;
+use crate::openhuman::memory::agent::memory_loader::DefaultMemoryLoader;
 use crate::openhuman::memory::Memory;
+use crate::openhuman::tools::agent_policy::ToolPolicyEngine;
 use crate::openhuman::tools::{Tool, ToolSpec};
 use anyhow::Result;
 use std::sync::Arc;
@@ -54,7 +54,8 @@ impl AgentBuilder {
             omit_memory_md: None,
             payload_summarizer: None,
             trigger_memory_agent: None,
-            tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Full,
+            tokenjuice_compression:
+                crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Full,
             tool_policy: None,
             archivist_hook: None,
         }
@@ -64,9 +65,8 @@ impl AgentBuilder {
     /// injection seam for tests and embedders; no legacy `Provider` adapter is
     /// constructed.
     pub fn chat_model(mut self, model: Arc<dyn tinyagents::harness::model::ChatModel<()>>) -> Self {
-        self.turn_model_source = Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            model,
-        ));
+        self.turn_model_source =
+            Some(crate::openhuman::agent::tinyagents::TurnModelSource::from_model(model));
         self
     }
 
@@ -82,8 +82,9 @@ impl AgentBuilder {
         role: impl Into<String>,
         config: Arc<crate::openhuman::config::Config>,
     ) -> Self {
-        self.turn_model_source =
-            Some(crate::openhuman::tinyagents::TurnModelSource::new_crate_native(role, config));
+        self.turn_model_source = Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::new_crate_native(role, config),
+        );
         self
     }
 
@@ -125,7 +126,7 @@ impl AgentBuilder {
     /// Sets the system prompt builder for the agent.
     pub fn prompt_builder(
         mut self,
-        prompt_builder: crate::openhuman::context::prompt::SystemPromptBuilder,
+        prompt_builder: crate::openhuman::agent::context::prompt::SystemPromptBuilder,
     ) -> Self {
         self.prompt_builder = Some(prompt_builder);
         self
@@ -143,7 +144,7 @@ impl AgentBuilder {
     /// Sets the memory loader for the agent.
     pub fn memory_loader(
         mut self,
-        memory_loader: Box<dyn crate::openhuman::agent_memory::memory_loader::MemoryLoader>,
+        memory_loader: Box<dyn crate::openhuman::memory::agent::memory_loader::MemoryLoader>,
     ) -> Self {
         self.memory_loader = Some(memory_loader);
         self
@@ -372,13 +373,15 @@ impl AgentBuilder {
 
     /// Wire an oversized-tool-result summarizer into the agent. The live
     /// TinyAgents turn path passes it to `ToolOutputMiddleware`, which calls
-    /// [`crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer::maybe_summarize_in_parent`]
+    /// [`crate::openhuman::agent::tinyagents::payload_summarizer::PayloadSummarizer::maybe_summarize_in_parent`]
     /// on successful tool output and replaces the raw payload with the
     /// compressed summary on success. Currently set only for the orchestrator
     /// session by [`Agent::build_session_agent_inner`].
     pub fn payload_summarizer(
         mut self,
-        summarizer: Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>,
+        summarizer: Arc<
+            dyn crate::openhuman::agent::tinyagents::payload_summarizer::PayloadSummarizer,
+        >,
     ) -> Self {
         self.payload_summarizer = Some(summarizer);
         self
@@ -423,7 +426,7 @@ impl AgentBuilder {
     /// Set the per-agent TokenJuice tool-output compression profile.
     pub fn tokenjuice_compression(
         mut self,
-        profile: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
+        profile: crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression,
     ) -> Self {
         self.tokenjuice_compression = profile;
         self
@@ -530,9 +533,9 @@ impl AgentBuilder {
             .turn_model_source
             .ok_or_else(|| anyhow::anyhow!("provider is required"))?;
 
-        let prompt_builder = self
-            .prompt_builder
-            .unwrap_or_else(crate::openhuman::context::prompt::SystemPromptBuilder::with_defaults);
+        let prompt_builder = self.prompt_builder.unwrap_or_else(
+            crate::openhuman::agent::context::prompt::SystemPromptBuilder::with_defaults,
+        );
 
         let model_name = self
             .model_name

@@ -1,10 +1,10 @@
 //! Summarization and rolling recap logic for `ArchivistHook`.
 
 use super::types::ArchivistHook;
-use crate::openhuman::memory_store::fts5::{self, EpisodicEntry};
-use crate::openhuman::memory_store::segments;
-use crate::openhuman::memory_store::trees::types::TreeKind;
-use crate::openhuman::memory_tree::summarise::{summarise, SummaryContext, SummaryInput};
+use crate::openhuman::memory::store::fts5::{self, EpisodicEntry};
+use crate::openhuman::memory::store::segments;
+use crate::openhuman::memory::store::trees::types::TreeKind;
+use crate::openhuman::memory::tree::summarise::{summarise, SummaryContext, SummaryInput};
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::sync::Arc;
@@ -23,8 +23,10 @@ impl ArchivistHook {
         session_id: &str,
     ) -> Vec<EpisodicEntry> {
         if let Some(cfg) = self.config.as_ref() {
-            let engine_config =
-                crate::openhuman::tinycortex::memory_config_from(cfg, cfg.workspace_dir.clone());
+            let engine_config = crate::openhuman::memory::tinycortex::memory_config_from(
+                cfg,
+                cfg.workspace_dir.clone(),
+            );
             match tinycortex::memory::archivist::store::session_entries(&engine_config, session_id)
             {
                 Ok(turns) => {
@@ -98,7 +100,7 @@ impl ArchivistHook {
             .iter()
             .filter(|e| !e.content.trim().is_empty())
             .map(|e| {
-                use crate::openhuman::memory_store::chunks::types::approx_token_count;
+                use crate::openhuman::memory::store::chunks::types::approx_token_count;
                 let content = e.content.clone();
                 let token_count = approx_token_count(&content);
                 let ts = chrono::DateTime::from_timestamp(e.timestamp as i64, 0)
@@ -221,7 +223,7 @@ impl ArchivistHook {
         let conn = self.conn.as_ref()?;
 
         // Find the currently-open segment for this session.
-        let open_segment = match crate::openhuman::memory_store::segments::open_segment_for_session(
+        let open_segment = match crate::openhuman::memory::store::segments::open_segment_for_session(
             conn, session_id,
         ) {
             Ok(Some(seg)) => seg,

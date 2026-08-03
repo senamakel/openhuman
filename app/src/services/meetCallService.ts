@@ -148,7 +148,7 @@ export async function closeMeetCall(requestId: string): Promise<boolean> {
 /**
  * One completed Meet call as persisted by the core in the JSONL
  * recent-calls log (written by `handle_stop_session`). Same shape
- * as `MeetCallRecord` in `src/openhuman/meet_agent/store.rs` —
+ * as `MeetCallRecord` in `src/openhuman/meet/agent/store.rs` —
  * snake_case fields because the core surfaces them verbatim.
  */
 export interface MeetCallRecord {
@@ -195,7 +195,7 @@ export interface MeetCallSummary {
 
 /**
  * Transcript + summary for one completed call. Mirrors `MeetCallDetail` in
- * `src/openhuman/meet_agent/store.rs`. Lazy-loaded by the recent-calls panel
+ * `src/openhuman/meet/agent/store.rs`. Lazy-loaded by the recent-calls panel
  * when a row is expanded, so the list payload stays lean. `summary` is null
  * when summarisation failed or timed out at call-end.
  */
@@ -482,7 +482,7 @@ function isApiErrorLike(value: unknown): value is { error?: unknown; message?: u
 
 /**
  * One upcoming calendar meeting returned by `openhuman.meet_list_upcoming`.
- * Mirrors `UpcomingMeeting` in `src/openhuman/agent_meetings/types.rs`.
+ * Mirrors `UpcomingMeeting` in `src/openhuman/meet/backend_bot/types.rs`.
  */
 export interface UpcomingMeeting {
   calendar_event_id: string;

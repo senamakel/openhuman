@@ -27,7 +27,7 @@ use tinyagents::harness::observability::AgentObservation;
 
 use super::{SpanCollector, TraceContext, TraceSpan};
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::tool_status::classify;
+use crate::openhuman::tools::status::classify;
 
 /// Mutable state threaded across a single run's observations while replaying.
 #[derive(Default)]

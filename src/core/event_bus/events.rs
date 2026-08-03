@@ -663,7 +663,7 @@ pub enum DomainEvent {
     // ── Plan review (interactive plan-mode gate) ────────────────────────
     /// An interactive turn parked on a thread-scoped plan the user must
     /// review before execution. Published by
-    /// [`crate::openhuman::plan_review::gate::PlanReviewGate::request_review`]
+    /// [`crate::openhuman::agent::plan_review::gate::PlanReviewGate::request_review`]
     /// and bridged to the web channel as a `plan_review_request` socket event.
     PlanReviewRequested {
         /// Unique id correlating the decision back to the parked turn.
@@ -689,10 +689,10 @@ pub enum DomainEvent {
     // ── Artifacts ───────────────────────────────────────────────────────
     /// An artifact transitioned to [`ArtifactStatus::Ready`] — file
     /// is on disk and ready to be downloaded. Published by
-    /// [`crate::openhuman::artifacts::store::finalize_artifact`].
+    /// [`crate::openhuman::agent::artifacts::store::finalize_artifact`].
     /// Bridged to the web channel as an `artifact_ready` socket event
     /// when the publishing turn carries an `APPROVAL_CHAT_CONTEXT`
-    /// (see [`crate::openhuman::approval::ApprovalChatContext`]).
+    /// (see [`crate::openhuman::security::approval::ApprovalChatContext`]).
     /// Sub-task #2779 of #1535.
     ArtifactReady {
         /// UUID of the artifact record.
@@ -745,7 +745,7 @@ pub enum DomainEvent {
     /// An artifact record has been **created** (`ArtifactStatus::Pending`)
     /// but no bytes are on disk yet — the producing tool has only just
     /// reserved the row. Published by
-    /// [`crate::openhuman::artifacts::store::create_artifact`].
+    /// [`crate::openhuman::agent::artifacts::store::create_artifact`].
     /// Bridged to the web channel as an `artifact_pending` socket event
     /// so the frontend can render an in-progress / "Generating…" card the
     /// moment the tool dispatches, instead of waiting until the file
@@ -780,7 +780,7 @@ pub enum DomainEvent {
     // ── Webhooks ────────────────────────────────────────────────────────
     /// An incoming webhook request from the transport layer, ready for routing.
     WebhookIncomingRequest {
-        request: crate::openhuman::webhooks::WebhookRequest,
+        request: crate::openhuman::skills::webhooks::WebhookRequest,
         raw_data: serde_json::Value,
     },
     /// A webhook was received and routed to a skill.

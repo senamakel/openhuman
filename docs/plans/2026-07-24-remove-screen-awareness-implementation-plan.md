@@ -39,7 +39,7 @@ Files:
   produce a live config field.
 - Remove the runtime snapshot type/build/degraded data and tests from
   `src/openhuman/app_state/{ops.rs,ops_tests.rs,README.md}` and the login/start/
-  stop hooks/tests/docs in `src/openhuman/credentials/{ops.rs,ops_tests.rs,README.md}`.
+  stop hooks/tests/docs in `src/openhuman/security/credentials/{ops.rs,ops_tests.rs,README.md}`.
 - Remove the screen-derived app-state/config RPC cases and replace the current
   positive integration assertions in
   `tests/{config_auth_app_state_connectivity_e2e.rs,json_rpc_e2e.rs}` with one
@@ -81,23 +81,23 @@ Commit:
 
 Files:
 
-- Delete `src/openhuman/agent_registry/agents/screen_awareness_agent/` and
+- Delete `src/openhuman/agent/registry/agents/screen_awareness_agent/` and
   remove its module and `BuiltinAgent` entry from
-  `src/openhuman/agent_registry/agents/{mod.rs,loader.rs}`.
+  `src/openhuman/agent/registry/agents/{mod.rs,loader.rs}`.
 - Remove it from the orchestrator's allowed subagents in
-  `src/openhuman/agent_registry/agents/orchestrator/agent.toml`, from the
+  `src/openhuman/agent/registry/agents/orchestrator/agent.toml`, from the
   built-in-definition assertion in
   `src/openhuman/agent/harness/builtin_definitions.rs`, and from expected agent
   counts/worker lists in `src/openhuman/agent/harness/definition_tests.rs` and
-  `src/openhuman/agent_registry/agents/loader.rs` tests.
+  `src/openhuman/agent/registry/agents/loader.rs` tests.
 - Keep `vision_agent` but remove its two `screen_intelligence_*` tools and
-  revise `src/openhuman/agent_registry/agents/vision_agent/{agent.toml,prompt.md}`
+  revise `src/openhuman/agent/registry/agents/vision_agent/{agent.toml,prompt.md}`
   to refer only to attached or on-disk user-provided images.
 - Delete the screen-awareness prompt resource from
-  `src/openhuman/mcp_server/resources.rs`.
+  `src/openhuman/mcp/server/resources.rs`.
 - Delete `CapabilityCategory::ScreenIntelligence`, parsing/serialization tests,
   and all `screen_intelligence.*` catalog entries from
-  `src/openhuman/about_app/{types.rs,catalog_data.rs,catalog_tests.rs,README.md}`.
+  `src/openhuman/platform/about_app/{types.rs,catalog_data.rs,catalog_tests.rs,README.md}`.
   Also remove the stale `screen_intelligence` example in
   `src/openhuman/overlay/types.rs` and screen-only mentions in
   `src/openhuman/inference/README.md`.

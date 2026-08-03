@@ -7,7 +7,7 @@ Signal-encrypted DMs. It turns each inbound session DM into one autonomous
 chat model, and runs an offline **subconscious** that reflects on how the world
 is trending and steers later cycles.
 
-Domain root: [`src/openhuman/orchestration/`](../../../src/openhuman/orchestration).
+Domain root: [`src/openhuman/hosted/orchestration/`](../../../src/openhuman/hosted/orchestration).
 Design spec: [`docs/arch-subconscious.md`](../../../docs/arch-subconscious.md) and
 the staged plan under [`docs/plans/subconscious-orchestration/`](../../../docs/plans/subconscious-orchestration).
 

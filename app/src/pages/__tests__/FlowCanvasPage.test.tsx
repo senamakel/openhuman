@@ -24,7 +24,7 @@ const updateFlow = vi.hoisted(() => vi.fn());
 const createFlow = vi.hoisted(() => vi.fn());
 const validateFlow = vi.hoisted(() => vi.fn());
 const listFlowConnections = vi.hoisted(() => vi.fn());
-const runFlow = vi.hoisted(() => vi.fn());
+const runFlowDetached = vi.hoisted(() => vi.fn());
 const setFlowEnabled = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/flowsApi', () => ({
   getFlow,
@@ -32,9 +32,38 @@ vi.mock('../../services/api/flowsApi', () => ({
   createFlow,
   validateFlow,
   listFlowConnections,
-  runFlow,
+  runFlowDetached,
   setFlowEnabled,
 }));
+
+// F-M1: a tiny in-memory socket stand-in (same shape as
+// `EditableFlowCanvas.runOverlay.test.tsx`) so a `flow:run_progress` event can
+// be delivered deterministically, letting us prove nothing was subscribed
+// (and so no event could have been dropped) before `activeRunId` was set.
+const socketHandlers = vi.hoisted(() => new Map<string, Set<(data: unknown) => void>>());
+const socketOn = vi.hoisted(() =>
+  vi.fn((event: string, cb: (data: unknown) => void) => {
+    const set = socketHandlers.get(event) ?? new Set();
+    set.add(cb);
+    socketHandlers.set(event, set);
+  })
+);
+const socketOff = vi.hoisted(() =>
+  vi.fn((event: string, cb: (data: unknown) => void) => {
+    socketHandlers.get(event)?.delete(cb);
+  })
+);
+vi.mock('../../services/socketService', () => ({
+  socketService: { on: socketOn, off: socketOff },
+}));
+
+function emitRunProgress(payload: { run_id: string; node_id: string; status: string }) {
+  act(() => {
+    for (const event of ['flow:run_progress', 'flow_run_progress']) {
+      for (const cb of socketHandlers.get(event) ?? []) cb(payload);
+    }
+  });
+}
 
 // Stub the copilot panel: it drives the real chat runtime (redux + socket),
 // which is out of scope here — we only assert the host opens it and hands the
@@ -100,13 +129,16 @@ describe('FlowCanvasPage', () => {
     createFlow.mockReset();
     validateFlow.mockReset();
     listFlowConnections.mockReset();
-    runFlow.mockReset();
+    runFlowDetached.mockReset();
     setFlowEnabled.mockReset();
     validateFlow.mockResolvedValue({ valid: true, errors: [], warnings: [] });
     listFlowConnections.mockResolvedValue([]);
     updateFlow.mockResolvedValue(makeFlow());
     createFlow.mockResolvedValue(makeFlow({ id: 'created-id', name: 'Daily digest' }));
     setFlowEnabled.mockResolvedValue(makeFlow({ enabled: true }));
+    socketHandlers.clear();
+    socketOn.mockClear();
+    socketOff.mockClear();
   });
 
   it('shows a loading state while the flow is being fetched', () => {
@@ -167,7 +199,7 @@ describe('FlowCanvasPage', () => {
 
     it('renders the run-error banner (trimmed) without covering undo/redo, and lets it be dismissed', async () => {
       getFlow.mockResolvedValue(makeFlow());
-      runFlow.mockRejectedValue(
+      runFlowDetached.mockRejectedValue(
         new Error(
           'capability error: graph error: capability error: code node exited non-zero (timed_out=false):'
         )
@@ -196,13 +228,13 @@ describe('FlowCanvasPage', () => {
 
     it('auto-dismisses the run-error banner after the timeout, and restarts the timer on a new error', async () => {
       getFlow.mockResolvedValue(makeFlow());
-      runFlow.mockRejectedValue(new Error('capability error: boom'));
+      runFlowDetached.mockRejectedValue(new Error('capability error: boom'));
       renderAtFlowId('test-id');
       await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
       // Switch to fake timers only now — the load above already went through
       // `waitFor` (real timers); the run/timeout portion below only needs
-      // fake macrotasks plus microtask flushes for the rejected `runFlow`
+      // fake macrotasks plus microtask flushes for the rejected `runFlowDetached`
       // promise, matching the FlowRunsDrawer.test.tsx fake-timer precedent.
       vi.useFakeTimers();
       try {
@@ -238,6 +270,62 @@ describe('FlowCanvasPage', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe('detached run (F-M1): activeRunId set before any progress event', () => {
+    function clickRun() {
+      fireEvent.click(screen.getByTestId('flow-canvas-run'));
+      fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
+    }
+
+    // The whole point of `flows_run_detached` (F-M1): `flows_run` blocked
+    // server-side until the run finished, so by the time the RPC resolved
+    // every `flow:run_progress` event for that run had already fired and been
+    // dropped — `useFlowRunProgress` only subscribes once `activeRunId` is
+    // set. This proves the fix end to end: no socket subscription exists
+    // before Run resolves, the canvas subscribes the moment `activeRunId` is
+    // set from the immediate `{run_id}` response, and an event delivered
+    // AFTER that point is not dropped.
+    it('subscribes to run progress only after run_detached resolves, and does not drop a subsequent event', async () => {
+      getFlow.mockResolvedValue(makeFlow());
+      let resolveRun!: (value: {
+        run_id: string;
+        flow_id: string;
+        status: 'running';
+        detached: true;
+      }) => void;
+      runFlowDetached.mockReturnValue(
+        new Promise(resolve => {
+          resolveRun = resolve;
+        })
+      );
+      renderAtFlowId('test-id');
+      await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+      clickRun();
+      // The RPC is still in flight — nothing has subscribed yet, so an event
+      // that arrived NOW (the pre-fix failure mode) would have nowhere to go.
+      expect(socketOn).not.toHaveBeenCalledWith('flow:run_progress', expect.any(Function));
+
+      await act(async () => {
+        resolveRun({ run_id: 'test-id:t1', flow_id: 'test-id', status: 'running', detached: true });
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // `activeRunId` is now set from the immediate response — the canvas
+      // subscribed for exactly that run id.
+      await waitFor(() =>
+        expect(socketOn).toHaveBeenCalledWith('flow:run_progress', expect.any(Function))
+      );
+
+      const nodeWrapper = () =>
+        document.querySelector('.react-flow__node[data-id="t"]') as Element | null;
+      expect(nodeWrapper()).not.toHaveClass('flow-node-running');
+
+      emitRunProgress({ run_id: 'test-id:t1', node_id: 't', status: 'running' });
+      await waitFor(() => expect(nodeWrapper()).toHaveClass('flow-node-running'));
     });
   });
 

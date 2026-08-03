@@ -28,12 +28,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 #[cfg(not(test))]
-fn proactive_approval_gate() -> Option<Arc<crate::openhuman::approval::ApprovalGate>> {
-    crate::openhuman::approval::ApprovalGate::try_global()
+fn proactive_approval_gate() -> Option<Arc<crate::openhuman::security::approval::ApprovalGate>> {
+    crate::openhuman::security::approval::ApprovalGate::try_global()
 }
 
 #[cfg(test)]
-fn proactive_approval_gate() -> Option<Arc<crate::openhuman::approval::ApprovalGate>> {
+fn proactive_approval_gate() -> Option<Arc<crate::openhuman::security::approval::ApprovalGate>> {
     None
 }
 
@@ -277,7 +277,7 @@ impl EventHandler for ProactiveMessageSubscriber {
                 // outcome after `ch.send` returns (issue #2135).
                 let mut approval_request_id: Option<String> = None;
                 let mut approval_gate_for_audit: Option<
-                    std::sync::Arc<crate::openhuman::approval::ApprovalGate>,
+                    std::sync::Arc<crate::openhuman::security::approval::ApprovalGate>,
                 > = None;
                 if let Some(gate) = proactive_approval_gate() {
                     let summary = format!(
@@ -293,13 +293,13 @@ impl EventHandler for ProactiveMessageSubscriber {
                         .intercept_audited("channels.proactive_send", &summary, redacted)
                         .await;
                     match outcome {
-                        crate::openhuman::approval::GateOutcome::Allow => {
+                        crate::openhuman::security::approval::GateOutcome::Allow => {
                             approval_request_id = request_id;
                             if approval_request_id.is_some() {
                                 approval_gate_for_audit = Some(gate);
                             }
                         }
-                        crate::openhuman::approval::GateOutcome::Deny { reason } => {
+                        crate::openhuman::security::approval::GateOutcome::Deny { reason } => {
                             tracing::warn!(
                                 source = %source,
                                 channel = %key,
@@ -323,9 +323,12 @@ impl EventHandler for ProactiveMessageSubscriber {
                     approval_request_id.as_ref(),
                 ) {
                     let (exec_outcome, err_text) = match &send_result {
-                        Ok(()) => (crate::openhuman::approval::ExecutionOutcome::Success, None),
+                        Ok(()) => (
+                            crate::openhuman::security::approval::ExecutionOutcome::Success,
+                            None,
+                        ),
                         Err(e) => (
-                            crate::openhuman::approval::ExecutionOutcome::Failure,
+                            crate::openhuman::security::approval::ExecutionOutcome::Failure,
                             Some(e.to_string()),
                         ),
                     };

@@ -115,15 +115,13 @@ function destinationForElement(element: HTMLElement): string {
 function controlState(element: HTMLElement): string {
   if (element instanceof HTMLInputElement) {
     if (element.type === 'checkbox' || element.type === 'radio') {
-      // Defensive guard: React 19's controlled-component state restoration
-      // can briefly leave an input's DOM node in an inconsistent state where
-      // `instanceof HTMLInputElement` passes but the element is disconnected
-      // and its `checked` property access throws (see issue #5161).
-      try {
-        return element.checked ? 'checked' : 'unchecked';
-      } catch {
-        return 'changed';
-      }
+      // `element` is an `HTMLInputElement` reached from a live `change` event, so
+      // reading `checked` is always safe: the getter works on disconnected and
+      // never-mounted nodes alike and cannot throw. (An earlier try/catch here
+      // blamed #5161 on a disconnected DOM node — that was a misdiagnosis; the
+      // real fault was reading `event.currentTarget` inside a deferred setState
+      // updater in the Telegram/Discord config panels.)
+      return element.checked ? 'checked' : 'unchecked';
     }
     if (element.type === 'range') return 'changed';
   }

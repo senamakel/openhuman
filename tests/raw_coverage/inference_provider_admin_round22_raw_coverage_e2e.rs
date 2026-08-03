@@ -22,7 +22,7 @@ use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::inference::local::LocalAiService;
@@ -295,7 +295,7 @@ async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_f
     config.local_ai.runtime_enabled = true;
     config.local_ai.opt_in_confirmed = true;
     config.local_ai.base_url = Some(base.clone());
-    config.local_ai.chat_model_id = "gemma4:e4b-it-q8_0".to_string();
+    config.local_ai.chat_model_id = "gemma3n:e4b-it-q8_0".to_string();
     config.local_ai.embedding_model_id = "all-minilm:latest".to_string();
     config.local_ai.selected_tier = Some("custom".to_string());
     config.local_ai.preload_embedding_model = true;
@@ -325,7 +325,7 @@ async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_f
     assert!(issues.iter().any(|issue| issue
         .as_str()
         .unwrap()
-        .contains("Chat model `gemma4:e4b-it-q8_0`")));
+        .contains("Chat model `gemma3n:e4b-it-q8_0`")));
     assert!(issues.iter().any(|issue| issue
         .as_str()
         .unwrap()

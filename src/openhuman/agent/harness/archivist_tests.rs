@@ -1,7 +1,7 @@
 use super::*;
 use crate::openhuman::agent::hooks::{ToolCallRecord, TurnContext};
 use crate::openhuman::memory::chat::ChatPrompt;
-use crate::openhuman::memory_store::{events as ev, fts5, segments as seg};
+use crate::openhuman::memory::store::{events as ev, fts5, segments as seg};
 
 fn setup_conn() -> Arc<Mutex<Connection>> {
     let conn = Connection::open_in_memory().unwrap();
@@ -361,7 +361,7 @@ impl crate::openhuman::memory::chat::ChatProvider for StubChatProvider {
 struct StubEmbedder;
 
 #[async_trait::async_trait]
-impl crate::openhuman::memory_tree::score::embed::Embedder for StubEmbedder {
+impl crate::openhuman::memory::tree::score::embed::Embedder for StubEmbedder {
     fn name(&self) -> &'static str {
         "stub-embedder-v1"
     }
@@ -546,7 +546,7 @@ async fn phase1_flush_open_segment_finalizes_trailing_segment() {
 //   g) flush_open_segment also triggers tree ingest.
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_store::chunks::store::{count_chunks, list_chunks, ListChunksQuery};
+use crate::openhuman::memory::store::chunks::store::{count_chunks, list_chunks, ListChunksQuery};
 use tempfile::TempDir;
 
 /// Build a Config that points at a temp workspace, suitable for tree-ingest tests.
@@ -736,7 +736,7 @@ async fn phase2_provenance_stamped_on_leaf_and_source_id_is_constant() {
         .iter()
         .find(|s| {
             s.session_id == session
-                && s.status != crate::openhuman::memory_store::segments::SegmentStatus::Open
+                && s.status != crate::openhuman::memory::store::segments::SegmentStatus::Open
         })
         .expect("Expected a closed segment after flush");
 
@@ -909,7 +909,7 @@ async fn phase2_flush_also_triggers_tree_ingest() {
 struct PanicOnEmbedEmbedder;
 
 #[async_trait::async_trait]
-impl crate::openhuman::memory_tree::score::embed::Embedder for PanicOnEmbedEmbedder {
+impl crate::openhuman::memory::tree::score::embed::Embedder for PanicOnEmbedEmbedder {
     fn name(&self) -> &'static str {
         "panic-embedder-v1"
     }

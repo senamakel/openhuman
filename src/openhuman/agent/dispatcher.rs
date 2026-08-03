@@ -1,7 +1,7 @@
+use crate::openhuman::agent::context::prompt::ToolCallFormat;
 use crate::openhuman::agent::harness::parse_tool_calls;
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
 use crate::openhuman::agent::pformat::{self, PFormatRegistry};
-use crate::openhuman::context::prompt::ToolCallFormat;
 use crate::openhuman::inference::provider::ChatResponse;
 use crate::openhuman::tools::{Tool, ToolSpec};
 use serde_json::Value;

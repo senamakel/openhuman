@@ -21,11 +21,11 @@ use tracing::{debug, info, warn};
 use super::super::instance::SubconsciousInstance;
 use super::super::profile::{Observation, Reflection, SubconsciousProfile};
 use super::super::store;
+use crate::openhuman::agent::orchestration::parent_context::with_root_parent;
 use crate::openhuman::agent::turn_origin::TrustedAutomationSource;
-use crate::openhuman::agent_orchestration::parent_context::with_root_parent;
 use crate::openhuman::config::schema::SubconsciousMode;
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_diff::types::CrossSourceDiff;
+use crate::openhuman::memory::diff::types::CrossSourceDiff;
 
 /// Per-tool-call timeout injected into the decision agent config.
 const TOOL_CALL_TIMEOUT_SECS: u64 = 5 * 60;
@@ -47,6 +47,38 @@ const SUBCONSCIOUS_TOOL_CATALOG: &str = "\
 - goals_edit: Revise an existing long-term goal.
 - spawn_subagent: Delegate deeper research or multi-step work (runs inline; its result comes back to you).
 ";
+
+/// Provider-routing role this background tick runs under (`subconscious_provider`).
+const SUBCONSCIOUS_ROLE: &str = "subconscious";
+
+/// Should stage 2 skip spawning the `context_scout` because the user's managed
+/// OpenHuman credits are exhausted?
+///
+/// The tick is a background surface the user never asked for, so attempting a
+/// model call that is *certain* to come back
+/// `400 {"errorCode":"USER_INSUFFICIENT_CREDITS"}` buys nothing: the scout dies,
+/// the tick proceeds without a bundle anyway, and every tick of every
+/// out-of-credits user burned a backend round-trip and a Sentry error
+/// (TAURI-RUST-HMW, #5308). Gating here stops the load at source; the
+/// emit-site demotion in `agent_prepare_context` remains the backstop for the
+/// races this can't see (a balance that runs out mid-flight, or the 30s
+/// [`crate::openhuman::hosted::team::managed_tool_budget_exhausted`] cache being stale).
+///
+/// Scoped to *managed* funding: a `subconscious_provider` pointing at a BYO key
+/// or a local runtime is unaffected by the OpenHuman balance, so
+/// [`role_bypasses_managed_credits`] short-circuits the probe entirely and the
+/// scout runs as before. A failed probe reports "not exhausted", so a backend
+/// outage degrades to today's attempt-and-fail rather than silently disabling
+/// the scout.
+async fn credits_gate_blocks_scout(config: &Config) -> bool {
+    if crate::openhuman::inference::provider::factory::role_bypasses_managed_credits(
+        SUBCONSCIOUS_ROLE,
+        config,
+    ) {
+        return false;
+    }
+    crate::openhuman::hosted::team::managed_tool_budget_exhausted(config).await
+}
 
 /// Construct the live `memory` instance from config (used by the registry /
 /// bootstrap). The only place `MemoryProfile` is wired into a runner.
@@ -77,13 +109,23 @@ impl MemoryProfile {
 
     /// Stage 2: run the read-only `context_scout` over the world diff to gather
     /// grounding context. Best-effort — on any error the decision agent simply
-    /// runs without a prepared-context section.
+    /// runs without a prepared-context section, and the same fallback covers a
+    /// scout skipped by the managed-credits gate ([`credits_gate_blocks_scout`]).
     ///
     /// The tick is a controller-spawned background surface with **no enclosing
     /// agent turn**, so the scout spawn has no ambient `current_parent()`. We
     /// establish a root parent via [`with_root_parent`] — without it every
     /// tick's scout died with `NoParentContext` (Sentry TAURI-RUST-HMW; #4337).
     async fn run_scout(&self, config: &Config, world_diff: &str) -> String {
+        // Preventable user-state: don't spawn a scout whose model call is
+        // certain to 400 on exhausted credits. See `credits_gate_blocks_scout`.
+        if credits_gate_blocks_scout(config).await {
+            debug!(
+                "[subconscious:memory] skipping context scout — managed OpenHuman credits exhausted"
+            );
+            return String::new();
+        }
+
         let question = format!(
             "Background awareness check. Here is what changed in the user's connected sources \
              since the last check:\n\n{world_diff}\n\nSurface what the user should be aware of or \
@@ -92,7 +134,7 @@ impl MemoryProfile {
 
         // Flatten: outer Err = root-parent build failure, inner = scout result.
         let scout = with_root_parent(config, "subconscious", "subconscious", "subconscious", {
-            crate::openhuman::agent_orchestration::tools::run_context_scout_with_catalog(
+            crate::openhuman::agent::orchestration::tools::run_context_scout_with_catalog(
                 &question,
                 None,
                 SUBCONSCIOUS_TOOL_CATALOG,
@@ -261,21 +303,23 @@ impl SubconsciousProfile for MemoryProfile {
         });
 
         let diff: Option<CrossSourceDiff> = match &baseline {
-            Some(checkpoint_id) => match crate::openhuman::memory_diff::ops::diff_since_checkpoint(
-                checkpoint_id,
-                config,
-                false,
-            )
-            .await
-            {
-                Ok(d) => Some(d),
-                Err(e) => {
-                    warn!(
+            Some(checkpoint_id) => {
+                match crate::openhuman::memory::diff::ops::diff_since_checkpoint(
+                    checkpoint_id,
+                    config,
+                    false,
+                )
+                .await
+                {
+                    Ok(d) => Some(d),
+                    Err(e) => {
+                        warn!(
                         "[subconscious:memory] memory_diff failed (baseline={checkpoint_id}): {e}"
                     );
-                    None
+                        None
+                    }
                 }
-            },
+            }
             None => {
                 debug!("[subconscious:memory] no world baseline yet — first tick establishes one");
                 None
@@ -337,7 +381,7 @@ impl SubconsciousProfile for MemoryProfile {
         // Re-snapshot the world and persist the new checkpoint as the baseline
         // the next tick diffs against. Best-effort — a failure leaves the old
         // baseline in place (the next tick diffs against a slightly older window).
-        match crate::openhuman::memory_diff::ops::create_checkpoint(
+        match crate::openhuman::memory::diff::ops::create_checkpoint(
             BASELINE_CHECKPOINT_LABEL,
             config,
         )
@@ -415,9 +459,9 @@ pub(crate) fn render_world_diff(diff: &CrossSourceDiff) -> String {
         ));
         for change in source.changes.iter().take(MAX_ITEMS_PER_SOURCE) {
             let verb = match change.kind {
-                crate::openhuman::memory_diff::types::ChangeKind::Added => "added",
-                crate::openhuman::memory_diff::types::ChangeKind::Removed => "removed",
-                crate::openhuman::memory_diff::types::ChangeKind::Modified => "modified",
+                crate::openhuman::memory::diff::types::ChangeKind::Added => "added",
+                crate::openhuman::memory::diff::types::ChangeKind::Removed => "removed",
+                crate::openhuman::memory::diff::types::ChangeKind::Modified => "modified",
             };
             let label = if change.title.trim().is_empty() {
                 change.item_id.as_str()

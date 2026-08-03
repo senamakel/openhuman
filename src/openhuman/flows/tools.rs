@@ -57,7 +57,7 @@ impl Tool for ProposeWorkflowTool {
          (to_port just stays \"main\"); routing is keyed exclusively on from_port, so a label \
          on to_port instead silently turns the branch into an unconditional fan-out and is a \
          hard reject. Exactly ONE \
-         trigger node is required. The 12 node kinds: trigger (config.trigger_kind: manual | \
+         trigger node is required. The 14 node kinds: trigger (config.trigger_kind: manual | \
          schedule | webhook | app_event | form | chat_message | evaluation | system | \
          execute_by_workflow; schedule needs config.schedule = {kind:\"cron\",expr,tz?} | \
          {kind:\"at\",at} | {kind:\"every\",every_ms}; app_event needs config.toolkit + \
@@ -69,7 +69,18 @@ impl Tool for ProposeWorkflowTool {
          the matching case port, or \"default\"), transform (config.set: {key: \"=expr\"} \
          merged onto each item), split_out (config.path to an array field; fans out one item per \
          element), merge (fan-in passthrough, no config), output_parser (passthrough today; no \
-         config required), sub_workflow (config.workflow: an embedded child WorkflowGraph). If \
+         config required), sub_workflow (config.workflow: an embedded child WorkflowGraph), \
+         memory (config.operation REQUIRED: recall | search | flavour | people | remember | \
+         forget; config.scope for recall/remember/forget: \"user\" is READ-ONLY, \"flow\" is \
+         this flow's own memory and the ONLY scope remember/forget may target, \"flows\" is \
+         cross-flow READ-ONLY; config.query for recall/search; config.flavour for the flavour \
+         slug; config.key/config.value for remember/forget. Place remember AFTER the real \
+         action it records, never before, so a failed action never marks an item as done), \
+         dedup (config.key REQUIRED: an \"=expr\" per-item key, e.g. \"=item.id\"; drops an item \
+         whose key was already committed by a PRIOR successful run, else passes it through. Use \
+         this — not a memory recall/condition graph — for exact \"process each item once\": \
+         place it right after the item source and before the action, e.g. split_out → dedup → \
+         …action…). If \
          validation fails, fix the graph and call this tool again."
     }
 
@@ -96,7 +107,8 @@ impl Tool for ProposeWorkflowTool {
                                         "enum": [
                                             "trigger", "agent", "tool_call", "http_request",
                                             "code", "condition", "switch", "merge", "split_out",
-                                            "transform", "output_parser", "sub_workflow"
+                                            "transform", "output_parser", "sub_workflow", "memory",
+                                            "dedup"
                                         ]
                                     },
                                     "name": { "type": "string", "description": "Human-readable node name." },
@@ -249,8 +261,11 @@ impl Tool for RunFlowTool {
          instead). It only works on a flow the user has already saved; pass its `flow_id`. \
          You MUST ask the user to confirm and wait for an explicit 'yes' before calling this \
          — never run a workflow unprompted. The flow's own approval gate still pauses \
-         outbound-action nodes. Params: { flow_id (required), input? }. Returns the run's \
-         status + any nodes paused for approval."
+         outbound-action nodes. If the flow declares workflow inputs (read `graph.inputs` \
+         via get_flow), pass their values in `inputs` — ask the user for any required one \
+         rather than inventing it; a missing or wrongly-typed value is rejected and nothing \
+         runs. Params: { flow_id (required), input?, inputs? }. Returns the run's status + \
+         any nodes paused for approval."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -263,6 +278,14 @@ impl Tool for RunFlowTool {
                 },
                 "input": {
                     "description": "Optional trigger input passed to the run (defaults to {})."
+                },
+                "inputs": {
+                    "type": "object",
+                    "description": "Values for the flow's DECLARED workflow inputs, keyed by \
+                                    name. Read the declarations from the flow's graph.inputs \
+                                    first; ask the user for any required value instead of \
+                                    guessing. Distinct from 'input', the free-form trigger \
+                                    payload."
                 }
             },
             "required": ["flow_id"]
@@ -290,6 +313,21 @@ impl Tool for RunFlowTool {
             }
         };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
+        // A non-object `inputs` is the model mis-shaping the call; say so
+        // plainly rather than silently running with none, which would produce a
+        // confusing "required input missing" for a value it thinks it sent.
+        let inputs = match args.get("inputs") {
+            None | Some(Value::Null) => serde_json::Map::new(),
+            Some(Value::Object(map)) => map.clone(),
+            Some(_) => {
+                return Ok(ToolResult::error(
+                    "'inputs' must be an object keyed by the flow's declared input names, \
+                     e.g. {\"repo\": \"acme/api\"}. Read the declarations from the flow's \
+                     graph.inputs."
+                        .to_string(),
+                ))
+            }
+        };
 
         tracing::info!(
             target: "flows",
@@ -309,6 +347,7 @@ impl Tool for RunFlowTool {
             &self.config,
             &flow_id,
             input,
+            inputs,
             crate::openhuman::flows::types::FlowRunTrigger::Rpc,
         )
         .await
@@ -467,24 +506,18 @@ fn config_hint(node: &Node) -> Option<String> {
             .and_then(Value::as_str)
             .map(|p| format!("path: {p}")),
         NodeKind::SubWorkflow => Some("embedded sub-workflow".to_string()),
-        // Neither kind is advertised by `node_contracts` on this host yet (see
-        // `HOST_UNSUPPORTED_NODE_KINDS`), but a graph can still carry one —
-        // imported, hand-authored, or written by an older/newer core — and this
-        // renders a saved graph for display, so it must not panic or go blank.
         NodeKind::Memory => {
-            let op = cfg
-                .get("operation")
-                .and_then(Value::as_str)
-                .unwrap_or("recall");
-            match cfg.get("scope").and_then(Value::as_str) {
-                Some(scope) => Some(format!("{op} ({scope})")),
-                None => Some(op.to_string()),
-            }
+            let operation = cfg.get("operation").and_then(Value::as_str).unwrap_or("?");
+            let hint = match cfg.get("scope").and_then(Value::as_str) {
+                Some(scope) => format!("{operation} · {scope}"),
+                None => operation.to_string(),
+            };
+            Some(truncate_hint(&hint))
         }
         NodeKind::Dedup => cfg
             .get("key")
             .and_then(Value::as_str)
-            .map(|k| format!("key: {k}")),
+            .map(|k| truncate_hint(&format!("key: {k}"))),
         NodeKind::Merge | NodeKind::OutputParser | NodeKind::Trigger => None,
     }
 }

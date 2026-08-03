@@ -5,7 +5,7 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use openhuman_core::openhuman::tinycortex::coding_session_status_for_roots;
+use openhuman_core::openhuman::memory::tinycortex::coding_session_status_for_roots;
 
 #[test]
 fn coding_session_sources_extract_human_turns_from_both_harnesses() {

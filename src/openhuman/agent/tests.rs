@@ -31,8 +31,8 @@ use crate::openhuman::agent::harness::session::Agent;
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
 use crate::openhuman::config::{AgentConfig, MemoryConfig};
 use crate::openhuman::inference::provider::{ChatResponse, ToolCall};
+use crate::openhuman::memory::store as memory_store;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::memory_store;
 use crate::openhuman::tools::{Tool, ToolResult};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -87,7 +87,7 @@ impl ChatModel<()> for ScriptedProvider {
             guard.remove(0)
         };
         Ok(
-            crate::openhuman::tinyagents::model::native_model_response_for_request(
+            crate::openhuman::agent::tinyagents::model::native_model_response_for_request(
                 &response, &request,
             ),
         )

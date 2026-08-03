@@ -36,16 +36,23 @@ export interface Position {
 }
 
 /**
- * The node kinds this host can actually run.
- *
- * `tinyflows::model::NodeKind` defines 14; the core withholds `memory` and
- * `dedup` because the capabilities backing them are not wired here yet (see
- * `flows::node_contracts::HOST_UNSUPPORTED_NODE_KINDS` for why each is held
- * back). They are absent from `list_node_kinds`, so the builder never proposes
- * one — hence absent from this union too. Add a kind here in the same change
- * that removes it from that list.
- *
+ * The 14 node kinds `tinyflows` currently defines (`tinyflows::model::NodeKind`).
  * Wire values are `snake_case` (`#[serde(rename_all = "snake_case")]`).
+ *
+ * `memory` (issue #5226) is the 13th kind — declarative, in-graph memory
+ * access (`recall`/`search`/`flavour`/`people`/`remember`/`forget`, see
+ * `my_docs/memory_access_in_workflows/08-memory-node.md`). Its config is
+ * still the same free-form `WorkflowNode.config` bag as every other kind
+ * (see {@link WorkflowNode}); there is no dedicated TS config interface
+ * because no other kind has one either — the node-config form
+ * (`nodeConfig/memoryFields.tsx`) reads/writes the known keys
+ * (`operation`, `scope`, `query`, `flavour`, `key`, `value`, `limit`,
+ * `min_score`) directly off that bag, same as `condition`/`switch`/etc.
+ *
+ * `dedup` (issue #5263) is the 14th kind — skips items already seen, keyed
+ * by a stable per-item `=`-expression (e.g. `=item.id`). Same free-form
+ * config bag pattern: its one field, `key`, is read/written directly by
+ * `nodeConfig/dedupFields.tsx`.
  */
 export type NodeKind =
   | 'trigger'
@@ -59,7 +66,9 @@ export type NodeKind =
   | 'split_out'
   | 'transform'
   | 'output_parser'
-  | 'sub_workflow';
+  | 'sub_workflow'
+  | 'memory'
+  | 'dedup';
 
 /**
  * A named connection point on a node. Mirrors `tinyflows::model::Port`.

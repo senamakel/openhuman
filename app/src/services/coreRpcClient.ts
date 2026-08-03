@@ -116,7 +116,14 @@ type CoreRpcErrorKind =
   | 'rate_limited'
   | 'budget_exceeded'
   | 'thread_not_found'
+  | 'method_not_found' // the running core does not expose this method — permanent
   | 'unknown';
+
+/**
+ * Prefix the core prepends to an unrecognised-method error. Mirrors
+ * `UNKNOWN_METHOD_PREFIX` in `src/core/dispatch.rs` — keep the two in sync.
+ */
+const UNKNOWN_METHOD_PREFIX = 'unknown method: ';
 
 export class CoreRpcError extends Error {
   readonly kind: CoreRpcErrorKind;
@@ -147,6 +154,11 @@ export function classifyRpcError(
   if (isThreadNotFoundRpcData(data)) return 'thread_not_found';
   if (httpStatus === 401) return 'auth_expired';
   if (httpStatus === 429) return 'rate_limited';
+  // The running core has no such method — a transport-boundary version skew
+  // (older core than the UI bundle, a domain-gated `DomainSet`, or a slim
+  // feature build), never a transient fault. Classified before the generic
+  // arms so polling callers can stop instead of retrying forever (#5157).
+  if (message.startsWith(UNKNOWN_METHOD_PREFIX)) return 'method_not_found';
   // Confirmed OpenHuman session expiry — explicit markers from the backend/core.
   if (/Session expired|SESSION_EXPIRED/i.test(message)) return 'auth_expired';
   // Core-side "no backend session token" → the auth profile is gone but the
@@ -236,6 +248,18 @@ function threadIdFromRpcData(data: unknown): string | null {
   if (typeof record.thread_id === 'string') return record.thread_id;
   if (typeof record.threadId === 'string') return record.threadId;
   return null;
+}
+
+/**
+ * Whether `error` is the core reporting that it does not expose the method.
+ *
+ * This is a **permanent** condition for the life of the connection: the method
+ * is absent from the running core's registry, so retrying can never succeed.
+ * Pollers must treat it as terminal and stop — an unbounded retry loop against
+ * an absent method produced ~9k Sentry events/day from a single client (#5157).
+ */
+export function isMethodNotFoundCoreRpcError(error: unknown): error is CoreRpcError {
+  return error instanceof CoreRpcError && error.kind === 'method_not_found';
 }
 
 export function isThreadNotFoundCoreRpcError(

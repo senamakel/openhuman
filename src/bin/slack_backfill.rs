@@ -27,10 +27,10 @@
 //! export OPENHUMAN_MEMORY_EXTRACT_MODEL=qwen2.5:0.5b
 //! export OPENHUMAN_MEMORY_SUMMARISE_ENDPOINT=http://localhost:11434
 //! export OPENHUMAN_MEMORY_SUMMARISE_MODEL=llama3.1:8b
-//! export RUST_LOG=info,openhuman_core::openhuman::composio::providers::slack=debug,openhuman_core::openhuman::memory=debug
+//! export RUST_LOG=info,openhuman_core::openhuman::integrations::composio::providers::slack=debug,openhuman_core::openhuman::memory=debug
 //!
-//! cargo run --bin slack-backfill                              # all active slack connections
-//! cargo run --bin slack-backfill -- --connection conn_abc     # one specific connection
+//! cargo run --features bin-tools --bin slack-backfill                          # all active slack connections
+//! cargo run --features bin-tools --bin slack-backfill -- --connection conn_abc # one specific connection
 //! ```
 
 use std::sync::Arc;
@@ -39,14 +39,14 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 
-use openhuman_core::openhuman::composio::client::{
+use openhuman_core::openhuman::config::Config;
+use openhuman_core::openhuman::integrations::composio::client::{
     create_composio_client, direct_execute, direct_list_connections, ComposioClientKind,
 };
-use openhuman_core::openhuman::composio::providers::registry::init_default_providers;
-use openhuman_core::openhuman::composio::types::{
+use openhuman_core::openhuman::integrations::composio::providers::registry::init_default_providers;
+use openhuman_core::openhuman::integrations::composio::types::{
     ComposioConnectionsResponse, ComposioExecuteResponse,
 };
-use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory;
 
 /// Dispatch a Composio action through the live `ComposioClientKind`.
@@ -204,7 +204,7 @@ async fn main() -> Result<()> {
     if cli.seal_probe {
         use chrono::{Duration, Utc};
         use openhuman_core::openhuman::memory::ingest_pipeline::ingest_chat;
-        use openhuman_core::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
+        use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
         let connection_id = cli.connection_id.clone().ok_or_else(|| {
             anyhow::anyhow!(
@@ -441,7 +441,7 @@ async fn main() -> Result<()> {
         let started = Instant::now();
         let mut total_buckets = 0usize;
         for conn in &slack_conns {
-            match openhuman_core::openhuman::tinycortex::run_slack_search_backfill(
+            match openhuman_core::openhuman::memory::tinycortex::run_slack_search_backfill(
                 &conn.id,
                 cli.days,
                 config.as_ref(),
@@ -536,7 +536,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        match openhuman_core::openhuman::tinycortex::run_composio_connection(
+        match openhuman_core::openhuman::memory::tinycortex::run_composio_connection(
             "slack",
             &conn.id,
             config.as_ref(),

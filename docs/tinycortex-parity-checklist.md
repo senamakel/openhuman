@@ -37,7 +37,7 @@ A user workspace's `chunks.db` (and content vault) holds **two tiers**:
    `event_ai/ad/au` triggers), `conversation_segments`, `segment_embeddings`, `vector_chunks`,
    `user_profile` **(10 tables + FTS + triggers)**.
 
-   These live in `src/openhuman/memory_store/namespace_store/{init,fts5,events,segments,profile}.rs`.
+   These live in `src/openhuman/memory/store/namespace_store/{init,fts5,events,segments,profile}.rs`.
    **The host continues creating/reading these in the same DB the crate now manages** —
    the crate's `chunks::with_connection` opens the shared handle; host `UnifiedMemory` schema
    init runs alongside the crate's. Parity requirement: crate schema init and host namespace-store
@@ -71,7 +71,7 @@ two layers.
 
 ### Layer 1 — schema/format asserters (host-side unit tests, cheap, run every PR)
 
-Pure-function comparators (no disk), implemented in **`src/openhuman/tinycortex/parity.rs`**
+Pure-function comparators (no disk), implemented in **`src/openhuman/memory/tinycortex/parity.rs`**
 (`#[cfg(test)]`). Status ✅ = landed & green; ⏳ = pending.
 
 - ✅ **`chunk_id_matches_historical_golden` / `chunk_id_is_sensitive_to_every_field`** — golden +
@@ -143,7 +143,7 @@ job payload_json parity (P4/P9). Any red = upstream fix in tinycortex, re-bump s
 **W-SYNC gates (amendment 2026-07-09, plan §8):**
 - **P13 sync-status parity** — `memory_sync_status_list` output (per-`source_kind` freshness rows)
   byte-equal pre/post flip on a golden workspace; asserter added to
-  `src/openhuman/tinycortex/parity.rs`.
+  `src/openhuman/memory/tinycortex/parity.rs`.
 - **P14 Composio sync test pair** — the crate's mocked-HTTP provider suite
   (`vendor/tinycortex/tests/composio_sync_mock.rs`, wiremock, always-on) covers Gmail, Slack,
   GitHub, Notion, Linear, and ClickUp, including pagination/cursors, request budgets, retries,

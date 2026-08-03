@@ -258,7 +258,7 @@ fn main() {
             // the cache is empty (root cause of the original userCount=0).
             if event.user.is_none() {
                 event.user =
-                    openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+                    openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
                         .and_then(|identity| identity.id)
                         .map(|id| sentry::User {
                             id: Some(id),
@@ -277,6 +277,9 @@ fn main() {
             Some(event)
         })),
         sample_rate: 1.0,
+        transport: Some(std::sync::Arc::new(
+            openhuman_core::core::sentry_transport::factory,
+        )),
         ..sentry::ClientOptions::default()
     });
 

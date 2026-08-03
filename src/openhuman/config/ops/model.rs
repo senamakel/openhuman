@@ -22,7 +22,7 @@ pub struct ModelSettingsPatch {
     pub model_routes: Option<Vec<crate::openhuman::config::ModelRouteConfig>>,
     /// When `Some`, REPLACES the entire `config.cloud_providers` array with
     /// the supplied entries (each lacking the API key — those live in
-    /// `auth-profiles.json` via [`crate::openhuman::credentials::AuthService`]).
+    /// `auth-profiles.json` via [`crate::openhuman::security::credentials::AuthService`]).
     /// Pass `Some(vec![])` to clear all third-party cloud providers.
     pub cloud_providers:
         Option<Vec<crate::openhuman::config::schema::cloud_providers::CloudProviderCreds>>,
@@ -247,7 +247,7 @@ pub async fn apply_model_settings(
     // so a UI embedder switch recovers prior memory under the new
     // signature. Coverage-gated + non-fatal: if the active signature did
     // not actually change, this enqueues nothing.
-    crate::openhuman::memory_queue::ensure_reembed_backfill(config);
+    crate::openhuman::memory::queue::ensure_reembed_backfill(config);
     let snapshot = snapshot_config_json(config)?;
     Ok(RpcOutcome::new(
         snapshot,
@@ -288,7 +288,9 @@ pub async fn apply_memory_settings(
         // would otherwise be stored unchecked and 400 "does not exist" on every
         // memory re-embed (2205 events from one user). Conservative check — see
         // `embeddings::non_embedding_model_reason`.
-        if let Some(reason) = crate::openhuman::embeddings::non_embedding_model_reason(&model) {
+        if let Some(reason) =
+            crate::openhuman::inference::embeddings::non_embedding_model_reason(&model)
+        {
             return Err(format!("invalid embeddings model `{model}`: {reason}"));
         }
         config.memory.embedding_model = model;
@@ -315,7 +317,7 @@ pub async fn apply_memory_settings(
     // dark. Idempotent + non-fatal (covered space enqueues nothing; errors
     // are logged, never fail the settings save). §7's migration is
     // one-shot so it does not cover a later switch — this does.
-    crate::openhuman::memory_queue::ensure_reembed_backfill(config);
+    crate::openhuman::memory::queue::ensure_reembed_backfill(config);
     let snapshot = snapshot_config_json(config)?;
     Ok(RpcOutcome::new(
         snapshot,

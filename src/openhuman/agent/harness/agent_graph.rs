@@ -29,7 +29,7 @@ use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::harness::subagent_runner::SubagentRunError;
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::tinyagents::TurnModelSource;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::tools::{Tool, ToolSpec};
 
 /// The assembled inputs for one sub-agent turn, handed to a custom
@@ -69,7 +69,7 @@ pub struct AgentTurnRequest {
     /// (`definition.effective_tokenjuice_compression()`), threaded into the
     /// sub-agent `TurnContextMiddleware` so tool outputs compact like the chat
     /// path instead of taking a blunt byte-cap truncation (#4466).
-    pub tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
+    pub tokenjuice_compression: crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression,
     /// The spawn's host-config snapshot, supplying the `[context]` middleware
     /// knobs (compaction, microcompact, autocompact, tool-result budget).
     ///

@@ -76,14 +76,16 @@ pub(super) fn check_cross_profile_command(
     // accept a syntactically in-profile directory that is actually a symlink
     // into a sibling; once spawned there, npm lifecycle hooks or a shell can
     // mutate that sibling without mentioning its path in the command.
-    let other_id = match crate::openhuman::profiles::classify_cross_profile_target(
+    let other_id = match crate::openhuman::agent::profiles::classify_cross_profile_target(
         &guard.action_dir,
         &guard.profile_id,
         cwd,
     ) {
-        crate::openhuman::profiles::CrossProfileDecision::Block { other_id } => Some(other_id),
-        crate::openhuman::profiles::CrossProfileDecision::Allow => {
-            crate::openhuman::profiles::scan_command_for_cross_profile(
+        crate::openhuman::agent::profiles::CrossProfileDecision::Block { other_id } => {
+            Some(other_id)
+        }
+        crate::openhuman::agent::profiles::CrossProfileDecision::Allow => {
+            crate::openhuman::agent::profiles::scan_command_for_cross_profile(
                 command,
                 cwd,
                 &guard.action_dir,
@@ -101,7 +103,7 @@ pub(super) fn check_cross_profile_command(
         other_profile = %other_id,
         "[profiles] cross-profile process command blocked"
     );
-    if other_id == crate::openhuman::profiles::PROFILES_ROOT_SENTINEL {
+    if other_id == crate::openhuman::agent::profiles::PROFILES_ROOT_SENTINEL {
         Err(format!(
             "{} Cross-profile access blocked: profile '{}' may not modify the shared profiles \
              root. Stay within your own profile directory; do not retry this command.",

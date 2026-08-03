@@ -1,7 +1,7 @@
 use super::*;
 use crate::openhuman::agent::bus::{mock_agent_run_turn, AgentTurnResponse};
 use crate::openhuman::agent::harness::AgentDefinitionRegistry;
-use crate::openhuman::agent_registry::agents::BUILTINS;
+use crate::openhuman::agent::registry::agents::BUILTINS;
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc as StdArc;
@@ -233,10 +233,10 @@ fn classify_string_does_not_misclassify_unrelated_security_phrases() {
 // first; falling through to local arm uses a different
 // `provider_name` we inspect to disambiguate.
 
-fn unused_model_source() -> crate::openhuman::tinyagents::TurnModelSource {
+fn unused_model_source() -> crate::openhuman::agent::tinyagents::TurnModelSource {
     let model: StdArc<dyn tinyagents::harness::model::ChatModel<()>> =
         StdArc::new(tinyagents::harness::testkit::ScriptedModel::new(Vec::new()));
-    crate::openhuman::tinyagents::TurnModelSource::from_model(model)
+    crate::openhuman::agent::tinyagents::TurnModelSource::from_model(model)
 }
 
 fn cloud_arm() -> ResolvedProvider {

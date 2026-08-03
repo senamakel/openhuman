@@ -5,7 +5,7 @@
 //!
 //! 1. drops local-only transfers (nothing leaves → nothing to disclose),
 //! 2. attaches best-effort chat routing (thread/client) from the ambient
-//!    [`APPROVAL_CHAT_CONTEXT`](crate::openhuman::approval::APPROVAL_CHAT_CONTEXT)
+//!    [`APPROVAL_CHAT_CONTEXT`](crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT)
 //!    so the web bridge can surface the descriptor to the originating chat, and
 //! 3. publishes [`DomainEvent::ExternalTransferPending`] on the global bus.
 //!
@@ -69,7 +69,7 @@ fn already_disclosed_this_turn(descriptor: &EgressDescriptor) -> bool {
 /// `artifacts::store::current_chat_context`. Returns `(thread_id, client_id)`,
 /// each `None` outside a chat-scoped task (CLI / cron / background sync).
 fn current_chat_context() -> (Option<String>, Option<String>) {
-    crate::openhuman::approval::APPROVAL_CHAT_CONTEXT
+    crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT
         .try_with(|ctx| (Some(ctx.thread_id.clone()), Some(ctx.client_id.clone())))
         .unwrap_or((None, None))
 }

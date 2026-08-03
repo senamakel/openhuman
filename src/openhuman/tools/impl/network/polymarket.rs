@@ -5,7 +5,7 @@ use crate::openhuman::config::{PolymarketClobCredentials, PolymarketConfig};
 use crate::openhuman::security::policy::ToolOperation;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{Tool, ToolCategory, ToolResult};
-use crate::openhuman::wallet::{secret_material, status as wallet_status, WalletChain};
+use crate::openhuman::web3::wallet::{secret_material, status as wallet_status, WalletChain};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use ethers_core::types::Address;
@@ -687,12 +687,14 @@ impl PolymarketTool {
             .map_err(anyhow::Error::msg)
             .context("Failed to load config for wallet secret decryption")?;
 
-        let mnemonic =
-            crate::openhuman::encryption::rpc::decrypt_secret(&config, &secret.encrypted_mnemonic)
-                .await
-                .map_err(anyhow::Error::msg)
-                .context("Failed to decrypt wallet mnemonic")?
-                .value;
+        let mnemonic = crate::openhuman::security::encryption::rpc::decrypt_secret(
+            &config,
+            &secret.encrypted_mnemonic,
+        )
+        .await
+        .map_err(anyhow::Error::msg)
+        .context("Failed to decrypt wallet mnemonic")?
+        .value;
 
         let wallet = MnemonicBuilder::<English>::default()
             .phrase(mnemonic.as_str())
@@ -844,7 +846,7 @@ impl PolymarketTool {
         // Cryptographically-random salt — non-CSPRNG (rand::random) is
         // predictable enough to enable order-replay/front-running attacks
         // against the CLOB. OsRng pulls from the OS entropy source. Same
-        // pattern used by src/openhuman/encryption/core.rs.
+        // pattern used by src/openhuman/security/encryption/core.rs.
         let salt = {
             use chacha20poly1305::aead::rand_core::RngCore;
             use chacha20poly1305::aead::OsRng;

@@ -462,7 +462,7 @@ impl Config {
                 recovered = config_was_corrupted,
                 "Config loaded"
             );
-            crate::openhuman::migrations::run_pending(&mut config).await;
+            crate::openhuman::config::migrations::run_pending(&mut config).await;
             let migrated_legacy_secrets = decrypt_config_secrets(&mut config, &openhuman_dir)?;
             if migrated_legacy_secrets {
                 // One-time forced migration: a legacy `enc:` (XOR) secret was
@@ -483,7 +483,7 @@ impl Config {
                 config_path: config_path.clone(),
                 workspace_dir,
                 action_dir: default_action_dir(),
-                schema_version: crate::openhuman::migrations::CURRENT_SCHEMA_VERSION,
+                schema_version: crate::openhuman::config::migrations::CURRENT_SCHEMA_VERSION,
                 ..Default::default()
             };
             config.save().await?;
@@ -503,7 +503,7 @@ impl Config {
                 initialized = true,
                 "Config loaded"
             );
-            crate::openhuman::migrations::run_pending(&mut config).await;
+            crate::openhuman::config::migrations::run_pending(&mut config).await;
             Ok(config)
         }
     }
@@ -604,7 +604,7 @@ impl Config {
             );
         }
 
-        crate::openhuman::migrations::run_pending(&mut config).await;
+        crate::openhuman::config::migrations::run_pending(&mut config).await;
         Ok(config)
     }
 

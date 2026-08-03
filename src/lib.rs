@@ -15,11 +15,14 @@
 
 pub mod api;
 pub mod core;
+pub mod embed;
 pub mod openhuman;
 pub mod rpc;
+#[cfg(feature = "tui")]
+pub mod tui;
 
 pub use openhuman::config::DaemonConfig;
-pub use openhuman::memory_store::{MemoryClient, MemoryState};
+pub use openhuman::memory::store::{MemoryClient, MemoryState};
 
 /// Embeddable core composition API. Host the OpenHuman core in any process —
 /// the Tauri shell, a CLI, a stdio MCP server, or a cloud/team server — via
@@ -41,7 +44,7 @@ pub use core::types::HostKind;
 /// Returns an error if command execution fails.
 pub fn run_core_from_args(args: &[String]) -> anyhow::Result<()> {
     core::cli::load_dotenv_for_cli()?;
-    openhuman::service::apply_startup_restart_delay_from_env();
-    openhuman::keyring::init_master_key();
+    openhuman::platform::service::apply_startup_restart_delay_from_env();
+    openhuman::security::keyring::init_master_key();
     core::cli::run_from_cli_args(args)
 }

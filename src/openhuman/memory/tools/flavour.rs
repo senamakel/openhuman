@@ -1,6 +1,6 @@
 //! Agent tool: read a compiled persona flavour profile (issue #5172).
 //!
-//! Persona ingestion (`src/openhuman/tinycortex/persona.rs`) distills a
+//! Persona ingestion (`src/openhuman/memory/tinycortex/persona.rs`) distills a
 //! person's coding-agent history into seven [`PersonaFacet`] flavoured trees
 //! (communication, coding style, stack, workflow, environment, directives,
 //! anti-preferences), each compiled into a small prompt-ready markdown
@@ -23,7 +23,7 @@ use tinycortex::memory::tree::store::{get_tree_by_scope, TreeKind};
 use tinycortex::memory::tree::{compile_flavoured_root, flavoured_root_abs_path};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::tinycortex::memory_config_from;
+use crate::openhuman::memory::tinycortex::memory_config_from;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 /// The seven valid `flavour` slugs, for error messages.
@@ -55,6 +55,141 @@ fn body_after_front_matter(content: &str) -> &str {
             None => rest,
         },
         None => content,
+    }
+}
+
+/// Outcome of [`lookup_flavour`] — split from a hard `Err` so a caller can
+/// distinguish "bad input" (never reached the store) from "reached the store
+/// and here's what it found (or didn't, or a lookup itself failed)".
+pub(crate) enum FlavourLookup {
+    /// A compiled profile body, ready to hand to the agent/node.
+    Profile(String),
+    /// No profile has been built yet for this facet — not an error, just
+    /// empty (persona ingestion hasn't run, or produced nothing for this
+    /// facet yet).
+    NotBuilt(String),
+    /// The tree lookup or compile step itself failed (I/O, corrupt tree,
+    /// …) — distinct from `NotBuilt` because this IS an error, just one
+    /// discovered after `flavour_raw` was already validated.
+    Failed(String),
+}
+
+/// Pure lookup shared by [`MemoryFlavourTool::execute`] and the tinyflows
+/// `memory` node's `flavour` operation
+/// (`OpenHumanMemory::flavour` in `crate::openhuman::flows::tinyflows::memory_adapter`)
+/// — both surfaces read the exact same flavoured-tree path, so there is only
+/// one place that knows how a `flavour` slug resolves to a compiled profile.
+///
+/// `Err` is reserved for input the caller should have caught before ever
+/// reaching the store (empty/unknown `flavour_raw`); everything the store
+/// itself can report — hit, miss, or lookup failure — comes back as `Ok` of
+/// the matching [`FlavourLookup`] variant so callers can shape each case
+/// (tool result vs. node output) however their surface needs.
+pub(crate) fn lookup_flavour(config: &Config, flavour_raw: &str) -> Result<FlavourLookup, String> {
+    let flavour_raw = flavour_raw.trim();
+    if flavour_raw.is_empty() {
+        return Err("'flavour' cannot be empty".to_string());
+    }
+
+    let facet = PersonaFacet::parse_loose(flavour_raw).ok_or_else(|| {
+        format!("Unknown flavour '{flavour_raw}'. Valid flavours: {VALID_FLAVOURS}")
+    })?;
+
+    let mc = memory_config_from(config, config.workspace_dir.clone());
+    let scope = facet.tree_scope();
+    let heading = facet.heading();
+
+    tracing::debug!(
+        target: "memory_flavour",
+        flavour = flavour_raw,
+        facet = ?facet,
+        "[memory_flavour] entry"
+    );
+
+    // Fast path: the compiled artifact already exists on disk with a
+    // non-empty body — read it directly without touching the tree store.
+    let abs_path = flavoured_root_abs_path(&mc, &scope);
+    if abs_path.is_file() {
+        if let Ok(content) = std::fs::read_to_string(&abs_path) {
+            let body = body_after_front_matter(&content);
+            if !body.trim().is_empty() {
+                tracing::debug!(
+                    target: "memory_flavour",
+                    flavour = flavour_raw,
+                    body_len = body.len(),
+                    "[memory_flavour] fast path hit: returning stripped body from disk"
+                );
+                return Ok(FlavourLookup::Profile(body.to_string()));
+            }
+        }
+    }
+
+    tracing::debug!(
+        target: "memory_flavour",
+        flavour = flavour_raw,
+        "[memory_flavour] fast path missed or empty, falling to tree lookup"
+    );
+
+    // Slow path: look up the flavoured tree and (re)compile its root.
+    match get_tree_by_scope(&mc, TreeKind::Flavoured, &scope) {
+        Ok(None) => {
+            tracing::debug!(
+                target: "memory_flavour",
+                flavour = flavour_raw,
+                "[memory_flavour] no flavoured tree exists yet"
+            );
+            Ok(FlavourLookup::NotBuilt(format!(
+                "No profile built yet for {heading}. Run persona ingestion first, then try \
+                 again."
+            )))
+        }
+        Ok(Some(tree)) => {
+            tracing::debug!(
+                target: "memory_flavour",
+                flavour = flavour_raw,
+                tree_id = %tree.id,
+                "[memory_flavour] tree found, compiling root"
+            );
+            match compile_flavoured_root(&mc, &tree.id) {
+                Ok(markdown) => {
+                    let body = body_after_front_matter(&markdown);
+                    if body.trim().is_empty() {
+                        Ok(FlavourLookup::NotBuilt(format!(
+                            "No profile built yet for {heading}. Run persona ingestion \
+                             first, then try again."
+                        )))
+                    } else {
+                        tracing::debug!(
+                            target: "memory_flavour",
+                            flavour = flavour_raw,
+                            body_len = body.len(),
+                            "[memory_flavour] compiled profile returned"
+                        );
+                        Ok(FlavourLookup::Profile(body.to_string()))
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        %err,
+                        flavour = flavour_raw,
+                        "[memory_flavour] failed to compile flavoured profile"
+                    );
+                    Ok(FlavourLookup::Failed(format!(
+                        "Failed to compile the {heading} profile: {err}"
+                    )))
+                }
+            }
+        }
+        Err(err) => {
+            tracing::warn!(
+                %err,
+                flavour = flavour_raw,
+                "[memory_flavour] failed to look up flavoured tree"
+            );
+            Ok(FlavourLookup::Failed(format!(
+                "Failed to look up the {heading} profile: {err}"
+            )))
+        }
     }
 }
 
@@ -104,111 +239,13 @@ impl Tool for MemoryFlavourTool {
         let flavour_raw = args
             .get("flavour")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing 'flavour' parameter"))?
-            .trim();
-        if flavour_raw.is_empty() {
-            return Err(anyhow::anyhow!("'flavour' cannot be empty"));
-        }
+            .ok_or_else(|| anyhow::anyhow!("Missing 'flavour' parameter"))?;
 
-        let facet = PersonaFacet::parse_loose(flavour_raw).ok_or_else(|| {
-            anyhow::anyhow!("Unknown flavour '{flavour_raw}'. Valid flavours: {VALID_FLAVOURS}")
-        })?;
-
-        let mc = memory_config_from(&self.config, self.config.workspace_dir.clone());
-        let scope = facet.tree_scope();
-        let heading = facet.heading();
-
-        tracing::debug!(
-            target: "memory_flavour",
-            flavour = flavour_raw,
-            facet = ?facet,
-            "[memory_flavour] entry"
-        );
-
-        // Fast path: the compiled artifact already exists on disk with a
-        // non-empty body — read it directly without touching the tree store.
-        let abs_path = flavoured_root_abs_path(&mc, &scope);
-        if abs_path.is_file() {
-            if let Ok(content) = std::fs::read_to_string(&abs_path) {
-                let body = body_after_front_matter(&content);
-                if !body.trim().is_empty() {
-                    tracing::debug!(
-                        target: "memory_flavour",
-                        flavour = flavour_raw,
-                        body_len = body.len(),
-                        "[memory_flavour] fast path hit: returning stripped body from disk"
-                    );
-                    return Ok(ToolResult::success(body.to_string()));
-                }
-            }
-        }
-
-        tracing::debug!(
-            target: "memory_flavour",
-            flavour = flavour_raw,
-            "[memory_flavour] fast path missed or empty, falling to tree lookup"
-        );
-
-        // Slow path: look up the flavoured tree and (re)compile its root.
-        match get_tree_by_scope(&mc, TreeKind::Flavoured, &scope) {
-            Ok(None) => {
-                tracing::debug!(
-                    target: "memory_flavour",
-                    flavour = flavour_raw,
-                    "[memory_flavour] no flavoured tree exists yet"
-                );
-                Ok(ToolResult::success(format!(
-                    "No profile built yet for {heading}. Run persona ingestion first, then try \
-                     again."
-                )))
-            }
-            Ok(Some(tree)) => {
-                tracing::debug!(
-                    target: "memory_flavour",
-                    flavour = flavour_raw,
-                    tree_id = %tree.id,
-                    "[memory_flavour] tree found, compiling root"
-                );
-                match compile_flavoured_root(&mc, &tree.id) {
-                    Ok(markdown) => {
-                        let body = body_after_front_matter(&markdown);
-                        if body.trim().is_empty() {
-                            Ok(ToolResult::success(format!(
-                                "No profile built yet for {heading}. Run persona ingestion \
-                                 first, then try again."
-                            )))
-                        } else {
-                            tracing::debug!(
-                                target: "memory_flavour",
-                                flavour = flavour_raw,
-                                body_len = body.len(),
-                                "[memory_flavour] compiled profile returned"
-                            );
-                            Ok(ToolResult::success(body.to_string()))
-                        }
-                    }
-                    Err(err) => {
-                        tracing::warn!(
-                            %err,
-                            flavour = flavour_raw,
-                            "[memory_flavour] failed to compile flavoured profile"
-                        );
-                        Ok(ToolResult::error(format!(
-                            "Failed to compile the {heading} profile: {err}"
-                        )))
-                    }
-                }
-            }
-            Err(err) => {
-                tracing::warn!(
-                    %err,
-                    flavour = flavour_raw,
-                    "[memory_flavour] failed to look up flavoured tree"
-                );
-                Ok(ToolResult::error(format!(
-                    "Failed to look up the {heading} profile: {err}"
-                )))
-            }
+        match lookup_flavour(&self.config, flavour_raw) {
+            Err(hard) => Err(anyhow::anyhow!(hard)),
+            Ok(FlavourLookup::Profile(body)) => Ok(ToolResult::success(body)),
+            Ok(FlavourLookup::NotBuilt(msg)) => Ok(ToolResult::success(msg)),
+            Ok(FlavourLookup::Failed(msg)) => Ok(ToolResult::error(msg)),
         }
     }
 }

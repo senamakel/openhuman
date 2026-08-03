@@ -1,8 +1,14 @@
 [package]
 name = "openhuman"
-version = "0.63.1"
+version = "0.63.6"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
+# The crate ships a verbatim GPLv3 `LICENSE` file but carried no `license` key,
+# which left the grant ambiguous to every tool that reads metadata rather than
+# the file (cargo-deny, crates.io, SBOM generators). Declared explicitly as
+# `only` — not `or-later` — to match `medulla-public` and the `GPL-3.0-only`
+# first-party crates in the closure (`tinyagents`).
+license = "GPL-3.0-only"
 autobins = false
 # build.rs globs tests/raw_coverage/*.rs into the single `raw_coverage_all`
 # integration target (see tests/raw_coverage_all.rs). Those files used to be ~76
@@ -17,22 +23,27 @@ path = "src/main.rs"
 [[bin]]
 name = "slack-backfill"
 path = "src/bin/slack_backfill.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "gmail-backfill-3d"
 path = "src/bin/gmail_backfill_3d.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "memory-tree-init-smoke"
 path = "src/bin/memory_tree_init_smoke.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "inference-probe"
 path = "src/bin/inference_probe.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "harness-subagent-audit"
 path = "src/bin/harness_subagent_audit.rs"
+required-features = ["bin-tools"]
 
 [[bin]]
 name = "test-mcp-stub"
@@ -44,7 +55,7 @@ path = "src/bin/fleet.rs"
 # The fleet supervisor embeds the axum control-plane server, so it only builds
 # with the HTTP transport compiled in (#5048). Under `--no-default-features`
 # (no `http-server`) this target is skipped rather than failing to link.
-required-features = ["http-server"]
+required-features = ["http-server", "bin-tools"]
 
 # Embedded-RSS benchmark harness (#5046). Gated behind the default-OFF
 # `rss-bench` feature so no benchmark code enters the shipped build. Build with
@@ -66,6 +77,16 @@ name = "openhuman_core"
 crate-type = ["rlib"]
 
 [dependencies]
+# tinyhumans-sdk — the typed Rust client for the TinyHumans backend API
+# (https://github.com/tinyhumansai/sdk). Vendored as a git submodule under
+# `vendor/` beside the other tiny* crates and consumed by path: the crate is not
+# published to crates.io, so there is no `[patch.crates-io]` entry for it.
+# This is the single source of truth for backend routes — `src/api/` is the
+# OpenHuman-local adapter layer (session tokens, config, observability) that
+# sits on top of it, not a second HTTP client. Anything missing here belongs
+# upstream in the SDK repo, not re-implemented in `src/api/`.
+# After cloning: `git submodule update --init vendor/tinyhumans-sdk`.
+tinyhumans-sdk = { path = "vendor/tinyhumans-sdk" }
 # tiny.place A2A social network SDK — published on crates.io and patched below
 # to the vendored tiny.place submodule so OpenHuman can test SDK changes before
 # publishing.
@@ -91,7 +112,7 @@ tinyjuice = { version = "0.2.1", default-features = false }
 # TinyAgents — Rust LLM orchestration framework (LangGraph/LangChain-style):
 # durable state graphs, agent-loop harness, model/tool registries, REPL +
 # `.rag` workflow language. openhuman's agent engine + orchestration run on this
-# crate's primitives via the adapter seam in `src/openhuman/tinyagents/` (issue
+# crate's primitives via the adapter seam in `src/openhuman/agent/tinyagents/` (issue
 # #4249): every turn drives through the harness; the workflow phase DAG, team
 # member runtime, parallel fan-out, and multi-stage delegation run on graphs.
 # We wire openhuman's own Provider/Tool, not the removed bundled openai client.
@@ -147,28 +168,23 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "blo
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"
-tokio = { version = "1", features = ["full", "sync"] }
+tokio = { version = "1", features = ["full"] }
 once_cell = "1.19"
 parking_lot = "0.12"
 log = "0.4"
 libc = "0.2"
 nu-ansi-term = "0.46"
-env_logger = "0.11"
+env_logger = { version = "0.11", optional = true }
 base64 = "0.22"
 aes-gcm = "0.10"
 argon2 = "0.5"
 rand = "0.10"
 dirs = "5"
 sha2 = "0.10"
-# Line-level text diffs for the memory_diff module (modified-item unified diffs).
-similar = "2"
 # Git-backed change ledger for the memory_diff module: snapshots are commits,
 # checkpoints are tags, read markers are refs, diffs are git tree diffs.
 # Vendored libgit2 (no system git dependency on end-user machines).
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
-# Legacy SHA-1 only used for Tencent COS HMAC-SHA1 signing (yuanbao
-# channel media upload). Not used for any new security-sensitive work.
-sha1 = "0.10"
 hmac = "0.12"
 # Archive extraction for the Node.js runtime bootstrap. Unix Node
 # distributions ship as .tar.xz, Windows as .zip. `xz2` with `static`
@@ -208,16 +224,15 @@ directories = "6"
 toml = "1.0"
 schemars = "1.2"
 tracing = { version = "0.1", default-features = false }
-tracing-log = "0.2"
+tracing-log = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi", "env-filter"] }
-tracing-appender = "0.2"
+tracing-appender = { version = "0.2", optional = true }
 urlencoding = "2.1"
 motosan-ai-oauth = { version = "0.2", features = ["codex"] }
 thiserror = "2.0"
 ring = "0.17"
 chrono-tz = "0.10"
 dotenvy = "0.15"
-console = "0.16"
 regex = "1.10"
 # Multi-pattern fixed-string DFA matcher used by `routing::quality` for
 # refusal/empty-noise detection on local-model responses. Already in the
@@ -228,13 +243,10 @@ aho-corasick = "1.1"
 walkdir = "2"
 glob = "0.3"
 hostname = "0.4.2"
-rustls = { version = "0.23", features = ["ring"] }
-rustls-pki-types = "1.14.0"
-tokio-rustls = "0.26.4"
-webpki-roots = "1.0.6"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"], optional = true }
 lettre = { version = "0.11.22", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"], optional = true }
 # HTTP + Socket.IO server transport — the `/rpc` JSON-RPC endpoint, `/v1`
 # OpenAI-compat router, agentbox/http_host sub-servers, and the Socket.IO
@@ -244,26 +256,25 @@ lettre = { version = "0.11.22", default-features = false, features = ["builder",
 # services and answers over the CLI/native dispatch surface. See the
 # `http-server` feature note below and `src/core/http_server_status.rs`.
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"], optional = true }
-sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "reqwest", "rustls"] }
-tokio-stream = { version = "0.1.18", features = ["full"] }
+sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "httpdate"] }
+tokio-stream = { version = "0.1.18", default-features = false, features = ["sync"] }
 url = "2"
 socketioxide = { version = "0.15", features = ["extensions"], optional = true }
 whisper-rs = { version = "0.16", optional = true }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 tempfile = "3"
 cpal = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }
-enigo = "0.3"
-arboard = "3"
-rdev = "0.5"
+enigo = { version = "0.3", optional = true }
+arboard = { version = "3", optional = true }
+rdev = { version = "0.5", optional = true }
 fs2 = "0.4"
 # Cross-platform battery probe for the scheduler gate. Maintained fork of
 # the abandoned `battery` crate; same `use battery::*;` API surface. Used
 # only by `openhuman::scheduler_gate::signals` to decide when to throttle
 # background LLM work on laptops.
-starship-battery = "0.10"
-ethers-core = { version = "2.0.14", default-features = false }
-ethers-signers = { version = "2.0.14", default-features = false }
+starship-battery = { version = "0.10", optional = true }
+ethers-core = { version = "2.0.14", default-features = false, optional = true }
+ethers-signers = { version = "2.0.14", default-features = false, optional = true }
 # Multi-chain wallet signing.
 # - bitcoin: P2WPKH PSBT build/sign/broadcast (includes secp256k1).
 # - ed25519-dalek: Solana transaction signing.
@@ -275,7 +286,7 @@ bs58 = { version = "0.5", default-features = false, features = ["std", "check"] 
 # Tron secp256k1 derivation, Solana ed25519 SLIP-0010 derivation). Same crate
 # ethers-signers uses internally, exposed as a direct dep so we can derive
 # off the recovery phrase without going through the EVM signer wrapper.
-coins-bip39 = "0.8"
+coins-bip39 = { version = "0.8", optional = true }
 # Solana off-curve check for ATA derivation (find_program_address).
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"], optional = true }
 
@@ -290,11 +301,11 @@ ppt-rs = { version = "0.2.14", optional = true }
 # drops both `ratatui` and `crossterm`. Kept in lockstep — ratatui 0.30
 # re-exports crossterm 0.29, so declaring crossterm directly at the same major
 # unifies to a single crossterm in the dep graph. Only compiled into
-# `src/openhuman/tui/` behind `#[cfg(feature = "tui")]`.
+# `src/tui/` behind `#[cfg(feature = "tui")]`.
 ratatui = { version = "0.30", optional = true }
 crossterm = { version = "0.29", optional = true }
 # Terminal column-width measurement for the `tui` chat renderer
-# (`src/openhuman/tui/render.rs`); only compiled behind `#[cfg(feature = "tui")]`.
+# (`src/tui/render.rs`); only compiled behind `#[cfg(feature = "tui")]`.
 unicode-width = { version = "0.2", optional = true }
 # Native-Rust `.docx` writer for the `generate_document` tool (GH #4847).
 # Pure Rust (no subprocess / managed runtime), MIT-licensed, actively
@@ -347,6 +358,13 @@ landlock = { version = "0.4", optional = true }
 rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
+# Dual-declared on purpose (same shape as the `sentry`/`axum` entries): the
+# optional dependency above is bin-only behind `bin-tools`, but
+# `agent_orchestration::tools::tools_e2e_tests` (a #[cfg(test)] LIB module),
+# `tests/memory_graph_sync_e2e.rs`, `tests/x402_twit_sh_live.rs` and
+# `examples/embed_headless.rs` all call it with no feature #[cfg]. Without this
+# line the test build breaks the moment `bin-tools` is off.
+env_logger = "0.11"
 # Enable sentry's TestTransport for runtime smoke of the observability
 # before_send filter (see tests/observability_smoke.rs). `default-features
 # = false` here is load-bearing — sentry's default feature set pulls in
@@ -380,14 +398,14 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla-local"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate", "file-logging", "prediction-markets"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
 # server (`openhuman::http_host`), the AgentBox `/run` HTTP surface
 # (`agentbox::http`), the WebSocket dictation stream
 # (`inference::voice::streaming`), the `openhuman text-input run` dev server,
-# the MCP Streamable-HTTP transport (`mcp_server::http`, additionally gated by
+# the MCP Streamable-HTTP transport (`mcp::server::http`, additionally gated by
 # `mcp`), and the Socket.IO live-event bridge (`core::socketio`). Default-ON —
 # the desktop shell REQUIRES it (see the `HTTP_SERVER_COMPILED_IN` compile
 # assert in `app/src-tauri/src/lib.rs`). Slim / headless-embedding builds opt
@@ -439,8 +457,25 @@ documents = ["dep:pdf-extract", "dep:ppt-rs", "dep:docx-rs"]
 # feature narrows the compile-time surface, `DomainSet` gates it at runtime.
 # Requires `inference` (the whisper engine + the cpal capture stack), so
 # enabling `voice` turns `inference` on transitively.
-voice = ["inference", "dep:hound", "dep:lettre"]
-# Web3 domains: openhuman::wallet + openhuman::web3 + openhuman::x402 — the
+# `arboard`/`enigo`/`rdev` join here rather than getting their own gate: their
+# only call sites are `voice::text_input` (clipboard + synthetic keystrokes to
+# insert a dictated transcript) and `voice::hotkey` (the global push-to-talk
+# listener), both already `#[cfg(feature = "voice")]`, and nothing outside
+# `voice/` reaches them. Worth 17 crates — the largest single shed in the wave —
+# because `arboard` alone drags an X11/wayland clipboard stack (11 crates) into
+# any build that just wants workflow execution.
+voice = [
+    "inference",
+    "dep:hound",
+    "dep:lettre",
+    "dep:arboard",
+    "dep:enigo",
+    "dep:rdev",
+    # `audio_toolkit::ops` delivers generated podcasts through tinychannels'
+    # EmailChannel, so the provider has to exist even in a channels-less build.
+    "tinychannels/email",
+]
+# Web3 family: openhuman::web3 + web3::wallet + web3::x402 — the
 # crypto wallet (multi-chain sign/broadcast), the high-level swap/bridge/dapp
 # surface, and the x402 machine-payment protocol. Default-ON — the desktop app
 # always ships with the wallet. Slim / headless builds opt out via
@@ -453,16 +488,39 @@ voice = ["inference", "dep:hound", "dep:lettre"]
 # Polymarket tools + tinyplace on-chain payments + orchestration and stay
 # always-on. When off, tinyplace payments + Polymarket writes degrade to
 # graceful "wallet disabled" errors via the wallet/web3/x402 stub facades.
-web3 = ["dep:bitcoin", "dep:curve25519-dalek"]
+# The EVM/mnemonic crypto stack now belongs to this gate. It previously did
+# not, because the Polymarket tools (`tools/impl/network/polymarket*`,
+# `clob_auth`) consumed `ethers-*`/`coins-bip39` while living outside the
+# wallet/web3/x402 domains — so the gate could not shed them and AGENTS.md said
+# so in writing. `prediction-markets` below resolves that by giving Polymarket
+# its own gate that implies this one, which makes the whole cohort droppable:
+# -67 crates, the largest single shed in the kernelization work.
+#
+# `bs58` and `ed25519-dalek` deliberately stay always-on: `orchestration/ingest`
+# and `tinyplace/payment` use them for agent-network identity, which has nothing
+# to do with the wallet. Measured: excluding them costs 0, because tinyplace
+# pulls them in regardless.
+web3 = [
+    "dep:bitcoin",
+    "dep:curve25519-dalek",
+    "dep:ethers-core",
+    "dep:ethers-signers",
+    "dep:coins-bip39",
+]
+
+# Polymarket prediction-market tools (read + trading). Implies `web3` because it
+# signs orders with the same EVM stack the wallet uses — an honest dependency
+# rather than a hidden one. Separate from `web3` so a build can have a wallet
+# without a trading surface; the reverse is not meaningful.
+prediction-markets = ["web3"]
 # Media-generation + image domains: the `media_generate_*` agent tools
 # (image/video via GMI through the backend) and the `openhuman::image` tool
 # contracts scaffold. Default-ON. Slim builds opt out via
 # `--no-default-features --features "<explicit list without media>"`.
 # Composes with the runtime `DomainSet::media` flag (#4796).
-# NOTE: this gate sheds NO exclusive dependencies — media generation is
-# backend-proxied (reqwest, shared) and the `image` crate is shared with
-# channel media upload. It is a surface-only gate (drops the tool code +
-# module from the compile), not a dependency-shedding one. There are no
+# NOTE: this gate sheds no exclusive dependencies — media generation is
+# backend-proxied (reqwest, shared). It is a surface-only gate (drops the tool
+# code + module from the compile), not a dependency-shedding one. There are no
 # controllers / stores / subscribers tagged `Media` (agent tools only), and
 # `openhuman::image` is currently unwired scaffold (added #2997).
 media = []
@@ -513,10 +571,11 @@ meet = []
 # types are a type carve-out, not part of the gated behaviour. See
 # `src/openhuman/skills/stub.rs`.
 skills = []
-# MCP domains: `mcp_server` (the `openhuman mcp` stdio/HTTP server exposing our
-# tool surface), `mcp_registry` (dynamic Smithery installs — SQLite, lifecycle,
-# `mcp_clients` RPC namespace), `mcp_audit` (write-audit log), and the
-# static/config-declared server set in `mcp_client`. Default-ON — the desktop
+# MCP domains, all under the `mcp/` family: `mcp::server` (the `openhuman mcp`
+# stdio/HTTP server exposing our tool surface), `mcp::registry` (dynamic
+# Smithery installs — SQLite, lifecycle, `mcp_clients` RPC namespace),
+# `mcp::audit` (write-audit log), and the static/config-declared server set in
+# `mcp::config_servers`. Default-ON — the desktop
 # app always ships with MCP. Composes with the runtime `DomainSet::mcp` flag
 # (#4796): this feature narrows the compile-time surface, `DomainSet` gates it
 # at runtime.
@@ -528,11 +587,13 @@ skills = []
 # dependencies. The issue-level DoD line claiming it "sheds the MCP SDK /
 # transport stack" is superseded by this correction (see AGENTS.md).
 #
-# NOTE: `mcp_client::{sanitize, client}` stay ALWAYS compiled — they are
-# mis-housed shared utilities (the gitbooks docs tool dials `McpHttpClient`;
-# the orchestrator prompt sanitises *skill* descriptions through
-# `sanitize::sanitize_for_llm`). The gate follows the real dependency graph,
-# not the directory name.
+# NOTE: the family root `pub mod mcp;` and `mcp::http_client` stay ALWAYS
+# compiled. `http_client` is a mis-housed shared utility (the gitbooks docs
+# tool dials `McpHttpClient`; `core::observability` names
+# `McpUnauthorizedError`), and the server/registry/audit stubs need their
+# parent compiled. `sanitize` left the family entirely for `util::sanitize` —
+# the orchestrator prompt sanitises *skill* descriptions through it. The gate
+# follows the real dependency graph, not the directory name.
 mcp = []
 # Sentry crash/error reporting: the `sentry::init` guard + secret-scrubbing
 # `before_send` hook (src/main.rs), the sentry-tracing bridge layer
@@ -564,31 +625,38 @@ crash-reporting = ["dep:sentry"]
 # Tauri UI and never needs a terminal one) — see the allowlist entry in
 # `scripts/ci/check-feature-forwarding.mjs`. Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without tui>"`, which drops
-# the exclusive `ratatui` + `crossterm` dependencies. The module
-# `src/openhuman/tui/` is a facade (always compiled) whose behavioural submodules
-# are `#[cfg(feature = "tui")]`; when off, `tui::stub::run_from_cli` returns a
-# build-fact "tui feature disabled at compile time" error from the untouched
-# `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
+# the exclusive `ratatui` + `crossterm` dependencies. The crate-root
+# `src/tui/` module is declared only under `#[cfg(feature = "tui")]`; when off,
+# the always-compiled CLI dispatcher returns a build-fact "tui feature disabled
+# at compile time" error for the `"tui" | "chat"` commands.
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
-# Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
-# a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,
-# host-side inference + tools port callbacks, the `medulla_local` RPC namespace,
-# and the subconscious-replacement draft (`subconscious.engine = "medulla"`,
-# §5.2). Default-ON — the desktop app ships it — and therefore FORWARDED to the
-# Tauri shell's `openhuman_core` features (default-features=false there). Slim /
-# headless builds opt out via `--no-default-features --features "<list without
-# medulla-local>"`. The module is `#[cfg(feature = "medulla-local")]` at its
-# `pub mod` declaration (a registration-site gate, like `flows`); the
-# `subconscious.engine` config field stays compiled in ALL builds (inert serde),
-# and the subconscious tick's medulla branch is `#[cfg]`-gated so the default
-# (`local`) path is byte-identical whether or not this feature is on.
-# Sheds ZERO exclusive dependencies — tokio net/process, reqwest, serde are all
-# load-bearing for other domains; the value is compile-time surface.
-# The serve transport is unix-only (unix domain sockets): on non-unix targets
-# (Windows desktop) the feature still compiles via a supervisor stub that
-# reports a typed unsupported-platform error, so forwarding the default-ON
-# gate to the Tauri shell never breaks Windows packaging.
-medulla-local = []
+
+# Medulla integration: the HTTP/SSE client for the Medulla orchestration backend
+# (`openhuman::medulla::client`) — durable sessions, event streaming, worker
+# routing + roster, the operator task ledger and its GitHub sources, one-shot
+# orchestration runs, the public feedback board, and the onboarding history
+# reward. This is the real Medulla surface; it replaced the `medulla-local`
+# supervised-child draft, which has been removed.
+#
+# Default-ON, but INTENTIONALLY NOT FORWARDED to the Tauri shell (allowlisted in
+# scripts/lib/feature-forwarding.mjs, alongside `tui`): the desktop app is
+# OpenHuman's own product and never dials a Medulla backend. The consumer is the
+# Medulla TUI, which embeds this crate directly.
+#
+# Facade + type carve-out, NOT a leaf gate: `pub mod medulla;` is always
+# compiled, and `medulla::contract` + `medulla::events` stay compiled in BOTH
+# builds because `src/embed/` names those types in public signatures. Only
+# `medulla::client` — everything that touches reqwest — is gated. This follows
+# the rule the `skills` / `mcp` gates established: carve inert types
+# out and gate behaviour, so the two builds share one type definition and
+# cannot drift.
+#
+# Sheds ZERO exclusive dependencies — do NOT "fix" the empty list. `reqwest`,
+# `futures`, `serde`, and `tokio` are all load-bearing for other domains; the
+# gate's value is compile-time surface and RPC/tool reach, not binary size.
+# Verify before ever claiming otherwise:
+#   cargo tree -i reqwest --no-default-features --features tokenjuice-treesitter
+medulla = []
 
 # Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
 # Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,
@@ -616,7 +684,14 @@ medulla-local = []
 # carve-outs also stay ungated — `traits` is a 1-line tinychannels re-export and
 # `cli::CliChannel` is the dep-free local REPL used by the always-on agent
 # harness interactive loop. See AGENTS.md "channels gate" + `channels/mod.rs`.
-channels = []
+# Provider modules inside tinychannels are now feature-gated there, so this
+# gate finally sheds crates instead of being surface-only: `email` owns the
+# lettre/async-imap/mail-parser stack and `lark` owns axum + prost — 27 crates
+# that a workflow-only build has no use for. The crate itself still cannot be
+# dropped (DomainEvent embeds its inbound envelope, config re-exports its
+# provider types, security::pairing re-exports its helpers), which is why
+# gating the providers rather than the crate is the right seam.
+channels = ["tinychannels/email", "tinychannels/lark"]
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
 peripheral-rpi = ["dep:rppal"]
@@ -634,6 +709,31 @@ e2e-test-support = []
 # Builds the `rss-bench` benchmark binary (#5046). Default-OFF, so it is never
 # part of the shipped desktop/library build and the feature-forwarding gate
 # (which only inspects the `default` list) never requires forwarding it.
+# CLI argument parsing + logger init for the six developer/ops binaries under
+# `src/bin/`. Default-OFF and NOT in `default`: nothing in the library reaches
+# `clap` or `env_logger` (the one hit in `core/logging.rs` is a doc comment),
+# so the shipped desktop build has no reason to carry a 14-crate CLI stack.
+# Each owning `[[bin]]` declares `required-features = ["bin-tools"]`, so those
+# targets are simply skipped rather than failing to link when it is off.
+# Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
+# When off there is no hardware probe: `sample_power` reports "on AC, no charge
+# signal", which is the same answer the real probe gives on a server or
+# container. Consequence to be explicit about — `require_ac_power` and
+# `battery_floor` are NOT enforced in such a build. CPU throttling and
+# server-mode detection are unaffected.
+# Rolling on-disk log files, plus the `log`->`tracing` bridge. Default-ON.
+# Two consequences worth being explicit about when it is off:
+#   * nothing is written to disk, so a packaged desktop build has no durable
+#     log to attach to a support request. stderr and Sentry are unaffected.
+#   * `tracing-log` goes with it, so `log::*` records from dependencies stop
+#     reaching tracing in EVERY init path — including the stderr-only CLI one,
+#     which otherwise has nothing to do with file logging.
+# `tracing` and `tracing-subscriber` are NOT part of this gate and stay always-on.
+file-logging = ["dep:tracing-appender", "dep:tracing-log"]
+
+scheduler-gate = ["dep:starship-battery"]
+
+bin-tools = ["dep:clap", "dep:env_logger"]
 rss-bench = []
 # Adds dhat heap profiling on top of `rss-bench` for the `library-profile`
 # binary. Default-OFF, dev-only: installs dhat's global allocator, which
@@ -663,6 +763,12 @@ while_let_loop = "allow"
 # See: https://github.com/tinyhumansai/openhuman/issues/273
 [patch.crates-io]
 whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+# Upstream 0.2.1 enables reqwest's default native-tls backend even though it
+# also requests rustls. Patch the official release locally so Linux/macOS do
+# not inherit OpenSSL; the only source delta disables reqwest defaults.
+# Windows still enables native-tls through the target-specific dependency
+# above. Remove this patch after upstream publishes the same manifest fix.
+motosan-ai-oauth = { path = "vendor/motosan-ai-oauth" }
 # TinyAgents is vendored as a git submodule (pinned at the released tag) so
 # migration work can change the SDK source in-tree, test it against OpenHuman
 # immediately, and PR the diff upstream from the submodule. Keep the submodule

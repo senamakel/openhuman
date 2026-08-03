@@ -9,8 +9,17 @@
  *    {@link EditableFlowCanvas}, which lifts nodes/edges into controlled state
  *    and wires drag/connect/add/delete/save on top.
  *
- * The `editable` prop defaults to `false` so every existing read-only consumer
- * (the `/flows/:id` viewer) keeps its exact behavior — only the builder opts in.
+ * The `editable` prop defaults to `false`, but as of the F-m5 audit
+ * (`my_docs/flows_review_2026-07-30.md`) there is exactly one production
+ * consumer — `FlowCanvasPage.tsx` — and it always passes `editable`. The
+ * `/flows/:id` route this doc block used to claim as the read-only viewer's
+ * consumer IS `FlowCanvasPage`, and it is NOT read-only. `ReadonlyFlowCanvas`
+ * below is therefore currently unreachable in the shipped app; it's kept
+ * (rather than deleted) because it's small, self-contained, and covered by
+ * its own smoke tests (`__tests__/FlowCanvas.test.tsx`) — a future
+ * share/embed/public-viewer surface is a plausible reason to want a
+ * non-editable render path again. Delete both it and its tests together if
+ * no such consumer materializes.
  */
 import {
   Background,
@@ -27,6 +36,7 @@ import {
   FLOW_NODE_TYPE,
   type FlowEdge,
   type FlowNode,
+  stepNumbersForFlow,
   type WorkflowGraphMeta,
 } from '../../../lib/flows/graphAdapter';
 import type { WorkflowGraph } from '../../../lib/flows/types';
@@ -36,6 +46,7 @@ import EditableFlowCanvas, {
 } from './EditableFlowCanvas';
 import './flowCanvasStyles.css';
 import FlowNodeComponent from './FlowNodeComponent';
+import { StepNumberContext } from './stepNumbers';
 
 interface FlowCanvasProps {
   nodes: FlowNode[];
@@ -106,20 +117,26 @@ function ReadonlyFlowCanvas({ nodes, edges }: { nodes: FlowNode[]; edges: FlowEd
     []
   );
 
+  // Same derivation as the editable canvas, so a read-only graph numbers its
+  // cards identically. See `stepNumbers.ts` for why this is not node `data`.
+  const stepNumberMap = useMemo(() => stepNumbersForFlow(nodes, edges), [nodes, edges]);
+
   return (
     <div className="flow-canvas h-full w-full" data-testid="flow-canvas">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        fitView
-        panOnScroll
-        zoomOnScroll
-        {...interactionProps}>
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        <MiniMap pannable zoomable />
-        <Controls showInteractive={false} />
-      </ReactFlow>
+      <StepNumberContext.Provider value={stepNumberMap}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          fitView
+          panOnScroll
+          zoomOnScroll
+          {...interactionProps}>
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+          <MiniMap pannable zoomable />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </StepNumberContext.Provider>
     </div>
   );
 }

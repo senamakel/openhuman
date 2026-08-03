@@ -22,6 +22,7 @@ pub const INFERENCE_COMPILED_IN: bool = cfg!(feature = "inference");
 
 pub mod auth_error_registry;
 pub mod device;
+pub mod embeddings;
 pub mod http;
 pub mod local;
 pub mod model_context;
@@ -35,7 +36,9 @@ pub mod provider;
 mod schemas;
 pub mod sentiment;
 pub mod temperature;
+pub mod tokenjuice;
 pub mod types;
+pub mod vision_models;
 pub mod voice;
 
 pub use ops as rpc;

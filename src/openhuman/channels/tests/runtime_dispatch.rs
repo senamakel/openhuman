@@ -116,11 +116,13 @@ async fn message_dispatch_processes_messages_in_parallel() {
 
         let runtime_ctx = Arc::new(ChannelRuntimeContext {
             channels_by_name: Arc::new(channels_by_name),
-            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-                Arc::new(SlowModel {
-                    delay: Duration::from_millis(5),
-                }),
-            )),
+            turn_model_source: Some(
+                crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                    SlowModel {
+                        delay: Duration::from_millis(5),
+                    },
+                )),
+            ),
             default_provider: Arc::new("test-provider".to_string()),
             memory: Arc::new(NoopMemory),
             tools_registry: Arc::new(vec![]),
@@ -191,11 +193,11 @@ async fn process_channel_message_cancels_scoped_typing_task() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(SlowModel {
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(SlowModel {
                 delay: Duration::from_millis(20),
-            }),
-        )),
+            })),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -283,9 +285,11 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
         channels_by_name: Arc::new(channels_by_name),
         // Still need a model for the context field, but the stubbed bus
         // handler never invokes it — so a minimal no-op is fine.
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(super::common::DummyModel),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                super::common::DummyModel,
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -368,9 +372,11 @@ async fn channel_processed_event_records_resolved_agent_route() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(super::common::DummyModel),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                super::common::DummyModel,
+            )),
+        ),
         default_provider: Arc::new("requested-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -414,8 +420,14 @@ async fn channel_processed_event_records_resolved_agent_route() {
     for _ in 0..50 {
         let event = tokio::time::timeout(Duration::from_millis(200), events.recv())
             .await
-            .expect("ChannelMessageProcessed event should be published")
-            .expect("event receiver should stay open");
+            .expect("ChannelMessageProcessed event should be published");
+        let event = match event {
+            Ok(event) => event,
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                panic!("event receiver should stay open")
+            }
+        };
 
         if let DomainEvent::ChannelMessageProcessed {
             message_id,
@@ -482,9 +494,11 @@ async fn process_channel_message_hardens_multimodal_files_against_smuggled_marke
     };
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(super::common::DummyModel),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                super::common::DummyModel,
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -567,9 +581,11 @@ async fn process_channel_message_hardens_against_relative_path_markers() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            Arc::new(super::common::DummyModel),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+                super::common::DummyModel,
+            )),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),

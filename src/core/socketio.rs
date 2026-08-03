@@ -745,7 +745,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
 
     // 3. Overlay attention events → broadcast to all clients.
     tokio::spawn(async move {
-        let mut rx = crate::openhuman::overlay::subscribe_attention_events();
+        let mut rx = crate::openhuman::desktop::overlay::subscribe_attention_events();
         loop {
             let event = match rx.recv().await {
                 Ok(event) => event,
@@ -776,7 +776,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     //    chat session is active. Pattern mirrors the overlay attention
     //    bridge above — fire-and-forget, no per-client routing.
     tokio::spawn(async move {
-        let mut rx = crate::openhuman::notifications::subscribe_core_notifications();
+        let mut rx = crate::openhuman::desktop::notifications::subscribe_core_notifications();
         loop {
             let event = match rx.recv().await {
                 Ok(event) => event,
@@ -807,7 +807,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     //     TinyPlaceOrchestrationTab targeted-refetches the affected chat live
     //     (stage 7). Mirrors the overlay/notification fire-and-forget pattern.
     tokio::spawn(async move {
-        let mut rx = crate::openhuman::orchestration::subscribe_orchestration_socket();
+        let mut rx = crate::openhuman::hosted::orchestration::subscribe_orchestration_socket();
         loop {
             let payload = match rx.recv().await {
                 Ok(payload) => payload,

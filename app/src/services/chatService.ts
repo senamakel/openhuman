@@ -180,6 +180,7 @@ export interface ChatErrorEvent {
     | 'model_unavailable'
     | 'payload_too_large'
     | 'provider_request_rejected'
+    | 'chat_template_rejected'
     | 'budget_exhausted';
   round: number | null;
 }
@@ -233,7 +234,7 @@ export interface ChatPlanReviewRequestEvent {
 /**
  * Lowercase variant of the Rust `ArtifactKind` enum surfaced on
  * artifact lifecycle socket events. Mirrors the slugs produced by
- * `ArtifactKind::as_str()` in `src/openhuman/artifacts/types.rs`.
+ * `ArtifactKind::as_str()` in `src/openhuman/agent/artifacts/types.rs`.
  */
 export type ArtifactKind = 'presentation' | 'document' | 'image' | 'other';
 

@@ -5,17 +5,17 @@ use super::{
     integration_announcement_note, mcp_announcement_note, newly_connected_slugs,
     skill_announcement_note, skill_retraction_note,
 };
+use crate::openhuman::agent::experience::{
+    prepend_experience_block, render_experience_hits, retrieve_across_stores, AgentExperienceStore,
+    ExperienceQuery,
+};
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::hooks::{self, TurnContext};
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::agent_experience::{
-    prepend_experience_block, render_experience_hits, retrieve_across_stores, AgentExperienceStore,
-    ExperienceQuery,
-};
-use crate::openhuman::agent_memory::memory_loader::collect_recall_citations;
+use crate::openhuman::memory::agent::memory_loader::collect_recall_citations;
 use crate::openhuman::memory::MemoryCategory;
 use crate::openhuman::util::truncate_with_ellipsis;
 
@@ -302,7 +302,7 @@ fn should_run_super_context(
 /// engine's honest per-call accounting instead of recording every call as ok.
 fn tool_records_from_conversation(
     conversation: &[ConversationMessage],
-    tool_outcomes: &[crate::openhuman::tinyagents::ToolCallOutcome],
+    tool_outcomes: &[crate::openhuman::agent::tinyagents::ToolCallOutcome],
 ) -> Vec<hooks::ToolCallRecord> {
     let mut records = Vec::new();
     for msg in conversation {
@@ -346,7 +346,7 @@ fn tool_records_from_conversation(
 /// with no matching outcome, and successful calls are left untouched.
 fn stamp_tool_failures(
     messages: &mut [ChatMessage],
-    tool_outcomes: &[crate::openhuman::tinyagents::ToolCallOutcome],
+    tool_outcomes: &[crate::openhuman::agent::tinyagents::ToolCallOutcome],
 ) {
     use crate::openhuman::agent::harness::session::transcript;
     if tool_outcomes.is_empty() {
@@ -535,7 +535,9 @@ impl Agent {
             // hash of whatever Composio actually returned just now.
             // Subsequent turns short-circuit unless this hash changes.
             self.last_seen_integrations_hash =
-                crate::openhuman::composio::connected_set_hash(&self.connected_integrations);
+                crate::openhuman::integrations::composio::connected_set_hash(
+                    &self.connected_integrations,
+                );
             // Seed the announced set with the startup connected toolkits so
             // only genuinely-new mid-session connects get announced later.
             self.announced_integrations = self
@@ -548,7 +550,7 @@ impl Agent {
             // prompt's `## Connected MCP Servers` block, so only servers that
             // connect *mid-session* should later be announced on the user turn.
             self.announced_mcp_servers =
-                crate::openhuman::mcp_registry::connections::connected_overview()
+                crate::openhuman::mcp::registry::connections::connected_overview()
                     .await
                     .into_iter()
                     .map(|s| s.qualified_name)
@@ -579,12 +581,12 @@ impl Agent {
             // against.
             //
             // The signal we react to is the process-wide
-            // [`crate::openhuman::composio::INTEGRATIONS_CACHE`], kept
+            // [`crate::openhuman::integrations::composio::INTEGRATIONS_CACHE`], kept
             // current by (a) the desktop UI's 5 s
             // `composio_list_connections` poll, (b) the post-OAuth
             // `ComposioConnectionCreatedSubscriber` invalidation, and
             // (c) the 60 s TTL fallback. We read it via the read-only
-            // [`crate::openhuman::composio::cached_active_integrations`]
+            // [`crate::openhuman::integrations::composio::cached_active_integrations`]
             // helper — never trigger a backend fetch ourselves, never
             // block on a writer.
             // Session agents built through `from_config_*` carry their
@@ -621,7 +623,7 @@ impl Agent {
             // cheap. Like the Composio block, the frozen `## Connected MCP
             // Servers` system-prompt section stays as the turn-1 snapshot.
             let connected_mcp: Vec<String> =
-                crate::openhuman::mcp_registry::connections::connected_overview()
+                crate::openhuman::mcp::registry::connections::connected_overview()
                     .await
                     .into_iter()
                     .map(|s| s.qualified_name)
@@ -665,7 +667,7 @@ impl Agent {
             // turn, so the agent's own on-demand memory search doesn't echo
             // its own triggering request back as a "relevant" result.
             let session_id_for_autosave =
-                crate::openhuman::tinyagents::thread_context::current_thread_id();
+                crate::openhuman::agent::tinyagents::thread_context::current_thread_id();
             log::debug!(
                 "[agent_autosave] enqueue user-message store key={autosave_key} chars={chars} \
                  session_id={}",
@@ -768,7 +770,7 @@ impl Agent {
         // `turn_body` coroutine (which borrows `&mut self`) is constructed.
         let goal_workspace_dir = self.workspace_dir.clone();
         let active_goal = {
-            let loaded = crate::openhuman::thread_goals::runtime::load_for_current_thread(
+            let loaded = crate::openhuman::threads::goals::runtime::load_for_current_thread(
                 &self.workspace_dir,
             )
             .await;
@@ -779,10 +781,10 @@ impl Agent {
                 Some(goal)
                     if matches!(
                         goal.status,
-                        crate::openhuman::thread_goals::ThreadGoalStatus::Paused
+                        crate::openhuman::threads::goals::ThreadGoalStatus::Paused
                     ) =>
                 {
-                    crate::openhuman::thread_goals::runtime::resume_for_current_thread(
+                    crate::openhuman::threads::goals::runtime::resume_for_current_thread(
                         &self.workspace_dir,
                     )
                     .await
@@ -792,9 +794,7 @@ impl Agent {
             }
         };
         if let Some(ref goal) = active_goal {
-            if let Some(block) =
-                crate::openhuman::thread_goals::runtime::active_goal_context_block(goal)
-            {
+            if let Some(block) = tinyagents::graph::goals::active_goal_context_block(goal) {
                 log::info!(
                     "[thread_goals] injecting active_goal block status={} budget={:?} ({} chars)",
                     goal.status.as_str(),
@@ -816,7 +816,7 @@ impl Agent {
         // spawn get an empty block and no injection. Rides per-turn context (like
         // the goal block) so status is always live.
         if let Some(block) =
-            crate::openhuman::agent_orchestration::running_subagents::active_subagents_context_block(
+            crate::openhuman::agent::orchestration::running_subagents::active_subagents_context_block(
                 &self.event_session_id,
                 &self.workspace_dir,
             )
@@ -1083,7 +1083,7 @@ impl Agent {
         let mut turn_stop_hooks = crate::openhuman::agent::stop_hooks::current_stop_hooks();
         if let Some(ref goal) = active_goal {
             if let Some(hook) =
-                crate::openhuman::thread_goals::runtime::GoalBudgetStopHook::for_goal(
+                crate::openhuman::threads::goals::runtime::GoalBudgetStopHook::for_goal(
                     &goal_workspace_dir,
                     goal,
                 )
@@ -1270,7 +1270,7 @@ impl Agent {
         // detection is owned by the crate `PromptCacheGuardMiddleware` (fed by
         // `PromptCacheSegmentMiddleware`); the warn-only `CacheAlignMiddleware`
         // was deleted in C3.
-        let context_mw = crate::openhuman::tinyagents::TurnContextMiddleware {
+        let context_mw = crate::openhuman::agent::tinyagents::TurnContextMiddleware {
             tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
             payload_summarizer: self.payload_summarizer.clone(),
             artifact_store,
@@ -1285,7 +1285,7 @@ impl Agent {
             // node — enabled only when its gate passed above. The node runs the
             // scout on the first model call and folds the bundle into the message.
             super_context: run_super_context.then(|| {
-                crate::openhuman::tinyagents::SuperContextConfig {
+                crate::openhuman::agent::tinyagents::SuperContextConfig {
                     user_message: user_message.to_string(),
                 }
             }),
@@ -1316,7 +1316,7 @@ impl Agent {
                     context_mw,
                     // Enforce the builder-configured tool policy at the tool
                     // boundary (the tinyagents path otherwise bypasses it).
-                    tool_policy: Some(crate::openhuman::tinyagents::ToolPolicyEnforcement {
+                    tool_policy: Some(crate::openhuman::agent::tinyagents::ToolPolicyEnforcement {
                         policy: self.tool_policy.clone(),
                         session: self.tool_policy_session.clone(),
                         session_id: self.event_session_id.clone(),
@@ -1497,7 +1497,7 @@ impl Agent {
             .config
             .required_output
             .as_ref()
-            .map(crate::openhuman::tinyagents::config::required_output_from)
+            .map(crate::openhuman::agent::tinyagents::config::required_output_from)
         {
             match self
                 .enforce_required_output(
@@ -1588,7 +1588,7 @@ impl Agent {
         // the legacy engine) so budgeted goals progress to `budget_limited` and
         // continuation scheduling reads a live budget. Self-guarding + best-effort
         // — a no-op when there is no active goal for the ambient thread.
-        crate::openhuman::thread_goals::runtime::account_turn_against_goal(
+        crate::openhuman::threads::goals::runtime::account_turn_against_goal(
             &self.workspace_dir,
             input_tokens,
             output_tokens,

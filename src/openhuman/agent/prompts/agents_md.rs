@@ -10,12 +10,12 @@
 //!    `worktree_action_dir` override, that override dir is the local layer.
 //!
 //! The loaded strings are threaded into
-//! [`crate::openhuman::context::prompt::PromptContext`] and rendered by
+//! [`crate::openhuman::agent::context::prompt::PromptContext`] and rendered by
 //! `AgentsInstructionsSection` **once at system-prompt build time** — never
 //! re-read per turn — so the frozen system-prompt prefix / KV-cache contract is
 //! preserved. Missing, unreadable, or empty files are silently skipped. The
 //! renderer caps each layer at
-//! [`crate::openhuman::context::prompt::BOOTSTRAP_MAX_CHARS`] with a
+//! [`crate::openhuman::agent::context::prompt::BOOTSTRAP_MAX_CHARS`] with a
 //! `[... truncated]` marker.
 
 use super::types::BOOTSTRAP_MAX_CHARS;

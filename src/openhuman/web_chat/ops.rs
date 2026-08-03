@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::core::event_bus::DomainEvent;
 use crate::core::socketio::WebChannelEvent;
-use crate::openhuman::prompt_injection::{
+use crate::openhuman::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
 use crate::rpc::RpcOutcome;
@@ -128,7 +128,7 @@ where
 async fn run_turn_under_cancel_and_deadline<F>(
     cancel_token: CancellationToken,
     origin: crate::openhuman::agent::turn_origin::AgentTurnOrigin,
-    approval_ctx: crate::openhuman::approval::ApprovalChatContext,
+    approval_ctx: crate::openhuman::security::approval::ApprovalChatContext,
     fut: F,
 ) -> Option<Result<super::types::WebChatTaskResult, String>>
 where
@@ -141,7 +141,7 @@ where
             web_turn_deadline(),
             crate::openhuman::agent::turn_origin::with_origin(
                 origin,
-                crate::openhuman::approval::APPROVAL_CHAT_CONTEXT.scope(approval_ctx, fut),
+                crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT.scope(approval_ctx, fut),
             ),
         ) => Some(res),
     }
@@ -506,9 +506,11 @@ pub async fn start_chat(
 
     // Chat-native approval: if this thread has a parked approval and the message
     // is a yes/no reply, route it to the gate rather than starting a new turn.
-    if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+    if let Some(gate) = crate::openhuman::security::approval::ApprovalGate::try_global() {
         if let Some(request_id) = gate.pending_for_thread(&thread_id) {
-            if let Some(decision) = crate::openhuman::approval::parse_approval_reply(&message) {
+            if let Some(decision) =
+                crate::openhuman::security::approval::parse_approval_reply(&message)
+            {
                 match gate.decide(&request_id, decision) {
                     Ok(Some(_)) => {
                         log::info!(
@@ -672,7 +674,7 @@ pub async fn start_chat(
 
     let user_message = message.clone();
     let handle = tokio::spawn(async move {
-        let approval_ctx = crate::openhuman::approval::ApprovalChatContext {
+        let approval_ctx = crate::openhuman::security::approval::ApprovalChatContext {
             thread_id: thread_id_task.clone(),
             client_id: client_id_task.clone(),
         };
@@ -900,7 +902,7 @@ async fn spawn_parallel_turn(
     let run_queue = crate::openhuman::agent::harness::run_queue::RunQueue::new();
 
     let handle = tokio::spawn(async move {
-        let approval_ctx = crate::openhuman::approval::ApprovalChatContext {
+        let approval_ctx = crate::openhuman::security::approval::ApprovalChatContext {
             thread_id: thread_id_task.clone(),
             client_id: client_id_task.clone(),
         };

@@ -18,7 +18,7 @@ use std::sync::OnceLock;
 use serde_json::json;
 use tempfile::tempdir;
 
-use openhuman_core::openhuman::memory_conversations::{
+use openhuman_core::openhuman::memory::conversations::{
     ConversationMessage, ConversationStore, CreateConversationThread,
 };
 use openhuman_core::openhuman::threads::ops::transcript_search;

@@ -1,8 +1,8 @@
 //! Shared channel runtime state and memory helpers.
 
 use crate::openhuman::agent::messages::ChatMessage;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::tinyagents::TurnModelSource;
 use crate::openhuman::tools::Tool;
 use crate::openhuman::util::truncate_with_ellipsis;
 use std::collections::HashMap;
@@ -275,9 +275,9 @@ mod tests {
             ]));
         ChannelRuntimeContext {
             channels_by_name: Arc::new(HashMap::new()),
-            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-                model,
-            )),
+            turn_model_source: Some(
+                crate::openhuman::agent::tinyagents::TurnModelSource::from_model(model),
+            ),
             default_provider: Arc::new("default".into()),
             memory: Arc::new(MockMemory {
                 entries: Vec::new(),

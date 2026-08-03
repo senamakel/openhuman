@@ -1,3 +1,6 @@
+// Leaf-gated with `polymarket*` below — CLOB order signing exists only to
+// serve the Polymarket tools.
+#[cfg(feature = "prediction-markets")]
 mod clob_auth;
 mod curl;
 mod gitbooks;
@@ -6,12 +9,15 @@ mod http_request;
 // Leaf-gated: the only consumers of these two are the `#[cfg(feature = "mcp")]`
 // blocks in `tools/ops.rs`, so no stub is needed — nothing names them when the
 // feature is off. (`gitbooks` is deliberately NOT gated: it dials `McpHttpClient`
-// but is a docs tool, not MCP-subsystem code. See `mcp_client`'s split facade.)
+// but is a docs tool, not MCP-subsystem code. See the `mcp` family's split
+// facade.)
 #[cfg(feature = "mcp")]
 mod mcp;
 #[cfg(feature = "mcp")]
 mod mcp_setup;
+#[cfg(feature = "prediction-markets")]
 mod polymarket;
+#[cfg(feature = "prediction-markets")]
 mod polymarket_orders;
 mod url_guard;
 mod web_fetch;
@@ -27,6 +33,7 @@ pub use mcp_setup::{
     McpSetupGetTool, McpSetupInstallAndConnectTool, McpSetupRequestSecretTool, McpSetupSearchTool,
     McpSetupTestConnectionTool,
 };
+#[cfg(feature = "prediction-markets")]
 pub use polymarket::PolymarketTool;
 pub use web_fetch::WebFetchTool;
 

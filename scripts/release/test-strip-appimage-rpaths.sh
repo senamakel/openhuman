@@ -571,8 +571,23 @@ printf '%s\n' \
   '  cp "$4" "$APPARMOR_PROFILE_SNAPSHOT"' \
   'fi' \
   >"$APPARMOR_BIN/sudo"
-chmod +x "$APPARMOR_BIN/apparmor_parser" "$APPARMOR_BIN/sudo"
+# Stand in for a restricted Ubuntu 24.04 host so the sysctl branch is exercised
+# deterministically on any development machine, including ones with no sysctl
+# key of that name at all.
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'if [ "${1:-}" = "-n" ]; then' \
+  '  printf "%s\n" "1"' \
+  '  exit 0' \
+  'fi' \
+  'exit 0' \
+  >"$APPARMOR_BIN/sysctl"
+chmod +x \
+  "$APPARMOR_BIN/apparmor_parser" \
+  "$APPARMOR_BIN/sudo" \
+  "$APPARMOR_BIN/sysctl"
 export APPARMOR_RECORD APPARMOR_PROFILE_SNAPSHOT
+USERNS_SYSCTL="kernel.apparmor_restrict_unprivileged_userns"
 PATH="$APPARMOR_BIN:$PATH" install_smoke_userns_profile \
   "$RUNTIME_COMPLETE" "$APPARMOR_PROFILE" \
   || fail "install_smoke_userns_profile rejected the fixture AppDir"
@@ -610,12 +625,16 @@ set -e
 [ "$apparmor_smoke_status" -eq 37 ] \
   || fail "AppArmor wrapper did not preserve smoke failure status 37"
 printf '%s\n' \
+  "--non-interactive sysctl -q -w $USERNS_SYSCTL=0" \
   "--non-interactive apparmor_parser --replace $APPARMOR_PROFILE" \
   "smoke" \
   "--non-interactive apparmor_parser --remove $APPARMOR_PROFILE" \
+  "--non-interactive sysctl -q -w $USERNS_SYSCTL=1" \
   >"$WORK/apparmor-expected-order"
 cmp -s "$WORK/apparmor-expected-order" "$APPARMOR_RECORD" \
   || fail "AppArmor profile was not loaded before and removed after a failing smoke"
+[ ! -e "$APPARMOR_PROFILE.sysctl" ] \
+  || fail "userns sysctl state file survived a failing smoke"
 
 APPARMOR_TERM_RECORD="$WORK/apparmor-term-command-record"
 APPARMOR_TERM_MARKER="$WORK/apparmor-term-smoke-started"
@@ -665,13 +684,60 @@ set -e
 [ "$apparmor_term_status" -eq 143 ] \
   || fail "AppArmor TERM fixture exited $apparmor_term_status instead of 143"
 printf '%s\n' \
+  "--non-interactive sysctl -q -w $USERNS_SYSCTL=0" \
   "--non-interactive apparmor_parser --replace $APPARMOR_PROFILE" \
   "smoke-start" \
   "--non-interactive apparmor_parser --remove $APPARMOR_PROFILE" \
+  "--non-interactive sysctl -q -w $USERNS_SYSCTL=1" \
   >"$WORK/apparmor-term-expected-order"
 cmp -s "$WORK/apparmor-term-expected-order" "$APPARMOR_TERM_RECORD" \
   || fail "AppArmor profile was not removed exactly once after TERM"
+[ ! -e "$APPARMOR_PROFILE.sysctl" ] \
+  || fail "userns sysctl state file survived a TERM-interrupted smoke"
 echo "[test-rpaths] ok: CI smoke grants userns only to the extracted executable"
+
+# The sysctl toggle must be a no-op on hosts that are already permissive or
+# that have no AppArmor userns restriction at all, so the release smoke never
+# needs sudo outside the restricted-Ubuntu case it exists for.
+USERNS_NOOP_BIN="$WORK/userns-noop-bin"
+USERNS_NOOP_RECORD="$WORK/userns-noop-command-record"
+USERNS_NOOP_STATE="$WORK/userns-noop.sysctl"
+mkdir -p "$USERNS_NOOP_BIN"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "%s\n" "$*" >>"$USERNS_NOOP_RECORD"' \
+  >"$USERNS_NOOP_BIN/sudo"
+chmod +x "$USERNS_NOOP_BIN/sudo"
+export USERNS_NOOP_RECORD
+for permissive_value in 0 ""; do
+  : >"$USERNS_NOOP_RECORD"
+  rm -f "$USERNS_NOOP_STATE"
+  if [ -n "$permissive_value" ]; then
+    printf '%s\n' \
+      '#!/usr/bin/env bash' \
+      '[ "${1:-}" = "-n" ] && printf "%s\n" "0"' \
+      'exit 0' \
+      >"$USERNS_NOOP_BIN/sysctl"
+  else
+    # No such key on this host: sysctl exits non-zero and prints nothing.
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 1' \
+      >"$USERNS_NOOP_BIN/sysctl"
+  fi
+  chmod +x "$USERNS_NOOP_BIN/sysctl"
+  PATH="$USERNS_NOOP_BIN:$PATH" \
+    relax_smoke_userns_restriction "$USERNS_NOOP_STATE" >/dev/null \
+    || fail "relax_smoke_userns_restriction failed on a permissive host"
+  [ ! -s "$USERNS_NOOP_RECORD" ] \
+    || fail "relax_smoke_userns_restriction used sudo on a permissive host"
+  [ ! -e "$USERNS_NOOP_STATE" ] \
+    || fail "relax_smoke_userns_restriction recorded state it never changed"
+  PATH="$USERNS_NOOP_BIN:$PATH" \
+    restore_smoke_userns_restriction "$USERNS_NOOP_STATE" >/dev/null \
+    || fail "restore_smoke_userns_restriction failed without recorded state"
+  [ ! -s "$USERNS_NOOP_RECORD" ] \
+    || fail "restore_smoke_userns_restriction used sudo without recorded state"
+done
+echo "[test-rpaths] ok: userns sysctl toggle is a no-op on permissive hosts"
 
 assert_runtime_layout_rejected missing-anylinux \
   "missing anylinux.so" remove_anylinux

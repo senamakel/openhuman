@@ -124,7 +124,10 @@ fn spawn_core_with_agentbox(port: u16, workspace: &std::path::Path, gmi_base_url
         .env("GMI_MAAS_API_KEY", "test-key")
         .env("GMI_MODELS", "stub-model")
         // Keep noise down; bump to debug locally when investigating.
-        .env("RUST_LOG", "warn,openhuman_core::openhuman::agentbox=info")
+        .env(
+            "RUST_LOG",
+            "warn,openhuman_core::openhuman::agent::agentbox=info",
+        )
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

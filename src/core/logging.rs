@@ -19,6 +19,7 @@ use std::sync::{Mutex, Once, OnceLock};
 
 use nu_ansi_term::{Color, Style};
 use tracing::{Event, Level};
+#[cfg(feature = "file-logging")]
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::fmt::format::{FormatEvent, FormatFields, Writer};
 use tracing_subscriber::fmt::FmtContext;
@@ -42,6 +43,7 @@ static INIT: Once = Once::new();
 /// After a `take`, the file layer's writer becomes a no-op (the background
 /// thread has exited); see [`shutdown_file_guard`] docs for the consequence
 /// on subsequent log records.
+#[cfg(feature = "file-logging")]
 static FILE_GUARD: Mutex<Option<WorkerGuard>> = Mutex::new(None);
 
 /// Resolved path to the active log file directory. Populated by
@@ -262,7 +264,11 @@ pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
             .with(sentry_tracing_layer())
             .try_init();
 
-        // Bridge the `log` crate.
+        // Bridge the `log` crate. Rides with `file-logging` because
+        // `tracing-log` is the other crate that gate owns; with it off, `log::*`
+        // records from dependencies stop reaching tracing in EVERY init path,
+        // not only the file ones.
+        #[cfg(feature = "file-logging")]
         let _ = tracing_log::LogTracer::init();
     });
 }
@@ -286,12 +292,18 @@ pub fn init_for_cli_run(verbose: bool, default_scope: CliLogDefault) {
 /// the Tauri shell should call this before any CLI path could initialize a
 /// stderr-only subscriber.
 pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
+    // `data_dir` is only read to build the rolling-file appender's directory,
+    // which the `file-logging` gate compiles out. Discarded explicitly here
+    // rather than silencing the whole function with `#[allow(unused_variables)]`
+    // — a blanket allow on a body this size would also hide the next genuinely
+    // unused binding someone adds.
+    #[cfg(not(feature = "file-logging"))]
+    let _ = data_dir;
     INIT.call_once(|| {
         let scope = CliLogDefault::Global;
         seed_rust_log(verbose, scope);
         let filter = build_env_filter(verbose, scope);
 
-        let logs_dir = data_dir.join("logs");
         // Build the file appender first, but keep the writer guard + path in
         // locals — only commit to `FILE_GUARD` / `LOG_DIR` after `try_init()`
         // succeeds. Otherwise a competing global subscriber would cause
@@ -299,36 +311,48 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
         // path even though no file layer is attached. Errors are surfaced via
         // `eprintln!` (the tracing subscriber isn't installed yet here) using
         // the same `[logging]` prefix as the dir-creation diagnostic.
-        let pending_file: Option<(_, tracing_appender::non_blocking::WorkerGuard, PathBuf)> =
-            match std::fs::create_dir_all(&logs_dir) {
-                Ok(()) => match tracing_appender::rolling::Builder::new()
-                    .rotation(tracing_appender::rolling::Rotation::DAILY)
-                    .filename_prefix("openhuman")
-                    .filename_suffix("log")
-                    .max_log_files(7)
-                    .build(&logs_dir)
-                {
-                    Ok(appender) => {
-                        let (writer, guard) = tracing_appender::non_blocking(appender);
-                        Some((writer, guard, logs_dir.clone()))
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "[logging] failed to create file appender in {}: {err}",
-                            logs_dir.display()
-                        );
-                        None
-                    }
-                },
+        // The file appender and its layer are the whole of this gate. Their
+        // concrete type embeds `tracing_appender`'s `NonBlocking` writer, which
+        // is why the off-state cannot simply be a `None` of the same type — the
+        // type does not exist in that build. Hence paired `.with()` chains
+        // below rather than one chain and an optional layer.
+        #[cfg(feature = "file-logging")]
+        let logs_dir = data_dir.join("logs");
+        #[cfg(feature = "file-logging")]
+        let pending_file: Option<(
+            _,
+            tracing_appender::non_blocking::WorkerGuard,
+            PathBuf,
+        )> = match std::fs::create_dir_all(&logs_dir) {
+            Ok(()) => match tracing_appender::rolling::Builder::new()
+                .rotation(tracing_appender::rolling::Rotation::DAILY)
+                .filename_prefix("openhuman")
+                .filename_suffix("log")
+                .max_log_files(7)
+                .build(&logs_dir)
+            {
+                Ok(appender) => {
+                    let (writer, guard) = tracing_appender::non_blocking(appender);
+                    Some((writer, guard, logs_dir.clone()))
+                }
                 Err(err) => {
                     eprintln!(
-                        "[logging] failed to create logs dir {}: {err}",
+                        "[logging] failed to create file appender in {}: {err}",
                         logs_dir.display()
                     );
                     None
                 }
-            };
+            },
+            Err(err) => {
+                eprintln!(
+                    "[logging] failed to create logs dir {}: {err}",
+                    logs_dir.display()
+                );
+                None
+            }
+        };
 
+        #[cfg(feature = "file-logging")]
         let file_layer = pending_file.as_ref().map(|(writer, _, _)| {
             let constraints = parse_log_file_constraints();
             tracing_subscriber::fmt::layer()
@@ -350,14 +374,27 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
                 event_matches_file_constraints(meta, &stderr_constraints)
             }));
 
-        match tracing_subscriber::registry()
+        #[cfg(feature = "file-logging")]
+        let init_result = tracing_subscriber::registry()
             .with(filter)
             .with(stderr_layer)
             .with(file_layer)
             .with(sentry_tracing_layer())
-            .try_init()
-        {
-            Ok(()) => {
+            .try_init();
+        // Same chain minus the file layer. Stderr and Sentry are unaffected by
+        // this gate, so a build without file logging still logs everywhere it
+        // did before — it just keeps nothing on disk.
+        #[cfg(not(feature = "file-logging"))]
+        let init_result = tracing_subscriber::registry()
+            .with(filter)
+            .with(stderr_layer)
+            .with(sentry_tracing_layer())
+            .try_init();
+
+        match init_result {
+            Ok(()) =>
+            {
+                #[cfg(feature = "file-logging")]
                 if let Some((_, guard, dir)) = pending_file {
                     if let Ok(mut slot) = FILE_GUARD.lock() {
                         *slot = Some(guard);
@@ -376,6 +413,7 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
             }
         }
 
+        #[cfg(feature = "file-logging")]
         let _ = tracing_log::LogTracer::init();
     });
 }
@@ -397,36 +435,45 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
 /// path. Returns the resolved log directory on success (for a status line), or
 /// `None` when the file appender could not be created.
 pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
+    // See `init_for_embedded` — same reason, same narrow discard.
+    #[cfg(not(feature = "file-logging"))]
+    let _ = data_dir;
     INIT.call_once(|| {
         let scope = CliLogDefault::Global;
         seed_rust_log(verbose, scope);
         let filter = build_env_filter(verbose, scope);
 
+        #[cfg(feature = "file-logging")]
         let logs_dir = data_dir.join("logs");
-        let pending_file: Option<(_, tracing_appender::non_blocking::WorkerGuard, PathBuf)> =
-            match std::fs::create_dir_all(&logs_dir) {
-                Ok(()) => match tracing_appender::rolling::Builder::new()
-                    .rotation(tracing_appender::rolling::Rotation::DAILY)
-                    .filename_prefix("openhuman")
-                    .filename_suffix("log")
-                    .max_log_files(7)
-                    .build(&logs_dir)
-                {
-                    Ok(appender) => {
-                        let (writer, guard) = tracing_appender::non_blocking(appender);
-                        Some((writer, guard, logs_dir.clone()))
-                    }
-                    Err(err) => {
-                        // No tracing subscriber yet, but we deliberately do NOT
-                        // eprintln! here (the TUI is about to take the terminal).
-                        // Losing this one diagnostic is the correct trade.
-                        let _ = err;
-                        None
-                    }
-                },
-                Err(_) => None,
-            };
+        #[cfg(feature = "file-logging")]
+        let pending_file: Option<(
+            _,
+            tracing_appender::non_blocking::WorkerGuard,
+            PathBuf,
+        )> = match std::fs::create_dir_all(&logs_dir) {
+            Ok(()) => match tracing_appender::rolling::Builder::new()
+                .rotation(tracing_appender::rolling::Rotation::DAILY)
+                .filename_prefix("openhuman")
+                .filename_suffix("log")
+                .max_log_files(7)
+                .build(&logs_dir)
+            {
+                Ok(appender) => {
+                    let (writer, guard) = tracing_appender::non_blocking(appender);
+                    Some((writer, guard, logs_dir.clone()))
+                }
+                Err(err) => {
+                    // No tracing subscriber yet, but we deliberately do NOT
+                    // eprintln! here (the TUI is about to take the terminal).
+                    // Losing this one diagnostic is the correct trade.
+                    let _ = err;
+                    None
+                }
+            },
+            Err(_) => None,
+        };
 
+        #[cfg(feature = "file-logging")]
         let file_layer = pending_file.as_ref().map(|(writer, _, _)| {
             let constraints = parse_log_file_constraints();
             tracing_subscriber::fmt::layer()
@@ -448,15 +495,29 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
 
         // NOTE: no stderr layer here — that is the whole point of this entry
         // point. Only the file layer + Sentry are attached.
-        if tracing_subscriber::registry()
+        // NOTE: still no stderr layer in either arm. A stderr fallback here
+        // would write into the alternate screen and corrupt the TUI, so the
+        // off-state keeps only the in-memory `tui_layer` — which is what the
+        // Logs tab reads anyway.
+        #[cfg(feature = "file-logging")]
+        let tui_init_ok = tracing_subscriber::registry()
             .with(filter)
             .with(file_layer)
             .with(tui_layer)
             .with(sentry_tracing_layer())
             .try_init()
-            .is_ok()
-        {
+            .is_ok();
+        #[cfg(not(feature = "file-logging"))]
+        let tui_init_ok = tracing_subscriber::registry()
+            .with(filter)
+            .with(tui_layer)
+            .with(sentry_tracing_layer())
+            .try_init()
+            .is_ok();
+
+        if tui_init_ok {
             let _ = TUI_LOG_BUFFER.set(tui_buffer);
+            #[cfg(feature = "file-logging")]
             if let Some((_, guard, dir)) = pending_file {
                 if let Ok(mut slot) = FILE_GUARD.lock() {
                     *slot = Some(guard);
@@ -465,6 +526,7 @@ pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
             }
         }
 
+        #[cfg(feature = "file-logging")]
         let _ = tracing_log::LogTracer::init();
     });
 
@@ -512,11 +574,22 @@ pub fn log_directory() -> Option<&'static Path> {
 /// `reset_local_data` is followed by `ensure_running()` which restarts the
 /// embedded core but does *not* re-install the subscriber — by design, the
 /// user is expected to restart the app shortly after a reset.
+#[cfg(feature = "file-logging")]
 pub fn shutdown_file_guard() -> bool {
     let Ok(mut slot) = FILE_GUARD.lock() else {
         return false;
     };
     slot.take().is_some()
+}
+
+/// Off-state: there is no file writer to shut down, so nothing was taken.
+///
+/// Kept as a real function rather than `#[cfg]`-ing the caller, because the
+/// Tauri `reset_local_data` command calls this unconditionally and has no
+/// reason to know whether file logging was compiled in.
+#[cfg(not(feature = "file-logging"))]
+pub fn shutdown_file_guard() -> bool {
+    false
 }
 
 fn seed_rust_log(verbose: bool, default_scope: CliLogDefault) {
@@ -591,6 +664,7 @@ mod tests {
     /// stashes / takes the guard), making one of them observe a guard it
     /// did not install. Mirror of the `SCHEDULE_LOCK` pattern in
     /// `app/src-tauri/src/reset_reboot_schedule.rs::tests`.
+    #[cfg(feature = "file-logging")]
     static FILE_GUARD_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     fn with_clean_rust_log<R>(f: impl FnOnce() -> R) -> R {
@@ -686,6 +760,9 @@ mod tests {
         }
     }
 
+    // Constructs a real `tracing_appender` appender, so it only exists when
+    // the crate does.
+    #[cfg(feature = "file-logging")]
     #[test]
     fn shutdown_file_guard_takes_installed_guard() {
         let _g = FILE_GUARD_LOCK.lock().unwrap_or_else(|e| e.into_inner());

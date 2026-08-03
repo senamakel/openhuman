@@ -19,8 +19,8 @@
 #![cfg(feature = "mcp")]
 
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::mcp_registry::types::{CommandKind, InstalledServer, Transport};
-use openhuman_core::openhuman::mcp_registry::{connections, ops, store};
+use openhuman_core::openhuman::mcp::registry::types::{CommandKind, InstalledServer, Transport};
+use openhuman_core::openhuman::mcp::registry::{connections, ops, store};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

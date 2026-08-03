@@ -10,7 +10,16 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::openhuman::agent::context::prompt::{
+    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
+};
+use crate::openhuman::agent::file_state::with_file_state_agent_id;
 use crate::openhuman::agent::harness::agent_graph::{AgentTurnRequest, AgentTurnUsage};
+use crate::openhuman::agent::harness::artifact_offload::{
+    effective_offload_threshold, extract_artifact_paths, note_artifact_handoff,
+    offload_oversized_result, ArtifactOffload, DEFAULT_OFFLOAD_THRESHOLD_BYTES,
+    HANDOFF_STAGE_RECORDED,
+};
 use crate::openhuman::agent::harness::definition::{
     validate_tier_transition, AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy,
     PromptSource, SandboxMode as AgentSandboxMode,
@@ -32,17 +41,17 @@ use crate::openhuman::agent::harness::subagent_runner::types::{
 use crate::openhuman::agent::harness::{
     current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
-use crate::openhuman::context::prompt::{
-    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
-};
-use crate::openhuman::file_state::with_file_state_agent_id;
 use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
-use crate::openhuman::memory_tree::retrieval::{fast_retrieve, FastRetrieveOptions, QueryResponse};
+use crate::openhuman::memory::tree::retrieval::{
+    fast_retrieve, FastRetrieveOptions, QueryResponse,
+};
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 use tinyagents::harness::tool::SandboxMode as TinyagentsSandboxMode;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 
-use super::prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
+use super::prompt::{
+    append_artifact_offload_contract, append_subagent_role_contract, dedup_tool_specs_by_name,
+};
 use super::provider::{
     resolve_subagent_source, user_is_signed_in_to_composio, LazyToolkitResolver,
 };
@@ -241,7 +250,7 @@ async fn try_deterministic_memory_retrieval(
     // extraction here is deterministic and cheap (regex, or one spaCy call);
     // `fast_retrieve` repeats it internally, which is the same work its first
     // model-driven tool call would have done.
-    if crate::openhuman::memory_tree::nlp::extract_query_entities(&config, query)
+    if crate::openhuman::memory::tree::nlp::extract_query_entities(&config, query)
         .await
         .is_empty()
     {
@@ -288,6 +297,9 @@ async fn try_deterministic_memory_retrieval(
         status: SubagentRunStatus::Completed,
         final_history: Vec::new(),
         usage: SubagentUsage::default(),
+        // Deterministic memory hits are already bounded; nothing is offloaded
+        // on this path.
+        artifact_paths: Vec::new(),
     })
 }
 
@@ -453,6 +465,13 @@ pub async fn run_subagent(
         })
         .await?;
 
+        // #3883: offload an oversized worker result to `action_dir/outputs/`
+        // BEFORE the cap below truncates it, so the parent receives a path plus
+        // an abstract and the full-fidelity body survives on disk instead of
+        // being cut. A refused or failed offload is soft: the inline payload
+        // continues on to the cap and the summarizer detour exactly as before.
+        offload_outcome_artifacts(&mut outcome, definition, &options, &task_id).await;
+
         // Truncate result to the definition's cap if set (shared with the
         // deterministic memory fast path via `apply_max_result_chars`).
         apply_max_result_chars(&mut outcome.output, definition.max_result_chars, &definition.id);
@@ -471,6 +490,116 @@ pub async fn run_subagent(
         Ok(outcome)
     })
     .await
+}
+
+/// Apply the filesystem-offload convention to a finished sub-agent run (#3883).
+///
+/// Writes an oversized result to `action_dir/outputs/` and swaps `output` for a
+/// path + abstract, then records every `[artifact]` pointer the outgoing payload
+/// carries — the harness-written one and any the worker authored itself by
+/// following the prompt contract — onto `SubagentRunOutcome::artifact_paths`, so
+/// the parent receives the paths structurally, not only as prose.
+///
+/// Every failure is soft. With no resolvable action root (or a refused target)
+/// the outcome is left untouched and the summarizer detour plus
+/// `tool_result_budget_bytes` truncation stay in charge as the fallback.
+async fn offload_outcome_artifacts(
+    outcome: &mut SubagentRunOutcome,
+    definition: &AgentDefinition,
+    options: &SubagentRunOptions,
+    task_id: &str,
+) {
+    // Pointers the WORKER authored itself (prompt contract) are read first: the
+    // harness may be about to replace `output` wholesale with its own pointer,
+    // which would otherwise drop them. They also have to survive the early
+    // returns below, so a run with no resolvable action root still reports the
+    // paths its child wrote by hand.
+    let mut paths = extract_artifact_paths(&outcome.output);
+
+    // A worktree-isolated worker offloads into its own checkout; everyone else
+    // uses the live policy's action root, which is the same root a parent's
+    // relative read resolves the returned path against.
+    let policy = crate::openhuman::security::live_policy::current();
+    let Some(action_dir) = options
+        .worktree_action_dir
+        .clone()
+        .or_else(|| policy.as_ref().map(|p| p.action_dir.clone()))
+    else {
+        tracing::debug!(
+            task_id = %task_id,
+            agent_id = %outcome.agent_id,
+            worker_authored_paths = paths.len(),
+            "[artifact] no resolvable action_dir — skipping offload (summarizer/truncation backstop applies)"
+        );
+        outcome.artifact_paths = paths;
+        note_artifact_handoff(
+            HANDOFF_STAGE_RECORDED,
+            &outcome.agent_id,
+            task_id,
+            &outcome.artifact_paths,
+        );
+        return;
+    };
+
+    // A read-only tier means this run may not mutate the disk at all, so the
+    // harness does not persist on its behalf either. The result stays inline and
+    // the summarizer / truncation backstops handle it, exactly as before #3883.
+    if policy
+        .as_ref()
+        .is_some_and(|p| p.autonomy == crate::openhuman::security::AutonomyLevel::ReadOnly)
+    {
+        tracing::debug!(
+            task_id = %task_id,
+            agent_id = %outcome.agent_id,
+            "[artifact] readonly autonomy tier — skipping offload (summarizer/truncation backstop applies)"
+        );
+        outcome.artifact_paths = paths;
+        note_artifact_handoff(
+            HANDOFF_STAGE_RECORDED,
+            &outcome.agent_id,
+            task_id,
+            &outcome.artifact_paths,
+        );
+        return;
+    }
+
+    // Offload at the tighter of the global default and this agent's own result
+    // cap, so a definition capped below the default (flow_memory_agent at 4 000
+    // chars, context_scout at 5 000) gets its full body on disk instead of
+    // truncated by `apply_max_result_chars` immediately after.
+    let threshold =
+        effective_offload_threshold(DEFAULT_OFFLOAD_THRESHOLD_BYTES, definition.max_result_chars);
+
+    // Worktree-isolated workers write inside their own checkout, but the parent
+    // that receives the pointer resolves relative paths against ITS action root.
+    // Render against that root so the handed-back path is one the parent can
+    // actually open (relative when the worktree nests inside it, absolute when
+    // it does not) rather than a bare `outputs/…` that silently misses.
+    let render_root = policy
+        .as_ref()
+        .map(|p| p.action_dir.clone())
+        .unwrap_or_else(|| action_dir.clone());
+    let offload = ArtifactOffload::new(action_dir, policy, outcome.agent_id.clone(), task_id)
+        .with_render_root(render_root);
+    let (output, _artifact) =
+        offload_oversized_result(std::mem::take(&mut outcome.output), &offload, threshold).await;
+    outcome.output = output;
+
+    // Merge: the harness pointer (if it fired) plus any worker-authored pointer
+    // read before the swap. `extract_artifact_paths` already de-duplicates
+    // within a payload; dedupe across the two sources here.
+    for path in extract_artifact_paths(&outcome.output) {
+        if !paths.contains(&path) {
+            paths.push(path);
+        }
+    }
+    outcome.artifact_paths = paths;
+    note_artifact_handoff(
+        HANDOFF_STAGE_RECORDED,
+        &outcome.agent_id,
+        task_id,
+        &outcome.artifact_paths,
+    );
 }
 
 fn workspace_descriptor_for_subagent(
@@ -533,7 +662,7 @@ async fn run_typed_mode(
     config: &LoadedConfig,
 ) -> Result<SubagentRunOutcome, SubagentRunError> {
     let started = Instant::now();
-    match crate::openhuman::tinyagents::subagent_graph::run_subagent_pipeline_skeleton(
+    match crate::openhuman::agent::tinyagents::subagent_graph::run_subagent_pipeline_skeleton(
         &definition.id,
         task_id,
     )
@@ -583,7 +712,7 @@ async fn run_typed_mode(
     // once the OAuth handshake reaches ACTIVE/CONNECTED, so this call
     // returns the fresh list almost for free on the warm path. Fall back
     // to the parent's frozen list when the live fetch returns empty.
-    let live_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration> = {
+    let live_integrations: Vec<crate::openhuman::agent::context::prompt::ConnectedIntegration> = {
         let signed_in = config
             .as_ref()
             .ok()
@@ -594,8 +723,9 @@ async fn run_typed_mode(
         } else {
             match config.as_ref() {
                 Ok(cfg) => {
-                    use crate::openhuman::composio::FetchConnectedIntegrationsStatus;
-                    match crate::openhuman::composio::fetch_connected_integrations_status(cfg).await
+                    use crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus;
+                    match crate::openhuman::integrations::composio::fetch_connected_integrations_status(cfg)
+                        .await
                     {
                         FetchConnectedIntegrationsStatus::Authoritative(fresh) => {
                             tracing::debug!(
@@ -707,7 +837,9 @@ async fn run_typed_mode(
                 }
             };
 
-            use crate::openhuman::composio::client::{create_composio_client, ComposioClientKind};
+            use crate::openhuman::integrations::composio::client::{
+                create_composio_client, ComposioClientKind,
+            };
             let client_kind = match create_composio_client(arc_config.as_ref()) {
                 Ok(k) => Some(k),
                 Err(e) => {
@@ -727,8 +859,10 @@ async fn run_typed_mode(
             {
                 let fresh_actions = match &client_kind {
                     Some(ComposioClientKind::Backend(client)) => {
-                        match crate::openhuman::composio::fetch_toolkit_actions(client, tk, None)
-                            .await
+                        match crate::openhuman::integrations::composio::fetch_toolkit_actions(
+                            client, tk, None,
+                        )
+                        .await
                         {
                             Ok(actions) if !actions.is_empty() => actions,
                             Ok(_) => {
@@ -769,7 +903,7 @@ async fn run_typed_mode(
                         cached_integration.tools.clone()
                     }
                 };
-                let integration = crate::openhuman::context::prompt::ConnectedIntegration {
+                let integration = crate::openhuman::agent::context::prompt::ConnectedIntegration {
                     toolkit: cached_integration.toolkit.clone(),
                     description: cached_integration.description.clone(),
                     tools: fresh_actions,
@@ -785,31 +919,32 @@ async fn run_typed_mode(
                     &integration.tools,
                     top_k,
                 );
-                let selected: Vec<&crate::openhuman::context::prompt::ConnectedIntegrationTool> =
-                    if filter_hits.len() >= super::super::super::tool_filter::MIN_CONFIDENT_HITS {
-                        tracing::info!(
-                            agent_id = %definition.id,
-                            toolkit = %tk,
-                            total = integration.tools.len(),
-                            kept = filter_hits.len(),
-                            top_k = top_k,
-                            "[subagent_runner:typed] fuzzy tool filter narrowed toolkit"
-                        );
-                        filter_hits.iter().map(|&i| &integration.tools[i]).collect()
-                    } else {
-                        tracing::info!(
-                            agent_id = %definition.id,
-                            toolkit = %tk,
-                            total = integration.tools.len(),
-                            filter_hits = filter_hits.len(),
-                            "[subagent_runner:typed] fuzzy filter thin; falling back to full toolkit"
-                        );
-                        integration.tools.iter().collect()
-                    };
+                let selected: Vec<
+                    &crate::openhuman::agent::context::prompt::ConnectedIntegrationTool,
+                > = if filter_hits.len() >= super::super::super::tool_filter::MIN_CONFIDENT_HITS {
+                    tracing::info!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        total = integration.tools.len(),
+                        kept = filter_hits.len(),
+                        top_k = top_k,
+                        "[subagent_runner:typed] fuzzy tool filter narrowed toolkit"
+                    );
+                    filter_hits.iter().map(|&i| &integration.tools[i]).collect()
+                } else {
+                    tracing::info!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        total = integration.tools.len(),
+                        filter_hits = filter_hits.len(),
+                        "[subagent_runner:typed] fuzzy filter thin; falling back to full toolkit"
+                    );
+                    integration.tools.iter().collect()
+                };
 
                 for action in selected {
                     dynamic_tools.push(Box::new(
-                        crate::openhuman::composio::ComposioActionTool::new(
+                        crate::openhuman::integrations::composio::ComposioActionTool::new(
                             arc_config.clone(),
                             action.name.clone(),
                             action.description.clone(),
@@ -894,7 +1029,7 @@ async fn run_typed_mode(
                         parent.temperature,
                     ) {
                         Ok((_model, resolved_model)) => (
-                            crate::openhuman::tinyagents::TurnModelSource::new_crate_native(
+                            crate::openhuman::agent::tinyagents::TurnModelSource::new_crate_native(
                                 "summarization",
                                 // Already an `Arc` from the spawn-wide snapshot —
                                 // share it rather than deep-copying the Config.
@@ -978,7 +1113,7 @@ async fn run_typed_mode(
         definition.omit_memory_md,
     );
 
-    let narrowed_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration> =
+    let narrowed_integrations: Vec<crate::openhuman::agent::context::prompt::ConnectedIntegration> =
         match toolkit_filter {
             Some(tk) => live_integrations
                 .iter()
@@ -1011,11 +1146,11 @@ async fn run_typed_mode(
     let visible_tool_names: std::collections::HashSet<String> =
         prompt_tools.iter().map(|t| t.name.to_string()).collect();
     let dispatcher_instructions = {
+        use crate::openhuman::agent::context::prompt::ToolCallFormat;
         use crate::openhuman::agent::dispatcher::{
             NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
         };
         use crate::openhuman::agent::pformat::PFormatRegistry;
-        use crate::openhuman::context::prompt::ToolCallFormat;
         let empty_tools: Vec<Box<dyn Tool>> = Vec::new();
         match parent.tool_call_format {
             ToolCallFormat::PFormat => {
@@ -1063,7 +1198,7 @@ async fn run_typed_mode(
         tools: &prompt_tools,
         workflows: &parent.workflows,
         dispatcher_instructions: &dispatcher_instructions,
-        learned: crate::openhuman::context::prompt::LearnedContextData::default(),
+        learned: crate::openhuman::agent::context::prompt::LearnedContextData::default(),
         visible_tool_names: &visible_tool_names,
         tool_call_format: parent.tool_call_format,
         connected_integrations: &narrowed_integrations,
@@ -1071,7 +1206,7 @@ async fn run_typed_mode(
         include_profile: !definition.omit_profile,
         include_memory_md: !definition.omit_memory_md,
         curated_snapshot: None,
-        user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
+        user_identity: crate::openhuman::desktop::app_state::peek_cached_current_user_identity(),
         personality_soul_md: None,
         personality_memory_md: None,
         personality_roster: vec![],
@@ -1105,6 +1240,11 @@ async fn run_typed_mode(
     };
 
     let system_prompt = append_subagent_role_contract(system_prompt, &definition.id);
+    // #3883: only agents that actually hold a file-write tool are told to
+    // offload. `visible_tool_names` is this sub-agent's real, post-filter tool
+    // surface, so the contract can never advertise a tool the child cannot call.
+    let system_prompt =
+        append_artifact_offload_contract(system_prompt, &definition.id, &visible_tool_names);
 
     // ── Build the user message (with optional context prefix) ──────────
     // Shared one-line stamp (#3602) so sub-agents report time in the same
@@ -1466,6 +1606,9 @@ async fn run_typed_mode(
         status,
         final_history: history,
         usage,
+        // Filled in by `run_subagent` once the offload step has had its say, so
+        // both the harness-offloaded and worker-authored pointers are counted.
+        artifact_paths: Vec::new(),
     })
 }
 #[cfg(test)]
@@ -1474,8 +1617,8 @@ mod fast_path_tests {
         apply_max_result_chars, format_deterministic_memory_hits, parse_memory_fast_path_enabled,
         MEMORY_FAST_PATH_LIMIT,
     };
-    use crate::openhuman::memory_store::trees::types::TreeKind;
-    use crate::openhuman::memory_tree::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
+    use crate::openhuman::memory::store::trees::types::TreeKind;
+    use crate::openhuman::memory::tree::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
     use chrono::Utc;
 
     fn hit(content: &str, scope: &str, score: f32) -> RetrievalHit {

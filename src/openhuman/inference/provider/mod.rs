@@ -6,6 +6,8 @@
 
 pub mod auth;
 pub mod billing_error;
+/// Chat-template rejections from local serving runtimes (issue #5291).
+pub mod chat_template;
 pub mod claude_agent_sdk;
 pub mod claude_code;
 pub mod config_rejection;
@@ -14,6 +16,8 @@ pub mod crate_openai;
 pub mod error_classify;
 pub mod error_code;
 pub mod factory;
+/// Actionable diagnostics for background-workload provider fallback (#5146 §2.1).
+pub(crate) mod fallback_diagnostics;
 mod openai_codex;
 /// Crate-native managed OpenHuman backend as a host `ChatModel` (issue #4727).
 pub mod openhuman_backend_model;
@@ -27,6 +31,7 @@ pub use types::{
 };
 
 pub use billing_error::is_budget_exhausted_message;
+pub use chat_template::is_chat_template_rejection_message;
 pub use config_rejection::{
     is_openai_compatible_unknown_model_message, is_provider_config_rejection_message,
 };
@@ -36,11 +41,12 @@ pub use error_code::{
     is_backend_malformed_bad_request, is_managed_backend_envelope, managed_error_skips_sentry,
     BackendErrorCode,
 };
+#[cfg(feature = "flows")]
 pub(crate) use factory::is_raw_passthrough_model;
 pub use factory::{
     create_chat_model, create_chat_model_from_string, create_chat_model_from_string_with_model_id,
-    create_chat_model_with_model_id, provider_for_role, role_for_model_tier,
-    BYOK_INCOMPLETE_SENTINEL,
+    create_chat_model_with_model_id, probe_inference_readiness, provider_for_role,
+    role_for_model_tier, BYOK_INCOMPLETE_SENTINEL,
 };
 pub use openhuman_backend_model::{OpenHumanBackendModel, PROVIDER_LABEL};
 pub use ops::*;

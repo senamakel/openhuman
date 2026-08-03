@@ -22,11 +22,11 @@
 //! BACKEND_URL=https://staging-api.tinyhumans.ai \
 //!   OPENHUMAN_APP_ENV=staging \
 //!   RUST_LOG=info,openhuman_core::openhuman::agent=debug,openhuman_core::openhuman::inference=debug \
-//!   cargo run --bin inference-probe -- \
+//!   cargo run --features bin-tools --bin inference-probe -- \
 //!     --mode harness --prompt "hey list my top 5 emails"
 //!
 //! # Raw provider call (no harness):
-//! cargo run --bin inference-probe -- --mode raw --raw-mode pformat
+//! cargo run --features bin-tools --bin inference-probe -- --mode raw --raw-mode pformat
 //! ```
 use anyhow::{Context, Result};
 use clap::Parser;

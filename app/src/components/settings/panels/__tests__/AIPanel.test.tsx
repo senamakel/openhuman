@@ -53,6 +53,12 @@ vi.mock('../../../../services/api/aiSettingsApi', () => ({
   loadLocalProviderSnapshot: vi.fn(),
   loadProviderAuthErrors: vi.fn().mockResolvedValue([]),
   testProviderModel: vi.fn(),
+  // #5146 §2.4: AIPanel no longer renders the raw provider string — it maps
+  // the failure onto actionable copy first. Mirror that shape here so the
+  // banner asserted below is what a user actually sees; the mapping itself is
+  // covered in aiSettingsApi.test.ts.
+  describeProviderVerificationFailure: (slug: string, _raw: string) =>
+    `The key was saved, but '${slug}' rejected it. Check that you pasted the whole key.`,
   modelRegistryVision: vi.fn(() => false),
   upsertModelRegistryVision: vi.fn((registry: unknown[]) => registry),
   setCloudProviderKey: vi.fn().mockResolvedValue(undefined),
@@ -344,6 +350,492 @@ describe('AIPanel', () => {
   });
 
   // ─── per-model vision flag (BYOK) ───────────────────────────────────────────
+
+  // ─── Azure deployment names (#5213) ─────────────────────────────────────────
+
+  // Regression: Azure's `/models` catalog lists *base model ids*, but Azure
+  // routes inference by the user's *deployment name*. Before the fix a
+  // non-empty catalog forced a closed <select>, so a deployment name that was
+  // not in the catalog could not be entered at all and every request came back
+  // "Model not found".
+  const azureSettings = {
+    ...baseSettings,
+    cloudProviders: [
+      ...baseSettings.cloudProviders,
+      {
+        id: 'p_azure_x',
+        slug: 'azure-foundry',
+        label: 'Azure Foundry',
+        endpoint: 'https://my-resource.openai.azure.com/openai/v1',
+        auth_style: 'bearer' as const,
+        has_api_key: true,
+      },
+    ],
+  };
+
+  it('lets an Azure provider take a deployment name that is absent from the model catalog', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue(azureSettings);
+    // A NON-empty catalog is the pre-fix blocker: it used to force a dropdown.
+    vi.mocked(listProviderModels).mockResolvedValue([
+      { id: 'gpt-5.6-terra-2026-07-09' },
+      { id: 'gpt-4o' },
+    ]);
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+
+    // The field is a free-text "Deployment name" box, not a catalog dropdown.
+    const deploymentInput = await screen.findByRole('textbox', { name: /Deployment name/i });
+    fireEvent.change(deploymentInput, { target: { value: 'gpt-5.6-terra' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+
+    await waitFor(() => expect(saveAISettings).toHaveBeenCalled());
+    // The deployment name reaches the persisted routing verbatim, and the base
+    // model id from the catalog is never substituted for it.
+    const [, nextSettings] = vi.mocked(saveAISettings).mock.calls.at(-1) ?? [];
+    expect(nextSettings?.routing.chat).toEqual({
+      kind: 'cloud',
+      providerSlug: 'azure-foundry',
+      model: 'gpt-5.6-terra',
+    });
+    expect(JSON.stringify(nextSettings)).not.toContain('gpt-5.6-terra-2026-07-09');
+  });
+
+  it('does not auto-select a catalog model id for an Azure provider', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue(azureSettings);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-5.6-terra-2026-07-09' }]);
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+
+    // Seeding the field with a base model id is what produced the bug, so the
+    // deployment field must come up empty and wait for the user.
+    const deploymentInput = await screen.findByRole('textbox', { name: /Deployment name/i });
+    await waitFor(() => expect(deploymentInput).toHaveValue(''));
+  });
+
+  it('keeps the model dropdown for a non-Azure provider, with a manual-entry escape hatch', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({
+      ...baseSettings,
+      cloudProviders: [
+        ...baseSettings.cloudProviders,
+        {
+          id: 'p_custom_openai',
+          slug: 'openai',
+          label: 'OpenAI',
+          endpoint: 'https://api.openai.com/v1',
+          auth_style: 'bearer' as const,
+          has_api_key: true,
+        },
+      ],
+    });
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+
+    // Existing behaviour is unchanged: a populated catalog still renders a
+    // dropdown and there is no Azure-specific labelling.
+    await waitFor(() => expect(screen.queryByText('Deployment name')).not.toBeInTheDocument());
+    const toggle = await screen.findByRole('button', { name: /Enter model ID manually/i });
+
+    // ...but the catalog is no longer a dead end for off-catalog model ids.
+    fireEvent.click(toggle);
+    const manualInput = await screen.findByRole('textbox', { name: /^Model$/i });
+    fireEvent.change(manualInput, { target: { value: 'my-private-model' } });
+    expect(manualInput).toHaveValue('my-private-model');
+  });
+
+  it('warns when a stored Azure value is verbatim a catalog base model id', async () => {
+    // The fingerprint of a PRE-FIX Azure selection: the dropdown was the only
+    // way to set the value, so catalog membership is exactly the signature of a
+    // connection configured the broken way. It stays a hint, never a rewrite —
+    // a user may legitimately name a deployment after its base model.
+    vi.mocked(loadAISettings).mockResolvedValue({
+      ...azureSettings,
+      routing: {
+        ...azureSettings.routing,
+        chat: {
+          kind: 'cloud' as const,
+          providerSlug: 'azure-foundry',
+          model: 'gpt-5.6-terra-2026-07-09',
+        },
+      },
+    });
+    vi.mocked(listProviderModels).mockResolvedValue([
+      { id: 'gpt-5.6-terra-2026-07-09' },
+      { id: 'gpt-4o' },
+    ]);
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+
+    expect(
+      await screen.findByText(/confirm this is the name you gave your deployment/i)
+    ).toBeInTheDocument();
+    // The always-on explainer sits alongside it for any Azure connection.
+    expect(screen.getByText(/This is not the model ID/i)).toBeInTheDocument();
+  });
+
+  it('does not warn when the Azure deployment name is absent from the catalog', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({
+      ...azureSettings,
+      routing: {
+        ...azureSettings.routing,
+        chat: { kind: 'cloud' as const, providerSlug: 'azure-foundry', model: 'my-deployment' },
+      },
+    });
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-5.6-terra-2026-07-09' }]);
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+
+    expect(await screen.findByText(/This is not the model ID/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/confirm this is the name you gave your deployment/i)
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it('can toggle an Azure connection back to the catalog and out again', async () => {
+    // The escape hatch has to work in BOTH directions: Azure opens on free
+    // text, but a user whose deployment IS named after a catalog entry should
+    // still be able to pick it, then return to typing.
+    vi.mocked(loadAISettings).mockResolvedValue(azureSettings);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
+
+    renderWithProviders(<AIPanel />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+
+    await screen.findByRole('textbox', { name: /Deployment name/i });
+    fireEvent.click(await screen.findByRole('button', { name: /Choose from list/i }));
+
+    // Back on the catalog dropdown, with the manual escape hatch offered again.
+    // The action is labelled for what the field actually holds on Azure — a
+    // deployment name, not a model ID.
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: /Deployment name/i })).not.toBeInTheDocument()
+    );
+    expect(
+      screen.queryByRole('button', { name: /Enter model ID manually/i })
+    ).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Enter deployment name manually/i }));
+    expect(await screen.findByRole('textbox', { name: /Deployment name/i })).toBeInTheDocument();
+  });
+
+  it('still lets a provider be added when the live /models probe fails', async () => {
+    // Regression: the `{base}/models` probe used to be a hard gate on creating
+    // a provider. A gateway that serves no OpenAI-shaped listing could never be
+    // connected at all, which put the model / deployment-name field permanently
+    // out of reach. The probe now informs, it does not block.
+    vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
+    vi.mocked(listProviderModels).mockRejectedValue(
+      new Error('provider returned 404: no /models endpoint')
+    );
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+
+    fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
+      target: { value: 'Azure Foundry' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://api.openai.com/v1'), {
+      target: { value: 'https://my-resource.openai.azure.com/openai/v1' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Add Provider$/i }));
+
+    // The failure is explained rather than swallowed, and nothing is persisted
+    // behind the user's back on the first attempt.
+    expect(await screen.findByText(/could not read this provider/i)).toBeInTheDocument();
+    expect(saveAISettings).not.toHaveBeenCalled();
+
+    // The escape hatch is what makes the connection reachable at all.
+    fireEvent.click(screen.getByRole('button', { name: /Add without verifying/i }));
+
+    await waitFor(() => expect(saveAISettings).toHaveBeenCalled());
+    const [, nextSettings] = vi.mocked(saveAISettings).mock.calls.at(-1) ?? [];
+    expect(nextSettings?.cloudProviders.map(p => p.slug)).toContain('azure-foundry');
+  });
+
+  it('withholds the verification bypass for a legacy Azure base URL', async () => {
+    // Skipping verification is a bet that the provider works anyway. On an
+    // Azure host that is not the `/openai/v1` base that bet is already lost:
+    // `{base}/chat/completions` is not a route Azure serves there and the
+    // stored bearer auth is the wrong header. Offering the bypass would just
+    // manufacture a dead provider, so the nudge has to be followed instead.
+    vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
+    vi.mocked(listProviderModels).mockRejectedValue(
+      new Error('provider returned 404: no /models endpoint')
+    );
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+
+    fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
+      target: { value: 'Azure Legacy' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://api.openai.com/v1'), {
+      target: { value: 'https://my-resource.openai.azure.com/openai' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Add Provider$/i }));
+
+    expect(await screen.findByText(/use the v1 base URL/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /Add without verifying/i })
+      ).not.toBeInTheDocument()
+    );
+    expect(saveAISettings).not.toHaveBeenCalled();
+  });
+
+  it('nudges an Azure endpoint that is not the v1 base towards /openai/v1', async () => {
+    // Only `/openai/v1` serves a `/models` listing and accepts the resource key
+    // as a bearer token. A user who pastes the portal's bare resource URL would
+    // otherwise fail the probe and then fail every inference call.
+    vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+
+    const urlField = screen.getByPlaceholderText('https://api.openai.com/v1');
+    fireEvent.change(urlField, {
+      target: { value: 'https://my-resource.openai.azure.com/openai' },
+    });
+    expect(await screen.findByText(/use the v1 base URL/i)).toBeInTheDocument();
+
+    // Correcting the base URL clears the warning.
+    fireEvent.change(urlField, {
+      target: { value: 'https://my-resource.openai.azure.com/openai/v1' },
+    });
+    await waitFor(() => expect(screen.queryByText(/use the v1 base URL/i)).not.toBeInTheDocument());
+    // The deployment-name pointer stays for any Azure endpoint.
+    expect(screen.getByText(/Set your deployment name in the model field/i)).toBeInTheDocument();
+  });
+
+  it('leaves a non-Azure endpoint free of Azure guidance', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+
+    fireEvent.change(screen.getByPlaceholderText('https://api.openai.com/v1'), {
+      target: { value: 'https://litellm.mycorp.dev/v1' },
+    });
+    expect(screen.queryByText(/use the v1 base URL/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Set your deployment name in the model field/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it('blocks a non-probe submit failure instead of offering to skip verification', async () => {
+    // The escape hatch is scoped to a rejected `/models` probe. A slug that
+    // collides with an existing provider is a different class of failure and
+    // must still block, or the dialog would offer to create a broken entry.
+    vi.mocked(loadAISettings).mockResolvedValue(azureSettings);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+
+    fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
+      target: { value: 'Azure Foundry' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://api.openai.com/v1'), {
+      target: { value: 'https://my-resource.openai.azure.com/openai/v1' },
+    });
+
+    // `azure-foundry` is already taken by the fixture, so the slug check trips.
+    expect(screen.getByRole('button', { name: /^Add Provider$/i })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: /Add without verifying/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not offer to skip verification when the key write is what failed', async () => {
+    // The slug case above never reaches `submitProvider`'s catch. This one
+    // does: the credential write rejects, so the failure travels the same path
+    // as a probe rejection but must not be mistaken for one — only a typed
+    // `ProviderProbeError` unlocks the bypass.
+    vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
+    vi.mocked(setCloudProviderKey).mockRejectedValueOnce(new Error('keyring is locked'));
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+
+    fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
+      target: { value: 'Azure Foundry' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://api.openai.com/v1'), {
+      target: { value: 'https://my-resource.openai.azure.com/openai/v1' },
+    });
+    fireEvent.change(screen.getByLabelText(/API Key/i), { target: { value: 'sk-test-key' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Add Provider$/i }));
+
+    expect(await screen.findByText(/keyring is locked/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Add without verifying/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/could not read this provider/i)).not.toBeInTheDocument();
+    expect(saveAISettings).not.toHaveBeenCalled();
+  });
+
+  it('clears the verification bypass once a later attempt fails for another reason', async () => {
+    // `probeFailed` used to persist for the dialog's lifetime, so a probe
+    // rejection left "Add without verifying" on screen even after the next
+    // attempt failed for an unrelated reason.
+    vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
+    vi.mocked(listProviderModels).mockRejectedValueOnce(new Error('provider returned 404'));
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+
+    fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
+      target: { value: 'Azure Foundry' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://api.openai.com/v1'), {
+      target: { value: 'https://my-resource.openai.azure.com/openai/v1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Add Provider$/i }));
+    expect(
+      await screen.findByRole('button', { name: /Add without verifying/i })
+    ).toBeInTheDocument();
+
+    // Second attempt: the probe would now succeed, but the key write rejects.
+    vi.mocked(setCloudProviderKey).mockRejectedValueOnce(new Error('keyring is locked'));
+    fireEvent.change(screen.getByLabelText(/API Key/i), { target: { value: 'sk-test-key' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Add Provider$/i }));
+
+    expect(await screen.findByText(/keyring is locked/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /Add without verifying/i })
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it('offers a deployment-name field in the per-workload custom routing dialog', async () => {
+    // The workload override dialog is a second, independent model picker. It
+    // needs the same Azure treatment, or per-workload routing stays stuck on
+    // catalog base model ids even after the main selector is fixed.
+    vi.mocked(loadAISettings).mockResolvedValue(azureSettings);
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-5.6-terra-2026-07-09' }]);
+
+    renderWithProviders(<AIPanel />);
+    // Per-workload rows live behind the advanced routing mode.
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const chooseButtons = await screen.findAllByRole('button', {
+      name: /Choose Model|Change Model/i,
+    });
+    fireEvent.click(chooseButtons[0]);
+
+    // Selecting the Azure provider flips the dialog to free text and relabels.
+    const providerSelect = await screen.findByDisplayValue(/Azure Foundry|OpenAI|Ollama/i);
+    fireEvent.change(providerSelect, { target: { value: 'cloud:azure-foundry' } });
+
+    const deploymentInput = await screen.findByRole('textbox', { name: /Deployment name/i });
+    fireEvent.change(deploymentInput, { target: { value: 'workload-deployment' } });
+    expect(deploymentInput).toHaveValue('workload-deployment');
+    expect(screen.getByText(/This is not the model ID/i)).toBeInTheDocument();
+
+    // A catalog base model id typed here is the pre-fix fingerprint, so the
+    // dialog raises the same confirmation hint the main selector does.
+    fireEvent.change(deploymentInput, { target: { value: 'gpt-5.6-terra-2026-07-09' } });
+    expect(
+      await screen.findByText(/confirm this is the name you gave your deployment/i)
+    ).toBeInTheDocument();
+
+    // Complete the flow: a working text field proves nothing if the
+    // dialog-to-routing handoff drops the value. Put the deployment name back
+    // and assert it reaches the persisted per-workload routing verbatim.
+    fireEvent.change(deploymentInput, { target: { value: 'workload-deployment' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Apply$|^Save$|^Confirm$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+
+    await waitFor(() => expect(saveAISettings).toHaveBeenCalled());
+    const [, nextSettings] = vi.mocked(saveAISettings).mock.calls.at(-1) ?? [];
+    const workloadRefs = Object.values(nextSettings?.routing ?? {});
+    expect(workloadRefs).toContainEqual(
+      expect.objectContaining({
+        kind: 'cloud',
+        providerSlug: 'azure-foundry',
+        model: 'workload-deployment',
+      })
+    );
+  });
+
+  it('keeps the catalog dropdown and its manual escape hatch for a non-Azure provider in the dialog', async () => {
+    // The dialog's non-Azure path must be untouched by #5213: a populated
+    // catalog still renders a dropdown, and the escape hatch still reaches an
+    // off-catalog model id — labelled "Model", not "Deployment name".
+    vi.mocked(loadAISettings).mockResolvedValue({
+      ...azureSettings,
+      cloudProviders: [
+        ...azureSettings.cloudProviders,
+        {
+          id: 'p_custom_openai',
+          slug: 'openai',
+          label: 'OpenAI',
+          endpoint: 'https://api.openai.com/v1',
+          auth_style: 'bearer' as const,
+          has_api_key: true,
+        },
+      ],
+    });
+    vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    const chooseButtons = await screen.findAllByRole('button', {
+      name: /Choose Model|Change Model/i,
+    });
+    fireEvent.click(chooseButtons[0]);
+
+    const providerSelect = await screen.findByDisplayValue(
+      /Azure Foundry|OpenAI|OpenHuman|Ollama/i
+    );
+    fireEvent.change(providerSelect, { target: { value: 'cloud:openai' } });
+
+    // Catalog dropdown, no Azure labelling.
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: /Deployment name/i })).not.toBeInTheDocument()
+    );
+    expect(screen.queryByText(/This is not the model ID/i)).not.toBeInTheDocument();
+
+    // The escape hatch still works for an off-catalog id.
+    fireEvent.click(await screen.findByRole('button', { name: /Enter model ID manually/i }));
+    const manualInput = await screen.findByRole('textbox', { name: /^Model$/i });
+    fireEvent.change(manualInput, { target: { value: 'my-private-model' } });
+    expect(manualInput).toHaveValue('my-private-model');
+    // ...and back to the catalog.
+    fireEvent.click(await screen.findByRole('button', { name: /Choose from list/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: /^Model$/i })).not.toBeInTheDocument()
+    );
+  });
 
   it('flags a custom BYOK model as vision-capable via the Own-model selector', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({
@@ -1440,7 +1932,12 @@ describe('AIPanel', () => {
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('401 invalid api key');
+    // The banner carries the actionable message keyed to the provider slug,
+    // not the raw upstream string (which can echo request material).
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('rejected it');
+    expect(alert).toHaveTextContent('openai');
+    expect(alert).not.toHaveTextContent('401 invalid api key');
   });
 
   it('renders background loop diagnostics with newest spend row and budget math', async () => {

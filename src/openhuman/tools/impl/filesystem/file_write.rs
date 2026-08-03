@@ -1,4 +1,4 @@
-use crate::openhuman::file_state;
+use crate::openhuman::agent::file_state;
 use crate::openhuman::security::{CommandClass, GateDecision, SecurityPolicy};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
@@ -449,7 +449,7 @@ mod tests {
         // harness recognizes it and halts on a verbatim repeat instead of
         // grinding. Ties this tool's literal to the marker const — the
         // const→detector half lives in `RepeatedToolFailureMiddleware` and is
-        // covered by its tests (`src/openhuman/tinyagents/middleware.rs`).
+        // covered by its tests (`src/openhuman/agent/tinyagents/middleware.rs`).
         assert!(
             result
                 .output()

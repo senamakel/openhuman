@@ -14,19 +14,19 @@ use serde_json::{json, Value};
 use tempfile::TempDir;
 
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::openhuman::memory::global as memory_global;
-use openhuman_core::openhuman::memory_sync::composio::providers::gmail::GmailProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::notion::NotionProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::profile::{
+use openhuman_core::openhuman::memory::sync::composio::providers::gmail::GmailProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::notion::NotionProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::profile::{
     delete_connected_identity_facets, is_self_identity, is_self_identity_any_toolkit,
     load_connected_identities, persist_provider_profile, render_connected_identities_section,
     IdentityKind,
 };
-use openhuman_core::openhuman::memory_sync::composio::providers::slack::SlackProvider;
-use openhuman_core::openhuman::memory_sync::composio::providers::{
+use openhuman_core::openhuman::memory::sync::composio::providers::slack::SlackProvider;
+use openhuman_core::openhuman::memory::sync::composio::providers::{
     ComposioProvider, ProviderContext, ProviderUserProfile, SyncReason,
 };
 

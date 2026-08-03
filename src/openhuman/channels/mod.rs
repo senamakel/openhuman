@@ -11,9 +11,10 @@
 //!   interactive loop drives in every build.
 //!
 //! Everything else (`providers`, `host`, `controllers`, `runtime`, `bus`,
-//! `proactive`, `commands`, `context`, `routes`, `relay_runtime`, the provider
-//! re-exports, `doctor_channels`, `start_channels`, the `build_system_prompt`
-//! re-export and the `test_support` re-export) is `#[cfg(feature = "channels")]`.
+//! `proactive`, `commands`, `context`, `routes`, `relay_runtime`,
+//! `webview_accounts`, `whatsapp_data`, the provider re-exports,
+//! `doctor_channels`, `start_channels`, the `build_system_prompt` re-export and
+//! the `test_support` re-export) is `#[cfg(feature = "channels")]`.
 //! Nothing INSIDE those submodules changes when the gate flips.
 //!
 //! The gate sheds ZERO dependencies — `tinychannels` stays load-bearing for the
@@ -40,6 +41,14 @@ pub mod proactive;
 pub mod providers;
 #[cfg(feature = "channels")]
 pub(crate) mod relay_runtime;
+/// Webview-account bridge for the embedded provider webviews (formerly
+/// `openhuman::webview_accounts`).
+#[cfg(feature = "channels")]
+pub mod webview_accounts;
+/// Read-only WhatsApp chat/message store fed by the desktop scanner (formerly
+/// `openhuman::whatsapp_data`).
+#[cfg(feature = "channels")]
+pub mod whatsapp_data;
 
 #[cfg(feature = "channels")]
 mod commands;
@@ -124,10 +133,10 @@ pub use commands::doctor_channels;
 #[cfg(feature = "channels")]
 pub use controllers::{ChannelAuthMode, ChannelDefinition};
 // Channel system-prompt assembly lives in
-// `crate::openhuman::context::channels_prompt` alongside the rest of
+// `crate::openhuman::agent::context::channels_prompt` alongside the rest of
 // the prompt-building code. Re-exported here for callers that used the
 // old `channels::build_system_prompt` path.
 #[cfg(feature = "channels")]
-pub use crate::openhuman::context::channels_prompt::build_system_prompt;
+pub use crate::openhuman::agent::context::channels_prompt::build_system_prompt;
 #[cfg(feature = "channels")]
 pub use runtime::start_channels;

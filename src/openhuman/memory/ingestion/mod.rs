@@ -23,8 +23,8 @@ pub use tinycortex::memory::ingest::{
 
 use serde_json::json;
 
-use crate::openhuman::memory_store::types::NamespaceDocumentInput;
-use crate::openhuman::memory_store::UnifiedMemory;
+use crate::openhuman::memory::store::types::NamespaceDocumentInput;
+use crate::openhuman::memory::store::UnifiedMemory;
 
 impl UnifiedMemory {
     /// Run the full ingestion pipeline for a document: parse + chunk + extract

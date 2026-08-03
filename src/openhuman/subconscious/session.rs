@@ -26,7 +26,7 @@ use tracing::{debug, info, warn};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::schema::SubconsciousMode;
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_conversations::ConversationMessage;
+use crate::openhuman::memory::conversations::ConversationMessage;
 use crate::openhuman::security::AutonomyLevel;
 
 use super::profiles::memory::tick_origin_source;
@@ -196,7 +196,7 @@ impl LongLivedSession {
         agent.set_event_context(self.thread_id.clone(), "subconscious");
 
         // Cold-boot resume: prime history from the reserved thread.
-        match crate::openhuman::memory_conversations::get_messages(
+        match crate::openhuman::memory::conversations::get_messages(
             self.workspace_dir.clone(),
             &self.thread_id,
         ) {
@@ -246,7 +246,7 @@ impl LongLivedSession {
             "Subconscious Orchestrator",
         );
         let message = new_message(sender, content, tainted);
-        if let Err(err) = crate::openhuman::memory_conversations::append_message(
+        if let Err(err) = crate::openhuman::memory::conversations::append_message(
             self.workspace_dir.clone(),
             &self.thread_id,
             message,
@@ -287,7 +287,7 @@ pub(crate) fn ensure_reserved_thread(
     thread_id: &str,
     title: &str,
 ) {
-    use crate::openhuman::memory_conversations::CreateConversationThread;
+    use crate::openhuman::memory::conversations::CreateConversationThread;
     let req = CreateConversationThread {
         id: thread_id.to_string(),
         title: title.to_string(),
@@ -297,7 +297,7 @@ pub(crate) fn ensure_reserved_thread(
         personality_id: None,
     };
     if let Err(err) =
-        crate::openhuman::memory_conversations::ensure_thread(workspace_dir.to_path_buf(), req)
+        crate::openhuman::memory::conversations::ensure_thread(workspace_dir.to_path_buf(), req)
     {
         warn!(
             "[subconscious::session] ensure reserved thread failed thread={} err={}",

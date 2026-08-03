@@ -26,17 +26,19 @@
 use async_trait::async_trait;
 use serde_json::Value;
 use std::path::PathBuf;
+use std::time::Duration;
 
+use tinyagents::harness::message::Message;
 use tinyagents::harness::model::{
-    ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream,
+    ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream, ProviderError,
 };
 use tinyagents::harness::providers::openai::OpenAiModel;
 use tinyagents::{Result as TaResult, TinyAgentsError};
 
 use super::ProviderRuntimeOptions;
 use crate::api::config::effective_api_url;
-use crate::openhuman::credentials::{AuthService, APP_SESSION_PROVIDER};
-use crate::openhuman::tinyagents::thread_context;
+use crate::openhuman::agent::tinyagents::thread_context;
+use crate::openhuman::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
 pub const PROVIDER_LABEL: &str = "OpenHuman";
 
@@ -104,7 +106,7 @@ impl OpenHumanBackendModel {
     }
 
     fn resolve_bearer(&self) -> anyhow::Result<String> {
-        if crate::openhuman::scheduler_gate::is_signed_out() {
+        if crate::openhuman::cron::scheduler_gate::is_signed_out() {
             anyhow::bail!(
                 "SESSION_EXPIRED: backend session not active — sign in to resume LLM work"
             );
@@ -144,6 +146,137 @@ impl OpenHumanBackendModel {
                 .with_native_tool_calling(self.native_tool_calling),
         )
     }
+
+    /// Probe whether the managed backend account actually has a working
+    /// inference provider configured, cheaply and without inflating usage
+    /// (issue B45 — flows provider-connectivity author gate).
+    ///
+    /// [`build_wire_model`](Self::build_wire_model) only resolves the session
+    /// JWT and builds the request client — it says nothing about whether the
+    /// account has a provider API key configured server-side. That only
+    /// surfaces on a real completion attempt, as an HTTP 400
+    /// `{"success":false,"error":"API key not configured for provider","errorCode":"BAD_REQUEST"}`.
+    /// Previously the first time a flows author found this out was mid-run,
+    /// deep inside a tinyflows `agent` node. This probe moves that discovery
+    /// to author time by issuing one minimal completion (`"ping"`,
+    /// `max_tokens: 1`) and classifying the result.
+    ///
+    /// Fails OPEN on everything except a definitive client-configuration
+    /// error: a 5-second timeout, a transport failure, a 5xx, or any other
+    /// non-matching provider error all return `Ok(())` so a flaky backend or
+    /// slow network never blocks authoring. Only a backend-confirmed "no
+    /// provider configured for this account" response returns `Err` —
+    /// carrying the backend's own error string so the author sees exactly
+    /// what run time would have shown them.
+    pub async fn probe_readiness(&self) -> Result<(), String> {
+        log::debug!(
+            "[flows][inference-probe] entering probe_readiness model={}",
+            self.default_model
+        );
+
+        let model = match self.build_wire_model() {
+            Ok(model) => model,
+            Err(e) => {
+                // The flows readiness gate's Layer 1 (sign-in / session
+                // checks) is responsible for catching a genuinely
+                // absent/expired session before this ever runs — a
+                // construction failure reaching here is a race, not a
+                // provider-configuration problem, so fail open rather than
+                // duplicate or contradict that gate's message.
+                log::debug!(
+                    "[flows][inference-probe] wire model construction failed, failing open: {e}"
+                );
+                return Ok(());
+            }
+        };
+
+        let request = ModelRequest::new(vec![Message::user("ping")]).with_max_tokens(1);
+
+        let outcome =
+            match tokio::time::timeout(Duration::from_secs(5), model.invoke(&(), request)).await {
+                Ok(result) => result,
+                Err(_) => {
+                    log::debug!(
+                        "[flows][inference-probe] model={} timed out after 5s, failing open",
+                        self.default_model
+                    );
+                    return Ok(());
+                }
+            };
+
+        match outcome {
+            Ok(_) => {
+                log::debug!(
+                    "[flows][inference-probe] model={} probe completion succeeded — provider ready",
+                    self.default_model
+                );
+                Ok(())
+            }
+            Err(TinyAgentsError::Provider(err)) => {
+                if is_provider_not_configured_error(&err) {
+                    log::warn!(
+                        "[flows][inference-probe] model={} backend reports no provider configured: {}",
+                        self.default_model,
+                        err.message
+                    );
+                    Err(err.message.clone())
+                } else if err.status.is_some_and(|status| status >= 500) {
+                    log::debug!(
+                        "[flows][inference-probe] model={} backend {:?}, failing open: {}",
+                        self.default_model,
+                        err.status,
+                        err.message
+                    );
+                    Ok(())
+                } else {
+                    // Any other structured provider failure (401, 429, a
+                    // malformed request, …) is not the definitive "provider
+                    // not configured" signal this probe exists to catch —
+                    // fail open rather than risk a false-positive
+                    // author-time block.
+                    log::debug!(
+                        "[flows][inference-probe] model={} non-definitive provider error {:?}, \
+                         failing open: {}",
+                        self.default_model,
+                        err.status,
+                        err.message
+                    );
+                    Ok(())
+                }
+            }
+            Err(e) => {
+                log::debug!(
+                    "[flows][inference-probe] model={} transport/model error, failing open: {e}",
+                    self.default_model
+                );
+                Ok(())
+            }
+        }
+    }
+}
+
+/// Whether `err` is the definitive "no inference provider configured for this
+/// account" signal the managed backend returns as an HTTP 400 with body
+/// `{"success":false,"error":"API key not configured for provider","errorCode":"BAD_REQUEST"}`.
+///
+/// Deliberately narrow: matches ONLY a 400 whose message contains the specific
+/// `"api key not configured for provider"` phrasing, or (as a `BAD_REQUEST`-
+/// coded tolerance for message wording drift) the narrower `"not configured
+/// for provider"` substring — never a bare `"not configured"`, which an
+/// unrelated 400 (a malformed request naming some other unconfigured field,
+/// a validation error, …) could also contain. Every other 4xx/5xx/transport
+/// failure fails open (see [`OpenHumanBackendModel::probe_readiness`]'s doc).
+fn is_provider_not_configured_error(err: &ProviderError) -> bool {
+    if err.status != Some(400) {
+        return false;
+    }
+    let message = err.message.to_ascii_lowercase();
+    let code_is_bad_request = err
+        .code
+        .as_deref()
+        .is_some_and(|c| c.eq_ignore_ascii_case("BAD_REQUEST"));
+    message.contains("api key not configured for provider")
+        || (code_is_bad_request && message.contains("not configured for provider"))
 }
 
 fn resolve_model(model: &str) -> String {
@@ -222,7 +355,7 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
         }
     }
 
-    response.raw = crate::openhuman::tinyagents::model::merge_openhuman_usage_meta(
+    response.raw = crate::openhuman::agent::tinyagents::model::merge_openhuman_usage_meta(
         response.raw,
         charged_amount_usd,
         context_window,
@@ -370,7 +503,7 @@ mod tests {
     /// tokens, and context window — exactly as the legacy legacy model-adapter path did.
     #[test]
     fn project_managed_usage_recovers_charged_and_cached() {
-        use crate::openhuman::tinyagents::model::usage_info_from_response;
+        use crate::openhuman::agent::tinyagents::model::usage_info_from_response;
         use tinyagents::harness::message::AssistantMessage;
         use tinyagents::harness::usage::Usage;
 
@@ -415,7 +548,7 @@ mod tests {
     /// charged USD — so non-managed/billing-free responses aren't fabricated.
     #[test]
     fn project_managed_usage_is_noop_without_envelope() {
-        use crate::openhuman::tinyagents::model::usage_info_from_response;
+        use crate::openhuman::agent::tinyagents::model::usage_info_from_response;
         use tinyagents::harness::message::AssistantMessage;
         use tinyagents::harness::usage::Usage;
 
@@ -449,5 +582,236 @@ mod tests {
         let usage = usage_info_from_response(&projected).expect("usage present");
         assert_eq!(usage.charged_amount_usd, 0.0);
         assert_eq!(usage.cached_input_tokens, 3, "crate cached count preserved");
+    }
+
+    // ── probe_readiness (B45 — flows provider-connectivity author gate) ────
+
+    #[test]
+    fn is_provider_not_configured_error_matches_exact_backend_shape() {
+        let err = ProviderError {
+            provider: "OpenHuman".to_string(),
+            model: None,
+            status: Some(400),
+            code: Some("BAD_REQUEST".to_string()),
+            message: "API key not configured for provider".to_string(),
+            retryable: false,
+            raw: None,
+        };
+        assert!(is_provider_not_configured_error(&err));
+    }
+
+    #[test]
+    fn is_provider_not_configured_error_rejects_other_400s() {
+        // A 400 that isn't the "no provider configured" class (e.g. a bad
+        // request shape) must NOT be classified as provider-not-configured —
+        // only the exact backend-confirmed signal should ever reject.
+        let err = ProviderError {
+            provider: "OpenHuman".to_string(),
+            model: None,
+            status: Some(400),
+            code: Some("BAD_REQUEST".to_string()),
+            message: "invalid request: messages must not be empty".to_string(),
+            retryable: false,
+            raw: None,
+        };
+        assert!(!is_provider_not_configured_error(&err));
+    }
+
+    #[test]
+    fn is_provider_not_configured_error_tolerates_not_configured_for_provider_wording_drift() {
+        // The `code_is_bad_request` branch still matches the narrower
+        // "not configured for provider" substring even when it isn't
+        // introduced by the exact "api key" prefix — tolerance for backend
+        // message wording drift, not a broadening to any "not configured".
+        let err = ProviderError {
+            provider: "OpenHuman".to_string(),
+            model: None,
+            status: Some(400),
+            code: Some("BAD_REQUEST".to_string()),
+            message: "credentials not configured for provider 'anthropic'".to_string(),
+            retryable: false,
+            raw: None,
+        };
+        assert!(is_provider_not_configured_error(&err));
+    }
+
+    #[test]
+    fn is_provider_not_configured_error_rejects_generic_not_configured_400() {
+        // Tightened contract (finding D): a 400 `BAD_REQUEST` whose message
+        // contains only the generic word "not configured" — but not the
+        // specific "not configured for provider" phrasing — must fail OPEN,
+        // not be misclassified as the provider-key signal. Otherwise an
+        // unrelated backend validation error ("model X not configured", "this
+        // feature is not configured for your account", …) would falsely
+        // reject a run/proposal as a provider problem.
+        let err = ProviderError {
+            provider: "OpenHuman".to_string(),
+            model: None,
+            status: Some(400),
+            code: Some("BAD_REQUEST".to_string()),
+            message: "webhook target not configured".to_string(),
+            retryable: false,
+            raw: None,
+        };
+        assert!(!is_provider_not_configured_error(&err));
+    }
+
+    #[test]
+    fn is_provider_not_configured_error_rejects_non_400_status() {
+        let err = ProviderError {
+            provider: "OpenHuman".to_string(),
+            model: None,
+            status: Some(401),
+            code: None,
+            message: "API key not configured for provider".to_string(),
+            retryable: false,
+            raw: None,
+        };
+        assert!(!is_provider_not_configured_error(&err));
+    }
+
+    fn seed_app_session(dir: &std::path::Path) {
+        use crate::openhuman::security::credentials::{
+            AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+        };
+        AuthService::new(dir, false)
+            .store_provider_token(
+                APP_SESSION_PROVIDER,
+                DEFAULT_AUTH_PROFILE_NAME,
+                "test.session.jwt",
+                std::collections::HashMap::new(),
+                true,
+            )
+            .expect("seed app-session token");
+    }
+
+    fn backend_pointed_at(addr: &str, dir: &std::path::Path) -> OpenHumanBackendModel {
+        OpenHumanBackendModel::new(
+            Some(&format!("http://{addr}")),
+            &ProviderRuntimeOptions {
+                openhuman_dir: Some(dir.to_path_buf()),
+                secrets_encrypt: false,
+                ..ProviderRuntimeOptions::default()
+            },
+            "reasoning-v1",
+        )
+    }
+
+    #[derive(Clone)]
+    struct StaticChatResponse {
+        status: axum::http::StatusCode,
+        body: Value,
+    }
+
+    async fn static_chat_handler(
+        axum::extract::State(s): axum::extract::State<StaticChatResponse>,
+    ) -> axum::response::Response {
+        use axum::response::IntoResponse;
+        (s.status, axum::Json(s.body)).into_response()
+    }
+
+    async fn spawn_static_chat_server(status: axum::http::StatusCode, body: Value) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let addr = listener.local_addr().expect("local_addr");
+        let app = axum::Router::new()
+            .route(
+                "/openai/v1/chat/completions",
+                axum::routing::post(static_chat_handler),
+            )
+            .with_state(StaticChatResponse { status, body });
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("serve");
+        });
+        addr.to_string()
+    }
+
+    async fn slow_chat_handler() -> axum::response::Response {
+        use axum::response::IntoResponse;
+        // Longer than the probe's 5s timeout — the probe must return before
+        // this ever resolves.
+        tokio::time::sleep(Duration::from_secs(8)).await;
+        (
+            axum::http::StatusCode::OK,
+            axum::Json(serde_json::json!({
+                "choices": [{ "message": { "role": "assistant", "content": "pong" } }]
+            })),
+        )
+            .into_response()
+    }
+
+    async fn spawn_slow_chat_server() -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let addr = listener.local_addr().expect("local_addr");
+        let app = axum::Router::new().route(
+            "/openai/v1/chat/completions",
+            axum::routing::post(slow_chat_handler),
+        );
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("serve");
+        });
+        addr.to_string()
+    }
+
+    #[tokio::test]
+    async fn probe_readiness_surfaces_api_key_not_configured() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        seed_app_session(tmp.path());
+        let addr = spawn_static_chat_server(
+            axum::http::StatusCode::BAD_REQUEST,
+            serde_json::json!({
+                "success": false,
+                "error": "API key not configured for provider",
+                "errorCode": "BAD_REQUEST"
+            }),
+        )
+        .await;
+        let backend = backend_pointed_at(&addr, tmp.path());
+
+        let err = backend
+            .probe_readiness()
+            .await
+            .expect_err("a confirmed provider-not-configured 400 must reject");
+        assert!(
+            err.to_ascii_lowercase()
+                .contains("api key not configured for provider"),
+            "error must surface the backend's own message: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn probe_readiness_fails_open_on_timeout_or_5xx() {
+        // 5xx sub-case: a transient backend failure must never block authoring.
+        let tmp = tempfile::TempDir::new().unwrap();
+        seed_app_session(tmp.path());
+        let addr = spawn_static_chat_server(
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            serde_json::json!({ "error": "temporarily unavailable" }),
+        )
+        .await;
+        let backend = backend_pointed_at(&addr, tmp.path());
+        backend
+            .probe_readiness()
+            .await
+            .expect("a transient 5xx must fail open (Ok)");
+
+        // Timeout sub-case: a hung backend must fail open once the 5s probe
+        // timeout fires, without waiting for the slow handler to respond.
+        let tmp2 = tempfile::TempDir::new().unwrap();
+        seed_app_session(tmp2.path());
+        let addr2 = spawn_slow_chat_server().await;
+        let backend2 = backend_pointed_at(&addr2, tmp2.path());
+        let started = std::time::Instant::now();
+        backend2
+            .probe_readiness()
+            .await
+            .expect("a hung backend must fail open (Ok) once the 5s timeout fires");
+        assert!(
+            started.elapsed() < Duration::from_secs(7),
+            "probe must return around the 5s timeout, not wait for the slow handler"
+        );
     }
 }

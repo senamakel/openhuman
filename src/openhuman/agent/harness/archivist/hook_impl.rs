@@ -3,7 +3,7 @@
 use super::helpers::extract_lesson_from_tools;
 use super::types::ArchivistHook;
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
-use crate::openhuman::memory_store::fts5::{self, EpisodicEntry};
+use crate::openhuman::memory::store::fts5::{self, EpisodicEntry};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -87,8 +87,10 @@ impl PostTurnHook for ArchivistHook {
         // segment ops can store it alongside the FTS5 episodic id.
         let mut current_seq: Option<u32> = None;
         if let Some(cfg) = self.config.as_ref() {
-            let engine_config =
-                crate::openhuman::tinycortex::memory_config_from(cfg, cfg.workspace_dir.clone());
+            let engine_config = crate::openhuman::memory::tinycortex::memory_config_from(
+                cfg,
+                cfg.workspace_dir.clone(),
+            );
             let ts_ms = (timestamp * 1000.0) as i64;
             let user_turn = tinycortex::memory::archivist::types::ArchivedTurn {
                 session_id: session_id.to_string(),

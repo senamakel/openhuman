@@ -4,8 +4,8 @@
 //! bus — they are fire-and-forget hooks for future ingestion subscribers.
 
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::memory::sync::{emit_sync_stage, MemorySyncStage, MemorySyncTrigger};
-use crate::openhuman::memory_sync::composio;
+use crate::openhuman::memory::sync::composio;
+use crate::openhuman::memory::sync_events::{emit_sync_stage, MemorySyncStage, MemorySyncTrigger};
 use crate::rpc::RpcOutcome;
 
 /// Parameters for `memory_sync_channel`.
@@ -165,7 +165,7 @@ async fn spawn_manual_sync(requested_connection: Option<String>) -> Result<(), S
                 None, // provider-level composio sync — not a memory-source row
             );
 
-            match crate::openhuman::tinycortex::run_composio_connection(
+            match crate::openhuman::memory::tinycortex::run_composio_connection(
                 &target.toolkit,
                 &target.connection_id,
                 &config,
@@ -249,7 +249,7 @@ mod tests {
         LOCK.get_or_init(|| std::sync::Mutex::new(()))
     }
 
-    fn ensure_memory_client() -> crate::openhuman::memory_store::MemoryClientRef {
+    fn ensure_memory_client() -> crate::openhuman::memory::store::MemoryClientRef {
         crate::openhuman::memory::ops::ensure_shared_memory_client();
         crate::openhuman::memory::global::client().expect("memory client")
     }

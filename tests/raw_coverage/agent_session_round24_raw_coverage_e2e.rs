@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use openhuman_core::openhuman::agent::dispatcher::XmlToolDispatcher;
 use openhuman_core::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
+use openhuman_core::openhuman::memory::agent::memory_loader::MemoryLoader;
 use openhuman_core::openhuman::config::{AgentConfig, ContextConfig};
-use openhuman_core::openhuman::context::prompt::{
+use openhuman_core::openhuman::agent::context::prompt::{
     ConnectedIntegration, LearnedContextData, PersonalityRosterEntry, PersonalityRosterSection,
     PromptContext, PromptSection, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
     ToolCallFormat, UserIdentity, UserIdentitySection,
@@ -621,7 +621,7 @@ fn prompt_sections_cover_dynamic_roster_identity_and_subagent_edges() {
     let parent_tools: Vec<Box<dyn Tool>> = vec![Box::new(Round24Tool {
         calls: Arc::new(AtomicUsize::new(0)),
     })];
-    let subagent_json = openhuman_core::openhuman::context::prompt::render_subagent_system_prompt(
+    let subagent_json = openhuman_core::openhuman::agent::context::prompt::render_subagent_system_prompt(
         &workspace_path,
         "round24-model",
         &[999, 0],

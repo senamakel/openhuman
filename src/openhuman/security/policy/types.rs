@@ -12,7 +12,7 @@ use tokio::sync::OnceCell;
 /// current tier (read-only blocking a write, a forbidden/credential path, a
 /// disallowed high-risk or hidden-execution command, an off-allowlist command).
 /// The agent harness's repeated-failure middleware
-/// ([`crate::openhuman::tinyagents::middleware::RepeatedToolFailureMiddleware`])
+/// ([`crate::openhuman::agent::tinyagents::middleware::RepeatedToolFailureMiddleware`])
 /// detects this and halts on the **first verbatim repeat** rather than
 /// reiterating a provably-futile call. Kept short and bracketed so it survives the
 /// `Error: …` wrapping the tool layer adds and is easy to grep in logs.

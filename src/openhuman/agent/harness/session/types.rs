@@ -6,19 +6,19 @@
 //! `impl Agent`/`impl AgentBuilder` can see them without the whole
 //! crate gaining field access.
 
+use crate::openhuman::agent::context::prompt::SystemPromptBuilder;
+use crate::openhuman::agent::context::ContextManager;
 use crate::openhuman::agent::dispatcher::ToolDispatcher;
 use crate::openhuman::agent::harness::archivist::ArchivistHook;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::hooks::PostTurnHook;
 use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::agent::tool_policy::ToolPolicy;
-use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
-use crate::openhuman::agent_tool_policy::ToolPolicySession;
-use crate::openhuman::context::prompt::SystemPromptBuilder;
-use crate::openhuman::context::ContextManager;
+use crate::openhuman::memory::agent::memory_loader::MemoryLoader;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::tinyagents::TurnModelSource;
+use crate::openhuman::tools::agent_policy::ToolPolicySession;
 use crate::openhuman::tools::{Tool, ToolSpec};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -89,7 +89,7 @@ pub struct Agent {
     /// Citation metadata collected from memory recall for the most recent turn.
     /// Consumed by web-channel delivery to render source chips in the UI.
     pub(super) last_turn_citations:
-        Vec<crate::openhuman::agent_memory::memory_loader::MemoryCitation>,
+        Vec<crate::openhuman::memory::agent::memory_loader::MemoryCitation>,
     /// Holistic token/cost/context accounting for the most recent turn (parent +
     /// any sub-agents spawned during it). Consumed by web-channel delivery to
     /// surface session token/cost/context meters in the UI footer. `None` until
@@ -199,7 +199,7 @@ pub struct Agent {
     /// summarizer that runs when the pipeline asks for autocompaction.
     /// Constructed once at session start so its budget counters and
     /// session-memory deltas persist across turns. See
-    /// [`crate::openhuman::context`] for the full surface.
+    /// [`crate::openhuman::agent::context`] for the full surface.
     pub(super) context: ContextManager,
     /// Optional progress event sender for real-time turn progress.
     /// When set, the turn loop emits [`AgentProgress`] events through
@@ -213,7 +213,8 @@ pub struct Agent {
     /// agent build time and threaded into each agent's `prompt.rs` so
     /// the delegator / skill-executor voices can render their own
     /// integration blocks.
-    pub(super) connected_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration>,
+    pub(super) connected_integrations:
+        Vec<crate::openhuman::agent::context::prompt::ConnectedIntegration>,
     /// Whether `connected_integrations` is an authoritative session-start
     /// snapshot (prewarmed from the shared Composio cache or fetched
     /// explicitly) versus the default empty placeholder installed by
@@ -242,21 +243,22 @@ pub struct Agent {
     /// when oversized tool results need summarizer-subagent compression before
     /// they enter agent history.
     pub(super) payload_summarizer:
-        Option<Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>>,
+        Option<Arc<dyn crate::openhuman::agent::tinyagents::payload_summarizer::PayloadSummarizer>>,
     /// Mirrors the agent definition's `trigger_memory_agent` policy.
     /// `Always` runs the dedicated memory retrieval agent once before
     /// the user's prompt is sent to this agent.
     pub(super) trigger_memory_agent: TriggerMemoryAgent,
     /// Per-agent TokenJuice profile for tool results entering this session's
     /// model context.
-    pub(super) tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
+    pub(super) tokenjuice_compression:
+        crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression,
     /// Pre-execution policy hook for tool calls in this session. The
     /// default policy allows all calls so existing agents keep their
     /// behaviour unless a caller opts into stricter policy.
     pub(super) tool_policy: Arc<dyn ToolPolicy>,
     /// Hash of the Composio connection set this Agent last reconciled
     /// against. Compared at top-of-turn to a fresh hash computed from
-    /// [`crate::openhuman::composio::cached_active_integrations`]; on
+    /// [`crate::openhuman::integrations::composio::cached_active_integrations`]; on
     /// diff, [`Agent::refresh_delegation_tools`] re-synthesises the
     /// `delegate_<toolkit>` surface to match the live connected set.
     ///
@@ -436,11 +438,12 @@ pub struct AgentBuilder {
     /// [`super::builder::Agent::build_session_agent_inner`] sets this
     /// to a `SubagentPayloadSummarizer` instance.
     pub(super) payload_summarizer:
-        Option<Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>>,
+        Option<Arc<dyn crate::openhuman::agent::tinyagents::payload_summarizer::PayloadSummarizer>>,
     /// Forwarded to [`Agent::trigger_memory_agent`] at build time.
     pub(super) trigger_memory_agent: Option<TriggerMemoryAgent>,
     /// Per-agent TokenJuice tool-output compression profile.
-    pub(super) tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
+    pub(super) tokenjuice_compression:
+        crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression,
     /// Optional pre-execution tool policy. Defaults to allow-all.
     pub(super) tool_policy: Option<Arc<dyn ToolPolicy>>,
     /// Optional reference to the production `ArchivistHook`. Set when

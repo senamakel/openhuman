@@ -4,10 +4,7 @@ use super::{
 };
 use crate::core::types::HostKind;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
-use std::sync::{Mutex, OnceLock};
 use tempfile::tempdir;
-
-static CLI_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 #[test]
 fn bare_cli_auto_launches_tui_only_for_interactive_non_container_hosts() {
@@ -79,11 +76,11 @@ fn no_tui_is_stripped_before_normal_cli_dispatch() {
     assert_eq!(strip_no_tui(&ordinary), ordinary.as_slice());
 }
 
+/// Serialises env-mutating CLI tests via the crate-wide backend env lock —
+/// these tests set `BACKEND_URL`, which `api::config` and `medulla::ops`
+/// tests also read/remove, so a module-local lock is not enough.
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    CLI_ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    crate::api::config::backend_env_test_lock()
 }
 
 #[test]
@@ -225,7 +222,7 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
 /// through to generic namespace resolution and die with `unknown namespace:
 /// mcp`, which reads like the user typo'd a command rather than like a
 /// property of this build. Instead `cli.rs` is untouched and the arm resolves
-/// to `mcp_server::stub::run_stdio_from_cli`, which bails with the message
+/// to `mcp::server::stub::run_stdio_from_cli`, which bails with the message
 /// asserted below. An MCP host (Claude Desktop, Cursor, …) spawning
 /// `openhuman mcp` therefore gets a non-zero exit + a one-line reason on
 /// stderr instead of hanging on stdout that never speaks JSON-RPC.
@@ -279,8 +276,8 @@ fn mcp_server_alias_reports_disabled_build_when_gate_off() {
 /// is to delete the `"tui" | "chat"` match arm, which is WRONG — `tui` would
 /// fall through to generic namespace resolution and die with `unknown
 /// namespace: tui`, reading like a user typo. Instead `cli.rs` is untouched and
-/// the arm resolves to `tui::stub::run_from_cli`, which bails with the message
-/// asserted below.
+/// the arm resolves to the CLI-local disabled-feature dispatcher, which bails
+/// with the message asserted below.
 #[test]
 #[cfg(not(feature = "tui"))]
 fn tui_subcommand_reports_disabled_build_when_gate_off() {
@@ -305,8 +302,8 @@ fn tui_subcommand_reports_disabled_build_when_gate_off() {
     );
 }
 
-/// The `chat` alias must behave identically to `tui` — both arms route to the
-/// same stub, so neither can silently regress into the fall-through.
+/// The `chat` alias must behave identically to `tui` — both names route to the
+/// same dispatcher, so neither can silently regress into the fall-through.
 #[test]
 #[cfg(not(feature = "tui"))]
 fn chat_alias_reports_disabled_build_when_gate_off() {

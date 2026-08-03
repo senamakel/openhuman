@@ -106,7 +106,7 @@ async fn normalize_loaded_config(config: &mut Config) {
 ///
 /// Idempotent: re-running over an already-priced registry is a no-op.
 fn seed_and_enrich_model_registry(config: &mut Config) {
-    use crate::openhuman::cost::catalog;
+    use crate::openhuman::platform::cost::catalog;
 
     if config.model_registry.is_empty() {
         config.model_registry = catalog::default_registry_entries();
@@ -511,7 +511,7 @@ pub fn set_browser_allow_all(enabled: bool) -> Result<RpcOutcome<RuntimeFlagsOut
 
 /// Returns the operational status of the agent server.
 pub fn agent_server_status() -> RpcOutcome<serde_json::Value> {
-    let running = crate::openhuman::service::mock::mock_agent_running().unwrap_or(true);
+    let running = crate::openhuman::platform::service::mock::mock_agent_running().unwrap_or(true);
     log::info!("[config] agent_server_status requested: running={running}");
     let payload = json!({
         "running": running,

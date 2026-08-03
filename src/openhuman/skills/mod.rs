@@ -17,7 +17,7 @@
 //! inert serde/std-only type definitions with zero coupling to the gated
 //! siblings, and they are load-bearing far outside this domain:
 //! `tools::traits` re-exports `ToolResult`/`ToolContent` out of [`types`] as
-//! the crate's unified tool-result type (`mcp_client`, `runtime_node`, and
+//! the crate's unified tool-result type (`mcp`, `runtime::node`, and
 //! ~236 files consume it), and `Workflow`/`WorkflowFrontmatter`/
 //! `WorkflowScope` from [`ops_types`] appear in always-on agent-harness and
 //! prompt signatures. Gating them would take down the entire tool trait
@@ -37,6 +37,15 @@
 // Type carve-out: always compiled, both feature directions. See module docs.
 pub mod ops_types;
 pub mod types;
+
+// Facade children — the `pub mod` line stays UNGATED because each child is
+// itself a facade+stub for the same `skills` feature and its stub must resolve
+// in a skills-less build (the `meet/` pilot's rule). `webhooks` is ungated
+// outright: it has always-compiled callers in `src/core/` and is not part of
+// the `skills` gate at all.
+pub mod catalog;
+pub mod runtime;
+pub mod webhooks;
 
 #[cfg(feature = "skills")]
 pub mod bus;

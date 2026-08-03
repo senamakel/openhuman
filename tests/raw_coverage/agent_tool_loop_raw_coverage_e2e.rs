@@ -7,7 +7,7 @@ use openhuman_core::openhuman::agent::debug::{dump_agent_prompt, DumpPromptOptio
 use openhuman_core::openhuman::agent::dispatcher::XmlToolDispatcher;
 use openhuman_core::openhuman::agent::{Agent, AgentBuilder};
 use openhuman_core::openhuman::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
-use openhuman_core::openhuman::context::prompt::LearnedContextData;
+use openhuman_core::openhuman::agent::context::prompt::LearnedContextData;
 use openhuman_core::openhuman::agent::messages::ChatMessage;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
@@ -359,7 +359,7 @@ async fn run_bus_turn(
     request_native_global::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
                 model,
             ),
             history: vec![ChatMessage::system("system"), ChatMessage::user("run")],

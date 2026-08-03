@@ -87,6 +87,14 @@ fn pre_login_user_dir_is_under_users_tree() {
 
 #[test]
 fn default_root_dir_name_uses_staging_suffix_for_staging_env() {
+    // APP_ENV is process-global and `default_root_dir_name()` reads it on every
+    // call, so flipping it here races any concurrent test that resolves the root
+    // openhuman dir (e.g. the credentials active-session guard, which silently
+    // stops finding `active_user.toml` once the root becomes `.openhuman-staging`).
+    // Take the same lock those tests hold.
+    let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let prior = std::env::var(crate::api::config::APP_ENV_VAR).ok();
 
     std::env::set_var(crate::api::config::APP_ENV_VAR, "staging");
@@ -1125,7 +1133,7 @@ fn env_overlay_context_tool_result_budget_env_suppresses_legacy_migration() {
     // migration must NOT run — even when the explicit env value equals
     // the default. This protects users who explicitly set the env to
     // the default.
-    let default_budget = crate::openhuman::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
+    let default_budget = crate::openhuman::agent::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
     let mut cfg = Config::default();
     cfg.context.tool_result_budget_bytes = default_budget;
     cfg.agent.tool_result_budget_bytes = 999_999;
@@ -1192,7 +1200,7 @@ fn env_overlay_super_context_default_off_and_toggle() {
 #[test]
 fn env_overlay_context_tool_result_budget_legacy_migration_when_env_absent() {
     // Env absent, context at default, agent customised → agent value copies forward.
-    let default_budget = crate::openhuman::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
+    let default_budget = crate::openhuman::agent::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
     let mut cfg = Config::default();
     cfg.context.tool_result_budget_bytes = default_budget;
     cfg.agent.tool_result_budget_bytes = 777_777;

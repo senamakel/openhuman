@@ -372,8 +372,8 @@ pub fn stop() {
 /// `overlay:attention` channel. The notch maps "Listening" / "Processing" to the
 /// right icon; when the message expires it falls back to "Ready". Fire-and-forget.
 fn notch_status(status: &str, ttl_ms: u32) {
-    let _ = crate::openhuman::overlay::publish_attention(
-        crate::openhuman::overlay::OverlayAttentionEvent::new(status)
+    let _ = crate::openhuman::desktop::overlay::publish_attention(
+        crate::openhuman::desktop::overlay::OverlayAttentionEvent::new(status)
             .with_source("voice")
             .with_ttl_ms(ttl_ms),
     );
@@ -692,7 +692,7 @@ fn capture_on_thread(
     tx: tokio::sync::mpsc::UnboundedSender<Vec<f32>>,
     setup_tx: &std::sync::mpsc::SyncSender<Result<(), String>>,
 ) -> Result<(), String> {
-    use crate::openhuman::accessibility::{detect_microphone_permission, PermissionState};
+    use crate::openhuman::desktop::accessibility::{detect_microphone_permission, PermissionState};
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use cpal::{SampleFormat, StreamConfig};
 

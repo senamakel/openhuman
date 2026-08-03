@@ -11,10 +11,10 @@
 //! rather than a full copy.
 
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::agent::tinyagents::TurnModelSource;
 use crate::openhuman::config::AgentConfig;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::skills::Workflow;
-use crate::openhuman::tinyagents::TurnModelSource;
 use crate::openhuman::tools::{Tool, ToolSpec};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -108,7 +108,7 @@ pub struct ParentExecutionContext {
     pub channel: String,
 
     /// Active Composio integrations the parent has fetched.
-    pub connected_integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration>,
+    pub connected_integrations: Vec<crate::openhuman::agent::context::prompt::ConnectedIntegration>,
 
     /// The parent's active tool-call format (Native / PFormat / Json).
     /// Sub-agents render their system prompts with this format so the
@@ -117,7 +117,7 @@ pub struct ParentExecutionContext {
     /// this, sub-agents inherit a hardcoded PFormat default while the
     /// runtime uses native function-calling, and the model emits
     /// uncallable P-Format tool_call blocks.
-    pub tool_call_format: crate::openhuman::context::prompt::ToolCallFormat,
+    pub tool_call_format: crate::openhuman::agent::context::prompt::ToolCallFormat,
 
     /// Parent's own session-transcript key, formatted as
     /// `"{unix_ts}_{agent_id}"`. Sub-agents chain this (plus any

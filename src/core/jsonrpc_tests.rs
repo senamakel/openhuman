@@ -1,5 +1,6 @@
 use serde_json::json;
 use std::ffi::OsString;
+#[cfg(all(feature = "crash-reporting", feature = "http-server"))]
 use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::time::Duration;
@@ -130,7 +131,7 @@ async fn tool_timeout_seeds_on_channelless_core_boot() {
     );
 
     assert_eq!(
-        crate::openhuman::tool_timeout::tool_execution_timeout_secs(),
+        crate::openhuman::tools::timeout::tool_execution_timeout_secs(),
         1234,
         "channel-less core boot must seed the tool-execution timeout from [agent].agent_timeout_secs"
     );
@@ -247,7 +248,8 @@ async fn wait_until_port_released(port: u16) {
 #[tokio::test]
 #[ignore = "calls full server bootstrap; leaks process-global state into sibling tests (#1552). Re-cover via integration test."]
 async fn shutdown_token_stops_axum_listener_within_timeout() {
-    let _signed_out_restore = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(false);
+    let _signed_out_restore =
+        crate::openhuman::cron::scheduler_gate::SignedOutTestGuard::set(false);
 
     let workspace = tempfile::tempdir().expect("workspace tempdir");
 
@@ -1270,6 +1272,101 @@ async fn unknown_method_severity_split_by_probe_allow_list() {
     );
 }
 
+#[cfg(feature = "crash-reporting")]
+#[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
+async fn invalid_ingest_payload_is_captured_at_warn_not_error() {
+    // #5169 (CORE-RUST-1P0): a caller submitting an ingest payload that does
+    // not match the canonicaliser schema is a *caller* error — the handler
+    // already names the offending field and no core change can fix a producer
+    // sending the wrong shape. Prove the same split as the unknown-method case
+    // above: the JSON-RPC error response is unchanged, but the Sentry event is
+    // warn (triage) rather than error (pages).
+    use axum::body::to_bytes;
+    use axum::extract::State;
+    use axum::Json;
+    use sentry::test::TestTransport;
+    use tracing::Level;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+    let _env = EnvVarGuard::set_many(vec![(
+        "OPENHUMAN_WORKSPACE",
+        workspace.path().as_os_str().to_os_string(),
+    )]);
+
+    let transport = TestTransport::new();
+    let sentry_options = sentry::ClientOptions {
+        dsn: Some("https://public@sentry.invalid/1".parse().unwrap()),
+        transport: Some(Arc::new(transport.clone())),
+        ..Default::default()
+    };
+    let sentry_hub = Arc::new(sentry::Hub::new(
+        Some(Arc::new(sentry_options.into())),
+        Arc::new(Default::default()),
+    ));
+    let _sentry_guard = sentry::HubSwitchGuard::new(sentry_hub);
+
+    let subscriber = tracing_subscriber::registry().with(
+        sentry::integrations::tracing::layer().event_filter(|metadata| {
+            if metadata.target() == crate::core::observability::REPORT_ERROR_TRACING_TARGET {
+                return sentry::integrations::tracing::EventFilter::Ignore;
+            }
+            match *metadata.level() {
+                Level::ERROR => sentry::integrations::tracing::EventFilter::Event,
+                Level::WARN | Level::INFO => sentry::integrations::tracing::EventFilter::Breadcrumb,
+                _ => sentry::integrations::tracing::EventFilter::Ignore,
+            }
+        }),
+    );
+    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
+
+    // `platform` is genuinely required by `ChatBatch` (unlike `timestamp`,
+    // which now defaults — see `chat_payload_without_timestamp_is_accepted`),
+    // so this reaches the invalid-payload branch rather than succeeding.
+    let request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(1),
+        method: "openhuman.memory_tree_ingest".to_string(),
+        params: json!({
+            "source_kind": "chat",
+            "source_id": "#general",
+            "payload": { "messages": [] },
+        }),
+    };
+    let response = rpc_handler(State(default_state()), Json(request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+
+    // The caller still gets the precise, unchanged validation error.
+    assert_eq!(body["error"]["code"], json!(-32000));
+    let message = body["error"]["message"]
+        .as_str()
+        .expect("error message string");
+    assert!(
+        message.starts_with("invalid chat payload: "),
+        "expected an invalid-chat-payload error, got {message:?}"
+    );
+
+    let events = transport.fetch_and_clear_events();
+    assert_eq!(
+        events.len(),
+        1,
+        "invalid ingest payloads should still be captured for triage"
+    );
+    assert_eq!(
+        events[0].level,
+        sentry::Level::Warning,
+        "caller payload errors must be warn-level (triage, not paging)"
+    );
+    assert_eq!(
+        events[0].tags.get("method").map(String::as_str),
+        Some("openhuman.memory_tree_ingest")
+    );
+}
+
 #[test]
 fn is_session_expired_error_matches_session_jwt_required() {
     // Regression: Sentry issue 7472592145.
@@ -1609,7 +1706,7 @@ fn is_wallet_not_configured_error_matches_wallet_constant() {
     // The classifier keys off the wallet layer's exact "not configured"
     // message so a wallet-less user's tinyplace RPC stays out of Sentry.
     assert!(is_wallet_not_configured_error(
-        crate::openhuman::wallet::WALLET_NOT_CONFIGURED_MESSAGE
+        crate::openhuman::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
     ));
 }
 
@@ -1620,7 +1717,7 @@ fn is_wallet_not_configured_error_is_coupled_to_the_wallet_constant() {
     // constant the classifier matches, this fails — preventing the noise from
     // silently returning to Sentry. Mirrors the param-validation prefix locks.
     assert_eq!(
-        crate::openhuman::wallet::WALLET_NOT_CONFIGURED_MESSAGE,
+        crate::openhuman::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE,
         "wallet is not configured; run wallet setup first"
     );
 }

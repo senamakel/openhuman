@@ -1087,14 +1087,14 @@ async fn post_whatsapp_data_ingest(
         });
         // Deserialize into the shared core DTO and dispatch to the shell store's
         // native handler registered in `whatsapp_data::register_native_handlers`.
-        let req: openhuman_core::openhuman::whatsapp_data::types::IngestRequest =
+        let req: openhuman_core::openhuman::channels::whatsapp_data::types::IngestRequest =
             serde_json::from_value(params)
                 .map_err(|e| format!("build ingest request (batch {}): {e}", batch_idx + 1))?;
         openhuman_core::core::event_bus::request_native_global::<
-            openhuman_core::openhuman::whatsapp_data::types::IngestRequest,
-            openhuman_core::openhuman::whatsapp_data::types::IngestResult,
+            openhuman_core::openhuman::channels::whatsapp_data::types::IngestRequest,
+            openhuman_core::openhuman::channels::whatsapp_data::types::IngestResult,
         >(
-            openhuman_core::openhuman::whatsapp_data::methods::INGEST,
+            openhuman_core::openhuman::channels::whatsapp_data::methods::INGEST,
             req,
         )
         .await

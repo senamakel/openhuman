@@ -24,7 +24,7 @@
 //!
 //! The triage agent has `named = []` in its TOML (zero tools). The
 //! tinyagents-backed turn path (`run_turn_via_tinyagents_shared` in
-//! `src/openhuman/tinyagents/mod.rs`) handles an empty registry by simply
+//! `src/openhuman/agent/tinyagents/mod.rs`) handles an empty registry by simply
 //! sending no tool schemas to the backend — the turn degrades to a plain
 //! chat completion.
 
@@ -41,10 +41,10 @@ use crate::openhuman::agent::harness::AgentDefinitionRegistry;
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::config::Config;
 use crate::openhuman::config::MultimodalConfig;
+use crate::openhuman::cron::scheduler_gate::LlmPermit;
 use crate::openhuman::inference::provider::error_classify::{
     is_rate_limited, is_upstream_unhealthy, parse_retry_after_ms,
 };
-use crate::openhuman::scheduler_gate::LlmPermit;
 
 use super::decision::{parse_triage_decision, ParseError, TriageDecision};
 use super::envelope::TriggerEnvelope;
@@ -153,7 +153,7 @@ pub async fn run_triage(envelope: &TriggerEnvelope) -> anyhow::Result<TriageOutc
     let local = build_local_provider_with_config(&config);
 
     let outcome = run_triage_with_arms_inner(cloud, local, envelope, || {
-        crate::openhuman::scheduler_gate::wait_for_capacity()
+        crate::openhuman::cron::scheduler_gate::wait_for_capacity()
     })
     .await;
     if let Err(err) = &outcome {
@@ -174,7 +174,7 @@ pub async fn run_triage_with_arms(
     envelope: &TriggerEnvelope,
 ) -> anyhow::Result<TriageOutcome> {
     run_triage_with_arms_inner(cloud, local, envelope, || {
-        crate::openhuman::scheduler_gate::wait_for_capacity()
+        crate::openhuman::cron::scheduler_gate::wait_for_capacity()
     })
     .await
 }
@@ -724,7 +724,7 @@ fn extract_inline_prompt(def: &AgentDefinition) -> Option<String> {
     match &def.system_prompt {
         PromptSource::Inline(body) if !body.is_empty() => Some(body.clone()),
         PromptSource::Dynamic(build) => {
-            use crate::openhuman::context::prompt::{
+            use crate::openhuman::agent::context::prompt::{
                 ConnectedIntegration, LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
             };
             let empty_tools: Vec<PromptTool<'_>> = Vec::new();

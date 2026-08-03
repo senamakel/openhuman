@@ -2988,6 +2988,78 @@ describe('Conversations — message list reserves room for the floating composer
       globalThis.ResizeObserver = original;
     }
   });
+
+  // #5162: this observer watches the footer that *contains* the composer while
+  // its measurement drives the message list's bottom padding — a cycle that is
+  // one oscillating measurement away from "Maximum update depth exceeded". This
+  // pins the observer's idempotence: a settled layout re-reporting the same
+  // height converges instead of re-rendering on every notification.
+  //
+  // Note on scope: this does NOT discriminate the `prev === next ? prev : next`
+  // guard in `measure()`. React's own Object.is bail-out already absorbs an
+  // identical `setState`, so render counts are byte-identical with and without
+  // that guard (measured: 8 → 9, 9, 9 either way). The guard is defensive and
+  // self-documenting, not load-bearing; what is worth pinning — and what this
+  // test pins — is that repeat notifications converge and never walk the
+  // padding.
+  it('converges when the observer re-reports an unchanged footer height', async () => {
+    const original = globalThis.ResizeObserver;
+    const handle: { cb: ResizeObserverCallback | null } = { cb: null };
+    class MockResizeObserver {
+      constructor(cb: ResizeObserverCallback) {
+        handle.cb = cb;
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+    try {
+      await renderActiveConversationWithMessages();
+      const footer = document.querySelector('[data-walkthrough="home-cta"]') as HTMLElement | null;
+      expect(footer).not.toBeNull();
+      (footer as HTMLElement).getBoundingClientRect = () => ({ height: 240 }) as DOMRect;
+
+      // First measurement settles the height.
+      await act(async () => {
+        handle.cb?.([], {} as ResizeObserver);
+      });
+      expect(paddingBottomPx()).toBe(256);
+
+      // `useUsageState` is called exactly once per `Conversations` render, so
+      // its call count is a render counter for the component under test.
+      const settled = mockUseUsageState.mock.calls.length;
+
+      // A settled layout re-reporting itself, as a ResizeObserver does on any
+      // sibling layout change. Each notification must stop costing renders.
+      await act(async () => {
+        handle.cb?.([], {} as ResizeObserver);
+      });
+      const afterFirstRepeat = mockUseUsageState.mock.calls.length;
+
+      await act(async () => {
+        handle.cb?.([], {} as ResizeObserver);
+      });
+      await act(async () => {
+        handle.cb?.([], {} as ResizeObserver);
+      });
+
+      // Converged: further identical notifications cost nothing at all, so a
+      // stuck-oscillating observer cannot escalate into a nested-update loop.
+      expect(mockUseUsageState.mock.calls.length).toBe(afterFirstRepeat);
+      expect(afterFirstRepeat - settled).toBeLessThanOrEqual(1);
+      expect(paddingBottomPx()).toBe(256);
+
+      // A genuine resize must still get through — convergence is not deafness.
+      (footer as HTMLElement).getBoundingClientRect = () => ({ height: 300 }) as DOMRect;
+      await act(async () => {
+        handle.cb?.([], {} as ResizeObserver);
+      });
+      expect(paddingBottomPx()).toBe(316);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
 });
 
 // The in-chat "Leaving your device" external-transfer disclosure card was

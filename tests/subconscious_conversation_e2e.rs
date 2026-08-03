@@ -32,10 +32,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use openhuman_core::core::event_bus::{global, init_global, DomainEvent};
-use openhuman_core::openhuman::subconscious_triggers::types::{
+use openhuman_core::openhuman::subconscious::triggers::types::{
     GateDecision, Trigger, TriggerPriority, TriggerSource,
 };
-use openhuman_core::openhuman::subconscious_triggers::{
+use openhuman_core::openhuman::subconscious::triggers::{
     Gate, OrchestratorConfig, SessionExecutor, TriggerOrchestrator,
 };
 

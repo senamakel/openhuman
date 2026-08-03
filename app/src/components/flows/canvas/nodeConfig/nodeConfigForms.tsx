@@ -14,6 +14,9 @@
  *  - `switch`       → `expression` (=-expr, precedence) / `field` (fallback)
  *  - `transform`    → `set` (key → =-expression map)
  *  - `trigger`      → `trigger_kind` + kind-specific (`schedule`, `toolkit`/`trigger_slug`)
+ *  - `memory`       → `operation` + operation-specific (`scope`/`query`/`flavour`/`key`/`value`/
+ *                     `limit`/`min_score`), see `memoryFields.tsx`
+ *  - `dedup`        → `key` (an `=`-bindable per-item id expression), see `dedupFields.tsx`
  */
 import createDebug from 'debug';
 import { useEffect, useState } from 'react';
@@ -30,6 +33,8 @@ import {
   ComposioTriggerField,
   fetchActionSchema,
 } from './composioFields';
+import { DedupForm } from './dedupFields';
+import { MemoryForm } from './memoryFields';
 import { NATIVE_TOOL_PREFIX, NativeToolField } from './nativeToolFields';
 import {
   configString,
@@ -74,7 +79,7 @@ type NodeConfigForm = (props: NodeConfigFormProps) => React.ReactElement;
 const TRIGGER_KINDS = ['manual', 'schedule', 'webhook', 'app_event'] as const;
 
 function TriggerForm({ config, onChange, connections }: NodeConfigFormProps) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const kind = configString(config, 'trigger_kind') || 'manual';
   const toolkit = configString(config, 'toolkit');
   return (
@@ -113,7 +118,7 @@ function TriggerForm({ config, onChange, connections }: NodeConfigFormProps) {
             <div
               className="rounded-lg border border-primary-200 bg-primary-50/60 px-2.5 py-1.5 text-xs font-medium text-primary-700 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-300"
               data-testid="node-config-trigger-schedule-readonly">
-              {describeSchedule(rawSchedule)}
+              {describeSchedule(rawSchedule, t, locale)}
             </div>
           );
         })()}
@@ -492,4 +497,6 @@ export const NODE_CONFIG_FORMS: Partial<Record<NodeKind, NodeConfigForm>> = {
   switch: SwitchForm,
   transform: TransformForm,
   code: CodeForm,
+  memory: MemoryForm,
+  dedup: DedupForm,
 };

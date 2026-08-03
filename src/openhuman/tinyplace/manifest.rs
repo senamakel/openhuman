@@ -713,8 +713,8 @@ async fn wallet_usdc_balance(address: &str) -> (Option<Value>, String) {
     // ordered endpoints the payment path broadcasts through (tiny.place RPC →
     // public cluster fallback), so the displayed balance matches the chain the
     // payment will actually settle on.
-    let mint = crate::openhuman::wallet::solana_cluster().usdc_mint();
-    let endpoints = crate::openhuman::wallet::tinyplace_solana_rpc_endpoints();
+    let mint = crate::openhuman::web3::wallet::solana_cluster().usdc_mint();
+    let endpoints = crate::openhuman::web3::wallet::tinyplace_solana_rpc_endpoints();
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -731,7 +731,7 @@ async fn wallet_usdc_balance(address: &str) -> (Option<Value>, String) {
     for rpc_url in &endpoints {
         // A settlement endpoint may embed a private provider token in its
         // path/query; redact to scheme+host before it reaches the logs.
-        let safe_url = crate::openhuman::wallet::redact_rpc_url(rpc_url);
+        let safe_url = crate::openhuman::web3::wallet::redact_rpc_url(rpc_url);
         let json: Value = match client.post(rpc_url).json(&body).send().await {
             Ok(resp) => match resp.json().await {
                 Ok(j) => j,
@@ -5817,6 +5817,11 @@ mod tests {
     /// `Some` with the parsed USDC amount. Before the fix `wallet_usdc_balance`
     /// queried the public cluster directly and ignored this endpoint, so the
     /// confirm card showed "Unknown".
+    // `wallet_usdc_balance` resolves the USDC mint and RPC endpoints through
+    // `crate::openhuman::web3::wallet`, which the `web3` stub disables — so without
+    // the feature the balance is unconditionally None and this test asserts a
+    // capability that is not compiled in.
+    #[cfg(feature = "web3")]
     #[tokio::test]
     async fn wallet_usdc_balance_reads_from_tinyplace_settlement_rpc() {
         let _lock = crate::openhuman::config::TEST_ENV_LOCK

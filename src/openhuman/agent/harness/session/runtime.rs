@@ -12,12 +12,12 @@ use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::ParsedToolCall;
 use crate::openhuman::agent::error::AgentError;
 use crate::openhuman::agent::messages::ConversationMessage;
-use crate::openhuman::agent_tool_policy::ToolPolicyEngine;
 use crate::openhuman::inference::provider::{self, ToolCall};
 use crate::openhuman::memory::Memory;
-use crate::openhuman::prompt_injection::{
+use crate::openhuman::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
+use crate::openhuman::tools::agent_policy::ToolPolicyEngine;
 use crate::openhuman::tools::{Tool, ToolSpec};
 use crate::openhuman::util::truncate_with_ellipsis;
 use anyhow::Result;
@@ -62,7 +62,7 @@ impl Agent {
     /// parent-context builder to share the parent's provider instance with
     /// spawned sub-agents (so they share connection pools, retry budgets, and
     /// rate-limit state) — issue #4249, Phase 3 / Motion A.
-    pub fn turn_model_source(&self) -> crate::openhuman::tinyagents::TurnModelSource {
+    pub fn turn_model_source(&self) -> crate::openhuman::agent::tinyagents::TurnModelSource {
         self.turn_model_source.clone()
     }
 
@@ -130,7 +130,7 @@ impl Agent {
     /// Active Composio integrations fetched at session start.
     pub fn connected_integrations(
         &self,
-    ) -> &[crate::openhuman::context::prompt::ConnectedIntegration] {
+    ) -> &[crate::openhuman::agent::context::prompt::ConnectedIntegration] {
         &self.connected_integrations
     }
 
@@ -153,12 +153,14 @@ impl Agent {
     /// fetch result when the agent was built outside the normal turn loop).
     pub fn set_connected_integrations(
         &mut self,
-        integrations: Vec<crate::openhuman::context::prompt::ConnectedIntegration>,
+        integrations: Vec<crate::openhuman::agent::context::prompt::ConnectedIntegration>,
     ) {
         self.connected_integrations = integrations;
         self.connected_integrations_initialized = true;
         self.last_seen_integrations_hash =
-            crate::openhuman::composio::connected_set_hash(&self.connected_integrations);
+            crate::openhuman::integrations::composio::connected_set_hash(
+                &self.connected_integrations,
+            );
     }
 
     /// The agent's runtime config snapshot.
@@ -497,7 +499,7 @@ impl Agent {
     /// Drain and return memory citations collected for the latest completed turn.
     pub fn take_last_turn_citations(
         &mut self,
-    ) -> Vec<crate::openhuman::agent_memory::memory_loader::MemoryCitation> {
+    ) -> Vec<crate::openhuman::memory::agent::memory_loader::MemoryCitation> {
         std::mem::take(&mut self.last_turn_citations)
     }
 

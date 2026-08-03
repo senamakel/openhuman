@@ -2,7 +2,7 @@
 //!
 //! Sibling to [`node_exec`](super::node_exec) with identical security gates and
 //! env hygiene; the command is pinned to the `python` binary resolved by
-//! [`crate::openhuman::runtime_python::PythonBootstrap`].
+//! [`crate::openhuman::runtime::python::PythonBootstrap`].
 //!
 //! Two input modes:
 //!
@@ -17,7 +17,7 @@
 //! paths and sandboxed runs always use the per-call spawn.
 
 use crate::openhuman::agent::host_runtime::RuntimeAdapter;
-use crate::openhuman::runtime_python::{PythonBootstrap, ResolvedPython};
+use crate::openhuman::runtime::python::{PythonBootstrap, ResolvedPython};
 use crate::openhuman::security::{CommandClass, GateDecision, SecurityPolicy};
 use crate::openhuman::tools::traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout,
@@ -178,7 +178,7 @@ impl PythonExecTool {
             })
             .unwrap_or_default();
 
-        let explicit_timeout = crate::openhuman::tool_timeout::explicit_call_timeout_duration(
+        let explicit_timeout = crate::openhuman::tools::timeout::explicit_call_timeout_duration(
             args.get("timeout_secs").and_then(|v| v.as_u64()),
             PYTHON_TIMEOUT_MAX_SECS,
         );
@@ -360,10 +360,10 @@ impl PythonExecTool {
         action_dir: &std::path::Path,
         timeout: Option<Duration>,
     ) -> Option<ToolResult> {
-        if !crate::openhuman::runtime_pool::python::enabled(&self.pool_cfg) {
+        if !crate::openhuman::runtime::pool::python::enabled(&self.pool_cfg) {
             return None;
         }
-        match crate::openhuman::runtime_pool::python::run_inline(
+        match crate::openhuman::runtime::pool::python::run_inline(
             &self.workspace_dir,
             &self.pool_cfg.python,
             &resolved.python_bin,
@@ -384,7 +384,7 @@ impl PythonExecTool {
                 Some(pool_outcome_to_result(outcome, timeout))
             }
             // Job never ran → safe to fall back to a per-call spawn.
-            Err(crate::openhuman::runtime_pool::PoolRunError::PreDispatch(error)) => {
+            Err(crate::openhuman::runtime::pool::PoolRunError::PreDispatch(error)) => {
                 tracing::warn!(
                     error = %error,
                     "[python_exec] pool: pre-dispatch failure; falling back to legacy spawn"
@@ -392,14 +392,14 @@ impl PythonExecTool {
                 None
             }
             // Load-shed: do NOT spawn (that reintroduces per-run RSS). Surface busy.
-            Err(crate::openhuman::runtime_pool::PoolRunError::Saturated) => {
+            Err(crate::openhuman::runtime::pool::PoolRunError::Saturated) => {
                 tracing::warn!("[python_exec] pool: saturated; shedding load");
                 Some(ToolResult::error(
                     "Python runtime pool is at capacity; retry shortly.",
                 ))
             }
             // The job may already have executed → terminal, never re-run it.
-            Err(crate::openhuman::runtime_pool::PoolRunError::PostDispatch(error)) => {
+            Err(crate::openhuman::runtime::pool::PoolRunError::PostDispatch(error)) => {
                 tracing::warn!(
                     error = %error,
                     "[python_exec] pool: post-dispatch failure; not retried to avoid duplicate execution"
@@ -423,7 +423,7 @@ impl PythonExecTool {
         use crate::openhuman::sandbox;
 
         let effective = timeout.unwrap_or_else(|| {
-            Duration::from_secs(crate::openhuman::tool_timeout::SANDBOX_UNBOUNDED_CAP_SECS)
+            Duration::from_secs(crate::openhuman::tools::timeout::SANDBOX_UNBOUNDED_CAP_SECS)
         });
 
         let runtime_cfg = match crate::openhuman::config::ops::load_config_with_timeout().await {
@@ -494,7 +494,7 @@ impl PythonExecTool {
 /// Map a runtime-pool outcome onto the same `ToolResult` shape the legacy
 /// `python -c` path produces.
 fn pool_outcome_to_result(
-    outcome: crate::openhuman::runtime_pool::PoolExecOutcome,
+    outcome: crate::openhuman::runtime::pool::PoolExecOutcome,
     timeout: Option<Duration>,
 ) -> ToolResult {
     if outcome.timed_out {

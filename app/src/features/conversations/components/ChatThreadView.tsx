@@ -103,6 +103,12 @@ const EMPTY_TRANSCRIPT: ProcessingTranscriptItem[] = [];
 // Stable empty tool-row list for a transcript-only past turn (agent thought /
 // narrated but ran no tools).
 const EMPTY_TRANSCRIPT_ENTRIES: ToolTimelineEntry[] = [];
+// Stable empty live tool-timeline / processing-transcript for the selected
+// thread. Allocating a fresh `[]` here gave the value a new identity on every
+// render, which invalidated the `backgroundProcesses` memo below every time and
+// added avoidable re-render churn to the chat's hot path (#5162).
+const EMPTY_TOOL_TIMELINE: ToolTimelineEntry[] = [];
+const EMPTY_PROCESSING: ProcessingTranscriptItem[] = [];
 
 export interface ChatThreadViewHandle {
   /** Opens the detached background sub-agents panel — called from the host
@@ -253,8 +259,12 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
       }
     };
 
-    const selectedThreadToolTimeline = threadId ? (toolTimelineByThread[threadId] ?? []) : [];
-    const selectedThreadProcessing = threadId ? (processingByThread[threadId] ?? []) : [];
+    const selectedThreadToolTimeline = threadId
+      ? (toolTimelineByThread[threadId] ?? EMPTY_TOOL_TIMELINE)
+      : EMPTY_TOOL_TIMELINE;
+    const selectedThreadProcessing = threadId
+      ? (processingByThread[threadId] ?? EMPTY_PROCESSING)
+      : EMPTY_PROCESSING;
     // Detached background sub-agents (mode === 'async') spawned in this thread.
     const backgroundProcesses = useMemo(
       () => selectBackgroundProcesses(selectedThreadToolTimeline),
@@ -615,7 +625,7 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                             isAgentTextMode ? 'w-full max-w-full' : 'w-fit max-w-[75%]'
                           }`}>
                           {msg.sender === 'agent' ? (
-                            <div className="space-y-1">
+                            <div className="space-y-1" data-testid="agent-message">
                               <div className="relative space-y-1">
                                 {agentMessageViewMode === 'text' ? (
                                   <AgentMessageText content={displayContent} />
@@ -877,7 +887,7 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                                       </div>
                                     )}
                                     {(displayText || showTime) && (
-                                      <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-content-inverted rounded-br-md break-words overflow-hidden">
+                                      <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-content-inverted rounded-br-md break-words [overflow-wrap:anywhere] overflow-hidden">
                                         {displayText && (
                                           <BubbleMarkdown content={displayText} tone="user" />
                                         )}

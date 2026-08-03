@@ -43,6 +43,7 @@
 * [Themes & Theme Studio](features/theming.md)
 * [Smart Token Compression](features/token-compression.md)
 * [Automatic Model Routing](features/model-routing/README.md)
+  * [Local models & bring your own key](features/model-routing/local-and-byok-models.md)
   * [Local AI (optional)](features/model-routing/local-ai.md)
 * [Available Tools](features/native-tools/README.md)
   * [Web Search](features/native-tools/web-search.md)

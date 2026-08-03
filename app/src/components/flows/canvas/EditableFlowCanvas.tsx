@@ -48,11 +48,13 @@ import {
 import { FLOW_RUN_NODE_STATUS_CLASS, useFlowRunProgress } from '../../../hooks/useFlowRunProgress';
 import { erroredNodeIds } from '../../../lib/flows/flowValidation';
 import {
+  connectionEdgeId,
   createFlowNode,
   FLOW_NODE_TYPE,
   type FlowEdge,
   type FlowNode,
   isValidFlowConnection,
+  stepNumbersForFlow,
   type WorkflowGraphMeta,
   xyflowToWorkflowGraph,
 } from '../../../lib/flows/graphAdapter';
@@ -67,6 +69,7 @@ import FlowNodeComponent from './FlowNodeComponent';
 import FlowValidationBanner from './FlowValidationBanner';
 import NodeConfigDrawer, { type NodeConfigPatch } from './nodeConfig/NodeConfigDrawer';
 import NodePalette, { PALETTE_DND_MIME } from './NodePalette';
+import { StepNumberContext } from './stepNumbers';
 import { useFlowValidation } from './useFlowValidation';
 
 const log = createDebug('app:flows:canvas:edit');
@@ -502,7 +505,10 @@ function EditableFlowCanvas(
       }
       log('onConnect: accepted %o', connection);
       pushHistory('structural');
-      setEdges(current => addEdge(connection, current));
+      // Use the adapter's collision-free id (matches what a reload would
+      // assign via workflowGraphToXyflow → edgeId), not React Flow's default
+      // concatenated id — see connectionEdgeId's doc.
+      setEdges(current => addEdge({ ...connection, id: connectionEdgeId(connection) }, current));
     },
     [nodes, edges, setEdges, onInvalidConnection, pushHistory]
   );
@@ -757,113 +763,122 @@ function EditableFlowCanvas(
     );
   }, [setNodes]);
 
+  // Execution-order numbers, derived from the LIVE nodes/edges rather than
+  // baked into node `data` at adapt time. `workflowGraphToXyflow` runs once at
+  // mount; every edit after that goes through `setNodes`/`setEdges`, so an
+  // adapt-time number would be missing on any node added mid-edit and stale on
+  // the rest as soon as a connection changed.
+  const stepNumberMap = useMemo(() => stepNumbersForFlow(nodes, edges), [nodes, edges]);
+
   const configNode = configNodeId ? (nodes.find(n => n.id === configNodeId) ?? null) : null;
 
   return (
     <CanvasActionsContext.Provider value={canvasActions}>
-      <div
-        className="flow-canvas relative h-full w-full"
-        data-testid="flow-canvas"
-        data-editable="true"
-        data-viewport-restored={savedViewport ? 'true' : 'false'}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onKeyDown={handleCanvasKeyDown}>
-        {showPalette && <NodePalette onAdd={handlePaletteAdd} />}
+      <StepNumberContext.Provider value={stepNumberMap}>
+        <div
+          className="flow-canvas relative h-full w-full"
+          data-testid="flow-canvas"
+          data-editable="true"
+          data-viewport-restored={savedViewport ? 'true' : 'false'}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onKeyDown={handleCanvasKeyDown}>
+          {showPalette && <NodePalette onAdd={handlePaletteAdd} />}
 
-        {/* Undo/redo stay on the canvas (top-right). Save/Discard + the unsaved
+          {/* Undo/redo stay on the canvas (top-right). Save/Discard + the unsaved
         badge now live in the page header (driven via the imperative handle).
         Per-node Validate/Delete live on the selected node card. */}
-        <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
-          <div className="pointer-events-auto flex items-center gap-1">
-            <Button
-              type="button"
-              variant="tertiary"
-              size="xs"
-              iconOnly
-              data-testid="flow-editor-undo"
-              aria-label={t('flows.editor.undo')}
-              title={t('flows.editor.undo')}
-              disabled={!canUndo}
-              onClick={undo}>
-              <UndoIcon />
-            </Button>
-            <Button
-              type="button"
-              variant="tertiary"
-              size="xs"
-              iconOnly
-              data-testid="flow-editor-redo"
-              aria-label={t('flows.editor.redo')}
-              title={t('flows.editor.redo')}
-              disabled={!canRedo}
-              onClick={redo}>
-              <RedoIcon />
-            </Button>
-          </div>
-        </div>
-
-        {/* First-run hint: a near-empty canvas (a fresh scratch flow opens with
-        just its trigger) gets a non-blocking nudge toward the palette. Hides
-        itself as soon as a second node lands. */}
-        {showOnboarding && (
-          <div
-            className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center px-6"
-            data-testid="flow-editor-onboarding">
-            <div className="max-w-xs rounded-2xl border border-dashed border-line bg-surface/70 px-5 py-4 text-center backdrop-blur-sm">
-              <p className="text-sm font-semibold text-content">
-                {t('flows.editor.onboardingTitle')}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-content-muted">
-                {t('flows.editor.onboardingBody')}
-              </p>
+          <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
+            <div className="pointer-events-auto flex items-center gap-1">
+              <Button
+                type="button"
+                variant="tertiary"
+                size="xs"
+                iconOnly
+                data-testid="flow-editor-undo"
+                aria-label={t('flows.editor.undo')}
+                title={t('flows.editor.undo')}
+                disabled={!canUndo}
+                onClick={undo}>
+                <UndoIcon />
+              </Button>
+              <Button
+                type="button"
+                variant="tertiary"
+                size="xs"
+                iconOnly
+                data-testid="flow-editor-redo"
+                aria-label={t('flows.editor.redo')}
+                title={t('flows.editor.redo')}
+                disabled={!canRedo}
+                onClick={redo}>
+                <RedoIcon />
+              </Button>
             </div>
           </div>
-        )}
 
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">
-          <div className="pointer-events-auto w-full max-w-md">
-            <FlowValidationBanner validation={validation} saveError={saveError} />
+          {/* First-run hint: a near-empty canvas (a fresh scratch flow opens with
+        just its trigger) gets a non-blocking nudge toward the palette. Hides
+        itself as soon as a second node lands. */}
+          {showOnboarding && (
+            <div
+              className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center px-6"
+              data-testid="flow-editor-onboarding">
+              <div className="max-w-xs rounded-2xl border border-dashed border-line bg-surface/70 px-5 py-4 text-center backdrop-blur-sm">
+                <p className="text-sm font-semibold text-content">
+                  {t('flows.editor.onboardingTitle')}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-content-muted">
+                  {t('flows.editor.onboardingBody')}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">
+            <div className="pointer-events-auto w-full max-w-md">
+              <FlowValidationBanner validation={validation} saveError={saveError} />
+            </div>
           </div>
+
+          <ReactFlow
+            nodes={displayNodes}
+            edges={edges}
+            nodeTypes={NODE_TYPES}
+            onInit={instance => {
+              rfRef.current = instance;
+            }}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onConnect={onConnect}
+            isValidConnection={isValidConnection}
+            onNodeClick={onNodeClick}
+            onSelectionChange={onSelectionChange}
+            deleteKeyCode={DELETE_KEYS}
+            nodesDraggable
+            nodesConnectable
+            elementsSelectable
+            fitView={!savedViewport}
+            defaultViewport={savedViewport ?? undefined}
+            onViewportChange={onViewportChange}
+            panOnScroll
+            zoomOnScroll>
+            <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+            <Controls showInteractive={false} />
+          </ReactFlow>
+
+          <NodeConfigDrawer
+            node={configNode}
+            onClose={handleCloseConfig}
+            onChange={updateNode}
+            connections={connections}
+            nodes={nodes}
+            edges={edges}
+            nodeLabelById={nodeLabelById}
+            onRemoveEdge={removeEdge}
+          />
         </div>
-
-        <ReactFlow
-          nodes={displayNodes}
-          edges={edges}
-          nodeTypes={NODE_TYPES}
-          onInit={instance => {
-            rfRef.current = instance;
-          }}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          onConnect={onConnect}
-          isValidConnection={isValidConnection}
-          onNodeClick={onNodeClick}
-          onSelectionChange={onSelectionChange}
-          deleteKeyCode={DELETE_KEYS}
-          nodesDraggable
-          nodesConnectable
-          elementsSelectable
-          fitView={!savedViewport}
-          defaultViewport={savedViewport ?? undefined}
-          onViewportChange={onViewportChange}
-          panOnScroll
-          zoomOnScroll>
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
-
-        <NodeConfigDrawer
-          node={configNode}
-          onClose={handleCloseConfig}
-          onChange={updateNode}
-          connections={connections}
-          nodes={nodes}
-          edges={edges}
-          nodeLabelById={nodeLabelById}
-          onRemoveEdge={removeEdge}
-        />
-      </div>
+      </StepNumberContext.Provider>
     </CanvasActionsContext.Provider>
   );
 }

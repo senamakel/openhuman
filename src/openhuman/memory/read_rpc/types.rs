@@ -6,7 +6,7 @@ pub const MAX_LIST_LIMIT: u32 = 1_000;
 
 /// Wire-shape chunk returned by the read RPCs.
 ///
-/// Distinct from [`crate::openhuman::memory_store::chunks::types::Chunk`] in two
+/// Distinct from [`crate::openhuman::memory::store::chunks::types::Chunk`] in two
 /// ways: serialised timestamps are ms-since-epoch (matches the rest of the
 /// JSON-RPC surface) and the body is replaced with a `≤500-char preview`
 /// + a flag indicating whether the row has an embedding. UIs needing the

@@ -21,8 +21,8 @@ use tinyagents::harness::model::ModelRequest;
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::connectivity::rpc::pick_listen_port;
-use openhuman_core::openhuman::memory_tree::all_memory_tree_registered_controllers;
+use openhuman_core::openhuman::memory::tree::all_memory_tree_registered_controllers;
+use openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port;
 
 const TEST_RPC_TOKEN: &str = "json-rpc-e2e-local-token";
 static JSON_RPC_AUTH_INIT: OnceLock<()> = OnceLock::new();
@@ -951,8 +951,8 @@ async fn encrypt_test_mnemonic() -> String {
     let config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for encrypted test mnemonic");
-    openhuman_core::openhuman::keyring::init_workspace(&config.workspace_dir);
-    openhuman_core::openhuman::encryption::rpc::encrypt_secret(
+    openhuman_core::openhuman::security::keyring::init_workspace(&config.workspace_dir);
+    openhuman_core::openhuman::security::encryption::rpc::encrypt_secret(
         &config,
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
     )
@@ -3338,15 +3338,15 @@ async fn json_rpc_run_ledger_lifecycle() {
         .await
         .expect("load config");
 
-    openhuman_core::openhuman::session_db::run_ledger::upsert_agent_run(
+    openhuman_core::openhuman::agent::session_db::run_ledger::upsert_agent_run(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::AgentRunUpsert {
+        openhuman_core::openhuman::agent::session_db::run_ledger::AgentRunUpsert {
             id: "sub-run-1".to_string(),
-            kind: openhuman_core::openhuman::session_db::run_ledger::AgentRunKind::WorkerThread,
+            kind: openhuman_core::openhuman::agent::session_db::run_ledger::AgentRunKind::WorkerThread,
             parent_run_id: Some("req-run-1".to_string()),
             parent_thread_id: Some("thread-run-1".to_string()),
             agent_id: Some("researcher".to_string()),
-            status: openhuman_core::openhuman::session_db::run_ledger::AgentRunStatus::AwaitingUser,
+            status: openhuman_core::openhuman::agent::session_db::run_ledger::AgentRunStatus::AwaitingUser,
             prompt_ref: Some("thread:worker-1:message:seed".to_string()),
             worker_thread_id: Some("worker-1".to_string()),
             task_board_id: Some("thread-run-1".to_string()),
@@ -3365,9 +3365,9 @@ async fn json_rpc_run_ledger_lifecycle() {
     )
     .expect("seed run");
 
-    openhuman_core::openhuman::session_db::run_ledger::append_run_event(
+    openhuman_core::openhuman::agent::session_db::run_ledger::append_run_event(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::RunEventAppend {
+        openhuman_core::openhuman::agent::session_db::run_ledger::RunEventAppend {
             run_id: "sub-run-1".to_string(),
             event_type: "subagent_awaiting_user".to_string(),
             payload: json!({ "question": "Which repo should I inspect?" }),
@@ -3457,7 +3457,7 @@ async fn json_rpc_agent_work_list_groups_runs_by_bucket() {
         .await
         .expect("load config");
 
-    use openhuman_core::openhuman::session_db::run_ledger::{
+    use openhuman_core::openhuman::agent::session_db::run_ledger::{
         upsert_agent_run, AgentRunKind, AgentRunStatus, AgentRunUpsert,
     };
     let seed = |id: &str, status: AgentRunStatus| AgentRunUpsert {
@@ -3572,16 +3572,16 @@ async fn json_rpc_workflow_run_definitions_and_runs_roundtrip() {
     );
 
     // Seed a durable workflow run, then list + get it.
-    openhuman_core::openhuman::session_db::run_ledger::upsert_workflow_run(
+    openhuman_core::openhuman::agent::session_db::run_ledger::upsert_workflow_run(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::WorkflowRunUpsert {
+        openhuman_core::openhuman::agent::session_db::run_ledger::WorkflowRunUpsert {
             id: "wf-run-1".to_string(),
             definition_id: "parallel_research_cross_check".to_string(),
             parent_thread_id: Some("thread-wf-1".to_string()),
             input: json!({ "question": "test" }),
             phase_states: json!({ "decompose": "completed" }),
             child_run_ids: vec!["child-1".to_string()],
-            status: openhuman_core::openhuman::session_db::run_ledger::WorkflowRunStatus::Running,
+            status: openhuman_core::openhuman::agent::session_db::run_ledger::WorkflowRunStatus::Running,
             summary: None,
             started_at: None,
             completed_at: None,
@@ -3770,18 +3770,20 @@ async fn json_rpc_agent_team_coordination_roundtrip() {
     );
 
     // Mark A done directly via the run ledger, then B claims fine.
-    let task_a =
-        openhuman_core::openhuman::session_db::run_ledger::get_agent_team_task(&config, &task_a_id)
-            .expect("get task A")
-            .expect("task A present");
-    openhuman_core::openhuman::session_db::run_ledger::upsert_agent_team_task(
+    let task_a = openhuman_core::openhuman::agent::session_db::run_ledger::get_agent_team_task(
+        &config, &task_a_id,
+    )
+    .expect("get task A")
+    .expect("task A present");
+    openhuman_core::openhuman::agent::session_db::run_ledger::upsert_agent_team_task(
         &config,
-        openhuman_core::openhuman::session_db::run_ledger::AgentTeamTaskUpsert {
+        openhuman_core::openhuman::agent::session_db::run_ledger::AgentTeamTaskUpsert {
             id: task_a.id.clone(),
             team_id: task_a.team_id.clone(),
             title: task_a.title.clone(),
             objective: task_a.objective.clone(),
-            status: openhuman_core::openhuman::session_db::run_ledger::AgentTeamTaskStatus::Done,
+            status:
+                openhuman_core::openhuman::agent::session_db::run_ledger::AgentTeamTaskStatus::Done,
             owner_member_id: task_a.owner_member_id.clone(),
             depends_on: task_a.depends_on.clone(),
             gate_status: Some(task_a.gate_status.clone()),
@@ -7722,7 +7724,7 @@ async fn json_rpc_inference_prompt_requires_external_ollama_runtime_when_unreach
         .and_then(Value::as_str)
         .unwrap_or_default();
     assert!(
-        prompt_err_message.contains("routes inference through an external Ollama endpoint"),
+        prompt_err_message.contains("external Ollama endpoint is unavailable"),
         "unexpected error: {prompt_err}"
     );
 
@@ -9491,13 +9493,13 @@ async fn json_rpc_meet_agent_session_lifecycle() {
 #[tokio::test(flavor = "multi_thread")]
 async fn whatsapp_data_agent_tools_e2e_1341() {
     use openhuman_core::core::event_bus::register_native_global;
+    use openhuman_core::openhuman::channels::whatsapp_data::methods;
+    use openhuman_core::openhuman::channels::whatsapp_data::types::{
+        ListChatsRequest, ListMessagesRequest, SearchMessagesRequest, WhatsAppChat, WhatsAppMessage,
+    };
     use openhuman_core::openhuman::tools::traits::Tool;
     use openhuman_core::openhuman::tools::{
         WhatsAppDataListChatsTool, WhatsAppDataListMessagesTool, WhatsAppDataSearchMessagesTool,
-    };
-    use openhuman_core::openhuman::whatsapp_data::methods;
-    use openhuman_core::openhuman::whatsapp_data::types::{
-        ListChatsRequest, ListMessagesRequest, SearchMessagesRequest, WhatsAppChat, WhatsAppMessage,
     };
 
     fn sample_chat(chat_id: &str) -> WhatsAppChat {
@@ -9810,7 +9812,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp_registry::store::set_cached(
+    openhuman_core::openhuman::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -9998,7 +10000,7 @@ async fn mcp_clients_set_enabled_smoke() {
     let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp_registry::store::set_cached(
+    openhuman_core::openhuman::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -10111,7 +10113,7 @@ async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
     let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp_registry::store::set_cached(
+    openhuman_core::openhuman::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -10946,8 +10948,8 @@ async fn json_rpc_config_agent_timeout_settings_roundtrip() {
 
     // Restore the process-global timeout so later tests in this binary don't
     // inherit the 300s value set above (the AtomicU64 is per-process, not per-test).
-    openhuman_core::openhuman::tool_timeout::set_tool_timeout_secs(
-        openhuman_core::openhuman::tool_timeout::DEFAULT_TIMEOUT_SECS,
+    openhuman_core::openhuman::tools::timeout::set_tool_timeout_secs(
+        openhuman_core::openhuman::tools::timeout::DEFAULT_TIMEOUT_SECS,
     );
 
     mock_join.abort();
@@ -11214,7 +11216,7 @@ async fn json_rpc_task_sources_crud_and_status() {
 /// without a live Composio connection.
 mod task_sources_stub {
     use async_trait::async_trait;
-    use openhuman_core::openhuman::memory_sync::composio::providers::{
+    use openhuman_core::openhuman::memory::sync::composio::providers::{
         ComposioProvider, NormalizedTask, ProviderContext, ProviderUserProfile, TaskFetchFilter,
     };
 
@@ -11276,7 +11278,7 @@ async fn json_rpc_task_sources_fetch_pipeline_e2e() {
 
     // Register the stub github provider BEFORE serving so the fetch RPC
     // resolves it from the global registry.
-    openhuman_core::openhuman::memory_sync::composio::providers::register_provider(Arc::new(
+    openhuman_core::openhuman::memory::sync::composio::providers::register_provider(Arc::new(
         task_sources_stub::StubGithubProvider {
             tasks: vec![
                 task_sources_stub::task("101", "Fix flaky test", "2025-01-01T00:00:00Z"),
@@ -11397,7 +11399,7 @@ async fn json_rpc_task_sources_fetch_pipeline_e2e() {
     // Restore the global provider registry so the stub "github" provider
     // does not leak into other tests in this binary (re-registers the
     // real built-in providers).
-    openhuman_core::openhuman::memory_sync::composio::providers::init_default_providers();
+    openhuman_core::openhuman::memory::sync::composio::providers::init_default_providers();
 
     rpc_join.abort();
 }
@@ -11794,6 +11796,125 @@ async fn json_rpc_flows_lifecycle_round_trip() {
             .expect("flows array")
             .is_empty(),
         "no flows after delete"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+/// JSON-RPC E2E for `flows.run_detached` (PR E / F-M1, F-M2): unlike
+/// `flows_run`, which blocks the RPC caller until the run reaches a terminal
+/// status, `flows_run_detached` must register the run and return
+/// `{run_id, status: "running", detached: true}` immediately — the run row
+/// must already be readable via `flows_get_run` the instant this call
+/// returns, and only *later* (via polling here, `flow:run_progress` /
+/// `useFlowRunPoller` in the UI) does it settle to a terminal status. This is
+/// the RPC-layer counterpart to the direct-API tests
+/// `flows_run_detached_returns_running_run_id_and_inserts_row` /
+/// `flows_run_detached_registers_the_run_before_returning_its_id` in
+/// `src/openhuman/flows/ops_tests.rs` — same contract, exercised through the
+/// `openhuman.flows_run_detached` controller (schema + handler wiring), not
+/// just the `ops::flows_run_detached` fn directly.
+#[cfg(feature = "flows")]
+#[tokio::test]
+async fn json_rpc_flows_run_detached_returns_before_run_completes() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    // 1. Create a trivial, immediately-completable flow.
+    let create = post_json_rpc(
+        &rpc_base,
+        9401,
+        "openhuman.flows_create",
+        json!({
+            "name": "Detached Demo",
+            "graph": {
+                "name": "Detached Demo",
+                "nodes": [{ "id": "t", "kind": "trigger", "name": "Trigger" }],
+                "edges": []
+            }
+        }),
+    )
+    .await;
+    let flow = peel_logs_envelope(assert_no_jsonrpc_error(&create, "flows_create"));
+    let flow_id = flow
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("flow id in create result")
+        .to_string();
+
+    // 2. `flows_run_detached` must hand back a non-terminal "running" payload
+    //    right away, not the completed-run payload `flows_run` returns.
+    let run = post_json_rpc(
+        &rpc_base,
+        9402,
+        "openhuman.flows_run_detached",
+        json!({ "id": flow_id }),
+    )
+    .await;
+    let run_out = peel_logs_envelope(assert_no_jsonrpc_error(&run, "flows_run_detached"));
+    assert_eq!(
+        run_out.get("status").and_then(Value::as_str),
+        Some("running"),
+        "run_detached must report 'running' immediately, not await a terminal status: {run_out:?}"
+    );
+    assert_eq!(run_out.get("detached").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        run_out.get("flow_id").and_then(Value::as_str),
+        Some(flow_id.as_str())
+    );
+    let run_id = run_out
+        .get("run_id")
+        .and_then(Value::as_str)
+        .expect("run_id in run_detached result")
+        .to_string();
+
+    // 3. The run row must already exist — registered + inserted synchronously
+    //    before `flows_run_detached` returned, not from inside the spawned
+    //    background task (which may not be polled for a while).
+    let get_run = post_json_rpc(
+        &rpc_base,
+        9403,
+        "openhuman.flows_get_run",
+        json!({ "run_id": run_id }),
+    )
+    .await;
+    let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&get_run, "flows_get_run"));
+    assert_eq!(
+        run_row.get("id").and_then(Value::as_str),
+        Some(run_id.as_str())
+    );
+
+    // 4. The background task eventually settles the row to a terminal status
+    //    on its own — this is the completion signal the UI's poller /
+    //    `flow:run_progress` subscription relies on instead of the RPC return.
+    let mut terminal_status: Option<String> = None;
+    for _ in 0..50 {
+        let get_run = post_json_rpc(
+            &rpc_base,
+            9404,
+            "openhuman.flows_get_run",
+            json!({ "run_id": run_id }),
+        )
+        .await;
+        let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&get_run, "flows_get_run"));
+        let status = run_row
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if status != "running" {
+            terminal_status = Some(status);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(
+        matches!(
+            terminal_status.as_deref(),
+            Some("completed") | Some("completed_with_warnings")
+        ),
+        "the detached run must settle to a terminal status on its own, got: {terminal_status:?}"
     );
 
     api_join.abort();
@@ -12667,9 +12788,13 @@ async fn json_rpc_flows_list_connections_aggregates_secret_free() {
         .await
         .expect("load config to seed http_cred");
     const SECRET: &str = "sk_live_flows_list_connections_seed";
-    openhuman_core::openhuman::credentials::HttpCredentialsStore::from_config(&seed_config)
-        .upsert(&openhuman_core::openhuman::credentials::HttpCredential::bearer("stripe", SECRET))
-        .expect("seed http_cred");
+    openhuman_core::openhuman::security::credentials::HttpCredentialsStore::from_config(
+        &seed_config,
+    )
+    .upsert(
+        &openhuman_core::openhuman::security::credentials::HttpCredential::bearer("stripe", SECRET),
+    )
+    .expect("seed http_cred");
 
     let resp = post_json_rpc(
         &rpc_base,

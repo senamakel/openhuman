@@ -3,8 +3,8 @@
 use crate::openhuman::agent::task_board::{TaskBoardCard, TaskCardStatus};
 use crate::openhuman::agent::task_session;
 use crate::openhuman::config::Config;
-use crate::openhuman::todos::ops::{self, BoardLocation, CardPatch};
-use crate::openhuman::todos::runs;
+use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
+use crate::openhuman::threads::todos::runs;
 
 use super::executor::{resolve_executor, run_autonomous};
 use super::poller::requires_plan_approval;

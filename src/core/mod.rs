@@ -25,6 +25,8 @@ pub mod memory_cli;
 pub mod observability;
 pub mod rpc_log;
 pub mod runtime;
+#[cfg(feature = "crash-reporting")]
+pub mod sentry_transport;
 pub mod shutdown;
 pub mod socketio;
 pub mod subconscious_cli;

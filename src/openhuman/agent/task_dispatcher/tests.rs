@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use crate::openhuman::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
-use crate::openhuman::todos::ops::{self, BoardLocation, CardPatch};
+use crate::openhuman::threads::todos::ops::{self, BoardLocation, CardPatch};
 
 use super::executor::{truncate_chars, write_back, EVIDENCE_MAX_CHARS};
 use super::poller::{pick_next_todo, requires_plan_approval};

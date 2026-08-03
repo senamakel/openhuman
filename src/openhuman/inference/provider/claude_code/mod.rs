@@ -220,7 +220,7 @@ impl ChatModel<()> for ClaudeCodeProvider {
         _state: &(),
         request: ModelRequest,
     ) -> tinyagents::Result<ModelResponse> {
-        let messages = crate::openhuman::tinyagents::model::native_chat_messages(&request);
+        let messages = crate::openhuman::agent::tinyagents::model::native_chat_messages(&request);
         let response = self
             .run_chat(
                 ChatRequest {
@@ -233,9 +233,7 @@ impl ChatModel<()> for ClaudeCodeProvider {
             )
             .await
             .map_err(map_model_error)?;
-        Ok(crate::openhuman::tinyagents::model::native_model_response(
-            &response,
-        ))
+        Ok(crate::openhuman::agent::tinyagents::model::native_model_response(&response))
     }
 
     async fn stream(&self, _state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
@@ -244,7 +242,8 @@ impl ChatModel<()> for ClaudeCodeProvider {
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
         let handle = tokio::spawn(async move {
             let _ = item_tx.send(ModelStreamItem::Started);
-            let messages = crate::openhuman::tinyagents::model::native_chat_messages(&request);
+            let messages =
+                crate::openhuman::agent::tinyagents::model::native_chat_messages(&request);
             let (delta_tx, mut delta_rx) =
                 tokio::sync::mpsc::channel::<super::types::ProviderDelta>(64);
             let chat = async {
@@ -266,7 +265,7 @@ impl ChatModel<()> for ClaudeCodeProvider {
                 tokio::select! {
                     delta = delta_rx.recv() => {
                         if let Some(delta) = delta {
-                            crate::openhuman::tinyagents::model::forward_provider_delta(
+                            crate::openhuman::agent::tinyagents::model::forward_provider_delta(
                                 &item_tx,
                                 delta,
                             );
@@ -276,18 +275,19 @@ impl ChatModel<()> for ClaudeCodeProvider {
                 }
             };
             while let Ok(delta) = delta_rx.try_recv() {
-                crate::openhuman::tinyagents::model::forward_provider_delta(&item_tx, delta);
+                crate::openhuman::agent::tinyagents::model::forward_provider_delta(&item_tx, delta);
             }
 
             let terminal = match response {
                 Ok(response) => ModelStreamItem::Completed(
-                    crate::openhuman::tinyagents::model::native_model_response(&response),
+                    crate::openhuman::agent::tinyagents::model::native_model_response(&response),
                 ),
                 Err(error) => ModelStreamItem::Failed(map_model_error(error).to_string()),
             };
             let _ = item_tx.send(terminal);
         });
-        let guard = crate::openhuman::tinyagents::abort_guard::AbortOnDrop::new(handle, label);
+        let guard =
+            crate::openhuman::agent::tinyagents::abort_guard::AbortOnDrop::new(handle, label);
         let stream =
             futures_util::stream::unfold((item_rx, guard), |(mut receiver, guard)| async move {
                 receiver.recv().await.map(|item| (item, (receiver, guard)))

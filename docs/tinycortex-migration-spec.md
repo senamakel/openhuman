@@ -81,7 +81,7 @@ ledger. Re-export covers the data types (`MemoryEntry`, `MemoryCategory`, `Memor
 **Activation landed (post-#59).** The native-dep alignment merged upstream as **#59** and the host
 gitlink was bumped to `33dda94`, so — per the submodule rule (bump only to a **merged** SHA) — W1's
 activation is now in place: `[dependencies] tinycortex = "0.1"` is active in the root world
-(`Cargo.toml:116`), the seam (`src/openhuman/tinycortex/`) is wired (`src/openhuman/mod.rs:140`), and
+(`Cargo.toml:116`), the seam (`src/openhuman/memory/tinycortex/`) is wired (`src/openhuman/mod.rs:140`), and
 `cargo check --lib` is **exit 0**. Remaining §0.4 follow-ups: the `app/src-tauri` world and the
 `GGML_NATIVE=OFF` macOS-runner check still verify in W1 (see rows above).
 
@@ -113,7 +113,7 @@ activation is now in place: `[dependencies] tinycortex = "0.1"` is active in the
   credentials/OAuth (keychain `composio-direct`), event-bus bridges via a new **`SyncEventSink`**
   seam trait, RPC wrappers (`memory/{ops,schemas}/sync.rs`, `memory_sources/rpc.rs`), and the
   UnifiedMemory writeback via a new **`SkillDocSink`** seam trait. MCP transport stays host.
-- **Process glue:** `memory/global.rs` singleton + queue worker; `memory/source_scope.rs` task-locals; `memory/chat.rs`; embeddings provider wiring. *(Amended, plan §8 / W-EMB: the provider **implementations** in `src/openhuman/embeddings/` migrate upstream into `tinyagents::harness::embeddings` — trait gains `name`/`model_id`/`signature` byte-pinned to `provider={name};model={model};dims={dims}` (P10) — and tinycortex bridges `EmbeddingBackend` to that trait; the host keeps factory/config/RPC wiring only.)*
+- **Process glue:** `memory/global.rs` singleton + queue worker; `memory/source_scope.rs` task-locals; `memory/chat.rs`; embeddings provider wiring. *(Amended, plan §8 / W-EMB: the provider **implementations** in `src/openhuman/inference/embeddings/` migrate upstream into `tinyagents::harness::embeddings` — trait gains `name`/`model_id`/`signature` byte-pinned to `provider={name};model={model};dims={dims}` (P10) — and tinycortex bridges `EmbeddingBackend` to that trait; the host keeps factory/config/RPC wiring only.)*
 - **Policy/UX:** `preferences.rs`, `remember.rs`, `tree_policy.rs`, `util/redact.rs`, config mapping.
 - **Host-retained `UnifiedMemory` namespace-document tier** (0.3 key finding) — the 10 tables that
   coexist in the shared DB but **do not move**: `memory_docs`, `graph_global`, `graph_namespace`,
@@ -124,7 +124,7 @@ activation is now in place: `[dependencies] tinycortex = "0.1"` is active in the
 - **Content-store host surfaces the crate explicitly excludes:** `content::wiki_git`,
   `content::obsidian`, `content::obsidian_registry`.
 
-### The adapter seam: `src/openhuman/tinycortex/` (W1, mirrors `src/openhuman/tinyagents/`)
+### The adapter seam: `src/openhuman/memory/tinycortex/` (W1, mirrors `src/openhuman/agent/tinyagents/`)
 
 **W1 seam files** (all against seam traits already present in the crate, §0.2):
 `embeddings.rs` (`EmbeddingBackend`/`Embedder`), `chat.rs` (`ChatProvider`/`Summariser`×2/
@@ -168,7 +168,7 @@ audit SHA.
 | `memory_archivist/` | 6 (0) | W7 | `TreeLeafSink` seam wired |
 | `memory_sources/` | 16 (0) | W7 / W-SYNC | registry + local readers move (W7); `sync.rs` dispatcher + `reconcile.rs` move in W-SYNC; `rpc.rs` kept host |
 | `memory_sync/` (engine) | — | **W-SYNC.3** | drift **D4** closed; W6 landed (crate ingest live); mocked + live Composio test pair green; sync-status parity green; schedulers/bus/RPC/keychain kept host |
-| `src/openhuman/embeddings/` (provider impls) | — | **W-EMB.3** | tinyagents provider port merged; signature parity (P10) green; `factory.rs`(thin)/`rpc.rs`/`schemas.rs`/catalog kept host |
+| `src/openhuman/inference/embeddings/` (provider impls) | — | **W-EMB.3** | tinyagents provider port merged; signature parity (P10) green; `factory.rs`(thin)/`rpc.rs`/`schemas.rs`/catalog kept host |
 | `memory_tools/` | 10 (1) | W7 | engine → `tool_memory/`; tool surface kept host |
 | `memory_search/` | 8 (0) | W5 | `vector`/`scoring` → crate `retrieval`/`score`; `tools/` kept host |
 | `memory/ingest_pipeline.rs` internals | (thin entry points kept) | W6 | `ingest_chat`/`ingest_document_with_scope` signatures unchanged; 11 call sites untouched |
@@ -187,7 +187,7 @@ ingestion,util}`, `memory/{global,source_scope,chat,sync,preferences,remember,tr
 traits(→re-exports)}.rs`, `memory_sync/`'s host-retained shell only (schedulers `periodic.rs`,
 `bus.rs` subscribers, RPC registration — the engine moves in W-SYNC, plan §8), `memory_store/namespace_store/*` (the namespace-document
 tier), `memory_store/content/{wiki_git,obsidian,obsidian_registry}`, `memory_tree/health/`, and the
-new `src/openhuman/tinycortex/` seam.
+new `src/openhuman/memory/tinycortex/` seam.
 
 ## 3. Workstream order (one workstream ≈ one host PR)
 

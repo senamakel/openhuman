@@ -169,7 +169,7 @@ pub async fn run(config: Config) -> Result<()> {
     // Ensure the global event bus is initialized so cron delivery events
     // are not silently dropped. This is a no-op if already initialized.
     crate::core::event_bus::init_global(crate::core::event_bus::DEFAULT_CAPACITY);
-    crate::openhuman::health::bus::register_health_subscriber();
+    crate::openhuman::platform::health::bus::register_health_subscriber();
 
     let poll_secs = config.reliability.scheduler_poll_secs.max(MIN_POLL_SECONDS);
     let mut interval = time::interval(Duration::from_secs(poll_secs));
@@ -1027,11 +1027,11 @@ const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 fn resolve_cron_profile(
     config: &Config,
     job: &CronJob,
-) -> anyhow::Result<Option<crate::openhuman::profiles::AgentProfile>> {
+) -> anyhow::Result<Option<crate::openhuman::agent::profiles::AgentProfile>> {
     let Some(profile_id) = job.profile_id.as_deref() else {
         return Ok(None);
     };
-    match crate::openhuman::profiles::load_profiles(&config.workspace_dir) {
+    match crate::openhuman::agent::profiles::load_profiles(&config.workspace_dir) {
         Ok(state) => {
             let found = state.profiles.into_iter().find(|p| p.id == profile_id);
             if found.is_none() {
@@ -1052,13 +1052,13 @@ fn resolve_cron_profile(
 
 struct BuiltCronAgent {
     agent: Agent,
-    profile: Option<crate::openhuman::profiles::AgentProfile>,
+    profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
 }
 
 fn apply_cron_profile_runtime_defaults(
     config: &Config,
     job: &CronJob,
-    profile: &crate::openhuman::profiles::AgentProfile,
+    profile: &crate::openhuman::agent::profiles::AgentProfile,
 ) -> Config {
     let mut effective = config.clone();
     if let Some(model) = profile.model_override.clone() {
@@ -1382,8 +1382,10 @@ async fn deliver_if_configured(
 
 /// Insert a notification into the alerts tab for a completed cron job.
 fn push_cron_alert(config: &Config, job: &CronJob, output: &str) {
-    use crate::openhuman::notifications::store as notif_store;
-    use crate::openhuman::notifications::types::{IntegrationNotification, NotificationStatus};
+    use crate::openhuman::desktop::notifications::store as notif_store;
+    use crate::openhuman::desktop::notifications::types::{
+        IntegrationNotification, NotificationStatus,
+    };
 
     let name = job.name.as_deref().unwrap_or("Cron job");
     let body = cron_alert_body(job, output);

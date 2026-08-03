@@ -32,7 +32,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use crate::openhuman::artifacts::{
+use crate::openhuman::agent::artifacts::{
     create_artifact, fail_artifact, finalize_artifact, ArtifactKind,
 };
 use crate::openhuman::security::SecurityPolicy;
@@ -201,7 +201,7 @@ impl Tool for DocumentTool {
         // Retry can re-dispatch this exact spec (#3162). Best-effort: a
         // write failure only forfeits regeneration, never aborts an
         // otherwise-successful generation.
-        if let Err(err) = crate::openhuman::artifacts::store::save_artifact_args(
+        if let Err(err) = crate::openhuman::agent::artifacts::store::save_artifact_args(
             &self.workspace_dir,
             &meta.id,
             &args,

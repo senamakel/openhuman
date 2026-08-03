@@ -2599,7 +2599,7 @@ pub fn run() {
             // (the original userCount=0 root cause).
             if event.user.is_none() {
                 event.user =
-                    openhuman_core::openhuman::app_state::peek_cached_current_user_identity()
+                    openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
                         .and_then(|identity| identity.id)
                         .map(|id| sentry::User {
                             id: Some(id),
@@ -2609,6 +2609,9 @@ pub fn run() {
             Some(event)
         })),
         sample_rate: 1.0,
+        transport: Some(std::sync::Arc::new(
+            openhuman_core::core::sentry_transport::factory,
+        )),
         ..sentry::ClientOptions::default()
     });
     // Tag every Sentry event with CPU architecture and OS so Intel-specific
@@ -3289,7 +3292,7 @@ pub fn run() {
                             // after the <key>ProgramArguments</key> marker. The
                             // service installer always writes it as an absolute
                             // path to the openhuman-core binary (see
-                            // src/openhuman/service/macos.rs).
+                            // src/openhuman/platform/service/macos.rs).
                             let after_key = contents.split("<key>ProgramArguments</key>").nth(1)?;
                             let start = after_key.find("<string>")? + "<string>".len();
                             let rest = &after_key[start..];
@@ -3382,6 +3385,16 @@ pub fn run() {
             // / `center: false` for the main window so the placement
             // happens before the first paint and there's no jump.
             if let Some(window) = app.get_webview_window("main") {
+                // Layout first: mixed-DPI placement bugs (#5041) are not
+                // diagnosable from a user report without it, and logging
+                // before placement captures the pre-clamp state.
+                window_state::log_monitor_layout(&window);
+                // Installed before placement so a scale change triggered
+                // by our own cross-monitor move is caught too — on
+                // Windows that arrives via the message loop after
+                // `setup()` returns, which is why clamping here alone is
+                // not enough.
+                window_state::install_dpi_guard(&window);
                 if !window_state::restore_main(&window) {
                     window_state::center_main(&window);
                 }

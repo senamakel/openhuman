@@ -335,8 +335,8 @@ impl SecurityPolicy {
         let Some(guard) = self.active_profile.as_ref() else {
             return Ok(());
         };
-        if let crate::openhuman::profiles::CrossProfileDecision::Block { other_id } =
-            crate::openhuman::profiles::classify_cross_profile_target(
+        if let crate::openhuman::agent::profiles::CrossProfileDecision::Block { other_id } =
+            crate::openhuman::agent::profiles::classify_cross_profile_target(
                 &guard.action_dir,
                 &guard.profile_id,
                 resolved,
@@ -348,7 +348,7 @@ impl SecurityPolicy {
                 target = %resolved.display(),
                 "[profiles] cross-profile write blocked"
             );
-            if other_id == crate::openhuman::profiles::PROFILES_ROOT_SENTINEL {
+            if other_id == crate::openhuman::agent::profiles::PROFILES_ROOT_SENTINEL {
                 return Err(format!(
                     "{POLICY_BLOCKED_MARKER} Cross-profile access blocked: profile '{}' may not \
                      write to the shared profiles root. Stay within your own profile directory; \

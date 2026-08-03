@@ -1,6 +1,6 @@
 //! Agent turn origin — the trust/routing label attached to every agent
-//! `run_turn` invocation. Read by [`crate::openhuman::approval::ApprovalGate`]
-//! and [`crate::openhuman::agent_tool_policy::ToolPolicyEngine`] to make
+//! `run_turn` invocation. Read by [`crate::openhuman::security::approval::ApprovalGate`]
+//! and [`crate::openhuman::tools::agent_policy::ToolPolicyEngine`] to make
 //! consistent decisions across web, channel, subconscious, and cron entry
 //! points without relying on the *absence* of other task-locals as a signal.
 //!
@@ -16,12 +16,12 @@
 /// closed.
 ///
 /// This is a typed task-local label, not a credential — it is set by the
-/// entry point that owns the turn and read by [`crate::openhuman::approval`]
+/// entry point that owns the turn and read by [`crate::openhuman::security::approval`]
 /// alongside the existing per-turn chat context.
 #[derive(Clone, Debug)]
 pub enum AgentTurnOrigin {
     /// Live user chat in the desktop / web UI. The existing
-    /// [`crate::openhuman::approval::ApprovalChatContext`] task-local is
+    /// [`crate::openhuman::security::approval::ApprovalChatContext`] task-local is
     /// scoped alongside this so the approval gate has a thread / client to
     /// route the prompt back to.
     WebChat {
@@ -135,7 +135,7 @@ tokio::task_local! {
 }
 
 /// Scope `origin` for the duration of `fut`. Mirrors the existing
-/// [`crate::openhuman::approval::APPROVAL_CHAT_CONTEXT`] scope pattern.
+/// [`crate::openhuman::security::approval::APPROVAL_CHAT_CONTEXT`] scope pattern.
 ///
 /// The inner future is `Box::pin`-ed before being handed to the task-local
 /// scope so the combined `with_origin(... scope(... run_turn(...)))` future

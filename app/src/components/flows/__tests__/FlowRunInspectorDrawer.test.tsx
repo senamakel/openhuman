@@ -104,6 +104,23 @@ describe('FlowRunInspectorDrawer', () => {
     expect(screen.getByTestId('flow-run-step-port-1')).toHaveTextContent('true');
   });
 
+  it('falls back to a humanized label instead of "undefined" for an unrecognized status (F-m8)', () => {
+    // Run payloads are cast, never validated — a future/unknown status the
+    // frontend doesn't recognize yet must not index the accent/dot/key maps
+    // with `undefined`.
+    useFlowRunPoller.mockReturnValue({
+      run: makeRun({ status: 'archived' as FlowRun['status'] }),
+      loading: false,
+      error: null,
+    });
+    renderDrawer('thread-1', vi.fn());
+
+    const pill = screen.getByTestId('flow-run-status-pill');
+    expect(pill).toHaveTextContent('archived');
+    expect(pill.className).not.toContain('undefined');
+    expect(screen.getByTestId('flow-run-status-dot').className).not.toContain('undefined');
+  });
+
   it('expands a step to reveal its output in the per-item data browser', () => {
     useFlowRunPoller.mockReturnValue({ run: makeRun(), loading: false, error: null });
     renderDrawer('thread-1', vi.fn());

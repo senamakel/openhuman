@@ -714,26 +714,37 @@ fn host_is_local(parsed: &url::Url) -> bool {
     }
 }
 
+/// Process-global mutex serialising every test in this crate that mutates the
+/// backend env vars (`BACKEND_URL` / `VITE_BACKEND_URL` / app-env overrides).
+/// `std::env` is process-global, so a module-local lock cannot prevent
+/// cross-module races: `api::config`, `core::cli_tests`, and `medulla::ops`
+/// tests all mutate the same vars from parallel test threads, and under the
+/// full-suite coverage lane that race reliably broke `medulla`'s
+/// "unconfigured" assertions. Every env-mutating test must take THIS lock.
+#[cfg(test)]
+pub(crate) fn backend_env_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    use std::sync::{Mutex, OnceLock};
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(Mutex::default)
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Mutex, MutexGuard, OnceLock};
+    use std::sync::MutexGuard;
 
     use super::*;
 
     // ── Test infrastructure ───────────────────────────────────────────────────
 
-    /// Global mutex that serialises all env-mutating tests.
-    /// `std::env` is process-global; without serialisation, parallel test
-    /// threads race on `set_var` / `remove_var` and produce flaky failures.
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
+    /// Serialises all env-mutating tests via the crate-wide backend env lock
+    /// (see [`super::backend_env_test_lock`]) — module-local locks cannot
+    /// stop other modules' tests from racing on the same process globals.
     fn env_lock() -> MutexGuard<'static, ()> {
-        match ENV_LOCK.get_or_init(Mutex::default).lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(), // recover from a poisoned lock
-        }
+        super::backend_env_test_lock()
     }
 
     /// RAII guard that captures the current values of the four backend env
@@ -961,6 +972,13 @@ mod tests {
 
     #[test]
     fn app_env_from_env_reads_runtime_var() {
+        // Setting APP_ENV to "staging" flips `default_root_dir_name()` to
+        // `.openhuman-staging` process-wide, which breaks any concurrent test
+        // resolving the root openhuman dir. Hold the crate-wide env lock too,
+        // in the established order (TEST_ENV_LOCK before the backend lock).
+        let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _guard = env_lock();
         let prev = std::env::var(APP_ENV_VAR).ok();
         std::env::set_var(APP_ENV_VAR, "staging");
@@ -974,6 +992,10 @@ mod tests {
 
     #[test]
     fn app_env_empty_primary_falls_through_to_secondary() {
+        // Same staging-root hazard as `app_env_from_env_reads_runtime_var`.
+        let _env_guard = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _guard = env_lock();
         let prev_p = std::env::var(APP_ENV_VAR).ok();
         let prev_s = std::env::var(VITE_APP_ENV_VAR).ok();

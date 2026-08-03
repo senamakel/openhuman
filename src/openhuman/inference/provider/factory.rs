@@ -25,7 +25,6 @@
 
 use crate::openhuman::config::schema::cloud_providers::AuthStyle;
 use crate::openhuman::config::Config;
-use crate::openhuman::credentials::AuthService;
 use crate::openhuman::inference::provider::auth::AuthStyle as CompatAuthStyle;
 use crate::openhuman::inference::provider::claude_agent_sdk::subprocess::ClaudeAgentSdkProvider;
 use crate::openhuman::inference::provider::openai_codex::{
@@ -34,6 +33,7 @@ use crate::openhuman::inference::provider::openai_codex::{
 };
 use crate::openhuman::inference::provider::openhuman_backend_model::OpenHumanBackendModel;
 use crate::openhuman::inference::provider::ProviderRuntimeOptions;
+use crate::openhuman::security::credentials::AuthService;
 use std::sync::Arc;
 use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
 
@@ -300,26 +300,14 @@ pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
     }
 }
 
-/// Return the configured provider string for a named workload role.
+/// The provider route a role has **explicitly** configured, before any
+/// fallback.
 ///
-/// Empty / `"cloud"` resolves through BYOK fallback first for the three
-/// chat-tier roles (`chat`, `reasoning`, `coding`), then `primary_cloud`.
-/// When a BYOK cloud provider is detected on any workload, unset chat-tier
-/// routes inherit it rather than silently falling back to the managed backend.
-///
-/// Only `chat`, `reasoning`, and `coding` participate in BYOK inheritance.
-/// Background workloads (`memory`, `embeddings`, `heartbeat`, `learning`,
-/// `subconscious`) and the `agentic`/`burst` workloads always fall through to
-/// `primary_cloud` when their explicit provider route is unset — they use
-/// tier-specific models that BYOK providers don't understand, and their
-/// providers are configured independently.
-///
-/// For backwards compatibility, a legacy external `inference_url` takes
-/// precedence when `primary_cloud` still points at OpenHuman because
-/// migration 1→2 preserved the URL as a custom provider entry but older
-/// configs did not explicitly set per-workload routes.
-pub fn provider_for_role(role: &str, config: &Config) -> String {
-    let opt = match role {
+/// Split out of [`provider_for_role`] so the fallback machinery can ask the
+/// same question the router asks — "did the user route this role anywhere?" —
+/// without re-deriving the role→config-field mapping and drifting from it.
+fn configured_route_for_role<'a>(role: &str, config: &'a Config) -> Option<&'a str> {
+    match role {
         "chat" => config.chat_provider.as_deref(),
         "reasoning" => config.reasoning_provider.as_deref(),
         "agentic" => config.agentic_provider.as_deref(),
@@ -343,7 +331,45 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         "learning" => config.learning_provider.as_deref(),
         "subconscious" => config.subconscious_provider.as_deref(),
         _ => None,
-    };
+    }
+}
+
+/// Whether `role` reached a cloud slug by *implicit fallback* rather than by an
+/// explicit route.
+///
+/// True only when the role is one of the cloud-fallback background roles **and**
+/// its own route is unset (or the literal `"cloud"`). An explicitly configured
+/// cloud route — say `vision_provider = "anthropic:claude-…"` — is not a
+/// fallback, so a credential failure there must not be explained as "your local
+/// chat model cannot do this".
+pub(crate) fn role_uses_implicit_cloud_fallback(role: &str, config: &Config) -> bool {
+    if !super::fallback_diagnostics::role_falls_back_to_cloud(role) {
+        return false;
+    }
+    let route = configured_route_for_role(role, config).unwrap_or("").trim();
+    route.is_empty() || route == "cloud"
+}
+
+/// Return the configured provider string for a named workload role.
+///
+/// Empty / `"cloud"` resolves through BYOK fallback first for the three
+/// chat-tier roles (`chat`, `reasoning`, `coding`), then `primary_cloud`.
+/// When a BYOK cloud provider is detected on any workload, unset chat-tier
+/// routes inherit it rather than silently falling back to the managed backend.
+///
+/// Only `chat`, `reasoning`, and `coding` participate in BYOK inheritance.
+/// Background workloads (`memory`, `embeddings`, `heartbeat`, `learning`,
+/// `subconscious`) and the `agentic`/`burst` workloads always fall through to
+/// `primary_cloud` when their explicit provider route is unset — they use
+/// tier-specific models that BYOK providers don't understand, and their
+/// providers are configured independently.
+///
+/// For backwards compatibility, a legacy external `inference_url` takes
+/// precedence when `primary_cloud` still points at OpenHuman because
+/// migration 1→2 preserved the URL as a custom provider entry but older
+/// configs did not explicitly set per-workload routes.
+pub fn provider_for_role(role: &str, config: &Config) -> String {
+    let opt = configured_route_for_role(role, config);
     let s = opt.unwrap_or("").trim();
     if s.is_empty() || s == "cloud" {
         // BYOK inheritance is scoped to the three chat-tier roles only.
@@ -362,29 +388,29 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
             }
         }
 
-        // Diagnostic: when the user has a local provider configured for chat
-        // but this background workload is falling through to cloud, emit a
-        // warning so it's visible in logs (no silent fallback).
-        if !matches!(role, "chat" | "reasoning" | "coding") {
+        let resolved = resolve_primary_cloud_provider_string(config);
+
+        // #5146 §2.1: the fallback itself is correct and stays — background
+        // workloads run tier-specific models that local runtimes don't serve,
+        // and a local-chat + managed-subscription user genuinely wants them on
+        // the cloud. What was missing is the *explanation*: when this route
+        // later fails for want of a key, the user saw a bare slug-level auth
+        // error naming a provider they never configured. Emit the same
+        // user-facing sentence the error path uses, so the routing decision is
+        // visible in logs and support transcripts before anything goes wrong.
+        if super::fallback_diagnostics::role_falls_back_to_cloud(role) {
             if let Some(chat) = config.chat_provider.as_deref() {
                 if crate::openhuman::inference::local::profile::is_local_provider_string(chat) {
-                    let override_hint = if role == "burst" {
-                        "set agentic_provider explicitly to override".to_string()
-                    } else {
-                        format!("set {role}_provider explicitly to override")
-                    };
                     log::info!(
-                        "[providers][local-fallback] role={} using managed backend (chat is \
-                         local '{}' but background workloads require cloud — {})",
+                        "[providers][local-fallback] role={} {}",
                         role,
-                        chat,
-                        override_hint
+                        super::fallback_diagnostics::cloud_fallback_notice(role, chat, &resolved)
                     );
                 }
             }
         }
 
-        resolve_primary_cloud_provider_string(config)
+        resolved
     } else {
         s.to_string()
     }
@@ -753,6 +779,66 @@ fn resolves_to_managed_backend(role: &str, config: &Config) -> bool {
         resolved = resolve_primary_cloud_provider_string(config);
     }
     resolved.trim() == PROVIDER_OPENHUMAN
+}
+
+/// Probe whether `role` can actually complete an inference call right now
+/// (issue B45 — the flows provider-connectivity author gate).
+///
+/// Two-stage check, mirroring the two ways a `role` can be un-runnable:
+///
+/// 1. **Construction** — [`create_chat_model_with_model_id_inner`] must
+///    succeed. This is the existing Layer 1 check (BYOK-incomplete config,
+///    unknown provider slug, local-only privacy-mode block, …) reused
+///    verbatim so this probe never re-implements it.
+/// 2. **Managed-backend readiness** — when `role` resolves to the managed
+///    OpenHuman backend, [`OpenHumanBackendModel::probe_readiness`] makes one
+///    cheap real completion attempt to catch the "account has no provider API
+///    key configured" class of failure that construction alone cannot see
+///    (construction only builds the client; it never calls the backend).
+///    BYOK/local models have no such hidden failure mode — their construction
+///    step already validates what it can, so they return `Ok(())` here
+///    unconditionally.
+///
+/// Respects the [`test_provider_override`] test seam: when a mock model is
+/// installed, construction returns it immediately and this function returns
+/// `Ok(())` without ever touching the network or resolving `role` again —
+/// `resolves_to_managed_backend` is a pure config read that would otherwise
+/// still call this "managed" in a test with a bare default `Config`.
+pub async fn probe_inference_readiness(role: &str, config: &Config) -> Result<(), String> {
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
+    if test_provider_override::current().is_some() {
+        log::debug!(
+            "[flows][inference-probe] role={role} test model override active — skipping probe"
+        );
+        return Ok(());
+    }
+
+    log::debug!("[flows][inference-probe] role={role} verifying model construction");
+    if let Err(e) = create_chat_model_with_model_id_inner(role, config) {
+        log::debug!("[flows][inference-probe] role={role} construction failed: {e}");
+        return Err(e.to_string());
+    }
+
+    if !resolves_to_managed_backend(role, config) {
+        log::debug!(
+            "[flows][inference-probe] role={role} resolves to a non-managed provider — \
+             construction succeeded, nothing further to probe"
+        );
+        return Ok(());
+    }
+
+    log::debug!(
+        "[flows][inference-probe] role={role} resolves to the managed OpenHuman backend — \
+         probing readiness"
+    );
+    let (managed_model, model_id) =
+        resolve_managed_backend(role, config).map_err(|e| e.to_string())?;
+    let result = managed_model.probe_readiness().await;
+    log::debug!(
+        "[flows][inference-probe] role={role} model={model_id} probe result: {}",
+        if result.is_ok() { "ready" } else { "not ready" }
+    );
+    result
 }
 
 /// Build an `Arc<dyn ChatModel>` from an explicit provider string and config.
@@ -1204,7 +1290,7 @@ pub(crate) fn make_openhuman_backend_model(
 /// `model` string — the turn's effective/dispatched model after any config-level
 /// agent pin (issue #4249, Phase 3 P3-B). The per-`(role, model)` analogue of
 /// [`create_chat_model_with_model_id`] used by the crate-native
-/// [`TurnModelSource`](crate::openhuman::tinyagents::TurnModelSource) to construct
+/// [`TurnModelSource`](crate::openhuman::agent::tinyagents::TurnModelSource) to construct
 /// the primary + each workload-tier route directly.
 ///
 /// - **Managed** → [`OpenHumanBackendModel`](super::openhuman_backend_model::OpenHumanBackendModel)
@@ -1781,7 +1867,13 @@ pub(crate) fn create_local_chat_model_from_string(
 /// entirely.  This function ensures that custom providers (Ollama,
 /// `<slug>:<model>`) are only reachable when the workspace holds a valid
 /// `app-session` JWT.
-fn verify_session_active(config: &Config) -> anyhow::Result<()> {
+///
+/// `pub(crate)`: also reused directly by the flows provider-connectivity
+/// author gate (issue B45, `openhuman::flows::ops::evaluate_inference_readiness`)
+/// as its Layer 1 sync session check, so the author-time gate and this
+/// construction-time chokepoint can never diverge on what "session active"
+/// means.
+pub(crate) fn verify_session_active(config: &Config) -> anyhow::Result<()> {
     // AgentBox marketplace containers run headless with no desktop
     // `app-session` JWT — the deployment is operator-controlled and ships its
     // own GMI MaaS credentials via `GMI_*` env vars. The session gate exists to
@@ -1789,14 +1881,14 @@ fn verify_session_active(config: &Config) -> anyhow::Result<()> {
     // custom provider; that threat model doesn't apply here, so bypass it.
     // Without this, every `/run` job would fail `SESSION_EXPIRED` before
     // reaching GMI (the startup path stores only `provider:gmi-maas`).
-    if crate::openhuman::agentbox::agentbox_mode_enabled() {
+    if crate::openhuman::agent::agentbox::agentbox_mode_enabled() {
         log::debug!(
             "[chat-factory] AgentBox mode — bypassing app-session gate for custom provider"
         );
         return Ok(());
     }
     // Fast path: the scheduler gate already knows the session is dead.
-    if crate::openhuman::scheduler_gate::is_signed_out() {
+    if crate::openhuman::cron::scheduler_gate::is_signed_out() {
         anyhow::bail!(
             "SESSION_EXPIRED: backend session not active — sign in to use custom providers"
         );
@@ -1813,7 +1905,10 @@ fn verify_session_active(config: &Config) -> anyhow::Result<()> {
         });
     let auth = AuthService::new(&state_dir, config.secrets.encrypt);
     let has_session = auth
-        .get_provider_bearer_token(crate::openhuman::credentials::APP_SESSION_PROVIDER, None)?
+        .get_provider_bearer_token(
+            crate::openhuman::security::credentials::APP_SESSION_PROVIDER,
+            None,
+        )?
         .filter(|s| !s.trim().is_empty())
         .is_some();
     if !has_session {
@@ -2137,7 +2232,60 @@ fn resolve_cloud_slug<'a>(
         redact_endpoint(&entry.endpoint)
     );
 
-    let key = lookup_key_for_slug(slug, config)?;
+    // #5146 §2.1: a raw "failed to read API key for slug 'anthropic'" is
+    // baffling when the user never configured Anthropic — they set a local
+    // Ollama model and this is a background role that fell back to the cloud.
+    // Attach the role, and the local chat model that caused the fallback, so
+    // the message explains itself and names a concrete remedy.
+    // Only an *implicit* fallback is explained as one. A role with its own
+    // explicit cloud route can fail key lookup here too, and telling that user
+    // their local chat model caused it would be a lie.
+    let implicit_fallback = role_uses_implicit_cloud_fallback(role, config);
+    let local_chat = if implicit_fallback {
+        config.chat_provider.as_deref().filter(|chat| {
+            crate::openhuman::inference::local::profile::is_local_provider_string(chat)
+        })
+    } else {
+        None
+    };
+    let missing_credentials = || {
+        // Safe fields only: role, slug, and the routing shape. Never the
+        // underlying error (it can echo a key) and never the key itself.
+        log::warn!(
+            "[providers][chat-factory] credential lookup failed role={} slug={} auth_style={} implicit_cloud_fallback={}",
+            role,
+            slug,
+            entry.auth_style.as_str(),
+            implicit_fallback
+        );
+        super::fallback_diagnostics::missing_provider_credentials_message(role, slug, local_chat)
+    };
+
+    let key = lookup_key_for_slug(slug, config)
+        .map_err(|e| anyhow::anyhow!("{} (underlying error: {e})", missing_credentials()))?;
+
+    // A readable auth profile with no key for this slug returns `Ok("")`, which
+    // would otherwise build a client with an empty bearer and surface as a raw
+    // 401 from the provider several layers later — exactly the baffling error
+    // this diagnostic exists to replace.
+    //
+    // Scoped to the *implicit fallback* path deliberately. That is the case the
+    // diagnostic is for: a local-chat user whose background role landed on a
+    // BYOK slug they never configured. An explicitly routed provider keeps its
+    // existing behaviour and is allowed to build without a stored key — callers
+    // construct such models to probe or describe a provider before a key is
+    // saved, and failing that at construction time would be a behaviour change
+    // well beyond this diagnostic.
+    //
+    // Styles that carry no stored key (`OpenhumanJwt` injects a session JWT
+    // downstream, `None` sends no auth header at all) are legitimately blank and
+    // never trip this.
+    if implicit_fallback
+        && key.trim().is_empty()
+        && matches!(entry.auth_style, AuthStyle::Bearer | AuthStyle::Anthropic)
+    {
+        anyhow::bail!("{}", missing_credentials());
+    }
     let codex = resolve_openai_codex_routing(config, slug, &entry.endpoint, &key)
         .map_err(anyhow::Error::msg)?;
 

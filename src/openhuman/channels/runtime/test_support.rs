@@ -407,7 +407,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
     let mut provider_cache = HashMap::new();
     provider_cache.insert(
         "harness-provider".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::clone(&model)),
+        crate::openhuman::agent::tinyagents::TurnModelSource::from_model(Arc::clone(&model)),
     );
     let conversation_histories = Arc::new(Mutex::new(HashMap::new()));
     let history_key = if options.channel_name == "telegram" {
@@ -428,9 +428,9 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
 
     let ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            model,
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(model),
+        ),
         default_provider: Arc::new("harness-provider".to_string()),
         memory: Arc::new(HarnessMemory {
             entries: options

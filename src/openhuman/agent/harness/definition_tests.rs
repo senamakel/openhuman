@@ -26,7 +26,8 @@ fn make_def(id: &str) -> AgentDefinition {
         sandbox_mode: SandboxMode::None,
         background: false,
         trigger_memory_agent: Default::default(),
-        tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Auto,
+        tokenjuice_compression:
+            crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Auto,
         subagents: vec![],
         delegate_name: None,
         agent_tier: crate::openhuman::agent::harness::definition::AgentTier::Worker,
@@ -358,7 +359,7 @@ fn tier_display_matches_as_str() {
 // audit table this list mirrors.
 #[test]
 fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
-    let defs = crate::openhuman::agent_registry::agents::load_builtins()
+    let defs = crate::openhuman::agent::registry::agents::load_builtins()
         .expect("built-in agent TOML must always parse");
 
     let expected: &[(&str, usize)] = &[
@@ -366,6 +367,12 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("orchestrator", 15),
         ("code_executor", 50),
         ("context_scout", 50),
+        // #5204: general-purpose read-only flow context/memory retrieval
+        // agent — `iteration_policy = "extended"` so it can loop across
+        // several retrievals in one turn. `#[cfg(feature = "flows")]`-gated
+        // (like the other flow agents), so this audit entry is too.
+        #[cfg(feature = "flows")]
+        ("flow_memory_agent", 50),
         ("integrations_agent", 50),
         // `mcp_agent` is compiled out with the `mcp` feature (#4799).
         // `mcp_setup` is NOT — only its five tools are gated, so the agent
@@ -398,6 +405,9 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("goals_agent", 5),
         ("help", 6),
         ("image_agent", 8),
+        // Compiled out with the `prediction-markets` gate — the Polymarket
+        // tools it fronts live behind it, so the agent is not registered.
+        #[cfg(feature = "prediction-markets")]
         ("markets_agent", 8),
         ("morning_briefing", 8),
         ("profile_memory_agent", 8),
@@ -409,7 +419,8 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("trigger_triage", 2),
         ("video_agent", 8),
         ("vision_agent", 6),
-        // Unchanged.
+        // Compiled out with the `documents` gate — see `openhuman::agent::registry::agents::loader::builtin_enabled`.
+        #[cfg(feature = "documents")]
         ("presentation_agent", 10),
         // Compiled out with the `skills` gate — see `openhuman::skills::stub`.
         #[cfg(feature = "skills")]

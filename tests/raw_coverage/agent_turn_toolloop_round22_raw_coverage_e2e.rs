@@ -204,7 +204,7 @@ async fn run_turn(
     request_native_global::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
                 model,
             ),
             history: vec![

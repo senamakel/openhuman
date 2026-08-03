@@ -1173,6 +1173,84 @@ fn classify_inference_error_vision_capability_is_non_retryable() {
     );
 }
 
+/// The verbatim LM Studio body from the #5291 user log.
+const LMSTUDIO_TEMPLATE_400: &str = "lmstudio returned: Engine protocol predict request \
+     returned 400: {\"error\":{\"code\":400,\"message\":\"Unable to generate parser for this \
+     template. Automatic parser generation failed: While executing CallExpression at line 79, \
+     column 24 in source: ...multi_step_tool %}  {{- raise_exception('No user query found in \
+     messages.') }}...Error: Jinja Exception: No user query found in messages.\",\
+     \"type\":\"invalid_request_error\"}}";
+
+#[test]
+fn classify_inference_error_chat_template_rejection_is_not_blamed_on_the_model() {
+    // #5291: LM Studio rendered the tool-loop message shape through Qwen 3's
+    // chat template, which raised. Neither the model nor the temperature is at
+    // fault, so neither may appear in the copy.
+    let classified = classify_inference_error(LMSTUDIO_TEMPLATE_400);
+    assert_eq!(classified.error_type, "chat_template_rejected");
+    assert!(
+        classified.message.contains("chat template"),
+        "must name the template as the cause: {}",
+        classified.message
+    );
+    // The two remediations that were previously offered for this body, both
+    // dead ends: the config arm's "fix your model/routing" and the auth arm's
+    // "check your API key".
+    assert!(
+        !classified.message.contains("Check your model and routing"),
+        "must not send the user to model/routing settings: {}",
+        classified.message
+    );
+    assert!(
+        !classified.message.contains("check your API key"),
+        "must not send the user to their API key: {}",
+        classified.message
+    );
+}
+
+#[test]
+fn classify_inference_error_chat_template_wins_over_the_retry_aggregate() {
+    // Both attempts fail and `format_failure_aggregate` wraps them. That
+    // wrapper carries two phrases that other arms claim, and both misdiagnose
+    // a template failure:
+    //   - "Connections → API keys → LLM" contains the bare "api key" substring
+    //     the auth_error arm matches on;
+    //   - "may not be available on your provider" is a config-rejection phrase,
+    //     rendered as "rejected the model or temperature setting" (#5291's
+    //     reported symptom).
+    // The template arm sits above both so neither can claim it.
+    let aggregate = format!(
+        "The model `qwen/qwen3.5-9b` may not be available on your provider. Configure a \
+         fallback chain via `reliability.model_fallbacks` in your OpenHuman config, or change \
+         your default model in Connections → API keys → LLM.\n\nAll providers/models failed. \
+         Attempts:\nprovider=lmstudio model=qwen/qwen3.5-9b attempt 1/2: \
+         {LMSTUDIO_TEMPLATE_400}\nprovider=lmstudio model=qwen/qwen3.5-9b attempt 2/2: \
+         {LMSTUDIO_TEMPLATE_400}"
+    );
+    let classified = classify_inference_error(&aggregate);
+    assert_eq!(classified.error_type, "chat_template_rejected");
+    assert!(
+        !classified.message.contains("model or temperature setting"),
+        "the config-rejection copy must not win: {}",
+        classified.message
+    );
+    assert!(
+        !classified.message.contains("authentication issue"),
+        "the auth copy must not win: {}",
+        classified.message
+    );
+}
+
+#[test]
+fn classify_inference_error_temperature_rejection_still_classifies_as_config() {
+    // Guard the other direction: the template arm sits directly above the
+    // config-rejection arm and must not swallow a genuine model/temperature
+    // rejection.
+    let raw = "cloud API error (400): invalid temperature: only 1 is allowed for this model";
+    let classified = classify_inference_error(raw);
+    assert_eq!(classified.error_type, "model_unavailable");
+}
+
 #[test]
 fn classify_inference_error_generic_4xx_surfaces_provider_detail() {
     // A provider 400 none of the specific arms claimed: the real reason must

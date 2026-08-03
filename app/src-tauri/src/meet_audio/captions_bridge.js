@@ -25,7 +25,7 @@
 //     obfuscate often, so we lean on `aria-label="Captions"` (which
 //     Meet keeps stable for accessibility).
 //
-// Wake-word handling lives in the core (`src/openhuman/meet_agent/`),
+// Wake-word handling lives in the core (`src/openhuman/meet/agent/`),
 // not here — the page just streams every caption line out and core
 // decides when to act.
 

@@ -17,17 +17,17 @@ gated behind a Cargo feature `tui`.
    (repo convention: gates default-ON). It must NOT ship in the desktop app —
    add `'tui': 'Terminal UI subcommand; the desktop app ships its own Tauri UI.'`
    to `INTENTIONALLY_NOT_FORWARDED` in `scripts/ci/check-feature-forwarding.mjs`.
-2. **Module**: new domain dir `src/openhuman/tui/` using the **mcp/voice facade pattern**:
+2. **Module**: crate-level `src/tui/`, gated at its declaration in `src/lib.rs`:
    - `mod.rs` always compiled; real submodules `#[cfg(feature = "tui")]`;
      `#[cfg(not(feature = "tui"))] mod stub;` exposing the same `run_from_cli`.
    - `stub.rs` `run_from_cli` bails with
      `"tui feature disabled at compile time … rebuild with --features tui"`
-     (mirror `src/openhuman/mcp_server/stub.rs:42`).
+     (mirror `src/openhuman/mcp/server/stub.rs:42`).
    - No controllers, no agent tools, no `all.rs` changes (leaf client, like `flows`'
      philosophy: absence, not degraded registration — but here the only outside
      touch-point is the CLI arm, which uses the stub for a build-fact error).
 3. **CLI arm**: in `src/core/cli.rs` match (~line 63), add
-   `"tui" | "chat" => crate::openhuman::tui::run_from_cli(&args[1..])`.
+   `"tui" | "chat" => run_tui_from_cli(&args[1..])`.
    Arm stays **un-cfg'd** (mcp precedent). Add `"tui" | "chat"` to the banner-suppression
    `matches!` at lines 48–50 (a TUI must own the terminal).
 4. **In-process core, no HTTP**: build a multi-thread tokio runtime with
@@ -86,7 +86,7 @@ gated behind a Cargo feature `tui`.
 
 - AGENTS.md: add `tui` row to the feature table + a short gate section
   (leaf-ish gate, sheds `ratatui`+`crossterm`, intentionally not forwarded to desktop).
-- `src/openhuman/about_app/`: add user-facing feature entry for the terminal chat UI.
+- `src/openhuman/platform/about_app/`: add user-facing feature entry for the terminal chat UI.
 
 ## Non-goals (v1)
 

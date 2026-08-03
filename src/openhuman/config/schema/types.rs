@@ -48,7 +48,7 @@ pub struct ModelRegistryEntry {
     /// with [`Self::cost_per_1m_output`]) to estimate request cost when the
     /// provider doesn't echo an authoritative `charged_amount_usd`. `0.0` means
     /// "unknown" — callers fall back to the tier/catalog estimate. Pre-filled
-    /// for known vendor models from [`crate::openhuman::cost::catalog`].
+    /// for known vendor models from [`crate::openhuman::platform::cost::catalog`].
     #[serde(default)]
     pub cost_per_1m_input: f64,
     /// Cached-prefix prompt rate, USD per million cached input tokens (KV-cache
@@ -61,7 +61,7 @@ pub struct ModelRegistryEntry {
     /// Maximum context window in tokens (published max input). `0` means
     /// "unknown". Providers differ widely (128K–1M+); callers use this to
     /// budget prompts, trigger compaction, and route work. Pre-filled for known
-    /// vendor models from [`crate::openhuman::cost::catalog`].
+    /// vendor models from [`crate::openhuman::platform::cost::catalog`].
     #[serde(default)]
     pub context_window: u32,
     #[serde(default)]
@@ -95,7 +95,7 @@ pub struct Config {
     #[serde(skip)]
     pub config_path: PathBuf,
     /// Workspace data-schema version. Bumped each time a one-shot data
-    /// migration under [`crate::openhuman::migrations`] runs successfully.
+    /// migration under [`crate::openhuman::config::migrations`] runs successfully.
     /// `#[serde(default)]` so existing `config.toml` files (which predate
     /// the field) load as version `0` and pick up pending migrations on
     /// the first launch of the new build.
@@ -160,12 +160,12 @@ pub struct Config {
     /// Background-AI scheduler gate — throttles memory-tree digests,
     /// embeddings, and other LLM-bound background work based on power
     /// state, CPU pressure, and deployment mode. See
-    /// [`crate::openhuman::scheduler_gate`].
+    /// [`crate::openhuman::cron::scheduler_gate`].
     #[serde(default)]
     pub scheduler_gate: SchedulerGateConfig,
 
     /// tiny.place harness session-DM ingest layer. See
-    /// [`crate::openhuman::orchestration`].
+    /// [`crate::openhuman::hosted::orchestration`].
     #[serde(default)]
     pub orchestration: OrchestrationConfig,
 
@@ -211,7 +211,7 @@ pub struct Config {
     /// Global context management configuration — budget thresholds,
     /// summarization trigger, microcompact/autocompact toggles, and the
     /// session-memory extraction cadence. Consumed by
-    /// [`crate::openhuman::context::ContextManager`].
+    /// [`crate::openhuman::agent::context::ContextManager`].
     #[serde(default)]
     pub context: ContextConfig,
 
@@ -235,7 +235,7 @@ pub struct Config {
 
     /// Task-sources domain defaults — master switch + new-source
     /// defaults. Per-source records live in the domain's SQLite store.
-    /// See [`crate::openhuman::task_sources`].
+    /// See [`crate::openhuman::integrations::task_sources`].
     #[serde(default)]
     pub task_sources: TaskSourcesConfig,
 
@@ -311,12 +311,12 @@ pub struct Config {
     /// describes a data connector (Composio OAuth, local folder, GitHub
     /// repo, RSS feed, Twitter query, web page) that feeds memory.
     #[serde(default)]
-    pub memory_sources: Vec<crate::openhuman::memory_sources::types::MemorySourceEntry>,
+    pub memory_sources: Vec<crate::openhuman::memory::sources::types::MemorySourceEntry>,
 
     /// User-facing agent registry — shipped default agents plus user-authored
     /// custom agents and persisted enable/disable/tool-policy overrides.
     #[serde(default)]
-    pub agent_registry: crate::openhuman::agent_registry::types::AgentRegistryConfig,
+    pub agent_registry: crate::openhuman::agent::registry::types::AgentRegistryConfig,
 
     #[serde(default)]
     pub agents: HashMap<String, DelegateAgentConfig>,
@@ -788,7 +788,8 @@ impl Default for Config {
             proxy: ProxyConfig::default(),
             cost: CostConfig::default(),
             memory_sources: Vec::new(),
-            agent_registry: crate::openhuman::agent_registry::types::AgentRegistryConfig::default(),
+            agent_registry: crate::openhuman::agent::registry::types::AgentRegistryConfig::default(
+            ),
             agents: HashMap::new(),
             local_ai: LocalAiConfig::default(),
             claude_agent_sdk: ClaudeAgentSdkConfig::default(),

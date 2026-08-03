@@ -67,7 +67,7 @@ if [ -f "$HOME/.cargo/env" ]; then
 fi
 
 cargo_test() {
-  cargo test --manifest-path Cargo.toml --workspace "$@"
+  cargo test --manifest-path Cargo.toml --workspace --features bin-tools "$@"
 }
 
 integration_test_targets() {

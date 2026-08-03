@@ -16,7 +16,7 @@ fn spec(name: &str) -> ToolSpec {
 
 #[test]
 fn recovery_tool_joins_a_named_allowlist() {
-    use crate::openhuman::tokenjuice::RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
+    use crate::openhuman::inference::tokenjuice::RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
     use std::collections::HashSet;
 
     // A curated Named-scope allowlist gains retrieve_tool_output as a *real*
@@ -106,7 +106,7 @@ fn preserves_full_spec_content_for_kept_entries() {
 
 #[test]
 fn automatic_memory_policy_does_not_synthesize_delegate_tools() {
-    let defs = crate::openhuman::agent_registry::agents::load_builtins().unwrap();
+    let defs = crate::openhuman::agent::registry::agents::load_builtins().unwrap();
     let help = defs
         .iter()
         .find(|def| def.id == "help")
@@ -151,7 +151,7 @@ fn test_config(tmp: &tempfile::TempDir) -> crate::openhuman::config::Config {
 /// singleton (so tests can't be poisoned by another test's
 /// `AgentDefinitionRegistry::init_global*` call, and can't poison later ones).
 fn builtin_def(id: &str) -> crate::openhuman::agent::harness::definition::AgentDefinition {
-    crate::openhuman::agent_registry::agents::load_builtins()
+    crate::openhuman::agent::registry::agents::load_builtins()
         .unwrap()
         .into_iter()
         .find(|def| def.id == id)
@@ -250,7 +250,7 @@ async fn build_session_agent_carries_active_profile_id_when_profile_present() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = "alice".to_string();
     profile.built_in = false;
     profile.is_master = false;
@@ -279,7 +279,8 @@ async fn profile_allowed_tools_restrict_shared_session_builder() {
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let orchestrator = builtin_def("orchestrator");
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = "alice".to_string();
     profile.built_in = false;
     profile.allowed_tools = Some(vec!["file_read".to_string()]);
@@ -287,7 +288,7 @@ async fn profile_allowed_tools_restrict_shared_session_builder() {
     let agent = Agent::build_session_agent_inner(
         &config,
         "orchestrator",
-        None,
+        Some(&orchestrator),
         None,
         None,
         false,
@@ -354,7 +355,7 @@ async fn dedicated_memory_profile_scopes_tree_and_transcript_storage() {
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = "alice".to_string();
     profile.built_in = false;
     profile.dedicated_memory = true;
@@ -396,8 +397,11 @@ async fn build_session_agent_leaves_active_profile_id_none_without_profile() {
 // ── Finding #1 (Codex): dedicated memory subtree on the ordinary session path ─
 
 /// Build a non-default profile with the given id + dedicated-memory flag.
-fn custom_profile(id: &str, dedicated_memory: bool) -> crate::openhuman::profiles::AgentProfile {
-    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+fn custom_profile(
+    id: &str,
+    dedicated_memory: bool,
+) -> crate::openhuman::agent::profiles::AgentProfile {
+    let mut profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     profile.id = id.to_string();
     profile.name = id.to_string();
     profile.built_in = false;
@@ -469,8 +473,8 @@ async fn build_session_agent_profile_less_uses_shared_memory_subtree() {
 
 #[tokio::test]
 async fn build_session_agent_injects_profile_soul_into_prompt() {
+    use crate::openhuman::agent::context::prompt::LearnedContextData;
     use crate::openhuman::agent::harness::session::types::Agent;
-    use crate::openhuman::context::prompt::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -511,8 +515,8 @@ async fn build_session_agent_injects_profile_soul_into_prompt() {
 
 #[tokio::test]
 async fn build_session_agent_uses_profile_memory_instead_of_root_memory() {
+    use crate::openhuman::agent::context::prompt::LearnedContextData;
     use crate::openhuman::agent::harness::session::types::Agent;
-    use crate::openhuman::context::prompt::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -569,10 +573,10 @@ async fn build_session_agent_uses_profile_memory_instead_of_root_memory() {
 #[tokio::test]
 async fn from_config_for_agent_synthesizes_custom_registry_entry_with_named_scope() {
     use crate::openhuman::agent::harness::session::types::Agent;
-    use crate::openhuman::agent_registry::types::{
+    use crate::openhuman::agent::registry::types::{
         AgentRegistryEntry, AgentRegistrySource, AgentSubagentPolicy,
     };
-    use crate::openhuman::tokenjuice::RETRIEVE_TOOL_NAME;
+    use crate::openhuman::inference::tokenjuice::RETRIEVE_TOOL_NAME;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let mut config = test_config(&tmp);
@@ -623,8 +627,8 @@ async fn from_config_for_agent_synthesizes_custom_registry_entry_with_named_scop
 
 #[tokio::test]
 async fn build_session_agent_injects_default_profile_soul_into_prompt() {
+    use crate::openhuman::agent::context::prompt::LearnedContextData;
     use crate::openhuman::agent::harness::session::types::Agent;
-    use crate::openhuman::context::prompt::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -636,7 +640,7 @@ async fn build_session_agent_injects_default_profile_soul_into_prompt() {
     )
     .unwrap();
 
-    let profile = crate::openhuman::profiles::store::built_in_default_profile();
+    let profile = crate::openhuman::agent::profiles::store::built_in_default_profile();
     let agent = Agent::build_session_agent_inner(
         &config,
         "orchestrator",
@@ -659,8 +663,8 @@ async fn build_session_agent_injects_default_profile_soul_into_prompt() {
 
 #[tokio::test]
 async fn build_session_agent_profile_less_prompt_has_no_personality_soul() {
+    use crate::openhuman::agent::context::prompt::LearnedContextData;
     use crate::openhuman::agent::harness::session::types::Agent;
-    use crate::openhuman::context::prompt::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);

@@ -1,12 +1,12 @@
 //! Context management configuration.
 //!
-//! Knobs for the global `src/openhuman/context/` module — budget
+//! Knobs for the global `src/openhuman/agent/context/` module — budget
 //! thresholds, summarization trigger percentages, microcompact behavior,
 //! and the session-memory extraction cadence. Wired into the root
 //! [`super::Config`] as the `context` section; env overrides live in
 //! [`super::load`].
 
-use crate::openhuman::context::session_memory::SessionMemoryConfig;
+use crate::openhuman::agent::context::session_memory::SessionMemoryConfig;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct ContextConfig {
-    /// Master switch. When `false`, [`crate::openhuman::context::ContextManager`]
+    /// Master switch. When `false`, [`crate::openhuman::agent::context::ContextManager`]
     /// skips every reduction stage and the summarizer is never invoked.
     /// Useful for tests and diagnostics; not recommended for production.
     #[serde(default = "default_enabled")]
@@ -149,11 +149,11 @@ fn default_false() -> bool {
 }
 
 fn default_microcompact_keep_recent() -> usize {
-    crate::openhuman::context::DEFAULT_KEEP_RECENT_TOOL_RESULTS
+    crate::openhuman::agent::context::DEFAULT_KEEP_RECENT_TOOL_RESULTS
 }
 
 fn default_tool_result_budget_bytes() -> usize {
-    crate::openhuman::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES
+    crate::openhuman::agent::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES
 }
 
 fn default_summarizer_payload_threshold_tokens() -> usize {

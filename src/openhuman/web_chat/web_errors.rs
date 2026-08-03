@@ -167,7 +167,7 @@ pub(crate) struct ClassifiedError {
     /// `session_expired`, `budget_exhausted`, `provider_error`,
     /// `context_overflow`, `model_unavailable`, `payload_too_large`,
     /// `provider_request_rejected`, `capability_unsupported`,
-    /// `empty_response`, `network`, `inference`.
+    /// `chat_template_rejected`, `empty_response`, `network`, `inference`.
     pub(crate) error_type: &'static str,
     /// User-facing copy (already includes provider detail block and the
     /// retry-after countdown sentence when available).
@@ -664,6 +664,52 @@ pub(crate) fn classify_inference_error(err: &str) -> ClassifiedError {
             retry_after_ms: None,
             provider: None,
             fallback_available: None,
+        }
+    } else if crate::openhuman::inference::provider::is_chat_template_rejection_message(err) {
+        // #5291: a local runtime (LM Studio / llama.cpp / Ollama) rendered the
+        // request through the model's OWN Jinja chat template and the template
+        // raised — `No user query found in messages.` on Qwen 3, against the
+        // prompt-guided tool loop's message shape. Neither the model nor the
+        // sampling params are at fault, and the request never reached the model.
+        //
+        // Placed HERE, with the other specific-anchor arms and above the broad
+        // substring ladder, because both renderings of this failure are claimed
+        // by an earlier-or-lower arm that misdiagnoses them:
+        //   - the retry aggregate that wraps the failed attempts ends with
+        //     "…change your default model in Connections → API keys → LLM",
+        //     and the `auth_error` arm below matches on the bare substring
+        //     "api key" — the user gets "check your API key" for a template
+        //     failure;
+        //   - that same aggregate carries "may not be available on your
+        //     provider", which the config-rejection arm renders as "your
+        //     provider rejected the model or temperature setting" (#5291's
+        //     reported symptom).
+        // Both point at a credential/model/temperature that was never the
+        // problem, so every remediation they offer is a dead end. The anchors
+        // in `is_chat_template_rejection_message` are template-engine strings
+        // ("jinja exception", the raised guard text), which no unrelated
+        // provider error emits — so claiming the error this early is safe.
+        //
+        // Retryable: the failure needs a tool-step history with no resolvable
+        // user turn, and a fresh turn starts from the user's new message, so
+        // the same model can succeed on the next attempt. The harness-side fix
+        // (guaranteeing a user turn for non-native-tool models) removes the
+        // shape that triggers it at all.
+        ClassifiedError {
+            error_type: "chat_template_rejected",
+            message: with_provider_detail(
+                "This model's chat template rejected the request — it isn't the model, the \
+                 temperature, or your API key. Local models without native tool calling are \
+                 driven through their own chat template, and some templates refuse the \
+                 message shape of a tool step. Start a new chat to reset the history, or \
+                 pick a model with native tool support in Connections → API keys → LLM.",
+                err,
+            ),
+            source: "provider",
+            retryable: true,
+            retry_after_ms: None,
+            provider,
+            fallback_available,
         }
     } else if lower.contains("rate limit") || lower.contains("429") {
         let retry_secs = parse_retry_after_secs_from_str(err);

@@ -67,7 +67,7 @@ was verified against crate content individually below.
 
 ## Drift candidates (verified individually against crate content)
 
-Scan: `git log --since=2026-06-20 -- src/openhuman/memory_store memory_tree memory_queue memory_diff
+Scan: `git log --since=2026-06-20 -- src/openhuman/memory/store memory_tree memory_queue memory_diff
 memory_goals memory_entities memory_graph memory_archivist memory_conversations memory_sources`,
 then per-commit file lists intersected with engine-mapping modules, then content-diffed against
 `vendor/tinycortex`.

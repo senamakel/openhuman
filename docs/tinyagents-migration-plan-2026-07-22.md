@@ -12,7 +12,7 @@ affected tests, and clean up every dangling doc/code reference left behind by
 earlier phases.
 **Method:** fresh four-way audit of (1) the crate surface, (2)
 `src/openhuman/inference/`, (3) the agent domains + the
-`src/openhuman/tinyagents/` seam, (4) the existing docs/tests — all against the
+`src/openhuman/agent/tinyagents/` seam, (4) the existing docs/tests — all against the
 working tree at `main` (`5b8a9f269`, 2026-07-22).
 
 **Execution status:** active on `feat/tinyagents-provider-cleanup`.
@@ -186,7 +186,7 @@ host files (`schemas.rs`, `presets.rs`, `model_ids.rs`, `paths.rs`, `parse.rs`,
 | `tool_registry/` | 7 / 1.8k | Read-only cross-surface discovery + RPC. Stays. |
 | `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/` | — | All host/product (definitions-as-data, RPC controllers, marketplace HTTP, remote-brain client — `orchestration/` talks to the hosted backend, not the local crate). Stay. `agent_tool_policy` overlaps crate `tool_policy` middleware mechanically but encodes host channel-permission policy — stays, mechanism may thin post-WP-4. |
 
-### 4.3 The seam — `src/openhuman/tinyagents/` (25 files, ~17.1k LOC)
+### 4.3 The seam — `src/openhuman/agent/tinyagents/` (25 files, ~17.1k LOC)
 
 The seam is healthy: 23/25 files use the crate; it implements `Middleware`
 (13×), `ToolMiddleware` (4×), `ModelMiddleware` (3×), `ChatModel` (2×),

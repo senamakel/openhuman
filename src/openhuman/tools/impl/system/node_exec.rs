@@ -4,7 +4,7 @@
 //! Sibling to [`crate::openhuman::tools::impl::system::shell::ShellTool`]: same
 //! security gates, same env hygiene, but the command is pinned to the `node`
 //! binary resolved by
-//! [`crate::openhuman::javascript::NodeBootstrap`].
+//! [`crate::openhuman::runtime::javascript::NodeBootstrap`].
 //!
 //! Two input modes:
 //!
@@ -22,7 +22,7 @@
 //! `PATH`. Subsequent calls reuse the cached install.
 
 use crate::openhuman::agent::host_runtime::RuntimeAdapter;
-use crate::openhuman::javascript::NodeBootstrap;
+use crate::openhuman::runtime::javascript::NodeBootstrap;
 use crate::openhuman::security::{CommandClass, GateDecision, SecurityPolicy};
 use crate::openhuman::tools::traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout,
@@ -192,7 +192,7 @@ impl NodeExecTool {
 
         // No default deadline — only the caller-supplied `timeout_secs` (capped)
         // bounds the run. `None` ⇒ run to completion.
-        let explicit_timeout = crate::openhuman::tool_timeout::explicit_call_timeout_duration(
+        let explicit_timeout = crate::openhuman::tools::timeout::explicit_call_timeout_duration(
             args.get("timeout_secs").and_then(|v| v.as_u64()),
             NODE_TIMEOUT_MAX_SECS,
         );
@@ -402,11 +402,11 @@ impl NodeExecTool {
     async fn try_pool_inline(
         &self,
         code: &str,
-        resolved: &crate::openhuman::runtime_node::ResolvedNode,
+        resolved: &crate::openhuman::runtime::node::ResolvedNode,
         action_dir: &std::path::Path,
         timeout: Option<Duration>,
     ) -> Option<ToolResult> {
-        if !crate::openhuman::runtime_pool::node::enabled(&self.pool_cfg) {
+        if !crate::openhuman::runtime::pool::node::enabled(&self.pool_cfg) {
             return None;
         }
         // Node forbids process.chdir() inside worker_threads. Preserve the
@@ -417,7 +417,7 @@ impl NodeExecTool {
             tracing::debug!("[node_exec] pool: process.chdir-compatible code uses legacy spawn");
             return None;
         }
-        match crate::openhuman::runtime_pool::node::run_inline(
+        match crate::openhuman::runtime::pool::node::run_inline(
             &self.workspace_dir,
             &self.pool_cfg.node,
             &resolved.node_bin,
@@ -438,7 +438,7 @@ impl NodeExecTool {
                 Some(pool_outcome_to_result(outcome, timeout))
             }
             // Job never ran → safe to fall back to a per-call spawn.
-            Err(crate::openhuman::runtime_pool::PoolRunError::PreDispatch(error)) => {
+            Err(crate::openhuman::runtime::pool::PoolRunError::PreDispatch(error)) => {
                 tracing::warn!(
                     error = %error,
                     "[node_exec] pool: pre-dispatch failure; falling back to legacy spawn"
@@ -447,14 +447,14 @@ impl NodeExecTool {
             }
             // Load-shed: do NOT spawn (that reintroduces the per-run RSS the pool
             // caps). Surface a retryable busy error instead.
-            Err(crate::openhuman::runtime_pool::PoolRunError::Saturated) => {
+            Err(crate::openhuman::runtime::pool::PoolRunError::Saturated) => {
                 tracing::warn!("[node_exec] pool: saturated; shedding load");
                 Some(ToolResult::error(
                     "Node runtime pool is at capacity; retry shortly.",
                 ))
             }
             // The job may already have executed → terminal, never re-run it.
-            Err(crate::openhuman::runtime_pool::PoolRunError::PostDispatch(error)) => {
+            Err(crate::openhuman::runtime::pool::PoolRunError::PostDispatch(error)) => {
                 tracing::warn!(
                     error = %error,
                     "[node_exec] pool: post-dispatch failure; not retried to avoid duplicate execution"
@@ -491,7 +491,7 @@ impl NodeExecTool {
         // legitimately long script isn't killed while still bounding a wedged
         // sandbox process. The native (non-sandboxed) path runs truly unbounded.
         let effective = timeout.unwrap_or_else(|| {
-            Duration::from_secs(crate::openhuman::tool_timeout::SANDBOX_UNBOUNDED_CAP_SECS)
+            Duration::from_secs(crate::openhuman::tools::timeout::SANDBOX_UNBOUNDED_CAP_SECS)
         });
 
         // Load the live `RuntimeConfig` so `resolve_sandbox_policy` derives
@@ -583,7 +583,7 @@ impl NodeExecTool {
 /// failure, and the identical timeout message. Keeps pooled and legacy runs
 /// indistinguishable to the agent.
 fn pool_outcome_to_result(
-    outcome: crate::openhuman::runtime_pool::PoolExecOutcome,
+    outcome: crate::openhuman::runtime::pool::PoolExecOutcome,
     timeout: Option<Duration>,
 ) -> ToolResult {
     if outcome.timed_out {

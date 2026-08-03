@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use crate::openhuman::agent::profiles::AgentProfileStore;
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::profiles::AgentProfileStore;
 use crate::openhuman::threads::turn_state::TurnStateStore;
 
 use super::ops::{key_for, BudgetCorrelation, THREAD_SESSIONS};
@@ -182,10 +182,15 @@ pub(crate) async fn run_chat_task(
                  from conversation-log prose",
                 thread_id
             );
-            match crate::openhuman::memory_conversations::get_messages(
+            // Blocking pool: the store takes a process-global mutex and reads
+            // the thread's whole JSONL under it, so doing this inline parked an
+            // async worker on the chat hot path (#5156).
+            match crate::openhuman::memory::conversations::blocking::get_messages(
                 config.workspace_dir.clone(),
-                thread_id,
-            ) {
+                thread_id.to_string(),
+            )
+            .await
+            {
                 Ok(prior_messages) if !prior_messages.is_empty() => {
                     let pairs: Vec<(String, String)> = prior_messages
                         .into_iter()
@@ -251,7 +256,7 @@ pub(crate) async fn run_chat_task(
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
     let turn = Box::pin(agent.run_single(message));
-    let result = match crate::openhuman::tinyagents::thread_context::with_thread_id(
+    let result = match crate::openhuman::agent::tinyagents::thread_context::with_thread_id(
         thread_id.to_string(),
         crate::openhuman::memory::source_scope::with_source_scope(
             profile.memory_sources.clone(),

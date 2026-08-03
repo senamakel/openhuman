@@ -4,7 +4,7 @@
 //! co-located files as identified by a coverage gap analysis:
 //!
 //! 1. Full user→LLM→tool→result→final turn cycle — now covered by the
-//!    tinyagents route's tests (`src/openhuman/tinyagents/tests.rs`), which
+//!    tinyagents route's tests (`src/openhuman/agent/tinyagents/tests.rs`), which
 //!    exercise `run_turn_via_tinyagents_shared` end to end.
 //! 2. `MaxIterationsExceeded` downcasts to the typed `AgentError` variant.
 //! 3. `visible_tool_names` whitelist: tools outside the set are treated as unknown.
@@ -23,7 +23,7 @@
 //! - `<invoke tool=…>` XML attribute form — the parser does not parse attributes;
 //!   only the tag body (JSON) is used.
 
-use crate::openhuman::tool_timeout::parse_tool_timeout_secs;
+use crate::openhuman::tools::timeout::parse_tool_timeout_secs;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Item 1 — Full turn cycle: user → LLM emits tool call → tool executes →

@@ -190,7 +190,10 @@ const en: TranslationMap = {
   'agentWorld.world.retry': 'Retry',
   'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'Join tiny.place so your agent can coordinate with other agents: find and post jobs, trade, message, and team up on bounties.',
+    'Join tiny.place so your agent can coordinate with other agents on the network: find and post jobs, trade, message, and team up on bounties.',
+  'agentWorld.world.offlineBadge': 'Offline preview',
+  'agentWorld.world.offlineBadgeTitle':
+    'Agents shown here are a local simulation. Live presence and world sync are coming soon.',
   'agentWorld.world.room': 'Room',
   'agentWorld.world.rooms.poker.name': 'Poker',
   'agentWorld.world.rooms.poker.description': 'Eight seats around a felt table.',
@@ -229,10 +232,29 @@ const en: TranslationMap = {
   'agentWorld.ledger.loadMore': 'Load more',
   'agentWorld.ledger.loadingMore': 'Loading more…',
   'agentWorld.ledger.loadMoreError': 'Could not load more transactions. Try again.',
+  'agentWorld.ledger.filterAsset': 'Asset',
+  'agentWorld.ledger.filterAllAssets': 'All assets',
+  'agentWorld.ledger.direction': 'Direction',
+  'agentWorld.ledger.directionAll': 'All',
+  'agentWorld.ledger.directionIn': 'In',
+  'agentWorld.ledger.directionOut': 'Out',
+  'agentWorld.ledger.copyTxId': 'Copy transaction ID',
+  'agentWorld.ledger.copied': 'Copied',
+  'agentWorld.ledger.noMatch': 'No transactions match these filters.',
+  'agentWorld.ledger.noMatchHint': 'Try widening or clearing the filters.',
   'agentWorld.jobs': 'Jobs',
   'agentWorld.bounties': 'Bounties',
   'agentWorld.explore': 'Explore',
   'agentWorld.directory': 'Directory',
+  'agentWorld.directory.empty': 'No agents found',
+  'agentWorld.directory.emptyHint': 'No agents are registered in the directory yet.',
+  'agentWorld.directory.searchLabel': 'Search agents',
+  'agentWorld.directory.searchPlaceholder': 'Search agents by handle or name',
+  'agentWorld.directory.noResults': 'No agents match your search.',
+  'agentWorld.directory.noResultsHint': 'Try a different handle or name.',
+  'agentWorld.directory.loadMore': 'Load more',
+  'agentWorld.directory.loadingMore': 'Loading…',
+  'agentWorld.directory.loadMoreError': "Couldn't load more agents.",
   'agentWorld.directory.profile.verified': 'Verified',
   'agentWorld.directory.profile.joined': 'Joined',
   'agentWorld.directory.profile.noBio': 'No bio yet.',
@@ -1789,16 +1811,16 @@ const en: TranslationMap = {
   'settings.search.menuDesc':
     'Default to OpenHuman-managed search or wire up your own provider with an API key.',
   'settings.search.description':
-    "Pick the search engine the agent uses, or disable search tools entirely. Managed uses OpenHuman's backend (no setup). Parallel, Brave, and Querit run direct from your machine using your API key.",
+    "Pick the search engine the agent uses, or disable search tools entirely. Managed uses OpenHuman's backend (no setup). Parallel, Brave, Querit, and Exa run direct from your machine using your API key.",
   'settings.search.engineAria': 'Search engine',
   'settings.search.engineDisabledLabel': 'Disabled',
   'settings.search.engineDisabledDesc':
     'Remove search tools from the agent context and available tool list.',
   'settings.search.engineManagedLabel': 'OpenHuman Managed',
   'settings.search.engineManagedDesc':
-    'Default. Routed through the OpenHuman backend: no API key required.',
+    'Default. Routed through the OpenHuman backend, currently powered by Exa: no API key required.',
   'settings.search.localManagedUnavailable':
-    'OpenHuman Managed search is not available for local users. Add your own Parallel, Brave, or Querit API key to enable web search.',
+    'OpenHuman Managed search is not available for local users. Add your own Parallel, Brave, Querit, or Exa API key to enable web search.',
   'settings.search.engineParallelLabel': 'Parallel',
   'settings.search.engineParallelDesc':
     'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
@@ -1807,6 +1829,9 @@ const en: TranslationMap = {
   'settings.search.engineQueritLabel': 'Querit',
   'settings.search.engineQueritDesc':
     'Direct Querit API: web search with site, time range, country, and language filters.',
+  'settings.search.engineExaLabel': 'Exa',
+  'settings.search.engineExaDesc':
+    'Neural search powered by Exa. Requires your own Exa API key. Adds search, find similar, and page contents tools.',
   'settings.search.statusConfigured': 'Configured',
   'settings.search.statusNeedsKey': 'Needs API key',
   'settings.search.fallbackToManaged':
@@ -1822,10 +1847,12 @@ const en: TranslationMap = {
   'settings.search.parallelKeyLabel': 'Parallel API key',
   'settings.search.braveKeyLabel': 'Brave Search API key',
   'settings.search.queritKeyLabel': 'Querit API key',
+  'settings.search.exaKeyLabel': 'Exa API key',
   'settings.search.placeholderStored': '•••••••• (stored)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
   'settings.search.placeholderQuerit': 'Querit API key',
+  'settings.search.placeholderExa': 'Paste your Exa API key…',
   'settings.search.allowedSitesLabel': 'Allowed websites',
   'settings.search.allowedSitesHint':
     'Enter one host per line, such as reuters.com. The assistant may open and read these hosts through web fetch and the browser tool. Each host also covers its subdomains. This list does not restrict web search.',
@@ -4733,7 +4760,7 @@ const en: TranslationMap = {
   'flows.copilot.continueBuilding': 'Continue building',
 
   // ── Workflow Canvas (issue B5b.1): the read-only graph view of a saved
-  // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node
+  // flow at /flows/:id. `flows.nodeKind.*` labels the 13 tinyflows node
   // kinds (`tinyflows::model::NodeKind`) shown in each canvas node card.
   'flows.canvas.title': 'Workflow',
   'flows.canvas.loading': 'Loading workflow…',
@@ -4758,6 +4785,51 @@ const en: TranslationMap = {
   'flows.nodeKind.transform': 'Transform',
   'flows.nodeKind.output_parser': 'Output parser',
   'flows.nodeKind.sub_workflow': 'Sub-workflow',
+  'flows.nodeKind.memory': 'Memory',
+  'flows.nodeKind.dedup': 'Dedup',
+
+  // ── describeNode (F-M3): the dynamic per-node card summary text shown on
+  // every canvas node (`FlowNodeComponent`) and in the config drawer header.
+  'flows.nodeSummary.trigger.manual': 'Runs on demand',
+  'flows.nodeSummary.trigger.webhook': 'Runs on an incoming webhook',
+  'flows.nodeSummary.trigger.appEventOn': 'On {parts}',
+  'flows.nodeSummary.trigger.appEvent': 'Runs on an app event',
+  'flows.nodeSummary.trigger.unknownKind': 'Trigger: {kind}',
+  'flows.nodeSummary.agent.defaultModel': 'default model',
+  'flows.nodeSummary.agent.withPrompt': '“{prompt}” · {model}',
+  'flows.nodeSummary.agent.default': 'Asks the {model}',
+  'flows.nodeSummary.toolCall.runsNative': 'Runs {name}',
+  'flows.nodeSummary.toolCall.pickNative': 'Runs an OpenHuman tool (pick one)',
+  'flows.nodeSummary.toolCall.runs': 'Runs {slug}',
+  'flows.nodeSummary.toolCall.pick': 'Runs an app action (pick one)',
+  'flows.nodeSummary.http.withUrl': '{method} {url}',
+  'flows.nodeSummary.http.noUrl': '{method} request (set a URL)',
+  'flows.nodeSummary.code.runs': 'Runs {lang} code',
+  'flows.nodeSummary.condition.withField': 'If {field} → true / false',
+  'flows.nodeSummary.condition.default': 'Branches to true / false',
+  'flows.nodeSummary.switch.byExpr': 'Routes by {expr}',
+  'flows.nodeSummary.switch.byExprWithRoutes': 'Routes by {expr} ({count} routes)',
+  'flows.nodeSummary.switch.byValue': 'Routes by a value',
+  'flows.nodeSummary.switch.byValueWithRoutes': 'Routes by a value ({count} routes)',
+  'flows.nodeSummary.merge': 'Merges parallel branches',
+  'flows.nodeSummary.splitOut.withPath': 'Splits each {path}',
+  'flows.nodeSummary.splitOut.default': 'Splits a list into items',
+  'flows.nodeSummary.transform.default': 'Reshapes each item',
+  'flows.nodeSummary.transform.setFieldsSingular': 'Sets {n} field on each item',
+  'flows.nodeSummary.transform.setFieldsPlural': 'Sets {n} fields on each item',
+  'flows.nodeSummary.outputParser': 'Parses the previous output',
+  'flows.nodeSummary.subWorkflow': 'Runs a nested workflow',
+  'flows.nodeSummary.memory.flavourWith': 'Reads the "{flavour}" flavour',
+  'flows.nodeSummary.memory.flavour': 'Reads a memory flavour',
+  'flows.nodeSummary.memory.people': 'Looks up people memory',
+  'flows.nodeSummary.memory.remember': 'Remembers a value in this workflow',
+  'flows.nodeSummary.memory.forget': 'Forgets a value from this workflow',
+  'flows.nodeSummary.memory.searchScoped': 'Searches memory ({scope})',
+  'flows.nodeSummary.memory.search': 'Searches memory',
+  'flows.nodeSummary.memory.recallScoped': 'Recalls memory ({scope})',
+  'flows.nodeSummary.memory.recall': 'Recalls memory',
+  'flows.nodeSummary.dedup.withKey': 'Skips items already seen by {key}',
+  'flows.nodeSummary.dedup.default': 'Skips items already processed',
 
   // ── Editable Workflow Canvas (issue B5b.2 / Phase 3a): the node palette
   // and editor toolbar layered on top of the read-only canvas above.
@@ -4850,6 +4922,32 @@ const en: TranslationMap = {
   'flows.nodeConfig.trigger.scheduleDays': 'On days (optional: leave empty for every day)',
   'flows.nodeConfig.trigger.scheduleAdvanced': 'Advanced (edit cron)',
   'flows.nodeConfig.trigger.scheduleSimple': 'Back to simple schedule',
+  // ── describeCron / describeEveryMs / describeSchedule (F-M3): the live
+  // plain-language schedule summary shown in `ScheduleField` and the
+  // read-only trigger-node summary for `every`/`at` schedules.
+  'flows.cron.customSchedule': 'Custom schedule ({expr})',
+  'flows.cron.noScheduleSet': 'No schedule set',
+  'flows.cron.weekdays': 'weekdays',
+  'flows.cron.weekends': 'weekends',
+  'flows.cron.everyMinute': 'Every minute',
+  'flows.cron.everyMinuteOnDays': 'Every minute on {days}',
+  'flows.cron.everyNMinutes': 'Every {n} minutes',
+  'flows.cron.everyNMinutesOnDays': 'Every {n} minutes on {days}',
+  'flows.cron.everyHour': 'Every hour',
+  'flows.cron.everyHourOnDays': 'Every hour on {days}',
+  'flows.cron.everyNHours': 'Every {n} hours',
+  'flows.cron.everyNHoursOnDays': 'Every {n} hours on {days}',
+  'flows.cron.everyDayAtTime': 'Every day at {time}',
+  'flows.cron.atTimeOnDays': 'At {time} on {days}',
+  'flows.cron.invalidInterval': 'Invalid interval',
+  'flows.cron.dailyEvery24h': 'Daily (every 24h)',
+  'flows.cron.everyNDays': 'Every {n} days',
+  'flows.cron.everyNHoursShort': 'Every {n}h',
+  'flows.cron.everyNMinutesShort': 'Every {n}m',
+  'flows.cron.everySecond': 'Every second',
+  'flows.cron.everyNSeconds': 'Every {n}s',
+  'flows.cron.onceAtRaw': 'Once at {at}',
+  'flows.cron.onceAt': 'Once at {at}',
   'flows.nodeConfig.trigger.toolkitLabel': 'App',
   'flows.nodeConfig.trigger.triggerSlugLabel': 'Trigger',
   'flows.nodeConfig.trigger.pickApp': 'Pick a connected app first.',
@@ -4909,10 +5007,59 @@ const en: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Source',
+  // `memory` node (issue #5226): recall/search/flavour/people read; remember/forget write.
+  'flows.nodeConfig.memory.operationLabel': 'Operation',
+  'flows.nodeConfig.memory.operation_recall': 'Recall',
+  'flows.nodeConfig.memory.operation_search': 'Search',
+  'flows.nodeConfig.memory.operation_flavour': 'Flavour',
+  'flows.nodeConfig.memory.operation_people': 'People',
+  'flows.nodeConfig.memory.operation_remember': 'Remember',
+  'flows.nodeConfig.memory.operation_forget': 'Forget',
+  'flows.nodeConfig.memory.scopeLabel': 'Scope',
+  'flows.nodeConfig.memory.scopeHint': 'Where to look for this memory.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'Writes are only allowed within this workflow, never to your personal memory.',
+  'flows.nodeConfig.memory.scope_user': 'You (read-only)',
+  'flows.nodeConfig.memory.scope_flow': 'This workflow',
+  'flows.nodeConfig.memory.scope_flows': 'All workflows (read-only)',
+  'flows.nodeConfig.memory.queryLabel': 'Query',
+  'flows.nodeConfig.memory.queryOptionalHint': 'Optional: narrows the people lookup.',
+  'flows.nodeConfig.memory.flavourLabel': 'Flavour',
+  'flows.nodeConfig.memory.flavourHint': 'Which persona facet to read, e.g. communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'Communication',
+  'flows.nodeConfig.memory.flavour_coding_style': 'Coding style',
+  'flows.nodeConfig.memory.flavour_stack': 'Stack',
+  'flows.nodeConfig.memory.flavour_workflow': 'Workflow',
+  'flows.nodeConfig.memory.flavour_environment': 'Environment',
+  'flows.nodeConfig.memory.flavour_directives': 'Directives',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'Anti-preferences',
+  'flows.nodeConfig.memory.keyLabel': 'Key',
+  'flows.nodeConfig.memory.valueLabel': 'Value',
+  'flows.nodeConfig.memory.limitLabel': 'Limit',
+  'flows.nodeConfig.memory.limitHint': 'Maximum number of results.',
+  'flows.nodeConfig.memory.minScoreLabel': 'Minimum score',
+  'flows.nodeConfig.memory.minScoreHint': 'Relevance threshold from 0 to 1.',
+  // `dedup` node (issue #5263): skips items already seen by a stable per-item key.
+  'flows.nodeConfig.dedup.keyLabel': 'Key',
+  'flows.nodeConfig.dedup.keyHint':
+    'A stable per-item id expression, e.g. =item.id. Items with a key already seen are skipped.',
 
   // Phase 4a "New workflow" chooser + Phase 4c templates gallery. The chooser
   // offers scratch / template / describe; the gallery lists the curated
   // `WorkflowGraph` templates bundled under `lib/flows/templates/`.
+  // ── Save+enable pre-authorization card (consolidated Approve all / Deny)
+  'flows.enableApproval.title': 'Allow this workflow to act?',
+  'flows.enableApproval.intro':
+    'This workflow needs your permission for the actions below. Approving applies to this workflow only.',
+  'flows.enableApproval.approveAll': 'Approve all',
+  'flows.enableApproval.deny': 'Deny',
+  'flows.enableApproval.enableAnyway': 'Enable anyway',
+  'flows.enableApproval.granting': 'Approving…',
+  'flows.enableApproval.error': 'Could not save the approvals. Please try again.',
+  'flows.enableApproval.blockedHint': 'Blocked by your agent access settings.',
+  'flows.enableApproval.dynamicHint': 'Chosen while the workflow runs; it will ask you if needed.',
+  'flows.enableApproval.agentHint': 'This AI step may ask separately for its own actions.',
+  'flows.enableApproval.deniedDisabled': 'Saved, but the workflow was left turned off.',
   'flows.chooser.title': 'Create a workflow',
   'flows.chooser.subtitle': 'Choose how you want to start.',
   'flows.chooser.scratchTitle': 'Start from scratch',
@@ -5164,6 +5311,8 @@ const en: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'Sign-in state unknown',
   'settings.ai.claudeCode.connectedNotSignedIn': 'Connected · not signed in',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'A model id the claude CLI accepts: an alias (sonnet, opus) or a full name (claude-sonnet-4-5). It is passed verbatim to claude --model, so marketing strings like sonnet-4-5 are rejected.',
   'settings.ai.claudeCode.modalDescription':
     "Routes chat, agentic and reasoning workloads through your locally-installed Claude Code CLI. No API key: it uses the CLI's own login.",
   'settings.ai.claudeCode.close': 'Close',
@@ -5285,6 +5434,22 @@ const en: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} model id',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'Select a model...',
+  'settings.ai.deploymentNameLabel': 'Deployment name',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Enter the deployment name you set in Azure AI Foundry. This is not the model ID.',
+  'settings.ai.deploymentNameLegacyHint':
+    'This matches a base model ID from the provider catalog. Azure routes by deployment name, so confirm this is the name you gave your deployment.',
+  'settings.ai.deploymentNameProviderHint':
+    'Azure endpoint detected. Set your deployment name in the model field after choosing this provider.',
+  'settings.ai.chooseModelFromList': 'Choose from list',
+  'settings.ai.enterModelIdManuallyAction': 'Enter model ID manually',
+  'settings.ai.enterDeploymentNameManuallyAction': 'Enter deployment name manually',
+  'settings.ai.probeFailedHint':
+    'We could not read this provider’s model list. That list only fills the dropdown, so you can still add the provider and type the model or deployment name yourself.',
+  'settings.ai.probeFailedAddAnyway': 'Add without verifying',
+  'settings.ai.azureV1EndpointHint':
+    'For Azure, use the v1 base URL: https://YOUR-RESOURCE.openai.azure.com/openai/v1. The older resource URL does not serve a model list and expects a different auth header.',
   'settings.ai.temperatureOverride': 'Temperature override',
   'settings.ai.temperatureOverrideSlider': 'Temperature override (slider)',
   'settings.ai.temperatureOverrideValue': 'Temperature override (value)',
@@ -5294,6 +5459,20 @@ const en: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'Enable if this model accepts images. Lets the chat composer attach images when this model is selected.',
   'settings.ai.testFailed': 'Test failed',
+  'settings.ai.providerTest.authRejected':
+    "The key was saved, but '{slug}' rejected it. Check that you pasted the whole key and that it is still active in the provider's dashboard.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "The key was saved and accepted, but '{slug}' does not recognise the selected model. Pick a model id this provider actually serves (its default model is set on the provider entry).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "The key was saved and accepted, but '{slug}' refused the request for quota or billing reasons. Check your account balance and rate limits with the provider.",
+  'settings.ai.providerTest.endpointNotFound':
+    "The key was saved, but the configured endpoint for '{slug}' returned 404. Check the base URL: an OpenAI-compatible provider usually needs the '/v1' suffix (e.g. https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "The key was saved, but '{slug}' did not respond in time. Check the endpoint URL and your network, then test again.",
+  'settings.ai.providerTest.emptyReply':
+    "The key was saved, but '{slug}' returned an empty response to a test prompt. Check the model id configured for this provider.",
+  'settings.ai.providerTest.unknown':
+    "The key was saved, but a test call to '{slug}' failed. Check the provider's status page and the endpoint URL, then test again.",
   'settings.ai.testingModel': 'Testing model...',
   'settings.ai.modelResponse': 'Model response',
   'settings.ai.providerWithValue': 'Provider: {value}',

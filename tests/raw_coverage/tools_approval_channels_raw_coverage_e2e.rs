@@ -71,23 +71,23 @@ use openhuman_core::openhuman::channels::{
     IrcChannel, LinqChannel, MattermostChannel, QQChannel, SendMessage, SignalChannel,
     SlackChannel, WhatsAppChannel,
 };
-use openhuman_core::openhuman::composio::all_composio_agent_tools;
+use openhuman_core::openhuman::integrations::composio::all_composio_agent_tools;
 use openhuman_core::openhuman::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState, NodeConfig, WhatsAppConfig,
 };
 use openhuman_core::openhuman::config::{Config, IMessageConfig, WebhookConfig};
-use openhuman_core::openhuman::context::prompt::ConnectedIntegration;
-use openhuman_core::openhuman::credentials::{
+use openhuman_core::openhuman::agent::context::prompt::ConnectedIntegration;
+use openhuman_core::openhuman::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::javascript::NodeBootstrap;
+use openhuman_core::openhuman::runtime::javascript::NodeBootstrap;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::openhuman::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
-use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::openhuman::tool_registry::ops::diagnostics_for_config;
-use openhuman_core::openhuman::tool_registry::{
+use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::openhuman::tools::registry::ops::diagnostics_for_config;
+use openhuman_core::openhuman::tools::registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
     capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
     denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
@@ -481,7 +481,7 @@ async fn mock_backend(request: Request) -> Response {
     let payload = match (method, path.as_str()) {
         (Method::GET, "/auth/me") => json!({
             "success": true,
-            "user": {
+            "data": {
                 "id": "user-e2e",
                 "telegramId": "telegram-user-1",
                 "discord_id": "discord-user-1"

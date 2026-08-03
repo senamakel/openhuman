@@ -124,6 +124,36 @@ impl ServiceSet {
             orchestration: false,
         }
     }
+
+    /// A long-lived embedded host: no transport, but the background work such
+    /// a session expects.
+    ///
+    /// Named for the shape, not a consumer — see [`DomainSet::embedded`].
+    ///
+    /// `rpc_http: false` is the payoff of embedding through the typed facade
+    /// rather than HTTP — no port bound, no bearer-token handshake, no
+    /// loopback listener. Flip it on only if the host also needs to serve external clients.
+    ///
+    /// `socketio` stays off because an embedded host reads state through the
+    /// facade and the core event bus in-process; `channels` stays off because
+    /// such a host owns its own harness and networking transports.
+    pub fn embedded() -> Self {
+        Self {
+            rpc_http: false,
+            socketio: false,
+            cron: true,
+            channels: false,
+            heartbeat: true,
+            update_scheduler: false,
+            memory_queue: true,
+            harness_init: true,
+            skill_catalog_refresh: true,
+            mcp_boot: false,
+            integrations: false,
+            memory_sync: true,
+            orchestration: false,
+        }
+    }
 }
 
 /// Selects which domain *families* exist at runtime on a [`CoreRuntime`] (#4796).
@@ -175,6 +205,9 @@ pub struct DomainSet {
     /// future backing controller would stay live. Fold the media-generation
     /// controller into this group when it lands.
     pub media: bool,
+    /// Medulla integration: cloud client, session runtime, chat store, and
+    /// authored harness workflows.
+    pub medulla: bool,
     /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
 }
@@ -197,6 +230,7 @@ impl DomainSet {
             web3: true,
             voice: true,
             media: true,
+            medulla: true,
             platform: true,
         }
     }
@@ -219,7 +253,48 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
+            medulla: false,
             platform: false,
+        }
+    }
+
+    /// A long-lived embedded host: the harness core plus the Medulla
+    /// integration and the workflow engine it runs on, and `platform` for the
+    /// credentials / config / cron / task-source domains such a session needs.
+    ///
+    /// Named for the *shape* rather than any downstream consumer — the core
+    /// does not know which host embeds it, and a preset naming one would invert
+    /// that. Suits any process that drives the core in-process through the
+    /// typed facade and owns its own presentation layer.
+    ///
+    /// Deliberately NOT built on [`DomainSet::harness`]: that preset sets
+    /// `platform: false`, which drops credentials, config, cron, task_sources
+    /// and todos, and leaves `channels` off — but `channel.web_chat` is tagged
+    /// `DomainGroup::Channels` and an embedded host drives chat turns through it.
+    ///
+    /// `flows: true` is load-bearing, not incidental: `medulla_workflows` runs
+    /// on the tinyflows engine and boot reconciliation keys off
+    /// `ctx.domains().flows` rather than a `ServiceSet` flag.
+    ///
+    /// An embedded host supplies its own harness wrappers, networking and
+    /// routing, so `meet` / `web3` / `voice` / `media` / `mcp` stay off.
+    pub fn embedded() -> Self {
+        Self {
+            agent: true,
+            memory: true,
+            threads: true,
+            config: true,
+            security: true,
+            flows: true,
+            skills: true,
+            mcp: false,
+            meet: false,
+            channels: true,
+            web3: false,
+            voice: false,
+            media: false,
+            medulla: true,
+            platform: true,
         }
     }
 
@@ -239,6 +314,7 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
+            medulla: false,
             platform: false,
         }
     }
@@ -259,6 +335,7 @@ impl DomainSet {
             DomainGroup::Web3 => self.web3,
             DomainGroup::Voice => self.voice,
             DomainGroup::Media => self.media,
+            DomainGroup::Medulla => self.medulla,
             DomainGroup::Platform => self.platform,
         }
     }
@@ -528,7 +605,7 @@ impl CoreRuntime {
 
         let preferred_port = resolved_port;
         let host = resolved_host;
-        let pick = crate::openhuman::connectivity::rpc::pick_listen_port_for_host(
+        let pick = crate::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
             host.as_str(),
             preferred_port,
         )
@@ -625,7 +702,12 @@ impl CoreRuntime {
     /// each service keeps its own runtime config gate.
     async fn start_selected_services(&self) {
         use crate::core::runtime::services;
-        jsonrpc::start_core_runtime_services(self.services, self.config.as_ref()).await;
+        jsonrpc::start_core_runtime_services(
+            self.services,
+            self.config.as_ref(),
+            self.ctx.domains().flows,
+        )
+        .await;
 
         if self.services.heartbeat {
             services::spawn_login_gated_services(self.ctx.host_kind().is_desktop_shell());
@@ -671,6 +753,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::Medulla,
             DomainGroup::Platform,
         ] {
             assert!(full.allows(group), "full() must allow {group:?}");
@@ -697,6 +780,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::Medulla,
             DomainGroup::Platform,
         ] {
             assert!(!harness.allows(off), "harness() must NOT allow {off:?}");
@@ -718,6 +802,7 @@ mod tests {
             DomainGroup::Web3,
             DomainGroup::Voice,
             DomainGroup::Media,
+            DomainGroup::Medulla,
             DomainGroup::Platform,
         ] {
             assert!(!none.allows(group), "none() must NOT allow {group:?}");
@@ -726,6 +811,80 @@ mod tests {
         // Spot-check the field/group wiring is not transposed.
         assert!(DomainSet::harness().allows(DomainGroup::Memory));
         assert!(!DomainSet::harness().allows(DomainGroup::Web3));
+    }
+
+    #[test]
+    fn embedded_domain_set_enables_the_host_families() {
+        let set = DomainSet::embedded();
+
+        for on in [
+            DomainGroup::Agent,
+            DomainGroup::Memory,
+            DomainGroup::Threads,
+            DomainGroup::Config,
+            DomainGroup::Security,
+            DomainGroup::Medulla,
+            DomainGroup::Platform,
+        ] {
+            assert!(set.allows(on), "embedded() must allow {on:?}");
+        }
+
+        for off in [
+            DomainGroup::Mcp,
+            DomainGroup::Meet,
+            DomainGroup::Web3,
+            DomainGroup::Voice,
+            DomainGroup::Media,
+        ] {
+            assert!(!set.allows(off), "embedded() must NOT allow {off:?}");
+        }
+    }
+
+    #[test]
+    fn embedded_keeps_flows_on_for_workflow_boot_reconcile() {
+        // Not incidental: `medulla_workflows` runs on the tinyflows engine and
+        // boot reconciliation keys off `ctx.domains().flows`, not a ServiceSet
+        // flag. Turning this off silently strands orphaned runs.
+        assert!(DomainSet::embedded().allows(DomainGroup::Flows));
+    }
+
+    #[test]
+    fn embedded_keeps_channels_on_for_web_chat() {
+        // `channel.web_chat` is tagged DomainGroup::Channels and the TUI drives
+        // chat turns through it. This is precisely why embedded() is not
+        // built on harness(), which leaves channels off.
+        assert!(DomainSet::embedded().allows(DomainGroup::Channels));
+    }
+
+    #[test]
+    fn embedded_is_not_harness_plus_medulla() {
+        // Guards the most tempting future "simplification": deriving this
+        // preset from harness(). harness() sets platform:false, which drops
+        // credentials/config/cron/task_sources/todos.
+        let harness = DomainSet::harness();
+        let tui = DomainSet::embedded();
+
+        assert!(!harness.allows(DomainGroup::Platform));
+        assert!(tui.allows(DomainGroup::Platform));
+        assert!(!harness.allows(DomainGroup::Channels));
+        assert!(tui.allows(DomainGroup::Channels));
+    }
+
+    #[test]
+    fn embedded_service_set_binds_no_transport() {
+        // The whole point of the typed facade: the host talks to the core
+        // in-process, so no port, no bearer handshake, no loopback listener.
+        let services = ServiceSet::embedded();
+
+        assert!(!services.rpc_http, "embedded() must not bind HTTP");
+        assert!(!services.socketio, "embedded() must not mount Socket.IO");
+
+        // But a long-lived operator session still wants background work.
+        assert!(services.cron);
+        assert!(services.heartbeat);
+        assert!(services.memory_queue);
+        assert!(services.harness_init);
+        assert!(services.memory_sync);
     }
 
     #[test]

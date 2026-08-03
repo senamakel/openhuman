@@ -3,6 +3,7 @@
 use super::dispatch::{run_message_dispatch_loop, RuntimeChannelMessage};
 use super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
 use crate::core::event_bus::{self, DomainEvent, TracingSubscriber, DEFAULT_CAPACITY};
+use crate::openhuman::agent::context::channels_prompt::build_system_prompt;
 use crate::openhuman::agent::harness::build_tool_instructions_filtered;
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::channels::context::{
@@ -29,10 +30,9 @@ use crate::openhuman::channels::whatsapp_web::WhatsAppWebChannel;
 use crate::openhuman::channels::yuanbao::YuanbaoChannel;
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::Config;
-use crate::openhuman::context::channels_prompt::build_system_prompt;
 use crate::openhuman::inference::provider;
+use crate::openhuman::memory::store as memory_store;
 use crate::openhuman::memory::Memory;
-use crate::openhuman::memory_store;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools;
 use anyhow::Result;
@@ -153,14 +153,14 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // subscriber for debug logging of all domain events.
     let bus = event_bus::init_global(DEFAULT_CAPACITY);
     let _tracing_handle = bus.subscribe(Arc::new(TracingSubscriber));
-    crate::openhuman::health::bus::register_health_subscriber();
-    crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(
+    crate::openhuman::platform::health::bus::register_health_subscriber();
+    crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
         config.workspace_dir.clone(),
     );
-    crate::openhuman::memory::sync::register_sync_stage_bridge(&config);
-    crate::openhuman::composio::register_composio_trigger_subscriber();
-    crate::openhuman::agent_meetings::calendar::register_meet_calendar_subscriber();
-    crate::openhuman::agent_meetings::bus::register_meeting_event_subscriber();
+    crate::openhuman::memory::sync_events::register_sync_stage_bridge(&config);
+    crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
+    crate::openhuman::meet::backend_bot::calendar::register_meet_calendar_subscriber();
+    crate::openhuman::meet::backend_bot::bus::register_meeting_event_subscriber();
     // Surface parked ApprovalGate requests as chat messages so the user can
     // answer yes/no in the thread (chat-native approval, issue #1339).
     crate::openhuman::web_chat::register_approval_surface_subscriber();
@@ -179,12 +179,12 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // `bootstrap_core_runtime` may also start it — `start_periodic_sync`
     // is intentionally cheap and the loop body no-ops when there are
     // no connections.
-    crate::openhuman::composio::start_periodic_sync();
+    crate::openhuman::integrations::composio::start_periodic_sync();
     // Task-sources: subscribe to Composio connection-created events for
     // one-shot fetches, and spawn the periodic poll that pulls work from
     // configured external sources onto the agent's todo board.
-    crate::openhuman::task_sources::bus::register_task_sources_subscriber();
-    crate::openhuman::task_sources::start_periodic_poll();
+    crate::openhuman::integrations::task_sources::bus::register_task_sources_subscriber();
+    crate::openhuman::integrations::task_sources::start_periodic_poll();
     // Board poller: dispatch the highest-urgency `todo` card on the
     // task-sources board (catch-all for cards without a proactive trigger).
     crate::openhuman::agent::task_dispatcher::start_board_poller();
@@ -291,8 +291,10 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     )?;
     let temperature = config.default_temperature;
     let local_embedding = config.workload_local_model("embeddings");
-    let embedding_api_key =
-        crate::openhuman::embeddings::resolve_api_key(&config, &config.memory.embedding_provider);
+    let embedding_api_key = crate::openhuman::inference::embeddings::resolve_api_key(
+        &config,
+        &config.memory.embedding_provider,
+    );
     // Build the memory store. A misconfigured/removed embedding provider (e.g. a
     // stale `embedding_provider = "fastembed"` that the factory no longer knows)
     // makes the embedder build fail — but that must NOT take every messaging
@@ -818,7 +820,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     };
     // Register the tree summarizer event subscriber for observability logging.
     let _tree_summarizer_handle = bus.subscribe(Arc::new(
-        crate::openhuman::memory_tree::tree_runtime::bus::TreeSummarizerEventSubscriber::new(),
+        crate::openhuman::memory::tree::tree_runtime::bus::TreeSummarizerEventSubscriber::new(),
     ));
 
     let listener_count = channels.len() + relay_config.as_ref().map(|_| 1).unwrap_or_default();
@@ -938,7 +940,7 @@ fn resolve_yuanbao_app_secret(
     if !yb_cfg.app_secret.is_empty() {
         return yb_cfg;
     }
-    let auth = crate::openhuman::credentials::AuthService::from_config(config);
+    let auth = crate::openhuman::security::credentials::AuthService::from_config(config);
     match auth.get_profile("channel:yuanbao:api_key", None) {
         Ok(Some(profile)) => {
             let stored_app_key = profile.metadata.get("app_key").map(String::as_str);
@@ -980,7 +982,7 @@ fn resolve_email_password(
     if !email_cfg.password.is_empty() {
         return email_cfg;
     }
-    let auth = crate::openhuman::credentials::AuthService::from_config(config);
+    let auth = crate::openhuman::security::credentials::AuthService::from_config(config);
     match auth.get_profile("channel:email:api_key", None) {
         Ok(Some(profile)) => {
             let stored_username = profile.metadata.get("username").map(String::as_str);
@@ -1026,7 +1028,7 @@ mod tests;
 mod yuanbao_secret_tests {
     use super::*;
     use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
-    use crate::openhuman::credentials::AuthService;
+    use crate::openhuman::security::credentials::AuthService;
     use std::collections::HashMap;
     use tempfile::tempdir;
 
@@ -1122,7 +1124,7 @@ mod yuanbao_secret_tests {
 mod email_secret_tests {
     use super::*;
     use crate::openhuman::channels::email_channel::EmailConfig;
-    use crate::openhuman::credentials::AuthService;
+    use crate::openhuman::security::credentials::AuthService;
     use std::collections::HashMap;
     use tempfile::tempdir;
 

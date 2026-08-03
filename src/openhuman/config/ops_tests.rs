@@ -543,7 +543,7 @@ async fn apply_search_settings_rejects_unknown_search_engine() {
     .await
     .expect_err("unknown engine should be rejected");
 
-    assert!(err.contains("disabled/managed/parallel/brave/querit"));
+    assert!(err.contains("disabled/managed/parallel/brave/querit/exa"));
 }
 
 #[tokio::test]
@@ -1460,15 +1460,13 @@ async fn load_and_resolve_api_url_returns_api_url_in_response() {
 #[test]
 fn resolve_api_url_keeps_inference_overrides_away_from_backend_credentials() {
     let mut config = Config::default();
+    let expected_backend = crate::api::config::effective_backend_api_url(&None);
 
     for inference_url in ["http://localhost:11434/v1", "https://openrouter.ai/api/v1"] {
         config.api_url = Some(inference_url.to_string());
         let resolved = resolve_backend_api_url(&config);
         assert_ne!(resolved, inference_url);
-        assert!(
-            resolved.contains("tinyhumans.ai"),
-            "expected hosted backend fallback, got {resolved}"
-        );
+        assert_eq!(resolved, expected_backend);
     }
 }
 
@@ -1863,7 +1861,7 @@ async fn apply_agent_settings_updates_timeout_and_persists_snapshot() {
         .any(|l| l.contains("agent settings saved to")));
     // With no env override, the live runtime now reflects the saved value.
     assert_eq!(
-        crate::openhuman::tool_timeout::tool_execution_timeout_secs(),
+        crate::openhuman::tools::timeout::tool_execution_timeout_secs(),
         300
     );
 }

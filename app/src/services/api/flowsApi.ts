@@ -513,16 +513,26 @@ export async function getFlow(id: string): Promise<Flow> {
  * Run a saved flow to completion (or until it pauses on a human-approval
  * gate) via `openhuman.flows_run`. This is the call that actually drives the
  * tinyflows engine, so it shares `flows_resume`'s ~600s server-side budget
- * (see {@link FLOW_RESUME_TIMEOUT_MS}). The Workflows list page's Run button
- * uses this fire-and-forget: it awaits the call just long enough to know the
- * run kicked off, shows a toast, and refetches `listFlows()` to pick up the
- * refreshed `last_run_at`/`last_status`.
+ * (see {@link FLOW_RESUME_TIMEOUT_MS}). This BLOCKS the caller until the run
+ * settles — prefer {@link runFlowDetached} for any UI entry point (Run
+ * buttons) that must not freeze while a run is in flight; `runFlow` remains
+ * for callers that genuinely want to await the final result.
+ *
+ * `input` is the free-form trigger payload. `inputs` supplies values for the
+ * flow's *declared* workflow inputs by name — read the declarations from the
+ * flow's `graph.inputs`. A missing required value, a wrong type, or a name the
+ * flow does not declare is rejected server-side before the run starts, so this
+ * rejects without leaving a run row behind.
  */
-export async function runFlow(id: string, input?: unknown): Promise<FlowResumeResult> {
-  log('runFlow: request id=%s', id);
+export async function runFlow(
+  id: string,
+  input?: unknown,
+  inputs?: Record<string, unknown>
+): Promise<FlowResumeResult> {
+  log('runFlow: request id=%s inputs=%d', id, Object.keys(inputs ?? {}).length);
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_run',
-    params: { id, input: input ?? null },
+    params: { id, input: input ?? null, inputs: inputs ?? null },
     timeoutMs: FLOW_RESUME_TIMEOUT_MS,
   });
   const result = unwrapCliEnvelope<FlowResumeResult>(response);
@@ -530,6 +540,62 @@ export async function runFlow(id: string, input?: unknown): Promise<FlowResumeRe
     'runFlow: response threadId=%s pendingApprovals=%d',
     result.thread_id,
     result.pending_approvals?.length ?? 0
+  );
+  trackAnalyticsEvent('automation_run_started', { automation_kind: 'flow' });
+  return result;
+}
+
+/**
+ * Immediate response from `openhuman.flows_run_detached` — the run has been
+ * registered and its `running` row inserted, but it has NOT finished (or even
+ * necessarily started executing its first action node) yet. Poll
+ * {@link getFlowRun} / subscribe to `flow:run_progress` for the terminal
+ * state — see {@link runFlowDetached}.
+ */
+export interface FlowRunDetachedResult {
+  run_id: string;
+  flow_id: string;
+  status: 'running';
+  detached: true;
+}
+
+/**
+ * Start a saved flow WITHOUT waiting for it to finish, via
+ * `openhuman.flows_run_detached` (F-M1 / F-M2). Unlike {@link runFlow}, this
+ * returns as soon as the run is registered and its `running` row exists — well
+ * under a second, regardless of how long the flow itself takes — so it uses
+ * the client's *default* RPC timeout rather than {@link FLOW_RESUME_TIMEOUT_MS}.
+ *
+ * This is the fire-and-forget entry point both UI Run controls use (the
+ * Workflow Canvas overlay and the Workflows list row action): calling it
+ * BEFORE subscribing to progress would be pointless (nothing to subscribe
+ * to yet), so callers should set up their `flow:run_progress` subscription /
+ * poller using the returned `run_id` immediately after this resolves, not
+ * after the run itself completes.
+ *
+ * `inputs` carries values for the flow's *declared* workflow inputs by name
+ * (see {@link runFlow}). Because this is the entry point both Run controls use,
+ * a flow with a required input is only runnable from the UI through here — the
+ * caller is expected to collect the values first. They are validated
+ * synchronously, so a bad set rejects here rather than surfacing later as a
+ * failed background run.
+ */
+export async function runFlowDetached(
+  id: string,
+  input?: unknown,
+  inputs?: Record<string, unknown>
+): Promise<FlowRunDetachedResult> {
+  log('runFlowDetached: request id=%s inputs=%d', id, Object.keys(inputs ?? {}).length);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_run_detached',
+    params: { id, input: input ?? null, inputs: inputs ?? null },
+  });
+  const result = unwrapCliEnvelope<FlowRunDetachedResult>(response);
+  log(
+    'runFlowDetached: response runId=%s status=%s detached=%s',
+    result.run_id,
+    result.status,
+    result.detached
   );
   trackAnalyticsEvent('automation_run_started', { automation_kind: 'flow' });
   return result;
@@ -743,6 +809,57 @@ export async function requiredConnections(graph: unknown): Promise<RequiredConne
   });
   const result = unwrapCliEnvelope<{ required_connections: RequiredConnection[] }>(response);
   return result.required_connections ?? [];
+}
+
+// ── Save-time approval manifest (consolidated pre-authorization card) ───────
+
+/** One row of the save+enable approval manifest. */
+export interface ApprovalManifestEntry {
+  /**
+   * approvable — will park a run; pre-approving `tool_name` clears it.
+   * blocked — refused outright by the autonomy tier; informational only.
+   * dynamic — tool chosen at run time (`=` slug); cannot be pre-approved.
+   * agent — AI step whose inner tool calls are unknown at save time.
+   */
+  kind: 'approvable' | 'blocked' | 'dynamic' | 'agent';
+  node_id: string;
+  /** The ApprovalGate trust key. Present for approvable/blocked rows. */
+  tool_name?: string;
+  label: string;
+  class?: string;
+}
+
+/** Result of `openhuman.flows_approval_manifest`. */
+export interface ApprovalManifest {
+  entries: ApprovalManifestEntry[];
+  /** Approvable trust keys the flow does not yet hold — what the card asks for. */
+  missing: string[];
+  already_trusted: string[];
+  /** False when the approval gate is disabled — nothing ever prompts. */
+  gate_installed: boolean;
+}
+
+/**
+ * Compute the approval manifest for a saved flow (by id) or candidate graph
+ * via `openhuman.flows_approval_manifest` — every permission a run will
+ * prompt for, joined against the flow's existing per-flow trust grants. The
+ * data behind the consolidated save+enable pre-authorization card.
+ */
+export async function getApprovalManifest(
+  target: { id: string } | { graph: unknown }
+): Promise<ApprovalManifest> {
+  log('getApprovalManifest: %s', 'id' in target ? `id=${target.id}` : 'candidate graph');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_approval_manifest',
+    params: 'id' in target ? { id: target.id } : { graph: target.graph },
+  });
+  const result = unwrapCliEnvelope<ApprovalManifest>(response);
+  return {
+    entries: result.entries ?? [],
+    missing: result.missing ?? [],
+    already_trusted: result.already_trusted ?? [],
+    gate_installed: result.gate_installed ?? true,
+  };
 }
 
 /**
@@ -1016,6 +1133,32 @@ export async function buildWorkflow(
     error: result.error ?? null,
     capped: result.capped ?? false,
   };
+}
+
+/**
+ * Cancel the in-flight `flows_build` (Workflow Copilot) turn streaming into
+ * `threadId` via `openhuman.flows_build_cancel` — the real cancellation
+ * behind the composer's Stop button (the RPC actually signals the running
+ * `workflow_builder` agent turn to stop, unlike the shared `chatCancel`
+ * primitive, which only ever tore down a spawned interactive chat turn and
+ * silently no-ops for a `flows_build` turn since it runs inline and was never
+ * registered anywhere `channel_web_cancel` looks).
+ *
+ * `requestId`, when given, scopes the cancel so a stale Stop click for a
+ * superseded/earlier request can't kill a newer turn that has since started
+ * on the same thread (mirrors the server's `cancel_build_turn_scoped`).
+ * Returns the server's `cancelled` field — `false` is not an error, it just
+ * means nothing was in flight to cancel.
+ */
+export async function flowsBuildCancel(threadId: string, requestId?: string): Promise<boolean> {
+  log('flowsBuildCancel: request thread=%s requestId=%s', threadId, requestId ?? '<none>');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_build_cancel',
+    params: { thread_id: threadId, request_id: requestId ?? null },
+  });
+  const result = unwrapCliEnvelope<{ cancelled: boolean }>(response);
+  log('flowsBuildCancel: response cancelled=%s', result.cancelled);
+  return result.cancelled ?? false;
 }
 
 /**

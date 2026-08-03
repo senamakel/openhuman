@@ -273,7 +273,7 @@ pub struct AgentConfig {
     /// "write", "execute", "dangerous".
     ///
     /// Runtime semantics (see
-    /// [`crate::openhuman::agent_tool_policy::engine::ToolPolicyEngine`]):
+    /// [`crate::openhuman::tools::agent_policy::engine::ToolPolicyEngine`]):
     ///
     /// * **Empty map** — the policy engine preserves the legacy
     ///   unrestricted surface and returns `PermissionLevel::Dangerous`
@@ -311,7 +311,7 @@ pub struct AgentConfig {
     /// (120). Surfaced in **Settings → Agent OS access → Action timeout** so
     /// users running large local models can extend it without editing config
     /// files (issue #3100). Pushed into the live
-    /// [`crate::openhuman::tool_timeout`] runtime on save; the
+    /// [`crate::openhuman::tools::timeout`] runtime on save; the
     /// `OPENHUMAN_TOOL_TIMEOUT_SECS` env var still overrides it when set.
     #[serde(default = "default_agent_timeout_secs")]
     pub agent_timeout_secs: u64,
@@ -328,7 +328,7 @@ pub struct AgentConfig {
     /// this flag in either direction: a falsy value (`0`/`false`/`no`/`off`)
     /// forces the dual-write OFF regardless of config; a truthy value forces
     /// it ON. See
-    /// [`crate::openhuman::session_import::live::dual_write_enabled`].
+    /// [`crate::openhuman::agent::session_import::live::dual_write_enabled`].
     #[serde(default = "default_session_dual_write")]
     pub session_dual_write: bool,
 
@@ -355,7 +355,7 @@ pub struct AgentConfig {
     /// `OPENHUMAN_SESSION_SHADOW_READS` env var is a pure **kill switch**: a
     /// falsy value (`0`/`false`/`no`/`off`/`disable`) forces the shadow read
     /// OFF regardless of config; it can never force it ON. See
-    /// [`crate::openhuman::session_import::live::shadow_reads_enabled`].
+    /// [`crate::openhuman::agent::session_import::live::shadow_reads_enabled`].
     #[serde(default = "default_session_shadow_reads")]
     pub session_shadow_reads: bool,
 
@@ -397,11 +397,11 @@ fn default_session_shadow_reads() -> bool {
 }
 
 fn default_tool_result_budget_bytes() -> usize {
-    crate::openhuman::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES
+    crate::openhuman::agent::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES
 }
 
 fn default_agent_timeout_secs() -> u64 {
-    crate::openhuman::tool_timeout::DEFAULT_TIMEOUT_SECS
+    crate::openhuman::tools::timeout::DEFAULT_TIMEOUT_SECS
 }
 
 fn default_agent_max_tool_iterations() -> usize {

@@ -2,7 +2,7 @@ use super::*;
 use crate::openhuman::config::Config;
 use crate::openhuman::config::{PolymarketClobCredentials, PolymarketConfig};
 use crate::openhuman::security::{AutonomyLevel, SecurityPolicy};
-use crate::openhuman::wallet::{
+use crate::openhuman::web3::wallet::{
     self, WalletAccount, WalletChain, WalletSetupParams, WalletSetupSource,
 };
 use ethers_signers::{coins_bip39::English, MnemonicBuilder, Signer};
@@ -399,10 +399,11 @@ async fn configure_wallet_for_place_order_test(
         .map_err(|e| format!("failed to derive EVM wallet: {e}"))?;
     let evm_address = format!("{:#x}", evm_wallet.address());
 
-    let encrypted_mnemonic = crate::openhuman::encryption::rpc::encrypt_secret(&config, mnemonic)
-        .await
-        .map_err(|e| format!("failed to encrypt mnemonic: {e}"))?
-        .value;
+    let encrypted_mnemonic =
+        crate::openhuman::security::encryption::rpc::encrypt_secret(&config, mnemonic)
+            .await
+            .map_err(|e| format!("failed to encrypt mnemonic: {e}"))?
+            .value;
 
     wallet::setup(WalletSetupParams {
         consent_granted: true,

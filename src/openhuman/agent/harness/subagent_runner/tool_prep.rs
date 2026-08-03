@@ -9,7 +9,7 @@
 
 use super::super::definition::{PromptSource, ToolScope};
 use super::types::SubagentRunError;
-use crate::openhuman::context::prompt::PromptContext;
+use crate::openhuman::agent::context::prompt::PromptContext;
 use crate::openhuman::tools::Tool;
 
 // ── Heavy-schema toolkit accounting ─────────────────────────────────────
@@ -188,7 +188,7 @@ pub(super) fn filter_tool_indices(
             // explicit `disallow` above still wins). A deliberately tool-less
             // agent (`Named([])`, e.g. the payload summarizer) runs no tools,
             // produces no compacted output, and so stays tool-less.
-            if crate::openhuman::tokenjuice::is_recovery_tool(name) {
+            if crate::openhuman::inference::tokenjuice::is_recovery_tool(name) {
                 return !matches!(scope, ToolScope::Named(allowed) if allowed.is_empty());
             }
             if let Some(prefix) = skill_prefix.as_deref() {
@@ -262,8 +262,16 @@ mod tests {
             "research",
             "review_code",
             "do_crypto",
+            // `do_prediction_markets` is `markets_agent`'s `delegate_name`; the
+            // agent — and therefore this delegate tool — is compiled out with
+            // the `prediction-markets` feature.
+            #[cfg(feature = "prediction-markets")]
             "do_prediction_markets",
             "schedule_task",
+            // `make_presentation` is `presentation_agent`'s `delegate_name`; the agent —
+            // and therefore this delegate tool — is compiled out with the
+            // `documents` feature.
+            #[cfg(feature = "documents")]
             "make_presentation",
             "archive_session",
             // `use_mcp_server` is `mcp_agent`'s `delegate_name`; the agent —
@@ -293,7 +301,7 @@ mod tests {
 #[cfg(test)]
 mod recovery_visibility_tests {
     use super::*;
-    use crate::openhuman::tokenjuice::LEGACY_RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
+    use crate::openhuman::inference::tokenjuice::LEGACY_RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
     use crate::openhuman::tools::{CurrentTimeTool, RetrieveToolOutputTool};
 
     fn tools() -> Vec<Box<dyn crate::openhuman::tools::Tool>> {

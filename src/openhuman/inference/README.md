@@ -94,11 +94,11 @@ Also exposes a non-RPC HTTP router (`http::router()`) nested at `/v1` by `src/co
 ## Dependencies
 
 - `crate::openhuman::config` — `Config`, `config::rpc` (load/save, `ModelSettingsPatch`, `LocalAiSettingsPatch`), cloud-provider schema (`AuthStyle`, slug reservation, id generation), abstract tier model constants. Heaviest dependency.
-- `crate::openhuman::credentials` — `AuthService`, `AuthProfilesStore`/`AuthProfile`/`TokenSet`, state dir — for OAuth token storage and provider auth resolution.
+- `crate::openhuman::security::credentials` — `AuthService`, `AuthProfilesStore`/`AuthProfile`/`TokenSet`, state dir — for OAuth token storage and provider auth resolution.
 - `crate::openhuman::tools` — tool schemas and product tool metadata projected into TinyAgents requests.
-- `crate::openhuman::tinyagents` — native model, route, message, usage, and thread-context seams used by the agent harness.
+- `crate::openhuman::agent::tinyagents` — native model, route, message, usage, and thread-context seams used by the agent harness.
 - `crate::openhuman::voice` — voice RPC/audio layer that imports these inference STT/TTS implementations (also a consumer).
-- `crate::openhuman::prompt_injection` — prompt-injection handling on the inference path.
+- `crate::openhuman::security::prompt_injection` — prompt-injection handling on the inference path.
 - `crate::openhuman::util` — small shared helpers.
 - `crate::core::all` — `ControllerFuture`, `RegisteredController` (controller registry).
 - `crate::core::types` — `ControllerSchema`, `FieldSchema`, `TypeSchema`.

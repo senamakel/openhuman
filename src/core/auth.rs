@@ -82,9 +82,9 @@ use serde_json::json;
 #[cfg(feature = "http-server")]
 use crate::openhuman::config::Config;
 #[cfg(feature = "http-server")]
-use crate::openhuman::credentials::AuthService;
-#[cfg(feature = "http-server")]
 use crate::openhuman::inference::http::EXTERNAL_OPENAI_COMPAT_PROVIDER;
+#[cfg(feature = "http-server")]
+use crate::openhuman::security::credentials::AuthService;
 
 static RPC_TOKEN: OnceLock<String> = OnceLock::new();
 
@@ -111,7 +111,7 @@ const PUBLIC_PATHS: &[&str] = &[
     "/oauth/mcp/callback",
     "/schema",
     "/events",
-    // AgentBox marketplace surface — see `openhuman::agentbox::http`.
+    // AgentBox marketplace surface — see `openhuman::agent::agentbox::http`.
     // Mounted only when `OPENHUMAN_AGENTBOX_MODE=1`; the public-path entry is
     // unconditional so the matcher remains a pure function of the path string.
     "/run",

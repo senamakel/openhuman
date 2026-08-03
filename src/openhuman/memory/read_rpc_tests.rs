@@ -1,15 +1,15 @@
 use super::*;
-use crate::openhuman::composio::providers::sync_state::KV_NAMESPACE;
-use crate::openhuman::embeddings::NoopEmbedding;
+use crate::openhuman::inference::embeddings::NoopEmbedding;
+use crate::openhuman::integrations::composio::providers::sync_state::KV_NAMESPACE;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
-use crate::openhuman::memory_queue::drain_until_idle;
-use crate::openhuman::memory_store::content::raw::{write_raw_items, RawItem, RawKind};
-use crate::openhuman::memory_store::namespace_store::UnifiedMemory;
-use crate::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
+use crate::openhuman::memory::queue::drain_until_idle;
+use crate::openhuman::memory::store::content::raw::{write_raw_items, RawItem, RawKind};
+use crate::openhuman::memory::store::namespace_store::UnifiedMemory;
 use chrono::{TimeZone, Utc};
 use rusqlite::params;
 use std::sync::Arc;
 use tempfile::TempDir;
+use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 fn test_config() -> (TempDir, Config) {
     let tmp = TempDir::new().unwrap();
@@ -921,7 +921,7 @@ async fn vault_health_check_reports_missing_content_root_for_fresh_workspace() {
     // `pipeline_status_rpc` → `current_degraded_state`), which sibling
     // `memory_tree` tests set and never clear. Serialise + reset to a clean
     // baseline so the assertion is deterministic. See #4691.
-    let _g = crate::openhuman::memory_tree::health::test_guard();
+    let _g = crate::openhuman::memory::tree::health::test_guard();
     let (_tmp, cfg) = test_config();
     let outcome = vault_health_check_rpc(&cfg, None).await.unwrap();
 
@@ -1001,8 +1001,8 @@ async fn vault_health_check_reports_writable_and_obsidian_registered_when_ready(
 /// seal jobs. This pins that a wipe leaves the gate empty so re-sync works.
 #[tokio::test]
 async fn wipe_all_clears_ingest_gate() {
-    use crate::openhuman::memory_store::chunks::store as chunk_store;
-    use crate::openhuman::memory_store::chunks::types::SourceKind;
+    use crate::openhuman::memory::store::chunks::store as chunk_store;
+    use crate::openhuman::memory::store::chunks::types::SourceKind;
 
     let (_tmp, cfg) = test_config();
     let gate_key = "notion:conn-1:page-abc@1700000000000";

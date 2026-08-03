@@ -5,10 +5,10 @@ use super::super::context::{
 use super::super::runtime::process_channel_message;
 use super::super::{traits, Channel};
 use super::common::{HistoryCaptureModel, NoopMemory, RecordingChannel};
-use crate::openhuman::embeddings::NoopEmbedding;
+use crate::openhuman::inference::embeddings::NoopEmbedding;
 use crate::openhuman::inference::provider;
+use crate::openhuman::memory::store::UnifiedMemory;
 use crate::openhuman::memory::{Memory, MemoryCategory};
-use crate::openhuman::memory_store::UnifiedMemory;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
@@ -138,9 +138,9 @@ async fn process_channel_message_restores_per_sender_history_on_follow_ups() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            provider_impl.clone(),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(provider_impl.clone()),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -225,9 +225,9 @@ async fn process_channel_message_uses_autosaved_memory_after_history_is_cleared(
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
-            provider_impl.clone(),
-        )),
+        turn_model_source: Some(
+            crate::openhuman::agent::tinyagents::TurnModelSource::from_model(provider_impl.clone()),
+        ),
         default_provider: Arc::new("test-provider".to_string()),
         memory,
         tools_registry: Arc::new(vec![]),

@@ -1,6 +1,6 @@
 [package]
 name = "OpenHuman"
-version = "0.63.1"
+version = "0.63.6"
 description = "OpenHuman - AI-powered Super Assistant"
 authors = ["OpenHuman"]
 edition = "2021"
@@ -103,7 +103,7 @@ env_logger = "0.11"
 # can be overridden at runtime via the same env var. Feature set mirrors the
 # core sidecar (`Cargo.toml` at repo root) minus `tracing` since the shell
 # uses `log` + `env_logger`.
-sentry = { version = "0.47.0", default-features = false, features = ["backtrace", "contexts", "panic", "debug-images", "reqwest", "rustls"] }
+sentry = { version = "0.47.0", default-features = false, features = ["backtrace", "contexts", "panic", "debug-images", "httpdate"] }
 
 # Used by the imessage_scanner module.
 anyhow = "1.0"
@@ -186,7 +186,17 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
     # http://127.0.0.1:<port>/rpc, so it REQUIRES the HTTP + Socket.IO transport
     # (#5048). Enforced by the HTTP_SERVER_COMPILED_IN compile assert in lib.rs.
     "http-server",
-    "medulla-local",
+    # Without this the desktop app has no battery/AC probe, so a user who sets
+    # `require_ac_power` gets no enforcement and `battery_floor` throttling never
+    # fires — silently, since the off-state is a valid "on AC" reading.
+    "scheduler-gate",
+    # The packaged app's only durable log. Without this, a support request
+    # comes back with nothing to attach — and the absence is silent.
+    "file-logging",
+    # Polymarket read + trading tools. Implies `web3`, which is already
+    # forwarded — but the checker does literal set membership with no
+    # transitive resolution, so this needs its own line.
+    "prediction-markets",
 ] }
 tinyjuice = { version = "0.2.1", default-features = false }
 
@@ -263,6 +273,9 @@ e2e-test-support = ["openhuman_core/e2e-test-support"]
 # whisper.cpp to use MSVC's static runtime (/MT), matching CEF and avoiding
 # LNK2038/LNK1169 CRT conflicts on Windows.
 whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+# Keep reqwest defaults disabled in this independent Cargo world too. Without
+# this patch, the registry release reintroduces native-tls/OpenSSL on Linux.
+motosan-ai-oauth = { path = "../../vendor/motosan-ai-oauth" }
 # TinyAgents vendored submodule (repo-root vendor/tinyagents, pinned at the
 # released tag) — same patch as the root Cargo world so both resolve the
 # in-tree SDK source. `git submodule update --init vendor/tinyagents` first.

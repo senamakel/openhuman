@@ -355,7 +355,7 @@ impl WorkflowRecentRunsTool {
 
     pub fn with_active_profile(
         mut self,
-        profile: Option<crate::openhuman::profiles::AgentProfile>,
+        profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
     ) -> Self {
         self.active_profile_id = profile.map(|profile| profile.id);
         self
@@ -452,7 +452,7 @@ impl WorkflowReadRunLogTool {
 
     pub fn with_active_profile(
         mut self,
-        profile: Option<crate::openhuman::profiles::AgentProfile>,
+        profile: Option<crate::openhuman::agent::profiles::AgentProfile>,
     ) -> Self {
         self.active_profile_id = profile.map(|profile| profile.id);
         self
@@ -746,7 +746,7 @@ mod tests {
         .await
         .expect("write header");
 
-        let mut alice = crate::openhuman::profiles::built_in_profiles()
+        let mut alice = crate::openhuman::agent::profiles::built_in_profiles()
             .into_iter()
             .next()
             .expect("built-in profile");

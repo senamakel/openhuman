@@ -1,32 +1,50 @@
 //! Agent tool belt for the `workflow-builder` specialist (Phase 5b).
 //!
 //! These tools give the `workflow-builder` agent (see
-//! `agent_registry/agents/workflow_builder/`) a **deliberately narrow**,
-//! propose-or-read surface for authoring tinyflows [`WorkflowGraph`]s in chat:
+//! `agent_registry/agents/workflow_builder/`) its full authoring surface for
+//! tinyflows [`WorkflowGraph`]s in chat — 22 tools spanning propose-only
+//! validation, in-place draft mutation, live reads, one bounded real Composio
+//! call, run control, and persistence:
 //!
-//! | Tool                    | Permission              | Effect                                    |
-//! | ----------------------- | ----------------------- | ----------------------------------------- |
-//! | [`ReviseWorkflowTool`]  | `None`                  | validate a revised draft → proposal       |
-//! | [`ListFlowsTool`]       | `None`                  | read: list saved flows                    |
-//! | [`GetFlowTool`]         | `None`                  | read: fetch a saved flow's graph          |
-//! | [`GetFlowRunTool`]      | `None`                  | read: fetch a run's steps                 |
-//! | [`ListFlowConnectionsTool`] | `None`              | read: connection refs (ids/names only)    |
-//! | [`SearchToolCatalogTool`]   | `None`              | read: real Composio tool slugs (live catalog) |
-//! | [`GetToolContractTool`]     | `None`              | read: one action's FULL live contract     |
-//! | [`GetToolOutputSampleTool`] | `ReadOnly`          | ONE bounded real Composio call (Read-scope only, connected toolkit only) |
-//! | [`ListAgentProfilesTool`]   | `None`              | read: selectable agent kinds (`agent_ref`)|
-//! | [`DryRunWorkflowTool`]  | `Execute` (tier-gated)  | run a *draft* against MOCK capabilities   |
-//! | [`SaveWorkflowTool`]    | `Write`                 | persist a graph onto an EXISTING flow     |
+//! | Tool                             | Permission | Effect                                                        |
+//! | --------------------------------- | ---------- | ---------------------------------------------------------------- |
+//! | [`ReviseWorkflowTool`]            | `None`     | validate a revised draft → proposal (never persists)              |
+//! | [`EditWorkflowTool`]              | `None`     | mutate a draft in place (`add_node`/`remove_edge`/…) — never saves |
+//! | [`ValidateWorkflowTool`]          | `None`     | read: run the full gate stack without emitting a proposal card    |
+//! | [`GetFlowHistoryTool`]            | `None`     | read: a saved flow's prior graph snapshots                        |
+//! | [`ListFlowRunsTool`]              | `None`     | read: a flow's run history                                        |
+//! | [`ResumeFlowRunTool`]             | `Execute`  | advance a run parked on approval — approved nodes fire for real   |
+//! | [`CancelFlowRunTool`]             | `Write`    | stop an in-flight/parked run; fires no new outbound effect        |
+//! | [`CreateWorkflowTool`]            | `Write`    | persist a NEW flow — always born **DISABLED**                     |
+//! | [`DuplicateFlowTool`]             | `Write`    | clone a saved flow — the copy is always born **DISABLED**         |
+//! | [`ListConnectableToolkitsTool`]   | `None`     | read: which toolkits are already connected                        |
+//! | [`ListFlowsTool`]                 | `None`     | read: list saved flows                                            |
+//! | [`GetFlowTool`]                   | `None`     | read: fetch a saved flow's graph                                  |
+//! | [`GetFlowRunTool`]                | `None`     | read: fetch a run's steps                                         |
+//! | [`ListFlowConnectionsTool`]       | `None`     | read: connection refs (ids/names only)                            |
+//! | [`SearchToolCatalogTool`]         | `None`     | read: real Composio tool slugs (live catalog)                     |
+//! | [`GetToolContractTool`]           | `None`     | read: one action's FULL live contract                             |
+//! | [`GetToolOutputSampleTool`]       | `ReadOnly` | ONE bounded real Composio call (Read-scope only, connected toolkit only) |
+//! | [`ListAgentProfilesTool`]         | `None`     | read: selectable agent kinds (`agent_ref`)                        |
+//! | [`ListNodeKindsTool`]             | `None`     | read: the DSL's node kinds                                        |
+//! | [`GetNodeKindContractTool`]       | `None`     | read: one node kind's config/port/example/gotcha contract         |
+//! | [`DryRunWorkflowTool`]            | `None`     | run a *draft* against MOCK capabilities — not tier-gated (F7)     |
+//! | [`SaveWorkflowTool`]              | `Write`    | persist a graph onto an EXISTING flow                              |
 //!
-//! **Human-in-the-loop invariant (shared with [`super::tools::ProposeWorkflowTool`]),
-//! with one deliberate carve-out:** `revise_workflow` only validates and
-//! returns a proposal payload (identical contract to `propose_workflow`); the
-//! read tools are pure reads; `dry_run_workflow` executes against `tinyflows`'
-//! deterministic **mock** capabilities so no real LLM / tool / HTTP / code side
-//! effect can fire. The carve-out is [`SaveWorkflowTool`]: it persists a graph
-//! onto a flow that ALREADY exists (the Flows prompt bar's instant-create path
-//! makes the flow first and hands the agent its id) — but the agent still
-//! cannot *create* a flow, and never touches `enabled`/`require_approval`.
+//! **Human-in-the-loop invariant.** Enabling a flow is not a tool this agent
+//! has, by design, no matter which tool above it reaches for:
+//! [`CreateWorkflowTool`] and [`DuplicateFlowTool`] always produce a
+//! **DISABLED** flow, and [`SaveWorkflowTool`] never sets
+//! `enabled`/`require_approval` (it CAN auto-disable an already-enabled flow
+//! when the graph's trigger transitions from manual to automatic — see its
+//! own doc). `revise_workflow` / `edit_workflow` / `validate_workflow` only
+//! validate or mutate a draft and never persist. `dry_run_workflow` executes
+//! only against `tinyflows`' deterministic **mock** capabilities, so no real
+//! LLM / tool / HTTP / code side effect can fire from it regardless of tier
+//! (F7 — it is deliberately NOT tier-gated; see its own doc).
+//! [`ResumeFlowRunTool`] is the one place a non-persistence tool can cause a
+//! real effect: resuming a parked run lets its already-approved nodes fire,
+//! which is why it is `Execute`-gated rather than `None`/`Write`.
 //!
 //! The agent's full tool scope (see `agent_registry/agents/workflow_builder/
 //! agent.toml`) also grants the Composio **discovery/connect** tools —
@@ -56,7 +74,6 @@ use crate::openhuman::config::Config;
 use crate::openhuman::flows::ops;
 use crate::openhuman::flows::ops::validate_and_migrate_graph;
 use crate::openhuman::flows::tools;
-use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 /// Wall-clock bound on a single `dry_run_workflow` mock execution. A malformed
@@ -266,7 +283,10 @@ impl Tool for EditWorkflowTool {
          saved flow; or an inline graph) plus ops[]: a list of edits applied in \
          order. Op shapes (each is { \"op\": <type>, ... }): add_node {node}, update_node_config \
          {id, config} (JSON merge-patch — a null value deletes that config key), set_node_name \
-         {id, name}, rename_node {id, new_id} (rewires edges), remove_node {id} (drops its edges), \
+         {id, name}, rename_node {id, new_id} (rewires EDGES onto the new id, but does NOT rewrite \
+         `=nodes.<old_id>...` binding expressions inside OTHER nodes' config — re-point those \
+         yourself, or validate_workflow will catch the dangling reference), remove_node {id} \
+         (drops its edges), \
          add_edge {edge}, remove_edge {from_node, to_node, from_port?, to_port?}, set_node_position \
          {id, position}. PERSISTENCE: the applied edit is written to a DRAFT, never onto the saved \
          flow — this tool NEVER saves. Editing a flow_id SEEDS A NEW DRAFT from that flow's graph \
@@ -547,9 +567,13 @@ impl Tool for EditWorkflowTool {
             }
         };
 
-        let write_edit_to_draft = || -> anyhow::Result<()> {
+        // T-m6: returns `Err` (rather than only `warn!`-logging) when the
+        // draft write-back itself fails, so callers can surface the failure
+        // instead of telling the agent "Edits live on draft {id}" when the
+        // draft still holds the PREVIOUS graph.
+        let write_edit_to_draft = || -> Result<(), String> {
             if let Some(ref draft_id) = write_back_draft {
-                let edited_json = serde_json::to_value(&edited)?;
+                let edited_json = serde_json::to_value(&edited).map_err(|e| e.to_string())?;
                 if let Err(e) = ops::flows_draft_update(
                     &self.config,
                     draft_id,
@@ -558,6 +582,7 @@ impl Tool for EditWorkflowTool {
                     None,
                 ) {
                     tracing::warn!(target: "flows", %draft_id, error = %e, "[flows] edit_workflow: could not write edit back to draft");
+                    return Err(e);
                 }
             }
             Ok(())
@@ -568,7 +593,16 @@ impl Tool for EditWorkflowTool {
         if !structural.is_empty() {
             // Preserve the longstanding working-copy contract: an applied edit
             // survives for the next repair turn even when structurally invalid.
-            write_edit_to_draft()?;
+            // T-m6: surface (not just log) a write-back failure here too, so the
+            // agent knows the draft may still hold the PREVIOUS graph rather than
+            // this attempted (invalid) edit.
+            let write_back_note = match write_edit_to_draft() {
+                Ok(()) => String::new(),
+                Err(e) => format!(
+                    "\n\nNote: the edit could also NOT be written back to the draft ({e}) — the \
+                     draft still holds the PREVIOUS graph, not this attempted edit."
+                ),
+            };
             let messages: Vec<String> = structural.iter().map(ToString::to_string).collect();
             tracing::debug!(
                 target: "flows",
@@ -577,7 +611,7 @@ impl Tool for EditWorkflowTool {
                 "[flows] edit_workflow: the edited graph is structurally invalid"
             );
             return Ok(ToolResult::error(format!(
-                "The edited graph is invalid:\n\n{}\n\nFix the ops and call edit_workflow again.",
+                "The edited graph is invalid:\n\n{}\n\nFix the ops and call edit_workflow again.{write_back_note}",
                 messages.join("\n")
             )));
         }
@@ -604,7 +638,28 @@ impl Tool for EditWorkflowTool {
         // Write the accepted structural edit back to the draft (the durable
         // working copy), so it survives across turns/reloads even if a later
         // binding/connection/contract gate flags something to fix next.
-        write_edit_to_draft()?;
+        //
+        // T-m6: a failure here MUST short-circuit rather than fall through to
+        // the proposal payload below — that payload's `next` text tells the
+        // agent "Edits live on draft {id}", which would be false if the write
+        // never landed, leaving the next turn silently iterating on a stale
+        // draft.
+        if let Some(draft_id) = write_back_draft.as_deref() {
+            if let Err(e) = write_edit_to_draft() {
+                tracing::warn!(
+                    target: "flows",
+                    %name,
+                    %draft_id,
+                    error = %e,
+                    "[flows] edit_workflow: draft write-back failed after validation passed"
+                );
+                return Ok(ToolResult::error(format!(
+                    "The edit passed validation, but could NOT be written back to draft \
+                     {draft_id}: {e}\n\nThe draft still holds the PREVIOUS graph, not this edit. \
+                     Retry edit_workflow."
+                )));
+            }
+        }
 
         // Full builder hard-gate stack + proposal payload (shared with revise).
         // Thread the persistence-state handles so the payload carries draft_id /
@@ -783,16 +838,35 @@ impl Tool for ValidateWorkflowTool {
         let validation = ops::flows_validate(graph_json.clone()).value;
 
         // Only run the (expensive) hard gates on a structurally-valid graph.
-        let gate_errors = if validation.valid {
+        // A migrate/deserialize error here must fail CLOSED: `validation.valid`
+        // only proves the graph passed structural checks, not that the hard
+        // gates (unresolvable bindings, unreal tool slugs, unwired required
+        // args) ran. Treating the empty `gate_errors` from a caught `Err` as
+        // "gates passed" previously reported `ok: true` while silently
+        // skipping every hard gate.
+        let (gate_errors, gate_check_failed) = if validation.valid {
             match ops::migrate_and_deserialize_graph(graph_json) {
-                Ok(graph) => ops::run_builder_gates(&self.config, &graph).await,
-                Err(_) => Vec::new(),
+                Ok(graph) => (ops::run_builder_gates(&self.config, &graph).await, false),
+                Err(e) => {
+                    tracing::warn!(
+                        target: "flows",
+                        error = %e,
+                        "[flows] validate_workflow: graph passed structural validation but \
+                         failed to migrate/deserialize for gate checks; failing closed"
+                    );
+                    (
+                        vec![format!(
+                            "hard gates could not run: graph failed to migrate/deserialize ({e})"
+                        )],
+                        true,
+                    )
+                }
             }
         } else {
-            Vec::new()
+            (Vec::new(), false)
         };
 
-        let ok = validation.valid && gate_errors.is_empty();
+        let ok = validate_workflow_report_is_ok(validation.valid, &gate_errors, gate_check_failed);
         let report = json!({
             "ok": ok,
             "structurally_valid": validation.valid,
@@ -803,6 +877,21 @@ impl Tool for ValidateWorkflowTool {
         });
         Ok(ToolResult::success(serde_json::to_string_pretty(&report)?))
     }
+}
+
+/// `validate_workflow`'s aggregate verdict (T-m4): `ok` must be true only when
+/// the graph is structurally valid, every hard gate ran, AND every hard gate
+/// passed. Pulled out as a pure function so the fail-closed invariant — a
+/// gate-check failure (e.g. a migrate/deserialize error) must never be
+/// reported as `ok: true` — is unit-testable independent of the async gate
+/// execution and the (currently unreachable, pending future per-node schema
+/// migrations) path that produces `gate_check_failed`.
+fn validate_workflow_report_is_ok(
+    structurally_valid: bool,
+    gate_errors: &[String],
+    gate_check_failed: bool,
+) -> bool {
+    structurally_valid && gate_errors.is_empty() && !gate_check_failed
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1024,6 +1113,21 @@ impl Tool for ResumeFlowRunTool {
 
 /// `cancel_flow_run`: stop an in-flight or parked run. Write-class — it changes
 /// run state but fires no new outbound effect.
+///
+/// **T-M3 fix.** This tool used to cancel an arbitrary `run_id` with no
+/// ownership check at all — combined with `external_effect() == false` (so
+/// the approval gate never parked it) and hiding that only covered the two
+/// `flows_build` copilot/headless paths (`FLOWS_BUILD_COPILOT_HIDDEN_TOOLS`,
+/// not the orchestrator-delegation or main-chat paths that also carry this
+/// tool), a prompt-injected turn could cancel ANY user's in-flight or
+/// approval-parked automation, unapproved. Two independent closes now apply:
+/// 1. **Ownership check** — the caller must name the `flow_id` it believes
+///    owns the run (mirrors [`ResumeFlowRunTool`]'s existing `{ flow_id,
+///    run_id }` shape); the run row's *actual* `flow_id` is resolved and
+///    compared, and a mismatch is refused rather than silently cancelling a
+///    run scoped to a different flow.
+/// 2. **`external_effect() == true`** — parks for approval on any surface
+///    that has a gate, same as `resume_flow_run`.
 pub struct CancelFlowRunTool {
     config: Arc<Config>,
 }
@@ -1042,16 +1146,19 @@ impl Tool for CancelFlowRunTool {
 
     fn description(&self) -> &str {
         "Cancel an in-flight or approval-parked flow run by its run_id (from list_flow_runs). \
-         Stops a runaway or stuck run; fires no new outbound effect. Params: { run_id }."
+         Stops a runaway or stuck run; fires no new outbound effect. The run_id must belong to \
+         the given flow_id — cancelling a run that belongs to a different flow is refused. \
+         Approval-gated. Params: { flow_id, run_id }."
     }
 
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",
             "properties": {
+                "flow_id": { "type": "string", "description": "The flow that owns the run being cancelled (from list_flow_runs)." },
                 "run_id": { "type": "string", "description": "The run (thread) id to cancel." }
             },
-            "required": ["run_id"],
+            "required": ["flow_id", "run_id"],
             "additionalProperties": false
         })
     }
@@ -1061,15 +1168,44 @@ impl Tool for CancelFlowRunTool {
     }
 
     fn external_effect(&self) -> bool {
-        false
+        true
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
         let run_id = match args.get("run_id").and_then(Value::as_str).map(str::trim) {
             Some(id) if !id.is_empty() => id.to_string(),
             _ => return Ok(ToolResult::error("Missing 'run_id' parameter".to_string())),
         };
-        tracing::debug!(target: "flows", %run_id, "[flows] cancel_flow_run: cancelling run");
+
+        // SECURITY (T-M3 fix): verify the run actually belongs to the
+        // caller-named flow before cancelling anything — mirrors
+        // `resume_flow_run` (`ops::flows_resume`)'s existing `run_record.flow_id
+        // != flow_id` guard. Without this, any run_id (guessed, enumerated, or
+        // named by a prompt-injected turn that never called list_flow_runs)
+        // could cancel a run scoped to a completely different flow.
+        let run = match ops::flows_get_run(&self.config, &run_id).await {
+            Ok(outcome) => outcome.value,
+            Err(e) => return Ok(ToolResult::error(format!("Could not cancel run: {e}"))),
+        };
+        if run.flow_id != flow_id {
+            tracing::warn!(
+                target: "flows",
+                %flow_id,
+                %run_id,
+                actual_flow_id = %run.flow_id,
+                "[flows] cancel_flow_run: refused — run belongs to a different flow than the one named"
+            );
+            return Ok(ToolResult::error(format!(
+                "run '{run_id}' belongs to flow '{}', not '{flow_id}' — refusing to cancel",
+                run.flow_id
+            )));
+        }
+
+        tracing::debug!(target: "flows", %flow_id, %run_id, "[flows] cancel_flow_run: cancelling run");
         match ops::flows_cancel_run(&self.config, &run_id).await {
             Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
                 &outcome.value,
@@ -1164,22 +1300,66 @@ impl Tool for CreateWorkflowTool {
         };
 
         // Force born-disabled: enable stays human-only, even for a manual-trigger
-        // graph that flows_create would otherwise create enabled.
+        // graph that flows_create would otherwise create enabled. `flows_create`
+        // and this force-disable are two separate writes — not one transaction —
+        // so there is necessarily a brief window between them where the row is
+        // persisted `enabled: true` before this call disables it. This fix does
+        // not close that window; it only stops MISREPORTING the outcome when the
+        // disable itself fails.
+        //
+        // T-m3: `flows_set_enabled(.., false)` can fail (store error, flow
+        // deleted concurrently, …). That used to be only `warn!`-logged while
+        // the response unconditionally claimed `"enabled": false` — so a
+        // manual-trigger flow that flows_create left enabled would stay
+        // enabled while the agent told the user it was disabled. Track the
+        // real post-attempt state and report THAT.
+        let mut disable_succeeded = true;
         if flow.enabled {
-            if let Err(e) = ops::flows_set_enabled(&self.config, &flow.id, false).await {
-                tracing::warn!(target: "flows", flow_id = %flow.id, error = %e, "[flows] create_workflow: could not force-disable the new flow");
+            match ops::flows_set_enabled(&self.config, &flow.id, false).await {
+                Ok(_) => {}
+                Err(e) => {
+                    disable_succeeded = false;
+                    tracing::warn!(
+                        target: "flows",
+                        flow_id = %flow.id,
+                        error = %e,
+                        "[flows] create_workflow: could not force-disable the new flow — it \
+                         remains ENABLED; reporting the true state, not the intended one"
+                    );
+                }
             }
         }
+        let (enabled, note) = create_workflow_report(flow.enabled, disable_succeeded);
 
         Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
             "type": "workflow_created",
             "flow_id": flow.id,
             "name": flow.name,
-            "enabled": false,
+            "enabled": enabled,
             "require_approval": flow.require_approval,
-            "note": "Flow created DISABLED. The user must enable it explicitly before it can run.",
+            "note": note,
         }))?))
     }
+}
+
+/// `create_workflow`'s reported `enabled` state + note (T-m3): derived from
+/// whether the flow was born enabled (`born_enabled`, from `flows_create`'s
+/// Rule 1) and whether the subsequent force-disable attempt succeeded
+/// (`disable_succeeded`, ignored when no attempt was made). Pulled out as a
+/// pure function so the fail-HONEST invariant — the response must reflect
+/// the flow's real post-attempt state, not the intended one — is
+/// unit-testable without forcing a genuine concurrent store failure between
+/// `flows_create` and `flows_set_enabled`.
+fn create_workflow_report(born_enabled: bool, disable_succeeded: bool) -> (bool, &'static str) {
+    let enabled = born_enabled && !disable_succeeded;
+    let note = if enabled {
+        "Flow created, but it could NOT be force-disabled (see the tool result for the \
+         underlying error) — it is currently ENABLED. Tell the user and ask them to disable it \
+         manually if that was not intended."
+    } else {
+        "Flow created DISABLED. The user must enable it explicitly before it can run."
+    };
+    (enabled, note)
 }
 
 /// `duplicate_flow`: create an independent, DISABLED copy of a saved flow — the
@@ -1283,7 +1463,7 @@ impl Tool for ListConnectableToolkitsTool {
     }
 
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
-        use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
+        use crate::openhuman::memory::sync::composio::providers::agent_ready_toolkits;
         tracing::debug!(target: "flows", "[flows] list_connectable_toolkits: listing toolkits + connected state (read-only)");
         let connected = ops::connected_toolkits(&self.config).await;
         let toolkits: Vec<Value> = agent_ready_toolkits()
@@ -1630,12 +1810,12 @@ impl SearchToolCatalogTool {
 const MAX_CATALOG_RESULTS: usize = 40;
 
 /// Search the FULL LIVE Composio catalog (via
-/// [`crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog`]) for
+/// [`crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog`]) for
 /// actions whose slug or description matches every whitespace-separated term
 /// in `query` (case-insensitive AND). When `toolkit` is set, only that
 /// toolkit is scanned — this is how the builder can search ANY named app
 /// (connected or not) rather than only the toolkits already
-/// [`agent_ready_toolkits`](crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits);
+/// [`agent_ready_toolkits`](crate::openhuman::memory::sync::composio::providers::agent_ready_toolkits);
 /// with no `toolkit` filter, the search is scoped to that agent-ready set (a
 /// bare keyword query with no app named would otherwise have to fan out to
 /// every toolkit Composio knows about).
@@ -1673,13 +1853,13 @@ pub(crate) struct CatalogSearchOutcome {
     pub note: Option<String>,
 }
 
-/// Shape one live-catalog [`ToolContract`](crate::openhuman::tinyflows::caps::ToolContract)
+/// Shape one live-catalog [`ToolContract`](crate::openhuman::flows::tinyflows::caps::ToolContract)
 /// into a search-result row. The SINGLE row-construction site shared by both
 /// the primary AND-match path and the per-keyword fallback path, so every row
 /// carries the same fields — including WS3's `runtime_gated: true` on an
 /// uncurated action of a toolkit that ships a curated-only allowlist.
 fn shape_catalog_row(
-    tool: &crate::openhuman::tinyflows::caps::ToolContract,
+    tool: &crate::openhuman::flows::tinyflows::caps::ToolContract,
     toolkit: &str,
     toolkit_curated: bool,
 ) -> Value {
@@ -1720,8 +1900,8 @@ pub(crate) async fn search_catalog(
     toolkit_filter: Option<&str>,
     limit: usize,
 ) -> CatalogSearchOutcome {
-    use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
-    use crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog;
+    use crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog;
+    use crate::openhuman::memory::sync::composio::providers::agent_ready_toolkits;
 
     let terms: Vec<String> = query
         .split_whitespace()
@@ -1742,7 +1922,7 @@ pub(crate) async fn search_catalog(
     // round trip back-to-back (the per-toolkit cache only helps repeats).
     let fetched: Vec<(
         String,
-        Option<Vec<crate::openhuman::tinyflows::caps::ToolContract>>,
+        Option<Vec<crate::openhuman::flows::tinyflows::caps::ToolContract>>,
     )> = futures::future::join_all(toolkits.into_iter().map(|toolkit| async move {
         let catalog = fetch_live_toolkit_catalog(config, &toolkit).await;
         (toolkit, catalog)
@@ -1751,7 +1931,10 @@ pub(crate) async fn search_catalog(
 
     // Drop toolkits whose fetch failed (no backend session / network error) —
     // they contribute zero results rather than erroring the whole search.
-    let fetched: Vec<(String, Vec<crate::openhuman::tinyflows::caps::ToolContract>)> = fetched
+    let fetched: Vec<(
+        String,
+        Vec<crate::openhuman::flows::tinyflows::caps::ToolContract>,
+    )> = fetched
         .into_iter()
         .filter_map(|(tk, catalog)| catalog.map(|c| (tk, c)))
         .collect();
@@ -1977,7 +2160,7 @@ impl Tool for SearchToolCatalogTool {
 // get_tool_contract — read-only: the FULL live contract for one action slug
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// `get_tool_contract`: fetch the FULL live [`ToolContract`](crate::openhuman::tinyflows::caps::ToolContract)
+/// `get_tool_contract`: fetch the FULL live [`ToolContract`](crate::openhuman::flows::tinyflows::caps::ToolContract)
 /// for one Composio action slug — the grounding step the builder MUST take
 /// before wiring a `search_tool_catalog` match's args or a downstream
 /// binding/`split_out.path` off it. Where `search_tool_catalog` is for
@@ -2047,7 +2230,7 @@ impl Tool for GetToolContractTool {
             _ => return Ok(ToolResult::error("Missing 'slug' parameter".to_string())),
         };
         let Some(toolkit) =
-            crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(&slug)
+            crate::openhuman::memory::sync::composio::providers::toolkit_from_slug(&slug)
         else {
             return Ok(ToolResult::error(format!(
                 "Could not extract a toolkit from slug '{slug}' — it must look like \
@@ -2062,9 +2245,11 @@ impl Tool for GetToolContractTool {
             "[flows] get_tool_contract: fetching the live contract (read-only)"
         );
 
-        let Some(catalog) =
-            crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog(&self.config, &toolkit)
-                .await
+        let Some(catalog) = crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog(
+            &self.config,
+            &toolkit,
+        )
+        .await
         else {
             return Ok(ToolResult::error(format!(
                 "Could not fetch the live Composio catalog for toolkit '{toolkit}' (no backend \
@@ -2082,8 +2267,9 @@ impl Tool for GetToolContractTool {
                 // every GitHub action verified live as of this fix), where
                 // `contract.primary_array_path` would otherwise be
                 // permanently `None`.
-                let contract =
-                    crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+                let contract = crate::openhuman::flows::tinyflows::caps::apply_probe_override(
+                    contract.clone(),
+                );
 
                 // WS3 — EARLY runtime-gate warning (transcript failure #2): a
                 // real-but-uncurated action of a toolkit that ships a curated
@@ -2103,7 +2289,7 @@ impl Tool for GetToolContractTool {
                     struct ContractWithRuntimeGate {
                         runtime_gate: &'static str,
                         #[serde(flatten)]
-                        contract: crate::openhuman::tinyflows::caps::ToolContract,
+                        contract: crate::openhuman::flows::tinyflows::caps::ToolContract,
                     }
                     let payload = ContractWithRuntimeGate {
                         runtime_gate: "This action will be REJECTED on every real run — the \
@@ -2135,7 +2321,7 @@ impl Tool for GetToolContractTool {
 /// for `slug` and derive its `primary_array_path`/`output_fields` from the
 /// ACTUAL response, overriding `get_tool_contract`'s schema-derived hint for
 /// this slug from then on (see
-/// [`crate::openhuman::tinyflows::caps::apply_probe_override`]).
+/// [`crate::openhuman::flows::tinyflows::caps::apply_probe_override`]).
 ///
 /// **Exists because a schema-derived hint sometimes doesn't exist at all**:
 /// Composio's live listing genuinely omits `output_parameters` for some
@@ -2151,7 +2337,7 @@ impl Tool for GetToolContractTool {
 /// "propose/read only, no composio_execute" invariant** (see this module's
 /// top doc): unlike `composio_execute`, this tool can ONLY ever perform a
 /// `Read`-scope action (gated by
-/// [`crate::openhuman::tinyflows::caps::probe_tool_output_sample`]'s scope
+/// [`crate::openhuman::flows::tinyflows::caps::probe_tool_output_sample`]'s scope
 /// check, which ignores the user's per-toolkit scope preference — a probe
 /// must never perform a real mutation no matter what the user has toggled
 /// on) against a toolkit the user has ALREADY connected. No message is sent,
@@ -2212,6 +2398,20 @@ impl Tool for GetToolOutputSampleTool {
         PermissionLevel::ReadOnly
     }
 
+    // T-m8: this DOES perform a real outbound Composio network call (see the
+    // struct doc's B12 carve-out) despite declaring `external_effect() ==
+    // false` — that is deliberate, not an oversight, and it never parks for
+    // approval as a result. `external_effect` gates on WORLD-MUTATING
+    // effects (a message sent, a record created/updated/deleted) that the
+    // approval system exists to keep a human in the loop for; a probe here
+    // is hard-restricted, independent of the approval gate, to Read-scope
+    // actions only (`probe_tool_output_sample`'s own scope check, which
+    // ignores the user's toggled write/admin scope preference) against a
+    // toolkit the user has ALREADY connected — so there is nothing for a
+    // human to approve: no side effect this call could possibly produce is
+    // one the user hasn't already consented to by connecting the toolkit.
+    // "Real network call" and "external_effect" are answering different
+    // questions here on purpose.
     fn external_effect(&self) -> bool {
         false
     }
@@ -2229,7 +2429,7 @@ impl Tool for GetToolOutputSampleTool {
             "[flows] get_tool_output_sample: tool invoked"
         );
 
-        match crate::openhuman::tinyflows::caps::probe_tool_output_sample(
+        match crate::openhuman::flows::tinyflows::caps::probe_tool_output_sample(
             &self.config,
             &slug,
             call_args,
@@ -2313,7 +2513,7 @@ impl Tool for ListAgentProfilesTool {
 
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
         tracing::debug!(target: "flows", "[flows] list_agent_profiles: listing registered agent kinds (read-only)");
-        match crate::openhuman::agent_registry::list_agents(false).await {
+        match crate::openhuman::agent::registry::list_agents(false).await {
             Ok(agents) => {
                 let profiles: Vec<Value> = agents
                     .iter()
@@ -2343,7 +2543,7 @@ impl Tool for ListAgentProfilesTool {
 // list_node_kinds / get_node_kind_contract — queryable DSL schema (F2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// `list_node_kinds`: enumerate the 12 tinyflows node kinds with a one-line
+/// `list_node_kinds`: enumerate the 14 tinyflows node kinds with a one-line
 /// summary each. The DSL counterpart of `search_tool_catalog` for Composio
 /// actions — a cheap first call to orient before fetching a full contract.
 pub struct ListNodeKindsTool;
@@ -2369,7 +2569,7 @@ impl Tool for ListNodeKindsTool {
     }
 
     fn description(&self) -> &str {
-        "List the 12 tinyflows node kinds you can put in a WorkflowGraph, each with a one-line \
+        "List the 14 tinyflows node kinds you can put in a WorkflowGraph, each with a one-line \
          summary and its config field names. Read-only, no args. Returns a JSON array of { kind, \
          summary, required_config, optional_config }. Call get_node_kind_contract { kind } for the \
          full config-field shapes, ports, an example node, and authoring gotchas of any one kind — \
@@ -2460,7 +2660,7 @@ impl Tool for GetNodeKindContractTool {
             "properties": {
                 "kind": {
                     "type": "string",
-                    "description": "One of the 12 node kinds, e.g. 'tool_call' (from list_node_kinds).",
+                    "description": "One of the 14 node kinds, e.g. 'tool_call' (from list_node_kinds).",
                     "enum": crate::openhuman::flows::NODE_KINDS,
                 }
             },
@@ -2488,7 +2688,7 @@ impl Tool for GetNodeKindContractTool {
                 &contract,
             )?)),
             None => Ok(ToolResult::error(format!(
-                "'{kind}' is not a tinyflows node kind — call list_node_kinds for the 12 valid \
+                "'{kind}' is not a tinyflows node kind — call list_node_kinds for the 14 valid \
                  kinds."
             ))),
         }
@@ -2496,7 +2696,7 @@ impl Tool for GetNodeKindContractTool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// dry_run_workflow — execute a DRAFT against MOCK capabilities (tier-gated)
+// dry_run_workflow — execute a DRAFT against MOCK capabilities (ungated, F7)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// `dry_run_workflow`: compile a **draft** graph and run it against tinyflows'
@@ -2508,12 +2708,19 @@ impl Tool for GetNodeKindContractTool {
 /// capabilities are echo stubs, so nothing external ever fires regardless of
 /// the graph. The output is explicitly labeled `sandbox: true`.
 ///
-/// Autonomy-tier gated (issue: Phase 2 node gating): read-only tier refuses,
-/// mirroring the `SecurityPolicy` contract that a read-only session cannot
-/// exercise executable capability even in simulation.
+/// **Not autonomy-tier gated (F7):** `permission_level()` returns
+/// [`PermissionLevel::None`], so this tool runs on EVERY tier, read-only
+/// included — a read-only agent must be able to self-verify its own proposal.
+/// This is intentional, not an oversight: the mock capabilities never touch a
+/// real integration, so there is nothing for a tier gate to protect. See
+/// `dry_run_allowed_under_readonly_tier` in `builder_tools_tests.rs` for the
+/// pinned regression (an earlier draft of this tool *was* tier-gated via an
+/// unused `SecurityPolicy` field; the field was dead code by the time it
+/// shipped and was removed rather than wired up, since side-effect-free
+/// simulation has no tier to gate against).
 ///
 /// **Wiring preflight:** the mock tool invoker is wrapped in the host's
-/// [`PreflightToolInvoker`](crate::openhuman::tinyflows::caps::PreflightToolInvoker),
+/// [`PreflightToolInvoker`](crate::openhuman::flows::tinyflows::caps::PreflightToolInvoker),
 /// so a Composio `tool_call` whose required arg is missing or `=`-resolved to
 /// null fails the dry run with the same actionable, field-naming error a real
 /// run would produce — the echo mocks alone would happily accept a null `to`.
@@ -2684,13 +2891,12 @@ fn tool_call_arg_null_entries(
 }
 
 pub struct DryRunWorkflowTool {
-    security: Arc<SecurityPolicy>,
     config: Arc<Config>,
 }
 
 impl DryRunWorkflowTool {
-    pub fn new(security: Arc<SecurityPolicy>, config: Arc<Config>) -> Self {
-        Self { security, config }
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
     }
 }
 
@@ -2833,20 +3039,23 @@ impl Tool for DryRunWorkflowTool {
         // so the null-resolution check below doesn't false-positive on an
         // agent node that correctly declared a schema.
         let mut caps = tinyflows::caps::mock::mock_capabilities_with_agent(
-            crate::openhuman::tinyflows::caps::SchemaAwareMockAgentRunner,
+            crate::openhuman::flows::tinyflows::caps::SchemaAwareMockAgentRunner,
         );
         // Plain agent nodes (no `agent_ref`) never reach the runner above —
         // the vendored `agent` node routes them to the `llm` slot instead (see
         // `SchemaAwareMockLlm`'s doc). Swap the vendored `MockLlm` echo for the
         // schema-aware mock so their `output_parser.schema` is honored too,
         // instead of the echo shape failing the sub-port's validation.
-        caps.llm = std::sync::Arc::new(crate::openhuman::tinyflows::caps::SchemaAwareMockLlm);
+        caps.llm =
+            std::sync::Arc::new(crate::openhuman::flows::tinyflows::caps::SchemaAwareMockLlm);
         // Wiring preflight over the echo mocks (see the struct doc): required
         // Composio args must be present and non-null even in the sandbox.
-        caps.tools = std::sync::Arc::new(crate::openhuman::tinyflows::caps::PreflightToolInvoker {
-            config: self.config.clone(),
-            inner: caps.tools.clone(),
-        });
+        caps.tools = std::sync::Arc::new(
+            crate::openhuman::flows::tinyflows::caps::PreflightToolInvoker {
+                config: self.config.clone(),
+                inner: caps.tools.clone(),
+            },
+        );
 
         // Which node ids are `tool_call` nodes — the null-resolution check
         // below is scoped to just these (see the struct doc: a null in an
@@ -3096,6 +3305,13 @@ impl Tool for DryRunWorkflowTool {
             })
             .collect();
 
+        // Quiet, informational only (never a prompt, never a gate): the
+        // ApprovalGate permissions a real run of this graph will need, so the
+        // builder agent can tell the user what the save+enable card will ask
+        // for — the card itself fires at save+enable, NOT during dry runs.
+        let permissions_manifest =
+            crate::openhuman::flows::ops::compute_approval_manifest(&self.config, &graph).await;
+
         tracing::info!(
             target: "flows",
             node_count = graph.nodes.len(),
@@ -3105,6 +3321,7 @@ impl Tool for DryRunWorkflowTool {
             agent_input_context_null_count = agent_input_context_nulls.len(),
             node_error_count = node_errors.len(),
             routing_divergence_warning_count = routing_divergence_warnings.len(),
+            permissions_manifest_count = permissions_manifest.len(),
             "[flows] dry_run_workflow: sandbox run finished"
         );
 
@@ -3130,6 +3347,7 @@ impl Tool for DryRunWorkflowTool {
                 "agent_input_context_nulls": agent_input_context_nulls,
                 "node_errors": node_errors,
                 "routing_divergence_warnings": routing_divergence_warnings,
+                "permissions_manifest": permissions_manifest,
                 "message": "These tool_call args resolved to null, an agent node's prompt or \
                     input_context resolved to null (an EMPTY prompt — see agent_prompt_nulls — \
                     or no upstream data at all — see agent_input_context_nulls), or a tool_call \
@@ -3155,6 +3373,7 @@ impl Tool for DryRunWorkflowTool {
             "agent_input_context_nulls": agent_input_context_nulls,
             "node_errors": node_errors,
             "routing_divergence_warnings": routing_divergence_warnings,
+            "permissions_manifest": permissions_manifest,
             "note": "SANDBOX (mock) output — LLM/tool/HTTP/code nodes returned deterministic echoes; NO real side effects occurred. This checks wiring/routing only, not whether real integrations work. \
                 If routing_divergence_warnings is non-empty, an agent/tool_call node never ran in \
                 this sandbox because an upstream condition routed the mock data past it — that \
@@ -3262,16 +3481,24 @@ impl CapturingObserver {
 /// an **existing, already-saved** flow via [`ops::flows_update`] — the same
 /// validate-and-migrate path the UI's Save uses.
 ///
-/// This is the deliberate, narrow exception to the belt's original
-/// "propose, never persist" invariant (added for the Flows prompt bar's
-/// instant-create path, where the host creates the flow *before* delegating and
-/// hands the agent its `flow_id`). The boundaries that remain:
+/// It was originally added as a narrow, deliberate exception to the belt's
+/// "propose, never persist" invariant (for the Flows prompt bar's
+/// instant-create path, where the host creates the flow *before* delegating
+/// and hands the agent its `flow_id`) — before [`CreateWorkflowTool`] and
+/// [`DuplicateFlowTool`] existed, this was the belt's only write. Both now
+/// exist, so `save_workflow` is one of three persistence tools, not the sole
+/// one. Its own remaining boundaries:
 ///
-/// - **Update-only.** It requires an existing `flow_id`; there is still no tool
-///   to *create* a flow, so the agent can only write where the host (or user)
-///   already made a flow.
+/// - **Update-only.** It requires an existing `flow_id`; it never fabricates
+///   one. Creating a flow is [`CreateWorkflowTool`]/[`DuplicateFlowTool`]'s
+///   job — `save_workflow` can only write onto a flow that already exists
+///   (whether the host, the user, or an earlier `create_workflow`/
+///   `duplicate_flow` call made it).
 /// - **Never touches enablement or the approval gate.** `enabled` and
-///   `require_approval` are not parameters; whatever the user set stays.
+///   `require_approval` are not parameters; whatever the user set stays —
+///   except that saving a graph whose trigger just transitioned from manual
+///   to automatic on an already-enabled flow auto-disables it (see
+///   [`ops::flows_update`]'s own doc for that guard).
 /// - **Real persistence, real consequences.** Saving a `schedule`/`app_event`
 ///   trigger onto an ENABLED flow arms it (the trigger binds and will fire on
 ///   its own) — hence `PermissionLevel::Write`. The description tells the agent

@@ -1,5 +1,5 @@
 use openhuman_core::openhuman::config::schema::{Config, StreamMode, TelegramConfig};
-use openhuman_core::openhuman::keyring;
+use openhuman_core::openhuman::security::keyring;
 use std::sync::OnceLock;
 
 async fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {

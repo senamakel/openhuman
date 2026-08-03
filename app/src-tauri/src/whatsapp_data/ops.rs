@@ -6,7 +6,7 @@
 use anyhow::Result;
 
 use super::store::WhatsAppDataStore;
-use openhuman_core::openhuman::whatsapp_data::types::{
+use openhuman_core::openhuman::channels::whatsapp_data::types::{
     IngestRequest, IngestResult, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
     WhatsAppChat, WhatsAppMessage,
 };
@@ -88,7 +88,7 @@ pub fn search_messages(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openhuman_core::openhuman::whatsapp_data::types::{ChatMeta, IngestMessage};
+    use openhuman_core::openhuman::channels::whatsapp_data::types::{ChatMeta, IngestMessage};
     use std::collections::HashMap;
     use tempfile::tempdir;
 

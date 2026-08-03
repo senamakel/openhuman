@@ -2,7 +2,7 @@ use axum::extract::Json;
 use axum::http::StatusCode;
 use axum::routing::post;
 use axum::Router;
-use openhuman_core::openhuman::memory_tree::score::embed::EMBEDDING_DIM;
+use openhuman_core::openhuman::memory::tree::score::embed::EMBEDDING_DIM;
 use tinyagents::harness::embeddings::{
     EmbeddingModel, OllamaEmbeddingModel, RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
 };

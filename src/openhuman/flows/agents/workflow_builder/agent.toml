@@ -66,7 +66,7 @@ hint = "reasoning"
 # `memory_hybrid_search` is paired alongside it (same convention as the
 # sibling `flow_discovery` agent) for keyword/lexical lookups — the
 # `[learning]`-gated `MemoryAccessSection` bias instruction
-# (`src/openhuman/learning/prompt_sections.rs`) tells every agent with a
+# (`src/openhuman/agent/learning/prompt_sections.rs`) tells every agent with a
 # retrieval tool visible to "call `memory_recall` (or `memory_search` for
 # keyword lookups)"; `memory_search` itself is not a registered tool name
 # anywhere in this codebase (a pre-existing, wider naming inconsistency

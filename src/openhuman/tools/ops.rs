@@ -1271,13 +1271,9 @@ pub fn all_tools_with_runtime(
 /// by its `name()`, so [`all_tools_with_runtime`] can drop tools whose family is
 /// disabled under the ambient [`DomainSet`](crate::core::runtime::DomainSet).
 ///
-/// Only the gate families (Web3/Mcp/Skills/Flows/Media/Voice/Meet) and the two
-/// mapped harness families (Memory/Threads) are matched; **everything else
-/// defaults to `Platform`**. Consequence under `harness()` (platform off): the
-/// gate-family tools drop AND the generic Platform tools (shell/file/grep/edit/
-/// screen/billing/team/cron/config/security/agent-orchestration/…) drop too —
-/// only memory + thread/todo tools remain. This is the strict #4796 harness
-/// surface; an embedder that wants a broader tool set can widen its DomainSet.
+/// Named-family tools are matched here; everything without a domain family
+/// defaults to `Platform`. Under `harness()`, the Agent/Memory/Threads/Config/
+/// Security tools remain while gate-family and generic Platform tools drop.
 /// (Names verified against each Tool impl's `fn name()` on 2026-07-13.)
 fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     use crate::core::all::DomainGroup;
@@ -1422,6 +1418,27 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     if name.starts_with("thread_") || name.starts_with("todo_") || THREADS_EXTRA.contains(&name) {
         return DomainGroup::Threads;
     }
+    // Harness families realigned out of Platform.
+    if name.starts_with("artifact_")
+        || name.starts_with("learning_")
+        || name.contains("subagent")
+        || matches!(
+            name,
+            "agent_prepare_context"
+                | "delegate_graph"
+                | "delegate_to_personality"
+                | "request_plan_review"
+                | "plan_exit"
+        )
+    {
+        return DomainGroup::Agent;
+    }
+    if name.starts_with("config_") || name.starts_with("workspace_") {
+        return DomainGroup::Config;
+    }
+    if name.starts_with("security_") || name.starts_with("credential_") {
+        return DomainGroup::Security;
+    }
     // ── Families carved out of Platform by the DomainGroup realignment ──────
     // Each of these previously fell through to Platform, which meant the tool
     // stayed callable when its family was gated off under a custom DomainSet —
@@ -1469,7 +1486,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     if name.starts_with("tokenjuice_") {
         return DomainGroup::Inference;
     }
-    // Everything else — shell/file/config/security/agent/… — is Platform:
+    // Everything else — shell/file and other kernel utilities — is Platform:
     // present under full(), absent under harness()/none().
     DomainGroup::Platform
 }

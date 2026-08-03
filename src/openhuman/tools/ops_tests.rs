@@ -2563,12 +2563,17 @@ fn tool_group_classifies_gate_and_harness_families() {
     assert_eq!(tool_group("thread_list"), DomainGroup::Threads);
     assert_eq!(tool_group("todo_add"), DomainGroup::Threads);
     assert_eq!(tool_group("goal_get"), DomainGroup::Threads);
+    assert_eq!(tool_group("artifact_list"), DomainGroup::Agent);
+    assert_eq!(tool_group("learning_list_facets"), DomainGroup::Agent);
+    assert_eq!(tool_group("spawn_subagent"), DomainGroup::Agent);
+    assert_eq!(tool_group("config_snapshot"), DomainGroup::Config);
+    assert_eq!(tool_group("workspace_init"), DomainGroup::Config);
+    assert_eq!(tool_group("security_policy_info"), DomainGroup::Security);
+    assert_eq!(tool_group("credential_list"), DomainGroup::Security);
 
     // Everything else → Platform (dropped under harness()).
     assert_eq!(tool_group("shell"), DomainGroup::Platform);
     assert_eq!(tool_group("file_read"), DomainGroup::Platform);
-    assert_eq!(tool_group("config_snapshot"), DomainGroup::Platform);
-    assert_eq!(tool_group("spawn_subagent"), DomainGroup::Platform);
 }
 
 #[test]
@@ -2584,6 +2589,9 @@ fn tool_group_gate_families_dropped_under_harness_not_full() {
     // Harness keeps memory/threads, drops gate families AND platform.
     assert!(harness.allows(tool_group("memory_store")));
     assert!(harness.allows(tool_group("thread_list")));
+    assert!(harness.allows(tool_group("artifact_list")));
+    assert!(harness.allows(tool_group("config_snapshot")));
+    assert!(harness.allows(tool_group("security_policy_info")));
     assert!(!harness.allows(tool_group("wallet_status")));
     assert!(!harness.allows(tool_group("run_workflow")));
     assert!(!harness.allows(tool_group("shell")));

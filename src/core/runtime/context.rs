@@ -396,7 +396,7 @@ pub async fn init_stores(
             Err(e) => log::warn!("[boot] people::store init failed: {e}"),
         }
     } else {
-        log::debug!("[boot] people::store init SKIPPED — Platform domain disabled");
+        log::debug!("[boot] people::store init SKIPPED — Memory domain disabled");
     }
     // Prune legacy bundled skills (dev-workflow / github-issue-crusher
     // / pr-review-shepherd) that older builds seeded into

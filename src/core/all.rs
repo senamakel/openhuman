@@ -725,9 +725,10 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::threads::all_threads_registered_controllers(),
     );
     // TokenJuice content-router debug controllers (detect / compress / cache_stats / retrieve).
-    // Classified Platform (always-on): TokenJuice is the token-compression content
-    // router that runs on every agent tool output, not a crypto surface — despite
-    // #4802 listing it under the web3 gate. Flagged for #4802 re-scope.
+    // Classified Inference: TokenJuice is the token-compression content router,
+    // not a crypto surface — despite #4802 listing it under the web3 gate.
+    // Only these debug/inspection controllers are gated; the content-router
+    // subscriber used on agent tool output remains always-on core infra.
     push(
         &mut controllers,
         DomainGroup::Inference,
@@ -859,7 +860,7 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
     // Renderer-only — not advertised to agents.
     push(
         &mut controllers,
-        DomainGroup::Agent,
+        DomainGroup::Hosted,
         crate::openhuman::hosted::orchestration::all_registered_controllers(),
     );
     controllers

@@ -1415,4 +1415,5 @@ fn embedded_preset_excludes_desktop_and_hosted() {
     assert!(e.runtimes, "embedded() needs the code-execution runtimes");
     assert!(e.automation, "embedded() needs cron + subconscious");
     assert!(e.inference, "embedded() needs inference");
+    assert!(e.integrations, "embedded() needs external integrations");
 }

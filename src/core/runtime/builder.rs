@@ -208,7 +208,6 @@ pub struct DomainSet {
     /// Medulla integration: cloud client, session runtime, chat store, and
     /// authored harness workflows.
     pub medulla: bool,
-    /// Everything not in a named family — always on in `full()`.
     /// Model inference: providers, routing, local engines, embeddings.
     pub inference: bool,
     /// External connectors (Composio, calendar, file storage, task sources).
@@ -223,6 +222,7 @@ pub struct DomainSet {
     pub hosted: bool,
     /// The multi-agent relay surface (tinyplace).
     pub relay: bool,
+    /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
 }
 
@@ -287,8 +287,8 @@ impl DomainSet {
     }
 
     /// A long-lived embedded host: the harness core plus the Medulla
-    /// integration and the workflow engine it runs on, and `platform` for the
-    /// credentials / config / cron / task-source domains such a session needs.
+    /// integration and the workflow engine it runs on, and the supporting
+    /// runtime, automation, integration, and platform surfaces it needs.
     ///
     /// Named for the *shape* rather than any downstream consumer — the core
     /// does not know which host embeds it, and a preset naming one would invert
@@ -323,7 +323,7 @@ impl DomainSet {
             media: false,
             medulla: true,
             inference: true,
-            integrations: false,
+            integrations: true,
             automation: true,
             runtimes: true,
             desktop: false,
@@ -839,6 +839,7 @@ mod tests {
             DomainGroup::Voice,
             DomainGroup::Media,
             DomainGroup::Medulla,
+            DomainGroup::Integrations,
             DomainGroup::Platform,
         ] {
             assert!(full.allows(group), "full() must allow {group:?}");

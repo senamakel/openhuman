@@ -302,7 +302,8 @@ jobs:
         env:
           NODE_ENV: test
           FULL: ${{ needs.changes.outputs['frontend-full'] }}
-          CHANGED_FILES: ${{ needs.changes.outputs['frontend-src-files'] }}
+          # Same argument-limit guard as the rust-core lane below.
+          CHANGED_FILES: ${{ needs.changes.outputs['frontend-full'] == 'true' && '' || needs.changes.outputs['frontend-src-files'] }}
 
       - name: Normalize lcov source paths to repo root
         if: needs.changes.outputs.frontend == 'true'
@@ -635,7 +636,12 @@ jobs:
         env:
           CARGO_BUILD_JOBS: "1"
           FULL: ${{ needs.changes.outputs['rust-core-full'] }}
-          CHANGED_FILES: ${{ needs.changes.outputs['rust-core-src-files'] }}
+          # Suppressed in full-suite mode. The list is ignored when FULL=true, but a
+          # large refactor can push it past the container job's argument/env limit,
+          # and `docker exec` then fails to START the step —
+          # "Argument list too long" — before the script can apply its own
+          # MAX_CHANGED_FILES fallback. Blanking it here keeps the step launchable.
+          CHANGED_FILES: ${{ needs.changes.outputs['rust-core-full'] == 'true' && '' || needs.changes.outputs['rust-core-src-files'] }}
           OUT: lcov-core.info
           # The tinyagents harness is the agent engine on every build now
           # (issue #4249); the suite exercises it by default. The legacy engine

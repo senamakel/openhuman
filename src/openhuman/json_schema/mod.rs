@@ -40,6 +40,7 @@ mod ops;
 mod ops_tests;
 
 pub(crate) use ops::{
-    compute_primary_array_path, compute_primary_array_path_from_value, missing_required_args,
-    response_fields_from_schema, unsupported_arg_names,
+    compute_primary_array_path, compute_primary_array_path_from_value, response_fields_from_schema,
 };
+#[cfg(any(feature = "flows", test))]
+pub(crate) use ops::{missing_required_args, unsupported_arg_names};

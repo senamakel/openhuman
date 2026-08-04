@@ -42,12 +42,24 @@
 //! the trait's note that an authorized id may still fail to resolve.
 //!
 //! **3. `ToolScope::Wildcard` has no crate representation.** The crate models
-//! tools as an explicit `Vec<String>`. OpenHuman's wildcard scope means "every
-//! tool the parent has", and the session builder already encodes that as an
-//! **empty** visible-name set ("an empty `visible` set means no filter" —
-//! `agent/harness/session/builder/factory.rs`). This adapter reuses that
-//! convention: a wildcard agent maps to an empty `tools` vec. A host that needs
-//! the distinction must read the harness definition, not this projection.
+//! tools as an explicit `Vec<String>` in which **empty means unrestricted**,
+//! matching the session builder ("an empty `visible` set means no filter" —
+//! `agent/harness/session/builder/factory.rs`). So an unrestricted wildcard
+//! agent maps to an empty `tools` vec.
+//!
+//! That one value must not be made to carry three meanings. Three distinct
+//! situations would otherwise all collapse onto "empty", and each would read
+//! back as *every tool*:
+//!
+//! * a named scope configured with **no** tools,
+//! * a named scope whose every entry the denylist removed,
+//! * a wildcard scope carrying a denylist the crate cannot express.
+//!
+//! [`ResolvedScope`] therefore models wildcard-ness explicitly and never infers
+//! it from emptiness. A genuinely empty scope emits
+//! [`PROFILE_NO_TOOLS_SENTINEL`] — an unregistered name that matches nothing —
+//! and a wildcard-with-denylist is materialized against
+//! [`Self::with_registered_tools`], failing closed when that is absent.
 //!
 //! **4. `SubagentEntry::Skills` entries are omitted.** A `{ skills = "*" }`
 //! entry is not an agent id — it collapses into the single

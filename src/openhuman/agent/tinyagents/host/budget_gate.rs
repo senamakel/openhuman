@@ -115,6 +115,18 @@ pub struct OpenHumanBudgetGate {
     last_model: RwLock<String>,
     /// Cached budget pressure; one of the `PRESSURE_*` constants.
     pressure: AtomicU8,
+    /// Whether this session's model calls are **background** work that must
+    /// queue behind [`scheduler_gate`].
+    ///
+    /// Defaults to `false`, because that gate is for background AI only: its
+    /// `Paused` arm polls indefinitely while background work is disabled or the
+    /// user is signed out, and OpenHuman's interactive inference paths
+    /// deliberately never enter it. Routing a user-initiated turn through it
+    /// would stall the chat until the turn timeout for anyone who is signed out
+    /// on a local/BYOK model, or who merely paused background AI. Cron and
+    /// subconscious wiring sites opt in with
+    /// [`Self::as_background_work`](Self::as_background_work).
+    background: bool,
 }
 
 impl OpenHumanBudgetGate {

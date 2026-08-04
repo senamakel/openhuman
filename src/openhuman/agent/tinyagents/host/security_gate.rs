@@ -396,7 +396,21 @@ impl SecurityGate for OpenHumanSecurityGate {
                         .render(),
                     ));
                 }
-                return Ok(self.park_for_approval(call).await);
+                // Approval here settles the **channel** restriction only. It is
+                // not a general authorization: returning now would skip tool
+                // resolution and the autonomy tier, so a `shell` command the
+                // tier blocks, or any acting tool under `readonly`, would run
+                // purely because the channel asked for a prompt. Each stage may
+                // only narrow the answer, so record the human's answer and keep
+                // going.
+                match self.park_for_approval(call).await {
+                    GateDecision::Prompted { approved: true } => {
+                        channel_approved = true;
+                    }
+                    // A refusal (or an expired TTL) is terminal — no later
+                    // stage can widen it back to an allow.
+                    denial => return Ok(denial),
+                }
             }
         }
 

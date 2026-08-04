@@ -571,7 +571,7 @@ mod tests {
                 other => panic!("unexpected event: {other:?}"),
             })
             .collect();
-        // Both calls are iteration 1; the model's следующий reply is iteration 2.
+        // Both calls are iteration 1; the model's next reply is iteration 2.
         assert_eq!(iterations, vec![1, 1, 2]);
     }
 

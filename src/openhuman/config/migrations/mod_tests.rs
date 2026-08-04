@@ -214,6 +214,57 @@ async fn run_pending_v7_to_v8_rolls_back_default_model_when_save_fails() {
 }
 
 #[tokio::test]
+async fn run_pending_v8_to_v9_enables_shadow_reads_on_an_upgraded_workspace() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+
+    let mut config = config_in(&tmp);
+    config.schema_version = 8;
+    // What a pre-flip build persisted: the key is present and false, so the
+    // serde default can never apply.
+    config.agent.session_shadow_reads = false;
+
+    run_pending(&mut config).await;
+
+    assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
+    assert!(
+        config.agent.session_shadow_reads,
+        "an upgraded workspace must be opted into the parity soak"
+    );
+    let on_disk = std::fs::read_to_string(&config.config_path).unwrap();
+    assert!(
+        on_disk.contains("session_shadow_reads = true"),
+        "the flip must be persisted, got:\n{on_disk}"
+    );
+}
+
+#[tokio::test]
+async fn run_pending_v8_to_v9_rolls_back_shadow_reads_when_save_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+
+    let mut config = config_in(&tmp);
+    config.schema_version = 8;
+    config.agent.session_shadow_reads = false;
+    // Force save() to fail after the migration body mutates the flag, so the
+    // 8->9 rollback path runs.
+    let blocker = tmp.path().join("blocker");
+    fs::write(&blocker, "not a directory").unwrap();
+    config.config_path = blocker.join("nested").join("config.toml");
+
+    run_pending(&mut config).await;
+
+    assert_eq!(
+        config.schema_version, 8,
+        "save failed → schema_version must roll back to 8"
+    );
+    assert!(
+        !config.agent.session_shadow_reads,
+        "save failed → session_shadow_reads must roll back to its pre-migration value"
+    );
+}
+
+#[tokio::test]
 async fn run_pending_is_a_no_op_on_second_invocation() {
     let tmp = TempDir::new().unwrap();
     seed_tainted_transcript(&tmp.path().join("workspace"));

@@ -997,6 +997,41 @@ mod tests {
         );
     }
 
+    /// A channel `RequireApproval` must not become an autonomy-tier override.
+    ///
+    /// With no approval gate installed the park denies, so this asserts the
+    /// denial rather than the post-approval path — but the stage ordering is
+    /// what matters: `readonly` refuses every acting tool, and a channel that
+    /// merely asks for confirmation must not be able to authorize one. Before
+    /// the fix, stage 1 returned immediately and stages 2-5 never ran.
+    #[tokio::test]
+    async fn channel_approval_does_not_bypass_the_readonly_tier() {
+        let decision = OpenHumanSecurityGate::new(policy(AutonomyLevel::ReadOnly), registry())
+            .with_tool_policy(policy_session("write_file", ToolPolicyAction::RequireApproval))
+            .authorize_tool(&req("write_file", json!({ "path": "notes.md" })))
+            .await
+            .unwrap();
+
+        assert!(
+            matches!(decision, GateDecision::Deny { .. }),
+            "read-only must refuse an acting tool whatever the channel asked for, got {decision:?}"
+        );
+    }
+
+    /// The tier still governs a tool the channel allows outright, which is the
+    /// control for the test above: the denial there must come from the tier,
+    /// not from the channel verdict.
+    #[tokio::test]
+    async fn the_readonly_tier_refuses_an_acting_tool_the_channel_allowed() {
+        let decision = OpenHumanSecurityGate::new(policy(AutonomyLevel::ReadOnly), registry())
+            .with_tool_policy(policy_session("write_file", ToolPolicyAction::Allow))
+            .authorize_tool(&req("write_file", json!({ "path": "notes.md" })))
+            .await
+            .unwrap();
+
+        assert!(matches!(decision, GateDecision::Deny { .. }));
+    }
+
     /// The other two verdicts keep their existing meaning.
     #[tokio::test]
     async fn allow_and_deny_channel_verdicts_are_unchanged() {

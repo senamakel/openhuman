@@ -804,6 +804,19 @@ mod tests {
         assert!(OpenHumanAgentMemory::scope_allows(false, None, Some("t2")));
     }
 
+    #[test]
+    fn cross_session_recall_keeps_rows_the_widening_returned() {
+        // `cross_session` is sent to the backend as "return other sessions'
+        // rows". Re-applying the same-session test here would delete exactly
+        // those rows and make the opt-in indistinguishable from `false`.
+        assert!(OpenHumanAgentMemory::scope_allows(
+            true,
+            Some("t1"),
+            Some("t2")
+        ));
+        assert!(OpenHumanAgentMemory::scope_allows(true, Some("t1"), None));
+    }
+
     #[tokio::test]
     async fn recalled_text_is_redacted_before_it_reaches_the_runtime() {
         let secret = "-----BEGIN PRIVATE KEY-----\nAAAABBBB\n-----END PRIVATE KEY-----";

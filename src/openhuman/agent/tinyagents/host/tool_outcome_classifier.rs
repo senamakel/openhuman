@@ -131,11 +131,14 @@ impl OpenHumanToolOutcomeClassifier {
     ///   `Denied`, and `ApprovalExpired` are refusals that auto-retrying would
     ///   actively subvert (#4459); and `Unknown` is the case where OpenHuman has
     ///   no basis to promise a repeat is safe.
-    fn class_of(failure: ToolFailureClass) -> OutcomeClass {
+    fn class_of(failure: ToolFailureClass, retry_safe: bool) -> OutcomeClass {
         match failure {
-            ToolFailureClass::Timeout
-            | ToolFailureClass::ServiceUnavailable
-            | ToolFailureClass::ModelConnection => OutcomeClass::RetryableFailure,
+            ToolFailureClass::Timeout if retry_safe => OutcomeClass::RetryableFailure,
+            ToolFailureClass::Timeout => OutcomeClass::PermanentFailure,
+
+            ToolFailureClass::ServiceUnavailable | ToolFailureClass::ModelConnection => {
+                OutcomeClass::RetryableFailure
+            }
 
             ToolFailureClass::MissingPermission
             | ToolFailureClass::MissingApp

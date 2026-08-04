@@ -292,11 +292,17 @@ impl BudgetGate for OpenHumanBudgetGate {
         // watch their chat hang until the turn timeout. The budget checks above
         // still apply either way; only the concurrency queue is skipped.
         if !self.background {
+            let grant_id = uuid::Uuid::new_v4().to_string();
             log::trace!(
                 "[tinyagents][budget] interactive session; not queueing behind the background \
-                 scheduler gate"
+                 scheduler gate id={grant_id}"
             );
-            return Ok(Permit::unlimited().with_reserved_tokens(est.estimated_total_tokens()));
+            // Still carries a grant id: correlation is orthogonal to which path
+            // granted the permit, and a permit without one is unattributable in
+            // the logs.
+            return Ok(Permit::unlimited()
+                .with_id(grant_id)
+                .with_reserved_tokens(est.estimated_total_tokens()));
         }
 
         // `wait_for_capacity` returns `None` only when the global semaphore has

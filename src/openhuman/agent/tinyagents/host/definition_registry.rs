@@ -770,18 +770,98 @@ mod tests {
         assert!(!disallows_tool(&denied, "file_read"));
     }
 
+    /// A wildcard scope with nothing denied is the one case where the crate's
+    /// "empty means unrestricted" marker is the faithful projection.
+    #[test]
+    fn an_undenied_wildcard_scope_projects_the_unrestricted_marker() {
+        let mut def = synthetic("wide", AgentTier::Worker, &[]);
+        def.tools = ToolScope::Wildcard;
+        def.disallowed_tools = Vec::new();
+
+        assert!(
+            registry_of(vec![def.clone()]).project(&def).tools.is_empty(),
+            "an undenied wildcard is genuinely unrestricted"
+        );
+    }
+
+    /// `tools_agent` ships `disallowed_tools = ["polymarket", "kalshi",
+    /// "tinyplace_*"]` on a wildcard scope, precisely so those route through
+    /// their specialist agents. Projecting it as the unrestricted marker would
+    /// hand all three back.
     #[tokio::test]
-    async fn wildcard_scope_projects_an_empty_tool_list() {
-        // The host's own "no filter" marker. `tools_agent` is the wildcard
-        // built-in.
+    async fn a_wildcard_denylist_is_materialized_against_the_registered_tools() {
+        let registered = Arc::new(vec![
+            "file_read".to_string(),
+            "polymarket".to_string(),
+            "kalshi".to_string(),
+            "tinyplace_post".to_string(),
+        ]);
         let def = builtins()
+            .host_definition("tools_agent")
+            .expect("tools_agent is a built-in");
+        assert!(
+            !def.disallowed_tools.is_empty(),
+            "this test is meaningless if tools_agent stops denying anything"
+        );
+
+        let projected = OpenHumanDefinitionRegistry::builtins_only()
+            .with_registered_tools(registered)
             .resolve("tools_agent")
             .await
             .expect("resolve")
             .expect("tools_agent is a built-in");
-        assert!(
-            def.tools.is_empty(),
-            "wildcard scope has no crate representation; empty == unrestricted"
+
+        assert_eq!(projected.tools, vec!["file_read".to_string()]);
+        for denied in ["polymarket", "kalshi", "tinyplace_post"] {
+            assert!(
+                !projected.tools.iter().any(|t| t == denied),
+                "{denied} is reserved for its specialist route"
+            );
+        }
+    }
+
+    /// Without a registered-tool list the denylist cannot be expressed, so the
+    /// projection must fail closed rather than widen to everything.
+    #[tokio::test]
+    async fn a_wildcard_denylist_without_registered_tools_fails_closed() {
+        let projected = builtins()
+            .resolve("tools_agent")
+            .await
+            .expect("resolve")
+            .expect("tools_agent is a built-in");
+
+        assert_eq!(
+            projected.tools,
+            vec![PROFILE_NO_TOOLS_SENTINEL.to_string()],
+            "an unexpressible denylist must not read back as 'all tools'"
+        );
+    }
+
+    /// An agent configured with an empty allowlist wants *no* tools. The empty
+    /// vec would say the opposite.
+    #[test]
+    fn an_explicitly_tool_less_named_scope_projects_the_no_tools_sentinel() {
+        let mut def = synthetic("toolless", AgentTier::Worker, &[]);
+        def.tools = ToolScope::Named(Vec::new());
+        def.extra_tools = Vec::new();
+
+        assert_eq!(
+            registry_of(vec![def.clone()]).project(&def).tools,
+            vec![PROFILE_NO_TOOLS_SENTINEL.to_string()]
+        );
+    }
+
+    /// Same requirement when the denylist is what emptied the scope.
+    #[test]
+    fn a_named_scope_emptied_by_its_denylist_projects_the_no_tools_sentinel() {
+        let mut def = synthetic("denied", AgentTier::Worker, &[]);
+        def.tools = ToolScope::Named(vec!["polymarket".to_string()]);
+        def.extra_tools = Vec::new();
+        def.disallowed_tools = vec!["polymarket".to_string()];
+
+        assert_eq!(
+            registry_of(vec![def.clone()]).project(&def).tools,
+            vec![PROFILE_NO_TOOLS_SENTINEL.to_string()]
         );
     }
 

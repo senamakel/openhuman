@@ -49,8 +49,21 @@
 //! combination, so a `[policy-denied]` marker is honoured wherever it landed and
 //! a user refusal can never be re-dispatched.
 //!
-//! The adapter is stateless and pure, as the trait requires: no I/O, no
-//! interior mutability, same answer for the same `(name, result)` every time.
+//! **4. A timeout cannot be assumed safe to repeat.** `Timeout` is the one
+//! failure class where "the call failed" and "the call succeeded but the reply
+//! was lost" are indistinguishable from the outside. For a tool with an
+//! external effect — sending an email, moving money, running a shell command —
+//! re-dispatching a timed-out call can commit the effect a second time. The
+//! crate's `RetryableFailure` is an assertion that repeating is *acceptable*,
+//! so it may only be made about a tool the host has positively identified as
+//! side-effect free. `Tool::external_effect()` is that signal (the same one
+//! `ApprovalGate` gates on); attach it with
+//! [`OpenHumanToolOutcomeClassifier::with_external_effect_tools`]. Absent it,
+//! timeouts stay permanent — the safe direction, since a lost retry costs an
+//! iteration while a duplicated payment cannot be undone.
+//!
+//! The adapter is pure, as the trait requires: no I/O, no interior mutability,
+//! same answer for the same `(name, result)` every time.
 
 use std::borrow::Cow;
 use std::collections::HashSet;

@@ -140,6 +140,28 @@ pub struct OpenHumanDefinitionRegistry {
     /// Active personality. Its `allowed_tools` narrows every projected tool
     /// list, exactly as the session builder narrows the visible tool set.
     profile: Option<Arc<AgentProfile>>,
+    /// Every tool name registered for this session, used to materialize a
+    /// [`ToolScope::Wildcard`] definition that also carries a denylist.
+    ///
+    /// The crate models tools as an explicit `Vec<String>` with no wildcard
+    /// marker, so a denylist can only be honoured against a concrete list. When
+    /// this is absent, a wildcard definition whose `disallowed_tools` is
+    /// non-empty cannot be projected faithfully and [`Self::tools_for`] fails
+    /// closed rather than re-granting the denied tools.
+    registered_tools: Option<Arc<Vec<String>>>,
+}
+
+/// Outcome of resolving a definition's own scope, before the profile allowlist.
+///
+/// Modelled explicitly because the crate's `Vec<String>` overloads *empty* to
+/// mean "unrestricted". Inferring wildcard from emptiness is what let a
+/// denylist-emptied scope, an explicitly tool-less scope, and a true wildcard
+/// all collapse onto the same value.
+enum ResolvedScope {
+    /// Every registered tool, with no denylist to apply.
+    Wildcard,
+    /// A concrete list. May legitimately be empty, meaning *no* tools.
+    Named(Vec<String>),
 }
 
 impl OpenHumanDefinitionRegistry {

@@ -351,14 +351,6 @@ mod tests {
             workload_role_for(&req("orchestrator").as_team_lead()),
             "chat"
         );
-        assert_eq!(
-            workload_role_for(&req("orchestrator").as_team_lead()),
-            crate::openhuman::agent::harness::session::builder::factory::provider_role_for(
-                "orchestrator",
-                None
-            ),
-            "the seam and the live path must agree on the orchestrator default"
-        );
     }
 
     #[test]

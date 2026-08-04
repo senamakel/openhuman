@@ -117,6 +117,17 @@ pub struct OpenHumanExperienceStore {
     /// it, so the `agent_experience` namespace confinement and the domain's
     /// redaction on `put` apply to everything this adapter does.
     store: AgentExperienceStore,
+    /// Additional store consulted by `recall_for` only, never written.
+    ///
+    /// A dedicated-profile session keeps its procedural records in a
+    /// profile-local memory subtree, but pre-profile builds wrote unstamped
+    /// records into the shared workspace store. The live turn path
+    /// (`session/turn/core.rs`) therefore queries both, profile-local first,
+    /// and this adapter has to match it or a profile session would silently
+    /// stop recalling everything it learned before profiles existed. Writes
+    /// deliberately do **not** fan out: the profile-local store stays the sole
+    /// write target so new records land inside the profile subtree.
+    shared_recall_store: Option<AgentExperienceStore>,
     /// Agent profile the session runs under, stamped onto every write and used
     /// to partition recall. `None` is the profile-less session, whose records
     /// stay unstamped and are visible to every profile — the documented legacy

@@ -171,6 +171,7 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Shared(registry),
             config: None,
             profile: None,
+            registered_tools: None,
         }
     }
 
@@ -185,6 +186,7 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Global(registry),
             config: None,
             profile: None,
+            registered_tools: None,
         })
     }
 

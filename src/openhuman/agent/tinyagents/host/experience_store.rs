@@ -57,7 +57,9 @@ use async_trait::async_trait;
 use tinyagents::error::{Result, TinyAgentsError};
 use tinyagents::harness::host::{Experience, ExperienceStore};
 
-use crate::openhuman::agent::experience::store::{AgentExperienceStore, ExperienceQuery};
+use crate::openhuman::agent::experience::store::{
+    retrieve_across_stores, AgentExperienceStore, ExperienceQuery,
+};
 use crate::openhuman::agent::experience::types::{
     redact_text, stable_experience_id, stable_experience_id_for_profile, AgentExperience,
     ExperienceHit, ExperienceOutcome, ExperienceSource,

@@ -238,7 +238,10 @@ impl OpenHumanProgressSink {
     /// Records that non-tool activity was seen for `run`, closing any open tool
     /// batch so the next `ToolCall` starts a fresh iteration.
     fn note_model_activity(&self, run: &str) {
-        self.runs().entry(run.to_string()).or_default().in_tool_batch = false;
+        self.runs()
+            .entry(run.to_string())
+            .or_default()
+            .in_tool_batch = false;
     }
 
     /// Hands one **lifecycle** event to the channel, waiting briefly if the
@@ -344,7 +347,8 @@ impl ProgressSink for OpenHumanProgressSink {
                     agent,
                 );
                 let is_root = self.is_root_run(run.as_str());
-                self.runs().insert(run.as_str().to_string(), RunState::default());
+                self.runs()
+                    .insert(run.as_str().to_string(), RunState::default());
                 if !is_root {
                     // A sub-run beginning is not the request beginning. Emitting
                     // `TurnStarted` here would restart the parent's timeline.

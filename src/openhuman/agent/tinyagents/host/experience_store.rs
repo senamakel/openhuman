@@ -161,9 +161,21 @@ impl OpenHumanExperienceStore {
     pub fn from_store(store: AgentExperienceStore, profile_id: Option<String>) -> Self {
         Self {
             store,
+            shared_recall_store: None,
             profile_id: normalized_profile(profile_id.as_deref()),
             max_hits: DEFAULT_MAX_HITS,
         }
+    }
+
+    /// Adds a second store that [`ExperienceStore::recall_for`] reads and
+    /// [`ExperienceStore::record`] never writes.
+    ///
+    /// Used for the shared, pre-profile workspace store behind a
+    /// dedicated-profile session. `None` is a no-op, so a profile-less session
+    /// keeps the single-store behaviour.
+    pub fn with_shared_recall_memory(mut self, memory: Option<Arc<dyn Memory>>) -> Self {
+        self.shared_recall_store = memory.map(AgentExperienceStore::new);
+        self
     }
 
     /// Overrides how many prior attempts one recall returns.

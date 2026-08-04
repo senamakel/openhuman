@@ -116,20 +116,6 @@ const SUBAGENT_DEFAULT_ROLE: &str = "chat";
 /// cosmetic typo into an agent that cannot run at all. It falls back to the
 /// structural default with a warning — the same posture
 /// `super::super::config::dispatcher_from` takes.
-/// Whether `lowered` is a model-tier spelling `role_for_model_tier` recognises,
-/// rather than merely something that ends in `-v1`.
-///
-/// Checks the stem against [`CHAT_WORKLOAD_ROLES`] instead of restating the
-/// factory's tier table, so the two cannot drift. `reasoning-quick-v1` is the
-/// one tier whose stem is not itself a workload role (it rides the chat model),
-/// so it is named explicitly.
-fn is_known_model_tier(lowered: &str) -> bool {
-    let Some(stem) = lowered.strip_suffix("-v1") else {
-        return false;
-    };
-    stem == "reasoning-quick" || CHAT_WORKLOAD_ROLES.contains(&stem)
-}
-
 fn workload_role_for(req: &ModelResolveRequest) -> &'static str {
     let structural_default = if req.is_team_lead {
         LEAD_DEFAULT_ROLE

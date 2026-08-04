@@ -570,15 +570,18 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
     not a memory recall/condition graph.
 15. **`loop`** — a bounded loop head. Emits on `body` while it keeps looping
     and on `done` when it stops; you CLOSE THE LOOP yourself by wiring the
-    body's last node back to the loop node. `config.max_iterations` is
-    required and finite; `config.on_exceeded` is `"error"` (default, fails the
-    run) or `"continue"` (stop looping and leave via `done` with the last
-    pass's items); optional `config.condition` is an `=`-expression that exits
-    early the first time it is falsey. Read the pass number anywhere as
-    `"=nodes.<loop id>.iteration"`. Two shapes are rejected: a `merge` on the
-    cycle (its barrier never clears on a second pass), and a loop node that is
-    itself a fan-in (join *before* it instead). Every pass costs what the body
-    costs, so keep the cap tight when the body contains an `agent` node.
+    body's last node back to the loop node. `config.max_iterations` is optional
+    and always finite, defaulting to 25; `config.on_exceeded` is `"error"`
+    (default, fails the run) or `"continue"` (stop looping and leave via `done`
+    with the last pass's items); optional `config.condition` is an
+    `=`-expression that exits early the first time it is falsey. Read the pass
+    number anywhere as `"=nodes.<loop id>.iteration"`. Three shapes are
+    rejected: a `body` that does not route back to the loop head (it would run
+    once and strand the `done` path), a **fan-in** `merge` on the cycle (its
+    barrier never clears on a second pass — a single-input merge is a
+    passthrough and is fine), and a loop node that is itself a fan-in (join
+    *before* it instead). Every pass costs what the body costs, so keep the cap
+    tight when the body contains an `agent` node.
 
 ### The `memory` node
 

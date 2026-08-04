@@ -81,13 +81,14 @@ impl Tool for ProposeWorkflowTool {
          this — not a memory recall/condition graph — for exact \"process each item once\": \
          place it right after the item source and before the action, e.g. split_out → dedup → \
          …action…), \
-         loop (config.max_iterations REQUIRED and positive; optional config.on_exceeded: \
+         loop (optional config.max_iterations, positive, default 25; optional config.on_exceeded: \
          \"error\" (default, fails the run) | \"continue\" (stop looping, leave via `done`); \
          optional config.condition \"=expr\" for an early exit. Emits on the `body` port while \
          it keeps looping and on `done` when it stops; CLOSE THE LOOP by wiring the body's last \
          node back to the loop node. The pass number is readable as \
-         \"=nodes.<loop id>.iteration\". A `merge` node must not sit on the cycle, and the loop \
-         node must not itself be a fan-in — join before it instead). If \
+         \"=nodes.<loop id>.iteration\". The `body` must ROUTE BACK to the loop node, not merely \
+         leave it. A fan-in `merge` must not sit on the cycle, and the loop node must not itself \
+         be a fan-in — join before it instead). If \
          validation fails, fix the graph and call this tool again."
     }
 

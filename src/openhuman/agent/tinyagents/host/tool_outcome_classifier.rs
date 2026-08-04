@@ -265,14 +265,13 @@ mod tests {
     /// pre-existing expectations here keep testing the class mapping rather
     /// than the external-effect policy.
     fn outcome_of(error: &str) -> OutcomeClass {
-        classifier_knowing(&["send_email"]).classify("shell", &result(Some(error), ""))
+        classifier_allowing(&["shell"]).classify("shell", &result(Some(error), ""))
     }
 
-    /// A classifier that knows `external` are the external-effect tools, and
-    /// therefore that everything else is safe to repeat.
-    fn classifier_knowing(external: &[&str]) -> OpenHumanToolOutcomeClassifier {
+    /// A classifier that positively knows `safe` are the repeatable tools.
+    fn classifier_allowing(safe: &[&str]) -> OpenHumanToolOutcomeClassifier {
         OpenHumanToolOutcomeClassifier::new()
-            .with_external_effect_tools(Arc::new(external.iter().map(|t| t.to_string()).collect()))
+            .with_retry_safe_tools(Arc::new(safe.iter().map(|t| t.to_string()).collect()))
     }
 
     // ── timeouts and external effects ─────────────────────────────────────────
@@ -282,7 +281,7 @@ mod tests {
         // The effect may already have committed; the lost reply is
         // indistinguishable from a genuine failure.
         assert_eq!(
-            classifier_knowing(&["send_email"])
+            classifier_allowing(&["file_read"])
                 .classify("send_email", &result(Some("request timed out"), "")),
             OutcomeClass::PermanentFailure
         );
@@ -291,7 +290,7 @@ mod tests {
     #[test]
     fn a_timed_out_side_effect_free_tool_stays_retryable() {
         assert_eq!(
-            classifier_knowing(&["send_email"])
+            classifier_allowing(&["file_read"])
                 .classify("file_read", &result(Some("request timed out"), "")),
             OutcomeClass::RetryableFailure
         );
@@ -313,7 +312,7 @@ mod tests {
         // These mean the request never reached a handler, so no effect can have
         // committed — the external-effect policy must not over-reach onto them.
         for error in ["service unavailable", "connection refused"] {
-            let outcome = classifier_knowing(&["send_email"])
+            let outcome = classifier_allowing(&["file_read"])
                 .classify("send_email", &result(Some(error), ""));
             assert_eq!(
                 outcome,
@@ -533,7 +532,7 @@ mod tests {
         // decision: whether a *timeout* may be repeated. Every other class must
         // stay name-independent, or the same error text would mean different
         // things for two tools.
-        let classifier = classifier_knowing(&["gmail_send"]);
+        let classifier = classifier_allowing(&["file_read"]);
 
         let non_timeout = result(Some("HTTP 403 Forbidden"), "");
         assert_eq!(

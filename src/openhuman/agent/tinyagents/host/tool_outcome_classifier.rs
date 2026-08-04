@@ -244,8 +244,67 @@ mod tests {
         }
     }
 
+    /// Classifies as a tool the host has declared side-effect free, so the
+    /// pre-existing expectations here keep testing the class mapping rather
+    /// than the external-effect policy.
     fn outcome_of(error: &str) -> OutcomeClass {
-        OpenHumanToolOutcomeClassifier::new().classify("shell", &result(Some(error), ""))
+        classifier_knowing(&["send_email"]).classify("shell", &result(Some(error), ""))
+    }
+
+    /// A classifier that knows `external` are the external-effect tools, and
+    /// therefore that everything else is safe to repeat.
+    fn classifier_knowing(external: &[&str]) -> OpenHumanToolOutcomeClassifier {
+        OpenHumanToolOutcomeClassifier::new().with_external_effect_tools(Arc::new(
+            external.iter().map(|t| t.to_string()).collect(),
+        ))
+    }
+
+    // ── timeouts and external effects ─────────────────────────────────────────
+
+    #[test]
+    fn a_timed_out_external_effect_tool_is_never_retried() {
+        // The effect may already have committed; the lost reply is
+        // indistinguishable from a genuine failure.
+        assert_eq!(
+            classifier_knowing(&["send_email"])
+                .classify("send_email", &result(Some("request timed out"), "")),
+            OutcomeClass::PermanentFailure
+        );
+    }
+
+    #[test]
+    fn a_timed_out_side_effect_free_tool_stays_retryable() {
+        assert_eq!(
+            classifier_knowing(&["send_email"])
+                .classify("file_read", &result(Some("request timed out"), "")),
+            OutcomeClass::RetryableFailure
+        );
+    }
+
+    #[test]
+    fn a_timeout_is_permanent_when_the_host_declared_no_external_effects() {
+        // Without the set the classifier cannot tell an email sender from a
+        // file read, so it must not promise that repeating is safe.
+        assert_eq!(
+            OpenHumanToolOutcomeClassifier::new()
+                .classify("file_read", &result(Some("request timed out"), "")),
+            OutcomeClass::PermanentFailure
+        );
+    }
+
+    #[test]
+    fn connection_failures_stay_retryable_for_external_effect_tools() {
+        // These mean the request never reached a handler, so no effect can have
+        // committed — the external-effect policy must not over-reach onto them.
+        for error in ["service unavailable", "connection refused"] {
+            let outcome =
+                classifier_knowing(&["send_email"]).classify("send_email", &result(Some(error), ""));
+            assert_eq!(
+                outcome,
+                OutcomeClass::RetryableFailure,
+                "{error} never reached the tool"
+            );
+        }
     }
 
     // ── class → OutcomeClass mapping (exhaustive) ─────────────────────────────

@@ -23,6 +23,7 @@
 
 use crate::openhuman::config::Config;
 
+mod enable_session_shadow_reads;
 mod expand_autonomy_defaults;
 mod migrate_legacy_embedding_provider;
 mod normalize_default_model_tier;

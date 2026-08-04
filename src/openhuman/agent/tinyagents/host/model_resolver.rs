@@ -339,6 +339,50 @@ mod tests {
         );
     }
 
+    /// Asserts the literal, not the constant: the point is that this seam agrees
+    /// with `session/builder/factory.rs::provider_role_for`, whose
+    /// `orchestrator_defaults_to_chat` pins the same answer. Comparing against
+    /// `LEAD_DEFAULT_ROLE` would pass no matter what that constant was changed
+    /// to, which is exactly the drift that would silently move a user's
+    /// orchestrator off their configured chat provider.
+    #[test]
+    fn an_unannotated_lead_routes_to_chat_like_the_live_session_path() {
+        assert_eq!(workload_role_for(&req("orchestrator").as_team_lead()), "chat");
+        assert_eq!(
+            workload_role_for(&req("orchestrator").as_team_lead()),
+            crate::openhuman::agent::harness::session::builder::factory::provider_role_for(
+                "orchestrator",
+                None
+            ),
+            "the seam and the live path must agree on the orchestrator default"
+        );
+    }
+
+    #[test]
+    fn agentic_is_reachable_only_through_an_explicit_hint() {
+        assert_eq!(
+            workload_role_for(&req("lead").as_team_lead().with_role("hint:agentic")),
+            "agentic"
+        );
+    }
+
+    /// `-v1` is a suffix heuristic, and `role_for_model_tier` answers `"chat"`
+    /// for anything it does not recognise — so an exact model id that happens to
+    /// end in `-v1` would be silently rerouted with no diagnostic.
+    #[test]
+    fn an_exact_model_id_ending_in_v1_is_not_mistaken_for_a_tier() {
+        assert!(!is_known_model_tier("some-vendor-model-v1"));
+        assert!(is_known_model_tier("reasoning-v1"));
+        assert!(is_known_model_tier("reasoning-quick-v1"));
+
+        // Falls through to the unknown-role path (structural default + warning)
+        // rather than silently becoming chat via the tier table.
+        assert_eq!(
+            workload_role_for(&req("w").with_role("some-vendor-model-v1")),
+            SUBAGENT_DEFAULT_ROLE
+        );
+    }
+
     #[test]
     fn an_explicit_role_beats_the_structural_default() {
         // A lead that says "summarization" gets summarization, not agentic —

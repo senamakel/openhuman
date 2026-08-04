@@ -41,6 +41,14 @@
 //!    promises "prior attempts by `agent`", so this adapter filters the hits by
 //!    agent id after retrieval. Filtering (rather than relaxing the promise) is
 //!    the safe direction: it can only remove rows.
+//!
+//!    The **order** matters as much as the filter. The domain truncates to the
+//!    requested `max_hits` before this adapter ever sees the rows, so filtering
+//!    a truncated page would let a busier agent's highly-scored records occupy
+//!    every slot and leave this recall empty while matching attempts sat just
+//!    below the cut. So the query over-fetches (`candidate_hits`) and the
+//!    truncation happens *after* the ownership filter, which is what makes
+//!    `max_hits` mean "up to N of **this** agent's attempts".
 //! 4. **Redaction stays with the host.** `put` runs the domain's
 //!    [`redact_text`](crate::openhuman::agent::experience::redact_text) over the
 //!    stored fields; this adapter also redacts on the way *in* before

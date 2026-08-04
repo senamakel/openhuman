@@ -575,6 +575,100 @@ mod tests {
         assert_eq!(iterations, vec![1, 1, 2]);
     }
 
+    /// The failure that matters most on a shared sink: a sub-run finishing must
+    /// not tell the bridge the whole request is done, or the turn is closed out
+    /// while other runs are still emitting.
+    #[tokio::test]
+    async fn a_sub_runs_lifecycle_is_not_the_requests_lifecycle() {
+        let (sink, mut rx) = sink(16);
+        let root = RunId::new("root");
+        let child = RunId::new("child");
+
+        sink.emit(ProgressEvent::Started {
+            run: root.clone(),
+            thread: None,
+            agent: "orchestrator".to_string(),
+        })
+        .await;
+        sink.emit(ProgressEvent::Started {
+            run: child.clone(),
+            thread: None,
+            agent: "worker".to_string(),
+        })
+        .await;
+        sink.emit(ProgressEvent::Finished {
+            run: child,
+            usage: None,
+        })
+        .await;
+
+        let events: Vec<AgentProgress> = std::iter::from_fn(|| rx.try_recv().ok()).collect();
+        assert_eq!(
+            events.len(),
+            1,
+            "only the root's start should surface, got {events:?}"
+        );
+        assert!(matches!(events[0], AgentProgress::TurnStarted));
+
+        // The root's own completion still lands.
+        sink.emit(ProgressEvent::Finished {
+            run: root,
+            usage: None,
+        })
+        .await;
+        assert!(matches!(
+            rx.try_recv().expect("root completion"),
+            AgentProgress::TurnCompleted { .. }
+        ));
+    }
+
+    /// A child's tool calls must not renumber the parent's iterations.
+    #[tokio::test]
+    async fn iteration_counters_are_scoped_per_run() {
+        let (sink, mut rx) = sink(16);
+        let root = RunId::new("root");
+
+        sink.emit(ProgressEvent::Started {
+            run: root.clone(),
+            thread: None,
+            agent: "orchestrator".to_string(),
+        })
+        .await;
+        let _ = rx.try_recv();
+
+        // Child does three rounds of work.
+        for i in 0..3 {
+            sink.emit(ProgressEvent::ToolCall {
+                run: RunId::new("child"),
+                call: CallId::new(format!("c{i}")),
+                tool: "grep".to_string(),
+            })
+            .await;
+            sink.emit(ProgressEvent::Token {
+                run: RunId::new("child"),
+                text: "x".to_string(),
+            })
+            .await;
+        }
+        while rx.try_recv().is_ok() {}
+
+        // The parent's first tool call is still its first iteration.
+        sink.emit(ProgressEvent::ToolCall {
+            run: root,
+            call: CallId::new("parent-1"),
+            tool: "shell".to_string(),
+        })
+        .await;
+
+        match rx.try_recv().expect("parent tool call") {
+            AgentProgress::ToolCallStarted { iteration, .. } => assert_eq!(
+                iteration, 1,
+                "the child's work must not advance the parent's iteration"
+            ),
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
     #[tokio::test]
     async fn a_tool_call_after_model_output_opens_a_new_iteration() {
         let (sink, mut rx) = sink(16);

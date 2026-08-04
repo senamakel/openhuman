@@ -254,11 +254,13 @@ impl ContextComposer for OpenHumanContextComposer {
             tool_call_format: self.tool_call_format,
             connected_integrations: &self.connected_integrations,
             connected_identities_md: render_connected_identities(),
-            // Both user files follow the main-agent default (included). The
-            // per-definition `omit_profile` / `omit_memory_md` flags live on
-            // `AgentDefinition`, which is not reachable from a bare agent id.
-            include_profile: true,
-            include_memory_md: true,
+            // Mirrors `subagent_runner/ops/runner.rs`, which derives these from
+            // the resolved definition's `omit_profile` / `omit_memory_md`. The
+            // crate hands this seam a bare agent id, so the wiring site supplies
+            // them via `with_omissions`; the default is the main-agent
+            // behaviour (both included).
+            include_profile: self.include_profile,
+            include_memory_md: self.include_memory_md,
             // No turn-scoped curated-memory snapshot at this seam; the user
             // files sections fall back to the workspace files, which is the
             // documented `None` behaviour.

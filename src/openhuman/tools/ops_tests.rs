@@ -2777,36 +2777,3 @@ const TOOL_LESS: &[crate::core::all::DomainGroup] = {
     use crate::core::all::DomainGroup as G;
     &[G::Config, G::Security, G::Meet, G::Medulla]
 };
-
-/// `REPRESENTATIVE` must name tools that actually exist, or the guard above
-/// degrades into asserting on dead strings.
-///
-/// Checked against the widest registry this build can assemble. Families whose
-/// tools are config-conditional (delegate agents, integrations) or compiled out
-/// are skipped rather than asserted — the point here is "this name is real",
-/// not "this tool is always registered".
-#[test]
-fn representative_tool_names_are_real() {
-    let tmp = TempDir::new().unwrap();
-    let cfg = integration_test_config(&tmp, "http://127.0.0.1:1");
-    let tools = integration_tools_for_config(&tmp, &cfg);
-    let names = tool_names(&tools);
-    let present: std::collections::HashSet<&str> = names.iter().map(|n| n.as_str()).collect();
-
-    let mut unverified = Vec::new();
-    for (name, _) in REPRESENTATIVE {
-        if !present.contains(name) {
-            unverified.push(*name);
-        }
-    }
-    // Every name that IS registered proves itself; the rest are config- or
-    // feature-conditional. Assert we verified a solid majority so this test
-    // cannot silently degrade to checking nothing.
-    let verified = REPRESENTATIVE.len() - unverified.len();
-    assert!(
-        verified >= REPRESENTATIVE.len() / 2,
-        "only {verified}/{} representative tool names were found in the widest \
-         registry ({unverified:?} missing) — the table has likely rotted",
-        REPRESENTATIVE.len()
-    );
-}

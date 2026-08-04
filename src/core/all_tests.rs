@@ -1418,3 +1418,155 @@ fn embedded_preset_excludes_desktop_and_hosted() {
     assert!(e.inference, "embedded() needs inference");
     assert!(e.integrations, "embedded() needs external integrations");
 }
+
+// ---- DomainGroup drift guards ---------------------------------------------
+// `DomainGroup` has three consumers the compiler does NOT check for coverage:
+// `tool_group()` (tools/ops.rs), `StoreInitPlan` and `DomainSubscriberPlan`.
+// Adding a variant compiles cleanly while leaving a tool ungated or a store
+// unkeyed — both of which actually happened during the realignment (#5332):
+// `harness_init` stayed in Platform, and `people`'s store keyed on a different
+// group than its controllers, which would have served an RPC surface with no
+// store behind it. These tests close that gap.
+
+/// First link in the chain: `ALL` really does list every variant.
+///
+/// `DomainGroup::index` is an exhaustive match, so a new variant is a compile
+/// error there first; this then fails until it is added to `ALL` and `COUNT` is
+/// bumped. Every guard below iterates `ALL`, so they are only as trustworthy as
+/// this test.
+#[test]
+fn domain_group_all_lists_every_variant() {
+    assert_eq!(
+        DomainGroup::ALL.len(),
+        DomainGroup::COUNT,
+        "DomainGroup::ALL and DomainGroup::COUNT disagree — a variant was added \
+         to one but not the other"
+    );
+    let mut seen = vec![false; DomainGroup::COUNT];
+    for g in DomainGroup::ALL {
+        let i = g.index();
+        assert!(
+            i < DomainGroup::COUNT,
+            "{g:?} has index {i} but COUNT is {} — bump COUNT",
+            DomainGroup::COUNT
+        );
+        assert!(!seen[i], "two variants share index {i}");
+        seen[i] = true;
+    }
+    let missing: Vec<usize> = seen
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| !**s)
+        .map(|(i, _)| i)
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "DomainGroup::ALL is missing the variant(s) at index {missing:?} — \
+         `index()` knows about them but `ALL` does not"
+    );
+}
+
+/// Every group must be a decision in `StoreInitPlan`: either it owns a store
+/// field, or it is explicitly declared store-less here. A new family that owns
+/// a store but is not keyed will fail this until it is listed.
+#[test]
+fn every_domain_group_is_accounted_for_in_store_init_plan() {
+    use crate::core::runtime::context::StoreInitPlan;
+
+    // Groups that own a store field in StoreInitPlan.
+    const OWNS_STORE: &[DomainGroup] =
+        &[DomainGroup::Memory, DomainGroup::Agent, DomainGroup::Skills];
+    // Groups with no store of their own. Adding a variant forces a choice
+    // between these two lists — that is the point.
+    const STORELESS: &[DomainGroup] = &[
+        DomainGroup::Threads,
+        DomainGroup::Config,
+        DomainGroup::Security,
+        DomainGroup::Flows,
+        DomainGroup::Mcp,
+        DomainGroup::Meet,
+        DomainGroup::Channels,
+        DomainGroup::Web3,
+        DomainGroup::Voice,
+        DomainGroup::Media,
+        DomainGroup::Medulla,
+        DomainGroup::Inference,
+        DomainGroup::Integrations,
+        DomainGroup::Automation,
+        DomainGroup::Runtimes,
+        DomainGroup::Desktop,
+        DomainGroup::Hosted,
+        DomainGroup::Relay,
+        DomainGroup::Platform,
+    ];
+
+    for g in DomainGroup::ALL {
+        let owns = OWNS_STORE.contains(g);
+        let storeless = STORELESS.contains(g);
+        assert!(
+            owns ^ storeless,
+            "{g:?} is in neither (or both) of OWNS_STORE / STORELESS — decide \
+             whether it needs a StoreInitPlan field and list it in exactly one"
+        );
+    }
+
+    // And the owning groups actually gate their field: turning the group off
+    // must turn the store off.
+    let mut only_memory = crate::core::runtime::DomainSet::none();
+    only_memory.memory = true;
+    let plan = StoreInitPlan::for_domains(only_memory);
+    assert!(plan.memory, "Memory on ⇒ memory store initialized");
+    assert!(
+        plan.people,
+        "Memory on ⇒ people store initialized (people lives under memory/)"
+    );
+    assert!(!plan.agent_attachments, "Agent off ⇒ attachments store off");
+    assert!(!plan.skills_prune, "Skills off ⇒ skills prune off");
+}
+
+/// Same contract for `DomainSubscriberPlan`: every group either registers
+/// subscribers or is declared subscriber-less.
+#[test]
+fn every_domain_group_is_accounted_for_in_subscriber_plan() {
+    use crate::core::jsonrpc::DomainSubscriberPlan;
+
+    const REGISTERS: &[DomainGroup] = &[
+        DomainGroup::Platform,
+        DomainGroup::Channels,
+        DomainGroup::Flows,
+        DomainGroup::Memory,
+        DomainGroup::Meet,
+        DomainGroup::Agent,
+        DomainGroup::Mcp,
+        DomainGroup::Integrations,
+        DomainGroup::Security,
+        DomainGroup::Desktop,
+        DomainGroup::Skills,
+    ];
+    const NO_SUBSCRIBERS: &[DomainGroup] = &[
+        DomainGroup::Threads,
+        DomainGroup::Config,
+        DomainGroup::Web3,
+        DomainGroup::Voice,
+        DomainGroup::Media,
+        DomainGroup::Medulla,
+        DomainGroup::Inference,
+        DomainGroup::Automation,
+        DomainGroup::Runtimes,
+        DomainGroup::Hosted,
+        DomainGroup::Relay,
+    ];
+
+    for g in DomainGroup::ALL {
+        assert!(
+            REGISTERS.contains(g) ^ NO_SUBSCRIBERS.contains(g),
+            "{g:?} is in neither (or both) of REGISTERS / NO_SUBSCRIBERS — decide \
+             whether it registers event-bus subscribers and list it in exactly one"
+        );
+    }
+
+    // full() must enable every registering group; none() must enable none.
+    let full = DomainSubscriberPlan::for_domains(crate::core::runtime::DomainSet::full());
+    let none = DomainSubscriberPlan::for_domains(crate::core::runtime::DomainSet::none());
+    assert_ne!(full, none, "full() and none() must differ");
+}

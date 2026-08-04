@@ -1503,8 +1503,11 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     if name == "node_exec" || name == "npm_exec" || name == "python_exec" {
         return DomainGroup::Runtimes;
     }
-    // Inference: the token-compression retrieval surface.
-    if name.starts_with("tokenjuice_") {
+    // Inference: the CCR retrieval surface. Matched against the crate's own
+    // constant list rather than a name prefix — the live tool is
+    // `tinyjuice_retrieve`, and `tokenjuice_retrieve` / `retrieve_tool_output`
+    // are migration aliases, so a prefix rule silently missed the real one.
+    if crate::openhuman::inference::tokenjuice::RECOVERY_TOOL_NAMES.contains(&name) {
         return DomainGroup::Inference;
     }
     // Everything else — shell/file and other kernel utilities — is Platform:

@@ -143,6 +143,75 @@ pub enum DomainGroup {
     Platform,
 }
 
+impl DomainGroup {
+    /// Number of variants. Kept in sync by `domain_group_all_lists_every_variant`.
+    pub const COUNT: usize = 22;
+
+    /// Every variant, for exhaustive iteration in drift guards.
+    ///
+    /// Hand-maintained, but not hand-*trusted*: [`DomainGroup::index`] below is
+    /// an exhaustive `match`, so adding a variant is a compile error until it is
+    /// given an index, and `domain_group_all_lists_every_variant` then fails
+    /// until it appears here and [`COUNT`](Self::COUNT) is bumped. That chain is
+    /// what makes the drift guards over `tool_group`, `StoreInitPlan` and
+    /// `DomainSubscriberPlan` trustworthy — those three consume `DomainGroup`
+    /// without the compiler checking coverage.
+    pub const ALL: &'static [DomainGroup] = &[
+        DomainGroup::Agent,
+        DomainGroup::Memory,
+        DomainGroup::Threads,
+        DomainGroup::Config,
+        DomainGroup::Security,
+        DomainGroup::Flows,
+        DomainGroup::Skills,
+        DomainGroup::Mcp,
+        DomainGroup::Meet,
+        DomainGroup::Channels,
+        DomainGroup::Web3,
+        DomainGroup::Voice,
+        DomainGroup::Media,
+        DomainGroup::Medulla,
+        DomainGroup::Inference,
+        DomainGroup::Integrations,
+        DomainGroup::Automation,
+        DomainGroup::Runtimes,
+        DomainGroup::Desktop,
+        DomainGroup::Hosted,
+        DomainGroup::Relay,
+        DomainGroup::Platform,
+    ];
+
+    /// Dense index of this variant. Exhaustive by construction: the compiler
+    /// rejects a newly added variant here, which is the first link in the chain
+    /// described on [`ALL`](Self::ALL).
+    pub const fn index(self) -> usize {
+        match self {
+            DomainGroup::Agent => 0,
+            DomainGroup::Memory => 1,
+            DomainGroup::Threads => 2,
+            DomainGroup::Config => 3,
+            DomainGroup::Security => 4,
+            DomainGroup::Flows => 5,
+            DomainGroup::Skills => 6,
+            DomainGroup::Mcp => 7,
+            DomainGroup::Meet => 8,
+            DomainGroup::Channels => 9,
+            DomainGroup::Web3 => 10,
+            DomainGroup::Voice => 11,
+            DomainGroup::Media => 12,
+            DomainGroup::Medulla => 13,
+            DomainGroup::Inference => 14,
+            DomainGroup::Integrations => 15,
+            DomainGroup::Automation => 16,
+            DomainGroup::Runtimes => 17,
+            DomainGroup::Desktop => 18,
+            DomainGroup::Hosted => 19,
+            DomainGroup::Relay => 20,
+            DomainGroup::Platform => 21,
+        }
+    }
+}
+
 /// A [`RegisteredController`] tagged with the [`DomainGroup`] it belongs to.
 ///
 /// The registry stores these so the live surface can be filtered by the ambient

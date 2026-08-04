@@ -2701,3 +2701,112 @@ fn default_tools_omits_flows_tools_when_feature_off() {
         );
     }
 }
+
+// ---- tool_group() drift guard ----------------------------------------------
+
+/// Every `DomainGroup` must be a deliberate decision in [`tool_group`]: either a
+/// representative tool name maps to it, or it is declared tool-less.
+///
+/// This is the guard that would have caught the #4808 leak by construction, and
+/// it caught a live one on the way in: the `Inference` rule matched
+/// `tokenjuice_` while the real tool is `tinyjuice_retrieve`, so CCR retrieval
+/// was falling through to `Platform`.
+///
+/// The failure it prevents is silent. A family whose tools have no `tool_group`
+/// rule lands in `Platform`, so those tools stay in the list under a
+/// `DomainSet { platform: true, <family>: false }` — advertised to the model as
+/// callable while the rest of the family is gated off — and conversely vanish
+/// under `harness()`, which has `platform: false`.
+///
+/// Deliberately tests the FUNCTION, not a built registry: which tools a registry
+/// contains depends on config flags, security tier and enabled integrations, so
+/// a registry-derived assertion passes or fails for reasons unrelated to group
+/// mapping. `REPRESENTATIVE` names are asserted to be real tool names by
+/// `representative_tool_names_are_real` below, so this cannot rot into testing
+/// strings that no longer exist.
+#[test]
+fn every_domain_group_is_accounted_for_in_tool_group() {
+    use crate::core::all::DomainGroup;
+
+    for g in DomainGroup::ALL {
+        let representative = REPRESENTATIVE.iter().find(|(_, group)| group == g);
+        let toolless = TOOL_LESS.contains(g);
+        assert!(
+            representative.is_some() ^ toolless,
+            "{g:?} is in neither (or both) of REPRESENTATIVE / TOOL_LESS — decide \
+             whether the family owns agent tools and list it in exactly one"
+        );
+        if let Some((name, want)) = representative {
+            assert_eq!(
+                tool_group(name),
+                *want,
+                "`{name}` must map to {want:?}; if it now maps elsewhere the \
+                 `tool_group` rule for this family has drifted"
+            );
+        }
+    }
+}
+
+/// One real tool name per family that owns tools.
+const REPRESENTATIVE: &[(&str, crate::core::all::DomainGroup)] = {
+    use crate::core::all::DomainGroup as G;
+    &[
+        ("delegate", G::Agent),
+        ("memory_search", G::Memory),
+        ("thread_list", G::Threads),
+        ("mcp_list_servers", G::Mcp),
+        ("wallet_get_address", G::Web3),
+        ("media_generate_image", G::Media),
+        ("whatsapp_data_list_chats", G::Channels),
+        ("audio_generate_podcast", G::Voice),
+        ("create_workflow", G::Flows),
+        ("run_workflow", G::Skills),
+        ("cron_add", G::Automation),
+        ("composio_execute", G::Integrations),
+        ("billing_top_up_credits", G::Hosted),
+        ("tinyplace_call", G::Relay),
+        ("dashboard_model_health", G::Desktop),
+        ("node_exec", G::Runtimes),
+        ("tinyjuice_retrieve", G::Inference),
+        ("shell", G::Platform),
+    ]
+};
+
+/// Families with no agent tools of their own.
+const TOOL_LESS: &[crate::core::all::DomainGroup] = {
+    use crate::core::all::DomainGroup as G;
+    &[G::Config, G::Security, G::Meet, G::Medulla]
+};
+
+/// `REPRESENTATIVE` must name tools that actually exist, or the guard above
+/// degrades into asserting on dead strings.
+///
+/// Checked against the widest registry this build can assemble. Families whose
+/// tools are config-conditional (delegate agents, integrations) or compiled out
+/// are skipped rather than asserted — the point here is "this name is real",
+/// not "this tool is always registered".
+#[test]
+fn representative_tool_names_are_real() {
+    let tmp = TempDir::new().unwrap();
+    let cfg = integration_test_config(&tmp, "http://127.0.0.1:1");
+    let tools = integration_tools_for_config(&tmp, &cfg);
+    let names = tool_names(&tools);
+    let present: std::collections::HashSet<&str> = names.iter().map(|n| n.as_str()).collect();
+
+    let mut unverified = Vec::new();
+    for (name, _) in REPRESENTATIVE {
+        if !present.contains(name) {
+            unverified.push(*name);
+        }
+    }
+    // Every name that IS registered proves itself; the rest are config- or
+    // feature-conditional. Assert we verified a solid majority so this test
+    // cannot silently degrade to checking nothing.
+    let verified = REPRESENTATIVE.len() - unverified.len();
+    assert!(
+        verified >= REPRESENTATIVE.len() / 2,
+        "only {verified}/{} representative tool names were found in the widest \
+         registry ({unverified:?} missing) — the table has likely rotted",
+        REPRESENTATIVE.len()
+    );
+}

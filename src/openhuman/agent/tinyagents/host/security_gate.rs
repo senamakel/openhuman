@@ -658,6 +658,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn there_is_no_audit_id_to_drain_when_nothing_was_prompted() {
+        // No approval gate is installed in tests, so nothing parks and nothing
+        // is stashed. The point of the assertion is that `take_audit_request_id`
+        // is a drain, not a source: a caller can never mistake "not prompted"
+        // for "there is a row to close", which is what would push it into
+        // issuing a second `intercept_audited` and raising a duplicate card.
+        let gate = gate(AutonomyLevel::Full);
+        let _ = gate
+            .authorize_tool(&req("read_file", json!({ "path": "notes.md" })))
+            .await
+            .expect("authorize");
+
+        assert_eq!(gate.take_audit_request_id("any-call-id"), None);
+    }
+
+    #[test]
+    fn draining_an_audit_id_yields_it_exactly_once() {
+        // An id is valid for exactly one `record_execution`; handing the same
+        // one out twice would write two terminal rows for a single approval.
+        let gate = gate(AutonomyLevel::Full);
+        gate.pending_audit
+            .lock()
+            .expect("uncontended")
+            .insert("call-1".to_string(), "request-9".to_string());
+
+        assert_eq!(
+            gate.take_audit_request_id("call-1"),
+            Some("request-9".to_string())
+        );
+        assert_eq!(gate.take_audit_request_id("call-1"), None);
+    }
+
+    #[tokio::test]
     async fn a_read_only_tool_is_allowed_in_every_tier() {
         for tier in [
             AutonomyLevel::ReadOnly,

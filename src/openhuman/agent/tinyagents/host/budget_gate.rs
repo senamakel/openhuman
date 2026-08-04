@@ -479,6 +479,30 @@ mod tests {
         assert!(permit.id().is_some(), "grants are correlatable");
     }
 
+    /// An interactive gate must never enter the background scheduler.
+    ///
+    /// The gate's `Paused` arm polls until background AI is re-enabled, so a
+    /// user-initiated turn that queued there would hang until the turn timeout
+    /// for anyone signed out on a local/BYOK model, or who merely paused
+    /// background AI. The timeout turns that stall into a failure rather than a
+    /// hung test.
+    #[tokio::test]
+    async fn an_interactive_gate_does_not_queue_behind_the_background_scheduler() {
+        let gate = gate(AgentTokenjuiceCompression::Auto);
+        assert!(!gate.background, "interactive is the default");
+
+        let permit = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            gate.acquire(&CallEstimate::new("m", 100, 20)),
+        )
+        .await
+        .expect("an interactive acquire must not wait on the background gate")
+        .expect("grants");
+
+        assert!(permit.id().is_some(), "grants stay correlatable");
+        assert_eq!(permit.reserved_tokens(), Some(120));
+    }
+
     #[tokio::test]
     async fn dropping_the_crate_permit_releases_the_scheduler_permit() {
         // The global LLM semaphore has a single slot, so a leaked `LlmPermit`

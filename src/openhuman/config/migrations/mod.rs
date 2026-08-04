@@ -35,7 +35,7 @@ mod retire_chat_v1_model;
 mod unify_ai_provider_settings;
 
 /// Current target schema version. Bumped alongside every new migration.
-pub const CURRENT_SCHEMA_VERSION: u32 = 8;
+pub const CURRENT_SCHEMA_VERSION: u32 = 9;
 
 /// Run any migrations whose `schema_version` gate hasn't yet been
 /// crossed for this workspace.

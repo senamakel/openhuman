@@ -122,6 +122,17 @@ pub struct OpenHumanContextComposer {
     // snapshot via `with_learned_context` in the meantime — the same thing
     // every existing `PromptContext` call site does.
     learned: LearnedContextData,
+    /// Whether the user's PROFILE.md layer is injected.
+    ///
+    /// The live subagent path derives this from the resolved definition's
+    /// `omit_profile` (`subagent_runner/ops/runner.rs`). The crate hands this
+    /// seam an opaque agent id, so the wiring site supplies it explicitly via
+    /// [`Self::with_omissions`]; hardcoding it would inject a file a specialist
+    /// definition deliberately excludes.
+    include_profile: bool,
+    /// Whether the user's MEMORY.md layer is injected. See
+    /// [`Self::include_profile`].
+    include_memory_md: bool,
     /// The section chain. Built once so per-turn composition is just a render.
     builder: SystemPromptBuilder,
 }
@@ -142,8 +153,21 @@ impl OpenHumanContextComposer {
             tool_call_format: ToolCallFormat::default(),
             connected_integrations: Vec::new(),
             learned: LearnedContextData::default(),
+            include_profile: true,
+            include_memory_md: true,
             builder: SystemPromptBuilder::with_defaults(),
         }
+    }
+
+    /// Applies a definition's user-file omission policy.
+    ///
+    /// Pass `!definition.omit_profile` / `!definition.omit_memory_md`, matching
+    /// `subagent_runner/ops/runner.rs`. Without this a specialist composes with
+    /// the main agent's files regardless of what its definition says.
+    pub fn with_omissions(mut self, include_profile: bool, include_memory_md: bool) -> Self {
+        self.include_profile = include_profile;
+        self.include_memory_md = include_memory_md;
+        self
     }
 
     /// Pins the model name rendered into the runtime section.

@@ -286,6 +286,19 @@ impl BudgetGate for OpenHumanBudgetGate {
             est.tool_count,
         );
 
+        // Interactive turns never enter the background scheduler. Its `Paused`
+        // arm polls until background AI is re-enabled, so a signed-out user on a
+        // local/BYOK model — or anyone who simply paused background AI — would
+        // watch their chat hang until the turn timeout. The budget checks above
+        // still apply either way; only the concurrency queue is skipped.
+        if !self.background {
+            log::trace!(
+                "[tinyagents][budget] interactive session; not queueing behind the background \
+                 scheduler gate"
+            );
+            return Ok(Permit::unlimited().with_reserved_tokens(est.estimated_total_tokens()));
+        }
+
         // `wait_for_capacity` returns `None` only when the global semaphore has
         // been closed, which never happens in production. Every OpenHuman
         // caller treats that as "skip the gate" rather than an error, and so

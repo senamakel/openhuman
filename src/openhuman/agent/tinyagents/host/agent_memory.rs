@@ -249,7 +249,17 @@ impl OpenHumanAgentMemory {
     /// The backend's `RecallOpts::session_id` should have done this already —
     /// this is the belt-and-braces half, because the trait makes the runtime
     /// trust whatever comes back and there is no second filter downstream.
-    fn scope_allows(requested: Option<&str>, stored: Option<&str>) -> bool {
+    ///
+    /// `cross_session` disables the pass entirely. It has to: the same flag was
+    /// already sent to the backend as an explicit instruction to return other
+    /// sessions' rows, so re-applying a same-session test here would discard
+    /// precisely the rows the widening produced and make the opt-in behave
+    /// exactly like `false`. The guard protects against a backend that ignored
+    /// a *narrowing* request, which is not what this is.
+    fn scope_allows(cross_session: bool, requested: Option<&str>, stored: Option<&str>) -> bool {
+        if cross_session {
+            return true;
+        }
         match (requested, stored) {
             (Some(requested), Some(stored)) => requested == stored,
             (Some(_), None) => true,

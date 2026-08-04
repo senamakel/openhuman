@@ -150,7 +150,21 @@ impl OpenHumanBudgetGate {
             compression,
             last_model: RwLock::new(fallback),
             pressure: AtomicU8::new(PRESSURE_NORMAL),
+            background: false,
         }
+    }
+
+    /// Marks this session's model calls as background work.
+    ///
+    /// Only then does [`acquire`](Self::acquire) queue behind
+    /// [`scheduler_gate`], which is the concurrency limiter for background AI —
+    /// cron jobs, the subconscious tick, memory workers. Interactive turns must
+    /// **not** opt in: the gate's `Paused` arm waits for background work to be
+    /// re-enabled, which for a user-initiated chat means waiting until the turn
+    /// times out.
+    pub fn as_background_work(mut self) -> Self {
+        self.background = true;
+        self
     }
 
     /// The model id [`record`](Self::record) will attribute usage to.

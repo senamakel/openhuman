@@ -512,16 +512,25 @@ mod tests {
     }
 
     #[test]
-    fn the_dispatched_name_does_not_change_the_verdict_today() {
-        // Documented, not aspirational: OpenHuman's taxonomy is text-driven, so
-        // `name` is used only for logging. If per-tool overrides are ever added
-        // (a 404 meaning "no such record" for one integration and a dead end for
-        // another), this test is the one that must change.
-        let classifier = OpenHumanToolOutcomeClassifier::new();
-        let r = result(Some("HTTP 403 Forbidden"), "");
+    fn the_dispatched_name_changes_the_verdict_only_for_timeouts() {
+        // OpenHuman's taxonomy is text-driven, so `name` feeds exactly one
+        // decision: whether a *timeout* may be repeated. Every other class must
+        // stay name-independent, or the same error text would mean different
+        // things for two tools.
+        let classifier = classifier_knowing(&["gmail_send"]);
+
+        let non_timeout = result(Some("HTTP 403 Forbidden"), "");
         assert_eq!(
-            classifier.classify("gmail_send", &r),
-            classifier.classify("shell", &r)
+            classifier.classify("gmail_send", &non_timeout),
+            classifier.classify("file_read", &non_timeout),
+            "only timeouts consult the external-effect set"
+        );
+
+        let timeout = result(Some("request timed out"), "");
+        assert_ne!(
+            classifier.classify("gmail_send", &timeout),
+            classifier.classify("file_read", &timeout),
+            "a timeout must distinguish an external-effect tool from a safe one"
         );
     }
 

@@ -36,10 +36,16 @@
 //!
 //! # Contract mismatches, and how they are resolved
 //!
-//! * **`emit` cannot fail.** It uses `try_send` and *drops* the event when the
-//!   bridge is behind or gone, per the crate's "dropping progress events is
-//!   always preferable to slowing the turn" rule. It never awaits the channel's
-//!   capacity, never blocks, and never panics.
+//! * **`emit` cannot fail, but not every event is equally droppable.** Token
+//!   deltas use `try_send` and are *dropped* when the bridge is behind, per the
+//!   crate's "dropping progress events is always preferable to slowing the
+//!   turn" rule. Lifecycle events (`TurnStarted`, `ToolCallStarted`,
+//!   `TurnCompleted`) are not interchangeable with them: the bridge is a state
+//!   machine, so a lost one leaves a tool row stuck in `running` forever rather
+//!   than costing a UI tick. They therefore wait up to
+//!   [`LIFECYCLE_SEND_GRACE`] for room — bounded, never indefinite, because an
+//!   unbounded await on this shared channel is the documented subagent-stall
+//!   flake (`tool_progress.rs::emit`). Nothing here blocks a turn or panics.
 //! * **The coarse stream has no iteration boundary.** `AgentProgress` carries a
 //!   1-based `iteration` on almost every variant; `ProgressEvent` has no
 //!   equivalent. The sink keeps a local round counter that advances on each
@@ -236,7 +242,7 @@ impl ProgressSink for OpenHumanProgressSink {
                     agent,
                 );
                 self.rounds.store(0, Ordering::Relaxed);
-                self.forward_lifecycle(AgentProgress::TurnStarted);
+                self.forward_lifecycle(AgentProgress::TurnStarted).await;
             }
 
             ProgressEvent::ToolCall { run, call, tool } => {
@@ -303,7 +309,8 @@ impl ProgressSink for OpenHumanProgressSink {
                 // inference layer's charged amounts; wiring usage through would
                 // mean threading the resolved model + a cost estimate into this
                 // sink rather than inventing `model: ""` / `total_usd: 0.0`.
-                self.forward_lifecycle(AgentProgress::TurnCompleted { iterations });
+                self.forward_lifecycle(AgentProgress::TurnCompleted { iterations })
+                    .await;
             }
 
             ProgressEvent::Error { run, message } => {

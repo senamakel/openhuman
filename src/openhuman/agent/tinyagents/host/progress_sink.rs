@@ -543,18 +543,15 @@ mod tests {
         .await;
         assert_eq!(sink.dropped(), 1, "deltas never wait");
 
-        // The consumer catches up shortly after the lifecycle send begins.
-        let drained = tokio::spawn(async move {
-            let first = rx.recv().await;
-            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-            let second = rx.recv().await;
-            (first, second)
-        });
-        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-
-        sink.emit(tool_call("a")).await;
-
-        let (first, second) = drained.await.expect("consumer task");
+        // Drive the blocked send and the consumer concurrently on one task, so
+        // the ordering comes from poll order rather than from wall-clock sleeps
+        // racing the grace window — the send registers as a waiter, then the
+        // first `recv` frees a slot and wakes it. No margin to lose under load.
+        let ((), first, second) = tokio::join!(
+            sink.emit(tool_call("a")),
+            rx.recv(),
+            async { rx2.recv().await }
+        );
         assert!(matches!(first, Some(AgentProgress::TurnStarted)));
         assert!(
             matches!(second, Some(AgentProgress::ToolCallStarted { .. })),

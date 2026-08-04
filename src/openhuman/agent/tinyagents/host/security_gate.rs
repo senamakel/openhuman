@@ -474,8 +474,12 @@ impl SecurityGate for OpenHumanSecurityGate {
                         .render(),
                     ));
                 }
-                Ok(PolicyGateDecision::Prompt) => return Ok(self.park_for_approval(call).await),
-                Ok(PolicyGateDecision::Allow) => return Ok(GateDecision::Allow),
+                Ok(PolicyGateDecision::Prompt) => {
+                    return Ok(self.park_once(call, channel_approved).await)
+                }
+                Ok(PolicyGateDecision::Allow) => {
+                    return Ok(self.settled(channel_approved));
+                }
             }
         }
 

@@ -344,7 +344,8 @@ mod tests {
     /// `orchestrator_defaults_to_chat` pins the same answer. Comparing against
     /// `LEAD_DEFAULT_ROLE` would pass no matter what that constant was changed
     /// to, which is exactly the drift that would silently move a user's
-    /// orchestrator off their configured chat provider.
+    /// orchestrator off their configured chat provider. (`provider_role_for` is
+    /// module-private, so this restates its answer rather than calling it.)
     #[test]
     fn an_unannotated_lead_routes_to_chat_like_the_live_session_path() {
         assert_eq!(

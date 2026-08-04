@@ -547,11 +547,12 @@ mod tests {
         // the ordering comes from poll order rather than from wall-clock sleeps
         // racing the grace window — the send registers as a waiter, then the
         // first `recv` frees a slot and wakes it. No margin to lose under load.
-        let ((), first, second) = tokio::join!(
-            sink.emit(tool_call("a")),
-            rx.recv(),
-            async { rx2.recv().await }
-        );
+        let consumer = async {
+            let first = rx.recv().await;
+            let second = rx.recv().await;
+            (first, second)
+        };
+        let ((), (first, second)) = tokio::join!(sink.emit(tool_call("a")), consumer);
         assert!(matches!(first, Some(AgentProgress::TurnStarted)));
         assert!(
             matches!(second, Some(AgentProgress::ToolCallStarted { .. })),

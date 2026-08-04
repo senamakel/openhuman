@@ -1,5 +1,5 @@
 /**
- * Per-kind palette grouping for the 14 tinyflows `NodeKind`s, shared by the
+ * Per-kind palette grouping for the 15 tinyflows `NodeKind`s, shared by the
  * canvas node renderer (`FlowNodeComponent`) and the editable canvas's node
  * palette (`NodePalette`). Kept dependency-free (no React) so both a rendered
  * `<Handle>`-bearing card and a plain palette button can pull the same
@@ -33,7 +33,7 @@ interface NodeKindMeta {
 }
 
 /**
- * The 14 `NodeKind`s in the order they should appear in the palette. Trigger
+ * The 15 `NodeKind`s in the order they should appear in the palette. Trigger
  * leads (every graph needs exactly one); the rest follow the logical grouping
  * of the `tinyflows::model::NodeKind` enum. `memory` (issue #5226) is
  * appended after `sub_workflow` — the design doc (`08-memory-node.md`)
@@ -42,7 +42,8 @@ interface NodeKindMeta {
  * kinds. `dedup` (issue #5263) is the 14th kind and is appended last in turn
  * — it renders in the `logic` group (alongside `condition`/`split_out`/
  * `merge`) regardless of its position here, since {@link PALETTE_ENTRIES_BY_GROUP}
- * filters by group rather than relying on interleaved array order.
+ * filters by group rather than relying on interleaved array order. `loop` is
+ * the 15th and is appended last for the same reason.
  */
 const NODE_KINDS: NodeKind[] = [
   'trigger',
@@ -59,6 +60,7 @@ const NODE_KINDS: NodeKind[] = [
   'sub_workflow',
   'memory',
   'dedup',
+  'loop',
 ];
 
 /** Per-kind palette group. See the module doc. */
@@ -83,6 +85,10 @@ const NODE_KIND_META: Record<NodeKind, NodeKindMeta> = {
   // "logic" node like its neighbours (`condition`/`split_out`/`merge`): it
   // routes/filters the item stream rather than calling out or reading state.
   dedup: { group: 'logic' },
+  // Bounded loop head: emits on `body` until its cap or condition says stop,
+  // then on `done`. A "logic" node — it routes the item stream back around
+  // rather than calling out or reading state.
+  loop: { group: 'logic' },
 };
 
 /** Palette group render order. */

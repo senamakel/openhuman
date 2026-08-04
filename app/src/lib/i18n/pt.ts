@@ -4273,6 +4273,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Subfluxo de trabalho',
   'flows.nodeKind.memory': 'Memória',
   'flows.nodeKind.dedup': 'Deduplicação',
+  'flows.nodeKind.loop': 'Laço',
   'flows.nodeSummary.trigger.manual': 'Executa sob demanda',
   'flows.nodeSummary.trigger.webhook': 'Executa a partir de um webhook recebido',
   'flows.nodeSummary.trigger.appEventOn': 'Em {parts}',
@@ -4313,6 +4314,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Recupera da memória',
   'flows.nodeSummary.dedup.withKey': 'Ignora itens já vistos por {key}',
   'flows.nodeSummary.dedup.default': 'Ignora itens já processados',
+  'flows.nodeSummary.loop.upTo': 'Repete até {max} vezes',
+  'flows.nodeSummary.loop.whileCondition': 'Repete até {max} vezes enquanto {condition}',
   'flows.palette.title': 'Nós',
   'flows.palette.addNode': 'Adicionar nó {kind}',
   'flows.editor.save': 'Salvar',
@@ -4512,6 +4515,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Chave',
   'flows.nodeConfig.dedup.keyHint':
     'Uma expressão de id estável por item, ex.: =item.id. Itens com uma chave já vista são ignorados.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Iterações máximas',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'Quantas vezes o corpo pode ser executado antes de o laço parar. Sempre finito.',
+  'flows.nodeConfig.loop.onExceededLabel': 'Ao atingir o limite',
+  'flows.nodeConfig.loop.onExceededHint':
+    'Falhar a execução, ou parar de repetir e continuar pela porta done com os itens da última passagem.',
+  'flows.nodeConfig.loop.onExceeded_error': 'Falhar a execução',
+  'flows.nodeConfig.loop.onExceeded_continue': 'Continuar com resultados parciais',
+  'flows.nodeConfig.loop.conditionLabel': 'Continuar enquanto',
+  'flows.nodeConfig.loop.conditionHint':
+    'Opcional. Enquanto isto for verdadeiro o laço continua; o primeiro resultado falso sai pela porta done.',
 
   'flows.enableApproval.title': 'Permitir que este fluxo de trabalho aja?',
   'flows.enableApproval.intro':

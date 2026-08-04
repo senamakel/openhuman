@@ -4312,6 +4312,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Sous-workflow',
   'flows.nodeKind.memory': 'Mémoire',
   'flows.nodeKind.dedup': 'Déduplication',
+  'flows.nodeKind.loop': 'Boucle',
   'flows.nodeSummary.trigger.manual': "S'exécute à la demande",
   'flows.nodeSummary.trigger.webhook': 'Se déclenche sur un webhook entrant',
   'flows.nodeSummary.trigger.appEventOn': 'Sur {parts}',
@@ -4352,6 +4353,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Rappelle depuis la mémoire',
   'flows.nodeSummary.dedup.withKey': 'Ignore les éléments déjà vus via {key}',
   'flows.nodeSummary.dedup.default': 'Ignore les éléments déjà traités',
+  'flows.nodeSummary.loop.upTo': "Se répète jusqu'à {max} fois",
+  'flows.nodeSummary.loop.whileCondition': "Se répète jusqu'à {max} fois tant que {condition}",
   'flows.palette.title': 'Nœuds',
   'flows.palette.addNode': 'Ajouter un nœud {kind}',
   'flows.editor.save': 'Enregistrer',
@@ -4554,6 +4557,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Clé',
   'flows.nodeConfig.dedup.keyHint':
     "Une expression d'identifiant stable par élément, ex. =item.id. Les éléments dont la clé a déjà été vue sont ignorés.",
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Itérations maximales',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    "Combien de fois le corps peut s'exécuter avant l'arrêt de la boucle. Toujours fini.",
+  'flows.nodeConfig.loop.onExceededLabel': 'Quand la limite est atteinte',
+  'flows.nodeConfig.loop.onExceededHint':
+    "Faire échouer l'exécution, ou arrêter de boucler et continuer par le port done avec les éléments du dernier passage.",
+  'flows.nodeConfig.loop.onExceeded_error': "Faire échouer l'exécution",
+  'flows.nodeConfig.loop.onExceeded_continue': 'Continuer avec des résultats partiels',
+  'flows.nodeConfig.loop.conditionLabel': 'Continuer tant que',
+  'flows.nodeConfig.loop.conditionHint':
+    'Facultatif. Tant que ceci est vrai la boucle continue; le premier résultat faux sort par le port done.',
 
   'flows.enableApproval.title': 'Autoriser ce workflow à agir ?',
   'flows.enableApproval.intro':

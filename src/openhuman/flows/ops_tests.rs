@@ -224,6 +224,34 @@ fn engine_compatibility_rejects_main_label_on_conditional_fan_in_path() {
     assert!(engine_compatibility_errors(&reconverged).is_empty());
 }
 
+/// A loop head has two incoming edges, and this gate mirrors the engine's
+/// fan-in classification — so without excluding back-edges it would report
+/// every legal bounded loop as an unrelieved fan-in and refuse to save it.
+#[test]
+fn engine_compatibility_does_not_treat_a_loop_back_edge_as_a_fan_in() {
+    let looping = structurally_valid_graph(json!({
+        "name": "bounded-loop",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "l", "kind": "loop", "name": "Loop",
+              "config": { "max_iterations": 3, "on_exceeded": "continue" } },
+            { "id": "work", "kind": "output_parser", "name": "Work" },
+            { "id": "out", "kind": "output_parser", "name": "Out" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "l" },
+            { "from_node": "l", "from_port": "body", "to_node": "work" },
+            { "from_node": "work", "from_port": "main", "to_node": "l" },
+            { "from_node": "l", "from_port": "done", "to_node": "out" }
+        ]
+    }));
+    assert!(
+        engine_compatibility_errors(&looping).is_empty(),
+        "a bounded loop must save cleanly: {:?}",
+        engine_compatibility_errors(&looping)
+    );
+}
+
 #[test]
 fn engine_compatibility_requires_exhaustive_router_choices_for_reconvergence() {
     let exhaustive_condition = nested_router_reconvergence_graph("condition", &["true", "false"]);

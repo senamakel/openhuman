@@ -4113,6 +4113,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'سير عمل فرعي',
   'flows.nodeKind.memory': 'الذاكرة',
   'flows.nodeKind.dedup': 'إزالة التكرار',
+  'flows.nodeKind.loop': 'حلقة',
   'flows.nodeSummary.trigger.manual': 'يعمل عند الطلب',
   'flows.nodeSummary.trigger.webhook': 'يعمل عند استقبال ويب هوك',
   'flows.nodeSummary.trigger.appEventOn': 'عند {parts}',
@@ -4153,6 +4154,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'يسترجع من الذاكرة',
   'flows.nodeSummary.dedup.withKey': 'يتخطى العناصر التي سبق رؤيتها حسب {key}',
   'flows.nodeSummary.dedup.default': 'يتخطى العناصر التي سبقت معالجتها',
+  'flows.nodeSummary.loop.upTo': 'يتكرر حتى {max} مرة',
+  'flows.nodeSummary.loop.whileCondition': 'يتكرر حتى {max} مرة طالما {condition}',
   'flows.palette.title': 'العقد',
   'flows.palette.addNode': 'إضافة عقدة {kind}',
   'flows.editor.save': 'حفظ',
@@ -4344,6 +4347,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'المفتاح',
   'flows.nodeConfig.dedup.keyHint':
     'تعبير معرف ثابت لكل عنصر، مثل =item.id. يتم تخطي العناصر التي شوهد مفتاحها من قبل.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'الحد الأقصى للتكرارات',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'عدد المرات التي يمكن أن يعمل فيها المتن قبل توقف الحلقة. محدود دائمًا.',
+  'flows.nodeConfig.loop.onExceededLabel': 'عند بلوغ الحد',
+  'flows.nodeConfig.loop.onExceededHint':
+    'أفشل التشغيل، أو أوقف التكرار وتابع عبر المنفذ done بعناصر الجولة الأخيرة.',
+  'flows.nodeConfig.loop.onExceeded_error': 'أفشل التشغيل',
+  'flows.nodeConfig.loop.onExceeded_continue': 'تابع بنتائج جزئية',
+  'flows.nodeConfig.loop.conditionLabel': 'تابع طالما',
+  'flows.nodeConfig.loop.conditionHint':
+    'اختياري. طالما كانت النتيجة صحيحة تستمر الحلقة؛ وأول نتيجة خاطئة تخرج عبر المنفذ done.',
 
   'flows.enableApproval.title': 'هل تسمح لسير العمل هذا بالتنفيذ؟',
   'flows.enableApproval.intro':

@@ -4215,6 +4215,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'সাব-ওয়ার্কফ্লো',
   'flows.nodeKind.memory': 'মেমরি',
   'flows.nodeKind.dedup': 'ডুপ্লিকেট অপসারণ',
+  'flows.nodeKind.loop': 'লুপ',
   'flows.nodeSummary.trigger.manual': 'চাহিদা অনুযায়ী চলে',
   'flows.nodeSummary.trigger.webhook': 'ইনকামিং ওয়েবহুকে চলে',
   'flows.nodeSummary.trigger.appEventOn': '{parts}-এ',
@@ -4255,6 +4256,9 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'মেমরি থেকে পুনরুদ্ধার করে',
   'flows.nodeSummary.dedup.withKey': '{key} দ্বারা ইতিমধ্যে দেখা আইটেম বাদ দেয়',
   'flows.nodeSummary.dedup.default': 'ইতিমধ্যে প্রক্রিয়াকৃত আইটেম বাদ দেয়',
+  'flows.nodeSummary.loop.upTo': 'সর্বোচ্চ {max} বার পুনরাবৃত্তি করে',
+  'flows.nodeSummary.loop.whileCondition':
+    'যতক্ষণ {condition} ততক্ষণ সর্বোচ্চ {max} বার পুনরাবৃত্তি করে',
   'flows.palette.title': 'নোড',
   'flows.palette.addNode': '{kind} নোড যোগ করুন',
   'flows.editor.save': 'সংরক্ষণ করুন',
@@ -4451,6 +4455,19 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'কী',
   'flows.nodeConfig.dedup.keyHint':
     'প্রতিটি আইটেমের জন্য একটি স্থিতিশীল আইডি এক্সপ্রেশন, যেমন =item.id। যেসব আইটেমের কী আগে দেখা গেছে সেগুলো এড়িয়ে যাওয়া হয়।',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'সর্বোচ্চ পুনরাবৃত্তি',
+  'flows.nodeConfig.loop.maxIterationsHint': 'লুপ থামার আগে বডি কতবার চলতে পারে। সর্বদা সসীম।',
+  'flows.nodeConfig.loop.onExceededLabel': 'সীমায় পৌঁছালে',
+  'flows.nodeConfig.loop.onExceededHint':
+    'রান ব্যর্থ করুন, অথবা লুপ থামিয়ে শেষ ধাপের আইটেম নিয়ে done পোর্ট দিয়ে এগিয়ে যান।',
+  'flows.nodeConfig.loop.onExceeded_error': 'রান ব্যর্থ করুন',
+  'flows.nodeConfig.loop.onExceeded_continue': 'আংশিক ফলাফল নিয়ে চালিয়ে যান',
+  'flows.nodeConfig.loop.conditionLabel': 'যতক্ষণ চালিয়ে যান',
+  'flows.nodeConfig.loop.conditionHint':
+    'ঐচ্ছিক। যতক্ষণ এটি সত্য ততক্ষণ লুপ চলে; প্রথম মিথ্যা ফলাফলে done পোর্ট দিয়ে বেরিয়ে যায়।',
 
   'flows.enableApproval.title': 'এই ওয়ার্কফ্লোকে কাজ করার অনুমতি দেবেন?',
   'flows.enableApproval.intro':

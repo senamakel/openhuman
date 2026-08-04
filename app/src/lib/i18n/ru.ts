@@ -4251,6 +4251,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Подпроцесс',
   'flows.nodeKind.memory': 'Память',
   'flows.nodeKind.dedup': 'Дедупликация',
+  'flows.nodeKind.loop': 'Цикл',
   'flows.nodeSummary.trigger.manual': 'Запускается вручную',
   'flows.nodeSummary.trigger.webhook': 'Запускается входящим вебхуком',
   'flows.nodeSummary.trigger.appEventOn': 'При {parts}',
@@ -4291,6 +4292,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Вспоминает из памяти',
   'flows.nodeSummary.dedup.withKey': 'Пропускает уже встреченные элементы по {key}',
   'flows.nodeSummary.dedup.default': 'Пропускает уже обработанные элементы',
+  'flows.nodeSummary.loop.upTo': 'Повторяется до {max} раз',
+  'flows.nodeSummary.loop.whileCondition': 'Повторяется до {max} раз, пока {condition}',
   'flows.palette.title': 'Узлы',
   'flows.palette.addNode': 'Добавить узел {kind}',
   'flows.editor.save': 'Сохранить',
@@ -4492,6 +4495,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Ключ',
   'flows.nodeConfig.dedup.keyHint':
     'Стабильное выражение id для каждого элемента, напр. =item.id. Элементы с уже встреченным ключом пропускаются.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Максимум итераций',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'Сколько раз может выполниться тело, прежде чем цикл остановится. Всегда конечно.',
+  'flows.nodeConfig.loop.onExceededLabel': 'При достижении предела',
+  'flows.nodeConfig.loop.onExceededHint':
+    'Завершить запуск ошибкой или прекратить цикл и продолжить через порт done с элементами последнего прохода.',
+  'flows.nodeConfig.loop.onExceeded_error': 'Завершить запуск ошибкой',
+  'flows.nodeConfig.loop.onExceeded_continue': 'Продолжить с частичными результатами',
+  'flows.nodeConfig.loop.conditionLabel': 'Продолжать пока',
+  'flows.nodeConfig.loop.conditionHint':
+    'Необязательно. Пока это истинно, цикл продолжается; первый ложный результат выходит через порт done.',
 
   'flows.enableApproval.title': 'Разрешить этому рабочему процессу действовать?',
   'flows.enableApproval.intro':

@@ -4284,6 +4284,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Subflujo de trabajo',
   'flows.nodeKind.memory': 'Memoria',
   'flows.nodeKind.dedup': 'Deduplicación',
+  'flows.nodeKind.loop': 'Bucle',
   'flows.nodeSummary.trigger.manual': 'Se ejecuta a petición',
   'flows.nodeSummary.trigger.webhook': 'Se ejecuta con un webhook entrante',
   'flows.nodeSummary.trigger.appEventOn': 'En {parts}',
@@ -4324,6 +4325,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Recupera de la memoria',
   'flows.nodeSummary.dedup.withKey': 'Omite elementos ya vistos por {key}',
   'flows.nodeSummary.dedup.default': 'Omite elementos ya procesados',
+  'flows.nodeSummary.loop.upTo': 'Se repite hasta {max} veces',
+  'flows.nodeSummary.loop.whileCondition': 'Se repite hasta {max} veces mientras {condition}',
   'flows.palette.title': 'Nodos',
   'flows.palette.addNode': 'Añadir nodo {kind}',
   'flows.editor.save': 'Guardar',
@@ -4524,6 +4527,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Clave',
   'flows.nodeConfig.dedup.keyHint':
     'Una expresión de id estable por elemento, p. ej. =item.id. Los elementos con una clave ya vista se omiten.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Iteraciones máximas',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'Cuántas veces puede ejecutarse el cuerpo antes de que el bucle se detenga. Siempre finito.',
+  'flows.nodeConfig.loop.onExceededLabel': 'Al alcanzar el límite',
+  'flows.nodeConfig.loop.onExceededHint':
+    'Hacer fallar la ejecución, o dejar de iterar y continuar por el puerto done con los elementos de la última pasada.',
+  'flows.nodeConfig.loop.onExceeded_error': 'Hacer fallar la ejecución',
+  'flows.nodeConfig.loop.onExceeded_continue': 'Continuar con resultados parciales',
+  'flows.nodeConfig.loop.conditionLabel': 'Continuar mientras',
+  'flows.nodeConfig.loop.conditionHint':
+    'Opcional. Mientras esto sea verdadero el bucle continúa; el primer resultado falso sale por el puerto done.',
 
   'flows.enableApproval.title': '¿Permitir que este flujo de trabajo actúe?',
   'flows.enableApproval.intro':

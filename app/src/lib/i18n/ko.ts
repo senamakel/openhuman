@@ -4165,6 +4165,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': '하위 워크플로',
   'flows.nodeKind.memory': '메모리',
   'flows.nodeKind.dedup': '중복 제거',
+  'flows.nodeKind.loop': '반복',
   'flows.nodeSummary.trigger.manual': '요청 시 실행됩니다',
   'flows.nodeSummary.trigger.webhook': '수신 웹훅으로 실행됩니다',
   'flows.nodeSummary.trigger.appEventOn': '{parts}에서',
@@ -4205,6 +4206,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': '메모리에서 회상합니다',
   'flows.nodeSummary.dedup.withKey': '{key} 기준으로 이미 본 항목을 건너뜁니다',
   'flows.nodeSummary.dedup.default': '이미 처리된 항목을 건너뜁니다',
+  'flows.nodeSummary.loop.upTo': '최대 {max}회 반복',
+  'flows.nodeSummary.loop.whileCondition': '{condition}인 동안 최대 {max}회 반복',
   'flows.palette.title': '노드',
   'flows.palette.addNode': '{kind} 노드 추가',
   'flows.editor.save': '저장',
@@ -4399,6 +4402,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': '키',
   'flows.nodeConfig.dedup.keyHint':
     '항목별 안정적인 id 표현식입니다. 예: =item.id. 이미 본 키를 가진 항목은 건너뜁니다.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': '최대 반복 횟수',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    '루프가 멈추기 전까지 본문이 실행될 수 있는 횟수입니다. 항상 유한합니다.',
+  'flows.nodeConfig.loop.onExceededLabel': '한도에 도달하면',
+  'flows.nodeConfig.loop.onExceededHint':
+    '실행을 실패시키거나, 반복을 멈추고 마지막 회차의 항목과 함께 done 포트로 계속합니다.',
+  'flows.nodeConfig.loop.onExceeded_error': '실행을 실패시키기',
+  'flows.nodeConfig.loop.onExceeded_continue': '부분 결과로 계속하기',
+  'flows.nodeConfig.loop.conditionLabel': '계속 조건',
+  'flows.nodeConfig.loop.conditionHint':
+    '선택 사항. 참으로 평가되는 동안 루프가 계속되며, 처음 거짓이 되면 done 포트로 나갑니다.',
 
   'flows.enableApproval.title': '이 워크플로가 작업을 수행하도록 허용할까요?',
   'flows.enableApproval.intro':

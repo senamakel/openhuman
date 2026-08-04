@@ -4228,6 +4228,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Sub-alur kerja',
   'flows.nodeKind.memory': 'Memori',
   'flows.nodeKind.dedup': 'Hapus duplikat',
+  'flows.nodeKind.loop': 'Perulangan',
   'flows.nodeSummary.trigger.manual': 'Berjalan sesuai permintaan',
   'flows.nodeSummary.trigger.webhook': 'Berjalan saat menerima webhook',
   'flows.nodeSummary.trigger.appEventOn': 'Pada {parts}',
@@ -4268,6 +4269,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Mengingat dari memori',
   'flows.nodeSummary.dedup.withKey': 'Melewati item yang sudah terlihat berdasarkan {key}',
   'flows.nodeSummary.dedup.default': 'Melewati item yang sudah diproses',
+  'flows.nodeSummary.loop.upTo': 'Diulang hingga {max} kali',
+  'flows.nodeSummary.loop.whileCondition': 'Diulang hingga {max} kali selama {condition}',
   'flows.palette.title': 'Simpul',
   'flows.palette.addNode': 'Tambah simpul {kind}',
   'flows.editor.save': 'Simpan',
@@ -4466,6 +4469,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Kunci',
   'flows.nodeConfig.dedup.keyHint':
     'Ekspresi id stabil per item, mis. =item.id. Item dengan kunci yang sudah pernah dilihat akan dilewati.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Iterasi maksimum',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'Berapa kali badan perulangan boleh berjalan sebelum berhenti. Selalu terbatas.',
+  'flows.nodeConfig.loop.onExceededLabel': 'Saat batas tercapai',
+  'flows.nodeConfig.loop.onExceededHint':
+    'Gagalkan proses, atau hentikan perulangan dan lanjutkan lewat port done dengan item dari putaran terakhir.',
+  'flows.nodeConfig.loop.onExceeded_error': 'Gagalkan proses',
+  'flows.nodeConfig.loop.onExceeded_continue': 'Lanjutkan dengan hasil sebagian',
+  'flows.nodeConfig.loop.conditionLabel': 'Lanjutkan selama',
+  'flows.nodeConfig.loop.conditionHint':
+    'Opsional. Selama ini bernilai benar perulangan berlanjut; hasil salah pertama keluar lewat port done.',
 
   'flows.enableApproval.title': 'Izinkan alur kerja ini bertindak?',
   'flows.enableApproval.intro':

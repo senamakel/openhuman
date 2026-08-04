@@ -4212,6 +4212,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'सब-वर्कफ़्लो',
   'flows.nodeKind.memory': 'मेमोरी',
   'flows.nodeKind.dedup': 'डुप्लिकेट हटाएं',
+  'flows.nodeKind.loop': 'लूप',
   'flows.nodeSummary.trigger.manual': 'मांग पर चलता है',
   'flows.nodeSummary.trigger.webhook': 'आने वाले वेबहुक पर चलता है',
   'flows.nodeSummary.trigger.appEventOn': '{parts} पर',
@@ -4252,6 +4253,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'मेमोरी से याद करता है',
   'flows.nodeSummary.dedup.withKey': '{key} के अनुसार पहले से देखे गए आइटम छोड़ता है',
   'flows.nodeSummary.dedup.default': 'पहले से प्रोसेस किए गए आइटम छोड़ता है',
+  'flows.nodeSummary.loop.upTo': 'अधिकतम {max} बार दोहराता है',
+  'flows.nodeSummary.loop.whileCondition': 'जब तक {condition} है, अधिकतम {max} बार दोहराता है',
   'flows.palette.title': 'नोड',
   'flows.palette.addNode': '{kind} नोड जोड़ें',
   'flows.editor.save': 'सहेजें',
@@ -4448,6 +4451,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'कुंजी',
   'flows.nodeConfig.dedup.keyHint':
     'प्रति आइटम एक स्थिर आईडी एक्सप्रेशन, जैसे =item.id। जिन आइटम की कुंजी पहले देखी जा चुकी है उन्हें छोड़ दिया जाता है।',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'अधिकतम पुनरावृत्तियाँ',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'लूप रुकने से पहले बॉडी कितनी बार चल सकती है। हमेशा सीमित।',
+  'flows.nodeConfig.loop.onExceededLabel': 'सीमा पर पहुँचने पर',
+  'flows.nodeConfig.loop.onExceededHint':
+    'रन को विफल करें, या लूप रोककर अंतिम चक्र की वस्तुओं के साथ done पोर्ट से आगे बढ़ें।',
+  'flows.nodeConfig.loop.onExceeded_error': 'रन को विफल करें',
+  'flows.nodeConfig.loop.onExceeded_continue': 'आंशिक परिणामों के साथ जारी रखें',
+  'flows.nodeConfig.loop.conditionLabel': 'जब तक जारी रखें',
+  'flows.nodeConfig.loop.conditionHint':
+    'वैकल्पिक। जब तक यह सत्य है लूप चलता रहता है; पहला असत्य परिणाम done पोर्ट से बाहर निकलता है।',
 
   'flows.enableApproval.title': 'क्या इस वर्कफ़्लो को काम करने की अनुमति दें?',
   'flows.enableApproval.intro':

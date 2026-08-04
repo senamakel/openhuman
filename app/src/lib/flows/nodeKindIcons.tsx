@@ -31,6 +31,7 @@ import {
   LuGitMerge,
   LuGlobe,
   LuLayers,
+  LuRepeat,
   LuSplit,
   LuWand,
   LuWrench,
@@ -48,7 +49,8 @@ import type { NodeKind } from './types';
  * `merge` joins, `split_out` fans out), data-shaping kinds use symbolic
  * glyphs (`transform` a wand, `output_parser` braces), and the three
  * "reach outside" kinds are visually distinct from each other (`tool_call` a
- * wrench, `http_request` a globe, `code` angle brackets).
+ * wrench, `http_request` a globe, `code` angle brackets). `loop` is the one
+ * kind whose glyph shows a cycle, matching the back-edge it draws on canvas.
  */
 export const NODE_KIND_ICON: Record<NodeKind, IconType> = {
   trigger: LuZap,
@@ -65,6 +67,7 @@ export const NODE_KIND_ICON: Record<NodeKind, IconType> = {
   sub_workflow: LuLayers,
   memory: LuBrain,
   dedup: LuFilter,
+  loop: LuRepeat,
 };
 
 /**
@@ -153,6 +156,9 @@ export const NODE_KIND_TILE: Record<NodeKind, string> = {
   transform: 'bg-gradient-to-br from-accent-lavender to-accent-rose',
   output_parser: 'bg-gradient-to-br from-slate-400 to-slate-600',
   dedup: 'bg-gradient-to-br from-slate-500 to-slate-600',
+  // Control flow that repeats — sage like the other recombining kinds, since a
+  // loop head is where the body's output flows back in.
+  loop: 'bg-gradient-to-br from-sage-400 to-sage-700',
 };
 
 /** Neutral tile for a kind this build does not recognise. See {@link nodeKindIcon}. */

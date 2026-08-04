@@ -13,7 +13,7 @@
  *  - **delete** — Backspace/Delete removes the selection (React Flow default),
  *    plus an explicit "Delete selected" toolbar button as a discoverable
  *    affordance; deleting a node also drops its incident edges.
- *  - **add** — a {@link NodePalette} inserts any of the 12 node kinds by click
+ *  - **add** — a {@link NodePalette} inserts any of the 15 node kinds by click
  *    (default cascade position) or drag-drop (under the cursor).
  *  - **save** — a "Save" button serializes the live canvas back to a
  *    `WorkflowGraph` via {@link xyflowToWorkflowGraph} and hands it to `onSave`.

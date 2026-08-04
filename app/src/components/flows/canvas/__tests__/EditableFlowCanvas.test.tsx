@@ -42,13 +42,14 @@ function triggerNode(): FlowNode {
 }
 
 describe('FlowCanvas (editable)', () => {
-  it('renders the node palette with all 12 node kinds', () => {
+  it('renders the node palette with all 15 node kinds', () => {
     renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[]} />);
     expect(screen.getByTestId('flow-node-palette')).toBeInTheDocument();
     // Palette items are keyed by kind via data-testid `flow-palette-item-<kind>`.
     expect(screen.getByTestId('flow-palette-item-trigger')).toBeInTheDocument();
     expect(screen.getByTestId('flow-palette-item-agent')).toBeInTheDocument();
     expect(screen.getByTestId('flow-palette-item-sub_workflow')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-palette-item-loop')).toBeInTheDocument();
   });
 
   it('does NOT render the palette in read-only mode', () => {

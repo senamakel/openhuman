@@ -4269,6 +4269,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Podprzepływ pracy',
   'flows.nodeKind.memory': 'Pamięć',
   'flows.nodeKind.dedup': 'Deduplikacja',
+  'flows.nodeKind.loop': 'Pętla',
   'flows.nodeSummary.trigger.manual': 'Uruchamia się na żądanie',
   'flows.nodeSummary.trigger.webhook': 'Uruchamia się przy przychodzącym webhooku',
   'flows.nodeSummary.trigger.appEventOn': 'Przy {parts}',
@@ -4309,6 +4310,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Przywołuje z pamięci',
   'flows.nodeSummary.dedup.withKey': 'Pomija elementy już widziane wg {key}',
   'flows.nodeSummary.dedup.default': 'Pomija już przetworzone elementy',
+  'flows.nodeSummary.loop.upTo': 'Powtarza się do {max} razy',
+  'flows.nodeSummary.loop.whileCondition': 'Powtarza się do {max} razy, dopóki {condition}',
   'flows.palette.title': 'Węzły',
   'flows.palette.addNode': 'Dodaj węzeł {kind}',
   'flows.editor.save': 'Zapisz',
@@ -4508,6 +4511,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Klucz',
   'flows.nodeConfig.dedup.keyHint':
     'Stabilne wyrażenie identyfikatora dla każdego elementu, np. =item.id. Elementy z już widzianym kluczem są pomijane.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Maksymalna liczba iteracji',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'Ile razy ciało pętli może się wykonać, zanim pętla się zatrzyma. Zawsze skończona.',
+  'flows.nodeConfig.loop.onExceededLabel': 'Po osiągnięciu limitu',
+  'flows.nodeConfig.loop.onExceededHint':
+    'Zakończ przebieg błędem albo przerwij pętlę i kontynuuj portem done z elementami ostatniego przebiegu.',
+  'flows.nodeConfig.loop.onExceeded_error': 'Zakończ przebieg błędem',
+  'flows.nodeConfig.loop.onExceeded_continue': 'Kontynuuj z częściowymi wynikami',
+  'flows.nodeConfig.loop.conditionLabel': 'Kontynuuj dopóki',
+  'flows.nodeConfig.loop.conditionHint':
+    'Opcjonalne. Dopóki to jest prawdziwe, pętla trwa; pierwszy fałszywy wynik wychodzi portem done.',
 
   'flows.enableApproval.title': 'Zezwolić temu przepływowi pracy na działanie?',
   'flows.enableApproval.intro':

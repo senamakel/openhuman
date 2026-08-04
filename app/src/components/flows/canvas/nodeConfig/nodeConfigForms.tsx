@@ -17,6 +17,7 @@
  *  - `memory`       → `operation` + operation-specific (`scope`/`query`/`flavour`/`key`/`value`/
  *                     `limit`/`min_score`), see `memoryFields.tsx`
  *  - `dedup`        → `key` (an `=`-bindable per-item id expression), see `dedupFields.tsx`
+ *  - `loop`         → `max_iterations` / `on_exceeded` / `condition`, see `loopFields.tsx`
  */
 import createDebug from 'debug';
 import { useEffect, useState } from 'react';
@@ -34,6 +35,7 @@ import {
   fetchActionSchema,
 } from './composioFields';
 import { DedupForm } from './dedupFields';
+import { LoopForm } from './loopFields';
 import { MemoryForm } from './memoryFields';
 import { NATIVE_TOOL_PREFIX, NativeToolField } from './nativeToolFields';
 import {
@@ -499,4 +501,5 @@ export const NODE_CONFIG_FORMS: Partial<Record<NodeKind, NodeConfigForm>> = {
   code: CodeForm,
   memory: MemoryForm,
   dedup: DedupForm,
+  loop: LoopForm,
 };

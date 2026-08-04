@@ -4280,6 +4280,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Sotto-flusso di lavoro',
   'flows.nodeKind.memory': 'Memoria',
   'flows.nodeKind.dedup': 'Deduplicazione',
+  'flows.nodeKind.loop': 'Ciclo',
   'flows.nodeSummary.trigger.manual': 'Viene eseguito su richiesta',
   'flows.nodeSummary.trigger.webhook': 'Viene eseguito da un webhook in arrivo',
   'flows.nodeSummary.trigger.appEventOn': 'Su {parts}',
@@ -4320,6 +4321,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Richiama dalla memoria',
   'flows.nodeSummary.dedup.withKey': 'Salta gli elementi già visti tramite {key}',
   'flows.nodeSummary.dedup.default': 'Salta gli elementi già elaborati',
+  'flows.nodeSummary.loop.upTo': 'Si ripete fino a {max} volte',
+  'flows.nodeSummary.loop.whileCondition': 'Si ripete fino a {max} volte finché {condition}',
   'flows.palette.title': 'Nodi',
   'flows.palette.addNode': 'Aggiungi nodo {kind}',
   'flows.editor.save': 'Salva',
@@ -4522,6 +4525,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Chiave',
   'flows.nodeConfig.dedup.keyHint':
     "Un'espressione id stabile per elemento, es. =item.id. Gli elementi con una chiave già vista vengono ignorati.",
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Iterazioni massime',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'Quante volte il corpo può essere eseguito prima che il ciclo si fermi. Sempre finito.',
+  'flows.nodeConfig.loop.onExceededLabel': 'Al raggiungimento del limite',
+  'flows.nodeConfig.loop.onExceededHint':
+    "Far fallire l'esecuzione, oppure smettere di ciclare e proseguire dalla porta done con gli elementi dell'ultimo passaggio.",
+  'flows.nodeConfig.loop.onExceeded_error': "Far fallire l'esecuzione",
+  'flows.nodeConfig.loop.onExceeded_continue': 'Continuare con risultati parziali',
+  'flows.nodeConfig.loop.conditionLabel': 'Continua finché',
+  'flows.nodeConfig.loop.conditionHint':
+    'Facoltativo. Finché questo risulta vero il ciclo continua; il primo risultato falso esce dalla porta done.',
 
   'flows.enableApproval.title': 'Consentire a questo workflow di agire?',
   'flows.enableApproval.intro':

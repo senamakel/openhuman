@@ -104,7 +104,7 @@ tinyplace = "2.0"
 #
 # Optional: exclusive to the default-ON `flows` feature (#4797). A slim build
 # without `flows` drops this crate and its `jaq-*` JSON-query stack entirely.
-tinyflows = { version = "0.5", features = ["mock"], optional = true }
+tinyflows = { version = "0.6", features = ["mock"], optional = true }
 # TinyJuice — host-agnostic TokenJuice compression engine. OpenHuman keeps
 # config/RPC/tool/runtime adapters in `src/openhuman/tokenjuice/` and patches
 # this dependency to the vendored submodule below.

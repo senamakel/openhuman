@@ -3993,6 +3993,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': '子工作流',
   'flows.nodeKind.memory': '记忆',
   'flows.nodeKind.dedup': '去重',
+  'flows.nodeKind.loop': '循环',
   'flows.nodeSummary.trigger.manual': '按需运行',
   'flows.nodeSummary.trigger.webhook': '收到传入 Webhook 时运行',
   'flows.nodeSummary.trigger.appEventOn': '在{parts}',
@@ -4033,6 +4034,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': '从记忆中回忆',
   'flows.nodeSummary.dedup.withKey': '按 {key} 跳过已处理过的条目',
   'flows.nodeSummary.dedup.default': '跳过已处理的条目',
+  'flows.nodeSummary.loop.upTo': '最多重复 {max} 次',
+  'flows.nodeSummary.loop.whileCondition': '当 {condition} 时最多重复 {max} 次',
   'flows.palette.title': '节点',
   'flows.palette.addNode': '添加{kind}节点',
   'flows.editor.save': '保存',
@@ -4220,6 +4223,19 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': '键',
   'flows.nodeConfig.dedup.keyHint':
     '每个项目的稳定 id 表达式，例如 =item.id。已出现过该键的项目将被跳过。',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': '最大迭代次数',
+  'flows.nodeConfig.loop.maxIterationsHint': '循环体在循环停止前最多可运行的次数。始终有限。',
+  'flows.nodeConfig.loop.onExceededLabel': '达到上限时',
+  'flows.nodeConfig.loop.onExceededHint':
+    '让运行失败，或停止循环并携带最后一轮的条目从 done 端口继续。',
+  'flows.nodeConfig.loop.onExceeded_error': '让运行失败',
+  'flows.nodeConfig.loop.onExceeded_continue': '带着部分结果继续',
+  'flows.nodeConfig.loop.conditionLabel': '继续条件',
+  'flows.nodeConfig.loop.conditionHint':
+    '可选。只要结果为真，循环就继续；第一个为假的结果将从 done 端口退出。',
 
   'flows.enableApproval.title': '允许此工作流执行操作吗？',
   'flows.enableApproval.intro': '此工作流需要您对以下操作的许可。批准仅适用于此工作流。',

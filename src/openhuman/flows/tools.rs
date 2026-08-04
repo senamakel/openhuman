@@ -57,7 +57,7 @@ impl Tool for ProposeWorkflowTool {
          (to_port just stays \"main\"); routing is keyed exclusively on from_port, so a label \
          on to_port instead silently turns the branch into an unconditional fan-out and is a \
          hard reject. Exactly ONE \
-         trigger node is required. The 14 node kinds: trigger (config.trigger_kind: manual | \
+         trigger node is required. The 15 node kinds: trigger (config.trigger_kind: manual | \
          schedule | webhook | app_event | form | chat_message | evaluation | system | \
          execute_by_workflow; schedule needs config.schedule = {kind:\"cron\",expr,tz?} | \
          {kind:\"at\",at} | {kind:\"every\",every_ms}; app_event needs config.toolkit + \
@@ -80,7 +80,14 @@ impl Tool for ProposeWorkflowTool {
          whose key was already committed by a PRIOR successful run, else passes it through. Use \
          this — not a memory recall/condition graph — for exact \"process each item once\": \
          place it right after the item source and before the action, e.g. split_out → dedup → \
-         …action…). If \
+         …action…), \
+         loop (config.max_iterations REQUIRED and positive; optional config.on_exceeded: \
+         \"error\" (default, fails the run) | \"continue\" (stop looping, leave via `done`); \
+         optional config.condition \"=expr\" for an early exit. Emits on the `body` port while \
+         it keeps looping and on `done` when it stops; CLOSE THE LOOP by wiring the body's last \
+         node back to the loop node. The pass number is readable as \
+         \"=nodes.<loop id>.iteration\". A `merge` node must not sit on the cycle, and the loop \
+         node must not itself be a fan-in — join before it instead). If \
          validation fails, fix the graph and call this tool again."
     }
 
@@ -518,6 +525,19 @@ fn config_hint(node: &Node) -> Option<String> {
             .get("key")
             .and_then(Value::as_str)
             .map(|k| truncate_hint(&format!("key: {k}"))),
+        // The cap is the one thing worth surfacing at a glance; the engine
+        // applies its own default when the key is absent, so say so rather than
+        // showing nothing.
+        NodeKind::Loop => {
+            let max = cfg
+                .get("max_iterations")
+                .and_then(Value::as_u64)
+                .map_or_else(|| "default".to_string(), |n| n.to_string());
+            Some(match cfg.get("condition").and_then(Value::as_str) {
+                Some(condition) => truncate_hint(&format!("max {max} · while {condition}")),
+                None => format!("max {max}"),
+            })
+        }
         NodeKind::Merge | NodeKind::OutputParser | NodeKind::Trigger => None,
     }
 }

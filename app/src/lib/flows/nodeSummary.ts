@@ -20,6 +20,11 @@ function str(config: Record<string, unknown>, key: string): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
+function num(config: Record<string, unknown>, key: string): number | undefined {
+  const v = config[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
 function truncate(value: string, max = 52): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
@@ -159,6 +164,19 @@ export function describeNode(
       return key
         ? t('flows.nodeSummary.dedup.withKey').replace('{key}', truncate(key, 40))
         : t('flows.nodeSummary.dedup.default');
+    }
+    case 'loop': {
+      // The cap is what an operator most needs to see at a glance, and the
+      // engine applies its own default when the key is absent, so the summary
+      // says so rather than going blank.
+      const max = num(config, 'max_iterations');
+      const condition = str(config, 'condition');
+      if (condition) {
+        return t('flows.nodeSummary.loop.whileCondition')
+          .replace('{max}', String(max ?? 25))
+          .replace('{condition}', truncate(condition, 30));
+      }
+      return t('flows.nodeSummary.loop.upTo').replace('{max}', String(max ?? 25));
     }
     default:
       return '';

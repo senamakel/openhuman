@@ -107,11 +107,26 @@ fn apply_host_overlay(contract: NodeKindContract) -> NodeKindContract {
                  already marks a key seen only after the run succeeds, so don't also wire a \
                  separate memory remember/condition dedupe graph alongside it.",
             ),
+        "loop" => contract
+            .with_note(
+                "Every pass through the body costs what the body costs. A loop whose body \
+                 contains an agent node runs a full agent turn per iteration, so max_iterations \
+                 is a spend bound as much as a correctness one — prefer the smallest cap that \
+                 can finish the job, and an `=`-expression `condition` so the loop stops as soon \
+                 as the work is done rather than always running to the cap.",
+            )
+            .with_note(
+                "A sub_workflow node is the other way to repeat work, and the two bound \
+                 differently: this node's max_iterations counts passes within one run, while \
+                 nested sub_workflow runs are bounded by max_sub_workflow_depth on the ROOT \
+                 graph's trigger (default 8). Reach for a loop to repeat a section, and for \
+                 sub_workflow to reuse a whole flow.",
+            ),
         _ => contract,
     }
 }
 
-/// All 14 node-kind contracts with this host's overlay applied, in
+/// All 15 node-kind contracts with this host's overlay applied, in
 /// [`NODE_KINDS`] order.
 pub fn all_node_kind_contracts() -> Vec<NodeKindContract> {
     tinyflows::catalog::all_contracts()
@@ -171,8 +186,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn overlay_preserves_all_14_kinds() {
-        assert_eq!(all_node_kind_contracts().len(), 14);
+    fn overlay_preserves_all_15_kinds() {
+        assert_eq!(all_node_kind_contracts().len(), 15);
         for kind in NODE_KINDS {
             assert!(node_kind_contract(kind).is_some(), "missing {kind}");
         }

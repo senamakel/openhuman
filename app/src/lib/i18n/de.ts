@@ -4333,6 +4333,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Unter-Workflow',
   'flows.nodeKind.memory': 'Gedächtnis',
   'flows.nodeKind.dedup': 'Deduplizierung',
+  'flows.nodeKind.loop': 'Schleife',
   'flows.nodeSummary.trigger.manual': 'Wird bei Bedarf ausgeführt',
   'flows.nodeSummary.trigger.webhook': 'Wird durch einen eingehenden Webhook ausgelöst',
   'flows.nodeSummary.trigger.appEventOn': 'Bei {parts}',
@@ -4373,6 +4374,8 @@ const messages: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Ruft aus dem Gedächtnis ab',
   'flows.nodeSummary.dedup.withKey': 'Überspringt bereits gesehene Elemente anhand von {key}',
   'flows.nodeSummary.dedup.default': 'Überspringt bereits verarbeitete Elemente',
+  'flows.nodeSummary.loop.upTo': 'Wiederholt bis zu {max} Mal',
+  'flows.nodeSummary.loop.whileCondition': 'Wiederholt bis zu {max} Mal, solange {condition}',
   'flows.palette.title': 'Knoten',
   'flows.palette.addNode': '{kind}-Knoten hinzufügen',
   'flows.editor.save': 'Speichern',
@@ -4574,6 +4577,20 @@ const messages: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Schlüssel',
   'flows.nodeConfig.dedup.keyHint':
     'Ein stabiler Id-Ausdruck pro Element, z. B. =item.id. Elemente mit einem bereits gesehenen Schlüssel werden übersprungen.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Maximale Durchläufe',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'Wie oft der Rumpf laufen darf, bevor die Schleife stoppt. Immer endlich.',
+  'flows.nodeConfig.loop.onExceededLabel': 'Beim Erreichen des Limits',
+  'flows.nodeConfig.loop.onExceededHint':
+    'Lauf fehlschlagen lassen, oder die Schleife beenden und über den Port done mit den Elementen des letzten Durchlaufs fortfahren.',
+  'flows.nodeConfig.loop.onExceeded_error': 'Lauf fehlschlagen lassen',
+  'flows.nodeConfig.loop.onExceeded_continue': 'Mit Teilergebnissen fortfahren',
+  'flows.nodeConfig.loop.conditionLabel': 'Fortsetzen solange',
+  'flows.nodeConfig.loop.conditionHint':
+    'Optional. Solange dies wahr ergibt, läuft die Schleife weiter; das erste falsche Ergebnis führt zum Port done.',
 
   'flows.enableApproval.title': 'Darf dieser Workflow Aktionen ausführen?',
   'flows.enableApproval.intro':

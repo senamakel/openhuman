@@ -22,8 +22,8 @@ import type { NodeKind } from './types';
 const KINDS = Object.keys(NODE_KIND_ICON) as NodeKind[];
 
 describe('nodeKindIcons', () => {
-  it('covers all 14 node kinds in both maps, keyed identically', () => {
-    expect(KINDS).toHaveLength(14);
+  it('covers all 15 node kinds in both maps, keyed identically', () => {
+    expect(KINDS).toHaveLength(15);
     expect(Object.keys(NODE_KIND_TILE).sort()).toEqual([...KINDS].sort());
   });
 

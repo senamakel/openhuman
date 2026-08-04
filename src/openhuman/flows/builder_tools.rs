@@ -2660,7 +2660,7 @@ impl Tool for GetNodeKindContractTool {
             "properties": {
                 "kind": {
                     "type": "string",
-                    "description": "One of the 14 node kinds, e.g. 'tool_call' (from list_node_kinds).",
+                    "description": "One of the 15 node kinds, e.g. 'tool_call' (from list_node_kinds).",
                     "enum": crate::openhuman::flows::NODE_KINDS,
                 }
             },

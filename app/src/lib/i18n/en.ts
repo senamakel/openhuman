@@ -4787,6 +4787,7 @@ const en: TranslationMap = {
   'flows.nodeKind.sub_workflow': 'Sub-workflow',
   'flows.nodeKind.memory': 'Memory',
   'flows.nodeKind.dedup': 'Dedup',
+  'flows.nodeKind.loop': 'Loop',
 
   // ── describeNode (F-M3): the dynamic per-node card summary text shown on
   // every canvas node (`FlowNodeComponent`) and in the config drawer header.
@@ -4830,6 +4831,8 @@ const en: TranslationMap = {
   'flows.nodeSummary.memory.recall': 'Recalls memory',
   'flows.nodeSummary.dedup.withKey': 'Skips items already seen by {key}',
   'flows.nodeSummary.dedup.default': 'Skips items already processed',
+  'flows.nodeSummary.loop.upTo': 'Repeats up to {max} times',
+  'flows.nodeSummary.loop.whileCondition': 'Repeats up to {max} times while {condition}',
 
   // ── Editable Workflow Canvas (issue B5b.2 / Phase 3a): the node palette
   // and editor toolbar layered on top of the read-only canvas above.
@@ -5043,6 +5046,20 @@ const en: TranslationMap = {
   'flows.nodeConfig.dedup.keyLabel': 'Key',
   'flows.nodeConfig.dedup.keyHint':
     'A stable per-item id expression, e.g. =item.id. Items with a key already seen are skipped.',
+
+  // `loop` node: a bounded loop head. Emits on `body` until its cap or
+  // condition says stop, then on `done`.
+  'flows.nodeConfig.loop.maxIterationsLabel': 'Max iterations',
+  'flows.nodeConfig.loop.maxIterationsHint':
+    'How many times the body may run before the loop stops. Always finite.',
+  'flows.nodeConfig.loop.onExceededLabel': 'When the cap is reached',
+  'flows.nodeConfig.loop.onExceededHint':
+    "Fail the run, or stop looping and continue through the done port with the last pass's items.",
+  'flows.nodeConfig.loop.onExceeded_error': 'Fail the run',
+  'flows.nodeConfig.loop.onExceeded_continue': 'Continue with partial results',
+  'flows.nodeConfig.loop.conditionLabel': 'Continue while',
+  'flows.nodeConfig.loop.conditionHint':
+    'Optional. While this resolves truthy the loop continues; the first falsey result exits through the done port.',
 
   // Phase 4a "New workflow" chooser + Phase 4c templates gallery. The chooser
   // offers scratch / template / describe; the gallery lists the curated

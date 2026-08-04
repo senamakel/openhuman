@@ -827,7 +827,7 @@ async fn snapshot_activates_user_dir_after_pending_revalidation_without_initial_
 }
 
 #[tokio::test]
-async fn snapshot_preserves_pending_session_when_revalidated_user_activation_fails() {
+async fn snapshot_errors_without_clearing_pending_session_when_active_user_marker_is_unreadable() {
     let _lock = env_lock();
     let (api_url, server_task, shutdown_tx) = auth_me_server(
         r#"{"data":{"id":"fresh-activation-failure","name":"Activation Failure","email":"activation-failure@example.test"}}"#,
@@ -863,28 +863,16 @@ async fn snapshot_preserves_pending_session_when_revalidated_user_activation_fai
         )
         .expect("seed activation-failure pending app session");
 
-    let snap = snapshot()
+    let error = snapshot()
         .await
-        .expect("snapshot with failed pending activation")
-        .value;
+        .expect_err("unreadable active_user.toml must stop snapshot configuration resolution");
     assert!(
-        snap.auth.is_authenticated,
-        "activation write failure should keep the pending local session for retry"
-    );
-    assert_eq!(
-        snap.session_token.as_deref(),
-        Some("round14.pending.activation-failure")
-    );
-    assert_eq!(
-        snap.current_user
-            .as_ref()
-            .and_then(|v| v.get("pendingBackendValidation")),
-        Some(&json!(true)),
-        "failed activation must not return a validated backend user"
+        error.contains("read active user marker"),
+        "snapshot must surface the unreadable marker instead of resolving to the pre-login profile: {error}"
     );
     assert!(
         active_user_root.join("active_user.toml").is_dir(),
-        "failed active_user.toml write must not be treated as an activated user"
+        "unreadable active_user.toml must remain in place"
     );
 
     let profile = AuthService::from_config(&config)
@@ -901,7 +889,7 @@ async fn snapshot_preserves_pending_session_when_revalidated_user_activation_fai
     assert_eq!(
         stored_user.get("pendingBackendValidation"),
         Some(&json!(true)),
-        "activation failure must not clear persisted pendingBackendValidation"
+        "configuration-resolution failure must not clear persisted pendingBackendValidation"
     );
 
     let _ = shutdown_tx.send(());

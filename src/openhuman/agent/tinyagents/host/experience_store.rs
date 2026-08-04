@@ -676,6 +676,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn another_agents_records_cannot_crowd_out_this_agents_attempts() {
+        // The domain scores an agent match rather than filtering on it, so a
+        // busier agent's records rank alongside this one's. With truncation
+        // before the agent filter, they could fill every slot and this recall
+        // would return nothing even though matching attempts exist.
+        let store = adapter().with_max_hits(2);
+        for i in 0..8 {
+            store
+                .record(&exp("writer", &format!("ship release {i}"), "ok", true))
+                .await
+                .expect("record");
+        }
+        store
+            .record(&exp("planner", "ship release 9", "planner's own attempt", true))
+            .await
+            .expect("record");
+
+        let found = store.recall_for("planner", "ship release").await.expect("recall");
+
+        assert!(
+            !found.is_empty(),
+            "the planner's attempt must survive a store dominated by another agent"
+        );
+        assert!(
+            found.iter().all(|e| e.agent_id == "planner"),
+            "only this agent's attempts may be returned"
+        );
+        assert!(found.len() <= 2, "max_hits still bounds the result");
+    }
+
+    #[tokio::test]
     async fn secrets_are_redacted_before_they_reach_the_store() {
         let store = adapter();
         store

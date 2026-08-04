@@ -289,21 +289,7 @@ impl OpenHumanDefinitionRegistry {
     /// a profile's tool selection is *a restriction on the resolved definition,
     /// never a replacement for it*.
     fn tools_for(&self, def: &HostAgentDefinition) -> Vec<String> {
-        let mut names: Vec<String> = match &def.tools {
-            ToolScope::Named(named) => {
-                let mut names = named.clone();
-                // `extra_tools` is an "also include these" hook on top of a
-                // named scope. Under `Wildcard` it is meaningless (everything
-                // is already in scope) and appending it would turn the
-                // empty-vec wildcard marker into a bogus narrow allowlist.
-                names.extend(def.extra_tools.iter().cloned());
-                names
-            }
-            ToolScope::Wildcard => Vec::new(),
-        };
-
-        names.retain(|name| !disallows_tool(&def.disallowed_tools, name));
-        dedupe_preserving_order(&mut names);
+        let scope = self.resolved_scope(def);
 
         let Some(allowed) = self
             .profile
@@ -311,7 +297,7 @@ impl OpenHumanDefinitionRegistry {
             .and_then(|profile| profile.allowed_tools.as_ref())
             .filter(|tools| !tools.is_empty())
         else {
-            return names;
+            return Self::emit(scope);
         };
 
         let profile_visible: Vec<String> = allowed
@@ -320,21 +306,87 @@ impl OpenHumanDefinitionRegistry {
             .filter(|tool| !tool.is_empty())
             .collect();
         if profile_visible.is_empty() {
-            return names;
+            return Self::emit(scope);
         }
 
-        if names.is_empty() {
-            // Wildcard scope: the profile allowlist becomes the visible set.
-            return profile_visible;
-        }
+        let mut names = match scope {
+            // A true wildcard has no denylist left to honour (see
+            // `resolved_scope`), so the profile allowlist *is* the visible set.
+            ResolvedScope::Wildcard => return profile_visible,
+            ResolvedScope::Named(names) => names,
+        };
 
         let allowed_set: HashSet<&str> = profile_visible.iter().map(String::as_str).collect();
         names.retain(|name| allowed_set.contains(name.as_str()));
-        if names.is_empty() {
-            // Disjoint: must stay non-empty or it would read as "all tools".
-            names.push(PROFILE_NO_TOOLS_SENTINEL.to_string());
+        Self::emit(ResolvedScope::Named(names))
+    }
+
+    /// Resolves the definition's own scope, applying `extra_tools` and the
+    /// denylist, without consulting the profile.
+    fn resolved_scope(&self, def: &HostAgentDefinition) -> ResolvedScope {
+        match &def.tools {
+            ToolScope::Named(named) => {
+                let mut names = named.clone();
+                // `extra_tools` is an "also include these" hook on top of a
+                // named scope. Under `Wildcard` it is meaningless — everything
+                // is already in scope.
+                names.extend(def.extra_tools.iter().cloned());
+                names.retain(|name| !disallows_tool(&def.disallowed_tools, name));
+                dedupe_preserving_order(&mut names);
+                // Deliberately *not* collapsed to `Wildcard` when empty: an
+                // agent configured with no tools, or one whose whole scope was
+                // denied, must project as no tools rather than as everything.
+                ResolvedScope::Named(names)
+            }
+            ToolScope::Wildcard if def.disallowed_tools.is_empty() => ResolvedScope::Wildcard,
+            ToolScope::Wildcard => match self.registered_tools.as_deref() {
+                // "Everything except these" is only expressible against a
+                // concrete list, so materialize and filter.
+                Some(registered) => {
+                    let mut names: Vec<String> = registered
+                        .iter()
+                        .filter(|name| !disallows_tool(&def.disallowed_tools, name))
+                        .cloned()
+                        .collect();
+                    dedupe_preserving_order(&mut names);
+                    ResolvedScope::Named(names)
+                }
+                // Fail closed. Emitting the wildcard here would silently
+                // re-grant every denied tool — for shipped definitions that
+                // means specialist-only routes like `polymarket` / `kalshi` /
+                // `tinyplace_*` becoming generally available. An agent with no
+                // tools is a visible, debuggable failure; a silently widened
+                // one is not.
+                None => {
+                    log::error!(
+                        "[tinyagents][definitions] agent '{}' has a wildcard tool scope with a \
+                         non-empty denylist ({} entries) but no registered tool list was \
+                         attached — failing closed to no tools. Call \
+                         `with_registered_tools(..)` to project this definition.",
+                        def.id,
+                        def.disallowed_tools.len()
+                    );
+                    ResolvedScope::Named(Vec::new())
+                }
+            },
         }
-        names
+    }
+
+    /// Renders a resolved scope into the crate's `Vec<String>`, substituting the
+    /// sentinel for a genuinely empty named scope.
+    ///
+    /// This is the single place the crate's "empty means unrestricted"
+    /// convention is applied, so no caller can accidentally emit a bare empty
+    /// vec that reads as "all tools".
+    fn emit(scope: ResolvedScope) -> Vec<String> {
+        match scope {
+            ResolvedScope::Wildcard => Vec::new(),
+            ResolvedScope::Named(mut names) if names.is_empty() => {
+                names.push(PROFILE_NO_TOOLS_SENTINEL.to_string());
+                names
+            }
+            ResolvedScope::Named(names) => names,
+        }
     }
 
     /// Tier-checked delegate ids for `def`.

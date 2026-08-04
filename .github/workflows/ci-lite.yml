@@ -445,7 +445,7 @@ jobs:
         run: |
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             --no-default-features --features tokenjuice-treesitter --lib -- \
-            core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent::registry::agents::loader:: tools::schemas:: tools::ops::tests::
+            core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent::registry::agents::loader:: memory::people::address_book::tests:: tools::schemas:: tools::ops::tests::
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             --no-default-features --features tokenjuice-treesitter,mcp --lib -- \
             mcp::server::resources::
@@ -498,6 +498,7 @@ jobs:
           openhuman/agent/harness/subagent_runner/tool_prep.rs
           openhuman/agent/registry/agents/loader.rs
           openhuman/inference/local/mod.rs
+          openhuman/memory/people/address_book.rs
           openhuman/mcp/server/resources.rs
           openhuman/platform/socket/ops.rs
           openhuman/tinyplace/manifest.rs
@@ -511,7 +512,7 @@ jobs:
           openhuman/web3/x402/stub.rs
           EOF
           )
-          ACTUAL=$(grep -rlE '#\[cfg\((not\()?feature = "(voice|media|web3|meet|mcp|skills|flows|channels|prediction-markets)"' src --include='*.rs' \
+          ACTUAL=$(grep -rlE '#\[cfg\([^]]*feature = "(voice|media|web3|meet|mcp|skills|flows|channels|prediction-markets|contacts)"' src --include='*.rs' \
             | xargs grep -lE '#\[test\]|#\[tokio::test\]|fn .*_test' 2>/dev/null | sed 's|^src/||' | sort -u)
           if ! diff <(echo "$EXPECTED" | sed 's/^ *//' | sort -u) <(echo "$ACTUAL"); then
             echo "::error::Gated-test file set changed. Update the EXPECTED allowlist in the rust-feature-gate-smoke lane, and extend the scoped 'cargo test' filter if the new module can carry an ungated-assert regression (see #5022)."

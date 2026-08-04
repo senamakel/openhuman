@@ -1007,7 +1007,10 @@ mod tests {
     #[tokio::test]
     async fn channel_approval_does_not_bypass_the_readonly_tier() {
         let decision = OpenHumanSecurityGate::new(policy(AutonomyLevel::ReadOnly), registry())
-            .with_tool_policy(policy_session("write_file", ToolPolicyAction::RequireApproval))
+            .with_tool_policy(policy_session(
+                "write_file",
+                ToolPolicyAction::RequireApproval,
+            ))
             .authorize_tool(&req("write_file", json!({ "path": "notes.md" })))
             .await
             .unwrap();

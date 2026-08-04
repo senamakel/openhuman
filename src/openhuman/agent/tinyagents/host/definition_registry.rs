@@ -779,7 +779,10 @@ mod tests {
         def.disallowed_tools = Vec::new();
 
         assert!(
-            registry_of(vec![def.clone()]).project(&def).tools.is_empty(),
+            registry_of(vec![def.clone()])
+                .project(&def)
+                .tools
+                .is_empty(),
             "an undenied wildcard is genuinely unrestricted"
         );
     }

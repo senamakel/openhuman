@@ -75,7 +75,8 @@
 //! permission returns [`GateDecision::Deny`], including an unrecognised tool
 //! name.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use tinyagents::error::{Result as TaResult, TinyAgentsError};

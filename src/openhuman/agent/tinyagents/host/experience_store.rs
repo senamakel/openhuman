@@ -689,11 +689,19 @@ mod tests {
                 .expect("record");
         }
         store
-            .record(&exp("planner", "ship release 9", "planner's own attempt", true))
+            .record(&exp(
+                "planner",
+                "ship release 9",
+                "planner's own attempt",
+                true,
+            ))
             .await
             .expect("record");
 
-        let found = store.recall_for("planner", "ship release").await.expect("recall");
+        let found = store
+            .recall_for("planner", "ship release")
+            .await
+            .expect("recall");
 
         assert!(
             !found.is_empty(),

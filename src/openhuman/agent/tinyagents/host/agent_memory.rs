@@ -627,7 +627,13 @@ mod tests {
                     Some(ns) => r.namespace.as_deref() == Some(ns),
                     None => true,
                 })
+                // Models the real backend: `cross_session` widens past the
+                // session filter (`memory/store/memory_trait.rs` runs the
+                // episodic cross-session search under exactly this flag). A
+                // stub that ignored it would silently pass a host-side filter
+                // that discards every widened row.
                 .filter(|r| match (opts.session_id, r.session_id.as_deref()) {
+                    _ if opts.cross_session => true,
                     (Some(want), Some(have)) => want == have,
                     (Some(_), None) => true,
                     (None, _) => true,

@@ -80,10 +80,18 @@ const CHAT_WORKLOAD_ROLES: &[&str] = &[
 
 /// The role a team lead takes when the caller supplied none.
 ///
-/// A lead drives the tool-heavy orchestration turn, which is what the `agentic`
-/// workload exists for — the same mapping `OpenhumanHostPorts::role_for_tier`
-/// makes for medulla's `orchestrator` tier.
-const LEAD_DEFAULT_ROLE: &str = "agentic";
+/// `chat`, matching the live session path rather than the tempting `agentic`.
+///
+/// A lead does drive the tool-heavy orchestration turn, so `agentic` looks
+/// right — but `session/builder/factory.rs::provider_role_for` deliberately
+/// sends the orchestrator and every non-`hint:*` model to `chat`, and pins it
+/// with `orchestrator_defaults_to_chat`. That is what makes the user's
+/// Connections → API keys → LLM **chat** provider drive the user-facing turn.
+/// Defaulting a lead to `agentic` here would silently reroute it onto the
+/// separately-configured agentic provider the moment this seam went live — a
+/// behaviour change smuggled in as a default. `agentic` is reachable, but only
+/// through an explicit `hint:agentic`.
+const LEAD_DEFAULT_ROLE: &str = "chat";
 
 /// The role a non-lead agent takes when the caller supplied none.
 ///

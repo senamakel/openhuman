@@ -158,6 +158,7 @@ impl OpenHumanSecurityGate {
             policy,
             tool_policy: None,
             tool_sets,
+            pending_audit: Mutex::new(HashMap::new()),
         }
     }
 
@@ -165,6 +166,24 @@ impl OpenHumanSecurityGate {
     pub fn with_tool_policy(mut self, session: Arc<ToolPolicySession>) -> Self {
         self.tool_policy = Some(session);
         self
+    }
+
+    /// Removes and returns the `pending_approvals` request id this gate
+    /// recorded for `call_id`, if it granted an approval for that call.
+    ///
+    /// The executor calls this once the tool resolves and passes the id to
+    /// [`ApprovalGate::record_execution`], completing the before-and-after
+    /// audit row (#2135). Draining is deliberate: an id is valid for exactly
+    /// one terminal record, and leaving it behind would grow the map for the
+    /// life of the session.
+    ///
+    /// `None` means there is nothing to record — the call was auto-approved via
+    /// the session allowlist, was never prompted, or carried no `call_id`.
+    pub fn take_audit_request_id(&self, call_id: &str) -> Option<String> {
+        self.pending_audit
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(call_id)
     }
 
     /// The policy to answer this call against: the live process-global one when

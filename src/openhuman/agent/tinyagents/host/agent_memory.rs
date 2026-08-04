@@ -40,7 +40,12 @@
 //! - **A defensive second scope pass.** Even with `session_id` set, recalled
 //!   rows are re-checked host-side and any row carrying a *different* session is
 //!   dropped. Unscoped rows (`session_id: None`) stay visible, matching the
-//!   crate's own `InMemoryAgentMemory` scoping semantics.
+//!   crate's own `InMemoryAgentMemory` scoping semantics. The pass is skipped
+//!   when `cross_session` is on: that flag was already sent to the backend as an
+//!   instruction to return other sessions' rows, so a same-session re-test would
+//!   throw away everything the widening returned and reduce the opt-in to a
+//!   no-op. The guard exists to catch a backend that ignored a *narrowing*
+//!   request, and widening is the opposite of that.
 //! - **Redaction is unconditional.** Every returned `text` and every citation
 //!   snippet goes through `sanitize_text`, so no raw store row reaches the
 //!   runtime. A row that the scrubber changed is logged (counts only, never

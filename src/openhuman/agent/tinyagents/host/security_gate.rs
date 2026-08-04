@@ -360,6 +360,11 @@ impl SecurityGate for OpenHumanSecurityGate {
             "[tinyagents::host::security] authorizing tool call"
         );
 
+        // Set when the channel policy demanded approval and the human granted
+        // it. Carried forward so a later stage that would prompt for the *same*
+        // call does not raise a second card for an answer already given.
+        let mut channel_approved = false;
+
         // 1. Channel permission boundary.
         match self.tool_policy_verdict(&call.tool_name) {
             ToolPolicyVerdict::Allow => {}

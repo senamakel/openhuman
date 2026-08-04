@@ -133,8 +133,25 @@ pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGr
 pub(crate) fn engine_compatibility_errors(
     graph: &WorkflowGraph,
 ) -> Vec<crate::openhuman::flows::FlowValidationError> {
+    engine_compatibility_errors_with_max_depth(graph, max_sub_workflow_depth(graph))
+}
+
+/// Same walk as [`engine_compatibility_errors`], but with the inline-nesting
+/// budget passed in rather than recomputed from `graph`'s own trigger.
+///
+/// [`referenced_workflow_compatibility_errors`] needs this: a saved child
+/// reached partway through the root's referenced-workflow chain must still be
+/// checked to the *remaining* depth the root's own `max_sub_workflow_depth`
+/// allows, not to the child's own (possibly lower/default) declared cap —
+/// the engine's runtime depth counter is one budget shared across the whole
+/// inline-plus-referenced call chain, so a fan-in the child's own cap would
+/// not reach can still be reached from the root.
+pub(crate) fn engine_compatibility_errors_with_max_depth(
+    graph: &WorkflowGraph,
+    max_depth: u64,
+) -> Vec<crate::openhuman::flows::FlowValidationError> {
     let mut errors = Vec::new();
-    collect_engine_compatibility_errors(graph, 0, max_sub_workflow_depth(graph), &mut errors);
+    collect_engine_compatibility_errors(graph, 0, max_depth, &mut errors);
     errors
 }
 
@@ -659,7 +676,14 @@ fn referenced_workflow_compatibility_errors(config: &Config, graph: &WorkflowGra
             let Ok(Some(child)) = load_flow_graph(config, workflow_id) else {
                 continue;
             };
-            if let Some(error) = engine_compatibility_errors(&child).into_iter().next() {
+            // Thread the root's remaining depth budget through, not the
+            // child's own cap — see `engine_compatibility_errors_with_max_depth`'s
+            // doc comment.
+            let remaining_depth = max_depth.saturating_sub(child_depth);
+            if let Some(error) = engine_compatibility_errors_with_max_depth(&child, remaining_depth)
+                .into_iter()
+                .next()
+            {
                 return vec![format!(
                     "Sub_workflow path '{}' references workflow_id '{}' with an unsupported \
                      engine topology: {}: {}",

@@ -475,6 +475,13 @@ describe('graphAdapter', () => {
       expect(created.data.inputPorts).toEqual(['main']);
       expect(created.data.outputPorts).toEqual(['true', 'false']);
     });
+
+    it('seeds a loop node with declared body/done output ports (fixed runtime routing)', () => {
+      const created = createFlowNode('loop', { x: 0, y: 0 }, 'loop-0', 'Repeat');
+      expect(created.data.ports).toEqual([{ name: 'body' }, { name: 'done' }]);
+      expect(created.data.inputPorts).toEqual(['main']);
+      expect(created.data.outputPorts).toEqual(['body', 'done']);
+    });
   });
 
   describe('isValidFlowConnection', () => {

@@ -457,3 +457,34 @@ fn propose_workflow_description_matches_typed_node_contracts() {
         }
     }
 }
+
+/// Same drift class as the description guard above, but for the JSON `enum`
+/// in `parameters_schema()`: a strict schema-constrained caller (some tool-use
+/// providers validate arguments against the advertised schema before
+/// `execute` ever runs) can only submit a `kind` this enum lists, regardless
+/// of what the prose teaches or what `validate_and_migrate_graph` accepts. A
+/// node kind present in `node_contracts.rs` but missing here would silently
+/// be unreachable through `propose_workflow` for such a caller — this is the
+/// exact class of bug the `loop` kind hit when it was documented in prose
+/// but left off this enum.
+#[test]
+fn propose_workflow_schema_enum_matches_typed_node_contracts() {
+    let tmp = TempDir::new().unwrap();
+    let tool = ProposeWorkflowTool::new(test_config(&tmp));
+    let schema = tool.parameters_schema();
+    let enum_kinds: Vec<&str> = schema["properties"]["graph"]["properties"]["nodes"]["items"]
+        ["properties"]["kind"]["enum"]
+        .as_array()
+        .expect("kind enum must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("enum entries are strings"))
+        .collect();
+    for contract in crate::openhuman::flows::all_node_kind_contracts() {
+        assert!(
+            enum_kinds.contains(&contract.kind.as_str()),
+            "propose_workflow's parameters_schema `kind` enum is missing node kind `{}` — \
+             update it to match node_contracts.rs",
+            contract.kind
+        );
+    }
+}

@@ -259,11 +259,19 @@ export function connectionEdgeId(connection: FlowConnectionCandidate): string {
  * are config-driven and materialize once the author wires an edge, per
  * {@link effectiveOutputPorts}'s doc comment), a new `condition` node must be
  * seeded with both ports up front or its second branch is never wireable
- * from the canvas.
+ * from the canvas. A `loop` node is the same shape: it always routes through
+ * `body`/`done` (`vendor/tinyflows/src/nodes/control_flow/loop_node.rs`), and
+ * the canvas has no port editor to derive them from later — without seeding
+ * both here, a palette-added loop renders a single `main` output and neither
+ * required loop edge (back to the loop head, and onward past it) can be
+ * wired.
  */
 function defaultPortsForKind(kind: NodeKind): Port[] {
   if (kind === 'condition') {
     return [{ name: 'true' }, { name: 'false' }];
+  }
+  if (kind === 'loop') {
+    return [{ name: 'body' }, { name: 'done' }];
   }
   return [];
 }

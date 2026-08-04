@@ -115,9 +115,16 @@ impl OpenHumanToolOutcomeClassifier {
     /// this build and force the author to decide whether repeating the call is
     /// safe.
     ///
-    /// * Transient upstream trouble (`Timeout`, `ServiceUnavailable`,
-    ///   `ModelConnection`) → [`OutcomeClass::RetryableFailure`]. These are the
-    ///   three the steering middleware already grants retry headroom to.
+    /// * `ServiceUnavailable` and `ModelConnection` →
+    ///   [`OutcomeClass::RetryableFailure`]. Both mean the request did not reach
+    ///   a handler, so repeating it cannot duplicate an effect.
+    /// * `Timeout` → retryable **only** when `retry_safe`. A timeout is the one
+    ///   class where failure and "succeeded, but the reply was lost" look
+    ///   identical: an email send, a payment, or a shell command may already
+    ///   have committed. Repeating that duplicates a side effect the user never
+    ///   asked for twice, so the verdict defers to the host's
+    ///   `Tool::external_effect()` declaration and stays permanent whenever it
+    ///   is unavailable.
     /// * Everything else → [`OutcomeClass::PermanentFailure`]. Missing
     ///   permissions, a missing app, and bad credentials need a human to act, so
     ///   an identical re-dispatch just burns an iteration; `BlockedByPolicy`,

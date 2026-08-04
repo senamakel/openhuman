@@ -6505,21 +6505,29 @@ mod tests {
         assert!(err.contains("encryptionKey"), "got: {err}");
     }
 
-    /// Verify the register handler has no required params -- it will fail at
-    /// global_signal_store (no running runtime) but NOT on missing params.
+    /// Verify the register handler has no required params: an empty `Map` must
+    /// never produce a missing-param error.
+    ///
+    /// Deliberately tolerates success. This used to `unwrap_err()`, on the
+    /// assumption that the call always fails at `global_signal_store` because
+    /// no store is running. That holds only while the process-global store is
+    /// uninitialized — once any other test in the binary initializes it, the
+    /// call succeeds and `unwrap_err()` panics. The property under test is
+    /// about *param validation*, which an `Ok` satisfies just as well as a
+    /// non-param error, so asserting on the error only when there is one keeps
+    /// the intent and drops the dependency on global state.
     #[test]
     fn signal_register_encryption_key_fails_at_store_not_params() {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
-        let err = rt
-            .block_on(handle_tinyplace_signal_register_encryption_key(Map::new()))
-            .unwrap_err();
-        assert!(
-            !err.contains("missing required param"),
-            "should not fail on params: {err}"
-        );
+        if let Err(err) = rt.block_on(handle_tinyplace_signal_register_encryption_key(Map::new())) {
+            assert!(
+                !err.contains("missing required param"),
+                "should not fail on params: {err}"
+            );
+        }
     }
 
     #[test]
@@ -6533,11 +6541,14 @@ mod tests {
             "encryptionKey".into(),
             Value::String("dGVzdA==".into()), // valid base64
         );
-        let err = rt
-            .block_on(handle_tinyplace_directory_find_by_encryption_key(params))
-            .unwrap_err();
-        // Must get past param validation; fails at client initialization.
-        assert!(!err.contains("encryptionKey"), "got: {err}");
+        // Tolerates success: the property is that a *valid* key gets past param
+        // validation, which an `Ok` demonstrates. Requiring a client-init
+        // failure would couple the test to whether a client happens to be
+        // reachable in this process.
+        if let Err(err) = rt.block_on(handle_tinyplace_directory_find_by_encryption_key(params)) {
+            // Must get past param validation; fails at client initialization.
+            assert!(!err.contains("encryptionKey"), "got: {err}");
+        }
     }
 
     /// Verify that the error path from register_encryption_key does not contain
@@ -6548,16 +6559,20 @@ mod tests {
             .enable_all()
             .build()
             .unwrap();
-        let err = rt
-            .block_on(handle_tinyplace_signal_register_encryption_key(Map::new()))
-            .unwrap_err();
-        // The error should not contain base64-encoded key fragments.
-        // Since we fail before getting a key, this is a structural test:
-        // the handler's error messages don't embed raw key values.
-        assert!(
-            !err.contains("=="),
-            "error should not contain base64 fragments: {err}"
-        );
+        // Tolerates success for the same reason as
+        // `signal_register_encryption_key_fails_at_store_not_params`: this
+        // calls the same handler, so it carries the same latent dependency on
+        // an uninitialized global store. There is nothing to leak when there is
+        // no error.
+        if let Err(err) = rt.block_on(handle_tinyplace_signal_register_encryption_key(Map::new())) {
+            // The error should not contain base64-encoded key fragments.
+            // Since we fail before getting a key, this is a structural test:
+            // the handler's error messages don't embed raw key values.
+            assert!(
+                !err.contains("=="),
+                "error should not contain base64 fragments: {err}"
+            );
+        }
     }
 
     /// Verify all 10 Jobs write handlers reject missing required params.

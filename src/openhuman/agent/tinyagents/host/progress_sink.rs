@@ -66,7 +66,9 @@
 //!   chat cost footer, so the usage is logged and only `TurnCompleted` is
 //!   forwarded.
 
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use tokio::sync::mpsc::error::TrySendError;
@@ -132,7 +134,8 @@ impl OpenHumanProgressSink {
     pub fn new(tx: Sender<AgentProgress>) -> Self {
         Self {
             tx,
-            rounds: AtomicU32::new(0),
+            runs: Mutex::new(HashMap::new()),
+            root_run: Mutex::new(None),
             dropped: AtomicU64::new(0),
         }
     }
@@ -311,14 +314,24 @@ impl ProgressSink for OpenHumanProgressSink {
                     thread.as_ref().map(|t| t.as_str()),
                     agent,
                 );
-                self.rounds.store(0, Ordering::Relaxed);
+                let is_root = self.is_root_run(run.as_str());
+                self.runs().insert(run.as_str().to_string(), RunState::default());
+                if !is_root {
+                    // A sub-run beginning is not the request beginning. Emitting
+                    // `TurnStarted` here would restart the parent's timeline.
+                    log::debug!(
+                        "[tinyagents][progress] sub-run started run={run}; not emitting a \
+                         top-level TurnStarted"
+                    );
+                    return;
+                }
                 self.forward_lifecycle(AgentProgress::TurnStarted).await;
             }
 
             ProgressEvent::ToolCall { run, call, tool } => {
                 // A tool call closes the current round, so the counter advances
                 // first and the event is attributed to the round it belongs to.
-                let iteration = self.rounds.fetch_add(1, Ordering::Relaxed) + 1;
+                let iteration = self.advance_for_tool_call(run.as_str());
                 log::debug!(
                     "[tinyagents][progress] tool_call run={} call={} tool={} iteration={}",
                     run,
@@ -351,7 +364,10 @@ impl ProgressSink for OpenHumanProgressSink {
             }
 
             ProgressEvent::Token { run, text } => {
-                let iteration = self.iteration();
+                // Model output closes any open tool batch: the next `ToolCall`
+                // belongs to a new iteration.
+                self.note_model_activity(run.as_str());
+                let iteration = self.iteration_for(run.as_str());
                 log::trace!(
                     "[tinyagents][progress] token run={} chars={} iteration={}",
                     run,
@@ -365,7 +381,7 @@ impl ProgressSink for OpenHumanProgressSink {
             }
 
             ProgressEvent::Finished { run, usage } => {
-                let iterations = self.iteration();
+                let iterations = self.iteration_for(run.as_str());
                 log::debug!(
                     "[tinyagents][progress] turn finished run={} iterations={} usage={:?}",
                     run,
@@ -380,6 +396,18 @@ impl ProgressSink for OpenHumanProgressSink {
                 // inference layer's charged amounts; wiring usage through would
                 // mean threading the resolved model + a cost estimate into this
                 // sink rather than inventing `model: ""` / `total_usd: 0.0`.
+                let is_root = self.is_root_run(run.as_str());
+                self.runs().remove(run.as_str());
+                if !is_root {
+                    // A sub-run finishing is not the request finishing. This is
+                    // the corruption that matters most: the bridge would close
+                    // the turn out while other runs were still producing events.
+                    log::debug!(
+                        "[tinyagents][progress] sub-run finished run={run}; not emitting a \
+                         top-level TurnCompleted"
+                    );
+                    return;
+                }
                 self.forward_lifecycle(AgentProgress::TurnCompleted { iterations })
                     .await;
             }

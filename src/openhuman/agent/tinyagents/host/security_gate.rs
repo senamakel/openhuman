@@ -292,11 +292,27 @@ impl OpenHumanSecurityGate {
             call_id = ?call.call_id.as_ref().map(|c| c.as_str()),
             "[tinyagents::host::security] parking tool call on the approval gate"
         );
-        // `intercept` rather than `intercept_audited`: this trait returns before
-        // execution and is never called back, so the terminal audit row stays
-        // with the middleware that wraps the tool. See mismatch (2).
-        match gate.intercept(&call.tool_name, &summary, redacted).await {
-            GateOutcome::Allow => GateDecision::Prompted { approved: true },
+        // `intercept_audited`, not `intercept`: the returned id is what lets the
+        // executor close the audit row later *without* raising a second
+        // approval card. See mismatch (2).
+        let (outcome, request_id) = gate
+            .intercept_audited(&call.tool_name, &summary, redacted)
+            .await;
+        match outcome {
+            GateOutcome::Allow => {
+                // Only an approval that persisted a row yields an id; the
+                // session-allowlist shortcut returns `None` and has nothing to
+                // record. A call with no `call_id` cannot be correlated back,
+                // so the id is dropped rather than stored under a key no
+                // executor can ask for.
+                if let (Some(request_id), Some(call_id)) = (request_id, call.call_id.as_ref()) {
+                    self.pending_audit
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .insert(call_id.as_str().to_string(), request_id);
+                }
+                GateDecision::Prompted { approved: true }
+            }
             GateOutcome::Deny { reason } => {
                 tracing::warn!(
                     target: "tinyagents",

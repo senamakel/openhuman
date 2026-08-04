@@ -229,7 +229,7 @@ impl ProgressSink for OpenHumanProgressSink {
                     agent,
                 );
                 self.rounds.store(0, Ordering::Relaxed);
-                self.forward(AgentProgress::TurnStarted);
+                self.forward_lifecycle(AgentProgress::TurnStarted);
             }
 
             ProgressEvent::ToolCall { run, call, tool } => {
@@ -243,7 +243,7 @@ impl ProgressSink for OpenHumanProgressSink {
                     tool,
                     iteration,
                 );
-                self.forward(AgentProgress::ToolCallStarted {
+                self.forward_lifecycle(AgentProgress::ToolCallStarted {
                     call_id: call.as_str().to_string(),
                     tool_name: tool,
                     // The crate deliberately omits tool arguments from the
@@ -296,7 +296,7 @@ impl ProgressSink for OpenHumanProgressSink {
                 // inference layer's charged amounts; wiring usage through would
                 // mean threading the resolved model + a cost estimate into this
                 // sink rather than inventing `model: ""` / `total_usd: 0.0`.
-                self.forward(AgentProgress::TurnCompleted { iterations });
+                self.forward_lifecycle(AgentProgress::TurnCompleted { iterations });
             }
 
             ProgressEvent::Error { run, message } => {

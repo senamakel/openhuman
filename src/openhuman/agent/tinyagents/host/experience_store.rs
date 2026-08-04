@@ -402,9 +402,15 @@ impl ExperienceStore for OpenHumanExperienceStore {
             max_hits: self.max_hits,
         };
 
-        let hits = self
-            .store
-            .retrieve(query)
+        // Profile-local store first, then the shared pre-profile one. Same
+        // order and same dedupe-by-id/re-rank as the live turn path, so a
+        // record visible to a native turn is visible here too.
+        let mut stores = vec![self.store.clone()];
+        if let Some(shared) = &self.shared_recall_store {
+            stores.push(shared.clone());
+        }
+
+        let hits = retrieve_across_stores(&stores, query)
             .await
             .map_err(|e| TinyAgentsError::Memory(format!("recall agent experience: {e}")))?;
 

@@ -347,7 +347,10 @@ mod tests {
     /// orchestrator off their configured chat provider.
     #[test]
     fn an_unannotated_lead_routes_to_chat_like_the_live_session_path() {
-        assert_eq!(workload_role_for(&req("orchestrator").as_team_lead()), "chat");
+        assert_eq!(
+            workload_role_for(&req("orchestrator").as_team_lead()),
+            "chat"
+        );
         assert_eq!(
             workload_role_for(&req("orchestrator").as_team_lead()),
             crate::openhuman::agent::harness::session::builder::factory::provider_role_for(

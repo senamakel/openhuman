@@ -197,6 +197,7 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
     # forwarded — but the checker does literal set membership with no
     # transitive resolution, so this needs its own line.
     "prediction-markets",
+    "contacts",
 ] }
 tinyjuice = { version = "0.2.1", default-features = false }
 

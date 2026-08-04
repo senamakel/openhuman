@@ -81,8 +81,11 @@ pub fn read() -> Result<Vec<AddressBookContact>, AddressBookError> {
 }
 
 // ── macOS implementation ──────────────────────────────────────────────────────
+//
+// Gated on `contacts` as well as the target: the four objc2 crates this needs
+// are exclusive to this module, so a slim macOS build sheds the whole cohort.
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "contacts"))]
 mod imp {
     use super::{AddressBookContact, AddressBookError};
 
@@ -269,9 +272,14 @@ mod imp {
     }
 }
 
-// ── non-macOS stub ────────────────────────────────────────────────────────────
+// ── stub: non-macOS, or macOS with `contacts` compiled out ───────────────────
+//
+// Pre-dates the gate — it already existed for Linux/Windows. Widening its cfg
+// is the whole off-state: `read()`, `read_with()`, `AddressBookError` and
+// `SystemContactsSource` stay compiled everywhere, so the `people` RPC surface
+// is identical and an address-book refresh seeds nothing rather than failing.
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(all(target_os = "macos", feature = "contacts")))]
 mod imp {
     use super::{AddressBookContact, AddressBookError};
 
@@ -344,13 +352,15 @@ pub mod tests {
 
     #[test]
     fn system_source_non_mac_returns_empty() {
-        #[cfg(not(target_os = "macos"))]
+        // Mirrors the `imp` cfgs above: the stub is what compiles whenever the
+        // real CNContactStore path is absent, whether by target or by gate.
+        #[cfg(not(all(target_os = "macos", feature = "contacts")))]
         {
             let source = SystemContactsSource;
             let result = read_with(&source).unwrap();
             assert!(result.is_empty());
         }
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", feature = "contacts"))]
         {
             // TCC state is environment-dependent; just verify no panic.
             let source = SystemContactsSource;

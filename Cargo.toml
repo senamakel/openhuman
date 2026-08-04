@@ -347,11 +347,13 @@ tokio-tungstenite = { version = "0.24", default-features = false, features = ["c
 
 [target.'cfg(target_os = "macos")'.dependencies]
 whisper-rs = { version = "0.16", features = ["metal"], optional = true }
-# Contacts framework bindings for address book seeding.
-objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSObject", "NSString", "NSPredicate"] }
-objc2-contacts = { version = "0.3.2", features = ["CNContact", "CNContactFetchRequest", "CNContactStore", "CNLabeledValue", "CNPhoneNumber"] }
-block2 = "0.6"
+# Contacts framework bindings for address book seeding. Exclusive to
+# `memory::people::address_book` (verified: no other file in src/ names any of
+# the four), so the default-ON `contacts` feature sheds the whole cohort.
+objc2 = { version = "0.6", optional = true }
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSObject", "NSString", "NSPredicate"], optional = true }
+objc2-contacts = { version = "0.3.2", features = ["CNContact", "CNContactFetchRequest", "CNContactStore", "CNLabeledValue", "CNPhoneNumber"], optional = true }
+block2 = { version = "0.6", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = { version = "0.4", optional = true }
@@ -398,7 +400,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate", "file-logging", "prediction-markets"]
+default = ["tokenjuice-treesitter", "inference", "voice", "web3", "media", "documents", "meet", "skills", "flows", "mcp", "crash-reporting", "http-server", "channels", "tui", "medulla", "scheduler-gate", "file-logging", "prediction-markets", "contacts"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -507,6 +509,23 @@ web3 = [
     "dep:ethers-signers",
     "dep:coins-bip39",
 ]
+
+# macOS Contacts seeding for the people domain: `memory::people::address_book`
+# reads CNContactStore to seed handles. Default-ON. Slim / headless builds opt
+# out via `--no-default-features --features "<list without contacts>"`, which
+# sheds the exclusive `objc2` / `objc2-foundation` / `objc2-contacts` / `block2`
+# cohort on macOS. Leaf gate with a pre-existing off-state: `address_book.rs`
+# already carries a non-macOS `imp` stub returning an empty contact list, so the
+# gate simply widens that stub's cfg — `read()`, `read_with()`,
+# `AddressBookError` and `SystemContactsSource` stay compiled in every build and
+# the `people` RPC surface is unchanged. Off ⇒ address-book refresh seeds
+# nothing instead of failing.
+#
+# NOTE: no-op on Linux/Windows, where these crates were never in the graph.
+# Verify the shed cross-target from any host:
+#   cargo tree --target aarch64-apple-darwin -e normal -i objc2-contacts \
+#     --no-default-features --features tokenjuice-treesitter
+contacts = ["dep:objc2", "dep:objc2-foundation", "dep:objc2-contacts", "dep:block2"]
 
 # Polymarket prediction-market tools (read + trading). Implies `web3` because it
 # signs orders with the same EVM stack the wallet uses — an honest dependency

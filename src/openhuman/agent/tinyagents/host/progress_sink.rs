@@ -85,6 +85,18 @@ use crate::openhuman::agent::progress::AgentProgress;
 /// stall. Deltas never wait at all.
 const LIFECYCLE_SEND_GRACE: std::time::Duration = std::time::Duration::from_millis(50);
 
+/// Iteration bookkeeping for one run.
+#[derive(Debug, Default, Clone, Copy)]
+struct RunState {
+    /// Model iterations observed so far, 0 before the first tool call.
+    rounds: u32,
+    /// Whether the events seen most recently were a run of `ToolCall`s.
+    ///
+    /// A model can request several tools in one response, and the runtime emits
+    /// one event per tool — so consecutive calls are one iteration, not several.
+    in_tool_batch: bool,
+}
+
 /// Forwards crate progress into an OpenHuman [`AgentProgress`] channel.
 ///
 /// Construct one per turn with the same sender that would otherwise be handed

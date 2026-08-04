@@ -70,6 +70,13 @@ use tinyagents::harness::host::{ProgressEvent, ProgressSink};
 
 use crate::openhuman::agent::progress::AgentProgress;
 
+/// How long a **lifecycle** event may wait for room on a full channel.
+///
+/// Sized to ride out the transient window a burst of token deltas opens, while
+/// staying far below anything a user or a parent turn would perceive as a
+/// stall. Deltas never wait at all.
+const LIFECYCLE_SEND_GRACE: std::time::Duration = std::time::Duration::from_millis(50);
+
 /// Forwards crate progress into an OpenHuman [`AgentProgress`] channel.
 ///
 /// Construct one per turn with the same sender that would otherwise be handed

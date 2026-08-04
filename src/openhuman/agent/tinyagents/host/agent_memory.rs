@@ -793,6 +793,35 @@ mod tests {
         assert_eq!(ids, vec!["r1", "r3"]);
     }
 
+    #[tokio::test]
+    async fn cross_session_with_a_thread_hint_recalls_other_sessions() {
+        // The regression this pins: the flag reached the backend, the backend
+        // widened, and the host-side pass then dropped every widened row — so
+        // `with_cross_session(true)` behaved exactly like `false`. A unit test
+        // on `scope_allows` alone would not have caught it; the bug lived in
+        // the two halves disagreeing.
+        let mut mine = entry("r1", "k1", "scoped one");
+        mine.session_id = Some("t1".to_string());
+        let mut theirs = entry("r2", "k2", "scoped two");
+        theirs.session_id = Some("t2".to_string());
+
+        let stub = Arc::new(StubMemory::with_rows(vec![mine, theirs]));
+        let memory: Arc<dyn Memory> = stub.clone();
+        let mem = OpenHumanAgentMemory::new(memory).with_cross_session(true);
+
+        let items = mem
+            .recall(RecallRequest::new("scoped").with_thread(ThreadId::new("t1")))
+            .await
+            .unwrap();
+
+        let ids: Vec<&str> = items.iter().map(|i| i.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["r1", "r2"],
+            "cross-session recall must reach the other session's rows"
+        );
+    }
+
     #[test]
     fn the_defensive_scope_pass_drops_rows_from_another_session() {
         // The backend filter should already have done this; the second pass is

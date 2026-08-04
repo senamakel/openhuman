@@ -31,11 +31,16 @@ fn domain_subscriber_plan_full_registers_every_gated_subscriber() {
         plan,
         DomainSubscriberPlan {
             platform: true,
+            integrations: true,
+            security: true,
+            desktop: true,
+            skills: true,
             channels: true,
             flows: true,
             memory: true,
             meet: true,
             agent: true,
+            hosted: true,
             mcp: true,
         },
         "full() must register every gated domain subscriber"
@@ -49,11 +54,16 @@ fn domain_subscriber_plan_none_registers_no_gated_subscriber() {
         plan,
         DomainSubscriberPlan {
             platform: false,
+            integrations: false,
+            security: false,
+            desktop: false,
+            skills: false,
             channels: false,
             flows: false,
             memory: false,
             meet: false,
             agent: false,
+            hosted: false,
             mcp: false,
         },
         "none() must register no gated domain subscriber (core infra still runs, ungated)"
@@ -64,10 +74,7 @@ fn domain_subscriber_plan_none_registers_no_gated_subscriber() {
 fn domain_subscriber_plan_harness_gates_by_owning_group() {
     let plan = DomainSubscriberPlan::for_domains(crate::core::runtime::DomainSet::harness());
     // harness() = agent + memory + threads + config + security.
-    assert!(
-        plan.agent,
-        "harness keeps agent + orchestration subscribers"
-    );
+    assert!(plan.agent, "harness keeps agent subscribers");
     assert!(
         plan.memory,
         "harness keeps memory conversation-persistence + sync bridge"
@@ -83,6 +90,10 @@ fn domain_subscriber_plan_harness_gates_by_owning_group() {
     );
     assert!(!plan.flows, "harness must skip flows trigger dispatch");
     assert!(!plan.meet, "harness must skip agent_meetings subscribers");
+    assert!(
+        !plan.hosted,
+        "harness must skip hosted orchestration ingest"
+    );
     assert!(!plan.mcp, "harness must skip mcp_registry bus init");
 }
 

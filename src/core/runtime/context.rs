@@ -309,7 +309,12 @@ pub struct StoreInitPlan {
     pub memory: bool,
     /// `agent::multimodal` attachments sidecar dir — gated on [`DomainGroup::Agent`].
     pub agent_attachments: bool,
-    /// `people::store` — gated on [`DomainGroup::Platform`].
+    /// `memory::people::store` — gated on [`DomainGroup::Memory`].
+    ///
+    /// Was `Platform` while `people` was a top-level domain. The reorg moved it
+    /// to `memory/people` and its controllers are tagged `Memory`; leaving the
+    /// store on `Platform` would register those controllers under `harness()`
+    /// with no store behind them.
     pub people: bool,
     /// legacy-workflow prune under `skills::registry` — gated on [`DomainGroup::Skills`].
     pub skills_prune: bool,
@@ -322,7 +327,7 @@ impl StoreInitPlan {
         Self {
             memory: domains.allows(DomainGroup::Memory),
             agent_attachments: domains.allows(DomainGroup::Agent),
-            people: domains.allows(DomainGroup::Platform),
+            people: domains.allows(DomainGroup::Memory),
             skills_prune: domains.allows(DomainGroup::Skills),
         }
     }
@@ -391,7 +396,7 @@ pub async fn init_stores(
             Err(e) => log::warn!("[boot] people::store init failed: {e}"),
         }
     } else {
-        log::debug!("[boot] people::store init SKIPPED — Platform domain disabled");
+        log::debug!("[boot] people::store init SKIPPED — Memory domain disabled");
     }
     // Prune legacy bundled skills (dev-workflow / github-issue-crusher
     // / pr-review-shepherd) that older builds seeded into
@@ -482,8 +487,16 @@ mod tests {
             plan.agent_attachments,
             "harness keeps agent attachments sidecar (Agent)"
         );
-        // Platform / Skills are NOT in harness → their stores stay off.
-        assert!(!plan.people, "harness must skip people::store (Platform)");
+        // `people` moved to `memory/people` in the domain reorg (#5328) and its
+        // controllers are tagged `Memory`, so harness — which enables Memory —
+        // must now initialize its store too. Before the realignment it keyed on
+        // `Platform`, which meant harness registered the people controllers with
+        // no store behind them.
+        assert!(
+            plan.people,
+            "harness keeps memory::people::store (Memory) — it moved under memory/"
+        );
+        // Skills is NOT in harness → its store work stays off.
         assert!(
             !plan.skills_prune,
             "harness must skip skills legacy-prune (Skills)"

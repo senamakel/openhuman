@@ -34,6 +34,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 | 0.1.1 | Direct Download Access       | MS    | release-manual-smoke (see #971) | 🚫     | DMG hosting + version landing page    |
 | 0.1.2 | Version Compatibility Check  | MS    | release-manual-smoke            | 🚫     | Driver cannot assert OS-version gates |
 | 0.1.3 | Corrupted Installer Handling | MS    | release-manual-smoke            | 🚫     | Mutated DMG validation; manual repro  |
+| 0.1.4 | Download Reward Confirmation | VU    | `app/src/utils/__tests__/desktopDeepLinkListener.test.ts`, `app/src/services/api/waitlistApi.test.ts` | ✅ | `openhuman://waitlist` open confirms the tokenmaxxxing download |
 
 ### 0.2 Installation & Launch
 

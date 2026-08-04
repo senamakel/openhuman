@@ -1892,8 +1892,18 @@ async fn run_server_with_services(
 /// always registered as core/platform infra and intentionally absent here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DomainSubscriberPlan {
-    /// webhook + notification-bridge + composio trigger + task-sources + device-tunnel.
+    /// Reserved for subscribers with no family of their own. Currently none:
+    /// the reorg gave every subscriber that used to live here a real family
+    /// (see the fields below), so this stays for future kernel-level ones.
     pub platform: bool,
+    /// composio trigger archive + trigger subscriber + task-sources poller.
+    pub integrations: bool,
+    /// device tunnel handshake/peer-status subscriber.
+    pub security: bool,
+    /// notification bridge (desktop-shell delivery).
+    pub desktop: bool,
+    /// webhook request subscriber (skills own inbound webhook routing).
+    pub skills: bool,
     /// channel-inbound + web-only proactive.
     pub channels: bool,
     /// flows trigger dispatch.
@@ -1904,6 +1914,8 @@ pub struct DomainSubscriberPlan {
     pub meet: bool,
     /// agent handlers + background delivery + run-ledger finalizer + orchestration ingest.
     pub agent: bool,
+    /// hosted orchestration ingest.
+    pub hosted: bool,
     /// mcp::registry lifecycle bus init.
     pub mcp: bool,
 }
@@ -1914,11 +1926,16 @@ impl DomainSubscriberPlan {
         use crate::core::all::DomainGroup;
         Self {
             platform: domains.allows(DomainGroup::Platform),
+            integrations: domains.allows(DomainGroup::Integrations),
+            security: domains.allows(DomainGroup::Security),
+            desktop: domains.allows(DomainGroup::Desktop),
+            skills: domains.allows(DomainGroup::Skills),
             channels: domains.allows(DomainGroup::Channels),
             flows: domains.allows(DomainGroup::Flows),
             memory: domains.allows(DomainGroup::Memory),
             meet: domains.allows(DomainGroup::Meet),
             agent: domains.allows(DomainGroup::Agent),
+            hosted: domains.allows(DomainGroup::Hosted),
             mcp: domains.allows(DomainGroup::Mcp),
         }
     }
@@ -1975,6 +1992,23 @@ fn register_domain_subscribers(
             .lock()
             .expect("domain-subscriber registry lock poisoned")
             .insert(group)
+    }
+
+    /// Learning subscribers need their own idempotency token rather than
+    /// `group_first_time(DomainGroup::Agent)`: the Agent block below already
+    /// consumes that token, and whichever ran second would silently skip.
+    fn learning_first_time() -> bool {
+        static DONE: OnceLock<Mutex<bool>> = OnceLock::new();
+        let mut done = DONE
+            .get_or_init(|| Mutex::new(false))
+            .lock()
+            .expect("learning-subscriber registry lock poisoned");
+        if *done {
+            false
+        } else {
+            *done = true;
+            true
+        }
     }
 
     // Seed the live tool-execution timeout from the persisted `[agent]` config
@@ -2083,10 +2117,10 @@ fn register_domain_subscribers(
     // ---- Gated domain subscribers — each group installed at most once, the
     // first time its owning DomainGroup is enabled. -------------------------
 
-    // Platform: webhook + notification bridge + composio trigger + task-sources
-    // proactive ingestion + device tunnel.
-    if plan.platform {
-        if group_first_time(DomainGroup::Platform) {
+    // Carved-out families: webhook (Skills), notification bridge (Desktop),
+    // composio + task-sources (Integrations), and device tunnel (Security).
+    if plan.skills {
+        if group_first_time(DomainGroup::Skills) {
             if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
                 crate::openhuman::skills::webhooks::bus::WebhookRequestSubscriber::new(),
             )) {
@@ -2096,9 +2130,23 @@ fn register_domain_subscribers(
                     "[event_bus] failed to register webhook subscriber — bus not initialized"
                 );
             }
+        }
+    } else {
+        log::debug!("[event_bus] webhook subscriber SKIPPED — Skills domain disabled");
+    }
+
+    if plan.desktop {
+        if group_first_time(DomainGroup::Desktop) {
             crate::openhuman::desktop::notifications::register_notification_bridge_subscriber(
                 config.clone(),
             );
+        }
+    } else {
+        log::debug!("[event_bus] notification bridge SKIPPED — Desktop domain disabled");
+    }
+
+    if plan.integrations {
+        if group_first_time(DomainGroup::Integrations) {
             if let Err(error) =
                 crate::openhuman::integrations::composio::init_composio_trigger_history(
                     workspace_dir.clone(),
@@ -2108,24 +2156,39 @@ fn register_domain_subscribers(
             }
             crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
             crate::openhuman::integrations::task_sources::bus::register_task_sources_subscriber();
+        }
+    } else {
+        log::debug!(
+            "[event_bus] composio + task-sources subscribers SKIPPED — Integrations domain disabled"
+        );
+    }
+
+    if plan.security {
+        if group_first_time(DomainGroup::Security) {
             // Device tunnel subscriber: handles tunnel:frame handshakes,
             // peer-status events, and register acks. Must be live before any
             // tunnel:frame events can arrive.
             crate::openhuman::security::devices::bus::register_device_tunnel_subscriber();
+        }
+    } else {
+        log::debug!("[event_bus] device-tunnel subscriber SKIPPED — Security domain disabled");
+    }
+
+    if plan.agent {
+        if learning_first_time() {
             // Always-on learning subscribers (email-signature producer, rebuild
             // trigger + periodic loop, ProfileMdRenderer). Previously wired only
             // in `channels::runtime::startup::start_channels`, which is skipped
             // when no channel is configured — silently dropping ALL learning for
-            // channel-less users (#5003). Registered here on the unconditional
-            // Platform boot path; idempotent, so it never double-registers.
+            // channel-less users (#5003). `agent::learning` is an Agent-family
+            // domain; it sat on the Platform boot path only because `learning`
+            // used to be a top-level directory. Idempotent.
             crate::openhuman::agent::learning::startup::register_learning_subscribers(
                 workspace_dir.clone(),
             );
         }
     } else {
-        log::debug!(
-            "[event_bus] Platform subscribers (webhook/notification/composio/task-sources/device-tunnel) SKIPPED — Platform domain disabled"
-        );
+        log::debug!("[event_bus] learning subscribers SKIPPED — Agent domain disabled");
     }
 
     // Channels: inbound dispatch + web-only proactive messaging.
@@ -2252,12 +2315,19 @@ fn register_domain_subscribers(
         log::debug!("[event_bus] agent_meetings subscribers SKIPPED — Meet domain disabled");
     }
 
-    // Agent: orchestration ingest + native agent handlers + background-completion
-    // delivery + run-ledger finalizer.
+    // Hosted: ingest tiny.place harness session DMs off the stream bus.
+    if plan.hosted {
+        if group_first_time(DomainGroup::Hosted) {
+            crate::openhuman::hosted::orchestration::register_orchestration_ingest_subscriber();
+        }
+    } else {
+        log::debug!("[event_bus] orchestration ingest SKIPPED — Hosted domain disabled");
+    }
+
+    // Agent: native agent handlers + background-completion delivery +
+    // run-ledger finalizer.
     if plan.agent {
         if group_first_time(DomainGroup::Agent) {
-            // Orchestration: ingest tiny.place harness session DMs off the stream bus.
-            crate::openhuman::hosted::orchestration::register_orchestration_ingest_subscriber();
             // Native request handlers — the agent `agent.run_turn` handler is
             // what channel dispatch calls instead of importing
             // `run_tool_call_loop` directly.
@@ -2276,7 +2346,7 @@ fn register_domain_subscribers(
         }
     } else {
         log::debug!(
-            "[event_bus] agent handlers + background delivery + run-ledger finalizer + orchestration ingest SKIPPED — Agent domain disabled"
+            "[event_bus] agent handlers + background delivery + run-ledger finalizer SKIPPED — Agent domain disabled"
         );
     }
 
@@ -2325,7 +2395,12 @@ pub async fn bootstrap_core_runtime(
     // --- Event bus bootstrap ---
     // Ensure the global event bus is initialized (no-op if already done by start_channels).
     crate::core::event_bus::init_global(crate::core::event_bus::DEFAULT_CAPACITY);
-    crate::openhuman::agent::file_state::init_global();
+    let agent_enabled = domains.allows(crate::core::all::DomainGroup::Agent);
+    if agent_enabled {
+        crate::openhuman::agent::file_state::init_global();
+    } else {
+        log::debug!("[boot] agent file-state coordinator SKIPPED — Agent domain disabled");
+    }
     // Register domain subscribers for cross-module event handling. Ungated infra
     // runs once (INFRA: Once) and each DomainGroup installs at most once via the
     // per-group `group_first_time` set, so repeated calls to
@@ -2360,21 +2435,21 @@ pub async fn bootstrap_core_runtime(
     // at boot is orphaned — its driver died without firing a terminal event, so
     // the finalizer never settled it. Stamp such rows `interrupted` so they stop
     // rendering as perpetual "running" timeline entries on thread reopen.
-    match crate::openhuman::agent::session_db::run_ledger::interrupt_orphaned_agent_runs(&cfg) {
-        Ok(0) => {}
-        Ok(count) => log::info!("[runtime] settled {count} orphaned agent run(s) on startup"),
-        Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
-    }
+    if agent_enabled {
+        match crate::openhuman::agent::session_db::run_ledger::interrupt_orphaned_agent_runs(&cfg) {
+            Ok(0) => {}
+            Ok(count) => log::info!("[runtime] settled {count} orphaned agent run(s) on startup"),
+            Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
+        }
 
-    // --- Detached sub-agent TaskStore reconciliation -------------------
-    // The durable orchestration TaskStore (`<workspace>/.openhuman/
-    // orchestration_tasks.jsonl`) can hold non-terminal sub-agent records left
-    // by a previous process — their detached executor (abort handle +
-    // cooperative CancellationToken) died with that process, so they cannot be
-    // re-attached. Reconcile each orphan to a terminal state and emit the typed
-    // terminal lifecycle event so the run ledger finalizes. Best-effort and
-    // non-fatal (issue #4249 / 07.2 steps 2 & 4).
-    {
+        // --- Detached sub-agent TaskStore reconciliation -------------------
+        // The durable orchestration TaskStore (`<workspace>/.openhuman/
+        // orchestration_tasks.jsonl`) can hold non-terminal sub-agent records left
+        // by a previous process — their detached executor (abort handle +
+        // cooperative CancellationToken) died with that process, so they cannot be
+        // re-attached. Reconcile each orphan to a terminal state and emit the typed
+        // terminal lifecycle event so the run ledger finalizes. Best-effort and
+        // non-fatal (issue #4249 / 07.2 steps 2 & 4).
         let reconciled =
             crate::openhuman::agent::orchestration::running_subagents::reconcile_orphaned_tasks_on_boot(
                 &workspace_dir,
@@ -2384,6 +2459,10 @@ pub async fn bootstrap_core_runtime(
                 "[runtime] reconciled {reconciled} orphaned detached sub-agent task(s) on startup"
             );
         }
+    } else {
+        log::debug!(
+            "[boot] agent run-ledger + orchestration task reconciliation SKIPPED — Agent domain disabled"
+        );
     }
 
     // --- Cost dashboard tracker ---
@@ -2409,13 +2488,17 @@ pub async fn bootstrap_core_runtime(
     // Loads built-in archetype definitions plus any custom TOML files
     // under `<workspace>/agents/*.toml`. Idempotent — safe to call
     // multiple times. Uses the per-user scoped workspace_dir.
-    if let Err(err) =
-        crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&workspace_dir)
-    {
-        log::warn!(
-            "[runtime] AgentDefinitionRegistry::init_global failed: {err} — \
-             spawn_subagent will be unavailable until restart"
-        );
+    if agent_enabled {
+        if let Err(err) =
+            crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&workspace_dir)
+        {
+            log::warn!(
+                "[runtime] AgentDefinitionRegistry::init_global failed: {err} — \
+                 spawn_subagent will be unavailable until restart"
+            );
+        }
+    } else {
+        log::debug!("[boot] agent definition registry SKIPPED — Agent domain disabled");
     }
 
     // --- Agent sandbox + projects dirs ---

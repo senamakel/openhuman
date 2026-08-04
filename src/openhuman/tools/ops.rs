@@ -1271,13 +1271,9 @@ pub fn all_tools_with_runtime(
 /// by its `name()`, so [`all_tools_with_runtime`] can drop tools whose family is
 /// disabled under the ambient [`DomainSet`](crate::core::runtime::DomainSet).
 ///
-/// Only the gate families (Web3/Mcp/Skills/Flows/Media/Voice/Meet) and the two
-/// mapped harness families (Memory/Threads) are matched; **everything else
-/// defaults to `Platform`**. Consequence under `harness()` (platform off): the
-/// gate-family tools drop AND the generic Platform tools (shell/file/grep/edit/
-/// screen/billing/team/cron/config/security/agent-orchestration/…) drop too —
-/// only memory + thread/todo tools remain. This is the strict #4796 harness
-/// surface; an embedder that wants a broader tool set can widen its DomainSet.
+/// Named-family tools are matched here; everything without a domain family
+/// defaults to `Platform`. Under `harness()`, the Agent/Memory/Threads/Config/
+/// Security tools remain while gate-family and generic Platform tools drop.
 /// (Names verified against each Tool impl's `fn name()` on 2026-07-13.)
 fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     use crate::core::all::DomainGroup;
@@ -1359,6 +1355,14 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "audio_generate_and_email_podcast",
     ];
     // Threads: thread_* / todo_* handled by prefix below; these are the extras.
+    // Subconscious monitor + proactive-notify tools (Automation family).
+    const MONITORS: &[&str] = &[
+        "monitor",
+        "monitor_list",
+        "monitor_read",
+        "monitor_stop",
+        "notify_user",
+    ];
     const THREADS_EXTRA: &[&str] = &["transcript_search", "goal_get", "goal_set", "goal_complete"];
     // Memory extras not covered by the `memory_`/`goals_` prefixes.
     const MEMORY_EXTRA: &[&str] = &[
@@ -1414,8 +1418,97 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     if name.starts_with("thread_") || name.starts_with("todo_") || THREADS_EXTRA.contains(&name) {
         return DomainGroup::Threads;
     }
-    // Everything else — shell/file/config/security/agent/billing/… — is
-    // Platform: present under full(), absent under harness()/none().
+    // Harness families realigned out of Platform.
+    if name.starts_with("artifact_")
+        || name.starts_with("learning_")
+        || name.contains("subagent")
+        || matches!(
+            name,
+            "ask_user_clarification"
+                | "agent_prepare_context"
+                | "delegate"
+                | "delegate_graph"
+                | "delegate_to_personality"
+                | "todo"
+                | "update_task"
+                | "wait"
+                | "wait_loop"
+                | "request_plan_review"
+                | "plan_exit"
+                | "spawn_parallel_agents"
+        )
+    {
+        return DomainGroup::Agent;
+    }
+    if name.starts_with("config_") || name.starts_with("workspace_") {
+        return DomainGroup::Config;
+    }
+    if name.starts_with("people_") {
+        return DomainGroup::Memory;
+    }
+    if name.starts_with("security_")
+        || name.starts_with("credential_")
+        || name.starts_with("session_")
+        || name.starts_with("oauth_")
+    {
+        return DomainGroup::Security;
+    }
+    // ── Families carved out of Platform by the DomainGroup realignment ──────
+    // Each of these previously fell through to Platform, which meant the tool
+    // stayed callable when its family was gated off under a custom DomainSet —
+    // the leak the #4808 review flagged for whatsapp_data. Keep these in
+    // lockstep with the `push(...)` tags in `core::all`.
+    //
+    // Automation: scheduled jobs (`cron_*`) plus the subconscious monitor +
+    // proactive-notify surface.
+    if name.starts_with("cron_") || name == "schedule" || MONITORS.contains(&name) {
+        return DomainGroup::Automation;
+    }
+    // Integrations: every external connector reached on the user's behalf.
+    if name.starts_with("composio")
+        || name == "web_search_tool"
+        || name.starts_with("tinyfish_")
+        || name.starts_with("exa_")
+        || name.starts_with("brave_")
+        || name.starts_with("parallel_")
+        || name.starts_with("querit_")
+        || name.starts_with("apify_")
+        || name.starts_with("google_places_")
+        || name.starts_with("stock_")
+        || name == "polymarket"
+        || name.starts_with("storage_")
+        || name.starts_with("task_source_")
+        || name == "twilio_call"
+    {
+        return DomainGroup::Integrations;
+    }
+    // Hosted: clients of the TinyHumans backend.
+    if name.starts_with("billing_")
+        || name.starts_with("referral_")
+        || name.starts_with("team_")
+        || name.starts_with("orchestration_")
+    {
+        return DomainGroup::Hosted;
+    }
+    // Relay: the multi-agent relay surface.
+    if name.starts_with("tinyplace_") {
+        return DomainGroup::Relay;
+    }
+    // Desktop: shell-facing surfaces.
+    if name.starts_with("dashboard_") {
+        return DomainGroup::Desktop;
+    }
+    // Runtimes: the managed Node/Python execution tools. These live under
+    // `tools/impl/system/` rather than `runtime/`, so they are matched by name.
+    if name == "node_exec" || name == "npm_exec" || name == "python_exec" {
+        return DomainGroup::Runtimes;
+    }
+    // Inference: the token-compression retrieval surface.
+    if name.starts_with("tokenjuice_") {
+        return DomainGroup::Inference;
+    }
+    // Everything else — shell/file and other kernel utilities — is Platform:
+    // present under full(), absent under harness()/none().
     DomainGroup::Platform
 }
 

@@ -208,6 +208,20 @@ pub struct DomainSet {
     /// Medulla integration: cloud client, session runtime, chat store, and
     /// authored harness workflows.
     pub medulla: bool,
+    /// Model inference: providers, routing, local engines, embeddings.
+    pub inference: bool,
+    /// External connectors (Composio, calendar, file storage, task sources).
+    pub integrations: bool,
+    /// Background initiative: cron + the subconscious tick loop.
+    pub automation: bool,
+    /// Code-execution substrate: Node/Python runtimes, pool, sandbox.
+    pub runtimes: bool,
+    /// Desktop-shell-facing surfaces.
+    pub desktop: bool,
+    /// Clients of the hosted TinyHumans backend.
+    pub hosted: bool,
+    /// The multi-agent relay surface (tinyplace).
+    pub relay: bool,
     /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
 }
@@ -231,6 +245,13 @@ impl DomainSet {
             voice: true,
             media: true,
             medulla: true,
+            inference: true,
+            integrations: true,
+            automation: true,
+            runtimes: true,
+            desktop: true,
+            hosted: true,
+            relay: true,
             platform: true,
         }
     }
@@ -254,13 +275,20 @@ impl DomainSet {
             voice: false,
             media: false,
             medulla: false,
+            inference: false,
+            integrations: false,
+            automation: false,
+            runtimes: false,
+            desktop: false,
+            hosted: false,
+            relay: false,
             platform: false,
         }
     }
 
     /// A long-lived embedded host: the harness core plus the Medulla
-    /// integration and the workflow engine it runs on, and `platform` for the
-    /// credentials / config / cron / task-source domains such a session needs.
+    /// integration and the workflow engine it runs on, and the supporting
+    /// runtime, automation, integration, and platform surfaces it needs.
     ///
     /// Named for the *shape* rather than any downstream consumer — the core
     /// does not know which host embeds it, and a preset naming one would invert
@@ -294,7 +322,50 @@ impl DomainSet {
             voice: false,
             media: false,
             medulla: true,
+            inference: true,
+            integrations: true,
+            automation: true,
+            runtimes: true,
+            desktop: false,
+            hosted: false,
+            relay: false,
             platform: true,
+        }
+    }
+
+    /// The kernel floor: threads, config, security — and nothing else.
+    ///
+    /// Distinct from [`DomainSet::none`], which is "no domains at all". This is
+    /// "the minimum a host needs before opting a subsystem back in", so an
+    /// embedder can request kernel + exactly one family. `agent` and `memory`
+    /// are OFF on purpose: they are the two largest subsystems and the ones an
+    /// alternative driver would replace, so a host that wants them says so.
+    ///
+    /// See `examples/embed_kernel.rs`.
+    pub fn kernel() -> Self {
+        Self {
+            agent: false,
+            memory: false,
+            threads: true,
+            config: true,
+            security: true,
+            flows: false,
+            skills: false,
+            mcp: false,
+            meet: false,
+            channels: false,
+            web3: false,
+            voice: false,
+            media: false,
+            medulla: false,
+            inference: false,
+            integrations: false,
+            automation: false,
+            runtimes: false,
+            desktop: false,
+            hosted: false,
+            relay: false,
+            platform: false,
         }
     }
 
@@ -315,6 +386,13 @@ impl DomainSet {
             voice: false,
             media: false,
             medulla: false,
+            inference: false,
+            integrations: false,
+            automation: false,
+            runtimes: false,
+            desktop: false,
+            hosted: false,
+            relay: false,
             platform: false,
         }
     }
@@ -336,6 +414,13 @@ impl DomainSet {
             DomainGroup::Voice => self.voice,
             DomainGroup::Media => self.media,
             DomainGroup::Medulla => self.medulla,
+            DomainGroup::Inference => self.inference,
+            DomainGroup::Integrations => self.integrations,
+            DomainGroup::Automation => self.automation,
+            DomainGroup::Runtimes => self.runtimes,
+            DomainGroup::Desktop => self.desktop,
+            DomainGroup::Hosted => self.hosted,
+            DomainGroup::Relay => self.relay,
             DomainGroup::Platform => self.platform,
         }
     }
@@ -754,6 +839,7 @@ mod tests {
             DomainGroup::Voice,
             DomainGroup::Media,
             DomainGroup::Medulla,
+            DomainGroup::Integrations,
             DomainGroup::Platform,
         ] {
             assert!(full.allows(group), "full() must allow {group:?}");
@@ -859,8 +945,8 @@ mod tests {
     #[test]
     fn embedded_is_not_harness_plus_medulla() {
         // Guards the most tempting future "simplification": deriving this
-        // preset from harness(). harness() sets platform:false, which drops
-        // credentials/config/cron/task_sources/todos.
+        // preset from harness(), which leaves the supporting Platform,
+        // Channels, and Integrations families off.
         let harness = DomainSet::harness();
         let tui = DomainSet::embedded();
 
@@ -868,6 +954,8 @@ mod tests {
         assert!(tui.allows(DomainGroup::Platform));
         assert!(!harness.allows(DomainGroup::Channels));
         assert!(tui.allows(DomainGroup::Channels));
+        assert!(!harness.allows(DomainGroup::Integrations));
+        assert!(tui.allows(DomainGroup::Integrations));
     }
 
     #[test]

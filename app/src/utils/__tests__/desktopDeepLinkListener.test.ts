@@ -2,6 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { confirmWaitlistDownload } from '../../services/api/waitlistApi';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../../services/coreRpcClient';
 import {
   completeDeepLinkAuthProcessing,
@@ -26,6 +27,7 @@ vi.mock('../../services/coreRpcClient', () => ({
   clearCoreRpcTokenCache: vi.fn(),
 }));
 vi.mock('../openUrl', () => ({ openUrl: vi.fn() }));
+vi.mock('../../services/api/waitlistApi', () => ({ confirmWaitlistDownload: vi.fn() }));
 
 // Build an `openhuman://auth` deep link bound to a freshly registered state
 // nonce, mirroring how the real OAuth button registers the loopback/deep-link
@@ -89,6 +91,8 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(clearCoreRpcTokenCache).mockClear();
     vi.mocked(openUrl).mockReset();
     vi.mocked(openUrl).mockResolvedValue(undefined);
+    vi.mocked(confirmWaitlistDownload).mockReset();
+    vi.mocked(confirmWaitlistDownload).mockResolvedValue(undefined);
     windowControls.show.mockClear();
     windowControls.unminimize.mockClear();
     windowControls.setFocus.mockClear();
@@ -106,6 +110,58 @@ describe('desktopDeepLinkListener', () => {
     await handleDeepLinkUrls(['openhuman://payment/cancel']);
 
     expect(openUrl).toHaveBeenCalledWith(BILLING_DASHBOARD_URL);
+  });
+
+  it('confirms the download and focuses the window for a waitlist deep link', async () => {
+    await handleDeepLinkUrls(['openhuman://waitlist?token=dl-token-123']);
+
+    expect(confirmWaitlistDownload).toHaveBeenCalledWith('dl-token-123');
+    expect(windowControls.setFocus).toHaveBeenCalled();
+  });
+
+  it('still opens the app when the confirmation fails', async () => {
+    // Startup must survive an offline launch: the reward is idempotent and the
+    // next open retries it, but the window has to appear either way.
+    vi.mocked(confirmWaitlistDownload).mockRejectedValue({ success: false, error: 'offline' });
+
+    await expect(
+      handleDeepLinkUrls(['openhuman://waitlist?token=dl-token-123'])
+    ).resolves.toBeUndefined();
+    expect(windowControls.setFocus).toHaveBeenCalled();
+  });
+
+  it('does not call the backend when the waitlist link carries no token', async () => {
+    await handleDeepLinkUrls(['openhuman://waitlist']);
+
+    expect(confirmWaitlistDownload).not.toHaveBeenCalled();
+    expect(windowControls.setFocus).toHaveBeenCalled();
+  });
+
+  it('keeps the download token out of the logs on failure', async () => {
+    // The token in the message is the point: a rejection on this path can carry
+    // the credential, and `sanitizeError` would have preserved it.
+    vi.mocked(confirmWaitlistDownload).mockRejectedValue(new Error('super-secret-token'));
+
+    await handleDeepLinkUrls(['openhuman://waitlist?token=super-secret-token']);
+
+    // Reads the suite-wide console spy from `src/test/setup.ts` rather than
+    // installing its own. A local spy would have to be restored, and restoring
+    // it un-spies `console.warn` for every test that runs after this one —
+    // `restoreMocks` is off, so nothing puts it back.
+    expect(console.warn).toHaveBeenCalledWith('[DeepLink][waitlist] Could not confirm download');
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain('super-secret-token');
+  });
+
+  it('waits for the core before confirming, and skips the call when it never comes up', async () => {
+    // Cold open from a download link runs before BootCheckGate starts the core,
+    // and the backend base resolves through it — confirming early would post to
+    // nothing and be swallowed as an ordinary failure.
+    waitForOAuthAuthReadiness.mockResolvedValue({ ready: false, reason: 'core_unreachable' });
+
+    await handleDeepLinkUrls(['openhuman://waitlist?token=dl-token-123']);
+
+    expect(confirmWaitlistDownload).not.toHaveBeenCalled();
+    expect(windowControls.setFocus).toHaveBeenCalled();
   });
 
   it('turns Twitter OAuth error deep links into actionable UI and event diagnostics', async () => {

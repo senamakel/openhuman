@@ -330,8 +330,17 @@ RPCs are unregistered and the `MemoryDiffTool` is absent.
 2. Every family directory maps 1:1 to a gate or is declared kernel in this document.
 3. `kernel-floor.limits` reaches 222 names / 2 native.
 4. Each gate has both-ways tests in `src/core/all_tests.rs` and `tools/ops_tests.rs`.
-5. `DomainGroup` gains at most four variants (`Integrations`, `Automation`, `Relay`, `Runtimes`);
-   the rest stay `Platform` at the runtime axis. `DomainSet::kernel()` exists, with
-   `examples/embed_kernel.rs`.
+5. ✅ **Done.** `DomainGroup` gained seven variants, not four: `Inference`, `Integrations`,
+   `Automation` (cron + subconscious), `Runtimes` (runtime + sandbox), `Desktop`, `Hosted`,
+   `Relay` (tinyplace). The extra three over the original estimate are `Inference`, `Desktop`
+   and `Hosted` — carving those out is what lets `embedded()` stop setting `platform: true`
+   just to reach credentials and config. `Platform` now holds only `platform/`, `tools/`,
+   `http_host/`, `test_support/`. `DomainSet::kernel()` and `examples/embed_kernel.rs` exist;
+   the example runs and demonstrates memory-on / agent-unknown-method.
+
+   The realignment also fixed two defects the flat tree had hidden: `harness()` was dropping
+   ten namespaces (including `harness_init`) into `Platform` despite claiming their families,
+   and `StoreInitPlan.people` keyed on `Platform` while its controllers moved to `Memory` —
+   which would have registered the people RPC surface with no store behind it.
 6. Hand off to `kernel.md`'s subsystem registry (`src/core/subsystem/`, `Driver`,
    `Guard`, `subsystems_status`).

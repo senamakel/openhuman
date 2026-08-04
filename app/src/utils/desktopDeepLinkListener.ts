@@ -4,6 +4,7 @@ import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 
 import { getCoreStateSnapshot, patchCoreStateSnapshot } from '../lib/coreState/store';
 import { consumeLoginToken } from '../services/api/authApi';
+import { confirmWaitlistDownload } from '../services/api/waitlistApi';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../services/coreRpcClient';
 import {
   beginDeepLinkAuthProcessing,
@@ -586,6 +587,59 @@ const handleOAuthDeepLink = async (parsed: URL) => {
 };
 
 /**
+ * `openhuman://waitlist?token=...` — the app was opened from a tokenmaxxxing
+ * download link.
+ *
+ * Unlike the auth and oauth hosts, there is nothing here to apply to the app:
+ * the token is a one-time download handle belonging to a waitlist entry, not a
+ * session credential, and it is never stored. The only job is to tell the
+ * backend the app really was opened, which is what releases that entry's
+ * download reward.
+ *
+ * The window is focused first and regardless of the outcome. Someone who just
+ * launched the app should see it whatever the network did, and the reward is
+ * idempotent — a confirmation that fails now is simply retried the next time the
+ * link is opened. Nothing in this path may throw: it runs during startup, and a
+ * missed reward is a far smaller failure than an app that will not open.
+ */
+const handleWaitlistDeepLink = async (parsed: URL) => {
+  await focusMainWindow();
+
+  const token = parsed.searchParams.get('token');
+  if (!token) {
+    console.warn('[DeepLink][waitlist] URL did not contain a token query parameter');
+    return;
+  }
+
+  // A cold open from a download link is the path this feature exists for, and it
+  // is the one that would have failed: `setupDesktopDeepLinkListener` runs before
+  // `bootRender`, so this fires before BootCheckGate has started the core — and
+  // `apiClient` resolves its base URL from that core over RPC. Confirming
+  // straight away would post to a base that is not resolvable yet, and the
+  // catch below would swallow it as an ordinary failure.
+  //
+  // This is the same gate the auth deep link waits on, for the same reason: it
+  // commits a core mode, starts the local core, and polls `core.ping`. The name
+  // says OAuth but the behaviour is core readiness and nothing more.
+  const readiness = await waitForOAuthAuthReadiness();
+  if (!readiness.ready) {
+    console.warn('[DeepLink][waitlist] Core not ready; leaving the reward for a later open');
+    return;
+  }
+
+  try {
+    await confirmWaitlistDownload(token);
+    console.log('[DeepLink][waitlist] Download confirmed');
+  } catch {
+    // No error detail, deliberately. A rejection on this path can carry the
+    // token in its message — `sanitizeError` preserves `Error.message` — and a
+    // credential must never reach a log. That the confirmation failed is the
+    // whole of what is safe to record here.
+    console.warn('[DeepLink][waitlist] Could not confirm download');
+  }
+};
+
+/**
  * Handle a list of deep link URLs delivered by the Tauri deep-link plugin.
  * Routes to the appropriate handler based on the URL hostname:
  *   - `openhuman://auth?token=...` → login flow
@@ -593,6 +647,7 @@ const handleOAuthDeepLink = async (parsed: URL) => {
  *   - `openhuman://oauth/error?...` → OAuth failure
  *   - `openhuman://payment/success?session_id=...` → Stripe payment confirmation
  *   - `openhuman://payment/cancel` → Stripe payment cancellation
+ *   - `openhuman://waitlist?token=...` → tokenmaxxxing download confirmation
  */
 export const handleDeepLinkUrls = async (
   urls: string[] | null | undefined,
@@ -620,6 +675,9 @@ export const handleDeepLinkUrls = async (
         break;
       case 'payment':
         await handlePaymentDeepLink(parsed);
+        break;
+      case 'waitlist':
+        await handleWaitlistDeepLink(parsed);
         break;
       default:
         console.warn('[DeepLink] Unknown deep link hostname:', parsed.hostname);

@@ -528,7 +528,7 @@ impl SecurityGate for OpenHumanSecurityGate {
         // 5. Everything else: the tool's own external-effect classification
         //    decides whether a human is asked.
         if tool.external_effect_with_args(&call.arguments) {
-            return Ok(self.park_for_approval(call).await);
+            return Ok(self.park_once(call, channel_approved).await);
         }
 
         tracing::debug!(
@@ -536,7 +536,7 @@ impl SecurityGate for OpenHumanSecurityGate {
             tool = %call.tool_name,
             "[tinyagents::host::security] allowed"
         );
-        Ok(GateDecision::Allow)
+        Ok(self.settled(channel_approved))
     }
 
     /// Runs OpenHuman's prompt-injection detector over `text`.

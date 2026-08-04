@@ -297,6 +297,21 @@ mod tests {
     }
 
     #[test]
+    fn an_arg_sensitive_tool_is_not_retryable_just_because_it_looks_side_effect_free() {
+        // The trap this allowlist exists to avoid: `ShellTool` overrides
+        // `external_effect_with_args` and leaves the arg-less
+        // `external_effect()` at the default `false`. A denylist built by
+        // inverting the arg-less signal would have marked `shell` retry-safe
+        // and re-run a timed-out write.
+        let classifier = classifier_allowing(&["file_read"]);
+        assert_eq!(
+            classifier.classify("shell", &result(Some("request timed out"), "")),
+            OutcomeClass::PermanentFailure,
+            "an unlisted tool is potentially effectful, whatever it declares"
+        );
+    }
+
+    #[test]
     fn a_timeout_is_permanent_when_the_host_declared_no_external_effects() {
         // Without the set the classifier cannot tell an email sender from a
         // file read, so it must not promise that repeating is safe.

@@ -250,7 +250,7 @@ async fn try_deterministic_memory_retrieval(
     // extraction here is deterministic and cheap (regex, or one spaCy call);
     // `fast_retrieve` repeats it internally, which is the same work its first
     // model-driven tool call would have done.
-    if crate::openhuman::memory::tree::nlp::extract_query_entities(&config, query)
+    if crate::openhuman::memory::tree::nlp::extract_query_entities(config, query)
         .await
         .is_empty()
     {
@@ -264,7 +264,7 @@ async fn try_deterministic_memory_retrieval(
         limit: MEMORY_FAST_PATH_LIMIT,
         ..FastRetrieveOptions::default()
     };
-    let resp = match fast_retrieve(&config, query, opts).await {
+    let resp = match fast_retrieve(config, query, opts).await {
         Ok(resp) => resp,
         Err(e) => {
             tracing::warn!(
@@ -1017,7 +1017,7 @@ async fn run_typed_mode(
         let (extract_source, extract_model) = match config.as_ref() {
             Ok(cfg) => {
                 let route =
-                    crate::openhuman::inference::provider::provider_for_role("summarization", &cfg);
+                    crate::openhuman::inference::provider::provider_for_role("summarization", cfg);
                 let r = route.trim();
                 let route_is_managed = r.is_empty() || r == "cloud" || r == "openhuman";
                 if route_is_managed && !parent.turn_model_source.is_local_provider() {
@@ -1025,7 +1025,7 @@ async fn run_typed_mode(
                 } else {
                     match crate::openhuman::inference::provider::create_chat_model_with_model_id(
                         "summarization",
-                        &cfg,
+                        cfg,
                         parent.temperature,
                     ) {
                         Ok((_model, resolved_model)) => (

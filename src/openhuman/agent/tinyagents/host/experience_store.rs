@@ -327,7 +327,7 @@ fn truncate_chars(input: &str, max_chars: usize) -> String {
 /// Case-insensitive, whitespace-insensitive agent id comparison, matching the
 /// `normalize` the domain's scorer uses (which is private to `store.rs`).
 fn same_agent(a: &str, b: &str) -> bool {
-    a.trim().to_ascii_lowercase() == b.trim().to_ascii_lowercase()
+    a.trim().eq_ignore_ascii_case(b.trim())
 }
 
 #[async_trait]

@@ -118,10 +118,10 @@ impl Agent {
     /// `composio/tools.rs`, and the spawn-time per-action tool build
     /// path in `subagent_runner/ops.rs`.
     pub async fn fetch_connected_integrations(&mut self) {
-        let config = match self.integration_runtime_config.clone() {
+        let config = match self.runtime_config.clone() {
             Some(config) => config,
             None => match crate::openhuman::config::Config::load_or_init().await {
-                Ok(config) => config,
+                Ok(config) => Arc::new(config),
                 Err(e) => {
                     log::debug!(
                         "[agent] skipping connected integrations fetch: config load failed: {e}"
@@ -259,7 +259,7 @@ impl Agent {
         &mut self,
         trigger: &str,
     ) -> bool {
-        let Some(cfg) = self.integration_runtime_config.as_ref() else {
+        let Some(cfg) = self.runtime_config.as_ref() else {
             return false;
         };
         let Some(cache_view) =

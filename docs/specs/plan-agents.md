@@ -451,14 +451,69 @@ cleanly and fails silently:
   silently destroying the first's record. The agent id is now folded into the
   hashed tool-sequence slot.
 
-**Remaining for Phase 4 — repointing, which is the harder half.** It runs into
-the same two blockers Phase 3 hit, so it is not simply "more of the same":
+**Remaining for Phase 4 — repointing. Investigated 2026-08-04 and found
+blocked, not merely hard.** Four findings, each measured:
 
-1. `builder/factory.rs` reaches 21 domains and is the assembly point. It gets
-   *split* into trait impls rather than repointed, so most of its coupling
-   moves rather than disappearing.
-2. The session still holds `AgentConfig` until Phase 2's reader flip rehomes
-   `session_dual_write` / `session_shadow_reads`.
+**1. The exit criterion counts the wrong code.** Of the 118 non-adapter-layer
+refs in `session/`, roughly two-thirds are not consumption at all:
+
+| Where | Refs | What it is |
+| --- | ---: | --- |
+| `builder/` (factory 29, setters 12, mod 3, helpers 2) | 46 | assembly — becomes the trait *impls*, per §3 |
+| `types.rs` | 16 | field type annotations — the injection points themselves |
+| `runtime.rs` | 13 | session state management (e.g. `rebuild_tool_policy_session`) |
+| `turn/` | 40 | the only genuine runtime consumption |
+| misc | 3 | |
+
+Driving `session/` "down to the adapter layer only" therefore cannot happen by
+repointing: most of those refs **are** the adapter layer. The honest metric is
+`turn/`'s ~40.
+
+**2. The session distributes handles more than it consumes them.** All 11 uses
+of `self.memory` hand the `Arc<dyn Memory>` to a collaborator (the memory
+loader, the context loader, `AgentExperienceStore`) rather than calling recall
+or store. Swapping the field to `Arc<dyn AgentMemory>` would break those
+collaborators, which need the full domain interface. The memory seam cannot be
+repointed until they move behind traits too.
+
+**3. No capability trait fits an existing call shape 1:1.** Checked all ten.
+`ContextComposer::compose_system_prompt` returns a `String`, but the turn needs
+structured `LearnedContextData` to feed its own `SystemPromptBuilder`, so
+adopting it means moving the whole prompt assembly into the adapter — the same
+work as Phase 5, not a repoint. `ToolOutcomeClassifier`'s only host consumer is
+`progress_tracing/`, which §3 **deletes** rather than moves. `subconscious` in
+`session/` is type annotations in `factory.rs` only.
+
+**4. Four adapters cannot be constructed from session state.**
+
+| Adapter | Constructor needs | Session has |
+| --- | --- | --- |
+| `AgentMemory`, `ExperienceStore` | `Arc<dyn Memory>` | yes (`memory_arc()`) |
+| `ToolOutcomeClassifier` | nothing | yes |
+| `ProgressSink` | `Sender<AgentProgress>` | yes |
+| `LearningSink` | `Vec<Arc<dyn PostTurnHook>>` | yes |
+| **`BudgetGate`, `ContextComposer`, `ModelResolver`** | **`Arc<Config>`** | **no — holds `AgentConfig`; full `Config` only as the optional `integration_runtime_config`** |
+| **`SecurityGate`** | **`Arc<SecurityPolicy>`** + tool sets | tool sets yes, **policy no** |
+
+That `Arc<Config>` gap is precisely the Phase 3 blocker, which means:
+
+> **The program is now a dependency chain, and its head is elapsed time.**
+> Phase 4's repointing needs the session to carry a full `Config` → that is
+> Phase 3's session-config swap → which is blocked on Phase 2 rehoming
+> `session_dual_write` / `session_shadow_reads` → which is blocked on the
+> parity soak, and the soak needs a *shipped release* to produce data.
+>
+> So §5's claim that Phase 4 "delivers most of the architectural value with
+> none of the relocation risk" and is a legitimate stopping point holds only
+> for the **adapters**, which are done. The repointing half is not independently
+> executable, and no amount of effort unblocks it before the soak lands.
+
+**What is unblocked meanwhile:** promoting the session's optional
+`integration_runtime_config: Option<Config>` to a first-class `Arc<Config>`
+(the factory already sets it at `factory.rs:1307`) would make four of the six
+blocked adapters constructible without waiting on Phase 2. That is the one
+piece of Phase 4 repointing that can proceed now, and it is worth doing before
+the soak completes so the rest is a short step rather than a long one.
 
 **21 `TODO(phase4)` markers** remain across the adapters, each naming a domain
 surface that was not reachable. They are honest gaps, not stubs pretending to

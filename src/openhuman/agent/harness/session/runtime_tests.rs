@@ -379,3 +379,62 @@ fn helper_paths_cover_no_overlap_native_calls_and_truncation() {
     let sanitized = Agent::sanitize_event_error_message(&long);
     assert!(sanitized.len() <= 256);
 }
+
+// ── Host capability accessors (plan-agents Phase 4) ──────────────────────────
+
+/// The memory-backed capabilities build from a bare-builder session.
+///
+/// These two are the adapters that need only `Arc<dyn Memory>`, which every
+/// session has however it was assembled — so they must work on the builder path
+/// too, not just behind the factory.
+#[tokio::test]
+async fn memory_backed_host_capabilities_build_from_session_state() {
+    use tinyagents::harness::host::{AgentMemory, ExperienceStore};
+
+    let model: Arc<dyn ChatModel<()>> = Arc::new(StaticModel {
+        response: Mutex::new(None),
+    });
+    let agent = make_agent(model);
+
+    // Exercised through the trait objects, not the concrete types: the point of
+    // the accessor is that the runtime can hold `dyn AgentMemory`.
+    let memory: &dyn AgentMemory = &agent.host_agent_memory();
+    let recalled = memory
+        .recall(tinyagents::harness::host::RecallRequest::new("anything"))
+        .await
+        .expect("recall must succeed against an empty backend");
+    assert!(
+        recalled.is_empty(),
+        "a `backend = none` memory has nothing to recall"
+    );
+
+    let experience: &dyn ExperienceStore = &agent.host_experience_store();
+    let prior = experience
+        .recall_for("orchestrator", "some task")
+        .await
+        .expect("recall_for must succeed against an empty store");
+    assert!(prior.is_empty(), "no experience has been recorded yet");
+}
+
+/// A bare-builder session reports its config-dependent capabilities as
+/// unavailable rather than pretending otherwise.
+///
+/// `host_capabilities_available()` is what keeps "this session cannot answer
+/// that" distinguishable from "the capability failed" — the same
+/// absence-versus-failure rule the traits are built on. The factory path sets
+/// the config (`factory.rs`); the builder path deliberately does not.
+#[tokio::test]
+async fn a_bare_builder_session_reports_config_capabilities_unavailable() {
+    let model: Arc<dyn ChatModel<()>> = Arc::new(StaticModel {
+        response: Mutex::new(None),
+    });
+    let agent = make_agent(model);
+    assert!(
+        agent.runtime_config().is_none(),
+        "the bare builder path supplies no host Config"
+    );
+    assert!(
+        !agent.host_capabilities_available(),
+        "config-dependent capabilities must report unavailable, not be fabricated"
+    );
+}

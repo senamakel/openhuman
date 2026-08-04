@@ -106,6 +106,63 @@ impl Agent {
         Arc::clone(&self.memory)
     }
 
+    /// The full host [`Config`](crate::openhuman::config::Config) this session
+    /// was built with, when it was built through the factory.
+    ///
+    /// `None` on the bare-builder path (`AgentBuilder` without
+    /// `AgentFactory`), which is used by tests and by callers assembling a
+    /// session by hand. Every capability adapter that needs host config treats
+    /// `None` as "not available" rather than loading one itself — see
+    /// [`Self::host_capabilities_available`].
+    pub fn runtime_config(&self) -> Option<Arc<crate::openhuman::config::Config>> {
+        self.runtime_config.clone()
+    }
+
+    /// Whether the config-dependent capability adapters can be built from this
+    /// session.
+    ///
+    /// Four of the ten host capabilities (`BudgetGate`, `ContextComposer`,
+    /// `ModelResolver`, and the policy half of `SecurityGate`) need a full
+    /// `Config`, which only the factory path supplies. This is the one-line
+    /// check a caller uses before reaching for them, so "this session cannot
+    /// answer that" stays distinguishable from "the capability failed" — the
+    /// same absence-versus-failure rule the traits themselves are built on.
+    pub fn host_capabilities_available(&self) -> bool {
+        self.runtime_config.is_some()
+    }
+
+    /// OpenHuman's [`AgentMemory`](tinyagents::harness::host::AgentMemory)
+    /// capability over this session's memory backend.
+    ///
+    /// Built on demand rather than stored: it is a thin adapter over an `Arc`
+    /// the session already holds, so constructing one is a refcount bump, and
+    /// storing it would create a second handle that could drift from
+    /// `self.memory` if the backend were ever swapped.
+    pub fn host_agent_memory(
+        &self,
+    ) -> crate::openhuman::agent::tinyagents::host::OpenHumanAgentMemory {
+        crate::openhuman::agent::tinyagents::host::OpenHumanAgentMemory::new(self.memory_arc())
+    }
+
+    /// OpenHuman's [`ExperienceStore`](tinyagents::harness::host::ExperienceStore)
+    /// capability, scoped to this session's agent profile.
+    ///
+    /// Uses `shared_experience_memory` when the session was given one so
+    /// procedural experience lands in the shared store rather than this
+    /// session's private one; falls back to `memory` otherwise.
+    pub fn host_experience_store(
+        &self,
+    ) -> crate::openhuman::agent::tinyagents::host::OpenHumanExperienceStore {
+        let memory = self
+            .shared_experience_memory
+            .clone()
+            .unwrap_or_else(|| self.memory_arc());
+        crate::openhuman::agent::tinyagents::host::OpenHumanExperienceStore::with_profile(
+            memory,
+            self.active_profile_id.clone(),
+        )
+    }
+
     /// The agent's working directory.
     pub fn workspace_dir(&self) -> &std::path::Path {
         &self.workspace_dir

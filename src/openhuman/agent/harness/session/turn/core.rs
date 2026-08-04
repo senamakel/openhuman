@@ -1215,12 +1215,12 @@ impl Agent {
         // `[FILE:…]` markers into provider-ready content before dispatch. The
         // expanded copy is provider-only and never persisted to `history`.
         let multimodal = self
-            .integration_runtime_config
+            .runtime_config
             .as_ref()
             .map(|c| c.multimodal.clone())
             .unwrap_or_default();
         let multimodal_files = self
-            .integration_runtime_config
+            .runtime_config
             .as_ref()
             .map(|c| c.multimodal_files.clone())
             .unwrap_or_default();
@@ -1603,7 +1603,7 @@ impl Agent {
         // never reaches the span store or any exporter. The collector applies the
         // same storage-level gate as defense in depth.
         let capture_content = self
-            .integration_runtime_config
+            .runtime_config
             .as_ref()
             .map(|c| c.observability.agent_tracing.capture_content)
             .unwrap_or(false);

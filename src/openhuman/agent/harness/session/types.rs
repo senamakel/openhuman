@@ -226,7 +226,7 @@ pub struct Agent {
     /// `Config` carry this directly so the turn loop does not need to
     /// re-run `Config::load_or_init()` on the hot path just to key into
     /// the Composio cache.
-    pub(super) integration_runtime_config: Option<crate::openhuman::config::Config>,
+    pub(super) runtime_config: Option<Arc<crate::openhuman::config::Config>>,
     /// Mirrors the agent definition's `omit_profile` flag. Threaded into
     /// [`PromptContext::include_profile`] in `turn::build_system_prompt`
     /// so only user-facing agents (welcome, orchestrator, triggers)

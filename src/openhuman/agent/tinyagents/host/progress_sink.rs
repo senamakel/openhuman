@@ -126,12 +126,64 @@ impl OpenHumanProgressSink {
         self.rounds.load(Ordering::Relaxed).saturating_add(1)
     }
 
-    /// Hands one host event to the channel, dropping it if the channel cannot
-    /// take it right now.
+    /// Hands one **lifecycle** event to the channel, waiting briefly if the
+    /// channel is momentarily full.
     ///
-    /// This is the whole of the sink's failure handling, and it deliberately
-    /// has no error path out: `ProgressSink::emit` returns unit precisely so a
-    /// dead UI socket can never fail a turn.
+    /// Lifecycle events are not interchangeable with token deltas: the web
+    /// progress bridge is a state machine, so a lost `ToolCallStarted` or
+    /// `TurnCompleted` leaves a tool row stuck in `running` forever, whereas a
+    /// lost `TextDelta` is one missed UI tick. `turn/tools.rs::emit_progress`
+    /// awaits its lifecycle sends for exactly that reason.
+    ///
+    /// It waits with a **bound** rather than awaiting outright, because the
+    /// opposite failure is also real and also documented: the sink is a bounded
+    /// channel shared by the orchestrator, every inline sub-agent, and their
+    /// delta forwarders, and an unbounded `send().await` here can park a
+    /// sub-agent's loop and hang the parent turn that is awaiting it — the
+    /// subagent-stall flake `tool_progress.rs::emit` was written to avoid.
+    /// [`LIFECYCLE_SEND_GRACE`] is the compromise: long enough to ride out the
+    /// transient full-channel window a burst of deltas creates, far too short
+    /// to stall a turn.
+    async fn forward_lifecycle(&self, event: AgentProgress) {
+        match self.tx.try_send(event) {
+            Ok(()) => return,
+            Err(TrySendError::Closed(dropped)) => {
+                // No listener; waiting cannot help.
+                let total = self.dropped.fetch_add(1, Ordering::Relaxed) + 1;
+                log::trace!(
+                    "[tinyagents][progress] dropped lifecycle event on closed channel kind={:?} dropped_total={}",
+                    std::mem::discriminant(&dropped),
+                    total,
+                );
+                return;
+            }
+            Err(TrySendError::Full(event)) => {
+                if self
+                    .tx
+                    .send_timeout(event, LIFECYCLE_SEND_GRACE)
+                    .await
+                    .is_ok()
+                {
+                    return;
+                }
+            }
+        }
+
+        let total = self.dropped.fetch_add(1, Ordering::Relaxed) + 1;
+        log::warn!(
+            "[tinyagents][progress] dropped a lifecycle event after waiting {:?} — the progress \
+             bridge may now be out of sync (dropped_total={})",
+            LIFECYCLE_SEND_GRACE,
+            total,
+        );
+    }
+
+    /// Hands one high-frequency event to the channel, dropping it if the
+    /// channel cannot take it right now.
+    ///
+    /// This is the whole of the sink's failure handling for token deltas, and it
+    /// deliberately has no error path out: `ProgressSink::emit` returns unit
+    /// precisely so a dead UI socket can never fail a turn.
     fn forward(&self, event: AgentProgress) {
         match self.tx.try_send(event) {
             Ok(()) => {}

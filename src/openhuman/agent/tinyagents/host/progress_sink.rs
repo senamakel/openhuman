@@ -48,10 +48,27 @@
 //!   flake (`tool_progress.rs::emit`). Nothing here blocks a turn or panics.
 //! * **The coarse stream has no iteration boundary.** `AgentProgress` carries a
 //!   1-based `iteration` on almost every variant; `ProgressEvent` has no
-//!   equivalent. The sink keeps a local round counter that advances on each
-//!   `ToolCall` — a *lower bound* on the real iteration count, since a turn
-//!   with no tool calls is one round. It is used for `iteration` fields and for
-//!   `TurnCompleted { iterations }`. See the `TODO(phase4)` below.
+//!   equivalent. The sink derives one **per run**: a *batch* of consecutive
+//!   `ToolCall`s is one iteration, and model output (`Token`) closes the batch
+//!   so the next call opens a new one. Counting每 call instead would report a
+//!   turn that requested two tools in parallel as three iterations. Still a
+//!   *lower bound* — two sequential tool batches with no tokens between them are
+//!   indistinguishable from one parallel batch. See the `TODO(phase4)` below.
+//! * **One sink may serve several runs.** `Arc<OpenHumanProgressSink>` is
+//!   explicitly shared across concurrent sub-runs, so all counters are keyed by
+//!   [`RunId`] and only the **first run seen** projects top-level `TurnStarted` /
+//!   `TurnCompleted`. A shared counter would let a child's tool calls renumber
+//!   the parent's iterations, and a child's `Finished` would tell the progress
+//!   bridge the whole request had completed while other runs were still
+//!   emitting.
+//! * **No `ToolCallCompleted` is ever emitted, and none can be.** The crate's
+//!   `ProgressEvent` has five variants and none of them reports a tool
+//!   *finishing* — there is no success flag, no output, no duration anywhere in
+//!   the coarse stream. `AgentProgress::ToolCallCompleted` requires all three.
+//!   Synthesising one would mean asserting `success: true` for a tool that may
+//!   have failed, which corrupts the timeline and the trace exporter rather than
+//!   merely leaving them incomplete. So tool rows stay `running` until the
+//!   crate grows a completion event; see the `TODO(phase4)` below.
 //! * **`ProgressEvent::Error` has no `AgentProgress` counterpart.** The host
 //!   enum models a turn's failure through the turn's own `Err` return (which
 //!   `web_chat::ops` renders as `chat_error`), not through a progress event.

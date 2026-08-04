@@ -53,6 +53,8 @@
 //! interior mutability, same answer for the same `(name, result)` every time.
 
 use std::borrow::Cow;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use tinyagents::harness::host::{OutcomeClass, ToolOutcomeClassifier};
 use tinyagents::harness::tool::ToolResult;

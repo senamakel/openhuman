@@ -66,13 +66,45 @@ use crate::openhuman::tools::status::{classify, ToolFailureClass};
 /// keyword heuristic in the `tool_status` domain, which is itself pure. Every
 /// instance behaves identically, so callers may construct one per session
 /// without cost.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct OpenHumanToolOutcomeClassifier;
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct OpenHumanToolOutcomeClassifier {
+    /// Names of tools that declare `Tool::external_effect() == true`.
+    ///
+    /// Only consulted for [`ToolFailureClass::Timeout`], where "the call failed"
+    /// and "the reply was lost after the effect committed" are
+    /// indistinguishable from the outside. See [`Self::class_of`].
+    external_effect_tools: Option<Arc<HashSet<String>>>,
+}
 
 impl OpenHumanToolOutcomeClassifier {
-    /// Creates the classifier.
+    /// Creates the classifier with no external-effect knowledge.
+    ///
+    /// Timeouts are then treated as **permanent**, because a classifier that
+    /// cannot tell an email sender from a file read must not promise that
+    /// repeating the call is safe. Attach [`Self::with_external_effect_tools`]
+    /// to recover retries for the tools that can afford them.
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    /// Attaches the set of tool names that declare an external effect.
+    ///
+    /// Build it from the live tool registry — `Tool::external_effect()` is the
+    /// same signal `ApprovalGate` consults — so the two agree by construction
+    /// rather than by a hand-maintained list.
+    pub fn with_external_effect_tools(mut self, tools: Arc<HashSet<String>>) -> Self {
+        self.external_effect_tools = Some(tools);
+        self
+    }
+
+    /// Whether repeating `name` after a timeout is safe.
+    ///
+    /// A tool is retry-safe only when the host positively said so: the set is
+    /// attached *and* the tool is absent from it.
+    fn timeout_is_retry_safe(&self, name: &str) -> bool {
+        self.external_effect_tools
+            .as_deref()
+            .is_some_and(|external| !external.contains(name))
     }
 
     /// Projects one OpenHuman failure class onto the crate's coarse

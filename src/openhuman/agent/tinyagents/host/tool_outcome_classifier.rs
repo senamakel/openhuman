@@ -101,34 +101,38 @@ pub struct OpenHumanToolOutcomeClassifier {
 }
 
 impl OpenHumanToolOutcomeClassifier {
-    /// Creates the classifier with no external-effect knowledge.
+    /// Creates the classifier with no retry-safe tools declared.
     ///
     /// Timeouts are then treated as **permanent**, because a classifier that
     /// cannot tell an email sender from a file read must not promise that
-    /// repeating the call is safe. Attach [`Self::with_external_effect_tools`]
-    /// to recover retries for the tools that can afford them.
+    /// repeating the call is safe. Attach [`Self::with_retry_safe_tools`] to
+    /// recover retries for the tools that can afford them.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Attaches the set of tool names that declare an external effect.
+    /// Attaches the tools the host positively knows are safe to repeat.
     ///
-    /// Build it from the live tool registry — `Tool::external_effect()` is the
-    /// same signal `ApprovalGate` consults — so the two agree by construction
-    /// rather than by a hand-maintained list.
-    pub fn with_external_effect_tools(mut self, tools: Arc<HashSet<String>>) -> Self {
-        self.external_effect_tools = Some(tools);
+    /// List a tool here only when calling it twice is *definitionally*
+    /// harmless — a pure read. Do **not** build this by inverting
+    /// `Tool::external_effect()`: that signal is arg-less, and a tool whose
+    /// effect depends on its arguments (`ShellTool`, the TinyPlace raw tool)
+    /// overrides `external_effect_with_args` while leaving the arg-less
+    /// variant at the default `false`. Inverting it would silently admit
+    /// exactly the tools that most need excluding.
+    pub fn with_retry_safe_tools(mut self, tools: Arc<HashSet<String>>) -> Self {
+        self.retry_safe_tools = Some(tools);
         self
     }
 
     /// Whether repeating `name` after a timeout is safe.
     ///
-    /// A tool is retry-safe only when the host positively said so: the set is
-    /// attached *and* the tool is absent from it.
+    /// Membership is the only way to be safe: an unlisted tool — unknown,
+    /// arg-sensitive, or simply new — is treated as potentially effectful.
     fn timeout_is_retry_safe(&self, name: &str) -> bool {
-        self.external_effect_tools
+        self.retry_safe_tools
             .as_deref()
-            .is_some_and(|external| !external.contains(name))
+            .is_some_and(|safe| safe.contains(name))
     }
 
     /// Projects one OpenHuman failure class onto the crate's coarse

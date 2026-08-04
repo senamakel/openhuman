@@ -550,7 +550,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn each_tool_call_advances_the_round_counter() {
+    async fn parallel_tool_calls_share_one_iteration() {
+        // A model that requests two tools in one response produces two
+        // consecutive `ToolCall` events belonging to the *same* LLM iteration.
+        // Counting one per call reported this turn as three iterations and
+        // mislabelled the second tool as iteration 2.
         let (sink, mut rx) = sink(16);
         sink.emit(tool_call("a")).await;
         sink.emit(tool_call("b")).await;
@@ -567,9 +571,29 @@ mod tests {
                 other => panic!("unexpected event: {other:?}"),
             })
             .collect();
-        // Two tool calls close two rounds, so the trailing text belongs to the
-        // third.
-        assert_eq!(iterations, vec![1, 2, 3]);
+        // Both calls are iteration 1; the model's следующий reply is iteration 2.
+        assert_eq!(iterations, vec![1, 1, 2]);
+    }
+
+    #[tokio::test]
+    async fn a_tool_call_after_model_output_opens_a_new_iteration() {
+        let (sink, mut rx) = sink(16);
+        sink.emit(tool_call("a")).await;
+        sink.emit(ProgressEvent::Token {
+            run: run(),
+            text: "thinking".to_string(),
+        })
+        .await;
+        sink.emit(tool_call("b")).await;
+
+        let iterations: Vec<u32> = std::iter::from_fn(|| rx.try_recv().ok())
+            .map(|ev| match ev {
+                AgentProgress::ToolCallStarted { iteration, .. } => iteration,
+                AgentProgress::TextDelta { iteration, .. } => iteration,
+                other => panic!("unexpected event: {other:?}"),
+            })
+            .collect();
+        assert_eq!(iterations, vec![1, 2, 2]);
     }
 
     #[tokio::test]

@@ -509,7 +509,11 @@ mod tests {
         // makes the second acquire hang forever. The timeout turns that leak
         // into a failure instead of a hung test — this is the regression this
         // whole adapter is most likely to break.
-        let gate = gate(AgentTokenjuiceCompression::Auto);
+        //
+        // Must be a *background* gate: an interactive one skips the scheduler
+        // entirely, so this would pass without ever exercising the release the
+        // test exists to prove.
+        let gate = gate(AgentTokenjuiceCompression::Auto).as_background_work();
         for round in 0..3 {
             let permit = tokio::time::timeout(
                 Duration::from_secs(5),
@@ -524,7 +528,8 @@ mod tests {
 
     #[tokio::test]
     async fn explicit_release_returns_capacity_before_end_of_scope() {
-        let gate = gate(AgentTokenjuiceCompression::Auto);
+        // Background, for the same reason as the test above.
+        let gate = gate(AgentTokenjuiceCompression::Auto).as_background_work();
         let first = gate
             .acquire(&CallEstimate::new("m", 1, 1))
             .await

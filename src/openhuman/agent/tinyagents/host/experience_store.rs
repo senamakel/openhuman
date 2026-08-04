@@ -399,7 +399,14 @@ impl ExperienceStore for OpenHumanExperienceStore {
             agent_id: normalized_profile(Some(agent_id)),
             entrypoint: None,
             profile_id: self.profile_id.clone(),
-            max_hits: self.max_hits,
+            // Over-fetch, because the agent filter below runs *after* the
+            // domain has already truncated. Agent identity is only a score
+            // bonus there, so another agent's highly-relevant records can fill
+            // every slot and leave this adapter returning nothing while
+            // matching records sit just below the cut. Widening the candidate
+            // window and truncating after the filter is what makes `max_hits`
+            // mean "up to N of *this agent's* attempts".
+            max_hits: self.candidate_hits(),
         };
 
         // Profile-local store first, then the shared pre-profile one. Same

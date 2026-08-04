@@ -241,6 +241,8 @@ mod tests {
     fn every_failure_class_maps_as_documented() {
         use OutcomeClass::*;
         use ToolFailureClass::*;
+        // `retry_safe = true` isolates the class mapping from the
+        // external-effect policy, which has its own tests below.
         for (class, want) in [
             (Timeout, RetryableFailure),
             (ServiceUnavailable, RetryableFailure),
@@ -254,7 +256,7 @@ mod tests {
             (Unknown, PermanentFailure),
         ] {
             assert_eq!(
-                OpenHumanToolOutcomeClassifier::class_of(class),
+                OpenHumanToolOutcomeClassifier::class_of(class, true),
                 want,
                 "mapping {class:?}"
             );
@@ -278,7 +280,7 @@ mod tests {
             ToolFailureClass::Unknown,
         ] {
             assert!(
-                OpenHumanToolOutcomeClassifier::class_of(class).is_failure(),
+                OpenHumanToolOutcomeClassifier::class_of(class, true).is_failure(),
                 "{class:?} must stay a failure"
             );
         }
@@ -295,7 +297,7 @@ mod tests {
             "domain still calls Unknown recoverable"
         );
         assert_eq!(
-            OpenHumanToolOutcomeClassifier::class_of(ToolFailureClass::Unknown),
+            OpenHumanToolOutcomeClassifier::class_of(ToolFailureClass::Unknown, true),
             OutcomeClass::PermanentFailure
         );
     }

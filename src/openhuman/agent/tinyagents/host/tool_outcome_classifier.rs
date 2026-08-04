@@ -254,9 +254,8 @@ mod tests {
     /// A classifier that knows `external` are the external-effect tools, and
     /// therefore that everything else is safe to repeat.
     fn classifier_knowing(external: &[&str]) -> OpenHumanToolOutcomeClassifier {
-        OpenHumanToolOutcomeClassifier::new().with_external_effect_tools(Arc::new(
-            external.iter().map(|t| t.to_string()).collect(),
-        ))
+        OpenHumanToolOutcomeClassifier::new()
+            .with_external_effect_tools(Arc::new(external.iter().map(|t| t.to_string()).collect()))
     }
 
     // ── timeouts and external effects ─────────────────────────────────────────
@@ -297,8 +296,8 @@ mod tests {
         // These mean the request never reached a handler, so no effect can have
         // committed — the external-effect policy must not over-reach onto them.
         for error in ["service unavailable", "connection refused"] {
-            let outcome =
-                classifier_knowing(&["send_email"]).classify("send_email", &result(Some(error), ""));
+            let outcome = classifier_knowing(&["send_email"])
+                .classify("send_email", &result(Some(error), ""));
             assert_eq!(
                 outcome,
                 OutcomeClass::RetryableFailure,

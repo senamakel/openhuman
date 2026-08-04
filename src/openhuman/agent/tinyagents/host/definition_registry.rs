@@ -209,6 +209,17 @@ impl OpenHumanDefinitionRegistry {
         self
     }
 
+    /// Attaches the session's registered tool names.
+    ///
+    /// Required to project a [`ToolScope::Wildcard`] definition that also
+    /// carries a `disallowed_tools` denylist: the crate has no wildcard marker,
+    /// so "everything except these" can only be expressed by materializing the
+    /// list. Without it such a definition fails closed — see [`Self::tools_for`].
+    pub fn with_registered_tools(mut self, tools: Arc<Vec<String>>) -> Self {
+        self.registered_tools = Some(tools);
+        self
+    }
+
     /// Resolves `id` to a **host** definition: harness registry first, then the
     /// enabled custom-agent config fallback.
     ///

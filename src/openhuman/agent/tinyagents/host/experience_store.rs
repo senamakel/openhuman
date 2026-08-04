@@ -434,13 +434,17 @@ impl ExperienceStore for OpenHumanExperienceStore {
                     .is_some_and(|owner| same_agent(owner, agent_id))
             })
             .map(to_crate)
+            // Truncate *after* filtering, so the bound counts this agent's
+            // attempts rather than the mixed candidate pool.
+            .take(self.max_hits)
             .collect();
 
         tracing::debug!(
             target: "tinyagents",
             %agent_id,
-            hits = hits.len(),
+            candidates = hits.len(),
             returned = found.len(),
+            max_hits = self.max_hits,
             "[tinyagents][experience] recalled prior attempts"
         );
         // Order is the domain's (score, then recency, then id) and is returned

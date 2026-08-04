@@ -56,11 +56,15 @@
 //! re-dispatching a timed-out call can commit the effect a second time. The
 //! crate's `RetryableFailure` is an assertion that repeating is *acceptable*,
 //! so it may only be made about a tool the host has positively identified as
-//! side-effect free. `Tool::external_effect()` is that signal (the same one
-//! `ApprovalGate` gates on); attach it with
-//! [`OpenHumanToolOutcomeClassifier::with_external_effect_tools`]. Absent it,
-//! timeouts stay permanent — the safe direction, since a lost retry costs an
-//! iteration while a duplicated payment cannot be undone.
+//! side-effect free — declared through
+//! [`OpenHumanToolOutcomeClassifier::with_retry_safe_tools`] as an
+//! **allowlist**. An allowlist rather than the inverse, because
+//! `Tool::external_effect()` is arg-less: `ShellTool` and the TinyPlace raw
+//! tool classify their effect from *arguments* (`external_effect_with_args`)
+//! and leave the arg-less variant at the default `false`, so a denylist built
+//! from it would admit precisely the tools that must be excluded. Absent the
+//! allowlist, timeouts stay permanent — the safe direction, since a lost retry
+//! costs an iteration while a duplicated payment cannot be undone.
 //!
 //! The adapter is pure, as the trait requires: no I/O, no interior mutability,
 //! same answer for the same `(name, result)` every time.

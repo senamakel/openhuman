@@ -142,12 +142,71 @@ impl OpenHumanProgressSink {
         self.dropped.load(Ordering::Relaxed)
     }
 
-    /// The current 1-based iteration index implied by the events seen so far.
+    /// Locks the per-run state map, tolerating a poisoned mutex.
+    fn runs(&self) -> std::sync::MutexGuard<'_, HashMap<String, RunState>> {
+        self.runs
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Whether `run` is the request's root, claiming the slot if it is vacant.
+    ///
+    /// First run seen wins. The coarse stream carries no parent/child edge, so
+    /// arrival order is the only signal available — and the root's `Started` is
+    /// necessarily first, since a sub-run cannot begin before the turn that
+    /// spawns it.
+    fn is_root_run(&self, run: &str) -> bool {
+        let mut root = self
+            .root_run
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match root.as_deref() {
+            Some(existing) => existing == run,
+            None => {
+                *root = Some(run.to_string());
+                true
+            }
+        }
+    }
+
+    /// The current 1-based iteration index for `run`.
     ///
     /// Starts at `1` — a turn is in its first round before it has called any
-    /// tool — and advances once per observed `ToolCall`.
-    fn iteration(&self) -> u32 {
-        self.rounds.load(Ordering::Relaxed).saturating_add(1)
+    /// tool.
+    fn iteration_for(&self, run: &str) -> u32 {
+        self.runs()
+            .get(run)
+            .map(|state| state.rounds.saturating_add(1))
+            .unwrap_or(1)
+    }
+
+    /// Advances `run`'s iteration for a tool call and returns the 1-based index
+    /// the call belongs to.
+    ///
+    /// A *batch* of tool calls is one model iteration. The runtime emits one
+    /// `ToolCall` per requested tool, so a model that asks for two tools in
+    /// parallel produces two consecutive events that belong to the same
+    /// iteration — counting each one would report three iterations for a
+    /// two-parallel-calls-then-answer turn and mislabel the second call. Only
+    /// the first call after non-tool activity opens a new iteration.
+    ///
+    /// Still a lower bound, not a fact: the coarse stream has no explicit model
+    /// boundary, so a turn that emits no tokens between two sequential tool
+    /// batches cannot be distinguished from one parallel batch.
+    fn advance_for_tool_call(&self, run: &str) -> u32 {
+        let mut runs = self.runs();
+        let state = runs.entry(run.to_string()).or_default();
+        if !state.in_tool_batch {
+            state.rounds = state.rounds.saturating_add(1);
+            state.in_tool_batch = true;
+        }
+        state.rounds
+    }
+
+    /// Records that non-tool activity was seen for `run`, closing any open tool
+    /// batch so the next `ToolCall` starts a fresh iteration.
+    fn note_model_activity(&self, run: &str) {
+        self.runs().entry(run.to_string()).or_default().in_tool_batch = false;
     }
 
     /// Hands one **lifecycle** event to the channel, waiting briefly if the

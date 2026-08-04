@@ -29,12 +29,24 @@
 //!    reads the non-mutating [`SecurityPolicy::is_rate_limited`] instead. A gate
 //!    that called `enforce_tool_operation` would double-count every tool call
 //!    and exhaust the hourly budget at twice the configured rate.
-//! 2. **The audit trail is only half-writable from here.** `intercept_audited`
-//!    hands back a `request_id` so the caller can log the *terminal* status once
-//!    the tool resolves — but this trait returns before the tool runs and is
-//!    never called again. So the adapter uses the plain
-//!    [`ApprovalGate::intercept`] and leaves terminal-status recording to
-//!    `ApprovalSecurityMiddleware`, which still wraps execution.
+//! 2. **This gate owns approval, and must be the only thing that prompts.**
+//!    `intercept_audited` hands back a `request_id` so the caller can log the
+//!    *terminal* status once the tool resolves, but this trait returns before
+//!    the tool runs and is never called again. The tempting shape — park here
+//!    with the plain [`ApprovalGate::intercept`] and let
+//!    `ApprovalSecurityMiddleware` record the terminal row — does not work: the
+//!    middleware can only obtain an id by issuing its *own* `intercept_audited`,
+//!    which raises a **second** approval card for a call the user already
+//!    approved. A one-shot approval does not settle that second request, so the
+//!    call would wait out a second TTL and then be denied.
+//!
+//!    So ownership is consolidated here. This adapter calls
+//!    `intercept_audited`, stashes the id under the call id, and exposes
+//!    [`OpenHumanSecurityGate::take_audit_request_id`] for the executor to drain
+//!    and hand to [`ApprovalGate::record_execution`]. **A runner that installs
+//!    this gate must not also compose `ApprovalSecurityMiddleware`'s approval
+//!    step** — the two are alternatives, not layers. The session-allowlist
+//!    shortcut yields no id and needs no terminal row.
 //! 3. **No `Redacted` outcome is ever produced.** OpenHuman can *detect* PII
 //!    ([`crate::openhuman::security::pii::scan`]) but exposes no verified
 //!    public helper that rewrites free text into a redacted copy — the one that

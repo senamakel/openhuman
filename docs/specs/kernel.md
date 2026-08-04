@@ -1,7 +1,7 @@
 # OpenHuman as a Kernel — Subsystem & Driver Model
 
 **Status:** proposed · **Date:** 2026-07-28 · **Scope:** `src/` (core crate), all `src/openhuman/*` domains
-**Companion spec:** [`2026-07-28-memory-subsystem-api-design.md`](2026-07-28-memory-subsystem-api-design.md) — memory is the first subsystem cut to this model.
+**Companion spec:** [`plan-memory.md`](plan-memory.md) — memory is the first subsystem cut to this model.
 
 ---
 

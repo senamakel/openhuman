@@ -6,7 +6,7 @@ against `main` (`ce6c3e9b5`).
 transcript layer. Everything else in `session/` is out of scope and stays.
 **Superseded in part (2026-07-28):** the maintainer has since decided to move
 `agent/` wholesale into TinyAgents — see
-[`2026-07-28-agent-runtime-into-tinyagents-design.md`](2026-07-28-agent-runtime-into-tinyagents-design.md).
+[`plan-agents.md`](plan-agents.md).
 That decision reopens this document's §6 "permanent host" rows for `builder/`,
 `turn/`, `runtime.rs`, and `types.rs`, and selects **Option B** in §4 (the
 transcript format becomes crate-owned). The state map, crate gap table, and

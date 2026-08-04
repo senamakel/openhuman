@@ -1,7 +1,7 @@
 # Memory Subsystem — Pluggable Provider API & TinyCortex Consolidation
 
 **Status:** proposed · **Date:** 2026-07-28 · **Scope:** `src/openhuman/memory*`, `src/openhuman/tinycortex/`, `vendor/tinycortex`
-**Depends on:** [`2026-07-28-openhuman-kernel-design.md`](2026-07-28-openhuman-kernel-design.md)
+**Depends on:** [`kernel.md`](kernel.md)
 **Supersedes (in disposition only):** `docs/tinycortex-cutover-evaluation-2026-07-28.md` §"Audit result" — see §6.1.
 
 ---

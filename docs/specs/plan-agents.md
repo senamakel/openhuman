@@ -194,7 +194,9 @@ catalogue is accepted upstream — otherwise the first mover defines the seams b
 accident.
 *Exit:* accepted RFC; ledger rows reopened.
 
-Draft landed: [`vendor/tinyagents/docs/spec/host-capability-traits-rfc.md`](../../vendor/tinyagents/docs/spec/host-capability-traits-rfc.md)
+Draft landed: [`docs/spec/host-capability-traits-rfc.md`](https://github.com/tinyhumansai/tinyagents/blob/main/docs/spec/host-capability-traits-rfc.md)
+in the `tinyagents` repo (vendored here at `vendor/tinyagents/`; linked by URL
+because the link checker does not check out submodules)
 — all ten signatures, grounded in measured reference counts. **Not yet
 accepted**; it carries four open questions that block Phase 1, the hard one
 being a name collision: `tinyflows` 0.5.1 shipped its own, unrelated

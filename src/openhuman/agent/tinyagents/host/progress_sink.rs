@@ -101,12 +101,23 @@ pub struct OpenHumanProgressSink {
     /// by awaiting — see the module docs.
     tx: Sender<AgentProgress>,
 
-    /// 0-based count of tool calls observed, used to derive the 1-based
-    /// `iteration` the host events require.
+    /// Per-run progress state, keyed by [`RunId`].
     ///
-    /// A lower bound rather than a guess dressed up as a fact: the coarse
-    /// stream genuinely does not report iteration boundaries.
-    rounds: AtomicU32,
+    /// Not a single counter, because the type doc explicitly supports one
+    /// `Arc<OpenHumanProgressSink>` shared by concurrent sub-runs. With shared
+    /// state, a child's `Started` would reset the parent's iteration count and
+    /// a child's tool calls would advance it — so the parent's own events would
+    /// carry a number describing somebody else's work.
+    runs: Mutex<HashMap<String, RunState>>,
+
+    /// The first run id observed, treated as the request's root.
+    ///
+    /// Only the root's lifecycle is projected as *top-level* `TurnStarted` /
+    /// `TurnCompleted`. Without this, the first sub-run to finish would tell the
+    /// progress bridge the whole request was complete while other runs were
+    /// still going — the bridge would close out the turn and everything after it
+    /// would render against a finished timeline.
+    root_run: Mutex<Option<String>>,
 
     /// How many events were dropped because the channel was full or closed.
     ///

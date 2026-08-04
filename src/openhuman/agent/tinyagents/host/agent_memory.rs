@@ -827,8 +827,16 @@ mod tests {
         // The backend filter should already have done this; the second pass is
         // what makes the adapter safe if it ever does not, because the runtime
         // is forbidden from filtering again.
-        assert!(OpenHumanAgentMemory::scope_allows(false, Some("t1"), Some("t1")));
-        assert!(!OpenHumanAgentMemory::scope_allows(false, Some("t1"), Some("t2")));
+        assert!(OpenHumanAgentMemory::scope_allows(
+            false,
+            Some("t1"),
+            Some("t1")
+        ));
+        assert!(!OpenHumanAgentMemory::scope_allows(
+            false,
+            Some("t1"),
+            Some("t2")
+        ));
         assert!(OpenHumanAgentMemory::scope_allows(false, Some("t1"), None));
         assert!(OpenHumanAgentMemory::scope_allows(false, None, Some("t2")));
     }

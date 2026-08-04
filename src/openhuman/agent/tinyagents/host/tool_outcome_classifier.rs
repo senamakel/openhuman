@@ -83,12 +83,21 @@ use crate::openhuman::tools::status::{classify, ToolFailureClass};
 /// without cost.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OpenHumanToolOutcomeClassifier {
-    /// Names of tools that declare `Tool::external_effect() == true`.
+    /// Names of tools the host positively knows are safe to call twice.
+    ///
+    /// An **allowlist**, not a denylist, and deliberately so. The obvious
+    /// inverse — "the tools that declare `Tool::external_effect()`" — is unsafe
+    /// here, because a tool whose effect depends on its arguments overrides
+    /// `external_effect_with_args` and leaves the arg-less
+    /// `external_effect()` at the trait default of `false`. `ShellTool` is
+    /// exactly that shape, so a denylist built from the arg-less signal would
+    /// have called a timed-out shell write retryable. Anything not named here
+    /// is treated as potentially effectful.
     ///
     /// Only consulted for [`ToolFailureClass::Timeout`], where "the call failed"
     /// and "the reply was lost after the effect committed" are
     /// indistinguishable from the outside. See [`Self::class_of`].
-    external_effect_tools: Option<Arc<HashSet<String>>>,
+    retry_safe_tools: Option<Arc<HashSet<String>>>,
 }
 
 impl OpenHumanToolOutcomeClassifier {

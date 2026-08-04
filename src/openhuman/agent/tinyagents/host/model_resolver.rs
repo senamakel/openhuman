@@ -130,7 +130,16 @@ fn workload_role_for(req: &ModelResolveRequest) -> &'static str {
 
     // Tier and hint spellings normalise through the factory's own table so this
     // adapter never re-derives the tier→role mapping (and cannot drift from it).
-    if lowered.starts_with("hint:") || lowered.ends_with("-v1") {
+    //
+    // `hint:` is an unambiguous prefix, so it routes unconditionally. `-v1` is
+    // not: it is a *suffix heuristic*, and an exact model id can end in `-v1`
+    // too. `role_for_model_tier` answers `"chat"` for anything it does not
+    // recognise, and it cannot distinguish "this is the chat tier" from "I have
+    // never heard of this" — so passing an arbitrary `-v1` id through it would
+    // silently reroute to chat with no diagnostic at all. Only hand it values
+    // whose stem is a workload role it will actually recognise; anything else
+    // falls through to the unknown-role path below, which at least warns.
+    if lowered.starts_with("hint:") || is_known_model_tier(&lowered) {
         return role_for_model_tier(&lowered);
     }
 

@@ -50,7 +50,7 @@
 //!   1-based `iteration` on almost every variant; `ProgressEvent` has no
 //!   equivalent. The sink derives one **per run**: a *batch* of consecutive
 //!   `ToolCall`s is one iteration, and model output (`Token`) closes the batch
-//!   so the next call opens a new one. Counting每 call instead would report a
+//!   so the next call opens a new one. Counting every call instead would report a
 //!   turn that requested two tools in parallel as three iterations. Still a
 //!   *lower bound* — two sequential tool batches with no tokens between them are
 //!   indistinguishable from one parallel batch. See the `TODO(phase4)` below.

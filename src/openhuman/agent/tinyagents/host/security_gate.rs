@@ -274,6 +274,39 @@ impl OpenHumanSecurityGate {
         Ok(policy.gate_decision(class))
     }
 
+    /// The allow-shaped answer for a call that reached the end of the stages.
+    ///
+    /// Reports `Prompted { approved: true }` rather than a bare `Allow` when a
+    /// human already approved this call at the channel stage, so the runtime is
+    /// told a person was consulted instead of being shown a decision that looks
+    /// automatic.
+    fn settled(&self, channel_approved: bool) -> GateDecision {
+        if channel_approved {
+            GateDecision::Prompted { approved: true }
+        } else {
+            GateDecision::Allow
+        }
+    }
+
+    /// Parks for approval unless this call was already approved.
+    ///
+    /// The channel policy and a later stage can both want a prompt for the same
+    /// call. Asking twice would show the user two cards for one action and, with
+    /// a one-shot approval, let the second request expire — so an approval
+    /// already granted stands.
+    async fn park_once(&self, call: &ToolCallRequest, already_approved: bool) -> GateDecision {
+        if already_approved {
+            tracing::debug!(
+                target: "tinyagents",
+                tool = %call.tool_name,
+                "[tinyagents::host::security] already approved at the channel stage; not \
+                 prompting again"
+            );
+            return GateDecision::Prompted { approved: true };
+        }
+        self.park_for_approval(call).await
+    }
+
     /// Parks the turn on the human approval flow and reports how it settled.
     ///
     /// Returns [`GateDecision::Prompted`] whichever way it resolves — including

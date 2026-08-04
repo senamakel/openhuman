@@ -393,6 +393,11 @@ fn default_session_shadow_reads() -> bool {
     // authoritative and the probe runs on a background task, so the worst case
     // of a bad soak is log noise, not a broken resume. Disable per-workspace in
     // config, or globally with `OPENHUMAN_SESSION_SHADOW_READS=0`.
+    //
+    // This default only covers workspaces whose config predates the key.
+    // `Config::save` writes every field, so an already-saved workspace carries
+    // a literal `session_shadow_reads = false` that serde never overrides —
+    // the 8 -> 9 `enable_session_shadow_reads` migration is what opts those in.
     true
 }
 

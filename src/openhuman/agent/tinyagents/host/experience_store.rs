@@ -178,6 +178,20 @@ impl OpenHumanExperienceStore {
         self
     }
 
+    /// How many candidates to pull from the domain before the agent filter.
+    ///
+    /// Wider than [`Self::max_hits`] because the domain scores an agent match
+    /// rather than filtering on it, so the candidate pool is mixed. The
+    /// multiplier is a heuristic, not a guarantee — a store dominated by one
+    /// very active agent can still crowd out a quieter one — but it turns the
+    /// common "a handful of agents share a store" case from lossy into correct.
+    /// `max_hits == 0` stays 0 so the documented "keep writing, feed none back"
+    /// behaviour is preserved.
+    fn candidate_hits(&self) -> usize {
+        const AGENT_MIX_FACTOR: usize = 5;
+        self.max_hits.saturating_mul(AGENT_MIX_FACTOR)
+    }
+
     /// Overrides how many prior attempts one recall returns.
     ///
     /// Zero is honoured verbatim — `AgentExperienceStore::retrieve` short-

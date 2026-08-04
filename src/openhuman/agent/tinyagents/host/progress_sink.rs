@@ -276,7 +276,8 @@ impl ProgressSink for OpenHumanProgressSink {
                     // once the sink is constructed with a registry handle.
                     display_label: None,
                     display_detail: None,
-                });
+                })
+                .await;
             }
 
             ProgressEvent::Token { run, text } => {

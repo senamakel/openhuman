@@ -134,6 +134,15 @@ pub struct OpenHumanSecurityGate {
     /// name. An empty registry denies every call — see
     /// [`Self::resolve_tool`].
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+    /// `pending_approvals` request ids from approvals this gate granted, keyed
+    /// by the call they belong to and drained by
+    /// [`Self::take_audit_request_id`].
+    ///
+    /// Exists so the audit row can be completed *without* a second
+    /// `intercept_audited`. Issuing one to obtain an id is what would raise a
+    /// second approval card for a call the user already approved once — see
+    /// mismatch (2) in the module header.
+    pending_audit: Mutex<HashMap<String, String>>,
 }
 
 impl OpenHumanSecurityGate {

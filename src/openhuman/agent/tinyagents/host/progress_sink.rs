@@ -512,10 +512,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_full_channel_drops_instead_of_blocking() {
+    async fn a_permanently_full_channel_drops_instead_of_stalling_the_turn() {
         let (sink, mut rx) = sink(1);
         sink.emit(started()).await;
-        // Capacity is exhausted; the contract says drop, never stall the turn.
+        // Nothing ever drains, so the grace window expires and the events are
+        // dropped. The turn must still finish rather than park forever.
         sink.emit(tool_call("a")).await;
         sink.emit(tool_call("b")).await;
 
@@ -524,6 +525,42 @@ mod tests {
             AgentProgress::TurnStarted
         ));
         assert_eq!(sink.dropped(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_lifecycle_event_survives_transient_backpressure_that_drops_a_delta() {
+        // The regression: a burst of deltas fills the channel, and a
+        // `ToolCallStarted` lost in that window leaves the tool row stuck in
+        // `running` forever. A delta lost in the same window costs one UI tick.
+        let (sink, mut rx) = sink(1);
+        sink.emit(started()).await;
+
+        // A delta finds the channel full and is dropped immediately.
+        sink.emit(ProgressEvent::Token {
+            run: run(),
+            text: "hi".to_string(),
+        })
+        .await;
+        assert_eq!(sink.dropped(), 1, "deltas never wait");
+
+        // The consumer catches up shortly after the lifecycle send begins.
+        let drained = tokio::spawn(async move {
+            let first = rx.recv().await;
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            let second = rx.recv().await;
+            (first, second)
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+        sink.emit(tool_call("a")).await;
+
+        let (first, second) = drained.await.expect("consumer task");
+        assert!(matches!(first, Some(AgentProgress::TurnStarted)));
+        assert!(
+            matches!(second, Some(AgentProgress::ToolCallStarted { .. })),
+            "the lifecycle event must ride out the transient window, got {second:?}"
+        );
+        assert_eq!(sink.dropped(), 1, "only the delta was dropped");
     }
 
     #[tokio::test]

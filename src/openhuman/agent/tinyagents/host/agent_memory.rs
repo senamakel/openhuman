@@ -374,7 +374,9 @@ impl AgentMemory for OpenHumanAgentMemory {
         let total = entries.len();
         let items: Vec<MemoryItem> = entries
             .iter()
-            .filter(|entry| Self::scope_allows(session, entry.session_id.as_deref()))
+            .filter(|entry| {
+                Self::scope_allows(self.cross_session, session, entry.session_id.as_deref())
+            })
             .map(Self::item_from_entry)
             .collect();
 
@@ -791,10 +793,10 @@ mod tests {
         // The backend filter should already have done this; the second pass is
         // what makes the adapter safe if it ever does not, because the runtime
         // is forbidden from filtering again.
-        assert!(OpenHumanAgentMemory::scope_allows(Some("t1"), Some("t1")));
-        assert!(!OpenHumanAgentMemory::scope_allows(Some("t1"), Some("t2")));
-        assert!(OpenHumanAgentMemory::scope_allows(Some("t1"), None));
-        assert!(OpenHumanAgentMemory::scope_allows(None, Some("t2")));
+        assert!(OpenHumanAgentMemory::scope_allows(false, Some("t1"), Some("t1")));
+        assert!(!OpenHumanAgentMemory::scope_allows(false, Some("t1"), Some("t2")));
+        assert!(OpenHumanAgentMemory::scope_allows(false, Some("t1"), None));
+        assert!(OpenHumanAgentMemory::scope_allows(false, None, Some("t2")));
     }
 
     #[tokio::test]

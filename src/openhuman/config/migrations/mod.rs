@@ -426,6 +426,45 @@ pub async fn run_pending(config: &mut Config) {
             }
         }
     }
+
+    // 8 -> 9: opt existing workspaces into the session shadow-read parity soak.
+    // The serde default for `agent.session_shadow_reads` flipped to `true`, but
+    // `Config::save` writes every field, so an upgraded workspace still carries
+    // a literal `session_shadow_reads = false` and a serde default would never
+    // be consulted. Guard on `== 8` so an earlier failed step isn't skipped.
+    if config.schema_version == 8 {
+        let previous_shadow_reads = config.agent.session_shadow_reads;
+        match enable_session_shadow_reads::run(config) {
+            Ok(stats) => {
+                let previous_version = config.schema_version;
+                config.schema_version = 9;
+                if let Err(err) = config.save().await {
+                    // Roll back BOTH the version and the flag so a failed save
+                    // doesn't leave `load_or_init` returning a half-migrated
+                    // in-memory config; next launch retries.
+                    config.agent.session_shadow_reads = previous_shadow_reads;
+                    config.schema_version = previous_version;
+                    log::warn!(
+                        "[migrations] enable_session_shadow_reads ran but config.save failed: \
+                         {err:#} — rolled in-memory schema_version back to {previous_version}, \
+                         will retry on next launch"
+                    );
+                    return;
+                }
+                log::info!(
+                    "[migrations] schema_version bumped to 9 (enable_session_shadow_reads \
+                     shadow_reads_enabled={})",
+                    stats.shadow_reads_enabled,
+                );
+            }
+            Err(err) => {
+                log::warn!(
+                    "[migrations] enable_session_shadow_reads failed: {err:#} — \
+                     will retry on next launch"
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]

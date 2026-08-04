@@ -539,23 +539,31 @@ mod tests {
             .await
             .expect("record");
 
+        // The domain scores rather than filters, so an unrelated query still
+        // returns the seeded row — assert on which task each store *holds*,
+        // not on the result count.
+        let holds_new_task = |found: &[Experience]| {
+            found
+                .iter()
+                .any(|e| e.task.contains("rotate the signing key"))
+        };
+
         let shared_only = OpenHumanExperienceStore::new(shared)
             .recall_for("planner", "rotate the signing key")
             .await
             .expect("recall from the shared store");
         assert!(
-            shared_only.is_empty(),
-            "writes must not fan out into the shared store"
+            !holds_new_task(&shared_only),
+            "writes must not fan out into the shared store, got: {shared_only:?}"
         );
 
         let local_only = OpenHumanExperienceStore::new(local)
             .recall_for("planner", "rotate the signing key")
             .await
             .expect("recall from the profile-local store");
-        assert_eq!(
-            local_only.len(),
-            1,
-            "the profile-local store is the write target"
+        assert!(
+            holds_new_task(&local_only),
+            "the profile-local store is the write target, got: {local_only:?}"
         );
     }
 

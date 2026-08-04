@@ -147,20 +147,23 @@ impl Agent {
     /// OpenHuman's [`ExperienceStore`](tinyagents::harness::host::ExperienceStore)
     /// capability, scoped to this session's agent profile.
     ///
-    /// Uses `shared_experience_memory` when the session was given one so
-    /// procedural experience lands in the shared store rather than this
-    /// session's private one; falls back to `memory` otherwise.
+    /// Writes go to this session's own `memory`; recall additionally consults
+    /// `shared_experience_memory` when the session was given one.
+    ///
+    /// That asymmetry mirrors the live turn path in `session/turn/core.rs`. For
+    /// a dedicated-profile session `memory` is the profile-local store and
+    /// `shared_experience_memory` is the global one holding unstamped records
+    /// from pre-profile builds — so reading both is what keeps old experience
+    /// reachable, while writing only to the profile-local store is what keeps
+    /// new records inside the profile subtree.
     pub fn host_experience_store(
         &self,
     ) -> crate::openhuman::agent::tinyagents::host::OpenHumanExperienceStore {
-        let memory = self
-            .shared_experience_memory
-            .clone()
-            .unwrap_or_else(|| self.memory_arc());
         crate::openhuman::agent::tinyagents::host::OpenHumanExperienceStore::with_profile(
-            memory,
+            self.memory_arc(),
             self.active_profile_id.clone(),
         )
+        .with_shared_recall_memory(self.shared_experience_memory.clone())
     }
 
     /// The agent's working directory.

@@ -187,12 +187,14 @@ impl ToolOutcomeClassifier for OpenHumanToolOutcomeClassifier {
         // retryable `Timeout` (#4459).
         let timed_out = text.contains("timed out");
         let failure = classify(&text, timed_out);
-        let outcome = Self::class_of(failure.class);
+        let retry_safe = self.timeout_is_retry_safe(name);
+        let outcome = Self::class_of(failure.class, retry_safe);
 
         tracing::debug!(
             target: "tinyagents",
             tool = %name,
             class = ?failure.class,
+            retry_safe,
             ?outcome,
             "[tinyagents::host] classified tool outcome"
         );

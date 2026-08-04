@@ -383,6 +383,16 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// 4. the autonomy tier for acting tools (`can_act`) plus the non-mutating
     ///    rate-limit read, and
     /// 5. the approval park for anything the tier prompts on.
+    ///
+    /// **A human approval never short-circuits the remaining stages.** Approving
+    /// at stage 1 settles the *channel* restriction and nothing else; the call
+    /// still has to survive tool resolution, the shell classifier, and the
+    /// autonomy tier. Returning straight after the park would have let a
+    /// channel that merely asks for confirmation authorize a `shell` command the
+    /// tier blocks, or an acting tool under `readonly` — turning the channel's
+    /// second-strictest setting into an override of the user's own autonomy
+    /// choice. A refusal at any stage is still terminal, and `channel_approved`
+    /// is carried forward so a later prompting stage does not ask twice.
     async fn authorize_tool(&self, call: &ToolCallRequest) -> TaResult<GateDecision> {
         let policy = self.effective_policy();
         tracing::debug!(

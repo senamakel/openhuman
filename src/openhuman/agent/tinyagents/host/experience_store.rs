@@ -200,6 +200,14 @@ impl OpenHumanExperienceStore {
         self.max_hits.saturating_mul(AGENT_MIX_FACTOR)
     }
 
+    /// Largest candidate window `recall_for` will widen to.
+    ///
+    /// The widening loop has to stop somewhere: a store where the requested
+    /// agent genuinely has no records would otherwise keep escalating until it
+    /// had pulled the whole namespace. This is the point at which "the agent
+    /// has nothing here" is the better conclusion than another round trip.
+    const MAX_CANDIDATE_HITS: usize = 500;
+
     /// Overrides how many prior attempts one recall returns.
     ///
     /// Zero is honoured verbatim — `AgentExperienceStore::retrieve` short-
@@ -421,13 +429,7 @@ impl ExperienceStore for OpenHumanExperienceStore {
             agent_id: normalized_profile(Some(agent_id)),
             entrypoint: None,
             profile_id: self.profile_id.clone(),
-            // Over-fetch, because the agent filter below runs *after* the
-            // domain has already truncated. Agent identity is only a score
-            // bonus there, so another agent's highly-relevant records can fill
-            // every slot and leave this adapter returning nothing while
-            // matching records sit just below the cut. Widening the candidate
-            // window and truncating after the filter is what makes `max_hits`
-            // mean "up to N of *this agent's* attempts".
+            // Replaced per iteration by the widening loop below.
             max_hits: self.candidate_hits(),
         };
 
@@ -439,9 +441,51 @@ impl ExperienceStore for OpenHumanExperienceStore {
             stores.push(shared.clone());
         }
 
-        let hits = retrieve_across_stores(&stores, query)
-            .await
-            .map_err(|e| TinyAgentsError::Memory(format!("recall agent experience: {e}")))?;
+        // Widen until this agent's limit is satisfied, or the store runs out.
+        //
+        // The domain truncates to `max_hits` *before* this adapter can filter by
+        // agent — identity is only a score bonus there — so a single over-fetch
+        // is not enough: if more than the candidate window's worth of
+        // higher-scoring records belong to other agents, the requested agent's
+        // attempts are still outside the pool and recall comes back empty. A
+        // fixed multiplier just moves that cliff rather than removing it, so the
+        // window escalates until either the filtered result reaches `max_hits`,
+        // the store returns fewer candidates than asked for (nothing left), or
+        // the window hits [`Self::MAX_CANDIDATE_HITS`].
+        let mut window = self.candidate_hits();
+        let mut hits;
+        loop {
+            let mut attempt = query.clone();
+            attempt.max_hits = window;
+            hits = retrieve_across_stores(&stores, attempt)
+                .await
+                .map_err(|e| TinyAgentsError::Memory(format!("recall agent experience: {e}")))?;
+
+            let matched = hits
+                .iter()
+                .filter(|hit| {
+                    hit.experience
+                        .agent_id
+                        .as_deref()
+                        .is_some_and(|owner| same_agent(owner, agent_id))
+                })
+                .count();
+
+            let exhausted = hits.len() < window;
+            if matched >= self.max_hits || exhausted || window >= Self::MAX_CANDIDATE_HITS {
+                if matched < self.max_hits && !exhausted {
+                    tracing::debug!(
+                        target: "tinyagents",
+                        %agent_id,
+                        window,
+                        matched,
+                        "[tinyagents][experience] stopped widening at the candidate ceiling"
+                    );
+                }
+                break;
+            }
+            window = window.saturating_mul(4).min(Self::MAX_CANDIDATE_HITS);
+        }
 
         // The domain only *boosts* an agent match, so filter here to keep the
         // trait's "prior attempts by `agent`" promise. Records with no agent id

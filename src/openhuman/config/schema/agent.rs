@@ -353,7 +353,8 @@ pub struct AgentConfig {
     /// store existed have no stream and report `Unavailable`, not divergence,
     /// so an upgrading user's old transcripts do not generate warnings. The
     /// `OPENHUMAN_SESSION_SHADOW_READS` env var is a pure **kill switch**: a
-    /// falsy value (`0`/`false`/`no`/`off`/`disable`) forces the shadow read
+    /// falsy value (`0`/`false`/`no`/`off`/`disable`/`disabled`, case-
+    /// insensitive) forces the shadow read
     /// OFF regardless of config; it can never force it ON. See
     /// [`crate::openhuman::agent::session_import::live::shadow_reads_enabled`].
     #[serde(default = "default_session_shadow_reads")]

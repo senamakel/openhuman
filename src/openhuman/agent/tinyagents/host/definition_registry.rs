@@ -161,6 +161,13 @@ pub struct OpenHumanDefinitionRegistry {
     /// non-empty cannot be projected faithfully and [`Self::tools_for`] fails
     /// closed rather than re-granting the denied tools.
     registered_tools: Option<Arc<Vec<String>>>,
+    /// Connected Composio integrations, used only to decide whether the
+    /// synthesized `delegate_to_integrations_agent` tool exists.
+    ///
+    /// Empty is a valid state and is the documented "user has connected
+    /// nothing" behaviour in `collect_orchestrator_tools` — the LLM should not
+    /// see an integrations delegate with an empty enum.
+    connected_integrations: Vec<ConnectedIntegration>,
 }
 
 /// Outcome of resolving a definition's own scope, before the profile allowlist.
@@ -184,6 +191,7 @@ impl OpenHumanDefinitionRegistry {
             config: None,
             profile: None,
             registered_tools: None,
+            connected_integrations: Vec::new(),
         }
     }
 
@@ -199,6 +207,7 @@ impl OpenHumanDefinitionRegistry {
             config: None,
             profile: None,
             registered_tools: None,
+            connected_integrations: Vec::new(),
         })
     }
 
@@ -230,6 +239,47 @@ impl OpenHumanDefinitionRegistry {
     pub fn with_registered_tools(mut self, tools: Arc<Vec<String>>) -> Self {
         self.registered_tools = Some(tools);
         self
+    }
+
+    /// Attaches the user's connected Composio integrations.
+    ///
+    /// Only affects whether `delegate_to_integrations_agent` is synthesized for
+    /// a definition carrying a `{ skills = "*" }` subagent entry. Leaving it
+    /// empty reproduces the "nothing connected" behaviour rather than
+    /// advertising a delegate with no targets.
+    pub fn with_connected_integrations(
+        mut self,
+        integrations: Vec<ConnectedIntegration>,
+    ) -> Self {
+        self.connected_integrations = integrations;
+        self
+    }
+
+    /// Names of the delegation tools the session builder synthesizes for `def`.
+    ///
+    /// `collect_orchestrator_tools` turns each `[subagents]` entry into a
+    /// concrete `delegate_*` tool (plus `delegate_to_integrations_agent` for a
+    /// `{ skills = "*" }` entry). Those tools exist only at session-build time,
+    /// so a projection that reports the static `ToolScope` alone would hand the
+    /// runtime an orchestrator with **no delegation routes at all** — the
+    /// declared subagents would be visible in `subagents` while the tools that
+    /// actually reach them were missing.
+    ///
+    /// Reuses the builder's own function rather than re-deriving the naming, so
+    /// the two cannot disagree about which entries yield a tool (it already
+    /// skips runtime-only sub-agents like `summarizer` and unknown ids).
+    fn delegation_tool_names(&self, def: &HostAgentDefinition) -> Vec<String> {
+        if def.subagents.is_empty() {
+            return Vec::new();
+        }
+        crate::openhuman::tools::orchestrator_tools::collect_orchestrator_tools(
+            def,
+            self.registry.get(),
+            &self.connected_integrations,
+        )
+        .iter()
+        .map(|tool| tool.name().to_string())
+        .collect()
     }
 
     /// Resolves `id` to a **host** definition: harness registry first, then the

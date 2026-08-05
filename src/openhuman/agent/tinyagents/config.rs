@@ -204,6 +204,14 @@ mod tests {
         c.agent.parallel_tools = true;
         c.agent.max_parallel_tools = 3;
         c.agent.agent_timeout_secs = 45;
+        // Set away from the default so a dropped assignment fails here. A
+        // default-valued field is invisible to `default_config_maps_to_the_
+        // crate_defaults` (it compares against `TurnConfig::default()`) and to
+        // `per_section_mappers_agree_with_the_composed_one` (which compares
+        // `turn_config_from` against itself), so this is the only test that can
+        // catch it.
+        c.agent.compact_context = !AgentConfig::default().compact_context;
+        c.agent.tool_result_budget_bytes = 4242;
 
         let t = session_config_from(&c).turn;
         assert_eq!(t.max_tool_iterations, 7);
@@ -211,6 +219,8 @@ mod tests {
         assert!(t.parallel_tools);
         assert_eq!(t.max_parallel_tools, 3);
         assert_eq!(t.timeout_secs, 45);
+        assert_eq!(t.compact_context, !AgentConfig::default().compact_context);
+        assert_eq!(t.tool_result_budget_bytes, 4242);
     }
 
     #[test]

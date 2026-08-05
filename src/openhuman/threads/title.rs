@@ -7,7 +7,29 @@ use std::hash::{Hash, Hasher};
 
 pub const THREAD_TITLE_LOG_PREFIX: &str = "[threads:title]";
 pub const THREAD_TITLE_MODEL_HINT: &str = "hint:summarize";
-pub const THREAD_TITLE_SYSTEM_PROMPT: &str = "You generate short, specific chat thread titles from the first user message and the assistant reply. Return only the title text. Keep it under 8 words. No quotes. No markdown. No trailing punctuation unless it is part of a proper noun.";
+pub const THREAD_TITLE_SYSTEM_PROMPT: &str = "You name chat threads with a short slug taken from the first user message and the assistant reply. Return only the slug: at most 3 lowercase words joined by hyphens, like fix-session-handoff or gmail-oauth-retry. Lead with the verb or the subject and drop filler words. No quotes. No markdown. No punctuation other than the hyphens.";
+
+/// Words a slug carries at most. Three is the whole point of the shape: a
+/// thread list is scanned, not read, and a fourth word is always the one that
+/// pushes the specific words off the end of a narrow row.
+pub const THREAD_TITLE_MAX_WORDS: usize = 3;
+/// Hard character ceiling on a slug, so one very long word cannot widen a row.
+pub const THREAD_TITLE_MAX_CHARS: usize = 48;
+
+/// Filler a slug is better off without.
+///
+/// Prompts open with conversational scaffolding ("okay so can you please…"),
+/// and taking the first three words verbatim would spend the whole slug on it.
+/// Only words that never identify a thread on their own are listed; a filtered
+/// slug that comes out empty falls back to the unfiltered words, so a message
+/// made entirely of these still gets a name.
+const FILLER_WORDS: &[&str] = &[
+    "a", "about", "an", "and", "are", "as", "at", "be", "but", "by", "can", "could", "do", "does",
+    "for", "from", "hey", "hi", "how", "i", "if", "in", "into", "is", "it", "its", "just", "let",
+    "lets", "like", "me", "my", "of", "ok", "okay", "on", "or", "our", "please", "so", "thanks",
+    "that", "the", "their", "then", "there", "these", "they", "this", "to", "uh", "um", "us",
+    "was", "we", "well", "what", "when", "which", "will", "with", "would", "you", "your",
+];
 
 /// Stable 16-hex-char fingerprint of a title — safe for structured logs
 /// where we want to correlate events without leaking the raw title text.
@@ -80,32 +102,76 @@ pub fn collapse_whitespace(input: &str) -> String {
     input.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Sanitises a raw LLM title completion into a single display-ready line.
+/// Reduces any text to the thread-title slug shape: at most
+/// [`THREAD_TITLE_MAX_WORDS`] lowercase words joined by hyphens, e.g.
+/// `fix-session-handoff`.
+///
+/// This is the shape enforcer, not a request: the model is asked for a slug in
+/// [`THREAD_TITLE_SYSTEM_PROMPT`], but a title that reaches storage as a
+/// sentence because one completion ignored the instruction is exactly the bug
+/// the slug is meant to remove, so every path runs through here.
 ///
 /// Rules applied (in order):
-/// - take the first non-empty line
-/// - strip wrapping quotes / backticks
-/// - drop trailing `. ! ? : ;`
-/// - collapse internal whitespace
-/// - truncate to 80 characters
+/// - split on anything that is not alphanumeric (punctuation, quotes, markdown,
+///   whitespace, existing hyphens all become word breaks)
+/// - lowercase every word
+/// - drop [`FILLER_WORDS`], unless that would leave nothing
+/// - keep the first [`THREAD_TITLE_MAX_WORDS`] words, and stop early rather
+///   than exceed [`THREAD_TITLE_MAX_CHARS`]
+///
+/// Returns `None` when no word survives.
+pub fn slugify_title(text: &str) -> Option<String> {
+    let words: Vec<String> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(|word| word.to_lowercase())
+        .collect();
+    if words.is_empty() {
+        return None;
+    }
+    let meaningful: Vec<&String> = words
+        .iter()
+        .filter(|word| !FILLER_WORDS.contains(&word.as_str()))
+        .collect();
+    // All-filler input ("can you please") still names its thread, badly-but-
+    // stably, rather than leaving the placeholder title in place.
+    let source: Vec<&String> = if meaningful.is_empty() {
+        words.iter().collect()
+    } else {
+        meaningful
+    };
+
+    let mut slug = String::new();
+    for word in source.into_iter().take(THREAD_TITLE_MAX_WORDS) {
+        let separator = usize::from(!slug.is_empty());
+        let room = THREAD_TITLE_MAX_CHARS.saturating_sub(slug.chars().count() + separator);
+        if room == 0 {
+            break;
+        }
+        if !slug.is_empty() {
+            slug.push('-');
+        }
+        // A single word longer than the ceiling is truncated rather than
+        // dropped: dropping it can empty an otherwise usable slug.
+        slug.extend(word.chars().take(room));
+    }
+    (!slug.is_empty()).then_some(slug)
+}
+
+/// Sanitises a raw LLM title completion into a stored thread title.
+///
+/// Takes the first non-empty line — a chatty model that adds a second line of
+/// commentary should not have it folded into the name — and slugifies it with
+/// [`slugify_title`], which absorbs the quote/markdown/punctuation stripping
+/// the older sentence-shaped title needed done by hand.
 ///
 /// Returns `None` if the result is empty.
 pub fn sanitize_generated_title(raw: &str) -> Option<String> {
     let line = raw
         .lines()
         .find(|line| !line.trim().is_empty())
-        .unwrap_or(raw)
-        .trim();
-    let trimmed = line
-        .trim_matches(|c: char| matches!(c, '"' | '\'' | '`'))
-        .trim()
-        .trim_end_matches(['.', '!', '?', ':', ';'])
-        .trim();
-    let collapsed = collapse_whitespace(trimmed);
-    if collapsed.is_empty() {
-        return None;
-    }
-    Some(collapsed.chars().take(80).collect())
+        .unwrap_or(raw);
+    slugify_title(line)
 }
 
 /// Derives a stable display title directly from the first useful user message.
@@ -115,32 +181,23 @@ pub fn sanitize_generated_title(raw: &str) -> Option<String> {
 /// title meaningful without repeatedly renaming the thread later.
 pub fn title_from_user_message(message: &str) -> Option<String> {
     let collapsed = collapse_whitespace(message);
-    let stripped = collapsed
-        .trim_matches(|c: char| matches!(c, '"' | '\'' | '`'))
-        .trim()
-        .trim_start_matches(['/', '@', '#'])
-        .trim();
-    if stripped.is_empty() {
+    if collapsed.is_empty() {
         return None;
     }
 
-    let first_sentence = stripped
+    // Only the first sentence describes the ask; what follows is context the
+    // slug has no room for anyway.
+    let first_sentence = collapsed
         .split(['.', '!', '?', '\n'])
         .find(|part| !part.trim().is_empty())
-        .unwrap_or(stripped)
-        .trim();
-    let words = first_sentence
-        .split_whitespace()
-        .take(8)
-        .collect::<Vec<_>>()
-        .join(" ");
-    sanitize_generated_title(&words)
+        .unwrap_or(&collapsed);
+    slugify_title(first_sentence)
 }
 
 /// Builds the user-visible prompt passed to the title-generation model.
 pub fn build_title_prompt(user_message: &str, assistant_message: &str) -> String {
     format!(
-        "First user message:\n{user_message}\n\nAssistant reply:\n{assistant_message}\n\nReturn the best thread title."
+        "First user message:\n{user_message}\n\nAssistant reply:\n{assistant_message}\n\nReturn the best thread slug."
     )
 }
 
@@ -259,48 +316,91 @@ mod tests {
         assert_eq!(collapse_whitespace("   "), "");
     }
 
-    // ── sanitize_generated_title ──────────────────────────────────
+    // ── slugify_title ─────────────────────────────────────────────
 
     #[test]
-    fn sanitize_strips_wrapping_quotes() {
+    fn slugify_keeps_at_most_three_lowercase_words() {
         assert_eq!(
-            sanitize_generated_title("\"Launch plan\"").unwrap(),
-            "Launch plan"
+            slugify_title("Fix session handoff flow and pointer").unwrap(),
+            "fix-session-handoff"
         );
+        assert_eq!(slugify_title("Launch Plan").unwrap(), "launch-plan");
+    }
+
+    #[test]
+    fn slugify_drops_leading_filler() {
         assert_eq!(
-            sanitize_generated_title("'Debugging deploys'").unwrap(),
-            "Debugging deploys"
-        );
-        assert_eq!(
-            sanitize_generated_title("`retro notes`").unwrap(),
-            "retro notes"
+            slugify_title("okay so can you please fix the session handoff").unwrap(),
+            "fix-session-handoff"
         );
     }
 
     #[test]
-    fn sanitize_strips_trailing_punctuation() {
+    fn slugify_falls_back_to_filler_when_that_is_all_there_is() {
+        assert_eq!(slugify_title("can you please").unwrap(), "can-you-please");
+    }
+
+    #[test]
+    fn slugify_treats_punctuation_and_markdown_as_word_breaks() {
         assert_eq!(
-            sanitize_generated_title("Planning session.").unwrap(),
-            "Planning session"
+            slugify_title("**Debugging deploys:** retry").unwrap(),
+            "debugging-deploys-retry"
         );
         assert_eq!(
-            sanitize_generated_title("Where are we?").unwrap(),
-            "Where are we"
+            slugify_title("\"gmail/oauth retry\"").unwrap(),
+            "gmail-oauth-retry"
+        );
+    }
+
+    #[test]
+    fn slugify_bounds_total_length() {
+        let long = format!("{} {} {}", "a".repeat(30), "b".repeat(30), "c".repeat(30));
+        let out = slugify_title(&long).unwrap();
+        assert!(out.chars().count() <= THREAD_TITLE_MAX_CHARS);
+        // A word that does not fit whole is truncated, never dropped.
+        assert!(out.starts_with(&"a".repeat(30)));
+    }
+
+    #[test]
+    fn slugify_counts_chars_not_bytes() {
+        // Each ✨ is 3 bytes in UTF-8, and is not alphanumeric — a title made
+        // only of them has no word to keep.
+        assert!(slugify_title(&"✨".repeat(90)).is_none());
+        let out = slugify_title(&"é".repeat(90)).unwrap();
+        assert_eq!(out.chars().count(), THREAD_TITLE_MAX_CHARS);
+    }
+
+    #[test]
+    fn slugify_returns_none_without_a_word() {
+        assert!(slugify_title("").is_none());
+        assert!(slugify_title("   \n\t  ").is_none());
+        assert!(slugify_title("///").is_none());
+    }
+
+    // ── sanitize_generated_title ──────────────────────────────────
+
+    #[test]
+    fn sanitize_slugifies_a_sentence_shaped_completion() {
+        assert_eq!(
+            sanitize_generated_title("\"Planning the launch party\"").unwrap(),
+            "planning-launch-party"
+        );
+        // "are"/"we" are filler, so a question collapses to its one real word.
+        assert_eq!(sanitize_generated_title("Where are we?").unwrap(), "where");
+    }
+
+    #[test]
+    fn sanitize_passes_an_already_slugged_completion_through() {
+        assert_eq!(
+            sanitize_generated_title("fix-session-handoff").unwrap(),
+            "fix-session-handoff"
         );
     }
 
     #[test]
     fn sanitize_picks_first_nonempty_line() {
         let raw = "\n\n  First real line  \nsecond line\n";
-        assert_eq!(sanitize_generated_title(raw).unwrap(), "First real line");
-    }
-
-    #[test]
-    fn sanitize_collapses_internal_whitespace() {
-        assert_eq!(
-            sanitize_generated_title("hello    world").unwrap(),
-            "hello world"
-        );
+        assert_eq!(sanitize_generated_title(raw).unwrap(), "first-real-line");
     }
 
     #[test]
@@ -311,18 +411,10 @@ mod tests {
     }
 
     #[test]
-    fn sanitize_truncates_to_eighty_chars() {
+    fn sanitize_bounds_length() {
         let long = "a".repeat(200);
         let out = sanitize_generated_title(&long).unwrap();
-        assert_eq!(out.chars().count(), 80);
-    }
-
-    #[test]
-    fn sanitize_truncates_by_char_count_not_byte_count() {
-        // Each ✨ is 3 bytes in UTF-8; ensure truncation counts chars, not bytes.
-        let long: String = std::iter::repeat('✨').take(90).collect();
-        let out = sanitize_generated_title(&long).unwrap();
-        assert_eq!(out.chars().count(), 80);
+        assert_eq!(out.chars().count(), THREAD_TITLE_MAX_CHARS);
     }
 
     // ── title_from_user_message ──────────────────────────────────
@@ -332,7 +424,7 @@ mod tests {
         assert_eq!(
             title_from_user_message("Can you retrieve my latest 5 emails and summarize them?")
                 .unwrap(),
-            "Can you retrieve my latest 5 emails and"
+            "retrieve-latest-5"
         );
     }
 
@@ -340,7 +432,7 @@ mod tests {
     fn title_from_user_message_removes_command_prefix_and_punctuation() {
         assert_eq!(
             title_from_user_message("/briefing Morning update, please. Then check email").unwrap(),
-            "briefing Morning update, please"
+            "briefing-morning-update"
         );
     }
 
@@ -357,6 +449,6 @@ mod tests {
         let prompt = build_title_prompt("hello", "hi there");
         assert!(prompt.contains("First user message:\nhello"));
         assert!(prompt.contains("Assistant reply:\nhi there"));
-        assert!(prompt.contains("Return the best thread title"));
+        assert!(prompt.contains("Return the best thread slug"));
     }
 }

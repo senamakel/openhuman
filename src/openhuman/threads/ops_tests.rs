@@ -75,15 +75,15 @@ fn build_title_prompt_renders_user_and_assistant_sections_in_order() {
     let prompt = build_title_prompt("hi there", "hello back");
     assert_eq!(
         prompt,
-        "First user message:\nhi there\n\nAssistant reply:\nhello back\n\nReturn the best thread title."
+        "First user message:\nhi there\n\nAssistant reply:\nhello back\n\nReturn the best thread slug."
     );
 }
 
 // NOTE: the sanitize_generated_title / title_from_user_message copies were
 // removed here (plan.md §2.1) — threads/title.rs (the owning module) already
-// covers these functions with equivalent cases (quotes/punct trimming, first
-// non-empty line, empty→None, internal-whitespace collapse, char-safe 80-char
-// truncation incl. multibyte, and the fallback-title cases).
+// covers these functions with equivalent cases (slug shaping, filler removal,
+// first non-empty line, empty→None, and the char-safe length ceiling incl.
+// multibyte input).
 
 // ── is_auto_generated_thread_title ────────────────────────────
 
@@ -281,11 +281,11 @@ fn record_to_message_preserves_null_extra_metadata() {
 
 #[test]
 fn title_system_prompt_constrains_model_output_shape() {
-    // The system prompt is shipped verbatim to the provider. Locking
-    // in the trailing "no trailing punctuation" clause catches
-    // accidental edits that would let the model emit trailing periods
-    // that `sanitize_generated_title` would then silently strip.
-    assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("under 8 words"));
+    // The system prompt is shipped verbatim to the provider. Locking in the
+    // slug clauses catches accidental edits that would let the model emit a
+    // sentence-shaped title that `sanitize_generated_title` would then have to
+    // rewrite silently.
+    assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("at most 3 lowercase words joined by hyphens"));
     assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("No quotes"));
     assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("No markdown"));
 }

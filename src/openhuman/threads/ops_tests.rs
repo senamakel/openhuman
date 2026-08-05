@@ -75,13 +75,13 @@ fn build_title_prompt_renders_user_and_assistant_sections_in_order() {
     let prompt = build_title_prompt("hi there", "hello back");
     assert_eq!(
         prompt,
-        "First user message:\nhi there\n\nAssistant reply:\nhello back\n\nReturn the best thread slug."
+        "First user message:\nhi there\n\nAssistant reply:\nhello back\n\nReturn the best thread name."
     );
 }
 
 // NOTE: the sanitize_generated_title / title_from_user_message copies were
 // removed here (plan.md §2.1) — threads/title.rs (the owning module) already
-// covers these functions with equivalent cases (slug shaping, filler removal,
+// covers these functions with equivalent cases (title shaping, filler removal,
 // first non-empty line, empty→None, and the char-safe length ceiling incl.
 // multibyte input).
 
@@ -282,10 +282,10 @@ fn record_to_message_preserves_null_extra_metadata() {
 #[test]
 fn title_system_prompt_constrains_model_output_shape() {
     // The system prompt is shipped verbatim to the provider. Locking in the
-    // slug clauses catches accidental edits that would let the model emit a
+    // length clause catches accidental edits that would let the model emit a
     // sentence-shaped title that `sanitize_generated_title` would then have to
     // rewrite silently.
-    assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("at most 3 lowercase words joined by hyphens"));
+    assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("at most 3 words"));
     assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("No quotes"));
     assert!(THREAD_TITLE_SYSTEM_PROMPT.contains("No markdown"));
 }

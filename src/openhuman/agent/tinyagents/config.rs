@@ -148,11 +148,18 @@ pub fn apply_team_models(session: &mut SessionConfig, config: &Config, team: &st
         );
         return;
     };
-    if let Some(lead) = pins.lead_model.as_ref() {
-        session.lead_model = Some(lead.clone());
+    // Resolve through `model_for_role` rather than copying the raw options.
+    // That helper owns three behaviours this mapper must not re-derive: it
+    // trims, it drops empty strings (so a blank pin cannot displace a valid
+    // default), and it falls back across the pair — a team that sets only
+    // `lead_model` means that model for *both* tiers. Copying the fields
+    // directly left the unset tier on the global default, which is a different
+    // model from the one the user configured.
+    if let Some(lead) = pins.model_for_role(true) {
+        session.lead_model = Some(lead.to_string());
     }
-    if let Some(agent) = pins.agent_model.as_ref() {
-        session.subagent_model = Some(agent.clone());
+    if let Some(agent) = pins.model_for_role(false) {
+        session.subagent_model = Some(agent.to_string());
     }
 }
 

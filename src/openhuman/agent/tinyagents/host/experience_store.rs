@@ -766,6 +766,42 @@ mod tests {
         assert!(found.len() <= 2, "max_hits still bounds the result");
     }
 
+    /// The case a fixed over-fetch multiplier could not survive: more than
+    /// `max_hits * AGENT_MIX_FACTOR` records from another agent. A single
+    /// widened query still truncates them into every candidate slot, so the
+    /// window has to escalate until this agent's records are reachable.
+    #[tokio::test]
+    async fn widening_survives_more_crowding_than_one_over_fetch_covers() {
+        let store = adapter().with_max_hits(2);
+        // 40 > 2 * 5, so the first candidate window is entirely other-agent.
+        for i in 0..40 {
+            store
+                .record(&exp("writer", &format!("ship release {i}"), "ok", true))
+                .await
+                .expect("record");
+        }
+        store
+            .record(&exp(
+                "planner",
+                "ship release 99",
+                "planner's own attempt",
+                true,
+            ))
+            .await
+            .expect("record");
+
+        let found = store
+            .recall_for("planner", "ship release")
+            .await
+            .expect("recall");
+
+        assert!(
+            !found.is_empty(),
+            "the planner's attempt must be reachable past a full candidate window"
+        );
+        assert!(found.iter().all(|e| e.agent_id == "planner"));
+    }
+
     #[tokio::test]
     async fn secrets_are_redacted_before_they_reach_the_store() {
         let store = adapter();

@@ -453,7 +453,9 @@ mod tests {
             &mut s,
             &DelegateAgentConfig {
                 model: "  ".into(),
-                ..Default::default()
+                system_prompt: None,
+                temperature: None,
+                max_depth: 1,
             },
         );
         assert_eq!(s.model, "sonnet");

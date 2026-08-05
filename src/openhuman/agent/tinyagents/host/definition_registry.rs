@@ -894,6 +894,43 @@ mod tests {
         );
     }
 
+    /// A definition that declares `[subagents]` must project the `delegate_*`
+    /// tools the session builder synthesizes for it, or the runtime gets an
+    /// orchestrator that lists its subagents while having no route to reach
+    /// them.
+    #[tokio::test]
+    async fn declared_subagents_project_their_delegation_tools() {
+        let projected = OpenHumanDefinitionRegistry::builtins_only()
+            .resolve("orchestrator")
+            .await
+            .expect("resolve")
+            .expect("orchestrator is a built-in");
+
+        assert!(
+            !projected.subagents.is_empty(),
+            "this test is meaningless if the orchestrator stops declaring subagents"
+        );
+        assert!(
+            projected.tools.iter().any(|t| t.starts_with("delegate_")),
+            "a declared subagent must yield a delegation tool, got {:?}",
+            projected.tools
+        );
+    }
+
+    /// A non-delegating agent gains nothing — the synthesis must not invent
+    /// routes for an agent that declares no subagents.
+    #[test]
+    fn an_agent_without_subagents_gains_no_delegation_tools() {
+        let mut def = synthetic("worker", AgentTier::Worker, &[]);
+        def.tools = ToolScope::Named(vec!["file_read".to_string()]);
+        def.extra_tools = Vec::new();
+
+        assert_eq!(
+            registry_of(vec![def.clone()]).project(&def).tools,
+            vec!["file_read".to_string()]
+        );
+    }
+
     /// An agent configured with an empty allowlist wants *no* tools. The empty
     /// vec would say the opposite.
     #[test]

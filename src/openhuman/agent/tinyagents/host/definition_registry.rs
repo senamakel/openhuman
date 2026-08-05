@@ -84,6 +84,7 @@ use crate::openhuman::agent::harness::definition::{
     SubagentEntry, ToolScope,
 };
 use crate::openhuman::agent::profiles::AgentProfile;
+use crate::openhuman::agent::prompts::ConnectedIntegration;
 use crate::openhuman::agent::registry::{definition_from_registry_entry, find_custom_in_config};
 use crate::openhuman::config::Config;
 
@@ -247,10 +248,7 @@ impl OpenHumanDefinitionRegistry {
     /// a definition carrying a `{ skills = "*" }` subagent entry. Leaving it
     /// empty reproduces the "nothing connected" behaviour rather than
     /// advertising a delegate with no targets.
-    pub fn with_connected_integrations(
-        mut self,
-        integrations: Vec<ConnectedIntegration>,
-    ) -> Self {
+    pub fn with_connected_integrations(mut self, integrations: Vec<ConnectedIntegration>) -> Self {
         self.connected_integrations = integrations;
         self
     }

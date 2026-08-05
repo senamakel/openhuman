@@ -393,6 +393,11 @@ impl OpenHumanDefinitionRegistry {
                 // named scope. Under `Wildcard` it is meaningless — everything
                 // is already in scope.
                 names.extend(def.extra_tools.iter().cloned());
+                // Delegation tools are synthesized by the session builder, so a
+                // named scope never lists them; without this an orchestrator
+                // would project with its direct tools and no `delegate_*`
+                // routes.
+                names.extend(self.delegation_tool_names(def));
                 names.retain(|name| !disallows_tool(&def.disallowed_tools, name));
                 dedupe_preserving_order(&mut names);
                 // Deliberately *not* collapsed to `Wildcard` when empty: an
@@ -407,6 +412,7 @@ impl OpenHumanDefinitionRegistry {
                 Some(registered) => {
                     let mut names: Vec<String> = registered
                         .iter()
+                        .chain(self.delegation_tool_names(def).iter())
                         .filter(|name| !disallows_tool(&def.disallowed_tools, name))
                         .cloned()
                         .collect();

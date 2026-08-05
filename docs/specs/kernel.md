@@ -129,7 +129,7 @@ retained `mcp` and `tui` CLI arms.
 Every subsystem call from product code goes through a kernel-owned **guard decorator**, never to
 the driver directly:
 
-```
+```text
 agent tool / RPC handler
         │
         ▼

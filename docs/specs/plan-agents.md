@@ -297,7 +297,7 @@ value maps to `Auto` with a warning rather than failing: the host's own schema
 lets a typo through validation, so refusing to build the session would turn a
 cosmetic config error into an agent that cannot run.
 
-#### Repointing: what the "37 files" actually decomposes into
+### Repointing: what the "37 files" actually decomposes into
 
 The 37-file figure counts every `agent/` production file with a qualified
 `config::` path. **Only ~19 are in the moving set** — the rest (`host_runtime`,
@@ -374,7 +374,7 @@ the field most read. One source of truth or none.
 `factory.rs` reaches 21 domains and is going to be *split* into host trait impls,
 not moved verbatim. Repointing its `Config` usage now is rework.
 
-#### Done in this pass
+### Done in this pass
 
 `RequiredOutputContract` → crate `RequiredOutput`, the one clean type swap
 available: `harness/required_output.rs` (pure logic, no host domains) and
@@ -392,7 +392,7 @@ session builder takes a **per-agent `AgentConfig` override** — mapping only fr
 the global `Config` would have discarded it and run every agent on the global
 limits.
 
-#### Revised remaining work
+### Revised remaining work
 
 1. ~~Thread config through the ambient-load sites.~~ **Done 2026-08-02.**
 2. After Phase 2: replace `Agent.config` with crate config; migrate the two real

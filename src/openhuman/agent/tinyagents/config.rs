@@ -397,8 +397,13 @@ mod tests {
         assert_eq!(untouched, before);
     }
 
+    /// `TeamModelConfig`'s own doc: "Callers fall back across the pair so
+    /// configs can specify only one tier without breaking routing." A team that
+    /// pins one model means that model for both tiers — leaving the other on the
+    /// **global** default would silently run half the team on a model the user
+    /// did not choose for this team.
     #[test]
-    fn a_team_pinning_only_one_tier_leaves_the_other_on_the_default() {
+    fn a_team_pinning_only_one_tier_applies_it_to_both() {
         let mut c = base();
         c.default_model = Some("sonnet".into());
         c.teams.insert(
@@ -412,7 +417,46 @@ mod tests {
         let mut s = session_config_from(&c);
         apply_team_models(&mut s, &c, "solo");
         assert_eq!(s.effective_lead_model(), "opus");
+        assert_eq!(
+            s.effective_subagent_model(),
+            "opus",
+            "a single pin covers both tiers"
+        );
+    }
+
+    /// A blank pin is not a pin. Without the trim-and-drop it would replace a
+    /// working default with the empty string and fail at dispatch instead.
+    #[test]
+    fn a_blank_team_pin_does_not_displace_the_default() {
+        let mut c = base();
+        c.default_model = Some("sonnet".into());
+        c.teams.insert(
+            "blank".into(),
+            crate::openhuman::config::TeamModelConfig {
+                lead_model: Some("   ".into()),
+                agent_model: None,
+            },
+        );
+
+        let mut s = session_config_from(&c);
+        apply_team_models(&mut s, &c, "blank");
+        assert_eq!(s.effective_lead_model(), "sonnet");
         assert_eq!(s.effective_subagent_model(), "sonnet");
+    }
+
+    #[test]
+    fn a_blank_delegate_model_keeps_the_session_default() {
+        let mut c = base();
+        c.default_model = Some("sonnet".into());
+        let mut s = session_config_from(&c);
+        apply_delegate(
+            &mut s,
+            &DelegateAgentConfig {
+                model: "  ".into(),
+                ..Default::default()
+            },
+        );
+        assert_eq!(s.model, "sonnet");
     }
 
     #[test]

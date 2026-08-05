@@ -170,7 +170,20 @@ pub fn apply_team_models(session: &mut SessionConfig, config: &Config, team: &st
 /// `lead_model`: a delegate *is* the agent running this session, so it is the
 /// base model, not an override layered over some other base.
 pub fn apply_delegate(session: &mut SessionConfig, delegate: &DelegateAgentConfig) {
-    session.model = delegate.model.clone();
+    // `DelegateAgentConfig::model` is a bare `String`, and TOML happily accepts
+    // `model = ""`. Assigning that unchecked would replace a working session
+    // model with the empty string and fail at dispatch rather than here, so a
+    // blank pin leaves the session default alone — the same trim-and-drop rule
+    // `TeamModelConfig::model_for_role` applies to team pins.
+    let model = delegate.model.trim();
+    if model.is_empty() {
+        tracing::warn!(
+            target: "tinyagents",
+            "[tinyagents] delegate model pin is blank; keeping the session default model"
+        );
+    } else {
+        session.model = model.to_string();
+    }
     if let Some(t) = delegate.temperature {
         session.temperature = Some(t);
     }

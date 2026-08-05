@@ -347,8 +347,8 @@ Two loads remain in moving files, both host-boundary code that gets extracted
 rather than moved:
 
 - `session/turn/tools.rs:123` — Composio integration fetch. Config is *already*
-  threaded via the session's `integration_runtime_config` (set in
-  `factory.rs:1280`); this is only the fallback when a session is built through
+  threaded via the session's `runtime_config` (set in
+  `factory.rs`); this is only the fallback when a session is built through
   the raw setter path. Composio is host product logic and becomes a `Tool` impl
   in Phase 4, so the fallback was left rather than risk silently disabling
   integration fetching for setter-built sessions.
@@ -494,28 +494,37 @@ work as Phase 5, not a repoint. `ToolOutcomeClassifier`'s only host consumer is
 | `ToolOutcomeClassifier` | nothing | yes |
 | `ProgressSink` | `Sender<AgentProgress>` | yes |
 | `LearningSink` | `Vec<Arc<dyn PostTurnHook>>` | yes |
-| **`BudgetGate`, `ContextComposer`, `ModelResolver`** | **`Arc<Config>`** | **no — holds `AgentConfig`; full `Config` only as the optional `integration_runtime_config`** |
+| **`BudgetGate`, `ContextComposer`, `ModelResolver`** | **`Arc<Config>`** | **yes — the session carries `runtime_config: Option<Arc<Config>>`** |
 | **`SecurityGate`** | **`Arc<SecurityPolicy>`** + tool sets | tool sets yes, **policy no** |
 
-That `Arc<Config>` gap is precisely the Phase 3 blocker, which means:
+The `Arc<Config>` gap that used to head this chain is **closed**: the session
+field was promoted from `integration_runtime_config: Option<Config>` to
+`runtime_config: Option<Arc<Config>>` in #5396, and the same pass collapsed the
+subagent spawn path from seven ambient `Config::load_or_init()` calls to one.
+`BudgetGate`, `ContextComposer` and `ModelResolver` are therefore constructible
+today.
 
-> **The program is now a dependency chain, and its head is elapsed time.**
-> Phase 4's repointing needs the session to carry a full `Config` → that is
-> Phase 3's session-config swap → which is blocked on Phase 2 rehoming
-> `session_dual_write` / `session_shadow_reads` → which is blocked on the
-> parity soak, and the soak needs a *shipped release* to produce data.
+What remains blocked is narrower than it was:
+
+> Phase 4's **repointing** still needs Phase 2 to rehome
+> `session_dual_write` / `session_shadow_reads`, which needs the parity soak,
+> and the soak needs a *shipped release* to produce data.
 >
 > So §5's claim that Phase 4 "delivers most of the architectural value with
-> none of the relocation risk" and is a legitimate stopping point holds only
-> for the **adapters**, which are done. The repointing half is not independently
-> executable, and no amount of effort unblocks it before the soak lands.
+> none of the relocation risk" holds for the **adapters**, which are done. The
+> repointing half is gated on elapsed time, not on effort.
 
-**What is unblocked meanwhile:** promoting the session's optional
-`integration_runtime_config: Option<Config>` to a first-class `Arc<Config>`
-(the factory already sets it at `factory.rs:1307`) would make four of the six
-blocked adapters constructible without waiting on Phase 2. That is the one
-piece of Phase 4 repointing that can proceed now, and it is worth doing before
-the soak completes so the rest is a short step rather than a long one.
+**Two further blockers surfaced in #5396's review, both crate-side** and both
+filed upstream — repointing should not proceed past them:
+
+- [`tinyagents#88`](https://github.com/tinyhumansai/tinyagents/issues/88) —
+  `ProgressEvent` has no tool-completion milestone, so a host cannot report a
+  tool's outcome. Tool rows would stay `running` forever; synthesising
+  `success: true` would put wrong data in the timeline and the trace exporter.
+- [`tinyagents#89`](https://github.com/tinyhumansai/tinyagents/issues/89) —
+  `ModelResolveRequest` carries no model pin, so a definition's exact model id
+  has no route to the resolver. Per-agent pins would silently resolve to the
+  workload default.
 
 **21 `TODO(phase4)` markers** remain across the adapters, each naming a domain
 surface that was not reachable. They are honest gaps, not stubs pretending to

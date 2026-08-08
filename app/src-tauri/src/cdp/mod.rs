@@ -11,16 +11,11 @@
 //! [`target::connect_and_attach_matching_in_process_by_label`] (for other
 //! surfaces such as the Meet call window).
 
+#![allow(dead_code)] // Account-scanner helpers remain shared with the Meet CDP transport.
+
 pub mod conn;
 pub mod in_process;
-pub mod session;
-pub mod snapshot;
 pub mod target;
 
 pub use conn::CdpConn;
-pub use in_process::{install_for_account, install_for_label, set_cef_app_handle, CdpRegistry};
-pub use session::{
-    placeholder_marker, placeholder_url, spawn_session, target_url_fragment, SpawnedSession,
-};
-pub use snapshot::Snapshot;
-pub use target::{detach_session, find_page_target_where};
+pub use in_process::{install_for_label, set_cef_app_handle, CdpRegistry};

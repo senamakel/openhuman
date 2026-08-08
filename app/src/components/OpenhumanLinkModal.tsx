@@ -20,7 +20,7 @@ import {
   type NotificationPermissionState,
   showNativeNotification,
 } from '../lib/nativeNotifications/tauriBridge';
-import { isTauri, purgeWebviewAccount } from '../services/webviewAccountService';
+import { isTauri } from '../utils/tauriCommands/common';
 import { addAccount, removeAccount, setActiveAccount } from '../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -474,7 +474,6 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
     if (currentlyOn) {
       const existing = accountByProvider.get(providerId);
       if (!existing) return;
-      void purgeWebviewAccount(existing.id).catch(() => {});
       setNewlyAdded(prev => {
         const next = new Map(prev);
         next.delete(existing.id);

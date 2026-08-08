@@ -13,10 +13,6 @@ const startInternetStatusListenerMock = vi.fn();
 const stopInternetStatusListenerMock = vi.fn();
 const startCoreHealthMonitorMock = vi.fn();
 const stopCoreHealthMonitorMock = vi.fn();
-const startWebviewAccountServiceMock = vi.fn();
-const stopWebviewAccountServiceMock = vi.fn();
-const startWebviewNotificationsServiceMock = vi.fn();
-const stopWebviewNotificationsServiceMock = vi.fn();
 const startNativeNotificationsServiceMock = vi.fn();
 const stopNativeNotificationsServiceMock = vi.fn();
 
@@ -31,15 +27,6 @@ vi.mock('../services/coreHealthMonitor', () => ({
 }));
 
 // Stub out the heavy services that also run at module boot in App.tsx.
-vi.mock('../services/webviewAccountService', () => ({
-  startWebviewAccountService: startWebviewAccountServiceMock,
-  stopWebviewAccountService: stopWebviewAccountServiceMock,
-  isTauri: vi.fn(() => false),
-}));
-vi.mock('../lib/webviewNotifications', () => ({
-  startWebviewNotificationsService: startWebviewNotificationsServiceMock,
-  stopWebviewNotificationsService: stopWebviewNotificationsServiceMock,
-}));
 vi.mock('../lib/nativeNotifications', () => ({
   startNativeNotificationsService: startNativeNotificationsServiceMock,
   stopNativeNotificationsService: stopNativeNotificationsServiceMock,
@@ -102,8 +89,6 @@ describe('App.tsx boot-time service wiring (lines 50-51)', () => {
 
     stopBootServicesForHmr();
 
-    expect(stopWebviewAccountServiceMock).toHaveBeenCalled();
-    expect(stopWebviewNotificationsServiceMock).toHaveBeenCalled();
     expect(stopNativeNotificationsServiceMock).toHaveBeenCalled();
     expect(stopInternetStatusListenerMock).toHaveBeenCalled();
     expect(stopCoreHealthMonitorMock).toHaveBeenCalled();

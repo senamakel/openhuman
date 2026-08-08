@@ -12,7 +12,7 @@
 //!
 //! Everything else (`providers`, `host`, `controllers`, `runtime`, `bus`,
 //! `proactive`, `commands`, `context`, `routes`, `relay_runtime`,
-//! `webview_accounts`, `whatsapp_data`, the provider re-exports,
+//! `whatsapp_data`, the provider re-exports,
 //! `doctor_channels`, `start_channels`, the `build_system_prompt` re-export and
 //! the `test_support` re-export) is `#[cfg(feature = "channels")]`.
 //! Nothing INSIDE those submodules changes when the gate flips.
@@ -41,10 +41,6 @@ pub mod proactive;
 pub mod providers;
 #[cfg(feature = "channels")]
 pub(crate) mod relay_runtime;
-/// Webview-account bridge for the embedded provider webviews (formerly
-/// `openhuman::webview_accounts`).
-#[cfg(feature = "channels")]
-pub mod webview_accounts;
 /// Read-only WhatsApp chat/message store fed by the desktop scanner (formerly
 /// `openhuman::whatsapp_data`).
 #[cfg(feature = "channels")]

@@ -10,7 +10,6 @@ import { APP_VERSION } from '../../../utils/config';
 import { isLocalSessionToken } from '../../../utils/localSession';
 import ConnectionIndicator from '../../ConnectionIndicator';
 import { NavIcon } from './navIcons';
-import SidebarAppRail from './SidebarAppRail';
 import SidebarHeader from './SidebarHeader';
 import SidebarNav from './SidebarNav';
 import { SidebarSlotOutlet } from './SidebarSlot';
@@ -65,9 +64,6 @@ function FooterNavButton({
  *   │ SidebarHeader │  utility row (collapse / settings / language)
  *   ├──────────────┤
  *   │ SidebarNav    │  static primary navigation
- *   ├──────────────┤
- *   │ SidebarAppRail│  persistent app switcher (agent + connected apps)
- *   ├──────────────┤
  *   │ SidebarSlot   │  dynamic, per-route content (scrolls)
  *   │  (Outlet)     │
  *   ├──────────────┤
@@ -133,15 +129,7 @@ export default function AppSidebar() {
       <div className="flex-shrink-0">
         <SidebarNav />
       </div>
-      {/* Persistent app switcher — sticks across routes so the agent + connected
-          apps are always one click away. Selecting one routes to /chat where the
-          provider webview / agent chat actually render. */}
-      <div className="flex-shrink-0 border-t border-line/70">
-        <SidebarAppRail />
-      </div>
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-line/70">
-        {/* Flex column so routes that project more than one region (e.g. Chat's
-            app rail above its thread list) can order them via Tailwind `order-*`. */}
         <SidebarSlotOutlet className="flex h-full flex-col" />
       </div>
       {/* Slim account affordances pinned above the status bar — Rewards then

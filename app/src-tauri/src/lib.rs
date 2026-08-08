@@ -70,11 +70,8 @@ mod deep_link_ipc_windows;
 // developer host covers them.
 mod deep_link_registration_check;
 mod dictation_hotkeys;
-mod discord_scanner;
 mod fake_camera;
 mod file_logging;
-mod gmessages_scanner;
-mod imessage_scanner;
 mod local_data_reset;
 mod loopback_oauth;
 #[cfg(target_os = "macos")]
@@ -94,14 +91,9 @@ mod ptt_hotkeys;
 mod ptt_overlay;
 #[cfg(target_os = "windows")]
 mod reset_reboot_schedule;
-mod slack_scanner;
 mod stderr_panic_hook;
-mod telegram_scanner;
-mod webview_accounts;
 mod webview_apis;
-mod wechat_scanner;
 mod whatsapp_data;
-mod whatsapp_scanner;
 mod window_state;
 mod workspace_paths;
 
@@ -1751,16 +1743,7 @@ fn close_early_cef_webviews<R: tauri::Runtime>(app: &AppHandle<R>) -> Vec<String
     if teardown_cef_prewarm(app).is_ok() {
         closed_labels.push(CEF_PREWARM_LABEL.to_string());
     }
-    if let Some(state) = app.try_state::<webview_accounts::WebviewAccountsState>() {
-        closed_labels.extend(state.shutdown_all(app));
-    }
     closed_labels
-}
-
-fn shutdown_imessage_scanner<R: tauri::Runtime>(app: &AppHandle<R>) {
-    if let Some(registry) = app.try_state::<std::sync::Arc<imessage_scanner::ScannerRegistry>>() {
-        registry.inner().shutdown();
-    }
 }
 
 fn pending_cef_webview_labels<R: tauri::Runtime>(
@@ -1821,8 +1804,6 @@ fn perform_early_teardown_sync(app_handle: &AppHandle<AppRuntime>) {
     log::info!("[app] perform_early_teardown_sync — early teardown");
 
     let closed_labels = close_early_cef_webviews(app_handle);
-    shutdown_imessage_scanner(app_handle);
-
     webview_apis::server::stop();
 
     if let Some(core) = app_handle.try_state::<core_process::CoreProcessHandle>() {
@@ -1862,8 +1843,6 @@ async fn perform_early_teardown_async(app_handle: &AppHandle<AppRuntime>) {
     log::info!("[app] perform_early_teardown_async — early teardown");
 
     let closed_labels = close_early_cef_webviews(app_handle);
-    shutdown_imessage_scanner(app_handle);
-
     webview_apis::server::stop();
 
     if let Some(core) = app_handle.try_state::<core_process::CoreProcessHandle>() {
@@ -3118,19 +3097,9 @@ pub fn run() {
         .manage(companion_commands::CompanionHotkeyState(
             std::sync::Mutex::new(Vec::new()),
         ))
-        .manage(webview_accounts::WebviewAccountsState::default())
         .manage(cdp::CdpRegistry::default())
         .manage(notification_settings::NotificationSettingsState::new())
         .manage(PendingAppUpdateState::default());
-    let builder = builder.manage(std::sync::Arc::new(imessage_scanner::ScannerRegistry::new()));
-    let builder = builder.manage(std::sync::Arc::new(
-        gmessages_scanner::ScannerRegistry::new(),
-    ));
-    let builder = builder.manage(whatsapp_scanner::ScannerRegistry::new());
-    let builder = builder.manage(slack_scanner::ScannerRegistry::new());
-    let builder = builder.manage(discord_scanner::ScannerRegistry::new());
-    let builder = builder.manage(telegram_scanner::ScannerRegistry::new());
-    let builder = builder.manage(wechat_scanner::ScannerRegistry::new());
     let builder = builder.manage(meet_call::MeetCallState::new());
     let builder = builder.manage(meet_audio::MeetAudioState::new());
     let builder = builder.manage(meet_video::frame_bus::MeetVideoFrameBusState::new());
@@ -3575,6 +3544,7 @@ pub fn run() {
             // CDP/IndexedDB scanner can iterate without manual UI clicks.
             // The same account-id reuses the persistent data dir, so a
             // previously-logged-in WhatsApp session stays logged in.
+            #[cfg(any())]
             if let Ok(account_id) = std::env::var("OPENHUMAN_DEV_AUTO_WHATSAPP") {
                 let account_id = account_id.trim().to_string();
                 if !account_id.is_empty() {
@@ -3620,6 +3590,7 @@ pub fn run() {
             // Same dev helper, Slack flavour. OPENHUMAN_DEV_AUTO_SLACK=<uuid>
             // opens the Slack account webview on startup so the CDP scanner
             // can iterate without manual UI clicks.
+            #[cfg(any())]
             if let Ok(account_id) = std::env::var("OPENHUMAN_DEV_AUTO_SLACK") {
                 let account_id = account_id.trim().to_string();
                 if !account_id.is_empty() {
@@ -3664,6 +3635,7 @@ pub fn run() {
             // Same dev helper, Telegram flavour. OPENHUMAN_DEV_AUTO_TELEGRAM=<uuid>
             // opens the Telegram Web K account webview on startup so the CDP
             // scanner can iterate without manual UI clicks.
+            #[cfg(any())]
             if let Ok(account_id) = std::env::var("OPENHUMAN_DEV_AUTO_TELEGRAM") {
                 let account_id = account_id.trim().to_string();
                 if !account_id.is_empty() {
@@ -3711,6 +3683,7 @@ pub fn run() {
             //   tail -F /tmp/oh-cef.log | grep -E --line-buffered \
             //     "\[gmeet\]|memory_doc_ingest|orchestrator"
             // to verify captions flow → transcript persist → thread handoff.
+            #[cfg(any())]
             if let Ok(account_id) = std::env::var("OPENHUMAN_DEV_AUTO_GOOGLE_MEET") {
                 let account_id = account_id.trim().to_string();
                 if !account_id.is_empty() {
@@ -3868,21 +3841,6 @@ pub fn run() {
             register_ptt_hotkey,
             unregister_ptt_hotkey,
             ptt_overlay::show_ptt_overlay,
-            webview_accounts::webview_account_open,
-            webview_accounts::webview_account_prewarm,
-            webview_accounts::webview_account_close,
-            webview_accounts::webview_account_purge,
-            webview_accounts::webview_account_bounds,
-            webview_accounts::webview_account_reveal,
-            webview_accounts::webview_account_hide,
-            webview_accounts::webview_account_show,
-            webview_accounts::webview_recipe_event,
-            webview_accounts::webview_notification_permission_state,
-            webview_accounts::webview_notification_permission_request,
-            webview_accounts::webview_notification_set_dnd,
-            webview_accounts::webview_notification_mute_account,
-            webview_accounts::webview_notification_get_bypass_prefs,
-            webview_accounts::webview_set_focused_account,
             notification_settings::notification_settings_get,
             notification_settings::notification_settings_set,
             native_notifications::notification_permission_state,

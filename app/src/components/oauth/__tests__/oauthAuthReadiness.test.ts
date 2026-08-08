@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCoreStateSnapshot } from '../../../lib/coreState/store';
 import { bootCheckTransport } from '../../../services/bootCheckService';
 import { testCoreRpcConnection } from '../../../services/coreRpcClient';
-import { isTauri } from '../../../services/webviewAccountService';
+import { isTauri } from '../../../utils/tauriCommands/common';
 import {
   getStoredCoreMode,
   getStoredCoreToken,
@@ -32,7 +32,7 @@ vi.mock('../../../utils/configPersistence', () => ({
   storeCoreMode: vi.fn(),
 }));
 
-vi.mock('../../../services/webviewAccountService', () => ({
+vi.mock('../../../utils/tauriCommands/common', () => ({
   isTauri: vi.fn().mockReturnValue(true),
 }));
 

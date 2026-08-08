@@ -1,7 +1,4 @@
-import { useEffect, useState } from 'react';
-
 import { useT } from '../../../lib/i18n/I18nContext';
-import { getBypassPrefs, setGlobalDnd } from '../../../services/webviewAccountService';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { type NotificationCategory, setPreference } from '../../../store/notificationSlice';
 import { SettingsRow, SettingsSection, SettingsSwitch } from '../controls';
@@ -51,62 +48,12 @@ const NotificationsPanel = ({ embedded = false }: NotificationsPanelProps = {}) 
   const { t } = useT();
   const preferences = useAppSelector(s => s.notifications.preferences);
   const dispatch = useAppDispatch();
-  const [dnd, setDnd] = useState(false);
-  const [dndLoading, setDndLoading] = useState(true);
-  const [dndSaving, setDndSaving] = useState(false);
-
-  useEffect(() => {
-    getBypassPrefs().then(prefs => {
-      if (prefs) setDnd(prefs.global_dnd);
-      setDndLoading(false);
-    });
-  }, []);
-
   const handleToggle = (category: NotificationCategory) => {
     dispatch(setPreference({ category, enabled: !preferences[category] }));
   };
 
-  const handleDndToggle = async () => {
-    if (dndSaving) return; // prevent concurrent writes
-    const next = !dnd;
-    setDnd(next);
-    setDndSaving(true);
-    try {
-      await setGlobalDnd(next);
-    } catch {
-      // Roll back optimistic UI update on failure.
-      setDnd(!next);
-    } finally {
-      setDndSaving(false);
-    }
-  };
-
   const body = (
     <>
-      {/* Do Not Disturb */}
-      <SettingsSection title={t('settings.notifications.doNotDisturb')}>
-        <SettingsRow
-          htmlFor="switch-dnd"
-          label={t('settings.notifications.suppressAll')}
-          description={t('settings.notifications.suppressAllDesc')}
-          control={
-            dndLoading ? (
-              <div className="w-[38px] h-[22px] rounded-full bg-surface-strong animate-pulse" />
-            ) : (
-              <SettingsSwitch
-                id="switch-dnd"
-                checked={dnd}
-                onCheckedChange={() => {
-                  void handleDndToggle();
-                }}
-                disabled={dndSaving}
-                aria-label={t('settings.notifications.toggleDnd')}
-              />
-            )
-          }
-        />
-      </SettingsSection>
-
       {/* Categories */}
       <SettingsSection title={t('settings.notifications.categories')}>
         {CATEGORIES.map(cat => {

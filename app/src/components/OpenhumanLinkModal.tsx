@@ -20,7 +20,6 @@ import {
   type NotificationPermissionState,
   showNativeNotification,
 } from '../lib/nativeNotifications/tauriBridge';
-import { isTauri } from '../utils/tauriCommands/common';
 import { addAccount, removeAccount, setActiveAccount } from '../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -31,6 +30,7 @@ import {
 } from '../types/accounts';
 import { BILLING_DASHBOARD_URL, DISCORD_INVITE_URL } from '../utils/links';
 import { openUrl } from '../utils/openUrl';
+import { isTauri } from '../utils/tauriCommands/common';
 import { ProviderIcon } from './accounts/providerIcons';
 import ChannelSetupModal from './channels/ChannelSetupModal';
 import Button from './ui/Button';

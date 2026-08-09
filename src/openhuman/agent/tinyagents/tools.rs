@@ -210,12 +210,10 @@ pub(crate) async fn execute_openhuman_tool(
     // the `TaToolResult` below.
     let started = std::time::Instant::now();
     let tool_name = call.name.clone();
-    crate::core::bus::BUS.publish(
-        crate::core::events::DomainEvent::ToolExecutionStarted {
-            tool_name: tool_name.clone(),
-            session_id: TINYAGENTS_TOOL_SESSION.to_string(),
-        },
-    );
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::ToolExecutionStarted {
+        tool_name: tool_name.clone(),
+        session_id: TINYAGENTS_TOOL_SESSION.to_string(),
+    });
 
     // Approval (HITL) now runs in `ApprovalSecurityMiddleware`
     // (`tinyagents/middleware.rs`, a `wrap_tool` middleware) so a denial
@@ -304,14 +302,12 @@ pub(crate) async fn execute_openhuman_tool(
     // Terminal per-tool telemetry (#4467, item 5): success is derived from the
     // rendered result's error channel so a tool-reported error surfaces as a
     // failed completion, mirroring the node-runtime bridge.
-    crate::core::bus::BUS.publish(
-        crate::core::events::DomainEvent::ToolExecutionCompleted {
-            tool_name,
-            session_id: TINYAGENTS_TOOL_SESSION.to_string(),
-            success: result.error.is_none(),
-            elapsed_ms,
-        },
-    );
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::ToolExecutionCompleted {
+        tool_name,
+        session_id: TINYAGENTS_TOOL_SESSION.to_string(),
+        success: result.error.is_none(),
+        elapsed_ms,
+    });
     result
 }
 

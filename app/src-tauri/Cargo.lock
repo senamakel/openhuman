@@ -5568,6 +5568,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tinyagents",
+ "tinybus",
  "tinychannels",
  "tinycortex",
  "tinycortex-api",
@@ -8902,6 +8903,28 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "tinybus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tinybus-macros",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "tinybus-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

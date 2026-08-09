@@ -237,9 +237,7 @@ struct Harness {
 
 impl Harness {
     async fn new(config: OrchestratorConfig) -> Self {
-        openhuman_core::core::bus::init()
-            .await
-            .expect("bus init");
+        openhuman_core::core::bus::init().await.expect("bus init");
         let transcript = Transcript::new();
         let emit: Emitter = Arc::new(StdMutex::new(VecDeque::new()));
         let tmp = tempfile::tempdir().expect("tempdir");
@@ -258,20 +256,23 @@ impl Harness {
         // Capture proactive (subconscious → human) deliveries off the bus.
         let notifications = Arc::new(StdMutex::new(Vec::<String>::new()));
         let sink = Arc::clone(&notifications);
-        let sub = openhuman_core::core::bus::BUS.get().expect("bus").on("conv-e2e-notify", move |event| {
-            let sink = Arc::clone(&sink);
-            let event = event.clone();
-            Box::pin(async move {
-                if let DomainEvent::ProactiveMessageRequested {
-                    source, message, ..
-                } = &event
-                {
-                    if source == "subconscious" {
-                        sink.lock().unwrap().push(message.clone());
+        let sub = openhuman_core::core::bus::BUS.get().expect("bus").on(
+            "conv-e2e-notify",
+            move |event| {
+                let sink = Arc::clone(&sink);
+                let event = event.clone();
+                Box::pin(async move {
+                    if let DomainEvent::ProactiveMessageRequested {
+                        source, message, ..
+                    } = &event
+                    {
+                        if source == "subconscious" {
+                            sink.lock().unwrap().push(message.clone());
+                        }
                     }
-                }
-            })
-        });
+                })
+            },
+        );
 
         let loop_handle = Arc::clone(&orch);
         let task = tokio::spawn(async move { loop_handle.run_loop().await });

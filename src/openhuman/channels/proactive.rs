@@ -20,13 +20,13 @@
 //! exist.
 
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use crate::core::socketio::WebChannelEvent;
 use crate::openhuman::channels::{Channel, ChannelSendExt, SendMessage};
 use crate::openhuman::web_chat::publish_web_channel_event;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use tinybus::EventHandler;
 
 #[cfg(not(test))]
 fn proactive_approval_gate() -> Option<Arc<crate::openhuman::security::approval::ApprovalGate>> {
@@ -46,9 +46,9 @@ pub fn register_web_only_proactive_subscriber() {
     use std::sync::Once;
     static REGISTERED: Once = Once::new();
     REGISTERED.call_once(|| {
-        if let Some(handle) = crate::core::bus::BUS.subscribe(Arc::new(
-            ProactiveMessageSubscriber::web_only(),
-        )) {
+        if let Some(handle) =
+            crate::core::bus::BUS.subscribe(Arc::new(ProactiveMessageSubscriber::web_only()))
+        {
             std::mem::forget(handle);
             tracing::debug!("[proactive] web-only subscriber registered");
         } else {

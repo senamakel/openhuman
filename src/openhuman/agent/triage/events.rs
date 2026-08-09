@@ -109,7 +109,7 @@ pub fn publish_failed(envelope: &TriggerEnvelope, reason: &str) {
 mod tests {
     use super::*;
     use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
+    use crate::core::events::DomainEvent;
     use crate::openhuman::agent::triage::TriggerEnvelope;
     use serde_json::json;
     use std::sync::Arc;
@@ -121,13 +121,16 @@ use crate::core::events::DomainEvent;
         crate::core::bus::init().await.expect("bus init");
         let seen = Arc::new(Mutex::new(Vec::<DomainEvent>::new()));
         let seen_handler = Arc::clone(&seen);
-        let _handle = crate::core::bus::BUS.get().unwrap().on("triage-events-test", move |event| {
-            let seen = Arc::clone(&seen_handler);
-            let cloned = event.clone();
-            Box::pin(async move {
-                seen.lock().await.push(cloned);
-            })
-        });
+        let _handle = crate::core::bus::BUS
+            .get()
+            .unwrap()
+            .on("triage-events-test", move |event| {
+                let seen = Arc::clone(&seen_handler);
+                let cloned = event.clone();
+                Box::pin(async move {
+                    seen.lock().await.push(cloned);
+                })
+            });
 
         let envelope = TriggerEnvelope::from_composio(
             "gmail",

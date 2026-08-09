@@ -26,7 +26,6 @@ use openhuman_core::api::config::{
 };
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::events::DomainEvent;
-use tinybus::EventHandler;
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::openhuman::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
@@ -69,6 +68,7 @@ use openhuman_core::openhuman::security::credentials::{
     list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
     store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
 };
+use tinybus::EventHandler;
 
 const TEST_RPC_TOKEN: &str = "worker-a-domain-e2e-token";
 

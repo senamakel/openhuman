@@ -1,7 +1,7 @@
 use super::bus::TelegramRemoteSubscriber;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use tempfile::tempdir;
+use tinybus::EventHandler;
 
 #[tokio::test]
 async fn subscriber_marks_busy_on_received_and_clears_on_processed() {

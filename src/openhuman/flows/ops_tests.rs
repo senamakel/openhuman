@@ -2955,10 +2955,10 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
 #[tokio::test]
 async fn flows_run_publishes_flow_run_started_with_flow_and_run_id() {
     use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
+    use crate::core::events::DomainEvent;
     use async_trait::async_trait;
     use std::sync::Mutex as StdMutex;
+    use tinybus::EventHandler;
 
     #[derive(Default)]
     struct Collector {
@@ -3043,10 +3043,10 @@ use tinybus::EventHandler;
 #[tokio::test]
 async fn flows_run_finished_event_skips_pending_approval_and_fires_once_on_resume() {
     use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
+    use crate::core::events::DomainEvent;
     use async_trait::async_trait;
     use std::sync::Mutex as StdMutex;
+    use tinybus::EventHandler;
 
     #[derive(Default)]
     struct Collector {

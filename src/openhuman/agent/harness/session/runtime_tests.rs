@@ -258,13 +258,16 @@ async fn run_single_publishes_completed_and_error_events() {
     crate::core::bus::init().await.expect("bus init");
     let events = Arc::new(AsyncMutex::new(Vec::<DomainEvent>::new()));
     let events_handler = Arc::clone(&events);
-    let _handle = crate::core::bus::BUS.get().unwrap().on("runtime-events-test", move |event| {
-        let events = Arc::clone(&events_handler);
-        let cloned = event.clone();
-        Box::pin(async move {
-            events.lock().await.push(cloned);
-        })
-    });
+    let _handle = crate::core::bus::BUS
+        .get()
+        .unwrap()
+        .on("runtime-events-test", move |event| {
+            let events = Arc::clone(&events_handler);
+            let cloned = event.clone();
+            Box::pin(async move {
+                events.lock().await.push(cloned);
+            })
+        });
 
     let ok_provider: Arc<dyn ChatModel<()>> = Arc::new(StaticModel {
         response: Mutex::new(Some(Ok(ChatResponse {

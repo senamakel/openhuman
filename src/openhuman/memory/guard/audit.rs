@@ -30,7 +30,8 @@
 
 use tinycortex_api::capabilities::Capability;
 
-use crate::core::event_bus::{publish_global, DomainEvent};
+use crate::core::bus::BUS;
+use crate::core::events::DomainEvent;
 use crate::openhuman::memory::util::redact::redact;
 
 use super::policy::GuardPolicy;
@@ -91,7 +92,7 @@ pub fn trace_budget(policy: &GuardPolicy, method: &str, dropped: usize, trimmed_
 ///
 /// Called from [`GuardPolicy::denied`](super::GuardPolicy::denied), so every
 /// deny path audits by construction rather than by each call site remembering
-/// to. `publish_global` is synchronous and a no-op before the bus is
+/// to. `BUS.publish` is synchronous and a no-op before the bus is
 /// initialised, so this is safe pre-boot with no `#[cfg(test)]` guard — the
 /// same property `binding::build` relies on.
 pub fn publish_guard_denied(policy: &GuardPolicy, method: &str, reason: &str) {
@@ -100,7 +101,7 @@ pub fn publish_guard_denied(policy: &GuardPolicy, method: &str, reason: &str) {
         policy.driver_id(),
         policy.class(),
     );
-    publish_global(DomainEvent::MemoryGuardDenied {
+    BUS.publish(DomainEvent::MemoryGuardDenied {
         driver_id: policy.driver_id().to_string(),
         method: method.to_string(),
         reason: reason.to_string(),

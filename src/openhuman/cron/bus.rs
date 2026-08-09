@@ -7,10 +7,10 @@
 //! channel construction out of the scheduler.
 
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tinybus::EventHandler;
 use tinychannels::{Channel, SendMessage};
 
 /// Subscribes to `CronDeliveryRequested` events and dispatches

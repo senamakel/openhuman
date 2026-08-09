@@ -27,10 +27,10 @@ pub fn publish_ptt_transcript_committed(
 mod tests {
     use super::*;
     use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
+    use crate::core::events::DomainEvent;
     use async_trait::async_trait;
     use std::sync::Arc;
+    use tinybus::EventHandler;
     use tokio::sync::Mutex as AsyncMutex;
 
     #[derive(Default)]

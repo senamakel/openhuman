@@ -13,11 +13,11 @@
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use crate::openhuman::skills::Workflow;
 use async_trait::async_trait;
 use std::sync::{Arc, OnceLock};
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 
 // ── Trigger pattern ───────────────────────────────────────────────────────────
 

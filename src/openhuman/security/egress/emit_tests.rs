@@ -25,7 +25,7 @@ async fn find_pending(
             }) if descriptor.service == marker => return (descriptor, thread_id, client_id),
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
-}
+        }
     }
 }
 
@@ -73,7 +73,7 @@ async fn local_transfer_does_not_publish() {
             }
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
-}
+        }
     }
 }
 
@@ -139,7 +139,7 @@ async fn dedup_turn_scope_collapses_repeat_destination() {
             }
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
-}
+        }
     }
     assert_eq!(
         dup_count, 1,
@@ -178,7 +178,7 @@ async fn dedup_absent_outside_scope_publishes_each_time() {
             }
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
-}
+        }
     }
     assert_eq!(
         count, 2,

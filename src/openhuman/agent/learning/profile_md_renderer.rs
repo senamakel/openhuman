@@ -41,11 +41,11 @@ use async_trait::async_trait;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use crate::openhuman::agent::learning::cache::FacetCache;
 use crate::openhuman::integrations::composio::providers::profile_md::replace_managed_block;
 use crate::openhuman::memory::store::profile::UserState;
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 
 // ── Class → block metadata ────────────────────────────────────────────────────
 

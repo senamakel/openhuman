@@ -44,9 +44,9 @@ pub fn register_conversation_persistence_subscriber(workspace_dir: PathBuf) {
         return;
     }
 
-    match crate::core::bus::BUS.subscribe(Arc::new(
-        ConversationPersistenceSubscriber::new_shared(Arc::clone(workspace)),
-    )) {
+    match crate::core::bus::BUS.subscribe(Arc::new(ConversationPersistenceSubscriber::new_shared(
+        Arc::clone(workspace),
+    ))) {
         Some(handle) => {
             let _ = CONVERSATION_PERSISTENCE_HANDLE.set(handle);
         }

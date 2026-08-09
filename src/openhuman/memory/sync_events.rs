@@ -307,8 +307,9 @@ mod tests {
         crate::core::bus::init().await.expect("bus init");
 
         let collector = StageCollector::default();
-        let _subscription =
-            BUS.subscribe(Arc::new(collector.clone())).expect("event bus initialized");
+        let _subscription = BUS
+            .subscribe(Arc::new(collector.clone()))
+            .expect("event bus initialized");
 
         let bridge = MemorySyncStageBridge;
         bridge
@@ -346,8 +347,9 @@ mod tests {
         crate::core::bus::init().await.expect("bus init");
 
         let collector = StageCollector::default();
-        let _subscription =
-            BUS.subscribe(Arc::new(collector.clone())).expect("event bus initialized");
+        let _subscription = BUS
+            .subscribe(Arc::new(collector.clone()))
+            .expect("event bus initialized");
 
         let bridge = MemorySyncStageBridge;
         bridge
@@ -437,8 +439,9 @@ mod tests {
         crate::core::bus::init().await.expect("bus init");
 
         let collector = StageCollector::default();
-        let _subscription =
-            BUS.subscribe(Arc::new(collector.clone())).expect("event bus initialized");
+        let _subscription = BUS
+            .subscribe(Arc::new(collector.clone()))
+            .expect("event bus initialized");
 
         let bridge = MemorySyncStageBridge;
         bridge
@@ -485,8 +488,9 @@ mod tests {
         crate::core::bus::init().await.expect("bus init");
 
         let collector = StageCollector::default();
-        let _subscription =
-            BUS.subscribe(Arc::new(collector.clone())).expect("event bus initialized");
+        let _subscription = BUS
+            .subscribe(Arc::new(collector.clone()))
+            .expect("event bus initialized");
 
         let bridge = MemorySyncStageBridge;
         // Non-memory-source sync (e.g. Slack channel sync) should have source_id=None
@@ -532,8 +536,9 @@ mod tests {
         crate::core::bus::init().await.expect("bus init");
 
         let collector = StageCollector::default();
-        let _subscription =
-            BUS.subscribe(Arc::new(collector.clone())).expect("event bus initialized");
+        let _subscription = BUS
+            .subscribe(Arc::new(collector.clone()))
+            .expect("event bus initialized");
 
         let bridge = MemorySyncStageBridge;
         bridge
@@ -585,8 +590,9 @@ mod tests {
         crate::core::bus::init().await.expect("bus init");
 
         let collector = StageCollector::default();
-        let _subscription =
-            BUS.subscribe(Arc::new(collector.clone())).expect("event bus initialized");
+        let _subscription = BUS
+            .subscribe(Arc::new(collector.clone()))
+            .expect("event bus initialized");
 
         let bridge = MemorySyncStageBridge;
         // Non-memory-source ingestion (plain document_id, no mem_src prefix)

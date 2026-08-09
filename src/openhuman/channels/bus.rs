@@ -5,9 +5,9 @@
 //! channel provider and sends the reply back through the REST API.
 
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use tinybus::EventHandler;
 
 /// Subscribes to `ChannelInboundMessage` events and runs the agent loop,
 /// sending replies back to the originating channel via the backend REST API.

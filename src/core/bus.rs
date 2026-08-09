@@ -80,13 +80,9 @@ pub fn manifest() -> PeerManifest {
         .expect("the events interface constant is valid");
     PeerManifest::new("openhuman")
         .version(
-            Version::parse(env!("CARGO_PKG_VERSION"))
-                .unwrap_or_else(|_| Version::new(0, 0, 0)),
+            Version::parse(env!("CARGO_PKG_VERSION")).unwrap_or_else(|_| Version::new(0, 0, 0)),
         )
-        .provides(InterfaceVersion::provided(
-            interface,
-            EVENTS_VERSION,
-        ))
+        .provides(InterfaceVersion::provided(interface, EVENTS_VERSION))
         .consumes(InterfaceVersion::consumed(
             EVENTS_INTERFACE
                 .try_into()
@@ -183,8 +179,14 @@ mod tests {
     fn the_manifest_declares_the_catalog_in_both_directions() {
         let manifest = manifest();
         let interface = EVENTS_INTERFACE.try_into().unwrap();
-        assert!(manifest.provided(&interface).is_some(), "openhuman publishes");
-        assert!(manifest.consumed(&interface).is_some(), "openhuman subscribes");
+        assert!(
+            manifest.provided(&interface).is_some(),
+            "openhuman publishes"
+        );
+        assert!(
+            manifest.consumed(&interface).is_some(),
+            "openhuman subscribes"
+        );
     }
 
     #[tokio::test]

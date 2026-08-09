@@ -24,14 +24,14 @@ use async_trait::async_trait;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::desktop::app_state::peek_cached_current_user_identity;
 use crate::openhuman::desktop::notifications::bus::publish_core_notification;
 use crate::openhuman::desktop::notifications::types::{
     CoreNotificationAction, CoreNotificationCategory, CoreNotificationEvent,
 };
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 
 use super::store;
 use super::types::{AutoJoinSource, MeetingSession, MeetingSessionStatus};

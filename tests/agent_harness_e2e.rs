@@ -1313,9 +1313,7 @@ async fn ensure_approval_gate() {
     // `build_core_http_router` does NOT call `bootstrap_core_runtime`, so the
     // bus is not initialized by boot_stack. Standing it up is async now — it
     // connects to a broker — which is why this helper is too. Idempotent.
-    openhuman_core::core::bus::init()
-        .await
-        .expect("bus init");
+    openhuman_core::core::bus::init().await.expect("bus init");
 
     let mut cfg: openhuman_core::openhuman::config::Config = toml::from_str(
         r#"api_url = "http://127.0.0.1:1"

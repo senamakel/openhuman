@@ -61,11 +61,9 @@ pub async fn memory_sync_channel(
 ) -> Result<RpcOutcome<SyncChannelResult>, String> {
     // `channel_id` is a user/context identifier — keep it out of normal logs.
     tracing::info!("[memory.sync] memory_sync_channel: entry");
-    crate::core::bus::BUS.publish(
-        crate::core::events::DomainEvent::MemorySyncRequested {
-            channel_id: Some(params.channel_id.clone()),
-        },
-    );
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemorySyncRequested {
+        channel_id: Some(params.channel_id.clone()),
+    });
     emit_sync_stage(
         MemorySyncTrigger::Manual,
         MemorySyncStage::Requested,
@@ -97,9 +95,8 @@ pub async fn memory_sync_channel(
 /// ingestion subscribers.
 pub async fn memory_sync_all() -> Result<RpcOutcome<SyncAllResult>, String> {
     tracing::info!("[memory.sync] memory_sync_all: entry");
-    crate::core::bus::BUS.publish(
-        crate::core::events::DomainEvent::MemorySyncRequested { channel_id: None },
-    );
+    crate::core::bus::BUS
+        .publish(crate::core::events::DomainEvent::MemorySyncRequested { channel_id: None });
     emit_sync_stage(
         MemorySyncTrigger::Manual,
         MemorySyncStage::Requested,
@@ -243,8 +240,8 @@ mod tests {
     use tokio::time::{timeout, Duration};
 
     use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
+    use crate::core::events::DomainEvent;
+    use tinybus::EventHandler;
 
     fn test_mutex() -> &'static std::sync::Mutex<()> {
         static LOCK: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
@@ -320,7 +317,8 @@ use tinybus::EventHandler;
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _ = crate::core::bus::init().await;
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let _subscription = BUS.subscribe(Arc::new(ChannelCapture { tx }))
+        let _subscription = BUS
+            .subscribe(Arc::new(ChannelCapture { tx }))
             .expect("global bus should be initialized");
 
         let outcome = memory_sync_channel(SyncChannelParams {
@@ -348,7 +346,8 @@ use tinybus::EventHandler;
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _ = crate::core::bus::init().await;
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let _subscription = BUS.subscribe(Arc::new(ChannelCapture { tx }))
+        let _subscription = BUS
+            .subscribe(Arc::new(ChannelCapture { tx }))
             .expect("global bus should be initialized");
 
         let outcome = memory_sync_all().await.expect("memory_sync_all");

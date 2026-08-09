@@ -196,10 +196,10 @@ async fn validate_artifact_id_rejects_slashes() {
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex as StdMutex};
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 
 #[derive(Clone)]
 struct PendingCollector {

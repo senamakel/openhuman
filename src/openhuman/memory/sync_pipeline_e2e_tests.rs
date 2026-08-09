@@ -22,8 +22,6 @@ use tempfile::TempDir;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::ingest_pipeline::ingest_chat;
 use crate::openhuman::memory::queue::{
@@ -36,6 +34,8 @@ use crate::openhuman::memory::store::trees::{store as tree_store, types::TreeKin
 use crate::openhuman::memory::sync_events::{emit_sync_stage, MemorySyncStage, MemorySyncTrigger};
 use crate::openhuman::memory::tree::retrieval::{query_source, search_entities};
 use crate::openhuman::memory::tree::score::store::lookup_entity;
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 use tinycortex::memory::ingest::canonicalize::chat::{ChatBatch, ChatMessage};
 
 // ── helpers ─────────────────────────────────────────────────────────────

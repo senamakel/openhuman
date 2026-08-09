@@ -207,7 +207,7 @@ fn tool_response(id: &str, name: &str, arguments: serde_json::Value) -> ModelRes
         raw: None,
         resolved_model: None,
         continue_turn: None,
-            served_from_cache: false,
+        served_from_cache: false,
     }
 }
 

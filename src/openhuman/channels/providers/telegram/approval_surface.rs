@@ -36,12 +36,12 @@
 //! [`parse_approval_reply`]: crate::openhuman::security::approval::parse_approval_reply
 
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use crate::openhuman::channels::traits::{ChannelSendExt, SendMessage};
 use crate::openhuman::channels::Channel;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tinybus::EventHandler;
 
 const LOG_PREFIX: &str = "[telegram-approval]";
 

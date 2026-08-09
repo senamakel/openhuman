@@ -1332,10 +1332,13 @@ async fn api_error_monthly_quota_returns_message_via_demoted_branch() {
 #[tokio::test]
 async fn publish_backend_session_expired_emits_sanitized_session_expired() {
     use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
+    use crate::core::events::DomainEvent;
 
     crate::core::bus::init().await.expect("bus init");
-    let mut rx = crate::core::bus::BUS.get().expect("event bus initialized").receiver();
+    let mut rx = crate::core::bus::BUS
+        .get()
+        .expect("event bus initialized")
+        .receiver();
 
     // `TEST_MARKER_A` makes this event distinguishable from the sibling
     // `chat_completions_backend_401_*` test's event on the shared global

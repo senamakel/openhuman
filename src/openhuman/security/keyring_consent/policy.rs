@@ -73,9 +73,8 @@ pub fn check_secret_access() -> PolicyDecision {
             debug!("{LOG_PREFIX} check_secret_access: keyring unavailable, no consent recorded");
             if !CONSENT_EVENT_PUBLISHED.swap(true, Ordering::SeqCst) {
                 info!("{LOG_PREFIX} publishing KeyringConsentRequired event");
-                crate::core::bus::BUS.publish(
-                    crate::core::events::DomainEvent::KeyringConsentRequired,
-                );
+                crate::core::bus::BUS
+                    .publish(crate::core::events::DomainEvent::KeyringConsentRequired);
             }
             PolicyDecision::ConsentRequired
         }
@@ -173,21 +172,17 @@ pub fn notify_master_key_unavailable(reason: &str) {
     warn!("{LOG_PREFIX} master key unavailable: {reason}");
     if !CONSENT_EVENT_PUBLISHED.swap(true, Ordering::SeqCst) {
         info!("{LOG_PREFIX} publishing KeyringConsentRequired event (master key unavailable)");
-        crate::core::bus::BUS.publish(
-            crate::core::events::DomainEvent::KeyringConsentRequired,
-        );
+        crate::core::bus::BUS.publish(crate::core::events::DomainEvent::KeyringConsentRequired);
     }
 }
 
 /// Publish a decrypt-failure event for frontend notification.
 pub fn notify_decrypt_failure(field_name: &str, reason: &str) {
     warn!("{LOG_PREFIX} decrypt failure field={field_name} reason={reason}");
-    crate::core::bus::BUS.publish(
-        crate::core::events::DomainEvent::KeyringDecryptFailed {
-            field_name: field_name.to_string(),
-            reason: reason.to_string(),
-        },
-    );
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::KeyringDecryptFailed {
+        field_name: field_name.to_string(),
+        reason: reason.to_string(),
+    });
 }
 
 fn classify_failure_reason(backend_name: &str) -> KeyringFailureReason {

@@ -9548,24 +9548,27 @@ async fn whatsapp_data_agent_tools_e2e_1341() {
     }
 
     // Stand in for the shell store: register canned native handlers.
-    BUS.native().register::<ListChatsRequest, Vec<WhatsAppChat>, _, _>(
-        methods::LIST_CHATS,
-        |_req| async move { Ok(vec![sample_chat("alice@c.us"), sample_chat("team@g.us")]) },
-    );
-    BUS.native().register::<ListMessagesRequest, Vec<WhatsAppMessage>, _, _>(
-        methods::LIST_MESSAGES,
-        |_req| async move { Ok(vec![sample_msg("Send the umbrella report by Friday")]) },
-    );
-    BUS.native().register::<SearchMessagesRequest, Vec<WhatsAppMessage>, _, _>(
-        methods::SEARCH_MESSAGES,
-        |req| async move {
-            if req.query.to_lowercase().contains("umbrella") {
-                Ok(vec![sample_msg("Send the umbrella report by Friday")])
-            } else {
-                Ok(vec![])
-            }
-        },
-    );
+    BUS.native()
+        .register::<ListChatsRequest, Vec<WhatsAppChat>, _, _>(
+            methods::LIST_CHATS,
+            |_req| async move { Ok(vec![sample_chat("alice@c.us"), sample_chat("team@g.us")]) },
+        );
+    BUS.native()
+        .register::<ListMessagesRequest, Vec<WhatsAppMessage>, _, _>(
+            methods::LIST_MESSAGES,
+            |_req| async move { Ok(vec![sample_msg("Send the umbrella report by Friday")]) },
+        );
+    BUS.native()
+        .register::<SearchMessagesRequest, Vec<WhatsAppMessage>, _, _>(
+            methods::SEARCH_MESSAGES,
+            |req| async move {
+                if req.query.to_lowercase().contains("umbrella") {
+                    Ok(vec![sample_msg("Send the umbrella report by Friday")])
+                } else {
+                    Ok(vec![])
+                }
+            },
+        );
 
     fn parse_tool_output(result: openhuman_core::openhuman::skills::types::ToolResult) -> Value {
         assert!(!result.is_error, "tool returned error: {result:?}");

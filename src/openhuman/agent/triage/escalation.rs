@@ -385,7 +385,7 @@ async fn gate_linked_card_terminal(envelope: &TriggerEnvelope, decision: &str) {
 mod tests {
     use super::*;
     use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
+    use crate::core::events::DomainEvent;
     use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
     use serde_json::json;
     use tokio::time::{sleep, timeout, Duration};

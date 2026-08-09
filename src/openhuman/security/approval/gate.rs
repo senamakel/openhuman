@@ -3296,7 +3296,8 @@ mod tests {
         // (bridged to a broadcast Socket.IO event by `core::socketio`) and
         // the `flow-gate-approval` CoreNotification with its three actions.
         crate::core::bus::init().await.expect("bus init");
-        let mut event_rx = crate::core::bus::BUS.get()
+        let mut event_rx = crate::core::bus::BUS
+            .get()
             .expect("event bus initialized above")
             .receiver();
         let mut notif_rx =
@@ -3368,7 +3369,7 @@ mod tests {
                 }) if flow_id == expected_flow_id => return (request_id, run_id, tool_name),
                 Some(_) => continue,
                 None => panic!("the bus closed before the expected event arrived"),
-}
+            }
         }
     }
 

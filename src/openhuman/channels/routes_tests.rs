@@ -1,6 +1,5 @@
 use super::*;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::channels::context::{
     ChannelRuntimeContext, RouteSelectionMap, TurnModelSourceCacheMap,
@@ -13,6 +12,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use tinybus::EventHandler;
 
 struct DummyMemory;
 

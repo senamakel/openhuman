@@ -12,7 +12,6 @@
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::NativeRequestError;
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
@@ -30,6 +29,7 @@ use crate::openhuman::inference::provider;
 use crate::openhuman::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tinybus::NativeRequestError;
 use tokio_util::sync::CancellationToken;
 
 use super::helpers::{
@@ -519,26 +519,24 @@ pub(crate) async fn process_channel_runtime_message(
         "[channels::dispatch] dispatching {AGENT_RUN_TURN_METHOD} via native bus"
     );
     let agent_call = async {
-        BUS.native().request::<AgentTurnRequest, AgentTurnResponse>(
-            AGENT_RUN_TURN_METHOD,
-            turn_request,
-        )
-        .await
-        .map_err(|err| match err {
-            // Unwrap handler-returned errors so the underlying
-            // message (e.g. "Agent exceeded maximum tool iterations")
-            // flows through without being wrapped in bus-transport
-            // layer prose. The error-formatting path downstream
-            // treats this `anyhow::Error` the same way it did before
-            // the bus migration.
-            NativeRequestError::HandlerFailed { message, .. } => {
-                anyhow::anyhow!(message)
-            }
-            // Bus-level errors (UnregisteredHandler / TypeMismatch /
-            // NotInitialized) surface with their full Display so
-            // startup wiring bugs are immediately obvious in logs.
-            other => anyhow::anyhow!("[agent.run_turn dispatch] {other}"),
-        })
+        BUS.native()
+            .request::<AgentTurnRequest, AgentTurnResponse>(AGENT_RUN_TURN_METHOD, turn_request)
+            .await
+            .map_err(|err| match err {
+                // Unwrap handler-returned errors so the underlying
+                // message (e.g. "Agent exceeded maximum tool iterations")
+                // flows through without being wrapped in bus-transport
+                // layer prose. The error-formatting path downstream
+                // treats this `anyhow::Error` the same way it did before
+                // the bus migration.
+                NativeRequestError::HandlerFailed { message, .. } => {
+                    anyhow::anyhow!(message)
+                }
+                // Bus-level errors (UnregisteredHandler / TypeMismatch /
+                // NotInitialized) surface with their full Display so
+                // startup wiring bugs are immediately obvious in logs.
+                other => anyhow::anyhow!("[agent.run_turn dispatch] {other}"),
+            })
     };
     // Sub-issue 2 of #3098: scope the agent turn in an `ApprovalChatContext`
     // for channels that have a registered approval surface — currently

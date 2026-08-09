@@ -24,11 +24,11 @@ use async_trait::async_trait;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use crate::openhuman::agent::learning::candidate::{
     self, Buffer, CueFamily, EvidenceRef, FacetClass, LearningCandidate,
 };
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 

@@ -13,7 +13,8 @@ use tinycortex_api::provider::{
 use tinycortex_api::recall::OwnedRecallOpts;
 use tinycortex_api::types::{MemoryCategory, MemoryTaint};
 
-use crate::core::event_bus::{init_global, DomainEvent, DEFAULT_CAPACITY};
+use crate::core::bus::BUS;
+use crate::core::events::DomainEvent;
 use crate::core::subsystem::DriverClass;
 use crate::openhuman::config::schema::MemoryHooksConfig;
 use crate::openhuman::memory::guard::policy::TRUSTED;
@@ -193,9 +194,76 @@ async fn guard_does_not_budget_trim_an_export() {
 
 // ── Step 7 ──────────────────────────────────────────────────────────────────
 
+/// Records every `MemoryGuardDenied` the global bus delivers.
+///
+/// The guard publishes onto the process-wide [`BUS`], so an isolated bus
+/// cannot see it — this has to subscribe to the real one. Delivery is async
+/// now (tinybus routes through a broker), where the old `raw_receiver()` was a
+/// synchronous broadcast channel, so callers poll rather than `try_recv` once.
+struct DeniedRecorder {
+    seen: std::sync::Mutex<Vec<(String, String, String)>>,
+}
+
+#[async_trait::async_trait]
+impl tinybus::EventHandler<DomainEvent> for DeniedRecorder {
+    fn name(&self) -> &str {
+        "memory::guard::test_recorder"
+    }
+
+    async fn handle(&self, event: &DomainEvent) {
+        if let DomainEvent::MemoryGuardDenied {
+            driver_id,
+            method,
+            reason,
+        } = event
+        {
+            self.seen.lock().expect("recorder mutex").push((
+                driver_id.clone(),
+                method.clone(),
+                reason.clone(),
+            ));
+        }
+    }
+}
+
+/// Subscribe a recorder to the global bus, initialising it if needed.
+///
+/// Returns the recorder and its subscription handle; the handle must stay
+/// alive for the test's duration or the subscription is dropped.
+async fn record_denials() -> (Arc<DeniedRecorder>, tinybus::SubscriptionHandle) {
+    crate::core::bus::init().await.expect("bus init");
+    let recorder = Arc::new(DeniedRecorder {
+        seen: std::sync::Mutex::new(Vec::new()),
+    });
+    let handle = BUS
+        .subscribe(recorder.clone())
+        .expect("the bus was just initialised");
+    (recorder, handle)
+}
+
+/// Poll the recorder for up to ~2s for a denial matching `driver_id`.
+///
+/// Bounded rather than unbounded so a regression fails the test instead of
+/// hanging CI.
+async fn await_denial(recorder: &DeniedRecorder, driver_id: &str) -> (String, String, String) {
+    for _ in 0..200 {
+        if let Some(found) = recorder
+            .seen
+            .lock()
+            .expect("recorder mutex")
+            .iter()
+            .find(|(id, _, _)| id == driver_id)
+        {
+            return found.clone();
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    panic!("no MemoryGuardDenied event for driver '{driver_id}' within 2s");
+}
+
 #[tokio::test]
 async fn guard_publishes_memory_guard_denied_on_refusal() {
-    let mut rx = init_global(DEFAULT_CAPACITY).raw_receiver();
+    let (recorder, _handle) = record_denials().await;
     let (driver, guard) = guarded(external_policy("untrusted"));
     let err = guard
         .store(
@@ -211,27 +279,14 @@ async fn guard_publishes_memory_guard_denied_on_refusal() {
     assert!(err.to_string().contains("memory guard: "));
     assert_eq!(driver.call_count(), 0, "the driver must never be reached");
 
-    let mut seen = None;
-    while let Ok(event) = rx.try_recv() {
-        if let DomainEvent::MemoryGuardDenied {
-            driver_id,
-            method,
-            reason,
-        } = event
-        {
-            seen = Some((driver_id, method, reason));
-            break;
-        }
-    }
-    let (driver_id, method, reason) = seen.expect("a MemoryGuardDenied event");
-    assert_eq!(driver_id, "supermemory");
+    let (_driver_id, method, reason) = await_denial(&recorder, "supermemory").await;
     assert_eq!(method, "core.store");
     assert!(!reason.contains("hello"), "must never carry content");
 }
 
 #[tokio::test]
 async fn guard_publishes_nothing_on_the_success_path() {
-    let mut rx = init_global(DEFAULT_CAPACITY).raw_receiver();
+    let (recorder, _handle) = record_denials().await;
     let (_driver, guard) = guarded(embedded_policy());
     guard
         .store(
@@ -249,16 +304,18 @@ async fn guard_publishes_nothing_on_the_success_path() {
         .await
         .expect("recall");
 
-    // Sibling tests share the process-global bus and run in parallel, so
-    // filter to *this* guard's driver id rather than asserting the channel is
-    // empty — `guard_publishes_memory_guard_denied_on_refusal` legitimately
+    // Delivery is async, so give a stray publish time to arrive — asserting
+    // "nothing" immediately after the calls would pass even if the guard did
+    // publish. Sibling tests share the process-global bus and run in parallel,
+    // so filter to *this* guard's driver id rather than asserting the recorder
+    // is empty: `guard_publishes_memory_guard_denied_on_refusal` legitimately
     // publishes one (for `supermemory`) at the same time.
-    while let Ok(event) = rx.try_recv() {
-        if let DomainEvent::MemoryGuardDenied { driver_id, .. } = &event {
-            assert_ne!(
-                driver_id, "recording",
-                "a guarded read/write must not publish on success"
-            );
-        }
-    }
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let seen = recorder.seen.lock().expect("recorder mutex");
+    assert!(
+        !seen
+            .iter()
+            .any(|(driver_id, _, _)| driver_id == "recording"),
+        "a guarded read/write must not publish on success, saw: {seen:?}"
+    );
 }

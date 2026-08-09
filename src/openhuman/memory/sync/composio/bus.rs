@@ -53,12 +53,12 @@ use async_trait::async_trait;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use crate::openhuman::agent::triage::{apply_decision, run_triage, TriageOutcome, TriggerEnvelope};
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT;
 use crate::openhuman::integrations::composio::trigger_history;
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 
 use super::providers::{get_provider, ProviderContext};
 use crate::openhuman::integrations::composio::client::ComposioClient;
@@ -894,11 +894,9 @@ impl EventHandler<DomainEvent> for ComposioConfigChangedSubscriber {
                         .collect();
                     toolkits.sort();
                     toolkits.dedup();
-                    crate::core::bus::BUS.publish(
-                        DomainEvent::ComposioIntegrationsChanged {
-                            toolkits: toolkits.clone(),
-                        },
-                    );
+                    crate::core::bus::BUS.publish(DomainEvent::ComposioIntegrationsChanged {
+                        toolkits: toolkits.clone(),
+                    });
                     tracing::debug!(
                         active_toolkits = ?toolkits,
                         "[composio-cache] config changed eager warm complete; published integrations changed"

@@ -28,9 +28,9 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use tinybus::SubscriptionHandle;
 use crate::openhuman::memory::global::client_if_ready;
 use crate::openhuman::memory::store::MemoryClientRef;
+use tinybus::SubscriptionHandle;
 
 static EMAIL_SIG_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
 
@@ -167,7 +167,6 @@ fn register_with_client(
 mod tests {
     use super::*;
     use crate::core::events::DomainEvent;
-use tinybus::EventBus;
     use crate::openhuman::agent::learning::candidate::Buffer;
     use crate::openhuman::agent::learning::extract::signature::{
         parse_signature, register_email_signature_subscriber_on,
@@ -176,6 +175,7 @@ use tinybus::EventBus;
     use std::sync::Arc;
     use std::time::Duration;
     use tempfile::TempDir;
+    use tinybus::EventBus;
 
     /// Build a real `MemoryClient` against a fresh temp workspace. The temp dir
     /// is returned so callers keep it alive for the client's lifetime.

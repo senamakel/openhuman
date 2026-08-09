@@ -486,7 +486,9 @@ async fn scenario_notify_user_delivers_and_persists() {
 
     let captured: Arc<StdMutex<Vec<DomainEvent>>> = Arc::new(StdMutex::new(Vec::new()));
     let sink = Arc::clone(&captured);
-    let _sub = openhuman_core::core::bus::BUS.get().expect("bus initialized")
+    let _sub = openhuman_core::core::bus::BUS
+        .get()
+        .expect("bus initialized")
         .on("e2e-notify-capture", move |event| {
             let sink = Arc::clone(&sink);
             let event = event.clone();

@@ -5731,13 +5731,11 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
             flow_id,
             "[flows] TTL sweep: publishing FlowRunFinished for expired parked run"
         );
-        crate::core::bus::BUS.publish(
-            crate::core::events::DomainEvent::FlowRunFinished {
-                flow_id: flow_id.to_string(),
-                run_id: run_id.to_string(),
-                status: "cancelled".to_string(),
-            },
-        );
+        crate::core::bus::BUS.publish(crate::core::events::DomainEvent::FlowRunFinished {
+            flow_id: flow_id.to_string(),
+            run_id: run_id.to_string(),
+            status: "cancelled".to_string(),
+        });
         drop_checkpoint(config, run_id).await;
     }
     if !swept.is_empty() {
@@ -5806,13 +5804,11 @@ pub async fn sweep_orphaned_running_runs_on_boot(config: &Config) -> usize {
                 if let Err(e) = store::record_run(config, &flow_id, "interrupted") {
                     tracing::warn!(target: "flows", run_id = %run_id, flow_id = %flow_id, error = %e, "[flows] boot sweep: failed to update flow summary for reconciled run");
                 }
-                crate::core::bus::BUS.publish(
-                    crate::core::events::DomainEvent::FlowRunFinished {
-                        flow_id: flow_id.clone(),
-                        run_id: run_id.clone(),
-                        status: "interrupted".to_string(),
-                    },
-                );
+                crate::core::bus::BUS.publish(crate::core::events::DomainEvent::FlowRunFinished {
+                    flow_id: flow_id.clone(),
+                    run_id: run_id.clone(),
+                    status: "interrupted".to_string(),
+                });
                 drop_checkpoint(config, &run_id).await;
                 tracing::info!(target: "flows", run_id = %run_id, flow_id = %flow_id, "[flows] boot sweep: reconciled orphaned running run to 'interrupted'");
             }

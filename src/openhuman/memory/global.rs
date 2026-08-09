@@ -221,10 +221,7 @@ fn cached_client(workspace_dir: &Path) -> Result<Option<MemoryClientRef>, String
 /// A racing caller may have inserted first; theirs wins, so the "one ingestion
 /// worker per workspace" property holds even when two paths construct
 /// concurrently. Callers must use the returned handle, not the one they passed.
-fn cache_client(
-    workspace_dir: &Path,
-    client: &MemoryClientRef,
-) -> Result<MemoryClientRef, String> {
+fn cache_client(workspace_dir: &Path, client: &MemoryClientRef) -> Result<MemoryClientRef, String> {
     let mut guard = WORKSPACE_CLIENTS
         .get_or_init(Default::default)
         .write()

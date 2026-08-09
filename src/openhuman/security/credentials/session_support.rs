@@ -219,14 +219,11 @@ pub fn require_live_session_token(config: &Config) -> Result<String, String> {
                     operation = "require_live_session_token",
                     "[credentials] app-session token expired locally — publishing SessionExpired before any backend call"
                 );
-                crate::core::bus::BUS.publish(
-                    crate::core::events::DomainEvent::SessionExpired {
-                        source: "credentials.local_expiry_precheck".to_string(),
-                        reason:
-                            "backend session token expired locally — re-authentication required"
-                                .to_string(),
-                    },
-                );
+                crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
+                    source: "credentials.local_expiry_precheck".to_string(),
+                    reason: "backend session token expired locally — re-authentication required"
+                        .to_string(),
+                });
             }
             Err(
                 "SESSION_EXPIRED: backend session token expired locally — re-authentication required"

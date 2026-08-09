@@ -395,8 +395,8 @@ fn build(workspace_dir: &Path, cfg: &MemorySubsystemConfig) -> MemoryBinding {
             );
             // Sync, and a no-op when the bus is not yet initialized, so this is
             // safe to call pre-boot with no `#[cfg(test)]` guard.
-            crate::core::event_bus::publish_global(
-                crate::core::event_bus::DomainEvent::MemoryDriverBindFailed {
+            crate::core::bus::BUS.publish(
+                crate::core::events::DomainEvent::MemoryDriverBindFailed {
                     configured_driver: fallback.configured_driver.clone(),
                     bound_driver: NULL_DRIVER_ID.to_string(),
                     reason: fallback.reason.clone(),

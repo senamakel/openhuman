@@ -298,12 +298,10 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
             // `scheduler_gate::set_signed_out(false)`. Duplicating that check
             // here would pull a domain concern into the transport layer and would
             // add an extra config-load round-trip on every 401.
-            crate::core::bus::BUS.publish(
-                crate::core::events::DomainEvent::SessionExpired {
-                    source: format!("jsonrpc.invoke_method:{method}"),
-                    reason: sanitized_reason,
-                },
-            );
+            crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
+                source: format!("jsonrpc.invoke_method:{method}"),
+                reason: sanitized_reason,
+            });
         } else if is_unconfirmed_unauthorized_error(msg) {
             log::info!(
                 "[jsonrpc] unconfirmed unauthorized error for method='{}' (not session expiry) — leaving session intact: {}",
@@ -1663,25 +1661,23 @@ async fn domain_events_handler(headers: axum::http::HeaderMap) -> Response {
             .await
             .map(|event| (Ok::<_, std::convert::Infallible>(event), rx))
     })
-    .filter_map(
-        |item| -> Option<Result<Event, std::convert::Infallible>> {
-            let event = match item {
-                Ok(ev) => ev,
-                Err(_) => return None,
-            };
-            let domain = event.domain().to_string();
-            let event_name = event.variant_name();
-            let agent = event.agent_hint().unwrap_or("").to_string();
-            let data = json!({
-                "domain": domain,
-                "event": event_name,
-                "agent": agent,
-                "timestamp": chrono::Utc::now().format("%H:%M:%S").to_string(),
-            });
-            let data_str = serde_json::to_string(&data).ok()?;
-            Some(Ok(Event::default().event(domain).data(data_str)))
-        },
-    );
+    .filter_map(|item| -> Option<Result<Event, std::convert::Infallible>> {
+        let event = match item {
+            Ok(ev) => ev,
+            Err(_) => return None,
+        };
+        let domain = event.domain().to_string();
+        let event_name = event.variant_name();
+        let agent = event.agent_hint().unwrap_or("").to_string();
+        let data = json!({
+            "domain": domain,
+            "event": event_name,
+            "agent": agent,
+            "timestamp": chrono::Utc::now().format("%H:%M:%S").to_string(),
+        });
+        let data_str = serde_json::to_string(&data).ok()?;
+        Some(Ok(Event::default().event(domain).data(data_str)))
+    });
 
     let config_stream =
         futures::stream::once(async move { Ok::<_, std::convert::Infallible>(config_event) });
@@ -2660,12 +2656,10 @@ pub async fn bootstrap_core_runtime(
              Prompt-class external-effect tool calls run unprompted",
             host_kind.tag()
         );
-        crate::core::bus::BUS.publish(
-            crate::core::events::DomainEvent::ApprovalGateDisabled {
-                host: host_kind.tag().to_string(),
-                reason: "env-override".to_string(),
-            },
-        );
+        crate::core::bus::BUS.publish(crate::core::events::DomainEvent::ApprovalGateDisabled {
+            host: host_kind.tag().to_string(),
+            reason: "env-override".to_string(),
+        });
     }
     // Artifact surface bridges DomainEvent::ArtifactReady/Failed onto the web
     // channel ("Files in this chat" panel + ArtifactCard updates). This is

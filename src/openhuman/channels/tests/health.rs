@@ -42,10 +42,11 @@ async fn supervised_listener_marks_error_and_restarts_on_failures() {
     // The global health subscriber may have been registered by another test
     // runtime; keep a fresh subscriber alive for this test's runtime too.
     crate::core::bus::init().await.expect("bus init");
-    let _health_handle = crate::core::bus::BUS.subscribe(Arc::new(
-        crate::openhuman::platform::health::bus::HealthSubscriber,
-    ))
-    .expect("event bus should be initialized for channel health test");
+    let _health_handle = crate::core::bus::BUS
+        .subscribe(Arc::new(
+            crate::openhuman::platform::health::bus::HealthSubscriber,
+        ))
+        .expect("event bus should be initialized for channel health test");
     tokio::task::yield_now().await;
     let handle = spawn_supervised_listener(channel, tx, 1, 1);
 

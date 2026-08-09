@@ -11,7 +11,6 @@
 //! dispatch on enable/disable.
 
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::store;
 use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
@@ -20,6 +19,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, LazyLock, Mutex};
+use tinybus::EventHandler;
 use tinyflows::model::{NodeKind, TriggerKind};
 use tinyflows::nodes::control_flow::dedup as dedup_node;
 

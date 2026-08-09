@@ -203,11 +203,11 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
           const slugs = new Set(vs.voiceProviders.map(p => p.slug));
           const sttStr =
             vs.sttProvider.kind === 'cloud'
-              // `cloud` is a routing sentinel: it delegates to the configured
-              // engine, which voice_status reports after resolving it. Seed the
-              // selector with that effective engine so Settings does not claim
-              // the backend proxy is in use when a hosted BYOK engine is.
-              ? voiceResponse.stt_engine || 'cloud'
+              ? // `cloud` is a routing sentinel: it delegates to the configured
+                // engine, which voice_status reports after resolving it. Seed the
+                // selector with that effective engine so Settings does not claim
+                // the backend proxy is in use when a hosted BYOK engine is.
+                voiceResponse.stt_engine || 'cloud'
               : vs.sttProvider.kind === 'local'
                 ? vs.sttProvider.engine
                 : slugs.has(vs.sttProvider.providerSlug)

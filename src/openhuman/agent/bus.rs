@@ -373,9 +373,8 @@ async fn handle_agent_run_turn_on_large_stack(
 /// allowing any part of the system to request an agentic turn without
 /// depending directly on the agent harness.
 pub fn register_agent_handlers() {
-    BUS.native().register::<AgentTurnRequest, AgentTurnResponse, _, _>(
-        AGENT_RUN_TURN_METHOD,
-        |req| {
+    BUS.native()
+        .register::<AgentTurnRequest, AgentTurnResponse, _, _>(AGENT_RUN_TURN_METHOD, |req| {
             #[cfg(test)]
             {
                 handle_agent_run_turn_on_large_stack(req)
@@ -384,8 +383,7 @@ pub fn register_agent_handlers() {
             {
                 handle_agent_run_turn(req)
             }
-        },
-    );
+        });
     tracing::debug!("[agent::bus] registered native handler `{AGENT_RUN_TURN_METHOD}`");
 }
 
@@ -434,20 +432,16 @@ pub fn register_agent_handlers() {
 /// }
 /// ```
 #[cfg(test)]
-pub async fn mock_agent_run_turn<F, Fut>(
-    handler: F,
-) -> crate::core::bus_testing::MockBusGuard
+pub async fn mock_agent_run_turn<F, Fut>(handler: F) -> crate::core::bus_testing::MockBusGuard
 where
     F: Fn(AgentTurnRequest) -> Fut + Send + Sync + 'static,
     Fut: std::future::Future<Output = Result<AgentTurnResponse, String>> + Send + 'static,
 {
-    crate::core::bus_testing::mock_bus_stub::<
-        AgentTurnRequest,
-        AgentTurnResponse,
-        F,
-        Fut,
-        _,
-    >(AGENT_RUN_TURN_METHOD, handler, || register_agent_handlers())
+    crate::core::bus_testing::mock_bus_stub::<AgentTurnRequest, AgentTurnResponse, F, Fut, _>(
+        AGENT_RUN_TURN_METHOD,
+        handler,
+        || register_agent_handlers(),
+    )
     .await
 }
 
@@ -461,9 +455,7 @@ where
 /// handler with a stub, use [`mock_agent_run_turn`] instead.
 #[cfg(test)]
 pub async fn use_real_agent_handler() -> tokio::sync::MutexGuard<'static, ()> {
-    let guard = crate::core::bus_testing::BUS_HANDLER_LOCK
-        .lock()
-        .await;
+    let guard = crate::core::bus_testing::BUS_HANDLER_LOCK.lock().await;
     register_agent_handlers();
     guard
 }

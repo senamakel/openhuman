@@ -352,7 +352,8 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
 #[tokio::test]
 async fn channel_processed_event_records_resolved_agent_route() {
     crate::core::bus::init().await.expect("bus init");
-    let mut events = crate::core::bus::BUS.get()
+    let mut events = crate::core::bus::BUS
+        .get()
         .expect("event bus should be initialized")
         .receiver();
 

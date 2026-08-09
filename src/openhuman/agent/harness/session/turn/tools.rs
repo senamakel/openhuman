@@ -165,9 +165,7 @@ impl Agent {
         let mut closed = false;
         loop {
             match rx.try_recv() {
-                Ok(crate::core::events::DomainEvent::ComposioIntegrationsChanged {
-                    toolkits,
-                }) => {
+                Ok(crate::core::events::DomainEvent::ComposioIntegrationsChanged { toolkits }) => {
                     saw_signal = true;
                     log::info!(
                         "[agent_loop] received composio integrations changed event (active_toolkits={:?})",

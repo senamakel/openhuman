@@ -357,7 +357,7 @@ impl EventSink for OpenHumanEventSink {
             }
             "channel" => {
                 use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
+                use crate::core::events::DomainEvent;
                 let event = match kind {
                     "reaction_received" => DomainEvent::ChannelReactionReceived {
                         channel: json_str(&payload, "channel"),

@@ -4,8 +4,8 @@
 //! Future subscribers can react to these events for cross-module workflows.
 
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use async_trait::async_trait;
+use tinybus::EventHandler;
 
 /// Subscribes to tree summarizer events and logs activity.
 pub struct TreeSummarizerEventSubscriber;

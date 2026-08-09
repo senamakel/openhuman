@@ -674,16 +674,14 @@ impl SyncStateStore for HostSyncAdapter {
 #[async_trait]
 impl SyncEventSink for HostSyncAdapter {
     async fn emit(&self, event: SyncEvent) -> anyhow::Result<()> {
-        crate::core::bus::BUS.publish(
-            crate::core::events::DomainEvent::MemorySyncStageChanged {
-                trigger: "tinycortex".into(),
-                stage: stage_name(event.stage).into(),
-                provider: Some(event.toolkit),
-                connection_id: event.connection_id,
-                detail: event.message,
-                source_id: Some(event.source_id),
-            },
-        );
+        crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemorySyncStageChanged {
+            trigger: "tinycortex".into(),
+            stage: stage_name(event.stage).into(),
+            provider: Some(event.toolkit),
+            connection_id: event.connection_id,
+            detail: event.message,
+            source_id: Some(event.source_id),
+        });
         Ok(())
     }
 }

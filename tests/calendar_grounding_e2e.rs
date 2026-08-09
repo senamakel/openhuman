@@ -56,7 +56,7 @@ impl ChatModel<()> for MockCalendarModel {
                 raw: None,
                 resolved_model: None,
                 continue_turn: None,
-            served_from_cache: false,
+                served_from_cache: false,
             })
         } else {
             // End the loop

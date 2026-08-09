@@ -691,7 +691,9 @@ mod render_skill_toml_tests {
         use tinybus::TryRecvError;
 
         crate::core::bus::init().await.expect("bus init");
-        let mut rx = crate::core::bus::BUS.get().expect("event bus should be initialized")
+        let mut rx = crate::core::bus::BUS
+            .get()
+            .expect("event bus should be initialized")
             .receiver();
 
         let home = tempfile::TempDir::new().expect("temp home");

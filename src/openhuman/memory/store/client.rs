@@ -191,14 +191,12 @@ impl MemoryClient {
 
         let queue_depth = state.snapshot().queue_depth;
         state.mark_running(&placeholder_id, &title, &namespace);
-        crate::core::bus::BUS.publish(
-            crate::core::events::DomainEvent::MemoryIngestionStarted {
-                document_id: placeholder_id.clone(),
-                title,
-                namespace: namespace.clone(),
-                queue_depth,
-            },
-        );
+        crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemoryIngestionStarted {
+            document_id: placeholder_id.clone(),
+            title,
+            namespace: namespace.clone(),
+            queue_depth,
+        });
 
         let started = std::time::Instant::now();
         let outcome = self.inner.ingest_document(request).await;
@@ -214,15 +212,13 @@ impl MemoryClient {
             success,
             chrono::Utc::now().timestamp_millis(),
         );
-        crate::core::bus::BUS.publish(
-            crate::core::events::DomainEvent::MemoryIngestionCompleted {
-                document_id: placeholder_id,
-                namespace,
-                success,
-                elapsed_ms,
-                queue_depth: state.snapshot().queue_depth,
-            },
-        );
+        crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemoryIngestionCompleted {
+            document_id: placeholder_id,
+            namespace,
+            success,
+            elapsed_ms,
+            queue_depth: state.snapshot().queue_depth,
+        });
 
         outcome
     }

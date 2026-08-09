@@ -21,9 +21,9 @@
 //! cron-driven LLM calls after session expiry).
 
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
 use crate::openhuman::cron::scheduler_gate;
 use async_trait::async_trait;
+use tinybus::EventHandler;
 
 /// Subscribes to [`DomainEvent::SessionExpired`] and runs the canonical
 /// session-teardown. Singleton — register once at startup.

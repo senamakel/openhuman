@@ -11,9 +11,9 @@ use async_trait::async_trait;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
+use crate::openhuman::config::rpc as config_rpc;
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
-use crate::openhuman::config::rpc as config_rpc;
 
 use super::types::{FetchReason, ProviderSlug};
 use super::{pipeline, store};

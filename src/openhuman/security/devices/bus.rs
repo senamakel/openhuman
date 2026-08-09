@@ -11,8 +11,6 @@ use std::sync::{Arc, OnceLock};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use tinybus::EventHandler;
-use tinybus::SubscriptionHandle;
 use crate::openhuman::security::devices::crypto::{
     base64url_decode, base64url_encode, derive_session_keys, TunnelCipher, TunnelRole,
 };
@@ -24,6 +22,8 @@ use crate::openhuman::security::devices::tunnel_client::emit_frame;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tinybus::EventHandler;
+use tinybus::SubscriptionHandle;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 static DEVICE_TUNNEL_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();

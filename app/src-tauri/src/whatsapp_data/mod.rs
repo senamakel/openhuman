@@ -60,30 +60,34 @@ pub async fn ensure_store() -> Result<Arc<WhatsAppDataStore>, String> {
 /// (`openhuman_core::openhuman::channels::whatsapp_data::methods`) so the two sides never
 /// drift on the string key.
 pub fn register_native_handlers() {
-    use openhuman_core::core::event_bus::register_native_global;
+    // Post-#5459 the native registry is tinybus's, reached through the core's
+    // global bus handle. `NativeRegistry::register` replaces the old free
+    // function `register_native_global` one-for-one; the method-name constants
+    // and handler signatures are unchanged.
+    let native = openhuman_core::core::bus::BUS.native();
 
-    register_native_global::<ListChatsRequest, Vec<WhatsAppChat>, _, _>(
+    native.register::<ListChatsRequest, Vec<WhatsAppChat>, _, _>(
         methods::LIST_CHATS,
         |req| async move {
             let store = ensure_store().await?;
             ops::list_chats(&store, req).map_err(|e| format!("{e:#}"))
         },
     );
-    register_native_global::<ListMessagesRequest, Vec<WhatsAppMessage>, _, _>(
+    native.register::<ListMessagesRequest, Vec<WhatsAppMessage>, _, _>(
         methods::LIST_MESSAGES,
         |req| async move {
             let store = ensure_store().await?;
             ops::list_messages(&store, req).map_err(|e| format!("{e:#}"))
         },
     );
-    register_native_global::<SearchMessagesRequest, Vec<WhatsAppMessage>, _, _>(
+    native.register::<SearchMessagesRequest, Vec<WhatsAppMessage>, _, _>(
         methods::SEARCH_MESSAGES,
         |req| async move {
             let store = ensure_store().await?;
             ops::search_messages(&store, req).map_err(|e| format!("{e:#}"))
         },
     );
-    register_native_global::<IngestRequest, IngestResult, _, _>(
+    native.register::<IngestRequest, IngestResult, _, _>(
         methods::INGEST,
         |req| async move {
             let store = ensure_store().await?;

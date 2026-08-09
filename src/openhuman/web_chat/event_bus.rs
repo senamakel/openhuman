@@ -4,9 +4,9 @@ use std::sync::{Arc, OnceLock};
 use tokio::sync::broadcast;
 
 use crate::core::events::DomainEvent;
+use crate::core::socketio::WebChannelEvent;
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
-use crate::core::socketio::WebChannelEvent;
 
 static EVENT_BUS: Lazy<broadcast::Sender<WebChannelEvent>> = Lazy::new(|| {
     let (tx, _rx) = broadcast::channel(512);

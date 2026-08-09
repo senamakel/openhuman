@@ -87,15 +87,12 @@ pub fn register_native_handlers() {
             ops::search_messages(&store, req).map_err(|e| format!("{e:#}"))
         },
     );
-    native.register::<IngestRequest, IngestResult, _, _>(
-        methods::INGEST,
-        |req| async move {
-            let store = ensure_store().await?;
-            // `{e:#}` renders the full anyhow chain so the underlying SQLite
-            // cause (locked / malformed / FK) survives to the scanner's log.
-            ops::ingest(&store, req).map_err(|e| format!("[whatsapp_data] ingest failed: {e:#}"))
-        },
-    );
+    native.register::<IngestRequest, IngestResult, _, _>(methods::INGEST, |req| async move {
+        let store = ensure_store().await?;
+        // `{e:#}` renders the full anyhow chain so the underlying SQLite
+        // cause (locked / malformed / FK) survives to the scanner's log.
+        ops::ingest(&store, req).map_err(|e| format!("[whatsapp_data] ingest failed: {e:#}"))
+    });
     log::info!(
         "[whatsapp_data] registered shell native handlers (list_chats / list_messages / search_messages / ingest)"
     );

@@ -467,10 +467,10 @@ impl AgentBuilder {
         );
 
         // A child agent inherits explicit profile and channel restrictions, but
-        // not the coordinator's own role-specific tool scope. For example, the
-        // orchestrator intentionally cannot call `file_write` directly while
-        // its code-executor specialist must be able to do so. Conflating those
-        // two surfaces silently stripped specialist tools (#5118 merge).
+        // not the primary agent's own role-specific tool scope. The Master Agent
+        // can write directly, while specialists may still need tools outside its
+        // intentionally compact default surface. Conflating those two surfaces
+        // silently strips specialist capabilities (#5118 merge).
         //
         // Build a second policy snapshot without the role visibility filter.
         // `tool_policy_session` marks both channel-blocked and role-hidden tools

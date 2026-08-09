@@ -12,8 +12,8 @@
 //! in a shared section impl.
 
 use crate::openhuman::agent::context::prompt::{
-    render_datetime, render_tools, render_user_files, ConnectedIntegration, PromptContext,
-    ToolCallFormat,
+    render_datetime, render_tools, render_user_files, render_workspace, ConnectedIntegration,
+    PromptContext, ToolCallFormat,
 };
 use crate::openhuman::skills::ops_types::Workflow;
 use crate::openhuman::tools::orchestrator_tools::sanitise_slug;
@@ -74,13 +74,13 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    // NOTE: the shared `## Workspace` section (render_workspace) is
-    // intentionally NOT rendered here. Its text is written around `pwd`
-    // and `shell` ("that is where shell runs"), and the orchestrator has
-    // no shell — teaching it invited calls to a tool outside its scope.
-    // The orchestrator's own prompt.md covers its read-only direct file
-    // surface (file_read/grep/glob/list) and defers every file
-    // modification to `run_code`.
+    // The Master Agent can execute coding work directly, so it needs the
+    // canonical action-root instructions before it receives the tool list.
+    let workspace = render_workspace(ctx)?;
+    if !workspace.trim().is_empty() {
+        out.push_str(workspace.trim_end());
+        out.push_str("\n\n");
+    }
 
     Ok(out)
 }

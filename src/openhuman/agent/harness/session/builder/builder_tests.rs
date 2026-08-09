@@ -332,8 +332,8 @@ async fn channel_ceiling_does_not_inherit_orchestrator_role_visibility() {
     .expect("build channel-scoped orchestrator session");
 
     assert!(
-        !agent.visible_tool_names_for_test().contains("file_write"),
-        "the orchestrator must not advertise the specialist file_write tool"
+        agent.visible_tool_names_for_test().contains("file_write"),
+        "the Master Agent must advertise file_write for direct coding work"
     );
     assert!(
         agent

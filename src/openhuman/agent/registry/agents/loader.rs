@@ -809,9 +809,11 @@ mod tests {
     }
 
     #[test]
-    fn orchestrator_has_chat_hint_and_named_tools() {
+    fn master_agent_has_coding_hint_and_named_tools() {
         let def = find("orchestrator");
-        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "chat"));
+        assert_eq!(def.display_name.as_deref(), Some("Master Agent"));
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "coding"));
+        assert_eq!(def.sandbox_mode, SandboxMode::Sandboxed);
         match def.tools {
             ToolScope::Named(tools) => {
                 // spawn_subagent was removed in #1141. spawn_worker_thread is
@@ -847,26 +849,29 @@ mod tests {
                     "spawn_subagent must not appear — removed in #1141"
                 );
                 assert!(!tools.iter().any(|t| t == "call_memory_agent"));
-                // Write tools and shell stay OUT — the chat-tier
-                // orchestrator must not mutate files or run commands; all
-                // modification is deferred to `run_code` / owning
-                // specialists where edits live next to build/test/verify.
+                // The Master Agent owns the ordinary coding loop directly.
+                // Keep its mutation surface intentionally small: one patch
+                // mechanism for existing files, file_write for new files,
+                // shell for execution, and native git operations.
+                for direct in ["shell", "file_write", "apply_patch", "git_operations"] {
+                    assert!(
+                        tools.iter().any(|t| t == direct),
+                        "Master Agent must have direct coding tool `{direct}`"
+                    );
+                }
                 for forbidden in [
-                    "shell",
                     "edit",
-                    "file_write",
-                    "apply_patch",
                     "curl",
                     "storage_set_visibility",
                     "storage_delete_file",
                 ] {
                     assert!(
                         !tools.iter().any(|t| t == forbidden),
-                        "orchestrator must NOT have write/exec/lifecycle tool `{forbidden}`"
+                        "Master Agent must NOT have redundant or lifecycle tool `{forbidden}`"
                     );
                 }
-                // Basic READ-ONLY direct surface: quick lookups without
-                // spawning a sub-agent per touch.
+                // Inspect tools remain direct for the normal coding loop and
+                // quick non-code lookups.
                 for direct in [
                     "file_read",
                     "grep",
@@ -878,7 +883,7 @@ mod tests {
                 ] {
                     assert!(
                         tools.iter().any(|t| t == direct),
-                        "orchestrator must have read-only direct tool `{direct}`"
+                        "Master Agent must have direct inspect tool `{direct}`"
                     );
                 }
                 // Direct memory surface (#4762): recall/store are the product's

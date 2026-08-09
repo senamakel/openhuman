@@ -177,7 +177,7 @@ fn orchestrator_reaches_memory_agent_on_demand() {
     );
     // The orchestrator reaches the memory agent through delegation, not the
     // direct `call_memory_agent` tool (that tool is forbidden on the
-    // orchestrator — see loader::tests::orchestrator_has_chat_hint_and_named_tools).
+    // orchestrator — see loader::tests::master_agent_has_coding_hint_and_named_tools).
     let has_call_memory_agent = toml
         .lines()
         .map(str::trim)

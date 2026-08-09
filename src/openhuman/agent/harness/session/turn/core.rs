@@ -1327,6 +1327,13 @@ impl Agent {
                     // descriptor (if any) so the top-level chat turn's acting
                     // tools default their cwd to the profile's dedicated dir.
                     workspace_descriptor: self.workspace_descriptor.clone(),
+                    // Scope direct Master-Agent calls under its declared
+                    // sandbox. `agent_definition_name` can carry a thread
+                    // suffix, so resolve with the stable definition id.
+                    sandbox_mode: crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
+                        .and_then(|registry| registry.get(&self.agent_definition_id))
+                        .map(|definition| definition.sandbox_mode)
+                        .unwrap_or(crate::openhuman::agent::harness::definition::SandboxMode::None),
                 }),
             )
             .await;

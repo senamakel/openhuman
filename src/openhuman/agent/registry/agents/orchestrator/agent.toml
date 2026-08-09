@@ -1,11 +1,12 @@
 id = "orchestrator"
-display_name = "Orchestrator"
-when_to_use = "Staff Engineer — routes, judges quality, synthesises. Never writes code itself. You should not normally spawn another orchestrator from inside one."
+display_name = "Master Agent"
+when_to_use = "Default user-facing agent — handles everyday work directly, including code-repository tasks, and delegates only when parallelism or specialised capability materially helps. You should not normally spawn another orchestrator from inside one."
 temperature = 0.4
 max_iterations = 15
-sandbox_mode = "none"
+sandbox_mode = "sandboxed"
 
-# Spawn hierarchy: this is the user-facing fast tier (chat model hint).
+# Spawn hierarchy: this is the user-facing tier. It can complete ordinary work
+# itself and delegates only when that is the better execution shape.
 # Loader enforces: a `chat` agent must NOT list any other `chat` agent
 # in `subagents` below — handoff goes to `reasoning` (e.g. planner) for
 # long-running deep work, or directly to `worker` specialists for the
@@ -178,15 +179,10 @@ allowlist = [
 ]
 
 [model]
-# Front-line conversational agent: TTFT dominates UX. `hint:chat` resolves
-# to the fast chat tier (`chat-v1` / Kimi K2.6 Turbo on
-# Fireworks via backend PR #760, 128k context, `supportsThinking: false`).
-# The orchestrator is a planner/router that picks a delegate and
-# synthesises sub-agent output — workload that doesn't benefit from the
-# slower deep-reasoning tier. Sub-agents that need heavier reasoning
-# can still opt into `reasoning-v1` (DeepSeek V4 Pro) via
-# `ModelSpec::Hint("reasoning")` in their own definitions.
-hint = "chat"
+# The primary agent must be capable of the inspect → edit → verify loop, not
+# merely route that work to a coding worker. Specialist agents can still use
+# burst / reasoning hints where a task benefits from them.
+hint = "coding"
 
 [tools]
 # Direct tools — things the orchestrator calls itself rather than
@@ -204,16 +200,19 @@ hint = "chat"
 named = [
     "read_workspace_state",
     "ask_user_clarification",
-    # Basic READ-ONLY direct surface — lets the orchestrator answer small
-    # lookups itself instead of spawning a sub-agent for every touch.
-    # Deliberately NO write tools (`edit` / `file_write`) and NO `shell`:
-    # the chat-tier orchestrator must not mutate files — any modification,
-    # however small, is deferred to `run_code` (or another owning
-    # specialist) where edits live next to the build/test/verify loop.
+# Direct coding surface. The Master Agent owns the normal inspect → edit →
+# verify loop in the action sandbox. `apply_patch` is the one edit mechanism
+# for existing files, `file_write` creates new files, and `shell` runs builds
+# and focused tests. Policy/approval/sandbox enforcement remains in the tool
+# layer; this declaration only makes the tools discoverable to the agent.
     "file_read",
     "grep",
     "glob",
     "list",
+    "apply_patch",
+    "file_write",
+    "shell",
+    "git_operations",
     # Conversation-thread listing is a read-only, zero-arg, local lookup —
     # exactly the kind of "small touch" this direct surface exists for. Without
     # it, "list my recent threads / conversations" has no correct route (the
@@ -334,9 +333,9 @@ named = [
     # orchestrator must list `todo` (not the legacy `todowrite` alias, which
     # resolves to no registered tool) to be able to call it. `plan_exit` is the
     # stable marker that the (forthcoming) plan→build mode runner consumes when
-    # a planner subagent hands a plan back up. Editing/navigation primitives
-    # (grep/glob/edit/apply_patch/lsp) intentionally stay with downstream
-    # agents — the orchestrator coordinates, it doesn't touch files itself.
+    # a planner subagent hands a plan back up. The Master Agent now owns the
+    # normal inspect/edit/verify loop directly; specialised workers remain
+    # available for parallel or independent work.
     "todo",
     # Interactive plan-review gate (Codex/Claude plan mode). After laying out a
     # multi-step plan on an interactive turn, call `request_plan_review` to PAUSE

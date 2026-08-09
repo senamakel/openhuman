@@ -235,7 +235,7 @@ The `tool_maker` archetype exists for writing polyfill scripts and small helper 
 
 ## Sub-agents - the orchestrator pattern
 
-OpenHuman is **multi-agent**. The agent the user is chatting with is the **Orchestrator** - a senior, strategy-level agent that decides when to answer directly, when to use a direct tool, and when to spawn a specialist sub-agent.
+OpenHuman is **multi-agent**. The agent the user is chatting with is the **Master Agent** (stable internal id: `orchestrator`) - a capable default agent that answers and completes ordinary work directly, including the inspect → edit → verify coding loop. It spawns specialist sub-agents when parallelism, deeper reasoning, or a specialised capability materially helps.
 
 ### Why multi-agent
 
@@ -252,7 +252,7 @@ Each archetype lives under `agents/<name>/` with an `agent.toml` (metadata, tool
 
 | Archetype            | When the orchestrator picks it                                                           |
 | -------------------- | ---------------------------------------------------------------------------------------- |
-| `orchestrator`       | The top-level agent. Never spawned by another orchestrator.                              |
+| `orchestrator`       | The Master Agent: top-level, direct-capable default. Never spawned by another orchestrator. |
 | `planner`            | Multi-step decomposition - break a complex request into ordered sub-tasks.               |
 | `researcher`         | Web/doc lookups, citation hunting.                                                       |
 | `code_executor`      | Writing, running, and debugging code in the workspace.                                   |
@@ -295,7 +295,7 @@ The synthesized archetype delegations (`delegate_*`, `build_workflow`, and the o
 Not every agent is allowed to spawn every other agent. The harness models a three-tier hierarchy that mirrors the cost / latency / depth-of-thought split between models:
 
 ```text
-Chat        (fast, UX-focused — e.g. orchestrator on `chat` hint)
+Primary     (direct-capable — Master Agent on `coding` hint)
   │
   ├─► Worker      ◄─── fast path: one delegation, leaf does the work
   │

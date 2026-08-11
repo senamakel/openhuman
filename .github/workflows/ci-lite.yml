@@ -788,28 +788,16 @@ jobs:
 
       - name: Run cargo llvm-cov for Tauri shell
         run: |
-          # Write raw profiles to the container's in-memory filesystem first.
-          # Both the workspace bind mount and the container overlay have
-          # dropped LLVM profile writes on hosted container jobs. /dev/shm is
-          # container-local and these raw counter files are only a few MiB.
-          profile_dir="/dev/shm/openhuman-tauri-profraw-${GITHUB_RUN_ID}"
-          rm -rf "$profile_dir"
-          mkdir -p "$profile_dir"
-          # Source cargo-llvm-cov's instrumentation environment, then override
-          # the raw-profile path before invoking Cargo directly. Calling
-          # `cargo llvm-cov` here would overwrite LLVM_PROFILE_FILE again.
+          # Source cargo-llvm-cov's instrumentation environment before invoking
+          # Cargo directly. Keep the profile path selected by show-env so the
+          # subsequent report searches the same target directory.
           export CARGO_TARGET_DIR="$PWD/app/src-tauri/target/llvm-cov-target"
           # Do not chain the runner's sccache wrapper underneath llvm-cov.
           # Its shared cache can return objects compiled without coverage,
           # yielding a passing test binary that never writes a raw profile.
           unset RUSTC_WRAPPER
           eval "$(cargo llvm-cov show-env --manifest-path app/src-tauri/Cargo.toml --sh)"
-          export LLVM_PROFILE_FILE="$profile_dir/tauri-%p-%m.profraw"
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path app/src-tauri/Cargo.toml
-          shopt -s nullglob
-          profiles=("$profile_dir"/*.profraw)
-          test "${#profiles[@]}" -gt 0
-          mv "${profiles[@]}" "$CARGO_TARGET_DIR/"
           bash scripts/ci-cancel-aware.sh cargo llvm-cov report --manifest-path app/src-tauri/Cargo.toml --lcov --output-path lcov-tauri.info
         env:
           # Serialize codegen/link to cap peak memory + disk during the

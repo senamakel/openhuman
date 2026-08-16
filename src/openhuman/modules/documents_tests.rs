@@ -8,9 +8,7 @@
 
 use super::{classify, sha256_hex, DocumentCallError};
 use crate::openhuman::config::Config;
-use crate::openhuman::tools::implementations::document::format::spec::{
-    DocumentSpec, WirePresentationSpec,
-};
+use tinydocs::spec::{DocumentSpec, WirePresentationSpec};
 
 /// A config with modules enabled but nothing fetchable.
 fn offline_config() -> Config {

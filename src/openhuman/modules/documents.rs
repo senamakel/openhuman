@@ -24,13 +24,11 @@
 //! deadline underneath would make the effective limit the smaller of two numbers
 //! nobody picked together.
 
-use crate::openhuman::tools::implementations::document::format::spec::{
-    DocumentSpec, WirePresentationSpec,
-};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 use serde::Deserialize;
 use tinybus::stream::StreamRef;
+use tinydocs::spec::{DocumentSpec, WirePresentationSpec};
 
 use super::{host, ops, registry};
 use crate::openhuman::config::Config;

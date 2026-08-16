@@ -474,6 +474,11 @@ unicode-width = { version = "0.2", optional = true }
 # After cloning: `git submodule update --init vendor/tinydocs`.
 #
 # Optional: exclusive to the default-ON `documents` feature.
+#
+# The submodule is pinned at the tag whose module artifact `modules::registry`
+# pins (v0.1.13). Host and module then validate against one revision of the
+# spec rather than two that merely agree today.
+tinydocs = { path = "vendor/tinydocs", default-features = false, optional = true }
 
 # TinyWallet — host-agnostic multi-chain wallet primitives. Owns the address
 # formats themselves: parsing, validation, and the conversions between their
@@ -717,7 +722,7 @@ inference = ["dep:cpal"]
 # reference instead of extracted text
 # (`agent::multimodal::extract_pdf_text`). Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without documents>"`.
-documents = ["modules"]
+documents = ["modules", "dep:tinydocs"]
 # The dynamic module host (`openhuman::modules`): the loader that admits a
 # compiled `cdylib` through tinybus's ABI descriptor, manifest, dependency and
 # SHA-256 gates, plus the `modules` RPC namespace and the registry of modules

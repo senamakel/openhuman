@@ -974,6 +974,33 @@ jobs:
       - name: Verify the desktop shell forwards every default-ON core gate
         run: node scripts/ci/check-feature-forwarding.mjs
 
+  vendored-crates-gate:
+    name: Vendored Crates Gate (no silently inlined crates)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          # Deliberately NOT `submodules: recursive`. The check reads the git
+          # INDEX (mode 160000), so an uninitialised submodule is indistinguishable
+          # from an initialised one — and an inlined crate is distinguishable from
+          # both. Cloning ~10 submodules to answer that would be pure cost.
+
+      # Fail when a crate the build describes as vendored has been inlined into
+      # the tree instead. `3ee5a3cad` did exactly that to tinywallet, leaving the
+      # manifest comments intact; the resulting silent fork hid a SLIP-10
+      # key-derivation bug from every other host until #5533 (#5559).
+      #
+      # Deliberately NOT filtered on `changes`: the drift can be introduced by
+      # editing a manifest, .gitmodules, the module registry, or by deleting a
+      # gitlink, and a skipped job counts as a pass in the gate below. The check
+      # is a second of pure Node with no dependencies and no Rust toolchain.
+      - name: Verify every crate documented as vendored really is
+        run: node scripts/ci/check-vendored-crates.mjs
+
   pester-install:
     name: PowerShell Install Test (Pester)
     needs: [changes]
@@ -1043,6 +1070,7 @@ jobs:
       - tinycortex-tests
       - orch-ip-gate
       - feature-forwarding-gate
+      - vendored-crates-gate
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1063,6 +1091,7 @@ jobs:
             ["TinyCortex Memory Tests"]="${{ needs['tinycortex-tests'].result }}"
             ["Orchestration IP Gate"]="${{ needs['orch-ip-gate'].result }}"
             ["Feature Forwarding Gate"]="${{ needs['feature-forwarding-gate'].result }}"
+            ["Vendored Crates Gate"]="${{ needs['vendored-crates-gate'].result }}"
           )
 
           failed=0

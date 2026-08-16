@@ -1,7 +1,7 @@
 //! Typed input / output / error contracts for the `generate_presentation` tool.
 
-use crate::openhuman::tools::implementations::document::format::spec::ImageFormat;
 use serde::{Deserialize, Serialize};
+use tinydocs::spec::ImageFormat;
 
 use crate::openhuman::modules::documents::DocumentCallError;
 

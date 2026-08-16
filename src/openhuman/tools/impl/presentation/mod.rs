@@ -27,10 +27,10 @@
 //! #3026 Files panel, and the orchestrator grounding rule in #3029
 //! continue to work without change.
 
-use crate::openhuman::tools::implementations::document::format::spec::ImageFormat;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use tinydocs::spec::ImageFormat;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -455,7 +455,7 @@ impl PresentationTool {
             ));
         }
 
-        // Identification and measurement live in `crate::openhuman::tools::implementations::document::format::spec::image`, which
+        // Identification and measurement live in `tinydocs::spec::image`, which
         // is ungated: a host resolving image bytes has to do this to build a
         // spec, and it must not need the writer to do it. One implementation
         // also means the host and the module cannot disagree about what is

@@ -1,7 +1,7 @@
 //! Async wrapper around the `tinydocs` module's `.pptx` writer.
 //!
 //! The synthesis itself — the slide mapping, the single-column image layout, the
-//! EMU geometry — lives in `crate::openhuman::tools::implementations::document::format::pptx` and runs inside the loaded module.
+//! EMU geometry — lives in `tinydocs::pptx` and runs inside the loaded module.
 //! What is left here is the policy only a host can supply:
 //!
 //! 1. a deadline, because the module holds no opinion about how long a caller
@@ -24,9 +24,7 @@
 
 use std::time::Duration;
 
-use crate::openhuman::tools::implementations::document::format::spec::{
-    WirePresentationSpec, WireSlideImage, WireSlideSpec,
-};
+use tinydocs::spec::{WirePresentationSpec, WireSlideImage, WireSlideSpec};
 use tokio::time::timeout;
 
 use super::types::{GeneratePresentationInput, PresentationError, ResolvedSlideImage};
@@ -174,7 +172,7 @@ mod tests {
     //! What is left to test on this side of the bus.
     //!
     //! The deck shape, the image layout and the OOXML container are tested in
-    //! `crate::openhuman::tools::implementations::document::format::pptx`, where the code now lives — reproducing them here would
+    //! `tinydocs::pptx`, where the code now lives — reproducing them here would
     //! assert the same behaviour twice and drift the moment one copy changed.
     //!
     //! What only exists here is [`build_request`]: the deck and the concatenated
@@ -206,8 +204,7 @@ mod tests {
     fn resolved(bytes: &[u8], caption: Option<&str>) -> ResolvedSlideImage {
         ResolvedSlideImage {
             bytes: bytes.to_vec(),
-            format:
-                crate::openhuman::tools::implementations::document::format::spec::ImageFormat::Png,
+            format: tinydocs::spec::ImageFormat::Png,
             width_px: 4,
             height_px: 4,
             caption: caption.map(str::to_string),

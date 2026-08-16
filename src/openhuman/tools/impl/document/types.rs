@@ -1,11 +1,15 @@
 //! Typed input / output / error contracts for the `generate_document` tool.
 //!
 //! The *document* half of these contracts — the section spec, its size
-//! limits, and the validation rules — lives in the host-local
-//! [`format`](super::format)
-//! module and is re-exported here. Nothing about "a title, some sections, and a bullet
+//! limits, and the validation rules — lives in the vendored [`tinydocs`] crate
+//! (`vendor/tinydocs`, taken with `default-features = false`) and is
+//! re-exported here. Nothing about "a title, some sections, and a bullet
 //! list" is OpenHuman-specific, so the definitions live where any host can
-//! reach them and this module keeps only what genuinely is ours:
+//! reach them — and, crucially, where the `tinydocs` TinyBus module that
+//! validates against them reads them from too. A host-local copy of the spec
+//! is a fork of the contract by definition; that is why the guard in
+//! `scripts/ci/check-vendored-crates.mjs` exists. This module keeps only what
+//! genuinely is ours:
 //!
 //! - [`GenerateDocumentOutput`] — artifact ids and workspace paths, concepts
 //!   the bus contract has no notion of.
@@ -14,7 +18,7 @@
 //!   the deadline is OpenHuman's policy, applied by [`engine`](super::engine)
 //!   around a synchronous crate call.
 //!
-//! The re-exported [`GenerateDocumentInput`] is the format module's `DocumentSpec`
+//! The re-exported [`GenerateDocumentInput`] is `tinydocs`' `DocumentSpec`
 //! under its historical OpenHuman name. Field names are unchanged, so the JSON
 //! tool schema the agent sees is byte-identical to before the extraction.
 
@@ -26,7 +30,7 @@ use crate::openhuman::modules::documents::DocumentCallError;
 // the writer, so the gated `docx` module is not compiled here at all. The types
 // are the same ones the module validates against, which is the whole reason
 // `spec` is separable.
-pub use crate::openhuman::tools::implementations::document::format::spec::document::{
+pub use tinydocs::spec::document::{
     DocumentSpec as GenerateDocumentInput, MAX_BULLETS_PER_SECTION, MAX_PARAGRAPHS_PER_SECTION,
     MAX_PARAGRAPH_CHARS, MAX_SECTIONS, MAX_TEXT_CHARS,
 };
@@ -37,7 +41,7 @@ pub use crate::openhuman::tools::implementations::document::format::spec::docume
 // is private, so the re-export reads as unused to the compiler — hence the
 // explicit allow rather than dropping a name callers legitimately need.
 #[allow(unused_imports)]
-pub use crate::openhuman::tools::implementations::document::format::spec::DocumentSection;
+pub use tinydocs::spec::DocumentSection;
 
 /// Tool output returned via [`crate::openhuman::tools::traits::ToolResult`]
 /// as the JSON `data` field.
@@ -81,11 +85,11 @@ impl DocumentError {
     /// the variant never carries an unbounded payload back to the agent.
     /// Same cap/suffix as the presentation tool's `truncate_stderr`.
     pub(super) fn truncate_stderr(raw: &str) -> String {
-        crate::openhuman::tools::implementations::document::format::Error::truncate_detail(raw)
+        tinydocs::Error::truncate_detail(raw)
     }
 }
 
-impl From<crate::openhuman::tools::implementations::document::format::Error> for DocumentError {
+impl From<tinydocs::Error> for DocumentError {
     /// Map a spec-validation failure onto the agent-facing shape.
     ///
     /// This is the *local* path: `validate_input` below checks the spec against
@@ -98,15 +102,15 @@ impl From<crate::openhuman::tools::implementations::document::format::Error> for
     /// `GenerationTimeout` is deliberately absent: validation has no deadline,
     /// so only [`engine`](super::engine) produces that variant.
     ///
-    /// `crate::openhuman::tools::implementations::document::format::Error` is `#[non_exhaustive]`, so the catch-all arm is
+    /// `tinydocs::Error` is `#[non_exhaustive]`, so the catch-all arm is
     /// required by the compiler rather than chosen. It degrades a variant added
     /// by a future release to `GenerationFailed` carrying that variant's own
     /// `Display` text, and logs, so a crate bump that introduces a case worth
     /// handling structurally shows up rather than being swallowed.
-    fn from(err: crate::openhuman::tools::implementations::document::format::Error) -> Self {
+    fn from(err: tinydocs::Error) -> Self {
         match err {
-            crate::openhuman::tools::implementations::document::format::Error::InvalidInput { field, reason } => Self::InvalidInput { field, reason },
-            crate::openhuman::tools::implementations::document::format::Error::GenerationFailed { detail } => Self::GenerationFailed {
+            tinydocs::Error::InvalidInput { field, reason } => Self::InvalidInput { field, reason },
+            tinydocs::Error::GenerationFailed { detail } => Self::GenerationFailed {
                 stderr_truncated: detail,
             },
             other => {
@@ -166,7 +170,7 @@ impl From<DocumentCallError> for DocumentError {
 /// generic engine error.
 ///
 /// Delegates to `tinydocs`, which validates again inside
-/// [`crate::openhuman::tools::implementations::document::format::docx::generate`]. The double check is intentional: validating
+/// `tinydocs::docx::generate`. The double check is intentional: validating
 /// here lets the tool reject a bad call before allocating an artifact record,
 /// and the crate-side check keeps `generate` safe for any other caller.
 pub(super) fn validate_input(input: &GenerateDocumentInput) -> Result<(), DocumentError> {
@@ -300,12 +304,10 @@ mod tests {
     fn tinydocs_invalid_input_keeps_its_field_and_reason() {
         // The structured pair is what the agent self-corrects on, so the
         // crate-boundary mapping must not flatten it into a message string.
-        let mapped = DocumentError::from(
-            crate::openhuman::tools::implementations::document::format::Error::InvalidInput {
-                field: "sections[3].bullets[1]".to_string(),
-                reason: "must be ≤ 20000 chars".to_string(),
-            },
-        );
+        let mapped = DocumentError::from(tinydocs::Error::InvalidInput {
+            field: "sections[3].bullets[1]".to_string(),
+            reason: "must be ≤ 20000 chars".to_string(),
+        });
         match mapped {
             DocumentError::InvalidInput { field, reason } => {
                 assert_eq!(field, "sections[3].bullets[1]");
@@ -319,15 +321,10 @@ mod tests {
     fn tinydocs_generation_failure_maps_without_re_truncating() {
         // `tinydocs` already truncated this detail; re-truncating would eat
         // the suffix and misreport how much was dropped.
-        let detail =
-            crate::openhuman::tools::implementations::document::format::Error::truncate_detail(
-                &"x".repeat(10_000),
-            );
-        let mapped = DocumentError::from(
-            crate::openhuman::tools::implementations::document::format::Error::GenerationFailed {
-                detail: detail.clone(),
-            },
-        );
+        let detail = tinydocs::Error::truncate_detail(&"x".repeat(10_000));
+        let mapped = DocumentError::from(tinydocs::Error::GenerationFailed {
+            detail: detail.clone(),
+        });
         match mapped {
             DocumentError::GenerationFailed { stderr_truncated } => {
                 assert_eq!(stderr_truncated, detail);
@@ -339,10 +336,7 @@ mod tests {
     #[test]
     fn truncate_stderr_bounds_the_payload() {
         let out = DocumentError::truncate_stderr(&"x".repeat(10_000));
-        assert_eq!(
-            out.chars().count(),
-            crate::openhuman::tools::implementations::document::format::Error::MAX_DETAIL_CHARS
-        );
+        assert_eq!(out.chars().count(), tinydocs::Error::MAX_DETAIL_CHARS);
         assert!(out.ends_with("[…truncated]"));
     }
 

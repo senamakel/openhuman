@@ -199,7 +199,7 @@ crates are therefore synchronous, I/O-free, and runtime-free.
 
 | Crate | Owns | OpenHuman keeps |
 | --- | --- | --- |
-| `tinydocs` | the `.docx` spec types, their size limits, validation, and OOXML synthesis (`docx-rs` sits behind it) | the artifact pipeline, the `spawn_blocking` hop, and the generation deadline — `src/openhuman/tools/impl/document/` |
+| `tinydocs` | the `.docx` / `.pptx` spec types, their size limits, and validation. OOXML synthesis lives behind its `docx`/`pptx`/`pdf` gates and this host does **not** enable them — it takes the crate with `default-features = false`, for the wire contract only, and synthesis runs in the TinyBus module | the artifact pipeline, the `spawn_blocking` hop, and the generation deadline — `src/openhuman/tools/impl/document/` |
 | `tinywallet` | the BTC / EVM / Solana / Tron address formats: parsing, validation, encoding conversions | RPC endpoint resolution, transaction assembly and broadcast, key custody — `src/openhuman/web3/` |
 
 Consequences worth knowing before touching either seam:
@@ -231,6 +231,57 @@ Consequences worth knowing before touching either seam:
   already forwarded to the desktop shell. Note `tinydocs` is now taken with
   `default-features = false` — the wire contract, not the writers, which run in
   the TinyBus module instead (see the module host section).
+
+#### The vendoring guard — `scripts/ci/check-vendored-crates.mjs`
+
+**An inlined copy of a vendored crate is a silent fork, and this has already
+happened once.** On 2026-08-12 `3ee5a3cad` removed the `vendor/tinywallet`
+submodule and inlined ~3,700 lines of crate source into
+`src/openhuman/web3/wallet/`, rewriting every `crate::` path and collapsing the
+crate's granular chain gates onto OpenHuman's single `web3` gate. It was
+collateral damage from a larger change, not a decision — the manifest comments
+and this file kept describing the crate-based design, so code and docs
+contradicted each other and nothing failed. Four fixes then accrued in
+OpenHuman's copy that no other host saw, one of them a SLIP-10 bug where a path
+segment already carrying the hardening bit was OR-ed with it again, so
+`m/44'/501'/2147483648'` and `m/44'/501'/0'` derived **the same key**
+(#5533 / tinywallet#16 / tinywallet#17). `tinydocs` was in exactly that state
+until #5559 — four comment blocks describing a submodule that did not exist,
+including a `git submodule update --init vendor/tinydocs` that could not work.
+
+The guard asserts, for every crate a manifest comment describes as vendored,
+every `path = "…/vendor/<name>"` dependency, and every id in
+`modules::registry::ALL`: a `.gitmodules` entry, a **gitlink in the git index**
+(mode 160000 — this is the assertion an inlining trips), and a declared path
+dependency. It reads the index rather than the filesystem, so the lane needs no
+`git submodule update --init` and no Rust toolchain.
+
+Exemptions live in `INTENTIONALLY_NOT_VENDORED` / `VENDORED_IN_TREE` in
+`scripts/lib/vendored-crates.mjs` and **require a reason string** — the same
+rule as `INTENTIONALLY_NOT_FORWARDED`, and for the same reason: an explicit
+exclusion is the only thing that keeps "deliberate" distinguishable from
+"forgotten". Both lists are staleness-checked, so a waiver that stopped being
+true fails rather than quietly covering the next regression. Today they hold
+`tinyjuice` and `tinyvoice` (module-only — the host links neither crate) and
+`motosan-ai-oauth` (in-tree source, no upstream repo).
+
+#### TinyWallet's host-side residue is deliberate — do not re-litigate it
+
+Signing and transaction building moved into the `tinywallet` module, and what
+stayed behind is a deliberate remainder rather than unfinished migration. The
+host takes the crate with `default-features = false` and **`tx-codec` rather
+than `tx`**: `tx` is the only gate that pulls the `bitcoin` crate and its
+native secp256k1 C build, while `tx-codec` gives the verification half
+(`recompute_txid`, `verify_contract`, `digest`, `attach_signature`) with only
+`sha2`. `key`, `asset`, `client`, `tx` and `x402` are dropped. The `web3` gate
+therefore now sheds 5 crates, not the 25 it once did; the residue
+(`bech32`, `keccak`, `ripemd`, `sha3`, `tinywallet`) is the wire contract,
+address validation and transaction *verification*, plus RPC endpoint
+resolution, assembly/broadcast and key custody on the OpenHuman side. The three
+`tinywallet::key::derive` call sites are all `#[cfg(test)]` — production derives
+inside the module. Prefer `verify_contract` over `verify_transfer` at any new
+call site: the latter is a substring scan over the hex that a decoy field or a
+substituted amount defeats.
 
 ### Backend API access — `src/api/` over `tinyhumans-sdk`
 

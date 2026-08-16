@@ -4187,6 +4187,7 @@ dependencies = [
  "tinychannels",
  "tinycortex",
  "tinycortex-api",
+ "tinydocs",
  "tinyflows",
  "tinyhumans-sdk",
  "tinymemory",
@@ -6456,6 +6457,14 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "tinydocs"
+version = "0.1.13"
+dependencies = [
+ "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

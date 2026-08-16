@@ -27,3 +27,6 @@
 [submodule "vendor/tinywallet"]
 	path = vendor/tinywallet
 	url = https://github.com/tinyhumansai/tinywallet
+[submodule "vendor/tinydocs"]
+	path = vendor/tinydocs
+	url = https://github.com/tinyhumansai/tinydocs

@@ -20,19 +20,24 @@ the thread needs and who can answer it.
 | Category | Slug | Answerable | For |
 | --- | --- | --- | --- |
 | Announcements | `announcements` | no | Releases and anything that changes how an existing install behaves. |
-| Brain & memory | `brain-and-memory` | yes | Recall, the workspace, the durable journal, memory at scale. |
-| Harness & plugins | `harness-and-plugins` | yes | The plugin surface, MCP servers, tools, the harness itself. |
-| Models & providers | `models-and-providers` | yes | Model behavior under this harness; hosted, self-hosted, and local providers. |
-| Install & platforms | `install-and-platforms` | yes | macOS permissions and sandboxing, Linux, Windows, Docker, mobile, updates. |
+| Brain and memory | `brain-and-memory` | yes | Recall, the workspace, the durable journal, memory at scale. |
+| Harness and plugins | `harness-and-plugins` | yes | The plugin surface, MCP servers, tools, the harness itself. |
+| Models and providers | `models-and-providers` | yes | Model behavior under this harness; hosted, self-hosted, and local providers. |
+| Install and platforms | `install-and-platforms` | yes | macOS permissions and sandboxing, Linux, Windows, Docker, mobile, updates. |
 | Deep research | `deep-research` | yes | Multi-step research runs and sub-agent behavior. |
 | Q&A | `q-a` | yes | Everything else someone is stuck on. |
-| Show & tell | `show-and-tell` | no | Plugins, workflows, and setups. The plugin index is built from this category. |
+| Show and tell | `show-and-tell` | no | Plugins, workflows, and setups. The plugin index is built from this category. |
 | General | `general` | no | The catch-all. Triage moves posts out of it. |
 
 Six have a form under
 [`.github/DISCUSSION_TEMPLATE/`](../../.github/DISCUSSION_TEMPLATE). **The file
 name must equal the category slug** — a template whose slug matches no category
 is silently ignored, which is the first thing to check if a form disappears.
+
+GitHub derives the slug from the name — `&` and spaces both become
+hyphens, so "Brain & memory" would slug as `brain-memory`, not
+`brain-and-memory`. Spell "and" out when creating a category, or the
+template stops matching.
 
 ## Labels
 

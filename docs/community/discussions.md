@@ -44,7 +44,7 @@ runs on.
 | `awaiting maintainer` | Has replies, none from a maintainer. The triage queue. | Triage |
 | `needs logs` | Cannot be acted on without the launch or harness log. | Anyone |
 | `needs repro` | Nobody else has reproduced it yet. | Anyone |
-| `plugin, not core` | The right shape for this is a plugin. | Maintainer |
+| `plugin-not-core` | The right shape for this is a plugin. | Maintainer |
 | `local-first` | Turns on whether something is allowed to leave the machine. | Anyone |
 | `promoted` | An issue was opened from this thread; the issue is linked. | Maintainer |
 
@@ -60,7 +60,7 @@ Work the queue, not the feed:
    documentation for the next person with the same platform.
 4. **A real defect** — open the issue, link both ways, label the thread
    `promoted`, and leave it open until the fix ships.
-5. **Should be a plugin** — say so, label it `plugin, not core`, and leave it
+5. **Should be a plugin** — say so, label it `plugin-not-core`, and leave it
    open. When someone builds it, it gets linked from that thread and posted to
    Show & tell.
 

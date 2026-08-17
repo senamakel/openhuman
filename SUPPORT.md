@@ -40,5 +40,5 @@ oldest-first — see
 [docs/community/discussions.md](docs/community/discussions.md).
 
 Not everything belongs in core. If the answer is "that should be a plugin", the
-thread gets `plugin, not core` and stays open so the plugin can be linked from
+thread gets `plugin-not-core` and stays open so the plugin can be linked from
 it when it exists.

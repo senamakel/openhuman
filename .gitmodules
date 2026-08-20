@@ -23,3 +23,6 @@
 	path = vendor/tinybus
 	url = https://github.com/tinyhumansai/tinybus.git
 	branch = main
+[submodule "vendor/tinymemory"]
+	path = vendor/tinymemory
+	url = https://github.com/tinyhumansai/tinymemory

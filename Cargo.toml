@@ -154,6 +154,28 @@ tinycortex = { version = "0.1", features = [
 # this with the `path = "api"` dependency the engine crate already declares.
 tinycortex-api = { path = "vendor/tinycortex/api" }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
+# tinymemory-bus — the wire vocabulary for the TinyMemory TinyBus module.
+#
+# TinyMemory ships as a loadable module (a `cdylib`), so the host can load the
+# binary but cannot `use` anything out of it: the payload types and the member
+# names have to arrive as an ordinary library. This is that library, and it is
+# the *only* piece of TinyMemory the host links — no engine, no storage, no
+# traits, no async runtime. Seven pure-Rust dependencies.
+#
+# Vendored as a git submodule beside the other tiny* crates so module work can
+# change the contract in-tree, test it against OpenHuman immediately, and PR the
+# diff upstream from the submodule. After cloning:
+# `git submodule update --init vendor/tinymemory` (worktrees included).
+#
+# No `[patch."https://github.com/tinyhumansai/tinymemory"]` entry yet, and that
+# is deliberate rather than forgotten. The vendored TinyCortex pin still defines
+# the memory contract itself in `tinycortex-api`; it is only *newer* TinyCortex
+# revisions that re-export `tinymemory-api` and pull it in by git. Adding the
+# patch now would make cargo warn about a patch that matches nothing in the
+# graph. Add it in the same change that bumps the TinyCortex pin — without it,
+# the git copy and this path copy resolve as two distinct crates and
+# `MemoryEntry` from one is not `MemoryEntry` from the other.
+tinymemory-bus = { path = "vendor/tinymemory/crates/tinymemory-bus" }
 # tinybus — the message bus. Owns what `src/core/event_bus/` used to: the typed
 # pub/sub surface (`EventBus`, `EventHandler`, `SubscriptionHandle`), the
 # in-process zero-serialization request registry (`NativeRegistry`), and peer

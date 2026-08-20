@@ -4727,6 +4727,7 @@ dependencies = [
  "tinyflows",
  "tinyhumans-sdk",
  "tinyjuice",
+ "tinymemory-bus",
  "tinyplace",
  "tokio",
  "tokio-stream",
@@ -7380,6 +7381,19 @@ dependencies = [
  "tokio",
  "unicode-segmentation",
  "unicode-width",
+]
+
+[[package]]
+name = "tinymemory-bus"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
+ "uuid 1.23.1",
 ]
 
 [[package]]

@@ -25,15 +25,33 @@ fn a_driver_error_survives_the_round_trip_under_its_own_name() {
     // The module maps out through `wire::wire_name`; this maps back through
     // `wire::from_wire`. Same table, so the variant has to come back intact.
     for (name, matches) in [
-        (wire::NOT_FOUND, matches!(map_bus_error(failed(wire::NOT_FOUND)), MemoryError::NotFound(_))),
-        (wire::INVALID, matches!(map_bus_error(failed(wire::INVALID)), MemoryError::Invalid(_))),
+        (
+            wire::NOT_FOUND,
+            matches!(
+                map_bus_error(failed(wire::NOT_FOUND)),
+                MemoryError::NotFound(_)
+            ),
+        ),
+        (
+            wire::INVALID,
+            matches!(
+                map_bus_error(failed(wire::INVALID)),
+                MemoryError::Invalid(_)
+            ),
+        ),
         (
             wire::BUDGET_EXCEEDED,
-            matches!(map_bus_error(failed(wire::BUDGET_EXCEEDED)), MemoryError::BudgetExceeded(_)),
+            matches!(
+                map_bus_error(failed(wire::BUDGET_EXCEEDED)),
+                MemoryError::BudgetExceeded(_)
+            ),
         ),
         (
             wire::UNAUTHORIZED,
-            matches!(map_bus_error(failed(wire::UNAUTHORIZED)), MemoryError::Unauthorized(_)),
+            matches!(
+                map_bus_error(failed(wire::UNAUTHORIZED)),
+                MemoryError::Unauthorized(_)
+            ),
         ),
     ] {
         assert!(matches, "{name} did not map back to its own variant");

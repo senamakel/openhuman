@@ -164,7 +164,11 @@ tinychannels = { version = "0.1", features = ["relay-websocket"] }
 #
 # Vendored as a git submodule beside the other tiny* crates so module work can
 # change the contract in-tree, test it against OpenHuman immediately, and PR the
-# diff upstream from the submodule. After cloning:
+# diff upstream from the submodule. Pinned at the `v1.1.0` release tag — the
+# release that introduced this crate — rather than at a main commit, because a
+# TinyMemory release is also what publishes the per-platform module archives and
+# their `checksum.toml`, and the library the host links has to be the one those
+# archives were built from. After cloning:
 # `git submodule update --init vendor/tinymemory` (worktrees included).
 #
 # No `[patch."https://github.com/tinyhumansai/tinymemory"]` entry yet, and that

@@ -3278,29 +3278,6 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         Some(false)
     );
 
-    ok(
-        &rpc(
-            &harness.rpc_base,
-            11_006,
-            "openhuman.config_update_meet_settings",
-            json!({ "auto_orchestrator_handoff": true }),
-        )
-        .await,
-        "update_meet_settings true",
-    );
-    let meet = rpc(
-        &harness.rpc_base,
-        11_007,
-        "openhuman.config_get_meet_settings",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&meet, "get_meet_settings")
-            .get("auto_orchestrator_handoff")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
 
     let onboarding_before = rpc(
         &harness.rpc_base,

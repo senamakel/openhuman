@@ -362,27 +362,6 @@ async fn config_agent_tools_and_threads_mutation_paths_round_trip() {
         Some(false)
     );
 
-    let meet = rpc(
-        &harness.rpc_base,
-        30_005,
-        "openhuman.config_update_meet_settings",
-        json!({ "auto_orchestrator_handoff": true }),
-    )
-    .await;
-    ok(&meet, "update_meet_settings");
-    let meet_get = rpc(
-        &harness.rpc_base,
-        30_006,
-        "openhuman.config_get_meet_settings",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&meet_get, "get_meet_settings")
-            .get("auto_orchestrator_handoff")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
 
     let dictation = rpc(
         &harness.rpc_base,

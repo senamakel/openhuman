@@ -305,6 +305,24 @@ fn prompt_renderers_cover_user_memory_identity_tools_and_subagent_variants() -> 
     assert!(built.contains("## Available Personalities"));
     assert!(built.contains("Recent context: "));
 
+    // The workspace-file branch of MEMORY.md injection. The main build
+    // above exercises the personality-override branch (asserted through
+    // "round26 personality memory override"); with both the override and
+    // the curated snapshot cleared, `include_memory_md` must fall through
+    // to the on-disk `MEMORY.md` written at the top of this test and frame
+    // it as durable background memory. Without this second build the file
+    // write would be dead weight and the gate could regress to nothing
+    // while every assertion above still passes.
+    let mut workspace_memory_ctx =
+        prompt_context(workspace.path(), &tools, &visible, ToolCallFormat::PFormat);
+    workspace_memory_ctx.personality_memory_md = None;
+    workspace_memory_ctx.curated_snapshot = None;
+    let workspace_memory_built =
+        SystemPromptBuilder::with_defaults().build(&workspace_memory_ctx)?;
+    assert!(workspace_memory_built.contains("### MEMORY.md"));
+    assert!(workspace_memory_built.contains("workspace memory round26"));
+    assert!(workspace_memory_built.contains("background — not this conversation"));
+
     let ambient = render_ambient_environment(&ctx)?;
     assert!(ambient.contains("## Runtime"));
     assert!(ambient.contains("- name: Round Twenty Six"));

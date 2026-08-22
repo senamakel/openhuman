@@ -3278,8 +3278,7 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         Some(false)
     );
 
-
-    let onboarding_before = rpc(
+        let onboarding_before = rpc(
         &harness.rpc_base,
         11_008,
         "openhuman.config_get_onboarding_completed",

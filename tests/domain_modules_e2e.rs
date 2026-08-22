@@ -362,7 +362,7 @@ async fn config_agent_tools_and_threads_mutation_paths_round_trip() {
         Some(false)
     );
 
-        let dictation = rpc(
+    let dictation = rpc(
         &harness.rpc_base,
         30_007,
         "openhuman.config_update_dictation_settings",

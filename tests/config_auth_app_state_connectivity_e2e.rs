@@ -2827,6 +2827,7 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.config_update_composio_trigger_settings",
                 "openhuman.config_update_dictation_settings",
                 "openhuman.config_update_local_ai_settings",
+                "openhuman.config_update_memory_settings",
                 "openhuman.config_update_memory_sync_settings",
                 "openhuman.config_update_model_settings",
                 "openhuman.config_update_runtime_settings",

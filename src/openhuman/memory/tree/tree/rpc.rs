@@ -241,29 +241,33 @@ pub struct GetChunkResponse {
 /// handlers, and migrating them compiles cleanly. It is still wrong today, and
 /// the reason is worth stating because the next person will try it.
 ///
-/// **The unit suite cannot tell you whether the migration worked.**
-/// `MemorySubsystemConfig::default()` names driver `"tinycortex"`, which
-/// `binding::admit` aliases to the `tinymemory` module. No module artifact is
-/// downloaded in a unit test, so the binding falls back — as documented — and
-/// the guard is over the **null driver**, which serves an empty chunk list.
-/// The `ingest_document` round-trips meanwhile write through `ingest_pipeline`
-/// straight into the engine's SQLite. A guard-based read therefore returns
-/// nothing here whether or not the code is right.
+/// **These two have no way to be handed a guard, so a migration cannot be
+/// tested.** `MemorySubsystemConfig::default()` names driver `"tinycortex"`,
+/// which `binding::admit` aliases to the `tinymemory` module. No module
+/// artifact is present in a unit test, so the binding falls back — as
+/// documented — and the guard wraps the **null driver**, which serves an empty
+/// chunk list. The `ingest_document` round-trips meanwhile write through
+/// `ingest_pipeline` into the engine's SQLite, so a guard read returns nothing
+/// whether or not the code is right.
 ///
-/// That was established by trying it twice: once through
-/// `active_memory_guard` (which also ignores this handler's `config`
-/// argument), and once through a `guard_for_config` sibling that honours it.
-/// Both returned 0 chunks. The argument was a red herring; the driver is the
-/// reason.
+/// Established by trying it twice: once through `active_memory_guard` (which
+/// also ignores this handler's `config` argument), and once through a
+/// `guard_for_config` sibling that honours it. Both returned 0 chunks — the
+/// argument was a red herring, the driver was the reason.
 ///
-/// So these two stay on the store, listed in `direct_engine_refs_tests`, until
-/// there is a test tier whose bound driver is the real module over the same
-/// workspace the fixture writes to. See
+/// The fix is an **injection seam**, not a new test tier:
+/// [`guarded_in_memory`](crate::openhuman::memory::guard::in_memory::guarded_in_memory)
+/// already returns a real `MemoryGuard` over real storage for exactly this
+/// case, and `FlowRunDigestSubscriber::with_memory` / `flows::ops`'
+/// `memory_client_override` are the parameter shape to copy. With one, the
+/// round-trips can write and read through the same guarded store and the
+/// migration becomes verifiable. Until then these stay on the store, listed in
+/// `direct_engine_refs_tests`. See
 /// `docs/specs/2026-08-23-memory-bus-only-remaining-surface.md` §A9.
 ///
 /// **Do not "fix" the four round-trip tests by binding a global client first.**
-/// That turns them green and ships the bug: they are currently the only thing
-/// standing between a silent guard/engine store split and `main`.
+/// They are the only thing that goes red when a handler moves to the guard
+/// without a seam; turning them green that way ships the split.
 pub async fn get_chunk_rpc(
     config: &Config,
     req: GetChunkRequest,

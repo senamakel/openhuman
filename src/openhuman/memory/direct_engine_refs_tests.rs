@@ -398,11 +398,6 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the `memory` gate's retarget made it visible",
     ),
     (
-        "src/openhuman/flows/tinyflows/caps/tools/composio.rs",
-        Verdict::FacadeRevealed,
-        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
-    ),
-    (
         "src/openhuman/flows/tinyflows/memory_adapter.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",

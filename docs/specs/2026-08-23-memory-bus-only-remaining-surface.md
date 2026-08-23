@@ -144,56 +144,51 @@ gets. The ask is a `RecallNamespaceRecent`-shaped method.
   over a generic `IngestItem`; there is **no `ingest_email`**, and the
   canonicaliser input shapes are the engine's.
 
-### A9. The unit suite cannot verify a guard-based read — measure this first
+### A9. These handlers need an injection seam — the tooling already exists
 
-**This is the most transferable finding on the branch, and it was arrived at by
-being wrong twice.** It is not a seam gap; it is a verification gap, and it
-undermines the evidence behind every other migration in this document.
+**Three revisions to get this right, and the first two are recorded because
+each is a plausible wrong turn.** The symptom: migrating
+`memory_tree_list_chunks` / `get_chunk` onto `MemoryChunks` compiles cleanly
+and breaks four `ingest_document` round-trips, which read back 0 chunks.
 
-The attempt: migrate `memory_tree_list_chunks` / `get_chunk` onto
-`MemoryChunks`. It compiles cleanly and breaks four `ingest_document`
-round-trip tests, which read back 0 chunks instead of 1.
+**Wrong turn 1 — "the `config` argument selects the store".** True: those
+handlers read whichever workspace their caller names, and
+`active_memory_guard` resolves the *ambient* binding instead. But fixing that
+did not fix the tests.
 
-**First hypothesis — the `config` argument.** Those handlers take
-`config: &Config`, and that argument selects the store; callers pass a
-`TempDir` workspace. `active_memory_guard` resolves the *ambient* binding
-instead, so the migration looked like it was reading a different workspace.
-Plausible, and wrong.
+**Wrong turn 2 — "so honour the argument".**
+`binding::for_workspace(dir, cfg).guard()` already exists, so a ten-line
+`guard_for_config` sibling in `memory::ops::guard` honours it and still hands
+out a guard (keeping the bypass ratchet's single-site property, since
+`binding::for_workspace(` is a policed needle and `ops/guard.rs` is its one
+allowlisted file). **Still 0 chunks.**
 
-**The test.** `binding::for_workspace(dir, cfg).guard()` already resolves a
-guard for a *named* workspace, so a `guard_for_config(&Config)` sibling in
-`memory::ops::guard` honours the argument and still hands out a guard — it even
-keeps the bypass ratchet's single-site property, since `binding::for_workspace(`
-is a policed needle and `ops/guard.rs` is the one file allowlisted for it.
-Re-ran the four tests against that. **Still 0 chunks.**
+**The cause.** `MemorySubsystemConfig::default()` names driver `"tinycortex"`,
+which `binding::admit` aliases to the `tinymemory` module. No module artifact is
+present in a unit test, so the binding falls back — as documented — and the
+guard wraps the **null driver**. The fixtures write through `ingest_pipeline`
+into the engine's SQLite. Guard and engine are not the same store there.
 
-**The actual cause.** `MemorySubsystemConfig::default()` names driver
-`"tinycortex"`, which `binding::admit` aliases to the `tinymemory` module and
-classes as `Module`. No module artifact is downloaded in a unit test, so the
-binding does what it is documented to do — falls back — and the guard is over
-the **null driver**, which serves an empty chunk list. Meanwhile the fixture
-wrote through `ingest_pipeline` straight into the engine's SQLite.
+**And the answer is already in the tree.** `memory::guard::in_memory` exists for
+exactly this, and says so in its header: *"Converting the consumer to the guard
+breaks those tests, and the cheap answer — `#[ignore]` behind
+`OPENHUMAN_MODULE_PATH` — pays for each conversion with real coverage. So this
+is storage."* `guarded_in_memory()` returns a real `MemoryGuard` over a real
+`HashMap` store, and `memory/tools/forget.rs` already carries the
+`#[ignore]`/`OPENHUMAN_MODULE_PATH` twins for the cases that need a genuine
+module.
 
-So in the unit suite, a guard-based read returns empty **regardless of whether
-the migration is correct**. The four tests cannot distinguish a working
-migration from a broken one; they can only tell you that guard and engine are
-not the same store *in that configuration*.
+So the missing piece is **narrower than a test tier**: these two handlers have
+no way to be handed a guard. The pattern to copy is already used twice —
+`FlowRunDigestSubscriber::with_memory` and `flows::ops`' `memory_client_override`
+parameter. Give the chunk handlers the same optional override, point the four
+round-trips at one `guarded_in_memory()` store for both the write and the read,
+and the migration becomes testable for real rather than testable-by-assumption.
 
-**What this means for the rest of this document.** Every "migrate this handler
-onto the guard" item carries an unstated assumption that the result can be
-verified. It cannot be, by the unit suite alone. A migration whose tests stay
-green has either not exercised the path or been rewritten to accept empty —
-and the second is the easy mistake, because making these four tests bind a
-global client first turns them green while shipping the bug.
-
-**Do this before the next migration, not after:** a test tier where the bound
-driver is the real module over the same workspace the fixture writes to. Until
-that exists, treat a green unit suite as *no evidence* that a guard migration
-is correct, and keep the engine-write/guard-read round-trips as the canaries
-they turned out to be.
-
-The per-call-workspace question is real but secondary, and it is **not**
-upstream work: `guard_for_config` above is ten lines and needs no release.
+**What stays true regardless:** do not make those four tests pass by binding a
+global client first. They are the only thing that goes red when a handler moves
+to the guard without a seam, and turning them green that way ships a silent
+guard/engine store split.
 
 ### A10. Richer chunk listing for `read_rpc` — a design pass, not a method
 
@@ -232,8 +227,9 @@ things, or the read surface changes shape.
    subsystem in practice; splitting them means two releases to get one working
    path.
 3. **A5 + A6** — both are agent-harness hot-path reads.
-4. **A9 first, before any further migration** — it is a test tier, not a
-   feature, and without it the other items cannot be shown to work.
+4. **A9 first, before any further migration** — an injection seam on the
+   handlers being migrated, so the result can be shown to work rather than
+   assumed. Small, host-side, needs no release.
 5. **A7, A8, A10** — small or design-bound; can ride any release.
 5. Only then: delete the `tinycortex` and `tinymemory-core` dependencies, drop
    `vendor/tinycortex`, and write the shed back into

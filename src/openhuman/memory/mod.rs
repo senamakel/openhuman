@@ -37,6 +37,10 @@ pub mod sync_events_bridge;
 // back from `tinymemory-core` with the rest of the agent tools — it is a `Tool`
 // impl end to end, and the engine crate cannot name that trait.
 pub mod query;
+/// Host-side re-ranking maths for the two agent search tools — a weighted
+/// signal sum, cosine similarity, and an MMR pass. Above the driver by
+/// design: see the module docs.
+pub mod ranking;
 pub mod read_rpc;
 pub mod schemas;
 /// The host-side per-turn memory-source allowlist. See the module docs for why

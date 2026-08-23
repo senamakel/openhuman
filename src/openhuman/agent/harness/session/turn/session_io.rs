@@ -817,6 +817,7 @@ impl Agent {
         // This honours the doc-comment guarantee on `flush_open_segment` in
         // `archivist.rs`. No deadlock risk: no mutex guard is held across
         // this await point.
+        #[cfg(feature = "memory")]
         if let Some(ref archivist) = self.archivist_hook {
             let session_id = self.event_session_id.clone();
             log::debug!(

@@ -43,6 +43,10 @@ pub mod agent;
 pub mod api;
 #[cfg(feature = "memory")]
 pub mod binding;
+/// Memory-recall provenance (`MemoryCitation`, `CROSS_CHAT_HEADER`) — inert
+/// serde types that appear in always-compiled agent signatures, so they are a
+/// type carve-out rather than part of the gated behaviour.
+pub mod citation;
 #[cfg(feature = "memory")]
 pub mod driver;
 #[cfg(feature = "memory")]

@@ -27,24 +27,11 @@ const PRIOR_CONVERSATION_KEY_PREFIX: &str = "high.";
 /// prompt section that names the header verbatim. Tests assert on this
 /// constant too — see `memory_loader::tests` and
 /// `harness::memory_context::tests`.
-pub const CROSS_CHAT_HEADER: &str =
-    "[Cross-chat context — historical; capabilities may have changed since]\n";
-
-/// Lightweight citation object derived from recalled memory entries.
-///
-/// These citations are attached to agent responses so the UI can show
-/// provenance for memory-informed answers without exposing full raw memory.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct MemoryCitation {
-    pub id: String,
-    pub key: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub namespace: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub score: Option<f64>,
-    pub timestamp: String,
-    pub snippet: String,
-}
+// Both live in the ungated `memory::citation` and are re-exported here so
+// every historical `memory::agent::memory_loader::…` path keeps resolving.
+// They are inert types in always-compiled signatures; the *producer* below is
+// the part that needs a driver. See that module's docs.
+pub use crate::openhuman::memory::citation::{MemoryCitation, CROSS_CHAT_HEADER};
 
 /// Collect citation metadata from semantic memory recall for a user turn.
 ///

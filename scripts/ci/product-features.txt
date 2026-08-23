@@ -31,6 +31,11 @@ channels
 # The media_generate_* agent tools.
 media
 
+# The whole memory family: recall/ingest/tree/goals/sources/sync, their RPC
+# namespaces, the memory agent tools, the guard, and the TinyMemory module the
+# driver binding loads. Without it the product has no memory at all.
+memory
+
 # Local audio-device access (cpal): voice recording plus the accessibility
 # microphone-permission probe. `voice` requires it.
 inference

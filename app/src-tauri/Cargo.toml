@@ -163,6 +163,10 @@ uuid = { version = "1", features = ["v4"] }
 openhuman_core = { path = "../..", package = "openhuman", default-features = false, features = [
     "channels",
     "media",
+    # The memory family and the TinyMemory module it loads. Forwarded because
+    # the shell sets `default-features = false`, so a gate absent from this
+    # list is compiled out of the shipped app silently (#4901).
+    "memory",
     "inference",
     "voice",
     "web3",

@@ -144,71 +144,79 @@ gets. The ask is a `RecallNamespaceRecent`-shaped method.
   over a generic `IngestItem`; there is **no `ingest_email`**, and the
   canonicaliser input shapes are the engine's.
 
-### A9. The chunk readers cannot migrate without the writer
+### A9. The chunk readers cannot migrate without the writer, and the writer is blocked on email
 
-**Four revisions. Each earlier one is kept, because each is a plausible wrong
-turn and the next person will take it.** The symptom throughout: migrating
-`memory_tree_list_chunks` / `get_chunk` onto `MemoryChunks` compiles cleanly
-and breaks four `ingest_document` round-trips, which read back 0 chunks.
+**Five revisions. The earlier four are kept because each is a plausible wrong
+turn, and three of them are wrong in a way that reads as correct.** The
+symptom throughout: migrating `memory_tree_list_chunks` / `get_chunk` onto
+`MemoryChunks` compiles cleanly and breaks four `ingest_document` round-trips,
+which read back 0 chunks.
 
-**Wrong turn 1 — "the `config` argument selects the store".** True: those
-handlers read whichever workspace their caller names, and
-`active_memory_guard` resolves the *ambient* binding instead. Fixing it did not
-fix the tests.
+**Wrong turn 1 — "the `config` argument selects the store".** True — those
+handlers read whichever workspace their caller names, while
+`active_memory_guard` resolves the *ambient* binding — and not the cause.
 
-**Wrong turn 2 — "so honour the argument".**
-`binding::for_workspace(dir, cfg).guard()` already exists, so a ten-line
-`guard_for_config` sibling honours it and still hands out a guard. **Still 0
-chunks.**
+**Wrong turn 2 — "so honour the argument".** A `guard_for_config` sibling over
+the existing `binding::for_workspace(dir, cfg).guard()` does honour it. **Still
+0 chunks.**
 
-**Wrong turn 3 — "the handlers just need an injection seam".** The cause of
-the zero is real and worth stating: `MemorySubsystemConfig::default()` names
-driver `"tinycortex"`, `binding::admit` aliases it to the `tinymemory` module,
-no artifact is present in a unit test, so the binding falls back as documented
-and the guard wraps the **null driver** while the fixtures write through
-`ingest_pipeline` into the engine's SQLite. And `memory::guard::in_memory`
-does exist for exactly this class of problem — its header says converting a
-consumer to the guard breaks round-trip tests and `#[ignore]` behind
-`OPENHUMAN_MODULE_PATH` "pays for each conversion with real coverage", so it
-supplies storage instead.
+**Wrong turn 3 — "the handlers need an injection seam".** The zero has a real
+cause: `MemorySubsystemConfig::default()` names driver `"tinycortex"`,
+`binding::admit` aliases it to the `tinymemory` module, no artifact exists in a
+unit test, so the binding falls back as documented and the guard wraps the
+**null driver** while fixtures write through `ingest_pipeline` to the engine's
+SQLite. But a seam does not clear two further blockers, both found on trying to
+write it: `InMemoryProvider` implements the mandatory three only (its own
+comment: "advertising more would fail `audit_provider`"), so `as_chunks()` is
+`None` and a guard over it answers `Unsupported`; and the round-trips *span the
+writer* — they write with `ingest_rpc` and read with these, so injecting a
+guard into the read alone puts the halves on different stores by construction.
 
-That reasoning is sound and the conclusion still does not follow, for two
-reasons found on trying to write the code:
+**Wrong turn 4 — "so the writer migration is a behaviour change".** This is the
+one worth correcting carefully, because it over-stated the cost and would have
+deterred the work. It does **not** move chunking or entity scoring into the
+driver. `TinycortexProvider::ingest_document`
+(`vendor/tinymemory/crates/tinymemory-tinycortex/src/engine/mod.rs`, v1.2.0)
+calls `tinymemory_core::ingest_pipeline::ingest_document_with_scope` — the same
+pipeline the host calls today. The bus path reaches the identical code.
 
-1. **`InMemoryProvider` implements the mandatory three only.** Its own comment
-   says so — "advertising more would fail `audit_provider`, since no optional
-   accessor is overridden" — so `as_chunks()` is `None` and a guard over it
-   answers `Unsupported`, not rows. `guard_over` is the documented extension
-   point for "a test that needs an optional family", but a chunks-capable
-   provider would have to be written.
-2. **The round-trips span the writer, and the writer is not injectable.** They
-   write with `ingest_rpc(&cfg, …)` and read with `list_chunks_rpc(&cfg, …)`.
-   Pointing only the read at an injected guard puts the two halves on different
-   stores by construction — the same split the migration was supposed to avoid,
-   relocated into the test.
+Two differences are visible in that adapter and both are narrower than they
+look:
 
-**So the actual prerequisite is the writer.** `ingest_rpc` must go through
-`MemoryIngest` at the same time as the readers go through `MemoryChunks`, or
-neither can. That is not a seam — it is a behaviour change. `ingest_rpc` today
-owns payload canonicalisation per `SourceKind`, chunking, entity scoring and
-persistence; `MemoryIngest::ingest_document` takes a flat `IngestItem { content:
-String, … }` and returns `IngestOutcome { written, skipped, ids }`. Migrating it
-moves chunking and scoring into the driver and needs a mapping decision for
-`chunks_dropped` (lifecycle-dropped) against `skipped` (already present), which
-the idempotency test asserts on. Its own PR, with its own before/after.
+- **`title: String::new()`.** `IngestItem` has no title field, so the host's
+  `DocumentInput.title` is dropped. `canonicalise`
+  (`vendor/tinycortex/src/memory/ingest/canonicalize/document.rs`) uses `title`
+  in exactly one place — the emptiness guard `if body.trim().is_empty() &&
+  title.trim().is_empty()` — and deliberately does **not** put it in the
+  content ("No leading `# provider — title` header"). So the only behavioural
+  difference is a document with an **empty body and a non-empty title**:
+  accepted today, skipped over the bus.
+- **`provider: item.source.as_str()`.** Inert — `canonicalise` never reads
+  `provider`.
 
-**The good news, and it is the part that changes the plan:** this is **not**
-release-blocked. The pinned module is v1.2.0, and `git show
-v1.2.0:crates/tinymemory-module/src/service/mod.rs` serves `list_chunks`,
-`get_chunk` **and** `ingest_document`. Unlike the twelve families in §A1–A8,
-nothing has to happen upstream first. This one is entirely host-side
-sequencing: migrate the writer, then the readers, in one change that can be
-verified end to end.
+**The actual blocker is email.** `ingest_rpc` dispatches on `SourceKind` across
+Chat, Email and Document. `MemoryIngest` has `ingest_document` and
+`ingest_chat` — **and no email method at all**. So `ingest_rpc` cannot move as
+one unit today.
+
+**What this makes possible, and what it does not:**
+
+- Migrating the readers still requires the document *and* chat writers to move
+  with them, because the round-trips span writer and reader.
+- Those two writers can move now: v1.2.0 serves `ingest_document`,
+  `ingest_chat`, `list_chunks` and `get_chunk`, and the document path is
+  equivalent bar the empty-body edge above.
+- Email must either keep the store path behind a `SourceKind::Email` arm — a
+  deliberate, commented split, not an oversight — or the whole handler waits on
+  an upstream `ingest_email`, which is already on this list.
+
+Either way it is one change covering writers and readers together, with the
+empty-body-plus-title case pinned by a test so the edge is a decision rather
+than a discovery.
 
 **What stays true regardless:** do not make those four tests pass by binding a
 global client first. They are the only thing that goes red when a reader moves
-to the guard while the writer stays on the store, and turning them green that
-way ships exactly the split they are detecting.
+to the guard while the writer stays on the store.
 
 ### A10. Richer chunk listing for `read_rpc` — a design pass, not a method
 

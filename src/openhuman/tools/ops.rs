@@ -839,6 +839,7 @@ pub fn all_tools_with_runtime(
     // Long-term goals list tools. Used primarily by the background
     // `goals_agent` (which filters to these via its `[tools] named`
     // allowlist); also available to the main agent for explicit edits.
+    #[cfg(feature = "memory")]
     {
         let goals_dir = root_config.workspace_dir.clone();
         tools.push(Box::new(
@@ -1133,6 +1134,7 @@ pub fn all_tools_with_runtime(
         tool_tracking_enabled = root_config.learning.tool_tracking_enabled,
         "evaluating ToolStatsTool registration"
     );
+    #[cfg(feature = "memory")]
     if root_config.learning.enabled && root_config.learning.tool_tracking_enabled {
         tools.push(Box::new(ToolStatsTool::new()));
         tracing::debug!("ToolStatsTool registered");

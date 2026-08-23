@@ -417,9 +417,9 @@ pub fn all_tools_with_runtime(
         // `flow_memory_recall`'s `scope: "flows"` is a deliberate read-only
         // cross-flow exception — it can see every flow's namespace by
         // design, but can never be used to write outside a flow's own.
-        #[cfg(feature = "flows")]
+        #[cfg(all(feature = "flows", feature = "memory"))]
         Box::new(FlowMemoryRecallTool::new()),
-        #[cfg(feature = "flows")]
+        #[cfg(all(feature = "flows", feature = "memory"))]
         Box::new(FlowMemoryRememberTool::new(security.clone())),
         // Wallet tools — expose wallet operations to the agent tool-call pipeline
         // so the crypto sub-agent can prepare transfers, check status, etc.
@@ -437,8 +437,11 @@ pub fn all_tools_with_runtime(
         Box::new(WalletTxReceiptTool::new()),
         #[cfg(feature = "web3")]
         Box::new(WalletLookupTxTool::new()),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreTool::new(security.clone())),
+        #[cfg(feature = "memory")]
         Box::new(MemoryRecallTool::new()),
+        #[cfg(feature = "memory")]
         Box::new(MemoryForgetTool::new(security.clone())),
         // #4458: the memory read→dedupe→write→update-index protocol
         // (`agent::harness::memory_protocol`) can only close its write cycle via a
@@ -455,30 +458,41 @@ pub fn all_tools_with_runtime(
         Box::new(UpdateMemoryMdTool::new(root_config.workspace_dir.clone())),
         // #002: read-only self-diagnosis of the memory pipeline so the agent
         // can explain an empty/stalled wiki + the fix.
+        #[cfg(feature = "memory")]
         Box::new(MemoryDoctorTool::new(config.clone())),
         // #5172: read-only access to the compiled persona flavour profiles
         // (communication/coding_style/stack/workflow/environment/directives/
         // anti_preferences) that persona ingestion builds but nothing
         // previously surfaced to the agent loop.
+        #[cfg(feature = "memory")]
         Box::new(MemoryFlavourTool::new(config.clone())),
+        #[cfg(feature = "memory")]
         Box::new(MemoryQueryTool),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
+        #[cfg(feature = "memory")]
         Box::new(MemoryVectorSearchTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryChunkContextTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryHybridSearchTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreRawSearchTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreRawChunksTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreKindsTool),
         // Explicit user-preference pinning — always registered so the model
         // can save user-stated preferences regardless of whether the full
         // inference-based learning subsystem is enabled.  The preference
         // injection into the system prompt is controlled independently by
         // `config.learning.explicit_preferences_enabled`.
+        #[cfg(feature = "memory")]
         Box::new(RememberPreferenceTool::new(security.clone())),
         // Two-lane explicit preferences (general → system prompt, situational →
         // per-query recall). Written verbatim to user_pref_{general,situational};
         // bypasses the inference/stability pipeline. Always registered.
+        #[cfg(feature = "memory")]
         Box::new(SavePreferenceTool::new(security.clone())),
         // WhatsApp data store — read-only agent surface (issue #1341). The
         // store lives in the Tauri shell; these tools reach it over the
@@ -522,12 +536,19 @@ pub fn all_tools_with_runtime(
         // ship default-ON; the overextending siblings (people_refresh_address_book —
         // bulk OS contacts ingest with a permission prompt) ship default-OFF via
         // `tools::user_filter`. (The vault domain was removed upstream in #3040.)
+        #[cfg(feature = "memory")]
         Box::new(PeopleListTool),
+        #[cfg(feature = "memory")]
         Box::new(PeopleResolveTool),
+        #[cfg(feature = "memory")]
         Box::new(PeopleScoreTool),
+        #[cfg(feature = "memory")]
         Box::new(PeopleGetTool),
+        #[cfg(feature = "memory")]
         Box::new(PeopleAddAliasTool),
+        #[cfg(feature = "memory")]
         Box::new(PeopleRecordInteractionTool),
+        #[cfg(feature = "memory")]
         Box::new(PeopleRefreshAddressBookTool),
         // Skills metadata tools. `skill_run` is already exposed by RunSkillTool
         // above, so it is not duplicated. Reads ship default-ON; the
@@ -614,16 +635,27 @@ pub fn all_tools_with_runtime(
         // every mutator ships default-OFF via `tools::user_filter`
         // (learning_manage toggle) — they persistently rewrite the assistant's
         // model of the user. enrich_profile also flags external_effect.
+        #[cfg(feature = "memory")]
         Box::new(LearningListFacetsTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningGetFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningCacheStatsTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningUpdateFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningPinFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningUnpinFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningForgetFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningRebuildCacheTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningResetCacheTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningSaveProfileTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningEnrichProfileTool),
         // Task & productivity tools (issue: agent-tool expansion).
         // Read/observe + bounded-write tools are registered here; the

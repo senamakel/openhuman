@@ -537,7 +537,7 @@ async fn finish_revalidated_user_activation(
     // No people-store rebind: people is served by the bound memory driver, and
     // the core-context rebind above already moved that binding to the activated
     // user's workspace.
-    tinymemory_core::conversations::register_conversation_persistence_subscriber(
+    crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
         target_config.workspace_dir.clone(),
     );
     if let Some(source_config) = service_rebind_source {

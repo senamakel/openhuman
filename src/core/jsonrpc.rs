@@ -446,6 +446,29 @@ fn is_wallet_not_configured_error(msg: &str) -> bool {
     msg == crate::openhuman::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
 }
 
+/// Whether `msg` is a memory ingest-payload schema-validation failure.
+///
+/// A thin `#[cfg]` shim over
+/// [`memory::tree::tree::rpc::is_invalid_ingest_payload_message`], which lives
+/// behind the `memory` gate. It exists as a function rather than a `#[cfg]` in
+/// the `else if` chain at the call site because that chain decides Sentry
+/// severity and is easier to read whole.
+///
+/// With the family compiled out no handler can emit such a message, so the
+/// answer is `false` — not "unknown". Anything that *did* start with that
+/// prefix in this build would not be an ingest-payload failure, and keeping
+/// the loud default is the right way round.
+#[cfg(feature = "memory")]
+fn memory_ingest_payload_message(msg: &str) -> bool {
+    crate::openhuman::memory::tree::tree::rpc::is_invalid_ingest_payload_message(msg)
+}
+
+/// See the `memory`-enabled twin above.
+#[cfg(not(feature = "memory"))]
+fn memory_ingest_payload_message(_msg: &str) -> bool {
+    false
+}
+
 /// Internal method invocation logic.
 ///
 /// It first attempts to match the method name against the static controller

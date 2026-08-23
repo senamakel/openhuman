@@ -31,6 +31,12 @@ pub mod harness;
 pub mod harness_init;
 pub mod hooks;
 pub mod host_runtime;
+// The persona/profile learning domain is memory-backed end to end: `FacetCache`
+// wraps the driver's `MemoryProfile` family, `transcript_ingest` writes into
+// the memory tree, and `tool_tracker` reads tool-effectiveness rules out of
+// tool memory. With the family compiled out there is no store behind any of
+// it, so the domain is absent rather than inert.
+#[cfg(feature = "memory")]
 pub mod learning;
 pub mod library;
 pub(crate) mod message_convert;

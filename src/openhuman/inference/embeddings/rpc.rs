@@ -100,8 +100,15 @@ pub async fn get_settings(config: &Config) -> Result<RpcOutcome<serde_json::Valu
     // without rewriting it. Additive field — callers that only need the picker
     // value are unaffected; callers asking "does this bill the managed budget?"
     // must read this one (#5402).
+    #[cfg(feature = "memory")]
     let effective_provider =
         crate::openhuman::memory::tree::score::embed::effective_embedder_slug(config);
+    // No memory tree means nothing resolves an embedder for it, so the picker
+    // value stands alone. Reported as-is rather than as an empty string: the
+    // field answers "what would actually be used", and with no memory in the
+    // build the answer is whatever the caller configured.
+    #[cfg(not(feature = "memory"))]
+    let effective_provider = provider.clone();
 
     let payload = serde_json::json!({
         "provider": provider,
@@ -340,6 +347,9 @@ pub async fn update_settings(
             new_dims,
             "{LOG_PREFIX} embedding dimensions changing — wiping memory"
         );
+        // Nothing to wipe with the family compiled out: no store was written
+        // in the old embedding space, so a dimension change strands nothing.
+        #[cfg(feature = "memory")]
         crate::openhuman::memory::read_rpc::wipe_all_rpc(&config)
             .await
             .map_err(|e| format!("memory wipe failed: {e}"))?;

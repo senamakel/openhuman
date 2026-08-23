@@ -163,6 +163,7 @@ pub(super) fn collect_tree_root_summaries(
     per_namespace_cap: usize,
     total_cap: usize,
 ) -> Vec<crate::openhuman::agent::context::prompt::NamespaceSummary> {
+    #[cfg(feature = "memory")]
     let rows = if memory_subdir == "memory" {
         crate::openhuman::memory::tree::tree_runtime::store::collect_root_summaries_with_caps(
             workspace_dir,
@@ -170,6 +171,17 @@ pub(super) fn collect_tree_root_summaries(
             total_cap,
         )
     } else {
+        collect_profile_tree_root_summaries(
+            &workspace_dir.join(memory_subdir),
+            per_namespace_cap,
+            total_cap,
+        )
+    };
+    // Without the family there is no `memory-*` tree on disk to read, so every
+    // subdir takes the profile-tree path — which reads plain markdown and does
+    // not need a driver.
+    #[cfg(not(feature = "memory"))]
+    let rows = {
         collect_profile_tree_root_summaries(
             &workspace_dir.join(memory_subdir),
             per_namespace_cap,

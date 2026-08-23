@@ -162,6 +162,12 @@ pub async fn composio_delete_connection(
         }
         Err(_) => None,
     };
+    #[cfg(not(feature = "memory"))]
+    let memory_targets: Vec<ComposioMemoryTarget> = {
+        let _ = clear_memory;
+        Vec::new()
+    };
+    #[cfg(feature = "memory")]
     let memory_targets = if clear_memory {
         // The LIVE process client — target discovery loads notion sync state
         // through it. Resolved here, not constructed inside the discovery:
@@ -225,6 +231,7 @@ pub async fn composio_delete_connection(
             );
         }
     }
+    #[cfg(feature = "memory")]
     match crate::openhuman::memory::sources::registry::remove_composio_source_by_connection_id(
         connection_id,
     )

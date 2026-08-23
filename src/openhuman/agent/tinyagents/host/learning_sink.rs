@@ -76,7 +76,6 @@ use tinyagents::error::Result;
 use tinyagents::harness::host::{LearningSink, TurnSummary};
 
 use crate::openhuman::agent::hooks::{self, PostTurnHook, TurnContext};
-#[cfg(feature = "memory")]
 use crate::openhuman::agent::learning::{ToolTrackerHook, UserProfileHook};
 use crate::openhuman::config::LearningConfig;
 use crate::openhuman::memory::Memory;

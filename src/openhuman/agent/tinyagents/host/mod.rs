@@ -39,6 +39,7 @@ pub mod budget_gate;
 pub mod context_composer;
 pub mod definition_registry;
 pub mod experience_store;
+#[cfg(feature = "memory")]
 pub mod learning_sink;
 pub mod model_resolver;
 pub mod progress_sink;
@@ -51,6 +52,7 @@ pub use budget_gate::OpenHumanBudgetGate;
 pub use context_composer::OpenHumanContextComposer;
 pub use definition_registry::OpenHumanDefinitionRegistry;
 pub use experience_store::OpenHumanExperienceStore;
+#[cfg(feature = "memory")]
 pub use learning_sink::OpenHumanLearningSink;
 pub use model_resolver::OpenHumanModelResolver;
 pub use progress_sink::OpenHumanProgressSink;

@@ -131,7 +131,14 @@ pub async fn bound_memory_driver() -> Option<(String, DriverClass, Capabilities)
             return None;
         }
     };
-    bound_memory_driver_for(&config.workspace_dir, &config.subsystems.memory)
+    #[cfg(feature = "memory")]
+    {
+        bound_memory_driver_for(&config.workspace_dir, &config.subsystems.memory)
+    }
+    #[cfg(not(feature = "memory"))]
+    {
+        None
+    }
 }
 
 /// [`bound_memory_driver`] against an already-loaded config.

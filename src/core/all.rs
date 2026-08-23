@@ -638,6 +638,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::inference::embeddings::all_embeddings_registered_controllers(),
     );
     // People resolution and interaction scoring
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -719,6 +720,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     // registers as nine tagged pushes rather than one (M5.2). Order matches
     // `memory::schemas::all_registered_controllers`, which
     // `registered_controller_order_is_pinned_to_the_capability_partition_snapshot` pins.
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -734,18 +736,21 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Core),
         crate::openhuman::memory::all_memory_core_recall_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Documents),
         crate::openhuman::memory::all_memory_documents_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Ingest),
         crate::openhuman::memory::all_memory_ingest_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -753,18 +758,21 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         None,
         crate::openhuman::memory::all_memory_files_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Graph),
         crate::openhuman::memory::all_memory_kv_graph_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Sources),
         crate::openhuman::memory::all_memory_sync_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -774,6 +782,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Tree),
         crate::openhuman::memory::all_memory_learn_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -784,6 +793,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         None,
         crate::openhuman::memory::all_memory_provider_registered_controllers(),
     );
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -791,6 +801,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::memory::all_memory_tool_memory_registered_controllers(),
     );
     // Long-term goals list (editable list + turn-based enrichment agent)
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -804,6 +815,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::threads::goals::all_thread_goals_registered_controllers(),
     );
     // Memory tree ingestion layer (#707 — canonicalised chunks with provenance)
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -818,6 +830,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::memory::tree::all_memory_tree_registered_controllers(),
     );
     // Memory tree retrieval layer (#710 — LLM-callable read tools over the tree)
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -825,6 +838,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::memory::tree::all_retrieval_registered_controllers(),
     );
     // Slack → memory-tree ingestion engine (per-message ingest, no bucketing)
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -835,6 +849,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::integrations::composio::providers::slack::all_slack_memory_registered_controllers(),
     );
     // Per-connection memory sync status, controls, and progress (#1136)
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -843,6 +858,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         ),
     );
     // Memory sources — user-configured data connectors registry
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -850,6 +866,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::memory::sources::all_memory_sources_registered_controllers(),
     );
     // Memory diff — snapshot-based change tracking for memory sources
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -929,6 +946,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::platform::update::all_update_registered_controllers(),
     );
     // Hierarchical knowledge summarization
+    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -936,6 +954,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         crate::openhuman::memory::tree::all_tree_summarizer_registered_controllers(),
     );
     // Self-learning and user context enrichment
+    #[cfg(feature = "memory")]
     push(
         &mut controllers,
         DomainGroup::Agent,

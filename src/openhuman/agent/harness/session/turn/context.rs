@@ -222,9 +222,9 @@ impl Agent {
         let reflection_entries = self
             .memory
             .list(
-                Some(crate::openhuman::agent::learning::reflection::REFLECTIONS_NAMESPACE),
+                Some(crate::openhuman::memory::namespaces::REFLECTIONS_NAMESPACE),
                 Some(&MemoryCategory::Custom(
-                    crate::openhuman::agent::learning::reflection::REFLECTIONS_NAMESPACE.into(),
+                    crate::openhuman::memory::namespaces::REFLECTIONS_NAMESPACE.into(),
                 )),
                 None,
             )

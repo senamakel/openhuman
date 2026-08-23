@@ -29,7 +29,7 @@ pub const CONVERSATION_REFLECTIONS_NAMESPACE: &str = "conversation_reflections";
 /// durable facts rather than raw turns. These are the unprocessed messages:
 /// still queryable on demand by naming this namespace, but no longer swept
 /// into every default-namespace read.
-pub const CONVERSATION_RAW_NAMESPACE: &str = "conversation_raw";
+pub use crate::openhuman::memory::namespaces::CONVERSATION_RAW_NAMESPACE;
 
 /// Importance tier — controls which memories are surfaced into a fresh
 /// chat by default. Only `High` candidates make it into the prompt block;

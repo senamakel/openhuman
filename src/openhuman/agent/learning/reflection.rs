@@ -20,7 +20,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Distinct from `learning_observations` (agent-extracted) and
 /// `user_profile` (preference facts) — these are sentences the user
 /// authored about themselves that should steer future agent behaviour.
-pub const REFLECTIONS_NAMESPACE: &str = "learning_reflections";
+pub use crate::openhuman::memory::namespaces::REFLECTIONS_NAMESPACE;
 
 /// Structured output expected from the reflection LLM call.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

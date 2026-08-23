@@ -1,6 +1,7 @@
 //! `Agent::from_config` factory methods and the internal
 //! `build_session_agent_inner` constructor.
 
+#[cfg(feature = "memory")]
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
 use crate::openhuman::agent::context::prompt::SystemPromptBuilder;

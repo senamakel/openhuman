@@ -384,6 +384,7 @@ pub struct Agent {
     /// `flush_open_segment` at session-memory-extraction time (the
     /// closest available signal to "session is ending") to finalize the
     /// trailing open segment with an LLM recap + embedding.
+    #[cfg(feature = "memory")]
     pub(super) archivist_hook: Option<Arc<ArchivistHook>>,
     /// Names of every tool currently in [`Agent::tools`] that was
     /// produced by [`crate::openhuman::tools::orchestrator_tools::collect_orchestrator_tools`]
@@ -503,6 +504,7 @@ pub struct AgentBuilder {
     /// Optional reference to the production `ArchivistHook`. Set when
     /// `config.learning.episodic_capture_enabled` is true. Used to call
     /// `flush_open_segment` at the closest available session-end signal.
+    #[cfg(feature = "memory")]
     pub(super) archivist_hook: Option<Arc<ArchivistHook>>,
 }
 

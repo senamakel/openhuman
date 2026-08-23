@@ -15,9 +15,11 @@ use crate::core::events::DomainEvent;
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
 use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
+#[cfg(feature = "memory")]
+use crate::openhuman::channels::context::build_memory_context;
 use crate::openhuman::channels::context::{
-    build_memory_context, compact_sender_history, conversation_history_key,
-    conversation_memory_key, is_context_window_overflow_error, ChannelRuntimeContext,
+    compact_sender_history, conversation_history_key, conversation_memory_key,
+    is_context_window_overflow_error, ChannelRuntimeContext,
 };
 use crate::openhuman::channels::providers::telegram::TELEGRAM_APPROVAL_CLIENT_ID;
 use crate::openhuman::channels::routes::{

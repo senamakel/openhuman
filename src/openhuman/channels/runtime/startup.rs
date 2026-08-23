@@ -181,6 +181,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // `bootstrap_core_runtime` may also start it — `start_periodic_sync`
     // is intentionally cheap and the loop body no-ops when there are
     // no connections.
+    #[cfg(feature = "memory")]
     crate::openhuman::integrations::composio::start_periodic_sync();
     // Task-sources: subscribe to Composio connection-created events for
     // one-shot fetches, and spawn the periodic poll that pulls work from

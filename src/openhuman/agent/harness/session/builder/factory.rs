@@ -670,6 +670,7 @@ impl Agent {
                 );
             }
 
+            #[cfg(feature = "memory")]
             if config.learning.user_profile_enabled {
                 post_turn_hooks.push(Arc::new(
                     crate::openhuman::agent::learning::UserProfileHook::new(

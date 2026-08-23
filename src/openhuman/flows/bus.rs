@@ -435,6 +435,7 @@ impl FlowRunDigestSubscriber {
 
     /// Best-effort prune: keeps at most [`DIGEST_RETENTION_CAP`] `run_digest:*`
     /// entries per flow namespace, evicting the oldest (by `timestamp`) first.
+    #[cfg(feature = "memory")]
     async fn enforce_retention_cap(
         &self,
         memory: &Arc<crate::openhuman::memory::guard::MemoryGuard>,

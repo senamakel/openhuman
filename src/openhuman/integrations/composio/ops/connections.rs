@@ -163,7 +163,7 @@ pub async fn composio_delete_connection(
         Err(_) => None,
     };
     #[cfg(not(feature = "memory"))]
-    let memory_targets: Vec<ComposioMemoryTarget> = {
+    let memory_targets: Vec<super::memory_cleanup::MemoryCleanupTarget> = {
         let _ = clear_memory;
         Vec::new()
     };

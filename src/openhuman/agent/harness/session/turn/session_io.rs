@@ -909,6 +909,7 @@ impl Agent {
         };
         let memory = std::sync::Arc::clone(&self.memory);
 
+        #[cfg(feature = "memory")]
         tokio::spawn(async move {
             match crate::openhuman::agent::learning::transcript_ingest::ingest_transcript_path(
                 memory.as_ref(),

@@ -2133,6 +2133,7 @@ fn register_domain_subscribers(
             {
                 log::warn!("[composio][history] failed to initialize trigger archive: {error}");
             }
+            #[cfg(feature = "memory")]
             crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
             crate::openhuman::integrations::task_sources::bus::register_task_sources_subscriber();
         }

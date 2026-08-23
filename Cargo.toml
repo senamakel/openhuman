@@ -677,7 +677,7 @@ proptest = "1"
 # (`modules`: Contrib=ON, Product=ON) and with `scripts/ci/product-features.txt`,
 # which already lists it. This does NOT move the kernel floor: that profile is
 # `--no-default-features --features flows` and never reads this list.
-default = ["media", "skills", "flows", "mcp", "channels", "medulla", "http-server", "scheduler-gate", "file-logging", "modules"]
+default = ["media", "memory", "skills", "flows", "mcp", "channels", "medulla", "http-server", "scheduler-gate", "file-logging", "modules"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -724,7 +724,7 @@ default = ["media", "skills", "flows", "mcp", "channels", "medulla", "http-serve
 # `None`; and the three `ops` entry points always-on code calls return a
 # build-fact error, so a post-sync snapshot or a subconscious diff is logged and
 # skipped rather than silently reported as "nothing changed".
-memory-git = ["tinycortex/git-diff", "tinycortex/wiki-git", "tinymemory-core/memory-git"]
+memory-git = ["memory", "tinycortex/git-diff", "tinycortex/wiki-git", "tinymemory-core/memory-git"]
 http-server = ["dep:axum", "dep:socketioxide"]
 # Local audio-device access: the `cpal` capture stack behind voice recording
 # and the accessibility microphone-permission probe. Default-ON. Slim /
@@ -922,6 +922,45 @@ contacts = ["tinymemory-core/contacts"]
 # controllers / stores / subscribers tagged `Media` (agent tools only), and
 # `openhuman::image` is currently unwired scaffold (added #2997).
 media = []
+
+# The `openhuman::memory` family: the recall/ingest/tree/goals/sources/sync
+# domains, their ~13 RPC namespaces, the ~30 memory agent tools, the guard, the
+# driver binding, and the TinyMemory module the binding loads. Default-ON,
+# product-ON — this is a core product surface, and the gate exists for the
+# embedding host that wants a workflow or tool runtime with no memory at all
+# (`DomainSet::kernel()` already models that at runtime; this is the
+# compile-time axis it composes with).
+#
+# FACADE + STUB, not a leaf gate. `pub mod memory;` is always compiled: ~230
+# production references across ~101 files outside the family reach into it, and
+# a handful of always-on callers (the agent harness, flows, channels, cron)
+# name concrete items rather than a registration aggregator. The behavioural
+# submodules are `#[cfg(feature = "memory")]` and
+# `src/openhuman/memory/stub.rs` re-exposes that surface with null / disabled
+# bodies. Same shape as `voice`, with `skills`' refinement: inert types stay
+# ungated so both builds share ONE definition.
+#
+# TYPE CARVE-OUT: `memory::api` (a re-export of `tinymemory-api`) and
+# `memory::ranking` are compiled in BOTH builds. The first is the contract
+# vocabulary — `MemoryEntry`, `RecallOpts`, `MemoryCategory` appear in
+# always-on agent-harness signatures — and the second is host-side arithmetic
+# with no driver behind it. Neither needs a stub twin, and a twin is exactly
+# what would be free to drift.
+#
+# What OFF means: the `memory*` controllers are unregistered (unknown-method
+# over `/rpc`, absent from `/schema`), every memory agent tool is ABSENT from
+# the tool list rather than degraded to an error, the memory subscribers are
+# not installed, and — the point of the gate for an embedder — the TinyMemory
+# module is neither pinned nor loaded, so no `cdylib` is downloaded or
+# `dlopen`ed. Recall inside an agent turn returns nothing, which is the
+# behaviour `NullMemoryProvider` already produces at runtime.
+#
+# Sheds no third-party crate on its own: `tinymemory-api` is the contract and
+# stays, and every crate the family touches (rusqlite, reqwest, serde) has
+# other parents. The gate buys the tool surface, the prompt bloat, the RPC
+# surface and the module download — not binary size. Do not "fix" the empty
+# list by adding `dep:` entries.
+memory = []
 # Flows domains: the `flows::` automation surface (saved tinyflows graphs —
 # create/run/schedule + the workflow_builder / flow_discovery agents), the
 # `tinyflows::` adapter seam, and the `rhai_workflows::` language-workflow tool.

@@ -14,6 +14,7 @@ use crate::openhuman::agent::harness::session::types::Agent;
 use crate::openhuman::agent::host_runtime;
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::provider;
+#[cfg(feature = "memory")]
 use crate::openhuman::memory::tool_memory::capture::ToolMemoryCaptureHook;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::security::SecurityPolicy;
@@ -689,6 +690,7 @@ impl Agent {
                 log::info!("[learning] tool_tracker hook registered");
             }
 
+            #[cfg(feature = "memory")]
             if config.learning.tool_memory_capture_enabled {
                 post_turn_hooks.push(Arc::new(ToolMemoryCaptureHook::new(memory.clone(), true)));
                 log::info!("[learning] tool_memory_capture hook registered");
@@ -1011,6 +1013,7 @@ impl Agent {
         // and users who opt out of learning expect no stored rules to surface)
         // or when the runtime cannot host a synchronous bridge (single-threaded
         // test harnesses).
+        #[cfg(feature = "memory")]
         if config.learning.enabled && config.learning.tool_memory_capture_enabled {
             let agent_tool_names: Vec<String> =
                 tools.iter().map(|t| t.name().to_string()).collect();
@@ -1245,7 +1248,10 @@ impl Agent {
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }
-        builder = builder.archivist_hook(archivist_hook_arc);
+        #[cfg(feature = "memory")]
+        {
+            builder = builder.archivist_hook(archivist_hook_arc);
+        }
         let mut agent = builder.build()?;
         let connected_integrations_initialized = prewarmed_integrations.is_some();
         agent.connected_integrations = prewarmed_integrations.unwrap_or_default();

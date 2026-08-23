@@ -656,3 +656,114 @@ pub fn guarded_in_memory_chunks() -> (Arc<InMemoryChunks>, Arc<super::MemoryGuar
     let guard = guard_over(Arc::clone(&provider) as Arc<dyn MemoryProvider>);
     (provider, guard)
 }
+
+#[cfg(test)]
+mod in_memory_chunks_tests {
+    use super::*;
+    use crate::openhuman::memory::api::provider::types::DataSource;
+
+    fn document(source_id: &str, owner: &str, content: &str) -> IngestItem {
+        IngestItem {
+            namespace: None,
+            source: DataSource::Document,
+            source_id: source_id.to_string(),
+            owner: owner.to_string(),
+            source_ref: None,
+            content: content.to_string(),
+            mime: None,
+            timestamp: None,
+            tags: Vec::new(),
+            taint: MemoryTaint::default(),
+            path_scope: None,
+        }
+    }
+
+    /// The point of this provider: a write and a read that both cross a real
+    /// [`MemoryGuard`] reach the same store. `InMemoryProvider` cannot serve
+    /// this — `as_chunks()` is `None` there, so the guard answers `Unsupported`.
+    #[tokio::test]
+    async fn a_document_written_through_the_guard_is_read_back_through_it() {
+        let (store, guard) = guarded_in_memory_chunks();
+
+        let outcome = guard
+            .as_ingest()
+            .expect("guard exposes ingest")
+            .ingest_document(document("doc-launch", "alice", "Phoenix launch canary"))
+            .await
+            .expect("ingest");
+        assert_eq!(outcome.written, 1);
+        assert_eq!(store.len(), 1);
+
+        let listed = guard
+            .as_chunks()
+            .expect("guard exposes chunks")
+            .list_chunks(
+                &ChunkQuery {
+                    source_id: Some("doc-launch".to_string()),
+                    ..ChunkQuery::default()
+                },
+                None,
+            )
+            .await
+            .expect("list_chunks");
+        assert_eq!(listed.len(), 1);
+        assert!(listed[0].content.contains("Phoenix launch canary"));
+
+        let fetched = guard
+            .as_chunks()
+            .expect("guard exposes chunks")
+            .get_chunk(&outcome.ids[0])
+            .await
+            .expect("get_chunk")
+            .expect("chunk exists");
+        assert_eq!(fetched.metadata.owner, "alice");
+    }
+
+    /// Dedupe is by `source_id`, mirroring the pipeline's `already_ingested`
+    /// arm that `TinycortexProvider::ingest_document` maps to `skipped: 1`.
+    #[tokio::test]
+    async fn a_repeated_source_id_is_skipped_rather_than_duplicated() {
+        let (store, guard) = guarded_in_memory_chunks();
+        let ingest = guard.as_ingest().expect("guard exposes ingest");
+
+        ingest
+            .ingest_document(document("doc-launch", "alice", "first"))
+            .await
+            .expect("first ingest");
+        let second = ingest
+            .ingest_document(document("doc-launch", "alice", "second"))
+            .await
+            .expect("second ingest");
+
+        assert_eq!(second.written, 0);
+        assert_eq!(second.skipped, 1);
+        assert_eq!(store.len(), 1, "the duplicate must not add a chunk");
+    }
+
+    /// The trait requires scope to be applied *before* the limit, so a
+    /// forbidden source cannot starve permitted ones out of the page.
+    #[tokio::test]
+    async fn a_scope_excludes_sources_outside_it() {
+        let (_store, guard) = guarded_in_memory_chunks();
+        let ingest = guard.as_ingest().expect("guard exposes ingest");
+        ingest
+            .ingest_document(document("allowed", "alice", "in scope"))
+            .await
+            .expect("ingest allowed");
+        ingest
+            .ingest_document(document("denied", "alice", "out of scope"))
+            .await
+            .expect("ingest denied");
+
+        let scope = SourceScope::new(["allowed"]);
+        let listed = guard
+            .as_chunks()
+            .expect("guard exposes chunks")
+            .list_chunks(&ChunkQuery::default(), Some(&scope))
+            .await
+            .expect("list_chunks");
+
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].metadata.source_id, "allowed");
+    }
+}

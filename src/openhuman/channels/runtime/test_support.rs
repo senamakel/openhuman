@@ -492,6 +492,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
             crate::openhuman::agent::tinyagents::TurnModelSource::from_model(model),
         ),
         default_provider: Arc::new("harness-provider".to_string()),
+        #[cfg(feature = "memory")]
         memory: crate::openhuman::memory::guard::in_memory::guard_over(Arc::new(HarnessMemory {
             entries: options
                 .memory_entries

@@ -432,8 +432,15 @@ impl Agent {
             // turn it belonged to.
             previous.abort();
         }
+        // UI-only, and a full recall: with the family compiled out there is
+        // nothing to cite, so no task is spawned and `last_turn_citations`
+        // simply stays empty — the same state a turn with no hits reaches.
+        #[cfg(feature = "memory")]
         let citation_memory = self.memory.clone();
+        #[cfg(feature = "memory")]
         let citation_query = user_message.to_string();
+        #[cfg(feature = "memory")]
+        {
         self.pending_citations = Some(tokio::spawn(async move {
             match collect_recall_citations(
                 citation_memory.as_ref(),
@@ -458,6 +465,7 @@ impl Agent {
                 }
             }
         }));
+        }
         // No per-turn memory-context block is assembled here any more.
         //
         // `memory_loader.load_context()` used to prepend `[User working

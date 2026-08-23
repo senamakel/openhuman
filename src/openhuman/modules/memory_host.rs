@@ -285,7 +285,13 @@ fn into_domain_event(event: MemoryEvent) -> Option<crate::core::events::DomainEv
             DomainEvent::MemorySyncRequested { channel_id }
         }
         MemoryEvent::LocalModelUnavailable { origin } => {
+            // The user-facing error surface lives in the memory tree's health
+            // module. Unreachable with the family off — nothing binds a module
+            // driver that could raise this — but the arm must still compile.
+            #[cfg(feature = "memory")]
             crate::openhuman::memory::tree::health::user_error::publish_local_model_unavailable_user_error(&origin);
+            #[cfg(not(feature = "memory"))]
+            let _ = origin;
             return None;
         }
     })

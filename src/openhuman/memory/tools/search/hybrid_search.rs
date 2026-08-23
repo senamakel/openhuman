@@ -13,7 +13,7 @@ use crate::openhuman::memory::api::provider::MemoryProvider;
 use crate::openhuman::memory::api::types::MemoryItemKind;
 use crate::openhuman::memory::ops::guard::active_memory_guard;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
-use tinycortex::memory::WeightProfile;
+use crate::openhuman::memory::ranking::{hybrid_score, WeightProfile};
 
 pub struct MemoryHybridSearchTool;
 
@@ -173,7 +173,7 @@ impl Tool for MemoryHybridSearchTool {
             .enumerate()
             .map(|(i, hit)| {
                 let bd = &hit.score_breakdown;
-                let score = tinycortex::memory::retrieval::scoring::hybrid_score(
+                let score = hybrid_score(
                     &profile,
                     bd.graph_relevance,
                     bd.vector_similarity,

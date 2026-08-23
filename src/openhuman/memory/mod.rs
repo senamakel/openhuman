@@ -54,7 +54,13 @@ pub mod namespaces;
 pub mod driver;
 #[cfg(feature = "memory")]
 pub mod guard;
-#[cfg(feature = "memory")]
+/// The host side of the `tinymemory` seam — `MemoryHostConfig for Config` and
+/// the bus event sink. **Ungated**, and deliberately so: these are impls of
+/// `tinymemory_api::host` traits on OpenHuman's own `Config`, named by
+/// always-compiled callers (composio, task-sources, the doctor, the tool
+/// registry) that pass a `&Config` where the API crate's `dyn MemoryHostConfig`
+/// is expected. Gating the impl would make `Config` stop satisfying a bound
+/// that has nothing to do with whether the memory *family* is compiled in.
 pub mod host;
 #[cfg(feature = "memory")]
 pub mod host_impls;

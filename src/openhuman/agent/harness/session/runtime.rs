@@ -629,7 +629,7 @@ impl Agent {
     /// wait.
     pub async fn take_last_turn_citations(
         &mut self,
-    ) -> Vec<crate::openhuman::memory::agent::memory_loader::MemoryCitation> {
+    ) -> Vec<crate::openhuman::memory::citation::MemoryCitation> {
         if let Some(handle) = self.pending_citations.take() {
             match handle.await {
                 Ok(citations) => self.last_turn_citations = citations,

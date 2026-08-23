@@ -18,7 +18,7 @@
 //! - [`tinymemory_core::store::safety`] — `sanitize_text`, the
 //!   conservative secret + PII scrubber, applied on the way out of recall and on
 //!   the way in to `remember`.
-//! - [`crate::openhuman::memory::agent::memory_loader::MemoryCitation`] — the
+//! - [`crate::openhuman::memory::citation::MemoryCitation`] — the
 //!   host's citation shape, rendered down to the opaque string the crate wants.
 //!
 //! # Where the policy lives, and why it lives *here*
@@ -88,7 +88,7 @@ use tinyagents::error::{Result as TaResult, TinyAgentsError};
 use tinyagents::harness::host::{AgentMemory, MemoryId, MemoryItem, NewMemory, RecallRequest};
 use tinyagents::harness::ids::ThreadId;
 
-use crate::openhuman::memory::agent::memory_loader::MemoryCitation;
+use crate::openhuman::memory::citation::MemoryCitation;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, MemoryTaint, RecallOpts};
 use crate::openhuman::util::truncate_with_ellipsis;
 use tinymemory_core::store::safety::sanitize_text;

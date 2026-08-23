@@ -421,3 +421,80 @@ impl InMemoryChunks {
         self.chunks.lock().is_empty()
     }
 }
+
+#[async_trait]
+impl MemoryCore for InMemoryChunks {
+    async fn store(&self, _entry: MemoryEntry) -> Result<String, MemoryError> {
+        Err(MemoryError::Unsupported(
+            "InMemoryChunks stores chunks, not entries".to_string(),
+        ))
+    }
+
+    async fn get(&self, _namespace: &str, _key: &str) -> Result<Option<MemoryEntry>, MemoryError> {
+        Ok(None)
+    }
+
+    async fn forget(&self, _namespace: &str, _key: &str) -> Result<bool, MemoryError> {
+        Ok(false)
+    }
+
+    async fn namespaces(&self) -> Result<Vec<NamespaceSummary>, MemoryError> {
+        Ok(Vec::new())
+    }
+}
+
+#[async_trait]
+impl MemoryIngest for InMemoryChunks {
+    async fn ingest_document(&self, item: IngestItem) -> Result<IngestOutcome, MemoryError> {
+        let mut chunks = self.chunks.lock();
+        if chunks
+            .iter()
+            .any(|chunk| chunk.metadata.source_id == item.source_id)
+        {
+            // Matches the pipeline's `already_ingested` arm, which the adapter
+            // in `TinycortexProvider::ingest_document` reports as `skipped: 1`.
+            return Ok(IngestOutcome {
+                written: 0,
+                skipped: 1,
+                ids: Vec::new(),
+            });
+        }
+        let timestamp = item.timestamp.unwrap_or_else(chrono::Utc::now);
+        let id = format!("{}::0", item.source_id);
+        let chunk = Chunk {
+            id: id.clone(),
+            content: item.content,
+            metadata: Metadata {
+                source_kind: SourceKind::Document,
+                source_id: item.source_id,
+                owner: item.owner,
+                timestamp,
+                time_range: (timestamp, timestamp),
+                tags: item.tags,
+                source_ref: item.source_ref,
+                path_scope: item.path_scope,
+            },
+            token_count: 0,
+            seq_in_source: 0,
+            created_at: timestamp,
+            is_split: false,
+        };
+        chunks.push(chunk);
+        Ok(IngestOutcome {
+            written: 1,
+            skipped: 0,
+            ids: vec![id],
+        })
+    }
+
+    async fn ingest_chat(&self, messages: Vec<IngestItem>) -> Result<IngestOutcome, MemoryError> {
+        let mut outcome = IngestOutcome::default();
+        for message in messages {
+            let one = self.ingest_document(message).await?;
+            outcome.written += one.written;
+            outcome.skipped += one.skipped;
+            outcome.ids.extend(one.ids);
+        }
+        Ok(outcome)
+    }
+}

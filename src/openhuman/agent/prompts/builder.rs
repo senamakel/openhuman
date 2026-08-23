@@ -217,6 +217,7 @@ impl SystemPromptBuilder {
     /// this method.
     ///
     /// No-op when `rules` is empty.
+    #[cfg(feature = "memory")]
     pub fn with_tool_memory_rules(
         mut self,
         rules: Vec<crate::openhuman::memory::tool_memory::ToolMemoryRule>,

@@ -327,6 +327,7 @@ pub struct FlowRunDigestSubscriber {
     /// [`Memory`] here lets the digest tests write and read back through the
     /// SAME instance deterministically, exactly as `flows::memory_tools`'
     /// tests do with `UnifiedMemory::new`.
+    #[cfg(feature = "memory")]
     memory_override: Option<Arc<crate::openhuman::memory::guard::MemoryGuard>>,
 }
 

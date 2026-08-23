@@ -16,6 +16,7 @@ pub(crate) mod user_filter;
 pub(crate) mod implementations;
 
 pub use crate::openhuman::agent::artifacts::tools::*;
+#[cfg(feature = "memory")]
 pub use crate::openhuman::agent::learning::tools::*;
 pub use crate::openhuman::agent::orchestration::tools::*;
 pub use crate::openhuman::agent::tools::*;

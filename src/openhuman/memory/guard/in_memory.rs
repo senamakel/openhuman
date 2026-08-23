@@ -547,7 +547,7 @@ impl MemoryChunks for InMemoryChunks {
             .filter(|chunk| scope.is_none_or(|s| s.allows_source_id(&chunk.metadata.source_id)))
             .cloned()
             .collect();
-        rows.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        rows.sort_by_key(|chunk| std::cmp::Reverse(chunk.created_at));
         if let Some(offset) = query.offset {
             rows = rows.into_iter().skip(offset).collect();
         }

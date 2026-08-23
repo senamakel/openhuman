@@ -498,3 +498,127 @@ impl MemoryIngest for InMemoryChunks {
         Ok(outcome)
     }
 }
+
+#[async_trait]
+impl MemoryChunks for InMemoryChunks {
+    async fn list_chunks(
+        &self,
+        query: &ChunkQuery,
+        scope: Option<&SourceScope>,
+    ) -> Result<Vec<Chunk>, MemoryError> {
+        let chunks = self.chunks.lock();
+        let mut rows: Vec<Chunk> = chunks
+            .iter()
+            .filter(|chunk| {
+                let m = &chunk.metadata;
+                query.source_kind.is_none_or(|kind| kind == m.source_kind)
+                    && query
+                        .source_id
+                        .as_ref()
+                        .is_none_or(|id| *id == m.source_id)
+                    && query.owner.as_ref().is_none_or(|owner| *owner == m.owner)
+                    && query
+                        .since_ms
+                        .is_none_or(|since| m.timestamp.timestamp_millis() >= since)
+                    && query
+                        .until_ms
+                        .is_none_or(|until| m.timestamp.timestamp_millis() <= until)
+            })
+            // Scope is applied before the limit, as the trait requires: a
+            // disallowed source must not starve permitted ones out of the page.
+            .filter(|chunk| scope.is_none_or(|s| s.allows(&chunk.metadata.source_id)))
+            .cloned()
+            .collect();
+        rows.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        if let Some(offset) = query.offset {
+            rows = rows.into_iter().skip(offset).collect();
+        }
+        if let Some(limit) = query.limit {
+            rows.truncate(limit);
+        }
+        Ok(rows)
+    }
+
+    async fn get_chunk(&self, chunk_id: &str) -> Result<Option<Chunk>, MemoryError> {
+        Ok(self
+            .chunks
+            .lock()
+            .iter()
+            .find(|chunk| chunk.id == chunk_id)
+            .cloned())
+    }
+
+    async fn chunk_detail(&self, _chunk_id: &str) -> Result<Option<ChunkDetail>, MemoryError> {
+        Err(MemoryError::Unsupported(
+            "InMemoryChunks does not store chunk detail".to_string(),
+        ))
+    }
+
+    async fn storage_kinds(&self) -> Result<Vec<String>, MemoryError> {
+        Ok(vec!["document".to_string()])
+    }
+
+    async fn chunk_embeddings(&self) -> Result<Vec<ChunkEmbedding>, MemoryError> {
+        Ok(Vec::new())
+    }
+}
+
+#[async_trait]
+impl MemoryRecall for InMemoryChunks {
+    async fn recall(
+        &self,
+        _query: &str,
+        _opts: OwnedRecallOpts,
+    ) -> Result<Vec<MemoryEntry>, MemoryError> {
+        Ok(Vec::new())
+    }
+}
+
+#[async_trait]
+impl MemoryPortability for InMemoryChunks {
+    async fn export(&self, _after: Option<String>) -> Result<ExportPage, MemoryError> {
+        Err(MemoryError::Unsupported(
+            "InMemoryChunks does not implement export".to_string(),
+        ))
+    }
+
+    async fn import(&self, _records: Vec<ExportRecord>) -> Result<ImportOutcome, MemoryError> {
+        Err(MemoryError::Unsupported(
+            "InMemoryChunks does not implement import".to_string(),
+        ))
+    }
+}
+
+#[async_trait]
+impl MemoryProvider for InMemoryChunks {
+    fn driver_id(&self) -> &str {
+        "in-memory-chunks"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::mandatory()
+            .with(Capability::Chunks)
+            .with(Capability::Ingest)
+    }
+
+    async fn health(&self) -> MemoryHealth {
+        MemoryHealth::Ready
+    }
+
+    fn as_chunks(&self) -> Option<&dyn MemoryChunks> {
+        Some(self)
+    }
+
+    fn as_ingest(&self) -> Option<&dyn MemoryIngest> {
+        Some(self)
+    }
+}
+
+/// A real [`MemoryGuard`](super::MemoryGuard) over a fresh chunk store, plus
+/// the store itself for assertions that bypass the guard.
+#[must_use]
+pub fn guarded_in_memory_chunks() -> (Arc<InMemoryChunks>, Arc<super::MemoryGuard>) {
+    let provider = Arc::new(InMemoryChunks::new());
+    let guard = guard_over(Arc::clone(&provider) as Arc<dyn MemoryProvider>);
+    (provider, guard)
+}

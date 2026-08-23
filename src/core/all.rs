@@ -838,7 +838,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         // driver that cannot accept synced source items should lose the whole
         // source-sync surface coherently, not half of it.
         Some(Capability::Sources),
-        crate::openhuman::integrations::composio::providers::slack::all_slack_memory_registered_controllers(),
+        crate::openhuman::memory::sync::composio::providers::slack::all_slack_memory_registered_controllers(),
     );
     // Per-connection memory sync status, controls, and progress (#1136)
     #[cfg(feature = "memory")]

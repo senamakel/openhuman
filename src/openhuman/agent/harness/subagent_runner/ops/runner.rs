@@ -42,6 +42,7 @@ use crate::openhuman::agent::harness::{
     current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
 use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
+#[cfg(feature = "memory")]
 use crate::openhuman::memory::tree::retrieval::{
     fast_retrieve, FastRetrieveOptions, QueryResponse,
 };

@@ -144,34 +144,56 @@ gets. The ask is a `RecallNamespaceRecent`-shaped method.
   over a generic `IngestItem`; there is **no `ingest_email`**, and the
   canonicaliser input shapes are the engine's.
 
-### A9. A per-call workspace, or a guard for a named workspace
+### A9. The unit suite cannot verify a guard-based read — measure this first
 
-**Found the hard way on this branch, and it is the most transferable finding
-here.** `memory_tree_list_chunks` / `get_chunk` look like exact twins of
-`MemoryChunks::list_chunks` / `get_chunk`. Migrating them compiles cleanly and
-passes review. It is wrong.
+**This is the most transferable finding on the branch, and it was arrived at by
+being wrong twice.** It is not a seam gap; it is a verification gap, and it
+undermines the evidence behind every other migration in this document.
 
-Those handlers take `config: &Config`, and **that argument selects the store**.
-Callers do pass a non-ambient one: the `ingest_document` round-trip tests write
-through a `TempDir` workspace's `&cfg` and read back through the same `&cfg`.
-The bus has no equivalent — a driver is bound **per workspace**, resolved from
-the ambient `CoreContext` or the process-global client, never passed per call.
-So the migration silently ignores the argument and reads a different store.
+The attempt: migrate `memory_tree_list_chunks` / `get_chunk` onto
+`MemoryChunks`. It compiles cleanly and breaks four `ingest_document`
+round-trip tests, which read back 0 chunks instead of 1.
 
-The failure mode is the nasty one: under RPC dispatch the ambient context *is*
-the caller's workspace, so production looks correct while any caller with its
-own config gets an empty answer. Four tests caught it here; nothing else would
-have. It is the same hazard `memory::ops::guard`'s docs already name for the
-fallback path — "a silently wrong store rather than a visible failure" —
-reached through the argument instead.
+**First hypothesis — the `config` argument.** Those handlers take
+`config: &Config`, and that argument selects the store; callers pass a
+`TempDir` workspace. `active_memory_guard` resolves the *ambient* binding
+instead, so the migration looked like it was reading a different workspace.
+Plausible, and wrong.
 
-**The ask:** either a per-call workspace on the capability families that read
-one, or a way to resolve a `MemoryGuard` for a *named* workspace rather than
-the ambient one. Every handler that takes a `&Config` and reads through it is
-blocked on this, not just chunks.
+**The test.** `binding::for_workspace(dir, cfg).guard()` already resolves a
+guard for a *named* workspace, so a `guard_for_config(&Config)` sibling in
+`memory::ops::guard` honours the argument and still hands out a guard — it even
+keeps the bypass ratchet's single-site property, since `binding::for_workspace(`
+is a policed needle and `ops/guard.rs` is the one file allowlisted for it.
+Re-ran the four tests against that. **Still 0 chunks.**
 
-Do not "fix" the affected tests by binding a global client first. That rewrites
-the tests to match the code and hides the gap.
+**The actual cause.** `MemorySubsystemConfig::default()` names driver
+`"tinycortex"`, which `binding::admit` aliases to the `tinymemory` module and
+classes as `Module`. No module artifact is downloaded in a unit test, so the
+binding does what it is documented to do — falls back — and the guard is over
+the **null driver**, which serves an empty chunk list. Meanwhile the fixture
+wrote through `ingest_pipeline` straight into the engine's SQLite.
+
+So in the unit suite, a guard-based read returns empty **regardless of whether
+the migration is correct**. The four tests cannot distinguish a working
+migration from a broken one; they can only tell you that guard and engine are
+not the same store *in that configuration*.
+
+**What this means for the rest of this document.** Every "migrate this handler
+onto the guard" item carries an unstated assumption that the result can be
+verified. It cannot be, by the unit suite alone. A migration whose tests stay
+green has either not exercised the path or been rewritten to accept empty —
+and the second is the easy mistake, because making these four tests bind a
+global client first turns them green while shipping the bug.
+
+**Do this before the next migration, not after:** a test tier where the bound
+driver is the real module over the same workspace the fixture writes to. Until
+that exists, treat a green unit suite as *no evidence* that a guard migration
+is correct, and keep the engine-write/guard-read round-trips as the canaries
+they turned out to be.
+
+The per-call-workspace question is real but secondary, and it is **not**
+upstream work: `guard_for_config` above is ten lines and needs no release.
 
 ### A10. Richer chunk listing for `read_rpc` — a design pass, not a method
 
@@ -210,8 +232,9 @@ things, or the read surface changes shape.
    subsystem in practice; splitting them means two releases to get one working
    path.
 3. **A5 + A6** — both are agent-harness hot-path reads.
-4. **A7, A8, A9, A10** — small or design-bound. A9 gates every handler that
-   takes a `&Config` and reads through it, so it is worth more than its size.
+4. **A9 first, before any further migration** — it is a test tier, not a
+   feature, and without it the other items cannot be shown to work.
+5. **A7, A8, A10** — small or design-bound; can ride any release.
 5. Only then: delete the `tinycortex` and `tinymemory-core` dependencies, drop
    `vendor/tinycortex`, and write the shed back into
    `scripts/kernel-floor.limits`.

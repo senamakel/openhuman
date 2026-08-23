@@ -247,11 +247,12 @@ things, or the read surface changes shape.
    subsystem in practice; splitting them means two releases to get one working
    path.
 3. **A5 + A6** — both are agent-harness hot-path reads.
-4. **A9 first, before any further migration** — an injection seam on the
-   handlers being migrated, so the result can be shown to work rather than
-   assumed. Small, host-side, needs no release.
+4. **A9 can start now, in parallel with all of the above** — the pinned v1.2.0
+   module already serves `ingest_document`, `list_chunks` and `get_chunk`, so
+   it waits on no release. It is one host-side change moving the writer and the
+   readers together; doing the readers alone is what §A9 rules out.
 5. **A7, A8, A10** — small or design-bound; can ride any release.
-5. Only then: delete the `tinycortex` and `tinymemory-core` dependencies, drop
+6. Only then: delete the `tinycortex` and `tinymemory-core` dependencies, drop
    `vendor/tinycortex`, and write the shed back into
    `scripts/kernel-floor.limits`.
 

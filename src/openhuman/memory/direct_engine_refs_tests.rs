@@ -166,19 +166,6 @@ const NEEDLE: &str = "tinymemory_core::";
 /// path — [`scan`] returns a `BTreeSet`, so keeping the literal in the same
 /// order makes diffs readable.
 const ALLOWED: &[(&str, Verdict, &str)] = &[
-    // ── Revealed by deleting the `memory/mod.rs` re-export facade ───────────
-    //
-    // This lint was calibrated against a tree where `memory/mod.rs` re-exported
-    // ~24 engine names, so a file writing `crate::openhuman::memory::UnifiedMemory`
-    // did not match the `tinymemory_core::` needle. Those files were direct
-    // engine users the whole time; the facade just spelled the dependency
-    // differently. Deleting it — so that `grep tinymemory_core` *is* the
-    // inventory — is what surfaced them, and the count of real engine
-    // dependencies did not grow by one.
-    //
-    // They are `FacadeRevealed` rather than one of the three considered
-    // verdicts because they have not been audited individually. See the note on
-    // that variant.
     (
         "src/bin/library_profile/scenarios/cold_phases.rs",
         Verdict::FacadeRevealed,
@@ -285,6 +272,11 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/agent/learning/candidate.rs",
+        Verdict::HostSide,
+        "re-export shim for learning_candidate types",
+    ),
+    (
         "src/openhuman/agent/learning/linkedin_enrichment.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
@@ -298,6 +290,11 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "src/openhuman/agent/tinyagents/host/agent_memory.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
+    ),
+    (
+        "src/openhuman/agent/tinyagents/thread_context.rs",
+        Verdict::HostSide,
+        "re-export shim for the thread-id task-local",
     ),
     (
         "src/openhuman/agent/tools/remember_preference.rs",
@@ -335,9 +332,29 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/config/schema/types.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
         "src/openhuman/desktop/app_state/ops.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
+    ),
+    (
+        "src/openhuman/desktop/provider_surfaces/ops.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/desktop/provider_surfaces/schemas.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/flows/builder_tools.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
     ),
     (
         "src/openhuman/flows/memory_tools.rs",
@@ -350,6 +367,16 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/flows/tinyflows/caps/ops.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/flows/tinyflows/caps/tools/composio.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
         "src/openhuman/flows/tinyflows/memory_adapter.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
@@ -360,9 +387,29 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/inference/embeddings/provider_trait.rs",
+        Verdict::HostSide,
+        "re-export shim for TinyAgentsEmbeddingProvider, which cannot live host-side",
+    ),
+    (
         "src/openhuman/inference/embeddings/rpc.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
+    ),
+    (
+        "src/openhuman/integrations/composio/catalog.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/integrations/composio/identity.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/integrations/composio/mod.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
     ),
     (
         "src/openhuman/integrations/composio/ops/memory_cleanup.rs",
@@ -380,14 +427,69 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/integrations/composio/providers/mod.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
         "src/openhuman/integrations/composio/schemas.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/integrations/task_sources/filter.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/integrations/task_sources/mod.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/integrations/task_sources/ops.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/integrations/task_sources/pipeline.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/integrations/task_sources/store.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/integrations/task_sources/types.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/memory/conversations/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::conversations::*",
+    ),
+    (
+        "src/openhuman/memory/diff/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::diff::*",
+    ),
+    (
         "src/openhuman/memory/guard/policy.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
+    ),
+    (
+        "src/openhuman/memory/host_impls.rs",
+        Verdict::HostSide,
+        "installs the eight host seams (embedding, chat, composio, config, nlp, scheduler gate, shutdown, error reporter); mirrored over the bus by modules/memory_host.rs",
+    ),
+    (
+        "src/openhuman/memory/mod.rs",
+        Verdict::HostSide,
+        "the re-export block itself — twenty-five engine modules under their historical paths",
     ),
     (
         "src/openhuman/memory/ops/documents.rs",
@@ -420,6 +522,11 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/memory/people/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::people::*",
+    ),
+    (
         "src/openhuman/memory/read_rpc/admin.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
@@ -450,6 +557,11 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/memory/sources/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::sources::*",
+    ),
+    (
         "src/openhuman/memory/sources/rpc.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
@@ -470,9 +582,39 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/memory/sync/composio/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::sync::composio::*",
+    ),
+    (
+        "src/openhuman/memory/sync/composio/providers/context_ext.rs",
+        Verdict::NeedsWiderSeam,
+        "extends the engine's ProviderContext; the sync pipeline is engine-internal and has no capability family",
+    ),
+    (
+        "src/openhuman/memory/sync/composio/providers/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::sync::composio::providers::*",
+    ),
+    (
+        "src/openhuman/memory/sync/composio/providers/slack/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::sync::composio::providers::slack::*",
+    ),
+    (
         "src/openhuman/memory/sync/composio/providers/slack/rpc.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
+    ),
+    (
+        "src/openhuman/memory/sync/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::sync::*",
+    ),
+    (
+        "src/openhuman/memory/sync/sync_status/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::sync::sync_status::*",
     ),
     (
         "src/openhuman/memory/sync/sync_status/rpc.rs",
@@ -483,6 +625,16 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "src/openhuman/memory/sync_events_bridge.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
+    ),
+    (
+        "src/openhuman/memory/tool_memory/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::tool_memory::*",
+    ),
+    (
+        "src/openhuman/memory/tools/diff.rs",
+        Verdict::NeedsWiderSeam,
+        "sources::{get_source, list_sources}; MemorySourceSink is accept_source_items + forget_source, with no list door",
     ),
     (
         "src/openhuman/memory/tools/flavour.rs",
@@ -505,14 +657,39 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/memory/tree/health/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::tree::health::*",
+    ),
+    (
+        "src/openhuman/memory/tree/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::tree::*",
+    ),
+    (
+        "src/openhuman/memory/tree/retrieval/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::tree::retrieval::*",
+    ),
+    (
         "src/openhuman/memory/tree/retrieval/rpc.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/memory/tree/tree/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::tree::tree::*",
+    ),
+    (
         "src/openhuman/memory/tree/tree/rpc.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
+    ),
+    (
+        "src/openhuman/memory/tree/tree_runtime/mod.rs",
+        Verdict::HostSide,
+        "re-export shim: pub use tinymemory_core::tree::tree_runtime::*",
     ),
     (
         "src/openhuman/platform/doctor/core.rs",
@@ -530,133 +707,29 @@ const ALLOWED: &[(&str, Verdict, &str)] = &[
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
     (
+        "src/openhuman/threads/ops.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/threads/schemas.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
+        "src/openhuman/threads/tools.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
+    ),
+    (
         "src/openhuman/tools/registry/ops.rs",
         Verdict::FacadeRevealed,
         "engine dependency predates this branch; the facade deletion made it visible",
     ),
-    // ── Re-export shims: `pub use tinymemory_core::<domain>::*;` ────────────
-    //
-    // These are the historical-path aliases `memory/mod.rs` documents. They
-    // name the crate once each and call nothing. Removing them is the
-    // re-export problem, not the direct-call problem.
     (
-        "src/openhuman/agent/learning/candidate.rs",
-        Verdict::HostSide,
-        "re-export shim for learning_candidate types",
-    ),
-    (
-        "src/openhuman/agent/tinyagents/thread_context.rs",
-        Verdict::HostSide,
-        "re-export shim for the thread-id task-local",
-    ),
-    (
-        "src/openhuman/inference/embeddings/provider_trait.rs",
-        Verdict::HostSide,
-        "re-export shim for TinyAgentsEmbeddingProvider, which cannot live host-side",
-    ),
-    (
-        "src/openhuman/memory/conversations/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::conversations::*",
-    ),
-    (
-        "src/openhuman/memory/diff/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::diff::*",
-    ),
-    (
-        "src/openhuman/memory/mod.rs",
-        Verdict::HostSide,
-        "the re-export block itself — twenty-five engine modules under their historical paths",
-    ),
-    (
-        "src/openhuman/memory/people/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::people::*",
-    ),
-    (
-        "src/openhuman/memory/sources/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::sources::*",
-    ),
-    (
-        "src/openhuman/memory/sync/composio/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::sync::composio::*",
-    ),
-    (
-        "src/openhuman/memory/sync/composio/providers/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::sync::composio::providers::*",
-    ),
-    (
-        "src/openhuman/memory/sync/composio/providers/slack/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::sync::composio::providers::slack::*",
-    ),
-    (
-        "src/openhuman/memory/sync/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::sync::*",
-    ),
-    (
-        "src/openhuman/memory/sync/sync_status/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::sync::sync_status::*",
-    ),
-    (
-        "src/openhuman/memory/tool_memory/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::tool_memory::*",
-    ),
-    (
-        "src/openhuman/memory/tree/health/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::tree::health::*",
-    ),
-    (
-        "src/openhuman/memory/tree/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::tree::*",
-    ),
-    (
-        "src/openhuman/memory/tree/retrieval/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::tree::retrieval::*",
-    ),
-    (
-        "src/openhuman/memory/tree/tree/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::tree::tree::*",
-    ),
-    (
-        "src/openhuman/memory/tree/tree_runtime/mod.rs",
-        Verdict::HostSide,
-        "re-export shim: pub use tinymemory_core::tree::tree_runtime::*",
-    ),
-    // ── Host-seam installation: the host handing itself TO the engine ───────
-    //
-    // The direction of these is inbound, not outbound: they install embedding /
-    // chat / config / NLP / scheduler / shutdown / error-reporting callbacks
-    // into the in-process engine. `modules/memory_host.rs` is the same seam
-    // served over the bus. They are what an embedded engine needs, and they
-    // are the last thing to remove, not the first.
-    (
-        "src/openhuman/memory/host_impls.rs",
-        Verdict::HostSide,
-        "installs the eight host seams (embedding, chat, composio, config, nlp, scheduler gate, shutdown, error reporter); mirrored over the bus by modules/memory_host.rs",
-    ),
-    // ── Retrieval: filters the seam's tree family has no room for ───────────
-    // ── Agent tools: chunk reads, source listing, people, source scope ──────
-    (
-        "src/openhuman/memory/sync/composio/providers/context_ext.rs",
-        Verdict::NeedsWiderSeam,
-        "extends the engine's ProviderContext; the sync pipeline is engine-internal and has no capability family",
-    ),
-    (
-        "src/openhuman/memory/tools/diff.rs",
-        Verdict::NeedsWiderSeam,
-        "sources::{get_source, list_sources}; MemorySourceSink is accept_source_items + forget_source, with no list door",
+        "src/openhuman/web_chat/run_task.rs",
+        Verdict::FacadeRevealed,
+        "engine dependency predates this branch; the `memory` gate's retarget made it visible",
     ),
 ];
 

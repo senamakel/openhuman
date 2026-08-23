@@ -344,9 +344,16 @@ fn into_domain_event(event: MemoryEvent) -> Option<DomainEvent> {
             DomainEvent::MemorySyncRequested { channel_id }
         }
         // Goes to the durable UserErrorCenter over the web channel, not the bus.
+        //
+        // The one place this otherwise-ungated seam reaches into the gated
+        // family. Unreachable with `memory` off — nothing runs an embedder
+        // that could raise it — but the match arm still has to compile.
         MemoryEvent::LocalModelUnavailable { origin } => {
+            #[cfg(feature = "memory")]
             crate::openhuman::memory::tree::health::user_error::
                 publish_local_model_unavailable_user_error(&origin);
+            #[cfg(not(feature = "memory"))]
+            let _ = origin;
             return None;
         }
     };

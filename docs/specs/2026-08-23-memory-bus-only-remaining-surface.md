@@ -144,7 +144,36 @@ gets. The ask is a `RecallNamespaceRecent`-shaped method.
   over a generic `IngestItem`; there is **no `ingest_email`**, and the
   canonicaliser input shapes are the engine's.
 
-### A9. Richer chunk listing for `read_rpc` — a design pass, not a method
+### A9. A per-call workspace, or a guard for a named workspace
+
+**Found the hard way on this branch, and it is the most transferable finding
+here.** `memory_tree_list_chunks` / `get_chunk` look like exact twins of
+`MemoryChunks::list_chunks` / `get_chunk`. Migrating them compiles cleanly and
+passes review. It is wrong.
+
+Those handlers take `config: &Config`, and **that argument selects the store**.
+Callers do pass a non-ambient one: the `ingest_document` round-trip tests write
+through a `TempDir` workspace's `&cfg` and read back through the same `&cfg`.
+The bus has no equivalent — a driver is bound **per workspace**, resolved from
+the ambient `CoreContext` or the process-global client, never passed per call.
+So the migration silently ignores the argument and reads a different store.
+
+The failure mode is the nasty one: under RPC dispatch the ambient context *is*
+the caller's workspace, so production looks correct while any caller with its
+own config gets an empty answer. Four tests caught it here; nothing else would
+have. It is the same hazard `memory::ops::guard`'s docs already name for the
+fallback path — "a silently wrong store rather than a visible failure" —
+reached through the argument instead.
+
+**The ask:** either a per-call workspace on the capability families that read
+one, or a way to resolve a `MemoryGuard` for a *named* workspace rather than
+the ambient one. Every handler that takes a `&Config` and reads through it is
+blocked on this, not just chunks.
+
+Do not "fix" the affected tests by binding a global client first. That rewrites
+the tests to match the code and hides the gap.
+
+### A10. Richer chunk listing for `read_rpc` — a design pass, not a method
 
 `memory/read_rpc/chunks.rs` builds **raw SQL against the engine's schema**:
 `mem_tree_chunks` joined to `mem_tree_entity_index`, with a `total` count
@@ -181,7 +210,8 @@ things, or the read surface changes shape.
    subsystem in practice; splitting them means two releases to get one working
    path.
 3. **A5 + A6** — both are agent-harness hot-path reads.
-4. **A7, A8, A9** — small or design-bound; can ride any release.
+4. **A7, A8, A9, A10** — small or design-bound. A9 gates every handler that
+   takes a `&Config` and reads through it, so it is worth more than its size.
 5. Only then: delete the `tinycortex` and `tinymemory-core` dependencies, drop
    `vendor/tinycortex`, and write the shed back into
    `scripts/kernel-floor.limits`.

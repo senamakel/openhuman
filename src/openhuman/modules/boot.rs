@@ -88,13 +88,25 @@ pub async fn load_declared_modules(config: &Config) {
 /// side-effect-free check `memory::binding::build` itself uses to decide what
 /// actually gets bound, so this can never disagree with the real binding.
 fn should_eager_load(record: &super::types::ModuleRecord, config: &Config) -> bool {
-    if record.id != super::memory::MODULE_ID {
-        return true;
+    // With the `memory` family compiled out there is no memory module to load,
+    // and no binding to ask. The registry still *lists* the artifact — it is a
+    // compiled-in `const` table of what this build trusts, not what it loads —
+    // but nothing reaches for it, so nothing is downloaded or `dlopen`ed.
+    #[cfg(not(feature = "memory"))]
+    {
+        let _ = config;
+        return record.id != "tinymemory";
     }
-    matches!(
-        crate::openhuman::memory::binding::admit(&config.subsystems.memory),
-        Ok((_, crate::core::subsystem::DriverClass::Module))
-    )
+    #[cfg(feature = "memory")]
+    {
+        if record.id != super::memory::MODULE_ID {
+            return true;
+        }
+        matches!(
+            crate::openhuman::memory::binding::admit(&config.subsystems.memory),
+            Ok((_, crate::core::subsystem::DriverClass::Module))
+        )
+    }
 }
 
 #[cfg(test)]

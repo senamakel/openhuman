@@ -295,6 +295,11 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: crate::openhuman::skills::runtime::agent::skill_executor::prompt::build,
         graph_fn: None,
     },
+    // Gated with `memory` for the same reason as the `flows` agents below: a
+    // slim build must not advertise an agent whose entire tool belt is absent,
+    // so the entry — and its `include_str!` — is stripped rather than left to
+    // resolve to nothing at run time.
+    #[cfg(feature = "memory")]
     BuiltinAgent {
         id: "agent_memory",
         toml: include_str!("../../../memory/agent/agent/agent.toml"),

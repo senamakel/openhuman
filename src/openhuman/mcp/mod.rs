@@ -151,4 +151,11 @@ pub mod config_servers {
     pub use tinymcp::{
         McpRegistrySource, McpServerDefinition, McpServerRegistry, McpTransportClient,
     };
+    /// The auth shape a *definition in this registry* carries.
+    ///
+    /// Distinct from `config::McpAuthConfig`, which is the shape this
+    /// application's own TOML declares — the two were one type before the
+    /// extraction. A caller reading `McpServerDefinition::auth` needs this one,
+    /// and without the re-export cannot name it at all.
+    pub use tinymcp_bus::McpAuthConfig as McpDefinitionAuth;
 }

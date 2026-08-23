@@ -297,6 +297,7 @@ impl CoreContext {
     /// pointing at the previous workspace, so a failed bind for workspace B
     /// cannot hand back workspace A's driver. Pinned by
     /// `failed_bind_never_returns_previous_workspace_binding`.
+    #[cfg(feature = "memory")]
     pub fn memory_binding(
         &self,
     ) -> Result<Arc<crate::openhuman::memory::binding::MemoryBinding>, String> {
@@ -334,6 +335,7 @@ impl CoreContext {
     /// would keep `memory_store` / `memory_recall` / `memory.list_documents`
     /// answering off the embedded store the guarded re-point has not yet
     /// covered. See [`MemoryBinding::disables_memory`](crate::openhuman::memory::binding::MemoryBinding::disables_memory).
+    #[cfg(feature = "memory")]
     pub fn memory_capabilities(&self) -> tinymemory_api::capabilities::Capabilities {
         self.memory_binding()
             .map(|binding| {
@@ -365,6 +367,7 @@ impl CoreContext {
     ///
     /// As [`Self::memory_binding`]: only when the workspace dir cannot be
     /// resolved or the binding cache lock is poisoned.
+    #[cfg(feature = "memory")]
     pub fn memory(&self) -> Result<Arc<crate::openhuman::memory::guard::MemoryGuard>, String> {
         Ok(self.memory_binding()?.guard())
     }
@@ -373,10 +376,28 @@ impl CoreContext {
     /// there is no context at all. This is the direct analogue of
     /// `core::all::group_allowed` and is the function a future capability
     /// registration filter calls.
+    #[cfg(feature = "memory")]
     pub fn current_memory_capabilities() -> tinymemory_api::capabilities::Capabilities {
         Self::current()
             .map(|ctx| ctx.memory_capabilities())
             .unwrap_or_else(crate::openhuman::memory::binding::unbound_default_capabilities)
+    }
+
+    /// With the `memory` family compiled out, the answer is the EMPTY set —
+    /// the one place this function answers closed by default.
+    ///
+    /// The open default above exists because a capability set is unknowable
+    /// until a driver has answered, and denying before that would fail every
+    /// memory call for a reason that has nothing to do with the driver. None of
+    /// that applies here: there is no driver to ask and never will be in this
+    /// build, so "unknown" is not the state — "absent" is. Every controller
+    /// this gates is itself compiled out, so the value is belt-and-braces
+    /// rather than load-bearing; it is written this way so that a future
+    /// caller which is *not* gated cannot read an open set off a build with no
+    /// memory in it.
+    #[cfg(not(feature = "memory"))]
+    pub fn current_memory_capabilities() -> tinymemory_api::capabilities::Capabilities {
+        tinymemory_api::capabilities::Capabilities::default()
     }
 
     /// The context for the current dispatch: the one scoped by
@@ -577,6 +598,7 @@ pub async fn init_stores(
         // unwired rather than degrading, because a quiet degrade would write
         // vectors into the wrong embedding space or make a sync run look empty
         // instead of broken.
+        #[cfg(feature = "memory")]
         crate::openhuman::memory::host_impls::install_memory_host_seams(Arc::new(cfg.clone()));
         // Publish the config a module-backed memory driver should load
         // against, before the binding below can construct one. Boot-only and

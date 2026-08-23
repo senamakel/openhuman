@@ -9,6 +9,7 @@
 use crate::openhuman::agent::context::prompt::SystemPromptBuilder;
 use crate::openhuman::agent::context::ContextManager;
 use crate::openhuman::agent::dispatcher::ToolDispatcher;
+#[cfg(feature = "memory")]
 use crate::openhuman::agent::harness::archivist::ArchivistHook;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::hooks::PostTurnHook;

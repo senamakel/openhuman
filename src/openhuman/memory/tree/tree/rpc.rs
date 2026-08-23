@@ -24,6 +24,7 @@ use tinymemory_core::ingest_pipeline::{
 };
 use tinymemory_core::store::chunks::store as chunk_store;
 
+use crate::openhuman::memory::api::provider::MemoryProvider;
 use crate::openhuman::memory::ops::guard::active_memory_guard;
 use crate::openhuman::memory::source_scope::as_bus_scope;
 

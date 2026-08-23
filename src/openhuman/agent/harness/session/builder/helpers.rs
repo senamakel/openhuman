@@ -21,6 +21,7 @@ use std::sync::Arc;
 /// Critical / High rules captured later in the session are still
 /// available via the `memory_tool_rules_for_prompt` RPC; this prefetch
 /// merely seeds the rules that exist at session start.
+#[cfg(feature = "memory")]
 pub(super) fn prefetch_tool_memory_rules_blocking(
     memory: Arc<dyn Memory>,
     tool_names: &[String],

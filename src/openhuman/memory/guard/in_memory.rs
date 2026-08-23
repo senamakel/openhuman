@@ -38,7 +38,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 
-use crate::openhuman::memory::api::capabilities::Capabilities;
+use crate::openhuman::memory::api::capabilities::{Capabilities, Capability};
+use crate::openhuman::memory::api::chunks::{Chunk, Metadata, SourceKind};
+use crate::openhuman::memory::api::provider::chunks::{ChunkDetail, ChunkEmbedding, ChunkQuery};
+use crate::openhuman::memory::api::provider::types::{IngestItem, IngestOutcome};
+use crate::openhuman::memory::api::provider::{MemoryChunks, MemoryIngest};
 use crate::openhuman::memory::api::error::MemoryError;
 use crate::openhuman::memory::api::health::MemoryHealth;
 use crate::openhuman::memory::api::provider::types::SourceScope;

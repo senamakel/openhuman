@@ -425,6 +425,7 @@ pub async fn run_subagent(
         // of a ≤6-iteration model walk (~30–40s of round-trips). Falls through
         // to the full sub-agent when the fast path is disabled/errs/finds
         // nothing (the empty/degraded case is handled by #4655).
+        #[cfg(feature = "memory")]
         if definition.id == AGENT_MEMORY_ID {
             if let Some(outcome) = try_deterministic_memory_retrieval(
                 task_prompt,

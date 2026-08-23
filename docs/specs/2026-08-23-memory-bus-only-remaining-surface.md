@@ -255,10 +255,12 @@ things, or the read surface changes shape.
    subsystem in practice; splitting them means two releases to get one working
    path.
 3. **A5 + A6** — both are agent-harness hot-path reads.
-4. **A9 can start now, in parallel with all of the above** — the pinned v1.2.0
-   module already serves `ingest_document`, `list_chunks` and `get_chunk`, so
-   it waits on no release. It is one host-side change moving the writer and the
-   readers together; doing the readers alone is what §A9 rules out.
+4. **A9 can start now for the document and chat paths** — v1.2.0 already
+   serves `ingest_document`, `ingest_chat`, `list_chunks` and `get_chunk`, so
+   those wait on no release. One change moving those writers and the readers
+   together; readers alone is what §A9 rules out. Email either keeps the store
+   path behind a commented `SourceKind::Email` arm or waits on the upstream
+   `ingest_email` already listed here.
 5. **A7, A8, A10** — small or design-bound; can ride any release.
 6. Only then: delete the `tinycortex` and `tinymemory-core` dependencies, drop
    `vendor/tinycortex`, and write the shed back into

@@ -129,9 +129,18 @@ pub use tinymemory_core::ingestion::{
     MemoryIngestionResult, DEFAULT_MEMORY_EXTRACTION_MODEL,
 };
 pub use tinymemory_core::rpc_models::*;
-pub use tinymemory_core::traits::{
-    Memory, MemoryCategory, MemoryEntry, MemoryTaint, NamespaceSummary, RecallOpts,
-};
+// TYPE CARVE-OUT — named on the contract crate, not reached through the engine.
+//
+// `tinymemory_core::traits` is itself a `pub use` of exactly these items out of
+// `tinymemory-api`, so the two spellings already resolve to ONE type; going
+// through the engine to reach an engine-neutral contract is the thing the
+// extraction exists to undo. Naming the contract directly is also what lets
+// these six survive the `memory` gate: they appear in always-on agent-harness
+// signatures, so a build with the family compiled out still needs them, and a
+// stub twin would be a second definition free to drift.
+pub use tinymemory_api::recall::RecallOpts;
+pub use tinymemory_api::traits::Memory;
+pub use tinymemory_api::types::{MemoryCategory, MemoryEntry, MemoryTaint, NamespaceSummary};
 
 // Types that external tests and consumers historically imported from
 // `memory::*`. The definitions moved to sibling crates during the memory

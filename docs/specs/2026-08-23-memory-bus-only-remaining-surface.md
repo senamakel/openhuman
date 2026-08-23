@@ -261,12 +261,12 @@ things, or the read surface changes shape.
    subsystem in practice; splitting them means two releases to get one working
    path.
 3. **A5 + A6** — both are agent-harness hot-path reads.
-4. **A9 can start now for the document and chat paths** — v1.2.0 already
-   serves `ingest_document`, `ingest_chat`, `list_chunks` and `get_chunk`, so
-   those wait on no release. One change moving those writers and the readers
-   together; readers alone is what §A9 rules out. Email either keeps the store
-   path behind a commented `SourceKind::Email` arm or waits on the upstream
-   `ingest_email` already listed here.
+4. **A9 needs one `tinymemory` change carrying two additions** — a wider
+   `IngestOutcome` (`already_ingested`, `extract_jobs_enqueued`) and an email
+   ingest method. v1.2.0 already serves the four methods themselves, so this is
+   a contract widening rather than new plumbing. The host-side test fixtures
+   are already in place (`guarded_in_memory_chunks`), so once it lands the
+   migration is writer-plus-readers in one change.
 5. **A7, A8, A10** — small or design-bound; can ride any release.
 6. Only then: delete the `tinycortex` and `tinymemory-core` dependencies, drop
    `vendor/tinycortex`, and write the shed back into

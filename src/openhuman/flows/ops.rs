@@ -4206,6 +4206,11 @@ async fn flows_delete_impl(
             .await
             .map_err(|error| error.to_string())
     } else {
+        #[cfg(not(feature = "memory"))]
+        {
+            Err("memory feature disabled at compile time — nothing to clear".to_string())
+        }
+        #[cfg(feature = "memory")]
         match crate::openhuman::memory::ops::guard::active_memory_guard().await {
             Ok(guard) => match guard.as_documents() {
                 Some(documents) => documents

@@ -40,7 +40,7 @@
 //! precisely so there is one definition rather than two.
 
 use crate::core::all::RegisteredController;
-use crate::core::types::ControllerSchema;
+use crate::core::ControllerSchema;
 
 /// The message every disabled write path returns.
 ///

@@ -436,11 +436,9 @@ impl Agent {
         // nothing to cite, so no task is spawned and `last_turn_citations`
         // simply stays empty — the same state a turn with no hits reaches.
         #[cfg(feature = "memory")]
-        let citation_memory = self.memory.clone();
-        #[cfg(feature = "memory")]
-        let citation_query = user_message.to_string();
-        #[cfg(feature = "memory")]
         {
+            let citation_memory = self.memory.clone();
+            let citation_query = user_message.to_string();
             self.pending_citations = Some(tokio::spawn(async move {
                 match collect_recall_citations(
                     citation_memory.as_ref(),

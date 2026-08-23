@@ -660,7 +660,7 @@ pub fn guarded_in_memory_chunks() -> (Arc<InMemoryChunks>, Arc<super::MemoryGuar
 #[cfg(test)]
 mod in_memory_chunks_tests {
     use super::*;
-    use crate::openhuman::memory::api::provider::types::DataSource;
+    use crate::openhuman::memory::api::chunks::DataSource;
 
     fn document(source_id: &str, owner: &str, content: &str) -> IngestItem {
         IngestItem {

@@ -17,16 +17,12 @@ use tinycortex::memory::ingest::canonicalize::{
     chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
 use tinymemory_api::chunks::{Chunk, SourceKind};
-use tinymemory_api::provider::ChunkQuery;
 use tinymemory_core::ingest_pipeline::{
     ingest_chat as do_ingest_chat, ingest_document as do_ingest_document,
     ingest_email as do_ingest_email, IngestResult,
 };
-use tinymemory_core::store::chunks::store as chunk_store;
+use tinymemory_core::store::chunks::store::{self as chunk_store, ListChunksQuery};
 
-use crate::openhuman::memory::api::provider::MemoryProvider;
-use crate::openhuman::memory::ops::guard::active_memory_guard;
-use crate::openhuman::memory::source_scope::as_bus_scope;
 
 /// Unified ingest request. The `payload` shape is adapter-specific and is
 /// validated inside the dispatch based on `source_kind`.
@@ -192,11 +188,13 @@ pub struct ListChunksResponse {
 
 /// `list_chunks` RPC handler. Filters and returns persisted chunks ordered by
 /// timestamp DESC.
+// NOT migrated onto `MemoryChunks::list_chunks`, and the reason is a real seam
+// gap rather than an oversight — see the note above `get_chunk_rpc`.
 pub async fn list_chunks_rpc(
-    _config: &Config,
+    config: &Config,
     req: ListChunksRequest,
 ) -> Result<RpcOutcome<ListChunksResponse>, String> {
-    let query = ChunkQuery {
+    let query = ListChunksQuery {
         source_kind: match req.source_kind.as_deref() {
             None => None,
             Some(s) => Some(SourceKind::parse(s)?),
@@ -207,18 +205,16 @@ pub async fn list_chunks_rpc(
         until_ms: req.until_ms,
         limit: req.limit,
         offset: None,
+        source_scope: None,
         exclude_dropped: false,
     };
-    // The scope travels as a value: a task-local set by the host cannot be read
-    // from inside the module's `cdylib`, which has its own statics.
-    let scope = as_bus_scope();
-    let guard = active_memory_guard().await?;
-    let rows = guard
-        .as_chunks()
-        .ok_or_else(|| "memory driver does not support the chunks family".to_string())?
-        .list_chunks(&query, scope.as_ref())
-        .await
-        .map_err(|error| format!("list_chunks: {error}"))?;
+    let rows = tokio::task::spawn_blocking({
+        let config = config.clone();
+        move || chunk_store::list_chunks(&config, &query)
+    })
+    .await
+    .map_err(|e| format!("list_chunks join error: {e}"))?
+    .map_err(|e| format!("list_chunks: {e}"))?;
 
     let n = rows.len();
     Ok(RpcOutcome::single_log(
@@ -240,17 +236,45 @@ pub struct GetChunkResponse {
 }
 
 /// `get_chunk` RPC handler. Returns the chunk identified by `id`, or `None`.
+/// # Why this is not on `MemoryChunks`, despite the shape matching
+///
+/// `MemoryChunks::list_chunks` / `get_chunk` look like exact twins of these two
+/// handlers, and migrating them compiles cleanly. It is still wrong today, and
+/// the reason is worth stating because the next person will try it.
+///
+/// **The `config` parameter selects the store.** These handlers read whichever
+/// workspace their caller names, and callers do name a non-ambient one — the
+/// `ingest_document` round-trip tests write through `&cfg` for a `TempDir`
+/// workspace and read back through the same `&cfg`. The bus has no equivalent:
+/// a driver is bound **per workspace**, resolved from the ambient
+/// [`CoreContext`] or the process-global client, not passed per call. Migrating
+/// therefore silently ignores the argument and reads a *different* store —
+/// which under RPC dispatch happens to be the same one, so production looks
+/// fine while any caller with its own config gets an empty answer.
+///
+/// That is the failure mode `ops::guard`'s docs already warn about for the
+/// fallback path ("a silently wrong store rather than a visible failure"),
+/// reached here through the argument rather than the fallback.
+///
+/// The unblock is a per-call workspace on the chunks family, or a way to
+/// resolve a guard for a named workspace. Until then these stay on the store,
+/// listed in `direct_engine_refs_tests`. Do not "fix" the four round-trip tests
+/// by binding a global client — that rewrites the tests to match the code and
+/// hides the gap.
+///
+/// [`CoreContext`]: crate::core::runtime::context::CoreContext
 pub async fn get_chunk_rpc(
-    _config: &Config,
+    config: &Config,
     req: GetChunkRequest,
 ) -> Result<RpcOutcome<GetChunkResponse>, String> {
-    let guard = active_memory_guard().await?;
-    let chunk = guard
-        .as_chunks()
-        .ok_or_else(|| "memory driver does not support the chunks family".to_string())?
-        .get_chunk(&req.id)
-        .await
-        .map_err(|error| format!("get_chunk: {error}"))?;
+    let id = req.id.clone();
+    let chunk = tokio::task::spawn_blocking({
+        let config = config.clone();
+        move || chunk_store::get_chunk(&config, &id)
+    })
+    .await
+    .map_err(|e| format!("get_chunk join error: {e}"))?
+    .map_err(|e| format!("get_chunk: {e}"))?;
     Ok(RpcOutcome::single_log(
         GetChunkResponse { chunk },
         format!("memory_tree: get_chunk id={}", req.id),

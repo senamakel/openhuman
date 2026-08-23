@@ -16,11 +16,13 @@ use crate::rpc::RpcOutcome;
 use tinycortex::memory::ingest::canonicalize::{
     chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
-use tinymemory_api::chunks::{Chunk, ChunkQuery, SourceKind};
+use tinymemory_api::chunks::{Chunk, SourceKind};
+use tinymemory_api::provider::ChunkQuery;
 use tinymemory_core::ingest_pipeline::{
     ingest_chat as do_ingest_chat, ingest_document as do_ingest_document,
     ingest_email as do_ingest_email, IngestResult,
 };
+use tinymemory_core::store::chunks::store as chunk_store;
 
 use crate::openhuman::memory::ops::guard::active_memory_guard;
 use crate::openhuman::memory::source_scope::as_bus_scope;

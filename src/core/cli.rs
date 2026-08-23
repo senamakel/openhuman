@@ -92,12 +92,22 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         // diagnostic rather than a misleading "unknown namespace" error.
         "tui" | "chat" => run_tui_from_cli(&args[1..]),
         "call" => run_call_command(&args[1..]),
+        #[cfg(feature = "memory")]
         "tree-summarizer" => {
             crate::openhuman::memory::tree::tree_runtime::cli::run_tree_summarizer_command(
                 &args[1..],
             )
         }
+        #[cfg(feature = "memory")]
         "memory" => crate::core::memory_cli::run_memory_command(&args[1..]),
+        // Kept rather than deleted so the failure names the build, not the
+        // user: falling through to generic namespace resolution would answer
+        // "unknown namespace: memory", which reads like a typo. Same shape as
+        // the `mcp` and `tui` arms above.
+        #[cfg(not(feature = "memory"))]
+        "memory" | "tree-summarizer" => Err(anyhow::anyhow!(
+            "memory feature disabled at compile time — rebuild with `--features memory`"
+        )),
         "agent" => {
             log::debug!(
                 "[cli] dispatching to agent subcommand, args={:?}",

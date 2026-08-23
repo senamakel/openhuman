@@ -520,6 +520,7 @@ async fn create_memory_client(subcommand: &str) -> Result<tinymemory_core::store
     // fail loudly when unwired rather than degrading, and a `memory` subcommand
     // that reached one would report a broken subsystem rather than a missing
     // one. Idempotent, so calling it per invocation is safe.
+    #[cfg(feature = "memory")]
     crate::openhuman::memory::host_impls::install_memory_host_seams(std::sync::Arc::new(
         config.clone(),
     ));

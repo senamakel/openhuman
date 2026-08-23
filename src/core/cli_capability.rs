@@ -145,6 +145,7 @@ pub async fn bound_memory_driver() -> Option<(String, DriverClass, Capabilities)
 /// Nothing here touches memory *data*: only the driver id, its class, and the
 /// advertised capability set — exactly what `memory.provider_status` already
 /// reports over RPC.
+#[cfg(feature = "memory")]
 pub fn bound_memory_driver_for(
     workspace_dir: &std::path::Path,
     cfg: &crate::openhuman::config::schema::MemorySubsystemConfig,

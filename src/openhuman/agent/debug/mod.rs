@@ -234,6 +234,7 @@ async fn load_dump_config(
     // `dump-all` invocation aborts before rendering a single prompt.
     // Idempotent, so calling it per invocation is safe. Same rationale as
     // `memory_cli` / `subconscious_cli`.
+    #[cfg(feature = "memory")]
     crate::openhuman::memory::host_impls::install_memory_host_seams(std::sync::Arc::new(
         config.clone(),
     ));

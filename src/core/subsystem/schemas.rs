@@ -72,7 +72,17 @@ pub fn schemas(function: &str) -> ControllerSchema {
 /// Memory is the only occupant today. This is also what
 /// [`crate::core::subsystems_cli`] renders as a table.
 pub async fn subsystems_status() -> Vec<SubsystemStatus> {
-    vec![crate::openhuman::memory::rpc::memory_subsystem_status().await]
+    #[cfg(feature = "memory")]
+    {
+        vec![crate::openhuman::memory::rpc::memory_subsystem_status().await]
+    }
+    // Memory is the table's only occupant, so with the family compiled out the
+    // table is empty — not a row reporting a broken subsystem, which is what a
+    // disabled-error stub here would have produced.
+    #[cfg(not(feature = "memory"))]
+    {
+        Vec::new()
+    }
 }
 
 fn handle_status(_params: Map<String, Value>) -> ControllerFuture {

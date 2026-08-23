@@ -423,6 +423,7 @@ impl AgentBuilder {
     /// SQLite connection is available. Callers that construct an `Agent`
     /// directly (tests, CLI) can leave this `None` — flush is a no-op
     /// when the hook is absent.
+    #[cfg(feature = "memory")]
     pub fn archivist_hook(
         mut self,
         hook: Option<Arc<crate::openhuman::agent::harness::archivist::ArchivistHook>>,

@@ -736,21 +736,18 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Core),
         crate::openhuman::memory::all_memory_core_recall_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Documents),
         crate::openhuman::memory::all_memory_documents_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Ingest),
         crate::openhuman::memory::all_memory_ingest_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -758,21 +755,18 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         None,
         crate::openhuman::memory::all_memory_files_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Graph),
         crate::openhuman::memory::all_memory_kv_graph_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
         Some(Capability::Sources),
         crate::openhuman::memory::all_memory_sync_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -782,7 +776,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Tree),
         crate::openhuman::memory::all_memory_learn_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,
@@ -793,7 +786,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         None,
         crate::openhuman::memory::all_memory_provider_registered_controllers(),
     );
-    #[cfg(feature = "memory")]
     push_cap(
         &mut controllers,
         DomainGroup::Memory,

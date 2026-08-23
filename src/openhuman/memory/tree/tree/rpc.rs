@@ -241,27 +241,29 @@ pub struct GetChunkResponse {
 /// handlers, and migrating them compiles cleanly. It is still wrong today, and
 /// the reason is worth stating because the next person will try it.
 ///
-/// **The `config` parameter selects the store.** These handlers read whichever
-/// workspace their caller names, and callers do name a non-ambient one — the
-/// `ingest_document` round-trip tests write through `&cfg` for a `TempDir`
-/// workspace and read back through the same `&cfg`. The bus has no equivalent:
-/// a driver is bound **per workspace**, resolved from the ambient
-/// [`CoreContext`] or the process-global client, not passed per call. Migrating
-/// therefore silently ignores the argument and reads a *different* store —
-/// which under RPC dispatch happens to be the same one, so production looks
-/// fine while any caller with its own config gets an empty answer.
+/// **The unit suite cannot tell you whether the migration worked.**
+/// `MemorySubsystemConfig::default()` names driver `"tinycortex"`, which
+/// `binding::admit` aliases to the `tinymemory` module. No module artifact is
+/// downloaded in a unit test, so the binding falls back — as documented — and
+/// the guard is over the **null driver**, which serves an empty chunk list.
+/// The `ingest_document` round-trips meanwhile write through `ingest_pipeline`
+/// straight into the engine's SQLite. A guard-based read therefore returns
+/// nothing here whether or not the code is right.
 ///
-/// That is the failure mode `ops::guard`'s docs already warn about for the
-/// fallback path ("a silently wrong store rather than a visible failure"),
-/// reached here through the argument rather than the fallback.
+/// That was established by trying it twice: once through
+/// `active_memory_guard` (which also ignores this handler's `config`
+/// argument), and once through a `guard_for_config` sibling that honours it.
+/// Both returned 0 chunks. The argument was a red herring; the driver is the
+/// reason.
 ///
-/// The unblock is a per-call workspace on the chunks family, or a way to
-/// resolve a guard for a named workspace. Until then these stay on the store,
-/// listed in `direct_engine_refs_tests`. Do not "fix" the four round-trip tests
-/// by binding a global client — that rewrites the tests to match the code and
-/// hides the gap.
+/// So these two stay on the store, listed in `direct_engine_refs_tests`, until
+/// there is a test tier whose bound driver is the real module over the same
+/// workspace the fixture writes to. See
+/// `docs/specs/2026-08-23-memory-bus-only-remaining-surface.md` §A9.
 ///
-/// [`CoreContext`]: crate::core::runtime::context::CoreContext
+/// **Do not "fix" the four round-trip tests by binding a global client first.**
+/// That turns them green and ships the bug: they are currently the only thing
+/// standing between a silent guard/engine store split and `main`.
 pub async fn get_chunk_rpc(
     config: &Config,
     req: GetChunkRequest,

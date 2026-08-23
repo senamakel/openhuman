@@ -72,38 +72,6 @@ pub(crate) async fn active_memory_guard() -> Result<Arc<MemoryGuard>, String> {
     Ok(binding::for_workspace(&workspace_dir, &MemorySubsystemConfig::default())?.guard())
 }
 
-/// The guarded memory driver for **one named workspace**, rather than the
-/// ambient one.
-///
-/// # Why this exists beside [`active_memory_guard`]
-///
-/// A handler that takes `config: &Config` and reads through it is naming a
-/// store, and callers do name a non-ambient one. `active_memory_guard`
-/// resolves the *ambient* binding, so using it in such a handler silently
-/// ignores the argument — and under RPC dispatch the two happen to agree, so
-/// the mistake is invisible in production and only shows up for a caller with
-/// its own config. That is the same "silently wrong store rather than a
-/// visible failure" this module's header warns about for the fallback path,
-/// reached through the argument instead.
-///
-/// This keeps the bypass ratchet's single-site property: `for_workspace` is a
-/// policed needle because a raw `MemoryBinding` skips the guard, so the call
-/// stays here and callers get an `Arc<MemoryGuard>` they cannot unwrap.
-///
-/// # Errors
-///
-/// Only binding-cache lock poisoning; an inadmissible driver falls back rather
-/// than failing.
-pub(crate) fn guard_for_config(
-    config: &crate::openhuman::config::Config,
-) -> Result<Arc<MemoryGuard>, String> {
-    log::debug!(
-        "[memory:guard] guarding caller-named workspace={}",
-        config.workspace_dir.display()
-    );
-    Ok(binding::for_workspace(&config.workspace_dir, &config.subsystems.memory)?.guard())
-}
-
 #[cfg(test)]
 #[path = "guard_tests.rs"]
 mod tests;

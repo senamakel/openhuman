@@ -13,6 +13,7 @@ mod resolve_time;
 mod retrieve_tool_output;
 mod schedule;
 mod shell;
+#[cfg(feature = "memory")]
 mod tool_stats;
 mod update_apply;
 mod update_check;
@@ -37,6 +38,7 @@ pub use resolve_time::ResolveTimeTool;
 pub use retrieve_tool_output::RetrieveToolOutputTool;
 pub use schedule::ScheduleTool;
 pub use shell::ShellTool;
+#[cfg(feature = "memory")]
 pub use tool_stats::ToolStatsTool;
 pub use update_apply::UpdateApplyTool;
 pub use update_check::UpdateCheckTool;

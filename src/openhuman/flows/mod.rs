@@ -35,6 +35,7 @@ pub mod bus;
 pub mod discovery_tools;
 mod draft_store;
 pub mod medulla_bridge;
+#[cfg(feature = "memory")]
 pub mod memory_tools;
 mod n8n_import;
 pub mod node_contracts;
@@ -80,4 +81,5 @@ pub use types::{
 // see byte-identical cross-flow results to `flow_memory_recall`'s own
 // `scope: "flows"` arm, so both call the one implementation here rather than
 // each walking `namespace_summaries` independently.
+#[cfg(feature = "memory")]
 pub use memory_tools::{cross_flow_recall, flow_namespace, FLOW_MEMORY_NAMESPACE_PREFIX};

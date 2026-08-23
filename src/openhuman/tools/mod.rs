@@ -30,6 +30,7 @@ pub use crate::openhuman::flows::builder_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::discovery_tools::*;
 #[cfg(feature = "flows")]
+#[cfg(feature = "memory")]
 pub use crate::openhuman::flows::memory_tools::*;
 #[cfg(feature = "flows")]
 #[cfg(feature = "flows")]

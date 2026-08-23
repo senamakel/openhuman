@@ -20,6 +20,7 @@ pub mod checkpoint_sqlite;
 #[cfg(test)]
 mod checkpoint_sqlite_tests;
 pub mod langfuse_export;
+#[cfg(feature = "memory")]
 pub mod memory_adapter;
 /// End-to-end coverage for the `memory` node through the REAL engine + real
 /// `OpenHumanMemory` adapter + real store — see the module doc there for why
@@ -31,4 +32,5 @@ pub mod observability;
 mod tests;
 
 pub use caps::{build_capabilities, open_flow_checkpointer};
+#[cfg(feature = "memory")]
 pub use memory_adapter::OpenHumanMemory;

@@ -481,7 +481,6 @@ async fn try_reaction(user_message: &str) -> Option<String> {
 
 #[cfg(any(test, debug_assertions))]
 pub mod test_support {
-    #[cfg(feature = "memory")]
     use crate::openhuman::memory::citation::MemoryCitation;
 
     pub fn segment_for_delivery_for_test(text: &str) -> Vec<String> {

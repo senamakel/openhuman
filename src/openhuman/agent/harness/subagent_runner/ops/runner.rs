@@ -136,6 +136,7 @@ fn parse_memory_fast_path_enabled(env_value: Option<&str>) -> bool {
 /// block for the parent turn. Returns `None` when there are no hits, so the
 /// caller falls back to the model-driven walk (the empty/degraded case is
 /// #4655's territory and still benefits from the model's judgement).
+#[cfg(feature = "memory")]
 fn format_deterministic_memory_hits(resp: &QueryResponse) -> Option<String> {
     use std::fmt::Write as _;
     if resp.hits.is_empty() {
@@ -220,6 +221,7 @@ fn apply_max_result_chars(output: &mut String, cap: Option<usize>, agent_id: &st
 /// unrelated top-k memories as a "completed" retrieval instead of letting the
 /// model-driven agent judge relevance (or emit "no relevant memory found").
 /// Grounded queries keep the fast path; ungrounded ones defer to the full agent.
+#[cfg(feature = "memory")]
 async fn try_deterministic_memory_retrieval(
     task_prompt: &str,
     definition: &AgentDefinition,

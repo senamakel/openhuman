@@ -128,6 +128,14 @@ pub mod server;
 pub mod http_client {
     pub use tinymcp::transport::http::{McpHttpClient, McpHttpClientBuilder};
     pub use tinymcp::{redact_endpoint, render_tool_result};
+    /// The transport's error, re-exported for the same reason the types above
+    /// are: the observability classifier downstream matches on
+    /// [`McpError::Unauthorized`]'s `resource_metadata` to tell a server that
+    /// wants OAuth from one that wants a static credential. Reading that from
+    /// the type rather than the message is the point — a message is upstream's
+    /// to reword, and a classifier keyed on wording is one release from being
+    /// silently wrong.
+    pub use tinymcp::Error as McpError;
     pub use tinymcp_bus::{
         AuthorizationServerMetadata, McpAuthChallenge, McpAuthorizationContext,
         McpInitializeResult, McpRemoteTool, McpServerToolResult, McpSseEvent,

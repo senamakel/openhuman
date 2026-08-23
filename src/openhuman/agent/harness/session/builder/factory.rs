@@ -632,6 +632,7 @@ impl Agent {
         let mut post_turn_hooks: Vec<Arc<dyn crate::openhuman::agent::hooks::PostTurnHook>> =
             Vec::new();
         if config.learning.enabled {
+            #[cfg(feature = "memory")]
             if config.learning.reflection_enabled {
                 // The reflection hook needs an owned `Arc<Config>`; reuse the
                 // shared base config (a refcount bump) rather than a second deep
@@ -715,6 +716,7 @@ impl Agent {
         // the inference stack (`reflection`, `stability_detector`) is disabled.
         // Gated only on `config.learning.episodic_capture_enabled` (default: true)
         // using the explicit SQLite resource returned by the session factory.
+        #[cfg(feature = "memory")]
         let archivist_hook_arc: Option<
             Arc<crate::openhuman::agent::harness::archivist::ArchivistHook>,
         > = if config.learning.episodic_capture_enabled {
@@ -972,6 +974,7 @@ impl Agent {
                 let allowed_by_filter = visible.is_empty() || visible.contains(*name);
                 registered && allowed_by_filter
             });
+            #[cfg(feature = "memory")]
             if has_retrieval {
                 prompt_builder = prompt_builder.add_section(Box::new(
                     crate::openhuman::agent::learning::MemoryAccessSection,

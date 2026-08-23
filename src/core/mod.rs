@@ -24,6 +24,7 @@ pub mod jsonrpc;
 pub mod legacy_aliases;
 pub mod log_redaction;
 pub mod logging;
+#[cfg(feature = "memory")]
 pub mod memory_cli;
 pub mod observability;
 pub mod rpc_log;

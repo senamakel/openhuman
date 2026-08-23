@@ -765,30 +765,39 @@ fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture 
             "Apify scrape unavailable — no backend session token. Sign in first.".to_string()
         })?;
 
+        // The scrape and the markdown renderer both live in
+        // `agent::learning::linkedin_enrichment`, which enriches profile
+        // facets — memory-family behaviour end to end. With the family off the
+        // whole handler is a build-fact error rather than a partial answer.
         #[cfg(not(feature = "memory"))]
-        return Err(
-            "linkedin enrichment unavailable: memory feature disabled at compile time".to_string(),
-        );
+        {
+            let _ = (client, profile_url);
+            Err("apify_linkedin_scrape unavailable: the `memory` feature is disabled in this build"
+                .to_string())
+        }
         #[cfg(feature = "memory")]
-        let data = crate::openhuman::agent::learning::linkedin_enrichment::scrape_linkedin_profile(
-            &client,
-            &profile_url,
-        )
-        .await
-        .map_err(|e| format!("Apify LinkedIn scrape failed: {e:#}"))?;
+        {
+            let data =
+                crate::openhuman::agent::learning::linkedin_enrichment::scrape_linkedin_profile(
+                    &client,
+                    &profile_url,
+                )
+                .await
+                .map_err(|e| format!("Apify LinkedIn scrape failed: {e:#}"))?;
 
-        let markdown =
-            crate::openhuman::agent::learning::linkedin_enrichment::render_profile_markdown(
-                &profile_url,
-                &data,
-            );
+            let markdown =
+                crate::openhuman::agent::learning::linkedin_enrichment::render_profile_markdown(
+                    &profile_url,
+                    &data,
+                );
 
-        let payload = json!({ "data": data, "markdown": markdown });
-        let log = vec![format!(
-            "tools.apify_linkedin_scrape: url={profile_url} markdown_chars={}",
-            markdown.chars().count()
-        )];
-        RpcOutcome::new(payload, log).into_cli_compatible_json()
+            let payload = json!({ "data": data, "markdown": markdown });
+            let log = vec![format!(
+                "tools.apify_linkedin_scrape: url={profile_url} markdown_chars={}",
+                markdown.chars().count()
+            )];
+            RpcOutcome::new(payload, log).into_cli_compatible_json()
+        }
     })
 }
 

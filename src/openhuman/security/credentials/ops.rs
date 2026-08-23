@@ -620,6 +620,7 @@ async fn store_session_inner(
     // binding to the per-user workspace. Seeding a host-side global as well
     // opened the engine's database a second time in this process (#4378 fixed
     // the workspace it pointed at; the module port removes the second reader).
+    #[cfg(feature = "memory")]
     crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
         effective_config.workspace_dir.clone(),
     );
@@ -837,6 +838,7 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
             ) {
                 tracing::warn!(%error, "failed to rebind core context after logout");
             }
+            #[cfg(feature = "memory")]
             crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
                 workspace.clone(),
             );

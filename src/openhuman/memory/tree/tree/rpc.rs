@@ -23,7 +23,6 @@ use tinymemory_core::ingest_pipeline::{
 };
 use tinymemory_core::store::chunks::store::{self as chunk_store, ListChunksQuery};
 
-
 /// Unified ingest request. The `payload` shape is adapter-specific and is
 /// validated inside the dispatch based on `source_kind`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

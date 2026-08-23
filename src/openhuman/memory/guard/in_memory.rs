@@ -372,3 +372,52 @@ impl MemoryProvider for FixedRecallProvider {
         MemoryHealth::Ready
     }
 }
+
+/// An in-memory provider that stores **chunks**, for round trips that span
+/// ingest and chunk listing.
+///
+/// # Why this is not [`InMemoryProvider`]
+///
+/// That one stores `MemoryEntry` behind the mandatory three and says why it
+/// stops there: "advertising more would fail `audit_provider`, since no
+/// optional accessor is overridden". The chunk handlers need two optional
+/// families instead — [`MemoryIngest`] to write and [`MemoryChunks`] to read —
+/// and a round trip is only meaningful when the same object serves both, so
+/// they live together here rather than as two providers a test would have to
+/// keep in sync.
+///
+/// # What it does not pretend to be
+///
+/// Ingest stores the item as **one** chunk. The real pipeline splits on token
+/// budget, scores entities, and derives a deterministic id from
+/// `(source_kind, source_id, seq_in_source, content)`. This is enough for "the
+/// write reached the driver and the read brought it back through the guard",
+/// which is what a handler test asserts; it is **not** enough to test chunking,
+/// and an assertion about chunk counts or ids belongs against
+/// `ingest_pipeline` where that logic actually lives.
+///
+/// Dedupe is by `source_id`, matching the pipeline's `already_ingested`
+/// behaviour, because the idempotency handler test turns on exactly that.
+#[derive(Default)]
+pub struct InMemoryChunks {
+    chunks: Mutex<Vec<Chunk>>,
+}
+
+impl InMemoryChunks {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// How many chunks are stored, for assertions that bypass the guard.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.chunks.lock().len()
+    }
+
+    /// Whether the store holds nothing.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.chunks.lock().is_empty()
+    }
+}

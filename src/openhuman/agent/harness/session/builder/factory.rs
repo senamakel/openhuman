@@ -550,6 +550,7 @@ impl Agent {
             },
             None => SystemPromptBuilder::with_defaults(),
         };
+        #[cfg(feature = "memory")]
         if config.learning.enabled {
             // Insert the privileged reflection block ahead of the
             // generic `user_memory` section when one is already
@@ -584,6 +585,7 @@ impl Agent {
         // reach every session prompt.  The `fetch_learned_context` gate is
         // widened by `explicit_preferences_enabled` on the Agent (see
         // `session/turn.rs`) so the data is actually fetched and populated.
+        #[cfg(feature = "memory")]
         if config.learning.explicit_preferences_enabled && !config.learning.enabled {
             prompt_builder = prompt_builder.add_section(Box::new(
                 crate::openhuman::agent::learning::UserProfileSection::new(memory.clone()),
@@ -675,6 +677,7 @@ impl Agent {
                 log::info!("[learning] user_profile hook registered");
             }
 
+            #[cfg(feature = "memory")]
             if config.learning.tool_tracking_enabled {
                 post_turn_hooks.push(Arc::new(
                     crate::openhuman::agent::learning::ToolTrackerHook::new(

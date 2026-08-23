@@ -1,5 +1,4 @@
 use crate::openhuman::memory::Memory;
-use serde::{Deserialize, Serialize};
 
 /// Maximum number of `[Prior conversations]` lines surfaced into the prompt
 /// at the start of a fresh chat. Tight cap on purpose: this block is meant

@@ -17,10 +17,6 @@ use tinycortex::memory::ingest::canonicalize::{
     chat::ChatBatch, document::DocumentInput, email::EmailThread,
 };
 use tinymemory_api::chunks::{Chunk, SourceKind};
-use tinymemory_api::provider::{ChunkQuery, MemoryProvider};
-
-use crate::openhuman::memory::ops::guard::guard_for_config;
-use crate::openhuman::memory::source_scope::as_bus_scope;
 use tinymemory_core::ingest_pipeline::{
     ingest_chat as do_ingest_chat, ingest_document as do_ingest_document,
     ingest_email as do_ingest_email, IngestResult,
@@ -197,7 +193,7 @@ pub async fn list_chunks_rpc(
     config: &Config,
     req: ListChunksRequest,
 ) -> Result<RpcOutcome<ListChunksResponse>, String> {
-    let query = ChunkQuery {
+    let query = ListChunksQuery {
         source_kind: match req.source_kind.as_deref() {
             None => None,
             Some(s) => Some(SourceKind::parse(s)?),
@@ -208,17 +204,16 @@ pub async fn list_chunks_rpc(
         until_ms: req.until_ms,
         limit: req.limit,
         offset: None,
+        source_scope: None,
         exclude_dropped: false,
     };
-    // The scope crosses the bus as a VALUE: a task-local set by the host is
-    // unreadable inside the module's `cdylib`, which has its own statics.
-    let scope = as_bus_scope();
-    let rows = guard_for_config(config)?
-        .as_chunks()
-        .ok_or_else(|| "memory driver does not support the chunks family".to_string())?
-        .list_chunks(&query, scope.as_ref())
-        .await
-        .map_err(|error| format!("list_chunks: {error}"))?;
+    let rows = tokio::task::spawn_blocking({
+        let config = config.clone();
+        move || chunk_store::list_chunks(&config, &query)
+    })
+    .await
+    .map_err(|e| format!("list_chunks join error: {e}"))?
+    .map_err(|e| format!("list_chunks: {e}"))?;
 
     let n = rows.len();
     Ok(RpcOutcome::single_log(
@@ -271,12 +266,14 @@ pub async fn get_chunk_rpc(
     config: &Config,
     req: GetChunkRequest,
 ) -> Result<RpcOutcome<GetChunkResponse>, String> {
-    let chunk = guard_for_config(config)?
-        .as_chunks()
-        .ok_or_else(|| "memory driver does not support the chunks family".to_string())?
-        .get_chunk(&req.id)
-        .await
-        .map_err(|error| format!("get_chunk: {error}"))?;
+    let id = req.id.clone();
+    let chunk = tokio::task::spawn_blocking({
+        let config = config.clone();
+        move || chunk_store::get_chunk(&config, &id)
+    })
+    .await
+    .map_err(|e| format!("get_chunk join error: {e}"))?
+    .map_err(|e| format!("get_chunk: {e}"))?;
     Ok(RpcOutcome::single_log(
         GetChunkResponse { chunk },
         format!("memory_tree: get_chunk id={}", req.id),

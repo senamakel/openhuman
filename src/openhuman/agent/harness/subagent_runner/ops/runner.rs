@@ -250,6 +250,7 @@ async fn try_deterministic_memory_retrieval(
     // extraction here is deterministic and cheap (regex, or one spaCy call);
     // `fast_retrieve` repeats it internally, which is the same work its first
     // model-driven tool call would have done.
+    #[cfg(feature = "memory")]
     if crate::openhuman::memory::tree::nlp::extract_query_entities(config, query)
         .await
         .is_empty()

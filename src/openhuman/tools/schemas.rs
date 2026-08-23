@@ -765,6 +765,11 @@ fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture 
             "Apify scrape unavailable — no backend session token. Sign in first.".to_string()
         })?;
 
+        #[cfg(not(feature = "memory"))]
+        return Err(
+            "linkedin enrichment unavailable: memory feature disabled at compile time".to_string(),
+        );
+        #[cfg(feature = "memory")]
         let data = crate::openhuman::agent::learning::linkedin_enrichment::scrape_linkedin_profile(
             &client,
             &profile_url,

@@ -139,6 +139,7 @@ impl Agent {
     /// the session already holds, so constructing one is a refcount bump, and
     /// storing it would create a second handle that could drift from
     /// `self.memory` if the backend were ever swapped.
+    #[cfg(feature = "memory")]
     pub fn host_agent_memory(
         &self,
     ) -> crate::openhuman::agent::tinyagents::host::OpenHumanAgentMemory {

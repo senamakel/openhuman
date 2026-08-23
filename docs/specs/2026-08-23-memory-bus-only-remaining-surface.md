@@ -201,8 +201,9 @@ written" that only `already_ingested` distinguished from a normal no-op.
 Migrating the writer today would put that back on the wire as a public RPC
 response narrowing.
 
-**So A9 needs two upstream additions**, and it is worth grouping them into one
-`tinymemory` change:
+**So A9 needs two upstream additions**, filed together as
+[tinymemory#88](https://github.com/tinyhumansai/tinymemory/issues/88) because
+neither is useful alone for this consumer:
 
 1. `IngestOutcome` gains `already_ingested` and `extract_jobs_enqueued`, and
    keeps `skipped` meaning dropped-chunks only.
@@ -261,9 +262,10 @@ things, or the read surface changes shape.
    subsystem in practice; splitting them means two releases to get one working
    path.
 3. **A5 + A6** — both are agent-harness hot-path reads.
-4. **A9 needs one `tinymemory` change carrying two additions** — a wider
-   `IngestOutcome` (`already_ingested`, `extract_jobs_enqueued`) and an email
-   ingest method. v1.2.0 already serves the four methods themselves, so this is
+4. **A9 needs one `tinymemory` change carrying two additions**
+   ([tinymemory#88](https://github.com/tinyhumansai/tinymemory/issues/88)) — a
+   wider `IngestOutcome` (`already_ingested`, `extract_jobs_enqueued`) and an
+   email ingest method. v1.2.0 already serves the four methods themselves, so this is
    a contract widening rather than new plumbing. The host-side test fixtures
    are already in place (`guarded_in_memory_chunks`), so once it lands the
    migration is writer-plus-readers in one change.

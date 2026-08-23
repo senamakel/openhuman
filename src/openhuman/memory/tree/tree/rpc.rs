@@ -278,10 +278,10 @@ pub struct GetChunkResponse {
 /// bug where a wiped source could never re-ingest, and "0 chunks written" was
 /// distinguishable from a normal no-op only by that flag.
 ///
-/// Needed upstream, ideally as one change: `IngestOutcome` gaining
-/// `already_ingested` and `extract_jobs_enqueued`, plus an email ingest method
-/// (`ingest_rpc` dispatches Chat/Email/Document; `MemoryIngest` has no email
-/// arm). The four served methods themselves already exist in the pinned v1.2.0.
+/// Filed upstream as tinymemory#88: `IngestOutcome` gaining `already_ingested`
+/// and `extract_jobs_enqueued`, plus an email ingest method (`ingest_rpc`
+/// dispatches Chat/Email/Document; `MemoryIngest` has no email arm). The four
+/// served methods themselves already exist in the pinned v1.2.0.
 /// See `docs/specs/2026-08-23-memory-bus-only-remaining-surface.md` §A9.
 ///
 /// **Do not "fix" the four round-trip tests by binding a global client first.**

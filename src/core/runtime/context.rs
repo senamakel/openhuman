@@ -605,8 +605,9 @@ pub async fn init_stores(
         // idempotent (first call wins) — see `modules::memory::set_modules_policy`
         // for why this must be a process-global rather than threaded through
         // `MemoryBinding::for_workspace`.
-        #[cfg(feature = "modules")]
+        #[cfg(all(feature = "modules", feature = "memory"))]
         crate::openhuman::modules::memory::set_modules_policy(Arc::new(cfg.clone()));
+        #[cfg(feature = "memory")]
         match tinymemory_core::global::init(cfg.workspace_dir.clone()) {
             Ok(_) => log::info!(
                 "[boot] memory::global initialized (workspace={})",
@@ -620,6 +621,7 @@ pub async fn init_stores(
         // than lazily so a bad `[subsystems.memory]` is loud at boot instead of
         // at the first recall. Infallible by design: an inadmissible driver
         // falls back, publishes `MemoryDriverBindFailed`, and records why.
+        #[cfg(feature = "memory")]
         match crate::openhuman::memory::binding::for_workspace(
             &cfg.workspace_dir,
             &cfg.subsystems.memory,

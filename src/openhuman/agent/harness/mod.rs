@@ -22,6 +22,7 @@
 //! `crate::openhuman::agent::tinyagents`); there is no in-house interrupt fence.
 
 pub mod agent_graph;
+#[cfg(feature = "memory")]
 pub mod archivist;
 pub mod artifact_offload;
 pub(crate) mod builtin_definitions;

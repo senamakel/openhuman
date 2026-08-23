@@ -33,6 +33,7 @@
 //! reachable — those are honest gaps, not stubs pretending to work, and each
 //! names what is missing.
 
+#[cfg(feature = "memory")]
 pub mod agent_memory;
 pub mod budget_gate;
 pub mod context_composer;
@@ -44,6 +45,7 @@ pub mod progress_sink;
 pub mod security_gate;
 pub mod tool_outcome_classifier;
 
+#[cfg(feature = "memory")]
 pub use agent_memory::OpenHumanAgentMemory;
 pub use budget_gate::OpenHumanBudgetGate;
 pub use context_composer::OpenHumanContextComposer;

@@ -270,12 +270,18 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // reconcile. Both no-op without active Composio connections.
     if plan.composio_integration_sync {
         log::debug!("[runtime.bootstrap] starting composio integration sync + source reconcile");
-        crate::openhuman::integrations::composio::start_periodic_sync();
-        tokio::spawn(async {
-            log::debug!("[runtime.bootstrap] composio source reconcile started");
-            crate::openhuman::memory::sources::reconcile::ensure_composio_sources().await;
-            log::debug!("[runtime.bootstrap] composio source reconcile completed");
-        });
+        // Both halves sync *into* memory, so both ride the `memory` gate:
+        // `start_periodic_sync` lives in `memory::sync::composio`, and the
+        // reconcile writes the source registry.
+        #[cfg(feature = "memory")]
+        {
+            crate::openhuman::integrations::composio::start_periodic_sync();
+            tokio::spawn(async {
+                log::debug!("[runtime.bootstrap] composio source reconcile started");
+                crate::openhuman::memory::sources::reconcile::ensure_composio_sources().await;
+                log::debug!("[runtime.bootstrap] composio source reconcile completed");
+            });
+        }
     } else {
         log::debug!(
             "[runtime.bootstrap] composio integration sync + source reconcile disabled by ServiceSet"
@@ -287,6 +293,7 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // walks Composio connections.
     if plan.workspace_memory_sync {
         log::debug!("[runtime.bootstrap] starting workspace memory-source periodic sync");
+        #[cfg(feature = "memory")]
         crate::openhuman::memory::sync::workspace::start_workspace_periodic_sync();
     } else {
         log::debug!("[runtime.bootstrap] workspace periodic sync disabled by ServiceSet");

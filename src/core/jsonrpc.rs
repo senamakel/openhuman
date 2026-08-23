@@ -2139,6 +2139,7 @@ fn register_domain_subscribers(
             // channel-less users (#5003). `agent::learning` is an Agent-family
             // domain; it sat on the Platform boot path only because `learning`
             // used to be a top-level directory. Idempotent.
+            #[cfg(feature = "memory")]
             crate::openhuman::agent::learning::startup::register_learning_subscribers(
                 workspace_dir.clone(),
             );
@@ -2249,6 +2250,7 @@ fn register_domain_subscribers(
 
     // Memory: conversation-persistence + sync-stage bridge.
     if plan.memory {
+        #[cfg(feature = "memory")]
         if group_first_time(DomainGroup::Memory) {
             crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
                 workspace_dir.clone(),

@@ -217,9 +217,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                         &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
                     );
                 }
-            } else if cfg!(feature = "memory")
-                && memory_ingest_payload_message(&display_message)
-            {
+            } else if cfg!(feature = "memory") && memory_ingest_payload_message(&display_message) {
                 // The caller submitted an ingest payload that does not match
                 // the canonicaliser schema for its `source_kind` (#5169). The
                 // handler already returned a precise error naming the missing

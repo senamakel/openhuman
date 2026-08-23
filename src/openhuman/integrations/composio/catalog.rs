@@ -682,9 +682,7 @@ pub(crate) async fn probe_tool_output_sample(
         }
     }
 
-    let Some(toolkit) =
-        tinymemory_core::sync::composio::providers::toolkit_from_slug(slug)
-    else {
+    let Some(toolkit) = tinymemory_core::sync::composio::providers::toolkit_from_slug(slug) else {
         return Err(format!(
             "get_tool_output_sample: could not extract a toolkit from slug '{slug}' — it must \
              look like '<TOOLKIT>_<ACTION>'."

@@ -7958,9 +7958,7 @@ pub async fn flows_get_tool_contract(
     slug: &str,
 ) -> Result<RpcOutcome<Value>, String> {
     let slug = slug.trim();
-    let Some(toolkit) =
-        tinymemory_core::sync::composio::providers::toolkit_from_slug(slug)
-    else {
+    let Some(toolkit) = tinymemory_core::sync::composio::providers::toolkit_from_slug(slug) else {
         return Err(format!(
             "Could not extract a toolkit from slug '{slug}' — it must look like \
              '<TOOLKIT>_<ACTION>' (e.g. 'GMAIL_SEND_EMAIL')."

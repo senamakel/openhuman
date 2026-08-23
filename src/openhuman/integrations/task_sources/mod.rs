@@ -27,9 +27,6 @@ pub mod store;
 pub mod tools;
 pub mod types;
 
-pub use tinymemory_core::sync::composio::providers::{
-    NormalizedTask, TaskContainer, TaskFetchFilter, TaskKind,
-};
 pub use periodic::start_periodic_poll;
 pub use pipeline::run_source_once;
 pub use route::TASK_SOURCES_THREAD_ID;
@@ -37,6 +34,9 @@ pub use schemas::{
     all_controller_schemas as all_task_sources_controller_schemas,
     all_registered_controllers as all_task_sources_registered_controllers,
     schemas as task_sources_schemas,
+};
+pub use tinymemory_core::sync::composio::providers::{
+    NormalizedTask, TaskContainer, TaskFetchFilter, TaskKind,
 };
 pub use types::{
     EnrichedTask, FetchOutcome, FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource,

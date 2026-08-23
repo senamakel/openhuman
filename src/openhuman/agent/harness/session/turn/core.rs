@@ -441,30 +441,30 @@ impl Agent {
         let citation_query = user_message.to_string();
         #[cfg(feature = "memory")]
         {
-        self.pending_citations = Some(tokio::spawn(async move {
-            match collect_recall_citations(
-                citation_memory.as_ref(),
-                &citation_query,
-                MEMORY_CITATION_LIMIT,
-                MEMORY_CITATION_MIN_RELEVANCE,
-            )
-            .await
-            {
-                Ok(citations) => {
-                    log::debug!(
-                        "[agent_loop] memory citations collected count={}",
-                        citations.len()
-                    );
-                    citations
+            self.pending_citations = Some(tokio::spawn(async move {
+                match collect_recall_citations(
+                    citation_memory.as_ref(),
+                    &citation_query,
+                    MEMORY_CITATION_LIMIT,
+                    MEMORY_CITATION_MIN_RELEVANCE,
+                )
+                .await
+                {
+                    Ok(citations) => {
+                        log::debug!(
+                            "[agent_loop] memory citations collected count={}",
+                            citations.len()
+                        );
+                        citations
+                    }
+                    Err(_err) => {
+                        // Recall errors may include the user-authored query. Keep
+                        // warning logs free of raw external content.
+                        log::warn!("[agent_loop] memory citation collection failed");
+                        Vec::new()
+                    }
                 }
-                Err(_err) => {
-                    // Recall errors may include the user-authored query. Keep
-                    // warning logs free of raw external content.
-                    log::warn!("[agent_loop] memory citation collection failed");
-                    Vec::new()
-                }
-            }
-        }));
+            }));
         }
         // No per-turn memory-context block is assembled here any more.
         //

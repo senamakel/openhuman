@@ -18,7 +18,6 @@ use tinymemory_core::rpc_models::{
 // sync entry points directly from these handlers parked async worker threads on
 // the store's `parking_lot` mutex, which starved the runtime and made
 // `threads_create_new` blow the frontend's 30 s RPC budget (#5156).
-use tinymemory_core::conversations;
 use crate::openhuman::threads::title::{
     build_title_prompt, is_auto_generated_thread_title, sanitize_generated_title,
     title_from_user_message, title_log_fingerprint, THREAD_TITLE_LOG_PREFIX,
@@ -40,6 +39,7 @@ use tinycortex::memory::conversations::{
     ConversationMessage, ConversationMessagePatch, ConversationThread, CreateConversationThread,
     CrossThreadHit,
 };
+use tinymemory_core::conversations;
 
 fn request_id() -> String {
     uuid::Uuid::new_v4().to_string()

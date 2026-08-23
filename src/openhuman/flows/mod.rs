@@ -37,11 +37,11 @@ mod draft_store;
 pub mod medulla_bridge;
 #[cfg(feature = "memory")]
 pub mod memory_tools;
+mod n8n_import;
 /// A flow's private memory namespace naming rule. Ungated: it is a `format!`
 /// with no driver behind it, and `flows` needs it whether or not the memory
 /// family is compiled in. See the module docs.
 pub mod namespace;
-mod n8n_import;
 pub mod node_contracts;
 pub mod ops;
 mod run_registry;

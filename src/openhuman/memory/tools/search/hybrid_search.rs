@@ -12,8 +12,8 @@ use std::fmt::Write;
 use crate::openhuman::memory::api::provider::MemoryProvider;
 use crate::openhuman::memory::api::types::MemoryItemKind;
 use crate::openhuman::memory::ops::guard::active_memory_guard;
-use crate::openhuman::tools::traits::{Tool, ToolResult};
 use crate::openhuman::memory::ranking::{hybrid_score, WeightProfile};
+use crate::openhuman::tools::traits::{Tool, ToolResult};
 
 pub struct MemoryHybridSearchTool;
 

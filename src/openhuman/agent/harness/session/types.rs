@@ -87,8 +87,7 @@ pub struct Agent {
     pub(super) last_memory_context: Option<String>,
     /// Citation metadata collected from memory recall for the most recent turn.
     /// Consumed by web-channel delivery to render source chips in the UI.
-    pub(super) last_turn_citations:
-        Vec<crate::openhuman::memory::citation::MemoryCitation>,
+    pub(super) last_turn_citations: Vec<crate::openhuman::memory::citation::MemoryCitation>,
     /// In-flight citation recall for the current turn.
     ///
     /// Citations are UI-only — they render source chips and never enter the
@@ -101,11 +100,8 @@ pub struct Agent {
     /// joined only when a consumer actually asks for the citations — which
     /// happens after the turn returns. The contract is unchanged: callers still
     /// get the citations for the turn they just ran.
-    pub(super) pending_citations: Option<
-        tokio::task::JoinHandle<
-            Vec<crate::openhuman::memory::citation::MemoryCitation>,
-        >,
-    >,
+    pub(super) pending_citations:
+        Option<tokio::task::JoinHandle<Vec<crate::openhuman::memory::citation::MemoryCitation>>>,
     /// Holistic token/cost/context accounting for the most recent turn (parent +
     /// any sub-agents spawned during it). Consumed by web-channel delivery to
     /// surface session token/cost/context meters in the UI footer. `None` until

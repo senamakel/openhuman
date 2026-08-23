@@ -2229,8 +2229,7 @@ impl Tool for GetToolContractTool {
             Some(s) if !s.is_empty() => s.to_string(),
             _ => return Ok(ToolResult::error("Missing 'slug' parameter".to_string())),
         };
-        let Some(toolkit) =
-            tinymemory_core::sync::composio::providers::toolkit_from_slug(&slug)
+        let Some(toolkit) = tinymemory_core::sync::composio::providers::toolkit_from_slug(&slug)
         else {
             return Ok(ToolResult::error(format!(
                 "Could not extract a toolkit from slug '{slug}' — it must look like \

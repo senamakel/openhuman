@@ -74,11 +74,6 @@ pub use crate::openhuman::memory::sync::composio::bus::{
 pub use crate::openhuman::memory::sync::composio::periodic::{
     record_sync_success, start_periodic_sync,
 };
-pub use tinymemory_core::sync::composio::providers::{
-    all_providers as all_composio_providers, get_provider as get_composio_provider,
-    init_default_providers as init_default_composio_providers, ComposioProvider, ProviderContext,
-    ProviderUserProfile, SyncOutcome, SyncReason,
-};
 pub use action_tool::ComposioActionTool;
 pub use client::ComposioClient;
 pub use identity::connection_identity;
@@ -90,6 +85,11 @@ pub use ops::{
 pub use schemas::{
     all_controller_schemas as all_composio_controller_schemas,
     all_registered_controllers as all_composio_registered_controllers,
+};
+pub use tinymemory_core::sync::composio::providers::{
+    all_providers as all_composio_providers, get_provider as get_composio_provider,
+    init_default_providers as init_default_composio_providers, ComposioProvider, ProviderContext,
+    ProviderUserProfile, SyncOutcome, SyncReason,
 };
 pub use tools::all_composio_agent_tools;
 pub use trigger_history::{

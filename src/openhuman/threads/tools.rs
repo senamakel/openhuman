@@ -21,15 +21,15 @@ use crate::openhuman::agent::task_board::{
     board_for_thread, TaskBoard, TaskBoardCard, TaskBoardStore,
 };
 use crate::openhuman::config::Config;
+use crate::openhuman::threads::ops;
+use crate::openhuman::threads::turn_state::{ClearTurnStateRequest, GetTurnStateRequest};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use tinymemory_core::rpc_models::{
     AppendConversationMessageRequest, ConversationMessagesRequest, CreateConversationThreadRequest,
     DeleteConversationThreadRequest, EmptyRequest, GenerateConversationThreadTitleRequest,
     UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
     UpdateConversationThreadTitleRequest,
 };
-use crate::openhuman::threads::ops;
-use crate::openhuman::threads::turn_state::{ClearTurnStateRequest, GetTurnStateRequest};
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 fn read_required_str(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
     args.get(key)

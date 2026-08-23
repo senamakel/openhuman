@@ -2,14 +2,14 @@ use super::*;
 use crate::openhuman::config::Config;
 use crate::openhuman::integrations::task_sources::store;
 use crate::openhuman::integrations::task_sources::types::{FilterSpec, ProviderSlug, SourceTarget};
-use tinymemory_core::sync::composio::providers::{
-    register_provider, ComposioProvider, NormalizedTask, ProviderContext, ProviderUserProfile,
-    TaskFetchFilter,
-};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use tempfile::TempDir;
+use tinymemory_core::sync::composio::providers::{
+    register_provider, ComposioProvider, NormalizedTask, ProviderContext, ProviderUserProfile,
+    TaskFetchFilter,
+};
 
 /// Serialize pipeline tests: they register a stub provider under the
 /// shared "github" registry slug, so they must not run concurrently.

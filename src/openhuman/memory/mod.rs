@@ -47,9 +47,6 @@ pub mod binding;
 /// serde types that appear in always-compiled agent signatures, so they are a
 /// type carve-out rather than part of the gated behaviour.
 pub mod citation;
-/// Well-known memory namespace names. Ungated for the same reason as
-/// [`citation`]: inert strings that always-compiled readers name.
-pub mod namespaces;
 #[cfg(feature = "memory")]
 pub mod driver;
 #[cfg(feature = "memory")]
@@ -64,6 +61,9 @@ pub mod guard;
 pub mod host;
 #[cfg(feature = "memory")]
 pub mod host_impls;
+/// Well-known memory namespace names. Ungated for the same reason as
+/// [`citation`]: inert strings that always-compiled readers name.
+pub mod namespaces;
 #[cfg(feature = "memory")]
 pub mod ops;
 #[cfg(feature = "memory")]

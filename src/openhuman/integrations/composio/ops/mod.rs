@@ -82,10 +82,6 @@ pub(crate) use super::connected_integrations::sync_cache_with_connections;
 #[cfg(test)]
 pub(crate) use crate::openhuman::config::Config;
 #[cfg(test)]
-pub(crate) use tinymemory_core::sync::composio::providers::sync_state::SyncState;
-#[cfg(test)]
-pub(crate) use tinymemory_core::sync::composio::providers::SyncReason;
-#[cfg(test)]
 pub(crate) use connections::enrich_connections_with_identity;
 #[cfg(test)]
 pub(crate) use error_utils::{
@@ -98,6 +94,10 @@ pub(crate) use memory_cleanup::{composio_memory_targets_for_connection, MemoryCl
 pub(crate) use providers_ops::parse_sync_reason;
 #[cfg(test)]
 pub(crate) use tinymemory_core::store::MemoryClient;
+#[cfg(test)]
+pub(crate) use tinymemory_core::sync::composio::providers::sync_state::SyncState;
+#[cfg(test)]
+pub(crate) use tinymemory_core::sync::composio::providers::SyncReason;
 
 #[cfg(test)]
 #[path = "../ops_tests.rs"]

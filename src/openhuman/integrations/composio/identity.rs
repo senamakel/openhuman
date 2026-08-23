@@ -115,11 +115,11 @@ pub async fn connection_identity(config: &Config, toolkit: &str) -> Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use tinymemory_core::sync::composio::providers::{
         register_provider, ComposioProvider, ProviderArc, ProviderUserProfile,
     };
-    use async_trait::async_trait;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// Test provider that returns a fixed username (or fails, when
     /// `fail` is set). We don't go through Composio at all — the

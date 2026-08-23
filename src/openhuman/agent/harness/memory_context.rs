@@ -377,9 +377,7 @@ mod tests {
 
         let context = build_context(&mem, "what database should I use?", 0.4).await;
         assert!(
-            context.contains(
-                crate::openhuman::memory::citation::CROSS_CHAT_HEADER.trim_end()
-            ),
+            context.contains(crate::openhuman::memory::citation::CROSS_CHAT_HEADER.trim_end()),
             "expected cross-chat header, got:\n{context}"
         );
         assert!(
@@ -445,9 +443,7 @@ mod tests {
         let mem = MockMemory::new(Vec::new(), Vec::new(), false);
         let context = build_context(&mem, "Postgres", 0.4).await;
         assert!(
-            !context.contains(
-                crate::openhuman::memory::citation::CROSS_CHAT_HEADER.trim_end()
-            ),
+            !context.contains(crate::openhuman::memory::citation::CROSS_CHAT_HEADER.trim_end()),
             "no cross-chat hits must produce no header, got:\n{context}"
         );
     }

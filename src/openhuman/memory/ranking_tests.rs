@@ -13,9 +13,18 @@ const EPSILON: f64 = 1e-12;
 
 #[test]
 fn named_profiles_resolve_and_unknown_names_do_not() {
-    assert_eq!(WeightProfile::by_name("balanced"), Some(WeightProfile::BALANCED));
-    assert_eq!(WeightProfile::by_name("semantic"), Some(WeightProfile::SEMANTIC));
-    assert_eq!(WeightProfile::by_name("lexical"), Some(WeightProfile::LEXICAL));
+    assert_eq!(
+        WeightProfile::by_name("balanced"),
+        Some(WeightProfile::BALANCED)
+    );
+    assert_eq!(
+        WeightProfile::by_name("semantic"),
+        Some(WeightProfile::SEMANTIC)
+    );
+    assert_eq!(
+        WeightProfile::by_name("lexical"),
+        Some(WeightProfile::LEXICAL)
+    );
     assert_eq!(
         WeightProfile::by_name("graph_first"),
         Some(WeightProfile::GRAPH_FIRST)
@@ -78,9 +87,21 @@ fn mmr_prefers_a_diverse_candidate_over_a_more_relevant_duplicate() {
     let near = [1.0_f32, 0.0];
     let orthogonal = [0.0_f32, 1.0];
     let candidates = vec![
-        MmrCandidate { index: 0, embedding: &near, relevance: 0.9 },
-        MmrCandidate { index: 1, embedding: &near, relevance: 0.8 },
-        MmrCandidate { index: 2, embedding: &orthogonal, relevance: 0.5 },
+        MmrCandidate {
+            index: 0,
+            embedding: &near,
+            relevance: 0.9,
+        },
+        MmrCandidate {
+            index: 1,
+            embedding: &near,
+            relevance: 0.8,
+        },
+        MmrCandidate {
+            index: 2,
+            embedding: &orthogonal,
+            relevance: 0.5,
+        },
     ];
 
     let selected = mmr_select(&[], &candidates, 3, 0.7);
@@ -99,7 +120,11 @@ fn mmr_prefers_a_diverse_candidate_over_a_more_relevant_duplicate() {
 #[test]
 fn mmr_clamps_limit_and_lambda_and_short_circuits_on_empty_input() {
     let emb = [1.0_f32, 0.0];
-    let candidates = vec![MmrCandidate { index: 7, embedding: &emb, relevance: 0.5 }];
+    let candidates = vec![MmrCandidate {
+        index: 7,
+        embedding: &emb,
+        relevance: 0.5,
+    }];
 
     // `limit` above the candidate count yields the candidates, not a panic.
     assert_eq!(mmr_select(&[], &candidates, 99, 0.7).len(), 1);

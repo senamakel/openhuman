@@ -1257,9 +1257,7 @@ mod tests {
     /// but simply doesn't contain it.
     #[tokio::test]
     async fn unknown_toolkit_still_rejects() {
-        use tinymemory_core::sync::composio::providers::{
-            catalog_for_toolkit, get_provider,
-        };
+        use tinymemory_core::sync::composio::providers::{catalog_for_toolkit, get_provider};
         let config = Config::default();
         // Precondition: `flowstestkit` is genuinely uncatalogued, so the decision
         // flows through the connected-set path (not the static curated path).
@@ -1288,9 +1286,7 @@ mod tests {
     /// The exact same slug rejects above without a connection.
     #[tokio::test]
     async fn connected_uncatalogued_toolkit_now_passes() {
-        use tinymemory_core::sync::composio::providers::{
-            catalog_for_toolkit, get_provider,
-        };
+        use tinymemory_core::sync::composio::providers::{catalog_for_toolkit, get_provider};
         assert!(catalog_for_toolkit("flowstestkit").is_none());
         assert!(get_provider("flowstestkit").is_none());
 
@@ -1340,9 +1336,7 @@ mod tests {
     /// which passes.
     #[tokio::test]
     async fn expired_live_catalog_entry_is_treated_as_a_cache_miss() {
-        use tinymemory_core::sync::composio::providers::{
-            catalog_for_toolkit, get_provider,
-        };
+        use tinymemory_core::sync::composio::providers::{catalog_for_toolkit, get_provider};
         assert!(catalog_for_toolkit("flowsexpiredkit").is_none());
         assert!(get_provider("flowsexpiredkit").is_none());
 
@@ -1380,9 +1374,7 @@ mod tests {
     /// sufficient, the slug itself must be real.
     #[tokio::test]
     async fn connected_uncatalogued_toolkit_rejects_a_hallucinated_slug() {
-        use tinymemory_core::sync::composio::providers::{
-            catalog_for_toolkit, get_provider,
-        };
+        use tinymemory_core::sync::composio::providers::{catalog_for_toolkit, get_provider};
         assert!(catalog_for_toolkit("flowstestkit").is_none());
         assert!(get_provider("flowstestkit").is_none());
 

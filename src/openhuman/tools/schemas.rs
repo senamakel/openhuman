@@ -772,8 +772,10 @@ fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture 
         #[cfg(not(feature = "memory"))]
         {
             let _ = (client, profile_url);
-            Err("apify_linkedin_scrape unavailable: the `memory` feature is disabled in this build"
-                .to_string())
+            Err(
+                "apify_linkedin_scrape unavailable: the `memory` feature is disabled in this build"
+                    .to_string(),
+            )
         }
         #[cfg(feature = "memory")]
         {

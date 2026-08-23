@@ -37,6 +37,10 @@ mod draft_store;
 pub mod medulla_bridge;
 #[cfg(feature = "memory")]
 pub mod memory_tools;
+/// A flow's private memory namespace naming rule. Ungated: it is a `format!`
+/// with no driver behind it, and `flows` needs it whether or not the memory
+/// family is compiled in. See the module docs.
+pub mod namespace;
 mod n8n_import;
 pub mod node_contracts;
 pub mod ops;
@@ -82,4 +86,5 @@ pub use types::{
 // `scope: "flows"` arm, so both call the one implementation here rather than
 // each walking `namespace_summaries` independently.
 #[cfg(feature = "memory")]
-pub use memory_tools::{cross_flow_recall, flow_namespace, FLOW_MEMORY_NAMESPACE_PREFIX};
+pub use memory_tools::cross_flow_recall;
+pub use namespace::{flow_namespace, FLOW_MEMORY_NAMESPACE_PREFIX};

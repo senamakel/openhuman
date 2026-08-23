@@ -144,75 +144,81 @@ gets. The ask is a `RecallNamespaceRecent`-shaped method.
   over a generic `IngestItem`; there is **no `ingest_email`**, and the
   canonicaliser input shapes are the engine's.
 
-### A9. The chunk readers cannot migrate without the writer, and the writer is blocked on email
+### A9. The chunk readers need the writer, and the writer needs a wider `IngestOutcome`
 
-**Five revisions. The earlier four are kept because each is a plausible wrong
-turn, and three of them are wrong in a way that reads as correct.** The
-symptom throughout: migrating `memory_tree_list_chunks` / `get_chunk` onto
+**Six revisions.** The earlier five are kept below in one line each, because
+every one of them reads as correct and the next person will land on one.
+
+The symptom throughout: migrating `memory_tree_list_chunks` / `get_chunk` onto
 `MemoryChunks` compiles cleanly and breaks four `ingest_document` round-trips,
 which read back 0 chunks.
 
-**Wrong turn 1 — "the `config` argument selects the store".** True — those
-handlers read whichever workspace their caller names, while
-`active_memory_guard` resolves the *ambient* binding — and not the cause.
+| # | Claim | Verdict |
+| --- | --- | --- |
+| 1 | "the `config` argument selects the store" | true, not the cause |
+| 2 | "so honour the argument" — `guard_for_config` over `binding::for_workspace` | built it; still 0 chunks |
+| 3 | "the handlers need an injection seam" | necessary, not sufficient |
+| 4 | "the writer migration is a behaviour change (chunking moves into the driver)" | **false** — same pipeline both ways |
+| 5 | "the blocker is email" | true but not the first blocker |
+| 6 | **the blocker is `IngestOutcome`** | **this one** |
 
-**Wrong turn 2 — "so honour the argument".** A `guard_for_config` sibling over
-the existing `binding::for_workspace(dir, cfg).guard()` does honour it. **Still
-0 chunks.**
+**Why the zero happens at all.** `MemorySubsystemConfig::default()` names driver
+`"tinycortex"`, `binding::admit` aliases it to the `tinymemory` module, no
+artifact exists in a unit test, so the binding falls back as documented and the
+guard wraps the **null driver** while fixtures write through `ingest_pipeline`
+to the engine's SQLite.
 
-**Wrong turn 3 — "the handlers need an injection seam".** The zero has a real
-cause: `MemorySubsystemConfig::default()` names driver `"tinycortex"`,
-`binding::admit` aliases it to the `tinymemory` module, no artifact exists in a
-unit test, so the binding falls back as documented and the guard wraps the
-**null driver** while fixtures write through `ingest_pipeline` to the engine's
-SQLite. But a seam does not clear two further blockers, both found on trying to
-write it: `InMemoryProvider` implements the mandatory three only (its own
-comment: "advertising more would fail `audit_provider`"), so `as_chunks()` is
-`None` and a guard over it answers `Unsupported`; and the round-trips *span the
-writer* — they write with `ingest_rpc` and read with these, so injecting a
-guard into the read alone puts the halves on different stores by construction.
+**Revision 4 was wrong and the correction matters**, because the expensive
+version of this story would deter the work. Migrating the writer does *not*
+relocate chunking or entity scoring:
+`TinycortexProvider::ingest_document` calls
+`tinymemory_core::ingest_pipeline::ingest_document_with_scope` — the same
+pipeline the host calls today. Its `title: String::new()` drops
+`DocumentInput.title`, but `canonicalise` reads `title` only in its emptiness
+guard and deliberately keeps it out of the content, so the only behavioural
+delta there is a document with an empty body and a non-empty title. `provider`
+is inert.
 
-**Wrong turn 4 — "so the writer migration is a behaviour change".** This is the
-one worth correcting carefully, because it over-stated the cost and would have
-deterred the work. It does **not** move chunking or entity scoring into the
-driver. `TinycortexProvider::ingest_document`
-(`vendor/tinymemory/crates/tinymemory-tinycortex/src/engine/mod.rs`, v1.2.0)
-calls `tinymemory_core::ingest_pipeline::ingest_document_with_scope` — the same
-pipeline the host calls today. The bus path reaches the identical code.
+**The blocker is that `IngestOutcome` is narrower than `IngestResult`.** The RPC
+returns `IngestResult` (= tinycortex's `IngestSummary`) with six fields; the bus
+carries three.
 
-Two differences are visible in that adapter and both are narrower than they
-look:
+| `IngestResult` | `IngestOutcome` | Survives the bus? |
+| --- | --- | --- |
+| `chunks_written` | `written` | yes |
+| `chunk_ids` | `ids` | yes |
+| `source_id` | — | caller already knows it |
+| `chunks_dropped` | folded into `skipped` | **only when not already-ingested** |
+| `already_ingested` | folded into `skipped` | **no — becomes ambiguous** |
+| `extract_jobs_enqueued` | — | **no** |
 
-- **`title: String::new()`.** `IngestItem` has no title field, so the host's
-  `DocumentInput.title` is dropped. `canonicalise`
-  (`vendor/tinycortex/src/memory/ingest/canonicalize/document.rs`) uses `title`
-  in exactly one place — the emptiness guard `if body.trim().is_empty() &&
-  title.trim().is_empty()` — and deliberately does **not** put it in the
-  content ("No leading `# provider — title` header"). So the only behavioural
-  difference is a document with an **empty body and a non-empty title**:
-  accepted today, skipped over the bus.
-- **`provider: item.source.as_str()`.** Inert — `canonicalise` never reads
-  `provider`.
+The adapter collapses two distinct facts into one number:
+`skipped = if already_ingested { 1 } else { chunks_dropped }`. That is the exact
+ambiguity `already_ingested` exists to prevent — `wipe_all_clears_ingest_gate`
+in `read_rpc_tests.rs` pins a shipped bug where a wiped source could never
+re-ingest because the gate stayed claimed, and the symptom was "0 chunks
+written" that only `already_ingested` distinguished from a normal no-op.
+Migrating the writer today would put that back on the wire as a public RPC
+response narrowing.
 
-**The actual blocker is email.** `ingest_rpc` dispatches on `SourceKind` across
-Chat, Email and Document. `MemoryIngest` has `ingest_document` and
-`ingest_chat` — **and no email method at all**. So `ingest_rpc` cannot move as
-one unit today.
+**So A9 needs two upstream additions**, and it is worth grouping them into one
+`tinymemory` change:
 
-**What this makes possible, and what it does not:**
+1. `IngestOutcome` gains `already_ingested` and `extract_jobs_enqueued`, and
+   keeps `skipped` meaning dropped-chunks only.
+2. An email ingest method — `ingest_rpc` dispatches Chat/Email/Document and
+   `MemoryIngest` has only `ingest_document` and `ingest_chat`. Already listed
+   here as the missing `ingest_email`.
 
-- Migrating the readers still requires the document *and* chat writers to move
-  with them, because the round-trips span writer and reader.
-- Those two writers can move now: v1.2.0 serves `ingest_document`,
-  `ingest_chat`, `list_chunks` and `get_chunk`, and the document path is
-  equivalent bar the empty-body edge above.
-- Email must either keep the store path behind a `SourceKind::Email` arm — a
-  deliberate, commented split, not an oversight — or the whole handler waits on
-  an upstream `ingest_email`, which is already on this list.
-
-Either way it is one change covering writers and readers together, with the
-empty-body-plus-title case pinned by a test so the edge is a decision rather
-than a discovery.
+**What is already done, and is in this PR.** The test-side half no longer
+blocks anything: `memory::guard::in_memory::InMemoryChunks` +
+`guarded_in_memory_chunks()` is a storing provider implementing `MemoryIngest`
+and `MemoryChunks`, so a write and a read that both cross a real `MemoryGuard`
+reach the same store. `InMemoryProvider` could not serve this — it implements
+the mandatory three only, so `as_chunks()` is `None` and the guard answers
+`Unsupported`. Three tests pin the round trip, the `source_id` dedupe, and
+scope-before-limit narrowing. When the two upstream additions land, the handler
+migration is a seam plus these fixtures, not a research problem.
 
 **What stays true regardless:** do not make those four tests pass by binding a
 global client first. They are the only thing that goes red when a reader moves

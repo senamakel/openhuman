@@ -580,16 +580,23 @@ impl MemoryRecall for InMemoryChunks {
 
 #[async_trait]
 impl MemoryPortability for InMemoryChunks {
-    async fn export(&self, _after: Option<String>) -> Result<ExportPage, MemoryError> {
-        Err(MemoryError::Unsupported(
-            "InMemoryChunks does not implement export".to_string(),
-        ))
+    async fn export_page(
+        &self,
+        _cursor: Option<&str>,
+        _limit: usize,
+    ) -> Result<ExportPage, MemoryError> {
+        Err(MemoryError::Other(anyhow::anyhow!(
+            "InMemoryChunks does not implement export"
+        )))
     }
 
-    async fn import(&self, _records: Vec<ExportRecord>) -> Result<ImportOutcome, MemoryError> {
-        Err(MemoryError::Unsupported(
-            "InMemoryChunks does not implement import".to_string(),
-        ))
+    async fn import_records(
+        &self,
+        _records: Vec<ExportRecord>,
+    ) -> Result<ImportOutcome, MemoryError> {
+        Err(MemoryError::Other(anyhow::anyhow!(
+            "InMemoryChunks does not implement import"
+        )))
     }
 }
 

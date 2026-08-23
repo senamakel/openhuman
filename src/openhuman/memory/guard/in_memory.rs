@@ -40,13 +40,13 @@ use parking_lot::Mutex;
 
 use crate::openhuman::memory::api::capabilities::{Capabilities, Capability};
 use crate::openhuman::memory::api::chunks::{Chunk, Metadata, SourceKind};
-use crate::openhuman::memory::api::provider::chunks::{ChunkDetail, ChunkEmbedding, ChunkQuery};
-use crate::openhuman::memory::api::provider::types::{IngestItem, IngestOutcome};
-use crate::openhuman::memory::api::provider::{MemoryChunks, MemoryIngest};
 use crate::openhuman::memory::api::error::MemoryError;
 use crate::openhuman::memory::api::health::MemoryHealth;
+use crate::openhuman::memory::api::provider::chunks::{ChunkDetail, ChunkEmbedding, ChunkQuery};
 use crate::openhuman::memory::api::provider::types::SourceScope;
 use crate::openhuman::memory::api::provider::types::{ExportPage, ExportRecord, ImportOutcome};
+use crate::openhuman::memory::api::provider::types::{IngestItem, IngestOutcome};
+use crate::openhuman::memory::api::provider::{MemoryChunks, MemoryIngest};
 use crate::openhuman::memory::api::provider::{
     MemoryCore, MemoryPortability, MemoryProvider, MemoryRecall,
 };
@@ -533,10 +533,7 @@ impl MemoryChunks for InMemoryChunks {
             .filter(|chunk| {
                 let m = &chunk.metadata;
                 query.source_kind.is_none_or(|kind| kind == m.source_kind)
-                    && query
-                        .source_id
-                        .as_ref()
-                        .is_none_or(|id| *id == m.source_id)
+                    && query.source_id.as_ref().is_none_or(|id| *id == m.source_id)
                     && query.owner.as_ref().is_none_or(|owner| *owner == m.owner)
                     && query
                         .since_ms

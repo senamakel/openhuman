@@ -255,31 +255,34 @@ pub struct GetChunkResponse {
 /// `guard_for_config` sibling that honours it. Both returned 0 chunks — the
 /// argument was a red herring, the driver was the reason.
 ///
-/// An injection seam looked like the fix and is not enough. Two blockers:
-/// [`InMemoryProvider`](crate::openhuman::memory::guard::in_memory::InMemoryProvider)
-/// implements the mandatory three only — by its own comment, "advertising more
-/// would fail `audit_provider`" — so `as_chunks()` is `None` and a guard over
-/// it answers `Unsupported`; and the round-trips *span the writer*, writing
-/// with `ingest_rpc` and reading with these, so injecting a guard into the read
-/// alone puts the halves on different stores by construction.
+/// An injection seam is necessary and not sufficient, and the test half of it
+/// is now done:
+/// [`guarded_in_memory_chunks`](crate::openhuman::memory::guard::in_memory::guarded_in_memory_chunks)
+/// gives a real `MemoryGuard` over a store implementing both `MemoryIngest` and
+/// `MemoryChunks`, so a write and a read can cross the guard and reach the same
+/// place. (`InMemoryProvider` cannot: it implements the mandatory three only,
+/// so `as_chunks()` is `None` and the guard answers `Unsupported`.)
 ///
-/// **The writer has to move with them, and that is cheaper than it looks.** It
-/// does not relocate chunking or scoring: `TinycortexProvider::ingest_document`
-/// calls `tinymemory_core::ingest_pipeline::ingest_document_with_scope`, the
-/// same pipeline this handler's path already uses. The adapter drops
-/// `DocumentInput.title` (`IngestItem` has no such field), but `canonicalise`
-/// reads `title` only in its emptiness guard and deliberately keeps it out of
-/// the content — so the sole behavioural difference is a document with an empty
-/// body and a non-empty title, accepted today and skipped over the bus.
-/// `provider` is inert.
+/// **What blocks it is the writer, and specifically `IngestOutcome`.** These
+/// round-trips span `ingest_rpc`, so the writer has to move with them — and
+/// that is not a behaviour change in the pipeline sense:
+/// `TinycortexProvider::ingest_document` calls the same
+/// `tinymemory_core::ingest_pipeline::ingest_document_with_scope` this path
+/// already uses. The problem is the return type. This RPC answers
+/// `IngestResult` with six fields; the bus carries three, and the adapter folds
+/// two distinct facts into one number —
+/// `skipped = if already_ingested { 1 } else { chunks_dropped }`. So
+/// `extract_jobs_enqueued` is lost outright, `chunks_dropped` is unrecoverable
+/// once a source is already ingested, and `already_ingested` becomes ambiguous.
+/// That last one is load-bearing: `wipe_all_clears_ingest_gate` pins a shipped
+/// bug where a wiped source could never re-ingest, and "0 chunks written" was
+/// distinguishable from a normal no-op only by that flag.
 ///
-/// **What actually blocks it is email.** `ingest_rpc` dispatches over Chat,
-/// Email and Document; `MemoryIngest` has `ingest_document` and `ingest_chat`
-/// and no email method. So either email keeps this store path behind a
-/// commented `SourceKind::Email` arm while document and chat move, or the whole
-/// handler waits on an upstream `ingest_email`. Nothing else here is
-/// release-blocked: v1.2.0 serves all four methods the rest of it needs. See
-/// `docs/specs/2026-08-23-memory-bus-only-remaining-surface.md` §A9.
+/// Needed upstream, ideally as one change: `IngestOutcome` gaining
+/// `already_ingested` and `extract_jobs_enqueued`, plus an email ingest method
+/// (`ingest_rpc` dispatches Chat/Email/Document; `MemoryIngest` has no email
+/// arm). The four served methods themselves already exist in the pinned v1.2.0.
+/// See `docs/specs/2026-08-23-memory-bus-only-remaining-surface.md` §A9.
 ///
 /// **Do not "fix" the four round-trip tests by binding a global client first.**
 /// They are the only thing that goes red when a reader moves to the guard while

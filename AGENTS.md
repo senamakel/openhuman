@@ -871,6 +871,75 @@ The general shape of the warning still holds for *other* pairs: two crates with
 near-identical types are a real hazard, and a "free carve-out" is only free once
 the compiler says so. Probe before assuming, in either direction.
 
+#### The `memory` gate
+
+Facade + stub in the `voice` shape, with `skills`' type carve-out taken further
+than anywhere else in the tree — **six** carve-outs rather than one. That is the
+interesting part, and the part to copy.
+
+**`pub mod memory;` is always compiled.** The behavioural submodules are
+`#[cfg(feature = "memory")]` and `src/openhuman/memory/stub.rs` covers the
+disabled build. What stays compiled in **both** directions, with exactly one
+definition each and no stub twin:
+
+| Ungated | What | Why it is not behaviour |
+| --- | --- | --- |
+| `memory::api` | the `tinymemory-api` re-export | contract vocabulary in always-on agent-harness signatures |
+| `memory::host` | `MemoryHostConfig for Config` + the bus event sink | impls of API-crate traits on OpenHuman's own `Config`. ~20 always-compiled callers pass `&Config` where `dyn MemoryHostConfig` is expected; gating it makes `Config` stop satisfying a bound unrelated to the family |
+| `memory::ranking` | `hybrid_score`, `WeightProfile`, `cosine_similarity`, `mmr_select` | arithmetic over values the caller already holds. Both search tools fetch through the guard *first*, so routing this back over the bus buys a serialization hop and nothing else |
+| `memory::citation` | `MemoryCitation`, `CROSS_CHAT_HEADER` | inert serde type in the agent's `last_turn_citations` field and the web-chat delivery path |
+| `memory::namespaces` | `CONVERSATION_RAW_NAMESPACE`, `REFLECTIONS_NAMESPACE` | gated producer, always-compiled reader; a `&'static str` cannot fail without a driver |
+| `flows::namespace` | `flow_namespace`, `FLOW_MEMORY_NAMESPACE_PREFIX` | a `format!`; `flows_delete` and the run-digest subscriber need it with memory off |
+
+**The rule these six share, and the reason to prefer it over a stub:** a stub
+twin of an inert type is a *second definition*, free to drift, and the disabled
+build cannot catch drift in a type it also defines. Carve the type out ungated;
+stub only behaviour. `flow_namespace` carries a stated security invariant —
+"the only place in the codebase that may construct this namespace string" —
+and the move **kept** that true precisely because there is one definition, not
+two.
+
+**Stubs answer in two shapes, deliberately.** Registration sites want
+*absence*: the `all_*_registered_controllers` aggregators return empty vectors,
+so `core/all.rs` needs no `#[cfg]` for them, and `memory.*` becomes
+unknown-method rather than a known method that fails. Write paths return a
+build-fact error, because silently discarding a write is the one failure mode
+that looks like success.
+
+**Three mis-housings were retargeted, not stubbed** — the same move the
+`channels` gate made for its three `tinychannels` imports. The Composio
+provider catalogue, the conversation store `threads` uses, and the
+`rpc_models` request types were always-compiled code reaching the engine
+*through* a `memory::…` shim; they name `tinymemory_core` directly now. That
+removed ~37 always-on → gated edges with no stub at all. **Watch the trap:**
+those shims re-export the engine *and* define host code beside it, so a blanket
+path substitution also catches the host half —
+`register_conversation_persistence_subscriber` and
+`slack::all_slack_memory_registered_controllers` both went to the engine crate,
+where they do not exist. List what a shim adds beyond its glob before
+retargeting it.
+
+**CLI arms are kept, not deleted.** `openhuman memory` and `tree-summarizer`
+answer with the gate name; falling through to generic namespace resolution
+would say "unknown namespace: memory", which reads like a typo rather than a
+build fact. Same reasoning as the `mcp` and `tui` arms.
+
+**`CoreContext::current_memory_capabilities` answers CLOSED with the gate off**
+— the one place it does. The open default exists because a capability set is
+unknowable until a driver answers; with the family compiled out the state is
+not "unknown", it is "absent".
+
+**Sheds no third-party crate.** `tinymemory-api` is the contract and stays, and
+every crate the family touches (`rusqlite`, `reqwest`, `serde`) has other
+parents. Surface-only, like `media` — the `memory = []` list is intentional, do
+not "fix" it with `dep:` entries. Implied by `memory-git`.
+
+**Errors surface in waves.** Name resolution first, then trait bounds — the
+`MemoryHostConfig` wave only appeared once resolution was clean, so a run that
+looks nearly done can still be hiding a structural problem. Run
+`cargo check --no-default-features --features "media,skills,flows,mcp,channels,medulla,http-server,scheduler-gate,file-logging,modules"`
+(that is `default` minus `memory`) before pushing anything touching this surface.
+
 #### The `tui` gate
 
 The tabbed terminal UI (`openhuman`, or explicitly `openhuman tui` / alias `chat`) lives in `src/openhuman/tui/` and follows the **`mcp`/`voice` facade+stub** pattern: `pub mod tui;` is always compiled; the behavioural submodules (`app`, `render`, `state`, `terminal`, `runner`) are `#[cfg(feature = "tui")]`; and `#[cfg(not(feature = "tui"))] mod stub;` re-exposes the one symbol an always-compiled caller reaches — `run_from_cli` — with a build-fact error body (`"tui feature disabled at compile time … --features tui"`). Bare-command auto-launch requires terminal stdin/stdout and `HostKind::Cli`; Docker, CI, pipes, and `--no-tui` retain the non-TUI CLI path.

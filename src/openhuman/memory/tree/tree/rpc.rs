@@ -255,19 +255,32 @@ pub struct GetChunkResponse {
 /// `guard_for_config` sibling that honours it. Both returned 0 chunks — the
 /// argument was a red herring, the driver was the reason.
 ///
-/// The fix is an **injection seam**, not a new test tier:
-/// [`guarded_in_memory`](crate::openhuman::memory::guard::in_memory::guarded_in_memory)
-/// already returns a real `MemoryGuard` over real storage for exactly this
-/// case, and `FlowRunDigestSubscriber::with_memory` / `flows::ops`'
-/// `memory_client_override` are the parameter shape to copy. With one, the
-/// round-trips can write and read through the same guarded store and the
-/// migration becomes verifiable. Until then these stay on the store, listed in
-/// `direct_engine_refs_tests`. See
+/// An injection seam looked like the fix and is not enough on its own, for two
+/// reasons worth writing down. First,
+/// [`InMemoryProvider`](crate::openhuman::memory::guard::in_memory::InMemoryProvider)
+/// implements the mandatory three only — by its own comment, "advertising more
+/// would fail `audit_provider`" — so a guard over it answers `Unsupported` for
+/// chunks rather than rows. Second, and decisive: the round-trips *span the
+/// writer*. They write with `ingest_rpc` and read with these, so injecting a
+/// guard into the read alone puts the two halves on different stores — the very
+/// split this is avoiding, moved into the test.
+///
+/// **The prerequisite is therefore `ingest_rpc`, not a seam.** The writer has to
+/// move to `MemoryIngest` in the same change the readers move to
+/// `MemoryChunks`. That is a behaviour change, not a refactor: `ingest_rpc`
+/// owns per-`SourceKind` canonicalisation, chunking and entity scoring, while
+/// `MemoryIngest::ingest_document` takes a flat `IngestItem` and returns
+/// `IngestOutcome { written, skipped, ids }` — which needs a mapping decision
+/// for `chunks_dropped` against `skipped` that the idempotency test asserts on.
+///
+/// Nothing here is release-blocked: the pinned v1.2.0 module already serves
+/// `ingest_document`, `list_chunks` and `get_chunk`. Until the writer moves,
+/// these stay on the store, listed in `direct_engine_refs_tests`. See
 /// `docs/specs/2026-08-23-memory-bus-only-remaining-surface.md` §A9.
 ///
 /// **Do not "fix" the four round-trip tests by binding a global client first.**
-/// They are the only thing that goes red when a handler moves to the guard
-/// without a seam; turning them green that way ships the split.
+/// They are the only thing that goes red when a reader moves to the guard while
+/// the writer stays on the store; turning them green that way ships the split.
 pub async fn get_chunk_rpc(
     config: &Config,
     req: GetChunkRequest,

@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::openhuman::config::Config;
-use crate::openhuman::memory::sync::composio::providers::{get_provider, ProviderContext};
+use tinymemory_core::sync::composio::providers::{get_provider, ProviderContext};
 
 use super::types::{FetchOutcome, FetchReason, TaskSource};
 use super::{enrich, filter, route, store};

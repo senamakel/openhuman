@@ -2537,7 +2537,7 @@ async fn enrich_populates_email_from_cached_profile() {
     // `Once`-guarded, so a test that omits it passes only while some
     // earlier test in the same binary happened to run first.
     crate::openhuman::memory::host_impls::install_for_tests();
-    use crate::openhuman::memory::sync::composio::providers::{
+    use tinymemory_core::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();
@@ -2577,7 +2577,7 @@ async fn enrich_populates_handle_for_github() {
     // `Once`-guarded, so a test that omits it passes only while some
     // earlier test in the same binary happened to run first.
     crate::openhuman::memory::host_impls::install_for_tests();
-    use crate::openhuman::memory::sync::composio::providers::{
+    use tinymemory_core::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();
@@ -2625,7 +2625,7 @@ async fn enrich_handles_multiple_connections_same_toolkit() {
     // earlier test in the same binary happened to run first.
     crate::openhuman::memory::host_impls::install_for_tests();
     // Two Gmail accounts — each gets its own identity label, not "Account N".
-    use crate::openhuman::memory::sync::composio::providers::{
+    use tinymemory_core::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();
@@ -2671,7 +2671,7 @@ async fn enrich_leaves_unmatched_connection_unchanged() {
     crate::openhuman::memory::host_impls::install_for_tests();
     // Connection whose id has no cached profile row is returned with all
     // identity fields as None — the UI falls back to "toolkit · connection_id".
-    use crate::openhuman::memory::sync::composio::providers::{
+    use tinymemory_core::sync::composio::providers::{
         profile::persist_provider_profile, ProviderUserProfile,
     };
     let tmp = tempfile::tempdir().unwrap();

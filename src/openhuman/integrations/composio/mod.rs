@@ -66,7 +66,7 @@ pub use crate::openhuman::memory::sync::composio::bus::{
 pub use crate::openhuman::memory::sync::composio::periodic::{
     record_sync_success, start_periodic_sync,
 };
-pub use crate::openhuman::memory::sync::composio::providers::{
+pub use tinymemory_core::sync::composio::providers::{
     all_providers as all_composio_providers, get_provider as get_composio_provider,
     init_default_providers as init_default_composio_providers, ComposioProvider, ProviderContext,
     ProviderUserProfile, SyncOutcome, SyncReason,

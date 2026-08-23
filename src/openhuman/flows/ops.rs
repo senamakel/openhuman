@@ -1134,7 +1134,7 @@ pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph
 /// a nonsense path (e.g. suggesting `.item.json.data.successful`).
 async fn graph_output_field_warnings(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     use crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog;
-    use crate::openhuman::memory::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
 
     let mut warnings = Vec::new();
     for node in &graph.nodes {
@@ -1314,7 +1314,7 @@ async fn graph_split_out_path_warnings(config: &Config, graph: &WorkflowGraph) -
     use crate::openhuman::flows::tinyflows::caps::{
         apply_probe_override, fetch_live_toolkit_catalog,
     };
-    use crate::openhuman::memory::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
 
     let mut warnings = Vec::new();
     for node in &graph.nodes {
@@ -2408,7 +2408,7 @@ pub(crate) async fn validate_inference_readiness(
 /// builder-tool warnings (`get_tool_contract` / `search_tool_catalog`) must all
 /// agree on it — one home for the check so they cannot drift.
 pub(crate) fn toolkit_has_curated_catalog(toolkit: &str) -> bool {
-    use crate::openhuman::memory::sync::composio::providers::{catalog_for_toolkit, get_provider};
+    use tinymemory_core::sync::composio::providers::{catalog_for_toolkit, get_provider};
     get_provider(toolkit)
         .and_then(|p| p.curated_tools())
         .or_else(|| catalog_for_toolkit(toolkit))
@@ -2419,7 +2419,7 @@ pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGra
     use crate::openhuman::flows::tinyflows::caps::{
         fetch_live_toolkit_catalog, missing_required_args, unsupported_arg_names,
     };
-    use crate::openhuman::memory::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
 
     let mut errors = Vec::new();
     for node in &graph.nodes {
@@ -2673,7 +2673,7 @@ fn validate_connection_refs_against(
     graph: &WorkflowGraph,
     connections: Option<&[FlowConnection]>,
 ) -> Vec<String> {
-    use crate::openhuman::memory::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
 
     let mut errors = Vec::new();
     for node in &graph.nodes {
@@ -7598,7 +7598,7 @@ pub(crate) async fn connected_toolkits(config: &Config) -> std::collections::Has
 /// `oh:` tools and `http_request` nodes need no Composio connection and are
 /// skipped.
 pub async fn compute_required_connections(config: &Config, graph: &WorkflowGraph) -> Vec<Value> {
-    use crate::openhuman::memory::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
 
     // Collect required toolkits (deduped, order-preserving).
     let mut required: Vec<String> = Vec::new();
@@ -7954,7 +7954,7 @@ pub async fn flows_get_tool_contract(
 ) -> Result<RpcOutcome<Value>, String> {
     let slug = slug.trim();
     let Some(toolkit) =
-        crate::openhuman::memory::sync::composio::providers::toolkit_from_slug(slug)
+        tinymemory_core::sync::composio::providers::toolkit_from_slug(slug)
     else {
         return Err(format!(
             "Could not extract a toolkit from slug '{slug}' — it must look like \

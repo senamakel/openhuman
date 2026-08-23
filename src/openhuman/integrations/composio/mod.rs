@@ -59,10 +59,18 @@ pub mod trigger_history;
 pub mod types;
 
 pub use crate::openhuman::agent::prompts::types::ConnectedIntegration;
+// Both of these drive a sync *into* memory, so with the family compiled out
+// there is nothing for them to do. Absence, not a disabled-error stub: the
+// callers are registration sites (`register_composio_trigger_subscriber` in
+// the event-bus wiring, `start_periodic_sync` at boot), and a stub that
+// registered a subscriber which then refused every event would be a live
+// subscriber doing nothing rather than no subscriber at all.
+#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::sync::composio::bus::{
     register_composio_trigger_subscriber, ComposioConfigChangedSubscriber,
     ComposioTriggerSubscriber,
 };
+#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::sync::composio::periodic::{
     record_sync_success, start_periodic_sync,
 };

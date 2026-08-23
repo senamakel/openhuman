@@ -2232,6 +2232,7 @@ fn register_domain_subscribers(
             // block as the trigger subscriber above — that guard only returns
             // `true` once per process, so a second, separate call here would
             // never register.
+            #[cfg(feature = "memory")]
             if let Some(handle) = crate::core::bus::BUS.subscribe(Arc::new(
                 crate::openhuman::flows::bus::FlowRunDigestSubscriber::new(Arc::new(
                     config.clone(),

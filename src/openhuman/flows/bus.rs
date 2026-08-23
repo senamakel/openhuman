@@ -302,6 +302,7 @@ const DIGEST_MAX_CHARS: usize = 1000;
 /// per flow's memory namespace before pruning the oldest.
 const DIGEST_RETENTION_CAP: usize = 50;
 
+#[cfg(feature = "memory")]
 /// Listens for `DomainEvent::FlowRunFinished` and, on a successful terminal
 /// status, writes a compact digest of the run into the flow's own private
 /// memory namespace ([`flow_namespace`]) — e.g. so a later run of the same
@@ -327,10 +328,10 @@ pub struct FlowRunDigestSubscriber {
     /// [`Memory`] here lets the digest tests write and read back through the
     /// SAME instance deterministically, exactly as `flows::memory_tools`'
     /// tests do with `UnifiedMemory::new`.
-    #[cfg(feature = "memory")]
     memory_override: Option<Arc<crate::openhuman::memory::guard::MemoryGuard>>,
 }
 
+#[cfg(feature = "memory")]
 impl FlowRunDigestSubscriber {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
@@ -356,7 +357,6 @@ impl FlowRunDigestSubscriber {
     /// override when present, else the process-global client
     /// ([`active_memory_client`]). Returns `None` (best-effort skip) when the
     /// global client is unavailable.
-    #[cfg(feature = "memory")]
     async fn resolve_memory(&self) -> Option<Arc<crate::openhuman::memory::guard::MemoryGuard>> {
         if let Some(memory) = &self.memory_override {
             return Some(memory.clone());
@@ -435,7 +435,6 @@ impl FlowRunDigestSubscriber {
 
     /// Best-effort prune: keeps at most [`DIGEST_RETENTION_CAP`] `run_digest:*`
     /// entries per flow namespace, evicting the oldest (by `timestamp`) first.
-    #[cfg(feature = "memory")]
     async fn enforce_retention_cap(
         &self,
         memory: &Arc<crate::openhuman::memory::guard::MemoryGuard>,
@@ -466,6 +465,7 @@ impl FlowRunDigestSubscriber {
     }
 }
 
+#[cfg(feature = "memory")]
 #[async_trait]
 impl EventHandler<DomainEvent> for FlowRunDigestSubscriber {
     fn name(&self) -> &str {

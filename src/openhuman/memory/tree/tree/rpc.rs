@@ -255,27 +255,30 @@ pub struct GetChunkResponse {
 /// `guard_for_config` sibling that honours it. Both returned 0 chunks — the
 /// argument was a red herring, the driver was the reason.
 ///
-/// An injection seam looked like the fix and is not enough on its own, for two
-/// reasons worth writing down. First,
+/// An injection seam looked like the fix and is not enough. Two blockers:
 /// [`InMemoryProvider`](crate::openhuman::memory::guard::in_memory::InMemoryProvider)
 /// implements the mandatory three only — by its own comment, "advertising more
-/// would fail `audit_provider`" — so a guard over it answers `Unsupported` for
-/// chunks rather than rows. Second, and decisive: the round-trips *span the
-/// writer*. They write with `ingest_rpc` and read with these, so injecting a
-/// guard into the read alone puts the two halves on different stores — the very
-/// split this is avoiding, moved into the test.
+/// would fail `audit_provider`" — so `as_chunks()` is `None` and a guard over
+/// it answers `Unsupported`; and the round-trips *span the writer*, writing
+/// with `ingest_rpc` and reading with these, so injecting a guard into the read
+/// alone puts the halves on different stores by construction.
 ///
-/// **The prerequisite is therefore `ingest_rpc`, not a seam.** The writer has to
-/// move to `MemoryIngest` in the same change the readers move to
-/// `MemoryChunks`. That is a behaviour change, not a refactor: `ingest_rpc`
-/// owns per-`SourceKind` canonicalisation, chunking and entity scoring, while
-/// `MemoryIngest::ingest_document` takes a flat `IngestItem` and returns
-/// `IngestOutcome { written, skipped, ids }` — which needs a mapping decision
-/// for `chunks_dropped` against `skipped` that the idempotency test asserts on.
+/// **The writer has to move with them, and that is cheaper than it looks.** It
+/// does not relocate chunking or scoring: `TinycortexProvider::ingest_document`
+/// calls `tinymemory_core::ingest_pipeline::ingest_document_with_scope`, the
+/// same pipeline this handler's path already uses. The adapter drops
+/// `DocumentInput.title` (`IngestItem` has no such field), but `canonicalise`
+/// reads `title` only in its emptiness guard and deliberately keeps it out of
+/// the content — so the sole behavioural difference is a document with an empty
+/// body and a non-empty title, accepted today and skipped over the bus.
+/// `provider` is inert.
 ///
-/// Nothing here is release-blocked: the pinned v1.2.0 module already serves
-/// `ingest_document`, `list_chunks` and `get_chunk`. Until the writer moves,
-/// these stay on the store, listed in `direct_engine_refs_tests`. See
+/// **What actually blocks it is email.** `ingest_rpc` dispatches over Chat,
+/// Email and Document; `MemoryIngest` has `ingest_document` and `ingest_chat`
+/// and no email method. So either email keeps this store path behind a
+/// commented `SourceKind::Email` arm while document and chat move, or the whole
+/// handler waits on an upstream `ingest_email`. Nothing else here is
+/// release-blocked: v1.2.0 serves all four methods the rest of it needs. See
 /// `docs/specs/2026-08-23-memory-bus-only-remaining-surface.md` §A9.
 ///
 /// **Do not "fix" the four round-trip tests by binding a global client first.**

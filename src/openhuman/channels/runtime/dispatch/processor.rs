@@ -265,15 +265,21 @@ pub(crate) async fn process_channel_runtime_message(
         None
     };
 
+    #[cfg(feature = "memory")]
     let memory_context =
         build_memory_context(&ctx.memory, &msg.content, ctx.min_relevance_score).await;
+    // No driver, so nothing to prepend. The enrichment below treats an empty
+    // string as "no memory context", which is already its no-hits path.
+    #[cfg(not(feature = "memory"))]
+    let memory_context = String::new();
 
+    #[cfg(feature = "memory")]
     if ctx.auto_save_memory {
         let autosave_key = conversation_memory_key(&msg);
         let _ = ctx
             .memory
             .store(
-                crate::openhuman::agent::learning::transcript_ingest::CONVERSATION_RAW_NAMESPACE,
+                crate::openhuman::memory::namespaces::CONVERSATION_RAW_NAMESPACE,
                 &autosave_key,
                 &msg.content,
                 tinymemory_api::types::MemoryCategory::Conversation,

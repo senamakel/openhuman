@@ -1,5 +1,6 @@
 //! Utility helpers used during agent construction.
 
+#[cfg(feature = "memory")]
 use crate::openhuman::memory::tool_memory::{tool_memory_store, ToolMemoryRule};
 use crate::openhuman::memory::Memory;
 use std::sync::Arc;

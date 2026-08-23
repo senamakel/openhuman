@@ -33,6 +33,7 @@ pub(crate) struct ChannelRuntimeContext {
     /// Production contexts carry `config` and construct crate-native sources.
     pub(crate) turn_model_source: Option<TurnModelSource>,
     pub(crate) default_provider: Arc<String>,
+    #[cfg(feature = "memory")]
     pub(crate) memory: Arc<crate::openhuman::memory::guard::MemoryGuard>,
     pub(crate) tools_registry: Arc<Vec<Box<dyn Tool>>>,
     pub(crate) system_prompt: Arc<String>,
@@ -109,6 +110,7 @@ pub(crate) fn is_context_window_overflow_error(err: &anyhow::Error) -> bool {
 
 use tinymemory_api::provider::MemoryRecall as _;
 
+#[cfg(feature = "memory")]
 pub(crate) async fn build_memory_context(
     mem: &crate::openhuman::memory::guard::MemoryGuard,
     user_msg: &str,

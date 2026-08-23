@@ -155,11 +155,14 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     let bus = crate::core::bus::BUS.get().expect("bus initialised");
     let _tracing_handle = bus.subscribe(Arc::new(crate::core::bus::TracingSubscriber));
     crate::openhuman::platform::health::bus::register_health_subscriber();
-    crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
-        config.workspace_dir.clone(),
-    );
-    crate::openhuman::memory::sync_events_bridge::register_sync_stage_bridge(&config);
-    crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
+    #[cfg(feature = "memory")]
+    {
+        crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
+            config.workspace_dir.clone(),
+        );
+        crate::openhuman::memory::sync_events_bridge::register_sync_stage_bridge(&config);
+        crate::openhuman::integrations::composio::register_composio_trigger_subscriber();
+    }
     // Surface parked ApprovalGate requests as chat messages so the user can
     // answer yes/no in the thread (chat-native approval, issue #1339).
     crate::openhuman::web_chat::register_approval_surface_subscriber();
@@ -779,6 +782,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         None
     };
     // Register the tree summarizer event subscriber for observability logging.
+    #[cfg(feature = "memory")]
     let _tree_summarizer_handle = bus.subscribe(Arc::new(
         crate::openhuman::memory::tree::tree_runtime::bus::TreeSummarizerEventSubscriber::new(),
     ));
@@ -795,6 +799,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         channels_by_name,
         turn_model_source: None,
         default_provider: Arc::new(provider_name),
+        #[cfg(feature = "memory")]
         memory: crate::openhuman::memory::ops::guard::active_memory_guard()
             .await
             .map_err(|e| anyhow::anyhow!("channels startup: memory unavailable: {e}"))?,

@@ -654,12 +654,18 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         // provider unset deliberately selects Tinyflows' compatible fallback
         // instead of creating a second review store beside that surface.
         approvals: None,
+        #[cfg(feature = "memory")]
         memory: Some(Arc::new(
             crate::openhuman::flows::tinyflows::memory_adapter::OpenHumanMemory {
                 config: config.clone(),
                 security,
             },
         )),
+        // Tinyflows treats `None` as "this host has no memory capability" and
+        // its `memory` node degrades accordingly — the same path a host that
+        // never wired one takes.
+        #[cfg(not(feature = "memory"))]
+        memory: None,
         resolver: Arc::new(OpenHumanWorkflowResolver { config }),
     }
 }

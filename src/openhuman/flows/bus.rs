@@ -356,6 +356,7 @@ impl FlowRunDigestSubscriber {
     /// override when present, else the process-global client
     /// ([`active_memory_client`]). Returns `None` (best-effort skip) when the
     /// global client is unavailable.
+    #[cfg(feature = "memory")]
     async fn resolve_memory(&self) -> Option<Arc<crate::openhuman::memory::guard::MemoryGuard>> {
         if let Some(memory) = &self.memory_override {
             return Some(memory.clone());

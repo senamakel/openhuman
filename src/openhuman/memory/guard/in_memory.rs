@@ -665,7 +665,7 @@ mod in_memory_chunks_tests {
     fn document(source_id: &str, owner: &str, content: &str) -> IngestItem {
         IngestItem {
             namespace: None,
-            source: DataSource::Document,
+            source: DataSource::Upload,
             source_id: source_id.to_string(),
             owner: owner.to_string(),
             source_ref: None,

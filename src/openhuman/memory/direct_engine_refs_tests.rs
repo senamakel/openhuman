@@ -166,6 +166,32 @@ const NEEDLE: &str = "tinymemory_core::";
 /// path — [`scan`] returns a `BTreeSet`, so keeping the literal in the same
 /// order makes diffs readable.
 const ALLOWED: &[(&str, Verdict, &str)] = &[
+    // ── Two reveals, one category ───────────────────────────────────────────
+    //
+    // Most `FacadeRevealed` entries below were surfaced by two changes that
+    // *renamed* a dependency rather than adding one. **Neither grew the number
+    // of real engine dependencies by a single call.**
+    //
+    // 1. **Deleting the `memory/mod.rs` re-export facade.** This lint was
+    //    calibrated against a tree where that module re-exported ~24 engine
+    //    names, so a file writing `crate::openhuman::memory::UnifiedMemory` did
+    //    not match the `tinymemory_core::` needle. Those files were direct
+    //    engine users the whole time; the facade just spelled the dependency
+    //    differently.
+    //
+    // 2. **The `memory` Cargo gate's retarget.** Gating the family meant that
+    //    always-compiled callers reaching the engine *through* a `memory::…`
+    //    shim — the Composio provider catalogue, the conversation store
+    //    `threads` uses, the `rpc_models` request types — had to name the crate
+    //    directly or stop compiling with the gate off. Routing an always-on
+    //    caller through a gated shim to reach an ungated crate was the bug; the
+    //    retarget is the fix, and it makes twenty files honest about a
+    //    dependency they already had.
+    //
+    // Both are `FacadeRevealed` rather than one of the three considered
+    // verdicts because they have not been audited individually. See the note on
+    // that variant. The reason string on each entry says which reveal it came
+    // from.
     (
         "src/bin/library_profile/scenarios/cold_phases.rs",
         Verdict::FacadeRevealed,

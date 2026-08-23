@@ -56,6 +56,7 @@ impl AgentBuilder {
             tokenjuice_compression:
                 crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Full,
             tool_policy: None,
+            #[cfg(feature = "memory")]
             archivist_hook: None,
         }
     }
@@ -684,6 +685,7 @@ impl AgentBuilder {
             announced_skills: std::collections::HashSet::new(),
             pending_skill_announcement: Vec::new(),
             pending_skill_retraction: Vec::new(),
+            #[cfg(feature = "memory")]
             archivist_hook: self.archivist_hook,
             synthesized_tool_names: std::collections::HashSet::new(),
             pending_synthesized_tools_mask: std::collections::HashSet::new(),

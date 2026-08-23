@@ -144,51 +144,71 @@ gets. The ask is a `RecallNamespaceRecent`-shaped method.
   over a generic `IngestItem`; there is **no `ingest_email`**, and the
   canonicaliser input shapes are the engine's.
 
-### A9. These handlers need an injection seam — the tooling already exists
+### A9. The chunk readers cannot migrate without the writer
 
-**Three revisions to get this right, and the first two are recorded because
-each is a plausible wrong turn.** The symptom: migrating
+**Four revisions. Each earlier one is kept, because each is a plausible wrong
+turn and the next person will take it.** The symptom throughout: migrating
 `memory_tree_list_chunks` / `get_chunk` onto `MemoryChunks` compiles cleanly
 and breaks four `ingest_document` round-trips, which read back 0 chunks.
 
 **Wrong turn 1 — "the `config` argument selects the store".** True: those
 handlers read whichever workspace their caller names, and
-`active_memory_guard` resolves the *ambient* binding instead. But fixing that
-did not fix the tests.
+`active_memory_guard` resolves the *ambient* binding instead. Fixing it did not
+fix the tests.
 
 **Wrong turn 2 — "so honour the argument".**
 `binding::for_workspace(dir, cfg).guard()` already exists, so a ten-line
-`guard_for_config` sibling in `memory::ops::guard` honours it and still hands
-out a guard (keeping the bypass ratchet's single-site property, since
-`binding::for_workspace(` is a policed needle and `ops/guard.rs` is its one
-allowlisted file). **Still 0 chunks.**
+`guard_for_config` sibling honours it and still hands out a guard. **Still 0
+chunks.**
 
-**The cause.** `MemorySubsystemConfig::default()` names driver `"tinycortex"`,
-which `binding::admit` aliases to the `tinymemory` module. No module artifact is
-present in a unit test, so the binding falls back — as documented — and the
-guard wraps the **null driver**. The fixtures write through `ingest_pipeline`
-into the engine's SQLite. Guard and engine are not the same store there.
+**Wrong turn 3 — "the handlers just need an injection seam".** The cause of
+the zero is real and worth stating: `MemorySubsystemConfig::default()` names
+driver `"tinycortex"`, `binding::admit` aliases it to the `tinymemory` module,
+no artifact is present in a unit test, so the binding falls back as documented
+and the guard wraps the **null driver** while the fixtures write through
+`ingest_pipeline` into the engine's SQLite. And `memory::guard::in_memory`
+does exist for exactly this class of problem — its header says converting a
+consumer to the guard breaks round-trip tests and `#[ignore]` behind
+`OPENHUMAN_MODULE_PATH` "pays for each conversion with real coverage", so it
+supplies storage instead.
 
-**And the answer is already in the tree.** `memory::guard::in_memory` exists for
-exactly this, and says so in its header: *"Converting the consumer to the guard
-breaks those tests, and the cheap answer — `#[ignore]` behind
-`OPENHUMAN_MODULE_PATH` — pays for each conversion with real coverage. So this
-is storage."* `guarded_in_memory()` returns a real `MemoryGuard` over a real
-`HashMap` store, and `memory/tools/forget.rs` already carries the
-`#[ignore]`/`OPENHUMAN_MODULE_PATH` twins for the cases that need a genuine
-module.
+That reasoning is sound and the conclusion still does not follow, for two
+reasons found on trying to write the code:
 
-So the missing piece is **narrower than a test tier**: these two handlers have
-no way to be handed a guard. The pattern to copy is already used twice —
-`FlowRunDigestSubscriber::with_memory` and `flows::ops`' `memory_client_override`
-parameter. Give the chunk handlers the same optional override, point the four
-round-trips at one `guarded_in_memory()` store for both the write and the read,
-and the migration becomes testable for real rather than testable-by-assumption.
+1. **`InMemoryProvider` implements the mandatory three only.** Its own comment
+   says so — "advertising more would fail `audit_provider`, since no optional
+   accessor is overridden" — so `as_chunks()` is `None` and a guard over it
+   answers `Unsupported`, not rows. `guard_over` is the documented extension
+   point for "a test that needs an optional family", but a chunks-capable
+   provider would have to be written.
+2. **The round-trips span the writer, and the writer is not injectable.** They
+   write with `ingest_rpc(&cfg, …)` and read with `list_chunks_rpc(&cfg, …)`.
+   Pointing only the read at an injected guard puts the two halves on different
+   stores by construction — the same split the migration was supposed to avoid,
+   relocated into the test.
+
+**So the actual prerequisite is the writer.** `ingest_rpc` must go through
+`MemoryIngest` at the same time as the readers go through `MemoryChunks`, or
+neither can. That is not a seam — it is a behaviour change. `ingest_rpc` today
+owns payload canonicalisation per `SourceKind`, chunking, entity scoring and
+persistence; `MemoryIngest::ingest_document` takes a flat `IngestItem { content:
+String, … }` and returns `IngestOutcome { written, skipped, ids }`. Migrating it
+moves chunking and scoring into the driver and needs a mapping decision for
+`chunks_dropped` (lifecycle-dropped) against `skipped` (already present), which
+the idempotency test asserts on. Its own PR, with its own before/after.
+
+**The good news, and it is the part that changes the plan:** this is **not**
+release-blocked. The pinned module is v1.2.0, and `git show
+v1.2.0:crates/tinymemory-module/src/service/mod.rs` serves `list_chunks`,
+`get_chunk` **and** `ingest_document`. Unlike the twelve families in §A1–A8,
+nothing has to happen upstream first. This one is entirely host-side
+sequencing: migrate the writer, then the readers, in one change that can be
+verified end to end.
 
 **What stays true regardless:** do not make those four tests pass by binding a
-global client first. They are the only thing that goes red when a handler moves
-to the guard without a seam, and turning them green that way ships a silent
-guard/engine store split.
+global client first. They are the only thing that goes red when a reader moves
+to the guard while the writer stays on the store, and turning them green that
+way ships exactly the split they are detecting.
 
 ### A10. Richer chunk listing for `read_rpc` — a design pass, not a method
 

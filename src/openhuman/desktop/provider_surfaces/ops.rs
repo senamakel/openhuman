@@ -3,7 +3,7 @@
 //! This initial cut keeps state in-memory so the RPC contract and UI wiring
 //! can land before the SQLite-backed store arrives.
 
-use crate::openhuman::memory::{ApiEnvelope, ApiMeta, EmptyRequest};
+use tinymemory_core::rpc_models::{ApiEnvelope, ApiMeta, EmptyRequest};
 use crate::rpc::RpcOutcome;
 use serde::Serialize;
 use std::collections::BTreeMap;

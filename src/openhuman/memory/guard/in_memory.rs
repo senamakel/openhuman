@@ -428,10 +428,18 @@ impl InMemoryChunks {
 
 #[async_trait]
 impl MemoryCore for InMemoryChunks {
-    async fn store(&self, _entry: MemoryEntry) -> Result<String, MemoryError> {
-        Err(MemoryError::Unsupported(
-            "InMemoryChunks stores chunks, not entries".to_string(),
-        ))
+    async fn store(
+        &self,
+        _namespace: &str,
+        _key: &str,
+        _content: &str,
+        _category: MemoryCategory,
+        _session_id: Option<&str>,
+        _taint: MemoryTaint,
+    ) -> Result<(), MemoryError> {
+        Err(MemoryError::Other(anyhow::anyhow!(
+            "InMemoryChunks stores chunks, not entries"
+        )))
     }
 
     async fn get(&self, _namespace: &str, _key: &str) -> Result<Option<MemoryEntry>, MemoryError> {
@@ -440,6 +448,15 @@ impl MemoryCore for InMemoryChunks {
 
     async fn forget(&self, _namespace: &str, _key: &str) -> Result<bool, MemoryError> {
         Ok(false)
+    }
+
+    async fn list(
+        &self,
+        _namespace: Option<&str>,
+        _category: Option<&MemoryCategory>,
+        _session_id: Option<&str>,
+    ) -> Result<Vec<MemoryEntry>, MemoryError> {
+        Ok(Vec::new())
     }
 
     async fn namespaces(&self) -> Result<Vec<NamespaceSummary>, MemoryError> {
@@ -481,7 +498,7 @@ impl MemoryIngest for InMemoryChunks {
             token_count: 0,
             seq_in_source: 0,
             created_at: timestamp,
-            is_split: false,
+            partial_message: false,
         };
         chunks.push(chunk);
         Ok(IngestOutcome {
@@ -530,7 +547,7 @@ impl MemoryChunks for InMemoryChunks {
             })
             // Scope is applied before the limit, as the trait requires: a
             // disallowed source must not starve permitted ones out of the page.
-            .filter(|chunk| scope.is_none_or(|s| s.allows(&chunk.metadata.source_id)))
+            .filter(|chunk| scope.is_none_or(|s| s.allows_source_id(&chunk.metadata.source_id)))
             .cloned()
             .collect();
         rows.sort_by(|a, b| b.created_at.cmp(&a.created_at));
@@ -553,16 +570,20 @@ impl MemoryChunks for InMemoryChunks {
     }
 
     async fn chunk_detail(&self, _chunk_id: &str) -> Result<Option<ChunkDetail>, MemoryError> {
-        Err(MemoryError::Unsupported(
-            "InMemoryChunks does not store chunk detail".to_string(),
-        ))
+        Err(MemoryError::Other(anyhow::anyhow!(
+            "InMemoryChunks does not store chunk detail"
+        )))
     }
 
     async fn storage_kinds(&self) -> Result<Vec<String>, MemoryError> {
         Ok(vec!["document".to_string()])
     }
 
-    async fn chunk_embeddings(&self) -> Result<Vec<ChunkEmbedding>, MemoryError> {
+    async fn chunk_embeddings(
+        &self,
+        _chunk_ids: &[String],
+        _model_signature: &str,
+    ) -> Result<Vec<ChunkEmbedding>, MemoryError> {
         Ok(Vec::new())
     }
 }
@@ -572,7 +593,9 @@ impl MemoryRecall for InMemoryChunks {
     async fn recall(
         &self,
         _query: &str,
-        _opts: OwnedRecallOpts,
+        _limit: usize,
+        _opts: &OwnedRecallOpts,
+        _scope: Option<&SourceScope>,
     ) -> Result<Vec<MemoryEntry>, MemoryError> {
         Ok(Vec::new())
     }

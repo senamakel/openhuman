@@ -20,6 +20,7 @@
         "decorations": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
+        "trafficLightPosition": { "x": 20, "y": 28 },
         "resizable": true,
         "center": false
       }

@@ -359,7 +359,64 @@ const Composer: FC<{
         <ComposerPrimitive.AttachmentDropzone asChild>
           <div
             data-slot="aui_composer-shell"
-            className="border-line focus-within:border-line-strong data-[dragging=true]:border-ring flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
+            // Keyed to `content-faint` rather than `line`/`line-strong`, which
+            // sat too close to the composer's own surface to read as an edge at
+            // all; `content-faint` is a real step along the grey ramp in both
+            // themes and the alpha then pulls it back.
+            //
+            // The border is deliberately fainter than the content card's edge
+            // (0.65 in `index.css`) because it is not carrying the definition
+            // alone: `shadow-soft` lifts the composer off the transcript, and a
+            // lifted surface needs less outline than a flat one to read as
+            // separate. Border and shadow together at low strength read calmer
+            // than either at full — a hard 0.65 line under a shadow reads as
+            // two competing edges.
+            //
+            // Two roles, kept apart: the SHADOW is constant and the BORDER is
+            // what moves.
+            //
+            // The shadow is an explicit near-black pair rather than
+            // `shadow-soft`/`shadow-medium`. Those tokens are black at 0.08
+            // alpha, which is a diffuse haze — on the themed chrome behind this
+            // composer it reads as a smudge rather than a cast shadow.
+            //
+            // Both layers are pushed DOWN rather than spread evenly, because an
+            // even shadow reads as a glow: it implies light from everywhere,
+            // which is no light at all, and the composer ends up looking fuzzy
+            // instead of raised. The offsets (6px, 22px) exceed each layer's
+            // negative spread (-4px, -16px), so the cast clears the box on the
+            // bottom edge and is pulled in at the top — the asymmetry is what
+            // says "lit from above".
+            //
+            //   0 8px  12px -4px  / 0.34  — contact: tight, near the edge
+            //   0 30px 44px -16px / 0.48  — cast: far, wide, and the stronger
+            //
+            // The far layer carrying more alpha than the near one is
+            // deliberate and is what gives depth; the usual instinct is the
+            // reverse, which flattens it back out.
+            //
+            // `animate-composer-shadow` then orbits those offsets clockwise on
+            // a slow loop (`composerShadowOrbit`, `index.css`), as though the
+            // light above the composer circles the room. The static values here
+            // are the orbit's 25% stop, so the animation starts from roughly
+            // where the unanimated composer sits rather than jumping on load. The static `shadow-[…]` above is
+            // not redundant: it is what `motion-reduce:animate-none` falls back
+            // to, so the composer keeps its elevation when the OS asks for less
+            // motion and merely stops moving. Keyframes override the utility
+            // while the animation runs, which is why the two can coexist.
+            //
+            // Focus is now carried entirely by the border — 0.35 → 0.90 on the
+            // same token, so the edge sharpens rather than changing colour —
+            // and `transition` names border-color alone. Animating the shadow
+            // as well meant two things moving at once for a single event; with
+            // the elevation fixed, the composer stays put and only its outline
+            // responds. `duration-200 ease-out` is the settle, and
+            // `motion-reduce` drops it for anyone who asked the OS for less
+            // motion — the cue still lands, just instantly.
+            //
+            // `border-ring` on drag is untouched — that state is meant to break
+            // the pattern.
+            className="border-content-faint/35 focus-within:border-content-faint/90 data-[dragging=true]:border-ring shadow-[0_8px_12px_-4px_rgb(0_0_0/0.34),0_30px_44px_-16px_rgb(0_0_0/0.48)] animate-composer-shadow motion-reduce:animate-none flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
             {HostComposerAttachments ? <HostComposerAttachments /> : <ComposerAttachments />}
             {/*
              * Lexical rather than the plain `ComposerPrimitive.Input` textarea,
@@ -492,13 +549,27 @@ const ComposerAction: FC<{
           {showIdleAction ? (
             <ComposerIdleAction />
           ) : hasComposerAttachments && composerText.trim().length === 0 ? (
+            // Pinned to `primary-500` rather than left on `variant="default"`.
+            // That variant paints `bg-primary`, which `styles/shadcn-tokens.css`
+            // aliases to `primary-500` in light but `primary-400` in DARK — a
+            // pale sky blue. Its label is `--content-inverted`, which is white
+            // in both themes (not actually inverted per theme), so in dark the
+            // send button was white-on-pale-blue: washed out, and about 2.4:1,
+            // which is below AA for a control. `primary-500` under white is
+            // ~4.6:1 and reads as the accent in both themes.
+            // Overriding here rather than repointing the dark `--primary`
+            // alias: that token backs every `variant="default"` button in the
+            // app, and dark-mode-lightens-the-accent is a defensible palette
+            // choice to make deliberately, not as a side effect of fixing one
+            // button. `cn` is tailwind-merge, so the later `bg-primary-500`
+            // replaces the variant's `bg-primary` cleanly.
             <TooltipIconButton
               tooltip="Send message"
               side="bottom"
               type="button"
               variant="default"
               size="icon"
-              className="aui-composer-send size-7 rounded-full"
+              className="aui-composer-send size-7 rounded-full bg-primary-500 text-content-inverted hover:bg-primary-600"
               data-testid="send-message-button"
               aria-label="Send message"
               onClick={() => {
@@ -515,7 +586,7 @@ const ComposerAction: FC<{
                 type="button"
                 variant="default"
                 size="icon"
-                className="aui-composer-send size-7 rounded-full"
+                className="aui-composer-send size-7 rounded-full bg-primary-500 text-content-inverted hover:bg-primary-600"
                 data-testid="send-message-button"
                 aria-label="Send message">
                 <ArrowUpIcon className="aui-composer-send-icon size-4" />

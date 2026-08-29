@@ -20,8 +20,8 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
-use tinyagents::harness::tool::ToolExecutionContext;
 use tinycortex::memory::conversations::{self as conversations, ConversationMessage};
+use tinytools::ToolRunContext;
 
 pub struct SpawnAsyncSubagentTool;
 
@@ -115,7 +115,7 @@ impl Tool for SpawnAsyncSubagentTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        tool_context: Option<&ToolExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let agent_id = args
             .get("agent_id")
@@ -250,7 +250,7 @@ impl Tool for SpawnAsyncSubagentTool {
             ));
         }
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
+        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
         let effective_action_root = workspace_descriptor
             .as_ref()
             .map(|workspace| {

@@ -30,7 +30,7 @@ use glob::Pattern;
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 use walkdir::WalkDir;
 
 const DEFAULT_MAX_RESULTS: usize = 500;
@@ -94,7 +94,7 @@ impl Tool for GlobTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         self.execute_in_context(args, context).await
     }
@@ -104,7 +104,7 @@ impl GlobTool {
     async fn execute_in_context(
         &self,
         args: serde_json::Value,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let pattern_str = args
             .get("pattern")

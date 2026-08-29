@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 
 /// Git operations tool for structured repository management.
 /// Provides safe, parsed git operations with JSON output.
@@ -31,8 +31,8 @@ impl GitOperationsTool {
     /// `ToolExecutionContext::from_run_context`. Otherwise falls back to the
     /// tool's configured `action_dir`, which preserves the non-isolated
     /// behaviour exactly. See #3376, #4249 (08.5).
-    fn effective_action_dir_for_context(&self, context: Option<&ToolExecutionContext>) -> PathBuf {
-        if let Some(workspace) = context.and_then(|ctx| ctx.workspace.as_ref()) {
+    fn effective_action_dir_for_context(&self, context: Option<&dyn ToolRunContext>) -> PathBuf {
+        if let Some(workspace) = context.and_then(|ctx| ctx.workspace()) {
             tracing::debug!(
                 workspace_root = %workspace.root.display(),
                 policy_id = %workspace.policy_id,
@@ -510,7 +510,7 @@ impl Tool for GitOperationsTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         self.execute_in_context(args, context).await
     }
@@ -524,7 +524,7 @@ impl GitOperationsTool {
     async fn execute_in_context(
         &self,
         args: serde_json::Value,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let operation = match args.get("operation").and_then(|v| v.as_str()) {
             Some(op) => op,

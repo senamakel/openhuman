@@ -277,7 +277,9 @@ impl Tool for McpCallTool {
         if options.prefer_markdown && result.markdown_formatted.is_none() {
             result.markdown_formatted = Some(result.output());
         }
-        Ok(result.into())
+        Ok(crate::openhuman::skills::types::tool_result_from_mcp(
+            result,
+        ))
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {

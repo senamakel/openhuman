@@ -1288,7 +1288,9 @@ impl ToolPolicyMiddleware {
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .and_then(|t| t.generated_runtime_context(args))
+            .and_then(|t| {
+                crate::openhuman::tools::traits::generated_runtime_context(t.as_ref(), args)
+            })
     }
 }
 

@@ -2,9 +2,9 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { renderWithProviders } from '../test/test-utils';
-import type { FeedbackItem } from '../types/feedback';
-import Feedback, { acceptedItemMatchesFilters } from './Feedback';
+import { renderWithProviders } from '../../../test/test-utils';
+import type { FeedbackItem } from '../../../types/feedback';
+import Feedback, { acceptedItemMatchesFilters } from './FeedbackPanel';
 
 const mockList = vi.fn();
 const mockVote = vi.fn();
@@ -14,7 +14,7 @@ const mockGetFeedback = vi.fn();
 const mockAddComment = vi.fn();
 const mockValidateFeedback = vi.fn();
 
-vi.mock('../services/api/feedbackApi', () => ({
+vi.mock('../../../services/api/feedbackApi', () => ({
   feedbackApi: {
     listFeedback: (...args: unknown[]) => mockList(...args),
     voteFeedback: (...args: unknown[]) => mockVote(...args),
@@ -29,7 +29,7 @@ vi.mock('../services/api/feedbackApi', () => ({
 // Drive `isAdmin` (which gates the status control) without standing up a full
 // core-state snapshot; flip `role` to 'admin' only in the tests that need it.
 const userRole = vi.hoisted(() => ({ current: 'user' as 'user' | 'admin' }));
-vi.mock('../hooks/useUser', () => ({
+vi.mock('../../../hooks/useUser', () => ({
   useUser: () => ({
     user: { role: userRole.current },
     isLoading: false,

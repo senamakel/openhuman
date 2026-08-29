@@ -12,7 +12,6 @@ import Brain from './pages/Brain';
 import AgentInsightsPreview from './pages/dev/AgentInsightsPreview';
 import AssistantUiDemoPage from './pages/dev/assistant-ui-demo';
 import UiGallery from './pages/dev/UiGallery';
-import Feedback from './pages/Feedback';
 import FlowCanvasPage, { FlowCanvasDraftPage } from './pages/FlowCanvasPage';
 import FlowsPage from './pages/FlowsPage';
 import Invites from './pages/Invites';
@@ -257,14 +256,10 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
         }
       />
 
-      <Route
-        path="/feedback"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <Feedback />
-          </ProtectedRoute>
-        }
-      />
+      {/* Feedback is a settings panel now (`/settings/feedback`). Kept as a
+          redirect rather than deleted: it was a real top-level route, so it is
+          in users' history and in the walkthrough's deep links. */}
+      <Route path="/feedback" element={<Navigate to="/settings/feedback" replace />} />
 
       <Route
         path="/notifications"

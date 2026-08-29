@@ -1678,11 +1678,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'Der gesamte Webzugriff ist blockiert – der Assistent kann keine Website öffnen oder lesen.',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'Einstellungen durchsuchen…',
-  'settings.settingsSearch.ariaLabel': 'Einstellungen durchsuchen',
-  'settings.settingsSearch.clear': 'Suche löschen',
-  'settings.settingsSearch.resultsLabel': 'Suchergebnisse',
-  'settings.settingsSearch.noResults': 'Keine Einstellungen für „{query}“ gefunden',
   'settings.embeddings.title': 'Einbettungen',
   'settings.embeddings.description':
     'Wählen Sie den Embedding-Anbieter, der Erinnerungen in Vektoren für die semantische Suche umwandelt. Das Ändern des Anbieters, Modells oder der Dimensionen macht gespeicherte Vektoren ungültig und erfordert einen vollständigen Speicher-Reset.',
@@ -5516,7 +5511,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'Einfarbig',
   'settings.theme.backdrop.image': 'Bild',
   'settings.theme.backdropImageUrl': 'URL des Hintergrundbilds',
-  'settings.theme.backdropDots': 'Hintergrundpunkte anzeigen',
   'settings.theme.backdropHint':
     'Netz zeigt den animierten Farbverlauf; Einfarbig nutzt einen flachen Hintergrund; Bild verwendet dein eigenes.',
   'settings.theme.autoForkHint':
@@ -6106,9 +6100,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'Verbindungen verwalten',
   'walkthrough.steps.connectionsTab.content':
     'Connections ist immer in der Hauptnavigation verfügbar, wenn du Dienste hinzufügen oder anpassen möchtest.',
-  'walkthrough.steps.feedbackTab.title': 'Feedback senden',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback ist der direkte Ort, um Probleme zu melden oder Verbesserungen vorzuschlagen.',
   'walkthrough.steps.allSet.title': 'Alles bereit!',
   'walkthrough.steps.allSet.content':
     'Dein Assistent hat dir eine Willkommensnotiz hinterlassen: Hier kannst du chatten, fragen oder Ideen sammeln. Viel Spaß!',

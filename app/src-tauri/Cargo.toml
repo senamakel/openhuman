@@ -300,6 +300,10 @@ motosan-ai-oauth = { path = "../../vendor/motosan-ai-oauth" }
 # released tag) — same patch as the root Cargo world so both resolve the
 # in-tree SDK source. `git submodule update --init vendor/tinyagents` first.
 tinyagents = { path = "../../vendor/tinyagents" }
+# TinyTools rides in through tinyagents' own vendored checkout. The path must
+# match the one the core crate names, or cargo resolves two distinct packages
+# and the shell's `dyn Tool` stops being the core's. See the core manifest.
+tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 # TinyFlows, TinyCortex, TinyChannels, and TinyPlace are vendored beside
 # TinyAgents so integration work can test crate changes against OpenHuman before
 # publishing.

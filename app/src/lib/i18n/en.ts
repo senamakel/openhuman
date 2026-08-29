@@ -1737,11 +1737,6 @@ const en: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'All web access is blocked: the assistant cannot open or read any website.',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'Search settings…',
-  'settings.settingsSearch.ariaLabel': 'Search settings',
-  'settings.settingsSearch.clear': 'Clear search',
-  'settings.settingsSearch.resultsLabel': 'Search results',
-  'settings.settingsSearch.noResults': 'No settings found for “{query}”',
   // ─── Embeddings settings ───────────────────────────────────
   'settings.embeddings.title': 'Embeddings',
   'settings.embeddings.description':
@@ -5985,7 +5980,6 @@ const en: TranslationMap = {
   'settings.theme.backdrop.solid': 'Solid',
   'settings.theme.backdrop.image': 'Image',
   'settings.theme.backdropImageUrl': 'Background image URL',
-  'settings.theme.backdropDots': 'Show background dots',
   'settings.theme.backdropHint':
     'Mesh shows the animated gradient; Solid uses a flat background; Image paints your own.',
   'settings.theme.builtInBadge': 'Preset',
@@ -6567,9 +6561,6 @@ const en: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'Manage connections',
   'walkthrough.steps.connectionsTab.content':
     'Connections is always available from the main nav when you want to add or adjust services.',
-  'walkthrough.steps.feedbackTab.title': 'Send feedback',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback gives you a direct place to report rough edges or ask for improvements.',
   'walkthrough.steps.allSet.title': "You're all set!",
   'walkthrough.steps.allSet.content':
     'Your assistant left you a welcome note - this is your space to chat, ask questions, or brainstorm. Have fun!',

@@ -5,7 +5,7 @@ use serde_json::Value;
 use crate::openhuman::tools::traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolTimeout,
 };
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 
 pub struct ArchetypeDelegationTool {
     pub tool_name: String,
@@ -121,7 +121,7 @@ impl Tool for ArchetypeDelegationTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        tool_context: Option<&ToolExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let raw_prompt = args
             .get("prompt")

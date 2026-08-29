@@ -1637,11 +1637,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'Semua akses web diblokir - asisten tidak dapat membuka atau membaca website apapun.',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'Cari pengaturan…',
-  'settings.settingsSearch.ariaLabel': 'Cari pengaturan',
-  'settings.settingsSearch.clear': 'Hapus pencarian',
-  'settings.settingsSearch.resultsLabel': 'Hasil pencarian',
-  'settings.settingsSearch.noResults': 'Tidak ada pengaturan yang cocok untuk “{query}”',
   'settings.embeddings.title': 'Sematan',
   'settings.embeddings.description':
     'Pilih penyedia embedding yang mengubah memori menjadi vektor untuk pencarian semantik. Mengubah penyedia, model, atau dimensi membatalkan vektor yang tersimpan dan memerlukan reset memori penuh.',
@@ -5398,7 +5393,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'Solid',
   'settings.theme.backdrop.image': 'Gambar',
   'settings.theme.backdropImageUrl': 'URL gambar latar belakang',
-  'settings.theme.backdropDots': 'Tampilkan titik latar belakang',
   'settings.theme.backdropHint':
     'Jaring menampilkan gradien beranimasi; Solid menggunakan latar belakang polos; Gambar menampilkan milik Anda sendiri.',
   'settings.theme.autoForkHint':
@@ -5978,9 +5972,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'Kelola koneksi',
   'walkthrough.steps.connectionsTab.content':
     'Connections selalu tersedia di navigasi utama saat Anda ingin menambah atau menyesuaikan layanan.',
-  'walkthrough.steps.feedbackTab.title': 'Kirim masukan',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback memberi tempat langsung untuk melaporkan masalah atau meminta peningkatan.',
   'walkthrough.steps.allSet.title': 'Semua siap!',
   'walkthrough.steps.allSet.content':
     'Asisten meninggalkan catatan sambutan: ini ruang Anda untuk chat, bertanya, atau menyusun ide. Selamat mencoba!',

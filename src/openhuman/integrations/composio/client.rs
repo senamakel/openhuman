@@ -187,6 +187,22 @@ impl ComposioClient {
         tool: &str,
         arguments: Option<serde_json::Value>,
     ) -> Result<ComposioExecuteResponse> {
+        self.execute_tool_with_connection(tool, arguments, None)
+            .await
+    }
+
+    /// `POST /agent-integrations/composio/execute` — run a Composio action
+    /// against one specific connected account.
+    ///
+    /// `connection_id = None` preserves [`Self::execute_tool`]'s ambient-account
+    /// behavior. A non-empty id is forwarded as `connectionId`; the backend
+    /// verifies that the authenticated user owns it before dispatching.
+    pub async fn execute_tool_with_connection(
+        &self,
+        tool: &str,
+        arguments: Option<serde_json::Value>,
+        connection_id: Option<&str>,
+    ) -> Result<ComposioExecuteResponse> {
         let tool = tool.trim();
         if tool.is_empty() {
             anyhow::bail!("composio.execute_tool: tool slug must not be empty");
@@ -208,8 +224,16 @@ impl ComposioClient {
         // mode dispatch.
         let arguments = super::execute_prepare::prepare_execute_arguments(tool, arguments)
             .map_err(anyhow::Error::msg)?;
-        tracing::debug!(tool = %tool, "[composio] execute_tool");
-        let body = json!({ "tool": tool, "arguments": arguments });
+        let connection_id = connection_id.map(str::trim).filter(|id| !id.is_empty());
+        tracing::debug!(
+            tool = %tool,
+            connection_id = ?connection_id,
+            "[composio] execute_tool"
+        );
+        let mut body = json!({ "tool": tool, "arguments": arguments });
+        if let Some(connection_id) = connection_id {
+            body["connectionId"] = json!(connection_id);
+        }
         let mut resp = self
             .execute_tool_with_post_oauth_retry(tool, &body, POST_OAUTH_ACTION_RETRY_DELAY)
             .await?;

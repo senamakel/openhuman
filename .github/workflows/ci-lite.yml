@@ -574,11 +574,19 @@ jobs:
         # runtimes moved behind the `tinyruntime` TinyBus module, adding
         # `tinyruntime-bus`. 268 -> 269 on 2026-08-23: the TinyJuice wire
         # contract moved into `tinyjuice-bus`, which cannot be gated because
-        # `inference::tokenjuice` compiles in every build. See the kernel-floor
-        # history for why these raises are temporary/justified. macOS resolves
-        # one higher per the host skew recorded in the limits history — this
-        # expects the CI host.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 269
+        # `inference::tokenjuice` compiles in every build. 269 -> 270 on
+        # 2026-08-29: `tinytools` becomes the dependency behind the `Tool`
+        # trait/types, which cannot be gated because `tools/` is kernel
+        # surface — zero transitive additions, native build count unchanged
+        # at 2. See the kernel-floor history for why these raises are
+        # temporary/justified. macOS resolves one higher per the host skew
+        # recorded in the limits history — this expects the CI host.
+        #
+        # This number MUST move in lockstep with scripts/kernel-floor.limits —
+        # it is a second source of truth for the same Linux name count and is
+        # not derived from that file. Bump both in the same PR that raises
+        # (or lowers) the floor.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 270
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on

@@ -99,7 +99,9 @@ use objc2::runtime::{AnyClass, AnyObject};
 #[cfg(target_os = "macos")]
 use objc2::ClassType;
 #[cfg(target_os = "macos")]
-use objc2_app_kit::{NSPanel, NSWindowCollectionBehavior, NSWindowStyleMask};
+use objc2_app_kit::{
+    NSPanel, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask, NSWindowTitleVisibility,
+};
 
 // Use Tauri's upstream native WebView runtime on every desktop platform.
 pub(crate) type AppRuntime = tauri::Wry;
@@ -1213,6 +1215,70 @@ fn path_has_executable(name: &str) -> bool {
         return false;
     };
     std::env::split_paths(&path_var).any(|dir| dir.join(name).is_file())
+}
+
+/// Tauri command: swap the main window's title bar to match the sidebar state.
+///
+/// Expanded, the sidebar's own header stands in for a title bar: it is the
+/// drag region, and its icon row is aligned with the traffic lights (see
+/// `trafficLightPosition` in `tauri.conf.json` and the arithmetic in
+/// `SidebarHeader.tsx`). Collapsed, that row is gone — the rail is 56px of
+/// icons — so the window is left with controls floating on bare content and no
+/// title anywhere. This hands the job back to macOS for the duration.
+///
+/// Two calls, because `TitleBarStyle` alone is not enough:
+///
+/// - `set_title_bar_style` toggles the *bar*. Note it does NOT move the content:
+///   `tauri-runtime-wry` keeps `fullsize_content_view(true)` for both `Visible`
+///   and `Overlay`, so the webview still spans the full window and nothing
+///   reflows on collapse. Only `titlebar_transparent` differs.
+/// - `setTitleVisibility` toggles the *text*, which the style does not touch.
+///   `hiddenTitle: true` in `tauri.conf.json` is a builder-time flag (tao's
+///   `with_title_hidden`) with no runtime setter anywhere in tao or tauri, so
+///   the NSWindow is driven directly. Without this half the bar comes back
+///   empty and the whole feature looks broken.
+///
+/// macOS-only: `titleBarStyle` is a no-op elsewhere, where the OS draws its own
+/// decorated title bar regardless of what the sidebar is doing.
+#[tauri::command]
+fn set_titlebar_for_sidebar(app: AppHandle<AppRuntime>, collapsed: bool) -> Result<(), String> {
+    log::debug!("[window] set_titlebar_for_sidebar collapsed={collapsed}");
+
+    #[cfg(target_os = "macos")]
+    {
+        let window = app
+            .get_webview_window("main")
+            .ok_or_else(|| "main window not found".to_string())?;
+
+        let style = if collapsed {
+            tauri::TitleBarStyle::Visible
+        } else {
+            tauri::TitleBarStyle::Overlay
+        };
+        window
+            .set_title_bar_style(style)
+            .map_err(|e| format!("set_title_bar_style failed: {e}"))?;
+
+        match window.ns_window() {
+            Ok(ns_window_raw) => unsafe {
+                let ns_window: &NSWindow = &*(ns_window_raw as *const NSWindow);
+                ns_window.setTitleVisibility(if collapsed {
+                    NSWindowTitleVisibility::Visible
+                } else {
+                    NSWindowTitleVisibility::Hidden
+                });
+            },
+            Err(e) => return Err(format!("ns_window unavailable: {e}")),
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, collapsed);
+        Ok(())
+    }
 }
 
 /// Tauri command: bring the main window to front from any webview (e.g. overlay orb click).
@@ -3399,6 +3465,7 @@ pub fn run() {
             native_notifications::notification_permission_state,
             native_notifications::notification_permission_request,
             activate_main_window,
+            set_titlebar_for_sidebar,
             native_notifications::show_native_notification,
             mascot_window_show,
             mascot_window_hide,

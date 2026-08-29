@@ -15,6 +15,7 @@ use tinyagents::harness::tool::{
     ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects,
     ToolTimeout as TaToolTimeout, WorkspaceAccess,
 };
+use tinytools::ToolRunContext;
 
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.
 /// `ask_user_clarification`), so the loop should pause and surface `question`
@@ -191,10 +192,10 @@ const TINYAGENTS_TOOL_SESSION: &str = "tinyagents";
 pub(crate) async fn execute_openhuman_tool(
     tool: &dyn crate::openhuman::tools::Tool,
     call: TaToolCall,
-    context: Option<&ToolExecutionContext>,
+    context: Option<&dyn ToolRunContext>,
 ) -> TaToolResult {
     let workspace_root = context
-        .and_then(|ctx| ctx.workspace.as_ref())
+        .and_then(|ctx| ctx.workspace())
         .map(|workspace| workspace.root.display().to_string());
     tracing::debug!(
         tool = %call.name,
@@ -393,7 +394,7 @@ impl SharedToolAdapter {
     async fn call_openhuman_tool(
         &self,
         call: TaToolCall,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> tinyagents::Result<TaToolResult> {
         let found = self
             .sets

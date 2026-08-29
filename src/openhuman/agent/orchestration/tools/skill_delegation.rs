@@ -23,7 +23,7 @@ use crate::openhuman::tools::orchestrator_tools::sanitise_slug;
 use crate::openhuman::tools::traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult,
 };
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 
 /// Canonical tool name surfaced to the orchestrator LLM.
 pub const INTEGRATIONS_DELEGATE_TOOL_NAME: &str = "delegate_to_integrations_agent";
@@ -204,7 +204,7 @@ impl Tool for SkillDelegationTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        tool_context: Option<&ToolExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let raw_toolkit = args
             .get("toolkit")

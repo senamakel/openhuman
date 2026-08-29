@@ -4435,6 +4435,7 @@ dependencies = [
  "tinymemory-tinycortex",
  "tinyplace",
  "tinyruntime-bus",
+ "tinytools",
  "tinyvoice-bus",
  "tinywallet-bus",
  "tokio",
@@ -7038,6 +7039,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "thiserror 2.0.20",
+ "tinytools",
  "tokio",
  "tracing",
 ]
@@ -7443,6 +7445,16 @@ checksum = "b1e27c91459209c2986af3dcf603a5a74a4368754ce37414f59acc971167f643"
 dependencies = [
  "displaydoc",
  "zerovec",
+]
+
+[[package]]
+name = "tinytools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

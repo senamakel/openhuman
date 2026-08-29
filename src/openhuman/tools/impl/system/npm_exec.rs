@@ -27,7 +27,7 @@ use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 
 /// Absolute ceiling callers can request via `timeout_secs`. There is **no**
 /// default timeout — `npm install`/build steps on a cold cache or slow network
@@ -166,7 +166,7 @@ impl Tool for NpmExecTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         self.execute_in_context(args, context).await
     }
@@ -176,7 +176,7 @@ impl NpmExecTool {
     async fn execute_in_context(
         &self,
         args: serde_json::Value,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let subcommand = match args.get("subcommand").and_then(|v| v.as_str()) {
             Some(s) => s.trim().to_string(),

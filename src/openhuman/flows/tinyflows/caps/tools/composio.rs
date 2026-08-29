@@ -27,11 +27,34 @@ use crate::openhuman::config::Config;
 use crate::openhuman::integrations::composio::client::{
     create_composio_client, direct_execute, ComposioClientKind,
 };
+use crate::openhuman::integrations::composio::ComposioExecuteResponse;
 use crate::openhuman::security::GateDecision;
 
 /// Dispatches a Composio action slug through the tier, curation, preflight and
 /// approval gates.
 pub(crate) struct ComposioToolBackend;
+
+/// Dispatches through the selected Composio mode while preserving the
+/// workflow node's exact connected-account choice.
+async fn execute_for_connection(
+    kind: ComposioClientKind,
+    slug: &str,
+    args: Option<Value>,
+    entity_id: &str,
+    connection_id: Option<&str>,
+) -> Result<ComposioExecuteResponse> {
+    match kind {
+        ComposioClientKind::Backend(client) => client
+            .execute_tool_with_connection(slug, args, connection_id)
+            .await
+            .map_err(|e| EngineError::Capability(e.to_string())),
+        ComposioClientKind::Direct(tool) => {
+            direct_execute(&tool, slug, args, entity_id, connection_id)
+                .await
+                .map_err(|e| EngineError::Capability(e.to_string()))
+        }
+    }
+}
 
 #[async_trait]
 impl ToolBackend for ComposioToolBackend {
@@ -53,6 +76,8 @@ impl ToolBackend for ComposioToolBackend {
         super::super::preflight_composio_args(config, slug, args).await
     }
 
+    /// Executes a curated Composio action after account resolution and all
+    /// workflow security gates have succeeded.
     async fn invoke(
         &self,
         ctx: &ToolCallCtx<'_>,
@@ -182,75 +207,39 @@ impl ToolBackend for ComposioToolBackend {
             "[flows] tool_call: invoking composio tool"
         );
 
-        let response = match kind {
-            ComposioClientKind::Backend(client) => {
-                if let Some((id, resolved)) = &resolved_account {
-                    match resolved {
-                        Some((toolkit, _label)) => tracing::warn!(
-                            target: "flows",
-                            %slug,
-                            connection_id = %id,
-                            %toolkit,
-                            "[flows] tool_call: EXECUTING ON THE WRONG ACCOUNT — connection_ref \
-                             names a specific connected account, but backend mode has no per-call \
-                             account-scoping path yet, so this call runs against the AMBIENT \
-                             signed-in session account instead of the one requested (E-m3, \
-                             documented backend-API-gap stub, see caps.rs's OpenHumanTools doc). \
-                             Proceeds rather than failing closed."
-                        ),
-                        None => tracing::warn!(
-                            target: "flows",
-                            %slug,
-                            connection_id = %id,
-                            "[flows] tool_call: POSSIBLY EXECUTING ON THE WRONG ACCOUNT — \
-                             connection_ref names a connection id not found among the user's live \
-                             connected accounts, and backend mode has no per-call account-scoping \
-                             path to validate it against anyway — this call runs against the \
-                             AMBIENT signed-in session account regardless (E-m3, documented \
-                             backend-API-gap stub, see caps.rs's OpenHumanTools doc). Proceeds \
-                             rather than failing closed."
-                        ),
-                    }
-                }
-                client
-                    .execute_tool(slug, args_opt)
-                    .await
-                    .map_err(|e| EngineError::Capability(e.to_string()))
-            }
-            ComposioClientKind::Direct(tool) => {
-                match &resolved_account {
-                    Some((id, Some((toolkit, _label)))) => tracing::info!(
-                        target: "flows",
-                        %slug,
-                        connection_id = %id,
-                        %toolkit,
-                        "[flows] tool_call: executing against the resolved connected account"
-                    ),
-                    Some((id, None)) => tracing::warn!(
-                        target: "flows",
-                        %slug,
-                        connection_id = %id,
-                        "[flows] tool_call: connection_ref connection_id not found among the user's \
-                         live connected accounts (stale cache or foreign id) — forwarding to \
-                         Composio Direct mode as-is"
-                    ),
-                    None => tracing::debug!(
-                        target: "flows",
-                        %slug,
-                        "[flows] tool_call: no connection_ref — using the ambient signed-in account"
-                    ),
-                }
-                direct_execute(
-                    &tool,
-                    slug,
-                    args_opt,
-                    &live_config.composio.entity_id,
-                    connection_id,
-                )
-                .await
-                .map_err(|e| EngineError::Capability(e.to_string()))
-            }
-        };
+        match &resolved_account {
+            Some((id, Some((toolkit, _label)))) => tracing::info!(
+                target: "flows",
+                %slug,
+                connection_id = %id,
+                %toolkit,
+                mode = kind.mode(),
+                "[flows] tool_call: executing against the resolved connected account"
+            ),
+            Some((id, None)) => tracing::warn!(
+                target: "flows",
+                %slug,
+                connection_id = %id,
+                mode = kind.mode(),
+                "[flows] tool_call: connection_ref connection_id not found among the user's live \
+                 connected accounts (stale cache or foreign id) — forwarding the exact id so the \
+                 provider can reject it rather than falling back to an ambient account"
+            ),
+            None => tracing::debug!(
+                target: "flows",
+                %slug,
+                mode = kind.mode(),
+                "[flows] tool_call: no connection_ref — using the ambient signed-in account"
+            ),
+        }
+        let response = execute_for_connection(
+            kind,
+            slug,
+            args_opt,
+            &live_config.composio.entity_id,
+            connection_id,
+        )
+        .await;
 
         // A successful HTTP round-trip can still carry a provider-side failure
         // (`{successful: false, error: "..."}`, e.g. a Slack 400 on
@@ -275,5 +264,67 @@ impl ToolBackend for ComposioToolBackend {
         }
 
         serde_json::to_value(response?).map_err(|e| EngineError::Capability(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use axum::{routing::post, Json, Router};
+    use serde_json::{json, Value};
+
+    use super::*;
+    use crate::openhuman::integrations::composio::ComposioClient;
+    use crate::openhuman::integrations::IntegrationClient;
+
+    /// Regression for #5751: the flow adapter used to parse and log the chosen
+    /// account, then call `execute_tool` without it. The request therefore ran
+    /// against the ambient account. Pin the final backend JSON body so that
+    /// dropping the id at any point in this seam fails the test.
+    #[tokio::test]
+    async fn backend_dispatch_forwards_the_workflow_connection_id() {
+        let app = Router::new().route(
+            "/agent-integrations/composio/execute",
+            post(|Json(body): Json<Value>| async move {
+                assert_eq!(body["tool"], "GITHUB_LIST_REPOSITORY_ISSUES");
+                assert_eq!(body["arguments"]["owner"], "tinyhumansai");
+                assert_eq!(body["connectionId"], "ca_target_account");
+                Json(json!({
+                    "success": true,
+                    "data": {
+                        "data": { "issues": [] },
+                        "successful": true,
+                        "error": null,
+                        "costUsd": 0.0
+                    }
+                }))
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mock backend");
+        let addr = listener.local_addr().expect("mock backend address");
+        tokio::spawn(async move {
+            axum::serve(listener, app)
+                .await
+                .expect("serve mock backend");
+        });
+
+        let client = ComposioClient::new(Arc::new(IntegrationClient::new(
+            format!("http://{addr}"),
+            "test-token".to_string(),
+        )));
+        let response = execute_for_connection(
+            ComposioClientKind::Backend(client),
+            "GITHUB_LIST_REPOSITORY_ISSUES",
+            Some(json!({ "owner": "tinyhumansai" })),
+            "unused-in-backend-mode",
+            Some("ca_target_account"),
+        )
+        .await
+        .expect("backend dispatch should succeed");
+
+        assert!(response.successful);
     }
 }

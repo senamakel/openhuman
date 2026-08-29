@@ -26,8 +26,8 @@ use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, To
 use async_trait::async_trait;
 use serde_json::json;
 use std::fmt::Write as _;
-use tinyagents::harness::tool::ToolExecutionContext;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
+use tinytools::ToolRunContext;
 
 /// The sub-agent archetype this tool drives.
 const SCOUT_AGENT_ID: &str = "context_scout";
@@ -724,7 +724,7 @@ impl Tool for AgentPrepareContextTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        tool_context: Option<&ToolExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let prepared_sources = current_agent_context_prepared_sources();
         if !prepared_sources.is_empty() {
@@ -745,7 +745,7 @@ impl Tool for AgentPrepareContextTool {
             question,
             focus,
             &tool_catalog,
-            tool_context.and_then(|ctx| ctx.workspace.clone()),
+            tool_context.and_then(|ctx| ctx.workspace().cloned()),
         )
         .await
     }

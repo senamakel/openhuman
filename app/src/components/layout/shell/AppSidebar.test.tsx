@@ -23,15 +23,46 @@ function renderAppSidebar(
 // context the harness doesn't provide). SidebarSlot is left real on purpose —
 // the harness itself imports SidebarSlotProvider from it.
 //
-// The Rewards and Feedback footer rows that used to live here are gone:
-// Rewards is a cloud-gated `NAV_TABS` destination (covered by
-// `SidebarNav.test.tsx`) and Feedback is a header icon (covered by
-// `SidebarHeader.test.tsx`). The footer is the status strip alone now.
+// The sidebar has no footer at all now. It last held a status strip — the
+// connectivity dot and the build/version line — and before that Rewards and
+// Feedback rows; Rewards became a cloud-gated `NAV_TABS` destination (covered
+// by `SidebarNav.test.tsx`) and Feedback a header icon (covered by
+// `SidebarHeader.test.tsx`). `ConnectionIndicator` itself is still live — it
+// renders on the Home page — so it is only this mount point that went.
 vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
+
+describe('nav separator visibility', () => {
+  it('shows the separator on a route whose region opens with a plain list', () => {
+    renderAppSidebar({ initialEntries: ['/settings'] });
+    expect(screen.getByTestId('sidebar-nav-separator').className).not.toContain('opacity-0');
+  });
+
+  it('hides it on chat, whose region opens with its own outlined button', () => {
+    renderAppSidebar({ initialEntries: ['/chat'] });
+    expect(screen.getByTestId('sidebar-nav-separator').className).toContain('opacity-0');
+  });
+
+  it('hides it on a chat thread route too', () => {
+    renderAppSidebar({ initialEntries: ['/chat/abc123'] });
+    expect(screen.getByTestId('sidebar-nav-separator').className).toContain('opacity-0');
+  });
+
+  it('keeps the separator mounted when hidden', () => {
+    // `opacity-0`, never unmounted: its `my-*` is the only gap between the nav
+    // group and the projected region, so removing it would collapse the two
+    // lists together.
+    renderAppSidebar({ initialEntries: ['/chat'] });
+    expect(screen.getByTestId('sidebar-nav-separator')).toBeInTheDocument();
+  });
+
+  it('does not match a route that merely starts with the same letters', () => {
+    renderAppSidebar({ initialEntries: ['/chatter'] });
+    expect(screen.getByTestId('sidebar-nav-separator').className).not.toContain('opacity-0');
+  });
+});
 vi.mock('./SidebarHeader', () => ({ default: () => null }));
 vi.mock('./SidebarNav', () => ({ default: () => null }));
 vi.mock('./SidebarAppRail', () => ({ default: () => null }));
-vi.mock('../../ConnectionIndicator', () => ({ default: () => null }));
 
 // The `Sidebar` column stays mounted while collapsed (`collapsible="icon"`),
 // so `AppSidebar` — not `RootShellLayout` — is what switches to the compact

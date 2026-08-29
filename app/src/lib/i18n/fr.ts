@@ -1676,11 +1676,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     "Tout accès au web est bloqué: l'assistant ne peut ouvrir ni lire aucun site web.",
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'Rechercher dans les paramètres…',
-  'settings.settingsSearch.ariaLabel': 'Rechercher dans les paramètres',
-  'settings.settingsSearch.clear': 'Effacer la recherche',
-  'settings.settingsSearch.resultsLabel': 'Résultats de recherche',
-  'settings.settingsSearch.noResults': 'Aucun paramètre trouvé pour « {query} »',
   'settings.embeddings.title': 'Encastrements',
   'settings.embeddings.description':
     "Choisissez le fournisseur d'embeddings qui convertit la mémoire en vecteurs pour la recherche sémantique. Changer le fournisseur, le modèle ou les dimensions invalide les vecteurs stockés et nécessite une réinitialisation complète de la mémoire.",
@@ -5501,7 +5496,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'Uni',
   'settings.theme.backdrop.image': 'Image',
   'settings.theme.backdropImageUrl': "URL de l'image d'arrière-plan",
-  'settings.theme.backdropDots': "Afficher les points d'arrière-plan",
   'settings.theme.backdropHint':
     'Le maillage affiche le dégradé animé ; Uni utilise un fond plat ; Image affiche le vôtre.',
   'settings.theme.autoForkHint':
@@ -6091,9 +6085,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'Gérer les connexions',
   'walkthrough.steps.connectionsTab.content':
     'Connections reste disponible dans la navigation principale pour ajouter ou ajuster des services.',
-  'walkthrough.steps.feedbackTab.title': 'Envoyer un retour',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback vous donne un lieu direct pour signaler les problèmes ou demander des améliorations.',
   'walkthrough.steps.allSet.title': 'Tout est prêt !',
   'walkthrough.steps.allSet.content':
     'Votre assistant vous a laissé une note de bienvenue : cet espace sert à discuter, poser des questions ou explorer des idées. Amusez-vous bien !',

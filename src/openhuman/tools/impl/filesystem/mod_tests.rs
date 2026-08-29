@@ -9,6 +9,7 @@ use super::*;
 use crate::openhuman::security::policy::TrustedAccess;
 use std::path::Path;
 use tinyagents::harness::context::{RunConfig, RunContext};
+use tinyagents::harness::tool::ToolExecutionContext;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 /// A run context carrying a workspace descriptor rooted at `root`, exactly as

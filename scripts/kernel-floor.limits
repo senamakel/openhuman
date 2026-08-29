@@ -13,6 +13,39 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   288/270/2  2026-08-29  the tool vocabulary moved into its own crate
+#                      (+1 package, +1 NAME: `tinytools`). This entry is the
+#                      CURRENT limit; the tinyjuice entry below it left the
+#                      profile at 287/269/2 and this raises it by one on top of
+#                      that.
+#
+#                      It brings NO third-party crate this profile did not
+#                      already have. Its whole dependency list is `anyhow`,
+#                      `async-trait`, `serde` and `serde_json`, all four of them
+#                      already resolved here — measured, not assumed: the native
+#                      build count is unchanged at 2 (`libsqlite3-sys`, `ring`),
+#                      and every one of the 287 previous packages is still
+#                      exactly one package. The +1 is the crate itself.
+#
+#                      It cannot be gated. `src/openhuman/tools/` is kernel
+#                      surface — `shell.rs` alone is reached from the agent turn
+#                      path in every build — so the `Tool` trait compiles in
+#                      every configuration and the vocabulary has no feature to
+#                      hang off. Same situation as `tinyjuice-bus` below, and
+#                      for the same structural reason.
+#
+#                      What it buys is that `tinyagents` and this crate now name
+#                      the SAME tool types instead of structural twins. Before
+#                      this, both declared their own and the seam between them
+#                      was hand-written; `humanize_tool_name` and
+#                      `context_detail_from_args` existed in two copies, one of
+#                      which already carried a comment warning that two copies is
+#                      how one silently stops stripping a prefix the other does.
+#                      `WorkspaceDescriptor` and `SandboxMode` collapsed the same
+#                      way. It also deletes ~780 lines of type definitions from
+#                      this crate (`tools/traits.rs` 690 -> 125,
+#                      `skills/types.rs` 338 -> 127).
+#
 #   287/269/2  2026-08-23  the TinyJuice wire contract moved into its own crate
 #                      (+1 package, +1 NAME: `tinyjuice-bus`). This entry is
 #                      the CURRENT limit; the tinymcp entry below it left the
@@ -460,4 +493,4 @@
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
 # 307/284  2026-08-12  Re-baseline after the upstream lockfile resolution;
 #                      `flows` remains at two native packages.
-flows:287:269:2
+flows:288:270:2

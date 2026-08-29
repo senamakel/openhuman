@@ -1659,11 +1659,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'Todo o acesso à web está bloqueado: o assistente não pode abrir ou ler nenhum site.',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'Pesquisar configurações…',
-  'settings.settingsSearch.ariaLabel': 'Pesquisar configurações',
-  'settings.settingsSearch.clear': 'Limpar pesquisa',
-  'settings.settingsSearch.resultsLabel': 'Resultados da pesquisa',
-  'settings.settingsSearch.noResults': 'Nenhuma configuração encontrada para “{query}”',
   'settings.embeddings.title': 'Incorporações',
   'settings.embeddings.description':
     'Escolha qual provedor de embeddings converte memória em vetores para busca semântica. Alterar o provedor, modelo ou dimensões invalida vetores armazenados e requer uma redefinição completa da memória.',
@@ -5456,7 +5451,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'Sólido',
   'settings.theme.backdrop.image': 'Imagem',
   'settings.theme.backdropImageUrl': 'URL da imagem de fundo',
-  'settings.theme.backdropDots': 'Mostrar pontos de fundo',
   'settings.theme.backdropHint':
     'A malha mostra o gradiente animado; Sólido usa um fundo plano; Imagem exibe o seu próprio.',
   'settings.theme.autoForkHint':
@@ -6040,9 +6034,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'Gerencie conexões',
   'walkthrough.steps.connectionsTab.content':
     'Connections está sempre na navegação principal quando você quiser adicionar ou ajustar serviços.',
-  'walkthrough.steps.feedbackTab.title': 'Enviar feedback',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback oferece um lugar direto para relatar problemas ou pedir melhorias.',
   'walkthrough.steps.allSet.title': 'Tudo pronto!',
   'walkthrough.steps.allSet.content':
     'Seu assistente deixou uma nota de boas-vindas: este é seu espaço para conversar, perguntar ou explorar ideias. Divirta-se!',

@@ -1535,11 +1535,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAll': '全部阻止',
   'settings.search.accessBlockAllHint': '所有网页访问都已阻止，助手无法打开或阅读任何网站。',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': '搜索设置…',
-  'settings.settingsSearch.ariaLabel': '搜索设置',
-  'settings.settingsSearch.clear': '清除搜索',
-  'settings.settingsSearch.resultsLabel': '搜索结果',
-  'settings.settingsSearch.noResults': '未找到与“{query}”匹配的设置',
   'settings.embeddings.title': '向量嵌入',
   'settings.embeddings.description':
     '选择将记忆转换为语义搜索向量的嵌入提供商。更改提供商、模型或维度会使已存储的向量无效，需要完全重置记忆。',
@@ -5085,7 +5080,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': '纯色',
   'settings.theme.backdrop.image': '图片',
   'settings.theme.backdropImageUrl': '背景图片 URL',
-  'settings.theme.backdropDots': '显示背景圆点',
   'settings.theme.backdropHint': '网格显示动态渐变；纯色使用平面背景；图片使用你自己的背景。',
   'settings.theme.autoForkHint': '编辑预设主题会自动将更改保存为新的自定义主题。',
   'settings.theme.title': '主题工作室',
@@ -5627,8 +5621,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': '管理连接',
   'walkthrough.steps.connectionsTab.content':
     '想添加或调整服务时，Connections 始终可从主导航进入。',
-  'walkthrough.steps.feedbackTab.title': '发送反馈',
-  'walkthrough.steps.feedbackTab.content': 'Feedback 提供直接入口，用来报告问题或请求改进。',
   'walkthrough.steps.allSet.title': '全部就绪！',
   'walkthrough.steps.allSet.content':
     '你的助手留下了一条欢迎消息：这里就是你聊天、提问和整理想法的空间。祝你使用愉快！',

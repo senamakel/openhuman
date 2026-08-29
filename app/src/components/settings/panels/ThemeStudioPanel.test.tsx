@@ -65,7 +65,7 @@ describe('<ThemeStudioPanel />', () => {
       colors: { surface: '1 2 3' },
       fonts: {},
       gradient: { canvas: 'linear-gradient(red, blue)' },
-      backdrop: { kind: 'image', imageUrl: 'https://example.com/bg.jpg', dots: false },
+      backdrop: { kind: 'image', imageUrl: 'https://example.com/bg.jpg' },
     };
 
     fireEvent.change(screen.getByLabelText('Import theme'), {
@@ -76,7 +76,7 @@ describe('<ThemeStudioPanel />', () => {
     expect(store.getState().theme.customThemes[0]).toMatchObject({
       name: 'Imported studio theme',
       gradient: { canvas: 'linear-gradient(red, blue)' },
-      backdrop: { kind: 'image', imageUrl: 'https://example.com/bg.jpg', dots: false },
+      backdrop: { kind: 'image', imageUrl: 'https://example.com/bg.jpg' },
     });
   });
 });

@@ -33,7 +33,7 @@ import {
   type ThemeVariant,
   upsertCustomTheme,
 } from '../../../store/themeSlice';
-import { Button, Checkbox, TextArea, TextField, ToggleGroupItem, ToggleGroupRoot } from '../../ui';
+import { Button, TextArea, TextField, ToggleGroupItem, ToggleGroupRoot } from '../../ui';
 import { SettingsSection, SettingsSelect } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 import ColorTokenField from './theme/ColorTokenField';
@@ -100,7 +100,6 @@ function importedBackdrop(parsed: Partial<Theme>): Theme['backdrop'] {
   return {
     kind,
     imageUrl: typeof parsed.backdrop.imageUrl === 'string' ? parsed.backdrop.imageUrl : undefined,
-    dots: typeof parsed.backdrop.dots === 'boolean' ? parsed.backdrop.dots : undefined,
   };
 }
 
@@ -437,14 +436,6 @@ const ThemeStudioPanel = ({ embedded = false }: ThemeStudioPanelProps = {}) => {
               className="text-xs"
             />
           )}
-          <label className="flex items-center gap-2 text-xs text-content-secondary">
-            <Checkbox
-              checked={effectiveTheme.backdrop?.dots !== false}
-              onCheckedChange={next => dispatch(setThemeBackdrop({ dots: next }))}
-              className="h-3.5 w-3.5"
-            />
-            {t('settings.theme.backdropDots', 'Show background dots')}
-          </label>
           <p className="text-[11px] text-content-faint">
             {t(
               'settings.theme.backdropHint',

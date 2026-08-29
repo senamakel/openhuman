@@ -15,6 +15,7 @@ import CoreConnectionPanel from './panels/CoreConnectionPanel';
 import DeveloperOptionsPanel from './panels/DeveloperOptionsPanel';
 import DevicesPanel from './panels/DevicesPanel';
 import EventLogPanel from './panels/EventLogPanel';
+import FeedbackPanel from './panels/FeedbackPanel';
 import McpServerPanel from './panels/McpServerPanel';
 import MemoryDataPanel from './panels/MemoryDataPanel';
 import MemoryDebugPanel from './panels/MemoryDebugPanel';
@@ -88,6 +89,11 @@ export function settingsRouteElements(): ReactNode {
       <Route path="notifications" element={wrapSettingsPage(<NotificationsPanel />)} />
       {/* Real device-pairing panel (replaces the old "Coming Soon" stub). */}
       <Route path="devices" element={wrapSettingsPage(<DevicesPanel />)} />
+      {/* Feedback was its own top-level route reached from a sidebar-header
+          icon. That icon is the command-palette trigger now, which left the
+          page with no way in, so the board lives here as a General panel. The
+          old `/feedback` path redirects (see `AppRoutes`). */}
+      <Route path="feedback" element={wrapSettingsPage(<FeedbackPanel />)} />
 
       {/* ── Assistant ───────────────────────────────────────────── */}
       {/* LLM / Voice / Embeddings moved to the Connections page. */}

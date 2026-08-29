@@ -1642,11 +1642,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'Весь веб-доступ заблокирован: помощник не может открыть или прочитать какой-либо веб-сайт.',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'Поиск в настройках…',
-  'settings.settingsSearch.ariaLabel': 'Поиск в настройках',
-  'settings.settingsSearch.clear': 'Очистить поиск',
-  'settings.settingsSearch.resultsLabel': 'Результаты поиска',
-  'settings.settingsSearch.noResults': 'Настройки по запросу «{query}» не найдены',
   'settings.embeddings.title': 'Эмбеддинги',
   'settings.embeddings.description':
     'Выберите провайдера эмбеддингов, который преобразует память в векторы для семантического поиска. Изменение провайдера, модели или размерности делает сохранённые векторы недействительными и требует полного сброса памяти.',
@@ -5425,7 +5420,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'Сплошной',
   'settings.theme.backdrop.image': 'Изображение',
   'settings.theme.backdropImageUrl': 'URL фонового изображения',
-  'settings.theme.backdropDots': 'Показывать точки фона',
   'settings.theme.backdropHint':
     'Сетка показывает анимированный градиент; Сплошной использует ровный фон; Изображение задаёт ваш собственный.',
   'settings.theme.autoForkHint':
@@ -6006,9 +6000,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'Управляйте подключениями',
   'walkthrough.steps.connectionsTab.content':
     'Connections всегда доступен в основной навигации, когда нужно добавить или настроить сервисы.',
-  'walkthrough.steps.feedbackTab.title': 'Отправить отзыв',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback дает прямое место для сообщений о проблемах и просьб об улучшениях.',
   'walkthrough.steps.allSet.title': 'Все готово!',
   'walkthrough.steps.allSet.content':
     'Ассистент оставил приветственную заметку: здесь можно общаться, задавать вопросы и развивать идеи. Удачи!',

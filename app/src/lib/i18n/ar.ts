@@ -1591,11 +1591,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'وكل الوصول إلى شبكة الإنترنت مغلق - لا يمكن للمساعد فتح أو قراءة أي موقع على شبكة الإنترنت.',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'بحث في الإعدادات…',
-  'settings.settingsSearch.ariaLabel': 'بحث في الإعدادات',
-  'settings.settingsSearch.clear': 'مسح البحث',
-  'settings.settingsSearch.resultsLabel': 'نتائج البحث',
-  'settings.settingsSearch.noResults': 'لا توجد إعدادات مطابقة لـ ”{query}“',
   'settings.embeddings.title': 'التضمينات',
   'settings.embeddings.description':
     'اختر مزود التضمينات الذي يحول الذاكرة إلى متجهات للبحث الدلالي. تغيير المزود أو النموذج أو الأبعاد يبطل المتجهات المخزنة ويتطلب إعادة تعيين كاملة للذاكرة.',
@@ -5250,7 +5245,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'لون موحّد',
   'settings.theme.backdrop.image': 'صورة',
   'settings.theme.backdropImageUrl': 'رابط صورة الخلفية',
-  'settings.theme.backdropDots': 'إظهار نقاط الخلفية',
   'settings.theme.backdropHint':
     'تعرض الشبكة التدرّج المتحرك؛ ويستخدم اللون الموحّد خلفية ثابتة؛ وترسم الصورة خلفيتك الخاصة.',
   'settings.theme.autoForkHint': 'تعديل سمة جاهزة يحفظ تغييراتك تلقائيًا كسمة مخصّصة جديدة.',
@@ -5816,9 +5810,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'إدارة الاتصالات',
   'walkthrough.steps.connectionsTab.content':
     'Connections متاح دائماً في التنقل الرئيسي عندما تريد إضافة الخدمات أو تعديلها.',
-  'walkthrough.steps.feedbackTab.title': 'إرسال ملاحظات',
-  'walkthrough.steps.feedbackTab.content':
-    'يوفر Feedback مكاناً مباشراً للإبلاغ عن المشاكل أو طلب التحسينات.',
   'walkthrough.steps.allSet.title': 'كل شيء جاهز!',
   'walkthrough.steps.allSet.content':
     'ترك لك المساعد رسالة ترحيب: هذه مساحتك للدردشة وطرح الأسئلة وتطوير الأفكار. استمتع!',

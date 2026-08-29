@@ -1613,11 +1613,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     '모든 웹 접근이 차단됩니다. 어시스턴트는 어떤 웹사이트도 열거나 읽을 수 없습니다.',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': '설정 검색…',
-  'settings.settingsSearch.ariaLabel': '설정 검색',
-  'settings.settingsSearch.clear': '검색 지우기',
-  'settings.settingsSearch.resultsLabel': '검색 결과',
-  'settings.settingsSearch.noResults': '“{query}”에 대한 설정을 찾을 수 없습니다',
   'settings.embeddings.title': '임베딩',
   'settings.embeddings.description':
     '시맨틱 검색을 위해 메모리를 벡터로 변환할 임베딩 제공자를 선택하세요. 제공자, 모델 또는 차원을 변경하면 저장된 벡터가 무효화되며 전체 메모리 초기화가 필요합니다.',
@@ -5309,7 +5304,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': '단색',
   'settings.theme.backdrop.image': '이미지',
   'settings.theme.backdropImageUrl': '배경 이미지 URL',
-  'settings.theme.backdropDots': '배경 점 표시',
   'settings.theme.backdropHint':
     '메시는 애니메이션 그라데이션을 표시하고, 단색은 평면 배경을 사용하며, 이미지는 직접 지정한 배경을 사용합니다.',
   'settings.theme.autoForkHint':
@@ -5882,9 +5876,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': '연결 관리',
   'walkthrough.steps.connectionsTab.content':
     '서비스를 추가하거나 조정하고 싶을 때 Connections는 항상 기본 내비게이션에 있습니다.',
-  'walkthrough.steps.feedbackTab.title': '피드백 보내기',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback은 문제를 보고하거나 개선을 요청하는 직접적인 공간입니다.',
   'walkthrough.steps.allSet.title': '준비 완료!',
   'walkthrough.steps.allSet.content':
     '어시스턴트가 환영 메모를 남겼습니다. 이곳에서 채팅하고, 질문하고, 아이디어를 정리해 보세요. 즐겁게 사용하세요!',

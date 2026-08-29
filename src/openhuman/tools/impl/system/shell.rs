@@ -10,7 +10,7 @@ use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 
 /// Maximum output size in bytes (1MB).
 const MAX_OUTPUT_BYTES: usize = 1_048_576;
@@ -147,14 +147,14 @@ impl ShellTool {
     ///
     /// Returns the per-worker git-worktree checkout when the tinyagents harness
     /// threaded a [`WorkspaceDescriptor`] into this call's
-    /// [`ToolExecutionContext`] — an edit-capable worker running with
+    /// [`ToolExecutionContext`](tinyagents::harness::tool::ToolExecutionContext) — an edit-capable worker running with
     /// `isolation = "worktree"`, whose isolated worktree root is carried on the
     /// run context (`RunContext::with_workspace`) and surfaced per tool call via
     /// `ToolExecutionContext::from_run_context`. Otherwise falls back to the
     /// shared `self.security.action_dir`, which preserves the non-isolated
     /// behaviour exactly. See #3376, #4249 (08.5).
-    fn effective_action_dir_for_context(&self, context: Option<&ToolExecutionContext>) -> PathBuf {
-        if let Some(workspace) = context.and_then(|ctx| ctx.workspace.as_ref()) {
+    fn effective_action_dir_for_context(&self, context: Option<&dyn ToolRunContext>) -> PathBuf {
+        if let Some(workspace) = context.and_then(|ctx| ctx.workspace()) {
             tracing::debug!(
                 workspace_root = %workspace.root.display(),
                 policy_id = %workspace.policy_id,
@@ -269,7 +269,7 @@ impl Tool for ShellTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         self.execute_in_context(args, context).await
     }
@@ -279,7 +279,7 @@ impl ShellTool {
     async fn execute_in_context(
         &self,
         args: serde_json::Value,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let command = args
             .get("command")
@@ -333,7 +333,7 @@ impl ShellTool {
         &self,
         command: &str,
         requested_timeout: Option<u64>,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> (bool, ToolResult) {
         // Read-only `Block` + the Option-2 structural guard. Approval for
         // Write / Network / Destructive already happened at the harness
@@ -985,8 +985,11 @@ mod tests {
     /// at `root`, mirroring what the tinyagents harness threads into every tool
     /// call of a worktree-isolated worker (`RunContext::with_workspace` →
     /// `ToolExecutionContext::from_run_context`).
-    fn tool_context_with_workspace(root: &std::path::Path) -> ToolExecutionContext {
+    fn tool_context_with_workspace(
+        root: &std::path::Path,
+    ) -> tinyagents::harness::tool::ToolExecutionContext {
         use tinyagents::harness::context::{RunConfig, RunContext};
+        use tinyagents::harness::tool::ToolExecutionContext;
         use tinyagents::harness::workspace::WorkspaceDescriptor;
         let ws = WorkspaceDescriptor::new(root.to_path_buf()).with_policy_id("test-worktree");
         let ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ()).with_workspace(ws);

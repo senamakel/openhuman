@@ -26,7 +26,7 @@ use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult,
 };
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 
 use super::types::{DeleteResponse, FileMeta, LinkResponse, ListFilesResponse, UploadResponse};
 
@@ -196,10 +196,10 @@ fn mime_for_path(path: &Path) -> &'static str {
 /// workspace from the execution context (mirrors `media_generation`).
 fn action_dir_for_context(
     default_action_dir: &Path,
-    context: Option<&ToolExecutionContext>,
+    context: Option<&dyn ToolRunContext>,
     tool_name: &str,
 ) -> PathBuf {
-    if let Some(workspace) = context.and_then(|ctx| ctx.workspace.as_ref()) {
+    if let Some(workspace) = context.and_then(|ctx| ctx.workspace()) {
         tracing::debug!(
             tool = tool_name,
             workspace_root = %workspace.root.display(),
@@ -400,7 +400,7 @@ impl Tool for StorageUploadFileTool {
         &self,
         args: Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let action_dir = action_dir_for_context(&self.action_dir, context, self.name());
         self.run(args, &action_dir).await
@@ -548,7 +548,7 @@ impl Tool for StorageDownloadFileTool {
         &self,
         args: Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let action_dir = action_dir_for_context(&self.action_dir, context, self.name());
         self.run(args, &action_dir).await

@@ -1623,11 +1623,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'सभी वेब एक्सेस अवरुद्ध है - सहायक किसी भी वेबसाइट को खोल या पढ़ नहीं सकता है।',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'सेटिंग खोजें…',
-  'settings.settingsSearch.ariaLabel': 'सेटिंग खोजें',
-  'settings.settingsSearch.clear': 'खोज साफ़ करें',
-  'settings.settingsSearch.resultsLabel': 'खोज परिणाम',
-  'settings.settingsSearch.noResults': '“{query}” के लिए कोई सेटिंग नहीं मिली',
   'settings.embeddings.title': 'एम्बेडिंग्स',
   'settings.embeddings.description':
     'चुनें कि कौन सा एम्बेडिंग प्रदाता मेमोरी को सिमेंटिक सर्च के लिए वेक्टर में बदलता है। प्रदाता, मॉडल या आयाम बदलने से संग्रहीत वेक्टर अमान्य हो जाते हैं और पूर्ण मेमरी रीसेट की आवश्यकता होती है।',
@@ -5371,7 +5366,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'ठोस',
   'settings.theme.backdrop.image': 'छवि',
   'settings.theme.backdropImageUrl': 'पृष्ठभूमि छवि URL',
-  'settings.theme.backdropDots': 'पृष्ठभूमि बिंदु दिखाएं',
   'settings.theme.backdropHint':
     'मेश एनिमेटेड ग्रेडिएंट दिखाता है; ठोस एक सपाट पृष्ठभूमि का उपयोग करता है; छवि आपकी अपनी पृष्ठभूमि बनाती है।',
   'settings.theme.autoForkHint':
@@ -5949,9 +5943,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'कनेक्शन प्रबंधित करें',
   'walkthrough.steps.connectionsTab.content':
     'सेवाएं जोड़ने या बदलने के लिए Connections हमेशा मुख्य नेविगेशन में उपलब्ध है।',
-  'walkthrough.steps.feedbackTab.title': 'फ़ीडबैक भेजें',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback समस्याएं बताने या सुधार मांगने की सीधी जगह है।',
   'walkthrough.steps.allSet.title': 'सब तैयार है!',
   'walkthrough.steps.allSet.content':
     'आपके सहायक ने स्वागत नोट छोड़ा है: यहां आप चैट कर सकते हैं, सवाल पूछ सकते हैं या विचार कर सकते हैं। आनंद लें!',

@@ -269,17 +269,17 @@ impl Tool for GeneratedContextTool {
         Ok(ToolResult::success("generated-output"))
     }
 
-    fn generated_runtime_context(
+    fn host_call_extension(
         &self,
         _args: &serde_json::Value,
-    ) -> Option<GeneratedToolRuntimeContext> {
-        Some(GeneratedToolRuntimeContext {
+    ) -> Option<Box<dyn std::any::Any + Send + Sync>> {
+        Some(Box::new(GeneratedToolRuntimeContext {
             provider_id: "mail.runtime".to_string(),
             capability_id: "email.send".to_string(),
             risk: GeneratedToolRuntimeRisk::ExternalWrite,
             source_digest: Some("sha256:abc".to_string()),
             approval_id: Some("approval-1".to_string()),
-        })
+        }))
     }
 }
 

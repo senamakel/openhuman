@@ -12,7 +12,7 @@ use regex::Regex;
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 use walkdir::WalkDir;
 
 const DEFAULT_MAX_MATCHES: usize = 200;
@@ -85,7 +85,7 @@ impl Tool for GrepTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         self.execute_in_context(args, context).await
     }
@@ -95,7 +95,7 @@ impl GrepTool {
     async fn execute_in_context(
         &self,
         args: serde_json::Value,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let pattern = args
             .get("pattern")

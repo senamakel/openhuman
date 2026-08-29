@@ -380,18 +380,12 @@ pub(crate) async fn resolve_composio_account(
 ///   connected set — and it still closes the case where an author hand-types
 ///   an arbitrary/typo'd slug.
 /// - **connection_ref**: `conn` (`"composio:<toolkit>:<connection_id>"`) is
-///   now parsed and forwarded to `direct_execute` (Composio Direct mode).
-///   Backend mode's `execute_tool` still has no per-call account-scoping
-///   path — that's a backend API gap, not something this seam can close
-///   alone — so under Backend mode, a `connection_ref` naming a SPECIFIC
-///   connected account is NOT honored: the call executes against whatever
-///   account happens to be the ambient signed-in session instead (E-m3),
-///   which — when the flow author connected/expected a *different* account
-///   for this action — means the action runs as the wrong identity, not a
-///   graceful no-op. This proceeds rather than failing closed; it logs a
-///   `warn!` naming both the requested and actually-used account so the
-///   mismatch is at least visible in logs, but nothing currently blocks the
-///   call. Documented backend-API-gap stub; see `composio_connection_id`.
+///   parsed and forwarded in both modes: Direct passes it to Composio's
+///   execute endpoint, while Backend includes it as `connectionId` in the
+///   authenticated `/agent-integrations/composio/execute` request. Omitting a
+///   ref deliberately keeps the ambient-account behavior. A supplied but
+///   stale/foreign id is still forwarded exactly so the provider rejects it;
+///   it must never degrade to the ambient account (fixes #5751 / E-m3).
 /// - **Trust gate**: invocation is also routed through the OpenHuman
 ///   `ApprovalGate` (mirrors `tinyagents/middleware.rs::ApprovalSecurityMiddleware`)
 ///   before dispatch, closing the Codex P1 finding that flow tool nodes

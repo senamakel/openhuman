@@ -418,12 +418,18 @@ async fn list_tools_filters_pass_through_as_csv_query_param() {
     assert_eq!(resp_empty_tags.tools[0].function.name, "ECHO_gmail");
 }
 
+/// Ambient execution must preserve the legacy unscoped request shape while
+/// still returning provider success and cost metadata.
 #[tokio::test]
 async fn execute_tool_returns_cost_and_success_flags() {
     let app = Router::new().route(
         "/agent-integrations/composio/execute",
         post(|Json(body): Json<Value>| async move {
             let tool = body["tool"].as_str().unwrap_or("").to_string();
+            assert!(
+                body.get("connectionId").is_none(),
+                "ambient execute_tool calls must omit per-account scoping"
+            );
             Json(json!({
                 "success": true,
                 "data": {

@@ -19,10 +19,12 @@ vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) 
 describe('SidebarHeader', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Keyboard Shortcuts, Feedback, Settings, and Collapse buttons', () => {
+  it('renders Keyboard Shortcuts, Search, Settings, and Collapse buttons', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     expect(screen.getByRole('button', { name: 'shortcuts.title' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'nav.feedback' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'shortcuts.action.commandPalette' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'nav.settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'chat.hideSidebar' })).toBeInTheDocument();
     // The wallet shortcut was removed long ago; Home followed it, since the
@@ -62,20 +64,18 @@ describe('SidebarHeader', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/settings');
   });
 
-  // Feedback moved here from the sidebar footer row: it is a utility action
-  // like the other three, not a destination the user returns to.
-  it('feedback button navigates to /feedback', () => {
+  // This slot used to be Share Feedback, navigating to `/feedback`. That page
+  // is a settings panel now, and the slot opens the command palette.
+  it('search button runs the command-palette action', () => {
+    const runAction = vi.spyOn(registry, 'runAction');
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    fireEvent.click(screen.getByRole('button', { name: 'nav.feedback' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/feedback');
+    fireEvent.click(screen.getByRole('button', { name: 'shortcuts.action.commandPalette' }));
+    expect(runAction).toHaveBeenCalledWith('meta.command-palette');
   });
 
-  it('marks the feedback button current while the route is open', () => {
-    renderWithProviders(<SidebarHeader />, { initialEntries: ['/feedback'] });
-    expect(screen.getByRole('button', { name: 'nav.feedback' })).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+  it('no longer renders a feedback button', () => {
+    renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
+    expect(screen.queryByRole('button', { name: 'nav.feedback' })).not.toBeInTheDocument();
   });
 
   it('Collapse button calls hide()', () => {

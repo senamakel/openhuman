@@ -31,7 +31,7 @@ pub fn bind_pack_registry(tools: &Arc<Vec<Box<dyn Tool>>>) {
         if name != LOAD_SKILL && name != USE_SKILL {
             continue;
         }
-        if let Some(handle) = tool.pack_registry_handle() {
+        if let Some(handle) = crate::openhuman::tools::traits::pack_registry_handle(tool.as_ref()) {
             handle.bind(weak.clone());
             bound += 1;
         }

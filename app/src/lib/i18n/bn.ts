@@ -1626,11 +1626,6 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAllHint':
     'সকল ওয়েব প্রবেশাধিকার ব্লক করা হয়েছে- সহকারী কোন ওয়েবসাইট খুলতে বা পড়তে পারে না।',
   // ─── Settings global search bar ────────────────────────────
-  'settings.settingsSearch.placeholder': 'সেটিংস খুঁজুন…',
-  'settings.settingsSearch.ariaLabel': 'সেটিংস খুঁজুন',
-  'settings.settingsSearch.clear': 'অনুসন্ধান সাফ করুন',
-  'settings.settingsSearch.resultsLabel': 'অনুসন্ধানের ফলাফল',
-  'settings.settingsSearch.noResults': '“{query}” এর জন্য কোনো সেটিং পাওয়া যায়নি',
   'settings.embeddings.title': 'এমবেডিংস',
   'settings.embeddings.description':
     'কোন এমবেডিং প্রদানকারী মেমরিকে সিমান্টিক সার্চের জন্য ভেক্টরে রূপান্তর করে তা চয়ন করুন। প্রদানকারী, মডেল বা মাত্রা পরিবর্তন করলে সংরক্ষিত ভেক্টর অবৈধ হয়ে যায় এবং সম্পূর্ণ মেমরি রিসেট প্রয়োজন।',
@@ -5373,7 +5368,6 @@ const messages: TranslationMap = {
   'settings.theme.backdrop.solid': 'একরঙা',
   'settings.theme.backdrop.image': 'ছবি',
   'settings.theme.backdropImageUrl': 'পটভূমির ছবির URL',
-  'settings.theme.backdropDots': 'পটভূমির বিন্দু দেখান',
   'settings.theme.backdropHint':
     'মেশ অ্যানিমেটেড গ্রেডিয়েন্ট দেখায়; একরঙা একটি সমতল পটভূমি ব্যবহার করে; ছবি আপনার নিজের পটভূমি আঁকে।',
   'settings.theme.autoForkHint':
@@ -5951,9 +5945,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.connectionsTab.title': 'সংযোগ পরিচালনা করুন',
   'walkthrough.steps.connectionsTab.content':
     'সেবা যোগ বা বদলাতে চাইলে Connections সবসময় প্রধান নেভিগেশনে থাকে।',
-  'walkthrough.steps.feedbackTab.title': 'মতামত পাঠান',
-  'walkthrough.steps.feedbackTab.content':
-    'Feedback সমস্যা জানানো বা উন্নতির অনুরোধ করার সরাসরি জায়গা।',
   'walkthrough.steps.allSet.title': 'সব প্রস্তুত!',
   'walkthrough.steps.allSet.content':
     'আপনার সহকারী একটি স্বাগত নোট রেখে গেছে: এখানে আপনি চ্যাট করতে, প্রশ্ন করতে বা ধারণা গুছাতে পারেন। উপভোগ করুন!',

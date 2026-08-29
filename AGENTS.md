@@ -518,8 +518,66 @@ Two consequences worth knowing before editing this area:
   order agree by construction. The local copy this replaced carried a comment
   promising the two "stay in lockstep", which is the shape of a bug waiting to
   happen, not a guarantee. `humanize_tool_name` and `context_detail_from_args`
-  in `tools/traits.rs` are re-exports/wrappers over the crate for the same
-  reason; only the trimming rule (80 chars, `…`) is OpenHuman's.
+  now live in `tinytools` and are re-exported by both this crate and tinyagents
+  — see the section below.
+
+
+### The tool vocabulary lives in `tinytools` — `tools/traits.rs` is a re-export
+
+The `Tool` trait, `ToolResult` / `ToolContent`, `ToolSpec`, `PermissionLevel`,
+`ToolScope`, `ToolCategory`, `ToolCallOptions`, `ToolTimeout`,
+`WorkspaceDescriptor` and `SandboxMode` are defined in
+[`tinytools`](https://github.com/tinyhumansai/tinytools), which **tinyagents
+also depends on**. That is the whole point: `tinytools::Tool` and the trait the
+harness runs a loop over are the *same* trait, so a tool is implemented once and
+both sides accept it, with no conversion at the seam to get subtly wrong.
+
+`src/openhuman/tools/traits.rs` and `src/openhuman/skills/types.rs` stay as the
+import paths ~190 and ~14 call sites already name; both are now short
+re-exports. New code may name either.
+
+**It is vendored through tinyagents, not beside it.** The dependency is
+`vendor/tinyagents/vendor/tinytools/crates/tinytools` — the exact path tinyagents
+itself declares. A second `vendor/tinytools` submodule of our own would be a
+*different package* to cargo, and `tinytools::ToolResult` from one would not be
+the same type as from the other; every tool here would stop satisfying the
+harness's trait, with a type error naming the same path twice. After cloning:
+`git submodule update --init --recursive vendor/`.
+
+Four things to know before editing this area:
+
+- **The edge points one way, and `ToolRunContext` is why.** tinyagents depends
+  on tinytools, so tinytools cannot name `ToolExecutionContext` — that would be
+  a cycle. A tool that needs its isolated worktree root takes
+  `Option<&dyn ToolRunContext>` instead, which tinyagents implements for its own
+  context type. The trait exposes the workspace, the thread id and the turn
+  output budget and nothing else; the run id, event sink and cancellation token
+  stay harness-internal, because a tool reaching for those is reaching into the
+  run rather than doing its job. tinytools' CI fails if `tinyagents` appears
+  anywhere in its forward dependency tree.
+- **Host-specific tool metadata rides on an erased extension.**
+  `Tool::host_extension` / `host_call_extension` return `dyn Any`, and
+  `traits::pack_registry_handle` / `traits::generated_runtime_context` downcast
+  them back. `PackRegistryHandle` and `GeneratedToolRuntimeContext` are *our*
+  concepts and a shared vocabulary has no business naming them. Two tools and
+  one test use this; everything else returns `None` and pays nothing.
+- **Nothing that decides anything moved.** tinytools lets a tool *declare* the
+  privilege it needs and whether it reaches outside the machine. What to do
+  about those declarations is still ours and stays in one auditable place: the
+  `SecurityPolicy`, the approval gate, the sandbox, `tools/policy.rs`,
+  `tools/timeout/`, `tools/agent_policy/` and the whole `tools/registry/` +
+  `tools/toolpacks/` surface. `tools/schemas.rs` likewise stays — those are RPC
+  controllers bound to `crate::core`.
+- **The MCP conversion is a free function, not a `From` impl.**
+  `skills::types::tool_result_from_mcp` — once `ToolResult` became foreign, the
+  orphan rule forbade the trait impl. It is still written exactly once, because
+  spelled out at each call site it would be three chances to get the error flag
+  the wrong way round.
+
+`tinytools` costs the kernel floor **+1 package / +1 name / 0 native builds**
+(it adds no third-party crate this profile did not already have) and cannot be
+gated: `tools/` is kernel surface, so the trait compiles in every build. See the
+2026-08-29 entry in `scripts/kernel-floor.limits`.
 
 **Rules:**
 

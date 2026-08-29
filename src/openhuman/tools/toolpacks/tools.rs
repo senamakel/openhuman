@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 
 use super::registry;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use tinytools::ToolRunContext;
 
 pub const LOAD_SKILL: &str = "load_skill";
 pub const USE_SKILL: &str = "use_skill";
@@ -170,7 +171,10 @@ impl Tool for LoadSkillTool {
         PermissionLevel::ReadOnly
     }
 
-    fn pack_registry_handle(&self) -> Option<&PackRegistryHandle> {
+    /// The registry handle rides on the vocabulary's erased host extension:
+    /// `PackRegistryHandle` is this host's concept, and `tinytools` has no
+    /// business naming it. `traits::pack_registry_handle` reads it back.
+    fn host_extension(&self) -> Option<&(dyn std::any::Any + Send + Sync)> {
         Some(&self.handle)
     }
 }
@@ -252,7 +256,7 @@ impl Tool for UseSkillTool {
         &self,
         args: Value,
         options: ToolCallOptions,
-        context: Option<&tinyagents::harness::tool::ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let Some((tools, idx)) = self.resolve(&args) else {
             let skill = args.get("skill").and_then(Value::as_str).unwrap_or("");
@@ -323,7 +327,10 @@ impl Tool for UseSkillTool {
         }
     }
 
-    fn pack_registry_handle(&self) -> Option<&PackRegistryHandle> {
+    /// The registry handle rides on the vocabulary's erased host extension:
+    /// `PackRegistryHandle` is this host's concept, and `tinytools` has no
+    /// business naming it. `traits::pack_registry_handle` reads it back.
+    fn host_extension(&self) -> Option<&(dyn std::any::Any + Send + Sync)> {
         Some(&self.handle)
     }
 }

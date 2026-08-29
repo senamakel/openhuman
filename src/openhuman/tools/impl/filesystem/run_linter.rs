@@ -4,7 +4,7 @@ use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, To
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
-use tinyagents::harness::tool::ToolExecutionContext;
+use tinytools::ToolRunContext;
 
 /// Runs linters (cargo clippy, eslint) and returns structured findings.
 pub struct RunLinterTool {
@@ -16,8 +16,8 @@ impl RunLinterTool {
         Self { workspace_dir }
     }
 
-    fn workspace_dir_for_context(&self, context: Option<&ToolExecutionContext>) -> PathBuf {
-        if let Some(workspace) = context.and_then(|ctx| ctx.workspace.as_ref()) {
+    fn workspace_dir_for_context(&self, context: Option<&dyn ToolRunContext>) -> PathBuf {
+        if let Some(workspace) = context.and_then(|ctx| ctx.workspace()) {
             tracing::debug!(
                 workspace_root = %workspace.root.display(),
                 policy_id = %workspace.policy_id,
@@ -71,7 +71,7 @@ impl Tool for RunLinterTool {
         &self,
         args: serde_json::Value,
         _options: ToolCallOptions,
-        context: Option<&ToolExecutionContext>,
+        context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let workspace_dir = self.workspace_dir_for_context(context);
         let linter = args

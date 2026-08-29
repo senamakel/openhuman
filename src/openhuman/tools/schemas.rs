@@ -801,7 +801,6 @@ fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture 
             )];
             RpcOutcome::new(payload, log).into_cli_compatible_json()
         }
-        }
     })
 }
 

@@ -118,6 +118,37 @@ fn mmr_prefers_a_diverse_candidate_over_a_more_relevant_duplicate() {
 }
 
 #[test]
+fn mmr_rewards_an_anti_correlated_candidate() {
+    let positive = [1.0_f32, 0.0];
+    let anti_correlated = [-1.0_f32, 0.0];
+    let orthogonal = [0.0_f32, 1.0];
+    let candidates = vec![
+        MmrCandidate {
+            index: 0,
+            embedding: &positive,
+            relevance: 0.9,
+        },
+        MmrCandidate {
+            index: 1,
+            embedding: &anti_correlated,
+            relevance: 0.5,
+        },
+        MmrCandidate {
+            index: 2,
+            embedding: &orthogonal,
+            relevance: 0.55,
+        },
+    ];
+
+    let selected = mmr_select(&[], &candidates, 2, 0.5);
+
+    // The negative cosine is a diversity reward: -0.5 · -1.0 lifts the
+    // anti-correlated candidate above the merely orthogonal one.
+    assert_eq!(selected[1].index, 1);
+    assert!((selected[1].score - 0.75).abs() < EPSILON);
+}
+
+#[test]
 fn mmr_clamps_limit_and_lambda_and_short_circuits_on_empty_input() {
     let emb = [1.0_f32, 0.0];
     let candidates = vec![MmrCandidate {

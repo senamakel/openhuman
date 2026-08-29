@@ -148,5 +148,10 @@ mod tests {
         assert_eq!(rows[0]["slot"], "memory");
         assert!(rows[0]["contract_version"].is_string());
         assert!(rows[0]["capabilities"].is_array());
+        #[cfg(not(feature = "memory"))]
+        {
+            assert_eq!(rows[0]["driver"], "disabled");
+            assert_eq!(rows[0]["health"], "down");
+        }
     }
 }

@@ -437,8 +437,11 @@ pub fn all_tools_with_runtime(
         Box::new(WalletTxReceiptTool::new()),
         #[cfg(feature = "web3")]
         Box::new(WalletLookupTxTool::new()),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreTool::new(security.clone())),
+        #[cfg(feature = "memory")]
         Box::new(MemoryRecallTool::new()),
+        #[cfg(feature = "memory")]
         Box::new(MemoryForgetTool::new(security.clone())),
         // #4458: the memory read→dedupe→write→update-index protocol
         // (`agent::harness::memory_protocol`) can only close its write cycle via a
@@ -455,20 +458,29 @@ pub fn all_tools_with_runtime(
         Box::new(UpdateMemoryMdTool::new(root_config.workspace_dir.clone())),
         // #002: read-only self-diagnosis of the memory pipeline so the agent
         // can explain an empty/stalled wiki + the fix.
+        #[cfg(feature = "memory")]
         Box::new(MemoryDoctorTool::new(config.clone())),
         // #5172: read-only access to the compiled persona flavour profiles
         // (communication/coding_style/stack/workflow/environment/directives/
         // anti_preferences) that persona ingestion builds but nothing
         // previously surfaced to the agent loop.
+        #[cfg(feature = "memory")]
         Box::new(MemoryFlavourTool::new(config.clone())),
+        #[cfg(feature = "memory")]
         Box::new(MemoryQueryTool),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
+        #[cfg(feature = "memory")]
         Box::new(MemoryVectorSearchTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryChunkContextTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryHybridSearchTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreRawSearchTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreRawChunksTool),
+        #[cfg(feature = "memory")]
         Box::new(MemoryStoreKindsTool),
         // Explicit user-preference pinning — always registered so the model
         // can save user-stated preferences regardless of whether the full

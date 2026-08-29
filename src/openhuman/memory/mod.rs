@@ -58,7 +58,6 @@ pub mod host_impls;
 /// engine's.
 #[cfg(feature = "memory")]
 pub mod obsidian_registry;
-#[cfg(feature = "memory")]
 pub mod namespaces;
 #[cfg(feature = "memory")]
 pub mod ops;

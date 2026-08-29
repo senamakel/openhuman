@@ -475,10 +475,12 @@ pub fn all_tools_with_runtime(
         // inference-based learning subsystem is enabled.  The preference
         // injection into the system prompt is controlled independently by
         // `config.learning.explicit_preferences_enabled`.
+        #[cfg(feature = "memory")]
         Box::new(RememberPreferenceTool::new(security.clone())),
         // Two-lane explicit preferences (general → system prompt, situational →
         // per-query recall). Written verbatim to user_pref_{general,situational};
         // bypasses the inference/stability pipeline. Always registered.
+        #[cfg(feature = "memory")]
         Box::new(SavePreferenceTool::new(security.clone())),
         // WhatsApp data store — read-only agent surface (issue #1341). The
         // store lives in the Tauri shell; these tools reach it over the
@@ -581,16 +583,27 @@ pub fn all_tools_with_runtime(
         // every mutator ships default-OFF via `tools::user_filter`
         // (learning_manage toggle) — they persistently rewrite the assistant's
         // model of the user. enrich_profile also flags external_effect.
+        #[cfg(feature = "memory")]
         Box::new(LearningListFacetsTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningGetFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningCacheStatsTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningUpdateFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningPinFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningUnpinFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningForgetFacetTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningRebuildCacheTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningResetCacheTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningSaveProfileTool),
+        #[cfg(feature = "memory")]
         Box::new(LearningEnrichProfileTool),
         // Task & productivity tools (issue: agent-tool expansion).
         // Read/observe + bounded-write tools are registered here; the
@@ -1027,6 +1040,7 @@ pub fn all_tools_with_runtime(
         tool_tracking_enabled = root_config.learning.tool_tracking_enabled,
         "evaluating ToolStatsTool registration"
     );
+    #[cfg(feature = "memory")]
     if root_config.learning.enabled && root_config.learning.tool_tracking_enabled {
         tools.push(Box::new(ToolStatsTool::new()));
         tracing::debug!("ToolStatsTool registered");

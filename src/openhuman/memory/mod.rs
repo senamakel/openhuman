@@ -53,12 +53,12 @@ pub mod host;
 /// dev-dependency is not linked into the shipped binary.
 #[cfg(feature = "memory")]
 pub mod host_impls;
+pub mod namespaces;
 /// Host desktop policy: is the memory content root a vault Obsidian already
 /// knows about? See the module docs for why this is OpenHuman's and not the
 /// engine's.
 #[cfg(feature = "memory")]
 pub mod obsidian_registry;
-pub mod namespaces;
 #[cfg(feature = "memory")]
 pub mod ops;
 #[cfg(feature = "memory")]

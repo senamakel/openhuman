@@ -763,23 +763,25 @@ fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture 
 
         #[cfg(feature = "memory")]
         {
-        let profile_url = params
-            .get("profile_url")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .ok_or_else(|| "missing or empty `profile_url`".to_string())?;
+            let profile_url = params
+                .get("profile_url")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .ok_or_else(|| "missing or empty `profile_url`".to_string())?;
 
-        let config = config_rpc::load_config_with_timeout().await?;
-        let client = crate::openhuman::integrations::build_client(&config).ok_or_else(|| {
-            "Apify scrape unavailable — no backend session token. Sign in first.".to_string()
-        })?;
+            let config = config_rpc::load_config_with_timeout().await?;
+            let client =
+                crate::openhuman::integrations::build_client(&config).ok_or_else(|| {
+                    "Apify scrape unavailable — no backend session token. Sign in first."
+                        .to_string()
+                })?;
 
-        // The scrape and the markdown renderer both live in
-        // `agent::learning::linkedin_enrichment`, which enriches profile
-        // facets — memory-family behaviour end to end. With the family off the
-        // whole handler is a build-fact error rather than a partial answer.
+            // The scrape and the markdown renderer both live in
+            // `agent::learning::linkedin_enrichment`, which enriches profile
+            // facets — memory-family behaviour end to end. With the family off the
+            // whole handler is a build-fact error rather than a partial answer.
             let data =
                 crate::openhuman::agent::learning::linkedin_enrichment::scrape_linkedin_profile(
                     &client,

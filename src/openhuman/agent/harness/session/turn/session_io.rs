@@ -905,34 +905,34 @@ impl Agent {
     pub(in super::super) fn spawn_transcript_ingestion(&self) {
         #[cfg(feature = "memory")]
         {
-        let Some(path) = self.session_transcript_path.clone() else {
-            log::debug!("[transcript_ingest] no session transcript path yet — skipping spawn");
-            return;
-        };
-        let memory = std::sync::Arc::clone(&self.memory);
+            let Some(path) = self.session_transcript_path.clone() else {
+                log::debug!("[transcript_ingest] no session transcript path yet — skipping spawn");
+                return;
+            };
+            let memory = std::sync::Arc::clone(&self.memory);
 
-        tokio::spawn(async move {
-            match crate::openhuman::agent::learning::transcript_ingest::ingest_transcript_path(
-                memory.as_ref(),
-                &path,
-            )
-            .await
-            {
-                Ok(report) => tracing::info!(
-                    transcript = %path.display(),
-                    extracted = report.extracted,
-                    stored = report.stored,
-                    deduped = report.deduped,
-                    reflections_stored = report.reflections_stored,
-                    "[transcript_ingest] background ingest complete"
-                ),
-                Err(err) => tracing::warn!(
-                    transcript = %path.display(),
-                    error = %err,
-                    "[transcript_ingest] background ingest failed — will retry next threshold window"
-                ),
-            }
-        });
+            tokio::spawn(async move {
+                match crate::openhuman::agent::learning::transcript_ingest::ingest_transcript_path(
+                    memory.as_ref(),
+                    &path,
+                )
+                .await
+                {
+                    Ok(report) => tracing::info!(
+                        transcript = %path.display(),
+                        extracted = report.extracted,
+                        stored = report.stored,
+                        deduped = report.deduped,
+                        reflections_stored = report.reflections_stored,
+                        "[transcript_ingest] background ingest complete"
+                    ),
+                    Err(err) => tracing::warn!(
+                        transcript = %path.display(),
+                        error = %err,
+                        "[transcript_ingest] background ingest failed — will retry next threshold window"
+                    ),
+                }
+            });
         }
     }
 }

@@ -164,7 +164,9 @@ pub async fn composio_delete_connection(
         Err(_) => None,
     };
     #[cfg(not(feature = "memory"))]
-    let toolkit = resolve_toolkit_for_connection(&client, connection_id).await.ok();
+    let toolkit = resolve_toolkit_for_connection(&client, connection_id)
+        .await
+        .ok();
     #[cfg(not(feature = "memory"))]
     let memory_targets: Vec<super::memory_cleanup::MemoryCleanupTarget> = {
         let _ = clear_memory;

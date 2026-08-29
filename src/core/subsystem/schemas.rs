@@ -81,7 +81,23 @@ pub async fn subsystems_status() -> Vec<SubsystemStatus> {
     // disabled-error stub here would have produced.
     #[cfg(not(feature = "memory"))]
     {
-        Vec::new()
+        vec![crate::core::subsystem::SubsystemStatus {
+            slot: crate::core::subsystem::SubsystemSlot::Memory
+                .as_str()
+                .to_string(),
+            driver: "disabled".to_string(),
+            class: crate::core::subsystem::DriverClass::Null
+                .as_str()
+                .to_string(),
+            health: "down".to_string(),
+            health_reason: Some("the `memory` feature is disabled in this build".to_string()),
+            contract_version: crate::core::subsystem::format_contract_version(
+                crate::openhuman::memory::api::CONTRACT_VERSION,
+            ),
+            capabilities: Vec::new(),
+            fell_back_from: None,
+            last_error: Some("the `memory` feature is disabled in this build".to_string()),
+        }]
     }
 }
 

@@ -156,7 +156,7 @@ which read back 0 chunks.
 | # | Claim | Verdict |
 | --- | --- | --- |
 | 1 | "the `config` argument selects the store" | true, not the cause |
-| 2 | "so honour the argument" — `guard_for_config` over `binding::for_workspace` | built it; still 0 chunks |
+| 2 | "so honour the argument" — the historical `guard_for_config` experiment over `binding::for_workspace` | built it; still 0 chunks |
 | 3 | "the handlers need an injection seam" | necessary, not sufficient |
 | 4 | "the writer migration is a behaviour change (chunking moves into the driver)" | **false** — same pipeline both ways |
 | 5 | "the blocker is email" | true but not the first blocker |
@@ -201,7 +201,7 @@ written" that only `already_ingested` distinguished from a normal no-op.
 Migrating the writer today would put that back on the wire as a public RPC
 response narrowing.
 
-**So A9 needs two upstream additions**, filed together as
+**So A9 needs three upstream additions**, filed together as
 [tinymemory#88](https://github.com/tinyhumansai/tinymemory/issues/88) because
 neither is useful alone for this consumer:
 
@@ -210,6 +210,14 @@ neither is useful alone for this consumer:
 2. An email ingest method — `ingest_rpc` dispatches Chat/Email/Document and
    `MemoryIngest` has only `ingest_document` and `ingest_chat`. Already listed
    here as the missing `ingest_email`.
+3. `MemoryIngest::ingest_document` must carry `DocumentInput.title` (or reject
+   title-only documents explicitly). The current adapter sends an empty title,
+   so migrating before this is fixed would silently skip a valid title-only
+   request.
+
+There is no current per-call `guard_for_config` escape hatch. The remaining
+handler work must instead be proven with same-workspace tests against a real
+memory module, so the reader and writer cross the same bound driver.
 
 **What is already done, and is in this PR.** The test-side half no longer
 blocks anything: `memory::guard::in_memory::InMemoryChunks` +

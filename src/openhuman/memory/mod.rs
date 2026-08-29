@@ -35,6 +35,7 @@
 pub mod agent;
 pub mod api;
 pub mod binding;
+pub mod citation;
 pub mod driver;
 pub mod guard;
 pub mod host;
@@ -51,6 +52,7 @@ pub mod host_impls;
 /// knows about? See the module docs for why this is OpenHuman's and not the
 /// engine's.
 pub mod obsidian_registry;
+pub mod namespaces;
 pub mod ops;
 pub mod preferences;
 pub mod sync_events_bridge;
@@ -58,6 +60,7 @@ pub mod sync_events_bridge;
 // back from `tinymemory-core` with the rest of the agent tools — it is a `Tool`
 // impl end to end, and the engine crate cannot name that trait.
 pub mod query;
+pub mod ranking;
 pub mod read_rpc;
 /// The host-side secret / PII scrubbers applied to anything this host persists
 /// or hands on. See the module docs for why this is OpenHuman's and not the

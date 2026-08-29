@@ -48,11 +48,11 @@ pub mod host;
 /// legitimate, because `tinymemory-core` is a dev-dependency there and a
 /// dev-dependency is not linked into the shipped binary.
 pub mod host_impls;
+pub mod namespaces;
 /// Host desktop policy: is the memory content root a vault Obsidian already
 /// knows about? See the module docs for why this is OpenHuman's and not the
 /// engine's.
 pub mod obsidian_registry;
-pub mod namespaces;
 pub mod ops;
 pub mod preferences;
 pub mod sync_events_bridge;

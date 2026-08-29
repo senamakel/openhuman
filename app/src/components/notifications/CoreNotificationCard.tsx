@@ -42,7 +42,7 @@ const CoreNotificationCard = ({ notification: n }: Props) => {
       data-testid="core-notification-card">
       <div className="flex items-start gap-3">
         {/* Unread dot — reserve space so text stays aligned whether read or unread */}
-        <div className="mt-1.5 flex-shrink-0 w-2">
+        <div className="mt-1.5 shrink-0 w-2">
           {!n.read && (
             <span className="block w-2 h-2 rounded-full bg-primary-500" aria-hidden="true" />
           )}
@@ -54,7 +54,7 @@ const CoreNotificationCard = ({ notification: n }: Props) => {
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-surface-subtle text-content-secondary border-line">
               {t(`notifications.category.${n.category}`)}
             </span>
-            <span className="ml-auto text-[11px] text-content-faint flex-shrink-0">
+            <span className="ml-auto text-[11px] text-content-faint shrink-0">
               {relativeTime(n.timestamp)}
             </span>
           </div>

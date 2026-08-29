@@ -85,23 +85,128 @@ fn langfuse_metadata(span: &TraceSpan) -> Value {
     Value::Object(map)
 }
 
+/// The domain the deployed backends live under. A host outside it cannot be
+/// one of ours, so it cannot be staging however it is spelled.
+const DEPLOYMENT_DOMAIN: &str = "tinyhumans.ai";
+
 /// Derive the Langfuse `environment` for a backend base URL. Chosen signal:
 /// the resolved backend host is the single existing config-driven fact that
 /// distinguishes deployments (there is no NODE_ENV-style flag in the core
-/// config) — `staging` in the host → staging, loopback/local → development,
-/// anything else → production.
+/// config) — loopback/local → development, a staging host under
+/// [`DEPLOYMENT_DOMAIN`] → staging, anything else → production.
+///
+/// # Why the host is parsed rather than substring-matched
+///
+/// This used to test `base.contains("staging")` and
+/// `base.contains("localhost" | "127.0.0.1" | "0.0.0.0")` against the whole
+/// URL, which was tolerable while the answer only labelled a payload. It is
+/// not tolerable now that [`skip_push`] decides whether to push at all, so
+/// both directions of the sloppiness became load-bearing:
+///
+/// - **Too broad on staging.** `https://staging-attacker.invalid` contains
+///   `staging`, so it classified as staging and passed the push gate — a host
+///   nothing in this tree owns, reached with a live session token. Anchoring
+///   to [`DEPLOYMENT_DOMAIN`] is what makes the classifier fail *closed*: a
+///   host that is not ours is production, and production does not push.
+/// - **Too narrow on local.** An IPv6 loopback backend (`http://[::1]:7788`)
+///   or a private LAN address matched none of the three literals and
+///   classified as production, so a working development setup would have
+///   silently stopped exporting the moment the gate landed.
+///
+/// Host classification is delegated to [`crate::api::config::host_is_local`],
+/// which already parses the URL and handles IPv4 loopback/unspecified/private,
+/// IPv6 loopback/unspecified, and `localhost` / `*.localhost`. Keeping one
+/// definition matters more than the few lines it saves: two local-host
+/// predicates that disagree is how a gate lets through exactly the case the
+/// other one blocks.
+///
+/// An unparseable URL is production — the fail-closed default. `ingestion_url`
+/// can return a non-URL placeholder when no backend host resolves, and the
+/// caller checks `starts_with("http")` separately; classifying that as
+/// anything pushable would defeat the gate.
 pub(crate) fn environment_for_base(base: &str) -> &'static str {
-    let lower = base.to_ascii_lowercase();
-    if lower.contains("staging") {
+    let Ok(parsed) = url::Url::parse(base) else {
+        return "production";
+    };
+    if crate::api::config::host_is_local(&parsed) {
+        return "development";
+    }
+    let Some(url::Host::Domain(host)) = parsed.host() else {
+        // A public IP literal is not a deployment of ours.
+        return "production";
+    };
+    let host = host.to_ascii_lowercase();
+    let under_deployment_domain =
+        host == DEPLOYMENT_DOMAIN || host.ends_with(&format!(".{DEPLOYMENT_DOMAIN}"));
+    // The label test is on the leftmost label only, so `staging-api…` and
+    // `staging…` match while `api-staging-mirror…` does not sneak in on a
+    // substring.
+    let leftmost_is_staging = host
+        .split('.')
+        .next()
+        .is_some_and(|label| label == "staging" || label.starts_with("staging-"));
+    if under_deployment_domain && leftmost_is_staging {
         "staging"
-    } else if lower.contains("localhost")
-        || lower.contains("127.0.0.1")
-        || lower.contains("0.0.0.0")
-    {
-        "development"
     } else {
         "production"
     }
+}
+
+/// The environments this client may push to Langfuse from.
+///
+/// An allowlist, not `!= "production"`, and it mirrors the backend's rule
+/// (`backend:src/config/langfuseEnvironment.ts`) deliberately: the two gates
+/// have to agree, and two negations drift more easily than two lists. Stating
+/// the permitted set also makes the fail-closed property structural — if
+/// [`environment_for_base`] ever grows a fourth bucket, that bucket does not
+/// push until someone adds it here on purpose.
+///
+/// `test` appears in the backend's list but not here because there is no such
+/// bucket on this side: [`environment_for_base`] maps loopback hosts to
+/// `development`, and that is what the Rust suite resolves to.
+const LANGFUSE_PUSH_ENVIRONMENTS: &[&str] = &["staging", "development"];
+
+/// Whether a push is permitted for a resolved environment.
+fn push_allowed(environment: &str) -> bool {
+    LANGFUSE_PUSH_ENVIRONMENTS.contains(&environment)
+}
+
+/// Emitted at most once per process by [`skip_push`].
+static SKIP_LOGGED: std::sync::Once = std::sync::Once::new();
+
+/// Whether this push should be dropped before any work, logging the reason
+/// once per process.
+///
+/// # Why skip at all, when the backend already refuses
+///
+/// Defence in depth, and latency. The backend answers `403 FEATURE_DISABLED`
+/// outside staging (backend#1291), so nothing reaches Langfuse either way —
+/// but a client that still asks pays a full authenticated round-trip on every
+/// agent turn to be told no, and [`PUSH_TIMEOUT`] bounds that at ten seconds
+/// when the host is slow. #5602 is that stall. The cheapest request is the one
+/// not made.
+///
+/// # Why once per process, and at info
+///
+/// This is on the path of every completed run. A warning per turn would move
+/// the noise rather than remove it, and a skip in production is the configured
+/// outcome, not a fault — so it is `info`, said once, and then silence. The
+/// caller receives `Ok(())`: skipping is a successful no-op, and returning
+/// `Err` would make the caller log the same line on every turn, which is the
+/// thing being avoided.
+fn skip_push(environment: &str) -> bool {
+    if push_allowed(environment) {
+        return false;
+    }
+    SKIP_LOGGED.call_once(|| {
+        tracing::info!(
+            target: LOG_TARGET,
+            "[agent-tracing] Langfuse push disabled for environment {environment:?} \
+             (enabled in: {}) — traces stay local for the rest of this process",
+            LANGFUSE_PUSH_ENVIRONMENTS.join(", ")
+        );
+    });
+    true
 }
 
 /// Convert finished spans into a Langfuse `/api/public/ingestion` batch payload:
@@ -539,13 +644,18 @@ pub(crate) async fn push_observations(
         return Ok(());
     }
     let url = ingestion_url(config);
+    // Same gate, same reasons as `push_spans` — both entry points are on the
+    // per-turn path, so both skip before doing any work.
+    let environment = environment_for_base(&url);
+    if skip_push(environment) {
+        return Ok(());
+    }
     if !url.starts_with("http") {
         return Err(format!(
             "could not resolve Langfuse ingestion URL from backend host (got {url:?})"
         ));
     }
     let token = require_live_session_token(config)?;
-    let environment = environment_for_base(&url);
     // Stamp the run lineage from the run's own observations so a spawned
     // sub-agent's trace links back to its parent turn (#4657).
     let trace_ctx = trace_ctx_with_run_lineage(trace_ctx, observations);
@@ -600,6 +710,14 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
         return Ok(());
     }
     let url = ingestion_url(config);
+    // Ahead of the URL check, the session lookup and the request: a skipped
+    // environment must cost nothing per turn. An unresolvable URL lands in
+    // `environment_for_base`'s catch-all, which is `production` — so a garbage
+    // host skips rather than erroring, which is the right way round.
+    let environment = environment_for_base(&url);
+    if skip_push(environment) {
+        return Ok(());
+    }
     if !url.starts_with("http") {
         return Err(format!(
             "could not resolve Langfuse ingestion URL from backend host (got {url:?})"
@@ -607,7 +725,6 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
     }
     let token = require_live_session_token(config)?;
     let include_content = config.observability.agent_tracing.capture_content;
-    let environment = environment_for_base(&url);
     let batch = spans_to_langfuse_batch(spans, include_content, environment);
     let span_count = spans.len();
 
@@ -749,6 +866,116 @@ mod tests {
             ts_ms: 1_000 + offset,
             event,
         }
+    }
+
+    // ── production push gate (#5602) ──────────────────────────────
+    //
+    // The client already knew which environment it was in — `environment_for_base`
+    // has returned "production" for a prod host since it was written — and pushed
+    // anyway, paying an authenticated round-trip per agent turn bounded by the
+    // 10s `PUSH_TIMEOUT`. These pin that it now skips instead.
+
+    #[test]
+    fn push_is_allowed_only_in_staging_and_development() {
+        assert!(push_allowed("staging"));
+        assert!(push_allowed("development"));
+        assert!(!push_allowed("production"));
+    }
+
+    #[test]
+    fn an_unrecognised_environment_fails_closed() {
+        // The allowlist, not a `!= "production"` negation, is what makes this
+        // true: a bucket nobody has thought of yet does not push.
+        for unknown in ["preview", "prod", "PRODUCTION", "", "qa"] {
+            assert!(
+                !push_allowed(unknown),
+                "{unknown:?} must not push — the allowlist is the fail-closed guard"
+            );
+        }
+    }
+
+    #[test]
+    fn every_environment_for_base_bucket_is_classified_deliberately() {
+        // Ties the two functions together: if `environment_for_base` grows a
+        // bucket, this fails until someone decides which side it belongs on.
+        assert!(push_allowed(environment_for_base(
+            "https://staging-api.tinyhumans.ai"
+        )));
+        assert!(push_allowed(environment_for_base("http://localhost:7788")));
+        assert!(!push_allowed(environment_for_base(
+            "https://api.tinyhumans.ai"
+        )));
+    }
+
+    #[tokio::test]
+    async fn push_spans_skips_production_without_a_session_or_a_request() {
+        // No live session is seeded here, so reaching `require_live_session_token`
+        // would return `Err`. `Ok(())` therefore proves the gate returned before
+        // it — i.e. before any credential work, and before any network call.
+        let mut config = Config::default();
+        config.api_url = Some("https://api.tinyhumans.ai/api/v1".to_string());
+        assert_eq!(environment_for_base(&ingestion_url(&config)), "production");
+
+        let spans = vec![span(
+            "trace:req-1",
+            "span-1",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        )];
+
+        assert_eq!(
+            push_spans(&config, &spans).await,
+            Ok(()),
+            "a production push must be a silent no-op, not an error the caller \
+             logs on every turn"
+        );
+    }
+
+    #[tokio::test]
+    async fn push_observations_skips_production_too() {
+        let mut config = Config::default();
+        config.api_url = Some("https://api.tinyhumans.ai/api/v1".to_string());
+        let ctx = TraceContext::new("trace:req-1", Some("user-1".to_string()));
+        let observations = vec![obs(
+            1,
+            AgentEvent::ModelCompleted {
+                call_id: CallId::new("model-1"),
+                started_at_ms: Some(1_000),
+                usage: Some(Usage::new(10, 3)),
+                input: None,
+                output: None,
+            },
+        )];
+
+        assert_eq!(
+            push_observations(&config, &ctx, &observations, None).await,
+            Ok(())
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unresolvable_host_skips_rather_than_erroring() {
+        // `ingestion_url` on a base it cannot parse lands in the catch-all
+        // bucket, which is production — so the gate swallows it first. Better
+        // than the previous `Err`, which the caller logged every turn.
+        let mut config = Config::default();
+        config.api_url = Some("not a url".to_string());
+
+        let spans = vec![span(
+            "trace:req-1",
+            "span-1",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        )];
+        assert_eq!(push_spans(&config, &spans).await, Ok(()));
     }
 
     #[test]
@@ -1199,6 +1426,70 @@ mod tests {
             environment_for_base("https://api.tinyhumans.ai"),
             "production"
         );
+    }
+
+    /// A hostname that merely *contains* `staging` is not ours. The classifier
+    /// gates whether a live session token leaves the process, so anything it
+    /// cannot positively recognise has to land on `production` — which does
+    /// not push.
+    #[test]
+    fn a_lookalike_staging_host_is_production_not_staging() {
+        for base in [
+            // The substring match this replaced classified all of these as
+            // staging, and `push_allowed` would then have let them through.
+            "https://staging-attacker.invalid",
+            "https://staging.evil.example",
+            "http://staging-api.tinyhumans.ai.evil.example",
+            // Right domain, wrong label position.
+            "https://api-staging-mirror.tinyhumans.ai",
+            // A public IP literal is never a deployment of ours.
+            "https://93.184.216.34",
+        ] {
+            let environment = environment_for_base(base);
+            assert_eq!(
+                environment, "production",
+                "{base} must classify as production, got {environment}"
+            );
+            assert!(!push_allowed(environment), "{base} must not be pushable");
+        }
+    }
+
+    /// The local buckets the substring form missed. An IPv6 loopback backend
+    /// is an ordinary local setup, and before the parse it classified as
+    /// production — so turning the push gate on would have silently stopped
+    /// exports that had been working.
+    #[test]
+    fn local_backends_are_development_including_ipv6_and_private_ranges() {
+        for base in [
+            "http://[::1]:7788",
+            "http://[0:0:0:0:0:0:0:1]:7788",
+            "http://[::]:7788",
+            "http://192.168.1.20:5000",
+            "http://10.0.0.5:5000",
+            "http://api.localhost:5000",
+            "http://0.0.0.0:5000",
+        ] {
+            let environment = environment_for_base(base);
+            assert_eq!(
+                environment, "development",
+                "{base} must classify as development, got {environment}"
+            );
+            assert!(push_allowed(environment), "{base} must stay pushable");
+        }
+    }
+
+    /// An unparseable base is the fail-closed default rather than a panic or a
+    /// pushable bucket. `ingestion_url` returns a non-URL placeholder when no
+    /// backend host resolves.
+    #[test]
+    fn an_unparseable_base_is_production() {
+        for base in ["", "not a url", "/api/v1/ingestion"] {
+            assert_eq!(
+                environment_for_base(base),
+                "production",
+                "{base:?} must fail closed"
+            );
+        }
     }
 
     #[test]

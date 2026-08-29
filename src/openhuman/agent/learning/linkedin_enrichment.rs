@@ -13,6 +13,8 @@
 
 use crate::openhuman::config::Config;
 use crate::openhuman::integrations::{build_client, IntegrationClient};
+use crate::openhuman::memory::api::provider::MemoryProvider;
+use crate::openhuman::memory::api::types::{MemoryTaint, NamespaceDocumentInput};
 use regex::Regex;
 use serde_json::json;
 use std::sync::{Arc, LazyLock};
@@ -193,13 +195,13 @@ pub async fn run_linkedin_enrichment(
     tracing::info!(url = %url, "[linkedin_enrichment] stage 2: scraping LinkedIn profile via Apify");
     result.log.push("Scraping LinkedIn profile...".into());
 
-    // Build memory client once for all persist calls.
-    let memory = match build_memory_client().await {
+    // Resolve the guarded memory driver once for all persist calls.
+    let memory = match profile_memory_writer().await {
         Ok(m) => Some(m),
         Err(e) => {
             tracing::warn!(
                 error = %e,
-                "[linkedin_enrichment] memory client init failed, skipping memory persistence"
+                "[linkedin_enrichment] memory driver unavailable, skipping memory persistence"
             );
             None
         }
@@ -671,48 +673,104 @@ pub async fn scrape_linkedin_profile(
         .ok_or_else(|| anyhow::anyhow!("Apify run returned an empty items array"))
 }
 
-/// The process-wide memory client, for profile persistence.
+/// The namespace scraped LinkedIn profiles are persisted into.
 ///
-/// Deliberately **not** `MemoryClient::new_local()`. That constructor resolves
-/// `~/.openhuman/workspace` from the home directory and never consults
-/// `OPENHUMAN_WORKSPACE`, so on any host that scopes its workspace — every
-/// hosted tenant, and any local run with the variable set — the scraped profile
-/// was written to a store nothing else reads. It failed by *succeeding*, which
-/// is why nothing surfaced it.
+/// `MemoryClient::store_skill_sync("user-profile", ...)` derived this by
+/// prefixing the skill id with `skill-`; that derivation is one line of host
+/// policy, so it moves here rather than needing a contract member (#5560). The
+/// literal must not drift — it is what onboarding RAG recalls against.
+const PROFILE_MEMORY_NAMESPACE: &str = "skill-user-profile";
+
+/// The guarded memory driver's documents family, for profile persistence.
 ///
-/// It was also a second engine construction against the same data directory,
-/// which `memory::bypass_allowlist_tests` refuses for
-/// `MemoryClient::from_workspace_dir` on the grounds that it "risks a second
-/// ingestion worker on one store". `new_local` reaches the same constructor one
-/// call deeper, so it was the same hazard with none of the enforcement.
+/// Deliberately **not** an engine constructor. `MemoryClient::new_local()`
+/// resolved `~/.openhuman/workspace` from the home directory and never
+/// consulted `OPENHUMAN_WORKSPACE`, so on any host that scopes its workspace —
+/// every hosted tenant, and any local run with the variable set — the scraped
+/// profile was written to a store nothing else reads. It failed by
+/// *succeeding*, which is why nothing surfaced it. It was also a second engine
+/// construction against the same data directory, the hazard
+/// `memory::bypass_allowlist_tests` refuses `MemoryClient::from_workspace_dir`
+/// for ("risks a second ingestion worker on one store").
 ///
-/// Resolved through `memory::ops::helpers::active_memory_client` rather than
-/// `global::client` directly, for two reasons beyond the one above.
-///
-/// It does not lose the write when startup wiring has not run: it falls back to
-/// `global::init(Config::load_or_init().workspace_dir)`, explicitly **not** to
-/// `~/.openhuman/workspace` — so it cannot reintroduce the bug this function
-/// exists to fix. Both entry points reach here inside a running daemon, so init
-/// has almost certainly happened; this is about which failure the remaining case
-/// gets, and silently dropping a scraped profile is the worse one.
-///
-/// It also resolves the *same* workspace `write_profile_md` writes `PROFILE.md`
-/// into, since both now derive it from `Config`. Taking the global binding here
-/// left the two halves of `run_linkedin_enrichment` deriving their target from
-/// different sources, which can in principle disagree.
+/// `active_memory_guard` cannot reintroduce either: it resolves the ambient
+/// `CoreContext`'s workspace, falling back to `Config::load_or_init` — the
+/// *same* workspace `write_profile_md` writes `PROFILE.md` into, so the two
+/// halves of `run_linkedin_enrichment` cannot target different stores — and it
+/// hands back the one cached driver for that workspace rather than building
+/// anything.
 ///
 /// The caller still treats an error as "skip persistence and warn", for the
 /// genuine failures that remain.
-async fn build_memory_client() -> anyhow::Result<tinymemory_core::store::MemoryClientRef> {
-    crate::openhuman::memory::ops::helpers::active_memory_client()
+async fn profile_memory_writer(
+) -> anyhow::Result<std::sync::Arc<crate::openhuman::memory::guard::MemoryGuard>> {
+    let guard = crate::openhuman::memory::ops::guard::active_memory_guard()
         .await
-        .map_err(|e| anyhow::anyhow!("memory client unavailable: {e}"))
+        .map_err(|e| anyhow::anyhow!("memory driver unavailable: {e}"))?;
+    if guard.as_documents().is_none() {
+        anyhow::bail!(
+            "memory driver `{}` does not support the documents family",
+            guard.driver_id()
+        );
+    }
+    Ok(guard)
+}
+
+/// Upsert one LinkedIn-derived document through the guarded documents family.
+///
+/// This is `MemoryClient::store_skill_sync`'s body, minus the engine: that
+/// method built exactly this `NamespaceDocumentInput` and handed it to
+/// `put_doc`, which is what `MemoryDocuments::put_document` resolves to on the
+/// embedded driver — same upsert, same background graph-extraction enqueue.
+/// `ExternalSync` is carried explicitly for the same reason `store_skill_sync`
+/// hard-coded it: a scraped third-party profile is not user-authored, and the
+/// subconscious gate reads that provenance off the persisted chunk.
+///
+/// The dedup key is the title, matching `store_skill_sync`'s `document_id: None`
+/// branch — LinkedIn enrichment has no stable upstream id to key on.
+async fn put_profile_document(
+    memory: &crate::openhuman::memory::guard::MemoryGuard,
+    title: String,
+    content: String,
+    source_type: &str,
+    priority: &str,
+    metadata: serde_json::Value,
+) -> anyhow::Result<()> {
+    let documents = memory.as_documents().ok_or_else(|| {
+        anyhow::anyhow!(
+            "memory driver `{}` does not support the documents family",
+            memory.driver_id()
+        )
+    })?;
+    tracing::debug!(
+        namespace = PROFILE_MEMORY_NAMESPACE,
+        source_type = source_type,
+        "[linkedin_enrichment] upserting profile document through the memory driver"
+    );
+    documents
+        .put_document(NamespaceDocumentInput {
+            namespace: PROFILE_MEMORY_NAMESPACE.to_string(),
+            key: title.clone(),
+            title,
+            content,
+            source_type: source_type.to_string(),
+            priority: priority.to_string(),
+            tags: Vec::new(),
+            metadata,
+            category: "core".to_string(),
+            session_id: None,
+            document_id: None,
+            taint: MemoryTaint::ExternalSync,
+        })
+        .await
+        .map(|_| ())
+        .map_err(|e| anyhow::anyhow!("memory store failed: {e}"))
 }
 
 /// Persist the full scraped LinkedIn profile to the user-profile memory
 /// namespace so the agent has rich context about the user.
 async fn persist_linkedin_profile(
-    memory: &tinymemory_core::store::MemoryClient,
+    memory: &crate::openhuman::memory::guard::MemoryGuard,
     url: &str,
     data: &serde_json::Value,
 ) -> anyhow::Result<()> {
@@ -721,47 +779,35 @@ async fn persist_linkedin_profile(
         serde_json::to_string_pretty(data).unwrap_or_else(|_| data.to_string())
     );
 
-    memory
-        .store_skill_sync(
-            "user-profile", // namespace skill_id
-            "linkedin",     // integration_id
-            &format!("LinkedIn profile: {url}"),
-            &content,
-            Some("onboarding-linkedin-enrichment".into()),
-            Some(json!({
-                "source": "apify-linkedin-scraper",
-                "url": url,
-                "actor": LINKEDIN_SCRAPER_ACTOR,
-            })),
-            Some("high".into()),
-            None, // created_at
-            None, // updated_at
-            None, // document_id
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!("memory store failed: {e}"))
+    put_profile_document(
+        memory,
+        format!("LinkedIn profile: {url}"),
+        content,
+        "onboarding-linkedin-enrichment",
+        "high",
+        json!({
+            "source": "apify-linkedin-scraper",
+            "url": url,
+            "actor": LINKEDIN_SCRAPER_ACTOR,
+        }),
+    )
+    .await
 }
 
 /// Fallback: persist just the LinkedIn URL when the full scrape fails.
 async fn persist_linkedin_url_only(
-    memory: &tinymemory_core::store::MemoryClient,
+    memory: &crate::openhuman::memory::guard::MemoryGuard,
     url: &str,
 ) -> anyhow::Result<()> {
-    memory
-        .store_skill_sync(
-            "user-profile",
-            "linkedin",
-            &format!("LinkedIn profile URL: {url}"),
-            &format!("User LinkedIn profile: {url}"),
-            Some("onboarding-linkedin-url".into()),
-            Some(json!({ "source": "gmail-linkedin-extraction", "url": url })),
-            Some("medium".into()),
-            None, // created_at
-            None, // updated_at
-            None, // document_id
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!("memory store failed: {e}"))
+    put_profile_document(
+        memory,
+        format!("LinkedIn profile URL: {url}"),
+        format!("User LinkedIn profile: {url}"),
+        "onboarding-linkedin-url",
+        "medium",
+        json!({ "source": "gmail-linkedin-extraction", "url": url }),
+    )
+    .await
 }
 
 #[cfg(test)]

@@ -760,6 +760,14 @@ pub fn schemas(function: &str) -> ControllerSchema {
                               never misreported as a structure failure.",
                     required: false,
                 },
+                FieldSchema {
+                    name: "quarantine",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "openhuman#5820: the most recent corrupt-store quarantine, derived from disk \
+                              (`quarantined_at_ms`, `quarantined_path`, `resynced`). Absent when nothing \
+                              was quarantined; reported until a chunk lands after it.",
+                    required: false,
+                },
             ],
         },
         "set_enabled" => ControllerSchema {

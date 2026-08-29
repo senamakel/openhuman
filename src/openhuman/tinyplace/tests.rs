@@ -608,3 +608,108 @@ mod publish_directory_card_tests {
         );
     }
 }
+
+// ── #5627: not-yet-published probe classification ─────────────────────────────
+
+#[cfg(test)]
+mod signal_key_status_probe_classification_tests {
+    use crate::openhuman::tinyplace::manifest::{is_first_run_gap, is_not_published_yet};
+    use tinyplace::error::HttpError;
+
+    fn http_err(status: u16, message: &str) -> tinyplace::Error {
+        tinyplace::Error::Http(Box::new(HttpError {
+            status,
+            message: message.to_string(),
+            body: serde_json::Value::Null,
+            headers: Default::default(),
+            payment_required: None,
+        }))
+    }
+
+    /// A 404 from either probe is the **expected** answer for an agent that has
+    /// not published its Signal keys yet — the precondition
+    /// `ensure_signal_keys_published` exists to remove, and which
+    /// `signal_register_encryption_key` repairs by building the card on this
+    /// same 404. Classified as not-published, it logs at `debug`; misclassified,
+    /// it logs at `warn` on the orchestration supervisor's 15-second timer
+    /// forever, on every instance (#5627).
+    #[test]
+    fn a_404_from_either_probe_is_not_published_yet() {
+        for path in [
+            "HTTP 404: /keys/EJXoqJp6CYtme1pJ8qT94avpsa5Ji3UdMZqdCH3MnvxE/health",
+            "HTTP 404: /directory/agents/EJXoqJp6CYtme1pJ8qT94avpsa5Ji3UdMZqdCH3MnvxE",
+        ] {
+            assert!(
+                is_not_published_yet(&http_err(404, path)),
+                "a 404 is the expected not-yet-published state, not a warning: {path}"
+            );
+        }
+    }
+
+    /// The demotion must stay narrow. A relay that is genuinely unwell has to
+    /// keep reaching `warn`, or a real outage becomes as quiet as a fresh
+    /// install — which is the failure mode of over-correcting this class of bug.
+    #[test]
+    fn any_other_status_stays_warn_worthy() {
+        for status in [400u16, 401, 403, 408, 429, 500, 502, 503, 504] {
+            assert!(
+                !is_not_published_yet(&http_err(status, "HTTP error: /keys/x/health")),
+                "HTTP {status} is not a not-yet-published state and must stay warn-worthy"
+            );
+        }
+    }
+
+    /// #5809 review (Codex P2) — a 404 is only benign when **nothing** has been
+    /// provisioned locally.
+    ///
+    /// `signal_provision` writes the local store before its network calls, so
+    /// local-keys-without-remote means the upload never landed or the backend
+    /// lost the record. In that state the agent believes itself ready while
+    /// peers 404 on its bundle, and `ensure_signal_keys_published` derives
+    /// readiness from the local store alone — so it stops probing and nothing
+    /// else reports it. Demoting that to `debug` would silence the only signal.
+    #[test]
+    fn a_404_with_local_keys_present_is_not_first_run_and_must_still_warn() {
+        let not_found = http_err(404, "HTTP 404: /keys/<id>/health");
+        assert!(
+            !is_first_run_gap(&not_found, true),
+            "local keys present means provisioning ran: a 404 is an inconsistency, not first run"
+        );
+        assert!(
+            is_first_run_gap(&not_found, false),
+            "nothing provisioned locally: a 404 is the ordinary first-run state"
+        );
+    }
+
+    /// The local-key signal must not rescue a non-404. A 500 is warn-worthy
+    /// whatever the local store holds — otherwise a fresh install would silence
+    /// a broken relay.
+    #[test]
+    fn local_key_state_never_makes_a_non_404_look_like_first_run() {
+        for status in [400u16, 401, 403, 429, 500, 503] {
+            for has_local_keys in [false, true] {
+                assert!(
+                    !is_first_run_gap(&http_err(status, "relay error"), has_local_keys),
+                    "HTTP {status} is never a first-run gap (has_local_keys={has_local_keys})"
+                );
+            }
+        }
+    }
+
+    /// A non-HTTP failure has no status at all — `Error::status()` returns
+    /// `None` for every variant except `Http`. `None != Some(404)`, so these
+    /// must stay warn-worthy: a signer that cannot sign is a real fault, not an
+    /// agent that has simply not published yet.
+    #[test]
+    fn a_statusless_error_stays_warn_worthy() {
+        for err in [
+            tinyplace::Error::Signing("no signer available".to_string()),
+            tinyplace::Error::InvalidArgument("empty agent id".to_string()),
+        ] {
+            assert!(
+                !is_not_published_yet(&err),
+                "a statusless error is not a not-yet-published state: {err}"
+            );
+        }
+    }
+}

@@ -19,7 +19,7 @@ use openhuman_core::openhuman::memory::ops::{
     clear_namespace, doc_put, memory_recall_context, memory_recall_memories, ClearNamespaceParams,
     PutDocParams,
 };
-use tinymemory_core::rpc_models::{RecallContextRequest, RecallMemoriesRequest};
+use openhuman_core::openhuman::memory::rpc_models::{RecallContextRequest, RecallMemoriesRequest};
 
 // ── Env isolation ────────────────────────────────────────────────────
 

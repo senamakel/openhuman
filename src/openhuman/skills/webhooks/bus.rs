@@ -310,9 +310,16 @@ async fn run_agent_trigger(
 
     match outcome {
         crate::openhuman::agent::triage::TriageOutcome::Decision(run) => {
-            crate::openhuman::agent::triage::apply_decision(run.clone(), envelope)
-                .await
-                .map_err(|e| format!("apply_decision failed: {e}"))?;
+            // Remote payload: an inbound webhook body is
+            // attacker-influenceable, so the dispatch parks rather than running
+            // on a trust root (#5634).
+            let origin = crate::openhuman::agent::triage::remote_trigger_origin(envelope);
+            crate::openhuman::agent::turn_origin::with_origin(
+                origin,
+                crate::openhuman::agent::triage::apply_decision(run.clone(), envelope),
+            )
+            .await
+            .map_err(|e| format!("apply_decision failed: {e}"))?;
 
             Ok(format!(
                 "Triage decision: {} (agent: {:?})",

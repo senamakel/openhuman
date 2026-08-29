@@ -4,7 +4,7 @@
 use serde_json::json;
 
 use super::{build_retrieval_context, filter_hits_by_document_ids, format_llm_context_message};
-use tinymemory_core::store::GraphRelationRecord;
+use crate::openhuman::memory::api::types::GraphRelationRecord;
 use tinymemory_core::store::{MemoryItemKind, NamespaceMemoryHit, RetrievalScoreBreakdown};
 
 fn sample_hit() -> NamespaceMemoryHit {

@@ -3,8 +3,8 @@
 use super::helpers::extract_lesson_from_tools;
 use super::types::ArchivistHook;
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
+use crate::openhuman::memory::api::provider::EpisodicTurn;
 use async_trait::async_trait;
-use tinymemory_core::store::fts5::{self, EpisodicEntry};
 
 #[async_trait]
 impl PostTurnHook for ArchivistHook {
@@ -17,7 +17,7 @@ impl PostTurnHook for ArchivistHook {
             return Ok(());
         }
 
-        let Some(conn) = &self.conn else {
+        let Some(episodic) = self.episodic() else {
             return Ok(());
         };
 
@@ -30,10 +30,11 @@ impl PostTurnHook for ArchivistHook {
             ctx.turn_duration_ms
         );
 
-        // Index user message.
-        fts5::episodic_insert(
-            conn,
-            &EpisodicEntry {
+        // Index user message. `insert_turn` answers the assigned id — the
+        // reason the contract returns it from the insert rather than leaving
+        // callers to a follow-up `last_insert_rowid`, which this used to be.
+        let current_episodic_id = episodic
+            .insert_turn(&EpisodicTurn {
                 id: None,
                 session_id: session_id.to_string(),
                 timestamp,
@@ -42,15 +43,9 @@ impl PostTurnHook for ArchivistHook {
                 lesson: None,
                 tool_calls_json: None,
                 cost_microdollars: 0,
-            },
-        )?;
-
-        // Retrieve the inserted episodic ID for segment tracking.
-        let current_episodic_id = {
-            let db = conn.lock();
-            db.query_row("SELECT last_insert_rowid()", [], |row| row.get::<_, i64>(0))
-                .unwrap_or(1)
-        };
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("archivist insert user turn: {e}"))?;
 
         // Index assistant response with tool call summary.
         let tool_calls_json = if ctx.tool_calls.is_empty() {
@@ -62,9 +57,8 @@ impl PostTurnHook for ArchivistHook {
         // Extract a simple lesson from tool failures (lightweight, no LLM needed).
         let lesson = extract_lesson_from_tools(&ctx.tool_calls);
 
-        fts5::episodic_insert(
-            conn,
-            &EpisodicEntry {
+        episodic
+            .insert_turn(&EpisodicTurn {
                 id: None,
                 session_id: session_id.to_string(),
                 // Offset by 1ms so assistant entries sort after user entries within
@@ -75,8 +69,9 @@ impl PostTurnHook for ArchivistHook {
                 lesson,
                 tool_calls_json,
                 cost_microdollars: 0,
-            },
-        )?;
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("archivist insert assistant turn: {e}"))?;
 
         tracing::debug!("[archivist] episodic rows written: session={session_id}");
 
@@ -87,8 +82,23 @@ impl PostTurnHook for ArchivistHook {
         // segment ops can store it alongside the FTS5 episodic id.
         let mut current_seq: Option<u32> = None;
         if let Some(cfg) = self.config.as_ref() {
-            let engine_config =
-                tinymemory_core::tinycortex::memory_config_from(cfg, cfg.workspace_dir.clone());
+            // The archivist store addresses `MemoryConfig::workspace` and
+            // nothing else: `tinycortex::memory::archivist::store` computes its
+            // own content root as `<workspace>/memory_tree/content` (a private
+            // `content_root(config)` in that module) and never reads
+            // `config.content_root` or `config.embedding`.
+            //
+            // This used to build the config through
+            // `tinymemory_core::tinycortex::memory_config_from`, which is the
+            // engine crate's `Config` → `MemoryConfig` mapping. That mapping
+            // sets two further fields — the content-root override and the
+            // embedding signature — and neither reaches `record_turn` or
+            // `session_entries`, so constructing the workspace-rooted config
+            // directly is the same value where it is read. Naming it here also
+            // drops the last `tinymemory_core::` reference in this file (#5560);
+            // `tinycortex` stays a direct dependency of this crate and is where
+            // the archivist store itself lives, two lines below.
+            let engine_config = tinycortex::memory::MemoryConfig::new(cfg.workspace_dir.clone());
             let ts_ms = (timestamp * 1000.0) as i64;
             let user_turn = tinycortex::memory::archivist::types::ArchivedTurn {
                 session_id: session_id.to_string(),
@@ -132,23 +142,24 @@ impl PostTurnHook for ArchivistHook {
             }
         }
 
-        // Manage conversation segmentation (sync boundary detection + SQLite
-        // operations). Returns the just-closed segment when a boundary fired.
-        let closed_segment = self.manage_segment_sync(
-            conn,
-            session_id,
-            timestamp,
-            &ctx.user_message,
-            current_episodic_id,
-            current_seq,
-        );
+        // Manage conversation segmentation (boundary detection + driver
+        // writes). Returns the just-closed segment when a boundary fired.
+        let closed_segment = self
+            .manage_segment(
+                session_id,
+                timestamp,
+                &ctx.user_message,
+                current_episodic_id,
+                current_seq,
+            )
+            .await;
 
         // Run async recap + embed + segment-tree ingest on the closed segment
         // (if any). Per-turn tree ingest is intentionally absent — Phase 2
         // moves the tree write to segment granularity inside on_segment_closed.
         if let Some(ref segment) = closed_segment {
             let now = Self::now_timestamp();
-            self.on_segment_closed(conn, segment, session_id, now).await;
+            self.on_segment_closed(segment, session_id, now).await;
         }
 
         tracing::debug!("[archivist] turn indexed successfully: session={session_id}");

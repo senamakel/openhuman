@@ -1,17 +1,16 @@
-// UI e2e: tiny.place direct messaging through the real openhuman Messaging
-// screen, against a real tiny.place backend.
+// Core-RPC e2e: tiny.place direct messaging between the app's own core (Alice)
+// and a second real openhuman-core (Bob), against a real tiny.place backend.
 //
-// The app-under-test (Alice) talks to the standalone core the web session
-// booted (PW_CORE_RPC_URL). A second real openhuman-core (Bob) is launched here
-// as the peer. Both point at the same tiny.place backend
-// (TINYPLACE_API_BASE_URL). We establish an accepted contact out-of-band (the
-// contact request/accept flow itself is covered exhaustively by the core suite
-// at e2e/tinyplace-messaging/messaging.e2e.mjs), then drive the DM UI:
-//
-//   • type a recipient + open the DM thread
-//   • send an end-to-end encrypted message from the UI → assert the real peer
-//     core receives and decrypts it
-//   • have the peer reply → assert the plaintext renders in the UI thread
+// This used to also drive the in-app Messaging UI (the `/agent-world/messaging`
+// route), but that surface was removed (#5424) along with the rest of the
+// Agent World / tiny.place UI. What remains here is the part with independent
+// value: proving that the app's own bootstrapped core (the one the web-session
+// harness launches, PW_CORE_RPC_URL) can complete a full encrypted DM round
+// trip against a real peer core and a real backend — not just the manually
+// launched pair the core suite at e2e/tinyplace-messaging/messaging.e2e.mjs
+// already exercises exhaustively (contact request/accept, refusal between
+// non-contacts, ciphertext-only relay, ratchet reply, etc. — not re-asserted
+// here to avoid duplicating that suite).
 //
 // Requires the web session harness (app/scripts/e2e-web-session.sh) with
 // TINYPLACE_API_BASE_URL exported so the core hits a real backend. The
@@ -20,7 +19,6 @@ import { expect, test } from '@playwright/test';
 
 // The core-launch helper is shared with the core-level suite (plain ESM).
 import { launchAgent, receiveMessage } from '../../../../e2e/tinyplace-messaging/lib/core.mjs';
-import { bootAuthenticatedPage } from '../helpers/core-rpc';
 
 const CORE_RPC_URL = process.env.PW_CORE_RPC_URL || 'http://127.0.0.1:17788/rpc';
 const CORE_RPC_TOKEN = process.env.PW_CORE_RPC_TOKEN || 'openhuman-playwright-token';
@@ -76,10 +74,14 @@ async function aliceRpc<T = any>(method: string, params: Record<string, unknown>
   return result as T;
 }
 
+// Wraps aliceRpc as a `{ rpc }` handle so it can be passed to the shared
+// `receiveMessage` helper the same way a `launchAgent()` handle is.
+const aliceCore = { rpc: aliceRpc };
+
 let bob: Awaited<ReturnType<typeof launchAgent>>;
 let aliceCryptoId: string;
 
-test.describe('tiny.place direct messaging (UI)', () => {
+test.describe('tiny.place direct messaging (core RPC)', () => {
   test.skip(
     !HAS_TINYPLACE_BACKEND,
     'requires TINYPLACE_API_BASE_URL from the dedicated tiny.place E2E runner'
@@ -117,60 +119,30 @@ test.describe('tiny.place direct messaging (UI)', () => {
     bob?.stop();
   });
 
-  test('sends an encrypted DM from the UI that the peer decrypts, and renders the peer reply', async ({
-    page,
-  }) => {
-    await bootAuthenticatedPage(page, 'pw-messaging-user', '/agent-world/messaging');
+  test('Alice sends an encrypted DM the peer decrypts, and decrypts the peer reply', async () => {
+    // Send an end-to-end encrypted message from the app's own core.
+    const outgoing = `alice → bob @ ${Date.now()}`;
+    const sent = await aliceRpc<{ encrypted: boolean; messageId: string }>(
+      'openhuman.tinyplace_signal_send_message',
+      { recipient: bob.cryptoId, plaintext: outgoing }
+    );
+    expect(sent.encrypted, 'send reports the message was encrypted').toBe(true);
 
-    // The DM composer: enter the peer's cryptoId and open the thread.
-    const recipient = page.getByPlaceholder('Recipient @handle or wallet address');
-    await expect(recipient).toBeVisible();
-    await recipient.fill(bob.cryptoId);
-    await page.getByRole('button', { name: 'Open DM' }).click();
-
-    // We're in the encrypted thread with Bob (the header lock badge + empty state).
-    await expect(page.getByText('Encrypted', { exact: true })).toBeVisible();
-    await expect(page.getByTestId('dm-empty-state')).toBeVisible();
-
-    // Send an end-to-end encrypted message from the UI.
-    const outgoing = `ui → peer @ ${Date.now()}`;
-    const compose = page.getByPlaceholder('Type a message...');
-    await compose.fill(outgoing);
-    await page.getByRole('button', { name: 'Send' }).click();
-
-    // Optimistic echo appears in the thread.
-    await expect(page.getByText(outgoing)).toBeVisible();
-
-    // The real peer core receives + decrypts exactly what the UI sent.
+    // The real peer core receives + decrypts exactly what the app's core sent.
     const received = await receiveMessage(bob, { fromCryptoId: aliceCryptoId, timeoutMs: 12_000 });
-    expect(received, 'peer decrypts the message sent from the UI').toBe(outgoing);
+    expect(received, 'peer decrypts the message sent from the app core').toBe(outgoing);
 
-    // Now the peer replies; the plaintext must render in the UI thread.
-    const reply = `peer → ui @ ${Date.now()}`;
+    // Now the peer replies; the app's own core must receive + decrypt it.
+    const reply = `bob → alice @ ${Date.now()}`;
     await bob.rpc('openhuman.tinyplace_signal_send_message', {
       recipient: aliceCryptoId,
       plaintext: reply,
     });
 
-    // Wait until the reply envelope is actually in Alice's mailbox — inspected,
-    // not decrypted (decrypt advances the ratchet and can only run once, so we
-    // must not consume it before the UI does).
-    await expect
-      .poll(
-        async () => {
-          const list = await aliceRpc<any>('openhuman.tinyplace_messages_list', { limit: 50 });
-          const envelopes = Array.isArray(list) ? list : (list?.messages ?? []);
-          return envelopes.some((e: any) => e.from === bob.cryptoId);
-        },
-        { timeout: 15_000, intervals: [500, 1000] }
-      )
-      .toBe(true);
-
-    // Re-open the thread once. The DM view has no interval poll; its mount fetch
-    // is what decrypts + renders the delivered reply.
-    await page.getByRole('button', { name: 'Back', exact: true }).click();
-    await page.getByPlaceholder('Recipient @handle or wallet address').fill(bob.cryptoId);
-    await page.getByRole('button', { name: 'Open DM' }).click();
-    await expect(page.getByText(reply)).toBeVisible({ timeout: 15_000 });
+    const decrypted = await receiveMessage(aliceCore, {
+      fromCryptoId: bob.cryptoId,
+      timeoutMs: 15_000,
+    });
+    expect(decrypted, 'app core decrypts the peer reply').toBe(reply);
   });
 });

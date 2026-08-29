@@ -168,33 +168,40 @@ mod tests {
                 crate::openhuman::memory::api::CONTRACT_VERSION
             )
         );
-        // The seventeen families the pinned v1.2.0 tinymemory artifact actually
-        // serves — not the eighteen the contract crate declares. This used to
-        // assert all eighteen, including `chunks`, `episodic`, `people`,
-        // `profile`, and `retrieval`; that encoded #5598 as expected: those
-        // five have no bus member in the pinned release, so calling them
-        // answered `UnknownMethod` rather than reporting themselves absent.
-        // `modules::memory::ARTIFACT_CAPABILITIES` was narrowed to match what
-        // is actually served (see its module docs); this pins the same
-        // corrected boundary. Spelled out rather than derived from
-        // `Capabilities::all()` on purpose: this is the wire surface the
-        // frontend reads, so the strings themselves are the assertion. A
-        // family the pinned artifact starts serving should widen this
-        // deliberately, together with the registry version bump — not
-        // silently.
+        // The full eighteen families the pinned tinymemory artifact serves.
+        // Previously this comment documented a narrower set (seventeen, then
+        // thirteen) while the host under-claimed or over-claimed; the gap is
+        // now closed: v1.4.0 serves all eighteen, `ModuleMemoryProvider`
+        // implements all twenty accessors including `as_episodic`, so the
+        // wire surface and the advertised set agree.
+        // `modules::memory::ARTIFACT_CAPABILITIES` is the machine-checked
+        // source of truth for what the pinned release serves (see its module
+        // docs); this pins the same corrected boundary. Spelled out rather
+        // than derived from `Capabilities::all()` on purpose: this is the
+        // wire surface the frontend reads, so the strings themselves are the
+        // assertion. A NEW contract family must still widen this deliberately,
+        // together with the registry version bump — not silently.
         assert_eq!(
             status.capabilities,
             vec![
-                // Widened from thirteen to seventeen with the v1.2.0 registry
-                // re-pin, which is where `chunks`, `people`, `profile` and
-                // `retrieval` gained bus members. `episodic` stays absent: the
-                // artifact serves it, but `ModuleMemoryProvider` has no
-                // `as_episodic`, so advertising it would over-claim.
+                // Widened to eighteen with the Episodic accessor, then twenty when
+                // tinymemory v1.7.0 added SourceSync and CodingSessions —
+                // landing — the archivist writes its turns and segments
+                // through that family, so hiding it here would be the
+                // under-claim. The list stays spelled out: a NEW contract
+                // family must still widen this deliberately, with its
+                // accessor and its release.
                 "chunks",
+                // v1.7.0's two families. Deliberately widened here rather than
+                // derived: this list is the wire surface the frontend reads, so
+                // a new family has to be a decision someone made, not something
+                // that appeared.
+                "coding_sessions",
                 "core",
                 "diff",
                 "documents",
                 "entities",
+                "episodic",
                 "goals",
                 "graph",
                 "ingest",
@@ -204,6 +211,11 @@ mod tests {
                 "profile",
                 "recall",
                 "retrieval",
+                // Added with tinymemory v1.13.0: the MemoryScoring bus family
+                // (#5560). Widened deliberately — the wire surface the frontend
+                // reads must be an explicit decision, not a silent addition.
+                "scoring",
+                "source_sync",
                 "sources",
                 "tool_memory",
                 "tree"

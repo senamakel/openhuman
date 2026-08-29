@@ -21,6 +21,7 @@
 //! | `triggers`        | GitHub repos + trigger CRUD + trigger history                      |
 //! | `providers_ops`   | `composio_get_user_profile`, `_refresh_...`, `composio_sync`       |
 //! | `direct_mode`     | `composio_get_mode`, `composio_set_api_key`, `_clear_...`          |
+//! | `user_scopes`     | per-toolkit agent scope prefs, over the bound memory driver         |
 
 mod connections;
 mod direct_mode;
@@ -31,6 +32,7 @@ mod providers_ops;
 mod toolkits;
 mod tools_ops;
 mod triggers;
+mod user_scopes;
 
 // ── Public re-exports (match original ops.rs public surface) ───────────────
 
@@ -50,6 +52,12 @@ pub use triggers::{
     composio_create_trigger, composio_disable_trigger, composio_enable_trigger,
     composio_list_available_triggers, composio_list_github_repos, composio_list_trigger_history,
     composio_list_triggers,
+};
+// The `composio.{get,set}_user_scopes` handlers' storage half. Host code now —
+// it was `tinymemory_core::sync::composio::providers::user_scopes` reached
+// through the in-process engine handle until openhuman#5560; see the module.
+pub(crate) use user_scopes::{
+    load_or_default as load_user_scope_pref, save as save_user_scope_pref,
 };
 
 // ── Re-export connected_integrations public items ──────────────────────────

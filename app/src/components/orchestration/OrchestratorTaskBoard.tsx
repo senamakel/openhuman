@@ -20,6 +20,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { ORCHESTRATOR_TASKS_THREAD_ID, todosApi } from '../../services/api/todosApi';
 import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../types/turnState';
 import Button from '../ui/Button';
+import TextField from '../ui/TextField';
 
 const debug = debugFactory('orchestration:task-board');
 
@@ -160,12 +161,12 @@ export default function OrchestratorTaskBoard() {
           event.preventDefault();
           void handleAdd();
         }}>
-        <input
+        <TextField
           value={draft}
           onChange={event => setDraft(event.target.value)}
           placeholder={t('subconscious.addTaskPlaceholder')}
           data-testid="orch-task-add-input"
-          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-content outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          className="min-w-0 flex-1"
         />
         <Button
           type="submit"

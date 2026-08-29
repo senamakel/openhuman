@@ -79,7 +79,7 @@ describe('AgentEditorPage', () => {
     expect(arg.id).toBe('helper'); // auto-slugified from name
     expect(arg.name).toBe('Helper');
     expect(arg.model).toBe('hint:coding');
-    expect(mockNavigate).toHaveBeenCalledWith('/settings/agents', expect.anything());
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/agents');
   });
 
   it('offers the vision tier + hint as model options', async () => {

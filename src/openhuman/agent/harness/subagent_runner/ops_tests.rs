@@ -1714,3 +1714,89 @@ fn tier_gate_allows_upward_reasoning_to_chat() {
     child.agent_tier = AgentTier::Chat;
     assert!(gate(Some(&parent), &child).is_ok());
 }
+
+// ---------------------------------------------------------------------------
+// Turn-scoped dispatch gate (#5804)
+//
+// These exercise the gate at its real call site rather than only the policy it
+// consults. The lever is that no `ParentExecutionContext` is installed here, so
+// an ungated `run_subagent` returns `NoParentContext`: each refusal below is
+// therefore evidence the gate ran *and* that it ran before anything was spent,
+// and removing the gate turns every one of them into `NoParentContext`.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn dispatch_is_refused_after_the_turn_requests_a_graceful_pause() {
+    let definition = make_def_named_tools(&[]);
+    let outcome = turn_dispatch_guard::with_dispatch_guard(
+        Some(std::time::Duration::from_secs(600)),
+        async {
+            // Stands in for `CapPauser`, which writes through a clone of this
+            // same `Arc` when the model-call cap is reached.
+            turn_dispatch_guard::current()
+                .expect("guard installed")
+                .record_pause_requested(15, 15);
+            run_subagent(&definition, "task", SubagentRunOptions::default()).await
+        },
+    )
+    .await;
+
+    assert!(
+        matches!(
+            outcome,
+            Err(SubagentRunError::PauseRequested {
+                completed_model_calls: 15,
+                cap: 15
+            })
+        ),
+        "a dispatch after the cap-pause request must be refused, not run: {outcome:?}"
+    );
+}
+
+#[tokio::test]
+async fn dispatch_is_refused_when_the_remaining_budget_cannot_fit_an_observed_subagent() {
+    let definition = make_def_named_tools(&[]);
+    let outcome = turn_dispatch_guard::with_dispatch_guard(
+        Some(std::time::Duration::from_millis(1)),
+        async {
+            // One completed sub-agent took a minute; the turn's whole ceiling
+            // is a millisecond and it has already elapsed.
+            turn_dispatch_guard::record_subagent_elapsed(std::time::Duration::from_secs(60));
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            run_subagent(&definition, "task", SubagentRunOptions::default()).await
+        },
+    )
+    .await;
+
+    assert!(
+        matches!(
+            outcome,
+            Err(SubagentRunError::DispatchBudgetExhausted { .. })
+        ),
+        "a dispatch that cannot fit the remaining budget must be refused: {outcome:?}"
+    );
+}
+
+#[tokio::test]
+async fn dispatch_is_not_refused_while_the_guard_has_no_evidence() {
+    // The other half of the contract, and the one that keeps this from being a
+    // throughput regression: with no pause requested and no completed
+    // sub-agent to learn from, the gate must let the dispatch through. Reaching
+    // `NoParentContext` is exactly that — the gate declined to interfere and
+    // the normal path ran.
+    let definition = make_def_named_tools(&[]);
+    let outcome = turn_dispatch_guard::with_dispatch_guard(
+        Some(std::time::Duration::from_millis(1)),
+        async {
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            run_subagent(&definition, "task", SubagentRunOptions::default()).await
+        },
+    )
+    .await;
+
+    assert!(
+        matches!(outcome, Err(SubagentRunError::NoParentContext)),
+        "an exhausted budget with no observed sub-agent is not evidence — the \
+         dispatch must proceed: {outcome:?}"
+    );
+}

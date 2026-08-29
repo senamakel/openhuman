@@ -458,7 +458,7 @@ export const MascotScreen: FC = () => {
             disabled={isSending}
             placeholder={isSending ? t('iosMascot.thinking') : t('iosMascot.typeMessage')}
             className="flex-1 bg-surface/10 text-white placeholder-white/30 rounded-xl
-                       px-4 py-3 text-sm outline-none border border-white/10
+                       px-4 py-3 text-sm outline-hidden border border-white/10
                        focus:border-[#4A83DD]/60 transition-colors
                        disabled:opacity-50"
           />

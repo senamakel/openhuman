@@ -8,6 +8,7 @@ import type { ReactElement } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import type { ChatMessage, ChatWindow } from '../../lib/orchestration/useOrchestrationChats';
+import Button from '../ui/Button';
 import { formatTime } from './orchestrationTabHelpers';
 
 interface ChatListButtonProps {
@@ -25,11 +26,11 @@ export function ChatListButton({
 }: ChatListButtonProps): ReactElement {
   const { t } = useT();
   return (
-    <button
-      type="button"
+    <Button
+      variant="tertiary"
       data-testid={`tinyplace-chat-${chat.id}`}
       onClick={onSelect}
-      className={`flex w-full items-start gap-3 border-b border-line-subtle px-3 py-3 text-left transition last:border-b-0 hover:bg-surface-hover ${
+      className={`h-auto w-full items-start justify-start gap-3 rounded-none border-b border-line-subtle px-3 py-3 text-left font-normal transition last:border-b-0 hover:bg-surface-hover ${
         selected ? 'bg-surface-muted' : ''
       }`}>
       <span className="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line bg-surface-strong text-xs font-semibold text-content-secondary">
@@ -50,7 +51,7 @@ export function ChatListButton({
         <span className="mt-1 flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-xs text-content-faint">{chat.preview}</span>
           {chat.unread > 0 ? (
-            <span className="flex-none rounded-full bg-ocean-500 px-1.5 py-0.5 text-[10px] font-semibold text-content-inverted">
+            <span className="flex-none rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-content-inverted">
               {chat.unread}
             </span>
           ) : null}
@@ -73,7 +74,7 @@ export function ChatListButton({
           ) : null}
         </span>
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -100,11 +101,11 @@ function bubbleStyle(kind: ChatMessage['eventKind']): BubbleStyle {
   switch (kind) {
     case 'tool_call':
       return {
-        dot: 'text-ocean-500',
+        dot: 'text-primary-500',
         glyph: '▶',
         mono: true,
         tone: 'text-content',
-        accent: 'border-l-2 border-l-ocean-400',
+        accent: 'border-l-2 border-l-primary-400',
       };
     case 'tool_result':
       return {
@@ -138,7 +139,7 @@ function bubbleStyle(kind: ChatMessage['eventKind']): BubbleStyle {
     case 'user_prompt':
       return { dot: 'text-sage-500', tone: 'text-content', accent: '' };
     default:
-      return { dot: 'text-ocean-500', tone: 'text-content', accent: '' };
+      return { dot: 'text-primary-500', tone: 'text-content', accent: '' };
   }
 }
 
@@ -165,7 +166,7 @@ export function MessageBubble({ message }: { message: ChatMessage }): ReactEleme
           <span className="text-[10px] text-content-faint">{formatTime(message.timestamp)}</span>
         </div>
         <p
-          className={`mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap break-words ${
+          className={`mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap wrap-break-word ${
             style.mono ? 'font-mono text-xs' : 'text-sm'
           } ${message.encrypted ? 'text-content-muted' : style.tone}`}>
           {message.body}

@@ -190,9 +190,15 @@ pub async fn trigger_agent(
 
     match outcome {
         crate::openhuman::agent::triage::TriageOutcome::Decision(run) => {
+            // Remote payload: a webhook body is attacker-influenceable, so the
+            // dispatch parks rather than running on a trust root (#5634).
+            let origin = crate::openhuman::agent::triage::remote_trigger_origin(&envelope);
             tokio::time::timeout(
                 std::time::Duration::from_secs(60),
-                crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope),
+                crate::openhuman::agent::turn_origin::with_origin(
+                    origin,
+                    crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope),
+                ),
             )
             .await
             .map_err(|_| "apply_decision timed out after 60s".to_string())?

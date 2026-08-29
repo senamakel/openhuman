@@ -1,98 +1,98 @@
+import { LuKeyboard, LuMegaphone, LuPanelLeftClose, LuSettings } from 'react-icons/lu';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
-import { settingsNavState } from '../../settings/modal/settingsOverlay';
-import { Tooltip } from '../../ui';
+import { Button, SidebarHeader as SidebarHeaderShell, Tooltip } from '../../ui';
 import { useRootSidebar } from './RootShellLayout';
 
-const ICON_BTN =
-  'flex h-7 w-7 flex-none items-center justify-center rounded-md text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary';
+/**
+ * Header footprint layered on `<Button variant="tertiary" iconOnly>`: 28px
+ * square (no `size` maps to that) with the muted resting colour these utility
+ * icons use. Focus ring, transition and hover fill come from the primitive.
+ */
+const ICON_BTN = 'h-7 w-7 flex-none rounded-md text-content-muted hover:text-content-secondary';
 
 /**
  * Thin utility header at the top of the root sidebar: keyboard shortcuts,
- * Settings, and collapse. Language is chosen from Settings, not here.
+ * Feedback, Settings, and collapse. Language is chosen from Settings, not here.
+ *
+ * Feedback moved up here from the sidebar footer row: it is a utility action
+ * like the other three, not a destination the user returns to, and the footer
+ * is now only the connectivity/version strip.
  */
 export default function SidebarHeader() {
   const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const { hide } = useRootSidebar();
+  const feedbackActive = location.pathname === '/feedback';
 
   return (
-    // Right-aligned so the macOS traffic lights (top-left, overlay title bar)
-    // sit in the empty left space — the icons stay clear of the window controls
-    // and inline with them (no extra top padding).
-    <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-3">
+    // The primitive's header slot supplies the px-3/pb-2/pt-3 band; this only
+    // turns it into a right-aligned row. Right-aligned so the macOS traffic
+    // lights (top-left, overlay title bar) sit in the empty left space — the
+    // icons stay clear of the window controls and inline with them (no extra
+    // top padding). `data-tauri-drag-region` lives directly on the primitive
+    // (rather than a wrapping div in `AppSidebar`) so the header band is
+    // draggable window chrome without an extra hand-rolled layout element.
+    <SidebarHeaderShell data-tauri-drag-region className="flex-row items-center justify-end gap-1">
       <div className="flex items-center gap-0.5">
         {/* Keyboard shortcuts — one-click open of the help directory (also ? / ⌘/). */}
         <Tooltip label={t('shortcuts.title')}>
-          <button
-            type="button"
+          <Button
+            variant="tertiary"
+            iconOnly
             onClick={() => registry.runAction('meta.keyboard-shortcuts')}
             className={ICON_BTN}
-            data-analytics-id="sidebar-header-shortcuts"
+            analyticsId="sidebar-header-shortcuts"
             aria-label={t('shortcuts.title')}>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.8}
-                d="M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.8}
-                d="M7 10h.01M11 10h.01M15 10h.01M17 10h.01M7 13h.01M9 16h6"
-              />
-            </svg>
-          </button>
+            <LuKeyboard className="h-4 w-4" />
+          </Button>
+        </Tooltip>
+
+        {/* Share feedback — a utility action, so it sits with the other three
+            rather than occupying a nav row. `aria-current` marks it while the
+            route is open, matching how the nav rows signal the active page. */}
+        <Tooltip label={t('nav.feedback')}>
+          <Button
+            variant="tertiary"
+            iconOnly
+            onClick={() => navigate('/feedback')}
+            className={ICON_BTN}
+            analyticsId="sidebar-header-feedback"
+            data-walkthrough="tab-feedback"
+            aria-current={feedbackActive ? 'page' : undefined}
+            aria-label={t('nav.feedback')}>
+            <LuMegaphone className="h-4 w-4" />
+          </Button>
         </Tooltip>
 
         <Tooltip label={t('nav.settings')}>
-          <button
-            type="button"
-            onClick={() => navigate('/settings', settingsNavState(location))}
+          <Button
+            variant="tertiary"
+            iconOnly
+            onClick={() => navigate('/settings')}
             className={ICON_BTN}
-            data-analytics-id="sidebar-header-settings"
+            analyticsId="sidebar-header-settings"
             aria-label={t('nav.settings')}>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.8}
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.8}
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </button>
+            <LuSettings className="h-4 w-4" />
+          </Button>
         </Tooltip>
 
         {/* Collapse the sidebar — sits on the right, next to Settings. */}
         <Tooltip label={t('chat.hideSidebar')}>
-          <button
-            type="button"
+          <Button
+            variant="tertiary"
+            iconOnly
             onClick={hide}
             className={ICON_BTN}
-            data-analytics-id="sidebar-header-collapse"
+            analyticsId="sidebar-header-collapse"
             aria-label={t('chat.hideSidebar')}>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.8}
-                d="M15 19l-7-7 7-7M20 5v14"
-              />
-            </svg>
-          </button>
+            <LuPanelLeftClose className="h-4 w-4" />
+          </Button>
         </Tooltip>
       </div>
-    </div>
+    </SidebarHeaderShell>
   );
 }

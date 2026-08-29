@@ -491,11 +491,12 @@ impl Agent {
         // cost). An unrelated message clears the similarity gate to nothing, so
         // no block is injected.
         {
-            let situational = tinymemory_core::preferences::recall_situational_preferences(
-                &self.memory,
-                user_message,
-            )
-            .await;
+            let situational =
+                crate::openhuman::memory::preferences::recall_situational_preferences_on(
+                    &self.memory,
+                    user_message,
+                )
+                .await;
             if !situational.is_empty() {
                 log::info!(
                     "[pref_recall] situational block injected: {} item(s)",
@@ -979,7 +980,18 @@ impl Agent {
         // `spawn_subagent` runs inline on this task and records into the collector)
         // so the turn's usage meters + the `chat_done` per-child breakdown include
         // it — the collector scope the legacy engine installed.
-        let (outcome, subagent_usage_entries) =
+        // Install the turn's sub-agent dispatch guard around the same future
+        // (#5804). It records two facts the turn already produces but never
+        // wrote down — that a graceful pause has been requested at the
+        // model-call cap, and how long this turn's sub-agents actually take —
+        // so `run_subagent` can refuse a dispatch that cannot finish inside the
+        // remaining wall-clock budget instead of taking the whole turn down
+        // with it. Boxed at the call site: `with_dispatch_guard` takes its
+        // future by value, and the collector future wraps the entire turn
+        // generator, so passing it unboxed would move hundreds of KiB through
+        // this frame — the same hazard `with_turn_collector`'s own comment
+        // documents, with the gdb measurements behind it.
+        let turn_future = Box::pin(
             crate::openhuman::agent::harness::turn_subagent_usage::with_turn_collector(
                 super::graph::run_chat_turn_graph(super::graph::ChatTurnGraph {
                     turn_models,
@@ -1013,6 +1025,13 @@ impl Agent {
                         .map(|definition| definition.sandbox_mode)
                         .unwrap_or(crate::openhuman::agent::harness::definition::SandboxMode::None),
                 }),
+            ),
+        );
+        let (outcome, subagent_usage_entries) =
+            crate::openhuman::agent::harness::turn_dispatch_guard::with_dispatch_guard(
+                crate::openhuman::agent::tinyagents::agent_turn_wall_clock_ms()
+                    .map(std::time::Duration::from_millis),
+                turn_future,
             )
             .await;
         let outcome = outcome?;

@@ -786,45 +786,43 @@ mod tests {
         );
     }
 
-    /// `tools_agent` ships `disallowed_tools = ["tinyplace_*"]` on a wildcard
-    /// scope, precisely so that route through its specialist agent.
-    /// Projecting it as the unrestricted marker would hand it back.
-    #[tokio::test]
-    async fn a_wildcard_denylist_is_materialized_against_the_registered_tools() {
-        let registered = Arc::new(vec!["file_read".to_string(), "tinyplace_post".to_string()]);
-        let def = builtins()
-            .host_definition("tools_agent")
-            .expect("tools_agent is a built-in");
-        assert!(
-            !def.disallowed_tools.is_empty(),
-            "this test is meaningless if tools_agent stops denying anything"
-        );
+    /// A wildcard scope carrying a denylist must be materialised against the
+    /// registered tool list, not projected as the unrestricted marker — which
+    /// would hand every denied tool straight back.
+    ///
+    /// Written against a synthetic definition rather than a shipped one on
+    /// purpose: the shipped denylists are product data and come and go (the
+    /// last one, `tools_agent`'s `tinyplace_*`, left with that tool family),
+    /// while the projection rule this pins is permanent.
+    #[test]
+    fn a_wildcard_denylist_is_materialized_against_the_registered_tools() {
+        let mut def = synthetic("denier", AgentTier::Worker, &[]);
+        def.tools = ToolScope::Wildcard;
+        def.disallowed_tools = vec!["secret_*".to_string()];
 
-        let projected = OpenHumanDefinitionRegistry::builtins_only()
-            .with_registered_tools(registered)
-            .resolve("tools_agent")
-            .await
-            .expect("resolve")
-            .expect("tools_agent is a built-in");
+        let projected = registry_of(vec![def.clone()])
+            .with_registered_tools(Arc::new(vec![
+                "file_read".to_string(),
+                "secret_read".to_string(),
+            ]))
+            .project(&def);
 
         assert_eq!(projected.tools, vec!["file_read".to_string()]);
-        for denied in ["tinyplace_post"] {
-            assert!(
-                !projected.tools.iter().any(|t| t == denied),
-                "{denied} is reserved for its specialist route"
-            );
-        }
+        assert!(
+            !projected.tools.iter().any(|t| t == "secret_read"),
+            "a denied tool must not survive the wildcard projection"
+        );
     }
 
     /// Without a registered-tool list the denylist cannot be expressed, so the
     /// projection must fail closed rather than widen to everything.
-    #[tokio::test]
-    async fn a_wildcard_denylist_without_registered_tools_fails_closed() {
-        let projected = builtins()
-            .resolve("tools_agent")
-            .await
-            .expect("resolve")
-            .expect("tools_agent is a built-in");
+    #[test]
+    fn a_wildcard_denylist_without_registered_tools_fails_closed() {
+        let mut def = synthetic("denier", AgentTier::Worker, &[]);
+        def.tools = ToolScope::Wildcard;
+        def.disallowed_tools = vec!["secret_*".to_string()];
+
+        let projected = registry_of(vec![def.clone()]).project(&def);
 
         assert_eq!(
             projected.tools,

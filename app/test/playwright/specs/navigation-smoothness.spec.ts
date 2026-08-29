@@ -60,8 +60,7 @@ test.describe('Navigation Smoothness', () => {
     // the chat "new window" empty state renders the former Home hero card.
     await page.goto('/#/home');
     await waitForAppReady(page);
-    await expect(page.locator('[data-walkthrough="home-card"]')).toBeVisible();
-    await expect(page.getByTestId('send-message-button')).toBeVisible();
+    await expect(page.getByTestId('chat-message-input')).toBeVisible();
     await expect.poll(async () => page.evaluate(() => window.location.hash)).toMatch(/^#\/chat/);
   });
 });

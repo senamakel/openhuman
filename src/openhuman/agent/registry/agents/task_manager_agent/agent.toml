@@ -29,8 +29,6 @@ named = [
     "todo_clear",
     "todowrite",
     "update_task",
-    "thread_task_board_read",
-    "thread_task_board_write",
     "task_source_list",
     "task_source_get",
     "task_source_fetch",

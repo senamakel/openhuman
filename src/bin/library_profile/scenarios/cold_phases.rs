@@ -1,6 +1,20 @@
 //! `cold-phases`: sequential per-phase checkpoints of the cold bootstrap, all
 //! inside one measured region. Each phase is sampled right after it completes
 //! so the JSON `checkpoints` series attributes the cold-start cost per phase.
+//!
+//! # Why this still names the engine crate (#5560)
+//!
+//! Phase (e) exists to time **opening the SQLite memory store**, and
+//! `MemoryClient` is the thing that opens it. `memory::binding::for_config`
+//! would resolve the null driver in this binary — no module is loaded — so the
+//! checkpoint would report the cost of binding a driver that opens nothing, and
+//! the cold-start series would silently lose its heaviest I/O phase rather than
+//! gain a migration. `MemoryClient` is also `tinymemory-core`'s own type, not a
+//! re-export of a TinyCortex one, so there is no path swap available either.
+//!
+//! Same conclusion as the sibling `memory_ingest` scenario: this is a
+//! **feature-gate** case, not a migration. See that module's note for what the
+//! manifest needs (`tinymemory-core` optional, enabled by `rss-bench`).
 
 use std::time::Duration;
 

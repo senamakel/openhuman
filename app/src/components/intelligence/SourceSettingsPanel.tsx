@@ -18,6 +18,7 @@ import {
   updateMemorySource,
 } from '../../services/memorySourcesService';
 import Button from '../ui/Button';
+import Input from '../ui/Input';
 
 // Which limit fields are relevant per kind. Order determines display order.
 // Only caps that are actually enforced at sync time are surfaced — the
@@ -173,19 +174,17 @@ export function SourceSettingsPanel({
                   </span>
                 )}
               </label>
-              <input
+              <Input
                 id={`src-setting-${source.id}-${field}`}
                 type="number"
+                inputSize="sm"
+                monospace
                 min={0}
                 step={1}
                 value={values[field] ?? ''}
                 onChange={e => handleChange(field, e.target.value)}
                 placeholder={t('memorySources.settings.unlimited')}
-                className="w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-mono
-                           text-content placeholder:text-stone-400
-                           dark:border-neutral-600 dark:bg-surface dark:text-neutral-200
-                           dark:placeholder:text-neutral-500
-                           focus:outline-none focus:ring-2 focus:ring-primary-200"
+                className="text-xs"
               />
             </div>
           );

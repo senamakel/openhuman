@@ -21,7 +21,7 @@ use std::sync::OnceLock;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Render the `## Project Context` identity block
-/// (`SOUL.md` / `IDENTITY.md` / optionally `HEARTBEAT.md`).
+/// (`SOUL.md` / `IDENTITY.md` / `ROLE.md` for the user-facing agent).
 pub fn render_identity(ctx: &PromptContext<'_>) -> Result<String> {
     IdentitySection.build(ctx)
 }
@@ -526,6 +526,26 @@ pub fn sync_workspace_file(workspace_dir: &Path, filename: &str) {
         return;
     }
 
+    // A real workspace is always an absolute path (`~/.openhuman/users/<id>/
+    // workspace`, or a temp dir under test). A relative one means the caller
+    // never had a workspace to begin with — overwhelmingly `Path::new(".")`
+    // from the ~20 prompt-test fixtures — and joining onto it seeds SOUL.md,
+    // IDENTITY.md and ROLE.md plus their
+    // `.builtin-hash` siblings into the process's current directory. That is
+    // the repo root when the suite runs, which is how they briefly ended up
+    // committed (#5701).
+    //
+    // Refusing is safe because seeding into a relative path is never the
+    // intent: a caller with a genuine workspace always has an absolute one.
+    if !workspace_dir.is_absolute() {
+        tracing::debug!(
+            "[workspace-sync] refusing to seed {filename} into non-absolute workspace {} \
+             — no workspace configured",
+            workspace_dir.display()
+        );
+        return;
+    }
+
     let path = workspace_dir.join(filename);
     let hash_path = workspace_dir.join(format!(".{filename}.builtin-hash"));
 
@@ -589,7 +609,7 @@ pub fn sync_workspace_file(workspace_dir: &Path, filename: &str) {
 /// Inject `filename` from `workspace_dir` into `prompt`, truncated to
 /// [`BOOTSTRAP_MAX_CHARS`]. Thin wrapper around
 /// [`inject_workspace_file_capped`] for bootstrap-class files
-/// (`SOUL.md`, `IDENTITY.md`, `HEARTBEAT.md`).
+/// (`SOUL.md`, `IDENTITY.md`, `ROLE.md`).
 pub fn inject_workspace_file(prompt: &mut String, workspace_dir: &Path, filename: &str) {
     inject_workspace_file_capped(prompt, workspace_dir, filename, BOOTSTRAP_MAX_CHARS);
 }
@@ -768,14 +788,14 @@ pub fn default_workspace_file_content(filename: &str) -> &'static str {
     match filename {
         "SOUL.md" => include_str!("SOUL.md"),
         "IDENTITY.md" => include_str!("IDENTITY.md"),
-        "HEARTBEAT.md" => {
-            "# Periodic Tasks\n\n# Add tasks below (one per line, starting with `- `)\n"
-        }
-        // The agent's long-term goals list. Header-only template so the file
-        // is discoverable in the workspace from first boot; items are managed
-        // by the memory_goals domain (RPC / tools / enrichment agent). Must
-        // match `GoalsDoc::render()` of an empty doc so parse↔render is stable.
-        "MEMORY_GOALS.md" => "# Long-term Goals\n\n",
+        // The user-facing agent's role brief and writing style, moved out of
+        // the compiled `orchestrator/prompt.md` so both are tunable on disk
+        // without a rebuild (#5701). Same sync-and-inject contract as
+        // SOUL.md / IDENTITY.md: the bundled copy seeds the workspace, and a
+        // user edit wins from the next session on.
+        "ROLE.md" => include_str!("ROLE.md"),
+        "STYLE.md" => include_str!("STYLE.md"),
+
         _ => "",
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
@@ -11,11 +11,16 @@ import {
   type SearchSettingsUpdate,
 } from '../../../utils/tauriCommands/config';
 import PanelPage from '../../layout/PanelPage';
+import { Alert, AlertDescription } from '../../ui/Alert';
 import Button from '../../ui/Button';
-import Input from '../../ui/Input';
+import { CenteredLoadingState } from '../../ui/LoadingState';
+import StatusLine from '../../ui/StatusLine';
+import TextArea from '../../ui/TextArea';
+import { ToggleGroupItem, ToggleGroupRoot } from '../../ui/ToggleGroup';
 import SettingsBackButton from '../components/SettingsBackButton';
-import { SettingsStatusLine, SettingsTextArea } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SearchPanelEngineList, { type EngineOption } from './SearchPanelEngineList';
+import KeyEditor from './SearchPanelKeyEditor';
 
 type Status =
   | { kind: 'idle' }
@@ -35,13 +40,6 @@ type Status =
  * editing.
  */
 type AccessMode = 'all' | 'custom' | 'block';
-
-interface EngineOption {
-  id: SearchEngineId;
-  label: string;
-  description: string;
-  requiresKey: boolean;
-}
 
 /** Search engines that route directly from this machine with the user's own key. */
 type ByokEngine = 'parallel' | 'brave' | 'querit' | 'exa';
@@ -257,84 +255,23 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
         </p>
 
         {isLocalSession && (
-          <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-content-secondary">
-            {t('settings.search.localManagedUnavailable')}
-          </div>
+          <Alert variant="info">
+            <AlertDescription>{t('settings.search.localManagedUnavailable')}</AlertDescription>
+          </Alert>
         )}
 
-        {status.kind === 'loading' && (
-          <div className="rounded-lg border border-line bg-surface p-4 text-xs text-content-muted">
-            {t('common.loading')}
-          </div>
-        )}
+        {status.kind === 'loading' && <CenteredLoadingState label={t('common.loading')} />}
 
         {settings && (
           <>
-            <div
-              className="bg-surface rounded-xl border border-line overflow-hidden"
-              role="radiogroup"
-              aria-label={t('settings.search.engineAria')}>
-              {visibleEngines.map((opt, idx) => {
-                const selected = opt.id === selectedEngine;
-                const configured = isConfigured(opt.id);
-                const blocked = opt.requiresKey && !configured && selected;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    data-testid={`search-engine-${opt.id}`}
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => void persistEngine(opt.id)}
-                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
-                      idx !== 0 ? 'border-t border-line-subtle' : ''
-                    } ${
-                      selected ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-surface-hover'
-                    }`}>
-                    <span className="flex-1 min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-content">{opt.label}</span>
-                        {opt.requiresKey && (
-                          <span
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${
-                              configured
-                                ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/40 dark:text-sage-200'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                            }`}>
-                            {configured
-                              ? t('settings.search.statusConfigured')
-                              : t('settings.search.statusNeedsKey')}
-                          </span>
-                        )}
-                      </span>
-                      <span className="block mt-0.5 text-xs text-content-muted">
-                        {opt.description}
-                      </span>
-                      {blocked && (
-                        <span className="block mt-1 text-[11px] text-amber-700 dark:text-amber-300">
-                          {t('settings.search.fallbackToManaged')}
-                        </span>
-                      )}
-                    </span>
-                    {selected && (
-                      <svg
-                        className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            <SearchPanelEngineList
+              engines={visibleEngines}
+              selectedEngine={selectedEngine}
+              ariaLabel={t('settings.search.engineAria')}
+              isConfigured={isConfigured}
+              onSelect={engine => void persistEngine(engine)}
+              t={t}
+            />
 
             {/* BYO API keys */}
             <div className="space-y-3">
@@ -417,38 +354,31 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
               <p className="text-xs font-semibold text-content-secondary">
                 {t('settings.search.allowedSitesLabel')}
               </p>
-              <div
-                role="radiogroup"
+              <ToggleGroupRoot
+                type="single"
                 aria-label={t('settings.search.accessModeAria')}
-                className="flex rounded-lg border border-line overflow-hidden">
+                value={mode}
+                onValueChange={value => {
+                  if (value) selectMode(value as AccessMode);
+                }}
+                disabled={status.kind === 'saving'}
+                className="flex w-full rounded-lg border border-line overflow-hidden gap-0">
                 {(
                   [
                     ['all', 'settings.search.accessAllowAll'],
                     ['custom', 'settings.search.accessCustom'],
                     ['block', 'settings.search.accessBlockAll'],
                   ] as const
-                ).map(([value, labelKey], idx) => {
-                  const selected = mode === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => selectMode(value)}
-                      disabled={status.kind === 'saving'}
-                      className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
-                        idx !== 0 ? 'border-l border-line' : ''
-                      } ${
-                        selected
-                          ? 'bg-primary-500 text-content-inverted'
-                          : 'bg-surface text-content-secondary hover:bg-surface-hover'
-                      }`}>
-                      {t(labelKey)}
-                    </button>
-                  );
-                })}
-              </div>
+                ).map(([value, labelKey]) => (
+                  <ToggleGroupItem
+                    key={value}
+                    value={value}
+                    variant="tertiary"
+                    className="flex-1 rounded-none border-0 border-l border-line first:border-l-0 px-3 py-1.5 text-xs data-[state=on]:bg-primary-500 data-[state=on]:text-content-inverted">
+                    {t(labelKey)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroupRoot>
               <p className="text-[11px] text-content-muted leading-relaxed">
                 {mode === 'all'
                   ? t('settings.search.allowedSitesAllOn')
@@ -458,7 +388,7 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
               </p>
               {mode === 'custom' && (
                 <>
-                  <SettingsTextArea
+                  <TextArea
                     value={allowedText}
                     onChange={e => setAllowedText(e.target.value)}
                     rows={4}
@@ -479,7 +409,7 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
               )}
             </div>
 
-            <SettingsStatusLine
+            <StatusLine
               saving={status.kind === 'saving'}
               savedNote={status.kind === 'saved' ? t('settings.search.statusSaved') : null}
               error={
@@ -493,86 +423,6 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
         )}
       </div>
     </PanelPage>
-  );
-};
-
-interface KeyEditorProps {
-  label: string;
-  placeholder: string;
-  show: boolean;
-  onToggleShow: () => void;
-  value: string;
-  onChange: (v: string) => void;
-  onSave: () => void;
-  onClear: () => void;
-  configured: boolean;
-  docUrl: string;
-  t: (key: string) => string;
-}
-
-const KeyEditor = ({
-  label,
-  placeholder,
-  show,
-  onToggleShow,
-  value,
-  onChange,
-  onSave,
-  onClear,
-  configured,
-  docUrl,
-  t,
-}: KeyEditorProps) => {
-  const inputId = useId();
-
-  return (
-    <div
-      role="group"
-      aria-labelledby={inputId}
-      className="rounded-xl border border-line bg-surface p-3">
-      <div className="flex items-center justify-between mb-2">
-        <label
-          id={inputId}
-          htmlFor={`${inputId}-input`}
-          className="text-xs font-semibold text-content">
-          {label}
-        </label>
-        <a
-          href={docUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[10px] text-primary-500 hover:underline">
-          {t('settings.search.getApiKey')} ↗
-        </a>
-      </div>
-      <div className="flex items-center gap-2">
-        <Input
-          id={`${inputId}-input`}
-          type={show ? 'text' : 'password'}
-          inputSize="sm"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="flex-1 min-w-0 font-mono"
-        />
-        <Button type="button" variant="secondary" size="xs" onClick={onToggleShow}>
-          {show ? t('settings.search.hide') : t('settings.search.show')}
-        </Button>
-        <Button
-          type="button"
-          variant="primary"
-          size="xs"
-          onClick={onSave}
-          disabled={value.trim().length === 0}>
-          {t('settings.search.save')}
-        </Button>
-        {configured && (
-          <Button type="button" variant="secondary" tone="danger" size="xs" onClick={onClear}>
-            {t('settings.search.clear')}
-          </Button>
-        )}
-      </div>
-    </div>
   );
 };
 

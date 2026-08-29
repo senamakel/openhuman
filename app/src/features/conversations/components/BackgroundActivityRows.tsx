@@ -1,3 +1,4 @@
+import Badge, { type BadgeVariant } from '../../../components/ui/Badge';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { CoreCronJob, CoreCronSchedule } from '../../../utils/tauriCommands/cron';
 import type { MemorySyncStatusRow } from '../../../utils/tauriCommands/memoryTree';
@@ -55,9 +56,11 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
     (job.command && job.command.trim()) ||
     t('conversations.backgroundTasks.cronUnnamed');
 
+  // `coral`, not a raw `red-*` scale: a raw palette value does not follow a
+  // user's custom theme, and every other failure surface here is coral.
   const lastDot =
     job.last_status === 'error'
-      ? 'bg-red-500'
+      ? 'bg-coral-500'
       : job.last_status === 'ok'
         ? 'bg-sage-500'
         : 'bg-surface-strong';
@@ -89,9 +92,9 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
                 : ''}
             </span>
           ) : (
-            <span className="shrink-0 text-[11px] font-medium text-content-muted">
+            <Badge className="shrink-0 rounded-full">
               {t('conversations.backgroundTasks.cronPaused')}
-            </span>
+            </Badge>
           )}
         </div>
         <span className="mt-0.5 block truncate text-[12px] text-content-muted">
@@ -113,25 +116,25 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
 function providerFreshnessLabel(
   row: MemorySyncStatusRow,
   t: ReturnType<typeof useT>['t']
-): { dot: string; label: string; pillClass: string } {
+): { dot: string; label: string; variant: BadgeVariant } {
   if (row.freshness === 'active') {
     return {
       dot: 'bg-amber-500 animate-pulse',
       label: t('conversations.backgroundTasks.memProviderActive'),
-      pillClass: 'text-amber-700 dark:text-amber-300',
+      variant: 'warning',
     };
   }
   if (row.freshness === 'recent') {
     return {
       dot: 'bg-sage-500',
       label: t('conversations.backgroundTasks.memProviderRecent'),
-      pillClass: 'text-sage-700 dark:text-sage-300',
+      variant: 'success',
     };
   }
   return {
     dot: 'bg-surface-strong',
     label: t('conversations.backgroundTasks.memProviderIdle'),
-    pillClass: 'text-content-faint',
+    variant: 'neutral',
   };
 }
 
@@ -196,7 +199,9 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
                 <span className="truncate text-sm font-medium capitalize text-content">
                   {row.provider}
                 </span>
-                <span className={`shrink-0 text-[11px] font-medium ${f.pillClass}`}>{f.label}</span>
+                <Badge variant={f.variant} className="shrink-0 rounded-full">
+                  {f.label}
+                </Badge>
               </div>
               {backlog ? (
                 <span className="mt-0.5 block text-[11px] text-content-faint">{backlog}</span>

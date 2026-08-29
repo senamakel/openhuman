@@ -446,6 +446,7 @@ pub struct CoreBuilder {
     token: TokenSource,
     services: ServiceSet,
     domains: DomainSet,
+    tool_groups: crate::openhuman::tools::toolpacks::ToolGroups,
     host: Option<String>,
     port: Option<u16>,
     config: Option<crate::openhuman::config::Config>,
@@ -460,6 +461,7 @@ impl CoreBuilder {
             token: TokenSource::EnvOrFile,
             services: ServiceSet::desktop(),
             domains: DomainSet::full(),
+            tool_groups: Default::default(),
             host: None,
             port: None,
             config: None,
@@ -477,6 +479,37 @@ impl CoreBuilder {
     /// domain family while retaining transport built-ins and core infrastructure.
     pub fn domains(mut self, domains: DomainSet) -> Self {
         self.domains = domains;
+        self
+    }
+
+    /// Choose how each tool group reaches the model (default: every group
+    /// withheld behind `load_skill` / `use_skill`, the desktop app's shape).
+    ///
+    /// The third narrowing axis, independent of both `services` and `domains`:
+    /// `ServiceSet` picks the background services, `DomainSet` picks which
+    /// families exist, and this picks how the tools of the families that do
+    /// exist are disclosed — advertised on the wire, withheld behind the pack
+    /// proxy, or not registered at all.
+    ///
+    /// ```no_run
+    /// # use openhuman_core::core::runtime::CoreBuilder;
+    /// # use openhuman_core::openhuman::tools::toolpacks::{GroupMode, ToolGroups};
+    /// # fn f(b: CoreBuilder) -> CoreBuilder {
+    /// b.tool_groups(
+    ///     ToolGroups::none()
+    ///         .with("documents", GroupMode::Advertised)
+    ///         .with("workflows", GroupMode::Withheld),
+    /// )
+    /// # }
+    /// ```
+    ///
+    /// Narrowing only: a group set to `Advertised` whose tools are compiled
+    /// out, or whose `DomainGroup` is off under `domains`, stays absent.
+    pub fn tool_groups(
+        mut self,
+        tool_groups: crate::openhuman::tools::toolpacks::ToolGroups,
+    ) -> Self {
+        self.tool_groups = tool_groups;
         self
     }
 
@@ -574,9 +607,14 @@ impl CoreBuilder {
     /// The init sequence itself is owned by [`CoreContext::init`] (Phase 2,
     /// Stage A).
     pub async fn build(self) -> anyhow::Result<CoreRuntime> {
-        let (ctx, has_operator_token, config) =
-            CoreContext::init_with_config(self.host_kind, &self.token, self.domains, self.config)
-                .await?;
+        let (ctx, has_operator_token, config) = CoreContext::init_with_config(
+            self.host_kind,
+            &self.token,
+            self.domains,
+            self.tool_groups.clone(),
+            self.config,
+        )
+        .await?;
 
         Ok(CoreRuntime {
             ctx,

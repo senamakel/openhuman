@@ -15,10 +15,11 @@
  * Esc closes the modal; backdrop mousedown closes; clicks inside the
  * card do not.
  */
-import { useEffect, useState } from 'react';
+import { useId, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import Button from '../../ui/Button';
+import { ModalShell } from '../../ui/ModalShell';
+import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import McpInventoryExportTab from './McpInventoryExportTab';
 import McpInventoryImportTab from './McpInventoryImportTab';
 import type { InstalledServer } from './types';
@@ -43,119 +44,49 @@ type Tab = 'export' | 'import';
 const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPanelProps) => {
   const { t } = useT();
   const [tab, setTab] = useState<Tab>('export');
-
-  // Esc to close, regardless of which child has focus.
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  const titleId = useId();
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="mcp-inventory-panel-title"
-      onMouseDown={event => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
-      <div className="bg-surface rounded-xl shadow-xl max-w-3xl w-full p-5 max-h-full overflow-y-auto">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <h2 id="mcp-inventory-panel-title" className="text-base font-semibold text-content">
-              {t('mcp.inventory.title')}
-            </h2>
-            <p className="text-xs text-content-muted mt-1">{t('mcp.inventory.subtitle')}</p>
-          </div>
-          <Button
-            iconOnly
-            variant="tertiary"
-            size="sm"
-            onClick={onClose}
-            aria-label={t('mcp.inventory.close')}
-            className="shrink-0">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </Button>
-        </div>
-
-        {/* Tab bar */}
-        <div
-          role="tablist"
+    <ModalShell
+      onClose={onClose}
+      titleId={titleId}
+      title={t('mcp.inventory.title')}
+      subtitle={t('mcp.inventory.subtitle')}
+      maxWidthClassName="max-w-3xl"
+      contentClassName="max-h-full overflow-y-auto p-5">
+      <TabsRoot value={tab} onValueChange={value => setTab(value as Tab)}>
+        <TabsList
           aria-label={t('mcp.inventory.tablistAria')}
-          className="flex gap-1 border-b border-line mb-4">
-          <button
-            type="button"
-            role="tab"
-            id="mcp-inventory-tab-export"
-            aria-selected={tab === 'export'}
-            aria-controls="mcp-inventory-panel-export"
-            tabIndex={tab === 'export' ? 0 : -1}
-            onClick={() => setTab('export')}
-            className={`-mb-px px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-              tab === 'export'
-                ? 'border-primary-500 text-primary-600 dark:text-primary-300'
-                : 'border-transparent text-content-muted hover:text-content dark:hover:text-neutral-200'
-            }`}>
+          className="mb-4 justify-start gap-1 border-b border-line">
+          <TabsTrigger
+            value="export"
+            className="-mb-px rounded-none border-b-2 border-transparent px-3 py-1.5 data-[state=active]:border-primary-500 data-[state=active]:bg-transparent data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-300">
             {t('mcp.inventory.tab.export')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="mcp-inventory-tab-import"
-            aria-selected={tab === 'import'}
-            aria-controls="mcp-inventory-panel-import"
-            tabIndex={tab === 'import' ? 0 : -1}
-            onClick={() => setTab('import')}
-            className={`-mb-px px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-              tab === 'import'
-                ? 'border-primary-500 text-primary-600 dark:text-primary-300'
-                : 'border-transparent text-content-muted hover:text-content dark:hover:text-neutral-200'
-            }`}>
+          </TabsTrigger>
+          <TabsTrigger
+            value="import"
+            className="-mb-px rounded-none border-b-2 border-transparent px-3 py-1.5 data-[state=active]:border-primary-500 data-[state=active]:bg-transparent data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-300">
             {t('mcp.inventory.tab.import')}
-          </button>
-        </div>
+          </TabsTrigger>
+        </TabsList>
 
-        {tab === 'export' && (
-          <div
-            role="tabpanel"
-            id="mcp-inventory-panel-export"
-            aria-labelledby="mcp-inventory-tab-export">
-            <McpInventoryExportTab servers={servers} />
-          </div>
-        )}
-        {tab === 'import' && (
-          <div
-            role="tabpanel"
-            id="mcp-inventory-panel-import"
-            aria-labelledby="mcp-inventory-tab-import">
-            <McpInventoryImportTab
-              installedServers={servers}
-              onInstallServer={(qualifiedName, prefillEnv) => {
-                // The parent's install flow lives outside this modal
-                // — close the inventory panel so the InstallDialog has
-                // room to render in the main right pane.
-                onInstallServer(qualifiedName, prefillEnv);
-                onClose();
-              }}
-            />
-          </div>
-        )}
-      </div>
-    </div>
+        <TabsContent value="export">
+          <McpInventoryExportTab servers={servers} />
+        </TabsContent>
+        <TabsContent value="import">
+          <McpInventoryImportTab
+            installedServers={servers}
+            onInstallServer={(qualifiedName, prefillEnv) => {
+              // The parent's install flow lives outside this modal — close
+              // the inventory panel so the InstallDialog has room to render
+              // in the main right pane.
+              onInstallServer(qualifiedName, prefillEnv);
+              onClose();
+            }}
+          />
+        </TabsContent>
+      </TabsRoot>
+    </ModalShell>
   );
 };
 

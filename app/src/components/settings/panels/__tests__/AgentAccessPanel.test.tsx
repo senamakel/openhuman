@@ -271,7 +271,7 @@ describe('AgentAccessPanel (advanced)', () => {
     expect(input.value).toBe('300');
   });
 
-  it('persists a changed action timeout on blur', async () => {
+  it('persists a changed action timeout on blur-sm', async () => {
     renderWithProviders(<AgentAccessPanel />);
     const input = await screen.findByLabelText('Action timeout');
     fireEvent.change(input, { target: { value: '300' } });

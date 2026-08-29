@@ -553,7 +553,8 @@ async fn probe_alive_reflects_transport_liveness() {
         h.dynamic()
             .connections()
             .probe_alive(&server.server_id, std::time::Duration::from_secs(8))
-            .await,
+            .await
+            .is_alive(),
         "a live stub answers the tools/list probe"
     );
 
@@ -571,7 +572,8 @@ async fn probe_alive_reflects_transport_liveness() {
         !h.dynamic()
             .connections()
             .probe_alive(&server.server_id, std::time::Duration::from_secs(8))
-            .await,
+            .await
+            .is_alive(),
         "a disconnected server is not alive"
     );
 }
@@ -615,12 +617,12 @@ async fn supervisor_reconnects_a_dropped_server() {
             .await,
         "supervisor reconnects a dropped-but-installed server"
     );
-    assert!(
-        h.dynamic()
-            .connections()
-            .probe_alive(&server.server_id, std::time::Duration::from_secs(8))
-            .await
-    );
+    assert!(h
+        .dynamic()
+        .connections()
+        .probe_alive(&server.server_id, std::time::Duration::from_secs(8))
+        .await
+        .is_alive());
 
     h.dynamic()
         .connections()

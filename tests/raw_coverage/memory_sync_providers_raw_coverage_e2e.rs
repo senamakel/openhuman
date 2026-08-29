@@ -30,7 +30,7 @@ use openhuman_core::openhuman::memory::sync::composio::providers::gmail::GmailPr
 use openhuman_core::openhuman::memory::sync::composio::providers::linear::LinearProvider;
 use openhuman_core::openhuman::memory::sync::composio::providers::notion::NotionProvider;
 use openhuman_core::openhuman::memory::sync::composio::providers::slack::SlackProvider;
-use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::SyncState;
+use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::{PersistedSyncState, SyncState};
 use openhuman_core::openhuman::memory::sync::composio::providers::{
     ComposioProvider, ProviderContext, SyncReason, TaskFetchFilter,
 };

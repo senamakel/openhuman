@@ -896,7 +896,28 @@ fn handle_get_user_scopes(params: Map<String, Value>) -> ControllerFuture {
             toolkit = %toolkit,
             "[composio:scopes] handler entry"
         );
-        let pref = super::providers::user_scopes::load_or_default(&toolkit).await;
+        // Reads through the bound memory driver's `Graph` family, not through
+        // the engine's `load_or_default` (which resolved the in-process client
+        // itself — openhuman#5560 deleted that client). The read still fails
+        // OPEN onto the default pref for every failure mode, deliberately; see
+        // `ops::user_scopes`.
+        //
+        // The config load is `?`-free for the same reason: this handler has
+        // never had a failing path, and turning "settings file momentarily
+        // unreadable" into an RPC error would make the scopes panel fail where
+        // it used to render the defaults.
+        let pref = match config_rpc::load_config_with_timeout().await {
+            Ok(config) => super::ops::load_user_scope_pref(&config, &toolkit).await,
+            Err(error) => {
+                tracing::warn!(
+                    method = "composio.get_user_scopes",
+                    toolkit = %toolkit,
+                    %error,
+                    "[composio:scopes] config load failed, using default pref (read+write)"
+                );
+                super::providers::UserScopePref::default()
+            }
+        };
         tracing::debug!(
             method = "composio.get_user_scopes",
             toolkit = %toolkit,
@@ -934,18 +955,13 @@ fn handle_set_user_scopes(params: Map<String, Value>) -> ControllerFuture {
             admin = pref.admin,
             "[composio:scopes] handler entry"
         );
-        let memory = match tinymemory_core::global::client_if_ready() {
-            Some(m) => m,
-            None => {
-                tracing::error!(
-                    method = "composio.set_user_scopes",
-                    toolkit = %toolkit,
-                    "[composio:scopes] memory client not initialised — cannot persist pref"
-                );
-                return Err("memory client not initialised".to_string());
-            }
-        };
-        if let Err(e) = super::providers::user_scopes::save(&memory, &toolkit, pref).await {
+        // Writes through the bound memory driver's `Graph` family. This half
+        // fails CLOSED, as it did before: the old code refused with "memory
+        // client not initialised" rather than reporting a save it had not
+        // done, and `ops::user_scopes::save` refuses on the same three
+        // grounds (no driver, no `Graph` family, backend write failure).
+        let config = config_rpc::load_config_with_timeout().await?;
+        if let Err(e) = super::ops::save_user_scope_pref(&config, &toolkit, pref).await {
             tracing::error!(
                 method = "composio.set_user_scopes",
                 toolkit = %toolkit,

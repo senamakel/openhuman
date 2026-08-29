@@ -454,6 +454,13 @@ impl AgentBuilder {
         let tool_specs: Vec<ToolSpec> = tools.iter().map(|tool| tool.spec()).collect();
 
         let mut visible_names = self.visible_tool_names.unwrap_or_default();
+        // Resolved here rather than at its historical position below: the pack
+        // withholding is per-agent (a pack is skipped for the specialist that
+        // owns its family), so the id has to exist before the strip.
+        let agent_definition_name = self
+            .agent_definition_name
+            .clone()
+            .unwrap_or_else(|| "main".to_string());
         // On-demand tool disclosure: withhold packed tools' schemas from the
         // provider and advertise `load_skill` / `use_skill` in their place. The
         // tools stay in the registry below and stay executable — only the
@@ -462,7 +469,10 @@ impl AgentBuilder {
         if visible_names.is_empty() {
             visible_names = tools.iter().map(|tool| tool.name().to_string()).collect();
         }
-        crate::openhuman::tools::toolpacks::strip_packed_from_visible(&mut visible_names);
+        crate::openhuman::tools::toolpacks::strip_packed_from_visible(
+            &mut visible_names,
+            &agent_definition_name,
+        );
         let config = self.config.clone().unwrap_or_default();
         let event_session_id = self
             .event_session_id
@@ -472,10 +482,6 @@ impl AgentBuilder {
             .event_channel
             .clone()
             .unwrap_or_else(|| "internal".to_string());
-        let agent_definition_name = self
-            .agent_definition_name
-            .clone()
-            .unwrap_or_else(|| "main".to_string());
         let tool_policy_session = ToolPolicyEngine::build_session(
             &agent_definition_name,
             &event_channel,

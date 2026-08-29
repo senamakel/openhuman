@@ -164,7 +164,7 @@ const DEFAULT_AGENT_TURN_TIMEOUT_SECS: u64 = 600;
 /// [`DEFAULT_AGENT_TURN_TIMEOUT_SECS`]); `0` means "no ceiling" → `None`, which
 /// restores the previous unbounded behavior for callers that deliberately opt
 /// out (e.g. very long autonomous runs).
-fn agent_turn_wall_clock_ms() -> Option<u64> {
+pub(crate) fn agent_turn_wall_clock_ms() -> Option<u64> {
     parse_agent_turn_wall_clock_ms(
         std::env::var("OPENHUMAN_AGENT_TURN_TIMEOUT_SECS")
             .ok()
@@ -519,7 +519,6 @@ pub(crate) async fn run_turn_via_tinyagents(
 fn is_subagent_spawn_or_delegate_tool(name: &str) -> bool {
     name == "spawn_subagent"
         || name.starts_with("delegate_")
-        || name == "use_tinyplace"
         || name == "agent_prepare_context"
         || name == "spawn_worker_thread"
 }
@@ -778,9 +777,33 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
 
     // Cap pauser: stop gracefully at the model-call budget (returning the partial
     // transcript) so the caller can summarize a checkpoint instead of erroring.
+    //
+    // It is also handed the turn's dispatch guard, so the pause is *recorded* and
+    // not merely requested. `SteeringCommand::Pause` is advisory — honoured at the
+    // loop boundary — and nothing consulted it before dispatching a new sub-agent,
+    // so a dispatch issued in the same instant raced it and took the whole turn
+    // down with the run's remaining wall-clock budget (#5804). The guard is
+    // resolved here rather than inside the listener because this future runs on
+    // the turn's task, where the task-local is in scope; the listener need not.
     if pause_at_cap {
         if let (Some(events), Some(handle)) = (&events, &handle) {
-            events.subscribe(CapPauser::new(handle.clone(), max_iterations));
+            // Only the TOP-LEVEL turn's cap pause is binding on dispatch. A
+            // sub-agent reaching its own model-call cap is a routine outcome —
+            // it summarises and hands its result back (`hit_cap`) — and the
+            // parent may legitimately keep delegating afterwards. Recording a
+            // child's cap here would stop the whole turn's fan-out on a signal
+            // that says nothing about the parent's budget, so `subagent_scope`
+            // gates it: `None` is the chat turn, `Some` is a delegated child.
+            // The child still gets its advisory `Pause` either way.
+            let dispatch_guard = subagent_scope
+                .is_none()
+                .then(crate::openhuman::agent::harness::turn_dispatch_guard::current)
+                .flatten();
+            events.subscribe(CapPauser::new(
+                handle.clone(),
+                max_iterations,
+                dispatch_guard,
+            ));
         }
     }
 

@@ -401,3 +401,274 @@ async fn current_user_fetch_carries_the_product_identity() {
 
     crate::api::product::reset_product_identity_for_test();
 }
+
+// ── Current-user failure backoff (#5624) ────────────────────────────────────
+//
+// While the backend is unreachable, every `app_state_snapshot` poll used to
+// re-attempt `auth_get_me` and re-pay the full `AUTH_FETCH_TIMEOUT`, because a
+// failure was never recorded anywhere: `fetch_current_user_cached` cached only
+// successes, and on a timeout its future was dropped before it could cache
+// anything at all. 51 timeouts in one session is what that costs at a 5s poll
+// cadence. These cover the record, the window, and the fact that the fetch
+// actually consults it.
+
+/// Serializes the tests that seed `CURRENT_USER_FAILURE`.
+///
+/// Async-aware rather than the `parking_lot` guard the positive-cache tests
+/// use, because one of these tests has to hold it across an `.await` — the
+/// whole point of that test is that `fetch_current_user_cached` consults the
+/// record. Kept distinct from `APP_STATE_CACHE_TEST_LOCK` because the two guard
+/// different globals and nothing here writes the positive cache.
+static CURRENT_USER_FAILURE_TEST_LOCK: TestLazy<tokio::sync::Mutex<()>> =
+    TestLazy::new(|| tokio::sync::Mutex::new(()));
+
+/// Drops the seeded outage on the way out, so one test cannot leak into the next.
+struct CurrentUserFailureResetGuard;
+
+impl Drop for CurrentUserFailureResetGuard {
+    fn drop(&mut self) {
+        clear_current_user_failure();
+    }
+}
+
+/// Overwrite the failure record with one that failed `age` ago, so a test can
+/// sit either side of a backoff window without sleeping.
+fn seed_current_user_failure(
+    api_base: &str,
+    token: &str,
+    consecutive: u32,
+    age: Duration,
+    error: CurrentUserFetchError,
+) {
+    *CURRENT_USER_FAILURE.lock() = Some(CurrentUserFailure {
+        api_base: api_base.to_string(),
+        token: token.to_string(),
+        failed_at: Instant::now()
+            .checked_sub(age)
+            .expect("test ages are far smaller than process uptime"),
+        consecutive,
+        error,
+    });
+}
+
+#[test]
+fn current_user_backoff_doubles_and_saturates_at_the_cap() {
+    assert_eq!(current_user_backoff(1), CURRENT_USER_BACKOFF_BASE);
+    assert_eq!(current_user_backoff(2), CURRENT_USER_BACKOFF_BASE * 2);
+    assert_eq!(current_user_backoff(3), CURRENT_USER_BACKOFF_BASE * 4);
+    assert_eq!(current_user_backoff(u32::MAX), CURRENT_USER_BACKOFF_MAX);
+    // 0 is not a state the recorder can produce, but the function must not
+    // answer it with a zero-length window.
+    assert_eq!(current_user_backoff(0), CURRENT_USER_BACKOFF_BASE);
+
+    let mut previous = Duration::ZERO;
+    for consecutive in 1..=12 {
+        let window = current_user_backoff(consecutive);
+        assert!(
+            window >= previous,
+            "backoff must never narrow as failures accumulate: {consecutive} gave {window:?} after {previous:?}"
+        );
+        assert!(
+            window <= CURRENT_USER_BACKOFF_MAX,
+            "backoff must stay under the cap: {consecutive} gave {window:?}"
+        );
+        previous = window;
+    }
+}
+
+#[test]
+fn the_first_backoff_step_outlasts_both_the_fetch_timeout_and_the_poll() {
+    // This is the property that actually stops the treadmill, and the one a
+    // future constant change could silently break. A first step shorter than
+    // the fetch timeout means the next poll finds the window already closed and
+    // pays the full 5s again — which is the bug, not the fix. It must also
+    // outlast the positive-cache TTL, because that TTL is what governs how soon
+    // a poll asks for a live fetch at all.
+    assert!(
+        current_user_backoff(1) > AUTH_FETCH_TIMEOUT,
+        "first backoff step {:?} must exceed the fetch timeout {:?}",
+        current_user_backoff(1),
+        AUTH_FETCH_TIMEOUT
+    );
+    assert!(
+        current_user_backoff(1) > CURRENT_USER_REFRESH_TTL,
+        "first backoff step {:?} must exceed the current-user cache TTL {:?}",
+        current_user_backoff(1),
+        CURRENT_USER_REFRESH_TTL
+    );
+}
+
+#[test]
+fn a_recorded_failure_suppresses_a_retry_inside_its_window() {
+    let _failure_lock = CURRENT_USER_FAILURE_TEST_LOCK.blocking_lock();
+    let _reset = CurrentUserFailureResetGuard;
+
+    record_current_user_failure(
+        "https://api.example.test",
+        "token-a",
+        CurrentUserFetchError::FetchFailed("request timed out after 5s".to_string()),
+    );
+
+    let (error, consecutive, remaining) =
+        suppressed_current_user_failure("https://api.example.test", "token-a")
+            .expect("a just-recorded failure must suppress the next attempt");
+    assert_eq!(consecutive, 1);
+    assert_eq!(error.message(), "request timed out after 5s");
+    assert!(remaining <= CURRENT_USER_BACKOFF_BASE && !remaining.is_zero());
+}
+
+#[test]
+fn a_recorded_failure_stops_suppressing_once_its_window_closes() {
+    let _failure_lock = CURRENT_USER_FAILURE_TEST_LOCK.blocking_lock();
+    let _reset = CurrentUserFailureResetGuard;
+
+    seed_current_user_failure(
+        "https://api.example.test",
+        "token-a",
+        1,
+        CURRENT_USER_BACKOFF_BASE + Duration::from_millis(1),
+        CurrentUserFetchError::FetchFailed("boom".to_string()),
+    );
+
+    assert!(
+        suppressed_current_user_failure("https://api.example.test", "token-a").is_none(),
+        "a failure older than its window must let the next attempt through"
+    );
+}
+
+#[test]
+fn consecutive_failures_widen_the_window() {
+    let _failure_lock = CURRENT_USER_FAILURE_TEST_LOCK.blocking_lock();
+    let _reset = CurrentUserFailureResetGuard;
+
+    for _ in 0..3 {
+        record_current_user_failure(
+            "https://api.example.test",
+            "token-a",
+            CurrentUserFetchError::FetchFailed("boom".to_string()),
+        );
+    }
+
+    let (_, consecutive, _) =
+        suppressed_current_user_failure("https://api.example.test", "token-a")
+            .expect("still inside the widened window");
+    assert_eq!(consecutive, 3);
+
+    // Three failures in, an attempt that would have been let through at the
+    // first window is still suppressed.
+    seed_current_user_failure(
+        "https://api.example.test",
+        "token-a",
+        3,
+        CURRENT_USER_BACKOFF_BASE + Duration::from_millis(1),
+        CurrentUserFetchError::FetchFailed("boom".to_string()),
+    );
+    assert!(
+        suppressed_current_user_failure("https://api.example.test", "token-a").is_some(),
+        "the third failure's window must outlast the first failure's"
+    );
+}
+
+#[test]
+fn a_rejected_credential_is_never_recorded() {
+    let _failure_lock = CURRENT_USER_FAILURE_TEST_LOCK.blocking_lock();
+    let _reset = CurrentUserFailureResetGuard;
+
+    record_current_user_failure(
+        "https://api.example.test",
+        "token-a",
+        CurrentUserFetchError::Rejected("401 Unauthorized".to_string()),
+    );
+
+    // Replaying a rejection from a cache would either delay the deferred-session
+    // cleanup the snapshot caller drives off that variant, or hand it a
+    // different variant than the backend produced.
+    assert!(
+        suppressed_current_user_failure("https://api.example.test", "token-a").is_none(),
+        "an auth rejection must not be backed off"
+    );
+}
+
+#[test]
+fn a_different_token_or_backend_bypasses_the_record() {
+    let _failure_lock = CURRENT_USER_FAILURE_TEST_LOCK.blocking_lock();
+    let _reset = CurrentUserFailureResetGuard;
+
+    record_current_user_failure(
+        "https://api.example.test",
+        "token-a",
+        CurrentUserFetchError::FetchFailed("boom".to_string()),
+    );
+
+    assert!(
+        suppressed_current_user_failure("https://api.example.test", "token-b").is_none(),
+        "signing in as someone else must not inherit the previous session's outage"
+    );
+    assert!(
+        suppressed_current_user_failure("https://other.example.test", "token-a").is_none(),
+        "switching environment must not inherit the previous backend's outage"
+    );
+    // …and the run it was recorded against is untouched by those probes.
+    assert!(suppressed_current_user_failure("https://api.example.test", "token-a").is_some());
+}
+
+#[test]
+fn clearing_the_record_lets_the_next_attempt_through() {
+    let _failure_lock = CURRENT_USER_FAILURE_TEST_LOCK.blocking_lock();
+    let _reset = CurrentUserFailureResetGuard;
+
+    record_current_user_failure(
+        "https://api.example.test",
+        "token-a",
+        CurrentUserFetchError::FetchFailed("boom".to_string()),
+    );
+    assert!(suppressed_current_user_failure("https://api.example.test", "token-a").is_some());
+
+    // What sign-out and every success both call. Missing either is the failure
+    // mode that matters: a record outliving its cause strands the app on the
+    // stored snapshot after the backend is back.
+    clear_current_user_failure();
+
+    assert!(
+        suppressed_current_user_failure("https://api.example.test", "token-a").is_none(),
+        "a cleared record must not keep suppressing"
+    );
+}
+
+#[tokio::test]
+async fn fetch_current_user_cached_replays_a_recorded_failure_without_calling_the_backend() {
+    let _failure_lock = CURRENT_USER_FAILURE_TEST_LOCK.lock().await;
+    let _reset = CurrentUserFailureResetGuard;
+
+    let mut config = Config::default();
+    // A closed loopback port. Nothing here should reach it — the point of the
+    // test is that the recorded failure short-circuits first — but if the probe
+    // is removed the call fails locally with a connection error instead of
+    // reaching out to the real backend.
+    config.api_url = Some("http://127.0.0.1:9/".to_string());
+    let api_base = current_user_api_base(&config);
+    assert!(
+        api_base.starts_with("http://127.0.0.1:9"),
+        "precondition: the override must survive backend-url resolution, got {api_base}; \
+         otherwise this test would talk to a real backend"
+    );
+
+    let token = "token-a";
+    seed_current_user_failure(
+        &api_base,
+        token,
+        1,
+        Duration::from_millis(1),
+        CurrentUserFetchError::FetchFailed("seeded outage marker".to_string()),
+    );
+
+    let error = fetch_current_user_cached(&config, token, true)
+        .await
+        .expect_err("a recorded failure inside its window must be replayed");
+
+    assert_eq!(
+        error.message(),
+        "seeded outage marker",
+        "the fetch must replay the recorded failure rather than issue a request"
+    );
+}

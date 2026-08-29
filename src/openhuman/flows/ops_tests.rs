@@ -1585,22 +1585,31 @@ async fn reconcile_schedule_triggers_on_boot_survives_a_corrupt_row() {
 #[tokio::test]
 async fn flows_delete_clears_flow_memory_namespace() {
     use crate::openhuman::memory::{MemoryCategory, MemoryTaint};
-    use tinymemory_core::store::MemoryClient;
+    use tinymemory_api::provider::MemoryCore;
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    crate::openhuman::memory::host_impls::install_for_tests();
 
-    // A directly-constructed `MemoryClient`, injected via `flows_delete_impl`
-    // below, instead of `memory::global` — that singleton is a single
-    // process-wide `OnceLock` any other test in this binary may rebind to
-    // its own tempdir workspace, which would make this test's pass/fail
-    // depend on run order / thread interleaving rather than its own setup.
-    // See `flows_delete_impl`'s doc comment (mirrors
-    // `bus::FlowRunDigestSubscriber::with_memory`'s injection seam).
-    let memory_client: MemoryClientRef =
-        Arc::new(MemoryClient::from_workspace_dir(config.workspace_dir.clone()).unwrap());
-    let memory = memory_client.memory_handle();
+    // Bind a real driver over *this test's own* workspace and drive both the
+    // seeding and the assertion through its guard.
+    //
+    // Two things make the binding necessary rather than incidental. An unbound
+    // config resolves to the null driver, which serves no families at all, so
+    // the clear step under test would degrade instead of running. And
+    // `active_memory_guard` — what `flows_delete` reaches for with no override
+    // — resolves the ambient `CoreContext`, which a pre-boot unit test does not
+    // have; its fallback is the single shared `memory::ops` test workspace, not
+    // this `tempdir`. Injecting the binding's guard is what keeps the store
+    // written here and the store cleared by `flows_delete_impl` the same one.
+    //
+    // This was a directly-constructed `tinymemory_core` `MemoryClient` before
+    // #5560. Same engine underneath — `install_tinycortex_for_test` builds a
+    // `TinycortexProvider` over it — but reached through the contract, so the
+    // fixture no longer holds an unguarded door into memory.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
+    let memory = crate::openhuman::memory::binding::for_config(&config)
+        .expect("bind the memory driver for this test's workspace")
+        .guard();
 
     let created = flows_create(
         &config,
@@ -1612,8 +1621,10 @@ async fn flows_delete_clears_flow_memory_namespace() {
     .unwrap();
     let flow_id = created.value.id.clone();
 
+    // `store` carries the taint on the contract — the engine trait's separate
+    // `store_with_taint` door does not exist here, and does not need to.
     memory
-        .store_with_taint(
+        .store(
             &flow_namespace(&flow_id),
             "sent_item_1",
             "Sent item 1",
@@ -1629,11 +1640,11 @@ async fn flows_delete_clears_flow_memory_namespace() {
             .await
             .unwrap()
             .is_some(),
-        "precondition: flow memory entry was stored (through the SAME client flows_delete_impl \
+        "precondition: flow memory entry was stored (through the SAME driver flows_delete_impl \
          is about to clear)"
     );
 
-    flows_delete_impl(&config, &flow_id, Some(memory_client))
+    flows_delete_impl(&config, &flow_id, Some(memory.clone()))
         .await
         .unwrap();
 
@@ -3205,6 +3216,7 @@ async fn observer_persists_each_step_incrementally() {
         output: json!([{ "json": { "ok": true } }]),
         duration_ms: 7,
         diagnostics: Vec::new(),
+        transcript: Vec::new(),
     });
     observer.on_step_finish(&ExecutionStep {
         node_id: "b".to_string(),
@@ -3212,6 +3224,7 @@ async fn observer_persists_each_step_incrementally() {
         output: Value::Null,
         duration_ms: 3,
         diagnostics: Vec::new(),
+        transcript: Vec::new(),
     });
 
     // The store now holds both live steps with real status + timing — proof of
@@ -3232,6 +3245,7 @@ async fn observer_persists_each_step_incrementally() {
         output: json!([{ "json": { "ok": true } }]),
         duration_ms: 42,
         diagnostics: Vec::new(),
+        transcript: Vec::new(),
     });
     let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
     assert_eq!(row.steps.len(), 2, "re-firing a node must not duplicate it");

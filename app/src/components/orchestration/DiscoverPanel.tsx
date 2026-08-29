@@ -8,7 +8,8 @@
  */
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { apiClient } from '../../agentworld/AgentWorldShell';
+import { resolveWalletConfigured } from '../../hooks/useWalletConfigured';
+import { apiClient } from '../../lib/agentworld/apiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   orchestrationClient,
@@ -18,6 +19,7 @@ import {
 import { usePairing } from '../../lib/orchestration/usePairing';
 import { contactAddress, extractHandle } from '../intelligence/orchestrationTabHelpers';
 import Button from '../ui/Button';
+import TextField from '../ui/TextField';
 import { SectionCard } from './primitives';
 
 export default function DiscoverPanel() {
@@ -31,12 +33,23 @@ export default function DiscoverPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.allSettled([
-      orchestrationClient.selfIdentity(),
-      orchestrationClient.relayInfo(),
-    ]).then(([id, rel]) => {
+    // Gate the wallet-requiring read: selfIdentity() derives a tiny.place
+    // signer from the wallet, so with none configured it can only reject with
+    // the core's wallet-not-configured error — an expected state that still
+    // travels as an Err and lands as an error-level report (#5805). Ask
+    // wallet_status, which answers the same question without erroring, and skip
+    // only on a positive `no`. relayInfo() needs no wallet and always runs.
+    // Fire the wallet-independent read FIRST so relay is never delayed by the
+    // wallet probe.
+    const relayPromise = orchestrationClient.relayInfo();
+    const identityPromise = resolveWalletConfigured().then(configured =>
+      configured === 'no' ? null : orchestrationClient.selfIdentity()
+    );
+    void Promise.allSettled([identityPromise, relayPromise]).then(([id, rel]) => {
       if (cancelled) return;
-      if (id.status === 'fulfilled') setIdentity(id.value);
+      // `null` is the skipped case — leave `identity` null, exactly as a
+      // failed fetch would, so the render path is unchanged.
+      if (id.status === 'fulfilled' && id.value !== null) setIdentity(id.value);
       if (rel.status === 'fulfilled') setRelay(rel.value);
       setIdentityLoading(false);
     });
@@ -144,11 +157,11 @@ export default function DiscoverPanel() {
         description={t('orchPage.discover.linkDescription')}
         testId="orch-discover-link">
         <form className="flex gap-2" onSubmit={submitLink}>
-          <input
+          <TextField
             value={linkAgentId}
             onChange={e => setLinkAgentId(e.target.value)}
             placeholder={t('tinyplaceOrchestration.pairing.linkPlaceholder')}
-            className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-content outline-none transition focus:border-ocean-500 focus:ring-2 focus:ring-ocean-500/20"
+            className="min-w-0 flex-1"
             data-testid="orch-discover-link-input"
           />
           <Button

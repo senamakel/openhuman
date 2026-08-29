@@ -248,4 +248,41 @@ pub enum SubagentRunError {
     /// satisfy — so the two must not read the same in a transcript.
     #[error("delegation blocked by a configured hook: {0}")]
     HookDenied(String),
+
+    /// The turn asked to pause gracefully at its model-call cap before this
+    /// dispatch was attempted (#5804).
+    ///
+    /// Distinct from the budget refusal below on purpose: this one is a fact
+    /// about the turn's *intent* — the loop is going to stop at its next
+    /// boundary no matter how much time is left — while the other is a
+    /// measured prediction. Reported to the model as a terminal instruction to
+    /// summarise, because further fan-out cannot reach the answer and can only
+    /// consume the budget the checkpoint summary needs.
+    #[error(
+        "delegation refused: this turn reached its model-call cap ({completed_model_calls}/{cap}) \
+         and has already requested a graceful pause. Do not delegate again — summarise the results \
+         you already have and finish the turn."
+    )]
+    PauseRequested {
+        completed_model_calls: u64,
+        cap: u64,
+    },
+
+    /// Less wall-clock remained than the slowest sub-agent this turn has
+    /// actually completed, so the dispatch could not have finished (#5804).
+    ///
+    /// The comparison is against this turn's own measured maximum, never a
+    /// configured constant, so the refusal means the same thing for a turn
+    /// with three fast children as for one with three hundred slow ones.
+    #[error(
+        "delegation refused: {remaining_ms} ms of this turn's wall-clock budget remain, but the \
+         slowest of its {observed_samples} completed sub-agent(s) took {observed_max_ms} ms, so a \
+         new delegation cannot finish in time. Summarise the results you already have and finish \
+         the turn."
+    )]
+    DispatchBudgetExhausted {
+        remaining_ms: u64,
+        observed_max_ms: u64,
+        observed_samples: u64,
+    },
 }

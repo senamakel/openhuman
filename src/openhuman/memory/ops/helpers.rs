@@ -1,5 +1,9 @@
-//! Formatting helpers, default constants, path validators, and the active
-//! memory-client lookup. Shared internals for the memory RPC handlers.
+//! Formatting helpers, default constants, path validators, and the shared
+//! workspace lookup. Shared internals for the memory RPC handlers.
+//!
+//! This module used to own `active_memory_client`, the unguarded lookup of the
+//! in-process engine's process-global handle. That handle is gone (#5560) — see
+//! the note where the function stood, further down.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
@@ -13,8 +17,14 @@ use crate::openhuman::memory::{
     MemoryDocumentSummary, MemoryRetrievalChunk, MemoryRetrievalContext, MemoryRetrievalEntity,
     MemoryRetrievalRelation, QueryNamespaceRequest,
 };
-use tinymemory_core::store::GraphRelationRecord;
-use tinymemory_core::store::{MemoryClientRef, MemoryItemKind, NamespaceMemoryHit};
+// Contract vocabulary, named at the contract. Every value type here resolves
+// to the same item either way (tinycortex-api re-exports tinymemory-api), but a
+// `tinymemory_core::` path is a compile-time link this host has shed (#5560),
+// and this module no longer holds an engine handle at all — see the note where
+// `active_memory_client` used to be.
+use crate::openhuman::memory::api::types::{
+    GraphRelationRecord, MemoryItemKind, NamespaceMemoryHit,
+};
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -228,7 +238,11 @@ pub(crate) fn format_llm_context_message(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tinymemory_core::store::RetrievalScoreBreakdown;
+    // The score breakdown a `NamespaceMemoryHit` carries is contract
+    // vocabulary — `tinymemory-core` only re-exports it — so the fixture names
+    // it where it is defined. Same item either way; the engine path was a
+    // compile-time link this host is shedding (#5560).
+    use crate::openhuman::memory::api::types::RetrievalScoreBreakdown;
 
     fn sample_hit(kind: MemoryItemKind) -> NamespaceMemoryHit {
         NamespaceMemoryHit {
@@ -367,22 +381,22 @@ pub(crate) async fn current_workspace_dir() -> Result<PathBuf, String> {
         .map_err(|e| format!("load config: {e}"))
 }
 
-/// Returns the active memory client from the process-global singleton,
-/// auto-initialising from the configured workspace if startup wiring hasn't
-/// done so yet.
-///
-/// The auto-init resolves the workspace via [`current_workspace_dir`], which
-/// goes through `Config::load_or_init` — the same path startup wiring uses.
-/// It does **not** fall back to `~/.openhuman/workspace`; that hazard is the
-/// one [`tinymemory_core::global::client`] guards against, and it
-/// remains guarded for any caller that bypasses this helper.
-pub(crate) async fn active_memory_client() -> Result<MemoryClientRef, String> {
-    if let Some(client) = tinymemory_core::global::client_if_ready() {
-        return Ok(client);
-    }
-    let workspace_dir = current_workspace_dir().await?;
-    tinymemory_core::global::init(workspace_dir)
-}
+// ── `active_memory_client` is gone (#5560) ──────────────────────────────────
+//
+// It resolved the in-process engine's process-global `MemoryClient`, booting it
+// from the configured workspace when startup wiring had not. Every caller has
+// been routed onto the bound driver instead, and this host no longer boots a
+// second engine for one to be resolved from, so the function was left with no
+// callers at all — a helper whose whole body was `global::client_if_ready()`
+// then `global::init(…)`.
+//
+// The replacement is not a narrower helper here: it is
+// `super::guard::active_memory_guard` for a handler with a typed contract twin,
+// and `memory::binding::for_config(&config)` for one that needs the binding
+// itself (driver id, capabilities, a specific family). Both key on the
+// workspace dir and the `[subsystems.memory]` block, which is why the login /
+// logout / revalidation sites need no explicit re-point the way `global::init`
+// did.
 
 // ---------------------------------------------------------------------------
 // Path validators (used by file-based memory handlers)

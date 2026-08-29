@@ -91,9 +91,23 @@ pub async fn sync_trigger_rpc(
     let considered = candidates.len();
     let mut outcomes: Vec<SyncOutcome> = Vec::with_capacity(considered);
 
+    // Resolved once, outside the loop: the binding is cached per workspace, but
+    // a driver that serves no sync should refuse the whole request rather than
+    // once per connection.
+    let binding = crate::openhuman::memory::binding::for_config(config)?;
+    let sync = binding.provider().as_source_sync().ok_or_else(|| {
+        format!(
+            "the bound memory driver '{}' does not serve source sync",
+            binding.driver_id()
+        )
+    })?;
+
     for conn in candidates {
         let started_at_ms = now_ms();
-        match tinymemory_core::tinycortex::run_composio_connection("slack", &conn.id, config).await
+        match sync
+            .run_connection_sync("slack", &conn.id)
+            .await
+            .map_err(|error| error.to_string())
         {
             Ok(outcome) => outcomes.push(SyncOutcome {
                 toolkit: "slack".to_string(),
@@ -173,6 +187,17 @@ pub async fn sync_status_rpc(
     // backend tenant's (#1710).
     let connections = list_slack_connections(config).await?;
 
+    // The state rows come from the driver now. Resolved once for the whole
+    // report rather than per connection: a driver that serves no sync has
+    // nothing to say about any of them.
+    let binding = crate::openhuman::memory::binding::for_config(config)?;
+    let sync = binding.provider().as_source_sync().ok_or_else(|| {
+        format!(
+            "the bound memory driver '{}' does not serve source sync",
+            binding.driver_id()
+        )
+    })?;
+
     let mut rows = Vec::new();
     for conn in connections.connections {
         if conn.normalized_toolkit() != "slack" {
@@ -181,23 +206,32 @@ pub async fn sync_status_rpc(
         if !conn.is_active() {
             continue;
         }
-        let state =
-            match tinymemory_core::tinycortex::load_composio_sync_state("slack", &conn.id).await {
-                Ok(s) => s,
-                Err(err) => {
-                    log::warn!(
-                        "[slack_ingest] load_state connection={} failed: {err:#}",
-                        conn.id
-                    );
-                    continue;
-                }
-            };
+        let state = match sync.source_sync_state("slack", &conn.id).await {
+            Ok(s) => s,
+            Err(err) => {
+                log::warn!(
+                    "[slack_ingest] load_state connection={} failed: {err:#}",
+                    conn.id
+                );
+                continue;
+            }
+        };
+        // `None` is a connection that has never synced. The engine call this
+        // replaced returned a freshly defaulted state for that case, so the row
+        // it produced was all zeroes and an empty cursor — which is what
+        // `unwrap_or_default` reproduces exactly. Skipping the row instead
+        // would drop a connected source from the report the moment it was
+        // connected and before its first sync.
+        let state = state.unwrap_or_default();
         rows.push(ConnectionStatus {
             connection_id: conn.id.clone(),
             per_channel_cursors: state.cursor.clone().unwrap_or_else(|| "{}".to_string()),
-            synced_ids_count: state.synced_ids.len(),
-            requests_used_today: state.daily_budget.requests_used,
-            daily_request_limit: state.daily_budget.limit,
+            // The contract carries the count where the engine carried the set
+            // itself. Same number, and the set was never read here for anything
+            // but its length.
+            synced_ids_count: usize::try_from(state.synced_item_count).unwrap_or(usize::MAX),
+            requests_used_today: state.daily_requests_used,
+            daily_request_limit: state.daily_request_limit,
         });
     }
 

@@ -21,6 +21,10 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 
+use tinyagents::graph::goals::budget as crate_budget;
+use tinyagents::graph::goals::{BudgetVerdict, GoalBudgetGuard};
+
+use super::migration::goals_store;
 use super::store;
 use super::{ThreadGoal, ThreadGoalStatus};
 use crate::core::bus::BUS;
@@ -88,7 +92,7 @@ pub async fn pause_for_current_thread(workspace_dir: &Path) {
 
 /// The per-turn token total used for budget accounting (prompt + completion).
 fn turn_tokens(input: u64, output: u64) -> u64 {
-    input.saturating_add(output)
+    crate_budget::turn_tokens(input, output)
 }
 
 /// Whether the current turn is an autonomous goal-continuation (vs. a
@@ -109,55 +113,43 @@ fn is_goal_continuation_turn() -> bool {
 
 /// Account a finished turn's usage against the ambient thread's goal.
 ///
-/// Only **active** goals are charged (a paused/complete/budget-limited goal
-/// doesn't accrue usage from incidental chat). Best-effort: a failure is logged
-/// and swallowed so accounting never fails a user turn. Emits
-/// `ThreadGoalUpdated` when the status changes (e.g. → `budget_limited`) so the
-/// UI chip refreshes.
+/// The accounting rules are the crate's
+/// ([`crate_budget::account_turn`](tinyagents::graph::goals::account_turn)):
+/// only **active** goals are charged, so a paused/complete/budget-limited goal
+/// doesn't accrue usage from incidental chat, and a user-initiated turn clears
+/// the one-shot continuation suppression (a continuation turn must not clear
+/// its own, see [`super::continuation`]).
+///
+/// What is OpenHuman's here: reading the ambient thread from the turn scope,
+/// classifying the turn as user-initiated vs. continuation from its origin, and
+/// emitting `ThreadGoalUpdated` when the status changes (e.g. →
+/// `budget_limited`) so the UI chip refreshes. Best-effort throughout: a
+/// failure is logged and swallowed so accounting never fails a user turn.
 pub async fn account_turn_against_goal(workspace_dir: &Path, input: u64, output: u64, secs: u64) {
     let Some(thread_id) = current_thread_id() else {
         return;
     };
-    let goal = match store::get(workspace_dir, &thread_id).await {
-        Ok(Some(g)) => g,
+    let prev_status = match store::get(workspace_dir, &thread_id).await {
+        Ok(Some(goal)) => goal.status,
         Ok(None) => return,
         Err(e) => {
             tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] account get failed");
             return;
         }
     };
-    if !goal.status.is_active() {
-        return;
-    }
-    // Reset the one-shot continuation suppression on user-initiated activity: a
-    // real turn in this thread means the user re-engaged, so a future idle
-    // period may auto-continue again. The continuation turn itself runs under a
-    // GoalContinuation origin and must NOT clear its own suppression.
-    if goal.continuation_suppressed && !is_goal_continuation_turn() {
-        if let Err(e) =
-            store::set_continuation_suppressed_if(workspace_dir, &thread_id, &goal.goal_id, false)
-                .await
-        {
-            tracing::debug!(
-                thread_id = %thread_id,
-                error = %e,
-                "[thread_goals] failed to clear continuation suppression"
-            );
-        }
-    }
-    let delta = turn_tokens(input, output);
-    if delta == 0 && secs == 0 {
-        return;
-    }
-    let prev_status = goal.status;
-    match store::account_usage(workspace_dir, &thread_id, &goal.goal_id, delta, secs).await {
+
+    let store = goals_store(workspace_dir);
+    let user_initiated = !is_goal_continuation_turn();
+    match crate_budget::account_turn(&store, &thread_id, input, output, secs, user_initiated).await
+    {
         Ok(Some(updated)) => {
             tracing::debug!(
                 thread_id = %thread_id,
                 goal_id = %updated.goal_id,
                 tokens_used = updated.tokens_used,
                 status = updated.status.as_str(),
-                "[thread_goals] accounted turn usage (+{delta} tok, +{secs}s)"
+                "[thread_goals] accounted turn usage (+{} tok, +{secs}s)",
+                turn_tokens(input, output)
             );
             if updated.status != prev_status {
                 BUS.publish(DomainEvent::ThreadGoalUpdated {
@@ -169,7 +161,7 @@ pub async fn account_turn_against_goal(workspace_dir: &Path, input: u64, output:
         }
         Ok(None) => {}
         Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] account_usage failed");
+            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] account_turn failed");
         }
     }
 }
@@ -178,32 +170,34 @@ pub async fn account_turn_against_goal(workspace_dir: &Path, input: u64, output:
 /// running usage (already-accounted tokens from prior turns + this turn's
 /// tokens so far) would meet or exceed its budget.
 ///
-/// It only fires for goals that are still `Active` with a configured budget —
+/// The decision is the crate's
+/// [`GoalBudgetGuard`](tinyagents::graph::goals::GoalBudgetGuard); this is the
+/// adapter that votes it into OpenHuman's [`StopHook`] chain. #4469 item 1: the
+/// stop is a graceful *pause*, not an instantaneous abort — the vote fires in
+/// the stop-hook middleware's `after_model`, and the harness drains the pause
+/// at the **top of the next iteration**, so the tool round for the model call
+/// that tripped the budget still runs and the turn's wrap-up summary may spend
+/// one more model call before the partial transcript is returned. It bounds an
+/// autonomous run to a small, deterministic overshoot past the ceiling rather
+/// than a hard cut at the exact accounting point.
+///
+/// The guard only arms for a goal that is `Active` with a configured budget,
+/// and stands down if that goal is completed, replaced, or paused mid-turn —
 /// once a goal is `budget_limited`/`paused`/`complete` the user can still chat
-/// freely (the injected context steers the model to summarise), so we never
-/// hard-stop a user-present turn that isn't actively burning a live budget.
+/// freely (the injected context steers the model to summarise), so a
+/// user-present turn is never hard-stopped by a budget that is no longer live.
 #[derive(Debug, Clone)]
 pub struct GoalBudgetStopHook {
     workspace_dir: PathBuf,
-    thread_id: String,
-    /// The goal version this hook was armed for. Stops enforcing if the goal is
-    /// replaced mid-turn (a new objective mints a new id).
-    goal_id: String,
-    budget: u64,
+    guard: GoalBudgetGuard,
 }
 
 impl GoalBudgetStopHook {
     /// Build a hook for `goal` if it's active and has a budget; `None` otherwise.
     pub fn for_goal(workspace_dir: &Path, goal: &ThreadGoal) -> Option<Self> {
-        if !goal.status.is_active() {
-            return None;
-        }
-        let budget = goal.token_budget?;
         Some(Self {
             workspace_dir: workspace_dir.to_path_buf(),
-            thread_id: goal.thread_id.clone(),
-            goal_id: goal.goal_id.clone(),
-            budget,
+            guard: GoalBudgetGuard::for_goal(goal)?,
         })
     }
 }
@@ -215,27 +209,16 @@ impl StopHook for GoalBudgetStopHook {
     }
 
     async fn check(&self, ctx: &TurnState<'_>) -> StopDecision {
-        // Read the goal's already-accounted usage (prior turns). If it's gone,
-        // replaced, or no longer active, stop enforcing.
-        let goal = match store::get(&self.workspace_dir, &self.thread_id).await {
-            Ok(Some(g)) => g,
-            _ => return StopDecision::Continue,
-        };
-        if goal.goal_id != self.goal_id || !goal.status.is_active() {
-            return StopDecision::Continue;
-        }
-        let projected = goal
-            .tokens_used
-            .saturating_add(turn_tokens(ctx.cost.input_tokens, ctx.cost.output_tokens));
-        if projected >= self.budget {
-            StopDecision::Stop {
-                reason: format!(
-                    "thread goal budget reached: {projected} tokens >= {} budget — stopping to summarise progress",
-                    self.budget
-                ),
+        let store = goals_store(&self.workspace_dir);
+        let in_flight = turn_tokens(ctx.cost.input_tokens, ctx.cost.output_tokens);
+        match self.guard.check(&store, in_flight).await {
+            Ok(BudgetVerdict::Stop { reason }) => StopDecision::Stop { reason },
+            Ok(BudgetVerdict::Continue) => StopDecision::Continue,
+            Err(e) => {
+                // An unreadable goal is not grounds for killing a live turn.
+                tracing::debug!(error = %e, "[thread_goals] budget check failed; continuing");
+                StopDecision::Continue
             }
-        } else {
-            StopDecision::Continue
         }
     }
 }

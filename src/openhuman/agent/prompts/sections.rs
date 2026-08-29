@@ -219,19 +219,22 @@ impl PromptSection for IdentitySection {
         prompt.push_str(
             "The following workspace files define your identity, behavior, and context.\n\n",
         );
-        // When the visible-tool filter is active the main agent is a pure
-        // orchestrator: it routes via spawn_subagent, synthesises results,
-        // and talks to the user. It does NOT need the periodic-task config
-        // (HEARTBEAT.md) — subagents handle their own concerns.
+        // ROLE.md is the user-facing agent's own role brief (#5701) — the
+        // `# Master Agent` / `## Core Responsibilities` preamble that used to
+        // be compiled into `orchestrator/prompt.md`. It is synced for every
+        // agent so the file exists on disk to edit, but injected only for the
+        // orchestrator: a specialist sub-agent has its own role prompt and
+        // must not be told it is the Master Agent.
+        //
+        // HEARTBEAT.md used to ride along here. It was the periodic-task list
+        // the subconscious engine read, and that domain was deleted — nothing
+        // consumed the file any more, so every agent but the orchestrator was
+        // paying for an empty template. Its `WORKSPACE_INTERNAL_FILES` entry
+        // deliberately stays, so a file a user still has on disk keeps its
+        // not-agent-writable protection.
         let is_orchestrator = !ctx.visible_tool_names.is_empty();
-        let all_files: &[&str] = &["SOUL.md", "IDENTITY.md", "HEARTBEAT.md"];
-        // Orchestrator skips these from the prompt but we still sync them
-        // to disk so they stay current.
-        let skip_in_prompt: &[&str] = if is_orchestrator {
-            &["HEARTBEAT.md"]
-        } else {
-            &[]
-        };
+        let all_files: &[&str] = &["SOUL.md", "IDENTITY.md", "ROLE.md"];
+        let skip_in_prompt: &[&str] = if is_orchestrator { &[] } else { &["ROLE.md"] };
         for file in all_files {
             // Always sync to disk so builtin updates ship.
             sync_workspace_file(ctx.workspace_dir, file);
@@ -250,13 +253,6 @@ impl PromptSection for IdentitySection {
             }
             inject_workspace_file(&mut prompt, ctx.workspace_dir, file);
         }
-
-        // Seed MEMORY_GOALS.md to disk (header-only default) so the
-        // long-term goals list is discoverable in the workspace from first
-        // boot. Sync-only: the goals file is deliberately NOT injected into
-        // the system prompt — it is stored state managed by the memory_goals
-        // domain (RPC / tools / enrichment agent).
-        sync_workspace_file(ctx.workspace_dir, "MEMORY_GOALS.md");
 
         // PROFILE.md / MEMORY.md injection lives in the dedicated
         // `UserFilesSection` (below) so agents that strip the identity
@@ -435,6 +431,11 @@ impl PromptSection for SafetySection {
 ///
 /// Byte-stable (no time / RNG / host) so it lives in the KV-cache-friendly
 /// prefix. Must contain no em-dashes per [`super::builder::GLOBAL_STYLE_SUFFIX`].
+/// Heading the grounding contract renders under, in both the global
+/// [`GROUNDING_BODY`] and any agent prompt that carries its own copy. The
+/// builder matches on this to avoid emitting the contract twice.
+pub const GROUNDING_HEADING: &str = "Grounding and tool use";
+
 pub const GROUNDING_BODY: &str = "## Grounding and tool use\n\n\
     - Your tools are exactly the ones listed in this prompt. You can only act through them. If a capability is not one of your tools, say so plainly rather than pretending it exists.\n\
     - Never invent tool names, arguments, ids, slugs, file paths, URLs, chain ids, addresses, quotes, metrics, or any other value. If you do not have it from a tool result or the user, ask for it or look it up with a tool.\n\

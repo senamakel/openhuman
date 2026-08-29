@@ -533,24 +533,16 @@ impl GitOperationsTool {
             }
         };
 
-        // Check if we're in a git repository. A linked worktree's `.git` is a
-        // file (a gitdir pointer), not a directory — `exists()` covers both.
         let effective_dir = self.effective_action_dir_for_context(context);
-        if !effective_dir.join(".git").exists() {
-            // Try to find .git in parent directories
-            let mut current_dir = effective_dir.as_path();
-            let mut found_git = false;
-            while current_dir.parent().is_some() {
-                if current_dir.join(".git").exists() {
-                    found_git = true;
-                    break;
-                }
-                current_dir = current_dir.parent().unwrap();
-            }
-
-            if !found_git {
-                return Ok(ToolResult::error("Not in a git repository"));
-            }
+        // Validate the repository instead of trusting the presence of a `.git`
+        // path. This handles linked-worktree gitfiles and rejects malformed
+        // ancestor markers that Git itself cannot open.
+        let is_worktree = self
+            .run_git_command_in(&effective_dir, &["rev-parse", "--is-inside-work-tree"])
+            .await
+            .is_ok_and(|output| output.trim() == "true");
+        if !is_worktree {
+            return Ok(ToolResult::error("Not in a git repository"));
         }
 
         // Check autonomy level for write operations

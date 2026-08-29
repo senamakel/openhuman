@@ -67,7 +67,6 @@ vi.mock('../components/commands/CommandProvider', () => ({
 vi.mock('../components/DictationHotkeyManager', () => ({ default: () => null }));
 vi.mock('../components/PttHotkeyManager', () => ({ default: () => null }));
 vi.mock('../components/OpenhumanLinkModal', () => ({ default: () => null }));
-vi.mock('../components/upsell/GlobalUpsellBanner', () => ({ default: () => null }));
 vi.mock('../components/walkthrough/AppWalkthrough', () => ({ default: () => null }));
 vi.mock('../services/analytics', () => ({ trackPageView: vi.fn() }));
 vi.mock('../utils/accountsFullscreen', () => ({ AGENT_ACCOUNT_ID: '__agent__' }));

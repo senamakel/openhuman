@@ -122,7 +122,7 @@ pub async fn start_if_enabled(app_config: &Config) {
         return;
     }
 
-    let vad = tinyvoice::VadConfig::from_server_config(&app_config.voice_server);
+    let vad = tinyvoice::vad_config_from_server_config(&app_config.voice_server);
     let config = app_config.clone();
     log::info!(
         "{LOG_PREFIX} enabled — onset={:.4} hangover={}ms min_speech={}ms max_utt={}ms",
@@ -340,9 +340,10 @@ pub async fn start_if_enabled(app_config: &Config) {
             // the segmenter reported so an utterance carries exactly the
             // samples it was measured from.
             let mut cursor = 0usize;
-            for event in events {
-                match event {
-                    tinyvoice::VadEvent::SpeechStart { frame } => {
+            for indexed in events {
+                let frame = indexed.frame;
+                match indexed.event {
+                    tinyvoice::VadEvent::SpeechStart => {
                         let at = frame * FRAME_SAMPLES;
                         log::info!(
                             "{LOG_PREFIX} speech onset rms={:.4} (onset={onset_threshold:.4})",
@@ -353,10 +354,7 @@ pub async fn start_if_enabled(app_config: &Config) {
                         notch_status("Listening", 2500); // pill: capturing speech
                     }
                     tinyvoice::VadEvent::SpeechEnd {
-                        frame,
-                        emit,
-                        voiced_ms,
-                        ..
+                        emit, voiced_ms, ..
                     } => {
                         let upto = ((frame + 1) * FRAME_SAMPLES).min(frames.len());
                         if upto > cursor && utterance.len() < MAX_UTTERANCE_SAMPLES {
@@ -911,7 +909,7 @@ mod tests {
         c.vad_max_utterance_secs = 2.5;
         c.vad_hangover_ms = 750;
 
-        let v = tinyvoice::VadConfig::from_server_config(&c);
+        let v = tinyvoice::vad_config_from_server_config(&c);
 
         assert_eq!(v.max_utterance_ms, 2500, "seconds become milliseconds");
         assert_eq!(v.hangover_ms, 750, "milliseconds pass through");
@@ -925,13 +923,13 @@ mod tests {
         let mut c = crate::openhuman::config::VoiceServerConfig::default();
         c.vad_max_utterance_secs = 0.0;
         assert_eq!(
-            tinyvoice::VadConfig::from_server_config(&c).max_utterance_ms,
+            tinyvoice::vad_config_from_server_config(&c).max_utterance_ms,
             1
         );
 
         c.vad_max_utterance_secs = -5.0;
         assert_eq!(
-            tinyvoice::VadConfig::from_server_config(&c).max_utterance_ms,
+            tinyvoice::vad_config_from_server_config(&c).max_utterance_ms,
             1
         );
     }

@@ -200,10 +200,15 @@ describe('SubagentActivityBlock', () => {
       />
     );
     const thought = screen.getByTestId('subagent-thought');
-    // No collapsible <details>/<summary> and no "Thoughts" heading — the text
-    // is shown directly.
-    expect(thought.tagName).not.toBe('DETAILS');
-    expect(thought.querySelector('summary')).toBeNull();
+    // Not a disclosure at all — the text is shown directly. Asserted against
+    // the RADIX observables, because the disclosures in this file moved off
+    // `<details>`/`<summary>`: after that move, `tagName !== 'DETAILS'` and
+    // `querySelector('summary') === null` became true of every node in the
+    // tree, so both passed without being able to fail. `data-state` and an
+    // `aria-expanded` trigger are what a collapsed Collapsible would
+    // actually emit here.
+    expect(thought).not.toHaveAttribute('data-state');
+    expect(thought.querySelector('[aria-expanded]')).toBeNull();
     expect(thought.textContent).toContain('weighing the options');
     expect(thought.textContent).not.toContain('Thoughts');
     expect(thought.textContent).not.toContain('💭');
@@ -362,7 +367,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
     ];
     const { rerender } = renderInStore(<ToolTimelineBlock entries={running} />);
     // In flight → the group is open so the live activity is visible.
-    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
     // Settled (no running row) → collapsed by default; the rows stay in the DOM
     // one click away, but no longer flood the conversation.
@@ -374,7 +379,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         <ToolTimelineBlock entries={settled} />
       </Provider>
     );
-    expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
     // The side panel still forces every row open via expandAllRows.
     rerender(
@@ -382,7 +387,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         <ToolTimelineBlock entries={settled} expandAllRows />
       </Provider>
     );
-    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
   });
 
   // Regression coverage for "Agentic task insights keeps collapsing on every
@@ -402,11 +407,11 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={turn1Settled} />);
       // Default: settled and collapsed (unchanged behaviour).
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // The user manually expands it.
       fireEvent.click(screen.getByText('Agentic task insights'));
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // A new turn/feedback starts streaming onto the SAME mounted block. The
       // override still wins WHILE it runs — the user's choice isn't clobbered
@@ -420,7 +425,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn2Running} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // ...and settles. The override only sticks WITHIN a turn — once this
       // turn finishes, the auto-collapse applies to it, so the panel
@@ -434,7 +439,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn2Settled} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
     });
 
     it('leaves the default open-while-running/collapsed-when-settled behaviour unchanged absent any user interaction', () => {
@@ -442,7 +447,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running' },
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={running} />);
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       const settled: ToolTimelineEntry[] = [
         { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'success' },
@@ -452,7 +457,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={settled} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
     });
 
     it('also persists an explicit user collapse across a new turn (does not force it back open)', () => {
@@ -460,11 +465,11 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         { id: 't1', name: 'web_search', round: 1, seq: 0, status: 'running' },
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={turn1Running} />);
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // The user collapses it while a turn is still running.
       fireEvent.click(screen.getByText('Agentic task insights'));
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // A new turn starts running — the auto rule alone would force it back
       // open, but the user's explicit collapse must win.
@@ -477,7 +482,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn2Running} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
     });
 
     it('auto-collapses when a turn finishes even if the user had expanded it', () => {
@@ -485,11 +490,11 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         { id: 't1', name: 'web_search', round: 1, seq: 0, status: 'success' },
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={turn1Settled} />);
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // User expands the settled turn1 panel.
       fireEvent.click(screen.getByText('Agentic task insights'));
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // A new turn starts running — stays open (both the override and the
       // auto rule agree here).
@@ -502,7 +507,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn2Running} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // It settles — the override is cleared on this running→settled edge,
       // so the panel auto-collapses instead of staying pinned open forever.
@@ -515,7 +520,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn2Settled} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
     });
 
     it('does not collapse mid-stream when new entries arrive on a running turn', () => {
@@ -523,7 +528,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         { id: 't1', name: 'web_search', round: 1, seq: 0, status: 'running' },
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={turn1Running} />);
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // More entries stream in while the turn is still running — the
       // running→settled edge never fires, so the panel must stay open.
@@ -536,7 +541,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn1StillRunning} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       const turn1MoreRunning: ToolTimelineEntry[] = [
         { id: 't1', name: 'web_search', round: 1, seq: 0, status: 'success' },
@@ -547,7 +552,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn1MoreRunning} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
     });
 
     it('respects a manual expand during an active turn, resets on settle', () => {
@@ -556,16 +561,16 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={turn1Running} />);
       // Auto-open while running (no override yet).
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // User explicitly collapses it mid-run...
       fireEvent.click(screen.getByText('Agentic task insights'));
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // ...then explicitly re-expands it — a manual expand during the still-
       // active turn — and it must stick while the turn keeps running.
       fireEvent.click(screen.getByText('Agentic task insights'));
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // The turn settles — the manual override resets on this edge, and
       // since the run is done the auto rule collapses the panel.
@@ -577,7 +582,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={turn1Settled} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
     });
   });
 
@@ -600,7 +605,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         <ToolTimelineBlock entries={subagentARunning} turnActive />
       );
       // Sub-agent A running, turn active → auto-open (no override yet).
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // Sub-agent A settles: `isRunning` flips true→false, but the whole
       // TURN is still active, so the group STAYS OPEN.
@@ -619,7 +624,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={subagentASettled} turnActive />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // The user manually COLLAPSES it while the turn is still in flight.
       // (Pre-change the auto rule had already closed it here, so this click
@@ -627,7 +632,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       // way — what matters is that the explicit choice survives the toggles
       // below.)
       fireEvent.click(screen.getByText('Agentic task insights'));
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // Sub-agent B spawns: `isRunning` flips false→true again. Still one
       // turn (`turnActive` unchanged) — the user's override must hold, so the
@@ -641,7 +646,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={subagentBRunning} turnActive />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // Sub-agent B settles: `isRunning` flips true→false a second time
       // within the SAME turn. This is exactly the edge that used to reset
@@ -656,7 +661,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={subagentBSettled} turnActive />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // Only when the TURN itself ends (`turnActive` true→false) does the
       // override reset — the panel then auto-collapses since the run is done.
@@ -665,7 +670,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={subagentBSettled} turnActive={false} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
     });
 
     it('keeps a mid-turn manual collapse intact across a sub-agent settling, only reopening per the auto rule once turnActive ends', () => {
@@ -675,11 +680,11 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       const { rerender } = renderInStore(
         <ToolTimelineBlock entries={subagentARunning} turnActive />
       );
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
       // The user explicitly collapses it while sub-agent A is still running.
       fireEvent.click(screen.getByText('Agentic task insights'));
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // Sub-agent A settles, sub-agent B spawns and settles too — all within
       // the same turn (`turnActive` stays true throughout). None of these
@@ -693,7 +698,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={afterSubagentB} turnActive />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       const bothSettled: ToolTimelineEntry[] = [
         { id: 'a', name: 'subagent:researcher', round: 1, seq: 0, status: 'success' },
@@ -704,7 +709,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={bothSettled} turnActive />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // The turn ends — override resets; auto rule (settled, not running)
       // keeps it collapsed, same outcome but for the right reason now.
@@ -713,7 +718,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={bothSettled} turnActive={false} />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
       // Both sides of that transition read "collapsed", which a STALE `false`
       // override would also produce — prove the override actually reset (not
@@ -728,7 +733,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
           <ToolTimelineBlock entries={newTurnRunning} turnActive />
         </Provider>
       );
-      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
     });
   });
 
@@ -1131,12 +1136,12 @@ describe('ToolTimelineBlock — stays open between tools within a turn', () => {
   it('stays open between tool calls while the turn is still active', () => {
     // No entry is `running` — the agent is reasoning before its next call.
     renderInStore(<ToolTimelineBlock entries={settledRows} turnActive />);
-    expect(screen.getByTestId('agent-task-insights')).toHaveProperty('open', true);
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
   });
 
   it('collapses once the turn itself settles', () => {
     renderInStore(<ToolTimelineBlock entries={settledRows} turnActive={false} />);
-    expect(screen.getByTestId('agent-task-insights')).toHaveProperty('open', false);
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
   });
 
   // Callers with no turn lifecycle fall back to `isRunning`, unchanged.
@@ -1145,9 +1150,9 @@ describe('ToolTimelineBlock — stays open between tools within a turn', () => {
       { id: 'g-3', name: 'code_executor', round: 1, seq: 0, status: 'running' },
     ];
     renderInStore(<ToolTimelineBlock entries={running} />);
-    expect(screen.getByTestId('agent-task-insights')).toHaveProperty('open', true);
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
     renderInStore(<ToolTimelineBlock entries={settledRows} />);
-    expect(screen.getAllByTestId('agent-task-insights')[1]).toHaveProperty('open', false);
+    expect(screen.getAllByTestId('agent-task-insights')[1]).toHaveAttribute('data-state', 'closed');
   });
 
   // The rows were never deleted — the group was merely shut. Prove the content
@@ -1155,7 +1160,7 @@ describe('ToolTimelineBlock — stays open between tools within a turn', () => {
   it('keeps the rows mounted even while collapsed', () => {
     renderInStore(<ToolTimelineBlock entries={settledRows} turnActive={false} />);
     const group = screen.getByTestId('agent-task-insights');
-    expect(group).toHaveProperty('open', false);
+    expect(group).toHaveAttribute('data-state', 'closed');
     expect(within(group).getByTestId('tool-timeline-viewport')).toBeInTheDocument();
   });
 });
@@ -1178,7 +1183,7 @@ describe('ToolTimelineBlock — settled turn keeps the process-source escape hat
     );
 
     const group = screen.getByTestId('agent-task-insights');
-    expect(group).not.toHaveAttribute('open');
+    expect(group).toHaveAttribute('data-state', 'closed');
 
     // Link is in the <summary>, so it is reachable while collapsed.
     const link = screen.getByTestId('view-process-source');
@@ -1188,7 +1193,7 @@ describe('ToolTimelineBlock — settled turn keeps the process-source escape hat
     // (the handler stops propagation to the summary's own click).
     fireEvent.click(link);
     expect(onViewWholeRun).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
   });
 
   it('still exposes the link while the turn is in flight', () => {
@@ -1196,7 +1201,7 @@ describe('ToolTimelineBlock — settled turn keeps the process-source escape hat
     renderInStore(
       <ToolTimelineBlock entries={settled} turnActive onViewWholeRun={onViewWholeRun} />
     );
-    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
     expect(screen.getByTestId('view-process-source')).toBeInTheDocument();
   });
 });

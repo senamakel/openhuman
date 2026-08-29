@@ -169,17 +169,15 @@ pub async fn composio_delete_connection(
     };
     #[cfg(feature = "memory")]
     let memory_targets = if clear_memory {
-        // The LIVE process client — target discovery loads notion sync state
-        // through it. Resolved here, not constructed inside the discovery:
-        // `MemoryClient::from_workspace_dir` starts an ingestion worker at
-        // construction, so building one per delete put a second worker on the
-        // live store every time.
-        let memory = crate::openhuman::memory::ops::helpers::active_memory_client()
-            .await
-            .map_err(|error| {
-                format!("[composio] delete_connection cannot resolve the memory client: {error}")
-            })?;
-        composio_memory_targets_for_connection(&memory, toolkit.as_deref(), connection_id)
+        // Target discovery takes the config and resolves the bound driver
+        // itself — the notion arm reads sync state through the driver's `Graph`
+        // family. This used to resolve the LIVE in-process client here
+        // (`memory::ops::helpers::active_memory_client`) and hand it down;
+        // openhuman#5560 deleted that engine, and the binding is what replaced
+        // it. Discovery still refuses before the connection is deleted rather
+        // than after, so a memory store this host cannot reach aborts the
+        // delete instead of orphaning the user's synced pages.
+        composio_memory_targets_for_connection(config, toolkit.as_deref(), connection_id)
             .await
             .map_err(|error| {
                 format!("[composio] delete_connection cannot enumerate memory targets: {error:#}")
@@ -194,7 +192,7 @@ pub async fn composio_delete_connection(
     let mut memory_chunks_deleted = 0;
     let mut memory_clear_errors = Vec::new();
     for target in &memory_targets {
-        match target.delete(config) {
+        match target.delete(config).await {
             Ok(deleted) => {
                 memory_chunks_deleted += deleted;
             }

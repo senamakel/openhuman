@@ -21,6 +21,38 @@ use super::types::SessionEnvelopeV1;
 const LOG: &str = "orchestration";
 static MESSAGE_DRAIN_SUPERVISOR_STARTED: OnceLock<()> = OnceLock::new();
 
+/// How long the drain supervisor sleeps between cycles.
+///
+/// Named because [`NOT_DISCOVERABLE_WARN_AFTER_CYCLES`] is expressed in cycles
+/// and the escalation message reports elapsed seconds; deriving one from the
+/// other keeps them from drifting apart when the interval is tuned.
+const CYCLE_SLEEP_SECS: u32 = 15;
+
+/// Consecutive supervisor cycles in which this agent is still not discoverable
+/// before the loop escalates the **cause** from `debug` to exactly one `warn`.
+///
+/// The cycle sleeps 15 s, so 4 is ~1 minute — long enough to sit through the
+/// ordinary boot case (the wallet is usually locked for the first cycle or two
+/// and `ensure_signal_keys_published` returns `Err` until it is unlocked),
+/// short enough that a registration that never completes is visible while an
+/// operator is still looking.
+///
+/// Same shape as `platform::socket::ws_loop`'s `FAIL_ESCALATE_THRESHOLD`
+/// (`ws_loop.rs:52`), which solved this exact problem for the socket loop: one
+/// escalated line per run, not one per cycle, so a permanently-locked wallet
+/// costs one `warn` rather than an unbounded stream of them.
+const NOT_DISCOVERABLE_WARN_AFTER_CYCLES: u32 = 4;
+
+/// Whether this cycle is the one that escalates.
+///
+/// Exactly one cycle in a consecutive run qualifies — `==`, not `>=`. Above the
+/// threshold the loop returns to `debug`, which is what keeps a long-running
+/// unregistered instance from re-creating the very problem #5627 is about: an
+/// expected-but-persistent state reported on a repeating timer.
+fn should_escalate_not_discoverable(consecutive_cycles: u32) -> bool {
+    consecutive_cycles == NOT_DISCOVERABLE_WARN_AFTER_CYCLES
+}
+
 pub fn start_message_drain_supervisor() {
     if MESSAGE_DRAIN_SUPERVISOR_STARTED.set(()).is_err() {
         log::debug!(target: LOG, "[orchestration] message drain supervisor already running");
@@ -36,12 +68,16 @@ pub fn start_message_drain_supervisor() {
         // enabled instance. Retry each cycle until confirmed (the wallet may not
         // be unlocked at boot), then stop probing.
         let mut discoverable = false;
+        // Consecutive cycles spent still-not-discoverable, for the one-shot
+        // escalation below. Reset the moment publication is confirmed.
+        let mut not_discoverable_cycles: u32 = 0;
         loop {
             let config = match Config::load_or_init().await {
                 Ok(c) => c,
                 Err(e) => {
                     log::debug!(target: LOG, "[orchestration] drain config load: {e}");
-                    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(CYCLE_SLEEP_SECS as u64))
+                        .await;
                     continue;
                 }
             };
@@ -49,26 +85,58 @@ pub fn start_message_drain_supervisor() {
             // false we must NOT publish Signal keys (that mutates remote directory
             // state and makes the user discoverable) nor drain the mailbox.
             if !config.orchestration.enabled {
-                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                // Clear the streak while opted out. Cycles spent disabled are
+                // not failed publication attempts, so carrying the count across
+                // an opt-out would let a single failure after re-enabling trip
+                // the threshold immediately — the escalation must mean "four
+                // consecutive *attempts* failed", not "four cycles elapsed".
+                not_discoverable_cycles = 0;
+                tokio::time::sleep(std::time::Duration::from_secs(CYCLE_SLEEP_SECS as u64)).await;
                 continue;
             }
             if !discoverable {
+                // #5627: the symptom used to be loud and the cause silent —
+                // `signal_key_status`'s 404s logged at `warn` every cycle while
+                // the reason registration had not completed sat at `debug`. The
+                // 404s are now `debug` (they are the expected not-yet-published
+                // state); in exchange the *cause* escalates once, here, when a
+                // run of cycles proves it is not merely a slow boot.
+                //
+                // Both arms below share one escalation block: the decision is
+                // the same, only the reason text differs.
                 match crate::openhuman::tinyplace::ensure_signal_keys_published().await {
                     Ok(true) => {
                         discoverable = true;
+                        not_discoverable_cycles = 0;
                         log::info!(
                             target: LOG,
                             "[orchestration] discoverable: Signal keys published — peers can reply"
                         );
                     }
-                    Ok(false) => log::debug!(
-                        target: LOG,
-                        "[orchestration] ensure_signal_keys: publish attempted, not yet confirmed — will retry"
-                    ),
-                    Err(e) => log::debug!(
-                        target: LOG,
-                        "[orchestration] ensure_signal_keys deferred (wallet locked / no signer?): {e}"
-                    ),
+                    // Bound by value so the inner match can consume it — the
+                    // two non-success outcomes take the same decision and differ
+                    // only in the reason they report.
+                    other => {
+                        let reason = match other {
+                            Err(e) => format!("last error (wallet locked / no signer?): {e}"),
+                            _ => "publish was attempted each cycle but never confirmed".to_string(),
+                        };
+                        not_discoverable_cycles += 1;
+                        if should_escalate_not_discoverable(not_discoverable_cycles) {
+                            let elapsed_secs = not_discoverable_cycles * CYCLE_SLEEP_SECS;
+                            log::warn!(
+                                target: LOG,
+                                "[orchestration] Signal keys still not published after \
+                                 {not_discoverable_cycles} cycles (~{elapsed_secs}s) — this agent \
+                                 is not discoverable and cannot receive DMs; {reason}"
+                            );
+                        } else {
+                            log::debug!(
+                                target: LOG,
+                                "[orchestration] ensure_signal_keys not yet confirmed — will retry; {reason}"
+                            );
+                        }
+                    }
                 }
             }
             // Auto-accept contact requests from already-linked agents FIRST, so a
@@ -93,7 +161,7 @@ pub fn start_message_drain_supervisor() {
                 Ok(_) => {}
                 Err(e) => log::debug!(target: LOG, "[orchestration] drain error: {e}"),
             }
-            tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(CYCLE_SLEEP_SECS as u64)).await;
         }
     });
 }
@@ -452,5 +520,38 @@ mod tests {
         // The pinned windows stay plain (no envelope).
         assert_eq!(session_send_plaintext("master", "hi").unwrap(), "hi");
         assert_eq!(session_send_plaintext("subconscious", "hi").unwrap(), "hi");
+    }
+
+    /// #5627 — the escalation must fire on **exactly one** cycle in a run.
+    ///
+    /// The point of the threshold is that silencing the 404s (which are the
+    /// expected not-yet-published state) must not make a registration that
+    /// never completes invisible. So the cause has to become visible — once.
+    /// `>=` here would re-create the defect this issue is about in the other
+    /// direction: an expected-but-persistent state reported on every tick of a
+    /// 15-second timer, forever.
+    #[test]
+    fn not_discoverable_escalates_once_per_run_not_every_cycle() {
+        // Below the threshold: still quiet, so an ordinary boot (wallet locked
+        // for a cycle or two) costs nothing.
+        for cycles in 0..NOT_DISCOVERABLE_WARN_AFTER_CYCLES {
+            assert!(
+                !should_escalate_not_discoverable(cycles),
+                "cycle {cycles} is below the threshold and must stay at debug"
+            );
+        }
+        // Exactly at the threshold: the one escalated line.
+        assert!(
+            should_escalate_not_discoverable(NOT_DISCOVERABLE_WARN_AFTER_CYCLES),
+            "the threshold cycle must escalate so a stuck registration is visible"
+        );
+        // Above it: quiet again — one warn per run, not one per cycle.
+        for extra in 1..=20 {
+            let cycles = NOT_DISCOVERABLE_WARN_AFTER_CYCLES + extra;
+            assert!(
+                !should_escalate_not_discoverable(cycles),
+                "cycle {cycles} is past the threshold and must NOT escalate again"
+            );
+        }
     }
 }

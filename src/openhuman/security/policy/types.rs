@@ -274,7 +274,10 @@ pub struct SecurityPolicy {
     /// prompting — a blanket bypass, not just the `auto_approve` allowlist
     /// above. `TrustedAutomationSource::SubconsciousTainted` and
     /// `AgentTurnOrigin::Unknown` origins are still denied by the gate
-    /// regardless of this flag. Sourced from `autonomy.auto_approve_all`;
+    /// regardless of this flag. A remote-origin triage dispatch is *not* in
+    /// that protected set: with this flag on it is allowed without parking and
+    /// without a `pending_approvals` audit row (openhuman#5634, accepted).
+    /// Sourced from `autonomy.auto_approve_all`;
     /// observed live via `live_policy`. Does not affect
     /// `is_always_forbidden`, `is_workspace_internal_path`, or
     /// `ToolPolicyMiddleware`, which are independent code paths.

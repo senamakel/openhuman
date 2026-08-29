@@ -1,8 +1,21 @@
+//! Vault RPCs: is the memory content root reachable, writable, and known to
+//! Obsidian?
+//!
+//! Both handlers are filesystem probes, so both keep their
+//! [`tokio::task::spawn_blocking`] hop — unlike the driver reads elsewhere in
+//! [`super`], where the hop went away because the driver owns whether its own
+//! reads block. `std::fs` does not, on this thread.
+//!
+//! The registration probe itself is [`crate::openhuman::memory::obsidian_registry`],
+//! a host module. It used to be `tinymemory_core::store::content::obsidian_registry`;
+//! its module docs record why deep-linking policy for a third-party desktop app
+//! is this host's and not the memory engine's (#5560).
+
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::obsidian_registry;
 use crate::rpc::RpcOutcome;
-use tinymemory_core::store::content::obsidian_registry;
 
 use super::types::{ObsidianVaultStatusResponse, VaultHealthCheckResponse};
 

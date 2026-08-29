@@ -56,6 +56,40 @@ describe('AgentProcessSourcePanel', () => {
     expect(rows[1].textContent).toContain('example.org');
   });
 
+  it('makes the sources list a real disclosure that can be collapsed', async () => {
+    // The heading used to be a plain <h3>, so a long source list had no way to
+    // get out of the way. It is `ai-elements`' Sources (Radix Collapsible) now:
+    // open on mount, with a trigger carrying real expanded state.
+    renderPanel(
+      <AgentProcessSourcePanel
+        open
+        entries={[fetchEntry('e1', 'https://news-gazette.com/a')]}
+        onClose={() => {}}
+      />
+    );
+    const trigger = screen.getByRole('button', { name: /sources/i });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByTestId('agent-source-row')).toHaveLength(1);
+
+    await userEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('agent-source-row')).toBeNull();
+  });
+
+  it('counts the sources in the disclosure label', () => {
+    renderPanel(
+      <AgentProcessSourcePanel
+        open
+        entries={[
+          fetchEntry('e1', 'https://news-gazette.com/a'),
+          fetchEntry('e2', 'https://example.org/b'),
+        ]}
+        onClose={() => {}}
+      />
+    );
+    expect(screen.getByRole('button', { name: /sources/i }).textContent).toContain('(2)');
+  });
+
   it('expands every step row by default (whole run visible at a glance)', () => {
     renderPanel(
       <AgentProcessSourcePanel
@@ -68,10 +102,10 @@ describe('AgentProcessSourcePanel', () => {
       />
     );
     const panel = screen.getByTestId('agent-process-source-panel');
-    const allDetails = panel.querySelectorAll('details');
-    // Every <details> (the group + each expandable row) is open.
-    expect(allDetails.length).toBeGreaterThan(1);
-    allDetails.forEach(d => expect(d.hasAttribute('open')).toBe(true));
+    const disclosures = panel.querySelectorAll('[data-slot="collapsible"]');
+    // Every disclosure (the group + each expandable row) reports itself open.
+    expect(disclosures.length).toBeGreaterThan(1);
+    disclosures.forEach(d => expect(d.getAttribute('data-state')).toBe('open'));
   });
 
   it('never shows the "view full processing" affordance (the panel IS that view)', () => {

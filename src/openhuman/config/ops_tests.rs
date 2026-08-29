@@ -473,29 +473,18 @@ async fn apply_model_settings_updates_fields_and_persists_snapshot() {
 /// through this shared path must leave terminally-`failed` embedding jobs
 /// parked, not restart them into the same external failure. Switching the
 /// embeddings provider is what un-parks them.
+///
+/// The gate is the host's rule, so that is what this pins: whether the driver
+/// is asked at all, and what the outcome line reports. Whether the ask then
+/// moves a row from `failed` to `ready` is the driver's, and is pinned in the
+/// driver's own conformance suite against a real queue.
 #[tokio::test]
 async fn apply_model_settings_requeues_failed_jobs_only_on_embedder_change() {
-    use crate::openhuman::memory::tree::health::{FailureCode, PipelineFailure};
-    use tinymemory_core::queue::store;
-    use tinymemory_core::queue::types::{FlushStalePayload, JobStatus, NewJob};
-
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
+    let driver = crate::openhuman::memory::binding::install_retrying_driver_for_test(&cfg, 1);
 
-    // Park a job exactly the way an exhausted managed budget does.
-    let new_job = NewJob::flush_stale(&FlushStalePayload::default(), "2026-08-05", 3).unwrap();
-    let id = store::enqueue(&cfg, &new_job).unwrap().expect("enqueue");
-    let job = store::get_job(&cfg, &id).unwrap().expect("job exists");
-    store::mark_failed_typed(
-        &cfg,
-        &job,
-        "Insufficient budget",
-        Some(&PipelineFailure::new(FailureCode::BudgetExhausted)),
-    )
-    .unwrap();
-    assert_eq!(store::count_by_status(&cfg, JobStatus::Failed).unwrap(), 1);
-
-    // Unrelated save (temperature only) — the job must stay parked.
+    // Unrelated save (temperature only) — the driver must not be asked.
     let unrelated = ModelSettingsPatch {
         default_temperature: Some(0.5),
         ..Default::default()
@@ -504,9 +493,9 @@ async fn apply_model_settings_requeues_failed_jobs_only_on_embedder_change() {
         .await
         .expect("apply");
     assert_eq!(
-        store::count_by_status(&cfg, JobStatus::Failed).unwrap(),
-        1,
-        "an unrelated model save must not un-park failed embedding jobs"
+        driver.retry_calls(),
+        0,
+        "an unrelated model save must not ask the driver to un-park anything"
     );
     assert!(
         outcome.logs.iter().any(|m| m.contains("requeued_failed=0")),
@@ -515,21 +504,20 @@ async fn apply_model_settings_requeues_failed_jobs_only_on_embedder_change() {
     );
 
     // Now change the embeddings provider — this is the remediation, so the
-    // parked job must be flipped back to `ready`.
+    // driver is asked and its count is reported.
     let switch = ModelSettingsPatch {
         embeddings_provider: Some("ollama:bge-m3".into()),
         ..Default::default()
     };
     let outcome = apply_model_settings(&mut cfg, switch).await.expect("apply");
     assert_eq!(
-        store::count_by_status(&cfg, JobStatus::Ready).unwrap(),
+        driver.retry_calls(),
         1,
-        "switching the embeddings provider must un-park the failed job"
+        "switching the embeddings provider must ask the driver to un-park"
     );
-    assert_eq!(store::count_by_status(&cfg, JobStatus::Failed).unwrap(), 0);
     assert!(
         outcome.logs.iter().any(|m| m.contains("requeued_failed=1")),
-        "messages: {:?}",
+        "the driver's count reaches the outcome line: {:?}",
         outcome.logs
     );
 }
@@ -540,25 +528,11 @@ async fn apply_model_settings_requeues_failed_jobs_only_on_embedder_change() {
 /// the embedding provider un-parks them.
 #[tokio::test]
 async fn apply_memory_settings_requeues_failed_jobs_only_on_embedder_change() {
-    use crate::openhuman::memory::tree::health::{FailureCode, PipelineFailure};
-    use tinymemory_core::queue::store;
-    use tinymemory_core::queue::types::{FlushStalePayload, JobStatus, NewJob};
-
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
+    let driver = crate::openhuman::memory::binding::install_retrying_driver_for_test(&cfg, 1);
 
-    let new_job = NewJob::flush_stale(&FlushStalePayload::default(), "2026-08-05", 3).unwrap();
-    let id = store::enqueue(&cfg, &new_job).unwrap().expect("enqueue");
-    let job = store::get_job(&cfg, &id).unwrap().expect("job exists");
-    store::mark_failed_typed(
-        &cfg,
-        &job,
-        "Insufficient budget",
-        Some(&PipelineFailure::new(FailureCode::BudgetExhausted)),
-    )
-    .unwrap();
-
-    // Unrelated save (memory window preset only) — job stays parked.
+    // Unrelated save (memory window preset only) — the driver is not asked.
     let unrelated = MemorySettingsPatch {
         memory_window: Some("balanced".into()),
         ..Default::default()
@@ -567,13 +541,13 @@ async fn apply_memory_settings_requeues_failed_jobs_only_on_embedder_change() {
         .await
         .expect("apply");
     assert_eq!(
-        store::count_by_status(&cfg, JobStatus::Failed).unwrap(),
-        1,
-        "a memory-window save must not un-park failed embedding jobs"
+        driver.retry_calls(),
+        0,
+        "a memory-window save must not ask the driver to un-park anything"
     );
     assert!(outcome.logs.iter().any(|m| m.contains("requeued_failed=0")));
 
-    // Change the embedding provider — un-parks.
+    // Change the embedding provider — the driver is asked.
     let switch = MemorySettingsPatch {
         embedding_provider: Some("ollama".into()),
         ..Default::default()
@@ -582,11 +556,10 @@ async fn apply_memory_settings_requeues_failed_jobs_only_on_embedder_change() {
         .await
         .expect("apply");
     assert_eq!(
-        store::count_by_status(&cfg, JobStatus::Ready).unwrap(),
+        driver.retry_calls(),
         1,
-        "switching the embedding provider must un-park the failed job"
+        "switching the embedding provider must ask the driver to un-park"
     );
-    assert_eq!(store::count_by_status(&cfg, JobStatus::Failed).unwrap(), 0);
     assert!(outcome.logs.iter().any(|m| m.contains("requeued_failed=1")));
 }
 

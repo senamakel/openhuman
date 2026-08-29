@@ -231,9 +231,16 @@ async fn disconnect_discord_bot_token_clears_runtime_config() {
     );
 }
 
+/// The clear-memory half of disconnect goes through the bound driver's
+/// `MemorySourceSink::forget_matching` now, so the workspace needs a driver
+/// that serves `Sources` — the null driver a unit-test workspace otherwise
+/// resolves to does not, and the handler refuses rather than reporting a
+/// delete of nothing. Seeding and reading back still go straight to the store,
+/// which is what makes this an end-to-end assertion rather than a mock.
 #[tokio::test]
 async fn disconnect_channel_clear_memory_deletes_matching_chat_sources() {
     let (_tmp, mut config) = isolated_test_config();
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
     config.channels_config.discord = Some(DiscordConfig {
         bot_token: "discord-token-abc".to_string(),
         guild_id: Some("guild-1".to_string()),

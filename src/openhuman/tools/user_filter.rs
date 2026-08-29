@@ -121,14 +121,6 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
         rust_names: &["update_check", "update_apply"],
         default_enabled: false,
     },
-    // Knowledge & memory — overextending tools (agent-tool expansion). Listed
-    // so onboarding can default them OFF; read/bounded-write siblings are not
-    // listed and stay always-retained.
-    ToolFamily {
-        id: "people_refresh_address_book",
-        rust_names: &["people_refresh_address_book"],
-        default_enabled: false,
-    },
     ToolFamily {
         id: "workflow_manage",
         rust_names: &[
@@ -148,41 +140,6 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
             "create_skill",
             "install_workflow_from_url",
             "uninstall_workflow",
-        ],
-        default_enabled: false,
-    },
-    ToolFamily {
-        id: "thread_destructive",
-        rust_names: &["thread_delete", "thread_purge_all"],
-        default_enabled: false,
-    },
-    ToolFamily {
-        id: "billing_writes",
-        rust_names: &[
-            "billing_purchase_plan",
-            "billing_top_up_credits",
-            "billing_create_coinbase_charge",
-            "billing_create_setup_intent",
-            "billing_update_card",
-            "billing_delete_card",
-            "billing_redeem_coupon",
-            "billing_update_auto_recharge",
-        ],
-        default_enabled: false,
-    },
-    ToolFamily {
-        id: "team_admin",
-        rust_names: &[
-            "team_create",
-            "team_update",
-            "team_delete",
-            "team_switch",
-            "team_join",
-            "team_leave",
-            "team_create_invite",
-            "team_revoke_invite",
-            "team_remove_member",
-            "team_change_member_role",
         ],
         default_enabled: false,
     },

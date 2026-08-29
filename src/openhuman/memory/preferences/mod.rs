@@ -129,6 +129,66 @@ pub async fn load_general_preferences(memory: &MemoryGuard, limit: usize) -> Vec
     out
 }
 
+/// [`load_general_preferences`] for a caller holding the session's own
+/// storage handle rather than a guard.
+///
+/// The agent session binds its memory once at build time and threads the
+/// `Arc<dyn Memory>` through the turn; resolving a guard ambiently there
+/// would re-derive the workspace and could disagree with the handle the
+/// session actually writes through. Same rule as the guard variant,
+/// including the blank-skip: the budget is spent only on kept values, so a
+/// blank newest entry cannot starve the prompt block of a real preference
+/// one row behind it.
+pub async fn load_general_preferences_on(
+    memory: &std::sync::Arc<dyn crate::openhuman::memory::Memory>,
+    limit: usize,
+) -> Vec<String> {
+    let entries = memory
+        .list(Some(USER_PREF_GENERAL_NAMESPACE), None, None)
+        .await
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    for entry in entries {
+        if out.len() >= limit {
+            break;
+        }
+        if let Ok(Some(full)) = memory.get(USER_PREF_GENERAL_NAMESPACE, &entry.key).await {
+            let value = full.content.trim();
+            if !value.is_empty() {
+                out.push(value.to_string());
+            }
+        }
+    }
+    out
+}
+
+/// [`recall_situational_preferences`] for the session's own storage handle.
+///
+/// `recall_relevant_by_vector` is a contract-trait method, so this stays
+/// engine-neutral; a backend without vectors answers empty, which is the
+/// documented degradation for Lane B — an absent block, never a failed turn.
+pub async fn recall_situational_preferences_on(
+    memory: &std::sync::Arc<dyn crate::openhuman::memory::Memory>,
+    query: &str,
+) -> Vec<String> {
+    if query.trim().is_empty() {
+        return Vec::new();
+    }
+    memory
+        .recall_relevant_by_vector(
+            USER_PREF_SITUATIONAL_NAMESPACE,
+            query,
+            SITUATIONAL_RECALL_LIMIT,
+            SITUATIONAL_MIN_SIMILARITY,
+        )
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(_topic, value)| value)
+        .filter(|value| !value.trim().is_empty())
+        .collect()
+}
+
 /// Recall situational preferences semantically relevant to `query` (Lane B).
 ///
 /// Returns only preferences whose vector similarity to the message clears

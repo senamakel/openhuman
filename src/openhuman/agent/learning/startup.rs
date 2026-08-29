@@ -29,8 +29,6 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use tinybus::SubscriptionHandle;
-use tinymemory_core::global::client_if_ready;
-use tinymemory_core::store::MemoryClientRef;
 
 static EMAIL_SIG_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
 
@@ -53,13 +51,56 @@ pub fn register_learning_subscribers(workspace_dir: std::path::PathBuf) {
     });
 
     // Phase 3 + Phase 4 learning: rebuild trigger + periodic loop + the
-    // ProfileMdRenderer. All three need the global memory client. The
-    // client-dependent work is split into `register_with_client` so both the
-    // ready and not-ready arms are unit-testable without touching process
-    // globals.
+    // ProfileMdRenderer. All three need a bound memory driver. Readiness is
+    // resolved here and the dependent work is split into `register_with_memory`
+    // so both the ready and not-ready arms are unit-testable without touching
+    // process globals.
     static CLIENT_HANDLES: OnceLock<(Option<SubscriptionHandle>, Option<SubscriptionHandle>)> =
         OnceLock::new();
-    CLIENT_HANDLES.get_or_init(|| register_with_client(client_if_ready(), &workspace_dir));
+    let memory_ready = memory_is_bindable(&workspace_dir);
+    CLIENT_HANDLES.get_or_init(|| register_with_memory(memory_ready, &workspace_dir));
+}
+
+/// Whether this workspace has a usable memory driver to register learning
+/// subscribers against.
+///
+/// This replaces `tinymemory_core::global::client_if_ready().is_some()` (#5560).
+/// The two ask the same question — "is memory reachable yet?" — of different
+/// things: the old call asked whether the in-process engine singleton had been
+/// initialised, which after #5560 nothing does at boot, so it would have
+/// answered `false` on every desktop start and silently taken learning down the
+/// #5003 skip path forever.
+///
+/// `binding::for_workspace` is synchronous, cached, and infallible by design —
+/// an inadmissible driver *falls back* rather than erroring — so the honest
+/// negative here is `MemoryBinding::disables_memory`: memory explicitly
+/// configured off, which is the one state in which a rebuild loop has nothing
+/// to rebuild against.
+fn memory_is_bindable(workspace_dir: &Path) -> bool {
+    use crate::openhuman::config::schema::MemorySubsystemConfig;
+    match crate::openhuman::memory::binding::for_workspace(
+        workspace_dir,
+        &MemorySubsystemConfig::default(),
+    ) {
+        Ok(binding) if binding.disables_memory() => {
+            tracing::warn!(
+                driver = %binding.driver_id(),
+                "[learning::startup] memory is disabled for this workspace — learning subscribers will not register"
+            );
+            false
+        }
+        Ok(binding) => {
+            tracing::debug!(
+                driver = %binding.driver_id(),
+                "[learning::startup] memory driver bound for learning subscribers"
+            );
+            true
+        }
+        Err(error) => {
+            tracing::warn!("[learning::startup] no memory binding for this workspace: {error}");
+            false
+        }
+    }
 }
 
 fn register_email_signature_once<F>(handle_cell: &OnceLock<Option<SubscriptionHandle>>, register: F)
@@ -109,32 +150,31 @@ fn facet_cache_for(
 
 /// Returns `(rebuild_trigger_handle, profile_md_renderer_handle)`.
 ///
-/// When `client` is `Some`, both the Phase 3 rebuild trigger (plus its periodic
-/// 30-minute loop) and the Phase 4 `ProfileMdRenderer` are registered. When
-/// `client` is `None` (the memory client is not yet initialised) both are
+/// When `memory_ready` is true, both the Phase 3 rebuild trigger (plus its
+/// periodic 30-minute loop) and the Phase 4 `ProfileMdRenderer` are registered.
+/// When it is false (this workspace has no usable memory driver) both are
 /// skipped and the skip is logged at **warn** — the *silent* skip was the #5003
 /// bug, so this must be loud.
 ///
-/// Taking the client as a parameter (rather than reading
-/// `memory::global::client_if_ready()` internally) keeps both arms testable
-/// without initialising the process-global memory singleton.
-fn register_with_client(
-    client: Option<MemoryClientRef>,
+/// Taking readiness as a parameter (rather than resolving the binding
+/// internally) keeps both arms testable without touching process globals; it was
+/// an `Option<MemoryClientRef>` for the same reason before #5560, and the client
+/// itself was never used for anything but its presence.
+fn register_with_memory(
+    memory_ready: bool,
     workspace_dir: &Path,
 ) -> (Option<SubscriptionHandle>, Option<SubscriptionHandle>) {
-    let Some(_client) = client else {
+    if !memory_ready {
         tracing::warn!(
-            "[learning::scheduler] memory client not ready at boot — skipping event-trigger + \
-             periodic-rebuild registration; learning rebuilds will not fire until the client \
-             initialises (#5003)"
+            "[learning::scheduler] no memory driver for this workspace — skipping event-trigger + \
+             periodic-rebuild registration; learning rebuilds will not fire (#5003)"
         );
         tracing::warn!(
-            "[learning::profile_md_renderer] memory client not ready at boot — skipping \
-             ProfileMdRenderer registration; PROFILE.md will not be re-rendered until the client \
-             initialises (#5003)"
+            "[learning::profile_md_renderer] no memory driver for this workspace — skipping \
+             ProfileMdRenderer registration; PROFILE.md will not be re-rendered (#5003)"
         );
         return (None, None);
-    };
+    }
 
     // Phase 3 learning: event-driven rebuild trigger + periodic 30-minute loop.
     let rebuild_trigger = {
@@ -198,27 +238,21 @@ mod tests {
     use crate::openhuman::agent::learning::extract::signature::{
         parse_signature, register_email_signature_subscriber_on,
     };
-    use std::sync::Arc;
     use std::time::Duration;
     use tempfile::TempDir;
-    use tinymemory_core::store::MemoryClient;
 
-    /// Build a real `MemoryClient` against a fresh temp workspace. The temp dir
-    /// is returned so callers keep it alive for the client's lifetime.
-    fn test_client() -> (TempDir, MemoryClientRef) {
-        // Building a real `MemoryClient` needs the host seams wired — an
-        // unwired embedding host fails loudly by design. This module never
-        // installed them, so it passed only when some *other* test in the same
-        // binary happened to run first; alone, or filtered to this module, it
-        // failed. `install_for_tests` is `Once`-guarded, so calling it here is
-        // free when another test already has.
+    /// A fresh temp workspace for the ready-arm test.
+    ///
+    /// This used to build a real `MemoryClient` and hand it to
+    /// `register_with_client`, which never used it for anything but its
+    /// presence. Readiness is a `bool` now (#5560), so the fixture is just the
+    /// directory — but the host seams still have to be installed, because
+    /// `memory_is_bindable` and the facet cache below both resolve a driver and
+    /// an unwired embedding host fails loudly by design. `install_for_tests` is
+    /// `Once`-guarded, so calling it here is free when another test already has.
+    fn test_workspace() -> TempDir {
         crate::openhuman::memory::host_impls::install_for_tests();
-        let tmp = TempDir::new().expect("tempdir");
-        let client = Arc::new(
-            MemoryClient::from_workspace_dir(tmp.path().join("workspace"))
-                .expect("client should initialise against a fresh workspace"),
-        );
-        (tmp, client)
+        TempDir::new().expect("tempdir")
     }
 
     /// A body whose trailing lines form a clear email signature — yields several
@@ -259,29 +293,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn register_with_client_registers_both_handles_when_ready() {
+    async fn register_with_memory_registers_both_handles_when_ready() {
         crate::core::bus::init().await.expect("bus init");
-        let (tmp, client) = test_client();
-        let (trigger, renderer) = register_with_client(Some(client), tmp.path());
+        let tmp = test_workspace();
+        let (trigger, renderer) = register_with_memory(true, tmp.path());
         assert!(
             trigger.is_some(),
-            "rebuild trigger must register when the memory client is ready"
+            "rebuild trigger must register when memory is available"
         );
         assert!(
             renderer.is_some(),
-            "ProfileMdRenderer must register when the memory client is ready"
+            "ProfileMdRenderer must register when memory is available"
         );
     }
 
     #[tokio::test]
-    async fn register_with_client_skips_and_warns_when_client_absent() {
-        // No memory client → both client-dependent subscribers are skipped and
+    async fn register_with_memory_skips_and_warns_when_memory_absent() {
+        // No memory driver → both memory-dependent subscribers are skipped and
         // the (now loud) warn path is exercised. This is the else-arm the #5003
         // fix upgraded from a silent debug-level skip.
         let tmp = TempDir::new().expect("tempdir");
-        let (trigger, renderer) = register_with_client(None, tmp.path());
-        assert!(trigger.is_none(), "no trigger without a client");
-        assert!(renderer.is_none(), "no renderer without a client");
+        let (trigger, renderer) = register_with_memory(false, tmp.path());
+        assert!(trigger.is_none(), "no trigger without a memory driver");
+        assert!(renderer.is_none(), "no renderer without a memory driver");
     }
 
     #[tokio::test]

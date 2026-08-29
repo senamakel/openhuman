@@ -70,6 +70,17 @@ mod tests {
         }
     }
 
+    // Apply writes into the bound memory driver, which only exists when a
+    // memory module is compiled in. With `--no-default-features`,
+    // `binding::module_provider` substitutes the null provider, and
+    // `target_memory_backend` then refuses the import rather than reporting
+    // entries it discarded — correct behaviour, and the opposite of what this
+    // case asserts. Gated rather than made tolerant of both answers: a test
+    // that passes on either outcome would stop witnessing the import at all.
+    // The gates-off half of the same seam is
+    // `apply_refuses_and_names_the_build_when_no_memory_module_is_compiled_in`
+    // below.
+    #[cfg(feature = "modules")]
     #[tokio::test]
     async fn migrate_openclaw_apply_imports_markdown_entries_into_target_workspace() {
         // Regression for #1440: prior to this PR the Apply path
@@ -106,6 +117,111 @@ mod tests {
             report.stats.imported >= 1,
             "apply must import at least one entry; stats={:?}",
             report.stats
+        );
+    }
+
+    /// With no memory module compiled in, apply must refuse — and the refusal
+    /// must name the build, not the user's config.
+    ///
+    /// `admit` is pure config and never sees the feature flag, so it admits the
+    /// configured `tinycortex`; `module_provider` then substitutes the null
+    /// provider because there is no module to bind. The binding that comes back
+    /// therefore reports `class = Null` with `driver_id = "tinymemory"` and no
+    /// `fallback` — nothing refused, so there is nothing to fall back from.
+    ///
+    /// Keyed on the class alone, that landed in the configured-null arm and told
+    /// a user whose `config.toml` says `driver = "tinycortex"` that memory was
+    /// "disabled by configuration ([subsystems.memory] driver = \"null\")",
+    /// pointing them at a line that says the opposite. This asserts both halves:
+    /// the import is still refused (silent data loss stays impossible), and the
+    /// reason given is the missing module.
+    #[cfg(not(feature = "modules"))]
+    #[tokio::test]
+    async fn apply_refuses_and_names_the_build_when_no_memory_module_is_compiled_in() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        let source = tmp.path().join("openclaw-src");
+        std::fs::create_dir_all(&source).unwrap();
+        let entry = source.join("MEMORY.md");
+        let original = "# Note\nwould be lost";
+        std::fs::write(&entry, original).unwrap();
+
+        let err = migrate_openclaw(&config, Some(source), false)
+            .await
+            .expect_err("apply must refuse with no memory module compiled in");
+
+        assert!(
+            err.contains("this build has no memory module compiled in"),
+            "refusal must name the missing module as the cause; got: {err}"
+        );
+        assert!(
+            !err.contains("[subsystems.memory] driver = \"null\""),
+            "refusal must not blame a config line the user did not write; got: {err}"
+        );
+        assert!(
+            err.contains("the source workspace is untouched"),
+            "refusal must still promise the source survived; got: {err}"
+        );
+        // The promise, checked rather than taken on trust: a refusal that moved
+        // or truncated the source would be the very loss it claims to prevent.
+        assert_eq!(
+            std::fs::read_to_string(&entry).expect("source entry must still be readable"),
+            original,
+            "the refused import must leave the source workspace byte-identical"
+        );
+    }
+
+    /// A driver deliberately given `class = "null"` is not a modules-off build.
+    ///
+    /// Codex raised this against the first version of the fix above, and it was
+    /// right. `admit` skips its `built_in_class` check for an id that is not
+    /// built in, so `[subsystems.memory] driver = "mynull"` with
+    /// `class = "null"` is admitted verbatim: `class = Null`, no `fallback`, and
+    /// a `driver_id` that is not `"null"`. Keyed on the id, that landed in the
+    /// modules-off arm and told a user with a perfectly good modules build that
+    /// their `modules` feature was off.
+    ///
+    /// Keying on what `admit` *answered* separates them: here it answers `Null`,
+    /// where the modules-off case answers `Module` and is then bound to the null
+    /// provider. This runs in **every** feature configuration, because the
+    /// confusion it guards against is one a modules-enabled build can hit.
+    #[tokio::test]
+    async fn apply_names_a_deliberately_null_classed_driver_rather_than_the_build() {
+        use crate::openhuman::config::schema::{MemoryDriverConfig, MemorySubsystemConfig};
+
+        let tmp = TempDir::new().unwrap();
+        let mut config = test_config(&tmp);
+        let mut drivers = std::collections::BTreeMap::new();
+        drivers.insert(
+            "mynull".to_string(),
+            MemoryDriverConfig {
+                class: Some("null".to_string()),
+                ..Default::default()
+            },
+        );
+        config.subsystems.memory = MemorySubsystemConfig {
+            driver: "mynull".to_string(),
+            drivers,
+            ..Default::default()
+        };
+
+        let source = tmp.path().join("openclaw-src");
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::write(source.join("MEMORY.md"), "# Note\nkeep me").unwrap();
+
+        let err = migrate_openclaw(&config, Some(source), false)
+            .await
+            .expect_err("apply must refuse a null-classed driver");
+
+        assert!(
+            err.contains("mynull") && err.contains("class"),
+            "refusal must name the driver and its configured class; got: {err}"
+        );
+        assert!(
+            !err.contains("no memory module compiled in"),
+            "a deliberately null-classed driver must not be reported as a \
+             modules-off build; got: {err}"
         );
     }
 
@@ -149,6 +265,17 @@ mod tests {
         }
     }
 
+    // Apply writes into the bound memory driver, which only exists when a
+    // memory module is compiled in. With `--no-default-features`,
+    // `binding::module_provider` substitutes the null provider, and
+    // `target_memory_backend` then refuses the import rather than reporting
+    // entries it discarded — correct behaviour, and the opposite of what this
+    // case asserts. Gated rather than made tolerant of both answers: a test
+    // that passes on either outcome would stop witnessing the import at all.
+    // The gates-off half of the same seam is
+    // `apply_refuses_and_names_the_build_when_no_memory_module_is_compiled_in`
+    // below.
+    #[cfg(feature = "modules")]
     #[tokio::test]
     async fn migrate_hermes_apply_imports_markdown_entries() {
         // Apply does real memory work; install the embedding host seam so this

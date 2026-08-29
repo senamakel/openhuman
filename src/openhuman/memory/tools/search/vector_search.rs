@@ -170,6 +170,10 @@ impl Tool for MemoryVectorSearchTool {
             limit: Some(1000),
             offset: None,
             exclude_dropped: false,
+            // The filtered-listing predicates this caller does not use. An
+            // empty predicate is unfiltered, so the defaults leave the query
+            // exactly as narrow as the fields above already make it.
+            ..Default::default()
         };
 
         let chunks = chunk_reader

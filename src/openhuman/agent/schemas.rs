@@ -401,9 +401,17 @@ fn handle_triage_evaluate(params: Map<String, Value>) -> ControllerFuture {
         match outcome {
             crate::openhuman::agent::triage::TriageOutcome::Decision(run) => {
                 if !dry_run {
-                    crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope)
-                        .await
-                        .map_err(|e| format!("apply_decision failed: {e}"))?;
+                    // Locally initiated: this is the desktop's own RPC surface,
+                    // so the dispatch keeps the authority its caller already
+                    // had. The envelope it builds may name a remote *source*,
+                    // but the request itself is local (#5634).
+                    let origin = crate::openhuman::agent::triage::local_trigger_origin();
+                    crate::openhuman::agent::turn_origin::with_origin(
+                        origin,
+                        crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope),
+                    )
+                    .await
+                    .map_err(|e| format!("apply_decision failed: {e}"))?;
                 }
 
                 Ok(serde_json::json!({

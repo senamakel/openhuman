@@ -28,7 +28,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
     : 'border-line-strong focus:border-primary-500 focus:ring-primary-500/20 dark:focus:border-primary-400';
   const classes = [
     'w-full border bg-surface text-content placeholder-content-faint',
-    'transition-colors duration-150 focus:outline-none focus:ring-2',
+    'transition-colors duration-150 focus:outline-hidden focus:ring-2',
     'disabled:opacity-50 disabled:bg-surface-muted',
     SIZES[inputSize],
     ring,

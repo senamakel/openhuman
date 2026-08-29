@@ -65,20 +65,38 @@ pub struct DoctorReport {
 
 // ── Public entry point ───────────────────────────────────────────
 
+/// How many chunks the bound memory driver holds, or why the count could not
+/// be taken.
+///
+/// The one probe [`run`] cannot take for itself. The count comes from
+/// `MemoryMaintenance::store_stats` — driver-neutral, and the reason this
+/// check no longer opens the store's SQLite file directly (#5560) — and that
+/// member is `async`, while [`run`] is blocking by contract. Blocking on it
+/// from inside [`run`] is not an option in either direction: a
+/// `Handle::block_on` panics on a current-thread runtime and deadlocks the
+/// multi-thread one it is already occupying a worker of.
+///
+/// So the caller awaits it and hands the answer down. `Err` carries the
+/// driver's own message and becomes the `Error` item this check has always
+/// pushed when the probe failed.
+pub type MemoryChunkCount = Result<u64, String>;
+
 /// Build the full doctor report.
 ///
 /// `ops::doctor_report` runs this in `tokio::task::spawn_blocking` because the
 /// checks are synchronous and may touch the file system, sqlite, or local HTTP
 /// endpoints. Keep this function blocking-only; add async probes in the caller
-/// or behind their own runtime boundary instead of introducing `.await` here.
-pub fn run(config: &Config) -> Result<DoctorReport> {
+/// or behind their own runtime boundary instead of introducing `.await` here —
+/// `memory_chunks` is the first probe to take that route, and `ops`'
+/// `memory_chunk_count` is the shape to copy for the next one.
+pub fn run(config: &Config, memory_chunks: MemoryChunkCount) -> Result<DoctorReport> {
     let mut items: Vec<DiagnosticItem> = Vec::new();
 
     check_config_semantics(config, &mut items);
     check_workspace(config, &mut items);
     check_daemon_state(config, &mut items);
     check_environment(&mut items);
-    check_memory_tree_db(config, &mut items);
+    check_memory_tree_db(config, &memory_chunks, &mut items);
     check_embedding_model_health(config, &mut items);
     check_claude_agent_sdk(config, &mut items);
 
@@ -782,13 +800,27 @@ fn check_command_available(
 
 // ── Memory-tree DB health ────────────────────────────────────────
 
-/// Probe the memory-tree SQLite database and push a [`DiagnosticItem`].
+/// Probe the memory-tree and push [`DiagnosticItem`]s.
 ///
-/// - If the DB directory / file does not exist yet: `Warn` (not yet created).
+/// - If the legacy SQLite file does not exist: `Warn` (not yet created by the
+///   embedded driver). This is an informational SQLite-artifact check, not a
+///   gate: drivers that store memory elsewhere have no `chunks.db` by design.
 /// - If a stale `.db-shm` file is present alongside the DB: `Warn`.
-/// - If we can open the DB and run a basic probe query: `Ok`.
-/// - If the probe fails: `Error`.
-fn check_memory_tree_db(config: &Config, items: &mut Vec<DiagnosticItem>) {
+/// - If the driver answered with a chunk count: `Ok`.
+/// - If it did not: `Error`.
+///
+/// The file checks are this function's own — they are `std::fs` calls about a
+/// path, and a driver has nothing to say about them. The count is
+/// `memory_chunks`, taken by the async caller: see [`MemoryChunkCount`] for
+/// why it arrives as an argument rather than being read here.
+///
+/// The driver probe always runs regardless of file existence, so a bound driver
+/// that does not use SQLite still surfaces its health here.
+fn check_memory_tree_db(
+    config: &Config,
+    memory_chunks: &MemoryChunkCount,
+    items: &mut Vec<DiagnosticItem>,
+) {
     let cat = "memory_tree_db";
     let db_path = config.workspace_dir.join("memory_tree").join("chunks.db");
 
@@ -812,33 +844,41 @@ fn check_memory_tree_db(config: &Config, items: &mut Vec<DiagnosticItem>) {
         }
     }
 
-    // ── File existence ──────────────────────────────────────────────
+    // ── SQLite-artifact check (informational only, not a gate) ──────
     if !db_path.exists() {
         items.push(DiagnosticItem::warn(
             cat,
-            format!(
-                "DB not yet created (first ingest will initialise it): {}",
-                db_path.display()
-            ),
+            format!("legacy SQLite artifact is absent: {}", db_path.display()),
         ));
-        return;
     }
 
-    // ── Probe connection ─────────────────────────────────────────────
-    match tinymemory_core::store::chunks::store::with_connection(config, |conn| {
-        let n: i64 = conn.query_row("SELECT COUNT(*) FROM mem_tree_chunks", [], |r| r.get(0))?;
-        Ok(n)
-    }) {
+    // ── Driver probe ────────────────────────────────────────────────
+    // The count used to be a `SELECT COUNT(*) FROM mem_tree_chunks` through
+    // the engine's own connection helper. It is the bound driver's answer now,
+    // which is what lets this check mean something on a workspace whose memory
+    // is not SQLite at all — and what takes the engine crate out of this file.
+    match memory_chunks {
         Ok(count) => {
+            log::debug!(
+                "[doctor] check_memory_tree_db: driver reported {count} chunks at {}",
+                db_path.display()
+            );
             items.push(DiagnosticItem::ok(
                 cat,
-                format!("DB accessible at {} ({count} chunks)", db_path.display()),
+                format!(
+                    "memory driver accessible ({count} chunks); SQLite artifact: {}",
+                    db_path.display()
+                ),
             ));
         }
         Err(err) => {
+            log::debug!(
+                "[doctor] check_memory_tree_db: chunk-count probe failed at {}: {err}",
+                db_path.display()
+            );
             items.push(DiagnosticItem::error(
                 cat,
-                format!("DB probe failed at {}: {err:#}", db_path.display()),
+                format!("DB probe failed at {}: {err}", db_path.display()),
             ));
         }
     }
@@ -864,10 +904,11 @@ fn check_embedding_model_health(config: &Config, items: &mut Vec<DiagnosticItem>
 
     // Resolve the effective (intended, non-probed) embedding settings.
     let local_embedding_model = config.workload_local_model("embeddings");
-    let (provider, model, _dims) = tinymemory_core::store::factories::effective_embedding_settings(
-        &config.memory,
-        local_embedding_model.as_deref(),
-    );
+    let (provider, model, _dims) =
+        crate::openhuman::inference::embeddings::effective_embedding_settings(
+            &config.memory,
+            local_embedding_model.as_deref(),
+        );
 
     log::debug!("[doctor] check_embedding_model_health: provider={provider} model={model}");
 

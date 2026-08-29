@@ -58,13 +58,13 @@ async fn sign_and_broadcast(
     //
     // The module is only sent the phrase once it has proved it is an artifact
     // this build pinned — see `modules::wallet::attested_proxy`.
-    let signing_secret = tinywallet::wire::SecretMaterial {
+    let signing_secret = tinywallet_bus::wire::SecretMaterial {
         mnemonic,
         derivation_path: secret.derivation_path.clone(),
-        chain: tinywallet::Chain::Evm,
+        chain: tinywallet_bus::Chain::Evm,
     };
 
-    let to = tinywallet::address::evm::validate(to)
+    let to = tinywallet_bus::address::evm::validate(to)
         .map_err(|e| format!("invalid EVM target address '{to}': {e}"))?;
 
     let chain_id_hex: String = rpc_call_to(&rpc_url, "eth_chainId", json!([])).await?;
@@ -106,7 +106,7 @@ async fn sign_and_broadcast(
     let gas_limit = u64::try_from(hex_to_u128(&gas_hex)?)
         .map_err(|_| format!("EVM RPC reported an implausible gas limit '{gas_hex}'"))?;
 
-    let transaction = tinywallet::wire::TransactionSpec::Evm {
+    let transaction = tinywallet_bus::wire::TransactionSpec::Evm {
         to,
         value_wei: value.to_string(),
         data_hex: tx_data.unwrap_or_default(),
@@ -141,7 +141,7 @@ pub async fn execute_evm_quote(mut quote: PreparedTransaction) -> Result<Executi
     let (tx_to, tx_value, tx_data) = match quote.kind {
         // A native transfer pays the recipient directly and carries no data.
         PreparedKind::NativeTransfer => (
-            tinywallet::address::evm::validate(&quote.to_address).map_err(|e| {
+            tinywallet_bus::address::evm::validate(&quote.to_address).map_err(|e| {
                 format!("invalid EVM recipient address '{}': {e}", quote.to_address)
             })?,
             quote.amount_raw.clone(),
@@ -156,7 +156,7 @@ pub async fn execute_evm_quote(mut quote: PreparedTransaction) -> Result<Executi
                 .ok_or_else(|| "prepared token transfer is missing token_address".to_string())?;
             let calldata = encode_erc20_transfer(&quote.to_address, &quote.amount_raw)?;
             (
-                tinywallet::address::evm::validate(token)
+                tinywallet_bus::address::evm::validate(token)
                     .map_err(|e| format!("invalid ERC20 token contract address '{token}': {e}"))?,
                 "0".to_string(),
                 Some(calldata),
@@ -340,13 +340,13 @@ pub async fn lookup_tx(network: EvmNetwork, hash: &str) -> Result<TxLookupInfo, 
 
 /// Validate an EVM address (20 bytes, 40 hex digits, optional `0x`).
 ///
-/// Delegates to the vendored [`tinywallet`] crate, which owns the address
+/// Delegates to the vendored [`tinywallet_bus`] crate, which owns the address
 /// format; this wrapper keeps the `Result<_, String>` shape the rest of the
 /// domain speaks. Accepts exactly what the previous `ethers-core` based check
 /// accepted — prefixed, unprefixed, and any hex case, but not an uppercase
 /// `0X` prefix.
 pub fn validate_evm_address(addr: &str) -> Result<String, String> {
-    let result = tinywallet::address::evm::validate(addr).map_err(|e| e.to_string());
+    let result = tinywallet_bus::address::evm::validate(addr).map_err(|e| e.to_string());
     debug!(
         "{LOG_PREFIX} validate_address result={}",
         if result.is_ok() {

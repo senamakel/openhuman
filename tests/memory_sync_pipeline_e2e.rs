@@ -43,7 +43,6 @@ use chrono::Utc;
 use tempfile::TempDir;
 
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::memory::read_rpc::{graph_export_rpc, GraphMode};
 use openhuman_core::openhuman::memory::sources::sync::sync_source;
 use openhuman_core::openhuman::memory::sources::types::{MemorySourceEntry, SourceKind};
 use openhuman_core::openhuman::memory::tree::ingest::{ingest_summary, SummaryIngestInput};
@@ -111,6 +110,10 @@ fn summary_input(content: &str, tokens: u32) -> SummaryIngestInput {
 
 fn run_git(args: &[&str], cwd: &Path) {
     let status = Command::new("git")
+        // A contributor with `commit.gpgsign = true` set globally otherwise
+        // gets a `git commit` here that blocks forever on a pinentry prompt
+        // with no tty behind it — the whole file hangs rather than failing.
+        .args(["-c", "commit.gpgsign=false"])
         .args(args)
         .current_dir(cwd)
         .env("GIT_AUTHOR_NAME", "Test")
@@ -503,87 +506,10 @@ async fn check_and_rebuild_auto_detects_raw_without_summaries() {
 
 // ── Test 6: graph export — source roots, doc leaves, orphan linking ────────
 
-#[tokio::test]
-async fn graph_export_builds_source_roots_doc_leaves_and_orphan_links() {
-    let tmp = TempDir::new().unwrap();
-    let cfg = test_config(&tmp);
-
-    // Ingest an L1 summary whose children are raw item ids (commits) — this
-    // is the shape that produces document/chunk leaf nodes in the export.
-    let scope = "github:acme/widgets";
-    let tree = get_or_create_source_tree(&cfg, scope).unwrap();
-    let mut input = summary_input("Summary of recent commits to widgets.", 40);
-    input.child_labels = vec![
-        "commit:aaa111".to_string(),
-        "issue:42".to_string(),
-        "pr:7".to_string(),
-    ];
-    let ingested = ingest_summary(&cfg, &tree, input).await.unwrap();
-
-    // Export the tree-mode graph.
-    let resp = graph_export_rpc(&cfg, GraphMode::Tree)
-        .await
-        .expect("graph_export_rpc should succeed");
-    let nodes = resp.value.nodes;
-
-    // (a) Synthetic source root for the scope.
-    let source_root_id = format!("source:{scope}");
-    let root = nodes
-        .iter()
-        .find(|n| n.id == source_root_id)
-        .expect("a synthetic source-root node must exist for the scope");
-    assert_eq!(root.kind, "source");
-    assert_eq!(root.parent_id, None, "source root has no parent");
-
-    // (b) The L1 summary is an orphan (no real summary parent) and so links
-    //     to its source root.
-    let summary = nodes
-        .iter()
-        .find(|n| n.id == ingested.summary_id)
-        .expect("the ingested L1 summary must appear in the graph");
-    assert_eq!(summary.kind, "summary");
-    assert_eq!(
-        summary.parent_id.as_deref(),
-        Some(source_root_id.as_str()),
-        "orphan summary should be re-parented onto its synthetic source root"
-    );
-
-    // (c) Document leaf nodes are emitted from the L1 summary's child_ids,
-    //     each parented to the summary.
-    let doc_nodes: Vec<_> = nodes
-        .iter()
-        .filter(|n| {
-            n.kind == "chunk" && n.parent_id.as_deref() == Some(ingested.summary_id.as_str())
-        })
-        .collect();
-    assert_eq!(
-        doc_nodes.len(),
-        3,
-        "expected 3 document leaf nodes from the summary's child_ids, got {}",
-        doc_nodes.len()
-    );
-    assert!(
-        doc_nodes.iter().any(|n| n.id.contains("commit:aaa111")),
-        "a document leaf for commit:aaa111 should exist"
-    );
-
-    // (d) content_root_abs is populated so the UI can build the vault link.
-    assert!(
-        !resp.value.content_root_abs.is_empty(),
-        "graph export should carry the absolute content root"
-    );
-
-    // Sanity: the export is non-trivial.
-    assert!(
-        nodes.len() >= 5,
-        "graph should have source root + summary + 3 docs, got {} nodes: {:?}",
-        nodes.len(),
-        nodes.iter().map(|n| (&n.kind, &n.id)).collect::<Vec<_>>()
-    );
-
-    // Tree mode encodes edges via parent_id, so the explicit edges array is empty.
-    assert!(
-        resp.value.edges.is_empty(),
-        "tree-mode export encodes edges via parent_id, not the edges array"
-    );
-}
+// `graph_export_builds_source_roots_doc_leaves_and_orphan_links` used to sit
+// here. `graph_export_rpc` reads the forest through `summary_forest`, which the
+// memory module serves now (#5560), so the case could only run against a loaded
+// module — and what it actually asserted was the host's own shaping of that
+// forest, not the store underneath it. Those assertions moved to
+// `src/openhuman/memory/read_rpc/graph_tests.rs`, where they are a pure
+// function of a hand-built forest and cover more cases than this one could.

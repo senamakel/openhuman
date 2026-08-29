@@ -165,7 +165,7 @@ const PrivacyPanel = () => {
         <div className="p-4 bg-surface-muted rounded-xl border border-line">
           <div className="flex items-start space-x-3">
             <svg
-              className="w-5 h-5 text-content-faint mt-0.5 flex-shrink-0"
+              className="w-5 h-5 text-content-faint mt-0.5 shrink-0"
               fill="currentColor"
               viewBox="0 0 20 20">
               <path

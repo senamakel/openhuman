@@ -12,8 +12,8 @@
 //! in a shared section impl.
 
 use crate::openhuman::agent::context::prompt::{
-    render_datetime, render_tools, render_user_files, render_workspace, ConnectedIntegration,
-    PromptContext, ToolCallFormat,
+    render_datetime, render_identity, render_tools, render_user_files, render_workspace,
+    ConnectedIntegration, PromptContext, ToolCallFormat,
 };
 use crate::openhuman::skills::ops_types::Workflow;
 use crate::openhuman::tools::orchestrator_tools::sanitise_slug;
@@ -24,6 +24,22 @@ const ARCHETYPE: &str = include_str!("prompt.md");
 
 pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     let mut out = String::with_capacity(8192);
+
+    // Identity leads the prompt (#5701): SOUL.md is the product persona every
+    // opted-in agent shares, ROLE.md is this agent's own role brief. Both are
+    // workspace files, so tuning either is an edit rather than a rebuild.
+    //
+    // Rendered here rather than via `IdentitySection` because the orchestrator
+    // is a `PromptSource::Dynamic` agent: `SystemPromptBuilder::from_dynamic`
+    // installs only this builder and never consults `omit_identity`, so the
+    // section chain that would otherwise inject these files does not run for
+    // us. Same reason `render_user_files` is called by hand just below.
+    let identity = render_identity(ctx)?;
+    if !identity.trim().is_empty() {
+        out.push_str(identity.trim_end());
+        out.push_str("\n\n");
+    }
+
     out.push_str(ARCHETYPE.trim_end());
     out.push_str("\n\n");
 
@@ -437,11 +453,14 @@ mod tests {
             ARCHETYPE.contains("Result-gating work runs synchronously"),
             "orchestrator prompt must carry the result-gating delegation rule"
         );
-        // It must steer such tasks to a synchronous/awaited primitive rather
-        // than fire-and-forget `spawn_async_subagent`.
+        // It must steer such tasks to a primitive that returns inside the
+        // turn rather than to a fire-and-forget spawn. The awaited primitives
+        // it used to name (`spawn_parallel_agents` / `wait_subagent`) were
+        // retired in #5701; the two that remain are a blocking `delegate_*`
+        // specialist and `spawn_async_subagent` with `blocking: true`.
         assert!(
-            ARCHETYPE.contains("spawn_parallel_agents") && ARCHETYPE.contains("wait_subagent"),
-            "the rule must name the synchronous/awaited alternatives"
+            ARCHETYPE.contains("`delegate_*`") && ARCHETYPE.contains("blocking: true"),
+            "the rule must name the alternatives that return within the turn"
         );
     }
 
@@ -468,11 +487,33 @@ mod tests {
         assert!(!out.contains("line one\nline two"), "newlines flattened");
     }
 
+    /// Throwaway workspace for prompt tests.
+    ///
+    /// `build` renders the identity block, and that path *writes* — it seeds
+    /// SOUL.md / IDENTITY.md / ROLE.md into
+    /// whatever directory it is handed. This used to be `Path::new(".")`,
+    /// which was harmless only while nothing in this builder touched the
+    /// workspace; once it did, every run of these tests dropped five files
+    /// plus their `.builtin-hash` siblings into the repo root. Leaked
+    /// deliberately (never cleaned) so the borrowed path outlives the
+    /// returned `PromptContext`.
+    fn scratch_workspace() -> &'static std::path::Path {
+        use std::sync::OnceLock;
+        static DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
+        DIR.get_or_init(|| {
+            let dir = tempfile::TempDir::new().expect("temp workspace");
+            let path = dir.path().to_path_buf();
+            std::mem::forget(dir);
+            path
+        })
+        .as_path()
+    }
+
     fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
         use std::sync::OnceLock;
         static EMPTY_VISIBLE: OnceLock<HashSet<String>> = OnceLock::new();
         PromptContext {
-            workspace_dir: std::path::Path::new("."),
+            workspace_dir: scratch_workspace(),
             model_name: "test",
             agent_id: "orchestrator",
             tools: &[],

@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../test/test-utils';
@@ -126,7 +127,14 @@ describe('ObsidianVaultSection', () => {
 
     fireEvent.click(screen.getByTestId('memory-open-in-obsidian'));
     await screen.findByTestId('obsidian-vault-guidance');
-    fireEvent.mouseDown(document.body);
+    // Radix's dismissable layer listens for `pointerdown`, not `mousedown` —
+    // `userEvent.click` drives the full native pointerdown/pointerup/click
+    // sequence (and, unlike a bare `fireEvent.pointerDown`, waits out Radix's
+    // internal `setTimeout(0)` that defers attaching the outside-pointerdown
+    // listener — otherwise a synchronous dispatch fires before Radix is
+    // listening at all).
+    const user = userEvent.setup();
+    await user.click(document.body);
 
     await waitFor(() => expect(screen.queryByTestId('obsidian-vault-guidance')).toBeNull());
   });

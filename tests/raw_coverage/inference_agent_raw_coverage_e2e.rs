@@ -2922,7 +2922,7 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     .expect("subagent builder");
     assert!(built.contains("coverage soul"));
     assert!(built.contains("coverage profile"));
-    assert!(built.contains("Output style"));
+    assert!(built.contains("# Writing style"));
 
     let narrow = render_subagent_system_prompt(
         workspace.path(),
@@ -3875,11 +3875,11 @@ async fn agent_debug_prompt_dump_and_identity_rendering_cover_file_layouts() {
             workspace_dir: workspace.path().join("ws"),
             text: "# planner\nbody\n".to_string(),
             tool_names: vec!["todo".to_string(), "delegate".to_string()],
-            skill_tool_count: 0,
             tool_specs: vec![
-                json!({"name": "todo", "description": "todo", "parameters": {}}),
-                json!({"name": "delegate", "description": "delegate", "parameters": {}}),
+                json!({"name": "todo", "description": "manage todos", "parameters": {}}),
+                json!({"name": "delegate", "description": "delegate a task", "parameters": {}}),
             ],
+            skill_tool_count: 0,
         },
         DumpedPrompt {
             agent_id: "integrations_agent".to_string(),
@@ -3889,12 +3889,12 @@ async fn agent_debug_prompt_dump_and_identity_rendering_cover_file_layouts() {
             workspace_dir: workspace.path().join("ws"),
             text: "# integrations\nbody\n".to_string(),
             tool_names: vec!["GMAIL_SEND_EMAIL".to_string()],
-            skill_tool_count: 1,
             tool_specs: vec![json!({
                 "name": "GMAIL_SEND_EMAIL",
-                "description": "send email",
+                "description": "send an email",
                 "parameters": {},
             })],
+            skill_tool_count: 1,
         },
     ];
 
@@ -3928,6 +3928,32 @@ async fn agent_debug_prompt_dump_and_identity_rendering_cover_file_layouts() {
     let summary_text = std::fs::read_to_string(summary.summary_path).expect("summary");
     assert!(summary_text.contains("planner/coverage"));
     assert!(summary_text.contains("integrations_agent@gmail+calendar"));
+
+    // Each per-dump tools sidecar carries the rendered tool schemas verbatim,
+    // one entry per tool in `tool_names` order — compare the full payload
+    // (name, description and parameters), not just count and names.
+    let planner_tools: Vec<Value> = serde_json::from_str(
+        &std::fs::read_to_string(
+            workspace.path().join("1_planner_coverage.tools.json"),
+        )
+        .expect("planner tools sidecar"),
+    )
+    .expect("planner tools json");
+    assert_eq!(planner_tools.as_slice(), dumps[0].tool_specs.as_slice());
+
+    let integrations_tools: Vec<Value> = serde_json::from_str(
+        &std::fs::read_to_string(
+            workspace
+                .path()
+                .join("2_integrations_agent_gmail_calendar.tools.json"),
+        )
+        .expect("integrations tools sidecar"),
+    )
+    .expect("integrations tools json");
+    assert_eq!(
+        integrations_tools.as_slice(),
+        dumps[1].tool_specs.as_slice()
+    );
 
     let identities = openhuman_core::openhuman::agent::prompts::render_connected_identities();
     assert_eq!(identities, "");

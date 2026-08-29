@@ -230,6 +230,13 @@ jobs:
               - 'scripts/__tests__/**'
               # Bash helpers with node --test coverage in scripts/__tests__/.
               - 'scripts/ci/assert-coverage-presence.sh'
+              # Shared logic behind the gate CLIs, and the module-pin gate's own
+              # files. Without these a change to the checking logic would skip
+              # the lane that tests it — the gate would stop watching itself.
+              - 'scripts/lib/**'
+              - 'scripts/ci/check-module-pins.mjs'
+              - 'scripts/ci/check-submodule-monotonic.mjs'
+              - 'scripts/ci/module-pin-exemptions.json'
             # Test-wiring surface: a change here can orphan a test or add an
             # untested controller domain → run the inventory guard.
             inventory:
@@ -565,10 +572,13 @@ jobs:
         # name, `tinymemory-bus`. 265 -> 267 on 2026-08-22: the MCP extraction
         # adds `tinymcp` and `tinymcp-bus`. 267 -> 268 on 2026-08-22: language
         # runtimes moved behind the `tinyruntime` TinyBus module, adding
-        # `tinyruntime-bus`. See the kernel-floor history for why both raises are
-        # temporary/justified. macOS resolves one higher per the host skew
-        # recorded in the limits history — this expects the CI host.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 268
+        # `tinyruntime-bus`. 268 -> 269 on 2026-08-23: the TinyJuice wire
+        # contract moved into `tinyjuice-bus`, which cannot be gated because
+        # `inference::tokenjuice` compiles in every build. See the kernel-floor
+        # history for why these raises are temporary/justified. macOS resolves
+        # one higher per the host skew recorded in the limits history — this
+        # expects the CI host.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 269
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on
@@ -740,20 +750,28 @@ jobs:
           # checkout as the host runner uid while this container runs as root,
           # so a module below $GITHUB_WORKSPACE is correctly refused. Keep
           # native fixtures in a root-owned, container-ephemeral tree instead.
+          # Version and digest are ONE decision and live on adjacent lines for that
+          # reason: the archive name, the release tag and the checksum each used to
+          # carry the version independently, so a bump could update two of the three
+          # and leave a stale digest that only fails after the download. Both values
+          # are the ubuntu-22.04-x86_64 row of `src/openhuman/modules/registry.rs`,
+          # which is the authoritative pin — copy them from there, never recompute.
+          memory_version="1.13.3"
+          memory_sha256="cc902b653b33386519cc8f49b33b6467d4ef8171e1bedadf71307eca03ad8aa4"
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
           juice_dir="$module_root/tinyjuice"
-          memory_archive="$memory_dir/tinymemory-module-1.0.1-ubuntu-22.04-x86_64.tar.gz"
+          memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
           juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
           rm -rf "$memory_dir" "$juice_dir"
           mkdir -p "$memory_dir" "$juice_dir"
           curl --fail --location --silent --show-error \
-            "https://github.com/tinyhumansai/tinymemory/releases/download/v1.0.1/$(basename "$memory_archive")" \
+            "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
           curl --fail --location --silent --show-error \
             "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
             --output "$juice_archive"
-          echo "35d13463041f455bebd833a71ba370d891a4e59d1b8e576e81635e2777a0c3dd  $memory_archive" \
+          echo "${memory_sha256}  $memory_archive" \
             | sha256sum --check
           echo "fd8caf7fccb53328870fd26922aa9768d253cd4b3bf758967847d6512df03863  $juice_archive" \
             | sha256sum --check
@@ -1029,6 +1047,51 @@ jobs:
       - name: Verify the desktop shell forwards every default-ON core gate
         run: node scripts/ci/check-feature-forwarding.mjs
 
+  module-pin-gate:
+    name: Module Pin Gate (registry pin matches submodule pin)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # Full history and every submodule: the monotonicity half compares this
+          # branch's gitlinks against the base branch's and then asks the
+          # submodule whether the new pin is an ancestor of the old one. Both
+          # answers need real history — `fetch-depth: 1` would leave the script
+          # unable to resolve the base, which it reports as a FAILURE rather than
+          # passing on an empty comparison.
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      # Nine subsystems load as downloaded cdylib modules and each is pinned
+      # twice: once as a submodule (the contract compiled here) and once as a
+      # version + digest in modules/registry.rs (the artifact loaded at runtime).
+      # Nothing compared them, so a stale pin compiled clean, passed every lane,
+      # and lost a capability on a user's machine — #5598 (capability bitmask
+      # 8191 vs 262143), #5623 (missing ListAllFacets), #5641 (missing profile
+      # family). All three were fixed by bumping a pin; none added a check.
+      #
+      # Deliberately NOT filtered on `changes`: a path filter would have to watch
+      # registry.rs, modules/memory.rs, three workflows and sixteen gitlinks, and
+      # a skipped job counts as a pass in the gate below.
+      - name: Verify each module's registry pin matches its submodule pin
+        run: node scripts/ci/check-module-pins.mjs
+
+      # The other half, and the one that has actually bitten. A pin set can be
+      # internally consistent and still be consistent with an OLDER release:
+      # 14a23b994 moved vendor/tinyagents back from #122 to #121, silently
+      # dropping a shipped fix until #5796 restored it, and #5725 did the same
+      # (undone by #5787). Both were internally consistent, so the check above
+      # would have passed them. `tinyagents` has no registry record at all — one
+      # pin, nothing to compare — so only movement direction catches it.
+      - name: Verify no vendor/ submodule pin moved backwards
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/ci/check-submodule-monotonic.mjs
+
   pester-install:
     name: PowerShell Install Test (Pester)
     needs: [changes]
@@ -1098,6 +1161,7 @@ jobs:
       - tinycortex-tests
       - orch-ip-gate
       - feature-forwarding-gate
+      - module-pin-gate
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1118,6 +1182,7 @@ jobs:
             ["TinyCortex Memory Tests"]="${{ needs['tinycortex-tests'].result }}"
             ["Orchestration IP Gate"]="${{ needs['orch-ip-gate'].result }}"
             ["Feature Forwarding Gate"]="${{ needs['feature-forwarding-gate'].result }}"
+            ["Module Pin Gate"]="${{ needs['module-pin-gate'].result }}"
           )
 
           failed=0

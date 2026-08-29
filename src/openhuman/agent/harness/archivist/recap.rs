@@ -1,19 +1,21 @@
 //! Summarization and rolling recap logic for `ArchivistHook`.
 
 use super::types::ArchivistHook;
+use crate::openhuman::memory::api::provider::{ConversationSegment, EpisodicTurn};
 use crate::openhuman::memory::tree::summarise::{summarise, SummaryContext, SummaryInput};
-use parking_lot::Mutex;
-use rusqlite::Connection;
+#[cfg(test)]
 use std::sync::Arc;
-use tinymemory_core::store::fts5::{self, EpisodicEntry};
-use tinymemory_core::store::segments::ConversationSegment;
-use tinymemory_core::store::trees::types::TreeKind;
+// `SummaryContext::tree_kind` is TinyCortex's own enum, and
+// `tinymemory_core::store::trees::types::TreeKind` was a re-export of exactly
+// this item. Naming the owning crate changes no type — only which crate alias
+// holds it (#5560).
+use tinycortex::memory::tree::store::TreeKind;
 
 /// An episodic entry paired with the stable identity exposed by its backing
 /// store. The md archivist uses a per-session sequence while the legacy FTS5
 /// store uses a row id.
 pub(super) struct SessionEntry {
-    pub(super) entry: EpisodicEntry,
+    pub(super) turn: EpisodicTurn,
     sequence: Option<u32>,
 }
 
@@ -29,16 +31,16 @@ impl SessionEntry {
             return sequence >= start && sequence <= end;
         }
 
-        if let Some(id) = self.entry.id {
+        if let Some(id) = self.turn.id {
             let start = segment.start_episodic_id;
             let end = segment.end_episodic_id.unwrap_or(start).saturating_add(1);
             return id >= start && id <= end;
         }
 
-        self.entry.timestamp >= segment.start_timestamp
+        self.turn.timestamp >= segment.start_timestamp
             && segment
                 .end_timestamp
-                .map(|end| self.entry.timestamp <= end)
+                .map(|end| self.turn.timestamp <= end)
                 .unwrap_or(true)
     }
 
@@ -48,11 +50,11 @@ impl SessionEntry {
             return sequence >= start;
         }
 
-        if let Some(id) = self.entry.id {
+        if let Some(id) = self.turn.id {
             return id >= segment.start_episodic_id;
         }
 
-        self.entry.timestamp >= segment.start_timestamp
+        self.turn.timestamp >= segment.start_timestamp
     }
 }
 
@@ -65,14 +67,15 @@ impl ArchivistHook {
     /// segment selection. Timestamps are only a fallback for legacy records:
     /// the md store records epoch milliseconds and therefore cannot preserve
     /// the sub-millisecond timestamps used when a segment is opened.
-    pub(super) fn read_session_entries(
-        &self,
-        conn: &Arc<Mutex<Connection>>,
-        session_id: &str,
-    ) -> Vec<SessionEntry> {
+    pub(super) async fn read_session_entries(&self, session_id: &str) -> Vec<SessionEntry> {
         if let Some(cfg) = self.config.as_ref() {
-            let engine_config =
-                tinymemory_core::tinycortex::memory_config_from(cfg, cfg.workspace_dir.clone());
+            // Workspace-rooted and nothing else, for the same reason as the
+            // write side in `hook_impl.rs`: `session_entries` resolves its
+            // directory through the archivist store's own private
+            // `<workspace>/memory_tree/content` root and reads neither
+            // `content_root` nor `embedding`. See that call site for why this
+            // replaced `tinymemory_core::tinycortex::memory_config_from`.
+            let engine_config = tinycortex::memory::MemoryConfig::new(cfg.workspace_dir.clone());
             match tinycortex::memory::archivist::store::session_entries(&engine_config, session_id)
             {
                 Ok(turns) => {
@@ -80,17 +83,20 @@ impl ArchivistHook {
                         .into_iter()
                         .map(|t| SessionEntry {
                             sequence: Some(t.seq),
-                            entry: EpisodicEntry {
+                            turn: EpisodicTurn {
                                 id: None,
                                 session_id: t.session_id,
-                                // ArchivedTurn stores epoch-ms; EpisodicEntry
-                                // takes epoch-seconds as f64.
+                                // ArchivedTurn stores epoch-ms; the contract
+                                // turn takes epoch-seconds as f64.
                                 timestamp: (t.timestamp_ms as f64) / 1000.0,
                                 role: t.role,
                                 content: t.content,
                                 lesson: t.lesson,
                                 tool_calls_json: t.tool_calls_json,
-                                cost_microdollars: t.cost_microdollars,
+                                // The engine column is unsigned; the wire is a
+                                // plain signed number.
+                                cost_microdollars: i64::try_from(t.cost_microdollars)
+                                    .unwrap_or(i64::MAX),
                             },
                         })
                         .collect();
@@ -102,11 +108,16 @@ impl ArchivistHook {
                 }
             }
         }
-        fts5::episodic_session_entries(conn, session_id)
+        let Some(episodic) = self.episodic() else {
+            return Vec::new();
+        };
+        episodic
+            .session_turns(session_id)
+            .await
             .unwrap_or_default()
             .into_iter()
-            .map(|entry| SessionEntry {
-                entry,
+            .map(|turn| SessionEntry {
+                turn,
                 sequence: None,
             })
             .collect()
@@ -117,9 +128,9 @@ impl ArchivistHook {
     /// (`rolling_segment_recap`).
     ///
     /// Builds a prose corpus from `entries`, calls the `LlmSummariser` when a
-    /// `chat_provider` is configured, and falls back to the heuristic
-    /// `segments::fallback_summary` on any failure or when no provider is
-    /// wired in. Always returns a non-empty string.
+    /// summariser is available for this workspace, and falls back to the
+    /// heuristic `segments::fallback_summary` on any failure or when none is.
+    /// Always returns a non-empty string.
     ///
     /// Invariants:
     /// - NEVER mutates DB state (no `segment_set_summary`, no embedding).
@@ -137,7 +148,7 @@ impl ArchivistHook {
     /// own strategy — the stub must never become live compaction text.
     pub(super) async fn summarize_entries(
         &self,
-        entries: &[&EpisodicEntry],
+        entries: &[&EpisodicTurn],
         segment_id: &str,
         turn_count: i32,
     ) -> (String, bool) {
@@ -187,12 +198,20 @@ impl ArchivistHook {
         let first = entries.first().map(|e| e.content.as_str()).unwrap_or("");
         let last = entries.last().map(|e| e.content.as_str()).unwrap_or(first);
 
-        if self.chat_provider.is_some() {
+        // Was `self.chat_provider.is_some()`. Same predicate — the archivist
+        // never called that handle, it only asked whether one could be built —
+        // recorded as the boolean it always was. See `lifecycle::with_config`.
+        if self.summariser_available {
             if let Some(ref config) = self.config {
                 tracing::debug!(
                     "[archivist] summarize_entries: LLM recap segment={segment_id} entries={}",
                     entries.len()
                 );
+                // Test-only: `summarise` builds its own chat provider, and
+                // `build_chat_runtime` consults this task-local before building
+                // one. Scoping the call is what keeps the recap tests off the
+                // network. Production has no such override and never names the
+                // engine's chat module (#5560).
                 #[cfg(test)]
                 let summary_result = if let Some(provider) = self.chat_provider.as_ref() {
                     tinymemory_core::chat::test_override::with_provider(
@@ -236,7 +255,7 @@ impl ArchivistHook {
             }
         } else {
             tracing::debug!(
-                "[archivist] summarize_entries: no chat provider — \
+                "[archivist] summarize_entries: no summariser available — \
                  heuristic fallback segment={segment_id}"
             );
         }
@@ -279,37 +298,36 @@ impl ArchivistHook {
             );
             return None;
         }
-        let conn = self.conn.as_ref()?;
+        let episodic = self.episodic()?;
 
         // Find the currently-open segment for this session.
-        let open_segment =
-            match tinymemory_core::store::segments::open_segment_for_session(conn, session_id) {
-                Ok(Some(seg)) => seg,
-                Ok(None) => {
-                    tracing::debug!(
-                        "[archivist] rolling_segment_recap: no open segment for \
+        let open_segment = match episodic.open_segment(session_id).await {
+            Ok(Some(seg)) => seg,
+            Ok(None) => {
+                tracing::debug!(
+                    "[archivist] rolling_segment_recap: no open segment for \
                      session={session_id} — returning None"
-                    );
-                    return None;
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        "[archivist] rolling_segment_recap: failed to query open segment \
+                );
+                return None;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "[archivist] rolling_segment_recap: failed to query open segment \
                      session={session_id}: {e} — returning None"
-                    );
-                    return None;
-                }
-            };
+                );
+                return None;
+            }
+        };
 
         // Gather the episodic entries for this session so far.
-        let all_entries = self.read_session_entries(conn, session_id);
+        let all_entries = self.read_session_entries(session_id).await;
 
         // Keep only entries belonging to the open segment. Prefer stable
         // sequence/row identity because the md store rounds timestamps to ms.
-        let segment_entries: Vec<&EpisodicEntry> = all_entries
+        let segment_entries: Vec<&EpisodicTurn> = all_entries
             .iter()
             .filter(|record| record.is_at_or_after_segment_start(&open_segment))
-            .map(|record| &record.entry)
+            .map(|record| &record.turn)
             .collect();
 
         if segment_entries.is_empty() {
@@ -368,7 +386,6 @@ impl ArchivistHook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tinymemory_core::store::segments::SegmentStatus;
 
     fn segment() -> ConversationSegment {
         ConversationSegment {
@@ -382,10 +399,7 @@ mod tests {
             turn_count: 3,
             summary: None,
             embedding: None,
-            topic_keywords: None,
-            status: SegmentStatus::Closed,
-            created_at: 100.0,
-            updated_at: 100.0,
+            open: false,
             start_seq: Some(10),
             end_seq: Some(14),
         }
@@ -394,7 +408,7 @@ mod tests {
     fn entry(sequence: Option<u32>, id: Option<i64>, timestamp: f64) -> SessionEntry {
         SessionEntry {
             sequence,
-            entry: EpisodicEntry {
+            turn: EpisodicTurn {
                 id,
                 session_id: "session".into(),
                 timestamp,

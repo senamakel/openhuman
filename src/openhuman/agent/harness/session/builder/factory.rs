@@ -22,7 +22,6 @@ use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::{self, Tool};
 use anyhow::Result;
 use std::sync::Arc;
-use tinymemory_core::store as memory_store;
 
 impl Agent {
     /// Constructs an `Agent` instance from a global system configuration.
@@ -205,11 +204,6 @@ impl Agent {
             config.workspace_dir.clone(),
         )?;
 
-        let local_embedding = config.workload_local_model("embeddings");
-        let embedding_api_key = crate::openhuman::inference::embeddings::resolve_api_key(
-            config,
-            &config.memory.embedding_provider,
-        );
         // Route this session's captures + recall into the active profile's memory
         // subtree so `dedicatedMemory` isolation takes effect on the ordinary
         // session path (web chat, cron), not just delegation preambles. The
@@ -234,28 +228,62 @@ impl Agent {
             has_profile = profile.is_some(),
             "[profiles] session memory subtree selected"
         );
-        let session_memory = memory_store::factories::create_session_memory_with_local_ai(
-            &config.memory,
-            local_embedding.as_deref(),
-            &embedding_api_key,
-            &config.embedding_routes,
-            Some(&config.storage.provider.config),
+        // The session's store, through the same binding the archivist resolves
+        // two statements down — so one subtree yields one store rather than an
+        // engine handle beside a driver over the same files.
+        //
+        // The two reasons this was deferred are both settled. **Embedder
+        // resolution**: the factory's ladder and the driver's are the same
+        // code reading the same field. `Config::workload_local_model` and
+        // `EngineRuntimeConfig::workload_local_model` both take
+        // `embeddings_provider`, strip `"ollama:"`, trim and reject empty, and
+        // that `Option` is the only input to `effective_embedding_settings`.
+        // The Ollama health-gate is not a difference either: it lives inside
+        // `create_unified_memory_full`, which the module runs because the
+        // module *is* the engine, and its probe address is proxied back here
+        // through `EmbeddingHost::ollama_base_url`. (`embedding_routes` never
+        // mattered — the engine's own parameter is underscore-prefixed and
+        // unused.) **The test build**: `binding::module_provider` under
+        // `cfg(test)` loads the module when `TINYMEMORY_TEST_MODULE` names it
+        // and degrades to the null driver otherwise, which is the same footing
+        // the archivist has had here all along.
+        let memory: Arc<dyn Memory> =
+            crate::openhuman::agent::experience::ops::DriverMemory::for_subtree(
+                config,
+                &memory_subdir,
+            )
+            .map_err(|e| anyhow::anyhow!("session memory binding: {e}"))?;
+        // The archivist takes the bound driver for this session's memory
+        // subtree — the same subtree `session_memory` opened — rather than the
+        // raw SQLite handle the factory used to strip off the engine result.
+        // That handle was the #5378 `:290` blocker: a concrete connection no
+        // module or remote driver can supply. The engine's connection is now
+        // exclusively the engine's.
+        let archivist_provider = crate::openhuman::memory::binding::for_subtree(
             &config.workspace_dir,
             &memory_subdir,
-        )?;
-        let archivist_connection = session_memory.sqlite_connection;
-        let memory: Arc<dyn Memory> = Arc::from(session_memory.memory);
+            &config.subsystems.memory,
+        )
+        .map(|binding| binding.provider().clone())
+        .map_err(|e| anyhow::anyhow!("archivist memory binding: {e}"))?;
         // Dedicated profiles still recall unstamped experiences written by
-        // pre-profile versions from the shared memory DB. Retain the global
-        // shared handle explicitly on the session rather than making the hot
-        // turn path reload config or reach into process-global state.
+        // pre-profile versions from the shared memory DB. Resolve that shared
+        // store once, here, and hand it to the session rather than making the
+        // hot turn path reload config.
+        //
+        // This was `global::init(workspace).memory_handle()` — booting the
+        // second, in-process engine purely to borrow its `Arc<dyn Memory>`
+        // (#5560). `DriverMemory` serves the same trait off the driver already
+        // bound for this workspace's shared `memory` subtree, so the recall
+        // reads the same rows without a second engine over the same file. Only
+        // recall goes here; writes stay on the session's own store, which is
+        // what keeps new records inside the profile subtree.
         let shared_experience_memory = if memory_subdir == "memory" {
             None
         } else {
             Some(
-                tinymemory_core::global::init(config.workspace_dir.clone())
-                    .map_err(anyhow::Error::msg)?
-                    .memory_handle(),
+                crate::openhuman::agent::experience::ops::DriverMemory::for_config(config)
+                    .map_err(anyhow::Error::msg)?,
             )
         };
 
@@ -726,7 +754,7 @@ impl Agent {
         > = if config.learning.episodic_capture_enabled {
             let hook = Arc::new(
                 crate::openhuman::agent::harness::archivist::ArchivistHook::new(
-                    archivist_connection,
+                    archivist_provider,
                     true,
                 )
                 .with_config(config.clone()),

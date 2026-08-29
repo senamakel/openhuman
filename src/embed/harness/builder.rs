@@ -29,6 +29,7 @@ pub struct HarnessBuilder {
     mcp_servers: Vec<super::mcp::McpServer>,
     services: Option<ServiceSet>,
     domains: Option<DomainSet>,
+    tool_groups: Option<crate::openhuman::tools::toolpacks::ToolGroups>,
     host_kind: HostKind,
     config: Option<Config>,
     session: Option<Session>,
@@ -55,6 +56,7 @@ impl HarnessBuilder {
             mcp_servers: Vec::new(),
             services: None,
             domains: None,
+            tool_groups: None,
             host_kind: HostKind::Cli,
             config: None,
             session: None,
@@ -130,6 +132,38 @@ impl HarnessBuilder {
     /// model.
     pub fn domains(mut self, domains: DomainSet) -> Self {
         self.domains = Some(domains);
+        self
+    }
+
+    /// Choose how each tool group reaches the model.
+    ///
+    /// [`domains`](Self::domains) decides which families *exist*; this decides
+    /// how the tools of the families that do exist are disclosed — schemas on
+    /// the wire, withheld behind `load_skill` / `use_skill`, or not registered
+    /// at all.
+    ///
+    /// Defaults to every group withheld, matching the desktop app. Reach for
+    /// [`ToolGroups::advertised`] when the host does its own routing and wants
+    /// native function calling instead of the `use_skill` envelope, and for
+    /// [`ToolGroups::none`] plus [`with`](ToolGroups::with) when the embedding
+    /// product should not carry a family at all.
+    ///
+    /// ```no_run
+    /// # use openhuman_core::Harness;
+    /// # use openhuman_core::openhuman::tools::toolpacks::{GroupMode, ToolGroups};
+    /// Harness::builder().tool_groups(
+    ///     ToolGroups::none().with("documents", GroupMode::Advertised),
+    /// );
+    /// ```
+    ///
+    /// [`ToolGroups::advertised`]: crate::openhuman::tools::toolpacks::ToolGroups::advertised
+    /// [`ToolGroups::none`]: crate::openhuman::tools::toolpacks::ToolGroups::none
+    /// [`ToolGroups::with`]: crate::openhuman::tools::toolpacks::ToolGroups::with
+    pub fn tool_groups(
+        mut self,
+        tool_groups: crate::openhuman::tools::toolpacks::ToolGroups,
+    ) -> Self {
+        self.tool_groups = Some(tool_groups);
         self
     }
 
@@ -305,17 +339,19 @@ impl HarnessBuilder {
             domains
         });
 
+        let tool_groups = self.tool_groups.unwrap_or_default();
         let services = self.services.unwrap_or_else(default_services);
 
         log::debug!(
             "[embed][harness] building host_kind={:?} inherit_workspace={inherit} \
-             routed_provider={} domains={domains:?}",
+             routed_provider={} domains={domains:?} tool_groups={tool_groups:?}",
             self.host_kind,
             self.provider.is_routed(),
         );
 
         let mut builder = CoreBuilder::new(self.host_kind)
             .domains(domains)
+            .tool_groups(tool_groups)
             .services(services)
             .token(TokenSource::EnvOrFile);
         if let Some(config) = config {

@@ -330,19 +330,19 @@ const DiscordBody = ({ close }: { close: () => void }) => {
       <p>{t('app.openhumanLink.discord.intro')}</p>
       <ul className="space-y-1.5 text-xs text-content-secondary pl-1">
         <li className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
+          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 shrink-0" />
           {t('app.openhumanLink.discord.perk1')}
         </li>
         <li className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
+          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 shrink-0" />
           {t('app.openhumanLink.discord.perk2')}
         </li>
         <li className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
+          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 shrink-0" />
           {t('app.openhumanLink.discord.perk3')}
         </li>
         <li className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
+          <span className="h-1.5 w-1.5 rounded-full bg-primary-400 shrink-0" />
           {t('app.openhumanLink.discord.perk4')}
         </li>
       </ul>
@@ -543,7 +543,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
                 aria-checked={on}
                 aria-label={`${on ? t('skills.disconnect') : t('skills.connect')} ${p.label}`}
                 onClick={() => handleToggle(p.id, p.label, on)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
                   on ? 'bg-primary-500' : 'bg-surface-strong'
                 }`}>
                 <span

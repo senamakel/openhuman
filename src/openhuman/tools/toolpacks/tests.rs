@@ -97,7 +97,7 @@ fn packed_names_are_withheld_and_replaced() {
         .into_iter()
         .collect();
 
-    strip_packed_from_visible(&mut visible);
+    strip_packed_from_visible(&mut visible, "orchestrator");
 
     assert!(!visible.contains(sample), "packed tool stayed advertised");
     assert!(visible.contains("file_read"), "unpacked tool was dropped");
@@ -109,7 +109,7 @@ fn an_agent_that_lost_nothing_gains_nothing() {
     // A narrow sub-agent must not grow two tools that can only report an empty
     // skill, so the pack tools are added only when something was withheld.
     let mut visible: HashSet<String> = ["file_read".to_string()].into_iter().collect();
-    strip_packed_from_visible(&mut visible);
+    strip_packed_from_visible(&mut visible, "orchestrator");
     assert_eq!(visible.len(), 1);
     assert!(!visible.contains(LOAD_SKILL));
 }
@@ -118,7 +118,7 @@ fn an_agent_that_lost_nothing_gains_nothing() {
 fn an_empty_visible_set_is_left_alone() {
     // Empty is the harness's "everything is visible" sentinel, not "nothing".
     let mut visible: HashSet<String> = HashSet::new();
-    strip_packed_from_visible(&mut visible);
+    strip_packed_from_visible(&mut visible, "orchestrator");
     assert!(visible.is_empty());
 }
 
@@ -264,12 +264,86 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "list_workflows",
                 "list_workflow_runs",
                 "read_workflow_run_log",
+                "propose_workflow",
+                "revise_workflow",
+                "edit_workflow",
+                "validate_workflow",
+                "save_workflow",
+                "create_workflow",
+                "duplicate_flow",
+                "dry_run_workflow",
+                "list_flows",
+                "get_flow",
+                "get_flow_history",
+                "get_flow_run",
+                "list_flow_runs",
+                "list_flow_connections",
+                "cancel_flow_run",
+                "resume_flow_run",
+                "suggest_workflows",
+                "search_tool_catalog",
+                "get_tool_contract",
+                "get_tool_output_sample",
+                "list_node_kinds",
+                "get_node_kind_contract",
+                "list_agent_profiles",
+                "list_connectable_toolkits",
             ],
         ),
-        ("crypto", &["do_crypto", "use_tinyplace"]),
+        (
+            "crypto",
+            &[
+                "do_crypto",
+                "wallet_status",
+                "wallet_balances",
+                "wallet_network_defaults",
+                "wallet_supported_assets",
+                "wallet_chain_status",
+                "wallet_encode_erc20_transfer",
+                "wallet_prepare_transfer",
+                "wallet_execute_prepared",
+                "wallet_tx_status",
+                "wallet_tx_receipt",
+                "wallet_lookup_tx",
+                "web3_swap_routes",
+                "web3_swap_quote",
+                "web3_swap_execute",
+                "web3_bridge_quote",
+                "web3_bridge_execute",
+                "web3_dapp_call",
+                "web3_dapp_execute",
+                "x402_request",
+            ],
+        ),
         (
             "integrations",
-            &["use_mcp_server", "setup_mcp_server", "mcp_registry_status"],
+            &[
+                "use_mcp_server",
+                "setup_mcp_server",
+                "mcp_registry_status",
+                "mcp_registry_search",
+                "mcp_registry_get",
+                "mcp_registry_installed_list",
+                "mcp_registry_list_tools",
+                "mcp_registry_connect",
+                "mcp_registry_disconnect",
+                "mcp_registry_tool_call",
+                "mcp_registry_config_assist",
+                "mcp_registry_install",
+                "mcp_registry_uninstall",
+            ],
+        ),
+        (
+            "composio",
+            &[
+                "composio",
+                "composio_authorize",
+                "composio_connect",
+                "composio_execute",
+                "composio_list_connections",
+                "composio_list_toolkits",
+                "composio_list_tools",
+            ],
         ),
         (
             "skills",
@@ -280,6 +354,51 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "skill_registry_search",
                 "skill_registry_install",
                 "skill_registry_sources",
+                "skill_registry_uninstall",
+                "skill_runtime_resolve_runtimes",
+                "install_workflow_from_url",
+                "uninstall_workflow",
+                "read_workflow_resource",
+            ],
+        ),
+        ("documents", &["generate_document", "generate_presentation"]),
+        (
+            "audio",
+            &[
+                "audio_generate_podcast",
+                "audio_email_podcast",
+                "audio_generate_and_email_podcast",
+            ],
+        ),
+        (
+            "system",
+            &[
+                "config_snapshot",
+                "config_get_client_config",
+                "config_get_autonomy",
+                "config_get_search",
+                "config_get_runtime_flags",
+                "config_resolve_api_url",
+                "config_get_data_paths",
+                "doctor_health",
+                "doctor_models",
+                "health_snapshot",
+                "health_system_info",
+                "dashboard_model_health",
+                "cost_get_dashboard",
+                "cost_get_daily_history",
+                "cost_get_summary",
+                "security_policy_info",
+                "service_status",
+                "service_start",
+                "service_stop",
+                "service_restart",
+                "service_shutdown",
+                "service_install",
+                "service_uninstall",
+                "daemon_host_prefs_get",
+                "daemon_host_prefs_set",
+                "proxy_config",
             ],
         ),
         ("goals", &["goal_set", "goal_get", "goal_complete"]),
@@ -296,6 +415,60 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         expect.len(),
         "a pack was added without pinning its membership here"
     );
+}
+
+#[test]
+fn a_packs_owner_keeps_its_belt_advertised() {
+    // `settings_agent` IS the system family. Withholding its own belt would
+    // buy a `load_skill` round trip per turn and hide nothing that is idle.
+    let mut visible: HashSet<String> = ["doctor_health".to_string(), "file_read".to_string()]
+        .into_iter()
+        .collect();
+    strip_packed_from_visible(&mut visible, "settings_agent");
+    assert!(
+        visible.contains("doctor_health"),
+        "the system pack's owner lost its own tool"
+    );
+    assert!(!visible.contains(LOAD_SKILL), "owner gained pack tools");
+}
+
+#[test]
+fn a_packs_owner_still_loses_every_other_pack() {
+    // Ownership is per pack, not a blanket exemption: `settings_agent` owns
+    // `system` and `app_update`, and must still lose `crypto`.
+    let mut visible: HashSet<String> = ["doctor_health".to_string(), "wallet_status".to_string()]
+        .into_iter()
+        .collect();
+    strip_packed_from_visible(&mut visible, "settings_agent");
+    assert!(visible.contains("doctor_health"));
+    assert!(
+        !visible.contains("wallet_status"),
+        "non-owned pack survived"
+    );
+    assert!(visible.contains(LOAD_SKILL) && visible.contains(USE_SKILL));
+}
+
+#[test]
+fn every_owner_names_a_pack_tool_it_actually_declares() {
+    // An owner id that no longer matches an agent (renamed, deleted) silently
+    // stops exempting anything. There is no agent registry in this unit's
+    // scope, so pin the weaker invariant that matters here: no pack lists an
+    // owner twice, and no pack claims an owner while owning no tools.
+    for pack in registry::PACKS {
+        let mut seen = HashSet::new();
+        for owner in pack.owners {
+            assert!(
+                seen.insert(owner),
+                "pack `{}` lists owner `{owner}` twice",
+                pack.id
+            );
+        }
+        assert!(
+            pack.owners.is_empty() || !pack.tools.is_empty(),
+            "pack `{}` has owners but no tools",
+            pack.id
+        );
+    }
 }
 
 #[test]

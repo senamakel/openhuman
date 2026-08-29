@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../../services/coreRpcClient';
+import Badge from '../../ui/Badge';
+import Button from '../../ui/Button';
 import { SettingsStatusLine } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 
@@ -123,40 +125,36 @@ export default function AgentActivityPanel() {
             const costMin = getCostMin(value);
             const costMax = getCostMax(value);
             return (
-              <button
+              <Button
                 key={key}
+                variant="secondary"
                 onClick={() => handleLevelChange(apiKey)}
                 disabled={status === 'saving'}
-                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                data-testid={`activity-level-${key}`}
+                className={`h-auto w-full items-center justify-between rounded-lg px-4 py-3 text-left font-normal ${
                   isSelected
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'border-line bg-surface hover:border-line-strong dark:hover:border-line-strong'
-                } ${status === 'saving' ? 'opacity-50' : ''}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-content">
-                        {t(`activityLevel.${key as LevelKey}`)}
-                      </span>
-                      {value === 2 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-surface-strong dark:bg-neutral-700 text-content-secondary dark:text-content-muted">
-                          {t('activityLevel.default')}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-content-muted mt-0.5">
-                      {t(`activityLevel.${key as LevelKey}Desc`)}
-                    </p>
+                }`}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-content">
+                      {t(`activityLevel.${key as LevelKey}`)}
+                    </span>
+                    {value === 2 && <Badge variant="neutral">{t('activityLevel.default')}</Badge>}
                   </div>
-                  <div className="text-xs font-mono text-content-muted shrink-0 ml-4">
-                    {costMin === 0 && costMax === 0
-                      ? t('activityLevel.costFree')
-                      : t('activityLevel.costRange')
-                          .replace('{min}', String(costMin))
-                          .replace('{max}', String(costMax))}
-                  </div>
+                  <p className="text-xs text-content-muted mt-0.5">
+                    {t(`activityLevel.${key as LevelKey}Desc`)}
+                  </p>
                 </div>
-              </button>
+                <div className="text-xs font-mono text-content-muted shrink-0 ml-4">
+                  {costMin === 0 && costMax === 0
+                    ? t('activityLevel.costFree')
+                    : t('activityLevel.costRange')
+                        .replace('{min}', String(costMin))
+                        .replace('{max}', String(costMax))}
+                </div>
+              </Button>
             );
           })}
         </div>

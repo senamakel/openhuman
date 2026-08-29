@@ -40,7 +40,7 @@ export default function AnnouncementModal({ announcement, onDismiss }: Announcem
 
   return (
     <div
-      className="fixed inset-0 z-[9998] flex items-center justify-center bg-stone-950/90 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-9998 flex items-center justify-center bg-stone-950/90 p-4 backdrop-blur-sm"
       data-testid="announcement-overlay">
       <div
         role="dialog"

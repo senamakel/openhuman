@@ -76,6 +76,9 @@ pub struct MemoryBinding {
     provider: Arc<dyn MemoryProvider>,
     guard: Arc<MemoryGuard>,
     driver_id: String,
+    /// The memory subtree this binding serves — `"memory"` for the shared tree,
+    /// `"memory-<id>"` for a profile that opted into dedicated memory.
+    memory_subdir: String,
     class: DriverClass,
     /// Asked **once**, at bind time, and cached here. The contract's
     /// `MemoryProvider::capabilities` doc is normative on this ("asked once at
@@ -107,6 +110,22 @@ impl MemoryBinding {
     /// not the id that was asked for (that is in [`Self::fallback`]).
     pub fn driver_id(&self) -> &str {
         &self.driver_id
+    }
+
+    /// The memory subtree this binding resolved to.
+    ///
+    /// `"memory"` is the shared tree; `"memory-<id>"` is a profile that opted
+    /// into dedicated memory, and keeping the two apart is what makes
+    /// `dedicatedMemory` isolation hold.
+    ///
+    /// Worth an accessor because the routing decision is made **here**, at bind
+    /// time, but only reaches disk lazily: a module-backed driver opens the
+    /// subtree on its first call (`OpenStore`), so nothing observes the choice
+    /// until memory is actually used. Callers that need to report or assert
+    /// which tree they were bound to — status output, and the session-builder
+    /// tests — have no other way to see it.
+    pub fn memory_subdir(&self) -> &str {
+        &self.memory_subdir
     }
 
     /// How the bound driver was reached. A host fact, never self-reported.
@@ -286,7 +305,13 @@ fn build(workspace_dir: &Path, memory_subdir: &str, cfg: &MemorySubsystemConfig)
                 } else {
                     module_provider(workspace_dir, memory_subdir)
                 };
-            let binding = bind_provider(provider, driver_id, reported_class, None);
+            let binding = bind_provider(
+                provider,
+                driver_id,
+                memory_subdir.to_string(),
+                reported_class,
+                None,
+            );
             log::info!(
                 "[memory:binding] workspace={} bound driver='{}' class={} capabilities=[{}]",
                 workspace_dir.display(),
@@ -321,6 +346,7 @@ fn build(workspace_dir: &Path, memory_subdir: &str, cfg: &MemorySubsystemConfig)
             bind_provider(
                 Arc::new(NullMemoryProvider::new()),
                 NULL_DRIVER_ID.to_string(),
+                memory_subdir.to_string(),
                 DriverClass::Null,
                 Some(fallback),
             )
@@ -395,6 +421,7 @@ fn module_provider(
 fn bind_provider(
     provider: Arc<dyn MemoryProvider>,
     driver_id: String,
+    memory_subdir: String,
     class: DriverClass,
     fallback: Option<FallbackReason>,
 ) -> MemoryBinding {
@@ -412,6 +439,7 @@ fn bind_provider(
         provider,
         guard,
         driver_id,
+        memory_subdir,
         class,
         capabilities,
         fallback,
@@ -428,7 +456,7 @@ pub(crate) fn bind_provider_for_test(
     class: DriverClass,
 ) -> MemoryBinding {
     let driver_id = provider.driver_id().to_string();
-    bind_provider(provider, driver_id, class, None)
+    bind_provider(provider, driver_id, "memory".to_string(), class, None)
 }
 
 /// Per-workspace binding cache. Same shape as
@@ -454,6 +482,374 @@ pub fn for_workspace(
     cfg: &MemorySubsystemConfig,
 ) -> Result<Arc<MemoryBinding>, String> {
     for_subtree(workspace_dir, "memory", cfg)
+}
+
+/// A driver that reports the diagnostics it was handed, and does nothing else.
+///
+/// Reads that used to hit the engine's tables go through the contract now, and
+/// the real driver is a compiled module that cannot load inside a unit test —
+/// so a test workspace binds the null driver and every diagnostic answers
+/// empty. A handler that used to be provable by writing rows and calling it
+/// needs a driver in between.
+///
+/// The split that leaves is the honest one. What a handler *derives* from the
+/// numbers is the host's rule and belongs in the host's tests, which is what
+/// this exists for. What a given store *is* — that an ingest raises the chunk
+/// count, that a deferred job stays ready without becoming eligible — is the
+/// driver's rule, pinned in the driver's own conformance suite against a real
+/// store.
+///
+/// Everything outside `Maintenance` delegates to the null driver: a test that
+/// needed those would be testing something this double is the wrong shape for.
+#[cfg(test)]
+pub(crate) struct FixedDiagnostics {
+    inner: NullMemoryProvider,
+    /// How many times the host has asked this driver to retry failed work,
+    /// and how many jobs it should say it requeued when asked.
+    ///
+    /// The gate in front of the ask is host logic — only an embedder change
+    /// should un-park anything — so a test needs to see whether the ask
+    /// happened, separately from what the driver would have done.
+    retry_calls: std::sync::atomic::AtomicUsize,
+    retry_requeues: u64,
+    /// How many times the host has asked this driver to re-embed.
+    ///
+    /// `reembed` enqueues work rather than doing it, so the host's side of that
+    /// contract is only that it *asked* — whether a row appears is the driver's
+    /// business, and pinning it here would test the driver through the host.
+    reembed_calls: std::sync::atomic::AtomicUsize,
+    store: crate::openhuman::memory::api::provider::types::StoreStats,
+    queue: crate::openhuman::memory::api::provider::types::QueueStats,
+    failure: Option<crate::openhuman::memory::api::provider::types::QueueFailure>,
+    /// What this driver says about a backfill running in its process.
+    ///
+    /// Separate from [`Self::queue`] on purpose, mirroring the contract: the
+    /// flag is not derivable from the counts, and a test that needs the gap
+    /// between them — nothing ready, nothing running, backfill unfinished —
+    /// has to set the two independently.
+    backfill: bool,
+    /// What [`MemoryMaintenance::flush_pending`] answers, when a test sets it.
+    flush: crate::openhuman::memory::api::provider::types::FlushOutcome,
+    /// What [`MemoryMaintenance::reset_derived_index`] answers, likewise.
+    reset: crate::openhuman::memory::api::provider::types::ResetOutcome,
+}
+
+#[cfg(test)]
+mod fixed_diagnostics_impl {
+    use super::FixedDiagnostics;
+    use crate::openhuman::memory::api::error::MemoryError;
+    use crate::openhuman::memory::api::provider::types::{
+        ExportPage, ExportRecord, ImportOutcome, MaintenanceReport, QueueFailure, QueueStats,
+        SourceScope, StoreStats,
+    };
+    use crate::openhuman::memory::api::provider::{
+        MemoryCore, MemoryMaintenance, MemoryPortability, MemoryProvider, MemoryRecall,
+    };
+    use crate::openhuman::memory::api::recall::OwnedRecallOpts;
+    use crate::openhuman::memory::api::types::{
+        MemoryCategory, MemoryEntry, MemoryTaint, NamespaceSummary,
+    };
+    use async_trait::async_trait;
+    use tinymemory_api::null::NullMemoryProvider;
+
+    impl FixedDiagnostics {
+        pub(crate) fn new(store: StoreStats, queue: QueueStats) -> Self {
+            Self {
+                inner: NullMemoryProvider::new(),
+                store,
+                queue,
+                failure: None,
+                backfill: false,
+                flush: Default::default(),
+                reset: Default::default(),
+                retry_calls: std::sync::atomic::AtomicUsize::new(0),
+                retry_requeues: 0,
+                reembed_calls: std::sync::atomic::AtomicUsize::new(0),
+            }
+        }
+
+        /// Report `requeued` jobs from [`MemoryMaintenance::retry_failed`].
+        pub(crate) fn requeueing(mut self, requeued: u64) -> Self {
+            self.retry_requeues = requeued;
+            self
+        }
+
+        /// Report a backfill running in this driver's process.
+        pub(crate) fn backfilling(mut self) -> Self {
+            self.backfill = true;
+            self
+        }
+
+        /// Answer [`MemoryMaintenance::flush_pending`] with `outcome`.
+        pub(crate) fn flushing(
+            mut self,
+            outcome: crate::openhuman::memory::api::provider::types::FlushOutcome,
+        ) -> Self {
+            self.flush = outcome;
+            self
+        }
+
+        /// Answer [`MemoryMaintenance::reset_derived_index`] with `outcome`.
+        pub(crate) fn resetting(
+            mut self,
+            outcome: crate::openhuman::memory::api::provider::types::ResetOutcome,
+        ) -> Self {
+            self.reset = outcome;
+            self
+        }
+
+        /// How many times [`MemoryMaintenance::retry_failed`] has been called.
+        pub(crate) fn retry_calls(&self) -> usize {
+            self.retry_calls.load(std::sync::atomic::Ordering::SeqCst)
+        }
+
+        /// How many times [`MemoryMaintenance::reembed`] has been called.
+        pub(crate) fn reembed_calls(&self) -> usize {
+            self.reembed_calls.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait]
+    impl MemoryCore for FixedDiagnostics {
+        async fn store(
+            &self,
+            namespace: &str,
+            key: &str,
+            content: &str,
+            category: MemoryCategory,
+            session_id: Option<&str>,
+            taint: MemoryTaint,
+        ) -> Result<(), MemoryError> {
+            self.inner
+                .store(namespace, key, content, category, session_id, taint)
+                .await
+        }
+
+        async fn get(
+            &self,
+            namespace: &str,
+            key: &str,
+        ) -> Result<Option<MemoryEntry>, MemoryError> {
+            self.inner.get(namespace, key).await
+        }
+
+        async fn forget(&self, namespace: &str, key: &str) -> Result<bool, MemoryError> {
+            self.inner.forget(namespace, key).await
+        }
+
+        async fn list(
+            &self,
+            namespace: Option<&str>,
+            category: Option<&MemoryCategory>,
+            session_id: Option<&str>,
+        ) -> Result<Vec<MemoryEntry>, MemoryError> {
+            self.inner.list(namespace, category, session_id).await
+        }
+
+        async fn namespaces(&self) -> Result<Vec<NamespaceSummary>, MemoryError> {
+            self.inner.namespaces().await
+        }
+    }
+
+    #[async_trait]
+    impl MemoryRecall for FixedDiagnostics {
+        async fn recall(
+            &self,
+            query: &str,
+            limit: usize,
+            opts: &OwnedRecallOpts,
+            scope: Option<&SourceScope>,
+        ) -> Result<Vec<MemoryEntry>, MemoryError> {
+            self.inner.recall(query, limit, opts, scope).await
+        }
+    }
+
+    #[async_trait]
+    impl MemoryPortability for FixedDiagnostics {
+        async fn export_page(
+            &self,
+            cursor: Option<&str>,
+            limit: usize,
+        ) -> Result<ExportPage, MemoryError> {
+            self.inner.export_page(cursor, limit).await
+        }
+
+        async fn import_records(
+            &self,
+            records: Vec<ExportRecord>,
+        ) -> Result<ImportOutcome, MemoryError> {
+            self.inner.import_records(records).await
+        }
+    }
+
+    #[async_trait]
+    impl MemoryMaintenance for FixedDiagnostics {
+        async fn retry_failed(&self) -> Result<MaintenanceReport, MemoryError> {
+            self.retry_calls
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(MaintenanceReport {
+                operation: "retry_failed".to_string(),
+                examined: self.retry_requeues,
+                changed: self.retry_requeues,
+                findings: Vec::new(),
+            })
+        }
+
+        async fn reembed(&self) -> Result<MaintenanceReport, MemoryError> {
+            self.reembed_calls
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(MaintenanceReport::default())
+        }
+
+        async fn compact(&self) -> Result<MaintenanceReport, MemoryError> {
+            Ok(MaintenanceReport::default())
+        }
+
+        async fn consolidate(&self) -> Result<MaintenanceReport, MemoryError> {
+            Ok(MaintenanceReport::default())
+        }
+
+        async fn doctor(&self) -> Result<MaintenanceReport, MemoryError> {
+            Ok(MaintenanceReport::default())
+        }
+
+        async fn store_stats(&self) -> Result<StoreStats, MemoryError> {
+            Ok(self.store.clone())
+        }
+
+        async fn queue_stats(&self, _kind: Option<&str>) -> Result<QueueStats, MemoryError> {
+            Ok(self.queue.clone())
+        }
+
+        async fn latest_queue_failure(&self) -> Result<Option<QueueFailure>, MemoryError> {
+            Ok(self.failure.clone())
+        }
+
+        async fn backfill_in_progress(&self) -> Result<bool, MemoryError> {
+            Ok(self.backfill)
+        }
+
+        async fn flush_pending(
+            &self,
+        ) -> Result<crate::openhuman::memory::api::provider::types::FlushOutcome, MemoryError>
+        {
+            Ok(self.flush.clone())
+        }
+
+        async fn reset_derived_index(
+            &self,
+        ) -> Result<crate::openhuman::memory::api::provider::types::ResetOutcome, MemoryError>
+        {
+            Ok(self.reset.clone())
+        }
+    }
+
+    #[async_trait]
+    impl MemoryProvider for FixedDiagnostics {
+        fn driver_id(&self) -> &str {
+            "fixed-diagnostics"
+        }
+
+        fn capabilities(&self) -> crate::openhuman::memory::api::capabilities::Capabilities {
+            crate::openhuman::memory::api::capabilities::Capabilities::all()
+        }
+
+        async fn health(&self) -> crate::openhuman::memory::api::health::MemoryHealth {
+            crate::openhuman::memory::api::health::MemoryHealth::Ready
+        }
+
+        fn as_maintenance(&self) -> Option<&dyn MemoryMaintenance> {
+            Some(self)
+        }
+    }
+}
+
+/// Bind a driver reporting fixed diagnostics as this workspace's driver.
+///
+/// The shorthand every test needs that reaches a handler reading through
+/// `Maintenance`. Without a binding installed, resolving one attempts to load
+/// the compiled module, and in a test process that can block rather than
+/// fail — the module host's runtime belongs to whichever test created it, so
+/// a later test finds a broker whose tasks are already gone.
+#[cfg(test)]
+pub(crate) fn install_diagnostics_for_test(
+    workspace_dir: &Path,
+    cfg: &MemorySubsystemConfig,
+    store: crate::openhuman::memory::api::provider::types::StoreStats,
+    queue: crate::openhuman::memory::api::provider::types::QueueStats,
+) -> Arc<FixedDiagnostics> {
+    let driver = Arc::new(FixedDiagnostics::new(store, queue));
+    install_for_test(
+        workspace_dir,
+        cfg,
+        Arc::clone(&driver) as Arc<dyn MemoryProvider>,
+    );
+    driver
+}
+
+/// Bind a driver that reports `requeued` from `retry_failed` and counts the
+/// asks, for tests about *when* the host asks rather than what a queue does.
+#[cfg(test)]
+pub(crate) fn install_retrying_driver_for_test(
+    config: &crate::openhuman::config::Config,
+    requeued: u64,
+) -> Arc<FixedDiagnostics> {
+    let driver = Arc::new(
+        FixedDiagnostics::new(Default::default(), Default::default()).requeueing(requeued),
+    );
+    install_for_test(
+        &config.workspace_dir,
+        &config.subsystems.memory,
+        Arc::clone(&driver) as Arc<dyn MemoryProvider>,
+    );
+    driver
+}
+
+/// Install `provider` as the binding a workspace resolves to.
+///
+/// The cache below is normally filled by [`build`], which binds the compiled
+/// TinyMemory module — and that module is not loadable inside a unit test, so
+/// a test workspace otherwise resolves to the null driver and every read
+/// through the contract answers empty.
+///
+/// That matters more since reads moved off the engine: a handler that used to
+/// be provable by writing rows and calling it now needs a driver in between.
+/// This is the seam that puts one there.
+///
+/// Test-only. It writes a process-global map, so a test using it must own the
+/// workspace path it installs against — which a `tempdir` does.
+#[cfg(test)]
+pub(crate) fn install_for_test(
+    workspace_dir: &Path,
+    cfg: &MemorySubsystemConfig,
+    provider: Arc<dyn MemoryProvider>,
+) {
+    let binding = Arc::new(bind_provider_for_test(provider, DriverClass::Module));
+    let key = (
+        workspace_dir.to_path_buf(),
+        "memory".to_string(),
+        cfg.clone(),
+    );
+    BINDINGS
+        .get_or_init(Default::default)
+        .write()
+        .expect("binding cache lock")
+        .insert(key, binding);
+}
+
+/// The bound memory driver for the workspace a whole [`Config`] names.
+///
+/// The two pieces [`for_workspace`] needs sit in different halves of `Config`,
+/// so most call sites were spelling the same pair out. It is the same cached
+/// binding either way.
+///
+/// [`Config`]: crate::openhuman::config::Config
+///
+/// # Errors
+///
+/// Only lock poisoning, as [`for_workspace`].
+pub fn for_config(config: &crate::openhuman::config::Config) -> Result<Arc<MemoryBinding>, String> {
+    for_workspace(&config.workspace_dir, &config.subsystems.memory)
 }
 
 /// The bound memory driver for one **memory subtree** of `workspace_dir`.

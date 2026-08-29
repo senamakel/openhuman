@@ -61,7 +61,7 @@ const CostDashboardPanel = ({ embedded = false }: CostDashboardPanelProps) => {
               className="inline-flex items-center gap-1.5 text-[11px] text-content-muted">
               <span
                 aria-hidden
-                className={`inline-block h-1.5 w-1.5 rounded-full ${isFetching || usageLogFetching ? 'bg-ocean-500 animate-pulse' : 'bg-sage-500'}`}
+                className={`inline-block h-1.5 w-1.5 rounded-full ${isFetching || usageLogFetching ? 'bg-primary-500 animate-pulse' : 'bg-sage-500'}`}
               />
               {`${t('settings.costDashboard.updated')} ${relativeTime(Math.max(lastUpdated ?? 0, usageLogUpdated ?? 0), t)}`}
             </span>
@@ -246,7 +246,7 @@ const CostDashboardPanel = ({ embedded = false }: CostDashboardPanelProps) => {
 };
 
 const CATEGORY_COLORS = [
-  'bg-ocean-500',
+  'bg-primary-500',
   'bg-sage-500',
   'bg-amber-500',
   'bg-coral-500',

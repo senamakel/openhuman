@@ -100,6 +100,10 @@ impl Tool for MemoryStoreRawChunksTool {
             limit: parsed.limit,
             offset: None,
             exclude_dropped: false,
+            // The filtered-listing predicates this caller does not use. An
+            // empty predicate is unfiltered, so the defaults leave the query
+            // exactly as narrow as the fields above already make it.
+            ..Default::default()
         };
         let guard = active_memory_guard()
             .await

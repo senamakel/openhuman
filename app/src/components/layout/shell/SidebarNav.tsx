@@ -1,24 +1,30 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { type NavTab } from '../../../config/navConfig';
-import { useNavTabs } from '../../../hooks/useNavTabs';
+import { NAV_TABS, type NavTab } from '../../../config/navConfig';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { setActiveAccount } from '../../../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
 import { AGENT_ACCOUNT_ID } from '../../../utils/accountsFullscreen';
+import {
+  SidebarGroup,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuIcon,
+  SidebarMenuItem,
+  SidebarMenuLabel,
+} from '../../ui';
 import { NavIcon } from './navIcons';
+import { useCloudNavGate } from './useCloudNavGate';
 
 /**
  * Active-route matching for a nav entry. Mirrors the rules the former
  * `BottomTabBar` used so deep links keep their tab highlighted:
  *   - `/chat`        → any `/chat...` route
  *   - `/settings`    → the settings index and every `/settings/*` panel
- *   - `/agent-world` → the index and every `/agent-world/*` section (it
- *                      redirects to `/agent-world/explore`, so an exact match
- *                      would never light up)
  *   - `/flows`       → the list page and any future `/flows/*` sub-route
  *                      (canvas, run detail, …)
  *   - `/home`        → exact match (so `/` redirects don't light it up)
@@ -26,8 +32,6 @@ import { NavIcon } from './navIcons';
 function matchActive(path: string, pathname: string): boolean {
   if (path === '/chat') return pathname.startsWith('/chat');
   if (path === '/settings') return pathname === '/settings' || pathname.startsWith('/settings/');
-  if (path === '/agent-world')
-    return pathname === '/agent-world' || pathname.startsWith('/agent-world/');
   if (path === '/flows') return pathname === '/flows' || pathname.startsWith('/flows/');
   if (path === '/home') return pathname === '/home';
   return pathname === path;
@@ -37,6 +41,12 @@ function matchActive(path: string, pathname: string): boolean {
  * Static, always-visible navigation rail — the top region of the root-shell
  * sidebar. Renders one icon + label row per {@link NAV_TABS} entry. This is the
  * relocated home of the old floating bottom tab bar's primary destinations.
+ *
+ * Rows are the `SidebarMenu` primitives rather than hand-styled `Button`s. The
+ * active treatment is unchanged and comes from `SidebarMenuButton`'s own
+ * `isActive`: a neutral fill lifted off the chrome plus weight, never an accent
+ * tint — the chrome already carries the theme's hue, so tinting a pill on top
+ * of it stacks two colours and reads as noise.
  */
 export default function SidebarNav() {
   const { t } = useT();
@@ -45,10 +55,14 @@ export default function SidebarNav() {
   const navigate = useNavigate();
   const unreadCount = useAppSelector(state => selectUnreadCount(state.notifications.items));
 
-  const navTabs = useNavTabs();
+  const cloudAllowed = useCloudNavGate();
   const tabs = useMemo(
-    () => navTabs.map(tab => ({ ...tab, label: t(tab.labelKey) })),
-    [navTabs, t]
+    () =>
+      NAV_TABS.filter(tab => !tab.cloudOnly || cloudAllowed).map(tab => ({
+        ...tab,
+        label: t(tab.labelKey),
+      })),
+    [cloudAllowed, t]
   );
   const activeTab = tabs.find(tab => matchActive(tab.path, location.pathname));
 
@@ -66,40 +80,44 @@ export default function SidebarNav() {
   };
 
   return (
-    <nav className="flex flex-col gap-0.5 px-2 py-1" aria-label={t('nav.home')}>
-      {tabs.map(tab => {
-        const active = matchActive(tab.path, location.pathname);
-        const showBadge = tab.id === 'notifications' && unreadCount > 0;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            data-walkthrough={tab.walkthroughAttr}
-            onClick={() => handleClick(tab, active)}
-            title={tab.label}
-            aria-current={active ? 'page' : undefined}
-            // Active state is a neutral fill lifted off the chrome, not an
-            // accent tint: the chrome carries the theme's hue, so tinting a nav
-            // pill on top of it stacks two colours and reads as noise. Weight
-            // and contrast carry the selection instead. Fills are alpha-based so
-            // they lift against whatever backdrop the theme paints behind them.
-            className={`group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] transition-colors cursor-pointer ${
-              active
-                ? 'bg-surface/70 text-content font-semibold'
-                : 'text-content-muted hover:bg-surface/40 hover:text-content-secondary'
-            }`}>
-            <span className="relative inline-flex flex-shrink-0">
-              <NavIcon id={tab.id} className="w-4 h-4" />
-              {showBadge && (
-                <span className="absolute -top-1 -right-1 min-w-[13px] h-[13px] px-1 rounded-full bg-coral-500 text-[9px] font-bold text-content-inverted flex items-center justify-center leading-none">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </span>
-            <span className="min-w-0 truncate">{tab.label}</span>
-          </button>
-        );
-      })}
+    // `SidebarGroup` supplies the px-3/py-1 flex-column band that used to sit
+    // directly on `<nav>`; the semantic landmark element stays a plain `<nav>`
+    // (no primitive substitutes for that a11y role) and picks up
+    // `shrink-0` so the caller no longer needs a wrapping div for it.
+    <nav className="shrink-0" aria-label={t('nav.home')}>
+      <SidebarGroup>
+        <SidebarMenu>
+          {tabs.map(tab => {
+            const active = matchActive(tab.path, location.pathname);
+            const showBadge = tab.id === 'notifications' && unreadCount > 0;
+            return (
+              <SidebarMenuItem key={tab.id}>
+                <SidebarMenuButton
+                  isActive={active}
+                  data-walkthrough={tab.walkthroughAttr}
+                  onClick={() => handleClick(tab, active)}
+                  title={tab.label}
+                  // A nav row, not a control: auto height and 14px type, so
+                  // the row breathes the way the shell's spacing scale expects.
+                  className="h-auto py-2 text-[14px]">
+                  <SidebarMenuIcon>
+                    <NavIcon id={tab.id} className="h-4 w-4" />
+                    {showBadge && (
+                      // Overlaid on the icon rather than trailing the row, so
+                      // the count survives the collapsed rail's icon-only
+                      // footprint.
+                      <SidebarMenuBadge tone="attention" className="absolute -right-1 -top-1 ml-0">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </SidebarMenuBadge>
+                    )}
+                  </SidebarMenuIcon>
+                  <SidebarMenuLabel>{tab.label}</SidebarMenuLabel>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroup>
     </nav>
   );
 }

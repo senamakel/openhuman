@@ -37,7 +37,7 @@ import {
   setSelectedMascotId,
   SUPPORTED_MASCOT_COLORS,
 } from '../../../store/mascotSlice';
-import Button from '../../ui/Button';
+import { Button, Checkbox } from '../../ui';
 import { SettingsSelect, SettingsTextField } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 import {
@@ -395,7 +395,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
                     aria-label={label}
                     onClick={() => handleSelect(opt.id)}
                     data-testid={`mascot-color-${opt.id}`}
-                    className={`flex flex-col items-center gap-2 rounded-lg p-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    className={`flex flex-col items-center gap-2 rounded-lg p-2 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500 ${
                       selected ? 'bg-surface-subtle' : 'hover:bg-surface-hover'
                     }`}>
                     <span
@@ -494,12 +494,11 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
 
           {/* Locale default checkbox — bespoke inline label layout */}
           <label className="flex items-start gap-2 text-sm text-content-secondary cursor-pointer">
-            <input
-              type="checkbox"
+            <Checkbox
               data-testid="mascot-voice-locale-default"
               checked={useLocaleDefault}
-              onChange={e => onLocaleDefaultToggle(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-line-strong text-primary-600 focus:ring-primary-500"
+              onCheckedChange={onLocaleDefaultToggle}
+              className="mt-0.5"
             />
             <span className="flex flex-col">
               <span>{t('settings.mascot.voice.useLocaleDefault')}</span>
@@ -570,7 +569,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
               data-testid="mascot-voice-preview"
               onClick={() => void onVoicePreview()}
               disabled={isPreviewingVoice}
-              className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+              className="bg-sage-500 hover:bg-sage-600 dark:hover:bg-sage-400">
               {isPreviewingVoice
                 ? t('settings.mascot.voice.previewing')
                 : t('settings.mascot.voice.preview')}
@@ -726,7 +725,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             <p className="p-4 text-sm text-content-muted">{t('settings.mascot.noCharacters')}</p>
           )}
           {manifest && manifest.mascots.length > 0 && (
-            <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
+            <ul className="divide-y divide-line-subtle">
               <li>
                 <button
                   type="button"
@@ -892,8 +891,9 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
   );
 
   // Embedded inside the tabbed Personality & Face page: the parent owns the
-  // header, so render just the padded body.
-  if (embedded) return <div className="p-4 space-y-5">{body}</div>;
+  // header AND the page gutter (`SettingsPanel` supplies `p-4` now), so this
+  // renders the body flush — a `p-4` here would indent it twice.
+  if (embedded) return <div className="space-y-5">{body}</div>;
 
   return <SettingsPanel>{body}</SettingsPanel>;
 };

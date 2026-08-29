@@ -96,7 +96,7 @@ function SuggestionCard({
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-content">{suggestion.title}</p>
         {triggerKey && (
-          <span className="shrink-0 rounded-full bg-ocean-50 px-2 py-0.5 text-xs text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200">
+          <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700 dark:bg-primary-500/10 dark:text-primary-200">
             {t(triggerKey)}
           </span>
         )}

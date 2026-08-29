@@ -655,7 +655,7 @@ fn handle_run_list(params: Map<String, Value>) -> ControllerFuture {
             card_id = ?p.card_id,
             "[rpc][todos] run_list entry"
         );
-        let run_list = runs::list_runs(&loc, p.card_id.as_deref())?;
+        let run_list = runs::list_runs(&loc, p.card_id.as_deref()).await?;
         serde_json::to_value(&run_list).map_err(|e| format!("serialize runs: {e}"))
     })
 }
@@ -669,7 +669,7 @@ fn handle_run_get(params: Map<String, Value>) -> ControllerFuture {
             run_id = %p.run_id,
             "[rpc][todos] run_get entry"
         );
-        let run = runs::get_run(&loc, &p.run_id)?;
+        let run = runs::get_run(&loc, &p.run_id).await?;
         serde_json::to_value(&run).map_err(|e| format!("serialize run: {e}"))
     })
 }

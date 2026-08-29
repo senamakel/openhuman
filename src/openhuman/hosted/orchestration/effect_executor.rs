@@ -773,16 +773,33 @@ fn evict_source_id(session_id: &str, cycle_id: &str) -> String {
     format!("orch_evict:{session}:{cycle_id}")
 }
 
-/// Fold each evicted summary into local memory RAG via the standard ingest
-/// pipeline. The device's memory never leaves the machine — only the hosted
-/// brain's own compressed summary text (which it just sent us) is stored.
+/// Fold each evicted summary into local memory RAG through the bound driver's
+/// Ingest family. The device's memory never leaves the machine — only the
+/// hosted brain's own compressed summary text (which it just sent us) is
+/// stored, and it is stored by whichever driver this workspace is bound to.
 pub async fn execute_evict(effect: &EvictEffect) -> Result<(), String> {
-    use tinycortex::memory::ingest::canonicalize::document::DocumentInput;
-    use tinymemory_core::ingest_pipeline::ingest_document_with_scope;
+    use crate::openhuman::memory::api::chunks::{DataSource, SourceRef};
+    use crate::openhuman::memory::api::provider::types::IngestItem;
+    use crate::openhuman::memory::api::provider::MemoryProvider;
+    use crate::openhuman::memory::api::types::MemoryTaint;
 
     let config = crate::openhuman::config::Config::load_or_init()
         .await
         .map_err(|e| format!("config load: {e}"))?;
+
+    let binding = crate::openhuman::memory::binding::for_config(&config)?;
+    // A write, so an absent family refuses rather than reporting success. The
+    // caller un-claims the `callId` on `Err`, so the brain redelivers the evict
+    // instead of us acking away a summary that was never stored.
+    // Routed through the guard so policy (redaction, taint stamping) applies
+    // to evicted summaries the same way it applies to explicit ingest calls.
+    let guard = binding.guard();
+    let Some(ingest) = guard.as_ingest() else {
+        return Err(format!(
+            "evict ingest: driver '{}' does not serve the Ingest family",
+            binding.driver_id()
+        ));
+    };
 
     let mut ingested = 0usize;
     for entry in &effect.entries {
@@ -790,23 +807,45 @@ pub async fn execute_evict(effect: &EvictEffect) -> Result<(), String> {
             continue;
         }
         let source_id = evict_source_id(&effect.session_id, &entry.cycle_id);
-        let doc = DocumentInput {
-            provider: "orchestration".to_string(),
-            title: format!("Evicted orchestration summary {}", entry.cycle_id),
-            body: entry.summary.clone(),
-            modified_at: chrono::Utc::now(),
-            source_ref: Some(source_id.clone()),
+        let item = IngestItem {
+            namespace: None,
+            // `DataSource` is a closed enum of upstream connectors and names no
+            // orchestration eviction, so no variant is *true* here. It is also
+            // not stored: the document canonicaliser keeps only body,
+            // modified_at and source_ref, and chunk `Metadata` has no provider
+            // column at all. `Upload` is the honest shape of the three that do
+            // survive — content that arrived once with no upstream to refetch —
+            // and the eviction's own provenance rides on `source_id`, the tags
+            // and `path_scope`, all of which are preserved verbatim below.
+            source: DataSource::Upload,
+            source_id: source_id.clone(),
+            owner: "user".to_string(),
+            source_ref: Some(SourceRef::new(source_id)),
+            content: entry.summary.clone(),
+            mime: None,
+            timestamp: Some(chrono::Utc::now()),
+            tags: vec!["orchestration".to_string(), "evicted".to_string()],
+            author: None,
+            channel_label: None,
+            platform: None,
+            // Mail-only fields; this source is not mail, and the contract
+            // documents empty/absent as the same statement as "not mail".
+            to: Vec::new(),
+            cc: Vec::new(),
+            subject: None,
+            list_unsubscribe: None,
+            // The chunk tier cannot carry a non-default taint and the driver
+            // rejects an item that claims one, so `Internal` is the only value
+            // ingest accepts. It is also the true one: this is the hosted
+            // brain's own summary of the user's own conversation, not content
+            // synced in from a third-party source.
+            taint: MemoryTaint::Internal,
+            path_scope: Some("orchestration/evicted".to_string()),
         };
-        ingest_document_with_scope(
-            &config,
-            &source_id,
-            "user",
-            vec!["orchestration".to_string(), "evicted".to_string()],
-            doc,
-            Some("orchestration/evicted".to_string()),
-        )
-        .await
-        .map_err(|e| format!("evict ingest cycle={}: {e}", entry.cycle_id))?;
+        ingest
+            .ingest_document(item)
+            .await
+            .map_err(|e| format!("evict ingest cycle={}: {e}", entry.cycle_id))?;
         ingested += 1;
     }
     log::debug!(

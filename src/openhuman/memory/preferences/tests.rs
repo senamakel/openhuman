@@ -135,6 +135,16 @@ impl MemoryRetrieval for ScriptedRetrieval {
             .collect())
     }
 
+    async fn recall_namespace_recent(
+        &self,
+        namespace: &str,
+        limit: usize,
+    ) -> Result<Vec<NamespaceMemoryHit>, MemoryError> {
+        // The scripted hits, minus the ranking the scored path pretends to do.
+        self.recall_namespace_scored(namespace, "", limit, None)
+            .await
+    }
+
     // The family's other methods are irrelevant here — this stub exists to feed
     // `recall_namespace_scored` a scripted breakdown. They are unreachable, so
     // they say so rather than returning a plausible empty value that could make

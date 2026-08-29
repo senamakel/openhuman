@@ -150,26 +150,66 @@ where
 /// Reason a terminal `run_chat_task` error should be kept OUT of Sentry, or
 /// `None` when it is a genuine defect that must page.
 ///
-/// Both suppressed cases are deterministic, user-surfaced, retryable
-/// agent-loop outcomes — a terminal `chat_error` already reaches the client, so
-/// a Sentry event is pure noise (same tier as `MaxIterationsExceeded` /
+/// A suppressed case is a deterministic, user-surfaced, retryable agent-loop
+/// outcome — a terminal `chat_error` already reaches the client, so a Sentry
+/// event is pure noise (same tier as `MaxIterationsExceeded` /
 /// `EmptyProviderResponse`, which are demoted the same way):
 ///
 /// - the max-iteration cap (`is_max_iterations_error`), and
-/// - the turn wall-clock backstop / harness `Timeout` (`is_turn_timeout_error`,
-///   issue #4746) — without this arm every wedged turn that trips the ceiling
-///   would emit a spurious Sentry event, contradicting the graceful
-///   `turn_timeout` framing.
+/// - the **outer** web-turn wall-clock backstop (`is_outer_backstop_timeout`,
+///   issue #4746) — the turn wedged outside the harness and produced no
+///   terminal event, so without this arm every such turn would emit a spurious
+///   Sentry event, contradicting the graceful `turn_timeout` framing.
+///
+/// **Not suppressed: the harness's own `Timeout` (#5804).** This arm used to
+/// cover both, via `is_turn_timeout_error`, because the two are hard to tell
+/// apart once stringified. They are not the same event. The outer backstop
+/// fires with *nothing in flight*; the harness `Timeout` fires while bounding
+/// a real model or tool call, which means the run spent its budget doing work
+/// — and every result that work produced is discarded along with the turn. A
+/// turn that lost eighteen sub-agents' worth of accumulated work was reported
+/// here as `suppressed Sentry emission for turn wall-clock backstop` and
+/// reached telemetry as nothing at all, which is why the defect survived. See
+/// [`is_outer_backstop_timeout`](super::web_errors::is_outer_backstop_timeout)
+/// for the structural argument.
+///
+/// The user-facing classification is deliberately untouched: both still render
+/// the graceful `turn_timeout` copy via `is_turn_timeout_error`. Only the
+/// telemetry decision splits.
 ///
 /// Kept as a pure predicate over the already-formatted error string so the
 /// suppression policy is unit-testable without a Sentry harness.
 pub(crate) fn sentry_suppression_reason(detailed: &str) -> Option<&'static str> {
     if crate::openhuman::agent::error::is_max_iterations_error(detailed) {
         Some("max-iteration cap")
-    } else if super::web_errors::is_turn_timeout_error(detailed) {
-        Some("turn wall-clock backstop")
+    } else if super::web_errors::is_outer_backstop_timeout(detailed) {
+        Some("turn wall-clock backstop (no terminal event)")
     } else {
         None
+    }
+}
+
+/// Which wall-clock bound a reported timeout hit, as a Sentry tag value.
+///
+/// Only meaningful once [`sentry_suppression_reason`] has decided to report —
+/// i.e. for a harness `Timeout`, never for the suppressed outer backstop. The
+/// crate names the bound in the message (`RUN_BOUND_LABEL` vs
+/// `PER_CALL_BOUND_LABEL`), and the two are different triage paths: a run that
+/// spent its whole budget doing real work is a capacity/planning problem, while
+/// one call that blew a per-call ceiling is a wedged provider. Emitting them
+/// under one tag would rebuild, in the dashboard, exactly the conflation this
+/// change removed from the code (#5804).
+///
+/// Pure over the formatted error string, for the same reason its neighbour is.
+pub(crate) fn timeout_bound_tag(detailed: &str) -> &'static str {
+    if detailed.contains("per-model-call ceiling") {
+        "per_model_call"
+    } else if detailed.contains("remaining wall-clock budget") {
+        "run_remaining"
+    } else if super::web_errors::is_turn_timeout_error(detailed) {
+        "unclassified_timeout"
+    } else {
+        "none"
     }
 }
 
@@ -814,6 +854,10 @@ pub async fn start_chat(
                             ("error_type", classified_type),
                             ("thread_id", thread_id_task.as_str()),
                             ("request_id", request_id_task.as_str()),
+                            // Names which ceiling fired for the harness
+                            // timeouts this arm now reports (#5804); "none"
+                            // for every other error type.
+                            ("timeout_bound", timeout_bound_tag(&detailed)),
                         ],
                     );
                 }
@@ -988,7 +1032,54 @@ async fn spawn_parallel_turn(
                     request_id_task,
                     err
                 );
+                let detailed = format!(
+                    "parallel run_chat_task failed client_id={} thread_id={} request_id={} error={}",
+                    client_id_task, thread_id_task, request_id_task, err
+                );
                 let classified = classify_inference_error(&err);
+                let classified_type = classified.error_type;
+
+                // A parallel turn runs under the same deadline wrapper as the
+                // serial one and dies the same way, but this branch reported
+                // NOTHING to Sentry — not merely the timeouts this PR
+                // un-suppresses, but every error type, since the parallel path
+                // was added. So a discarded turn was invisible here even
+                // before the suppression arm existed, and fixing only
+                // `start_chat` would have left `QueueMode::Parallel` exactly
+                // as blind as it was (#5804 review).
+                //
+                // Same policy as the serial site, deliberately sharing
+                // `sentry_suppression_reason` rather than restating it: the
+                // outer backstop stays suppressed, a harness `Timeout` reports
+                // with the ceiling that fired.
+                if let Some(reason) = sentry_suppression_reason(&detailed) {
+                    log::info!(
+                        target: "web_channel",
+                        "[web_channel.spawn_parallel_turn] suppressed Sentry emission for {} \
+                         client_id={} thread_id={} request_id={} error_type={} message={}",
+                        reason,
+                        client_id_task,
+                        thread_id_task,
+                        request_id_task,
+                        classified_type,
+                        detailed
+                    );
+                } else {
+                    crate::core::observability::report_error_or_expected(
+                        detailed.as_str(),
+                        "web_channel",
+                        "spawn_parallel_turn",
+                        &[
+                            ("channel", "web"),
+                            ("error_type", classified_type),
+                            ("thread_id", thread_id_task.as_str()),
+                            ("request_id", request_id_task.as_str()),
+                            ("queue_mode", "parallel"),
+                            ("timeout_bound", timeout_bound_tag(&detailed)),
+                        ],
+                    );
+                }
+
                 publish_web_channel_event(WebChannelEvent {
                     event: "chat_error".to_string(),
                     client_id: client_id_task.clone(),

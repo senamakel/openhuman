@@ -127,6 +127,21 @@ pub mod server;
 /// neither is gated — so this is not either, exactly as before the extraction.
 pub mod http_client {
     pub use tinymcp::transport::http::{McpHttpClient, McpHttpClientBuilder};
+    /// The transport's error, re-exported so a caller can inspect a failure
+    /// structurally rather than by its rendered text.
+    ///
+    /// The variant that motivates it is [`McpError::Unauthorized`], whose
+    /// `resource_metadata` is what separates a server that wants OAuth from one
+    /// that wants a static credential — the difference between offering a sign-in
+    /// path and asking for a token. That field is deliberately absent from the
+    /// message, so a caller wanting it must have the type.
+    ///
+    /// Note this crate's own `core::observability` classifier does **not** use
+    /// it: it reads rendered text, because it classifies failures that have
+    /// already crossed an RPC boundary and arrive as strings. This re-export is
+    /// for an in-process consumer, which holds the real error and should not be
+    /// reduced to matching on wording that upstream is free to reword.
+    pub use tinymcp::Error as McpError;
     pub use tinymcp::{redact_endpoint, render_tool_result};
     pub use tinymcp_bus::{
         AuthorizationServerMetadata, McpAuthChallenge, McpAuthorizationContext,
@@ -143,4 +158,11 @@ pub mod config_servers {
     pub use tinymcp::{
         McpRegistrySource, McpServerDefinition, McpServerRegistry, McpTransportClient,
     };
+    /// The auth shape a *definition in this registry* carries.
+    ///
+    /// Distinct from `config::McpAuthConfig`, which is the shape this
+    /// application's own TOML declares — the two were one type before the
+    /// extraction. A caller reading `McpServerDefinition::auth` needs this one,
+    /// and without the re-export cannot name it at all.
+    pub use tinymcp_bus::McpAuthConfig as McpDefinitionAuth;
 }

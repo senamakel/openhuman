@@ -98,9 +98,9 @@ test.describe('Top-level functional flows', () => {
     await bootAuthenticatedPage(page, 'pw-top-level-ui', '/home');
     const routes: Array<[string, RegExp]> = [
       // Home folded into the unified chat surface — /home redirects to /chat.
-      ['/home', /Your assistant is ready|Reasoning/],
+      ['/home', /Assistant|Message|Chat/],
       ['/connections', /Composio Integrations|Composio|Channels|MCP Servers/],
-      ['/chat', /Your assistant is ready|Reasoning/],
+      ['/chat', /Assistant|Message|Chat/],
       ['/settings/notifications-hub', /Notifications/],
       ['/notifications', /Notifications|System Events/],
       ['/rewards', /Rewards|Referrals|Redeem/],
@@ -110,7 +110,11 @@ test.describe('Top-level functional flows', () => {
       await page.goto(`/#${hash}`);
       await waitForAppReady(page);
       await dismissWalkthroughIfPresent(page);
-      await expect(page.locator('#root')).toContainText(text);
+      if (hash === '/home' || hash === '/chat') {
+        await expect(page.getByTestId('chat-message-input')).toBeVisible();
+      } else {
+        await expect(page.locator('#root')).toContainText(text);
+      }
     }
   });
 });

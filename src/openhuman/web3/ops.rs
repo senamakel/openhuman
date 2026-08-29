@@ -27,7 +27,7 @@ async fn wallet_address(family: ChainFamily) -> Result<String, String> {
     };
     let status = wallet::status().await?.value;
     if !status.configured {
-        return Err("wallet is not configured; run wallet setup first".to_string());
+        return Err(wallet::WALLET_NOT_CONFIGURED_MESSAGE.to_string());
     }
     status
         .accounts

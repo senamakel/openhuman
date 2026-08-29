@@ -12,7 +12,7 @@
 import debugFactory from 'debug';
 import type { FormEvent, ReactElement } from 'react';
 
-import { apiClient } from '../../agentworld/AgentWorldShell';
+import { apiClient } from '../../lib/agentworld/apiClient';
 import type { ContactView, PairingSnapshot } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import type {
@@ -22,7 +22,9 @@ import type {
   SelfIdentity,
 } from '../../lib/orchestration/orchestrationClient';
 import type { ChatWindow } from '../../lib/orchestration/useOrchestrationChats';
+import { AccordionContent, AccordionItem, AccordionRoot, AccordionTrigger } from '../ui/Accordion';
 import Button from '../ui/Button';
+import TextField from '../ui/TextField';
 import AttentionQueueView from './AttentionQueue';
 import { ChatListButton } from './OrchestrationChatPrimitives';
 import { contactAddress, contactBadgeKey, truncate } from './orchestrationTabHelpers';
@@ -105,6 +107,28 @@ export default function OrchestrationSidebar({
   ungroupedSessions,
 }: OrchestrationSidebarProps): ReactElement {
   const { t } = useT();
+
+  // Each accepted contact is its own independent disclosure — several can be
+  // open at once, so this is Accordion `type="multiple"`, not `single`. The
+  // open set is still owned by the tab container (`expandedContacts` +
+  // `onToggleContact`); Radix's controlled `value` just wants it as an array
+  // rather than a lookup map, and `onValueChange` fires with the *whole* next
+  // array, so the delta against the previous set is what maps back onto the
+  // per-address toggle callback the container expects.
+  const openContactAddresses = Object.keys(expandedContacts).filter(
+    address => expandedContacts[address]
+  );
+  const handleContactValueChange = (nextOpen: string[]) => {
+    const next = new Set(nextOpen);
+    const previous = new Set(openContactAddresses);
+    for (const address of nextOpen) {
+      if (!previous.has(address)) onToggleContact(address);
+    }
+    for (const address of openContactAddresses) {
+      if (!next.has(address)) onToggleContact(address);
+    }
+  };
+
   return (
     <aside className="flex w-80 flex-none flex-col border-r border-line bg-surface-muted/40">
       <div className="border-b border-line px-4 py-3">
@@ -174,12 +198,13 @@ export default function OrchestrationSidebar({
             {t('tinyplaceOrchestration.pairing.linkLabel')}
           </label>
           <div className="flex gap-2">
-            <input
+            <TextField
               id="tinyplace-session-agent-id"
+              inputSize="sm"
               value={linkAgentId}
               onChange={event => onLinkAgentIdChange(event.target.value)}
               placeholder={t('tinyplaceOrchestration.pairing.linkPlaceholder')}
-              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-content outline-none transition focus:border-ocean-500 focus:ring-2 focus:ring-ocean-500/20"
+              className="min-w-0 flex-1 text-xs"
             />
             <Button
               type="submit"
@@ -296,22 +321,26 @@ export default function OrchestrationSidebar({
               {t('tinyplaceOrchestration.noContacts')}
             </div>
           ) : (
-            <div className="space-y-1 px-2 pb-2">
+            <AccordionRoot
+              type="multiple"
+              value={openContactAddresses}
+              onValueChange={handleContactValueChange}
+              className="divide-y-0 space-y-1 px-2 pb-2">
               {acceptedContactList.map((contact, index) => {
                 const address = contactAddress(contact);
                 const handle = address ? agentHandles[address] : null;
                 const isOpen = !!expandedContacts[address];
                 const contactSessions = address ? (sessionsByContact.get(address) ?? []) : [];
                 return (
-                  <div
+                  <AccordionItem
                     key={address || `contact-${index}`}
+                    value={address}
                     className="overflow-hidden rounded-lg border border-line bg-surface">
-                    <button
-                      type="button"
+                    <AccordionTrigger
+                      showChevron={false}
+                      size="sm"
                       data-testid={`tinyplace-contact-${address}`}
-                      aria-expanded={isOpen}
-                      onClick={() => onToggleContact(address)}
-                      className="flex w-full items-center gap-2 px-2 py-2 text-left transition hover:bg-surface-hover">
+                      className="px-2 py-2">
                       <span className="flex-none text-[10px] text-content-muted">
                         {isOpen ? '▾' : '▸'}
                       </span>
@@ -330,8 +359,8 @@ export default function OrchestrationSidebar({
                           {contactSessions.length}
                         </span>
                       ) : null}
-                    </button>
-                    {isOpen ? (
+                    </AccordionTrigger>
+                    <AccordionContent className="px-0 pb-0">
                       <div className="border-t border-line-subtle">
                         {contactSessions.map(chat => (
                           <ChatListButton
@@ -350,15 +379,15 @@ export default function OrchestrationSidebar({
                           data-testid={`tinyplace-new-session-${address}`}
                           disabled={!address || creatingSession === address}
                           onClick={() => onCreateSession(address)}
-                          className="flex w-full items-center gap-1 px-3 py-2 text-left text-[11px] font-medium text-ocean-500 transition hover:bg-surface-hover disabled:opacity-50">
+                          className="flex w-full items-center gap-1 px-3 py-2 text-left text-[11px] font-medium text-primary-600 dark:text-primary-400 transition hover:bg-surface-hover disabled:opacity-50">
                           + {t('tinyplaceOrchestration.newSession')}
                         </button>
                       </div>
-                    ) : null}
-                  </div>
+                    </AccordionContent>
+                  </AccordionItem>
                 );
               })}
-            </div>
+            </AccordionRoot>
           )}
         </section>
 

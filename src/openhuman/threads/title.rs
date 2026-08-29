@@ -5,8 +5,10 @@
 
 use std::hash::{Hash, Hasher};
 
+use tinyagents::harness::message::Message;
+use tinyagents::harness::model::ModelRequest;
+
 pub const THREAD_TITLE_LOG_PREFIX: &str = "[threads:title]";
-pub const THREAD_TITLE_MODEL_HINT: &str = "hint:summarize";
 pub const THREAD_TITLE_SYSTEM_PROMPT: &str = "You name chat threads from the first user message and the assistant reply. Return only the name: at most 3 words, like Fix session handoff or Gmail OAuth retry. Lead with the verb or the subject and drop filler words. No quotes. No markdown. No punctuation.";
 
 /// Words a title carries at most. Three is the whole point of the shape: a
@@ -200,6 +202,38 @@ pub fn build_title_prompt(user_message: &str, assistant_message: &str) -> String
     format!(
         "First user message:\n{user_message}\n\nAssistant reply:\n{assistant_message}\n\nReturn the best thread name."
     )
+}
+
+/// Builds the whole title-generation request.
+///
+/// # It deliberately sets no model
+///
+/// The caller has already resolved the model by building the provider for the
+/// `summarization` role, and the resolved model is the one that should
+/// dispatch. `ModelRequest::model` is a *per-request override* that the
+/// managed backend resolves verbatim, so anything set here replaces that
+/// correct model on the wire.
+///
+/// This used to override it with `"hint:summarize"`, which no lookup table in
+/// the tree defines — every hint-alias table spells the alias `summarization`.
+/// The string matched nothing, survived translation unchanged, and reached the
+/// backend as a literal model id, which answered
+/// `400 Model 'hint:summarize' is not available` on every call. Title
+/// generation then fell back to a keyword title for four months without
+/// anything escalating (#5637).
+///
+/// Leaving `model` unset is also the only form that is correct for **every**
+/// provider. `create_chat_model` resolves the `summarization` role to the
+/// managed backend, a Claude Agent SDK / Claude Code model, a local runtime,
+/// or a BYOK cloud slug; pinning any concrete tier id here would be wrong for
+/// the four non-managed branches. Unset means each provider uses its own
+/// construction-time default.
+pub fn build_title_request(user_message: &str, assistant_message: &str) -> ModelRequest {
+    ModelRequest::new(vec![
+        Message::system(THREAD_TITLE_SYSTEM_PROMPT),
+        Message::user(build_title_prompt(user_message, assistant_message)),
+    ])
+    .with_temperature(0.2)
 }
 
 #[cfg(test)]

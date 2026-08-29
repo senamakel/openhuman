@@ -13,7 +13,7 @@ use tinymemory_api::capabilities::{Capabilities, Capability};
 use tinymemory_api::error::MemoryError;
 use tinymemory_api::provider::MemoryProvider;
 
-use super::{from_bus, ModuleMemoryProvider, MODULE_ID};
+use super::{from_bus, ModuleMemoryProvider, INGEST_BUS_GRACE, MODULE_ID};
 use crate::openhuman::config::Config;
 use crate::openhuman::modules::registry;
 
@@ -67,27 +67,37 @@ fn the_advertised_capabilities_match_the_pinned_artifact() {
         Capabilities::all().contains_all(capabilities),
         "the artifact advertises a family the contract does not declare",
     );
-    // Stated on the pinned branch, not on `capabilities`, so the documented
-    // `OPENHUMAN_MEMORY_MODULE_ASSUME_FULL_CAPABILITIES=1` override cannot turn
-    // this red. Every assertion above holds under both configurations; this one
-    // is about the pin itself.
-    assert_ne!(
+    // The pinned list now equals the whole contract, and that is the honest
+    // statement rather than the #5598 over-claim: the over-claim was
+    // advertising a family the HOST could not reach (no accessor), and the
+    // Episodic accessor landing closed the last such gap. What still guards
+    // drift is `the_capability_list_matches_the_pinned_release` — a re-pin
+    // cannot move the version without this list being re-read at the new tag.
+    assert_eq!(
         super::capabilities_for(false),
         Capabilities::all(),
-        "advertising the whole contract is the #5598 over-claim",
+        "every family has a host accessor and a bus member in the pinned artifact; \
+         an absence here is an under-claim hiding a reachable family",
     );
 }
 
 #[test]
 fn the_full_capability_override_restores_the_whole_contract() {
-    // The escape hatch for a locally-built module, which does serve the whole
+    // The escape hatch for a locally-built module, which serves the whole
     // contract. Asserted through `capabilities_for` rather than by setting
     // `OPENHUMAN_MEMORY_MODULE_ASSUME_FULL_CAPABILITIES` — mutating a
     // process-global env var would race every other test in this binary.
+    //
+    // With the pinned list now covering the full contract, the override is a
+    // no-op by construction — asserted as equality rather than difference, so
+    // this starts failing (and the override earns its keep again) the moment a
+    // future contract family lands that no release serves yet.
     assert_eq!(super::capabilities_for(true), Capabilities::all());
-    assert_ne!(
+    assert_eq!(
         super::capabilities_for(true),
-        super::capabilities_for(false)
+        super::capabilities_for(false),
+        "the pinned artifact serves every contract family, so the override has \
+         nothing to widen",
     );
 }
 
@@ -275,21 +285,209 @@ fn the_advertised_set_does_not_over_claim_the_artifact() {
         );
     }
 
-    // `Episodic` is the one that must still be absent, and for a different
-    // reason than before: the artifact DOES serve it, but `ModuleMemoryProvider`
-    // has no `as_episodic`, so it inherits the trait default and returns `None`.
-    // Advertising a family this host cannot reach is the #5598 over-claim in a
-    // different coat. Flip this to the loop above in the same change that
-    // implements the accessor.
+    // `Episodic` joins the loop's spirit in the same change that implemented
+    // `as_episodic`, exactly as the previous version of this comment required:
+    // the artifact has served the members since v1.2.0, and the archivist now
+    // writes through them, so hiding the family would be the under-claim.
     assert!(
-        !advertised.contains(Capability::Episodic),
-        "Episodic is advertised but ModuleMemoryProvider has no `as_episodic`, so the accessor \
-         returns None — implement it before widening ARTIFACT_CAPABILITIES",
+        advertised.contains(Capability::Episodic),
+        "Episodic has a host accessor and bus members in the pinned {} artifact — \
+         hiding it strands the archivist's writes",
+        super::ARTIFACT_CAPABILITIES_PIN,
     );
 
-    assert_ne!(
-        advertised,
-        Capabilities::all(),
-        "advertising the whole contract is the bug this test exists to prevent",
+    // With every family reachable, full advertisement IS the honest set. The
+    // anti-over-claim tripwire this used to be lives on in the accessor rule
+    // itself: `capabilities_for` can only name families `ModuleMemoryProvider`
+    // implements, and the pin-drift test re-opens the question on every
+    // registry bump.
+    assert_eq!(advertised, Capabilities::all());
+}
+
+/// The CI workflows download the TinyMemory module and verify it against a
+/// digest written inline in the YAML. That digest is a second copy of the one
+/// in [`super::super::registry`], and the two drifted: a version bump moved the
+/// archive name and the release tag but left the checksum two releases behind,
+/// so every lane that installs the module died on
+/// `sha256sum: WARNING: 1 computed checksum did NOT match`.
+///
+/// The failure was loud, which is the system working — a mismatched digest is
+/// exactly what should stop a build rather than silently running the wrong
+/// artifact. What was missing is anything that catches the drift *before* CI
+/// downloads a file, and a comment asking the next person to keep three places
+/// in step is not that. This is.
+///
+/// Scoped to the one row the workflows actually install (`ubuntu-22.04-x86_64`,
+/// the CI runner's triple) rather than all eleven, because that is the only
+/// pair that can disagree.
+#[test]
+fn the_ci_workflows_pin_the_same_module_digest_as_the_registry() {
+    const HOST_KEY: &str = "ubuntu-22.04-x86_64";
+
+    let record = registry::find(MODULE_ID).expect("the memory module is registered");
+    let asset = record
+        .assets
+        .iter()
+        .find(|asset| asset.host_key == HOST_KEY)
+        .unwrap_or_else(|| panic!("the registry has no {HOST_KEY} asset to compare against"));
+
+    let workflows = [
+        "../.github/workflows/ci-full.yml",
+        "../.github/workflows/ci-lite.yml",
+        "../.github/workflows/e2e-reusable.yml",
+    ];
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    let mut checked = 0usize;
+    for relative in workflows {
+        let path = root.join(relative.trim_start_matches("../"));
+        let Ok(yaml) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        for line in yaml.lines() {
+            let Some(rest) = line.trim().strip_prefix("memory_sha256=") else {
+                continue;
+            };
+            let pinned = rest.trim().trim_matches('"');
+            assert_eq!(
+                pinned,
+                asset.sha256,
+                "{} pins a digest the registry does not: the workflow will download \
+                 {} and refuse it. Copy both `memory_version` and `memory_sha256` \
+                 from the {HOST_KEY} row of registry.rs.",
+                path.display(),
+                asset.archive,
+            );
+            checked += 1;
+        }
+    }
+
+    assert!(
+        checked >= 4,
+        "expected at least four workflow digest sites, found {checked} — either a \
+         lane stopped installing the module, or the assignment was renamed and this \
+         guard silently stopped checking anything"
+    );
+}
+
+/// The bus deadline on `IngestCodingSessions` must never be the one that fires.
+///
+/// This is the defect from #5802 in test form. Before the fix the module call
+/// took tinybus' flat 30 s `DEFAULT_TIMEOUT` while the RPC around it allowed
+/// 120 s + 90 s per session, so a perfectly healthy 35 s import was abandoned
+/// by the caller, reported as a failure, and finished successfully five
+/// seconds later with nobody listening.
+///
+/// Asserted across the whole input range rather than at one point, because the
+/// budget is piecewise: it scales linearly and then clamps at `HARD_CAP_SECS`.
+/// A future edit that raises the cap, the base, or the per-session allowance
+/// without touching the grace fails here instead of in the field.
+#[test]
+fn the_ingest_bus_deadline_always_outlasts_the_rpc_budget() {
+    use crate::openhuman::memory::sources::rpc::ingest_budget;
+
+    // Below the cap, at the cap, and far past it (`max_sessions` is untrusted
+    // input from an advertised RPC, so `usize::MAX` is a reachable argument).
+    for max_sessions in [0, 1, 5, 6, 7, 100, 10_000, usize::MAX] {
+        let budget = ingest_budget(max_sessions);
+        let bus = budget + INGEST_BUS_GRACE;
+        assert!(
+            bus > budget,
+            "max_sessions={max_sessions}: the bus deadline ({bus:?}) must outlast the \
+             RPC budget ({budget:?}), or the wire member's error wins and the caller \
+             is released while the module is still working"
+        );
+    }
+}
+
+/// The grace has to be big enough to order two timers, not merely non-zero.
+///
+/// A one-millisecond grace would satisfy the assertion above and still lose the
+/// race under ordinary scheduling jitter, which would put the failure back
+/// where it started: a bus-member error surfacing instead of the RPC's
+/// structured one.
+#[test]
+fn the_ingest_bus_grace_is_wide_enough_to_order_the_two_timers() {
+    assert!(
+        INGEST_BUS_GRACE >= std::time::Duration::from_secs(5),
+        "INGEST_BUS_GRACE is {INGEST_BUS_GRACE:?}; a grace this small does not \
+         reliably order the RPC's timeout ahead of the bus deadline"
+    );
+}
+
+/// Every `MemorySourceSync` and `MemoryMaintenance` member the trait defaults
+/// must be bridged to the module rather than left to inherit the default.
+///
+/// Three of these members carry a default body that returns
+/// `Unsupported(SourceSync)`, and `diagnose` one that returns
+/// `Unsupported(Maintenance)`. A defaulted member cannot break an implementor at
+/// compile time, so when they were added to the contract `ModuleMemoryProvider`
+/// kept compiling and silently began refusing — which is #5801: the manual
+/// "Sync now" button answered `unsupported capability: source_sync` while the
+/// module's own scheduler, which never crosses this bridge, kept syncing fine.
+///
+/// The discriminator needs no module. With the host disabled, `proxy()` fails
+/// with `MemoryError::Other`, so a member that really dispatches through
+/// `module_call!` reports `Other` while one that fell through to the default
+/// reports `Unsupported`. Asserting "not Unsupported" therefore asserts the
+/// dispatch itself, which is the part that was missing.
+#[tokio::test]
+async fn the_defaulted_members_dispatch_to_the_module_instead_of_refusing() {
+    use tinymemory_api::provider::{MemoryMaintenance, MemorySourceSync};
+
+    let mut config = Config::default();
+    config.modules.enabled = false;
+    let provider = ModuleMemoryProvider::new(Arc::new(config));
+
+    let refused = |label: &str, error: MemoryError| {
+        assert!(
+            !matches!(error, MemoryError::Unsupported { .. }),
+            "{label} answered from the trait default instead of dispatching to the \
+             module — the `module_call!` arm is missing, so every caller gets \
+             `unsupported capability` however capable the artifact is. Got {error:?}"
+        );
+    };
+
+    refused(
+        "run_source_sync",
+        provider
+            .run_source_sync("src_whatever")
+            .await
+            .expect_err("a disabled host cannot succeed"),
+    );
+    refused(
+        "bootstrap_connection",
+        provider
+            .bootstrap_connection("gmail", "ca_whatever")
+            .await
+            .expect_err("a disabled host cannot succeed"),
+    );
+    refused(
+        "is_toolkit_syncable",
+        provider
+            .is_toolkit_syncable("gmail")
+            .await
+            .expect_err("a disabled host cannot succeed"),
+    );
+    refused(
+        "diagnose",
+        MemoryMaintenance::diagnose(&provider)
+            .await
+            .expect_err("a disabled host cannot succeed"),
+    );
+}
+
+#[test]
+fn scoring_is_advertised_and_has_a_host_accessor() {
+    // tinymemory v1.13.2 (tinymemory#110) added the family; advertising it and
+    // forwarding it must land together, or the driver claims a family whose
+    // accessor answers `None` — the #5598 over-claim in miniature.
+    let mut config = Config::default();
+    config.modules.enabled = false;
+    let provider = ModuleMemoryProvider::new(Arc::new(config));
+    assert!(super::capabilities_for(false).contains(Capability::Scoring));
+    assert!(
+        provider.as_scoring().is_some(),
+        "Scoring is advertised, so the accessor must be wired"
     );
 }

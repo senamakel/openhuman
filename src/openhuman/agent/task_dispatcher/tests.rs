@@ -22,8 +22,8 @@ async fn active_run_registry_take_is_once() {
         key.to_string(),
         ActiveRun {
             abort: handle.abort_handle(),
-            hb_cancel: tx,
-            location: BoardLocation::Scratch,
+            heartbeat_cancel: tx,
+            context: BoardLocation::Scratch,
             card_id: "c1".to_string(),
             run_id: "r1".to_string(),
         },
@@ -55,8 +55,8 @@ async fn cancel_session_scoped_ignores_a_mismatched_request() {
         key.to_string(),
         ActiveRun {
             abort: handle.abort_handle(),
-            hb_cancel: tx,
-            location: BoardLocation::Scratch,
+            heartbeat_cancel: tx,
+            context: BoardLocation::Scratch,
             card_id: "c1".to_string(),
             run_id: "r1".to_string(),
         },
@@ -95,8 +95,8 @@ async fn cancel_session_scoped_aborts_the_run_when_the_request_matches() {
         key.to_string(),
         ActiveRun {
             abort: handle.abort_handle(),
-            hb_cancel: tx,
-            location: loc.clone(),
+            heartbeat_cancel: tx,
+            context: loc.clone(),
             card_id: id.clone(),
             run_id: "r1".to_string(),
         },

@@ -30,6 +30,7 @@ pub mod guard;
 pub mod helpers;
 pub mod kv_graph;
 pub mod learn;
+pub mod maintenance;
 pub mod provider;
 pub mod sync;
 pub mod tool_memory;

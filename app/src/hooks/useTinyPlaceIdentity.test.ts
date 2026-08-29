@@ -8,15 +8,51 @@ vi.mock('../lib/orchestration/orchestrationClient', () => ({
   orchestrationClient: { selfIdentity: () => selfIdentity() },
 }));
 
+// The wallet gate (#5805) runs before every identity fetch. Mock it here so the
+// pre-existing cases below are deterministic rather than depending on a real
+// `wallet_status` RPC failing into the `unknown` fall-through; `beforeEach`
+// defaults it to a configured wallet, which is the path they were written for.
+const fetchWalletStatus = vi.fn();
+vi.mock('../services/walletApi', () => ({ fetchWalletStatus: () => fetchWalletStatus() }));
+
 describe('useTinyPlaceIdentity (#5424)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchWalletStatus.mockResolvedValue({ configured: true });
     __resetTinyPlaceIdentityForTests();
   });
 
   afterEach(() => {
     __resetTinyPlaceIdentityForTests();
     vi.useRealTimers();
+  });
+
+  // #5805 — `selfIdentity()` derives a tiny.place signer from the wallet, so a
+  // wallet-less user could only ever get a rejection, which the retry ladder
+  // then repeated: 55 error-level reports in 72 minutes on one session.
+  // `wallet_status` answers the same question without erroring, so the call is
+  // never made.
+  it('never calls selfIdentity when no wallet is configured', async () => {
+    fetchWalletStatus.mockResolvedValue({ configured: false });
+    const { result } = renderHook(() => useTinyPlaceIdentity());
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.hasIdentity).toBe(false);
+    expect(selfIdentity).not.toHaveBeenCalled();
+  });
+
+  // The gate fires only on a POSITIVE "no wallet". If `wallet_status` itself
+  // fails we cannot prove the wallet is absent, so the call must still go out —
+  // otherwise a transport blip would hide a real identity. The core boundary
+  // classifier stays as defense-in-depth for whatever comes back.
+  it('still calls selfIdentity when wallet status is inconclusive', async () => {
+    fetchWalletStatus.mockRejectedValue(new Error('rpc transport failed'));
+    selfIdentity.mockResolvedValue({ agentId: 'agent-123', handles: [], discoverable: true });
+    const { result } = renderHook(() => useTinyPlaceIdentity());
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(selfIdentity).toHaveBeenCalledTimes(1);
+    expect(result.current.hasIdentity).toBe(true);
   });
 
   it('reports an identity when the RPC returns a non-empty agentId', async () => {

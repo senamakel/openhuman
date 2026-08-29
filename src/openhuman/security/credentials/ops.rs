@@ -592,16 +592,26 @@ async fn store_session_inner(
 
     logs.push("session stored".to_string());
 
-    match tinymemory_core::global::init(effective_config.workspace_dir.clone()) {
-        Ok(_) => logs.push(format!(
-            "memory client bound to workspace {}",
-            effective_config.workspace_dir.display()
-        )),
-        Err(e) => {
-            tracing::warn!(error = %e, "[credentials] failed to bind memory client after login");
-            logs.push(format!("memory client bind warning: {e}"));
-        }
-    }
+    // ── No explicit memory re-point here any more (#5560) ──────────────────
+    //
+    // This site used to call `tinymemory_core::global::init(...)` before the
+    // context rebind below. That was load-bearing for the *engine singleton*: a
+    // single process-global slot that keeps writing into the pre-login
+    // workspace until something re-points it, which is why it needed its own
+    // call at every login / logout / revalidation site.
+    //
+    // `memory::binding` is a workspace-keyed cache, not a slot, and
+    // `CoreContext::memory_binding`'s own docs already state the consequence:
+    // "there is **no** explicit 'rebind the memory driver' call at the login /
+    // logout / revalidation sites the way `memory::global::init` needs one: the
+    // accessor keys on the workspace dir and the subsystem config, both of
+    // which those sites already re-point." The `rebind_default_workspace` call
+    // immediately below re-points both, so memory follows it by construction.
+    //
+    // The binding is resolved lazily on the next memory call rather than warmed
+    // here. Warming it would mean naming `binding::for_workspace` at a site
+    // that never touches memory content, which the memory-guard bypass ratchet
+    // is right to treat as reach-through.
     match crate::core::runtime::context::CoreContext::rebind_default_workspace(
         &effective_config.workspace_dir,
         effective_config.subsystems.memory.clone(),
@@ -641,7 +651,11 @@ async fn store_session_inner(
         operation = "store_session",
         "[credentials][auth-store] scheduler gate cleared; ensuring re-embed backfill after login"
     );
-    tinymemory_core::queue::ensure_reembed_backfill(&effective_config);
+    crate::openhuman::memory::ops::maintenance::reembed_best_effort(
+        &effective_config,
+        "session stored",
+    )
+    .await;
     logs.push("memory re-embed backfill checked after login".to_string());
 
     // Bind the Sentry scope to this user so background events that fire
@@ -829,9 +843,10 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
     match crate::openhuman::config::load_config_with_timeout().await {
         Ok(signed_out_config) => {
             let workspace = signed_out_config.workspace_dir.clone();
-            if let Err(error) = tinymemory_core::global::init(workspace.clone()) {
-                tracing::warn!(%error, "failed to rebind memory after logout");
-            }
+            // No `memory::global::init` twin here either — see the login site.
+            // The context rebind below carries the signed-out workspace and its
+            // `[subsystems.memory]` block, and the memory binding is keyed on
+            // exactly that pair, so it follows without a second call.
             if let Err(error) = crate::core::runtime::context::CoreContext::rebind_default_workspace(
                 &workspace,
                 signed_out_config.subsystems.memory.clone(),

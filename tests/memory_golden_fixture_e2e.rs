@@ -46,7 +46,13 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use tempfile::tempdir;
 
-use openhuman_core::openhuman::memory::store_golden as golden;
+// The fixture seeder is a module of THIS test target, not of the library.
+// It used to be `openhuman::memory::store_golden`, declared `pub mod` and so
+// compiled into the shipped binary — seven `tinymemory_core::` references that
+// kept the engine crate in the product dependency graph purely to seed a
+// fixture (#5560).
+#[path = "support/memory_golden.rs"]
+mod golden;
 
 // ── Fixture layout ───────────────────────────────────────────────────────────
 

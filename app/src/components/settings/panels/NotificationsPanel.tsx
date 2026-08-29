@@ -84,9 +84,12 @@ const NotificationsPanel = ({ embedded = false }: NotificationsPanelProps = {}) 
     </>
   );
 
-  // Embedded inside the tabbed Notifications page: the parent owns the header,
-  // so render just the padded body.
-  if (embedded) return <div className="p-4 space-y-4">{body}</div>;
+  // `embedded` renders the body with no page chrome, for a host that draws its
+  // own header. The tabbed Notifications page that used it is gone — the
+  // routing tab was removed with `NotificationRoutingPanel`, and a two-tab page
+  // with one tab left is a control that cannot do anything — so this route now
+  // renders the preferences directly. The prop is kept for the next host.
+  if (embedded) return <div className="space-y-4">{body}</div>;
 
   return <SettingsPanel>{body}</SettingsPanel>;
 };

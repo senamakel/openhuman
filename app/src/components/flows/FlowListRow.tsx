@@ -109,15 +109,17 @@ const FlowListRow = ({
       data-testid={`flow-row-${flow.id}`}
       className="flex items-center gap-3 border-t border-line p-4 first:border-t-0">
       <div className="min-w-0 flex-1">
-        <button
+        <Button
           type="button"
+          variant="tertiary"
+          size="xs"
           data-testid={`flow-view-${flow.id}`}
           title={t('flows.list.view')}
           aria-label={`${t('flows.list.view')}: ${flow.name}`}
           onClick={() => onView(flow)}
-          className="max-w-full truncate text-left text-sm font-semibold text-content hover:text-primary-600 hover:underline dark:hover:text-primary-400">
+          className="h-auto max-w-full justify-start truncate px-0 text-left text-sm font-semibold text-content hover:bg-transparent hover:text-primary-600 hover:underline dark:hover:text-primary-400">
           {flow.name}
-        </button>
+        </Button>
         <div className="mt-0.5 text-[11px] text-content-faint">{lastRunLabel}</div>
       </div>
 
@@ -125,7 +127,7 @@ const FlowListRow = ({
           the switch alone communicates state), then Run, and an overflow menu
           with the secondary/destructive actions (view runs / export /
           duplicate / delete). */}
-      <div className="flex flex-shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5">
         <SettingsSwitch
           id={`flow-switch-${flow.id}`}
           checked={flow.enabled}

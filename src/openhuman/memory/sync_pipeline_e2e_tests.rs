@@ -50,7 +50,20 @@ fn test_config() -> (TempDir, Config) {
     cfg.memory_tree.embedding_endpoint = None;
     cfg.memory_tree.embedding_model = None;
     cfg.memory_tree.embedding_strict = false;
+    cfg.embeddings_provider = Some("none".to_string());
     (tmp, cfg)
+}
+
+fn failed_job_diagnostics(cfg: &Config) -> Vec<(String, i64, Option<String>)> {
+    tinymemory_core::store::chunks::with_connection(cfg, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT kind, attempts, last_error FROM mem_tree_jobs \
+             WHERE status = 'failed' ORDER BY created_at_ms",
+        )?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    })
+    .unwrap()
 }
 
 async fn ensure_event_bus() {
@@ -314,6 +327,11 @@ async fn multi_batch_volume_builds_full_tree() {
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(60);
     let source_tree = loop {
         drain_until_idle(&cfg).await.unwrap();
+        let failed_jobs = failed_job_diagnostics(&cfg);
+        assert!(
+            failed_jobs.is_empty(),
+            "memory jobs failed before the source tree sealed: {failed_jobs:?}"
+        );
         if let Some(tree) = tree_store::list_trees_by_kind(&cfg, TreeKind::Source)
             .unwrap()
             .into_iter()
@@ -321,10 +339,21 @@ async fn multi_batch_volume_builds_full_tree() {
         {
             break tree;
         }
-        assert!(
-            tokio::time::Instant::now() < deadline,
-            "source tree did not seal before timeout"
-        );
+        if tokio::time::Instant::now() >= deadline {
+            let trees = tree_store::list_trees_by_kind(&cfg, TreeKind::Source).unwrap();
+            let buffer = trees
+                .iter()
+                .find(|tree| tree.scope == source_id)
+                .map(|tree| tree_store::get_buffer(&cfg, &tree.id, 0).unwrap());
+            panic!(
+                "source tree did not seal before timeout: trees={trees:?}, buffer={buffer:?}, \
+                 ready={}, running={}, done={}, failed={}",
+                memory_queue::count_by_status(&cfg, JobStatus::Ready).unwrap(),
+                memory_queue::count_by_status(&cfg, JobStatus::Running).unwrap(),
+                memory_queue::count_by_status(&cfg, JobStatus::Done).unwrap(),
+                memory_queue::count_by_status(&cfg, JobStatus::Failed).unwrap(),
+            );
+        }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     };
 

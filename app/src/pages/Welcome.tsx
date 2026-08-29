@@ -209,7 +209,7 @@ const Welcome = () => {
                     <OAuthProviderButton
                       key={provider.id}
                       provider={provider}
-                      className="!rounded-full !px-4 !py-2"
+                      className="rounded-full! px-4! py-2!"
                     />
                   ))}
               </div>

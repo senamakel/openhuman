@@ -364,7 +364,7 @@ export interface SubAgentUsage {
 }
 
 /** Running per-session totals accumulated from `chat:done` events (#703). */
-interface SessionTokenUsage {
+export interface SessionTokenUsage {
   inputTokens: number;
   outputTokens: number;
   turns: number;
@@ -1203,7 +1203,18 @@ const chatRuntimeSlice = createSlice({
         displayDetail?: string;
       }>
     ) => {
-      const { threadId, round, toolName, toolCallId, displayLabel, displayDetail } = action.payload;
+      const { threadId, round, toolName, displayLabel, displayDetail } = action.payload;
+      // Normalise an absent id to `undefined` *before* anything reads it. A
+      // provider that sends `tool_call_id: ""` is saying "no id", but `??` only
+      // falls back on null/undefined — so the empty string used to survive as
+      // the row id, and every such call in a turn got the same one. Downstream
+      // that is fatal, not cosmetic: assistant-ui keys message parts as
+      // `toolCallId-${id}`, so two id-less calls collide on the literal key
+      // `toolCallId-` and `useResources` throws "Duplicate key toolCallId-",
+      // taking the whole thread render down. The two guards below already
+      // treated `""` as absent (both are truthiness checks); only the id
+      // fallback disagreed.
+      const toolCallId = action.payload.toolCallId || undefined;
       const entries = (state.toolTimelineByThread[threadId] ??= []);
       const existingIdx = toolCallId ? entries.findIndex(e => e.id === toolCallId) : -1;
       // Stable row id, shared with the processing-transcript tool pointer so the
@@ -1258,7 +1269,11 @@ const chatRuntimeSlice = createSlice({
         failure?: unknown;
       }>
     ) => {
-      const { threadId, round, toolName, toolCallId, success, output, failure } = action.payload;
+      const { threadId, round, toolName, success, output, failure } = action.payload;
+      // Same normalisation as `toolCallReceived` — an empty id must not match a
+      // row whose id is the generated fallback, and must fall through to the
+      // name+round scan below.
+      const toolCallId = action.payload.toolCallId || undefined;
       const entries = state.toolTimelineByThread[threadId];
       if (!entries || entries.length === 0) return;
       const status: ToolTimelineEntryStatus = success ? 'success' : 'error';
@@ -1363,7 +1378,10 @@ const chatRuntimeSlice = createSlice({
         toolCallId?: string;
       }>
     ) => {
-      const { threadId, round, delta, toolName, toolCallId } = action.payload;
+      const { threadId, round, delta, toolName } = action.payload;
+      // `""` means "no id" — see `toolCallReceived` for why the empty string
+      // must never reach a row id.
+      const toolCallId = action.payload.toolCallId || undefined;
       const entries = (state.toolTimelineByThread[threadId] ??= []);
       let matchIdx = -1;
       if (toolCallId) matchIdx = entries.findIndex(e => e.id === toolCallId);
@@ -1384,7 +1402,11 @@ const chatRuntimeSlice = createSlice({
         state.toolTimelineSeqByThread[threadId] = seq + 1;
         entries.push(
           decorateEntry({
-            id: toolCallId ?? '',
+            // Same stable fallback `toolCallReceived` generates. This branch
+            // used to write `''`, so an args-delta that arrived before its
+            // `tool_call` event with no id produced an id-less row — and a
+            // second one collided with it.
+            id: toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName ?? ''}`,
             name: toolName ?? '',
             round,
             seq,

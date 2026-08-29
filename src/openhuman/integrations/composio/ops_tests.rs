@@ -549,6 +549,11 @@ async fn composio_delete_connection_clear_memory_deletes_slack_source() {
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
+    // The memory clear-out runs through the bound driver now that it is routed
+    // onto `forget_matching`, so the test has to bind one. TinyCortex is the
+    // engine the loadable module wraps, and unlike the module it is not a
+    // process singleton, so several of these can share one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
     let target = sample_memory_chunk(SourceKind::Chat, "slack:c1", 0);
     let unrelated = sample_memory_chunk(SourceKind::Chat, "slack:c2", 0);
     memory_tree_store::upsert_chunks(&config, &[target, unrelated]).expect("chunks should seed");
@@ -604,6 +609,11 @@ async fn composio_delete_connection_clear_memory_cascades_source_tree_and_conten
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
+    // The memory clear-out runs through the bound driver now that it is routed
+    // onto `forget_matching`, so the test has to bind one. TinyCortex is the
+    // engine the loadable module wraps, and unlike the module it is not a
+    // process singleton, so several of these can share one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
 
     // One slack chunk for connection c1 → source_id `slack:c1`.
     let chunk = sample_memory_chunk(SourceKind::Chat, "slack:c1", 0);
@@ -727,6 +737,11 @@ async fn composio_delete_connection_clear_memory_cascades_live_sealed_tree_and_f
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_with_backend(&tmp, base);
+    // The memory clear-out runs through the bound driver now that it is routed
+    // onto `forget_matching`, so the test has to bind one. TinyCortex is the
+    // engine the loadable module wraps, and unlike the module it is not a
+    // process singleton, so several of these can share one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
     // Force the inert embedder so the real seal's summary-embed step doesn't
     // reach a live endpoint. `config_with_backend` stores a cloud session +
     // api_url, so the factory would otherwise build a *cloud* embedder against
@@ -844,6 +859,11 @@ async fn composio_delete_connection_clear_memory_keeps_other_gmail_connections()
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
+    // The memory clear-out runs through the bound driver now that it is routed
+    // onto `forget_matching`, so the test has to bind one. TinyCortex is the
+    // engine the loadable module wraps, and unlike the module it is not a
+    // process singleton, so several of these can share one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
     let c1_account = sample_memory_chunk_with_owner(
         SourceKind::Email,
         "gmail:pilot-at-example-dot-com",
@@ -901,17 +921,26 @@ async fn notion_cleanup_targets_include_synced_page_sources() {
     crate::openhuman::memory::host_impls::install_for_tests();
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
+    // The cleanup targets are read back through the bound driver now, so the
+    // test has to bind one — the writes below go through a client over the
+    // same workspace, and an unbound config resolves to the null driver,
+    // which serves nothing and would report no targets at all.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
     let memory = std::sync::Arc::new(
         MemoryClient::from_workspace_dir(config.workspace_dir.clone())
             .expect("memory client should initialise"),
     );
+    // `save` is the extension trait, not an inherent method: `SyncState` moved
+    // to the contract crate in v1.7.0, which stays free of I/O, so persistence
+    // stayed behind in the engine.
+    use tinymemory_core::sync::composio::providers::sync_state::PersistedSyncState;
     let mut state = SyncState::new("notion", "conn-1");
     state.mark_synced("page-a@2026-01-01T00:00:00Z");
     state.mark_synced("page-b");
     let adapter = tinymemory_core::tinycortex::HostSyncAdapter::new(std::sync::Arc::clone(&memory));
     state.save(&adapter).await.expect("sync state should save");
 
-    let targets = composio_memory_targets_for_connection(&memory, Some("notion"), "conn-1")
+    let targets = composio_memory_targets_for_connection(&config, Some("notion"), "conn-1")
         .await
         .expect("notion cleanup targets should resolve");
 
@@ -938,6 +967,11 @@ async fn notion_cleanup_targets_surface_corrupt_sync_state() {
     crate::openhuman::memory::host_impls::install_for_tests();
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
+    // The cleanup targets are read back through the bound driver now, so the
+    // test has to bind one — the writes below go through a client over the
+    // same workspace, and an unbound config resolves to the null driver,
+    // which serves nothing and would report no targets at all.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
     let memory = std::sync::Arc::new(
         MemoryClient::from_workspace_dir(config.workspace_dir.clone())
             .expect("memory client should initialise"),
@@ -951,7 +985,7 @@ async fn notion_cleanup_targets_surface_corrupt_sync_state() {
         .await
         .expect("corrupt sync state should be written");
 
-    let err = composio_memory_targets_for_connection(&memory, Some("notion"), "conn-1")
+    let err = composio_memory_targets_for_connection(&config, Some("notion"), "conn-1")
         .await
         .expect_err("corrupt sync state should surface");
 
@@ -973,10 +1007,9 @@ async fn drive_cleanup_targets_are_connection_scoped() {
             .expect("memory client should initialise"),
     );
 
-    let targets =
-        composio_memory_targets_for_connection(&drive_memory, Some("google_drive"), "conn-1")
-            .await
-            .expect("drive cleanup targets should resolve");
+    let targets = composio_memory_targets_for_connection(&config, Some("google_drive"), "conn-1")
+        .await
+        .expect("drive cleanup targets should resolve");
 
     assert!(targets.contains(&MemoryCleanupTarget::Exact(
         SourceKind::Document,
@@ -1222,7 +1255,21 @@ async fn composio_sync_gmail_via_mock_stores_skill_document_and_updates_outcome(
     config.memory_tree.embedding_strict = false;
     let _workspace_env_guard = WorkspaceEnvGuard::set(tmp.path());
     config.save().await.unwrap();
-    let _ = tinymemory_core::global::init(config.workspace_dir.clone()).unwrap();
+    // The sync writes through the bound driver now, so the fixture binds one and
+    // the read-back goes to the same place. Binding the global slot instead would
+    // have the test write to one client and read from another — zero documents,
+    // looking exactly like a sync that silently did nothing.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
+    // And the seams are re-installed against THIS config, not the
+    // `Config::default()` that `install_for_tests` latched. Proxied Composio
+    // resolves its bearer through `ComposioHost::session_bearer`, which reads
+    // the installed host config — a default one has no session, so the sync
+    // would refuse before reaching the mock backend. The setters overwrite, so
+    // calling this after the latched install is what points the seam at the
+    // config carrying the mock's URL and token.
+    crate::openhuman::memory::host_impls::install_memory_host_seams(std::sync::Arc::new(
+        config.clone(),
+    ));
 
     let outcome = composio_sync(&config, "c1", Some("manual".to_string()))
         .await
@@ -1253,8 +1300,12 @@ async fn composio_sync_gmail_via_mock_stores_skill_document_and_updates_outcome(
     let documents = {
         let mut documents = Vec::new();
         for _ in 0..50 {
-            documents = tinymemory_core::global::client_if_ready()
-                .expect("memory client remains initialized")
+            let binding = crate::openhuman::memory::binding::for_config(&config)
+                .expect("the fixture bound a driver");
+            documents = binding
+                .provider()
+                .as_documents()
+                .expect("the bound driver serves documents")
                 .list_documents(Some("skill-gmail"))
                 .await
                 .unwrap()

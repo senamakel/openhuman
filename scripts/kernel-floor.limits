@@ -13,6 +13,63 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   287/269/2  2026-08-23  the TinyJuice wire contract moved into its own crate
+#                      (+1 package, +1 NAME: `tinyjuice-bus`). This entry is
+#                      the CURRENT limit; the tinymcp entry below it left the
+#                      profile at 286/268/2 and this raises it by one on top of
+#                      that.
+#
+#                      It is `serde` and
+#                      nothing else — no transport, no runtime, no native code —
+#                      and it brings no third-party crate this profile did not
+#                      already have.
+#
+#                      It cannot be gated: `inference::tokenjuice` compiles in
+#                      every build because the compression middleware sits in the
+#                      agent turn path, so the contract has no feature to hang
+#                      off. The two other contracts that landed in the same PR
+#                      DO have one and cost this profile nothing —
+#                      `tinydocs-bus` is exclusive to `documents` and
+#                      `tinyvoice-bus` to `voice`, both default-OFF for
+#                      contributors.
+#
+#                      What it buys is the deletion of 259 lines of hand-copied
+#                      wire types from `inference/tokenjuice/types.rs`, which
+#                      were a second definition of a contract with nothing
+#                      checking that the two agreed. A crate in the graph is the
+#                      cheaper of the two failure modes.
+#
+#   286/268/2  2026-08-23  tinymcp registry entry, NO CHANGE to this profile —
+#                      and the entry exists to correct the prediction in the
+#                      2026-08-22 line below, which is measurably wrong.
+#                      That line said step two of the MCP extraction would drop
+#                      the `tinymcp` path dependency "at which point the MCP
+#                      transport stack leaves the always-on graph entirely.
+#                      Lower it in that PR." It does not, and the ratchet is
+#                      therefore NOT lowered here.
+#                      Measured, not derived: `scripts/dep-sim.py --cut tinymcp`
+#                      projects 286/268/2 -> 285/267/2, i.e. -1 package / -1
+#                      name / 0 native. The package that leaves is `tinymcp`
+#                      itself and nothing beneath it, because its dependencies
+#                      are shared with kernel surface: in this profile
+#                      `rusqlite` has SIX parents (openhuman, tinyagents,
+#                      tinychannels, tinycortex, tinymcp, tinymemory-core) and
+#                      `reqwest` has TEN. Confirmed with `cargo tree
+#                      --no-default-features --features flows -e normal -i
+#                      rusqlite` / `-i reqwest`.
+#                      This is the same lesson as the TinyMemory port: a module
+#                      boundary buys a COMPILATION boundary, not a dependency
+#                      shed, whenever the module's dependencies are already
+#                      shared. Do not write "and its dependency tail leaves with
+#                      it" into a History entry again without running dep-sim
+#                      first — per-dependency intuition over-counts exactly the
+#                      way per-dependency arithmetic does.
+#                      What this PR does land: `TINYMCP` in
+#                      `src/openhuman/modules/registry.rs`, pinning the v0.3.1
+#                      release so the module can be downloaded and verified. The
+#                      path dependency stays until `tinymcp-bus` publishes the
+#                      members and types the host reaches for (see the Cargo.toml
+#                      comment); the -1 lands in that PR, not this one.
 #   286/268/2  2026-08-22  combined raise from two independent extractions
 #                      landing on the same day, each additive on the 283/265/2
 #                      base. (1) The MCP client moved out to `tinymcp` (+2
@@ -403,4 +460,4 @@
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
 # 307/284  2026-08-12  Re-baseline after the upstream lockfile resolution;
 #                      `flows` remains at two native packages.
-flows:286:268:2
+flows:287:269:2

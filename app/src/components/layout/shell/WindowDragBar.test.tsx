@@ -23,6 +23,7 @@ describe('WindowDragBar', () => {
     const bar = container.querySelector('[data-tauri-drag-region]');
     expect(bar).not.toBeNull();
     expect((bar as HTMLElement).style.height).toBe(`${WINDOW_DRAG_BAR_HEIGHT}px`);
+    expect((bar as HTMLElement).className).toContain('absolute');
   });
 
   it('renders nothing on macOS outside Tauri (plain browser)', () => {

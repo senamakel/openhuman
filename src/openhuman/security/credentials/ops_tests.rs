@@ -40,12 +40,24 @@ impl Drop for EnvVarGuard {
 }
 
 fn test_config(tmp: &TempDir) -> Config {
-    Config {
+    let config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
-    }
+    };
+    // Storing a session asks the memory driver to re-embed, and resolving a
+    // driver that nothing has installed means attempting to load the compiled
+    // module — which a unit test cannot do, but takes seconds to fail at.
+    // These are credentials tests; binding is not what they are about, and one
+    // of them asserts a latency budget that the attempt blows straight through.
+    crate::openhuman::memory::binding::install_diagnostics_for_test(
+        &config.workspace_dir,
+        &config.subsystems.memory,
+        Default::default(),
+        Default::default(),
+    );
+    config
 }
 
 fn jwt_with_payload(payload: serde_json::Value) -> String {
@@ -430,6 +442,14 @@ fn auth_me_store_validation_budget_reads_env_override() {
     }
 }
 
+/// Login asks the bound driver to re-embed.
+///
+/// This used to seed a chunk and count rows in `mem_tree_jobs`. The host asks
+/// the driver now, so the row is the driver's doing and belongs to the driver's
+/// suite — what is the host's, and what this pins, is that logging in asks at
+/// all. The seed stays because it is what makes the ask non-vacuous in the
+/// original scenario, and because the surrounding assertions still describe a
+/// workspace with content in it.
 #[tokio::test]
 async fn store_session_requeues_reembed_backfill_after_login() {
     use chrono::TimeZone;
@@ -445,6 +465,15 @@ async fn store_session_requeues_reembed_backfill_after_login() {
     let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
     let mut config = test_config(&tmp);
     config.api_url = Some(spawn_auth_me_status(StatusCode::SERVICE_UNAVAILABLE).await);
+    // Without a driver installed, resolving one means loading the compiled
+    // module, which a unit test cannot do — so every ask would answer empty and
+    // this test would pass against nothing.
+    let driver = crate::openhuman::memory::binding::install_diagnostics_for_test(
+        &config.workspace_dir,
+        &config.subsystems.memory,
+        Default::default(),
+        Default::default(),
+    );
 
     let ts = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
     let chunk = Chunk {
@@ -478,9 +507,9 @@ async fn store_session_requeues_reembed_backfill_after_login() {
     .unwrap();
 
     assert_eq!(
-        count_reembed_backfill_jobs(&config),
+        driver.reembed_calls(),
         0,
-        "precondition: no active reembed backfill job exists before login"
+        "precondition: nothing has asked the driver to re-embed before login"
     );
 
     let token = jwt_with_payload(json!({
@@ -500,9 +529,10 @@ async fn store_session_requeues_reembed_backfill_after_login() {
         "store_session should report the post-login backfill probe, got: {log_text}"
     );
     assert_eq!(
-        count_reembed_backfill_jobs(&config),
+        driver.reembed_calls(),
         1,
-        "login must enqueue exactly one reembed_backfill chain for uncovered rows"
+        "login must ask the driver to re-embed exactly once — twice would enqueue \
+         a second chain over the same uncovered rows"
     );
 }
 

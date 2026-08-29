@@ -138,6 +138,15 @@ const baseUsage = {
 };
 
 describe('AIPanel OMLX connect', () => {
+  const openOmlxConnectDialog = async () => {
+    fireEvent.click(await screen.findByTestId('add-provider-open'));
+    const trigger = await screen.findByTestId('add-provider-select-local');
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    fireEvent.keyDown(await screen.findByTestId('add-provider-option-omlx'), { key: 'Enter' });
+    return await screen.findByRole('dialog', { name: /Connect OMLX/i });
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
@@ -158,21 +167,18 @@ describe('AIPanel OMLX connect', () => {
     vi.mocked(listComposioConnections).mockResolvedValue({ connections: [] });
   });
 
-  it('renders an OMLX local-runtime chip', async () => {
+  it('offers OMLX in the local-provider catalogue', async () => {
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OMLX/i })).toBeInTheDocument()
-    );
+    fireEvent.click(await screen.findByTestId('add-provider-open'));
+    const trigger = await screen.findByTestId('add-provider-select-local');
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    expect(await screen.findByTestId('add-provider-option-omlx')).toBeInTheDocument();
   });
 
   it('toggling OMLX ON shows BOTH an endpoint field (localhost:8000) and an API key field', async () => {
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OMLX/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('switch', { name: /Connect OMLX/i }));
-
-    const dialog = await screen.findByRole('dialog', { name: /Connect OMLX/i });
+    const dialog = await openOmlxConnectDialog();
     const urlInput = within(dialog).getByLabelText(/Endpoint URL/i) as HTMLInputElement;
     expect(urlInput).toBeInTheDocument();
     expect(urlInput.value).toBe('http://localhost:8000/v1');
@@ -181,12 +187,7 @@ describe('AIPanel OMLX connect', () => {
 
   it('persists provider=omlx with base_url + api_key on confirm', async () => {
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OMLX/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('switch', { name: /Connect OMLX/i }));
-
-    const dialog = await screen.findByRole('dialog', { name: /Connect OMLX/i });
+    const dialog = await openOmlxConnectDialog();
     fireEvent.change(within(dialog).getByLabelText(/Endpoint URL/i), {
       target: { value: 'http://localhost:8000/v1' },
     });

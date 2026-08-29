@@ -16,6 +16,7 @@ import type {
   AttentionItem,
   AttentionKind,
 } from '../../lib/orchestration/orchestrationClient';
+import Button from '../ui/Button';
 
 interface AttentionQueueItemProps {
   item: AttentionItem;
@@ -29,7 +30,7 @@ const KIND_LABEL_KEY: Record<AttentionKind, string> = {
 };
 
 /** Left accent + chip tone per kind. Approvals and blocked runs read amber
- * (action required); unread reads ocean (informational). */
+ * (action required); unread reads primary (informational). */
 const KIND_TONE: Record<AttentionKind, { accent: string; chip: string }> = {
   approval: {
     accent: 'border-l-amber-500',
@@ -40,8 +41,8 @@ const KIND_TONE: Record<AttentionKind, { accent: string; chip: string }> = {
     chip: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
   },
   unread: {
-    accent: 'border-l-ocean-500',
-    chip: 'bg-ocean-100 text-ocean-700 dark:bg-ocean-500/15 dark:text-ocean-300',
+    accent: 'border-l-primary-500',
+    chip: 'bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300',
   },
 };
 
@@ -81,17 +82,18 @@ export default function AttentionQueueItem({
       {item.kind === 'unread' && item.count !== undefined ? (
         <span
           data-testid="attention-item-count"
-          className="flex-none rounded-full bg-ocean-500 px-1.5 py-0.5 text-[10px] font-semibold text-content-inverted">
+          className="flex-none rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-content-inverted">
           {item.count}
         </span>
       ) : null}
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="xs"
         data-testid="attention-item-action"
         onClick={() => onAction?.(item.action)}
-        className="flex-none rounded-md border border-line px-2 py-1 text-[11px] font-medium text-content-secondary transition hover:bg-surface-hover">
+        className="flex-none text-[11px] font-medium text-content-secondary">
         {actionLabel}
-      </button>
+      </Button>
     </div>
   );
 }

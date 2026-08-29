@@ -16,13 +16,21 @@ import { getCoreRpcToken, getCoreRpcUrl } from './coreRpcClient';
 import { createCoreSocket } from './coreSocket';
 
 // Socket service logger using debug package
-// Enable logging by setting DEBUG=socket* in environment or localStorage
+// To change these namespaces at runtime, set `localStorage.debug` — NOT the
+// DEBUG env var. Under jsdom (and in the browser) the `debug` package resolves
+// to its `browser` build, which reads `localStorage.debug` and ignores
+// `process.env.DEBUG` entirely, so `DEBUG=socket* pnpm test` silently does
+// nothing. The previous comment here claimed otherwise and cost real time.
 const socketLog = debug('socket');
 const socketWarn = debug('socket:warn');
 const socketError = debug('socket:error');
 
-// Enable socket logging in development by default
-if (IS_DEV) {
+// Enable socket logging in development by default — but never under test.
+// `IS_DEV` is truthy in vitest, so without the MODE guard this force-enable
+// floods every test file that imports this service (measured: 412 lines /
+// 46KB of `flow:approval_request` listener churn in a single run), inflating
+// runtime enough to push suites past the runner's foreground timeout.
+if (IS_DEV && import.meta.env.MODE !== 'test') {
   debug.enable('socket*');
 }
 

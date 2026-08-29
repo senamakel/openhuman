@@ -608,8 +608,10 @@ impl Agent {
             // any that belong to a tool pack — so re-apply the withholding here
             // or a packed `delegate_*` tool would reappear on the wire on the
             // first Composio reconcile, silently undoing the compression.
+            let agent_id = self.agent_definition_name.clone();
             crate::openhuman::tools::toolpacks::strip_packed_from_visible(
                 &mut self.visible_tool_names,
+                &agent_id,
             );
         }
 

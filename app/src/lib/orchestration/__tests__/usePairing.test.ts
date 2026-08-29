@@ -5,7 +5,7 @@ import { PaymentRequiredError } from '../../agentworld/invokeApiClient';
 import { usePairing } from '../usePairing';
 
 const listMock = vi.hoisted(() => vi.fn());
-vi.mock('../../../agentworld/AgentWorldShell', () => ({
+vi.mock('../../agentworld/apiClient', () => ({
   apiClient: { orchestrationPairing: { list: listMock } },
 }));
 

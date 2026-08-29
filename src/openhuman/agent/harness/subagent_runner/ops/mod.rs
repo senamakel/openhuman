@@ -62,6 +62,8 @@ pub(super) use crate::openhuman::agent::harness::definition::{AgentDefinition, P
 #[cfg(test)]
 pub(super) use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 #[cfg(test)]
+pub(super) use crate::openhuman::agent::harness::turn_dispatch_guard;
+#[cfg(test)]
 pub(super) use crate::openhuman::agent::harness::{
     current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH,
 };

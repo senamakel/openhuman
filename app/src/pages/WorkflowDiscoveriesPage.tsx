@@ -5,19 +5,20 @@
  * list stays focused on the user's saved workflows.
  */
 import SuggestedWorkflows from '../components/flows/SuggestedWorkflows';
-import PanelPage from '../components/layout/PanelPage';
+import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage';
 import { useT } from '../lib/i18n/I18nContext';
 
 export default function WorkflowDiscoveriesPage() {
   const { t } = useT();
   return (
-    <PanelPage
-      testId="workflow-discoveries-page"
-      title={t('flows.discoveries.title')}
-      description={t('flows.discoveries.description')}>
-      <div className="p-4">
-        <SuggestedWorkflows />
-      </div>
-    </PanelPage>
+    <div className="h-full p-4">
+      <SettingsTabbedPage
+        title={t('flows.discoveries.title')}
+        description={t('flows.discoveries.description')}>
+        <div className="pt-4">
+          <SuggestedWorkflows />
+        </div>
+      </SettingsTabbedPage>
+    </div>
   );
 }

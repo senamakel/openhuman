@@ -55,7 +55,7 @@ export function ThreadList({
       {/* Section header: a muted group label with the "new" affordance docked on
           the right, replacing the old full-width centered button. Mirrors the
           grouped-nav idiom the settings sidebar already uses. */}
-      <div className="flex flex-shrink-0 items-center justify-between px-4 pb-1.5 pt-4">
+      <div className="flex shrink-0 items-center justify-between px-3 pb-1.5 pt-4">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">
           {t('chat.conversationsHeading')}
         </span>
@@ -72,8 +72,11 @@ export function ThreadList({
           </svg>
         </button>
       </div>
-      {/* Rows are inset pills, so the scroll container carries the gutter. */}
-      <div className="flex-1 overflow-y-auto px-2 pb-3">
+      {/* Rows are inset pills, so the scroll container carries the gutter, and
+          it is px-3 — the shell sidebar's own (`SidebarGroup`/`SidebarHeader`).
+          This list is projected into that column, so a narrower inset of its
+          own put thread rows and app-nav rows on two different left edges. */}
+      <div className="flex-1 overflow-y-auto px-3 pb-3">
         {threads.length === 0 ? (
           <p className="px-4 py-6 text-xs text-content-faint text-center">{t('chat.noThreads')}</p>
         ) : (
@@ -130,7 +133,7 @@ export function ThreadList({
                     onBlur={() => onBlurTitle(thread.id)}
                     aria-label={t('chat.editThreadTitle')}
                     data-testid={`thread-title-input-${thread.id}`}
-                    className="h-5 min-w-0 flex-1 border-b border-primary-400 bg-transparent py-0 text-xs font-medium leading-none text-content-secondary outline-none"
+                    className="h-5 min-w-0 flex-1 border-b border-primary-400 bg-transparent py-0 text-xs font-medium leading-none text-content-secondary outline-hidden"
                     autoFocus
                   />
                 ) : (

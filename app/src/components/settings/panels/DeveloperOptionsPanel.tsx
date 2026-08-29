@@ -16,6 +16,10 @@ import { APP_ENVIRONMENT } from '../../../utils/config';
 // TAURI-REACT-6 — into a rejected Promise so the existing `.catch(...)` /
 // try/catch handlers see it as a normal IPC failure.
 import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/common';
+import Alert, { AlertDescription, AlertTitle } from '../../ui/Alert';
+import Badge from '../../ui/Badge';
+import Button from '../../ui/Button';
+import Card from '../../ui/Card';
 import { resetWalkthrough } from '../../walkthrough/AppWalkthrough';
 import SettingsMenuItem from '../components/SettingsMenuItem';
 import { SettingsSection } from '../controls';
@@ -105,22 +109,7 @@ const agentDebugGroup: DevGroup = {
 const automationDebugGroup: DevGroup = {
   labelKey: 'settings.devGroups.automationIntegrations',
   items: [
-    {
-      id: 'cron-jobs',
-      titleKey: 'settings.developerMenu.cronJobs.title',
-      descriptionKey: 'settings.developerMenu.cronJobs.desc',
-      route: 'cron-jobs',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-    },
+    // Cron jobs moved to the Workflows page (`/flows?view=schedules`).
     {
       id: 'mcp-server',
       titleKey: 'settings.developerMenu.mcpServer.title',
@@ -207,32 +196,28 @@ const CoreModeBadge = () => {
 
   if (mode.kind === 'unset') {
     return (
-      <div className="px-4 py-3 rounded-xl border border-coral-300 dark:border-coral-500/40 bg-coral-50 dark:bg-coral-500/10">
-        <div className="text-sm font-semibold text-coral-900 dark:text-coral-300">
-          {t('devOptions.coreModeNotSet')}
+      <Alert variant="destructive">
+        <div>
+          <AlertTitle>{t('devOptions.coreModeNotSet')}</AlertTitle>
+          <AlertDescription>{t('devOptions.coreModeNotSetDesc')}</AlertDescription>
         </div>
-        <div className="text-xs text-coral-800 dark:text-coral-200 mt-0.5">
-          {t('devOptions.coreModeNotSetDesc')}
-        </div>
-      </div>
+      </Alert>
     );
   }
 
   if (mode.kind === 'local') {
     return (
-      <div className="px-4 py-3 rounded-xl border border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10">
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded-full bg-primary-600 text-content-inverted text-[11px] font-medium">
-            {t('devOptions.local')}
-          </span>
-          <span className="text-sm font-semibold text-primary-900 dark:text-primary-200">
-            {t('devOptions.embeddedCoreSidecar')}
-          </span>
+      <Alert variant="info">
+        <div className="w-full">
+          <div className="flex items-center gap-2">
+            <Badge variant="primary">{t('devOptions.local')}</Badge>
+            <span className="text-sm font-semibold text-content">
+              {t('devOptions.embeddedCoreSidecar')}
+            </span>
+          </div>
+          <p className="text-xs text-content-secondary mt-1">{t('devOptions.sidecarSpawned')}</p>
         </div>
-        <div className="text-xs text-primary-800 dark:text-primary-200 mt-1">
-          {t('devOptions.sidecarSpawned')}
-        </div>
-      </div>
+      </Alert>
     );
   }
 
@@ -260,32 +245,32 @@ const CoreModeBadge = () => {
   }
 
   return (
-    <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-sage-50 dark:bg-sage-500/10">
-      <div className="flex items-center gap-2">
-        <span className="px-2 py-0.5 rounded-full bg-sage-600 text-content-inverted text-[11px] font-medium">
-          {t('devOptions.cloud')}
-        </span>
-        <span className="text-sm font-semibold text-sage-900 dark:text-sage-200">
-          {t('devOptions.remoteCoreRpc')}
-        </span>
+    <Alert variant="success">
+      <div className="w-full">
+        <div className="flex items-center gap-2">
+          <Badge variant="success">{t('devOptions.cloud')}</Badge>
+          <span className="text-sm font-semibold text-content">
+            {t('devOptions.remoteCoreRpc')}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+          <dt className="text-content-secondary">URL:</dt>
+          <dd className="font-mono text-content truncate" title={mode.url}>
+            {mode.url}
+          </dd>
+          <dt className="text-content-secondary">{t('devOptions.token')}:</dt>
+          <dd className="text-content">
+            {mode.token ? (
+              <span className="font-mono">••••••{mode.token.slice(-4)}</span>
+            ) : (
+              <span className="text-coral-600 dark:text-coral-300">
+                {t('devOptions.tokenNotSet')}
+              </span>
+            )}
+          </dd>
+        </dl>
       </div>
-      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
-        <dt className="text-sage-700 dark:text-sage-300">URL:</dt>
-        <dd className="font-mono text-sage-900 dark:text-sage-200 truncate" title={mode.url}>
-          {mode.url}
-        </dd>
-        <dt className="text-sage-700 dark:text-sage-300">{t('devOptions.token')}:</dt>
-        <dd className="text-sage-900 dark:text-sage-200">
-          {mode.token ? (
-            <span className="font-mono">••••••{mode.token.slice(-4)}</span>
-          ) : (
-            <span className="text-coral-600 dark:text-coral-300">
-              {t('devOptions.tokenNotSet')}
-            </span>
-          )}
-        </dd>
-      </dl>
-    </div>
+    </Alert>
   );
 };
 
@@ -310,41 +295,41 @@ const SentryTestRow = () => {
   };
 
   return (
-    <div className="px-4 py-3 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-amber-900 dark:text-amber-300">
-            {t('devOptions.triggerSentryTest')}
+    <Alert variant="warning">
+      <div className="w-full">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <AlertTitle>{t('devOptions.triggerSentryTest')}</AlertTitle>
+            <AlertDescription>{t('devOptions.triggerSentryTestDesc')}</AlertDescription>
           </div>
-          <div className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
-            {t('devOptions.triggerSentryTestDesc')}
-          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onClick}
+            disabled={status.kind === 'sending'}
+            className="shrink-0 bg-amber-600 hover:bg-amber-500">
+            {status.kind === 'sending' ? t('devOptions.sending') : t('devOptions.sendTestEvent')}
+          </Button>
         </div>
-        <button
-          onClick={onClick}
-          disabled={status.kind === 'sending'}
-          className="shrink-0 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-content-inverted text-xs font-medium transition-colors disabled:opacity-60">
-          {status.kind === 'sending' ? t('devOptions.sending') : t('devOptions.sendTestEvent')}
-        </button>
+        <div role="status" aria-live="polite" aria-atomic="true" className="mt-2 text-xs">
+          {status.kind === 'sent' && (
+            <span className="text-amber-900 dark:text-amber-300">
+              {t('devOptions.eventSent')}.{' '}
+              {status.eventId ? (
+                <span className="font-mono">id: {status.eventId}</span>
+              ) : (
+                <span>{t('devOptions.sentryDisabled')}</span>
+              )}
+            </span>
+          )}
+          {status.kind === 'error' && (
+            <span className="text-coral-600 dark:text-coral-300">
+              {t('devOptions.failed')}: {status.message}
+            </span>
+          )}
+        </div>
       </div>
-      <div role="status" aria-live="polite" aria-atomic="true" className="mt-2 text-xs">
-        {status.kind === 'sent' && (
-          <span className="text-amber-900 dark:text-amber-300">
-            {t('devOptions.eventSent')}.{' '}
-            {status.eventId ? (
-              <span className="font-mono">id: {status.eventId}</span>
-            ) : (
-              <span>{t('devOptions.sentryDisabled')}</span>
-            )}
-          </span>
-        )}
-        {status.kind === 'error' && (
-          <span className="text-coral-600 dark:text-coral-300">
-            {t('devOptions.failed')}: {status.message}
-          </span>
-        )}
-      </div>
-    </div>
+    </Alert>
   );
 };
 
@@ -374,30 +359,37 @@ const LogsFolderRow = () => {
   if (!isTauri()) return null;
 
   return (
-    <div className="px-4 py-3 rounded-xl border border-line bg-surface-muted">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-content">{t('devOptions.appLogs')}</div>
-          <div className="text-xs text-content-secondary mt-0.5">{t('devOptions.appLogsDesc')}</div>
-          {path && (
-            <div className="text-[11px] text-content-muted mt-1 font-mono truncate">{path}</div>
-          )}
+    <Card>
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-content">{t('devOptions.appLogs')}</div>
+            <div className="text-xs text-content-secondary mt-0.5">
+              {t('devOptions.appLogsDesc')}
+            </div>
+            {path && (
+              <div className="text-[11px] text-content-muted mt-1 font-mono truncate">{path}</div>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onClick}
+            className="shrink-0">
+            {t('devOptions.openLogsFolder')}
+          </Button>
         </div>
-        <button
-          onClick={onClick}
-          className="shrink-0 px-3 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-medium transition-colors">
-          {t('devOptions.openLogsFolder')}
-        </button>
+        {error && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-2 text-xs text-coral-600 dark:text-coral-300">
+            {error}
+          </div>
+        )}
       </div>
-      {error && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="mt-2 text-xs text-coral-600 dark:text-coral-300">
-          {error}
-        </div>
-      )}
-    </div>
+    </Card>
   );
 };
 

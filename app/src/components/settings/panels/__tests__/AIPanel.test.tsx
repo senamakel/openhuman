@@ -138,6 +138,41 @@ const baseSettings = {
 
 const baseLocalSnapshot = { status: null, diagnostics: null, presets: null, installedModels: [] };
 
+const openGlobalModelPicker = async () => {
+  const label = await screen.findByText('Provider and model');
+  const button = label.closest('button');
+  expect(button).not.toBeNull();
+  fireEvent.click(button!);
+};
+
+const selectPickerProvider = async (name: RegExp) => {
+  fireEvent.click(await screen.findByRole('button', { name }));
+};
+
+const openCustomProviderEditor = async () => {
+  fireEvent.click(await screen.findByTestId('add-provider-open'));
+  fireEvent.click(await screen.findByTestId('add-provider-custom'));
+};
+
+const openProviderConnectDialog = async (
+  slug: string,
+  category: 'cloud' | 'local' | 'cli' = 'cloud'
+) => {
+  fireEvent.click(await screen.findByTestId('add-provider-open'));
+  const trigger = await screen.findByTestId(`add-provider-select-${category}`);
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: 'Enter' });
+  fireEvent.keyDown(await screen.findByTestId(`add-provider-option-${slug}`), { key: 'Enter' });
+};
+
+const openProviderRowAction = async (slug: string, action: RegExp) => {
+  const row = await screen.findByTestId(`provider-row-${slug}`);
+  const trigger = within(row).getByRole('button');
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: action }));
+};
+
 const baseUsage = {
   remainingUsd: 1.5,
   cycleBudgetUsd: 10,
@@ -278,19 +313,21 @@ describe('AIPanel', () => {
 
   it('renders Managed, Use Your Own Models, and Advanced routing controls', async () => {
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Managed/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Managed/i })).toBeInTheDocument()
     );
-    expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Advanced/i })).toBeInTheDocument();
   });
 
   it('renders all visible advanced workload labels', async () => {
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Advanced/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Advanced/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Advanced/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Advanced/i }));
     await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
     for (const label of [
       'Chat',
@@ -340,14 +377,18 @@ describe('AIPanel', () => {
     ]);
 
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openGlobalModelPicker();
+    await selectPickerProvider(/Azure Foundry/i);
 
     // The field is a free-text "Deployment name" box, not a catalog dropdown.
     const deploymentInput = await screen.findByRole('textbox', { name: /Deployment name/i });
     fireEvent.change(deploymentInput, { target: { value: 'gpt-5.6-terra' } });
+    fireEvent.click(screen.getByRole('button', { name: /Use this model/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
 
@@ -368,10 +409,13 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-5.6-terra-2026-07-09' }]);
 
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openGlobalModelPicker();
+    await selectPickerProvider(/Azure Foundry/i);
 
     // Seeding the field with a base model id is what produced the bug, so the
     // deployment field must come up empty and wait for the user.
@@ -397,10 +441,13 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
 
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openGlobalModelPicker();
+    await selectPickerProvider(/OpenAI/i);
 
     // Existing behaviour is unchanged: a populated catalog still renders a
     // dropdown and there is no Azure-specific labelling.
@@ -436,10 +483,12 @@ describe('AIPanel', () => {
     ]);
 
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openGlobalModelPicker();
 
     expect(
       await screen.findByText(/confirm this is the name you gave your deployment/i)
@@ -459,10 +508,12 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-5.6-terra-2026-07-09' }]);
 
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openGlobalModelPicker();
 
     expect(await screen.findByText(/This is not the model ID/i)).toBeInTheDocument();
     await waitFor(() =>
@@ -480,10 +531,13 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
 
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openGlobalModelPicker();
+    await selectPickerProvider(/Azure Foundry/i);
 
     await screen.findByRole('textbox', { name: /Deployment name/i });
     fireEvent.click(await screen.findByRole('button', { name: /Choose from list/i }));
@@ -512,7 +566,7 @@ describe('AIPanel', () => {
     );
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
 
     fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
       target: { value: 'Azure Foundry' },
@@ -548,7 +602,7 @@ describe('AIPanel', () => {
     );
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
 
     fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
       target: { value: 'Azure Legacy' },
@@ -575,7 +629,7 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
 
     const urlField = screen.getByPlaceholderText('https://api.openai.com/v1');
     fireEvent.change(urlField, {
@@ -596,7 +650,7 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
 
     fireEvent.change(screen.getByPlaceholderText('https://api.openai.com/v1'), {
       target: { value: 'https://litellm.mycorp.dev/v1' },
@@ -615,7 +669,7 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
 
     fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
       target: { value: 'Azure Foundry' },
@@ -641,7 +695,7 @@ describe('AIPanel', () => {
     vi.mocked(setCloudProviderKey).mockRejectedValueOnce(new Error('keyring is locked'));
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
 
     fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
       target: { value: 'Azure Foundry' },
@@ -669,7 +723,7 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockRejectedValueOnce(new Error('provider returned 404'));
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
 
     fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
       target: { value: 'Azure Foundry' },
@@ -704,15 +758,14 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     // Per-workload rows live behind the advanced routing mode.
-    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
-    const chooseButtons = await screen.findAllByRole('button', {
-      name: /Choose Model|Change Model/i,
-    });
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
+    const chooseButtons = await screen.findAllByRole('button', { name: /Choose a model/i });
     fireEvent.click(chooseButtons[0]);
 
     // Selecting the Azure provider flips the dialog to free text and relabels.
-    const providerSelect = await screen.findByDisplayValue(/Azure Foundry|OpenAI|Ollama/i);
-    fireEvent.change(providerSelect, { target: { value: 'cloud:azure-foundry' } });
+    await openGlobalModelPicker();
+    await selectPickerProvider(/Azure Foundry/i);
 
     const deploymentInput = await screen.findByRole('textbox', { name: /Deployment name/i });
     fireEvent.change(deploymentInput, { target: { value: 'workload-deployment' } });
@@ -730,7 +783,7 @@ describe('AIPanel', () => {
     // dialog-to-routing handoff drops the value. Put the deployment name back
     // and assert it reaches the persisted per-workload routing verbatim.
     fireEvent.change(deploymentInput, { target: { value: 'workload-deployment' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Apply$|^Save$|^Confirm$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Use this model/i }));
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
 
     await waitFor(() => expect(saveAISettings).toHaveBeenCalled());
@@ -766,16 +819,13 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-4o' }]);
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
-    const chooseButtons = await screen.findAllByRole('button', {
-      name: /Choose Model|Change Model/i,
-    });
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
+    const chooseButtons = await screen.findAllByRole('button', { name: /Choose a model/i });
     fireEvent.click(chooseButtons[0]);
 
-    const providerSelect = await screen.findByDisplayValue(
-      /Azure Foundry|OpenAI|OpenHuman|Ollama/i
-    );
-    fireEvent.change(providerSelect, { target: { value: 'cloud:openai' } });
+    await openGlobalModelPicker();
+    await selectPickerProvider(/OpenAI/i);
 
     // Catalog dropdown, no Azure labelling.
     await waitFor(() =>
@@ -811,14 +861,18 @@ describe('AIPanel', () => {
       ],
     });
     renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Use Your Own Models/i })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
     );
-    fireEvent.click(screen.getByRole('button', { name: /Use Your Own Models/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
 
     // Enter a model id → the per-model "Supports vision" checkbox appears.
-    const modelInput = await screen.findByPlaceholderText('Enter model id');
+    await openGlobalModelPicker();
+    await selectPickerProvider(/OpenAI/i);
+    const modelInput = await screen.findByPlaceholderText('Enter a model ID');
     fireEvent.change(modelInput, { target: { value: 'gpt-4o' } });
+    fireEvent.click(screen.getByRole('button', { name: /Use this model/i }));
 
     const visionCheckbox = await screen.findByRole('checkbox', { name: /Supports vision/i });
     expect(visionCheckbox).not.toBeChecked();
@@ -880,7 +934,8 @@ describe('AIPanel', () => {
     // Wait for load.
     await waitFor(() => expect(screen.getAllByText(/Anthropic/i).length).toBeGreaterThan(0));
 
-    fireEvent.click(screen.getByRole('button', { name: /Managed/i }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Managed/i }));
 
     await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
 
@@ -900,11 +955,7 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() => expect(screen.getAllByText(/OpenAI/i).length).toBeGreaterThan(0));
-
-    // Find the "Connect OpenAI" switch button and click it.
-    const connectSwitch = screen.getByRole('switch', { name: /Connect OpenAI/i });
-    fireEvent.click(connectSwitch);
+    await openProviderConnectDialog('openai');
 
     // ProviderKeyDialog should appear.
     await waitFor(() =>
@@ -925,7 +976,7 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockRejectedValue(new Error('HTTP request failed'));
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('switch', { name: /Connect DeepSeek/i }));
+    await openProviderConnectDialog('deepseek');
     const dialog = await screen.findByRole('dialog', { name: /Connect DeepSeek/i });
     fireEvent.change(within(dialog).getByLabelText(/API key/i), {
       target: { value: 'sk-deepseek-123' },
@@ -955,7 +1006,7 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockRejectedValue(new Error('HTTP 401 invalid api key'));
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('switch', { name: /Connect DeepSeek/i }));
+    await openProviderConnectDialog('deepseek');
     const dialog = await screen.findByRole('dialog', { name: /Connect DeepSeek/i });
     fireEvent.change(within(dialog).getByLabelText(/API key/i), { target: { value: 'sk-bad' } });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Save$/i }));
@@ -971,7 +1022,7 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockRejectedValue(new Error('provider returned 403: forbidden'));
 
     renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('switch', { name: /Connect DeepSeek/i }));
+    await openProviderConnectDialog('deepseek');
     const dialog = await screen.findByRole('dialog', { name: /Connect DeepSeek/i });
     fireEvent.change(within(dialog).getByLabelText(/API key/i), {
       target: { value: 'sk-revoked' },
@@ -999,7 +1050,7 @@ describe('AIPanel', () => {
 
     try {
       renderWithProviders(<AIPanel />);
-      fireEvent.click(await screen.findByRole('switch', { name: /Connect DeepSeek/i }));
+      await openProviderConnectDialog('deepseek');
       const dialog = await screen.findByRole('dialog', { name: /Connect DeepSeek/i });
       fireEvent.change(within(dialog).getByLabelText(/API key/i), { target: { value: 'sk-bad' } });
       fireEvent.click(within(dialog).getByRole('button', { name: /^Save$/i }));
@@ -1032,7 +1083,7 @@ describe('AIPanel', () => {
 
     try {
       renderWithProviders(<AIPanel />);
-      fireEvent.click(await screen.findByRole('button', { name: /Add Custom Provider/i }));
+      await openCustomProviderEditor();
       fireEvent.change(await screen.findByPlaceholderText('My Provider'), {
         target: { value: 'My Host' },
       });
@@ -1067,7 +1118,7 @@ describe('AIPanel', () => {
       </I18nProvider>
     );
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Kimi \(Moonshot\)/i }));
+    await openProviderConnectDialog('moonshot');
     const dialog = await screen.findByRole('dialog', { name: /Kimi \(Moonshot\)/i });
     const link = within(dialog).getByRole('link', { name: /^Get API key$/i });
 
@@ -1090,7 +1141,7 @@ describe('AIPanel', () => {
         </I18nProvider>
       );
 
-      fireEvent.click(await screen.findByRole('switch', { name: /Kimi \(Moonshot\)/i }));
+      await openProviderConnectDialog('moonshot');
       const dialog = await screen.findByRole('dialog', { name: /Kimi \(Moonshot\)/i });
       fireEvent.click(within(dialog).getByRole('link', { name: /^Get API key$/i }));
 
@@ -1116,7 +1167,7 @@ describe('AIPanel', () => {
       { preloadedState: { locale: { current: 'zh-CN' } } }
     );
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Kimi \(Moonshot\)/i }));
+    await openProviderConnectDialog('moonshot');
     const dialog = await screen.findByRole('dialog', { name: /Kimi \(Moonshot\)/i });
 
     expect(within(dialog).getByRole('link', { name: '获取 API Key' })).toBeInTheDocument();
@@ -1132,7 +1183,7 @@ describe('AIPanel', () => {
       { preloadedState: { locale: { current: 'fr' } } }
     );
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Kimi \(Moonshot\)/i }));
+    await openProviderConnectDialog('moonshot');
     const dialog = await screen.findByRole('dialog', { name: /Kimi \(Moonshot\)/i });
     const heading = within(dialog).getByRole('heading', {
       name: /Connecter un fournisseur Kimi \(Moonshot\)/i,
@@ -1151,7 +1202,7 @@ describe('AIPanel', () => {
       { preloadedState: { locale: { current: 'ar' } } }
     );
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Kimi \(Moonshot\)/i }));
+    await openProviderConnectDialog('moonshot');
     const dialog = await screen.findByRole('dialog', { name: /Kimi \(Moonshot\)/i });
     const link = within(dialog).getByRole('link', { name: 'احصل على مفتاح API' });
 
@@ -1169,23 +1220,23 @@ describe('AIPanel', () => {
       </I18nProvider>
     );
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Connect OpenAI/i }));
+    await openProviderConnectDialog('openai');
     const dialog = await screen.findByRole('dialog', { name: /Connect OpenAI/i });
 
     expect(within(dialog).queryByRole('link', { name: /^Get API key$/i })).not.toBeInTheDocument();
   });
 
-  it('renders Phase 1 built-in provider chips including SumoPod', async () => {
+  it('renders Phase 1 built-in providers in the add-provider catalog including SumoPod', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
 
-    for (const label of ['Groq', 'DeepSeek', 'MiniMax', 'SumoPod']) {
-      await waitFor(() =>
-        expect(
-          screen.getByRole('switch', { name: new RegExp(`Connect ${label}`, 'i') })
-        ).toBeInTheDocument()
-      );
+    fireEvent.click(await screen.findByTestId('add-provider-open'));
+    const trigger = await screen.findByTestId('add-provider-select-cloud');
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    for (const slug of ['groq', 'deepseek', 'minimax', 'sumopod']) {
+      expect(await screen.findByTestId(`add-provider-option-${slug}`)).toBeInTheDocument();
     }
   });
 
@@ -1194,7 +1245,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Connect SumoPod/i }));
+    await openProviderConnectDialog('sumopod');
     const dialog = await screen.findByRole('dialog', { name: /Connect SumoPod/i });
     fireEvent.change(within(dialog).getByLabelText(/API key/i), {
       target: { value: 'sk-sumopod-test' },
@@ -1226,7 +1277,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Connect MiniMax/i }));
+    await openProviderConnectDialog('minimax');
     const dialog = await screen.findByRole('dialog', { name: /Connect MiniMax/i });
     fireEvent.change(within(dialog).getByLabelText(/API key/i), {
       target: { value: 'sk-minimax-test' },
@@ -1262,7 +1313,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('switch', { name: /Connect OpenAI/i }));
+    await openProviderConnectDialog('openai');
     const dialog = await screen.findByRole('dialog', { name: /Connect OpenAI/i });
     fireEvent.change(within(dialog).getByLabelText(/API key/i), {
       target: { value: 'sk-bad-key' },
@@ -1277,11 +1328,7 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OpenRouter/i })).toBeInTheDocument()
-    );
-
-    fireEvent.click(screen.getByRole('switch', { name: /Connect OpenRouter/i }));
+    await openProviderConnectDialog('openrouter');
 
     const dialog = await screen.findByRole('dialog', { name: /Connect OpenRouter/i });
     expect(within(dialog).getByLabelText(/API key/i)).toBeInTheDocument();
@@ -1295,11 +1342,7 @@ describe('AIPanel', () => {
     vi.mocked(connectOpenRouterViaOAuth).mockResolvedValue('sk-or-from-oauth');
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OpenRouter/i })).toBeInTheDocument()
-    );
-
-    fireEvent.click(screen.getByRole('switch', { name: /Connect OpenRouter/i }));
+    await openProviderConnectDialog('openrouter');
     const dialog = await screen.findByRole('dialog', { name: /Connect OpenRouter/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /Sign in with OpenRouter/i }));
 
@@ -1312,18 +1355,47 @@ describe('AIPanel', () => {
     );
   });
 
+  // Regression: picking a provider in the add-provider modal has to hand off to
+  // that provider's own connect dialog. Two Radix dialogs are involved (the
+  // picker unmounts as the key dialog mounts), so this asserts the handoff
+  // end to end rather than that `onOpenKeyDialog` was called.
+  it('picking a cloud provider opens its connect dialog', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByTestId('add-provider-open'));
+
+    // Keyboard, not pointer: a pointer open depends on pointer capture and a
+    // popper measurement pass over a zero-sized jsdom layout. This is the path
+    // `ui/Select.test.tsx` documents as the stable one.
+    const trigger = await screen.findByTestId('add-provider-select-cloud');
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+
+    fireEvent.keyDown(await screen.findByTestId('add-provider-option-openai'), { key: 'Enter' });
+
+    expect(await screen.findByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument();
+  });
+
   it('clicking Add Custom Provider opens the CloudProviderEditor', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
+    await waitFor(() => expect(screen.getByTestId('add-provider-open')).toBeInTheDocument());
+    await openCustomProviderEditor();
 
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
     expect(screen.getByLabelText(/^Name$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/OpenAI URL/i)).toBeInTheDocument();
+
+    // The API-key row's visible label is associated with the field by `for`
+    // rather than by wrapping it. The old markup wrapped the field's label
+    // around the "clear stored key" button, so clicking that button also
+    // counted as a click on the input.
+    const apiKeyLabel = screen.getByText(/^API Key$/i);
+    expect(apiKeyLabel.tagName).toBe('LABEL');
+    expect(apiKeyLabel).toHaveAttribute('for', 'cloud-provider-api-key');
+    expect(apiKeyLabel.querySelector('button')).toBeNull();
   });
 
   // ─── chip toggle: toggle OFF scrubs routing entries ──────────────────────────
@@ -1446,16 +1518,11 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    // Wait for OpenAI chip to render (disabled).
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OpenAI/i })).toBeInTheDocument()
-    );
-
-    // Count provider chips before dialog interaction.
-    const chipsBefore = screen.getAllByRole('switch').length;
+    // Count connected-provider toggles before dialog interaction.
+    const chipsBefore = screen.queryAllByRole('switch').length;
 
     // Open the dialog.
-    fireEvent.click(screen.getByRole('switch', { name: /Connect OpenAI/i }));
+    await openProviderConnectDialog('openai');
     await waitFor(() =>
       expect(screen.getByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument()
     );
@@ -1476,11 +1543,16 @@ describe('AIPanel', () => {
     expect(screen.getByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument();
 
     // The number of provider toggle switches must not have grown — the failed
-    // provider was never added to the draft.
-    expect(screen.getAllByRole('switch').length).toBe(chipsBefore);
+    // provider was never added to the draft. `hidden: true` is required here:
+    // the connect dialog is now a real Radix Dialog (migrated off a hand-rolled
+    // `<div role="dialog">`), so Radix aria-hides the rest of the tree while it
+    // is open and the default role query would otherwise see zero switches.
+    expect(screen.queryAllByRole('switch', { hidden: true }).length).toBe(chipsBefore);
 
     // Specifically: no "Disconnect OpenAI" switch (chip is still in off state).
-    expect(screen.queryByRole('switch', { name: /Disconnect OpenAI/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: /Disconnect OpenAI/i, hidden: true })
+    ).not.toBeInTheDocument();
   });
 
   // Regression for #4852: the Codex auth button had a hardcoded Korean fallback
@@ -1491,13 +1563,11 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OpenAI/i })).toBeInTheDocument()
-    );
-
-    const codexButton = screen.getByRole('button', { name: /Connect Codex/i });
-    expect(codexButton).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('add-provider-open'));
+    const trigger = await screen.findByTestId('add-provider-select-cli');
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    expect(await screen.findByTestId('add-provider-option-codex')).toBeInTheDocument();
     // The Korean fallback must be gone from the English onboarding screen.
     expect(screen.queryByText(/인증/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Codex 인증/i })).not.toBeInTheDocument();
@@ -1507,12 +1577,7 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OpenAI/i })).toBeInTheDocument()
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Connect Codex/i }));
+    await openProviderConnectDialog('codex', 'cli');
 
     await waitFor(() => expect(vi.mocked(importOpenAiCodexCliAuth)).toHaveBeenCalledTimes(1));
     expect(vi.mocked(startOpenAiCodexOAuth)).not.toHaveBeenCalled();
@@ -1552,12 +1617,7 @@ describe('AIPanel', () => {
     vi.mocked(importOpenAiCodexCliAuth).mockRejectedValueOnce(new Error(errorCode));
 
     renderWithProviders(<AIPanel />);
-
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OpenAI/i })).toBeInTheDocument()
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Connect Codex/i }));
+    await openProviderConnectDialog('codex', 'cli');
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(expectedMessage));
     expect(vi.mocked(setCloudProviderKey)).not.toHaveBeenCalled();
@@ -1574,11 +1634,7 @@ describe('AIPanel', () => {
     );
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect OpenAI/i })).toBeInTheDocument()
-    );
-
-    fireEvent.click(screen.getByRole('switch', { name: /Connect OpenAI/i }));
+    await openProviderConnectDialog('openai');
     const dialog = await screen.findByRole('dialog', { name: /Connect OpenAI/i });
     fireEvent.change(within(dialog).getByLabelText(/API key/i), {
       target: { value: 'sk-bad-key' },
@@ -1604,11 +1660,9 @@ describe('AIPanel', () => {
     );
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('add-provider-open')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Team Gateway' } });
     fireEvent.change(screen.getByLabelText(/OpenAI URL/i), {
@@ -1634,11 +1688,9 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
 
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Add Custom Provider/i })).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('add-provider-open')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: /Add Custom Provider/i }));
+    await openCustomProviderEditor();
     await waitFor(() => expect(screen.getByText(/Add cloud provider/i)).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'My Team Gateway' } });
@@ -1663,10 +1715,7 @@ describe('AIPanel', () => {
   it('toggling Ollama ON shows an Endpoint URL field with localhost default', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Ollama/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Ollama/i }));
+    await openProviderConnectDialog('ollama', 'local');
 
     // ProviderKeyDialog renders in endpoint mode for local runtimes: the
     // input is labelled "Endpoint URL", not "API key".
@@ -1680,10 +1729,7 @@ describe('AIPanel', () => {
   it('rejects a non-http endpoint URL and keeps the dialog open', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Ollama/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Ollama/i }));
+    await openProviderConnectDialog('ollama', 'local');
     const dialog = await screen.findByRole('dialog', { name: /Connect Ollama/i });
     const urlInput = within(dialog).getByLabelText(/Endpoint URL/i);
     fireEvent.change(urlInput, { target: { value: 'ftp://nope' } });
@@ -1699,10 +1745,7 @@ describe('AIPanel', () => {
   it('Ollama save normalizes the endpoint and persists local_ai.base_url', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Ollama/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Ollama/i }));
+    await openProviderConnectDialog('ollama', 'local');
     const dialog = await screen.findByRole('dialog', { name: /Connect Ollama/i });
 
     // Type a host with no path — the URL normalizer must append `/v1` for
@@ -1725,10 +1768,7 @@ describe('AIPanel', () => {
   it('passes Ollama 0.0.0.0 endpoint through to the Rust normalizer', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Ollama/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('switch', { name: /Connect Ollama/i }));
+    await openProviderConnectDialog('ollama', 'local');
     const dialog = await screen.findByRole('dialog', { name: /Connect Ollama/i });
 
     fireEvent.change(within(dialog).getByLabelText(/Endpoint URL/i), {
@@ -1756,8 +1796,7 @@ describe('AIPanel', () => {
       ],
     });
     renderWithProviders(<AIPanel />);
-    const editButton = await screen.findByRole('button', { name: /Edit endpoint/i });
-    fireEvent.click(editButton);
+    await openProviderRowAction('ollama', /Edit endpoint/i);
 
     const dialog = await screen.findByRole('dialog', { name: /Connect Ollama/i });
     const urlInput = within(dialog).getByLabelText(/Endpoint URL/i) as HTMLInputElement;
@@ -1767,10 +1806,7 @@ describe('AIPanel', () => {
   it('LM Studio save persists the local_ai provider and endpoint', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     renderWithProviders(<AIPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect LM Studio/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('switch', { name: /Connect LM Studio/i }));
+    await openProviderConnectDialog('lmstudio', 'local');
     const dialog = await screen.findByRole('dialog', { name: /Connect LM Studio/i });
 
     fireEvent.change(within(dialog).getByLabelText(/Endpoint URL/i), {
@@ -1809,8 +1845,8 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue(settingsWithOllama);
     renderWithProviders(<AIPanel />);
 
-    const editBtn = await screen.findByRole('button', { name: /Edit endpoint/i });
-    expect(editBtn).toBeInTheDocument();
+    const row = await screen.findByTestId('provider-row-ollama');
+    expect(within(row).getByRole('button')).toBeInTheDocument();
   });
 
   it('edit-endpoint button opens the dialog pre-populated with the saved URL', async () => {
@@ -1832,7 +1868,7 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue(settingsWithOllama);
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /Edit endpoint/i }));
+    await openProviderRowAction('ollama', /Edit endpoint/i);
 
     const dialog = await screen.findByRole('dialog', { name: /Connect Ollama/i });
     const urlInput = within(dialog).getByLabelText(/Endpoint URL/i) as HTMLInputElement;
@@ -1843,9 +1879,11 @@ describe('AIPanel', () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     renderWithProviders(<AIPanel />);
 
-    await waitFor(() =>
-      expect(screen.getByRole('switch', { name: /Connect Ollama/i })).toBeInTheDocument()
-    );
+    fireEvent.click(await screen.findByTestId('add-provider-open'));
+    const trigger = await screen.findByTestId('add-provider-select-local');
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    expect(await screen.findByTestId('add-provider-option-ollama')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Edit endpoint/i })).not.toBeInTheDocument();
   });
 
@@ -1873,11 +1911,12 @@ describe('AIPanel', () => {
     vi.mocked(saveAISettings).mockResolvedValue(undefined);
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
-    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
+    const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button'));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
 
@@ -1932,11 +1971,12 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
-    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
+    const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button'));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
@@ -1980,11 +2020,12 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
-    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
+    const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button'));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));
@@ -2021,11 +2062,12 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /Advanced/i }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
-    const rowEl = reasoningRow.closest('div.flex.items-center.justify-between');
+    const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
-    fireEvent.click(within(rowEl as HTMLElement).getByRole('button', { name: /Change Model/i }));
+    fireEvent.click(within(rowEl as HTMLElement).getByRole('button'));
 
     const dialog = await screen.findByRole('dialog', { name: /Custom routing/i });
     fireEvent.click(within(dialog).getByRole('button', { name: /^Test$/i }));

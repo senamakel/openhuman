@@ -99,12 +99,14 @@ async fn bound_driver_probe_reports_the_default_module_driver() {
     // contract's eighteen families, so claiming the full contract made the
     // other five answer `UnknownMethod` instead of reporting themselves absent.
     //
-    // The registry now pins v1.2.0, which added bus members for `chunks`,
-    // `people`, `profile` and `retrieval` — so the boundary moved from thirteen
-    // to seventeen. `episodic` is the one still withheld, and for a different
-    // reason: the artifact serves it, but `ModuleMemoryProvider` has no
-    // `as_episodic`, so advertising it would be the same over-claim in a
-    // different coat. This pins that corrected boundary, not the stale one.
+    // The boundary has since moved twice more: v1.2.0 added bus members for
+    // `chunks`, `people`, `profile` and `retrieval` (thirteen -> seventeen),
+    // and the Episodic accessor landing with the archivist migration closed the
+    // last host gap (seventeen -> eighteen). Full advertisement is the honest
+    // set now — every family has both a bus member in the pinned artifact and a
+    // host accessor. What still guards drift is the accessor rule itself
+    // (`capabilities_for` can only name families the provider implements) plus
+    // the pin-drift test on every registry bump.
     let cfg = MemorySubsystemConfig::default();
     let binding = binding_for("default", cfg.clone());
     assert_eq!(
@@ -114,20 +116,21 @@ async fn bound_driver_probe_reports_the_default_module_driver() {
     let advertised = binding.capabilities();
     assert!(advertised.contains_all(Capabilities::mandatory()));
     assert!(advertised.contains(Capability::Tree));
-    assert!(
-        advertised.contains(Capability::Retrieval),
-        "the pinned v1.2.0 artifact serves `retrieval`; not advertising it is an under-claim"
-    );
-    assert!(
-        !advertised.contains(Capability::Episodic),
-        "`episodic` must stay unadvertised until `ModuleMemoryProvider` implements `as_episodic`"
-    );
+    for capability in [
+        Capability::Chunks,
+        Capability::People,
+        Capability::Profile,
+        Capability::Retrieval,
+        Capability::Episodic,
+    ] {
+        assert!(
+            advertised.contains(capability),
+            "the pinned artifact serves {capability:?} and the host has an accessor for it — \
+             hiding it is an under-claim"
+        );
+    }
     assert!(Capabilities::all().contains_all(advertised));
-    assert_ne!(
-        advertised,
-        Capabilities::all(),
-        "advertising the whole contract is the #5598 over-claim"
-    );
+    assert_eq!(advertised, Capabilities::all());
 }
 
 /// The negative control that makes the assertions above mean something.

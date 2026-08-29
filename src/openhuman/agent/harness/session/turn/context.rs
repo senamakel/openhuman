@@ -165,9 +165,9 @@ impl Agent {
         // via per-turn recall (Lane B). The legacy `user_profile` pinned namespace
         // is no longer read here; explicit prefs now live in `user_pref_general`.
         if !self.learning_enabled && self.explicit_preferences_enabled {
-            let general = tinymemory_core::preferences::load_general_preferences(
+            let general = crate::openhuman::memory::preferences::load_general_preferences_on(
                 &self.memory,
-                tinymemory_core::preferences::STANDING_PREFS_LIMIT,
+                crate::openhuman::memory::preferences::STANDING_PREFS_LIMIT,
             )
             .await;
             tracing::debug!(
@@ -210,9 +210,9 @@ impl Agent {
         // injected as ground truth. A high-confidence inferred facet should be
         // *proposed* to the user (and pinned via `save_preference` on
         // confirmation), not silently treated as a standing preference.
-        let general = tinymemory_core::preferences::load_general_preferences(
+        let general = crate::openhuman::memory::preferences::load_general_preferences_on(
             &self.memory,
-            tinymemory_core::preferences::STANDING_PREFS_LIMIT,
+            crate::openhuman::memory::preferences::STANDING_PREFS_LIMIT,
         )
         .await;
 

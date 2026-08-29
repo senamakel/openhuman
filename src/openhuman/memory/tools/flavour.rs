@@ -24,7 +24,6 @@ use tinycortex::memory::tree::{compile_flavoured_root, flavoured_root_abs_path};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
-use tinymemory_core::tinycortex::memory_config_from;
 
 /// The seven valid `flavour` slugs, for error messages.
 const VALID_FLAVOURS: &str =
@@ -95,7 +94,37 @@ pub(crate) fn lookup_flavour(config: &Config, flavour_raw: &str) -> Result<Flavo
         format!("Unknown flavour '{flavour_raw}'. Valid flavours: {VALID_FLAVOURS}")
     })?;
 
-    let mc = memory_config_from(config, config.workspace_dir.clone());
+    // The `MemoryConfig` the three TinyCortex calls below take, built here
+    // rather than through `tinymemory_core::tinycortex::memory_config_from` —
+    // the engine crate's `Config` → `MemoryConfig` mapping, and what used to be
+    // the one `tinymemory_core::` reference in this file (#5560).
+    //
+    // That mapping sets three fields. Two of them are read on this path and are
+    // reproduced verbatim: `workspace`, which is where `get_tree_by_scope` and
+    // `compile_flavoured_root` open the shared chunk/tree connection, and
+    // `content_root`, which `flavoured_root_abs_path` resolves the compiled
+    // artifact under (`memory_tree.content_dir` when the user set one, else
+    // `<workspace>/memory_tree/content`). `Config::memory_tree_content_root` is
+    // the host's own single source of truth for that path, so this reads the
+    // same value the engine mapping read.
+    //
+    // The third — `embedding`, whose `provider` the engine derives from its
+    // `effective_embedder_slug` ladder — is deliberately left at its default,
+    // and this is the one reduction to be aware of. That field is the signature
+    // per-model embedding sidecar rows are keyed by, so it matters wherever a
+    // vector is written or matched; **nothing on this path is.** `memory_flavour`
+    // is strictly read-only over the flavoured tree: `get_tree_by_scope` and
+    // `store::get_summary` are plain SQL over `mem_tree_trees` /
+    // `mem_tree_summaries`, and `compile_flavoured_root` clamps the root node's
+    // stored content to `tree.flavour_root_token_budget` and stages it as
+    // markdown. None of the three reads `config.embedding`.
+    //
+    // So: if a call that embeds, re-embeds, or matches a vector is ever added
+    // to this file, this config is no longer sufficient and the embedder ladder
+    // has to come with it. A defaulted signature would file rows under the
+    // wrong provider, which is silent rather than loud.
+    let mut mc = tinycortex::memory::MemoryConfig::new(config.workspace_dir.clone());
+    mc.content_root = Some(config.memory_tree_content_root());
     let scope = facet.tree_scope();
     let heading = facet.heading();
 

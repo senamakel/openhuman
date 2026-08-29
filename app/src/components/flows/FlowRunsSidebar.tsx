@@ -23,6 +23,7 @@ import {
   useRunsPendingApprovalSet,
 } from '../../hooks/useRunsPendingApprovalSet';
 import { useT } from '../../lib/i18n/I18nContext';
+import Button from '../ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../ui/LoadingState';
 import { type FlowRepairRequest, FlowRunInspectorDrawer } from './FlowRunInspectorDrawer';
 import { FlowRunStatus, flowRunStatusLabel } from './FlowRunStatus';
@@ -104,18 +105,20 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
 
   return (
     <div className="flex h-full flex-col" data-testid="flow-runs-sidebar">
-      <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-content-faint">
           {t('flows.runs.sidebarTitle')}
         </span>
-        <button
+        <Button
           type="button"
+          variant="tertiary"
+          size="xs"
+          iconOnly
           onClick={() => void refresh()}
           disabled={loading}
           data-testid="flow-runs-sidebar-refresh"
           aria-label={t('flows.runs.refresh')}
-          title={t('flows.runs.refresh')}
-          className="rounded-md p-1 text-content-faint transition-colors hover:bg-surface-hover hover:text-content-secondary disabled:opacity-50">
+          title={t('flows.runs.refresh')}>
           <svg
             className="h-3.5 w-3.5"
             fill="none"
@@ -129,7 +132,7 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
               d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 8a8 8 0 01-14 3"
             />
           </svg>
-        </button>
+        </Button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -154,11 +157,12 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
             const displayStatus = resolveDisplayStatus(run, pendingRunIds);
             return (
               <li key={run.id}>
-                <button
+                <Button
                   type="button"
+                  variant="tertiary"
                   data-testid={`flow-runs-sidebar-run-${run.id}`}
                   onClick={() => setSelectedRunId(run.id)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-hover ${
+                  className={`h-auto w-full justify-start gap-2 rounded-lg px-2 py-1.5 text-left font-normal ${
                     selectedRunId === run.id ? 'bg-surface-hover' : ''
                   }`}>
                   <FlowRunStatus
@@ -170,13 +174,13 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
                     <FlowRunStatus
                       status={displayStatus}
                       label={flowRunStatusLabel(displayStatus, t)}
-                      className="!px-1.5 text-[10px]"
+                      className="px-1.5! text-[10px]"
                     />
                     <span className="mt-0.5 block truncate text-[11px] text-content-faint">
                       {relativeTime(run.started_at, t)}
                     </span>
                   </span>
-                </button>
+                </Button>
               </li>
             );
           })}

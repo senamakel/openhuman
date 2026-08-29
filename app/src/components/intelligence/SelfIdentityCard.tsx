@@ -16,6 +16,7 @@ import { useCallback, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import type { SelfIdentity } from '../../lib/orchestration/orchestrationClient';
+import Button from '../ui/Button';
 
 interface SelfIdentityCardProps {
   identity: SelfIdentity | null;
@@ -80,7 +81,7 @@ export default function SelfIdentityCard({
       <div className="flex items-center gap-2">
         <span
           aria-hidden
-          className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-sage-500 font-mono text-[11px] font-bold text-white">
+          className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-sage-500 font-mono text-[11px] font-bold text-content-inverted">
           OH
         </span>
         <div className="min-w-0 flex-1">
@@ -91,16 +92,18 @@ export default function SelfIdentityCard({
             {shortAddress(address)}
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          variant="tertiary"
+          size="xs"
           data-testid="tinyplace-self-identity-copy"
           onClick={onCopy}
           disabled={!address}
-          className="flex-none rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-ocean-600 transition hover:bg-ocean-500/10 disabled:opacity-40 dark:text-ocean-300">
+          className="flex-none px-1.5 text-primary-600 hover:bg-primary-500/10 dark:text-primary-300">
           {copied
             ? t('tinyplaceOrchestration.identity.copied')
             : t('tinyplaceOrchestration.identity.copy')}
-        </button>
+        </Button>
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -139,16 +142,18 @@ export default function SelfIdentityCard({
 
       {identity.discoverable && onPublish ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="xs"
             data-testid="tinyplace-self-identity-republish"
             onClick={onPublish}
             disabled={publishing}
-            className="inline-flex items-center rounded-md border border-line px-2 py-0.5 text-[10px] font-medium text-content-muted transition hover:bg-surface-hover disabled:opacity-50">
+            className="text-[10px] text-content-muted">
             {publishing
               ? t('tinyplaceOrchestration.identity.publishing')
               : t('tinyplaceOrchestration.identity.republish')}
-          </button>
+          </Button>
           {publishError ? (
             <span
               data-testid="tinyplace-self-identity-republish-error"
@@ -165,16 +170,19 @@ export default function SelfIdentityCard({
             {t('tinyplaceOrchestration.identity.undiscoverableHint')}
           </p>
           {onPublish ? (
-            <button
+            <Button
               type="button"
+              variant="primary"
+              tone="danger"
+              size="xs"
               data-testid="tinyplace-self-identity-publish"
               onClick={onPublish}
               disabled={publishing}
-              className="mt-1.5 inline-flex items-center rounded-md bg-coral-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-coral-700 disabled:opacity-50 dark:bg-coral-500 dark:hover:bg-coral-400">
+              className="mt-1.5">
               {publishing
                 ? t('tinyplaceOrchestration.identity.publishing')
                 : t('tinyplaceOrchestration.identity.makeDiscoverable')}
-            </button>
+            </Button>
           ) : null}
           {publishError ? (
             <p

@@ -182,10 +182,6 @@ impl Default for IntegrationToggle {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(default)]
 pub struct IntegrationsConfig {
-    /// Apify actor execution and scraper integration.
-    #[serde(default)]
-    pub apify: IntegrationToggle,
-
     /// Twilio phone-call integration.
     #[serde(default)]
     pub twilio: IntegrationToggle,

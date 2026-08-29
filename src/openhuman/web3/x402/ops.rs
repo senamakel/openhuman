@@ -308,7 +308,7 @@ pub async fn handle_402_and_pay(
 async fn wallet_signer() -> Result<
     (
         crate::openhuman::config::Config,
-        tinywallet::wire::SecretMaterial,
+        tinywallet_bus::wire::SecretMaterial,
         [u8; 32],
     ),
     X402Error,
@@ -331,10 +331,10 @@ async fn wallet_signer() -> Result<
     .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
     .value;
 
-    let signing_secret = tinywallet::wire::SecretMaterial {
+    let signing_secret = tinywallet_bus::wire::SecretMaterial {
         mnemonic,
         derivation_path: secret.derivation_path.clone(),
-        chain: tinywallet::Chain::Solana,
+        chain: tinywallet_bus::Chain::Solana,
     };
     let account = crate::openhuman::modules::wallet::derive_account(&config, &signing_secret)
         .await
@@ -453,7 +453,7 @@ fn parse_settlement_response(b64_str: &str) -> Result<SettlementResponse, String
 ///   3. Memo (if extra.memo set, otherwise random 16-byte hex nonce)
 async fn build_solana_payment(
     config: &crate::openhuman::config::Config,
-    signing_secret: &tinywallet::wire::SecretMaterial,
+    signing_secret: &tinywallet_bus::wire::SecretMaterial,
     our_pubkey: [u8; 32],
     challenge: &PaymentRequired,
     req: &PaymentRequirements,
@@ -531,11 +531,11 @@ async fn build_solana_payment(
         config,
         signing_secret,
         &message,
-        tinywallet::wire::Scheme::Ed25519,
+        tinywallet_bus::wire::Scheme::Ed25519,
     )
     .await
     .map_err(|e| X402Error::Wallet(format!("sign payment: {e}")))?;
-    let tinywallet::wire::Signature::Ed25519 { signature_hex } = signature else {
+    let tinywallet_bus::wire::Signature::Ed25519 { signature_hex } = signature else {
         return Err(X402Error::Wallet(
             "the wallet module returned a non-ed25519 signature".to_string(),
         ));
@@ -582,11 +582,11 @@ async fn build_evm_payment(
         &config,
         &signing_secret,
         &authorization.digest,
-        tinywallet::wire::Scheme::Secp256k1Prehash,
+        tinywallet_bus::wire::Scheme::Secp256k1Prehash,
     )
     .await
     .map_err(|e| X402Error::Wallet(format!("sign EIP-3009: {e}")))?;
-    let tinywallet::wire::Signature::Secp256k1 {
+    let tinywallet_bus::wire::Signature::Secp256k1 {
         rs_hex,
         recovery_id,
     } = signature
@@ -631,7 +631,7 @@ pub(crate) fn evm_payment_authorization(
     from_address: &str,
     req: &PaymentRequirements,
 ) -> Result<EvmPaymentAuthorization, X402Error> {
-    use tinywallet::eip712;
+    use tinywallet_bus::eip712;
 
     let chain_id = req
         .evm_chain_id()
@@ -742,16 +742,32 @@ pub(crate) fn evm_payment_payload(
     })
 }
 
-/// Derive the wallet's EVM signing key from the encrypted mnemonic.
+/// Resolve the EVM account an x402 payment will be signed as.
 ///
-/// Returns the raw secret and the checksummed address it controls. Derivation
-/// goes through `tinywallet::key` — the same BIP-32 walk the wallet domain uses,
-/// so an x402 payment is signed by exactly the account the wallet reports — and
-/// the key stays in this process.
+/// Returns the config, the [`SecretMaterial`](tinywallet_bus::wire::SecretMaterial)
+/// the signing calls take, and the checksummed address that material controls.
+///
+/// # Where the key is, and where it is not
+///
+/// **No private key is derived in this process.** The address comes back from
+/// `modules::wallet::derive_account` — a confidential call into the loaded
+/// `tinywallet` module, which derives, answers with public data only, and wipes
+/// its copy of the phrase before returning. The signature is produced the same
+/// way, by `modules::wallet::sign_message`. This binary links no derivation
+/// stack at all: it takes `tinywallet-bus`, the wire contract, and `key` is one
+/// of the gates that deliberately stayed in the root crate.
+///
+/// What *does* live in this process is the decrypted **mnemonic**, held in the
+/// returned `SecretMaterial` for as long as a caller holds it and sent across
+/// the bus on each confidential call. That is the exposure to reason about
+/// here; a derived private key is not.
+///
+/// Deriving the address rather than assuming one is what makes an x402 payment
+/// signed by exactly the account the wallet reports.
 async fn evm_signer() -> Result<
     (
         crate::openhuman::config::Config,
-        tinywallet::wire::SecretMaterial,
+        tinywallet_bus::wire::SecretMaterial,
         String,
     ),
     X402Error,
@@ -774,10 +790,10 @@ async fn evm_signer() -> Result<
     .map_err(|e| X402Error::Wallet(format!("decrypt mnemonic: {e}")))?
     .value;
 
-    let signing_secret = tinywallet::wire::SecretMaterial {
+    let signing_secret = tinywallet_bus::wire::SecretMaterial {
         mnemonic,
         derivation_path: secret.derivation_path.clone(),
-        chain: tinywallet::Chain::Evm,
+        chain: tinywallet_bus::Chain::Evm,
     };
     let account = crate::openhuman::modules::wallet::derive_account(&config, &signing_secret)
         .await
@@ -823,7 +839,7 @@ pub(crate) fn build_evm_payment_with_signer(
 
 /// The 20 raw bytes of an EVM address.
 fn evm_address_bytes(address: &str) -> Result<[u8; 20], X402Error> {
-    let validated = tinywallet::address::evm::validate(address)
+    let validated = tinywallet_bus::address::evm::validate(address)
         .map_err(|e| X402Error::Protocol(format!("invalid EVM address '{address}': {e}")))?;
     let body = validated.strip_prefix("0x").unwrap_or(&validated);
     let decoded = hex::decode(body)

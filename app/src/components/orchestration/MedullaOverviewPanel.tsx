@@ -12,6 +12,7 @@
 import { useT } from '../../lib/i18n/I18nContext';
 import { DISCORD_INVITE_URL, PRICING_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
+import Button from '../ui/Button';
 
 export default function MedullaOverviewPanel() {
   const { t } = useT();
@@ -26,7 +27,7 @@ export default function MedullaOverviewPanel() {
         </span>
 
         {/* Wordmark */}
-        <h1 className="bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-5xl font-bold tracking-tight text-transparent dark:from-primary-300 dark:to-primary-500">
+        <h1 className="bg-linear-to-r from-primary-500 to-primary-700 bg-clip-text text-5xl font-bold tracking-tight text-transparent dark:from-primary-300 dark:to-primary-500">
           {t('orchPage.medulla.title')}
         </h1>
         <p className="mt-2 text-base font-medium text-content-secondary">
@@ -76,13 +77,14 @@ export default function MedullaOverviewPanel() {
             <p className="mt-1 text-xs leading-relaxed text-content-muted">
               {t('orchPage.medulla.subscriberNote')}
             </p>
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               data-testid="orch-medulla-subscribe"
               onClick={() => void openUrl(PRICING_URL)}
-              className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2 text-xs font-semibold text-content-inverted shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1">
+              className="mt-auto w-full rounded-xl px-4 text-xs font-semibold shadow-soft">
               {t('orchPage.medulla.subscriberCta')}
-            </button>
+            </Button>
           </div>
 
           {/* Discord */}
@@ -100,13 +102,14 @@ export default function MedullaOverviewPanel() {
             <p className="mt-1 text-xs leading-relaxed text-content-muted">
               {t('orchPage.medulla.earlyAccess')}
             </p>
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               data-testid="orch-medulla-discord"
               onClick={() => void openUrl(DISCORD_INVITE_URL)}
-              className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2 text-xs font-semibold text-content-inverted shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1">
+              className="mt-auto w-full rounded-xl px-4 text-xs font-semibold shadow-soft">
               {t('orchPage.medulla.cta')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

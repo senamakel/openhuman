@@ -16,16 +16,24 @@ use crate::openhuman::memory::api::chunks::Chunk;
 use crate::openhuman::memory::api::error::MemoryError;
 use crate::openhuman::memory::api::goals::GoalsDoc;
 use crate::openhuman::memory::api::health::MemoryHealth;
+use crate::openhuman::memory::api::provider::sessions::{
+    CodingSessionIngestReport, CodingSessionIngestRequest, CodingSessionSource,
+};
+use crate::openhuman::memory::api::provider::sync::{
+    RawArchiveCoverage, RawRebuildOutcome, SourceSyncState, SourceSyncStatus, SyncAuditEntry,
+    SyncRunOutcome,
+};
 use crate::openhuman::memory::api::provider::types::{
     DiffReport, EntityHit, ExportPage, ExportRecord, ImportOutcome, IngestItem, IngestOutcome,
     MaintenanceReport, SnapshotRef, SourceItem, SourceScope,
 };
 use crate::openhuman::memory::api::provider::{
     AddressBookSeedOutcome, ChunkDetail, ChunkEmbedding, ChunkQuery, CoverWindowQuery, EntityMatch,
-    FacetType, FastRetrieveQuery, MemoryChunks, MemoryCore, MemoryDiff, MemoryDocuments,
-    MemoryEntities, MemoryEpisodic, MemoryGoals, MemoryGraph, MemoryIngest, MemoryMaintenance,
-    MemoryPeople, MemoryPortability, MemoryProfile, MemoryProvider, MemoryRecall, MemoryRetrieval,
-    MemorySourceSink, MemoryToolMemory, MemoryTree, PersonHandle, PersonInteraction, PersonRecord,
+    EpisodicEvent, FacetType, FastRetrieveQuery, MemoryChunks, MemoryCodingSessions, MemoryCore,
+    MemoryDiff, MemoryDocuments, MemoryEntities, MemoryEpisodic, MemoryGoals, MemoryGraph,
+    MemoryIngest, MemoryMaintenance, MemoryPeople, MemoryPortability, MemoryProfile,
+    MemoryProvider, MemoryRecall, MemoryRetrieval, MemoryScoring, MemorySourceSink,
+    MemorySourceSync, MemoryToolMemory, MemoryTree, PersonHandle, PersonInteraction, PersonRecord,
     PersonScore, ProfileFacet, RankedPerson, ResolvedPerson, RetrievalHit, RetrievalResponse,
     SourceRetrievalQuery, UserState,
 };
@@ -726,6 +734,94 @@ impl MemoryProvider for RecordingProvider {
     fn as_episodic(&self) -> Option<&dyn MemoryEpisodic> {
         Some(self)
     }
+    fn as_source_sync(&self) -> Option<&dyn MemorySourceSync> {
+        Some(self)
+    }
+    fn as_coding_sessions(&self) -> Option<&dyn MemoryCodingSessions> {
+        Some(self)
+    }
+    fn as_scoring(&self) -> Option<&dyn MemoryScoring> {
+        Some(self)
+    }
+}
+
+// The two families tinymemory v1.7.0 added. `capabilities()` above answers
+// `Capabilities::all()`, so a driver that advertises them and then hands back
+// `None` from the accessor is exactly the inconsistency `audit_provider`
+// exists to catch — the recorder has to serve them to stay honest.
+
+#[async_trait]
+impl MemorySourceSync for RecordingProvider {
+    async fn run_connection_sync(
+        &self,
+        toolkit: &str,
+        connection_id: &str,
+    ) -> Result<SyncRunOutcome, MemoryError> {
+        self.record(Call::plain("source_sync.run_connection_sync"));
+        let _ = (toolkit, connection_id);
+        Ok(SyncRunOutcome::default())
+    }
+    async fn source_sync_state(
+        &self,
+        toolkit: &str,
+        connection_id: &str,
+    ) -> Result<Option<SourceSyncState>, MemoryError> {
+        self.record(Call::plain("source_sync.source_sync_state"));
+        let _ = (toolkit, connection_id);
+        Ok(None)
+    }
+    async fn sync_audit_log(
+        &self,
+        _limit: Option<usize>,
+    ) -> Result<Vec<SyncAuditEntry>, MemoryError> {
+        self.record(Call::plain("source_sync.sync_audit_log"));
+        Ok(Vec::new())
+    }
+    async fn estimate_sync_cost_usd(
+        &self,
+        _input_tokens: u64,
+        _output_tokens: u64,
+    ) -> Result<f64, MemoryError> {
+        self.record(Call::plain("source_sync.estimate_sync_cost_usd"));
+        Ok(0.0)
+    }
+    async fn sync_statuses(&self) -> Result<Vec<SourceSyncStatus>, MemoryError> {
+        self.record(Call::plain("source_sync.sync_statuses"));
+        Ok(Vec::new())
+    }
+    async fn raw_archive_coverage(
+        &self,
+        tree_scope: &str,
+        archive_source_id: &str,
+    ) -> Result<RawArchiveCoverage, MemoryError> {
+        self.record(Call::plain("source_sync.raw_archive_coverage"));
+        let _ = (tree_scope, archive_source_id);
+        Ok(RawArchiveCoverage::default())
+    }
+    async fn rebuild_from_raw_archive(
+        &self,
+        tree_scope: &str,
+        archive_source_id: &str,
+    ) -> Result<RawRebuildOutcome, MemoryError> {
+        self.record(Call::plain("source_sync.rebuild_from_raw_archive"));
+        let _ = (tree_scope, archive_source_id);
+        Ok(RawRebuildOutcome::default())
+    }
+}
+
+#[async_trait]
+impl MemoryCodingSessions for RecordingProvider {
+    async fn coding_session_status(&self) -> Result<Vec<CodingSessionSource>, MemoryError> {
+        self.record(Call::plain("coding_sessions.coding_session_status"));
+        Ok(Vec::new())
+    }
+    async fn ingest_coding_sessions(
+        &self,
+        _request: CodingSessionIngestRequest,
+    ) -> Result<CodingSessionIngestReport, MemoryError> {
+        self.record(Call::plain("coding_sessions.ingest_coding_sessions"));
+        Ok(CodingSessionIngestReport::default())
+    }
 }
 
 #[async_trait]
@@ -771,6 +867,7 @@ impl MemoryEpisodic for RecordingProvider {
         _session_id: &str,
         _namespace: &str,
         _start_episodic_id: i64,
+        _start_seq: Option<u32>,
         _start_timestamp: f64,
         _now: f64,
     ) -> Result<(), MemoryError> {
@@ -782,6 +879,7 @@ impl MemoryEpisodic for RecordingProvider {
         &self,
         _segment_id: &str,
         _episodic_id: i64,
+        _seq: Option<u32>,
         _timestamp: f64,
         _now: f64,
     ) -> Result<(), MemoryError> {
@@ -791,6 +889,19 @@ impl MemoryEpisodic for RecordingProvider {
 
     async fn close_segment(&self, _segment_id: &str, _now: f64) -> Result<(), MemoryError> {
         self.record(Call::plain("episodic.close_segment"));
+        Ok(())
+    }
+
+    async fn insert_event(&self, event: &EpisodicEvent) -> Result<(), MemoryError> {
+        // Records the event text for the same reason `insert_turn` does: a guard
+        // that stopped redacting one would otherwise be invisible to every test,
+        // and the redaction on this path has already been missing once.
+        self.record(Call {
+            method: "episodic.insert_event".into(),
+            content: Some(event.content.clone()),
+            taint: None,
+            scoped: None,
+        });
         Ok(())
     }
 
@@ -1012,6 +1123,15 @@ impl MemoryRetrieval for RecordingProvider {
         Ok(vec![])
     }
 
+    async fn recall_namespace_recent(
+        &self,
+        _namespace: &str,
+        _limit: usize,
+    ) -> Result<Vec<NamespaceMemoryHit>, MemoryError> {
+        self.record(Call::plain("retrieval.recall_namespace_recent"));
+        Ok(vec![])
+    }
+
     async fn search_entities(
         &self,
         _query: &str,
@@ -1069,5 +1189,33 @@ impl MemoryPeople for RecordingProvider {
     async fn seed_from_address_book(&self) -> Result<AddressBookSeedOutcome, MemoryError> {
         self.record(Call::plain("people.seed_from_address_book"));
         Ok(AddressBookSeedOutcome::default())
+    }
+}
+
+#[async_trait]
+impl MemoryScoring for RecordingProvider {
+    async fn extract_entities(&self, query: &str) -> Result<Vec<String>, MemoryError> {
+        self.record(Call {
+            method: "scoring.extract_entities".into(),
+            content: Some(query.to_string()),
+            taint: None,
+            scoped: None,
+        });
+        Ok(Vec::new())
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, MemoryError> {
+        self.record(Call {
+            method: "scoring.embed_text".into(),
+            content: Some(text.to_string()),
+            taint: None,
+            scoped: None,
+        });
+        Ok(Vec::new())
+    }
+
+    async fn embedder_slug(&self) -> Result<String, MemoryError> {
+        self.record(Call::plain("scoring.embedder_slug"));
+        Ok(String::new())
     }
 }

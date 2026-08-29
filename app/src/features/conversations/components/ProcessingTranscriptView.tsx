@@ -55,7 +55,7 @@ export function ProcessingTranscriptView({
             <p
               key={block.key}
               data-testid="processing-narration"
-              className="text-[13px] leading-relaxed break-words whitespace-pre-wrap text-content-secondary">
+              className="text-[13px] leading-relaxed wrap-break-word whitespace-pre-wrap text-content-secondary">
               {block.text}
             </p>
           );
@@ -92,11 +92,11 @@ function ThinkingBlock({ text }: { text: string }) {
         <span className="text-[11px] font-semibold tracking-wide text-content-muted uppercase">
           {t('conversations.subagent.thinking')}
         </span>
-        <span className="text-[9px] text-content-faint transition-transform group-open/think:rotate-90 dark:text-neutral-600">
+        <span className="text-[9px] text-content-faint transition-transform group-open/think:rotate-90">
           ▶
         </span>
       </summary>
-      <p className="mt-1 text-[12px] leading-relaxed break-words whitespace-pre-wrap text-content-secondary">
+      <p className="mt-1 text-[12px] leading-relaxed wrap-break-word whitespace-pre-wrap text-content-secondary">
         {clean}
       </p>
     </details>
@@ -120,7 +120,7 @@ function ToolGroupBlock({
     <details open className="group/group" data-testid="processing-tool-group">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
         <span className="text-[12px] font-medium text-content-secondary">{summary}</span>
-        <span className="text-[9px] text-content-faint transition-transform group-open/group:rotate-90 dark:text-neutral-600">
+        <span className="text-[9px] text-content-faint transition-transform group-open/group:rotate-90">
           ▶
         </span>
       </summary>

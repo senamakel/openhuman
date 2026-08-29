@@ -13,7 +13,7 @@
 import debugFactory from 'debug';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { apiClient } from '../../agentworld/AgentWorldShell';
+import { apiClient } from '../../lib/agentworld/apiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   type InstanceStatus,
@@ -27,6 +27,7 @@ import {
 import { usePairing } from '../../lib/orchestration/usePairing';
 import { contactAddress, extractHandle } from '../intelligence/orchestrationTabHelpers';
 import Button from '../ui/Button';
+import TextField from '../ui/TextField';
 import { SectionCard, StatTile } from './primitives';
 import SessionTranscript from './SessionTranscript';
 
@@ -159,13 +160,14 @@ function SessionView({
 
   return (
     <div className="space-y-3" data-testid="orch-session-view">
-      <button
-        type="button"
+      <Button
+        variant="tertiary"
+        size="xs"
         onClick={onBack}
         data-testid="orch-session-back"
-        className="flex items-center gap-1.5 text-xs font-medium text-primary-600 transition hover:text-primary-700 dark:text-primary-300">
+        className="h-auto gap-1.5 px-0 text-xs font-medium text-primary-600 hover:bg-transparent hover:text-primary-700 dark:text-primary-300">
         ← {t('orchPage.connections.back')} / {handle ? `@${handle}` : shortAddress(contactAddr)}
-      </button>
+      </Button>
       <SectionCard
         title={
           <span className="flex items-center gap-2">
@@ -206,12 +208,12 @@ function SessionView({
           </p>
         ) : null}
         <form className="mt-3 flex gap-2 border-t border-line pt-3" onSubmit={submit}>
-          <input
+          <TextField
             value={body}
             onChange={e => setBody(e.target.value)}
             placeholder={t('orchPage.connections.replyPlaceholder')}
             data-testid="orch-session-reply-input"
-            className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-content outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+            className="min-w-0 flex-1"
           />
           <Button
             type="submit"
@@ -251,11 +253,11 @@ function ConnectionRow({
   const online = sessions.some(s => s.active);
   return (
     <li className="py-1" data-testid={`orch-connection-${address}`}>
-      <button
-        type="button"
+      <Button
+        variant="tertiary"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-surface-hover">
+        className="h-auto w-full justify-start gap-3 rounded-lg px-2 py-2 text-left">
         <span className="flex-none text-[10px] text-content-muted">{expanded ? '▾' : '▸'}</span>
         <span className="relative flex-none">
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-strong text-[11px] font-semibold text-content-secondary">
@@ -278,7 +280,7 @@ function ConnectionRow({
             ? t('orchPage.connections.noSessions')
             : t('orchPage.connections.sessionCount').replace('{n}', String(sessions.length))}
         </span>
-      </button>
+      </Button>
 
       {expanded ? (
         <div className="ml-9 mt-1 space-y-1 pl-2">
@@ -286,12 +288,12 @@ function ConnectionRow({
             const meta = statusMeta(session.status, t);
             const label = session.label?.trim() || session.sessionId;
             return (
-              <button
+              <Button
                 key={session.sessionId}
-                type="button"
+                variant="secondary"
                 data-testid={`orch-session-${session.sessionId}`}
                 onClick={() => onOpenSession(session)}
-                className="flex w-full items-center gap-3 rounded-lg border border-line bg-surface-subtle px-3 py-2 text-left transition hover:bg-surface-hover">
+                className="h-auto w-full justify-start gap-3 rounded-lg border-line bg-surface-subtle px-3 py-2 text-left">
                 <span className={`h-1.5 w-1.5 flex-none rounded-full ${meta.dot}`} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
@@ -315,17 +317,17 @@ function ConnectionRow({
                     : ''}
                 </span>
                 <span className="flex-none text-content-faint">›</span>
-              </button>
+              </Button>
             );
           })}
-          <button
-            type="button"
+          <Button
+            variant="tertiary"
             data-testid={`orch-new-session-${address}`}
             disabled={creating}
             onClick={onNewSession}
-            className="flex w-full items-center gap-1 rounded-lg px-3 py-1.5 text-left text-[11px] font-medium text-primary-600 transition hover:bg-surface-hover disabled:opacity-50 dark:text-primary-300">
+            className="h-auto w-full justify-start gap-1 rounded-lg px-3 py-1.5 text-left text-[11px] font-medium text-primary-600 disabled:opacity-50 dark:text-primary-300">
             + {t('tinyplaceOrchestration.newSession')}
-          </button>
+          </Button>
         </div>
       ) : null}
     </li>

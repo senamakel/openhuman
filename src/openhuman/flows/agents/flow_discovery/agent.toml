@@ -50,12 +50,7 @@ named = [
     # ── Who the user is / what they care about ──────────────────────────────
     "memory_recall",
     "memory_hybrid_search",
-    "people_list",
     # ── What they actually do (recurring conversations, decisions) ──────────
-    "transcript_search",
-    "thread_list",
-    "thread_read",
-    "thread_message_list",
     # ── What they can already automate against ──────────────────────────────
     # Existing flows (so we don't re-suggest what they have) + the real
     # connection refs + real Composio action slugs to ground suggestions.

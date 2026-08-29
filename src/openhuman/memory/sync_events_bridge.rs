@@ -80,7 +80,11 @@ impl EventHandler<DomainEvent> for SyncCompleteEmbedTrigger {
         if let DomainEvent::MemorySyncStageChanged { stage, .. } = event {
             if stage == "completed" {
                 log::debug!("[memory-sync] sync completed — triggering batch embedding backfill");
-                tinymemory_core::queue::ensure_reembed_backfill(&self.config);
+                crate::openhuman::memory::ops::maintenance::reembed_best_effort(
+                    &self.config,
+                    "sync event",
+                )
+                .await;
             }
         }
     }

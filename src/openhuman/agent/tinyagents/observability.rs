@@ -19,6 +19,7 @@ use tinyagents::harness::events::{AgentEvent, EventListener, EventRecord};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::usage::Usage;
 
+use crate::openhuman::agent::harness::turn_dispatch_guard::TurnDispatchState;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::UsageInfo;
 use crate::openhuman::tools::traits::humanize_tool_name;
@@ -99,15 +100,26 @@ pub(crate) struct CapPauser {
     handle: SteeringHandle,
     cap: u32,
     completed: AtomicU32,
+    /// The current turn's dispatch guard, when this run is a turn (rather than
+    /// a CLI/direct invocation). Recording the pause here is what makes it
+    /// *binding* on new sub-agent dispatch instead of merely advisory — see
+    /// [`crate::openhuman::agent::harness::turn_dispatch_guard`] and #5804.
+    dispatch_guard: Option<Arc<TurnDispatchState>>,
 }
 
 impl CapPauser {
-    /// Pause `handle` once `cap` model calls complete.
-    pub(crate) fn new(handle: SteeringHandle, cap: usize) -> Arc<Self> {
+    /// Pause `handle` once `cap` model calls complete, recording the pause on
+    /// `dispatch_guard` when the run is executing inside a turn scope.
+    pub(crate) fn new(
+        handle: SteeringHandle,
+        cap: usize,
+        dispatch_guard: Option<Arc<TurnDispatchState>>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             handle,
             cap: cap as u32,
             completed: AtomicU32::new(0),
+            dispatch_guard,
         })
     }
 }
@@ -122,6 +134,17 @@ impl EventListener for CapPauser {
                     cap = self.cap,
                     "[tinyagents] model-call cap reached — requesting graceful pause"
                 );
+                // Record BEFORE sending the advisory command. The crate drains
+                // its event queue synchronously, notifying listeners in
+                // insertion order on the emitting task
+                // (`vendor/tinyagents/src/harness/events/mod.rs:163-195`), so
+                // this store happens-before any tool call the loop dispatches
+                // afterwards. That ordering is the whole fix: the pause stops
+                // being something a dispatch can race and becomes something a
+                // dispatch must observe.
+                if let Some(guard) = self.dispatch_guard.as_ref() {
+                    guard.record_pause_requested(u64::from(n), u64::from(self.cap));
+                }
                 self.handle.send(SteeringCommand::Pause);
             }
         }

@@ -159,9 +159,11 @@ mod tests {
     fn body_instructs_transcript_and_skill_gathering() {
         // The enrichment is only real if the role prompt actually tells the
         // scout to search past chats and recommend skills — lock that wiring.
+        // Past chats are reached through `memory_recall` since the `thread_*`
+        // and `transcript_search` tools were removed.
         let body = build(&test_ctx()).unwrap();
         assert!(
-            body.contains("transcript_search"),
+            body.contains("memory_recall"),
             "scout prompt must instruct searching past conversations"
         );
         assert!(

@@ -109,7 +109,7 @@ describe('FlowRunsSidebar', () => {
     renderSidebar();
 
     const badge = await screen.findByText('Failed');
-    expect(badge).toHaveClass('!px-1.5');
+    expect(badge).toHaveClass('px-1.5!');
     expect(badge).not.toHaveClass('px-1.5');
   });
 

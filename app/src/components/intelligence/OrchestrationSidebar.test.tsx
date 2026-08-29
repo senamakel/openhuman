@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { apiClient } from '../../agentworld/AgentWorldShell';
+import { apiClient } from '../../lib/agentworld/apiClient';
 import type { ContactView } from '../../lib/agentworld/invokeApiClient';
 import OrchestrationSidebar, { type OrchestrationSidebarProps } from './OrchestrationSidebar';
 
-vi.mock('../../agentworld/AgentWorldShell', () => ({
+vi.mock('../../lib/agentworld/apiClient', () => ({
   apiClient: {
     orchestrationPairing: {
       acceptRequest: vi.fn(async () => ({})),

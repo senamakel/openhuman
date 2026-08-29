@@ -76,7 +76,7 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
       }`}>
       <div className="flex items-start gap-3">
         {/* Unread dot — reserve space so text stays aligned whether read or unread */}
-        <div className="mt-1.5 flex-shrink-0 w-2">
+        <div className="mt-1.5 shrink-0 w-2">
           {isUnread && (
             <span className="block w-2 h-2 rounded-full bg-primary-500" aria-hidden="true" />
           )}
@@ -100,7 +100,7 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
               handleBodyClick();
             }
           }}
-          className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 rounded-sm">
+          className="flex-1 min-w-0 text-left focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 rounded-sm">
           {/* Header row: provider badge + timestamp */}
           <div className="flex items-center gap-2 mb-1">
             <span
@@ -125,7 +125,7 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
               </span>
             )}
 
-            <span className="ml-auto text-[11px] text-content-faint flex-shrink-0">
+            <span className="ml-auto text-[11px] text-content-faint shrink-0">
               {relativeTime(n.received_at)}
             </span>
           </div>
@@ -148,7 +148,7 @@ const NotificationCard = ({ notification: n, onMarkRead, onNavigate, onDismiss }
             variant="tertiary"
             size="xs"
             onClick={() => onDismiss(n.id)}
-            className="mt-0.5 ml-1 flex-shrink-0 text-content-faint hover:text-content-secondary"
+            className="mt-0.5 ml-1 shrink-0 text-content-faint hover:text-content-secondary"
             aria-label={t('notifications.card.dismiss')}>
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

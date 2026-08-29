@@ -391,7 +391,7 @@ fn prompt_sections_render_files_identity_memory_tools_and_ambient_blocks() -> Re
     assert!(rendered.contains("curated user body"));
     assert!(rendered.contains("### work (last updated 2026-05-29)"));
     assert!(rendered.contains("Call as: `echo[a|b]`"));
-    assert!(rendered.contains("## Output style"));
+    assert!(rendered.contains("# Writing style"));
 
     let user_files = render_user_files(&ctx)?;
     assert!(user_files.contains("curated memory body"));

@@ -354,6 +354,13 @@ fn print_json(dumped: &DumpedPrompt, with_tools: bool) -> Result<()> {
                     .collect(),
             ),
         );
+        // The schemas, not just the names: they ride alongside the prompt on
+        // every request and for a few-hundred-tool agent they are the larger
+        // half of the fixed cost. Emitting only `tools` measures the smaller.
+        obj.insert(
+            "tool_specs".into(),
+            serde_json::Value::Array(dumped.tool_specs.clone()),
+        );
     }
     println!(
         "{}",

@@ -14,7 +14,7 @@ export default function DemoScaleBanner({ className }: { className?: string }) {
       data-testid="orch-demo-banner"
       className={`flex items-center gap-2.5 rounded-xl border border-dashed border-primary-300 bg-primary-50/70 px-3.5 py-2.5 text-xs font-medium text-primary-800 dark:border-primary-500/40 dark:bg-primary-500/10 dark:text-primary-200 ${className ?? ''}`}>
       <svg
-        className="h-4 w-4 flex-shrink-0 text-primary-500"
+        className="h-4 w-4 shrink-0 text-primary-500"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

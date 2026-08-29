@@ -49,7 +49,9 @@ use crate::openhuman::agent::context::CLEARED_PLACEHOLDER;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
     apply_per_result_persistence, ToolResultArtifactStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
-use crate::openhuman::agent::tinyagents::payload_summarizer::PayloadSummarizer;
+use crate::openhuman::agent::tinyagents::payload_summarizer::{
+    PayloadSummarizer, SummarizeOutcome, UnavailableReason,
+};
 use crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::security::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
@@ -710,24 +712,66 @@ impl Middleware<()> for ToolOutputMiddleware {
 
         // 1. Semantic summarization (progressive disclosure) — swap the raw
         //    payload for a compressed summary when the summarizer opts in.
-        //    Failures never break the tool call (the trait swallows them).
+        //    Failures never break the tool call, but they are no longer
+        //    silent: when summarization does not happen the model is told so
+        //    in the payload itself. This used to be
+        //    `if let Ok(Some(payload)) = …`, which discarded `Err(_)` and
+        //    `Ok(None)` identically — so a failed summarization reached the
+        //    model as an unannounced raw dump and it re-called the same tool.
+        // Held until after the caps below rather than prefixed here. The notice
+        // is ~165 chars; a tool declaring a `max_result_size_chars` smaller than
+        // that had step 3 run `chars().take(cap)` straight through it, cutting
+        // the reason text and the do-not-re-run sentence mid-word — so the one
+        // stage that exists to stop a re-dispatch loop was removed exactly when
+        // the output was most aggressively truncated. Capping the payload first
+        // and prefixing afterwards also means a tool's declared cap bounds the
+        // tool's own output, which is what it is a contract about, rather than
+        // openhuman's annotation about it.
+        let mut pending_notice: Option<&'static str> = None;
+
         if !compaction_exempt {
             if let Some(ps) = &self.payload_summarizer {
-                if let Ok(Some(payload)) = ps
+                match ps
                     .maybe_summarize_in_parent(ctx, &result.name, None, &result.content)
                     .await
                 {
-                    tracing::info!(
-                        tool = %result.name,
-                        from_bytes = payload.original_bytes,
-                        to_bytes = payload.summary_bytes,
-                        "[tinyagents::mw] payload_summarizer compressed tool output"
-                    );
-                    ctx.emit(AgentEvent::Compressed {
-                        from_tokens: estimate_output_tokens(payload.original_bytes),
-                        to_tokens: estimate_output_tokens(payload.summary_bytes),
-                    });
-                    result.content = payload.summary;
+                    Ok(SummarizeOutcome::Summarized(payload)) => {
+                        tracing::info!(
+                            tool = %result.name,
+                            from_bytes = payload.original_bytes,
+                            to_bytes = payload.summary_bytes,
+                            "[tinyagents::mw] payload_summarizer compressed tool output"
+                        );
+                        ctx.emit(AgentEvent::Compressed {
+                            from_tokens: estimate_output_tokens(payload.original_bytes),
+                            to_tokens: estimate_output_tokens(payload.summary_bytes),
+                        });
+                        result.content = payload.summary;
+                    }
+                    // The payload was fine as it was. Say nothing: a notice on
+                    // every small tool result would be pure noise.
+                    Ok(SummarizeOutcome::NotNeeded) => {}
+                    Ok(SummarizeOutcome::Unavailable(reason)) => {
+                        tracing::warn!(
+                            tool = %result.name,
+                            bytes = result.content.len(),
+                            ?reason,
+                            "[tinyagents::mw] payload_summarizer unavailable; disclosing raw output"
+                        );
+                        pending_notice = Some(reason.notice());
+                    }
+                    // Reserved for fatal misconfiguration. Previously
+                    // indistinguishable from "nothing to do"; the model is now
+                    // told the output is raw for the same reason as above.
+                    Err(error) => {
+                        tracing::warn!(
+                            tool = %result.name,
+                            bytes = result.content.len(),
+                            error = %error,
+                            "[tinyagents::mw] payload_summarizer errored; disclosing raw output"
+                        );
+                        pending_notice = Some(UnavailableReason::Failed.notice());
+                    }
                 }
             }
 
@@ -850,6 +894,15 @@ impl Middleware<()> for ToolOutputMiddleware {
             }
             result.content = capped;
         }
+
+        // 5. The disclosure, last, so no cap above can eat it. The model has to
+        //    be able to read *why* the payload is raw and that re-running will
+        //    not summarize it — a half-truncated notice is worse than none,
+        //    because it still looks like tool output.
+        if let Some(notice) = pending_notice {
+            result.content = format!("{notice}\n\n{}", result.content);
+        }
+
         Ok(())
     }
 }
@@ -3113,6 +3166,134 @@ mod tests {
         RunContext::new(RunConfig::new("mw-test"), ())
     }
 
+    // ── payload_summarizer disclosure (#5722) ──────────────────────
+    //
+    // The behaviour these pin: when summarization does not happen, the model
+    // must be able to see that from the payload. Previously every one of
+    // these cases produced byte-identical content to a successful
+    // pass-through, so the model could not tell a raw dump from a normal
+    // result and re-called the same tool.
+
+    struct StubSummarizer(std::sync::Mutex<Option<anyhow::Result<SummarizeOutcome>>>);
+
+    impl StubSummarizer {
+        fn ok(outcome: SummarizeOutcome) -> Arc<Self> {
+            Arc::new(Self(std::sync::Mutex::new(Some(Ok(outcome)))))
+        }
+    }
+
+    #[async_trait]
+    impl PayloadSummarizer for StubSummarizer {
+        async fn maybe_summarize_in_parent(
+            &self,
+            _parent_ctx: &RunContext<()>,
+            _tool_name: &str,
+            _parent_task_hint: Option<&str>,
+            _raw: &str,
+        ) -> anyhow::Result<SummarizeOutcome> {
+            self.0
+                .lock()
+                .expect("stub outcome lock")
+                .take()
+                .expect("stub summarizer called more than once")
+        }
+    }
+
+    fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
+        ToolOutputMiddleware {
+            // Large enough that the byte-budget backstop never fires, so these
+            // tests observe the summarizer stage alone.
+            budget_bytes: 10_000_000,
+            payload_summarizer: Some(ps),
+            artifact_store: None,
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression:
+                crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Off,
+            tool_policies: HashMap::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn unavailable_summarization_is_disclosed_in_the_payload() {
+        let mw = summarizer_mw(StubSummarizer::ok(SummarizeOutcome::Unavailable(
+            UnavailableReason::Failed,
+        )));
+        let mut ctx = ctx();
+        let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
+
+        mw.after_tool(&mut ctx, &(), &mut result)
+            .await
+            .expect("after_tool should not fail");
+
+        assert!(
+            result
+                .content
+                .starts_with(UnavailableReason::Failed.notice()),
+            "the notice must be a PREFIX — the downstream per-tool cap keeps the \
+             head, so an appended notice is the first thing truncated away; got: {}",
+            result.content
+        );
+        assert!(
+            result.content.contains("RAW-TOOL-OUTPUT"),
+            "disclosure must not cost the payload: {}",
+            result.content
+        );
+    }
+
+    #[tokio::test]
+    async fn a_payload_that_needed_nothing_is_left_completely_alone() {
+        // The other half of the contract. If every result carried a notice the
+        // marker would be noise and the model would learn to ignore it.
+        let mw = summarizer_mw(StubSummarizer::ok(SummarizeOutcome::NotNeeded));
+        let mut ctx = ctx();
+        let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
+
+        mw.after_tool(&mut ctx, &(), &mut result)
+            .await
+            .expect("after_tool should not fail");
+
+        assert_eq!(
+            result.content, "RAW-TOOL-OUTPUT",
+            "a below-threshold payload must be byte-identical"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_summarizer_error_is_disclosed_rather_than_swallowed() {
+        // `Err` used to be discarded by the same `if let Ok(Some(..))` that
+        // discarded `None`, so a fatal misconfiguration was indistinguishable
+        // from "nothing to do".
+        struct ErroringSummarizer;
+        #[async_trait]
+        impl PayloadSummarizer for ErroringSummarizer {
+            async fn maybe_summarize_in_parent(
+                &self,
+                _parent_ctx: &RunContext<()>,
+                _tool_name: &str,
+                _parent_task_hint: Option<&str>,
+                _raw: &str,
+            ) -> anyhow::Result<SummarizeOutcome> {
+                Err(anyhow::anyhow!("summarizer misconfigured"))
+            }
+        }
+
+        let mw = summarizer_mw(Arc::new(ErroringSummarizer));
+        let mut ctx = ctx();
+        let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
+
+        mw.after_tool(&mut ctx, &(), &mut result)
+            .await
+            .expect("a summarizer error must never break the tool call");
+
+        assert!(
+            result
+                .content
+                .starts_with(UnavailableReason::Failed.notice()),
+            "an errored summarizer must be disclosed too; got: {}",
+            result.content
+        );
+    }
+
     #[tokio::test]
     async fn prompt_cache_segments_fingerprint_full_tool_schema() {
         let mw = PromptCacheSegmentMiddleware;
@@ -3411,6 +3592,71 @@ mod tests {
         assert_eq!(mw.tool_char_cap("big"), Some(10));
         // Unknown tool → no per-tool cap (the flat byte budget applies instead).
         assert_eq!(mw.tool_char_cap("other"), None);
+    }
+
+    /// openhuman#5722 review: the disclosure used to be prefixed *before* the
+    /// per-tool char cap, so a tool declaring a cap shorter than the notice had
+    /// `chars().take(cap)` slice through the notice itself — dropping the
+    /// reason and the do-not-re-run sentence, and leaving the model a truncated
+    /// fragment that still reads as tool output. The notice is applied after
+    /// every cap now, so it survives intact whatever the tool declared.
+    #[tokio::test]
+    async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
+        let mut tool_policies = HashMap::new();
+        tool_policies.insert(
+            "terse".to_string(),
+            TaToolPolicy::classified().with_runtime(tinyagents::harness::tool::ToolRuntime {
+                timeout_ms: None,
+                timeout: tinyagents::harness::tool::ToolTimeout::Inherit,
+                max_retries: None,
+                idempotent: false,
+                cancelable: true,
+                sandbox: tinyagents::harness::tool::SandboxMode::Inherit,
+                // Far shorter than the ~165-char notice.
+                max_result_bytes: Some(12),
+                streaming: false,
+            }),
+        );
+        let mw = ToolOutputMiddleware {
+            // Large enough that the byte-budget backstop never fires, so this
+            // observes the per-tool cap alone.
+            budget_bytes: 10_000_000,
+            payload_summarizer: Some(StubSummarizer::ok(SummarizeOutcome::Unavailable(
+                UnavailableReason::Failed,
+            ))),
+            artifact_store: None,
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression:
+                crate::openhuman::inference::tokenjuice::AgentTokenjuiceCompression::Off,
+            tool_policies,
+        };
+
+        let mut result = tool_result("terse", &"payload ".repeat(200));
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+
+        let notice = UnavailableReason::Failed.notice();
+        assert!(
+            result.content.starts_with(notice),
+            "the complete notice must lead the content, got {:?}",
+            result.content.chars().take(200).collect::<String>()
+        );
+        assert!(
+            result
+                .content
+                .contains("Do not re-run the tool for a summary"),
+            "the do-not-re-run instruction is the whole point of the notice and must survive"
+        );
+        // The payload itself is still capped — deferring the notice must not
+        // smuggle the tool past its own declared limit.
+        let payload = result
+            .content
+            .strip_prefix(notice)
+            .expect("notice prefix")
+            .trim_start();
+        assert!(
+            payload.contains("[truncated by tool cap:"),
+            "the raw payload must still be truncated to the tool's cap, got {payload:?}"
+        );
     }
 
     #[tokio::test]

@@ -78,6 +78,7 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import { DERIVED_TRANSCRIPT_ENABLED, IS_PROD } from '../utils/config';
+import { AssistantUiRuntimeProvider } from './AssistantUiRuntimeProvider';
 import { isProactiveConversationSurface, proactiveThreadPins } from './proactiveThreadPins';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
@@ -1408,7 +1409,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [socketStatus, dispatch]);
 
-  return <>{children}</>;
+  // assistant-ui's runtime is mounted here, INSIDE the subscription provider,
+  // so it sits above every chat surface and below the Redux store this file
+  // already feeds. It is additive: it publishes the runtime context without
+  // taking ownership of any state. See `AssistantUiRuntimeProvider`.
+  return <AssistantUiRuntimeProvider>{children}</AssistantUiRuntimeProvider>;
 };
 
 export default ChatRuntimeProvider;

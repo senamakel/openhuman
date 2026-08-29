@@ -905,7 +905,7 @@ function MicComposer({
                           <span className="flex-1 min-w-0 truncate">{d.label}</span>
                           {selected && (
                             <svg
-                              className="w-3.5 h-3.5 text-primary-500 flex-shrink-0"
+                              className="w-3.5 h-3.5 text-primary-500 shrink-0"
                               fill="none"
                               stroke="currentColor"
                               strokeWidth={2.5}

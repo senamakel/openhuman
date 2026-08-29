@@ -457,30 +457,33 @@ mod tests {
         );
     }
 
-    /// tiny.place should be exposed as one named worker route, not as
-    /// scattered direct tools on the chat-tier orchestrator.
+    /// An agent with a `delegate_name` override should be exposed under that
+    /// name, not under the default `delegate_{id}`. `crypto_agent` is the
+    /// standing example — the orchestrator's prompt teaches `do_crypto`, and
+    /// the tool-pack table keys on it, so a regression here silently breaks
+    /// both.
     #[test]
-    fn tinyplace_agent_subagent_synthesises_use_tinyplace_delegate() {
+    fn a_delegate_name_override_wins_over_the_default_delegate_prefix() {
         let mut orch = def("orchestrator", "test", None);
-        orch.subagents = vec![SubagentEntry::AgentId("tinyplace_agent".into())];
+        orch.subagents = vec![SubagentEntry::AgentId("crypto_agent".into())];
         let mut reg = registry_with_targets();
         reg.insert(def(
-            "tinyplace_agent",
-            "tiny.place specialist - handles jobs, proposals, escrow, messages, Agent Cards, and x402 payment challenges.",
-            Some("use_tinyplace"),
+            "crypto_agent",
+            "Crypto specialist - wallet balances, transfers, swaps, bridges, and contract calls.",
+            Some("do_crypto"),
         ));
         let tools = collect_orchestrator_tools(&orch, &reg, &[]);
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert_eq!(
             names,
-            vec!["use_tinyplace"],
-            "tinyplace_agent subagent entry must synthesise its stable \
-             delegate_name (`use_tinyplace`), not the default `delegate_tinyplace_agent`"
+            vec!["do_crypto"],
+            "a subagent entry must synthesise its stable delegate_name \
+             (`do_crypto`), not the default `delegate_crypto_agent`"
         );
-        let tool = tools.iter().find(|t| t.name() == "use_tinyplace").unwrap();
+        let tool = tools.iter().find(|t| t.name() == "do_crypto").unwrap();
         assert!(
-            tool.description().contains("tiny.place") && tool.description().contains("x402"),
-            "synthesised tool description must surface tiny.place routing signal"
+            tool.description().contains("wallet") && tool.description().contains("swaps"),
+            "synthesised tool description must surface the target's routing signal"
         );
     }
 

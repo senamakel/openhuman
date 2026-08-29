@@ -178,7 +178,7 @@ const themeSlice = createSlice({
       }>
     ) {
       const theme = ensureEditableCustom(state);
-      const prev = theme.backdrop ?? { kind: 'mesh' as const };
+      const prev = theme.backdrop ?? { kind: 'solid' as const };
       theme.backdrop = { ...prev, ...action.payload, kind: action.payload.kind ?? prev.kind };
     },
     /**

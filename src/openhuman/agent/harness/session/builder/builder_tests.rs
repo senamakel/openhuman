@@ -460,15 +460,27 @@ async fn build_session_agent_routes_dedicated_memory_to_profile_subtree() {
     )
     .expect("build_session_agent_inner with a dedicated-memory profile should succeed");
 
-    // The session's capture/recall store (UnifiedMemory) is rooted at
-    // `<workspace>/memory-alice`, not the shared `memory/` tree.
-    assert!(
-        config
-            .workspace_dir
-            .join("memory-alice")
-            .join("memory.db")
-            .exists(),
+    // Asserted on the binding, not on a file. Session memory is bound through
+    // `DriverMemory::for_subtree`, and a module-backed driver opens its subtree
+    // lazily on the first `OpenStore` call — so building an agent puts nothing
+    // on disk, and the one call that would is a module round trip that times
+    // out in a unit test. The binding knows the answer at bind time, which is
+    // where the routing decision is actually made.
+    let bound = crate::openhuman::memory::binding::for_subtree(
+        &config.workspace_dir,
+        "memory-alice",
+        &config.subsystems.memory,
+    )
+    .expect("the dedicated subtree must be bound");
+    assert_eq!(
+        bound.memory_subdir(),
+        "memory-alice",
         "a dedicatedMemory profile must route session memory to memory-<id>"
+    );
+    assert_ne!(
+        bound.memory_subdir(),
+        "memory",
+        "a dedicatedMemory profile must not share the common memory subtree"
     );
 }
 
@@ -487,18 +499,25 @@ async fn build_session_agent_profile_less_uses_shared_memory_subtree() {
     let _agent = Agent::build_session_agent_inner(&config, "orchestrator", None, None, false, None)
         .expect("build_session_agent_inner without a profile should succeed");
 
-    assert!(
-        config
-            .workspace_dir
-            .join("memory")
-            .join("memory.db")
-            .exists(),
+    // Same reasoning as the dedicated-memory case above: the routing decision
+    // lives on the binding, and nothing reaches disk until memory is used.
+    let bound = crate::openhuman::memory::binding::for_subtree(
+        &config.workspace_dir,
+        "memory",
+        &config.subsystems.memory,
+    )
+    .expect("the shared subtree must be bound");
+    assert_eq!(
+        bound.memory_subdir(),
+        "memory",
         "the profile-less session must use the shared memory subtree"
     );
-    assert!(
-        !config.workspace_dir.join("memory-alice").exists(),
-        "no per-profile memory subtree should exist for a profile-less session"
-    );
+    // The companion "and no per-profile subtree exists" check is deliberately
+    // gone rather than repointed. It asserted the ABSENCE of a directory that a
+    // module-backed driver no longer creates for anyone at bind time, so it
+    // passed whatever the routing did — vacuous, and worse than nothing because
+    // it read like coverage. The positive assertion above is the whole property
+    // this test can honestly make.
 }
 
 // ── Finding #2 (Codex): profile SOUL.md injected into the live session prompt ─

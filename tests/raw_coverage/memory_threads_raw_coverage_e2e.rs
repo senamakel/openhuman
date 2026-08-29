@@ -13,7 +13,7 @@ use chrono::{TimeZone, Utc};
 use serde_json::json;
 use serde_json::{Map, Value};
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use tempfile::TempDir;
 
@@ -70,7 +70,7 @@ use openhuman_core::openhuman::memory::sync::composio::providers::slack::{
     post_process as slack_post_process, schemas as slack_memory_schemas,
 };
 use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::{
-    extract_item_id, DailyBudget, SyncState, DEFAULT_DAILY_REQUEST_LIMIT,
+    extract_item_id, DailyBudget, PersistedSyncState, SyncState, DEFAULT_DAILY_REQUEST_LIMIT,
 };
 use openhuman_core::openhuman::memory::sync::composio::providers::user_scopes;
 use openhuman_core::openhuman::memory::sync::composio::providers::{
@@ -139,17 +139,22 @@ use openhuman_core::openhuman::memory::{
 // stamps provenance from an explicit taint argument.
 use openhuman_core::openhuman::memory::api::provider::MemoryCore;
 use openhuman_core::openhuman::memory::api::types::MemoryTaint;
+// These request/record types are consumed directly by `openhuman_core::openhuman::memory::ops`
+// and `openhuman::threads::ops` handlers below, which take the host's own `rpc_models` types,
+// not the engine crate's same-named ones — so they must come from the host, not `tinymemory_core`.
+use openhuman_core::openhuman::memory::rpc_models::{
+    AppendConversationMessageRequest, ConversationMessageRecord, ConversationMessagesRequest,
+    CreateConversationThreadRequest, DeleteConversationThreadRequest, DeleteDocumentRequest,
+    EmptyRequest, GenerateConversationThreadTitleRequest, ListDocumentsRequest,
+    ListMemoryFilesRequest, MemoryInitRequest, ReadMemoryFileRequest,
+    UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
+    UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest, WriteMemoryFileRequest,
+};
 use tinymemory_core::{
     remember::RememberSourceKind,
     rpc_models::{
-        ApiEnvelope, ApiError, ApiMeta, AppendConversationMessageRequest,
-        ConversationMessageRecord, ConversationMessagesRequest, CreateConversationThreadRequest,
-        DeleteConversationThreadRequest, DeleteDocumentRequest, EmptyRequest,
-        GenerateConversationThreadTitleRequest, ListDocumentsRequest, ListMemoryFilesRequest,
-        MemoryInitRequest, PaginationMeta, QueryNamespaceRequest, ReadMemoryFileRequest,
-        RecallContextRequest, RecallMemoriesRequest, UpdateConversationMessageRequest,
-        UpdateConversationThreadLabelsRequest, UpdateConversationThreadTitleRequest,
-        UpsertConversationThreadRequest, WriteMemoryFileRequest,
+        ApiEnvelope, ApiError, ApiMeta, PaginationMeta, QueryNamespaceRequest,
+        RecallContextRequest, RecallMemoriesRequest,
     },
     traits::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts},
     util::redact::{redact, redact_endpoint},
@@ -235,6 +240,95 @@ fn config_in(tmp: &TempDir) -> Config {
     let mut config = Config::default();
     config.workspace_dir = tmp.path().to_path_buf();
     config
+}
+
+/// The one memory workspace every driver-routed case in this module shares.
+///
+/// The module host captures a workspace **once per process**: the boot policy
+/// is first-call-wins and the loaded artifact takes its `workspace_dir` at load,
+/// while each case here used to get its own `TempDir`. Whichever case published
+/// first bound the module to a directory that was deleted when that case
+/// returned, and every later read through the driver answered from the dead
+/// store: 0 rows where the case had just seeded 1. Production never has that
+/// mismatch, because boot publishes the runtime config and module and handlers
+/// name one object. This reproduces that arrangement the way
+/// `tests/json_rpc_e2e.rs` does: one leaked directory, the policy published from
+/// it exactly once, and every driver-routed case pointing its config (and
+/// `OPENHUMAN_WORKSPACE`) here. Cases keep their own `TempDir` for the files they
+/// write; only the memory workspace is shared. The path ends in `workspace` so
+/// `resolve_config_dir_for_workspace` treats it as the workspace itself rather
+/// than appending another segment, and the env var and the config agree exactly.
+fn module_workspace() -> &'static Path {
+    static WORKSPACE: OnceLock<PathBuf> = OnceLock::new();
+    WORKSPACE.get_or_init(|| {
+        let dir = TempDir::new().expect("module workspace tempdir");
+        let path = dir.path().join("workspace");
+        std::fs::create_dir_all(&path).expect("create module workspace");
+        // Leaked on purpose: the module keeps this path for the process lifetime.
+        std::mem::forget(dir);
+        ensure_memory_seams();
+        #[cfg(feature = "modules")]
+        openhuman_core::openhuman::modules::memory::set_modules_policy(Arc::new(shared_config_at(
+            &path,
+        )));
+        path
+    })
+}
+
+/// A config whose memory workspace **and** source registry are the shared ones.
+///
+/// `config_path` matters as much as `workspace_dir`: the module reads its
+/// source registry from the file the host names there, and `Config::default()`
+/// names the developer's real `~/.openhuman/config.toml`. Pointing it beside
+/// the shared workspace is also where `Config::load_or_init` resolves it from
+/// `OPENHUMAN_WORKSPACE`, so env-driven cases and config-driven cases write and
+/// read one registry. Embeddings are off so no case asks the host to embed.
+fn shared_config_at(workspace: &Path) -> Config {
+    let mut config = Config::default();
+    config.workspace_dir = workspace.to_path_buf();
+    config.config_path = workspace
+        .parent()
+        .expect("shared workspace has a parent")
+        .join("config.toml");
+    config.embeddings_provider = Some("none".into());
+    config
+}
+
+/// Point `config` at the shared module workspace and registry.
+fn use_module_workspace(config: &mut Config) {
+    let shared = shared_config_at(module_workspace());
+    config.workspace_dir = shared.workspace_dir;
+    config.config_path = shared.config_path;
+    config.embeddings_provider = shared.embeddings_provider;
+}
+
+/// Empty the shared chunk store so a case that counts rows sees only its own.
+///
+/// Rows, not the file: the module holds its connection open, so replacing the
+/// file would leave it reading the old inode. Tables a fresh store lacks are
+/// skipped rather than failed.
+fn wipe_shared_store(config: &Config) {
+    with_connection(config, |conn| {
+        for table in [
+            "mem_tree_chunk_embeddings",
+            "mem_tree_chunk_reembed_skipped",
+            "mem_tree_entity_edges",
+            "mem_tree_entity_hotness",
+            "mem_tree_entity_index",
+            "mem_tree_score",
+            "mem_tree_ingested_sources",
+            "mem_tree_summary_embeddings",
+            "mem_tree_summaries",
+            "mem_tree_chunks",
+        ] {
+            if let Err(error) = conn.execute(&format!("DELETE FROM {table}"), []) {
+                let text = error.to_string();
+                assert!(text.contains("no such table"), "wipe {table}: {text}");
+            }
+        }
+        Ok(())
+    })
+    .expect("wipe shared store");
 }
 
 fn source(kind: SourceKind, id: &str) -> MemorySourceEntry {
@@ -762,8 +856,9 @@ async fn memory_source_status_counts_reader_and_composio_prefixes() {
 async fn memory_thread_tree_and_sync_controller_schemas_execute_public_handlers() {
     let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
-    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", module_workspace());
     let config = Config::load_or_init().await.expect("init isolated config");
+    wipe_shared_store(&config);
 
     let thread_schemas = all_threads_controller_schemas();
     let thread_controllers = all_threads_registered_controllers();
@@ -1740,10 +1835,14 @@ fn memory_tree_runtime_store_buffers_and_retrieval_wire_helpers() {
 
 #[tokio::test]
 async fn memory_read_rpc_score_index_and_summary_helpers_cover_dashboard_paths() {
+    // Serialised with every other case on the shared module store: a parallel
+    // run of this target would otherwise let another case's `wipe_shared_store`
+    // empty the rows seeded below before the reads assert on them.
+    let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
     let mut config = config_in(&tmp);
-    config.config_path = tmp.path().join("config.toml");
-    config.embeddings_provider = Some("none".into());
+    use_module_workspace(&mut config);
+    wipe_shared_store(&config);
 
     let now = Utc.with_ymd_and_hms(2026, 5, 29, 14, 0, 0).unwrap();
     let mut gmail = chunk(
@@ -1764,10 +1863,17 @@ async fn memory_read_rpc_score_index_and_summary_helpers_cover_dashboard_paths()
     slack.metadata.source_kind = ChunkSourceKind::Chat;
     slack.metadata.tags = vec!["reply".into(), "provider:slack".into()];
     upsert_chunks(&config, &[gmail.clone(), slack.clone()]).expect("upsert read rpc chunks");
+    // `has_embedding` is a row in the embeddings table, not the legacy column.
     with_connection(&config, |conn| {
         conn.execute(
-            "UPDATE mem_tree_chunks SET embedding = X'00010203', tags_json = ?2 WHERE id = ?1",
+            "UPDATE mem_tree_chunks SET tags_json = ?2 WHERE id = ?1",
             (&gmail.id, json!(["sent", "provider:gmail"]).to_string()),
+        )?;
+        conn.execute(
+            "INSERT INTO mem_tree_chunk_embeddings \
+               (chunk_id, model_signature, vector, dim, created_at) \
+             VALUES (?1, 'test-sig', X'00010203', 1, 0.0)",
+            [&gmail.id],
         )?;
         Ok(())
     })
@@ -2086,6 +2192,11 @@ fn memory_retrieval_embedding_and_rpc_model_helpers_round_trip() {
         category: Some(MemoryCategory::Conversation),
         session_id: Some("session-2"),
         min_score: Some(0.5),
+        // Self-echo exclusion is a separate concern from this coverage test's
+        // namespace/category/session assertions below; `None` means "exclude
+        // nothing", matching this literal's pre-existing behavior before the
+        // field was added.
+        exclude_session_id: None,
         cross_session: true,
     };
     assert!(opts.cross_session);
@@ -2620,7 +2731,14 @@ async fn memory_queue_and_tool_memory_public_stores_cover_persistence_edges() {
 async fn memory_source_sync_entrypoint_rejects_disabled_and_ingests_folder_items() {
     let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
-    let config = config_in(&tmp);
+    let _env_workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", module_workspace());
+    let mut config = config_in(&tmp);
+    use_module_workspace(&mut config);
+    wipe_shared_store(&config);
+    // Folder kinds run in-process through `run_source_pipeline_core`, which
+    // takes its memory client from the process global; bind that to the shared
+    // workspace too, or the rows land wherever an earlier case left it.
+    tinymemory_core::global::init(config.workspace_dir.clone()).expect("bind global memory client");
     std::fs::write(
         tmp.path().join("sync-note.md"),
         "# Sync note\n\nAlice documents deterministic source sync coverage.",
@@ -2630,6 +2748,9 @@ async fn memory_source_sync_entrypoint_rejects_disabled_and_ingests_folder_items
     let mut disabled = source(SourceKind::Folder, "src_disabled");
     disabled.path = Some(tmp.path().to_string_lossy().to_string());
     disabled.enabled = false;
+    let disabled_entry = disabled.clone();
+    tinymemory_core::sources::registry::replace_sources_in(&config, &[disabled_entry.clone()])
+        .expect("register the disabled source the driver will look up");
     assert!(sync_source(disabled, Arc::new(config.clone()))
         .await
         .unwrap_err()
@@ -2638,6 +2759,13 @@ async fn memory_source_sync_entrypoint_rejects_disabled_and_ingests_folder_items
     let mut folder = source(SourceKind::Folder, "src_sync");
     folder.path = Some(tmp.path().to_string_lossy().to_string());
     folder.glob = Some("sync-note.md".into());
+    // The sync runs inside the bound driver, which resolves the source by id
+    // from the shared registry rather than from the entry handed in here.
+    tinymemory_core::sources::registry::replace_sources_in(
+        &config,
+        &[disabled_entry, folder.clone()],
+    )
+    .expect("register the sources the driver will look up");
     sync_source(folder, Arc::new(config.clone()))
         .await
         .expect("queue folder sync");
@@ -2658,9 +2786,15 @@ async fn memory_source_sync_entrypoint_rejects_disabled_and_ingests_folder_items
         }
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
+    let seen: Vec<String> = with_connection(&config, |conn| {
+        let mut stmt = conn.prepare("SELECT DISTINCT source_id FROM mem_tree_chunks")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    })
+    .expect("list source ids");
     assert!(
         synced_rows > 0,
-        "folder sync should ingest at least one chunk"
+        "folder sync should ingest at least one chunk; store holds source_ids={seen:?}"
     );
 
     let mut twitter = source(SourceKind::TwitterQuery, "src_twitter_sync");
@@ -3786,8 +3920,9 @@ async fn threads_title_generation_branches_cover_noop_and_not_found_paths() {
 async fn memory_sources_registry_rpc_and_schema_handlers_cover_crud_edges() {
     let _lock = env_lock();
     let tmp = TempDir::new().expect("tempdir");
-    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
-    Config::load_or_init().await.expect("init isolated config");
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", module_workspace());
+    let config = Config::load_or_init().await.expect("init isolated config");
+    wipe_shared_store(&config);
     std::fs::write(tmp.path().join("reader-note.md"), "# Reader note").expect("write note");
 
     let schemas = all_memory_sources_controller_schemas();
@@ -4010,13 +4145,7 @@ async fn memory_ops_public_handlers_cover_document_file_kv_graph_and_envelopes_b
     let _lock = env_lock();
     ensure_memory_seams();
     let tmp = TempDir::new().expect("tempdir");
-    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
-    #[cfg(feature = "modules")]
-    {
-        let mut config = Config::default();
-        config.workspace_dir = tmp.path().to_path_buf();
-        openhuman_core::openhuman::modules::memory::set_modules_policy(Arc::new(config));
-    }
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", module_workspace());
 
     let init = openhuman_core::openhuman::memory::ops::memory_init(MemoryInitRequest {
         jwt_token: Some("ignored-token".into()),
@@ -4510,15 +4639,10 @@ async fn memory_tree_retrieval_rpc_and_schema_wrappers_cover_empty_and_invalid_p
              pinned artifact predates RetrieveSource"]
 async fn memory_query_backend_and_tree_flush_wrappers_cover_public_edges() {
     let _lock = env_lock();
-    // The query tools resolve a bound memory driver, and binding one needs the
-    // module policy an integration test never boots. Publishing it here is
-    // safe: each raw-coverage module runs in its own process.
-    #[cfg(feature = "modules")]
-    openhuman_core::openhuman::modules::memory::set_modules_policy(std::sync::Arc::new(
-        Config::default(),
-    ));
+    // The query tools resolve a bound memory driver; `module_workspace` is
+    // where that driver lives for this whole process.
     let tmp = TempDir::new().expect("tempdir");
-    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _workspace = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", module_workspace());
     let mut config = Config::load_or_init().await.expect("init isolated config");
     config.memory_tree.embedding_endpoint = None;
     config.memory_tree.embedding_model = None;

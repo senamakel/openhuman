@@ -5,7 +5,7 @@
 
 use std::collections::VecDeque;
 use std::net::SocketAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -83,6 +83,32 @@ fn json_rpc_e2e_env_lock() -> std::sync::MutexGuard<'static, ()> {
     }
 }
 
+/// The one memory workspace every case in this binary shares.
+///
+/// The module host captures a workspace **once per process** — `set_modules_policy`
+/// ignores later calls, and the loaded artifact takes its `workspace_dir` at load
+/// time — while each case below gets its own `HOME`. Production never has that
+/// mismatch: boot publishes the runtime config, so the module and the RPC
+/// handlers name one object. This reproduces that arrangement by pointing both
+/// at a single path — the policy below is built from it, and the cases that mix
+/// contract-routed writes with direct-SQLite reads export it as
+/// `OPENHUMAN_WORKSPACE`, which `config::schema::load::env_overlay` honours.
+///
+/// The path ends in `workspace` on purpose: `resolve_config_dir_for_workspace`
+/// treats such a path as the workspace dir itself rather than appending another
+/// `workspace` segment, so the env var and this constant agree exactly.
+fn json_rpc_e2e_shared_workspace() -> &'static Path {
+    static SHARED: OnceLock<PathBuf> = OnceLock::new();
+    SHARED.get_or_init(|| {
+        let tmp = tempdir().expect("shared memory workspace tempdir");
+        let path = tmp.path().join("workspace");
+        std::fs::create_dir_all(&path).expect("shared memory workspace dir");
+        // Outlives every case in the binary; the OS reaps it with the tmpdir.
+        std::mem::forget(tmp);
+        path
+    })
+}
+
 /// The transport-only JSON-RPC router deliberately does not construct a core
 /// runtime context. Install its memory seams once for this integration-test
 /// binary before any router can dispatch a memory-backed method.
@@ -92,7 +118,10 @@ fn ensure_json_rpc_e2e_memory_seams() {
             .name("json-rpc-e2e-memory-seams".to_string())
             .stack_size(8 * 1024 * 1024)
             .spawn(|| {
-                let config = Arc::new(openhuman_core::openhuman::config::Config::default());
+                let config = Arc::new(openhuman_core::openhuman::config::Config {
+                    workspace_dir: json_rpc_e2e_shared_workspace().to_path_buf(),
+                    ..openhuman_core::openhuman::config::Config::default()
+                });
                 openhuman_core::openhuman::memory::host_impls::install_memory_host_seams(
                     config.clone(),
                 );
@@ -4199,7 +4228,11 @@ async fn json_rpc_memory_sync_and_learn() {
     let openhuman_home = home.join(".openhuman");
 
     let _home_guard = EnvVarGuard::set_to_path("HOME", home);
-    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    // Share the module's workspace: this case ingests through the memory
+    // contract and reads back through direct SQLite, so the two must name
+    // one store. See `json_rpc_e2e_shared_workspace`.
+    let _workspace_guard =
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", json_rpc_e2e_shared_workspace());
     let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
     let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
     let _embed_strict_guard = EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_STRICT", "false");
@@ -4254,6 +4287,83 @@ async fn json_rpc_memory_sync_and_learn() {
     // ── memory.init: explicit one-shot bootstrap (no auto-init fallback) ────
     let init_resp = post_json_rpc(&rpc_base, 7003, "openhuman.memory_init", json!({})).await;
     assert_no_jsonrpc_error(&init_resp, "memory_init");
+
+    // The assertions below are about an EMPTY store, and the workspace is now
+    // shared with the other memory cases in this binary (see
+    // `json_rpc_e2e_shared_workspace`), so whatever ran earlier is still in it.
+    // Re-scoping cannot express these: `namespaces_processed`, `queue_depth`
+    // and "ingestion is idle" are properties of the whole store, not of one
+    // source. So clear it first.
+    //
+    // This is safe only because the coverage lane runs this target serially —
+    // `scripts/ci/rust-coverage-changed.sh`, in `run_integration_target()`:
+    //   llvm_cov ... --test "${target}" -- --test-threads=1
+    // If that ever stops being true, a concurrent case would have its store
+    // wiped underneath it and this is the line that made that possible.
+    let wiped = post_json_rpc(&rpc_base, 7099, "openhuman.memory_tree_wipe_all", json!({})).await;
+    assert_no_jsonrpc_error(&wiped, "memory_tree_wipe_all before fresh-store checks");
+
+    // ── ...and the wipe is not enough on its own ────────────────────────────
+    //
+    // `memory_tree_wipe_all` reaches the driver through
+    // `binding::for_config(config)` — *this* case's workspace. The namespace
+    // assertions below read through `active_memory_guard()`. Those are the same
+    // binding here, but they are not the same **store**: the memory module is a
+    // native module loaded once per process, and it captures the first workspace
+    // it is given. Every later binding in this binary — one per case, each with
+    // its own tempdir — is a different `MemoryBinding` over that one captured
+    // store.
+    //
+    // So a namespace another case wrote is visible to `list_namespaces` here and
+    // is not reachable by a `purge_all` scoped to this workspace: after the wipe
+    // above reports its rows deleted, a second wipe reports `rows_deleted: 0`
+    // while `namespace_list` still answers with the other case's namespace. That
+    // asymmetry is the one-workspace-per-process property, not a defect in
+    // `wipe_all`; a `purge_all` that reached across workspaces would be the real
+    // bug the day a host binds two.
+    //
+    // openhuman#5779 is what made it bite. Before it, a session agent's memory
+    // came from `create_session_memory_with_local_ai` — an engine-built store
+    // over that case's own workspace files, invisible here. #5779 routed session
+    // memory onto `DriverMemory::for_subtree` (correctly: that is the point of
+    // #5560), and the driver is the shared module — so an agent turn in an
+    // earlier case now files `conversation_raw` where this case can see it.
+    //
+    // Draining through `memory_clear_namespace` is what makes this deterministic:
+    // it takes `active_memory_guard()` + `as_documents()`, the exact path
+    // `list_namespaces` reads through, so "cleared" and "listed" cannot disagree
+    // by construction. Do not replace this with a bigger wipe — no wipe scoped to
+    // a workspace can empty a store shared by every workspace in the process.
+    async fn list_namespaces(rpc_base: &str, id: i64) -> Vec<Value> {
+        let listed =
+            post_json_rpc(rpc_base, id, "openhuman.memory_namespace_list", json!({})).await;
+        assert_no_jsonrpc_error(&listed, "memory_namespace_list");
+        listed["result"]["result"]
+            .as_array()
+            .unwrap_or_else(|| panic!("namespace_list must answer an array, got: {listed}"))
+            .clone()
+    }
+
+    let leftover = list_namespaces(&rpc_base, 7100).await;
+    for namespace in &leftover {
+        let cleared = post_json_rpc(
+            &rpc_base,
+            7101,
+            "openhuman.memory_clear_namespace",
+            json!({ "namespace": namespace }),
+        )
+        .await;
+        assert_no_jsonrpc_error(
+            &cleared,
+            "memory_clear_namespace draining a shared namespace",
+        );
+    }
+    let remaining = list_namespaces(&rpc_base, 7102).await;
+    assert!(
+        remaining.is_empty(),
+        "draining through the same family the assertions read through must empty the \
+         listing; started with {leftover:?}, still holding {remaining:?}"
+    );
 
     // ── memory_learn_all: no namespaces → zero processed (empty store) ──────
     let learn_all = post_json_rpc(&rpc_base, 7004, "openhuman.memory_learn_all", json!({})).await;
@@ -4512,7 +4622,11 @@ async fn json_rpc_memory_diff_snapshot_diff_and_read_marker_lifecycle() {
     let openhuman_home = home.join(".openhuman");
 
     let _home_guard = EnvVarGuard::set_to_path("HOME", home);
-    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    // Share the module's workspace: this case ingests through the memory
+    // contract and reads back through direct SQLite, so the two must name
+    // one store. See `json_rpc_e2e_shared_workspace`.
+    let _workspace_guard =
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", json_rpc_e2e_shared_workspace());
     let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
     let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
     // Fall back to the inert (zero-vector) embedder; CI has no local Ollama.
@@ -13119,7 +13233,11 @@ async fn json_rpc_memory_sources_reconcile_reports_pending_raw_files() {
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
     let _home_guard = EnvVarGuard::set_to_path("HOME", home);
-    let _ws_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", home);
+    // `reconcile_rpc` resolves the bound driver (`as_source_sync`), so it reads
+    // the module's store while the raw files below are planted on disk. Both
+    // must name one workspace — see `json_rpc_e2e_shared_workspace`.
+    let _ws_guard =
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", json_rpc_e2e_shared_workspace());
     let _action_guard = EnvVarGuard::set_to_path("OPENHUMAN_ACTION_DIR", home);
     let _backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
 
@@ -13149,10 +13267,10 @@ async fn json_rpc_memory_sources_reconcile_reports_pending_raw_files() {
 
     // 2. Plant two uncovered raw archive files where a fetch would write
     //    them: <workspace>/memory_tree/content/raw/github-com-owner-repo/.
-    //    With OPENHUMAN_WORKSPACE=$home and no config.toml, the resolved
-    //    workspace dir is $home/workspace (resolve_config_dir_for_workspace).
-    let commits_dir = home
-        .join("workspace")
+    //    `OPENHUMAN_WORKSPACE` is the shared workspace above, and its basename
+    //    is `workspace`, so `resolve_config_dir_for_workspace` returns it
+    //    unchanged rather than appending a second segment.
+    let commits_dir = json_rpc_e2e_shared_workspace()
         .join("memory_tree")
         .join("content")
         .join("raw")

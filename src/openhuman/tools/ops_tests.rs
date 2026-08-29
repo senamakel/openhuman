@@ -54,7 +54,6 @@ fn store_test_session_token(config: &Config) {
 fn integration_test_config(tmp: &TempDir, backend_url: &str) -> Config {
     let mut cfg = test_config(tmp);
     cfg.api_url = Some(backend_url.to_string());
-    cfg.integrations.apify.enabled = true;
     cfg.integrations.google_places.enabled = true;
     cfg.integrations.parallel.enabled = true;
     cfg.integrations.tinyfish.enabled = true;
@@ -1100,7 +1099,6 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
     let http = crate::openhuman::config::HttpRequestConfig::default();
     let mut cfg = test_config(&tmp);
     cfg.api_url = Some("https://backend.example.test".to_string());
-    cfg.integrations.apify.enabled = true;
     cfg.integrations.google_places.enabled = true;
     cfg.integrations.parallel.enabled = true;
     cfg.integrations.tinyfish.enabled = true;
@@ -1127,9 +1125,6 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
     assert_contains_all(
         &names,
         &[
-            "apify_run_actor",
-            "apify_get_run_status",
-            "apify_get_run_results",
             "google_places_search",
             "google_places_details",
             "parallel_search",
@@ -1275,83 +1270,6 @@ fn all_tools_omits_search_surface_when_search_is_disabled() {
             "did not expect search tool `{search_tool}` when search is disabled; got: {names:?}"
         );
     }
-}
-
-#[tokio::test]
-async fn all_tools_executes_apify_family_against_fake_backend() {
-    let backend = integration_test_support::spawn_fake_integration_backend().await;
-    let tmp = TempDir::new().unwrap();
-    let cfg = integration_test_config(&tmp, &backend.base_url);
-    store_test_session_token(&cfg);
-    let tools = integration_tools_for_config(&tmp, &cfg);
-
-    let run = find_tool(&tools, "apify_run_actor")
-        .execute(serde_json::json!({
-            "actor_id": "apify/linkedin-profile-scraper",
-            "input": { "profile": "alice" },
-            "sync": true,
-            "timeout_secs": 45,
-            "memory_mbytes": 512
-        }))
-        .await
-        .expect("apify_run_actor execute");
-    let run_display = run.output_for_llm(true);
-    assert!(run_display.contains("apify/linkedin-profile-scraper"));
-    assert!(!run_display.contains("run-apify-linkedin-profile-scraper"));
-    let run_payload = only_json_content(&run);
-    assert_eq!(
-        run_payload["run_id"],
-        serde_json::json!("run-apify-linkedin-profile-scraper")
-    );
-
-    let status = find_tool(&tools, "apify_get_run_status")
-        .execute(serde_json::json!({ "run_id": "run-apify-linkedin-profile-scraper" }))
-        .await
-        .expect("apify_get_run_status execute");
-    let status_display = status.output_for_llm(true);
-    let status_prose = status_display
-        .split("[apify_run_ref]")
-        .next()
-        .expect("status prose before ref");
-    assert!(status_display.contains("Status: SUCCEEDED"));
-    assert!(!status_prose.contains("run-apify-linkedin-profile-scraper"));
-    assert!(!status_prose.contains("dataset-run-apify-linkedin-profile-scraper"));
-    assert!(status_display.contains("[apify_run_ref]"));
-    let status_payload = only_json_content(&status);
-    assert_eq!(
-        status_payload["run_id"],
-        serde_json::json!("run-apify-linkedin-profile-scraper")
-    );
-    assert_eq!(
-        status_payload["dataset_id"],
-        serde_json::json!("dataset-run-apify-linkedin-profile-scraper")
-    );
-
-    let results = find_tool(&tools, "apify_get_run_results")
-        .execute(serde_json::json!({
-            "run_id": "run-apify-linkedin-profile-scraper",
-            "limit": 2,
-            "offset": 1
-        }))
-        .await
-        .expect("apify_get_run_results execute");
-    assert!(results.output().contains("Fetched 2 dataset item(s)."));
-    assert!(results
-        .output()
-        .contains("https://example.com/run-apify-linkedin-profile-scraper/1"));
-
-    let requests = backend.requests();
-    assert_eq!(requests.len(), 3);
-    assert_eq!(requests[0].path, "/agent-integrations/apify/run");
-    assert_eq!(
-        requests[0].body["actorId"],
-        serde_json::json!("apify/linkedin-profile-scraper")
-    );
-    assert_eq!(requests[0].body["memoryMbytes"], serde_json::json!(512));
-    assert_eq!(
-        requests[2].path,
-        "/agent-integrations/apify/runs/run-apify-linkedin-profile-scraper/results?limit=2&offset=1"
-    );
 }
 
 #[tokio::test]
@@ -1884,13 +1802,6 @@ async fn artifact_list_through_registry_returns_envelope() {
 // ── Theme: Knowledge & memory ───────────────────────────────────────────────
 
 const KNOWLEDGE_TOOLS: &[&str] = &[
-    "people_list",
-    "people_resolve",
-    "people_score",
-    "people_get",
-    "people_add_alias",
-    "people_record_interaction",
-    "people_refresh_address_book",
     "list_workflows",
     "describe_workflow",
     "read_workflow_resource",
@@ -1899,22 +1810,6 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "create_skill",
     "install_workflow_from_url",
     "uninstall_workflow",
-    "thread_list",
-    "thread_read",
-    "thread_create",
-    "thread_update_title",
-    "thread_update_labels",
-    "thread_message_list",
-    "thread_message_append",
-    "thread_message_update",
-    "thread_title_generate",
-    "thread_turn_state_get",
-    "thread_turn_state_list",
-    "thread_turn_state_clear",
-    "thread_task_board_read",
-    "thread_task_board_write",
-    "thread_delete",
-    "thread_purge_all",
     "learning_list_facets",
     "learning_get_facet",
     "learning_cache_stats",
@@ -1930,9 +1825,6 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
 
 fn knowledge_default_off() -> Vec<&'static str> {
     let mut tools = vec![
-        "people_refresh_address_book",
-        "thread_delete",
-        "thread_purge_all",
         "learning_update_facet",
         "learning_pin_facet",
         "learning_unpin_facet",
@@ -1955,14 +1847,7 @@ fn knowledge_default_off() -> Vec<&'static str> {
 }
 
 fn knowledge_always_on() -> Vec<&'static str> {
-    let mut tools = vec![
-        "people_list",
-        "people_resolve",
-        "thread_list",
-        "thread_create",
-        "learning_list_facets",
-        "learning_cache_stats",
-    ];
+    let mut tools = vec!["learning_list_facets", "learning_cache_stats"];
     // These tools exist only when the skills feature is on (`WorkflowListTool`
     // / `WorkflowRecentRunsTool` — both `#[cfg(feature = "skills")]`).
     if cfg!(feature = "skills") {
@@ -1978,29 +1863,6 @@ fn knowledge_tools_are_registered() {
 
     // Base knowledge tools that are always present
     let mut expected_tools = vec![
-        "people_list",
-        "people_resolve",
-        "people_score",
-        "people_get",
-        "people_add_alias",
-        "people_record_interaction",
-        "people_refresh_address_book",
-        "thread_list",
-        "thread_read",
-        "thread_create",
-        "thread_update_title",
-        "thread_update_labels",
-        "thread_message_list",
-        "thread_message_append",
-        "thread_message_update",
-        "thread_title_generate",
-        "thread_turn_state_get",
-        "thread_turn_state_list",
-        "thread_turn_state_clear",
-        "thread_task_board_read",
-        "thread_task_board_write",
-        "thread_delete",
-        "thread_purge_all",
         "learning_list_facets",
         "learning_get_facet",
         "learning_cache_stats",
@@ -2084,12 +1946,7 @@ fn knowledge_default_off_tools_retained_when_opted_in() {
     let mut tools = expansion_tools_for(&tmp);
     filter_tools_by_user_preference(
         &mut tools,
-        &[
-            "people_refresh_address_book".to_string(),
-            "workflow_manage".to_string(),
-            "thread_destructive".to_string(),
-            "learning_manage".to_string(),
-        ],
+        &["workflow_manage".to_string(), "learning_manage".to_string()],
     );
     let names = tool_names(&tools);
     let off_tools = knowledge_default_off();
@@ -2205,41 +2062,15 @@ async fn health_system_info_through_registry() {
     assert!(out.output_for_llm(false).contains("os"));
 }
 
-// ── Theme: Account & money ──────────────────────────────────────────────────
+// ── Theme: Account & session ────────────────────────────────────────────────
+//
+// The `billing_*`, `team_*` and `referral_*` agent-tool families were removed:
+// money movement and team administration are dashboard surfaces, and their
+// controllers stay registered for the UI. What remains here is read-only
+// account *state* — who is signed in, what is connected — which moved to
+// `settings_agent` when `account_admin_agent` went with those families.
 
-const MONEY_TOOLS: &[&str] = &[
-    "referral_get_stats",
-    "referral_claim",
-    "billing_get_plan",
-    "billing_get_balance",
-    "billing_list_transactions",
-    "billing_get_auto_recharge",
-    "billing_list_cards",
-    "billing_list_coupons",
-    "billing_create_stripe_portal",
-    "billing_purchase_plan",
-    "billing_top_up_credits",
-    "billing_create_coinbase_charge",
-    "billing_create_setup_intent",
-    "billing_update_card",
-    "billing_delete_card",
-    "billing_redeem_coupon",
-    "billing_update_auto_recharge",
-    "team_list",
-    "team_get_usage",
-    "team_get",
-    "team_list_members",
-    "team_list_invites",
-    "team_create",
-    "team_update",
-    "team_delete",
-    "team_switch",
-    "team_join",
-    "team_leave",
-    "team_create_invite",
-    "team_revoke_invite",
-    "team_remove_member",
-    "team_change_member_role",
+const ACCOUNT_TOOLS: &[&str] = &[
     "credential_list",
     "session_state",
     "session_get_user",
@@ -2247,78 +2078,27 @@ const MONEY_TOOLS: &[&str] = &[
     "oauth_list",
 ];
 
-const MONEY_DEFAULT_OFF: &[&str] = &[
-    "billing_purchase_plan",
-    "billing_top_up_credits",
-    "billing_create_coinbase_charge",
-    "billing_create_setup_intent",
-    "billing_update_card",
-    "billing_delete_card",
-    "billing_redeem_coupon",
-    "billing_update_auto_recharge",
-    "team_create",
-    "team_update",
-    "team_delete",
-    "team_switch",
-    "team_join",
-    "team_leave",
-    "team_create_invite",
-    "team_revoke_invite",
-    "team_remove_member",
-    "team_change_member_role",
-];
-
-const MONEY_ALWAYS_ON: &[&str] = &[
-    "billing_get_plan",
-    "billing_list_cards",
-    "team_list",
-    "team_get",
-    "credential_list",
-    "session_state",
-    "oauth_list",
-    "referral_get_stats",
-];
-
 #[test]
-fn money_tools_are_registered() {
+fn account_tools_are_registered() {
     let tmp = TempDir::new().unwrap();
     let names = tool_names(&expansion_tools_for(&tmp));
-    assert_contains_all(&names, MONEY_TOOLS);
+    assert_contains_all(&names, ACCOUNT_TOOLS);
 }
 
 #[test]
-fn money_default_off_tools_are_filtered_when_not_opted_in() {
+fn account_tools_survive_a_narrow_user_preference_set() {
+    // None of these is a user-toggleable family, so a preference snapshot that
+    // names only `file_read` must leave every one of them advertised. This is
+    // the assertion that would catch one of them being quietly added to
+    // `TOOL_FAMILIES` as default-OFF.
     let tmp = TempDir::new().unwrap();
     let mut tools = expansion_tools_for(&tmp);
     filter_tools_by_user_preference(&mut tools, &["file_read".to_string()]);
     let names = tool_names(&tools);
-    for off in MONEY_DEFAULT_OFF {
-        assert!(
-            !names.iter().any(|n| n == off),
-            "default-off tool `{off}` must be filtered out when not opted in; got: {names:?}"
-        );
-    }
-    for on in MONEY_ALWAYS_ON {
+    for on in ACCOUNT_TOOLS {
         assert!(
             names.iter().any(|n| n == on),
-            "always-on tool `{on}` must be retained regardless of preferences"
-        );
-    }
-}
-
-#[test]
-fn money_default_off_tools_retained_when_opted_in() {
-    let tmp = TempDir::new().unwrap();
-    let mut tools = expansion_tools_for(&tmp);
-    filter_tools_by_user_preference(
-        &mut tools,
-        &["billing_writes".to_string(), "team_admin".to_string()],
-    );
-    let names = tool_names(&tools);
-    for on in MONEY_DEFAULT_OFF {
-        assert!(
-            names.iter().any(|n| n == on),
-            "opted-in tool `{on}` must be retained; got: {names:?}"
+            "always-on tool `{on}` must be retained regardless of preferences; got: {names:?}"
         );
     }
 }
@@ -2502,7 +2282,6 @@ fn tool_group_classifies_gate_and_harness_families() {
     assert_eq!(tool_group("memory_store"), DomainGroup::Memory);
     assert_eq!(tool_group("goals_add"), DomainGroup::Memory);
     assert_eq!(tool_group("update_memory_md"), DomainGroup::Memory);
-    assert_eq!(tool_group("thread_list"), DomainGroup::Threads);
     assert_eq!(tool_group("todo_add"), DomainGroup::Threads);
     assert_eq!(tool_group("goal_get"), DomainGroup::Threads);
     assert_eq!(tool_group("artifact_list"), DomainGroup::Agent);
@@ -2519,7 +2298,6 @@ fn tool_group_classifies_gate_and_harness_families() {
     ] {
         assert_eq!(tool_group(name), DomainGroup::Agent);
     }
-    assert_eq!(tool_group("people_list"), DomainGroup::Memory);
     assert_eq!(tool_group("config_snapshot"), DomainGroup::Config);
     assert_eq!(tool_group("workspace_init"), DomainGroup::Config);
     assert_eq!(tool_group("security_policy_info"), DomainGroup::Security);
@@ -2556,7 +2334,7 @@ fn tool_group_gate_families_dropped_under_harness_not_full() {
     }
     // Harness keeps memory/threads, drops gate families AND platform.
     assert!(harness.allows(tool_group("memory_store")));
-    assert!(harness.allows(tool_group("thread_list")));
+    assert!(harness.allows(tool_group("todo_add")));
     assert!(harness.allows(tool_group("artifact_list")));
     assert!(harness.allows(tool_group("config_snapshot")));
     assert!(harness.allows(tool_group("security_policy_info")));
@@ -2693,7 +2471,7 @@ const REPRESENTATIVE: &[(&str, crate::core::all::DomainGroup)] = {
     &[
         ("delegate", G::Agent),
         ("memory_search", G::Memory),
-        ("thread_list", G::Threads),
+        ("todo_add", G::Threads),
         ("mcp_list_servers", G::Mcp),
         ("wallet_get_address", G::Web3),
         ("media_generate_image", G::Media),
@@ -2703,8 +2481,7 @@ const REPRESENTATIVE: &[(&str, crate::core::all::DomainGroup)] = {
         ("run_workflow", G::Skills),
         ("cron_add", G::Automation),
         ("composio_execute", G::Integrations),
-        ("billing_top_up_credits", G::Hosted),
-        ("tinyplace_call", G::Relay),
+        ("orchestration_list_sessions", G::Hosted),
         ("dashboard_model_health", G::Desktop),
         ("node_exec", G::Runtimes),
         ("tinyjuice_retrieve", G::Inference),
@@ -2718,7 +2495,10 @@ const TOOL_LESS: &[crate::core::all::DomainGroup] = {
     // `Modules` is the loader, not a capability: a loaded module's own surface
     // is reached through whichever domain calls it (documents go through the
     // document tools), so the family itself owns no agent tool.
-    &[G::Config, G::Security, G::Medulla, G::Modules]
+    // `Relay` joined this list when the `tinyplace_*` agent-tool family was
+    // removed: the domain still exists and still serves its controllers, it
+    // just advertises no agent tool any more.
+    &[G::Config, G::Security, G::Medulla, G::Modules, G::Relay]
 };
 
 // ---- tool_capability() drift guard (M5.3) ----------------------------------
@@ -2752,17 +2532,7 @@ const MEMORY_TOOL_CAPABILITIES: &[(&str, tinymemory_api::capabilities::Capabilit
 
 /// Memory-family tools that are deliberately NOT driver-backed. Each entry is
 /// an argument, not an omission — see `tool_capability`.
-const MEMORY_TOOLS_NOT_DRIVER_BACKED: &[&str] = &[
-    "update_memory_md",
-    "memory_store_kinds",
-    "people_list",
-    "people_resolve",
-    "people_score",
-    "people_get",
-    "people_add_alias",
-    "people_record_interaction",
-    "people_refresh_address_book",
-];
+const MEMORY_TOOLS_NOT_DRIVER_BACKED: &[&str] = &["update_memory_md", "memory_store_kinds"];
 
 /// Every `DomainGroup::Memory` tool must be a deliberate decision in
 /// [`tool_capability`]: either it maps to a capability, or it is listed as
@@ -2892,8 +2662,7 @@ const OPTIONAL_FAMILY_MEMORY_TOOLS: &[&str] = &[
 
 /// Memory-family tools that remain available when a null driver deliberately
 /// disables every driver-backed capability.
-const ALWAYS_PRESENT_MEMORY_TOOLS: &[&str] =
-    &["update_memory_md", "memory_store_kinds", "people_list"];
+const ALWAYS_PRESENT_MEMORY_TOOLS: &[&str] = &["update_memory_md", "memory_store_kinds"];
 
 /// The ~4000-pre-boot-test default-open property, asserted once directly: with
 /// no ambient context at all the capability filter removes nothing.
@@ -3011,7 +2780,7 @@ async fn narrow_capabilities_do_not_narrow_the_domain_axis() {
         Some(null_driver_memory_cfg()),
     );
     let names = CoreContext::scope(ctx, async { tool_names(&expansion_tools_for(&tmp)) }).await;
-    for name in ["shell", "file_read", "file_write", "thread_list"] {
+    for name in ["shell", "file_read", "file_write", "todo_add"] {
         assert!(
             names.iter().any(|n| n == name),
             "a narrowed memory capability set must not remove `{name}`"

@@ -5,6 +5,7 @@
  * preview banner. No live agent, no core RPC.
  */
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
 import DemoScaleBanner from './DemoScaleBanner';
 import { DEMO_CHAT } from './medullaDemoData';
 
@@ -22,7 +23,7 @@ export default function MedullaDemoChat() {
               // Sub-agent activity line — a compact, centered status row.
               return (
                 <div key={msg.id} className="flex items-center justify-center gap-2">
-                  <span className="h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-primary-500" />
+                  <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary-500" />
                   <span className="font-mono text-[11px] text-content-muted">{t(msg.textKey)}</span>
                 </div>
               );
@@ -52,11 +53,13 @@ export default function MedullaDemoChat() {
             className="flex-1 cursor-not-allowed select-none rounded-xl border border-line bg-surface-subtle px-4 py-2.5 text-sm text-content-faint">
             {t('orchPage.demo.chat.composerDisabled')}
           </div>
-          <button
-            type="button"
+          <Button
+            variant="tertiary"
+            size="md"
+            iconOnly
             disabled
             aria-label={t('orchPage.demo.chat.composerDisabled')}
-            className="flex h-9 w-9 flex-shrink-0 cursor-not-allowed items-center justify-center rounded-xl bg-surface-subtle text-content-faint">
+            className="h-9 w-9 shrink-0 cursor-not-allowed rounded-xl bg-surface-subtle text-content-faint disabled:pointer-events-auto disabled:opacity-100">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -65,7 +68,7 @@ export default function MedullaDemoChat() {
                 d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
               />
             </svg>
-          </button>
+          </Button>
         </div>
       </div>
     </div>

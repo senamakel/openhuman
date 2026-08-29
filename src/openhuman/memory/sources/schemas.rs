@@ -594,6 +594,18 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Number of sync tasks spawned.",
                     required: true,
                 },
+                FieldSchema {
+                    name: "sync_failed",
+                    ty: TypeSchema::U64,
+                    comment: "Number of enabled sources whose sync trigger failed (openhuman#5820).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "sync_errors",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "One `<source_id>: <error>` line per failed trigger; absent when none failed.",
+                    required: false,
+                },
             ],
         },
         "coding_session_status" => ControllerSchema {
@@ -735,9 +747,11 @@ fn handle_coding_session_status(_params: Map<String, Value>) -> ControllerFuture
 
 fn handle_ingest_coding_sessions(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let req = parse_value::<tinymemory_core::tinycortex::CodingSessionIngestRequest>(
-            Value::Object(params),
-        )?;
+        // `rpc::CodingSessionIngestRequest`, not the engine path: this adapter
+        // names its own domain's request type, the way every sibling here does.
+        // See the re-export's docs in `rpc.rs` for why the type is still the
+        // engine's underneath (#5560).
+        let req = parse_value::<rpc::CodingSessionIngestRequest>(Value::Object(params))?;
         to_json(rpc::ingest_coding_sessions_rpc(req).await?)
     })
 }

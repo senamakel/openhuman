@@ -14,26 +14,22 @@
  * - Allowed tools open a searchable modal with chip-style selection; each tool
  *   shows its description. `["*"]` means "all tools".
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LuPlus, LuSearch, LuX } from 'react-icons/lu';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import {
-  agentRegistryApi,
-  type AgentRegistryEntry,
-  type AgentToolInfo,
-} from '../../../services/api/agentRegistryApi';
+import { agentRegistryApi, type AgentRegistryEntry } from '../../../services/api/agentRegistryApi';
+import { Alert, AlertDescription } from '../../ui/Alert';
+import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
-import {
-  SettingsRow,
-  SettingsSection,
-  SettingsSelect,
-  SettingsTextArea,
-  SettingsTextField,
-} from '../controls';
+import Card from '../../ui/Card';
+import Field from '../../ui/Field';
+import { CenteredLoadingState } from '../../ui/LoadingState';
+import NativeSelect from '../../ui/NativeSelect';
+import TextArea from '../../ui/TextArea';
+import TextField from '../../ui/TextField';
 import SettingsPanel from '../layout/SettingsPanel';
-import { settingsNavState } from '../modal/settingsOverlay';
+import { AgentEditorToolsField } from './AgentEditorToolsPicker';
 
 // Known model options — mirrors the Rust tier constants + route hints
 // (src/openhuman/config/schema/types.rs, inference/provider/router.rs).
@@ -60,7 +56,6 @@ const MODEL_TIERS = [
 ];
 const KNOWN_MODELS = new Set([...MODEL_HINTS, ...MODEL_TIERS]);
 const CUSTOM_MODEL = '__custom__';
-const ALL_TOOLS = '*';
 
 function slugify(name: string): string {
   return name
@@ -75,10 +70,7 @@ const AgentEditorPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeId } = useParams<{ id: string }>();
-  const backToList = useCallback(
-    () => navigate('/settings/agents', settingsNavState(location)),
-    [navigate, location]
-  );
+  const backToList = useCallback(() => navigate('/settings/agents'), [navigate, location]);
   const isCreate = !routeId;
 
   const [loading, setLoading] = useState(!isCreate);
@@ -97,7 +89,6 @@ const AgentEditorPage = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toolsOpen, setToolsOpen] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -150,8 +141,6 @@ const AgentEditorPage = () => {
     setName(value);
     if (isCreate && !idTouched) setAgentId(slugify(value));
   };
-
-  const allToolsSelected = toolAllowlist.length === 1 && toolAllowlist[0] === ALL_TOOLS;
 
   const canSubmit =
     !submitting &&
@@ -208,21 +197,20 @@ const AgentEditorPage = () => {
       title={isCreate ? t('settings.agents.newAgent') : name || t('settings.agents.newAgent')}
       description={t('settings.agents.subtitle')}>
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-content-faint">
-          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
-          <span className="text-sm">{t('common.loading')}</span>
-        </div>
+        <CenteredLoadingState label={t('common.loading')} className="py-12" />
       ) : loadError ? (
-        <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-          {t('settings.agents.loadError')}: {loadError}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {t('settings.agents.loadError')}: {loadError}
+          </AlertDescription>
+        </Alert>
       ) : !isCreate && !isCustom ? (
         // Built-in agents can't be edited; they may only be enabled/disabled
         // or reset from the agents list.
         <div className="space-y-3">
-          <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-content-secondary dark:bg-surface">
-            {t('settings.agents.editor.builtInReadonly')}
-          </div>
+          <Alert variant="default">
+            <AlertDescription>{t('settings.agents.editor.builtInReadonly')}</AlertDescription>
+          </Alert>
           <Button type="button" variant="secondary" size="sm" onClick={backToList}>
             {t('common.back')}
           </Button>
@@ -230,14 +218,14 @@ const AgentEditorPage = () => {
       ) : (
         <div className="space-y-4">
           {/* Name — editable only on create; read-only identity on edit. */}
-          <SettingsSection>
+          <Card>
             {isCreate ? (
-              <SettingsRow
+              <Field
                 htmlFor="agent-name"
                 label={t('settings.agents.editor.name')}
                 stacked
                 control={
-                  <SettingsTextField
+                  <TextField
                     id="agent-name"
                     autoFocus
                     value={name}
@@ -247,16 +235,16 @@ const AgentEditorPage = () => {
                 }
               />
             ) : (
-              <SettingsRow
+              <Field
                 label={t('settings.agents.editor.name')}
                 control={
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-content">{name}</span>
-                    <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-medium text-content-muted">
+                    <Badge variant="neutral">
                       {isCustom
                         ? t('settings.agents.sourceCustom')
                         : t('settings.agents.sourceDefault')}
-                    </span>
+                    </Badge>
                   </div>
                 }
               />
@@ -264,13 +252,13 @@ const AgentEditorPage = () => {
 
             {/* ID — editable only on create. */}
             {isCreate ? (
-              <SettingsRow
+              <Field
                 htmlFor="agent-id"
                 label={t('settings.agents.editor.id')}
                 description={t('settings.agents.editor.idHint')}
                 stacked
                 control={
-                  <SettingsTextField
+                  <TextField
                     id="agent-id"
                     mono
                     value={agentId}
@@ -283,20 +271,20 @@ const AgentEditorPage = () => {
                 }
               />
             ) : (
-              <SettingsRow
+              <Field
                 label={t('settings.agents.editor.id')}
                 control={<code className="font-mono text-xs text-content-muted">{agentId}</code>}
               />
             )}
-          </SettingsSection>
+          </Card>
 
-          <SettingsSection>
-            <SettingsRow
+          <Card>
+            <Field
               htmlFor="agent-description"
               label={t('settings.agents.editor.description')}
               stacked
               control={
-                <SettingsTextArea
+                <TextArea
                   id="agent-description"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -305,17 +293,17 @@ const AgentEditorPage = () => {
                 />
               }
             />
-          </SettingsSection>
+          </Card>
 
           {/* Model — dropdown of known hints/tiers + custom escape hatch. */}
-          <SettingsSection>
-            <SettingsRow
+          <Card>
+            <Field
               htmlFor="agent-model"
               label={t('settings.agents.editor.model')}
               stacked
               control={
                 <div className="space-y-2">
-                  <SettingsSelect
+                  <NativeSelect
                     id="agent-model"
                     value={selectValue}
                     onChange={e => onModelSelect(e.target.value)}
@@ -337,9 +325,9 @@ const AgentEditorPage = () => {
                       ))}
                     </optgroup>
                     <option value={CUSTOM_MODEL}>{t('settings.agents.editor.modelCustom')}</option>
-                  </SettingsSelect>
+                  </NativeSelect>
                   {customModelMode && (
-                    <SettingsTextField
+                    <TextField
                       mono
                       value={model}
                       onChange={e => setModel(e.target.value)}
@@ -350,15 +338,15 @@ const AgentEditorPage = () => {
                 </div>
               }
             />
-          </SettingsSection>
+          </Card>
 
-          <SettingsSection>
-            <SettingsRow
+          <Card>
+            <Field
               htmlFor="agent-system-prompt"
               label={t('settings.agents.editor.systemPrompt')}
               stacked
               control={
-                <SettingsTextArea
+                <TextArea
                   id="agent-system-prompt"
                   value={systemPrompt}
                   onChange={e => setSystemPrompt(e.target.value)}
@@ -367,57 +355,19 @@ const AgentEditorPage = () => {
                 />
               }
             />
-          </SettingsSection>
+          </Card>
 
           {/* Allowed tools — chips + modal picker. */}
-          <SettingsSection>
-            <SettingsRow
+          <Card>
+            <Field
               label={t('settings.agents.editor.tools')}
               description={t('settings.agents.editor.toolsHint')}
               stacked
               control={
-                <div className="rounded-md border border-line p-2 dark:border-line-strong">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {allToolsSelected ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-ocean-50 px-2.5 py-1 text-xs font-medium text-ocean-700 dark:bg-ocean-500/10 dark:text-ocean-200">
-                        {t('settings.agents.editor.toolsAllSelected')}
-                      </span>
-                    ) : toolAllowlist.length === 0 ? (
-                      <span className="px-1 py-1 text-xs text-content-faint">
-                        {t('settings.agents.editor.toolsNoneSelected')}
-                      </span>
-                    ) : (
-                      toolAllowlist.map(tool => (
-                        <span
-                          key={tool}
-                          className="inline-flex items-center gap-1 rounded-full bg-surface-subtle px-2.5 py-1 font-mono text-xs text-content-secondary">
-                          {tool}
-                          <button
-                            type="button"
-                            aria-label={t('settings.agents.editor.removeToolAria').replace(
-                              '{tool}',
-                              tool
-                            )}
-                            onClick={() => setToolAllowlist(prev => prev.filter(x => x !== tool))}
-                            className="rounded-full text-content-faint hover:text-coral-600 dark:hover:text-coral-300">
-                            <LuX className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))
-                    )}
-                    <button
-                      type="button"
-                      aria-label={t('settings.agents.editor.selectTools')}
-                      onClick={() => setToolsOpen(true)}
-                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-line-strong px-2.5 py-1 text-xs font-medium text-content-secondary hover:border-ocean-400 hover:text-ocean-600 dark:hover:border-ocean-500 dark:hover:text-ocean-300">
-                      <LuPlus className="h-3 w-3" />
-                      {t('settings.agents.editor.selectTools')}
-                    </button>
-                  </div>
-                </div>
+                <AgentEditorToolsField toolAllowlist={toolAllowlist} onChange={setToolAllowlist} />
               }
             />
-          </SettingsSection>
+          </Card>
 
           {!isCreate && !isCustom && (
             <p className="text-[11px] text-content-faint">
@@ -426,9 +376,9 @@ const AgentEditorPage = () => {
           )}
 
           {error && (
-            <p className="rounded-md border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-              {error}
-            </p>
+            <Alert variant="destructive" className="px-3 py-2 text-xs">
+              <AlertDescription className="text-xs">{error}</AlertDescription>
+            </Alert>
           )}
 
           <div className="flex justify-end gap-2 pt-1">
@@ -450,201 +400,8 @@ const AgentEditorPage = () => {
           </div>
         </div>
       )}
-
-      {toolsOpen && (
-        <ToolsPickerModal
-          allToolsSelected={allToolsSelected}
-          selected={toolAllowlist}
-          onToggleAll={() => setToolAllowlist(prev => (prev[0] === ALL_TOOLS ? [] : [ALL_TOOLS]))}
-          onToggleTool={tool =>
-            setToolAllowlist(prev => {
-              const base = prev[0] === ALL_TOOLS ? [] : prev;
-              return base.includes(tool) ? base.filter(x => x !== tool) : [...base, tool];
-            })
-          }
-          onClose={() => setToolsOpen(false)}
-        />
-      )}
     </SettingsPanel>
   );
 };
-
-function ToolsPickerModal({
-  allToolsSelected,
-  selected,
-  onToggleAll,
-  onToggleTool,
-  onClose,
-}: {
-  allToolsSelected: boolean;
-  selected: string[];
-  onToggleAll: () => void;
-  onToggleTool: (tool: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useT();
-  const [tools, setTools] = useState<AgentToolInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const list = await agentRegistryApi.availableTools();
-      setTools(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return tools;
-    return tools.filter(
-      tool => tool.name.toLowerCase().includes(q) || tool.description.toLowerCase().includes(q)
-    );
-  }, [tools, query]);
-
-  const selectedCount = allToolsSelected ? tools.length : selected.length;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
-      <section className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-xl">
-        <div className="flex items-center justify-between border-b border-line px-4 py-3">
-          <div>
-            <h3 className="text-base font-semibold text-content">
-              {t('settings.agents.editor.toolsModalTitle')}
-            </h3>
-            <p className="text-xs text-content-faint">
-              {t('settings.agents.editor.toolsSelectedCount').replace(
-                '{count}',
-                String(selectedCount)
-              )}
-            </p>
-          </div>
-          <Button
-            iconOnly
-            variant="tertiary"
-            size="xs"
-            type="button"
-            aria-label={t('common.close')}
-            onClick={onClose}>
-            <LuX className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="border-b border-line px-4 py-3">
-          <div className="relative">
-            <LuSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-content-faint" />
-            <SettingsTextField
-              autoFocus
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder={t('settings.agents.editor.toolsSearchPlaceholder')}
-              aria-label={t('settings.agents.editor.toolsSearchPlaceholder')}
-              className="pl-8"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={onToggleAll}
-            className={`mt-2 flex w-full items-start justify-between gap-2 rounded-md border px-3 py-2 text-left transition-colors ${
-              allToolsSelected
-                ? 'border-ocean-400 bg-ocean-50 dark:border-ocean-500/40 dark:bg-ocean-500/10'
-                : 'border-line hover:bg-surface-hover dark:border-line-strong'
-            }`}>
-            <span>
-              <span className="block text-xs font-semibold text-content">
-                {t('settings.agents.editor.toolsAllowAll')}
-              </span>
-              <span className="block text-[11px] text-content-faint">
-                {t('settings.agents.editor.toolsAllowAllHint')}
-              </span>
-            </span>
-            <Checkbox checked={allToolsSelected} />
-          </button>
-        </div>
-
-        <div className="min-h-[8rem] flex-1 overflow-y-auto px-2 py-2">
-          {loading ? (
-            <div className="flex items-center justify-center py-10 text-content-faint">
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
-              <span className="text-sm">{t('settings.agents.editor.toolsLoading')}</span>
-            </div>
-          ) : error ? (
-            <p className="px-2 py-6 text-center text-sm text-coral-600 dark:text-coral-300">
-              {t('settings.agents.editor.toolsLoadError')}: {error}
-            </p>
-          ) : filtered.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm text-content-faint">
-              {t('settings.agents.editor.toolsEmpty')}
-            </p>
-          ) : (
-            <ul>
-              {filtered.map(tool => {
-                const checked = allToolsSelected || selected.includes(tool.name);
-                return (
-                  <li key={tool.name}>
-                    <button
-                      type="button"
-                      disabled={allToolsSelected}
-                      onClick={() => onToggleTool(tool.name)}
-                      className="flex w-full items-start gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50">
-                      <Checkbox checked={checked} className="mt-0.5" />
-                      <span className="min-w-0">
-                        <span className="block font-mono text-xs font-medium text-content">
-                          {tool.name}
-                        </span>
-                        <span className="block break-words text-[11px] leading-snug text-content-muted">
-                          {tool.description}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        <div className="flex justify-end border-t border-line px-4 py-3">
-          <Button type="button" variant="primary" size="sm" onClick={onClose}>
-            {t('settings.agents.editor.toolsDone')}
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Checkbox({ checked, className = '' }: { checked: boolean; className?: string }) {
-  return (
-    <span
-      className={`flex h-4 w-4 flex-none items-center justify-center rounded border transition-colors ${
-        checked
-          ? 'border-ocean-600 bg-ocean-600 text-white'
-          : 'border-line-strong bg-surface dark:border-neutral-600 dark:bg-surface-canvas'
-      } ${className}`}>
-      {checked && (
-        <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.3 3.3 6.8-6.8a1 1 0 011.4 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      )}
-    </span>
-  );
-}
 
 export default AgentEditorPage;

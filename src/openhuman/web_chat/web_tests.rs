@@ -592,29 +592,21 @@ fn classify_inference_error_harness_wall_clock_timeout_is_turn_timeout() {
 }
 
 #[test]
-fn turn_timeout_error_is_suppressed_from_sentry() {
-    // Issue #4746 (maintainer review): a wedged turn that trips the wall-clock
-    // ceiling is a deterministic, user-surfaced, retryable outcome — the client
-    // already gets a graceful `turn_timeout` chat_error, so it must NOT page
-    // Sentry (same tier as the max-iteration cap). `run_chat_task`'s emit site
-    // gates on `sentry_suppression_reason`; assert both the synthetic backstop
-    // marker and the harness `Timeout` renderings are suppressed, while a
-    // genuine provider defect still reports.
+fn outer_backstop_timeout_is_suppressed_from_sentry() {
+    // Issue #4746 (maintainer review): the OUTER web-turn backstop fires when a
+    // turn wedges outside the harness and produces no terminal event at all.
+    // The client already gets a graceful `turn_timeout` chat_error and there is
+    // no in-flight work to report, so it must NOT page Sentry (same tier as the
+    // max-iteration cap). `run_chat_task`'s emit site gates on
+    // `sentry_suppression_reason`.
     let detailed_marker = format!(
         "run_chat_task failed client_id=c thread_id=t request_id=r error={}",
         super::web_errors::turn_timeout_error_message(600)
     );
     assert_eq!(
         sentry_suppression_reason(&detailed_marker),
-        Some("turn wall-clock backstop"),
+        Some("turn wall-clock backstop (no terminal event)"),
         "the synthetic backstop marker must suppress the Sentry emit"
-    );
-    assert_eq!(
-        sentry_suppression_reason(
-            "run timed out: model call for run `abc` exceeded its remaining wall-clock budget (600000 ms)"
-        ),
-        Some("turn wall-clock backstop"),
-        "the harness Timeout rendering must suppress the Sentry emit"
     );
     // A real provider defect is NOT a deterministic agent-loop outcome and must
     // still page.
@@ -623,6 +615,65 @@ fn turn_timeout_error_is_suppressed_from_sentry() {
         None,
         "a genuine provider error must still reach Sentry"
     );
+}
+
+#[test]
+fn harness_timeout_with_work_in_flight_is_reported_to_sentry() {
+    // Issue #5804. The harness `Timeout` used to be suppressed by the same arm
+    // as the outer backstop, so a turn that burned its whole wall-clock budget
+    // doing real work — and discarded every result when it died — reached
+    // telemetry as nothing at all. That is what kept the discarded-turn defect
+    // invisible. The harness only raises this while bounding an in-flight model
+    // or tool call, so by construction work was in flight and it must page.
+    assert_eq!(
+        sentry_suppression_reason(
+            "run timed out: tool call for run `agent_turn` exceeded its remaining wall-clock budget (26375 ms)"
+        ),
+        None,
+        "a harness timeout with work in flight must reach Sentry"
+    );
+    assert_eq!(
+        sentry_suppression_reason(
+            "run timed out: model call for run `abc` exceeded its per-model-call ceiling (120000 ms)"
+        ),
+        None,
+        "a per-model-call ceiling breach must reach Sentry"
+    );
+}
+
+#[test]
+fn timeout_bound_tag_separates_the_two_harness_ceilings() {
+    // The two ceilings are different triage paths: a run that spent its whole
+    // budget on real work vs one call wedged against its own ceiling. Tagging
+    // them alike would rebuild the conflation in the dashboard (#5804).
+    assert_eq!(
+        super::ops::timeout_bound_tag(
+            "run timed out: tool call for run `agent_turn` exceeded its remaining wall-clock budget (26375 ms)"
+        ),
+        "run_remaining"
+    );
+    assert_eq!(
+        super::ops::timeout_bound_tag(
+            "run timed out: model call for run `abc` exceeded its per-model-call ceiling (120000 ms)"
+        ),
+        "per_model_call"
+    );
+    assert_eq!(
+        super::ops::timeout_bound_tag("openrouter API error (500 Internal Server Error)"),
+        "none",
+        "a non-timeout error must not carry a timeout bound"
+    );
+}
+
+#[test]
+fn both_timeout_shapes_still_render_the_same_user_facing_copy() {
+    // The telemetry split must not change what the user sees: either way the
+    // turn ran out of time and the graceful `turn_timeout` copy is correct.
+    let marker = super::web_errors::turn_timeout_error_message(600);
+    let harness =
+        "run timed out: tool call for run `agent_turn` exceeded its remaining wall-clock budget (26375 ms)";
+    assert_eq!(classify_inference_error(&marker).error_type, "turn_timeout");
+    assert_eq!(classify_inference_error(harness).error_type, "turn_timeout");
 }
 
 #[test]

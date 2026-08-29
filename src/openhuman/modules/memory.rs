@@ -48,7 +48,7 @@ use tinymemory_api::capabilities::{Capabilities, Capability};
 /// Checked against the registry pin by `the_capability_list_matches_the_pinned_release`,
 /// so bumping the pin without re-reading the list is a red test rather than a
 /// silent over-claim.
-const ARTIFACT_CAPABILITIES_PIN: &str = "1.2.0";
+pub(crate) const ARTIFACT_CAPABILITIES_PIN: &str = "1.13.3";
 
 /// The capability families the **pinned artifact** actually serves.
 ///
@@ -56,24 +56,34 @@ const ARTIFACT_CAPABILITIES_PIN: &str = "1.2.0";
 /// *contract crate this host compiles against* declares; the loaded `cdylib` is
 /// a specific release and may serve fewer families.
 ///
-/// Read at tag `v1.2.0`, which is where four of the five families that v1.0.1
+/// Re-read at tag `v1.13.3`. v1.13.0 added a `MemoryEvent` variant and two
+/// additive audit fields, v1.13.1 fixed the module's source-registry path,
+/// v1.13.2 fixed the `Embed` wire order, and v1.13.3 fixed folder-source path
+/// resolution; none of those touched families. tinymemory#110 (in v1.13.2)
+/// did add `Scoring`
+/// (`ExtractEntities`, `EmbedText`, `EmbedderSlug`), which the artifact serves
+/// and which `as_scoring` below forwards, so it is advertised here in the same
+/// change, the way `Episodic` arrived with `as_episodic`.
+///
+/// Read at tag `v1.3.0`. Unchanged from v1.2.0 — the release added members
+/// within existing families (`retry_failed`, the diagnostics trio,
+/// `backfill_in_progress`), not families — verified with
+/// `git diff v1.2.0..v1.3.0 -- crates/tinymemory-api/src/capabilities.rs`
+/// returning empty. v1.2.0 is where four of the five families that v1.0.1
 /// lacked arrived: `People`, `Chunks`, `Retrieval` and `Profile` all have bus
 /// members there, so the under-claim that made them unreachable is over.
 ///
-/// **`Episodic` is deliberately still absent, and that is a HOST gap, not an
-/// artifact gap.** The v1.2.0 module does declare the episodic methods
-/// (`InsertTurn`, `SessionTurns`, `OpenSegment`, …), but
-/// [`ModuleMemoryProvider`] does not implement `as_episodic`, so it inherits the
-/// trait default and returns `None`. Advertising a family this host cannot
-/// reach is the same over-claim in a different coat: callers would be told the
-/// capability exists and then get "family unsupported" from the accessor.
-/// Add `Episodic` here in the same change that implements `as_episodic`, not
-/// before.
+/// **`Episodic` is here in the same change that implements `as_episodic`**, as
+/// the previous version of this comment required. The pinned module declares
+/// the episodic methods (`InsertTurn`, `SessionTurns`, `OpenSegment`, …) and
+/// [`ModuleMemoryProvider`] now forwards all of them, so the advertisement is
+/// honest in both directions — the archivist writes its turns and segments
+/// through this family.
 ///
 /// **Widen this only together with the `version` bump in
 /// [`super::registry`].** `the_capability_list_matches_the_pinned_release`
 /// fails if the two drift.
-const ARTIFACT_CAPABILITIES: &[Capability] = &[
+pub(crate) const ARTIFACT_CAPABILITIES: &[Capability] = &[
     Capability::Core,
     Capability::Recall,
     Capability::Ingest,
@@ -94,6 +104,16 @@ const ARTIFACT_CAPABILITIES: &[Capability] = &[
     Capability::Chunks,
     Capability::Retrieval,
     Capability::Profile,
+    Capability::Episodic,
+    // Arrived in v1.7.0 — the sync-execution and coding-session families that
+    // let the host stop reaching into the engine for them. Verified against the
+    // module's declared `methods` list at that tag, which serves all ten.
+    Capability::SourceSync,
+    Capability::CodingSessions,
+    // Arrived in v1.13.2 (tinymemory#110): entity extraction, text embedding
+    // and embedder identification, served by the module's engine and forwarded
+    // by `MemoryScoring for ModuleMemoryProvider` below.
+    Capability::Scoring,
 ];
 
 /// Escape hatch for a locally-built module.
@@ -145,28 +165,40 @@ use tinymemory_api::chunks::Chunk;
 use tinymemory_api::error::MemoryError;
 use tinymemory_api::goals::GoalsDoc;
 use tinymemory_api::health::MemoryHealth;
+use tinymemory_api::provider::sessions::{
+    CodingSessionIngestReport, CodingSessionIngestRequest, CodingSessionSource,
+};
+use tinymemory_api::provider::sync::{
+    RawArchiveCoverage, RawRebuildOutcome, SourceSyncState, SourceSyncStatus, SyncAuditEntry,
+    SyncRunOutcome,
+};
 use tinymemory_api::provider::types::{
-    DiffReport, EntityHit, ExportPage, ExportRecord, ImportOutcome, IngestItem, IngestOutcome,
-    MaintenanceReport, SnapshotRef, SourceItem, SourceScope,
+    ChunkEntityOccurrence, DiffReport, EntityHit, EntityOccurrence, ExportPage, ExportRecord,
+    FlushOutcome, ForgetOutcome, ForgetSelector, ImportOutcome, IngestItem, IngestOutcome,
+    MaintenanceReport, PurgeOutcome, QueueFailure, QueueStats, ResetOutcome, SnapshotRef,
+    SourceItem, SourceScope, StoreStats,
 };
 use tinymemory_api::provider::{
-    AddressBookSeedOutcome, ChunkDetail, ChunkEmbedding, ChunkQuery, CoverWindowQuery, EntityMatch,
-    FacetType, FastRetrieveQuery, MemoryChunks, MemoryCore, MemoryDiff, MemoryDocuments,
-    MemoryEntities, MemoryGoals, MemoryGraph, MemoryIngest, MemoryMaintenance, MemoryPeople,
-    MemoryPortability, MemoryProfile, MemoryProvider, MemoryRecall, MemoryRetrieval,
-    MemorySourceSink, MemoryToolMemory, MemoryTree, PersonHandle, PersonInteraction, PersonRecord,
-    PersonScore, ProfileFacet, RankedPerson, ResolvedPerson, RetrievalHit, RetrievalResponse,
-    SourceRetrievalQuery, UserState,
+    AddressBookSeedOutcome, ChunkDetail, ChunkEmbedding, ChunkListRow, ChunkQuery,
+    ConversationSegment, CoverWindowQuery, Diagnosis, EntityMatch, EpisodicEvent, EpisodicTurn,
+    FacetType, FastRetrieveQuery, MemoryChunks, MemoryCodingSessions, MemoryCore, MemoryDiff,
+    MemoryDocuments, MemoryEntities, MemoryEpisodic, MemoryGoals, MemoryGraph, MemoryIngest,
+    MemoryMaintenance, MemoryPeople, MemoryPortability, MemoryProfile, MemoryProvider,
+    MemoryRecall, MemoryRetrieval, MemoryScoring, MemorySourceSink, MemorySourceSync,
+    MemoryToolMemory, MemoryTree, PersonHandle, PersonInteraction, PersonRecord, PersonScore,
+    ProfileFacet, RankedPerson, ResolvedPerson, RetrievalHit, RetrievalResponse,
+    SourceRetrievalQuery, SourceTotal, UserState,
 };
 use tinymemory_api::recall::OwnedRecallOpts;
 use tinymemory_api::tool_memory::ToolMemoryRule;
-use tinymemory_api::tree::{IngestRequest, QueryResult, TreeStatus};
+use tinymemory_api::tree::{IngestRequest, QueryResult, SummaryForest, TreeLeaf, TreeStatus};
 use tinymemory_api::types::{
     GraphRelationRecord, MemoryCategory, MemoryEntry, MemoryKvRecord, MemoryTaint,
     NamespaceDocumentInput, NamespaceMemoryHit, NamespaceRetrievalContext, NamespaceSummary,
     StoredMemoryDocument,
 };
 use tinymemory_api::wire;
+use tinymemory_bus::names::methods;
 
 use super::{host, ops, registry};
 use crate::openhuman::config::Config;
@@ -519,6 +551,20 @@ impl MemoryProvider for ModuleMemoryProvider {
     fn as_profile(&self) -> Option<&dyn MemoryProfile> {
         artifact_serves(Capability::Profile).then_some(self as &dyn MemoryProfile)
     }
+
+    fn as_source_sync(&self) -> Option<&dyn MemorySourceSync> {
+        artifact_serves(Capability::SourceSync).then_some(self as &dyn MemorySourceSync)
+    }
+
+    fn as_coding_sessions(&self) -> Option<&dyn MemoryCodingSessions> {
+        artifact_serves(Capability::CodingSessions).then_some(self as &dyn MemoryCodingSessions)
+    }
+    fn as_episodic(&self) -> Option<&dyn MemoryEpisodic> {
+        artifact_serves(Capability::Episodic).then_some(self as &dyn MemoryEpisodic)
+    }
+    fn as_scoring(&self) -> Option<&dyn MemoryScoring> {
+        artifact_serves(Capability::Scoring).then_some(self as &dyn MemoryScoring)
+    }
 }
 
 #[async_trait]
@@ -643,7 +689,7 @@ impl MemoryPortability for ModuleMemoryProvider {
 }
 
 macro_rules! module_call {
-    ($self:expr, $operation:literal, $method:literal, $args:expr) => {
+    ($self:expr, $operation:literal, $method:expr, $args:expr) => {
         $self
             .proxy($operation)
             .await?
@@ -660,6 +706,9 @@ impl MemoryIngest for ModuleMemoryProvider {
     }
     async fn ingest_chat(&self, messages: Vec<IngestItem>) -> Result<IngestOutcome, MemoryError> {
         module_call!(self, "ingest_chat", "IngestChat", (messages,))
+    }
+    async fn ingest_email(&self, messages: Vec<IngestItem>) -> Result<IngestOutcome, MemoryError> {
+        module_call!(self, "ingest_email", "IngestEmail", (messages,))
     }
 }
 
@@ -759,6 +808,29 @@ impl MemoryTree for ModuleMemoryProvider {
     async fn cascade(&self, namespace: &str) -> Result<TreeStatus, MemoryError> {
         module_call!(self, "cascade", "Cascade", (namespace,))
     }
+    async fn summary_forest(
+        &self,
+        limit: usize,
+        scope: Option<&SourceScope>,
+    ) -> Result<SummaryForest, MemoryError> {
+        module_call!(self, "summary_forest", "SummaryForest", (limit, scope))
+    }
+
+    async fn flush_source_tree(&self, source_scope: &str) -> Result<u64, MemoryError> {
+        module_call!(
+            self,
+            "flush_source_tree",
+            "FlushSourceTree",
+            (source_scope,)
+        )
+    }
+    async fn recent_leaves(
+        &self,
+        limit: usize,
+        scope: Option<&SourceScope>,
+    ) -> Result<Vec<TreeLeaf>, MemoryError> {
+        module_call!(self, "recent_leaves", "RecentLeaves", (limit, scope))
+    }
 }
 
 #[async_trait]
@@ -799,6 +871,32 @@ impl MemoryEntities for ModuleMemoryProvider {
             "touch_entities",
             "TouchEntities",
             (namespace, entity_ids.to_vec())
+        )
+    }
+    async fn top_entities(
+        &self,
+        kind: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<EntityOccurrence>, MemoryError> {
+        module_call!(self, "top_entities", "TopEntities", (kind, limit))
+    }
+    async fn chunk_entities(
+        &self,
+        chunk_ids: &[String],
+        kinds: Option<&[String]>,
+    ) -> Result<Vec<ChunkEntityOccurrence>, MemoryError> {
+        module_call!(self, "chunk_entities", "ChunkEntities", (chunk_ids, kinds))
+    }
+    async fn entity_chunk_ids(
+        &self,
+        entity_id: &str,
+        limit: usize,
+    ) -> Result<Vec<String>, MemoryError> {
+        module_call!(
+            self,
+            "entity_chunk_ids",
+            "EntityChunkIds",
+            (entity_id, limit)
         )
     }
 }
@@ -953,6 +1051,12 @@ impl MemorySourceSink for ModuleMemoryProvider {
     async fn forget_source(&self, source_id: &str) -> Result<u64, MemoryError> {
         module_call!(self, "forget_source", "ForgetSource", (source_id,))
     }
+    async fn forget_matching(
+        &self,
+        selector: &ForgetSelector,
+    ) -> Result<ForgetOutcome, MemoryError> {
+        module_call!(self, "forget_matching", "ForgetMatching", (selector,))
+    }
 }
 
 #[async_trait]
@@ -968,6 +1072,301 @@ impl MemoryMaintenance for ModuleMemoryProvider {
     }
     async fn doctor(&self) -> Result<MaintenanceReport, MemoryError> {
         module_call!(self, "doctor", "Doctor", ())
+    }
+    async fn retry_failed(&self) -> Result<MaintenanceReport, MemoryError> {
+        module_call!(self, "retry_failed", "RetryFailed", ())
+    }
+    async fn store_stats(&self) -> Result<StoreStats, MemoryError> {
+        module_call!(self, "store_stats", "StoreStats", ())
+    }
+    async fn queue_stats(&self, kind: Option<&str>) -> Result<QueueStats, MemoryError> {
+        module_call!(self, "queue_stats", "QueueStats", (kind,))
+    }
+    async fn latest_queue_failure(&self) -> Result<Option<QueueFailure>, MemoryError> {
+        module_call!(self, "latest_queue_failure", "LatestQueueFailure", ())
+    }
+    async fn backfill_in_progress(&self) -> Result<bool, MemoryError> {
+        module_call!(self, "backfill_in_progress", "BackfillInProgress", ())
+    }
+    async fn flush_pending(&self) -> Result<FlushOutcome, MemoryError> {
+        module_call!(self, "flush_pending", "FlushPending", ())
+    }
+    async fn reset_derived_index(&self) -> Result<ResetOutcome, MemoryError> {
+        module_call!(self, "reset_derived_index", "ResetDerivedIndex", ())
+    }
+    async fn purge_all(&self) -> Result<PurgeOutcome, MemoryError> {
+        module_call!(self, "purge_all", "PurgeAll", ())
+    }
+    async fn diagnose(&self) -> Result<Diagnosis, MemoryError> {
+        module_call!(self, "diagnose", "Diagnose", ())
+    }
+}
+
+/// Bus deadline for the three calls that run a whole source sync inside the
+/// module: `RunConnectionSync`, `RunSourceSync` and `BootstrapConnection`.
+///
+/// tinybus gives every call a 30 s default deadline if nobody sets one, and a
+/// sync is routinely longer than that: one Gmail page is ~31 s end to end, an
+/// initial bootstrap of a connection is minutes. With the default, the caller
+/// was released with "call to `RunSourceSync` timed out after 30000ms" while
+/// the module kept fetching and ingesting, and finished; the UI reported a
+/// failure for work that succeeded (openhuman#5820). Same failure class, same
+/// fix as `IngestCodingSessions` above: the deadline here is the wedged-forever
+/// backstop tinybus requires, not a ceiling anyone is meant to hit.
+///
+/// Sized from the frontend's clamp, `PER_CALL_TIMEOUT_MAX_MS = 600 s`
+/// (`app/src/services/coreRpcClient.ts`): that is the longest wait any RPC
+/// caller can observe, so the bus must outlast it, plus [`INGEST_BUS_GRACE`]
+/// so the client's own abort, with its clean message, is the one that fires
+/// first when a run really does wedge.
+const SOURCE_SYNC_BUS_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(600).saturating_add(INGEST_BUS_GRACE);
+
+#[async_trait]
+impl MemorySourceSync for ModuleMemoryProvider {
+    async fn run_connection_sync(
+        &self,
+        toolkit: &str,
+        connection_id: &str,
+    ) -> Result<SyncRunOutcome, MemoryError> {
+        self.proxy("run_connection_sync")
+            .await?
+            .with_timeout(SOURCE_SYNC_BUS_TIMEOUT)
+            .call("RunConnectionSync", (toolkit, connection_id))
+            .await
+            .map_err(|error| from_bus(&error))
+    }
+    async fn run_source_sync(&self, source_id: &str) -> Result<SyncRunOutcome, MemoryError> {
+        self.proxy("run_source_sync")
+            .await?
+            .with_timeout(SOURCE_SYNC_BUS_TIMEOUT)
+            .call("RunSourceSync", (source_id,))
+            .await
+            .map_err(|error| from_bus(&error))
+    }
+    async fn bootstrap_connection(
+        &self,
+        toolkit: &str,
+        connection_id: &str,
+    ) -> Result<(), MemoryError> {
+        self.proxy("bootstrap_connection")
+            .await?
+            .with_timeout(SOURCE_SYNC_BUS_TIMEOUT)
+            .call("BootstrapConnection", (toolkit, connection_id))
+            .await
+            .map_err(|error| from_bus(&error))
+    }
+    async fn is_toolkit_syncable(&self, toolkit: &str) -> Result<bool, MemoryError> {
+        module_call!(self, "is_toolkit_syncable", "IsToolkitSyncable", (toolkit,))
+    }
+    async fn source_sync_state(
+        &self,
+        toolkit: &str,
+        connection_id: &str,
+    ) -> Result<Option<SourceSyncState>, MemoryError> {
+        module_call!(
+            self,
+            "source_sync_state",
+            "SourceSyncState",
+            (toolkit, connection_id)
+        )
+    }
+    async fn sync_audit_log(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<Vec<SyncAuditEntry>, MemoryError> {
+        module_call!(self, "sync_audit_log", "SyncAuditLog", (limit,))
+    }
+    async fn estimate_sync_cost_usd(
+        &self,
+        input_tokens: u64,
+        output_tokens: u64,
+    ) -> Result<f64, MemoryError> {
+        module_call!(
+            self,
+            "estimate_sync_cost_usd",
+            "EstimateSyncCostUsd",
+            (input_tokens, output_tokens)
+        )
+    }
+    async fn sync_statuses(&self) -> Result<Vec<SourceSyncStatus>, MemoryError> {
+        module_call!(self, "sync_statuses", "SyncStatuses", ())
+    }
+    async fn raw_archive_coverage(
+        &self,
+        tree_scope: &str,
+        archive_source_id: &str,
+    ) -> Result<RawArchiveCoverage, MemoryError> {
+        module_call!(
+            self,
+            "raw_archive_coverage",
+            "RawArchiveCoverage",
+            (tree_scope, archive_source_id)
+        )
+    }
+    async fn rebuild_from_raw_archive(
+        &self,
+        tree_scope: &str,
+        archive_source_id: &str,
+    ) -> Result<RawRebuildOutcome, MemoryError> {
+        module_call!(
+            self,
+            "rebuild_from_raw_archive",
+            "RebuildFromRawArchive",
+            (tree_scope, archive_source_id)
+        )
+    }
+}
+
+#[async_trait]
+impl MemoryCodingSessions for ModuleMemoryProvider {
+    async fn coding_session_status(&self) -> Result<Vec<CodingSessionSource>, MemoryError> {
+        module_call!(self, "coding_session_status", "CodingSessionStatus", ())
+    }
+    /// # Why this one call sets its own bus deadline
+    ///
+    /// Every other member here takes tinybus' `DEFAULT_TIMEOUT`
+    /// (`vendor/tinybus/crates/tinybus/src/connection.rs:56`) — a flat 30 s,
+    /// applied by `Proxy::new` (`proxy.rs:59`) whenever nobody says otherwise.
+    /// That is the right default for a memory read. It is the wrong one here:
+    /// distilling a coding session is several *sequential* model calls, and the
+    /// RPC above it already computes a budget sized to the work
+    /// (`memory::sources::rpc::ingest_budget`, 120 s + 90 s per session, capped
+    /// at 600 s).
+    ///
+    /// So there were two deadlines and the tighter one was the one nobody
+    /// chose. A real 35 s import tripped the 30 s default; the caller was
+    /// released with an error while the module kept working and finished
+    /// seconds later, having imported everything. The UI reported a failure for
+    /// work that had succeeded, and invited a retry that would redo it
+    /// (#5802).
+    ///
+    /// tinybus is explicit that this is the caller's problem to size: *"A
+    /// timeout does not cancel the remote work — tinybus cannot — it stops
+    /// waiting and frees the caller"* (`connection.rs:22-23`). Abandoning the
+    /// call early therefore does not save anything; it only loses the report.
+    ///
+    /// The budget is taken from `ingest_budget` rather than restated, so the
+    /// two layers cannot drift, plus [`INGEST_BUS_GRACE`]. The grace makes the
+    /// ordering deterministic instead of a race between two equal deadlines:
+    /// the RPC's own `tokio::time::timeout` fires first and reports its clean
+    /// structured message, and this deadline survives only as the
+    /// wedged-forever backstop tinybus requires. Same shape as the client's
+    /// `CODING_SESSION_RPC_GRACE_MS` sitting above the server budget.
+    async fn ingest_coding_sessions(
+        &self,
+        request: CodingSessionIngestRequest,
+    ) -> Result<CodingSessionIngestReport, MemoryError> {
+        let deadline = crate::openhuman::memory::sources::rpc::ingest_budget(request.max_sessions)
+            + INGEST_BUS_GRACE;
+        self.proxy("ingest_coding_sessions")
+            .await?
+            .with_timeout(deadline)
+            .call("IngestCodingSessions", (request,))
+            .await
+            .map_err(|error| from_bus(&error))
+    }
+}
+
+/// Head-room added to [`ingest_budget`](crate::openhuman::memory::sources::rpc::ingest_budget)
+/// for the bus deadline on `IngestCodingSessions`.
+///
+/// Exists to order two deadlines, not to allow more work: the RPC's own
+/// wall-clock ceiling must be the one that fires, because its message names the
+/// budget rather than the wire member. Anything comfortably longer than the
+/// scheduling jitter between the two `tokio::time::timeout` arms would do.
+const INGEST_BUS_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+
+#[async_trait]
+impl MemoryEpisodic for ModuleMemoryProvider {
+    async fn insert_turn(&self, turn: &EpisodicTurn) -> Result<i64, MemoryError> {
+        module_call!(self, "insert_turn", "InsertTurn", (turn,))
+    }
+    async fn session_turns(&self, session_id: &str) -> Result<Vec<EpisodicTurn>, MemoryError> {
+        module_call!(self, "session_turns", "SessionTurns", (session_id,))
+    }
+    async fn open_segment(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<ConversationSegment>, MemoryError> {
+        module_call!(self, "open_segment", "OpenSegment", (session_id,))
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "trait signature; see the contract's rationale"
+    )]
+    async fn create_segment(
+        &self,
+        segment_id: &str,
+        session_id: &str,
+        namespace: &str,
+        start_episodic_id: i64,
+        start_seq: Option<u32>,
+        start_timestamp: f64,
+        now: f64,
+    ) -> Result<(), MemoryError> {
+        module_call!(
+            self,
+            "create_segment",
+            "CreateSegment",
+            (
+                segment_id,
+                session_id,
+                namespace,
+                start_episodic_id,
+                start_seq,
+                start_timestamp,
+                now
+            )
+        )
+    }
+    async fn append_turn(
+        &self,
+        segment_id: &str,
+        episodic_id: i64,
+        seq: Option<u32>,
+        timestamp: f64,
+        now: f64,
+    ) -> Result<(), MemoryError> {
+        module_call!(
+            self,
+            "append_turn",
+            "AppendTurn",
+            (segment_id, episodic_id, seq, timestamp, now)
+        )
+    }
+    async fn insert_event(&self, event: &EpisodicEvent) -> Result<(), MemoryError> {
+        module_call!(self, "insert_event", "InsertEvent", (event,))
+    }
+    async fn close_segment(&self, segment_id: &str, now: f64) -> Result<(), MemoryError> {
+        module_call!(self, "close_segment", "CloseSegment", (segment_id, now))
+    }
+    async fn set_segment_summary(
+        &self,
+        segment_id: &str,
+        summary: &str,
+        now: f64,
+    ) -> Result<(), MemoryError> {
+        module_call!(
+            self,
+            "set_segment_summary",
+            "SetSegmentSummary",
+            (segment_id, summary, now)
+        )
+    }
+    async fn upsert_segment_embedding(
+        &self,
+        segment_id: &str,
+        model_signature: &str,
+        embedding: &[f32],
+        created_at: f64,
+    ) -> Result<(), MemoryError> {
+        module_call!(
+            self,
+            "upsert_segment_embedding",
+            "UpsertSegmentEmbedding",
+            (segment_id, model_signature, embedding, created_at)
+        )
     }
 }
 
@@ -1053,6 +1452,32 @@ impl MemoryChunks for ModuleMemoryProvider {
             (chunk_ids, model_signature)
         )
     }
+    async fn count_chunks(
+        &self,
+        query: &ChunkQuery,
+        scope: Option<&SourceScope>,
+    ) -> Result<u64, MemoryError> {
+        module_call!(self, "count_chunks", "CountChunks", (query, scope))
+    }
+    async fn list_chunk_details(
+        &self,
+        query: &ChunkQuery,
+        scope: Option<&SourceScope>,
+    ) -> Result<Vec<ChunkListRow>, MemoryError> {
+        module_call!(
+            self,
+            "list_chunk_details",
+            "ListChunkDetails",
+            (query, scope)
+        )
+    }
+    async fn source_totals(
+        &self,
+        limit: usize,
+        scope: Option<&SourceScope>,
+    ) -> Result<Vec<SourceTotal>, MemoryError> {
+        module_call!(self, "source_totals", "SourceTotals", (limit, scope))
+    }
 }
 
 #[async_trait]
@@ -1109,6 +1534,18 @@ impl MemoryRetrieval for ModuleMemoryProvider {
             "retrieve_leaves",
             "RetrieveLeaves",
             (chunk_ids, scope)
+        )
+    }
+    async fn recall_namespace_recent(
+        &self,
+        namespace: &str,
+        limit: usize,
+    ) -> Result<Vec<NamespaceMemoryHit>, MemoryError> {
+        module_call!(
+            self,
+            "recall_namespace_recent",
+            "RecallNamespaceRecent",
+            (namespace, limit)
         )
     }
     async fn recall_namespace_scored(
@@ -1220,5 +1657,23 @@ impl MemoryProfile for ModuleMemoryProvider {
             .call::<bool>("WorkflowIdentityMatches", (key_pattern, canonical_value))
             .await
             .unwrap_or(false)
+    }
+}
+
+#[async_trait]
+impl MemoryScoring for ModuleMemoryProvider {
+    async fn extract_entities(&self, query: &str) -> Result<Vec<String>, MemoryError> {
+        module_call!(
+            self,
+            "extract_entities",
+            methods::EXTRACT_ENTITIES,
+            (query,)
+        )
+    }
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, MemoryError> {
+        module_call!(self, "embed_text", methods::EMBED_TEXT, (text,))
+    }
+    async fn embedder_slug(&self) -> Result<String, MemoryError> {
+        module_call!(self, "embedder_slug", methods::EMBEDDER_SLUG, ())
     }
 }

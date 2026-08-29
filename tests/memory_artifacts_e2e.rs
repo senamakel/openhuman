@@ -4,6 +4,7 @@
 //! mocked summary record to verify the Obsidian-compatible vault layout and
 //! frontmatter contract without requiring a live summarizer model.
 
+use std::sync::{Arc, OnceLock};
 use tempfile::tempdir;
 
 use chrono::{TimeZone, Utc};
@@ -20,9 +21,30 @@ use tinymemory_core::store::content::wiki_git::{get_read_pointer_tag, set_read_p
 use tinymemory_core::store::content::{SummaryComposeInput, SummaryTreeKind};
 use tinymemory_core::tree_source::registry::get_or_create_source_tree;
 
+static MEMORY_SEAMS_INIT: OnceLock<()> = OnceLock::new();
+
+fn ensure_memory_seams() {
+    MEMORY_SEAMS_INIT.get_or_init(|| {
+        std::thread::Builder::new()
+            .name("memory-artifacts-e2e-seams".to_string())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                openhuman_core::openhuman::memory::host_impls::install_memory_host_seams(Arc::new(
+                    Config::default(),
+                ));
+            })
+            .expect("spawn memory artifact seam installer")
+            .join()
+            .expect("memory artifact seam installer panicked");
+    });
+}
+
 fn make_config(workspace_dir: &std::path::Path) -> Config {
+    ensure_memory_seams();
     let mut config = Config::default();
     config.workspace_dir = workspace_dir.to_path_buf();
+    config.config_path = workspace_dir.join("config.toml");
+    config.embeddings_provider = Some("none".to_string());
     config
 }
 

@@ -18,15 +18,26 @@ export interface NavTab {
   path: string;
   /** Value of `data-walkthrough` attribute on the rendered button, if any. */
   walkthroughAttr?: string;
+  /**
+   * Hide the entry unless the session is a resolved cloud session. Applied by
+   * both rails through `useCloudNavGate()`; see that hook for why the gate is
+   * three terms rather than a token check.
+   */
+  cloudOnly?: boolean;
 }
 
 /**
  * Ordered list of sidebar nav entries:
- *   chat → human → brain → flows → agent-world → connections
+ *   chat → brain → flows → connections → rewards
  *
  * Orchestration (TinyPlace multi-agent coordination) is no longer a top-level
  * tab — it was folded back under Brain as the `/brain?tab=orchestration`
  * sub-tab, so the sidebar stays lean.
+ *
+ * Human has no primary tab: `/human` is reached from the chat composer, whose
+ * primary button becomes the mascot when there is nothing to send (see
+ * `ComposerIdleAction` in `AssistantUiChat`), so a sidebar row would be a
+ * second door to the same place.
  *
  * Settings has no primary tab — it's reached via the gear icon in the sidebar
  * header. Chat is the default landing and the merged Home surface: its empty
@@ -42,20 +53,23 @@ export interface NavTab {
  */
 export const NAV_TABS: NavTab[] = [
   { id: 'chat', labelKey: 'nav.chat', path: '/chat', walkthroughAttr: 'tab-chat' },
-  { id: 'human', labelKey: 'nav.human', path: '/human', walkthroughAttr: 'tab-human' },
   { id: 'brain', labelKey: 'nav.brain', path: '/brain', walkthroughAttr: 'tab-brain' },
   { id: 'flows', labelKey: 'nav.flows', path: '/flows', walkthroughAttr: 'tab-flows' },
-  {
-    id: 'agent-world',
-    labelKey: 'nav.agentWorld',
-    path: '/agent-world',
-    walkthroughAttr: 'tab-agent-world',
-  },
   {
     id: 'connections',
     labelKey: 'nav.connections',
     path: '/connections',
     walkthroughAttr: 'tab-connections',
+  },
+  // Rewards was a footer row beside Feedback; it is a primary destination now,
+  // directly below Connections. The cloud gate travelled with it — a local
+  // session still never sees it, because the page has nothing to show one.
+  {
+    id: 'rewards',
+    labelKey: 'nav.rewards',
+    path: '/rewards',
+    walkthroughAttr: 'tab-rewards',
+    cloudOnly: true,
   },
   // Settings is reached via the gear icon in the sidebar header, so it no
   // longer has its own primary nav tab. Feedback lives in a slim footer row
@@ -89,7 +103,10 @@ interface AvatarMenuItem {
 
 /**
  * Avatar dropdown menu items shown beneath the agent-profile list.
- * Order: Account → Billing → Rewards → Invites → Wallet.
+ * Order: Account → Billing → Invites → Wallet.
+ *
+ * Rewards is not here: it is a primary `NAV_TABS` destination now, and one
+ * door per surface is the point of moving it.
  */
 export const AVATAR_MENU_ITEMS: AvatarMenuItem[] = [
   {
@@ -103,13 +120,6 @@ export const AVATAR_MENU_ITEMS: AvatarMenuItem[] = [
     labelKey: 'nav.avatarMenu.billing',
     target: BILLING_DASHBOARD_URL,
     kind: 'openUrl',
-    cloudOnly: true,
-  },
-  {
-    id: 'rewards',
-    labelKey: 'nav.avatarMenu.rewards',
-    target: '/rewards',
-    kind: 'navigate',
     cloudOnly: true,
   },
   {

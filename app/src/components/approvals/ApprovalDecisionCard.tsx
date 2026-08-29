@@ -42,7 +42,7 @@ export function ApprovalDecisionCard({
       aria-label={ariaLabel}
       data-testid={testId}
       className={[
-        'rounded-xl border border-amber-300 bg-amber-50 p-3 shadow-sm',
+        'rounded-xl border border-amber-300 bg-amber-50 p-3 shadow-xs',
         'dark:border-amber-700 dark:bg-amber-950',
         className,
       ]

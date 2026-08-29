@@ -101,6 +101,19 @@ mod tests {
             let mem = MemoryConfig::default();
             let (provider, model, dims) =
                 tinymemory_core::store::effective_embedding_settings(&mem, local);
+            // The host ported this selection rule verbatim (#5560); the two
+            // copies are independent by design, and this is the one place a
+            // divergence would be caught rather than shipped. Includes the
+            // blank-local edge the rule exists for.
+            for probe in [local, Some("  "), Some(" bge-m3 ")] {
+                assert_eq!(
+                    crate::openhuman::inference::embeddings::effective_embedding_settings(
+                        &mem, probe
+                    ),
+                    tinymemory_core::store::effective_embedding_settings(&mem, probe),
+                    "host and engine embedding selection diverged for {probe:?}"
+                );
+            }
             let live = crate::openhuman::inference::embeddings::create_embedding_provider(
                 &provider, &model, dims,
             )

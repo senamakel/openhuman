@@ -47,5 +47,16 @@ named = [
     "update_check",
     "update_apply",
     "current_time",
+    # Session / credential / OAuth reads, inherited when `account_admin_agent`
+    # was removed with the billing and team tool families. These are read-only
+    # account *state* — which account is signed in, which providers are
+    # connected — which is settings territory; they have nothing to do with
+    # money movement or team administration, the two things that went away.
+    # `credential_list` returns non-secret metadata only.
+    "session_state",
+    "session_get_user",
+    "credential_list",
+    "oauth_connect_url",
+    "oauth_list",
     "ask_user_clarification",
 ]

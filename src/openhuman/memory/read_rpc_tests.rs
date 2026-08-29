@@ -139,6 +139,12 @@ fn insert_raw_chunk(
 #[tokio::test]
 async fn list_chunks_returns_seeded_chunk() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#eng", "hello @alice phoenix migration").await;
     let resp = list_chunks_rpc(&cfg, ChunkFilter::default())
         .await
@@ -151,6 +157,12 @@ async fn list_chunks_returns_seeded_chunk() {
 #[tokio::test]
 async fn list_chunks_filters_by_source_id() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#a", "alpha").await;
     seed_chat_chunk(&cfg, "slack:#b", "beta").await;
     let only_a = list_chunks_rpc(
@@ -170,6 +182,12 @@ async fn list_chunks_filters_by_source_id() {
 #[tokio::test]
 async fn list_chunks_query_substring_works() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#eng", "phoenix migration ships friday").await;
     seed_chat_chunk(&cfg, "slack:#eng", "different unrelated text").await;
     let resp = list_chunks_rpc(
@@ -193,6 +211,12 @@ async fn list_chunks_query_substring_works() {
 #[tokio::test]
 async fn list_chunks_filters_by_source_kind_and_applies_limit_offset() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#a", "first chat").await;
     seed_chat_chunk(&cfg, "slack:#b", "second chat").await;
 
@@ -216,6 +240,12 @@ async fn list_chunks_filters_by_source_kind_and_applies_limit_offset() {
 #[tokio::test]
 async fn list_chunks_filters_by_entity_id_and_time_window() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com handles phoenix").await;
     seed_chat_chunk(&cfg, "slack:#eng", "bob@example.com handles atlas").await;
 
@@ -269,6 +299,12 @@ async fn list_chunks_filters_by_entity_id_and_time_window() {
 #[tokio::test]
 async fn list_chunks_ignores_empty_filter_lists_and_blank_query() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#a", "alpha").await;
     seed_chat_chunk(&cfg, "slack:#b", "beta").await;
 
@@ -294,6 +330,12 @@ async fn list_chunks_ignores_empty_filter_lists_and_blank_query() {
 #[tokio::test]
 async fn list_chunks_normalizes_invalid_tags_negative_tokens_and_empty_content() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     insert_raw_chunk(
         &cfg,
         "raw-empty",
@@ -324,6 +366,12 @@ async fn list_chunks_normalizes_invalid_tags_negative_tokens_and_empty_content()
 #[tokio::test]
 async fn list_sources_aggregates() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#a", "x").await;
     seed_chat_chunk(&cfg, "slack:#a", "y").await;
     seed_chat_chunk(&cfg, "slack:#b", "z").await;
@@ -343,6 +391,12 @@ async fn list_sources_aggregates() {
 #[tokio::test]
 async fn list_sources_formats_email_threads_with_trimmed_user_hint() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     insert_raw_chunk(
         &cfg,
         "email-thread",
@@ -368,6 +422,9 @@ async fn list_sources_formats_email_threads_with_trimmed_user_hint() {
 #[tokio::test]
 async fn entity_index_for_returns_extracted_entities() {
     let (_tmp, cfg) = test_config();
+    // The entity index is read through `MemoryEntities::chunk_entities`, so the
+    // handler needs a driver that serves that family — the null fallback does not.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com owns it").await;
     // Find the chunk we just seeded.
     let chunks = list_chunks_rpc(&cfg, ChunkFilter::default())
@@ -386,6 +443,9 @@ async fn entity_index_for_returns_extracted_entities() {
 #[tokio::test]
 async fn chunks_for_entity_returns_leaf_chunk_ids_only() {
     let (_tmp, cfg) = test_config();
+    // `MemoryEntities::entity_chunk_ids` answers this one; the null fallback
+    // serves no entity tier and would report an empty list.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com owns it").await;
     let chunk_id = list_chunks_rpc(&cfg, ChunkFilter::default())
         .await
@@ -405,6 +465,9 @@ async fn chunks_for_entity_returns_leaf_chunk_ids_only() {
 #[tokio::test]
 async fn top_entities_returns_most_frequent() {
     let (_tmp, cfg) = test_config();
+    // `MemoryEntities::top_entities` answers this one; the null fallback
+    // serves no entity tier and would report an empty ranking.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#a", "alice@example.com x").await;
     seed_chat_chunk(&cfg, "slack:#b", "alice@example.com y").await;
     seed_chat_chunk(&cfg, "slack:#c", "bob@example.com z").await;
@@ -420,6 +483,9 @@ async fn top_entities_returns_most_frequent() {
 #[tokio::test]
 async fn delete_chunk_removes_chunk_and_dependent_rows() {
     let (_tmp, cfg) = test_config();
+    // The delete goes through `MemorySourceSink::forget_matching`, which the null
+    // fallback does not serve — and this handler refuses rather than degrades.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com owns it").await;
     let chunks = list_chunks_rpc(&cfg, ChunkFilter::default())
         .await
@@ -440,6 +506,9 @@ async fn delete_chunk_removes_chunk_and_dependent_rows() {
 #[tokio::test]
 async fn delete_missing_chunk_is_idempotent() {
     let (_tmp, cfg) = test_config();
+    // Idempotence is the driver's, so this needs a driver: without one the handler
+    // refuses outright, which is a different answer from "that chunk was not there".
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     let resp = delete_chunk_rpc(&cfg, "does-not-exist".into())
         .await
         .unwrap()
@@ -448,9 +517,77 @@ async fn delete_missing_chunk_is_idempotent() {
     assert_eq!(resp.score_rows_removed, 0);
 }
 
+/// The one named behaviour delta of the move onto `MemoryEntities::top_entities`,
+/// pinned in both directions.
+///
+/// The member validates `kind` and answers `MemoryError::Invalid` for one it does
+/// not recognise. The SQL this handler used to run compared the string against the
+/// stored column, so an unknown kind matched nothing and the caller got an empty
+/// list. A migration must not turn that quiet empty result into a user-visible
+/// error, so the variant is mapped back — and the second half of this test is what
+/// keeps the map-back narrow rather than a blanket swallow.
+#[tokio::test]
+async fn top_entities_reports_empty_for_an_unknown_kind() {
+    let (_tmp, cfg) = test_config();
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
+    seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com owns it").await;
+
+    let unknown = top_entities_rpc(&cfg, Some("not-a-kind".into()), 10)
+        .await
+        .expect("an unrecognised kind is an empty ranking, not an error")
+        .value;
+    assert!(unknown.is_empty(), "got: {unknown:?}");
+
+    let known = top_entities_rpc(&cfg, Some("email".into()), 10)
+        .await
+        .unwrap()
+        .value;
+    assert!(
+        !known.is_empty(),
+        "a recognised kind must still rank rows; the Invalid map-back is narrow"
+    );
+}
+
+/// `ForgetOutcome` reports `chunks_removed` and `trees_cleaned` and nothing about
+/// the per-chunk side rows, so `DeleteChunkResponse`'s two counts are observed
+/// before the delete rather than read off the outcome. This pins that they are
+/// still real numbers — dropping them to zero would read as "there was nothing to
+/// clean up", which is a different claim from "nobody counted".
+#[tokio::test]
+async fn delete_chunk_still_reports_its_side_row_counts() {
+    let (_tmp, cfg) = test_config();
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
+    seed_chat_chunk(&cfg, "slack:#eng", "alice@example.com owns it").await;
+    let id = list_chunks_rpc(&cfg, ChunkFilter::default())
+        .await
+        .unwrap()
+        .value
+        .chunks[0]
+        .id
+        .clone();
+
+    let indexed = entity_index_for_rpc(&cfg, id.clone()).await.unwrap().value;
+    let indexed_rows: u32 = indexed.iter().map(|entity| entity.count).sum();
+    assert!(
+        indexed_rows > 0,
+        "expected entity-index rows, got: {indexed:?}"
+    );
+
+    let resp = delete_chunk_rpc(&cfg, id).await.unwrap().value;
+    assert!(resp.deleted);
+    assert_eq!(resp.entity_index_rows_removed, indexed_rows);
+    assert_eq!(resp.score_rows_removed, 1, "ingest writes one score row");
+}
+
 #[tokio::test]
 async fn chunk_score_returns_breakdown_after_ingest() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(
         &cfg,
         "slack:#eng",
@@ -473,6 +610,12 @@ async fn chunk_score_returns_breakdown_after_ingest() {
 #[tokio::test]
 async fn search_returns_matching_chunks() {
     let (_tmp, cfg) = test_config();
+    // These handlers read through the bound driver now that the raw SQL is
+    // gone, so the test has to bind one. TinyCortex is the engine the
+    // loadable module wraps, so this exercises the same code production
+    // reaches over the bus — and unlike the module it is not a process
+    // singleton, which is what lets these run in one test binary.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     seed_chat_chunk(&cfg, "slack:#eng", "phoenix migration scheduled friday").await;
     seed_chat_chunk(&cfg, "slack:#eng", "different unrelated text").await;
     let hits = search_rpc(&cfg, "phoenix".into(), 10).await.unwrap().value;
@@ -544,32 +687,44 @@ async fn read_chunk_row_falls_back_to_sqlite_preview_when_file_missing() {
     assert!(row.content_preview.as_deref().unwrap_or("").contains(body));
 }
 
+/// The handler forwards the driver's flush outcome onto the wire unchanged.
+///
+/// The behaviour this test used to stage — an ingest producing a stale buffer,
+/// the second flush deduplicating inside the window — is the *driver's* and
+/// moved with the SQL to the conformance suite
+/// (`flushing_twice_in_a_window_schedules_the_work_once`), where a real store
+/// exists. What is the host's here is only the mapping: both fields pass
+/// through, and the u64→u32 buffer count clamps rather than wraps.
 #[tokio::test]
-async fn flush_now_enqueues_once_and_reports_stale_buffers() {
+async fn flush_now_reports_the_drivers_outcome() {
+    use crate::openhuman::memory::api::provider::types::FlushOutcome;
+
     let (_tmp, cfg) = test_config();
-    seed_chat_chunk(
-        &cfg,
-        "slack:#eng",
-        "Phoenix migration ships Friday after the release checklist closes.",
-    )
-    .await;
-    drain_until_idle(&cfg).await.expect("drain jobs");
-
-    let first = flush_now_rpc(&cfg).await.expect("flush_now first");
-    assert!(first.value.enqueued, "first flush should enqueue work");
-    assert!(
-        first.value.stale_buffers >= 1,
-        "expected at least one stale buffer after ingest"
+    crate::openhuman::memory::binding::install_for_test(
+        &cfg.workspace_dir,
+        &cfg.subsystems.memory,
+        std::sync::Arc::new(
+            crate::openhuman::memory::binding::FixedDiagnostics::new(
+                Default::default(),
+                Default::default(),
+            )
+            .flushing(FlushOutcome {
+                enqueued: false,
+                stale_buffers: u64::from(u32::MAX) + 7,
+            }),
+        ) as std::sync::Arc<dyn crate::openhuman::memory::api::provider::MemoryProvider>,
     );
 
-    let second = flush_now_rpc(&cfg).await.expect("flush_now second");
+    let resp = flush_now_rpc(&cfg).await.expect("flush_now").value;
     assert!(
-        !second.value.enqueued,
-        "same 3-hour window should dedupe duplicate flush triggers"
+        !resp.enqueued,
+        "`enqueued: false` passes through — with a non-zero buffer count it \
+         means \"already scheduled\", not \"nothing to do\""
     );
-    assert!(
-        second.value.stale_buffers >= 1,
-        "deduped flush should still report current stale buffer count"
+    assert_eq!(
+        resp.stale_buffers,
+        u32::MAX,
+        "a count past the wire type's range clamps rather than wraps to a small lie"
     );
 }
 
@@ -701,11 +856,18 @@ fn parse_source_kind_str_accepts_known_values_only() {
     assert_eq!(parse_source_kind_str("unknown"), None);
 }
 
-#[test]
-fn clear_composio_sync_state_removes_only_target_namespace() {
-    let tmp = TempDir::new().unwrap();
-    let _memory = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
-    let db_path = tmp.path().join("memory").join("memory.db");
+/// The namespace clear is routed through the bound driver's key/value tier
+/// (`kv_list` + `kv_delete`) instead of a `rusqlite::Connection` this handler
+/// opened on a path it built itself. The claim is unchanged and is what the
+/// raw read-back below still checks: only the composio namespace goes.
+#[tokio::test]
+async fn clear_composio_sync_state_removes_only_target_namespace() {
+    let (_tmp, cfg) = test_config();
+    // Created up front so the raw fixture rows below have a schema to land in;
+    // the driver installed further down opens this same store.
+    let _memory =
+        UnifiedMemory::new(cfg.workspace_dir.as_path(), Arc::new(NoopEmbedding), None).unwrap();
+    let db_path = cfg.workspace_dir.join("memory").join("memory.db");
     let conn = rusqlite::Connection::open(&db_path).unwrap();
 
     conn.execute(
@@ -722,7 +884,8 @@ fn clear_composio_sync_state_removes_only_target_namespace() {
     .unwrap();
     drop(conn);
 
-    let removed = clear_composio_sync_state(&db_path).unwrap();
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
+    let removed = clear_composio_sync_state(&cfg).await.unwrap();
     assert_eq!(removed, 1);
 
     let conn = rusqlite::Connection::open(&db_path).unwrap();
@@ -793,6 +956,9 @@ fn insert_chunk_with_parent(
 #[tokio::test]
 async fn tree_graph_includes_leaf_chunks_linked_to_their_summary() {
     let (_tmp, cfg) = test_config();
+    // The forest and its leaves are read through `MemoryTree`, so the graph
+    // needs a driver that serves that family — the null fallback does not.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     insert_tree_summary(&cfg, "tree-1", "slack:#eng", "summary:1:L1-aaa", 1);
     insert_chunk_with_parent(
         &cfg,
@@ -843,6 +1009,7 @@ async fn tree_graph_includes_leaf_chunks_linked_to_their_summary() {
 #[tokio::test]
 async fn tree_graph_keeps_summaries_first_then_chunks() {
     let (_tmp, cfg) = test_config();
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     insert_tree_summary(&cfg, "tree-1", "slack:#eng", "summary:1:L1-aaa", 1);
     insert_chunk_with_parent(
         &cfg,
@@ -858,6 +1025,173 @@ async fn tree_graph_keeps_summaries_first_then_chunks() {
     assert_eq!(resp.nodes[0].kind, "source");
     assert!(resp.nodes.iter().any(|n| n.kind == "summary"));
     assert!(resp.nodes.iter().any(|n| n.kind == "chunk"));
+}
+
+/// Insert one `mem_tree_entity_index` row.
+///
+/// Seeded directly because the `person` kind only ever comes from the LLM
+/// extractor, which these tests deliberately do not run — the mechanical
+/// extractor emits `email`/`url`/`handle`/`hashtag` and nothing else.
+fn insert_entity_row(
+    cfg: &Config,
+    entity_id: &str,
+    node_id: &str,
+    entity_kind: &str,
+    surface: &str,
+    timestamp_ms: i64,
+) {
+    with_connection(cfg, |conn| {
+        conn.execute(
+            "INSERT OR REPLACE INTO mem_tree_entity_index (
+                entity_id, node_id, node_kind, entity_kind, surface,
+                score, timestamp_ms, tree_id, is_user
+             ) VALUES (?1, ?2, 'leaf', ?3, ?4, 1.0, ?5, NULL, 0)",
+            params![entity_id, node_id, entity_kind, surface, timestamp_ms],
+        )?;
+        Ok(())
+    })
+    .unwrap();
+}
+
+/// Contacts mode selects chunks by entity *kind* and labels them from one
+/// batched entity read.
+///
+/// The two chunks carry a different number of person rows on purpose. A reader
+/// that indexed the flat `chunk_entities` result by position against the ids it
+/// sent — the trap the contract's docs call out — would attribute the second
+/// chunk's row to the first and still produce two edges, so an asymmetric
+/// fixture is what makes the grouping observable.
+#[tokio::test]
+async fn contacts_graph_selects_person_chunks_and_groups_edges_by_chunk() {
+    let (_tmp, cfg) = test_config();
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
+
+    insert_chunk_with_parent(
+        &cfg,
+        "chunk-a",
+        None,
+        1_700_000_000_002,
+        "alice and bob met",
+    );
+    insert_chunk_with_parent(&cfg, "chunk-b", None, 1_700_000_000_001, "carol shipped it");
+    // No person row: this chunk must not reach the graph at all.
+    insert_chunk_with_parent(&cfg, "chunk-c", None, 1_700_000_000_000, "no people here");
+
+    insert_entity_row(
+        &cfg,
+        "person:alice",
+        "chunk-a",
+        "person",
+        "Alice",
+        1_700_000_000_002,
+    );
+    insert_entity_row(
+        &cfg,
+        "person:bob",
+        "chunk-a",
+        "person",
+        "Bob",
+        1_700_000_000_002,
+    );
+    insert_entity_row(
+        &cfg,
+        "person:carol",
+        "chunk-b",
+        "person",
+        "Carol",
+        1_700_000_000_001,
+    );
+    // A non-person row on a person-bearing chunk: it must not become an edge.
+    insert_entity_row(
+        &cfg,
+        "topic:shipping",
+        "chunk-b",
+        "topic",
+        "shipping",
+        1_700_000_000_001,
+    );
+
+    let resp = graph_export_rpc(&cfg, GraphMode::Contacts)
+        .await
+        .unwrap()
+        .value;
+
+    let chunk_ids: Vec<&str> = resp
+        .nodes
+        .iter()
+        .filter(|n| n.kind == "chunk")
+        .map(|n| n.id.as_str())
+        .collect();
+    assert_eq!(
+        chunk_ids,
+        vec!["chunk-a", "chunk-b"],
+        "only person-bearing chunks, newest first"
+    );
+
+    let mut edges: Vec<(&str, &str)> = resp
+        .edges
+        .iter()
+        .map(|e| (e.from.as_str(), e.to.as_str()))
+        .collect();
+    edges.sort_unstable();
+    assert_eq!(
+        edges,
+        vec![
+            ("chunk-a", "person:alice"),
+            ("chunk-a", "person:bob"),
+            ("chunk-b", "person:carol"),
+        ],
+        "every edge names the chunk its row came from, and the topic row is filtered out"
+    );
+
+    let contacts: std::collections::BTreeSet<(&str, &str)> = resp
+        .nodes
+        .iter()
+        .filter(|n| n.kind == "contact")
+        .map(|n| (n.id.as_str(), n.label.as_str()))
+        .collect();
+    let expected: std::collections::BTreeSet<(&str, &str)> = [
+        ("person:alice", "Alice"),
+        ("person:bob", "Bob"),
+        ("person:carol", "Carol"),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(contacts, expected);
+    assert!(resp
+        .nodes
+        .iter()
+        .filter(|n| n.kind == "contact")
+        .all(|n| n.entity_kind.as_deref() == Some("person")));
+}
+
+/// An empty candidate set must short-circuit, not become an unfiltered read.
+///
+/// The failure this pins is quiet: an empty predicate means *unfiltered* on
+/// this seam, so a batch read handed the empty id list could answer with every
+/// row in the store and the graph would fill with contacts for chunks it never
+/// selected.
+#[tokio::test]
+async fn contacts_graph_with_no_person_chunks_is_empty() {
+    let (_tmp, cfg) = test_config();
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
+    insert_chunk_with_parent(&cfg, "chunk-a", None, 1_700_000_000_000, "no people here");
+    insert_entity_row(
+        &cfg,
+        "topic:shipping",
+        "chunk-a",
+        "topic",
+        "shipping",
+        1_700_000_000_000,
+    );
+
+    let resp = graph_export_rpc(&cfg, GraphMode::Contacts)
+        .await
+        .unwrap()
+        .value;
+
+    assert!(resp.nodes.is_empty(), "nodes: {:?}", resp.nodes);
+    assert!(resp.edges.is_empty(), "edges: {:?}", resp.edges);
 }
 
 #[tokio::test]
@@ -932,6 +1266,16 @@ async fn vault_health_check_reports_missing_content_root_for_fresh_workspace() {
     // baseline so the assertion is deterministic. See #4691.
     let _g = crate::openhuman::memory::tree::health::test_guard();
     let (_tmp, cfg) = test_config();
+    // `vault_health_check_rpc` folds in `pipeline_status_rpc`, which reads
+    // through the bound driver. Bind an empty one explicitly: resolving the
+    // real driver means loading the compiled module, which a test process
+    // can block on rather than fail.
+    crate::openhuman::memory::binding::install_diagnostics_for_test(
+        &cfg.workspace_dir,
+        &cfg.subsystems.memory,
+        Default::default(),
+        Default::default(),
+    );
     let outcome = vault_health_check_rpc(&cfg, None).await.unwrap();
 
     assert!(!outcome.value.exists);
@@ -948,6 +1292,16 @@ async fn vault_health_check_reports_missing_content_root_for_fresh_workspace() {
 #[tokio::test]
 async fn vault_rpcs_report_core_host_os() {
     let (_tmp, cfg) = test_config();
+    // `vault_health_check_rpc` folds in `pipeline_status_rpc`, which reads
+    // through the bound driver. Bind an empty one explicitly: resolving the
+    // real driver means loading the compiled module, which a test process
+    // can block on rather than fail.
+    crate::openhuman::memory::binding::install_diagnostics_for_test(
+        &cfg.workspace_dir,
+        &cfg.subsystems.memory,
+        Default::default(),
+        Default::default(),
+    );
 
     let status = obsidian_vault_status_rpc(&cfg, None).await.unwrap();
     assert_eq!(status.value.host_os, std::env::consts::OS);
@@ -963,6 +1317,21 @@ async fn vault_rpcs_report_core_host_os() {
 #[tokio::test]
 async fn vault_health_check_reports_writable_and_obsidian_registered_when_ready() {
     let (_tmp, cfg) = test_config();
+    // `vault_health_check_rpc` folds in `pipeline_status_rpc`, and
+    // `last_sync_ms` comes from the bound driver rather than from a `SELECT`
+    // over the seeded chunk. The seed below still matters — it is what makes
+    // `content_root` exist, which is what this test is actually about — but
+    // the sync time has to come from a driver that reports one.
+    crate::openhuman::memory::binding::install_diagnostics_for_test(
+        &cfg.workspace_dir,
+        &cfg.subsystems.memory,
+        crate::openhuman::memory::api::provider::types::StoreStats {
+            chunks: 1,
+            chunks_with_structure: 0,
+            most_recent_chunk_ms: Some(1_800_000_000_000),
+        },
+        Default::default(),
+    );
     seed_chat_chunk(
         &cfg,
         "slack:#eng",
@@ -994,7 +1363,7 @@ async fn vault_health_check_reports_writable_and_obsidian_registered_when_ready(
     // correctly reads as unhealthy, so asserting healthy here would be flaky.
     // The health mapping is covered deterministically by the `pipeline_is_healthy`
     // unit tests in `read_rpc/vault.rs`; this test covers the filesystem readiness
-    // wiring. See also `memory_tree::tree::rpc::pipeline_status_reports_chunk_aggregates_after_ingest`.
+    // wiring. See also `memory_tree::tree::rpc::pipeline_status_renders_the_drivers_chunk_aggregates`.
     assert!(outcome.value.last_sync_ms > 0);
     assert!(
         !outcome.logs[0].contains(content_root.to_str().unwrap()),
@@ -1014,6 +1383,10 @@ async fn wipe_all_clears_ingest_gate() {
     use tinymemory_core::store::chunks::store as chunk_store;
 
     let (_tmp, cfg) = test_config();
+    // `wipe_all` asks the bound driver to purge; without one bound the workspace
+    // resolves to the placeholder, which serves no Maintenance family and
+    // refuses rather than reporting a wipe it did not do.
+    crate::openhuman::memory::test_support::install_tinycortex_for_test(&cfg);
     let gate_key = "notion:conn-1:page-abc@1700000000000";
 
     // Claim the gate exactly as a document ingest does.

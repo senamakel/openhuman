@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import { feedbackApi } from '../../services/api/feedbackApi';
 import type { FeedbackItem, FeedbackStatus } from '../../types/feedback';
+import { NativeSelect } from '../ui';
 
 const log = debugFactory('feedback:admin');
 
@@ -50,18 +51,19 @@ export default function FeedbackAdminMenu({ item, onUpdated }: FeedbackAdminMenu
       <label htmlFor={`feedback-status-${item.id}`} className="text-xs text-content-muted">
         {t('feedback.admin.status')}
       </label>
-      <select
+      <NativeSelect
         id={`feedback-status-${item.id}`}
         value={item.status}
         disabled={pending}
         onChange={e => handleChange(e.target.value as FeedbackStatus)}
-        className="text-xs px-2 py-1 rounded-md bg-surface/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50">
+        inputSize="sm"
+        className="text-xs">
         {ADMIN_STATUSES.map(status => (
           <option key={status} value={status}>
             {t(STATUS_LABEL_KEYS[status])}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       {error && <span className="text-xs text-coral-500">{error}</span>}
     </div>
   );

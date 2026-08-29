@@ -38,6 +38,17 @@ pub(crate) fn model_supports_dimensions(model: &str) -> bool {
     model.starts_with("text-embedding-3-")
 }
 
+/// The members of that family, by name, for a consumer that cannot call the
+/// predicate.
+///
+/// The tinymemory module's `EmbeddingHost::model_supports_dimensions` is
+/// synchronous and runs inside the module, so it is told a list at load time
+/// (`modules::ops::module_config`) rather than asking over the bus. Absent from
+/// the list means "does not support it", the safe direction: the engine omits
+/// the parameter instead of writing a batch the provider rejects halfway.
+pub(crate) const MODELS_SUPPORTING_DIMENSIONS: [&str; 2] =
+    ["text-embedding-3-small", "text-embedding-3-large"];
+
 /// Creates an embedding provider based on the specified name and configuration.
 ///
 /// Supported provider names:

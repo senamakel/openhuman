@@ -42,6 +42,7 @@ import {
 } from '../../lib/orchestration/useOrchestrationSessions';
 import ChatComposer from '../chat/ChatComposer';
 import ChatNewWindowHero from '../chat/ChatNewWindowHero';
+import { DetachedComposerRuntime } from '../chat/composer/DetachedComposerRuntime';
 import Button from '../ui/Button';
 import SessionTranscript from './SessionTranscript';
 
@@ -129,7 +130,7 @@ function ChatPageScaffold({
       {footer ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-surface via-surface/90 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-linear-to-t from-surface via-surface/90 to-transparent"
         />
       ) : null}
 
@@ -138,7 +139,7 @@ function ChatPageScaffold({
         <div
           ref={footerRef}
           data-testid="orch-chat-footer"
-          className="absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[48.75rem] px-4 pb-4 pt-6">
+          className="absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-195 px-4 pb-4 pt-6">
           {footer}
         </div>
       ) : null}
@@ -179,30 +180,41 @@ function AgentComposer({
   );
 
   return (
-    <ChatComposer
-      inputValue={value}
-      setInputValue={setValue}
-      onSend={async text => {
-        await onSend(text);
-      }}
-      textInputRef={textInputRef}
-      fileInputRef={fileInputRef}
-      composerInteractionBlocked={false}
-      isSending={isSending}
-      attachments={[]}
-      onAttachFiles={async () => {}}
-      onRemoveAttachment={() => {}}
-      attachError={null}
-      onSwitchToMicCloud={() => {}}
-      handleInputKeyDown={handleInputKeyDown}
-      inlineCompletionSuffix=""
-      isComposingTextRef={isComposingTextRef}
-      maxAttachments={0}
-      allowedMimeTypes={[]}
-      attachmentsEnabled={false}
-      micEnabled={false}
-      placeholder={placeholder}
-    />
+    /* This panel's chats are orchestration sessions, not chat threads — there is
+       no thread id to scope a runtime to, and no Redux projection to build. But
+       `ChatComposer` is built on `ComposerPrimitive`, which resolves its runtime
+       from React context, and this panel renders inside the app shell: without a
+       runtime of its own the composer would silently inherit the app-wide one
+       from `ChatRuntimeProvider`, which is bound to `selectedThreadId` — the
+       HOME chat's thread. Sending stays on this panel's own `onSend`, which goes
+       through `orchestrationClient`. See `DetachedComposerRuntime` for why that
+       rather than `AssistantUiRuntimeProvider threadId={null}`. */
+    <DetachedComposerRuntime>
+      <ChatComposer
+        inputValue={value}
+        setInputValue={setValue}
+        onSend={async text => {
+          await onSend(text);
+        }}
+        textInputRef={textInputRef}
+        fileInputRef={fileInputRef}
+        composerInteractionBlocked={false}
+        isSending={isSending}
+        attachments={[]}
+        onAttachFiles={async () => {}}
+        onRemoveAttachment={() => {}}
+        attachError={null}
+        onSwitchToMicCloud={() => {}}
+        handleInputKeyDown={handleInputKeyDown}
+        inlineCompletionSuffix=""
+        isComposingTextRef={isComposingTextRef}
+        maxAttachments={0}
+        allowedMimeTypes={[]}
+        attachmentsEnabled={false}
+        micEnabled={false}
+        placeholder={placeholder}
+      />
+    </DetachedComposerRuntime>
   );
 }
 
@@ -302,9 +314,7 @@ function SessionChatView({ session }: { session: SessionSummary }) {
       header={
         // Agent metadata, centered to the same width-capped column as the chat.
         <div className="border-b border-line bg-surface/60 dark:bg-black/30">
-          <div
-            className="mx-auto w-full max-w-[48.75rem] px-5 py-3"
-            data-testid="orch-session-header">
+          <div className="mx-auto w-full max-w-195 px-5 py-3" data-testid="orch-session-header">
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-content">{sessionLabel(session)}</p>
               {session.status === 'waiting-approval' ? (
@@ -360,7 +370,7 @@ function SessionChatView({ session }: { session: SessionSummary }) {
           />
         </>
       }>
-      <div className="mx-auto w-full max-w-[48.75rem] space-y-3 px-5 pt-4">
+      <div className="mx-auto w-full max-w-195 space-y-3 px-5 pt-4">
         {state.status === 'loading' ? (
           <p className="py-10 text-center text-sm text-content-muted">
             {t('tinyplaceOrchestration.loading')}
@@ -487,17 +497,18 @@ export default function AgentChatPanel({
             ? t('orchPage.agent.subconsciousTab')
             : t('orchPage.agent.consciousTab');
         return (
-          <button
+          <Button
             key={chat.id}
-            type="button"
+            variant="tertiary"
+            size="xs"
             role="radio"
             aria-checked={active}
             data-testid={`orch-agent-tab-${chat.id}`}
             onClick={() => selectChat(chat.id)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-medium transition-all ${
+            className={`h-auto gap-1.5 rounded-full px-3 py-0.5 text-xs font-medium ${
               active
-                ? 'bg-surface text-content shadow-sm'
-                : 'text-content-muted hover:text-content-secondary'
+                ? 'bg-surface text-content shadow-xs hover:bg-surface'
+                : 'text-content-muted hover:bg-transparent hover:text-content-secondary'
             }`}>
             {label}
             {chat.unread > 0 ? (
@@ -505,7 +516,7 @@ export default function AgentChatPanel({
                 {chat.unread}
               </span>
             ) : null}
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -571,11 +582,11 @@ export default function AgentChatPanel({
         </div>
       ) : showHero && pinged.length === 0 ? (
         // Empty conscious thread: reuse the generic chat's welcome hero.
-        <div className="mx-auto flex h-full w-full max-w-[48.75rem] px-5">
+        <div className="mx-auto flex h-full w-full max-w-195 px-5">
           <ChatNewWindowHero />
         </div>
       ) : (
-        <div className="mx-auto w-full max-w-[48.75rem] space-y-3 px-5 pt-4">
+        <div className="mx-auto w-full max-w-195 space-y-3 px-5 pt-4">
           {selected?.messages.length ? (
             <SessionTranscript messages={selected.messages} />
           ) : showHero ? null : (
@@ -588,11 +599,11 @@ export default function AgentChatPanel({
               subpage (same as clicking it in the sidebar's active sub-agents). */}
           {pinged.map(session => (
             <div key={session.sessionId} className="flex justify-start">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 data-testid={`orch-agent-view-session-${session.sessionId}`}
                 onClick={() => setOpenSessionId(session.sessionId)}
-                className="flex w-full max-w-[85%] items-center gap-3 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2.5 text-left transition hover:bg-primary-100/60 dark:border-primary-500/30 dark:bg-primary-900/20">
+                className="h-auto w-full max-w-[85%] justify-start gap-3 rounded-xl border-primary-200 bg-primary-50 px-3 py-2.5 text-left hover:bg-primary-100/60 dark:border-primary-500/30 dark:bg-primary-900/20">
                 <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-primary-500/15 text-sm text-primary-600 dark:text-primary-300">
                   ⧉
                 </span>
@@ -607,7 +618,7 @@ export default function AgentChatPanel({
                 <span className="flex-none rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white">
                   {t('orchPage.agent.viewSession')}
                 </span>
-              </button>
+              </Button>
             </div>
           ))}
         </div>

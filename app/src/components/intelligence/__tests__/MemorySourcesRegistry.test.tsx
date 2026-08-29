@@ -158,7 +158,7 @@ describe('MemorySourcesRegistry', () => {
     setup([source]);
     await screen.findByText('My Repo');
 
-    const toggle = screen.getByTitle(/disable/i);
+    const toggle = screen.getByRole('switch', { name: /disable/i });
     fireEvent.click(toggle);
 
     await waitFor(() => {
@@ -206,7 +206,12 @@ describe('MemorySourcesRegistry', () => {
 
   it('confirming All In calls applyAllIn, updates sources, and shows success toast', async () => {
     const updatedSrc = makeSource({ id: 'src_2', label: 'New Repo', enabled: true });
-    mockedApplyAllIn.mockResolvedValue({ sources: [updatedSrc], sync_triggered: 1 });
+    mockedApplyAllIn.mockResolvedValue({
+      sources: [updatedSrc],
+      sync_triggered: 1,
+      sync_failed: 0,
+      sync_errors: [],
+    });
 
     const { onToast } = setup();
     await screen.findByText('My Repo');
@@ -227,6 +232,58 @@ describe('MemorySourcesRegistry', () => {
     // Modal should close
     await waitFor(() => {
       expect(screen.queryByText('Go All In?')).not.toBeInTheDocument();
+    });
+  });
+
+  it('All In with every trigger failing shows an error toast, not success (openhuman#5820)', async () => {
+    const updatedSrc = makeSource({ id: 'src_2', label: 'New Repo', enabled: true });
+    mockedApplyAllIn.mockResolvedValue({
+      sources: [updatedSrc],
+      sync_triggered: 0,
+      sync_failed: 1,
+      sync_errors: ['src_2: not found: no memory source registered as src_2'],
+    });
+
+    const { onToast } = setup();
+    await screen.findByText('My Repo');
+    fireEvent.click(screen.getByTestId('all-in-button'));
+    await screen.findByText('Go All In?');
+    fireEvent.click(screen.getByText('Yes'));
+
+    await waitFor(() => {
+      expect(onToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'error',
+          message: 'src_2: not found: no memory source registered as src_2',
+        })
+      );
+    });
+    expect(onToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+
+  it('All In with a partial start shows a warning naming both counts', async () => {
+    const updatedSrc = makeSource({ id: 'src_2', label: 'New Repo', enabled: true });
+    mockedApplyAllIn.mockResolvedValue({
+      sources: [updatedSrc],
+      sync_triggered: 2,
+      sync_failed: 1,
+      sync_errors: ['src_3: boom'],
+    });
+
+    const { onToast } = setup();
+    await screen.findByText('My Repo');
+    fireEvent.click(screen.getByTestId('all-in-button'));
+    await screen.findByText('Go All In?');
+    fireEvent.click(screen.getByText('Yes'));
+
+    await waitFor(() => {
+      expect(onToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          title: 'Syncs started: 2. Could not start: 1.',
+          message: 'src_3: boom',
+        })
+      );
     });
   });
 

@@ -11,7 +11,7 @@
 import debugFactory from 'debug';
 import { useEffect, useState } from 'react';
 
-import { apiClient } from '../../agentworld/AgentWorldShell';
+import { apiClient } from '../../lib/agentworld/apiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import { type CreditBalance, creditsApi, type TeamUsage } from '../../services/api/creditsApi';
 import { getTokenjuiceSavings, type SavingsStats } from '../../utils/tauriCommands/tokenjuice';

@@ -19,9 +19,8 @@ use tinymemory_core::rpc_models::{
 // the store's `parking_lot` mutex, which starved the runtime and made
 // `threads_create_new` blow the frontend's 30 s RPC budget (#5156).
 use crate::openhuman::threads::title::{
-    build_title_prompt, is_auto_generated_thread_title, sanitize_generated_title,
+    build_title_request, is_auto_generated_thread_title, sanitize_generated_title,
     title_from_user_message, title_log_fingerprint, THREAD_TITLE_LOG_PREFIX,
-    THREAD_TITLE_MODEL_HINT, THREAD_TITLE_SYSTEM_PROMPT,
 };
 use crate::openhuman::threads::turn_state::{
     self, ClearTurnStateRequest, ClearTurnStateResponse, GetTurnStateForRequestRequest,
@@ -33,8 +32,6 @@ use crate::rpc::RpcOutcome;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use tinyagents::harness::message::Message;
-use tinyagents::harness::model::ModelRequest;
 use tinycortex::memory::conversations::{
     ConversationMessage, ConversationMessagePatch, ConversationThread, CreateConversationThread,
     CrossThreadHit,
@@ -417,41 +414,40 @@ pub async fn thread_generate_title(
         ));
     };
 
-    let chat_model = match provider::create_chat_model("summarization", &config, 0.2) {
-        Ok(model) => model,
-        Err(error) => {
-            tracing::warn!(
-                thread_id = %request.thread_id,
-                error = %error,
-                "{THREAD_TITLE_LOG_PREFIX} provider init failed; applying fallback title"
-            );
-            let updated =
-                update_thread_with_fallback_title(dir, thread, &first_user_message).await?;
-            return Ok(envelope(
-                thread_to_summary(updated),
-                Some(counts([("num_threads", 1)])),
-                None,
-            ));
-        }
-    };
+    // `_with_model_id` rather than the plain constructor: the debug line below
+    // reports the model this call actually dispatches on, and only the factory
+    // knows what the `summarization` role resolved to for this configuration.
+    let (chat_model, resolved_model) =
+        match provider::create_chat_model_with_model_id("summarization", &config, 0.2) {
+            Ok(resolved) => resolved,
+            Err(error) => {
+                tracing::warn!(
+                    thread_id = %request.thread_id,
+                    error = %error,
+                    "{THREAD_TITLE_LOG_PREFIX} provider init failed; applying fallback title"
+                );
+                let updated =
+                    update_thread_with_fallback_title(dir, thread, &first_user_message).await?;
+                return Ok(envelope(
+                    thread_to_summary(updated),
+                    Some(counts([("num_threads", 1)])),
+                    None,
+                ));
+            }
+        };
 
     tracing::debug!(
         thread_id = %request.thread_id,
         user_len = first_user_message.len(),
         assistant_len = assistant_message.len(),
-        model = THREAD_TITLE_MODEL_HINT,
+        model = %resolved_model,
         "{THREAD_TITLE_LOG_PREFIX} generating thread title"
     );
 
     let raw_title = match chat_model
         .invoke(
             &(),
-            ModelRequest::new(vec![
-                Message::system(THREAD_TITLE_SYSTEM_PROMPT),
-                Message::user(build_title_prompt(&first_user_message, &assistant_message)),
-            ])
-            .with_model(THREAD_TITLE_MODEL_HINT)
-            .with_temperature(0.2),
+            build_title_request(&first_user_message, &assistant_message),
         )
         .await
     {

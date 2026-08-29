@@ -844,6 +844,20 @@ async fn embeddings_controller_paths_validate_without_live_services() {
 async fn memory_tree_ingest_feeds_memory_sync_status() {
     let _lock = env_lock();
     let harness = setup().await;
+    // `memory_tree_ingest` writes through the bound memory driver, which under
+    // the `modules` gate is the loaded tinymemory artifact and resolves its
+    // config from the process-wide boot policy that boot publishes and this
+    // harness never did. Publish it from the config this harness wrote (HOME
+    // points at the harness tempdir, so this names its workspace and its
+    // registry file). The policy is first-call-wins and the module captures
+    // its workspace at load; this is the only case in the binary that reaches
+    // the driver, so nothing else contends for the slot.
+    #[cfg(feature = "modules")]
+    openhuman_core::openhuman::modules::memory::set_modules_policy(std::sync::Arc::new(
+        openhuman_core::openhuman::config::Config::load_or_init()
+            .await
+            .expect("load the harness config for the module policy"),
+    ));
 
     let ingest = rpc(
         &harness.rpc_base,

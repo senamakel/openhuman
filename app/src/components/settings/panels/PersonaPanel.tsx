@@ -18,6 +18,7 @@ import {
   setPersonaDisplayName,
 } from '../../../store/personaSlice';
 import Button from '../../ui/Button';
+import { ToggleGroupItem, ToggleGroupRoot } from '../../ui/ToggleGroup';
 import { SettingsRow, SettingsSection, SettingsTextArea, SettingsTextField } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import SettingsPanel from '../layout/SettingsPanel';
@@ -201,29 +202,23 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
           </div>
         ) : (
           <>
-            <div
-              role="group"
+            <ToggleGroupRoot
+              type="single"
+              value={soulMode}
+              onValueChange={next => {
+                if (next) setSoulMode(next as SoulMode);
+              }}
               aria-label={t('settings.persona.builder.modeLabel')}
-              className="flex items-center gap-1 px-4 pt-3">
-              <Button
-                type="button"
-                aria-pressed={soulMode === 'guided'}
-                data-testid="persona-soul-mode-guided"
-                variant={soulMode === 'guided' ? 'primary' : 'secondary'}
-                size="xs"
-                onClick={() => setSoulMode('guided')}>
+              variant="secondary"
+              size="xs"
+              className="px-4 pt-3">
+              <ToggleGroupItem value="guided" data-testid="persona-soul-mode-guided">
                 {t('settings.persona.builder.modeGuided')}
-              </Button>
-              <Button
-                type="button"
-                aria-pressed={soulMode === 'advanced'}
-                data-testid="persona-soul-mode-advanced"
-                variant={soulMode === 'advanced' ? 'primary' : 'secondary'}
-                size="xs"
-                onClick={() => setSoulMode('advanced')}>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="advanced" data-testid="persona-soul-mode-advanced">
                 {t('settings.persona.builder.modeAdvanced')}
-              </Button>
-            </div>
+              </ToggleGroupItem>
+            </ToggleGroupRoot>
             {soulMode === 'guided' ? (
               <PersonaGuidedFields value={soulDraft} onChange={setSoulDraft} disabled={soulBusy} />
             ) : (
@@ -283,16 +278,17 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
       {/* ── Appearance & Voice (handled in Mascot settings) ──────── */}
       <SettingsSection title={t('settings.persona.appearanceHeading')}>
         <div className="px-4 py-3">
-          <button
+          <Button
             type="button"
+            variant="tertiary"
             data-testid="persona-open-mascot"
             onClick={() => navigateToSettings('personality#face')}
-            className="flex w-full items-center justify-between text-left text-sm text-content hover:text-primary-700 dark:hover:text-primary-300">
+            className="w-full justify-between px-0 text-sm text-content hover:bg-transparent hover:text-primary-700 dark:hover:text-primary-300">
             <span>{t('settings.persona.openMascotSettings')}</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-          </button>
+          </Button>
         </div>
       </SettingsSection>
       <p className="text-xs text-content-muted leading-relaxed px-1">

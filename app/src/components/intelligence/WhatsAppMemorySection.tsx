@@ -48,7 +48,7 @@ export function WhatsAppMemorySection({ pollIntervalMs = 30000 }: WhatsAppMemory
 
   return (
     <div
-      className="rounded-xl border border-line-subtle bg-surface px-4 py-3 shadow-sm"
+      className="rounded-xl border border-line-subtle bg-surface px-4 py-3 shadow-xs"
       data-testid="whatsapp-memory-section">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">

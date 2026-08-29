@@ -183,6 +183,14 @@ mod tests {
     async fn isolated_config(tmp: &TempDir) -> (WorkspaceEnvGuard, Config) {
         let guard = WorkspaceEnvGuard::set(tmp.path());
         let config = Config::load_or_init().await.expect("load config");
+        // `list_chunks_rpc` reads through the bound driver now, and a unit-test
+        // workspace binds the null one — which serves no Chunks family and
+        // therefore answers empty however many rows the ingest wrote. Bind the
+        // in-process driver over this same workspace so the read sees the
+        // write; it is the driver the loadable module wraps, which is as close
+        // to production as a test process can get (a dlopen'ed module is a
+        // process singleton a unit test cannot load).
+        crate::openhuman::memory::test_support::install_tinycortex_for_test(&config);
         (guard, config)
     }
 

@@ -46,8 +46,6 @@
 //! event bus dispatch loop is never blocked by a long-running provider
 //! call (sync can take seconds).
 
-// `backend_client` is a host extension on the core's `ProviderContext`.
-use crate::openhuman::memory::sync::composio::providers::ProviderContextExt;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
@@ -55,15 +53,49 @@ use async_trait::async_trait;
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::openhuman::agent::triage::{apply_decision, run_triage, TriageOutcome, TriggerEnvelope};
+use crate::openhuman::agent::triage::{
+    apply_decision, remote_trigger_origin, run_triage, TriageOutcome, TriggerEnvelope,
+};
+use crate::openhuman::agent::turn_origin::with_origin;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::integrations::composio::trigger_history;
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
 use tinymemory_api::host::COMPOSIO_MODE_DIRECT;
 
-use super::providers::{get_provider, ProviderContext};
-use crate::openhuman::integrations::composio::client::ComposioClient;
+/// A backend-tenant Composio client for one toolkit.
+///
+/// This was `ProviderContextExt::backend_client`, an extension trait on the
+/// engine's `ProviderContext` that existed for a single caller — the
+/// connection-readiness probe below. With the context gone the trait had
+/// nothing to extend, so the resolution lives here instead.
+///
+/// The config is reloaded rather than taken from the snapshot on purpose: the
+/// OAuth completion this subscriber reacts to may have written credentials
+/// since, and a `composio.mode` toggle mid-session must take effect on the
+/// next call. Direct mode is a hard error rather than a silent fallback — the
+/// helpers behind this were written against the backend tenant, and routing
+/// them through the wrong one is worse than refusing (#1710).
+async fn backend_composio_client(
+    config: &crate::openhuman::config::Config,
+    toolkit: &str,
+) -> anyhow::Result<ComposioClient> {
+    let live_config = crate::openhuman::config::rpc::reload_config_from_paths(
+        &config.config_path,
+        &config.workspace_dir,
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("composio backend client: failed to reload live config: {e}"))?;
+    match create_composio_client(&live_config)? {
+        ComposioClientKind::Backend(client) => Ok(client),
+        ComposioClientKind::Direct(_) => Err(anyhow::anyhow!(
+            "composio direct mode is not supported on this helper path; toolkit={toolkit}"
+        )),
+    }
+}
+use crate::openhuman::integrations::composio::client::{
+    create_composio_client, ComposioClient, ComposioClientKind,
+};
 use crate::openhuman::integrations::composio::ops;
 use crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus;
 
@@ -77,8 +109,51 @@ use crate::openhuman::integrations::composio::FetchConnectedIntegrationsStatus;
 /// of #4957. Both auto-register sites in the connection-created handler skip
 /// non-registrable toolkits. Extracted as a pure predicate so the skip decision
 /// is unit-testable without driving the async event handler.
-fn toolkit_is_memory_source_registrable(toolkit: &str) -> bool {
-    get_provider(toolkit).is_some()
+///
+/// # Asked of the driver, not of a list read across the seam
+///
+/// This was `get_provider(toolkit).is_some()`, reaching the engine's provider
+/// registry through the `memory::sync::composio::providers` re-export. The
+/// driver answers it now (tinymemory#106), which matters because the answer
+/// depends on a normalisation the driver owns — it trims and lower-cases
+/// before matching. A host matching its own copy of the list would have been
+/// right until that rule changed, and silently wrong after.
+///
+/// `Unsupported` and a binding failure both read as "not registrable". That is
+/// the safe direction: registering a source that then fails every sync is the
+/// #4957 lie, whereas declining to register one leaves the connection working
+/// as an ordinary agent-tool integration.
+async fn toolkit_is_memory_source_registrable(
+    config: &crate::openhuman::config::Config,
+    toolkit: &str,
+) -> bool {
+    let Ok(binding) = crate::openhuman::memory::binding::for_config(config) else {
+        tracing::warn!(
+            toolkit = %toolkit,
+            "[composio:bus] memory binding failed; treating toolkit as not registrable"
+        );
+        return false;
+    };
+    let Some(sync) = binding.provider().as_source_sync() else {
+        tracing::debug!(
+            toolkit = %toolkit,
+            driver = %binding.driver_id(),
+            "[composio:bus] driver does not serve SourceSync; treating toolkit as not registrable"
+        );
+        return false;
+    };
+    match sync.is_toolkit_syncable(toolkit).await {
+        Ok(answer) => answer,
+        Err(error) => {
+            tracing::warn!(
+                toolkit = %toolkit,
+                error = %error,
+                "[composio:bus] driver could not answer is_toolkit_syncable; \
+                 treating toolkit as not registrable"
+            );
+            false
+        }
+    }
 }
 
 /// Env var that **disables** the triage pipeline. The pipeline is
@@ -108,10 +183,10 @@ static COMPOSIO_CONFIG_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 /// Register both long-lived composio subscribers on the global event
 /// bus, and initialise the default provider registry. Idempotent.
 pub fn register_composio_trigger_subscriber() {
-    // Make sure the registry is populated before any event arrives —
-    // otherwise the very first webhook would no-op because the
-    // subscriber's `get_provider` lookup would miss.
-    super::providers::init_default_providers();
+    // No host-side provider registry any more. It existed so this process
+    // could answer `get_provider`; the driver answers that question now, and
+    // the module initialises its own registry in its own process
+    // (tinymemory#105) — which a `cdylib`'s separate statics require anyway.
 
     if COMPOSIO_TRIGGER_HANDLE.get().is_none() {
         match BUS.subscribe(Arc::new(ComposioTriggerSubscriber::new())) {
@@ -347,7 +422,13 @@ impl EventHandler<DomainEvent> for ComposioTriggerSubscriber {
         tokio::spawn(async move {
             match run_triage(&envelope).await {
                 Ok(TriageOutcome::Decision(run)) => {
-                    if let Err(e) = apply_decision(run, &envelope).await {
+                    // Remote payload: a Composio trigger body is
+                    // attacker-influenceable, so the dispatch parks rather than
+                    // running on a trust root (#5634). Scoped here, inside the
+                    // spawned task, because `AGENT_TURN_ORIGIN` is a task-local
+                    // and does not cross `tokio::spawn`.
+                    let origin = remote_trigger_origin(&envelope);
+                    if let Err(e) = with_origin(origin, apply_decision(run, &envelope)).await {
                         tracing::error!(
                             label = %envelope.display_label,
                             error = %e,
@@ -386,7 +467,17 @@ impl EventHandler<DomainEvent> for ComposioTriggerSubscriber {
                         "[composio][triage] run_triage failed (label={}): {e:#}",
                         envelope.display_label
                     );
-                    tinymemory_core::observability::report_error_or_expected(
+                    // The classifier named here is the host's own. The
+                    // engine crate exposes a `report_error_or_expected` of its
+                    // own, but that is a global slot for *extracted* code to
+                    // report through — installed by whichever process embeds
+                    // the engine, which since #5560 is the loaded TinyMemory
+                    // module and no longer this one (`memory/host_impls.rs`,
+                    // the host's installer, is deleted; `modules/memory_host.rs`
+                    // is the bus-served twin). This subscriber is host code, so
+                    // the detour buys nothing and only costs an engine
+                    // dependency the seam is trying to shed.
+                    crate::core::observability::report_error_or_expected(
                         detail.as_str(),
                         "composio",
                         "trigger_triage",
@@ -515,20 +606,27 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
                     })
             };
 
-            let Some(mut ctx) = ProviderContext::from_config(
-                Arc::new(config),
-                toolkit.clone(),
-                Some(connection_id.clone()),
-            ) else {
+            // The engine's `ProviderContext::from_config` used to stand here,
+            // and its `None` arm is the behaviour being preserved: it probed
+            // whether *any* Composio client resolves and skipped the hook when
+            // none did, which is the not-signed-in case. That probe is this
+            // host's own factory, so ask it directly rather than through a
+            // context object built only to be handed back over the bus.
+            let config = Arc::new(config);
+            if create_composio_client(&config).is_err() {
                 tracing::debug!(
                     toolkit = %toolkit,
                     "[composio:bus] no composio client (not signed in?), skipping hook"
                 );
                 return;
-            };
+            }
 
-            ctx.max_items = src_max_items;
-            ctx.sync_depth_days = src_sync_depth_days;
+            // The caps are no longer set on a context: `BootstrapConnection`
+            // takes none, because the driver reads the per-source budgets from
+            // the registry it already owns — the same reasoning
+            // `RunConnectionSync` documents for carrying no budget arguments.
+            // They are still logged, since this is where they were resolved and
+            // a bootstrap that ignored a cap is worth being able to see.
 
             tracing::debug!(
                 toolkit = %toolkit,
@@ -543,7 +641,12 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
             // `ComposioClient` from the live config for it; direct-mode
             // users surface a clear error here rather than silently
             // routing through the wrong tenant (#1710).
-            let backend_client = match ctx.backend_client().await {
+            // Was `ctx.backend_client()`, a host extension trait bolted onto
+            // the engine's context for this one caller. The context is gone, so
+            // the resolution lives at its only call site: reload the live config
+            // (the OAuth completion being reacted to may have written
+            // credentials since the snapshot) and require the backend tenant.
+            let backend_client = match backend_composio_client(&config, &toolkit).await {
                 Ok(c) => c,
                 Err(e) => {
                     tracing::debug!(
@@ -591,8 +694,8 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
                     // the OAuth completion we are reacting to may have written
                     // credentials since.
                     let live_config = match crate::openhuman::config::rpc::reload_config_from_paths(
-                        ctx.config.config_path(),
-                        ctx.config.workspace_dir(),
+                        &config.config_path,
+                        &config.workspace_dir,
                     )
                     .await
                     {
@@ -670,14 +773,18 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
             // onboarding completes. The memory_sources auto-register below
             // still runs unconditionally so the source appears in the unified
             // sources list immediately.
-            if !ctx.config.onboarding_completed() {
+            if !config.onboarding_completed {
                 tracing::info!(
                     toolkit = %toolkit,
                     connection_id = %connection_id,
                     "[composio:bus] onboarding not yet complete — deferring initial sync to periodic scheduler"
                 );
             } else {
-                let Some(provider) = get_provider(&toolkit) else {
+                // The same predicate the other auto-register site uses, rather
+                // than a second `get_provider` call beside it: the bootstrap
+                // that wanted the provider *handle* runs in the driver now, so
+                // all this site needs is the #4957 answer.
+                if !toolkit_is_memory_source_registrable(&config, &toolkit).await {
                     // No native memory-sync provider → this toolkit cannot ingest
                     // into memory. Do NOT auto-register it as a memory source: a
                     // source that reports ACTIVE and then fails every sync with
@@ -692,24 +799,76 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
                         "[composio:bus] no memory-sync provider for toolkit; skipping memory_sources auto-register (not syncable, #4957)"
                     );
                     return;
-                };
-
-                if let Err(e) = provider.on_connection_created(&ctx).await {
-                    tracing::warn!(
-                        toolkit = %toolkit,
-                        connection_id = %connection_id,
-                        error = %e,
-                        "[composio:bus] provider on_connection_created failed"
-                    );
                 }
 
-                match tinymemory_core::tinycortex::run_composio_connection(
-                    &toolkit,
-                    &connection_id,
-                    ctx.config.as_ref(),
+                // The provider's bootstrap, run by the driver rather than in
+                // this process (tinymemory#105). What it does is unchanged —
+                // fetch and persist the account profile, plus whatever the
+                // provider overrides — but it now happens where the engine
+                // lives, so this host does not need a `ProviderContext` to
+                // describe itself back to it.
+                match crate::openhuman::memory::binding::for_config(&config) {
+                    Ok(binding) => match binding.provider().as_source_sync() {
+                        Some(sync) => {
+                            if let Err(e) =
+                                sync.bootstrap_connection(&toolkit, &connection_id).await
+                            {
+                                tracing::warn!(
+                                    toolkit = %toolkit,
+                                    connection_id = %connection_id,
+                                    error = %e,
+                                    "[composio:bus] connection bootstrap failed"
+                                );
+                            }
+                        }
+                        None => tracing::debug!(
+                            toolkit = %toolkit,
+                            driver = %binding.driver_id(),
+                            "[composio:bus] driver does not serve SourceSync; skipping bootstrap"
+                        ),
+                    },
+                    Err(e) => tracing::warn!(
+                        toolkit = %toolkit,
+                        error = %e,
+                        "[composio:bus] memory binding failed; skipping bootstrap"
+                    ),
+                }
+
+                // `ctx.config` is the seam's `dyn MemoryHostConfig`; the binding
+                // keys on this host's own `Config`, so it is re-read from the
+                // paths the seam carries — the same move the live-config read
+                // above this makes, and for the same reason.
+                let host_config = match crate::openhuman::config::rpc::reload_config_from_paths(
+                    &config.config_path,
+                    &config.workspace_dir,
                 )
                 .await
                 {
+                    Ok(config) => config,
+                    Err(error) => {
+                        tracing::warn!(
+                            toolkit = %toolkit,
+                            connection_id = %connection_id,
+                            error = %error,
+                            "[composio:bus] initial sync skipped: config re-read failed"
+                        );
+                        return;
+                    }
+                };
+                let attempted = match crate::openhuman::memory::binding::for_config(&host_config) {
+                    Ok(binding) => match binding.provider().as_source_sync() {
+                        Some(sync) => sync
+                            .run_connection_sync(&toolkit, &connection_id)
+                            .await
+                            .map_err(|error| error.to_string()),
+                        None => Err(format!(
+                            "the bound memory driver '{}' does not serve source sync",
+                            binding.driver_id()
+                        )),
+                    },
+                    Err(error) => Err(error),
+                };
+                match attempted {
                     Ok(outcome) => {
                         tracing::info!(
                             toolkit = %toolkit,
@@ -721,13 +880,19 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
                         // Avoid immediately re-firing from the periodic scheduler.
                         super::periodic::record_sync_success(&toolkit, &connection_id);
                     }
+                    // `actions_called` and `provider_cost_usd` are no longer
+                    // separate fields here. The contract has one error channel
+                    // and the driver folds the usage into its message, because
+                    // a partial-success shape is not available on an error path
+                    // — so the spend a failed run incurred is in the text rather
+                    // than in two structured fields. Logged whole rather than
+                    // parsed back out: re-deriving numbers from a message is how
+                    // a log line becomes a fragile API.
                     Err(error) => tracing::warn!(
                         toolkit = %toolkit,
                         connection_id = %connection_id,
                         error = %error,
-                        actions_called = error.actions_called,
-                        provider_cost_usd = error.provider_cost_usd,
-                        "[composio:bus] tinycortex initial sync failed"
+                        "[composio:bus] initial sync failed"
                     ),
                 }
             }
@@ -741,7 +906,7 @@ impl EventHandler<DomainEvent> for ComposioConnectionCreatedSubscriber {
             // memory source that would silently fail every sync (#4957). This also
             // guards the onboarding-incomplete path, which reaches here without
             // evaluating the provider branch above.
-            if !toolkit_is_memory_source_registrable(&toolkit) {
+            if !toolkit_is_memory_source_registrable(&config, &toolkit).await {
                 tracing::info!(
                     toolkit = %toolkit,
                     connection_id = %connection_id,

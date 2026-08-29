@@ -82,6 +82,34 @@ pub(crate) fn is_turn_timeout_error(err: &str) -> bool {
         || err.contains("exceeded its wall-clock deadline")
 }
 
+/// True when `err` is the **outer** web-turn backstop firing —
+/// [`TURN_TIMEOUT_MARKER`], raised by [`drive_turn_with_deadline`] — as opposed
+/// to the harness's own `Timeout`.
+///
+/// The two are structurally different events and only look alike once
+/// stringified, which is why they were treated alike and why one of them went
+/// unnoticed for as long as it did (#5804):
+///
+/// * The marker is raised when the turn future produced **no terminal event at
+///   all** inside the channel's ceiling. By construction nothing was completing
+///   — the turn wedged outside the harness run (session assembly, persistence
+///   plumbing). There is no in-flight work to report and the user already has a
+///   graceful `turn_timeout`, so a Sentry event would be noise.
+///
+/// * The harness `Timeout` is raised while bounding a **real, in-flight model
+///   or tool call** against the run's remaining wall-clock budget. Reaching it
+///   means the run consumed its budget doing work, and everything that work
+///   produced is discarded with the turn. That is a defect signal, and
+///   suppressing it is what made the discarded-turn failure invisible.
+///
+/// Used only for the Sentry suppression decision. [`is_turn_timeout_error`]
+/// still covers both for the *user-facing* classification, which is unchanged:
+/// either way the turn ran out of time and the graceful `turn_timeout` copy is
+/// the right thing to show.
+pub(crate) fn is_outer_backstop_timeout(err: &str) -> bool {
+    err.contains(TURN_TIMEOUT_MARKER)
+}
+
 /// Pull the structured provider error message out of a raw error string.
 ///
 /// Provider error chains from OpenAI/Anthropic/OpenRouter/etc. arrive looking

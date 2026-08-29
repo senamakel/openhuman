@@ -147,37 +147,6 @@ fn set_workspace_env(tmp: &TempDir) -> EnvGuard {
     }
 }
 
-fn alice_phoenix_thread() -> EmailThread {
-    EmailThread {
-        provider: "gmail".into(),
-        thread_subject: "Phoenix migration plan".into(),
-        messages: vec![
-            EmailMessage {
-                from: "alice@example.com".into(),
-                to: vec!["bob@example.com".into()],
-                cc: vec![],
-                subject: "Phoenix migration plan".into(),
-                sent_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
-                body: "Hey Bob, the phoenix migration runbook is ready for review. \
-                       I'm coordinating with the infra team and we land Friday."
-                    .into(),
-                source_ref: Some("<phoenix-1@example.com>".into()),
-                list_unsubscribe: None,
-            },
-            EmailMessage {
-                from: "bob@example.com".into(),
-                to: vec!["alice@example.com".into()],
-                cc: vec![],
-                subject: "Re: Phoenix migration plan".into(),
-                sent_at: Utc.timestamp_millis_opt(1_700_000_060_000).unwrap(),
-                body: "Confirmed — I'll review the phoenix runbook tonight.".into(),
-                source_ref: Some("<phoenix-2@example.com>".into()),
-                list_unsubscribe: None,
-            },
-        ],
-    }
-}
-
 /// The orchestrator reaches `agent_memory` ON-DEMAND, not via an eager
 /// pre-turn pre-fetch. `agent_memory` is listed in the `[subagents]` allowlist
 /// (synthesised into a `delegate_retrieve_memory` tool), so the orchestrator

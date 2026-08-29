@@ -46,6 +46,7 @@ pub mod task_recency_context;
 pub(crate) mod tool_filter;
 pub(crate) mod tool_result_artifacts;
 pub mod turn_attachments_context;
+pub mod turn_dispatch_guard;
 pub mod turn_subagent_usage;
 
 pub use agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult, AgentTurnUsage};

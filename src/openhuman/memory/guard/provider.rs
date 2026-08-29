@@ -5,17 +5,20 @@ use std::sync::Arc;
 use crate::openhuman::memory::api::capabilities::{Capabilities, Capability};
 use crate::openhuman::memory::api::error::MemoryError;
 use crate::openhuman::memory::api::health::MemoryHealth;
+use crate::openhuman::memory::api::provider::scoring::MemoryScoring;
 use crate::openhuman::memory::api::provider::{
-    MemoryChunks, MemoryDiff, MemoryDocuments, MemoryEntities, MemoryEpisodic, MemoryGoals,
-    MemoryGraph, MemoryIngest, MemoryMaintenance, MemoryPeople, MemoryProfile, MemoryProvider,
-    MemoryRetrieval, MemorySourceSink, MemoryToolMemory, MemoryTree,
+    MemoryChunks, MemoryCodingSessions, MemoryDiff, MemoryDocuments, MemoryEntities,
+    MemoryEpisodic, MemoryGoals, MemoryGraph, MemoryIngest, MemoryMaintenance, MemoryPeople,
+    MemoryProfile, MemoryProvider, MemoryRetrieval, MemorySourceSink, MemorySourceSync,
+    MemoryToolMemory, MemoryTree,
 };
 use async_trait::async_trait;
 
 use super::families::{
-    GuardedChunks, GuardedDiff, GuardedDocuments, GuardedEntities, GuardedEpisodic, GuardedGoals,
-    GuardedGraph, GuardedIngest, GuardedMaintenance, GuardedPeople, GuardedProfile,
-    GuardedRetrieval, GuardedSources, GuardedToolMemory, GuardedTree,
+    GuardedChunks, GuardedCodingSessions, GuardedDiff, GuardedDocuments, GuardedEntities,
+    GuardedEpisodic, GuardedGoals, GuardedGraph, GuardedIngest, GuardedMaintenance, GuardedPeople,
+    GuardedProfile, GuardedRetrieval, GuardedScoring, GuardedSourceSync, GuardedSources,
+    GuardedToolMemory, GuardedTree,
 };
 use super::policy::GuardPolicy;
 
@@ -51,6 +54,9 @@ pub struct MemoryGuard {
     retrieval: Option<GuardedRetrieval>,
     profile: Option<GuardedProfile>,
     episodic: Option<GuardedEpisodic>,
+    source_sync: Option<GuardedSourceSync>,
+    coding_sessions: Option<GuardedCodingSessions>,
+    scoring: Option<GuardedScoring>,
 }
 
 impl MemoryGuard {
@@ -83,6 +89,9 @@ impl MemoryGuard {
             retrieval: family!(Retrieval, GuardedRetrieval),
             profile: family!(Profile, GuardedProfile),
             episodic: family!(Episodic, GuardedEpisodic),
+            source_sync: family!(SourceSync, GuardedSourceSync),
+            coding_sessions: family!(CodingSessions, GuardedCodingSessions),
+            scoring: family!(Scoring, GuardedScoring),
             inner,
             policy,
         }
@@ -186,6 +195,21 @@ impl MemoryProvider for MemoryGuard {
 
     fn as_episodic(&self) -> Option<&dyn MemoryEpisodic> {
         self.episodic.as_ref().map(|g| g as &dyn MemoryEpisodic)
+    }
+
+    fn as_source_sync(&self) -> Option<&dyn MemorySourceSync> {
+        self.source_sync
+            .as_ref()
+            .map(|g| g as &dyn MemorySourceSync)
+    }
+
+    fn as_coding_sessions(&self) -> Option<&dyn MemoryCodingSessions> {
+        self.coding_sessions
+            .as_ref()
+            .map(|g| g as &dyn MemoryCodingSessions)
+    }
+    fn as_scoring(&self) -> Option<&dyn MemoryScoring> {
+        self.scoring.as_ref().map(|g| g as &dyn MemoryScoring)
     }
 }
 

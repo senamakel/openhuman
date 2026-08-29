@@ -165,6 +165,18 @@ pub(super) async fn ws_loop(
         shared.ack_registry.cancel_all();
         super::medulla::workflows::end_connection_generation();
 
+        // Backstop for anything that was already queued when the connection
+        // ended. `emit_rx` is owned by this loop, not by the connection, so
+        // without this a message sitting in the channel is flushed onto the
+        // *next* socket — a different sid, whose roster the backend has already
+        // cleared. The per-handler guard in `event_handlers` closes the common
+        // case; this covers the window between an emit being queued and the
+        // generation being cancelled.
+        let dropped = drain_pending_emits(&mut emit_rx);
+        if dropped > 0 {
+            log::warn!("[socket] Dropped {dropped} queued emit(s) on disconnect");
+        }
+
         match outcome {
             ConnectionOutcome::Shutdown => {
                 log::info!("[socket] Clean shutdown");
@@ -399,6 +411,27 @@ fn decide_after_invalid_token(
             reason: format!("provider error: {e}"),
         },
     }
+}
+
+// ---------------------------------------------------------------------------
+// Emit-channel draining
+// ---------------------------------------------------------------------------
+
+/// Discard whatever is still queued on the emit channel, reporting how much.
+///
+/// Called when a connection ends. The channel outlives the socket — it is
+/// created once per `SocketManager::connect` and re-used by every reconnect
+/// attempt — so anything left in it would otherwise be delivered on the next
+/// connection, where nothing is waiting for it.
+///
+/// A free function rather than an inline loop so the behaviour is directly
+/// testable without standing up a socket.
+fn drain_pending_emits(rx: &mut mpsc::UnboundedReceiver<String>) -> usize {
+    let mut dropped = 0usize;
+    while rx.try_recv().is_ok() {
+        dropped += 1;
+    }
+    dropped
 }
 
 // ---------------------------------------------------------------------------

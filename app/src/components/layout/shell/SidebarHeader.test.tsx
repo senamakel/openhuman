@@ -19,9 +19,10 @@ vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) 
 describe('SidebarHeader', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Keyboard Shortcuts, Settings, and Collapse buttons', () => {
+  it('renders Keyboard Shortcuts, Feedback, Settings, and Collapse buttons', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     expect(screen.getByRole('button', { name: 'shortcuts.title' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'nav.feedback' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'nav.settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'chat.hideSidebar' })).toBeInTheDocument();
     // The wallet shortcut was removed long ago; Home followed it, since the
@@ -58,9 +59,23 @@ describe('SidebarHeader', () => {
   it('settings button navigates to /settings', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     fireEvent.click(screen.getByRole('button', { name: 'nav.settings' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/settings', {
-      state: { backgroundLocation: expect.objectContaining({ pathname: '/home' }) },
-    });
+    expect(mockNavigate).toHaveBeenCalledWith('/settings');
+  });
+
+  // Feedback moved here from the sidebar footer row: it is a utility action
+  // like the other three, not a destination the user returns to.
+  it('feedback button navigates to /feedback', () => {
+    renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
+    fireEvent.click(screen.getByRole('button', { name: 'nav.feedback' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/feedback');
+  });
+
+  it('marks the feedback button current while the route is open', () => {
+    renderWithProviders(<SidebarHeader />, { initialEntries: ['/feedback'] });
+    expect(screen.getByRole('button', { name: 'nav.feedback' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   });
 
   it('Collapse button calls hide()', () => {

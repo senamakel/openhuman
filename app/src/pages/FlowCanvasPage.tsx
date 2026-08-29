@@ -39,7 +39,9 @@ import {
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
+import UiInput from '../components/ui/Input';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
+import { ToggleGroupItem, ToggleGroupRoot } from '../components/ui/ToggleGroup';
 import { useFlowPreauthorization } from '../hooks/useFlowPreauthorization';
 import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import {
@@ -407,11 +409,6 @@ function FlowEditor({
   // it); the user can switch to the Legend or collapse the rail entirely.
   const [sidePanel, setSidePanel] = useState<SidePanel>('copilot');
   const copilotOpen = sidePanel === 'copilot';
-  // Toggle a panel: selecting the active one again closes the side panel.
-  const toggleSidePanel = useCallback(
-    (panel: Exclude<SidePanel, null>) => setSidePanel(cur => (cur === panel ? null : panel)),
-    []
-  );
   // Issue B22: a repair seed can also arrive WITHOUT a `FlowEditor` remount —
   // "Fix with agent" clicked from `FlowRunsSidebar` stays on this same
   // `/flows/:id` route (only `location.state`/`location.key` change), so the
@@ -1066,38 +1063,24 @@ function FlowEditor({
   // segment again collapses the rail (full-width graph). Replaces the old
   // single copilot on/off button.
   const sidePanelToggle = (
-    <div
-      role="group"
+    <ToggleGroupRoot
+      type="single"
+      variant="secondary"
+      size="xs"
+      value={sidePanel ?? ''}
+      onValueChange={next => setSidePanel(next === 'copilot' || next === 'legend' ? next : null)}
       aria-label={t('flows.canvas.sidePanelToggle')}
-      className="inline-flex items-center rounded-lg border border-line bg-surface p-0.5">
-      {(
-        [
-          { key: 'copilot', label: t('flows.copilot.open'), testId: 'flow-canvas-copilot-toggle' },
-          {
-            key: 'legend',
-            label: t('flows.canvas.legendTab'),
-            testId: 'flow-canvas-legend-toggle',
-          },
-        ] as const
-      ).map(tab => {
-        const active = sidePanel === tab.key;
-        return (
-          <button
-            key={tab.key}
-            type="button"
-            aria-pressed={active}
-            data-testid={tab.testId}
-            onClick={() => toggleSidePanel(tab.key)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              active
-                ? 'bg-primary-500 text-content-inverted shadow-sm'
-                : 'text-content-secondary hover:bg-surface-hover'
-            }`}>
-            {tab.label}
-          </button>
-        );
-      })}
-    </div>
+      className="rounded-lg border border-line bg-surface p-0.5">
+      <ToggleGroupItem
+        value="copilot"
+        data-testid="flow-canvas-copilot-toggle"
+        className="border-0">
+        {t('flows.copilot.open')}
+      </ToggleGroupItem>
+      <ToggleGroupItem value="legend" data-testid="flow-canvas-legend-toggle" className="border-0">
+        {t('flows.canvas.legendTab')}
+      </ToggleGroupItem>
+    </ToggleGroupRoot>
   );
 
   // Save / Discard moved out of the canvas into the header (the canvas keeps
@@ -1153,8 +1136,9 @@ function FlowEditor({
   // Editable title: an unstyled input that reads as the page heading until
   // focused, so renaming is discoverable without a separate edit affordance.
   const titleNode = (
-    <input
+    <UiInput
       type="text"
+      inputSize="sm"
       value={titleDraft}
       disabled={renaming}
       data-testid="flow-canvas-title"
@@ -1170,7 +1154,7 @@ function FlowEditor({
           e.currentTarget.blur();
         }
       }}
-      className="w-full max-w-md truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 text-base font-semibold text-content hover:border-line focus:border-primary-400 focus:outline-none disabled:opacity-60"
+      className="w-full max-w-md truncate border-transparent bg-transparent text-base font-semibold hover:border-line"
     />
   );
 
@@ -1186,7 +1170,7 @@ function FlowEditor({
             only). The app sidebar is hidden on this route (chromeless), so this
             can't use the shell `SidebarContent` slot — render it in-page. */}
         {!isDraft && flowId && (
-          <div className="hidden h-full w-60 flex-shrink-0 border-r border-line lg:flex">
+          <div className="hidden h-full w-60 shrink-0 border-r border-line lg:flex">
             <FlowRunsSidebar flowId={flowId} />
           </div>
         )}
@@ -1231,13 +1215,16 @@ function FlowEditor({
                 <span className="flex-1">
                   {t('flows.editor.runFailed')}: {formatRunError(runError)}
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="tertiary"
+                  size="xs"
+                  iconOnly
                   onClick={() => setRunError(null)}
                   aria-label={t('common.dismiss')}
                   title={t('common.dismiss')}
                   data-testid="flow-canvas-run-error-dismiss"
-                  className="flex-shrink-0 text-coral-500 hover:text-coral-700 dark:text-coral-300 dark:hover:text-coral-100">
+                  className="shrink-0 text-coral-500 hover:bg-transparent hover:text-coral-700 dark:text-coral-300 dark:hover:text-coral-100">
                   <svg
                     className="h-3.5 w-3.5"
                     fill="none"
@@ -1250,14 +1237,14 @@ function FlowEditor({
                       d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {leaveConfirm && (
             <div
-              className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 p-4"
+              className="absolute inset-0 z-30 flex items-center justify-center bg-surface-overlay/50 p-4 backdrop-blur-sm"
               data-testid="flow-leave-confirm">
               <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4 shadow-xl">
                 <h2 className="text-sm font-semibold text-content">
@@ -1321,7 +1308,7 @@ function FlowEditor({
         {/* Confirm popup for the header's Run / Save / Discard icon buttons. */}
         {confirmAction && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-surface-overlay/50 p-4 backdrop-blur-sm"
             data-testid="flow-action-confirm">
             <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4 shadow-xl">
               <h2 className="text-sm font-semibold text-content">

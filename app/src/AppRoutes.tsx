@@ -1,7 +1,5 @@
 import { type Location, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
-import AgentWorldShell from './agentworld/AgentWorldShell';
-import AgentWorld from './agentworld/pages/AgentWorld';
 import AppRoutesIOS from './AppRoutesIOS';
 import DefaultRedirect from './components/DefaultRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -12,6 +10,8 @@ import Accounts from './pages/Accounts';
 import Activity from './pages/Activity';
 import Brain from './pages/Brain';
 import AgentInsightsPreview from './pages/dev/AgentInsightsPreview';
+import AssistantUiDemoPage from './pages/dev/assistant-ui-demo';
+import UiGallery from './pages/dev/UiGallery';
 import Feedback from './pages/Feedback';
 import FlowCanvasPage, { FlowCanvasDraftPage } from './pages/FlowCanvasPage';
 import FlowsPage from './pages/FlowsPage';
@@ -20,6 +20,7 @@ import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
 import { PttOverlayPage } from './pages/PttOverlayPage';
 import Rewards from './pages/Rewards';
+import Settings from './pages/Settings';
 import Skills from './pages/Skills';
 import WebCallbackPage from './pages/WebCallbackPage';
 import Welcome from './pages/Welcome';
@@ -27,10 +28,11 @@ import WorkflowsRun from './pages/WorkflowsRun';
 
 interface AppRoutesProps {
   /**
-   * Optional location override. The desktop shell passes the *background*
-   * location here while the Settings modal is open, so the page behind the
-   * modal stays rendered even though the URL is `/settings/*`. Omitted
-   * everywhere else (router uses the ambient location).
+   * Optional location override. Nothing passes one today — the router uses the
+   * ambient location. It existed for the desktop Settings modal, which rendered
+   * the page *behind* it from a stashed background location; Settings is a
+   * routed page now. Kept because `<Routes location=…>` is the standard escape
+   * hatch for any future overlay-over-a-page surface.
    */
   location?: Location | string;
 }
@@ -300,28 +302,30 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
       {/* Webhooks retired from the UI — land on the Integrations settings. */}
       <Route path="/webhooks" element={<Navigate to="/settings/integrations" replace />} />
 
-      {/* Desktop Settings renders as a modal overlay mounted by AppShellDesktop
-          (App.tsx) using the backgroundLocation pattern — it is no longer an
-          inline route here. iOS keeps its own /settings/* route in
-          AppRoutesIOS.tsx. */}
+      {/* Settings is a routed page like every other surface: the shared route
+          table renders inside `SettingsLayout`, which projects the settings nav
+          into the app sidebar's dynamic region. It was a modal overlay (the
+          backgroundLocation pattern) until this route replaced it. iOS keeps
+          its own /settings/* route in AppRoutesIOS.tsx. */}
+      <Route
+        path="/settings/*"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
 
       <Route path="/ptt-overlay" element={<PttOverlayPage />} />
 
       {/* Dev-only visual preview of the Agentic task insights surface. */}
       <Route path="/dev/agent-insights" element={<AgentInsightsPreview />} />
 
-      {/* Agent World — tiny.place A2A social network integration.
-          Nested routes (explore, directory, …) are handled inside AgentWorld. */}
-      <Route
-        path="/agent-world/*"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <AgentWorldShell>
-              <AgentWorld />
-            </AgentWorldShell>
-          </ProtectedRoute>
-        }
-      />
+      {/* Dev-only gallery of every shared UI primitive, in the active theme. */}
+      <Route path="/dev/ui" element={<UiGallery />} />
+
+      {/* Dev-only: the upstream assistant-ui `base` demo on a mock runtime. */}
+      <Route path="/dev/assistant-ui" element={<AssistantUiDemoPage />} />
 
       {/* Default redirect based on auth status */}
       <Route path="*" element={<DefaultRedirect />} />

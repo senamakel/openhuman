@@ -12,7 +12,10 @@
 
 use serde_json::json;
 
-use crate::openhuman::agent::triage::{apply_decision, run_triage, TriageOutcome, TriggerEnvelope};
+use crate::openhuman::agent::triage::{
+    apply_decision, remote_trigger_origin, run_triage, TriageOutcome, TriggerEnvelope,
+};
+use crate::openhuman::agent::turn_origin::with_origin;
 use crate::openhuman::config::Config;
 use crate::openhuman::threads::todos::ops::{
     add as todo_add, remove as todo_remove, BoardLocation, CardPatch,
@@ -249,7 +252,10 @@ async fn dispatch_triage(
 
     match outcome {
         TriageOutcome::Decision(run) => {
-            apply_decision(run, &envelope)
+            // Remote payload: the task arrived from an external board, so the
+            // dispatch parks rather than running on a trust root (#5634).
+            let origin = remote_trigger_origin(&envelope);
+            with_origin(origin, apply_decision(run, &envelope))
                 .await
                 .map_err(|e| format!("[task_sources:route] apply_decision failed: {e}"))?;
             tracing::debug!(

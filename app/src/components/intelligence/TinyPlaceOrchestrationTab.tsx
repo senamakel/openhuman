@@ -1,7 +1,8 @@
 import debugFactory from 'debug';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { apiClient } from '../../agentworld/AgentWorldShell';
+import { resolveWalletConfigured } from '../../hooks/useWalletConfigured';
+import { apiClient } from '../../lib/agentworld/apiClient';
 import { type PairingSnapshot, PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
@@ -128,17 +129,31 @@ export default function TinyPlaceOrchestrationTab() {
     // wallet), but relayInfo() only reads the configured base URL and must
     // stay visible regardless. Settle them separately so one failure never
     // hides the other. Neither failure may break the chat surface.
-    const [identityResult, relayResult] = await Promise.allSettled([
-      orchestrationClient.selfIdentity(),
-      orchestrationClient.relayInfo(),
-    ]);
+    // Gate the wallet-requiring half on wallet status: with no wallet,
+    // selfIdentity() can only reject with the core's wallet-not-configured
+    // error, so skip it rather than provoke an error-level report (#5805).
+    // relayInfo() reads a configured base URL and needs no wallet, so it runs
+    // either way — preserving the "one failure never hides the other" property
+    // above. Only a positive `no` skips; `unknown` falls through and the core
+    // boundary classifier handles anything that follows.
+    // Fire the wallet-independent read FIRST, before awaiting anything: relay
+    // must not be delayed by the wallet probe, which is the whole reason the
+    // two are settled separately. `null` marks "not asked", which is distinct
+    // from "asked and failed".
+    const relayPromise = orchestrationClient.relayInfo();
+    const identityPromise = resolveWalletConfigured().then(configured =>
+      configured === 'no' ? null : orchestrationClient.selfIdentity()
+    );
+    const [identityResult, relayResult] = await Promise.allSettled([identityPromise, relayPromise]);
     if (!mountedRef.current) return;
     if (identityResult.status === 'fulfilled') {
-      debug(
-        '[tinyplace-orchestration] identity load ok discoverable=%s',
-        identityResult.value.discoverable
-      );
-      setSelfIdentity(identityResult.value);
+      const identity = identityResult.value;
+      if (identity === null) {
+        debug('[tinyplace-orchestration] identity skipped: no wallet configured');
+      } else {
+        debug('[tinyplace-orchestration] identity load ok discoverable=%s', identity.discoverable);
+        setSelfIdentity(identity);
+      }
     } else {
       const reason = identityResult.reason;
       const message = reason instanceof Error ? reason.message : String(reason);

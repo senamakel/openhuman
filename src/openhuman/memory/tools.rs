@@ -21,7 +21,6 @@ mod store;
 #[cfg(feature = "memory-git")]
 pub mod diff;
 pub mod goals;
-pub mod people;
 pub mod raw_store;
 pub mod search;
 pub mod tool_memory;

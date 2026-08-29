@@ -26,6 +26,7 @@ import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
 import PanelPage from '../components/layout/PanelPage';
 import { usePageWelcomeView } from '../components/layout/usePageWelcomeView';
+import CronJobsPanel from '../components/settings/panels/CronJobsPanel';
 import BetaBanner from '../components/ui/BetaBanner';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
@@ -464,6 +465,14 @@ export default function FlowsPage() {
         label: t('nav.workflowDiscoveries'),
         iconPath: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
       },
+      // Scheduled jobs moved here from Settings → Cron jobs. A recurring
+      // schedule is a way to run automation, so it belongs beside the flows it
+      // triggers rather than in a settings menu.
+      {
+        value: 'schedules',
+        label: t('settings.developerMenu.cronJobs.title'),
+        iconPath: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+      },
     ],
   });
 
@@ -525,6 +534,15 @@ export default function FlowsPage() {
       <>
         {nav}
         <WorkflowDiscoveriesPage />
+      </>
+    );
+  }
+
+  if (view === 'schedules') {
+    return (
+      <>
+        {nav}
+        <CronJobsPanel />
       </>
     );
   }

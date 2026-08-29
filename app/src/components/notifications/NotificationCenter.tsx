@@ -169,7 +169,7 @@ const NotificationCenter = () => {
         <div className="flex items-center gap-2 px-4 py-2 border-b border-line-subtle overflow-x-auto">
           <button
             onClick={() => setSelectedProvider(undefined)}
-            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
               selectedProvider === undefined
                 ? 'bg-primary-500 text-content-inverted'
                 : 'bg-surface-subtle text-content-secondary hover:bg-surface-strong dark:hover:bg-surface-muted/60'
@@ -180,7 +180,7 @@ const NotificationCenter = () => {
             <button
               key={p}
               onClick={() => setSelectedProvider(p === selectedProvider ? undefined : p)}
-              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                 selectedProvider === p
                   ? 'bg-primary-500 text-content-inverted'
                   : 'bg-surface-subtle text-content-secondary hover:bg-surface-strong dark:hover:bg-surface-muted/60'

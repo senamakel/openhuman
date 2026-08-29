@@ -8,6 +8,9 @@
 import { useRef } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import Button from '../../ui/Button';
+import { CloseIcon } from '../../ui/icons';
+import TextField from '../../ui/TextField';
 
 interface SettingsSearchBarProps {
   value: string;
@@ -25,12 +28,6 @@ const SearchIcon = () => (
   </svg>
 );
 
-const ClearIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
-
 const SettingsSearchBar = ({ value, onValueChange }: SettingsSearchBarProps) => {
   const { t } = useT();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -40,7 +37,7 @@ const SettingsSearchBar = ({ value, onValueChange }: SettingsSearchBarProps) => 
       <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-content-faint">
         <SearchIcon />
       </span>
-      <input
+      <TextField
         ref={inputRef}
         type="text"
         aria-label={t('settings.settingsSearch.ariaLabel')}
@@ -56,20 +53,23 @@ const SettingsSearchBar = ({ value, onValueChange }: SettingsSearchBarProps) => 
         }}
         placeholder={t('settings.settingsSearch.placeholder')}
         data-testid="settings-search-input"
-        className="w-full border-0 border-b border-line bg-transparent py-2.5 pl-10 pr-10 text-sm text-content placeholder:text-stone-400 focus:border-primary-400 focus:outline-none focus:ring-0 dark:placeholder:text-neutral-500"
+        className="rounded-none border-0 border-b border-line pl-10 pr-10 focus:ring-0"
       />
       {value && (
-        <button
+        <Button
           type="button"
+          variant="tertiary"
+          size="sm"
+          iconOnly
           onClick={() => {
             onValueChange('');
             inputRef.current?.focus();
           }}
           aria-label={t('settings.settingsSearch.clear')}
           data-testid="settings-search-clear"
-          className="absolute inset-y-0 right-2 flex items-center px-1.5 text-content-faint hover:text-content-secondary">
-          <ClearIcon />
-        </button>
+          className="absolute inset-y-0 right-2 my-auto h-7 w-7 text-content-faint hover:text-content-secondary hover:bg-transparent focus-visible:ring-offset-surface">
+          <CloseIcon className="h-4 w-4" />
+        </Button>
       )}
     </div>
   );

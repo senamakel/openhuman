@@ -11,6 +11,13 @@ use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use crate::openhuman::memory::diff::ops;
+// The host path, matching the six other call sites that read this
+// registry (`memory::diff::rpc`, `memory::sync::composio::bus`,
+// `integrations::composio::ops::connections`). This tool was the one
+// place that named the engine crate for it; the registry itself is
+// still `tinymemory_core::sources` behind `memory::sources` — see that
+// module's docs for what has to move before the name goes away (#5560).
+use crate::openhuman::memory::sources;
 use tinycortex::memory::diff::types::*;
 
 pub struct MemoryDiffTool;
@@ -105,7 +112,7 @@ impl Tool for MemoryDiffTool {
 
         if let Some(sid) = source_id {
             debug!("[memory_diff][tool] branch=source_diff source_id={sid}");
-            let source = tinymemory_core::sources::get_source(sid)
+            let source = sources::get_source(sid)
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?
                 .ok_or_else(|| anyhow::anyhow!("source not found: {sid}"))?;
@@ -125,7 +132,7 @@ impl Tool for MemoryDiffTool {
 
         debug!("[memory_diff][tool] branch=list_sources");
         // No source_id or checkpoint_id: list sources with snapshot counts
-        let sources = tinymemory_core::sources::list_sources()
+        let sources = sources::list_sources()
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 

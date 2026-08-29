@@ -25,7 +25,7 @@ vi.mock('../../../lib/orchestration/usePairing', () => ({ usePairing: () => pair
 const acceptRequest = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const declineRequest = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const reverse = vi.hoisted(() => vi.fn().mockResolvedValue({ agents: [{ username: 'alice' }] }));
-vi.mock('../../../agentworld/AgentWorldShell', () => ({
+vi.mock('../../../lib/agentworld/apiClient', () => ({
   apiClient: {
     orchestrationPairing: { acceptRequest, declineRequest, blockRequest: vi.fn() },
     directory: { reverse },

@@ -115,12 +115,6 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         graph_fn: None,
     },
     BuiltinAgent {
-        id: "tinyplace_agent",
-        toml: include_str!("../../../tinyplace/agent/agent.toml"),
-        prompt_fn: crate::openhuman::tinyplace::agent::prompt::build,
-        graph_fn: None,
-    },
-    BuiltinAgent {
         id: "tools_agent",
         toml: include_str!("tools_agent/agent.toml"),
         prompt_fn: super::tools_agent::prompt::build,
@@ -142,12 +136,6 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         id: "profile_memory_agent",
         toml: include_str!("profile_memory_agent/agent.toml"),
         prompt_fn: super::profile_memory_agent::prompt::build,
-        graph_fn: None,
-    },
-    BuiltinAgent {
-        id: "account_admin_agent",
-        toml: include_str!("account_admin_agent/agent.toml"),
-        prompt_fn: super::account_admin_agent::prompt::build,
         graph_fn: None,
     },
     BuiltinAgent {
@@ -779,7 +767,6 @@ mod tests {
             "tools_agent",
             "crypto_agent",
             "scheduler_agent",
-            "tinyplace_agent",
         ] {
             let def = find(id);
             assert!(
@@ -804,27 +791,39 @@ mod tests {
                     !tools.iter().any(|t| t == "spawn_worker_thread"),
                     "spawn_worker_thread is disabled (#1624) and must not be named"
                 );
-                // Async sub-agent control surface taught by prompt.md.
-                assert!(
-                    tools.iter().any(|t| t == "steer_subagent"),
-                    "orchestrator must have steer_subagent to steer async workers"
-                );
-                assert!(
-                    tools.iter().any(|t| t == "wait_subagent"),
-                    "orchestrator must have wait_subagent to collect async results"
-                );
-                assert!(
-                    tools.iter().any(|t| t == "spawn_async_subagent"),
-                    "orchestrator must have spawn_async_subagent for sparse background work"
-                );
-                assert!(
-                    tools.iter().any(|t| t == "wait"),
-                    "orchestrator must have wait for delayed callback ticks"
-                );
-                assert!(
-                    tools.iter().any(|t| t == "wait_loop"),
-                    "orchestrator must have wait_loop for deliberate polling loops"
-                );
+                // Sub-agent surface taught by prompt.md, deliberately three
+                // tools (#5701): spawn, enumerate, resume. A sub-agent is
+                // always async and its result is delivered back on an idle
+                // system turn, so there is nothing to collect and nothing to
+                // block on.
+                for required in [
+                    "spawn_async_subagent",
+                    "list_subagents",
+                    "continue_subagent",
+                ] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "orchestrator must have sub-agent tool `{required}`"
+                    );
+                }
+                // The collection/fan-out/fleet surface these replaced. Each was
+                // either a second way to say "spawn again" or a way to stall
+                // the turn waiting for a result that arrives on its own.
+                // Re-adding one means re-teaching it in prompt.md; don't do it
+                // without that.
+                for retired in [
+                    "wait",
+                    "wait_loop",
+                    "wait_subagent",
+                    "spawn_parallel_agents",
+                    "steer_subagent",
+                    "close_subagent",
+                ] {
+                    assert!(
+                        !tools.iter().any(|t| t == retired),
+                        "retired sub-agent tool `{retired}` must not reappear (#5701)"
+                    );
+                }
                 assert!(
                     !tools.iter().any(|t| t == "spawn_subagent"),
                     "spawn_subagent must not appear — removed in #1141"
@@ -921,7 +920,6 @@ mod tests {
             "scheduler_agent",
             "task_manager_agent",
             "crypto_agent",
-            "tinyplace_agent",
         ];
         for id in ids {
             let def = find(id);
@@ -1276,8 +1274,6 @@ mod tests {
                 // A representative slice of the read-only gathering surface.
                 for required in [
                     "memory_recall",
-                    "transcript_search",
-                    "thread_list",
                     "list_flows",
                     "list_flow_connections",
                     "search_tool_catalog",
@@ -1321,61 +1317,6 @@ mod tests {
                 .iter()
                 .any(|entry| matches!(entry, SubagentEntry::AgentId(id) if id == "flow_discovery")),
             "orchestrator must allow `flow_discovery` so discover_workflows can spawn it"
-        );
-    }
-
-    #[test]
-    fn tinyplace_agent_is_registered_and_narrow() {
-        let def = find("tinyplace_agent");
-        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"));
-        assert_eq!(def.sandbox_mode, SandboxMode::None);
-        assert!(!def.omit_safety_preamble);
-        assert_eq!(def.delegate_name.as_deref(), Some("use_tinyplace"));
-        match &def.tools {
-            ToolScope::Named(names) => {
-                // Curated flow surface (replaced the per-controller 1:1 tools).
-                for required in [
-                    "tinyplace_whoami",
-                    "tinyplace_status",
-                    "tinyplace_feed",
-                    "tinyplace_find_work",
-                    "tinyplace_register",
-                    "tinyplace_post_bounty",
-                    "tinyplace_submit_work",
-                    "tinyplace_job_apply",
-                    "tinyplace_graphql",
-                    "tinyplace_call",
-                    "tinyplace_help",
-                    "ask_user_clarification",
-                    "resolve_time",
-                    "current_time",
-                ] {
-                    assert!(
-                        names.iter().any(|name| name == required),
-                        "tinyplace_agent tool list missing `{required}`"
-                    );
-                }
-                for forbidden in [
-                    "shell",
-                    "file_write",
-                    "composio_execute",
-                    "mcp_registry_tool_call",
-                ] {
-                    assert!(
-                        !names.iter().any(|name| name == forbidden),
-                        "tinyplace_agent must not expose broad tool `{forbidden}`"
-                    );
-                }
-            }
-            other => panic!("tinyplace_agent must use Named tool scope, got {other:?}"),
-        }
-
-        let orchestrator = find("orchestrator");
-        assert!(
-            orchestrator.subagents.iter().any(
-                |entry| matches!(entry, SubagentEntry::AgentId(id) if id == "tinyplace_agent")
-            ),
-            "orchestrator must allow `tinyplace_agent` so use_tinyplace can spawn it"
         );
     }
 
@@ -1434,11 +1375,6 @@ mod tests {
         assert!(def.omit_identity);
         assert!(def.omit_safety_preamble);
         assert_eq!(def.max_iterations, 8);
-        assert!(
-            def.disallowed_tools.iter().any(|t| t == "tinyplace_*"),
-            "morning_briefing.disallowed_tools must contain `tinyplace_*` so \
-             tiny.place routes through tinyplace_agent exclusively"
-        );
     }
 
     #[test]
@@ -1527,10 +1463,6 @@ mod tests {
                 for required in [
                     "memory_recall",
                     // Transcripts + thread metadata + message reader (read-only).
-                    "transcript_search",
-                    "thread_list",
-                    "thread_read",
-                    "thread_message_list",
                     // Skill discovery (read-only).
                     "list_workflows",
                     "skill_registry_browse",
@@ -1599,16 +1531,7 @@ mod tests {
         // no more, no less.
         match &def.tools {
             ToolScope::Named(tools) => {
-                let expected = [
-                    "memory_recall",
-                    "memory_hybrid_search",
-                    "memory_flavour",
-                    "people_list",
-                    "transcript_search",
-                    "thread_list",
-                    "thread_read",
-                    "thread_message_list",
-                ];
+                let expected = ["memory_recall", "memory_hybrid_search", "memory_flavour"];
                 for required in expected {
                     assert!(
                         tools.iter().any(|t| t == required),
@@ -1873,19 +1796,6 @@ mod tests {
         );
     }
 
-    /// `tools_agent` must explicitly disallow specialist-owned external action
-    /// families so the wildcard inventory does not surface raw paid/write
-    /// tools to the generalist, bypassing specialist prompts.
-    #[test]
-    fn tools_agent_disallows_specialist_owned_external_tools() {
-        let def = find("tools_agent");
-        assert!(
-            def.disallowed_tools.iter().any(|t| t == "tinyplace_*"),
-            "tools_agent.disallowed_tools must contain `tinyplace_*` so \
-             tiny.place routes through tinyplace_agent exclusively"
-        );
-    }
-
     /// Routing: the orchestrator must list `mcp_agent` in its `subagents`
     /// so a `delegate_use_mcp_server` tool is synthesised at agent-build
     /// time. Without this entry the orchestrator can only *set up* MCP
@@ -2078,7 +1988,6 @@ mod tests {
             "task_manager_agent",
             "settings_agent",
             "profile_memory_agent",
-            "account_admin_agent",
         ] {
             assert!(
                 subagents.contains(expected),
@@ -2095,7 +2004,6 @@ mod tests {
             "task_manager_agent",
             "settings_agent",
             "profile_memory_agent",
-            "account_admin_agent",
         ] {
             let def = find(expected);
             assert_eq!(def.agent_tier, AgentTier::Worker);

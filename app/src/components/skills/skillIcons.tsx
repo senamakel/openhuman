@@ -39,7 +39,7 @@ function SkillIconBadge({
       role="img"
       aria-label={label}
       className={iconClasses(
-        'flex h-8 w-8 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5',
+        'flex h-8 w-8 items-center justify-center rounded-xl shadow-xs ring-1 ring-surface-overlay/5',
         bgClassName,
         className
       )}>
@@ -88,7 +88,7 @@ export function getChannelIcons(
       <span
         role="img"
         aria-label={t('skills.channelIcon.yuanbao')}
-        className="flex h-8 w-8 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 bg-surface">
+        className="flex h-8 w-8 items-center justify-center rounded-xl shadow-xs ring-1 ring-surface-overlay/5 bg-surface">
         <YuanbaoIcon className="h-[18px] w-[18px]" />
       </span>
     ),

@@ -106,7 +106,7 @@ mod tests {
     }
 
     #[test]
-    fn body_instructs_memory_and_people_and_thread_gathering() {
+    fn body_instructs_memory_gathering() {
         let body = build(&test_ctx()).unwrap();
         assert!(
             body.contains("memory_recall"),
@@ -116,13 +116,14 @@ mod tests {
             body.contains("memory_hybrid_search"),
             "prompt must instruct the memory_hybrid_search gathering tool"
         );
-        assert!(
-            body.contains("people_list"),
-            "prompt must instruct the people_list gathering tool"
-        );
-        assert!(
-            body.contains("transcript_search"),
-            "prompt must instruct searching past conversations"
-        );
+        // People and transcript lookups fold into memory: the `people_*` and
+        // `thread_*` tool families were removed, so the prompt must not send
+        // the agent at a tool that no longer exists.
+        for gone in ["people_list", "transcript_search", "thread_list"] {
+            assert!(
+                !body.contains(gone),
+                "prompt still names the removed tool `{gone}`"
+            );
+        }
     }
 }

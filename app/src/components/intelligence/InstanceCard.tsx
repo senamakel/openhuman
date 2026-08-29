@@ -7,6 +7,7 @@
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { InstanceStatus, SessionSummary } from '../../lib/orchestration/orchestrationClient';
+import Button from '../ui/Button';
 import HarnessGlyph, { type GlyphKind } from './HarnessGlyph';
 import InstanceStatusDot from './InstanceStatusDot';
 
@@ -42,13 +43,13 @@ export default function InstanceCard({
   const identity = handle ? `@${handle}` : (session.label ?? shortAddress(session.agentId));
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="tertiary"
       data-testid={`instance-card-${session.sessionId}`}
       data-selected={selected ? 'true' : 'false'}
       onClick={onSelect}
-      className={`flex w-full items-center gap-3 border-l-2 px-3 py-2 text-left transition hover:bg-surface-hover ${
-        selected ? 'border-ocean-500 bg-surface-muted' : 'border-transparent'
+      className={`h-auto w-full items-center justify-start gap-3 rounded-none border-l-2 px-3 py-2 text-left ${
+        selected ? 'border-primary-500 bg-surface-muted' : 'border-transparent'
       }`}>
       <HarnessGlyph harness={glyph} />
       <span className="min-w-0 flex-1">
@@ -65,10 +66,10 @@ export default function InstanceCard({
       {session.unread > 0 ? (
         <span
           data-testid="instance-card-unread"
-          className="flex-none rounded-full bg-ocean-500 px-1.5 py-0.5 text-[10px] font-semibold text-content-inverted">
+          className="flex-none rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-content-inverted">
           {session.unread}
         </span>
       ) : null}
-    </button>
+    </Button>
   );
 }

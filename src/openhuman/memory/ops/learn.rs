@@ -168,7 +168,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use tinymemory_core::store::NamespaceDocumentInput;
+    use crate::openhuman::memory::api::types::NamespaceDocumentInput;
 
     fn ensure_memory_client() {
         crate::openhuman::memory::ops::ensure_shared_memory_client();
@@ -203,13 +203,29 @@ mod tests {
         }
     }
 
+    /// Seed a document through the guard — the same door
+    /// [`memory_learn_all`] enumerates namespaces through.
+    ///
+    /// `MemoryDocuments::put_document` is the full pipeline, not the engine's
+    /// `put_doc_light` shortcut this used to call: the contract has one put and
+    /// the driver owns what happens behind it, so the background
+    /// graph-extraction enqueue comes along. That is the cost of the seed and
+    /// the enumeration reading one store rather than two — a handle-seeded row
+    /// is only visible to the guard for as long as the bound driver happens to
+    /// be the in-process engine.
+    ///
+    /// `ensure_memory_client` stays: `active_memory_guard`'s no-context
+    /// fallback prefers the workspace the global client is already bound to,
+    /// and the callers below move `OPENHUMAN_WORKSPACE` to a tempdir *after*
+    /// seeding.
     async fn seed_namespace(prefix: &str) -> String {
         ensure_memory_client();
         let short_id = &uuid::Uuid::new_v4().as_simple().to_string()[..12];
         let namespace = format!("{prefix}ns{short_id}");
-        let client = tinymemory_core::global::client().expect("memory client");
-        client
-            .put_doc_light(NamespaceDocumentInput {
+        let guard = active_memory_guard().await.expect("a bound memory guard");
+        let documents = guard.as_documents().expect("the documents family");
+        documents
+            .put_document(NamespaceDocumentInput {
                 namespace: namespace.clone(),
                 key: format!("testkey{short_id}"),
                 title: "Test".into(),
@@ -221,6 +237,7 @@ mod tests {
                 category: "core".into(),
                 session_id: None,
                 document_id: None,
+                // Requested provenance; the guard stamps the effective value.
                 taint: crate::openhuman::memory::MemoryTaint::Internal,
             })
             .await

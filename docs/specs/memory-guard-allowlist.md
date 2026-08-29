@@ -156,7 +156,6 @@ are recorded here so M4c starts from the real set.
 
 | Path | Reason |
 | --- | --- |
-| `memory/ops/documents.rs` — `doc_ingest` and retrieval envelope handlers | These still depend on engine-only ingestion and retrieval shapes. Namespace/document listing, deletion, context query, and context recall now use the shared Documents API. |
 | `memory/ops/sync.rs` | `client.ingestion_state().snapshot()` — queue telemetry, absent from the contract. |
 | `flows/ops.rs` | The production namespace clear uses `MemoryDocuments`; only the directly injected `MemoryClientRef` test seam remains raw. |
 | `integrations/composio/schemas.rs` | Passes `&MemoryClientRef` into `user_scopes::save`. |
@@ -169,9 +168,12 @@ are recorded here so M4c starts from the real set.
 `integrations/composio/ops_tests.rs`, `core/runtime/context.rs` (its `#[cfg(test)]`
 module).
 
-`vendor/tinymemory/crates/tinymemory-core/src/engine/sync.rs` also has an inline `#[cfg(test)]`
-module whose isolated-workspace fixtures construct `MemoryClient` directly; it
-is counted because the scanner does not brace-track inline test modules.
+`vendor/tinymemory/crates/tinymemory-core/src/sync/composio/providers/types_test_support.rs`
+is a `#[cfg(test)]` module whose isolated-workspace fixtures construct
+`MemoryClient` directly. It is counted because the scanner does not brace-track
+test modules — and it is one entry where there used to be three: the engine
+seam, the composio provider types and the engine-free sync runner each carried
+their fixtures inline until the engine split them out into this file.
 
 ## Honest scorecard
 

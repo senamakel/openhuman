@@ -1,8 +1,8 @@
-//! OpenHuman's implementation of the [`tinywallet::rpc::Transport`] seam.
+//! OpenHuman's implementation of the [`tinywallet_bus::rpc::Transport`] seam.
 //!
-//! `tinywallet` performs no I/O and takes no URLs: it names a
-//! [`NetworkId`](tinywallet::rpc::NetworkId) and asks a host to reach it. This
-//! module is that host side — the adapter that lets `tinywallet::rpc` and
+//! `tinywallet-bus` performs no I/O and takes no URLs: it names a
+//! [`NetworkId`](tinywallet_bus::rpc::NetworkId) and asks a host to reach it. This
+//! module is that host side — the adapter that lets `tinywallet_bus::rpc` and
 //! the chain modules run against OpenHuman's existing RPC layer.
 //!
 //! Everything the crate deliberately refused to own lives on this side of the
@@ -16,7 +16,7 @@
 //!
 //! ## Error mapping is the part worth reviewing
 //!
-//! `tinywallet` splits transport failures into retryable
+//! `tinywallet-bus` splits transport failures into retryable
 //! ([`TransportError::Unreachable`]) and authoritative
 //! ([`TransportError::Rpc`]), and a host's failover depends on that
 //! distinction: retrying an authoritative "insufficient funds" gets the same
@@ -32,7 +32,7 @@
 use async_trait::async_trait;
 use log::debug;
 use serde_json::Value;
-use tinywallet::rpc::{NetworkId, Transport, TransportError, TransportResult};
+use tinywallet_bus::rpc::{NetworkId, Transport, TransportError, TransportResult};
 
 use super::defaults::{rpc_url_for_chain, rpc_url_for_evm_network, EvmNetwork};
 use super::ops::WalletChain;
@@ -53,13 +53,13 @@ impl OpenHumanTransport {
     }
 }
 
-/// Map a `tinywallet` network onto OpenHuman's chain enum plus a base URL.
+/// Map a `tinywallet-bus` network onto OpenHuman's chain enum plus a base URL.
 #[allow(unreachable_patterns)]
 fn resolve(network: NetworkId) -> Result<String, TransportError> {
     match network.chain {
-        tinywallet::Chain::Evm => {
+        tinywallet_bus::Chain::Evm => {
             // An EVM request names its EIP-155 chain id; resolving it here is
-            // what keeps `tinywallet` free of OpenHuman's network enum.
+            // what keeps `tinywallet-bus` free of OpenHuman's network enum.
             let chain_id = network.evm_chain_id.ok_or_else(|| TransportError::Rpc {
                 network,
                 message: "EVM requests require an EIP-155 chain id".to_string(),
@@ -74,10 +74,10 @@ fn resolve(network: NetworkId) -> Result<String, TransportError> {
                 })?;
             Ok(rpc_url_for_evm_network(evm))
         }
-        tinywallet::Chain::Btc => Ok(rpc_url_for_chain(WalletChain::Btc)),
-        tinywallet::Chain::Solana => Ok(rpc_url_for_chain(WalletChain::Solana)),
-        tinywallet::Chain::Tron => Ok(rpc_url_for_chain(WalletChain::Tron)),
-        // `tinywallet::Chain` is `#[non_exhaustive]`, so a future variant must
+        tinywallet_bus::Chain::Btc => Ok(rpc_url_for_chain(WalletChain::Btc)),
+        tinywallet_bus::Chain::Solana => Ok(rpc_url_for_chain(WalletChain::Solana)),
+        tinywallet_bus::Chain::Tron => Ok(rpc_url_for_chain(WalletChain::Tron)),
+        // `tinywallet_bus::Chain` is `#[non_exhaustive]`, so a future variant must
         // be handled. Reporting it as authoritative is correct: no endpoint is
         // configured for it, and retrying elsewhere cannot change that.
         other => Err(TransportError::Rpc {
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn an_evm_request_without_a_chain_id_is_authoritative_not_retryable() {
-        let err = resolve(NetworkId::chain(tinywallet::Chain::Evm)).unwrap_err();
+        let err = resolve(NetworkId::chain(tinywallet_bus::Chain::Evm)).unwrap_err();
         assert!(!err.is_retryable(), "{err}");
     }
 
@@ -253,9 +253,9 @@ mod tests {
     #[test]
     fn every_non_evm_chain_resolves() {
         for chain in [
-            tinywallet::Chain::Btc,
-            tinywallet::Chain::Solana,
-            tinywallet::Chain::Tron,
+            tinywallet_bus::Chain::Btc,
+            tinywallet_bus::Chain::Solana,
+            tinywallet_bus::Chain::Tron,
         ] {
             assert!(resolve(NetworkId::chain(chain)).is_ok(), "{chain}");
         }
@@ -265,7 +265,7 @@ mod tests {
     fn transport_failures_are_retryable_and_everything_else_is_not() {
         // The conservative direction: only what this layer knows to be a
         // transport failure may drive a failover.
-        let network = NetworkId::chain(tinywallet::Chain::Btc);
+        let network = NetworkId::chain(tinywallet_bus::Chain::Btc);
         assert!(
             classify(network, "wallet RPC transport failed for x: refused".into()).is_retryable()
         );

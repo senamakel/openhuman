@@ -169,7 +169,7 @@ const Invites = () => {
                     onChange={e => setRedeemInput(e.target.value.toUpperCase())}
                     onKeyDown={e => e.key === 'Enter' && handleRedeem()}
                     placeholder={t('common.search')}
-                    className="flex-1 px-4 py-2.5 bg-surface/5 border border-white/10 rounded-xl font-mono text-sm tracking-wider placeholder:text-stone-500 placeholder:tracking-normal placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all"
+                    className="flex-1 px-4 py-2.5 bg-surface/5 border border-white/10 rounded-xl font-mono text-sm tracking-wider placeholder:text-stone-500 placeholder:tracking-normal placeholder:font-sans focus:outline-hidden focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all"
                     disabled={redeemStatus === 'loading'}
                   />
                   <Button

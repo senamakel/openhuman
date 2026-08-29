@@ -1316,3 +1316,32 @@ fn decide_after_invalid_token_empty_token_escalates() {
         }
     }
 }
+
+// ── drain_pending_emits ─────────────────────────────────────────────────────
+
+/// The emit channel outlives the socket, so anything still queued when a
+/// connection ends would be flushed onto the next one — a different sid, whose
+/// roster the backend has already cleared.
+#[test]
+fn draining_reports_and_discards_everything_still_queued() {
+    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+    for event in ["orch:tool_result", "orch:effect:result", "presence"] {
+        tx.send(format!("42[\"{event}\",{{}}]")).expect("queue");
+    }
+
+    let dropped = drain_pending_emits(&mut rx);
+
+    assert_eq!(dropped, 3, "every queued message should be counted");
+    assert!(
+        rx.try_recv().is_err(),
+        "nothing may survive into the next connection"
+    );
+}
+
+/// The common case — a clean disconnect with nothing queued — must not log a
+/// spurious warning, so the count has to be honest about zero.
+#[test]
+fn draining_an_empty_channel_reports_nothing_dropped() {
+    let (_tx, mut rx) = mpsc::unbounded_channel::<String>();
+    assert_eq!(drain_pending_emits(&mut rx), 0);
+}

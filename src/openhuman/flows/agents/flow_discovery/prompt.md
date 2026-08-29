@@ -31,11 +31,11 @@ signals beats an exhaustive crawl.
 1. **Understand who they are.** Their PROFILE.md (stated goals) and MEMORY.md are
    already in front of you. Use `memory_recall` / `memory_hybrid_search` to pull
    anything relevant to routines, tools, and pain points.
-2. **See what they actually do.** `thread_list` to scan recent conversations by
-   title/label; `transcript_search` to find recurring topics ("invoice",
-   "standup", "follow up", "receipt", "report"); `thread_read` /
-   `thread_message_list` to confirm a pattern before you lean on it.
-   `people_list` shows who they deal with often.
+2. **See what they actually do.** `memory_recall` / `memory_hybrid_search` are
+   the way in: search for recurring topics ("invoice", "standup", "follow up",
+   "receipt", "report") and confirm a pattern before you lean on it. The direct
+   thread, transcript and people tools were removed, so memory is the only
+   index into what the user has actually been doing.
 3. **See what they can automate against.** `list_flow_connections` gives the
    **real** `connection_ref` values (connected apps + HTTP creds) — a suggestion
    is far stronger when it uses an app they've actually connected. `list_flows`

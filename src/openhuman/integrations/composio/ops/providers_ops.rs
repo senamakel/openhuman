@@ -188,14 +188,22 @@ pub async fn composio_sync(
     let toolkit_for_outcome = toolkit.clone();
     let connection_id_for_log = connection_id.to_string();
 
+    // Resolved before the spawn so a driver that serves no sync is an error the
+    // caller sees rather than a log line in a detached task.
+    let binding = crate::openhuman::memory::binding::for_config(&config_for_task)?;
+
     tokio::spawn(async move {
-        match tinymemory_core::tinycortex::run_composio_connection(
-            &toolkit_for_outcome,
-            &connection_id_for_log,
-            &config_for_task,
-        )
-        .await
-        {
+        let attempted = match binding.provider().as_source_sync() {
+            Some(sync) => sync
+                .run_connection_sync(&toolkit_for_outcome, &connection_id_for_log)
+                .await
+                .map_err(|error| error.to_string()),
+            None => Err(format!(
+                "the bound memory driver '{}' does not serve source sync",
+                binding.driver_id()
+            )),
+        };
+        match attempted {
             Ok(out) => {
                 tracing::info!(
                     toolkit = %toolkit_for_outcome,

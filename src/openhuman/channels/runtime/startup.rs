@@ -38,8 +38,26 @@ use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tinymemory_core::store as memory_store;
 use tokio::sync::mpsc;
+
+/// What the channel-server banner prints on its `🧠 Memory:` line.
+///
+/// This used to call `tinymemory_core::store::effective_memory_backend_name(
+/// &config.memory.backend, Some(&config.storage.provider.config))`, which is
+/// how it reads in `git log` — as if the label were derived from those two
+/// settings. It never was: that function ignores **both** arguments and
+/// returns the literal `"namespace"` unconditionally (`tinymemory-core`
+/// `store/factories.rs`, and its own doc says so — "Currently, this always
+/// returns 'namespace' as the unified memory system is the standard"). Its
+/// engine-side test is named `effective_memory_backend_name_always_returns_
+/// namespace`.
+///
+/// So this is a display constant, not a capability, and it came home rather
+/// than crossing the bus (openhuman#5560): "which label does the banner show"
+/// is not something a second memory driver would answer differently, and
+/// widening the contract for a fixed string would be the worst of both. The
+/// printed line is byte-identical to before.
+const EFFECTIVE_MEMORY_BACKEND_LABEL: &str = "namespace";
 
 /// How the channels runtime should construct its default chat provider.
 ///
@@ -649,13 +667,9 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
 
     println!("🦀 OpenHuman Channel Server");
     println!("  🤖 Model:    {model}");
-    let effective_backend = memory_store::effective_memory_backend_name(
-        &config.memory.backend,
-        Some(&config.storage.provider.config),
-    );
     println!(
         "  🧠 Memory:   {} (auto-save: {})",
-        effective_backend,
+        EFFECTIVE_MEMORY_BACKEND_LABEL,
         if config.memory.auto_save { "on" } else { "off" }
     );
     println!(

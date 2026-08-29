@@ -11,7 +11,7 @@
 import debugFactory from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { apiClient } from '../../agentworld/AgentWorldShell';
+import { apiClient } from '../agentworld/apiClient';
 import { type PairingSnapshot, PaymentRequiredError } from '../agentworld/invokeApiClient';
 
 const debug = debugFactory('orchestration:pairing');

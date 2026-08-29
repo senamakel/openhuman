@@ -390,7 +390,10 @@ impl Agent {
         // Seeding from `tool_specs` above materialises the "all visible"
         // sentinel into a concrete set, which would re-admit packed tools that
         // the builder withheld. Re-apply the withholding.
-        crate::openhuman::tools::toolpacks::strip_packed_from_visible(&mut self.visible_tool_names);
+        crate::openhuman::tools::toolpacks::strip_packed_from_visible(
+            &mut self.visible_tool_names,
+            &self.agent_definition_name,
+        );
         self.rebuild_tool_policy_session();
     }
 

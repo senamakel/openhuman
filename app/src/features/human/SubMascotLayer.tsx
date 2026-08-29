@@ -154,7 +154,7 @@ export const SubMascotLayer: FC<SubMascotLayerProps> = ({ entries }) => {
             aria-label={`${model.label} subagent ${model.status}`}
             data-testid="sub-mascot"
             data-status={model.status}
-            className="flex flex-col items-center w-[72px] flex-shrink-0">
+            className="flex flex-col items-center w-[72px] shrink-0">
             <div
               className={[
                 'relative w-[56px] h-[56px] transition-opacity duration-500',

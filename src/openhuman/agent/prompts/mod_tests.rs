@@ -146,8 +146,8 @@ fn grounding_contract_appended_to_every_build_path() {
 
     // Appears before the output-style suffix (tail placement).
     let g = defaults.find("## Grounding and tool use").unwrap();
-    let s = defaults.find("## Output style").unwrap();
-    assert!(g < s, "grounding should precede the output-style suffix");
+    let s = defaults.find("# Writing style").unwrap();
+    assert!(g < s, "grounding should precede the writing-style suffix");
 }
 
 #[test]
@@ -205,10 +205,20 @@ fn identity_section_creates_missing_workspace_files() {
     let section = IdentitySection;
     let _ = section.build(&ctx).unwrap();
 
-    for file in ["SOUL.md", "IDENTITY.md", "HEARTBEAT.md"] {
+    for file in ["SOUL.md", "IDENTITY.md", "ROLE.md"] {
         assert!(
             workspace.join(file).exists(),
             "expected workspace file to be created: {file}"
+        );
+    }
+    // HEARTBEAT.md and MEMORY_GOALS.md are no longer seeded (#5701). The
+    // subconscious engine that read HEARTBEAT.md is gone, and the goals store
+    // returns an empty `GoalsDoc` for a missing file and creates it on first
+    // write, so seeding either bought a file nothing needed.
+    for file in ["HEARTBEAT.md", "MEMORY_GOALS.md"] {
+        assert!(
+            !workspace.join(file).exists(),
+            "retired workspace file must not be seeded: {file}"
         );
     }
     // Seeded SOUL.md must equal the checked-in template verbatim (plan.md §3):

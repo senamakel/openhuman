@@ -251,6 +251,87 @@ pub fn propagate<F: std::future::Future>(fut: F) -> impl std::future::Future<Out
     }
 }
 
+/// `tokio::spawn`, with the current turn origin carried onto the new task.
+///
+/// # Why this exists when [`propagate`] already does the carrying
+///
+/// [`propagate`] and [`capture`] read the origin **when they are called**, which
+/// has to be on the spawning task — a task-local is already gone by the time the
+/// spawned future is first polled. Both of these compile, neither warns, and
+/// only the first is right:
+///
+/// ```ignore
+/// tokio::spawn(turn_origin::propagate(work));              // correct
+/// tokio::spawn(async move { turn_origin::propagate(work).await });  // silently Unknown
+/// ```
+///
+/// The second captures inside the new task, where [`current`] is already `None`,
+/// so it scopes nothing and every external-effect tool the child calls is
+/// refused by the approval gate. The existing call sites get this right only
+/// because each one carries a hand-written comment saying to capture *here, on
+/// the spawning task* — correctness resting on reviewer attention at every
+/// future site.
+///
+/// This helper removes the ordering from the caller's hands: the capture happens
+/// inside, before the spawn, and there is no argument order that can get it
+/// wrong.
+///
+/// # Fail-closed is preserved
+///
+/// With no ambient origin nothing is scoped, so the child lands on
+/// [`AgentTurnOrigin::Unknown`] exactly as a bare `tokio::spawn` would. This
+/// only ever *carries* a decision some entry point already made; it cannot
+/// manufacture a trust root. See [`propagate`], which does the actual work.
+///
+/// # What it does not carry
+///
+/// Only the origin. A delegated agent turn usually also needs
+/// [`turn_workspace::propagate`](super::turn_workspace) and the harness fork
+/// context; those are separate wrappers and still have to be applied around the
+/// future passed in here.
+///
+/// ```ignore
+/// let join = turn_origin::spawn(turn_workspace::propagate(async move { .. }));
+/// ```
+pub fn spawn<F>(fut: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    // `propagate` is evaluated here, on the caller's task, which is the whole
+    // point of routing through this function.
+    tokio::spawn(propagate(fut))
+}
+
+/// `tokio::spawn` for work that must deliberately **not** carry the caller's
+/// origin, naming why.
+///
+/// Dropping the origin is sometimes right — a detached background job that is
+/// not a continuation of the caller's turn should not inherit that turn's
+/// authority. The problem is that a bare `tokio::spawn` looks identical whether
+/// the author decided that or simply did not think about it, so a reviewer
+/// cannot tell a deliberate choice from a regression.
+///
+/// This is a plain `tokio::spawn` — the behaviour is the same — but the name and
+/// the `reason` make the choice explicit at the call site and greppable across
+/// the tree. The reason is emitted at `trace` so a live process can be asked
+/// which spawns dropped their label.
+///
+/// Prefer [`spawn`] unless the work genuinely is not a continuation of the
+/// caller's turn.
+pub fn spawn_unlabelled<F>(reason: &'static str, fut: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    tracing::trace!(
+        reason,
+        parent_origin = ?current().as_ref().map(AgentTurnOrigin::class),
+        "[turn_origin] spawning without the caller's origin"
+    );
+    tokio::spawn(fut)
+}
+
 /// Read the ambient web-chat `request_id` for the current turn, when one was
 /// scoped by an [`AgentTurnOrigin::WebChat`] entry point. `None` for every
 /// other origin (channel / cron / CLI / sub-agent) and outside any scope —
@@ -444,6 +525,127 @@ mod tests {
         assert!(
             matches!(observed, Some(AgentTurnOrigin::Cli)),
             "the explicitly-scoped Cli origin must be visible on the spawned task, got {observed:?}"
+        );
+    }
+
+    // ── spawn / spawn_unlabelled ────────────────────────────────────────
+
+    /// The helper carries the label with no separate capture step, so a call
+    /// site cannot forget one.
+    #[tokio::test]
+    async fn spawn_carries_the_origin_onto_the_new_task() {
+        let observed = with_origin(AgentTurnOrigin::Cli, async {
+            spawn(async { current() })
+                .await
+                .expect("spawned task panicked")
+        })
+        .await;
+
+        assert!(
+            matches!(observed, Some(AgentTurnOrigin::Cli)),
+            "expected the parent's Cli origin on the spawned task, got {observed:?}"
+        );
+    }
+
+    /// **The reason this helper exists.**
+    ///
+    /// `propagate` reads the origin when it is *called*, so it has to be called
+    /// on the spawning task. Both forms below compile and neither warns, but
+    /// evaluating `propagate` inside the spawned future captures nothing — the
+    /// task-local is already gone — and the child silently runs unlabelled.
+    /// Every external-effect tool it calls is then refused by the approval gate.
+    ///
+    /// Routing through `spawn` makes that ordering unexpressible.
+    #[tokio::test]
+    async fn spawn_is_immune_to_capturing_inside_the_spawned_task() {
+        let (wrong, right) = with_origin(AgentTurnOrigin::Cli, async {
+            // The mistake: `propagate` evaluated on the *new* task.
+            let wrong = tokio::spawn(async move { propagate(async { current() }).await })
+                .await
+                .expect("spawned task panicked");
+
+            // The helper: capture happens before the spawn, inside `spawn`.
+            let right = spawn(async { current() })
+                .await
+                .expect("spawned task panicked");
+
+            (wrong, right)
+        })
+        .await;
+
+        assert!(
+            wrong.is_none(),
+            "precondition: capturing inside the spawned task loses the origin — \
+             this is the hazard `spawn` removes, got {wrong:?}"
+        );
+        assert!(
+            matches!(right, Some(AgentTurnOrigin::Cli)),
+            "the helper must keep the label regardless of how the call site is \
+             written, got {right:?}"
+        );
+    }
+
+    /// Fail-closed: no ambient origin in, no origin out. The helper carries a
+    /// decision, it never invents one.
+    #[tokio::test]
+    async fn spawn_does_not_manufacture_an_origin() {
+        assert!(current().is_none(), "test precondition: no ambient scope");
+
+        let observed = spawn(async { current() })
+            .await
+            .expect("spawned task panicked");
+
+        assert!(
+            observed.is_none(),
+            "an unlabelled parent must produce an unlabelled child, got {observed:?}"
+        );
+    }
+
+    /// A remote-untrusted origin crosses as itself. Delegation must not be a
+    /// privilege-escalation primitive, so no upgrade to `Cli` may happen.
+    #[tokio::test]
+    async fn spawn_preserves_an_untrusted_origin_verbatim() {
+        let observed = with_origin(
+            AgentTurnOrigin::ExternalChannel {
+                channel: "telegram".into(),
+                sender: Some("u-42".into()),
+                reply_target: "chat-7".into(),
+                message_id: "m-9".into(),
+            },
+            async {
+                spawn(async { current() })
+                    .await
+                    .expect("spawned task panicked")
+            },
+        )
+        .await;
+
+        match observed {
+            Some(AgentTurnOrigin::ExternalChannel {
+                channel, sender, ..
+            }) => {
+                assert_eq!(channel, "telegram");
+                assert_eq!(sender.as_deref(), Some("u-42"));
+            }
+            other => panic!("expected ExternalChannel carried verbatim, got {other:?}"),
+        }
+    }
+
+    /// The explicit opt-out drops the label, which is its whole purpose — the
+    /// value is that the call site says so by name instead of looking identical
+    /// to a site that forgot.
+    #[tokio::test]
+    async fn spawn_unlabelled_drops_the_origin_on_purpose() {
+        let observed = with_origin(AgentTurnOrigin::Cli, async {
+            spawn_unlabelled("test: not a continuation of this turn", async { current() })
+                .await
+                .expect("spawned task panicked")
+        })
+        .await;
+
+        assert!(
+            observed.is_none(),
+            "spawn_unlabelled must not carry the caller's origin, got {observed:?}"
         );
     }
 

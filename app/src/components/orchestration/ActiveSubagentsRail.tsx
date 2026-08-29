@@ -16,6 +16,7 @@ import { useCallback, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import type { SessionSummary } from '../../lib/orchestration/orchestrationClient';
+import Button from '../ui/Button';
 
 type ConnState = 'connected' | 'waiting' | 'error' | 'disconnected';
 
@@ -121,12 +122,12 @@ export default function ActiveSubagentsRail({
             return (
               <li key={address} data-testid={`orch-instance-${address}`}>
                 {/* Instance header — icon + aggregate status dot + name. */}
-                <button
-                  type="button"
+                <Button
+                  variant="tertiary"
                   aria-expanded={isOpen}
                   data-testid={`orch-instance-toggle-${address}`}
                   onClick={() => toggle(address)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-content-secondary transition-colors hover:bg-surface-hover hover:text-content">
+                  className="h-auto w-full justify-start gap-2 rounded-md px-2 py-1.5 text-left text-content-secondary hover:text-content">
                   <span className="flex-none text-[9px] text-content-faint">
                     {isOpen ? '▾' : '▸'}
                   </span>
@@ -134,7 +135,7 @@ export default function ActiveSubagentsRail({
                     <span className="flex h-6 w-6 items-center justify-center rounded-md border border-line bg-surface-strong text-[10px] font-semibold text-content-secondary">
                       {address.slice(0, 2).toUpperCase()}
                     </span>
-                    <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-surface-muted p-[1px]">
+                    <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-surface-muted p-px">
                       <StatusDot state={instanceState(sessions)} />
                     </span>
                   </span>
@@ -144,7 +145,7 @@ export default function ActiveSubagentsRail({
                   <span className="flex-none text-[10px] text-content-faint">
                     {sessions.length}
                   </span>
-                </button>
+                </Button>
 
                 {/* Sub-agents nested under the instance. */}
                 {isOpen ? (
@@ -153,15 +154,15 @@ export default function ActiveSubagentsRail({
                       const active = isAgentTab && openSessionId === session.sessionId;
                       return (
                         <li key={session.sessionId}>
-                          <button
-                            type="button"
+                          <Button
+                            variant="tertiary"
                             data-testid={`orch-session-rail-${session.sessionId}`}
                             aria-current={active ? 'true' : undefined}
                             onClick={() => onOpenSession(session.sessionId)}
-                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+                            className={`h-auto w-full justify-start gap-2 rounded-md px-2 py-1.5 text-left ${
                               active
-                                ? 'bg-surface-subtle text-content'
-                                : 'text-content-secondary hover:bg-surface-hover hover:text-content'
+                                ? 'bg-surface-subtle text-content hover:bg-surface-subtle'
+                                : 'text-content-secondary hover:text-content'
                             }`}>
                             <StatusDot state={sessionState(session)} />
                             <span className="min-w-0 flex-1 truncate text-[13px]">
@@ -172,7 +173,7 @@ export default function ActiveSubagentsRail({
                                 {session.unread}
                               </span>
                             ) : null}
-                          </button>
+                          </Button>
                         </li>
                       );
                     })}

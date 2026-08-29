@@ -207,6 +207,7 @@ export default defineConfig(async () => ({
   },
   resolve: {
     alias: {
+      "@": resolve(__dirname, "src"),
       buffer: "buffer",
       process: "process/browser",
       util: "util",

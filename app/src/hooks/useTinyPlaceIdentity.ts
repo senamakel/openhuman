@@ -18,13 +18,14 @@
  * user unlocks their wallet), so a one-time startup failure never locks a holder
  * out until an app restart.
  *
- * The check is shared module-side, so the several gates that read it (nav tabs,
- * the agent-world route, the Brain orchestration sub-tab, the notice) share a
- * single in-flight request rather than each firing their own.
+ * The check is shared module-side, so the several gates that read it (the
+ * Brain orchestration sub-tab, the notice) share a single in-flight request
+ * rather than each firing their own.
  */
 import { useEffect, useState } from 'react';
 
 import { orchestrationClient } from '../lib/orchestration/orchestrationClient';
+import { resolveWalletConfigured } from './useWalletConfigured';
 
 export interface TinyPlaceIdentityState {
   /** `loading` until the RPC first settles; `ready` once we have an answer. */
@@ -51,6 +52,23 @@ async function attemptLoad(attempt: number) {
   if (resolved || inFlight) return;
   inFlight = true;
   try {
+    // Gate on wallet status before the wallet-requiring call. `selfIdentity()`
+    // builds the tiny.place client from a wallet-derived seed, so for a user
+    // with no wallet it can only reject — and the retry ladder below then
+    // repeats that rejection, which is how one wallet-less session produced 55
+    // error-level reports in 72 minutes (#5805). `wallet_status` answers the
+    // same question and resolves normally, so ask it instead of provoking the
+    // error. Only a positive `no` skips: `unknown` (status fetch itself failed)
+    // falls through so a transport blip never hides a real identity.
+    //
+    // Deliberately does NOT set `resolved` — that flag ends retrying forever,
+    // and a user who sets up a wallet later in the session must still be picked
+    // up by the next `ensureLoad()`. Returning without scheduling a retry is
+    // enough to stop the ladder.
+    if ((await resolveWalletConfigured()) === 'no') {
+      publish({ status: 'ready', hasIdentity: false });
+      return;
+    }
     const identity = await orchestrationClient.selfIdentity();
     resolved = true;
     if (retryTimer) {

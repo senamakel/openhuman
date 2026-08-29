@@ -253,7 +253,7 @@ const TopModels = ({ rows }: { rows: TeamUsageModelRow[] }) => {
               key={`${r.provider}::${r.model}::${i}`}
               className="flex items-center justify-between text-[11px]">
               <span className="text-content-secondary truncate mr-2">{r.model || r.provider}</span>
-              <span className="text-content-muted flex-shrink-0">
+              <span className="text-content-muted shrink-0">
                 {fmtUsd(r.spentUsd)} · {r.calls.toLocaleString()}
               </span>
             </li>
@@ -286,7 +286,7 @@ const TopIntegrations = ({ rows }: { rows: TeamUsageIntegrationRow[] }) => {
                 {r.provider}
                 {r.action ? ` · ${r.action}` : ''}
               </span>
-              <span className="text-content-muted flex-shrink-0">
+              <span className="text-content-muted shrink-0">
                 {fmtUsd(r.spentUsd)} · {r.calls.toLocaleString()}
               </span>
             </li>

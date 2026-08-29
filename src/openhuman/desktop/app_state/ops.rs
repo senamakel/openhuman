@@ -44,12 +44,35 @@ const CURRENT_USER_REFRESH_TTL: Duration = Duration::from_secs(5);
 // calls even though inference itself was idle).
 const RUNTIME_SNAPSHOT_TTL: Duration = Duration::from_secs(10);
 const AUTH_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
+/// First backoff step after the backend fails to answer `auth_get_me`.
+///
+/// Deliberately larger than both [`AUTH_FETCH_TIMEOUT`] and the frontend's
+/// ~5s `app_state_snapshot` poll. That relationship is the whole point of the
+/// backoff: with a shorter step, the next poll would find the window already
+/// expired and pay the full timeout again, which is exactly the treadmill this
+/// exists to stop (#5624 — 51 timeouts in one session, ~5s each).
+const CURRENT_USER_BACKOFF_BASE: Duration = Duration::from_secs(10);
+/// Ceiling on that backoff. Modest on purpose: this window is time during which
+/// a recovered backend still will not be noticed, so it trades a bounded amount
+/// of staleness for not stalling every poll. At the cap a 5s poll loop attempts
+/// roughly one live fetch per twelve polls instead of one per poll.
+const CURRENT_USER_BACKOFF_MAX: Duration = Duration::from_secs(60);
 const RUNTIME_SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(10);
 const SNAPSHOT_SUB_OP_TIMEOUT: Duration = Duration::from_secs(5);
 const PENDING_BACKEND_VALIDATION_FIELD: &str = "pendingBackendValidation";
 const AUTH_ME_REVALIDATION_TRANSIENT_STATUSES: &[u16] = &[408, 429, 500, 502, 503, 504, 520];
 static APP_STATE_FILE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 static CURRENT_USER_CACHE: Lazy<Mutex<Option<CachedCurrentUser>>> = Lazy::new(|| Mutex::new(None));
+/// Negative counterpart to [`CURRENT_USER_CACHE`]: the last *availability*
+/// failure against `auth_get_me`, so a client whose backend is unreachable stops
+/// re-paying [`AUTH_FETCH_TIMEOUT`] on every snapshot poll.
+///
+/// Kept separate from the positive cache rather than folded into it because the
+/// two have different lifetimes and different readers —
+/// [`peek_cached_current_user_identity`] must keep serving the last known
+/// identity throughout an outage, and it reads only the positive cache.
+static CURRENT_USER_FAILURE: Lazy<Mutex<Option<CurrentUserFailure>>> =
+    Lazy::new(|| Mutex::new(None));
 static RUNTIME_SNAPSHOT_CACHE: Lazy<Mutex<Option<CachedRuntimeSnapshot>>> =
     Lazy::new(|| Mutex::new(None));
 /// Single-flight gate for the runtime-snapshot rebuild. Concurrent callers whose
@@ -115,6 +138,131 @@ impl CurrentUserFetchError {
             | CurrentUserFetchError::FetchFailed(message) => message,
         }
     }
+}
+
+impl CurrentUserFetchError {
+    /// Whether this failure says the *backend was not reachable or not healthy*,
+    /// as opposed to saying something about our credentials.
+    ///
+    /// Only these are worth backing off. A [`Rejected`](Self::Rejected) is the
+    /// backend answering, in time, that the token is no good — it drives the
+    /// deferred-session cleanup at the snapshot caller, and replaying it from a
+    /// cache would either delay that cleanup or, worse, hand the caller a
+    /// different variant than the one the backend actually produced.
+    fn is_availability_failure(&self) -> bool {
+        match self {
+            CurrentUserFetchError::TransientResponse(_) | CurrentUserFetchError::FetchFailed(_) => {
+                true
+            }
+            CurrentUserFetchError::Rejected(_) => false,
+        }
+    }
+}
+
+/// The last availability failure against `auth_get_me`, keyed the same way the
+/// positive cache is so that changing environment or signing in as someone else
+/// bypasses it rather than inheriting someone else's outage.
+#[derive(Debug, Clone)]
+struct CurrentUserFailure {
+    api_base: String,
+    token: String,
+    failed_at: Instant,
+    /// Failures in an unbroken run, counted from 1. Drives the backoff width.
+    consecutive: u32,
+    /// Replayed verbatim while the window is open, so a caller that matches on
+    /// the variant sees what the backend really produced.
+    error: CurrentUserFetchError,
+}
+
+/// How long a run of `consecutive` failures suppresses the next live attempt.
+///
+/// Doubles from [`CURRENT_USER_BACKOFF_BASE`] and saturates at
+/// [`CURRENT_USER_BACKOFF_MAX`]. `consecutive` is 1-based; 0 is treated as 1 so
+/// the function has no surprising zero-length window.
+fn current_user_backoff(consecutive: u32) -> Duration {
+    let steps = consecutive.saturating_sub(1).min(16);
+    CURRENT_USER_BACKOFF_BASE
+        .saturating_mul(2u32.saturating_pow(steps))
+        .min(CURRENT_USER_BACKOFF_MAX)
+}
+
+/// The recorded failure for `(api_base, token)` if its backoff window is still
+/// open, in which case the caller should return it instead of going to the
+/// network.
+fn suppressed_current_user_failure(
+    api_base: &str,
+    token: &str,
+) -> Option<(CurrentUserFetchError, u32, Duration)> {
+    let failure = CURRENT_USER_FAILURE.lock();
+    let entry = failure.as_ref()?;
+    if entry.api_base != api_base || entry.token != token {
+        return None;
+    }
+    let window = current_user_backoff(entry.consecutive);
+    let elapsed = entry.failed_at.elapsed();
+    (elapsed < window).then(|| (entry.error.clone(), entry.consecutive, window - elapsed))
+}
+
+/// Record an availability failure, extending the run when it is the same
+/// `(api_base, token)` and starting a new one when it is not.
+///
+/// A [`CurrentUserFetchError::Rejected`] is ignored — see
+/// [`CurrentUserFetchError::is_availability_failure`].
+fn record_current_user_failure(api_base: &str, token: &str, error: CurrentUserFetchError) {
+    if !error.is_availability_failure() {
+        return;
+    }
+    let mut failure = CURRENT_USER_FAILURE.lock();
+    let consecutive = match failure.as_ref() {
+        Some(entry) if entry.api_base == api_base && entry.token == token => {
+            entry.consecutive.saturating_add(1)
+        }
+        _ => 1,
+    };
+    *failure = Some(CurrentUserFailure {
+        api_base: api_base.to_string(),
+        token: token.to_string(),
+        failed_at: Instant::now(),
+        consecutive,
+        error,
+    });
+}
+
+/// Forget any recorded failure, so the next poll goes straight to the network.
+///
+/// Called on every success and on sign-out. Missing either one is the failure
+/// mode that matters here: a stale record outliving its cause keeps the app on
+/// the stored snapshot after the backend has already come back.
+fn clear_current_user_failure() {
+    *CURRENT_USER_FAILURE.lock() = None;
+}
+
+/// Record the timeout path's failure.
+///
+/// The timeout is applied by the snapshot caller, wrapping the whole of
+/// `fetch_current_user_cached`, so when it fires that future is **dropped
+/// mid-flight** and nothing inside it runs — including the failure recording on
+/// its error path. Without this call the backoff would never engage for the one
+/// case #5624 is actually about, which is timeouts rather than returned errors.
+fn note_current_user_timeout(config: &Config, token: &str) {
+    record_current_user_failure(
+        &current_user_api_base(config),
+        token,
+        CurrentUserFetchError::FetchFailed(format!(
+            "request timed out after {}s",
+            AUTH_FETCH_TIMEOUT.as_secs()
+        )),
+    );
+}
+
+/// The cache key both the positive and negative current-user caches are keyed
+/// on. Factored out so the snapshot caller, which records the timeout path, and
+/// the fetch itself cannot drift apart on how the base URL is normalised.
+fn current_user_api_base(config: &Config) -> String {
+    effective_backend_api_url(&config.api_url)
+        .trim()
+        .trim_end_matches('/')
+        .to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -523,11 +671,15 @@ async fn finish_revalidated_user_activation(
     user_id: &str,
     service_rebind_source: Option<&Config>,
 ) {
-    if let Err(error) = tinymemory_core::global::init(target_config.workspace_dir.clone()) {
-        warn!(
-            "{LOG_PREFIX} failed to bind memory client after pending session revalidation: {error}"
-        );
-    }
+    // ── No explicit memory re-point here any more (#5560) ──────────────────
+    //
+    // This was `tinymemory_core::global::init(...)`, the in-process engine's
+    // process-global slot, which had to be re-pointed by hand at every
+    // activation site or it kept writing into the previous workspace.
+    // `memory::binding` is keyed on (workspace, `[subsystems.memory]`), and the
+    // context rebind immediately below re-points both — so memory follows it by
+    // construction. `CoreContext::memory_binding`'s docs state this property as
+    // the reason these sites need no memory call of their own.
     if let Err(error) = crate::core::runtime::context::CoreContext::rebind_default_workspace(
         &target_config.workspace_dir,
         target_config.subsystems.memory.clone(),
@@ -651,6 +803,7 @@ async fn clear_deferred_session_after_backend_rejection(
     });
 
     *CURRENT_USER_CACHE.lock() = None;
+    clear_current_user_failure();
     crate::openhuman::cron::scheduler_gate::set_signed_out(true);
 
     match crate::openhuman::config::default_root_openhuman_dir() {
@@ -691,28 +844,53 @@ async fn fetch_current_user_cached(
     token: &str,
     allow_cache: bool,
 ) -> Result<Option<Value>, CurrentUserFetchError> {
-    let api_base = effective_backend_api_url(&config.api_url)
-        .trim()
-        .trim_end_matches('/')
-        .to_string();
+    let api_base = current_user_api_base(config);
 
     if allow_cache {
-        let cache = CURRENT_USER_CACHE.lock();
-        if let Some(entry) = cache.as_ref() {
-            if entry.api_base == api_base
-                && entry.token == token
-                && entry.fetched_at.elapsed() < CURRENT_USER_REFRESH_TTL
-            {
-                debug!(
-                    "{LOG_PREFIX} using cached current user age_ms={}",
-                    entry.fetched_at.elapsed().as_millis()
-                );
-                return Ok(Some(entry.user.clone()));
+        {
+            let cache = CURRENT_USER_CACHE.lock();
+            if let Some(entry) = cache.as_ref() {
+                if entry.api_base == api_base
+                    && entry.token == token
+                    && entry.fetched_at.elapsed() < CURRENT_USER_REFRESH_TTL
+                {
+                    debug!(
+                        "{LOG_PREFIX} using cached current user age_ms={}",
+                        entry.fetched_at.elapsed().as_millis()
+                    );
+                    return Ok(Some(entry.user.clone()));
+                }
             }
+        }
+
+        // Nothing fresh to serve, so this poll would normally go to the network
+        // — and if the backend is unreachable it would sit there for the full
+        // `AUTH_FETCH_TIMEOUT` before the caller gives up and uses the stored
+        // snapshot anyway. Replay the recorded failure instead while its window
+        // is open. The caller's behaviour is unchanged (it already falls back on
+        // `Err`); it just does so in microseconds. Gated on `allow_cache` for
+        // the same reason the positive cache is: a pending-backend-validation
+        // pass is explicitly asking for a live answer.
+        if let Some((error, consecutive, remaining)) =
+            suppressed_current_user_failure(&api_base, token)
+        {
+            debug!(
+                "{LOG_PREFIX} skipping current user refresh; backend failed {consecutive}x, \
+                 retrying in {}ms",
+                remaining.as_millis()
+            );
+            return Err(error);
         }
     }
 
-    let fetched = sanitize_snapshot_user(fetch_current_user(config, token).await?);
+    let fetched = match fetch_current_user(config, token).await {
+        Ok(user) => sanitize_snapshot_user(user),
+        Err(error) => {
+            record_current_user_failure(&api_base, token, error.clone());
+            return Err(error);
+        }
+    };
+    clear_current_user_failure();
 
     let mut cache = CURRENT_USER_CACHE.lock();
     match fetched.clone() {
@@ -1072,6 +1250,7 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
                     "{LOG_PREFIX} pending current user fetch timed out after {}s; keeping stored pending session for retry",
                     AUTH_FETCH_TIMEOUT.as_secs()
                 );
+                note_current_user_timeout(&config, &token);
                 snapshot_current_user_result(stored_user.clone())
             }
             Err(_) => {
@@ -1079,6 +1258,7 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
                     "{LOG_PREFIX} current user fetch timed out after {}s; using stored snapshot fallback",
                     AUTH_FETCH_TIMEOUT.as_secs()
                 );
+                note_current_user_timeout(&config, &token);
                 snapshot_current_user_result(stored_user.clone())
             }
         }

@@ -50,7 +50,7 @@ impl BoardLocation {
     }
 }
 
-fn target(location: &BoardLocation) -> (Arc<dyn Store>, &str) {
+pub(super) fn target(location: &BoardLocation) -> (Arc<dyn Store>, &str) {
     match location {
         BoardLocation::Thread {
             workspace_dir,

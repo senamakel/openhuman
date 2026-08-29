@@ -3,7 +3,7 @@
  * agent instance's status at a glance, scannable across many rows.
  *
  * Five states (color + motion), matching the core's {@link InstanceStatus}:
- * running (ocean, pulsing) · idle (sage) · waiting-approval (amber) ·
+ * running (primary, pulsing) · idle (sage) · waiting-approval (amber) ·
  * errored (coral) · stopped (faint). The core derives only idle/stopped today;
  * the other three are wired ahead of the attention-queue / run-state work.
  *
@@ -18,7 +18,7 @@ interface InstanceStatusDotProps {
 }
 
 const TONE: Record<InstanceStatus, string> = {
-  running: 'bg-ocean-500 animate-pulse',
+  running: 'bg-primary-500 animate-pulse',
   idle: 'bg-sage-500',
   'waiting-approval': 'bg-amber-500',
   errored: 'bg-coral-500',

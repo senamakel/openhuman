@@ -16,9 +16,10 @@ use tempfile::tempdir;
 
 use openhuman_core::openhuman::inference::embeddings::NoopEmbedding;
 use openhuman_core::openhuman::memory::{
-    MemoryClient, MemoryIngestionConfig, MemoryIngestionRequest, NamespaceDocumentInput,
-    UnifiedMemory,
+    MemoryIngestionConfig, MemoryIngestionRequest, NamespaceDocumentInput,
 };
+// Engine handles named on the crate — see the note in `personality_e2e.rs`.
+use tinymemory_core::store::{MemoryClient, UnifiedMemory};
 
 /// Test config for the heuristic-only pipeline.
 fn ci_safe_config() -> MemoryIngestionConfig {

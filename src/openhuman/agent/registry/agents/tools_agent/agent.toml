@@ -10,12 +10,6 @@ omit_memory_context = true
 omit_safety_preamble = false
 omit_skills_catalog = true
 
-# Specialist-owned external action families own their own prompts and approval
-# contracts. Disallow them here so the generalist's wildcard inventory doesn't
-# surface a second, weaker route to the same capability. `tools_agent` retains
-# every other built-in tool through the wildcard.
-disallowed_tools = ["tinyplace_*"]
-
 [model]
 hint = "burst"
 

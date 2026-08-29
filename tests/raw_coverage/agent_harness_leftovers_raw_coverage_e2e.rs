@@ -690,7 +690,7 @@ fn subagent_prompt_renderer_handles_formats_caps_and_stale_tool_indices() -> Res
     assert!(json_prompt.contains("extra"));
     assert!(json_prompt.contains("truncated at 2000 chars"));
     assert!(json_prompt.contains("## Safety"));
-    assert!(json_prompt.contains("## Output style"));
+    assert!(json_prompt.contains("# Writing style"));
 
     let native_prompt = render_subagent_system_prompt(
         tmp.path(),

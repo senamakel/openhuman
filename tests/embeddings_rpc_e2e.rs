@@ -237,12 +237,52 @@ fn assert_no_rpc_error<'a>(v: &'a Value, ctx: &str) -> &'a Value {
 
 /// Returns `(rpc_base, tempdir, guards)`. The `guards` tuple keeps all
 /// `EnvVarGuard` values alive for the duration of the test.
+/// Publish the module host policy this target's core never publishes itself.
+///
+/// `wipe_all` reaches the bound driver, and a module-backed driver refuses to
+/// load until a policy names the workspace it should open — production does
+/// that at `modules::boot` and `core::runtime::context`, and
+/// `tests/memory_roundtrip_e2e.rs` does it explicitly for the same reason. This
+/// target builds only the RPC router, so nothing here did, and the two
+/// dimension-change tests failed with "the module host policy was never
+/// published".
+///
+/// Deliberately *not* fixed by degrading `wipe_all` when no policy exists. It
+/// is a destructive call: answering success when the store was never reached
+/// would tell a caller their data is gone when it is not, which is a worse
+/// failure than the error. The harness is the outlier, so the harness moves.
+///
+/// One workspace for the whole binary, behind a `OnceLock`, because
+/// `set_modules_policy` is a process-global whose first call wins. Publishing
+/// per test would let whichever test ran first silently own the workspace for
+/// all of them — the per-test `HOME` tempdirs below still isolate config, but
+/// the module can only ever open one.
+fn ensure_modules_policy() {
+    static MODULES_POLICY: OnceLock<tempfile::TempDir> = OnceLock::new();
+    let root = MODULES_POLICY.get_or_init(|| tempdir().expect("modules policy tempdir"));
+    #[cfg(feature = "modules")]
+    {
+        let workspace = root.path().to_path_buf();
+        openhuman_core::openhuman::modules::memory::set_modules_policy(Arc::new(
+            openhuman_core::openhuman::config::Config {
+                workspace_dir: workspace.clone(),
+                action_dir: workspace.clone(),
+                config_path: workspace.join("config.toml"),
+                ..openhuman_core::openhuman::config::Config::default()
+            },
+        ));
+    }
+    let _ = root;
+}
+
 async fn setup_embeddings_test() -> (
     String,
     tempfile::TempDir,
     (EnvVarGuard, EnvVarGuard, EnvVarGuard, EnvVarGuard),
     tokio::task::JoinHandle<Result<(), std::io::Error>>,
 ) {
+    ensure_modules_policy();
+
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path().to_path_buf();
     let openhuman_home = home.join(".openhuman");

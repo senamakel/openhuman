@@ -11,6 +11,18 @@ allow = [
     # =========================
     "core_rpc_url",
     "core_rpc_token",
+    # `core_rpc_endpoint` returns the (url, token) pair from ONE snapshot so the
+    # renderer can never pair one core's URL with another's bearer. It is the
+    # command `resolveShellEndpoint()` actually calls; `core_rpc_url` /
+    # `core_rpc_token` above are only the legacy split accessors. It was added
+    # to `generate_handler!` but never here, so every invoke was denied with
+    # "core_rpc_endpoint not allowed. Command not found" — which surfaced as
+    # `getCoreRpcToken()` returning null, `callCoreRpc` throwing "Core RPC token
+    # unavailable in Tauri" before any HTTP left the webview, and BootCheckGate
+    # reporting "Can't Reach the Runtime / Local core did not respond in time"
+    # against a perfectly healthy core. Same failure mode as `reset_local_data`
+    # (#4950) below.
+    "core_rpc_endpoint",
     # `relay_http_rpc` proxies a JSON-RPC POST through the Rust host so the
     # secure webview can reach a self-hosted runtime on a cleartext LAN IP
     # without tripping mixed-content/CORS (#3865). Without this allow entry the

@@ -212,7 +212,7 @@ export default function GoalsPanel() {
         <div className="mt-4">
           {loading ? (
             <div className="flex items-center justify-center py-8 text-content-faint">
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
               <span className="text-sm">{t('common.loading')}</span>
             </div>
           ) : error ? (
@@ -222,7 +222,7 @@ export default function GoalsPanel() {
           ) : goals.length === 0 ? (
             <p className="py-6 text-center text-sm text-content-faint">{t('brain.goals.empty')}</p>
           ) : (
-            <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line dark:divide-neutral-800">
+            <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line">
               {goals.map(goal => (
                 <li key={goal.id} className="bg-surface px-3 py-2.5">
                   {editingId === goal.id ? (

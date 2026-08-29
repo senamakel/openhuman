@@ -13,7 +13,7 @@ const getTokenjuiceSavings = vi.hoisted(() => vi.fn());
 vi.mock('../../../utils/tauriCommands/tokenjuice', () => ({ getTokenjuiceSavings }));
 
 const list = vi.hoisted(() => vi.fn());
-vi.mock('../../../agentworld/AgentWorldShell', () => ({
+vi.mock('../../../lib/agentworld/apiClient', () => ({
   apiClient: { orchestrationPairing: { list } },
 }));
 

@@ -786,16 +786,6 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: DERIVED_TO_BACKEND,
     },
     Capability {
-        id: "workflows.run_apify_actors",
-        name: "Run Apify Actors",
-        domain: "workflows",
-        category: CapabilityCategory::Workflows,
-        description: "Launch Apify scrapers and automation actors, then inspect run status and collected results.",
-        how_to: "Conversations > Ask the assistant to run an Apify actor",
-        status: CapabilityStatus::Beta,
-        privacy: None,
-    },
-    Capability {
         id: "workflows.tinyfish_web_automation",
         name: "TinyFish Web Automation",
         domain: "workflows",

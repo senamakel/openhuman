@@ -215,13 +215,13 @@ describe('Rewards page', () => {
       achievements: [],
     });
 
+    // Referrals is its own page now, addressed by `?view=`, not a chip tab on
+    // one page — so the view is entered by URL rather than by clicking a tab.
     render(
-      <MemoryRouter initialEntries={['/?view=main']}>
+      <MemoryRouter initialEntries={['/?view=referrals']}>
         <Rewards />
       </MemoryRouter>
     );
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Referrals' }));
 
     expect(screen.getByText('Referral Rewards Section')).toBeInTheDocument();
     expect(screen.queryByText('Rewards Coupon Section')).not.toBeInTheDocument();
@@ -256,12 +256,10 @@ describe('Rewards page', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/?view=main']}>
+      <MemoryRouter initialEntries={['/?view=redeem']}>
         <Rewards />
       </MemoryRouter>
     );
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Redeem' }));
 
     expect(screen.getByText('Rewards Coupon Section')).toBeInTheDocument();
     expect(screen.queryByText('Referral Rewards Section')).not.toBeInTheDocument();

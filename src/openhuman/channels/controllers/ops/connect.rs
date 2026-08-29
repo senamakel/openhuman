@@ -9,7 +9,7 @@ use crate::openhuman::config::{Config, DiscordConfig, IMessageConfig, TelegramCo
 use crate::openhuman::security::credentials;
 use crate::rpc::RpcOutcome;
 use tinymemory_api::chunks::SourceKind;
-use tinymemory_core::store::chunks::store as memory_tree_store;
+use tinymemory_api::provider::ForgetSelector;
 
 use super::super::definitions::{
     all_channel_definitions, find_channel_definition, ChannelAuthMode, ChannelDefinition,
@@ -236,14 +236,73 @@ pub(super) async fn persist_email_config(
     Ok(())
 }
 
-fn clear_channel_memory(config: &Config, channel_id: &str) -> anyhow::Result<usize> {
-    let exact = memory_tree_store::delete_chunks_by_source(config, SourceKind::Chat, channel_id)?;
-    let prefixed = memory_tree_store::delete_chunks_by_source_prefix(
+/// Drop everything this channel put into memory, and report how many chunks
+/// went.
+///
+/// Two selectors because a channel files content under two shapes: the bare
+/// `channel_id` (the channel itself) and `channel_id:<conversation>` (each
+/// thread inside it). [`ForgetSelector::Source`] is exact by contract, so the
+/// first would leave every per-conversation source behind on its own; the
+/// prefix arm is matched literally, so a provider id containing `%` or `_`
+/// means itself.
+///
+/// No `spawn_blocking`: the driver owns whether its own reads and writes
+/// block, and the module's do not run on this thread at all.
+async fn clear_channel_memory(config: &Config, channel_id: &str) -> anyhow::Result<usize> {
+    let kind = SourceKind::Chat.as_str().to_string();
+    let exact = forget_matching(
         config,
-        SourceKind::Chat,
-        &format!("{channel_id}:"),
-    )?;
-    Ok(exact + prefixed)
+        &ForgetSelector::Source {
+            source_kind: kind.clone(),
+            source_id: channel_id.to_string(),
+        },
+    )
+    .await?;
+    let prefixed = forget_matching(
+        config,
+        &ForgetSelector::SourcePrefix {
+            source_kind: kind,
+            source_id_prefix: format!("{channel_id}:"),
+        },
+    )
+    .await?;
+    Ok(exact.saturating_add(prefixed))
+}
+
+/// Run one [`ForgetSelector`] through the bound memory driver and return the
+/// chunk count it removed.
+///
+/// A driver without the `Sources` family is **refused**, not degraded to zero.
+/// The read paths elsewhere answer empty for a missing family because "this
+/// driver holds nothing" is a true answer to what they were asked; this is a
+/// delete, and its only empty answer — zero chunks removed — is
+/// byte-identical to a successful delete of nothing. The caller renders that
+/// number as `memory_chunks_deleted` in the disconnect reply, so degrading
+/// here would tell a user their channel's history was cleared when it is
+/// still on disk.
+///
+/// `trees_cleaned` is dropped on purpose: `memory_chunks_deleted` has always
+/// been a chunk count, and the disconnect reply's shape does not change here.
+async fn forget_matching(config: &Config, selector: &ForgetSelector) -> anyhow::Result<usize> {
+    let binding = crate::openhuman::memory::binding::for_config(config)
+        .map_err(|e| anyhow::anyhow!("forget_matching: {e}"))?;
+    let Some(sources) = binding.provider().as_sources() else {
+        return Err(anyhow::anyhow!(
+            "forget_matching: driver '{}' does not serve Sources",
+            binding.driver_id()
+        ));
+    };
+    let outcome = sources
+        .forget_matching(selector)
+        .await
+        .map_err(|e| anyhow::anyhow!("forget_matching: {e}"))?;
+    log::debug!(
+        "[channels][memory] forget_matching removed chunks={} trees={} (driver='{}')",
+        outcome.chunks_removed,
+        outcome.trees_cleaned,
+        binding.driver_id()
+    );
+    Ok(usize::try_from(outcome.chunks_removed).unwrap_or(usize::MAX))
 }
 
 /// List all available channel definitions.
@@ -642,9 +701,11 @@ pub async fn disconnect_channel(
     }
 
     let memory_chunks_deleted = if clear_memory {
-        clear_channel_memory(config, channel_id).map_err(|e| {
-            format!("channel disconnected, but failed to clear memory chunks: {e:#}")
-        })?
+        clear_channel_memory(config, channel_id)
+            .await
+            .map_err(|e| {
+                format!("channel disconnected, but failed to clear memory chunks: {e:#}")
+            })?
     } else {
         0
     };

@@ -30,7 +30,7 @@ use openhuman_core::openhuman::memory::sync::composio::providers::linear::Linear
 use openhuman_core::openhuman::memory::sync::composio::providers::slack::rpc::{
     sync_status_rpc, SyncStatusRequest,
 };
-use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::SyncState;
+use openhuman_core::openhuman::memory::sync::composio::providers::sync_state::{PersistedSyncState, SyncState};
 use openhuman_core::openhuman::memory::sync::composio::providers::{
     ComposioProvider, ProviderContext, SyncReason, TaskFetchFilter,
 };
@@ -446,6 +446,18 @@ async fn slack_sync_status_rpc_reads_mock_connections_and_persisted_state() {
         .save(&state_adapter)
         .await
         .expect("save slack sync state");
+
+    // `sync_status_rpc` reads each connection's sync state through the bound
+    // memory driver, which under the `modules` gate is the loaded tinymemory
+    // artifact and resolves its config from the process-wide boot policy. A
+    // row whose state read fails is skipped, so without a policy the response
+    // was honestly empty and this asserted 0 == 1. Publish it from THIS
+    // test's `config`: the policy is first-call-wins and the module captures
+    // its workspace at load, so the state saved in-process above and the
+    // state the module reads must name one store. This is the only
+    // driver-routed case in this aggregated module, so nothing contends.
+    #[cfg(feature = "modules")]
+    openhuman_core::openhuman::modules::memory::set_modules_policy(Arc::new(config.clone()));
 
     let outcome = sync_status_rpc(&config, SyncStatusRequest::default())
         .await

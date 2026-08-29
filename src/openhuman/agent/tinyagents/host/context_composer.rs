@@ -393,7 +393,7 @@ mod tests {
         // global style suffix; asserting on the suffix pins that we went
         // through `SystemPromptBuilder::build` rather than hand-assembling.
         assert!(
-            prompt.contains("## Output style"),
+            prompt.contains("# Writing style"),
             "prompt must come from SystemPromptBuilder::build"
         );
     }

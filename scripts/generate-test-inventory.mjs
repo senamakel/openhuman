@@ -61,6 +61,9 @@ const DOMAIN_ALLOWLIST = new Set([
   'mcp_audit',
   'memory_diff',
   'memory_goals',
+  // `medulla_local_e2e` covered the retired local namespace. The remaining
+  // cloud-backed Medulla controllers still need a dedicated RPC round-trip.
+  'medulla',
   'people',
   'plan_review',
   'provider_surfaces',

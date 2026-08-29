@@ -41,3 +41,15 @@
 [submodule "vendor/tinyruntime"]
 	path = vendor/tinyruntime
 	url = https://github.com/tinyhumansai/tinyruntime.git
+[submodule "vendor/tinydocs"]
+	path = vendor/tinydocs
+	url = https://github.com/tinyhumansai/tinydocs
+	branch = main
+[submodule "vendor/tinyvoice"]
+	path = vendor/tinyvoice
+	url = https://github.com/tinyhumansai/tinyvoice
+	branch = main
+[submodule "vendor/tinyjuice"]
+	path = vendor/tinyjuice
+	url = https://github.com/tinyhumansai/tinyjuice
+	branch = main

@@ -9,7 +9,9 @@ import {
   classifyRpcError,
   CoreRpcError,
   isThreadNotFoundCoreRpcError,
+  setActiveCoreTransport,
 } from '../coreRpcClient';
+import type { CoreTransport } from '../transport/CoreTransport';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: vi.fn(() => false) }));
 vi.mock('../../lib/ai/localCoreAiMemory', () => ({
@@ -520,6 +522,68 @@ describe('coreRpcClient', () => {
       .mock.calls.filter(([cmd]) => cmd === 'core_rpc_endpoint').length;
     expect(tokenCalls).toBe(1);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  describe('active transport forwarding (#5820)', () => {
+    function fakeTransport(): CoreTransport & { call: ReturnType<typeof vi.fn> } {
+      return {
+        kind: 'lan-http',
+        call: vi.fn().mockResolvedValue({ requested: true }),
+        stream: vi.fn(),
+        isHealthy: vi.fn().mockResolvedValue(true),
+        close: vi.fn().mockResolvedValue(undefined),
+      } as unknown as CoreTransport & { call: ReturnType<typeof vi.fn> };
+    }
+
+    afterEach(() => {
+      setActiveCoreTransport(null);
+    });
+
+    test('forwards a caller-supplied per-call budget to the active transport', async () => {
+      // Tunnel and cloud requests used to ignore `timeoutMs` entirely, so a
+      // memory source sync was cut off at the transport's default while the
+      // core kept working.
+      const transport = fakeTransport();
+      setActiveCoreTransport(transport);
+
+      await callCoreRpc({
+        method: 'openhuman.memory_sources_sync',
+        params: { source_id: 'src_1' },
+        timeoutMs: 600_000,
+      });
+
+      expect(transport.call).toHaveBeenCalledWith(
+        'openhuman.memory_sources_sync',
+        { source_id: 'src_1' },
+        { timeoutMs: 600_000 }
+      );
+    });
+
+    test('clamps the forwarded budget the same way the local path does', async () => {
+      const transport = fakeTransport();
+      setActiveCoreTransport(transport);
+
+      await callCoreRpc({ method: 'openhuman.memory_sources_sync', timeoutMs: 99_999_999 });
+
+      expect(transport.call).toHaveBeenCalledWith(
+        'openhuman.memory_sources_sync',
+        {},
+        { timeoutMs: 10 * 60 * 1_000 }
+      );
+    });
+
+    test('leaves the transport on its own default when no budget is given', async () => {
+      const transport = fakeTransport();
+      setActiveCoreTransport(transport);
+
+      await callCoreRpc({ method: 'openhuman.memory_sources_sync' });
+
+      expect(transport.call).toHaveBeenCalledTimes(1);
+      const [method, params, opts] = transport.call.mock.calls[0] as [string, unknown, unknown];
+      expect(method).toBe('openhuman.memory_sources_sync');
+      expect(params).toEqual({});
+      expect(opts).toBeUndefined();
+    });
   });
 
   describe('testCoreRpcConnection', () => {

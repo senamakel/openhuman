@@ -19,6 +19,12 @@ vi.mock('../../../lib/orchestration/usePairing', () => ({ usePairing: () => pair
 
 const selfIdentity = vi.hoisted(() => vi.fn());
 const relayInfo = vi.hoisted(() => vi.fn().mockResolvedValue({ baseUrl: 'x', network: 'prod' }));
+// The #5805 wallet gate runs before the identity fetch; mock it to a configured
+// wallet so these cases exercise the same path they always did.
+vi.mock('../../../services/walletApi', () => ({
+  fetchWalletStatus: vi.fn().mockResolvedValue({ configured: true }),
+}));
+
 vi.mock('../../../lib/orchestration/orchestrationClient', () => ({
   orchestrationClient: { selfIdentity, relayInfo },
 }));
@@ -26,7 +32,7 @@ vi.mock('../../../lib/orchestration/orchestrationClient', () => ({
 const linkSession = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const acceptRequest = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const reverse = vi.hoisted(() => vi.fn().mockResolvedValue({ agents: [] }));
-vi.mock('../../../agentworld/AgentWorldShell', () => ({
+vi.mock('../../../lib/agentworld/apiClient', () => ({
   apiClient: {
     orchestrationPairing: { linkSession, acceptRequest, declineRequest: vi.fn() },
     directory: { reverse },

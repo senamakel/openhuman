@@ -129,7 +129,10 @@ describe('<Feedback /> keeps the board in sync after local mutations', () => {
   ) {
     await user.click(screen.getByLabelText(triggerLabel));
     const listbox = await screen.findByRole('listbox');
-    await user.click(within(listbox).getByRole('button', { name: optionName }));
+    // FeedbackFilterSelect now renders Radix `Select`, whose items carry
+    // role="option" (not "button" — that was the hand-rolled listbox this
+    // component used before adopting the shared primitive).
+    await user.click(within(listbox).getByRole('option', { name: optionName }));
   }
 
   async function submitFeature(user: ReturnType<typeof userEvent.setup>, title: string) {
@@ -279,7 +282,10 @@ describe('<Feedback /> keeps the board in sync after local mutations', () => {
     await openFilter(user, 'All statuses', 'Open');
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2));
 
-    await user.selectOptions(screen.getByRole('combobox'), 'completed');
+    // Scoped by accessible name: FeedbackFilterSelect's Radix trigger now also
+    // has role="combobox" (see FeedbackFilterSelect.tsx), so an unscoped query
+    // matches both it and this per-row admin NativeSelect.
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'completed');
 
     await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith('f1', 'completed'));
     // The completed row no longer matches the Open filter: reload drops it.

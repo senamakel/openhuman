@@ -416,3 +416,93 @@ async fn retrieve_leaves_intersects_an_explicit_scope_with_the_ambient_one() {
         "an explicit scope outside the ambient one must fail closed"
     );
 }
+
+// ── Episodic writes are redacted before they cross to a foreign driver ───────
+//
+// Both members reach a driver that may be a separately compiled module, so the
+// content has to be scrubbed on the way out. `insert_event` shipped without
+// that scrub once already, and nothing caught it: the recording driver
+// discarded the event instead of keeping its text, so no assertion could see
+// what the driver was handed. These two tests exist to make that class of
+// regression visible, which is why they assert on the recorded content rather
+// than merely on the call having happened.
+
+fn episodic_turn(content: &str) -> crate::openhuman::memory::api::provider::EpisodicTurn {
+    crate::openhuman::memory::api::provider::EpisodicTurn {
+        id: None,
+        session_id: "session-1".into(),
+        timestamp: 1_700_000_000.0,
+        role: "user".into(),
+        content: content.into(),
+        lesson: None,
+        tool_calls_json: None,
+        cost_microdollars: 0,
+    }
+}
+
+fn episodic_event(content: &str) -> crate::openhuman::memory::api::provider::EpisodicEvent {
+    crate::openhuman::memory::api::provider::EpisodicEvent {
+        event_id: "event-1".into(),
+        segment_id: "segment-1".into(),
+        session_id: "session-1".into(),
+        namespace: "ns".into(),
+        kind: crate::openhuman::memory::api::provider::EventKind::Fact,
+        content: content.into(),
+        subject: None,
+        timestamp_ref: None,
+        confidence: 1.0,
+        embedding: None,
+        source_turn_ids: None,
+        created_at: 1_700_000_000.0,
+    }
+}
+
+#[tokio::test]
+async fn episodic_writes_are_redacted_for_a_foreign_driver() {
+    let secrety = "Authorization: Bearer abcdefghijklmnop";
+
+    let (driver, guard) = guarded(external_policy("trusted"));
+    guard
+        .as_episodic()
+        .expect("episodic family")
+        .insert_turn(&episodic_turn(secrety))
+        .await
+        .expect("insert_turn");
+    let turn = driver.only_call();
+    assert_ne!(
+        turn.content.as_deref(),
+        Some(secrety),
+        "the bearer token reached a foreign driver verbatim"
+    );
+
+    let (driver, guard) = guarded(external_policy("trusted"));
+    guard
+        .as_episodic()
+        .expect("episodic family")
+        .insert_event(&episodic_event(secrety))
+        .await
+        .expect("insert_event");
+    let event = driver.only_call();
+    assert_ne!(
+        event.content.as_deref(),
+        Some(secrety),
+        "the bearer token reached a foreign driver verbatim"
+    );
+}
+
+/// The other half, so the test above cannot pass by redacting everything
+/// everywhere: an in-process driver is the same address space, so scrubbing
+/// there would cost fidelity for no privacy gain.
+#[tokio::test]
+async fn episodic_writes_are_not_redacted_for_an_embedded_driver() {
+    let secrety = "Authorization: Bearer abcdefghijklmnop";
+
+    let (driver, guard) = guarded(embedded_policy());
+    guard
+        .as_episodic()
+        .expect("episodic family")
+        .insert_event(&episodic_event(secrety))
+        .await
+        .expect("insert_event");
+    assert_eq!(driver.only_call().content.as_deref(), Some(secrety));
+}

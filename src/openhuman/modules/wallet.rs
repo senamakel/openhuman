@@ -66,7 +66,8 @@
 //! with which it is, and [`sign_payload`] dispatches on the tag rather than on
 //! the chain — so a chain that changes scheme cannot silently sign wrongly.
 
-use tinywallet::wire::{
+use tinywallet_bus::names::methods;
+use tinywallet_bus::wire::{
     DerivedAccount, ExportRequest, ExportedKey, Scheme, SecretMaterial, SignMessageRequest,
     SignRequest, Signature, SignedTransaction, TransactionSpec,
 };
@@ -125,7 +126,7 @@ pub async fn sign_transaction_in_module(
     );
     proxy
         .call_confidential(
-            "SignTransaction",
+            methods::SIGN_TRANSACTION,
             (SignRequest {
                 secret: secret.clone(),
                 transaction: transaction.clone(),
@@ -150,7 +151,7 @@ pub async fn derive_account(
         secret.chain
     );
     proxy
-        .call_confidential("DeriveAccount", (secret.clone(),))
+        .call_confidential(methods::DERIVE_ACCOUNT, (secret.clone(),))
         .await
         .map_err(|error| classify(&error))
 }
@@ -181,7 +182,7 @@ pub async fn sign_message(
     );
     proxy
         .call_confidential(
-            "SignMessage",
+            methods::SIGN_MESSAGE,
             (SignMessageRequest {
                 secret: secret.clone(),
                 message_hex: hex(message),
@@ -213,7 +214,7 @@ pub async fn export_key(
     );
     proxy
         .call_confidential(
-            "ExportKey",
+            methods::EXPORT_KEY,
             (ExportRequest {
                 secret: secret.clone(),
             },),

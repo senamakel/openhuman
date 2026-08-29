@@ -24,8 +24,8 @@
 //!
 //! ## Trigger conditions
 //!
-//! [`PayloadSummarizer::maybe_summarize_in_parent`] returns `Ok(None)` (i.e.
-//! pass-through, do nothing) when:
+//! [`PayloadSummarizer::maybe_summarize_in_parent`] leaves the raw payload in
+//! place when:
 //!
 //! * The raw payload is below
 //!   [`SubagentPayloadSummarizer::threshold_tokens`] (config default 4 000
@@ -65,11 +65,10 @@ use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource
 use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner;
 
-/// Outcome returned by [`PayloadSummarizer::maybe_summarize_in_parent`].
+/// A successful compression, carried by [`SummarizeOutcome::Summarized`].
 ///
-/// `Ok(None)` means the caller should keep the raw payload unchanged.
-/// `Ok(Some(...))` means the caller should replace the raw payload with
-/// [`SummarizedPayload::summary`] before appending it to agent history.
+/// The caller replaces the raw payload with [`SummarizedPayload::summary`]
+/// before appending it to agent history.
 #[derive(Debug, Clone)]
 pub struct SummarizedPayload {
     /// The compressed summary text. Replaces the raw tool output.
@@ -80,6 +79,95 @@ pub struct SummarizedPayload {
     pub summary_bytes: usize,
 }
 
+/// Why a payload reached agent history without being summarized.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnavailableReason {
+    /// Larger than `summarizer_max_payload_tokens`, so summarization was never
+    /// attempted and the payload will be truncated downstream.
+    PayloadTooLarge,
+    /// The failure circuit breaker is open for the rest of this session.
+    Disabled,
+    /// The summarizer sub-agent ran and did not produce a usable summary.
+    Failed,
+}
+
+impl UnavailableReason {
+    /// The model-facing notice for this reason.
+    ///
+    /// **Prefixed** to the tool result, never appended, and prefixed by the
+    /// caller *after* its truncation stages have run. Both halves matter. The
+    /// per-tool char cap keeps the head (`content.chars().take(cap)`), so an
+    /// appended notice is the first thing truncation removes — but a notice
+    /// prefixed *before* that cap is no safer, because a tool declaring a
+    /// `max_result_size_chars` below this string's length truncates the notice
+    /// itself. Applying it last is the only placement that survives both.
+    ///
+    /// Every variant ends with the same instruction: *do not re-run the tool
+    /// for a summary*. Without it, the model's reasonable response to a
+    /// truncated dump is to call the same tool again — the silent re-dispatch
+    /// loop that reads to a user as a hang.
+    ///
+    /// It is a bare **instruction**, with no justifying clause, and that is
+    /// deliberate. Three attempts to justify it were all false, each in a
+    /// different direction:
+    ///
+    /// - *"Re-running this tool will return the same result."* Untrue for any
+    ///   API-backed tool, which is time-varying, and it suppresses a retry the
+    ///   model may have had good reason to make.
+    /// - *"Re-running it will not produce a summary."* Untrue for [`Self::Failed`]
+    ///   specifically: that variant is recorded before the breaker opens, so a
+    ///   later attempt can genuinely succeed. Saying otherwise contradicts the
+    ///   breaker's own behaviour two paragraphs up.
+    /// - *"…the full output is already here."* Untrue whenever a cap fired.
+    ///   This notice is applied *after* the per-tool and byte-budget stages
+    ///   precisely so it survives them, which means the payload beneath it may
+    ///   be truncated — and [`Self::PayloadTooLarge`] says "may be truncated"
+    ///   in the same breath, so that pairing contradicted itself outright.
+    ///
+    /// The variant-specific reason already sits in the first half of each
+    /// notice, and it is a fact about the summarizer rather than a prediction
+    /// about the tool. The instruction needs no second reason, and every
+    /// candidate for one has turned out to be a claim this code cannot make.
+    #[must_use]
+    pub fn notice(self) -> &'static str {
+        match self {
+            Self::PayloadTooLarge => concat!(
+                "[openhuman: summarization unavailable — this output exceeds the summarizer's ",
+                "size cap, so the tool output follows and may be truncated. ",
+                "Do not re-run the tool for a summary.]"
+            ),
+            Self::Disabled => concat!(
+                "[openhuman: summarization unavailable — it is switched off for this session ",
+                "after repeated failures, so the tool output follows. ",
+                "Do not re-run the tool for a summary.]"
+            ),
+            Self::Failed => concat!(
+                "[openhuman: summarization unavailable — the summarizer did not return a usable ",
+                "summary for this result, so the tool output follows. ",
+                "Do not re-run the tool for a summary.]"
+            ),
+        }
+    }
+}
+
+/// What one summarization attempt concluded.
+///
+/// Replaces a bare `Option<SummarizedPayload>`, in which `None` meant both
+/// "nothing to do" and "this failed". That conflation was the defect: the one
+/// production caller could not tell the two apart, so a failed summarization
+/// entered agent history looking like ordinary tool output.
+#[derive(Debug, Clone)]
+pub enum SummarizeOutcome {
+    /// Replace the raw payload with this summary.
+    Summarized(SummarizedPayload),
+    /// The payload did not need summarizing. Keep it and say nothing — a
+    /// notice here would be noise on every small tool result.
+    NotNeeded,
+    /// The raw payload is what the model will see. Keep it, and prefix
+    /// [`UnavailableReason::notice`] so the model knows why.
+    Unavailable(UnavailableReason),
+}
+
 /// Trait for anything that can compress a tool result before it enters
 /// agent history. Implementations decide the threshold, the dispatch
 /// mechanism, and the failure policy.
@@ -87,21 +175,23 @@ pub struct SummarizedPayload {
 pub trait PayloadSummarizer: Send + Sync {
     /// TinyAgents parent-context-aware entry point.
     ///
-    /// Returns `Ok(None)` if the payload should be kept as-is, or
-    /// `Ok(Some(...))` if the caller should swap it for the
-    /// compressed [`SummarizedPayload::summary`].
+    /// See [`SummarizeOutcome`]. The three states are deliberately distinct:
+    /// a caller must be able to tell "this payload was fine as it was" from
+    /// "summarization did not happen", because only the second needs to be
+    /// disclosed to the model.
     ///
-    /// Errors are intentionally swallowed by the default implementation
-    /// — a failed summarization should never break a tool call. The
-    /// trait still returns `Result` so future implementations can
-    /// surface fatal misconfigurations.
+    /// A failed summarization should still never break a tool call, so
+    /// implementations report failure as
+    /// [`SummarizeOutcome::Unavailable`] rather than `Err`. `Err` remains for
+    /// fatal misconfiguration, and the caller now handles it rather than
+    /// pattern-matching it away.
     async fn maybe_summarize_in_parent(
         &self,
         parent_ctx: &RunContext<()>,
         tool_name: &str,
         parent_task_hint: Option<&str>,
         raw: &str,
-    ) -> Result<Option<SummarizedPayload>>;
+    ) -> Result<SummarizeOutcome>;
 }
 
 /// Default implementation that dispatches the `summarizer` through
@@ -200,7 +290,7 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
         tool_name: &str,
         parent_task_hint: Option<&str>,
         raw: &str,
-    ) -> Result<Option<SummarizedPayload>> {
+    ) -> Result<SummarizeOutcome> {
         let tokens = estimate_tokens(raw);
 
         // ── 1. Pass-through checks ─────────────────────────────────────
@@ -212,7 +302,9 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                 threshold = self.threshold_tokens,
                 "[payload_summarizer] below threshold, passing through"
             );
-            return Ok(None);
+            // The only genuinely uneventful exit: the payload was fine as it
+            // was, so the model is told nothing.
+            return Ok(SummarizeOutcome::NotNeeded);
         }
         if tokens > self.max_payload_tokens {
             warn!(
@@ -222,7 +314,9 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                 max = self.max_payload_tokens,
                 "[payload_summarizer] payload exceeds max cap, skipping summarization (will be truncated downstream)"
             );
-            return Ok(None);
+            return Ok(SummarizeOutcome::Unavailable(
+                UnavailableReason::PayloadTooLarge,
+            ));
         }
         if self.breaker_tripped() {
             warn!(
@@ -231,7 +325,7 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                 bytes = raw.len(),
                 "[payload_summarizer] circuit breaker tripped, skipping summarization"
             );
-            return Ok(None);
+            return Ok(SummarizeOutcome::Unavailable(UnavailableReason::Disabled));
         }
 
         info!(
@@ -395,7 +489,7 @@ impl SubagentPayloadSummarizer {
         raw: &str,
         started: std::time::Instant,
         outcome: Result<String>,
-    ) -> Result<Option<SummarizedPayload>> {
+    ) -> Result<SummarizeOutcome> {
         match outcome {
             Ok(output) => {
                 let summary = output.trim().to_string();
@@ -405,7 +499,7 @@ impl SubagentPayloadSummarizer {
                         "[payload_summarizer] summarizer returned empty response, falling through"
                     );
                     self.record_failure();
-                    return Ok(None);
+                    return Ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
                 }
                 if summary.len() >= raw.len() {
                     warn!(
@@ -415,7 +509,7 @@ impl SubagentPayloadSummarizer {
                         "[payload_summarizer] summary not smaller than raw payload, falling through"
                     );
                     self.record_failure();
-                    return Ok(None);
+                    return Ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
                 }
                 self.record_success();
                 let summary_bytes = summary.len();
@@ -433,7 +527,7 @@ impl SubagentPayloadSummarizer {
                     elapsed_ms = started.elapsed().as_millis() as u64,
                     "[payload_summarizer] compressed successfully"
                 );
-                Ok(Some(SummarizedPayload {
+                Ok(SummarizeOutcome::Summarized(SummarizedPayload {
                     summary,
                     original_bytes,
                     summary_bytes,
@@ -446,7 +540,7 @@ impl SubagentPayloadSummarizer {
                     "[payload_summarizer] sub-agent dispatch failed, falling through to raw payload"
                 );
                 self.record_failure();
-                Ok(None)
+                Ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed))
             }
         }
     }
@@ -531,7 +625,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn maybe_summarize_returns_none_below_threshold() {
+    async fn below_threshold_is_not_needed_not_unavailable() {
         let summarizer = SubagentPayloadSummarizer::new(
             dummy_definition(),
             TEST_THRESHOLD_TOKENS,
@@ -544,13 +638,14 @@ mod tests {
             .await
             .expect("below-threshold check should not error");
         assert!(
-            outcome.is_none(),
-            "~256-token payload below 500k threshold should be passed through"
+            matches!(outcome, SummarizeOutcome::NotNeeded),
+            "a payload below the threshold needed nothing, so the model must be \
+             told nothing; got {outcome:?}"
         );
     }
 
     #[tokio::test]
-    async fn maybe_summarize_returns_none_above_max_cap() {
+    async fn above_max_cap_is_disclosed_as_unavailable() {
         let summarizer = SubagentPayloadSummarizer::new(
             dummy_definition(),
             TEST_THRESHOLD_TOKENS,
@@ -562,14 +657,22 @@ mod tests {
             .maybe_summarize_in_parent(&dummy_parent_ctx(), "test_tool", None, &raw)
             .await
             .expect("above-cap check should not error");
+        // The regression guard. This used to be `outcome.is_none()`, the same
+        // value the below-threshold case returns — which is exactly how a
+        // payload that will be truncated downstream reached the model looking
+        // like ordinary output.
         assert!(
-            outcome.is_none(),
-            "~2.36M-token payload above 2M cap should be passed through (truncation handles it downstream)"
+            matches!(
+                outcome,
+                SummarizeOutcome::Unavailable(UnavailableReason::PayloadTooLarge)
+            ),
+            "a payload over the cap is not summarized and will be truncated, so \
+             it must be disclosed, not passed through silently; got {outcome:?}"
         );
     }
 
     #[tokio::test]
-    async fn maybe_summarize_returns_none_when_breaker_tripped() {
+    async fn tripped_breaker_is_disclosed_as_unavailable() {
         let summarizer = SubagentPayloadSummarizer::new(
             dummy_definition(),
             TEST_THRESHOLD_TOKENS,
@@ -589,9 +692,67 @@ mod tests {
             .await
             .expect("breaker check should not error");
         assert!(
-            outcome.is_none(),
-            "tripped breaker must short-circuit before any sub-agent dispatch"
+            matches!(
+                outcome,
+                SummarizeOutcome::Unavailable(UnavailableReason::Disabled)
+            ),
+            "a tripped breaker must short-circuit before any dispatch AND be \
+             disclosed — it is the case that repeats most often, because the \
+             breaker is rebuilt per session build; got {outcome:?}"
         );
+    }
+
+    #[test]
+    fn every_unavailable_notice_says_not_to_re_run_without_predicting_the_future() {
+        // The whole point of the notice. A model handed a truncated dump with
+        // no explanation does the reasonable thing and calls the same tool
+        // again, which is the re-dispatch loop a user perceives as a hang.
+        //
+        // The second half of the name is the part that took two rounds to get
+        // right. The instruction has to hold for every variant *without*
+        // asserting what a re-run would do, because `Failed` is recorded before
+        // the breaker opens and a later attempt can genuinely succeed — so a
+        // notice claiming otherwise contradicts the breaker. Both previously
+        // shipped phrasings are asserted absent below so neither comes back as
+        // a tightening.
+        for reason in [
+            UnavailableReason::PayloadTooLarge,
+            UnavailableReason::Disabled,
+            UnavailableReason::Failed,
+        ] {
+            let notice = reason.notice();
+            assert!(
+                notice.contains("Do not re-run the tool for a summary"),
+                "{reason:?} must tell the model not to retry: {notice}"
+            );
+            for prediction in ["will return the same result", "will not produce a summary"] {
+                assert!(
+                    !notice.contains(prediction),
+                    "{reason:?} must not predict what a re-run would do ({prediction:?}): \
+                     {notice}"
+                );
+            }
+            assert!(
+                notice.starts_with("[openhuman: summarization unavailable"),
+                "{reason:?} must be greppable and self-identifying: {notice}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_three_notices_are_distinct() {
+        // Three different situations; a reader (human or model) should be able
+        // to tell which one happened.
+        let all = [
+            UnavailableReason::PayloadTooLarge.notice(),
+            UnavailableReason::Disabled.notice(),
+            UnavailableReason::Failed.notice(),
+        ];
+        for (i, a) in all.iter().enumerate() {
+            for b in all.iter().skip(i + 1) {
+                assert_ne!(a, b, "each reason needs its own notice");
+            }
+        }
     }
 
     #[test]

@@ -13,16 +13,15 @@ use super::*;
 /// `CoreContext`, so a config-derived fallback would silently guard a
 /// different store.
 #[tokio::test]
-async fn falls_back_to_the_globally_bound_workspace_when_there_is_no_context() {
+async fn falls_back_to_the_configured_workspace_when_there_is_no_context() {
     let _serial = crate::openhuman::memory::ops::GLOBAL_MEMORY_TEST_LOCK
         .lock()
         .await;
+    // The process-global engine slot is gone with the second in-process engine,
+    // so there is no `active_workspace_dir()` to interrogate. The fixture's own
+    // workspace is the anchor now, and the assertion below — that the fallback
+    // resolves to the same binding — is what this test was really about.
     let workspace = crate::openhuman::memory::ops::ensure_shared_memory_client();
-    assert_eq!(
-        global::active_workspace_dir().as_deref(),
-        Some(workspace.as_path()),
-        "the fixture must leave the global client bound to its own workspace"
-    );
 
     let guard = active_memory_guard().await.expect("guard resolves");
     let bound = binding::for_workspace(&workspace, &MemorySubsystemConfig::default())

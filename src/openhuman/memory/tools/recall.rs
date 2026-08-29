@@ -119,28 +119,52 @@ impl Tool for MemoryRecallTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::inference::embeddings::NoopEmbedding;
+    use crate::openhuman::memory::api::provider::MemoryCore;
+    use crate::openhuman::memory::api::types::MemoryTaint;
     use crate::openhuman::memory::MemoryCategory;
-    use tempfile::TempDir;
-    use tinymemory_core::store::UnifiedMemory;
 
-    fn seeded_mem() -> (
-        TempDir,
-        std::sync::Arc<dyn crate::openhuman::memory::Memory>,
-    ) {
-        let tmp = TempDir::new().unwrap();
-        let mem = UnifiedMemory::new(tmp.path(), std::sync::Arc::new(NoopEmbedding), None).unwrap();
-        (tmp, std::sync::Arc::new(mem))
+    /// A namespace nothing else writes to.
+    ///
+    /// The tool holds no handle — it recalls through the *bound* driver, which
+    /// under a real module is the process-global test workspace every other
+    /// test shares. A fixed namespace would make the `Found N` counts below
+    /// depend on whatever else ran, so each test owns its own.
+    fn unique_namespace() -> String {
+        format!(
+            "recall{}",
+            &uuid::Uuid::new_v4().as_simple().to_string()[..12]
+        )
+    }
+
+    /// Seed through the guard — the door the tool itself recalls through.
+    ///
+    /// A fixture store built here would be a different store entirely, so
+    /// seeding into one would leave `recall_finds_match` passing only because
+    /// it found nothing.
+    async fn seed(namespace: &str, key: &str, content: &str) {
+        active_memory_guard()
+            .await
+            .expect("a bound memory guard")
+            .store(
+                namespace,
+                key,
+                content,
+                MemoryCategory::Core,
+                None,
+                MemoryTaint::default(),
+            )
+            .await
+            .expect("seed through the guard");
     }
 
     #[tokio::test]
     #[ignore = "needs a built tinymemory module (OPENHUMAN_MODULE_PATH) and its own process: \
 the tool resolves the bound driver rather than being handed a memory handle"]
     async fn recall_empty() {
-        let (_tmp, _mem) = seeded_mem();
+        let namespace = unique_namespace();
         let tool = MemoryRecallTool::new();
         let result = tool
-            .execute(json!({"namespace": "global", "query": "anything"}))
+            .execute(json!({"namespace": namespace, "query": "anything"}))
             .await
             .unwrap();
         assert!(!result.is_error);
@@ -151,29 +175,13 @@ the tool resolves the bound driver rather than being handed a memory handle"]
     #[ignore = "needs a built tinymemory module (OPENHUMAN_MODULE_PATH) and its own process: \
 the tool resolves the bound driver rather than being handed a memory handle"]
     async fn recall_finds_match() {
-        let (_tmp, mem) = seeded_mem();
-        mem.store(
-            "global",
-            "lang",
-            "User prefers Rust",
-            MemoryCategory::Core,
-            None,
-        )
-        .await
-        .unwrap();
-        mem.store(
-            "global",
-            "tz",
-            "Timezone is EST",
-            MemoryCategory::Core,
-            None,
-        )
-        .await
-        .unwrap();
+        let namespace = unique_namespace();
+        seed(&namespace, "lang", "User prefers Rust").await;
+        seed(&namespace, "tz", "Timezone is EST").await;
 
         let tool = MemoryRecallTool::new();
         let result = tool
-            .execute(json!({"namespace": "global", "query": "Rust"}))
+            .execute(json!({"namespace": namespace, "query": "Rust"}))
             .await
             .unwrap();
         assert!(!result.is_error);
@@ -185,22 +193,14 @@ the tool resolves the bound driver rather than being handed a memory handle"]
     #[ignore = "needs a built tinymemory module (OPENHUMAN_MODULE_PATH) and its own process: \
 the tool resolves the bound driver rather than being handed a memory handle"]
     async fn recall_respects_limit() {
-        let (_tmp, mem) = seeded_mem();
+        let namespace = unique_namespace();
         for i in 0..10 {
-            mem.store(
-                "global",
-                &format!("k{i}"),
-                &format!("Rust fact {i}"),
-                MemoryCategory::Core,
-                None,
-            )
-            .await
-            .unwrap();
+            seed(&namespace, &format!("k{i}"), &format!("Rust fact {i}")).await;
         }
 
         let tool = MemoryRecallTool::new();
         let result = tool
-            .execute(json!({"namespace": "global", "query": "Rust", "limit": 3}))
+            .execute(json!({"namespace": namespace, "query": "Rust", "limit": 3}))
             .await
             .unwrap();
         assert!(!result.is_error);
@@ -211,7 +211,6 @@ the tool resolves the bound driver rather than being handed a memory handle"]
     #[ignore = "needs a built tinymemory module (OPENHUMAN_MODULE_PATH) and its own process: \
 the tool resolves the bound driver rather than being handed a memory handle"]
     async fn recall_missing_query() {
-        let (_tmp, _mem) = seeded_mem();
         let tool = MemoryRecallTool::new();
         let result = tool.execute(json!({})).await;
         assert!(result.is_err());

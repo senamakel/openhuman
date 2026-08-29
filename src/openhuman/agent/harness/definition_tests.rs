@@ -393,11 +393,9 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         // Compiled out with the `skills` gate — see `openhuman::skills::stub`.
         #[cfg(feature = "skills")]
         ("skill_executor", 50),
-        ("tinyplace_agent", 50),
         // Strict policy, declared `max_iterations` below the old global
         // default (10) -> effective cap lowered.
         ("agent_memory", 6),
-        ("account_admin_agent", 8),
         ("archivist", 3),
         ("critic", 5),
         ("crypto_agent", 8),

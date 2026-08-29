@@ -3,6 +3,9 @@
 //! provider calls — they pin the behaviour of the branches that all of
 //! the async `ops::*` entry points rely on.
 use super::*;
+// Re-imported here rather than through `ops`: `ops` itself no longer names
+// these, so importing them there would be an unused import in a non-test build.
+use crate::openhuman::threads::title::{build_title_prompt, THREAD_TITLE_SYSTEM_PROMPT};
 use crate::openhuman::threads::turn_state::{
     self, ClearTurnStateRequest, GetTurnStateRequest, TurnState,
 };
@@ -70,6 +73,59 @@ fn counts_empty_iter_yields_empty_map() {
 // folded into title.rs so no coverage was lost.
 
 // ── build_title_prompt ────────────────────────────────────────
+
+// ── build_title_request: the outgoing wire model (#5637) ──────
+
+#[test]
+fn build_title_request_sends_no_per_request_model_override() {
+    // The regression guard for #5637. `ModelRequest::model` is a per-request
+    // override that the managed backend resolves verbatim, so anything set
+    // here replaces the model the `summarization` provider already resolved.
+    // It used to be `"hint:summarize"` — a string no hint-alias table in the
+    // tree defines — which reached the backend as a literal model id and was
+    // answered `400 Model 'hint:summarize' is not available` on every call,
+    // for four months.
+    //
+    // Asserted as `None` rather than as some expected id on purpose: leaving
+    // it unset is the only form that is correct for every branch of
+    // `create_chat_model` (managed backend, Claude Agent SDK, Claude Code,
+    // local runtime, BYOK cloud slug). Pinning a concrete managed tier here
+    // would fix the managed route and break the other four.
+    let request = crate::openhuman::threads::title::build_title_request("hi there", "hello back");
+
+    assert!(
+        request.model.is_none(),
+        "the title request must carry no model override so the resolved \
+         `summarization` provider decides; got {:?}",
+        request.model,
+    );
+}
+
+#[test]
+fn build_title_request_carries_the_system_prompt_and_rendered_user_prompt() {
+    // Pins the rest of the request so the `model` assertion above cannot be
+    // satisfied by an empty or malformed request.
+    use tinyagents::harness::message::Message;
+
+    let request = crate::openhuman::threads::title::build_title_request("hi there", "hello back");
+
+    assert_eq!(request.messages.len(), 2, "system + user");
+    assert!(
+        matches!(request.messages[0], Message::System(_)),
+        "first message must be the system prompt, got {:?}",
+        request.messages[0],
+    );
+    assert_eq!(request.messages[0].text(), THREAD_TITLE_SYSTEM_PROMPT,);
+    assert!(
+        matches!(request.messages[1], Message::User(_)),
+        "second message must be the user prompt, got {:?}",
+        request.messages[1],
+    );
+    assert_eq!(
+        request.messages[1].text(),
+        build_title_prompt("hi there", "hello back"),
+    );
+}
 
 #[test]
 fn build_title_prompt_renders_user_and_assistant_sections_in_order() {

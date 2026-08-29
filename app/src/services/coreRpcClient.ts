@@ -694,7 +694,12 @@ export async function callCoreRpc<T>({
   // Dispatch through active transport when one is set (e.g. tunnel / cloud).
   if (_activeTransport) {
     coreRpcLog('[transport] dispatching via %s method=%s', _activeTransport.kind, normalizedMethod);
-    return _activeTransport.call<T>(normalizedMethod, params ?? {});
+    // A caller's per-call budget travels with the call; without one the
+    // transport keeps its own default rather than inheriting the local
+    // client's, since each transport sizes that for its own medium.
+    const transportOpts =
+      timeoutMs === undefined ? undefined : { timeoutMs: resolvePerCallTimeoutMs(timeoutMs) };
+    return _activeTransport.call<T>(normalizedMethod, params ?? {}, transportOpts);
   }
 
   const effectiveTimeoutMs = resolvePerCallTimeoutMs(timeoutMs);

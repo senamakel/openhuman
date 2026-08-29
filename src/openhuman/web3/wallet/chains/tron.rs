@@ -27,11 +27,11 @@ const TRC20_FEE_LIMIT_SUN: u64 = 15_000_000;
 
 /// Validate a Tron mainnet base58check address.
 ///
-/// Delegates to the vendored [`tinywallet`] crate, which owns the address
+/// Delegates to the vendored [`tinywallet_bus`] crate, which owns the address
 /// format; this wrapper keeps the `Result<_, String>` shape the rest of the
 /// domain speaks.
 pub fn validate_tron_address(addr: &str) -> Result<String, String> {
-    let result = tinywallet::address::tron::validate(addr).map_err(|e| e.to_string());
+    let result = tinywallet_bus::address::tron::validate(addr).map_err(|e| e.to_string());
     debug!(
         "{LOG_PREFIX} validate_address result={}",
         if result.is_ok() {
@@ -46,13 +46,13 @@ pub fn validate_tron_address(addr: &str) -> Result<String, String> {
 /// Convert a base58check Tron address into the 42-hex-digit form the TronGrid
 /// API expects, version prefix included.
 ///
-/// Delegates to [`tinywallet`]. Note this now validates the address before
+/// Delegates to [`tinywallet_bus`]. Note this now validates the address before
 /// converting, where the previous local implementation decoded without a
 /// length check — a malformed address that happened to base58check-decode to
 /// the wrong length used to produce a short hex string and fail further
 /// downstream at the API call.
 pub fn tron_address_to_hex(addr: &str) -> Result<String, String> {
-    let result = tinywallet::address::tron::to_hex(addr).map_err(|e| e.to_string());
+    let result = tinywallet_bus::address::tron::to_hex(addr).map_err(|e| e.to_string());
     debug!(
         "{LOG_PREFIX} address_to_hex result={}",
         if result.is_ok() {
@@ -92,27 +92,27 @@ struct TriggerSmartContractResponse {
 
 /// What the node was asked to build, for verifying what it returned.
 ///
-/// [`tinywallet::wire::TronTransfer`] is that type — it is already on the
+/// [`tinywallet_bus::wire::TronTransfer`] is that type — it is already on the
 /// host/module wire contract, so a second local mirror of it would be one more
 /// thing to keep in step for no gain. The one thing it deliberately does not
 /// carry is the fee limit, because only the caller knows what it pinned; that
 /// rides alongside as [`verify_contract`]'s last argument.
-type TronTransferVerification = tinywallet::wire::TronTransfer;
+type TronTransferVerification = tinywallet_bus::wire::TronTransfer;
 
 /// Check a node-built Tron transaction, then describe it for the signer.
 ///
-/// The verification itself lives in [`tinywallet::tx::tron::verify_contract`],
+/// The verification itself lives in [`tinywallet_bus::tx::tron::verify_contract`],
 /// which parses `raw_data` structurally. The protobuf reader, the contract
 /// unwrapping and the per-contract field checks used to be hand-rolled here;
 /// they are the same rules for every host, so they moved into the crate. What
 /// stays is the part that is OpenHuman's: the fee limit this client pins, and
-/// the [`tinywallet::wire::TransactionSpec`] handed to the wallet module.
+/// the [`tinywallet_bus::wire::TransactionSpec`] handed to the wallet module.
 fn tron_transaction_spec(
     raw_tx: &CreateTransactionResponse,
     expected_to: String,
     transfer: &TronTransferVerification,
-) -> Result<tinywallet::wire::TransactionSpec, String> {
-    let recomputed_txid = tinywallet::tx::tron::recompute_txid(&raw_tx.raw_data_hex)
+) -> Result<tinywallet_bus::wire::TransactionSpec, String> {
+    let recomputed_txid = tinywallet_bus::tx::tron::recompute_txid(&raw_tx.raw_data_hex)
         .map_err(|error| format!("invalid Tron raw_data_hex: {error}"))?;
 
     // The fee limit is ours, not the crate's: it is what this client pinned in
@@ -122,7 +122,7 @@ fn tron_transaction_spec(
         TronTransferVerification::Trc20 { .. } => Some(TRC20_FEE_LIMIT_SUN),
     };
 
-    tinywallet::tx::tron::verify_contract(
+    tinywallet_bus::tx::tron::verify_contract(
         &raw_tx.raw_data_hex,
         &expected_to,
         &raw_tx.tx_id,
@@ -131,7 +131,7 @@ fn tron_transaction_spec(
     )
     .map_err(|error| format!("Tron node response rejected: {error}"))?;
 
-    Ok(tinywallet::wire::TransactionSpec::Tron {
+    Ok(tinywallet_bus::wire::TransactionSpec::Tron {
         raw_data_hex: raw_tx.raw_data_hex.clone(),
         expected_to,
         expected_txid: recomputed_txid,
@@ -143,11 +143,16 @@ fn tron_transaction_spec(
 
 /// Derive the Tron signing key and its base58check address.
 ///
-/// Delegates to the vendored [`tinywallet`] crate, which owns BIP-32
-/// secp256k1 derivation and the Keccak-then-base58check address construction.
-/// The hand-rolled BIP-32 walk and path parser that used to live here moved
-/// there wholesale. Custody stays here.
-/// Test-only: production derives inside the wallet module.
+/// Test-only, and deliberately on the **root** `tinywallet` crate rather than
+/// `tinywallet-bus`: `key` is one of the gates that did not move into the
+/// contract crate. The root crate is a dev-dependency here, so this derivation
+/// stack is not linked into the shipped binary. Production derives inside the
+/// wallet module, via `modules::wallet::derive_account`.
+///
+/// The root crate owns BIP-32 secp256k1 derivation and the
+/// Keccak-then-base58check address construction; the hand-rolled BIP-32 walk
+/// and path parser that used to live here moved there wholesale. Custody stays
+/// here.
 #[cfg(test)]
 fn derive_tron_keypair(mnemonic: &str, derivation_path: &str) -> Result<(Vec<u8>, String), String> {
     let derived = tinywallet::key::derive(tinywallet::Chain::Tron, mnemonic, derivation_path)
@@ -252,10 +257,10 @@ pub async fn execute_tron_quote(mut quote: PreparedTransaction) -> Result<Execut
     // this process never holds the key. The phrase goes over a confidential
     // call, and only to a module that has proved it is an artifact this build
     // pinned — see `modules::wallet::attested_proxy`.
-    let signing_secret = tinywallet::wire::SecretMaterial {
+    let signing_secret = tinywallet_bus::wire::SecretMaterial {
         mnemonic,
         derivation_path: secret.derivation_path.clone(),
-        chain: tinywallet::Chain::Tron,
+        chain: tinywallet_bus::Chain::Tron,
     };
     let derived_addr = crate::openhuman::modules::wallet::derive_account(&config, &signing_secret)
         .await
@@ -521,13 +526,13 @@ mod tests {
     }
 
     fn push_varint_field(out: &mut Vec<u8>, number: u64, value: u64) {
-        out.extend(tinywallet::tx::proto::encode_varint(number << 3));
-        out.extend(tinywallet::tx::proto::encode_varint(value));
+        out.extend(tinywallet_bus::tx::proto::encode_varint(number << 3));
+        out.extend(tinywallet_bus::tx::proto::encode_varint(value));
     }
 
     fn push_bytes_field(out: &mut Vec<u8>, number: u64, value: &[u8]) {
-        out.extend(tinywallet::tx::proto::encode_varint((number << 3) | 2));
-        out.extend(tinywallet::tx::proto::encode_varint(value.len() as u64));
+        out.extend(tinywallet_bus::tx::proto::encode_varint((number << 3) | 2));
+        out.extend(tinywallet_bus::tx::proto::encode_varint(value.len() as u64));
         out.extend(value);
     }
 
@@ -599,7 +604,7 @@ mod tests {
                         let recipient = payload["to_address"].as_str().unwrap();
                         let amount = payload["amount"].as_u64().unwrap();
                         let raw = native_raw(recipient, amount);
-                        let txid = tinywallet::tx::tron::recompute_txid(&raw).unwrap();
+                        let txid = tinywallet_bus::tx::tron::recompute_txid(&raw).unwrap();
                         create.lock().push(payload);
                         axum::Json(json!({
                             "txID": txid,
@@ -617,7 +622,7 @@ mod tests {
                         let contract = payload["contract_address"].as_str().unwrap();
                         let parameter = payload["parameter"].as_str().unwrap();
                         let raw = trc20_raw(contract, parameter);
-                        let txid = tinywallet::tx::tron::recompute_txid(&raw).unwrap();
+                        let txid = tinywallet_bus::tx::tron::recompute_txid(&raw).unwrap();
                         trigger.lock().push(payload);
                         axum::Json(json!({
                             "transaction": {
@@ -658,7 +663,7 @@ mod tests {
         let contract_hex = tron_address_to_hex(contract).unwrap();
 
         let native_raw_hex = native_raw(&recipient_hex, 1_000_000);
-        let native_txid = tinywallet::tx::tron::recompute_txid(&native_raw_hex).unwrap();
+        let native_txid = tinywallet_bus::tx::tron::recompute_txid(&native_raw_hex).unwrap();
         let native_tx = CreateTransactionResponse {
             tx_id: native_txid.clone(),
             raw_data: json!({}),
@@ -674,7 +679,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             native,
-            tinywallet::wire::TransactionSpec::Tron {
+            tinywallet_bus::wire::TransactionSpec::Tron {
                 raw_data_hex: native_raw_hex,
                 expected_to: recipient.to_string(),
                 expected_txid: native_txid,
@@ -688,7 +693,7 @@ mod tests {
 
         let parameter = "01".repeat(64);
         let token_raw = trc20_raw(&contract_hex, &parameter);
-        let token_txid = tinywallet::tx::tron::recompute_txid(&token_raw).unwrap();
+        let token_txid = tinywallet_bus::tx::tron::recompute_txid(&token_raw).unwrap();
         let token_tx = CreateTransactionResponse {
             tx_id: token_txid.clone(),
             raw_data: json!({}),
@@ -704,7 +709,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             token,
-            tinywallet::wire::TransactionSpec::Tron {
+            tinywallet_bus::wire::TransactionSpec::Tron {
                 raw_data_hex: token_raw,
                 expected_to: contract.to_string(),
                 expected_txid: token_txid,
@@ -753,7 +758,7 @@ mod tests {
             ),
         ] {
             let altered_tx = CreateTransactionResponse {
-                tx_id: tinywallet::tx::tron::recompute_txid(&raw_data_hex).unwrap(),
+                tx_id: tinywallet_bus::tx::tron::recompute_txid(&raw_data_hex).unwrap(),
                 raw_data: json!({}),
                 raw_data_hex,
             };
@@ -772,11 +777,11 @@ mod tests {
         // satisfy validation when the selected contract pays something else.
         let mut spoofed_raw = hex::decode(native_raw(&contract_hex, 2)).unwrap();
         let mut decoy = hex::decode(&recipient_hex).unwrap();
-        decoy.extend(tinywallet::tx::proto::encode_varint(1_000_000));
+        decoy.extend(tinywallet_bus::tx::proto::encode_varint(1_000_000));
         push_bytes_field(&mut spoofed_raw, 10, &decoy);
         let spoofed_raw = hex::encode(spoofed_raw);
         let spoofed_tx = CreateTransactionResponse {
-            tx_id: tinywallet::tx::tron::recompute_txid(&spoofed_raw).unwrap(),
+            tx_id: tinywallet_bus::tx::tron::recompute_txid(&spoofed_raw).unwrap(),
             raw_data: json!({}),
             raw_data_hex: spoofed_raw,
         };
@@ -942,7 +947,7 @@ mod tests {
                     let recipient = payload["to_address"].as_str().unwrap();
                     let amount = payload["amount"].as_u64().unwrap();
                     let raw = native_raw(recipient, amount);
-                    let txid = tinywallet::tx::tron::recompute_txid(&raw).unwrap();
+                    let txid = tinywallet_bus::tx::tron::recompute_txid(&raw).unwrap();
                     axum::Json(json!({
                         "txID": txid,
                         "raw_data": {"contract": []},

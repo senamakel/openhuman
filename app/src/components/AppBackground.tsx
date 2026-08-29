@@ -8,8 +8,9 @@ interface AppBackgroundProps {
 
 /**
  * The app's shared background layer. The backdrop is theme-controlled:
- * - `mesh` (default): animated WebGL mesh gradient (theme-tinted) + dotted canvas.
- * - `solid`: just the dotted canvas over the themed flat/gradient body.
+ * - `solid` (default): just the dotted canvas over the themed flat body — no
+ *   gradient. The default is flat on purpose; the animated shader is opt-in.
+ * - `mesh`: animated WebGL mesh gradient (theme-tinted) + dotted canvas.
  * - `image`: a cover image over the dotted canvas.
  *
  * Renders as an absolutely-positioned layer that fills its parent; place
@@ -17,7 +18,7 @@ interface AppBackgroundProps {
  */
 export default function AppBackground({ className = '' }: AppBackgroundProps) {
   const theme = useAppSelector(selectEffectiveTheme);
-  const backdrop = theme.backdrop?.kind ?? 'mesh';
+  const backdrop = theme.backdrop?.kind ?? 'solid';
   const showDots = theme.backdrop?.dots !== false; // default on
 
   return (
@@ -29,7 +30,9 @@ export default function AppBackground({ className = '' }: AppBackgroundProps) {
           style={{ backgroundImage: `url("${theme.backdrop.imageUrl}")` }}
         />
       )}
-      {showDots && <div className="app-dotted-canvas absolute inset-0" />}
+      {showDots && (
+        <div className="absolute inset-0 bg-transparent bg-[radial-gradient(circle_at_center,rgb(var(--content)/0.1)_1px,transparent_1px)] bg-size-[18px_18px] bg-position-[0_0]" />
+      )}
     </div>
   );
 }

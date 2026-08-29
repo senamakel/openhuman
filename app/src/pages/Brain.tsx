@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
-import TinyPlaceSunsetNotice from '../agentworld/TinyPlaceSunsetNotice';
 import { CodingSessionsCard } from '../components/intelligence/CodingSessionsCard';
 import GoalsPanel from '../components/intelligence/GoalsPanel';
 import { MemoryControls } from '../components/intelligence/MemoryControls';
@@ -18,10 +17,10 @@ import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStat
 import { SyncAuditPanel } from '../components/intelligence/SyncAuditPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PageWelcome from '../components/layout/PageWelcome';
-import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import OrchestrationView from '../components/orchestration/OrchestrationView';
+import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage';
 import { useTinyPlaceIdentity } from '../hooks/useTinyPlaceIdentity';
 import { useT } from '../lib/i18n/I18nContext';
 import { useCoreState } from '../providers/CoreStateProvider';
@@ -194,11 +193,6 @@ export default function Brain() {
               {
                 items: [
                   {
-                    value: 'welcome',
-                    label: t('brain.welcome.nav'),
-                    icon: navIcon('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'),
-                  },
-                  {
                     value: 'graph',
                     label: t('brain.tabs.graph'),
                     icon: navIcon(
@@ -249,7 +243,6 @@ export default function Brain() {
         // (chat, graph, task board), which need the full content width — so it
         // sits outside the shared max-w scaffold the other tabs use.
         <div className="flex h-full flex-col">
-          <TinyPlaceSunsetNotice />
           <div className="min-h-0 flex-1">
             <OrchestrationView />
           </div>
@@ -310,68 +303,70 @@ export default function Brain() {
             all custom controls live inside it. The title/description go through
             PanelPage so every page opens with the same flush header band, rather
             than a bordered card floating in the content column. */
-            <PanelPage
-              contentClassName="p-4"
-              title={t(
-                BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome' | 'orchestration'>].titleKey
-              )}
-              description={t(
-                BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome' | 'orchestration'>].descKey
-              )}>
-              <div className="mx-auto max-w-3xl space-y-5">
-                {activeTab === 'graph' && (
-                  <div className="space-y-5 animate-fade-up">
-                    <MemoryControls
-                      mode={mode}
-                      onModeChange={setMode}
-                      onRefresh={refresh}
-                      onToast={addToast}
-                      contentRootAbs={graph?.content_root_abs}
-                    />
-
-                    {graph ? (
-                      <MemoryGraph
-                        nodes={graph.nodes}
-                        edges={graph.edges}
+            <div className="h-full p-4">
+              <SettingsTabbedPage
+                title={t(
+                  BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome' | 'orchestration'>]
+                    .titleKey
+                )}
+                description={t(
+                  BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome' | 'orchestration'>].descKey
+                )}>
+                <div className="w-full space-y-5">
+                  {activeTab === 'graph' && (
+                    <div className="space-y-5 animate-fade-up">
+                      <MemoryControls
                         mode={mode}
-                        emptyHint={t('brain.empty')}
+                        onModeChange={setMode}
+                        onRefresh={refresh}
+                        onToast={addToast}
+                        contentRootAbs={graph?.content_root_abs}
                       />
-                    ) : error ? (
-                      <div
-                        className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
-                        role="alert">
-                        {t('brain.error')}
+
+                      {graph ? (
+                        <MemoryGraph
+                          nodes={graph.nodes}
+                          edges={graph.edges}
+                          mode={mode}
+                          emptyHint={t('brain.empty')}
+                        />
+                      ) : error ? (
+                        <div
+                          className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
+                          role="alert">
+                          {t('brain.error')}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {activeTab === 'goals' && <GoalsPanel />}
+
+                  {activeTab === 'sources' && (
+                    <div className="space-y-5 animate-fade-up">
+                      <CodingSessionsCard onToast={addToast} />
+                      <MemorySourcesRegistry onToast={addToast} />
+                    </div>
+                  )}
+
+                  {activeTab === 'sync' && (
+                    <div className="space-y-5 animate-fade-up">
+                      <div className={cardClass}>
+                        <MemoryTreeStatusPanel onToast={addToast} />
                       </div>
-                    ) : null}
-                  </div>
-                )}
-
-                {activeTab === 'goals' && <GoalsPanel />}
-
-                {activeTab === 'sources' && (
-                  <div className="space-y-5 animate-fade-up">
-                    <CodingSessionsCard onToast={addToast} />
-                    <MemorySourcesRegistry onToast={addToast} />
-                  </div>
-                )}
-
-                {activeTab === 'sync' && (
-                  <div className="space-y-5 animate-fade-up">
-                    <div className={cardClass}>
-                      <MemoryTreeStatusPanel onToast={addToast} />
-                    </div>
-                    {/* Sync history relocated from the Memory Inspection panel so
+                      {/* Sync history relocated from the Memory Inspection panel so
                       the Sync tab is the single sync surface. */}
-                    <div className={cardClass} data-testid="brain-sync-history">
-                      <h3 className="mb-2 text-sm font-medium text-content-secondary">
-                        {t('sync.auditTitle', 'Sync History')}
-                      </h3>
-                      <SyncAuditPanel />
+                      <div className={cardClass} data-testid="brain-sync-history">
+                        <h3 className="mb-2 text-sm font-medium text-content-secondary">
+                          {t('sync.auditTitle', 'Sync History')}
+                        </h3>
+                        <SyncAuditPanel />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </PanelPage>
+                  )}
+                </div>
+              </SettingsTabbedPage>
+            </div>
           )}
         </div>
       )}

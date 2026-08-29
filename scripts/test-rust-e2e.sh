@@ -60,7 +60,6 @@ ALL_E2E_SUITES=(
   memory_fast_retrieve_e2e
   ollama_embeddings_fallback_e2e
   skill_registry_e2e
-  subconscious_e2e
   worker_b_domain_e2e
   worker_c_modules_e2e
 )

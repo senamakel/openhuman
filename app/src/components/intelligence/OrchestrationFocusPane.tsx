@@ -10,6 +10,7 @@ import type { FormEvent, ReactElement } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { useOrchestrationChats } from '../../lib/orchestration/useOrchestrationChats';
 import Button from '../ui/Button';
+import TextField from '../ui/TextField';
 import { MessageBubble } from './OrchestrationChatPrimitives';
 
 type ChatsApi = ReturnType<typeof useOrchestrationChats>;
@@ -145,12 +146,12 @@ export default function OrchestrationFocusPane({
             </p>
           ) : null}
           <div className="flex gap-2">
-            <input
+            <TextField
               data-testid="tinyplace-master-composer-input"
               value={composerBody}
               onChange={event => onComposerChange(event.target.value)}
               placeholder={t('tinyplaceOrchestration.composer.placeholder')}
-              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-content outline-none transition focus:border-ocean-500 focus:ring-2 focus:ring-ocean-500/20"
+              className="min-w-0 flex-1"
             />
             <Button
               type="submit"

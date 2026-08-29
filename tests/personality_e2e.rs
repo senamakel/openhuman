@@ -32,10 +32,15 @@ use openhuman_core::openhuman::agent::prompts::{
     PromptSection, ToolCallFormat, UserFilesSection,
 };
 use openhuman_core::openhuman::inference::embeddings::NoopEmbedding;
-use openhuman_core::openhuman::memory::{NamespaceDocumentInput, UnifiedMemory};
+use openhuman_core::openhuman::memory::NamespaceDocumentInput;
+// The engine handle is named on the crate rather than reached through the
+// memory module's public surface: it is an in-process engine type, not
+// contract vocabulary, and the alias that used to re-export it existed for
+// callers that no longer exist (#5560).
 use tinycortex::memory::conversations::{
     ensure_thread, list_threads, update_thread_title, ConversationStore, CreateConversationThread,
 };
+use tinymemory_core::store::UnifiedMemory;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test helpers

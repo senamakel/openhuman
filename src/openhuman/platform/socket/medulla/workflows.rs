@@ -159,8 +159,40 @@ pub(super) fn bridge_generation() -> BridgeGeneration {
     }
 }
 
-pub(super) fn connection_generation() -> CancellationToken {
+/// A snapshot of the token for the currently-authenticated socket lifetime.
+///
+/// Visible to the whole `socket` module, not just `medulla`: `event_handlers`
+/// spawns hosted-brain work that must not emit its result onto a *later*
+/// connection, and it is a sibling of this module rather than a child.
+pub(in crate::openhuman::platform::socket) fn connection_generation() -> CancellationToken {
     connection_generation_state().read().snapshot()
+}
+
+/// Run `deliver` only while `token`'s generation is still live, holding the
+/// generation lock across the decision.
+///
+/// A plain `token.is_cancelled()` followed by a send is a race: the socket loop
+/// can end the generation and drain the emit channel in the gap, after which the
+/// handler's send lands in an empty channel and is flushed onto the *next*
+/// connection — exactly what the check was meant to prevent.
+///
+/// Taking the read guard closes it, because [`end_connection_generation`] needs
+/// the write guard to cancel. Either this runs first, and the message is queued
+/// before the drain that will discard it; or the end runs first, and `token` is
+/// already cancelled here. `deliver` must therefore stay cheap and must not
+/// block, await, or re-enter this module — the one caller does a JSON encode and
+/// an unbounded send.
+///
+/// Returns `None` when the generation has ended.
+pub(in crate::openhuman::platform::socket) fn with_live_connection<R>(
+    token: &CancellationToken,
+    deliver: impl FnOnce() -> R,
+) -> Option<R> {
+    let _generation = connection_generation_state().read();
+    if token.is_cancelled() {
+        return None;
+    }
+    Some(deliver())
 }
 
 /// Start a new authenticated-socket lifetime.

@@ -80,12 +80,6 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         content: include_str!("../../agent/registry/agents/crypto_agent/prompt.md"),
     },
     PromptResource {
-        uri: "openhuman://prompts/agents/tinyplace_agent",
-        name: "tinyplace_agent",
-        description: "Specialist worker for tiny.place identity, marketplace, messaging, and jobs.",
-        content: include_str!("../../tinyplace/agent/prompt.md"),
-    },
-    PromptResource {
         uri: "openhuman://prompts/agents/tools_agent",
         name: "tools_agent",
         description: "Generalist worker with access to the full tool surface.",
@@ -222,12 +216,6 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         name: "profile_memory_agent",
         description: "Specialist worker for profile and long-term memory updates.",
         content: include_str!("../../agent/registry/agents/profile_memory_agent/prompt.md"),
-    },
-    PromptResource {
-        uri: "openhuman://prompts/agents/account_admin_agent",
-        name: "account_admin_agent",
-        description: "Specialist worker for connected account and integration administration.",
-        content: include_str!("../../agent/registry/agents/account_admin_agent/prompt.md"),
     },
     #[cfg(feature = "flows")]
     PromptResource {

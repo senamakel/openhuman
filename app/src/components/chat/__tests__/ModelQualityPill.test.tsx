@@ -11,12 +11,6 @@ describe('ModelQualityPill', () => {
     expect(screen.getByText('OpenHuman')).toBeInTheDocument();
   });
 
-  it('renders quality indicator', () => {
-    render(<ModelQualityPill />);
-    // The quality value comes through t('composer.qualityHigh') which returns the key in test
-    expect(screen.getByText('composer.qualityHigh')).toBeInTheDocument();
-  });
-
   it('has chevron icon', () => {
     const { container } = render(<ModelQualityPill />);
     const svg = container.querySelector('svg');
@@ -29,7 +23,7 @@ describe('ModelQualityPill', () => {
     // Horizontal padding + rounded shape keep the trailing chevron fully
     // inside the pill instead of flush against its right edge.
     expect(button).toHaveClass('px-2');
-    expect(button).toHaveClass('rounded-full');
+    expect(button).toHaveClass('rounded-md');
     // The chevron itself must not shrink/clip when space is tight.
     const svg = button.querySelector('svg');
     expect(svg).toHaveClass('shrink-0');

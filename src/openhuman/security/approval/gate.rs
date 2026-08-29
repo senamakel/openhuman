@@ -584,6 +584,23 @@ impl ApprovalGate {
         // weaken — `is_always_forbidden`, `is_workspace_internal_path`, or
         // `ToolPolicyMiddleware`, which all run inside the tool
         // implementation itself, not the approval gate.
+        //
+        // Known and accepted: a **remote-origin triage** dispatch is not in the
+        // protected set either. Since openhuman#5634 a Composio/webhook payload
+        // reaching `triage.escalate` carries
+        // `TrustedAutomation { Workflow { require_approval: true } }`, which
+        // normally parks and writes a `pending_approvals` row — and with this
+        // flag on it is allowed here instead, leaving no approval trail for
+        // those dispatches. The gate owner ruled that enabling a blanket
+        // "approve everything" switch opts into that globally rather than
+        // carving out an exception, because the alternatives either narrow what
+        // the flag means for every user who set it or turn it into "approve
+        // everything except…". Decision and the options weighed:
+        // https://github.com/tinyhumansai/openhuman/issues/5634#issuecomment-5396604125
+        //
+        // `auto_approve_all_allows_a_remote_triage_dispatch_without_an_audit_row`
+        // below pins that outcome, so a change to this exclusion list has to
+        // confront the decision rather than discover it.
         let auto_all = self.is_auto_approve_all_enabled()
             && !matches!(
                 &origin,
@@ -1910,6 +1927,71 @@ mod tests {
         );
     }
 
+    /// The `auto_approve_all` × remote-origin-triage interaction, pinned by
+    /// name because it is a **decision**, not an emergent behaviour.
+    ///
+    /// Since openhuman#5634 a Composio/webhook payload reaching
+    /// `triage.escalate` carries `Workflow { require_approval: true }`, so
+    /// normally it parks and writes a `pending_approvals` row — that is
+    /// `a_remote_triage_escalation_parks_with_an_audit_row_rather_than_an_unknown_denial`
+    /// above. With `auto_approve_all` on it is allowed immediately and writes
+    /// no row, which means for those users #5634 moved this path from
+    /// `Unknown` → hard Deny to Allow-with-no-audit-trail.
+    ///
+    /// The gate owner accepted that rather than carving out an exception:
+    /// https://github.com/tinyhumansai/openhuman/issues/5634#issuecomment-5396604125
+    ///
+    /// So this test exists to be *broken on purpose*. If a future change adds
+    /// this origin to the bypass exclusion list, this fails, and whoever is
+    /// making that change has to reopen the decision instead of discovering the
+    /// behaviour by accident. Deleting it to make a change pass is the one
+    /// wrong response.
+    #[tokio::test]
+    async fn auto_approve_all_allows_a_remote_triage_dispatch_without_an_audit_row() {
+        use crate::openhuman::agent::triage::{remote_trigger_origin, TriggerEnvelope};
+
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let (gate, dir) = test_gate();
+        let policy = crate::openhuman::security::SecurityPolicy {
+            auto_approve_all: true,
+            ..crate::openhuman::security::SecurityPolicy::default()
+        };
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
+            Arc::new(policy),
+            dir.path().to_path_buf(),
+            dir.path().to_path_buf(),
+        );
+
+        let envelope = TriggerEnvelope::from_composio(
+            "gmail",
+            "new_message",
+            "ti_meta",
+            "ti_bCCTKZlajKi4",
+            serde_json::json!({ "subject": "hello" }),
+        );
+
+        let outcome = turn_origin::with_origin(
+            remote_trigger_origin(&envelope),
+            gate.intercept(
+                "triage.escalate",
+                "escalate to orchestrator",
+                serde_json::json!({}),
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(outcome, GateOutcome::Allow),
+            "auto_approve_all opts into the bypass globally, including remote triage;              got {outcome:?}"
+        );
+        assert!(
+            gate.list_pending().unwrap().is_empty(),
+            "the bypass short-circuits before the park, so no pending_approvals row is              written — this is the documented cost of the flag, not a defect"
+        );
+    }
+
     #[tokio::test]
     async fn timeout_returns_deny() {
         let (gate, _dir) = test_gate(); // TTL = 500ms
@@ -2472,6 +2554,85 @@ mod tests {
         ] {
             assert_eq!(super::parse_approval_reply(other), None, "{other}");
         }
+    }
+
+    /// openhuman#5634: the six triage dispatch sites scoped no origin, so every
+    /// proactive escalation reached this gate as `Unknown` and was refused —
+    /// `intercept_with_unknown_origin_denies` below is that behaviour.
+    ///
+    /// A remote trigger now carries
+    /// `TrustedAutomation { Workflow { require_approval: true } }`, which parks
+    /// and persists the `pending_approvals` row instead. This asserts the park
+    /// and the row, not a successful escalation: with no surface able to decide
+    /// a background park these still TTL-deny (openhuman#5746). The gain is the
+    /// audit trail, not restored function.
+    #[tokio::test]
+    async fn a_remote_triage_escalation_parks_with_an_audit_row_rather_than_an_unknown_denial() {
+        use crate::openhuman::agent::triage::{remote_trigger_origin, TriggerEnvelope};
+
+        let (gate, _dir) = test_gate();
+        let envelope = TriggerEnvelope::from_composio(
+            "gmail",
+            "new_message",
+            "ti_meta",
+            "ti_bCCTKZlajKi4",
+            serde_json::json!({ "subject": "hello" }),
+        );
+
+        // `Box::pin` + a short timeout drives the future into the park without
+        // waiting out the TTL; nothing decides it, so it must still be pending.
+        let mut fut = Box::pin(turn_origin::with_origin(
+            remote_trigger_origin(&envelope),
+            gate.intercept(
+                "triage.escalate",
+                "escalate to orchestrator",
+                serde_json::json!({}),
+            ),
+        ));
+        let parked = tokio::time::timeout(Duration::from_millis(300), &mut fut).await;
+        assert!(
+            parked.is_err(),
+            "a remote escalation must park for a decision, not resolve immediately \
+             (an immediate Deny here is the `Unknown` regression this pins)"
+        );
+
+        let pending = gate.list_pending().unwrap();
+        assert_eq!(
+            pending.len(),
+            1,
+            "the park must persist exactly one pending_approvals row, got {pending:?}"
+        );
+        assert_eq!(pending[0].tool_name, "triage.escalate");
+    }
+
+    /// The counterpart: a locally initiated triage dispatch keeps the authority
+    /// its caller already had, so it is allowed without a prompt and writes no
+    /// row. Pinned alongside the remote case because the security decision on
+    /// openhuman#5634 is that these two are *different*, and a later
+    /// simplification to one blanket label would have to break one of them.
+    #[tokio::test]
+    async fn a_local_triage_escalation_is_allowed_without_a_prompt() {
+        use crate::openhuman::agent::triage::local_trigger_origin;
+
+        let (gate, _dir) = test_gate();
+        let outcome = turn_origin::with_origin(
+            local_trigger_origin(),
+            gate.intercept(
+                "triage.escalate",
+                "escalate to orchestrator",
+                serde_json::json!({}),
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(outcome, GateOutcome::Allow),
+            "a locally initiated escalation must not be gated, got {outcome:?}"
+        );
+        assert!(
+            gate.list_pending().unwrap().is_empty(),
+            "a trust-root origin persists no pending row"
+        );
     }
 
     #[tokio::test]

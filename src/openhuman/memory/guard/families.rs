@@ -36,7 +36,7 @@ use crate::openhuman::memory::api::chunks::Chunk;
 use crate::openhuman::memory::api::error::MemoryError;
 use crate::openhuman::memory::api::goals::GoalsDoc;
 use crate::openhuman::memory::api::provider::chunks::{
-    ChunkDetail, ChunkEmbedding, ChunkQuery, MemoryChunks,
+    ChunkDetail, ChunkEmbedding, ChunkListRow, ChunkQuery, MemoryChunks, SourceTotal,
 };
 use crate::openhuman::memory::api::provider::episodic::{
     ConversationSegment, EpisodicTurn, MemoryEpisodic,
@@ -52,16 +52,28 @@ use crate::openhuman::memory::api::provider::retrieval::{
     CoverWindowQuery, EntityMatch, FastRetrieveQuery, MemoryRetrieval, RetrievalHit,
     RetrievalResponse, SourceRetrievalQuery,
 };
+use crate::openhuman::memory::api::provider::scoring::MemoryScoring;
+use crate::openhuman::memory::api::provider::sessions::{
+    CodingSessionIngestReport, CodingSessionIngestRequest, CodingSessionSource,
+};
+use crate::openhuman::memory::api::provider::sync::{
+    RawArchiveCoverage, RawRebuildOutcome, SourceSyncState, SourceSyncStatus, SyncAuditEntry,
+    SyncRunOutcome,
+};
 use crate::openhuman::memory::api::provider::types::{
-    DiffReport, EntityHit, IngestItem, IngestOutcome, MaintenanceReport, SnapshotRef, SourceItem,
+    ChunkEntityOccurrence, DiffReport, EntityHit, EntityOccurrence, ForgetOutcome, ForgetSelector,
+    IngestItem, IngestOutcome, MaintenanceReport, PurgeOutcome, SnapshotRef, SourceItem,
     SourceScope,
 };
 use crate::openhuman::memory::api::provider::{
-    MemoryDiff, MemoryDocuments, MemoryEntities, MemoryGoals, MemoryGraph, MemoryIngest,
-    MemoryMaintenance, MemoryProvider, MemorySourceSink, MemoryToolMemory, MemoryTree,
+    EpisodicEvent, MemoryCodingSessions, MemoryDiff, MemoryDocuments, MemoryEntities, MemoryGoals,
+    MemoryGraph, MemoryIngest, MemoryMaintenance, MemoryProvider, MemorySourceSink,
+    MemorySourceSync, MemoryToolMemory, MemoryTree,
 };
 use crate::openhuman::memory::api::tool_memory::ToolMemoryRule;
-use crate::openhuman::memory::api::tree::{IngestRequest, QueryResult, TreeStatus};
+use crate::openhuman::memory::api::tree::{
+    IngestRequest, QueryResult, SummaryForest, TreeLeaf, TreeStatus,
+};
 use crate::openhuman::memory::api::types::NamespaceMemoryHit;
 use crate::openhuman::memory::api::types::{
     GraphRelationRecord, MemoryKvRecord, MemoryTaint, NamespaceDocumentInput,
@@ -204,11 +216,32 @@ decorator!(
     Episodic
 );
 decorator!(
+    /// Guarded [`MemorySourceSync`].
+    GuardedSourceSync,
+    dyn MemorySourceSync,
+    as_source_sync,
+    SourceSync
+);
+decorator!(
+    /// Guarded [`MemoryCodingSessions`].
+    GuardedCodingSessions,
+    dyn MemoryCodingSessions,
+    as_coding_sessions,
+    CodingSessions
+);
+decorator!(
     /// Guarded [`MemoryProfile`].
     GuardedProfile,
     dyn MemoryProfile,
     as_profile,
     Profile
+);
+decorator!(
+    /// Guarded [`MemoryScoring`].
+    GuardedScoring,
+    dyn MemoryScoring,
+    as_scoring,
+    Scoring
 );
 
 // ── Ingest ───────────────────────────────────────────────────────────────────
@@ -253,6 +286,26 @@ impl MemoryIngest for GuardedIngest {
             messages.iter().map(|m| m.content.chars().count()).sum(),
         );
         self.family()?.ingest_chat(messages).await
+    }
+
+    async fn ingest_email(&self, messages: Vec<IngestItem>) -> Result<IngestOutcome, MemoryError> {
+        // Admitted exactly like chat: a thread is one conversation with no
+        // namespace of its own, and every message is taint-stamped and
+        // redacted before it reaches the driver.
+        self.policy.admit_write(
+            Capability::Ingest,
+            "ingest.ingest_email",
+            NO_NAMESPACE,
+            true,
+        )?;
+        let messages: Vec<IngestItem> = messages.into_iter().map(|m| self.admit(m)).collect();
+        trace_allowed(
+            &self.policy,
+            "ingest.ingest_email",
+            NO_NAMESPACE,
+            messages.iter().map(|m| m.content.chars().count()).sum(),
+        );
+        self.family()?.ingest_email(messages).await
     }
 }
 
@@ -455,6 +508,54 @@ impl MemoryTree for GuardedTree {
             .admit_write(Capability::Tree, "tree.cascade", namespace, false)?;
         self.family()?.cascade(namespace).await
     }
+
+    /// Enumerates the sealed forest, so it narrows by the ambient scope for the
+    /// same reason [`Self::query_source`] does: a summary is derived from the
+    /// chunks beneath it, and handing back a node built from sources the caller
+    /// may not read discloses their contents in condensed form.
+    async fn summary_forest(
+        &self,
+        limit: usize,
+        scope: Option<&SourceScope>,
+    ) -> Result<SummaryForest, MemoryError> {
+        self.policy
+            .admit_read(Capability::Tree, "tree.summary_forest", NO_NAMESPACE, false)?;
+        let effective = self.policy.narrow_scope(scope);
+        self.family()?
+            .summary_forest(limit, effective.as_ref())
+            .await
+    }
+
+    /// Sealing one source's tree is a write, and it names the scope it acts on
+    /// — so unlike the reads above it is admitted against that scope rather
+    /// than `NO_NAMESPACE`. `carries_content: false`: the caller supplies a
+    /// scope label, never prose, and the seals it fires write content the
+    /// driver already holds.
+    async fn flush_source_tree(&self, source_scope: &str) -> Result<u64, MemoryError> {
+        self.policy.admit_write(
+            Capability::Tree,
+            "tree.flush_source_tree",
+            source_scope,
+            false,
+        )?;
+        self.family()?.flush_source_tree(source_scope).await
+    }
+
+    /// Leaves are chunks, so this is the same disclosure as
+    /// [`Self::query_source`] with a different ordering, and takes the same
+    /// intersection.
+    async fn recent_leaves(
+        &self,
+        limit: usize,
+        scope: Option<&SourceScope>,
+    ) -> Result<Vec<TreeLeaf>, MemoryError> {
+        self.policy
+            .admit_read(Capability::Tree, "tree.recent_leaves", NO_NAMESPACE, false)?;
+        let effective = self.policy.narrow_scope(scope);
+        self.family()?
+            .recent_leaves(limit, effective.as_ref())
+            .await
+    }
 }
 
 // ── Entities ─────────────────────────────────────────────────────────────────
@@ -508,6 +609,58 @@ impl MemoryEntities for GuardedEntities {
             false,
         )?;
         self.family()?.touch_entities(namespace, entity_ids).await
+    }
+
+    /// The occurrence index has no namespace and the contract gives this member
+    /// no scope argument, so there is nothing to intersect — the tier check is
+    /// the whole gate. Worth stating rather than leaving as an apparent
+    /// omission beside the scoped members above.
+    async fn top_entities(
+        &self,
+        kind: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<EntityOccurrence>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Entities,
+            "entities.top_entities",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.top_entities(kind, limit).await
+    }
+
+    /// Scoped by the chunk ids the caller already holds: it can only name
+    /// chunks a previous, scoped read handed it, so this adds no reach beyond
+    /// the read that produced them.
+    async fn chunk_entities(
+        &self,
+        chunk_ids: &[String],
+        kinds: Option<&[String]>,
+    ) -> Result<Vec<ChunkEntityOccurrence>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Entities,
+            "entities.chunk_entities",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.chunk_entities(chunk_ids, kinds).await
+    }
+
+    /// Returns ids only, never content. A caller still has to read those chunks
+    /// through [`MemoryChunks`] to see anything, and that path applies the
+    /// scope intersection.
+    async fn entity_chunk_ids(
+        &self,
+        entity_id: &str,
+        limit: usize,
+    ) -> Result<Vec<String>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Entities,
+            "entities.entity_chunk_ids",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.entity_chunk_ids(entity_id, limit).await
     }
 }
 
@@ -745,6 +898,23 @@ impl MemorySourceSink for GuardedSources {
         )?;
         self.family()?.forget_source(source_id).await
     }
+
+    /// The one door for every scoped forget, so it takes the same write tier as
+    /// [`Self::forget_source`]. The selector names what to remove rather than
+    /// carrying content, which is why the egress flag is `false` — the same
+    /// reading its single-source sibling makes.
+    async fn forget_matching(
+        &self,
+        selector: &ForgetSelector,
+    ) -> Result<ForgetOutcome, MemoryError> {
+        self.policy.admit_write(
+            Capability::Sources,
+            "sources.forget_matching",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.forget_matching(selector).await
+    }
 }
 
 // ── Maintenance ──────────────────────────────────────────────────────────────
@@ -792,6 +962,21 @@ impl MemoryMaintenance for GuardedMaintenance {
             false,
         )?;
         self.family()?.doctor().await
+    }
+
+    /// Empties the whole store, so it takes the write tier rather than
+    /// `doctor`'s read one — and deliberately carries no scope, because there
+    /// is no scoped reading of "purge everything". A source-restricted caller
+    /// that reached this would be destroying rows it is not even allowed to
+    /// read; the write tier is what stops it.
+    async fn purge_all(&self) -> Result<PurgeOutcome, MemoryError> {
+        self.policy.admit_write(
+            Capability::Maintenance,
+            "maintenance.purge_all",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.purge_all().await
     }
 }
 
@@ -915,6 +1100,66 @@ impl MemoryChunks for GuardedChunks {
         // `GuardPolicy::narrow_scope`.
         let effective = self.policy.narrow_scope(scope);
         self.family()?.list_chunks(query, effective.as_ref()).await
+    }
+
+    /// The count that labels a [`Self::list_chunks`] page, and it must be
+    /// narrowed by exactly the same rule. A total computed against a wider
+    /// scope than the page it labels leaks the existence of rows the caller may
+    /// not read — "showing 20 of 4000" tells a source-restricted turn how much
+    /// it is not being shown.
+    async fn count_chunks(
+        &self,
+        query: &ChunkQuery,
+        scope: Option<&SourceScope>,
+    ) -> Result<u64, MemoryError> {
+        self.policy.admit_read(
+            Capability::Chunks,
+            "chunks.count_chunks",
+            NO_NAMESPACE,
+            false,
+        )?;
+        let effective = self.policy.narrow_scope(scope);
+        self.family()?.count_chunks(query, effective.as_ref()).await
+    }
+
+    /// Same rows as [`Self::list_chunks`] with the stored facts beside them, so
+    /// the same intersection applies for the same reason.
+    async fn list_chunk_details(
+        &self,
+        query: &ChunkQuery,
+        scope: Option<&SourceScope>,
+    ) -> Result<Vec<ChunkListRow>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Chunks,
+            "chunks.list_chunk_details",
+            NO_NAMESPACE,
+            false,
+        )?;
+        let effective = self.policy.narrow_scope(scope);
+        self.family()?
+            .list_chunk_details(query, effective.as_ref())
+            .await
+    }
+
+    /// Per-source totals are computed from the chunks the scope admits, not
+    /// filtered afterwards — so a restricted caller must not learn that a
+    /// forbidden source exists by seeing its row, nor see a permitted source
+    /// carrying a count that includes rows it cannot read.
+    async fn source_totals(
+        &self,
+        limit: usize,
+        scope: Option<&SourceScope>,
+    ) -> Result<Vec<SourceTotal>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Chunks,
+            "chunks.source_totals",
+            NO_NAMESPACE,
+            false,
+        )?;
+        let effective = self.policy.narrow_scope(scope);
+        self.family()?
+            .source_totals(limit, effective.as_ref())
+            .await
     }
 
     async fn get_chunk(&self, chunk_id: &str) -> Result<Option<Chunk>, MemoryError> {
@@ -1080,6 +1325,25 @@ impl MemoryRetrieval for GuardedRetrieval {
             .await
     }
 
+    /// Namespace-scoped like its scored sibling, and admitted under the same
+    /// capability: recency versus ranking is a retrieval mode, not a policy
+    /// boundary.
+    async fn recall_namespace_recent(
+        &self,
+        namespace: &str,
+        limit: usize,
+    ) -> Result<Vec<NamespaceMemoryHit>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Retrieval,
+            "retrieval.recall_namespace_recent",
+            namespace,
+            false,
+        )?;
+        self.family()?
+            .recall_namespace_recent(namespace, limit)
+            .await
+    }
+
     async fn search_entities(
         &self,
         query: &str,
@@ -1104,13 +1368,22 @@ impl MemoryEpisodic for GuardedEpisodic {
         // A recorded turn is user-authored conversation content, so this is a
         // write and is admitted as one — the read/write split here is about
         // what the tier permits, not about how much data moves.
+        // `carries_content: true`, unlike the tier note above, which is about
+        // what the tier permits rather than how much data moves. This flag is a
+        // different question: it decides whether the egress record classifies
+        // the transfer as `FileContent` or `Metadata`. A turn IS the user's
+        // prose, and an audit trail that calls a transcript "metadata"
+        // understates what left the process — the one thing that record exists
+        // to get right. `tree.append` has always passed `true` for this shape.
         self.policy.admit_write(
             Capability::Episodic,
             "episodic.insert_turn",
             NO_NAMESPACE,
-            false,
+            true,
         )?;
-        self.family()?.insert_turn(turn).await
+        let mut turn = turn.clone();
+        turn.content = self.policy.redact_outbound(&turn.content).into_owned();
+        self.family()?.insert_turn(&turn).await
     }
 
     async fn session_turns(&self, session_id: &str) -> Result<Vec<EpisodicTurn>, MemoryError> {
@@ -1136,17 +1409,24 @@ impl MemoryEpisodic for GuardedEpisodic {
         self.family()?.open_segment(session_id).await
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "trait signature; see the contract's rationale"
+    )]
     async fn create_segment(
         &self,
         segment_id: &str,
         session_id: &str,
         namespace: &str,
         start_episodic_id: i64,
+        start_seq: Option<u32>,
         start_timestamp: f64,
         now: f64,
     ) -> Result<(), MemoryError> {
-        // The only episodic call that names a namespace, so it is the only one
-        // that can be admitted against it.
+        // One of the two episodic calls that names a namespace — `insert_event`
+        // is the other — so it is admitted against that namespace rather than
+        // `NO_NAMESPACE`. The rest of this family addresses a segment by id and
+        // has no namespace to check.
         self.policy.admit_write(
             Capability::Episodic,
             "episodic.create_segment",
@@ -1159,6 +1439,7 @@ impl MemoryEpisodic for GuardedEpisodic {
                 session_id,
                 namespace,
                 start_episodic_id,
+                start_seq,
                 start_timestamp,
                 now,
             )
@@ -1169,6 +1450,7 @@ impl MemoryEpisodic for GuardedEpisodic {
         &self,
         segment_id: &str,
         episodic_id: i64,
+        seq: Option<u32>,
         timestamp: f64,
         now: f64,
     ) -> Result<(), MemoryError> {
@@ -1179,8 +1461,24 @@ impl MemoryEpisodic for GuardedEpisodic {
             false,
         )?;
         self.family()?
-            .append_turn(segment_id, episodic_id, timestamp, now)
+            .append_turn(segment_id, episodic_id, seq, timestamp, now)
             .await
+    }
+
+    /// Admitted like its sibling writes; the event's namespace is the
+    /// admission subject, since it is the one the record is scoped to.
+    async fn insert_event(&self, event: &EpisodicEvent) -> Result<(), MemoryError> {
+        // `carries_content: true` for the same reason as `insert_turn`: an
+        // extracted event is the user's prose, not a descriptor of it.
+        self.policy.admit_write(
+            Capability::Episodic,
+            "episodic.insert_event",
+            &event.namespace,
+            true,
+        )?;
+        let mut event = event.clone();
+        event.content = self.policy.redact_outbound(&event.content).into_owned();
+        self.family()?.insert_event(&event).await
     }
 
     async fn close_segment(&self, segment_id: &str, now: f64) -> Result<(), MemoryError> {
@@ -1386,3 +1684,182 @@ impl MemoryProfile for GuardedProfile {
 #[cfg(test)]
 #[path = "families_tests.rs"]
 mod tests;
+
+// ── Source sync ──────────────────────────────────────────────────────────────
+
+#[async_trait]
+impl MemorySourceSync for GuardedSourceSync {
+    /// A write: it fetches from an upstream connector and ingests what it finds.
+    /// The tier check is what stops a `readonly` operator triggering one.
+    async fn run_connection_sync(
+        &self,
+        toolkit: &str,
+        connection_id: &str,
+    ) -> Result<SyncRunOutcome, MemoryError> {
+        self.policy.admit_write(
+            Capability::SourceSync,
+            "source_sync.run_connection_sync",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?
+            .run_connection_sync(toolkit, connection_id)
+            .await
+    }
+
+    async fn source_sync_state(
+        &self,
+        toolkit: &str,
+        connection_id: &str,
+    ) -> Result<Option<SourceSyncState>, MemoryError> {
+        self.policy.admit_read(
+            Capability::SourceSync,
+            "source_sync.source_sync_state",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?
+            .source_sync_state(toolkit, connection_id)
+            .await
+    }
+
+    async fn sync_audit_log(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<Vec<SyncAuditEntry>, MemoryError> {
+        self.policy.admit_read(
+            Capability::SourceSync,
+            "source_sync.sync_audit_log",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.sync_audit_log(limit).await
+    }
+
+    /// Arithmetic over the driver's own price table — no stored content is read,
+    /// so this is the lightest check in the family.
+    async fn estimate_sync_cost_usd(
+        &self,
+        input_tokens: u64,
+        output_tokens: u64,
+    ) -> Result<f64, MemoryError> {
+        self.policy.admit_read(
+            Capability::SourceSync,
+            "source_sync.estimate_sync_cost_usd",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?
+            .estimate_sync_cost_usd(input_tokens, output_tokens)
+            .await
+    }
+
+    async fn sync_statuses(&self) -> Result<Vec<SourceSyncStatus>, MemoryError> {
+        self.policy.admit_read(
+            Capability::SourceSync,
+            "source_sync.sync_statuses",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.sync_statuses().await
+    }
+
+    async fn raw_archive_coverage(
+        &self,
+        tree_scope: &str,
+        archive_source_id: &str,
+    ) -> Result<RawArchiveCoverage, MemoryError> {
+        self.policy.admit_read(
+            Capability::SourceSync,
+            "source_sync.raw_archive_coverage",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?
+            .raw_archive_coverage(tree_scope, archive_source_id)
+            .await
+    }
+
+    /// Rebuilds a summary tree from the raw archive, so it writes.
+    async fn rebuild_from_raw_archive(
+        &self,
+        tree_scope: &str,
+        archive_source_id: &str,
+    ) -> Result<RawRebuildOutcome, MemoryError> {
+        self.policy.admit_write(
+            Capability::SourceSync,
+            "source_sync.rebuild_from_raw_archive",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?
+            .rebuild_from_raw_archive(tree_scope, archive_source_id)
+            .await
+    }
+}
+
+// ── Scoring ──────────────────────────────────────────────────────────────────
+
+#[async_trait]
+impl MemoryScoring for GuardedScoring {
+    async fn extract_entities(&self, query: &str) -> Result<Vec<String>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Scoring,
+            "scoring.extract_entities",
+            NO_NAMESPACE,
+            true,
+        )?;
+        self.family()?.extract_entities(query).await
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, MemoryError> {
+        self.policy.admit_read(
+            Capability::Scoring,
+            "scoring.embed_text",
+            NO_NAMESPACE,
+            true,
+        )?;
+        self.family()?.embed_text(text).await
+    }
+
+    async fn embedder_slug(&self) -> Result<String, MemoryError> {
+        self.policy.admit_read(
+            Capability::Scoring,
+            "scoring.embedder_slug",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.embedder_slug().await
+    }
+}
+
+// ── Coding sessions ──────────────────────────────────────────────────────────
+
+#[async_trait]
+impl MemoryCodingSessions for GuardedCodingSessions {
+    async fn coding_session_status(&self) -> Result<Vec<CodingSessionSource>, MemoryError> {
+        self.policy.admit_read(
+            Capability::CodingSessions,
+            "coding_sessions.coding_session_status",
+            NO_NAMESPACE,
+            false,
+        )?;
+        self.family()?.coding_session_status().await
+    }
+
+    /// `carries_content: true` — the request carries the session transcripts
+    /// themselves, which is the case the egress record exists to classify
+    /// correctly.
+    async fn ingest_coding_sessions(
+        &self,
+        request: CodingSessionIngestRequest,
+    ) -> Result<CodingSessionIngestReport, MemoryError> {
+        self.policy.admit_write(
+            Capability::CodingSessions,
+            "coding_sessions.ingest_coding_sessions",
+            NO_NAMESPACE,
+            true,
+        )?;
+        self.family()?.ingest_coding_sessions(request).await
+    }
+}

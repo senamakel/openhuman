@@ -397,14 +397,17 @@ fn module_binding_advertises_the_pinned_artifacts_families() {
         assert!(advertised.contains(family), "{family} must be advertised");
     }
 
-    // Arrived in the v1.2.0 artifact. Asserted PRESENT so a re-pin that
-    // silently narrows the advertised set is caught the same way an over-claim
-    // would be.
-    const SERVED_SINCE_1_2_0: [Capability; 4] = [
+    // Arrived in the v1.2.0 artifact (the first four) and with the Episodic
+    // accessor (the fifth — the members were served since v1.2.0, the HOST
+    // gained `as_episodic` when the archivist moved onto the family). Asserted
+    // PRESENT so a re-pin that silently narrows the advertised set is caught
+    // the same way an over-claim would be.
+    const SERVED_SINCE_1_2_0: [Capability; 5] = [
         Capability::People,
         Capability::Chunks,
         Capability::Retrieval,
         Capability::Profile,
+        Capability::Episodic,
     ];
     for family in SERVED_SINCE_1_2_0 {
         assert!(
@@ -414,15 +417,10 @@ fn module_binding_advertises_the_pinned_artifacts_families() {
         );
     }
 
-    // The last of the five, and the only one still withheld. The artifact
-    // serves it; `ModuleMemoryProvider` has no `as_episodic`, so the accessor
-    // returns `None` and advertising it would be the #5598 over-claim in a
-    // different coat. Move it into the loop above in the same change that
-    // implements the accessor.
-    assert!(
-        !advertised.contains(Capability::Episodic),
-        "Episodic is advertised but ModuleMemoryProvider has no `as_episodic`"
-    );
+    // Every contract family is now reachable and advertised; what keeps this
+    // honest is the accessor rule (`capabilities_for` can only name families
+    // the provider implements) plus the pin-drift test on every registry bump.
+    assert_eq!(advertised, Capabilities::all());
 
     // The contract may be ahead of the artifact but never behind it.
     assert!(Capabilities::all().contains_all(advertised));

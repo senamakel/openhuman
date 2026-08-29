@@ -4,9 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import FeedbackFilterSelect from '../components/feedback/FeedbackFilterSelect';
 import FeedbackItemRow from '../components/feedback/FeedbackItemRow';
 import FeedbackSubmitForm from '../components/feedback/FeedbackSubmitForm';
-import PageSectionHeader from '../components/layout/PageSectionHeader';
-import PageWelcome from '../components/layout/PageWelcome';
-import { usePageWelcomeView } from '../components/layout/usePageWelcomeView';
+import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage';
 import Button from '../components/ui/Button';
 import { useUser } from '../hooks/useUser';
 import { useT } from '../lib/i18n/I18nContext';
@@ -137,66 +135,16 @@ const Feedback = () => {
 
   const hasMore = items.length < total;
 
-  const { view, setView, nav } = usePageWelcomeView({
-    ariaLabel: t('nav.feedback'),
-    welcomeLabel: t('feedback.welcome.nav'),
-    mainLabel: t('feedback.welcome.main'),
-    mainIconPath:
-      'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
-  });
-
-  if (view === 'welcome') {
-    return (
-      <>
-        {nav}
-        <PageWelcome
-          testId="feedback-welcome"
-          accent="ocean"
-          icon="💬"
-          eyebrow={t('feedback.welcome.eyebrow')}
-          title={t('feedback.welcome.title')}
-          description={t('feedback.welcome.body')}
-          ctas={[
-            {
-              label: t('feedback.welcome.ctaShare'),
-              icon: '💡',
-              onClick: () => setView('main'),
-              testId: 'feedback-welcome-cta-share',
-            },
-            { label: t('feedback.welcome.ctaBoard'), icon: '🗂️', onClick: () => setView('main') },
-          ]}
-          featuresHeading={t('feedback.welcome.featsLabel')}
-          features={[
-            {
-              icon: '💡',
-              title: t('feedback.welcome.feat1Title'),
-              description: t('feedback.welcome.feat1Body'),
-            },
-            {
-              icon: '🗳️',
-              title: t('feedback.welcome.feat2Title'),
-              description: t('feedback.welcome.feat2Body'),
-            },
-            {
-              icon: '🚀',
-              title: t('feedback.welcome.feat3Title'),
-              description: t('feedback.welcome.feat3Body'),
-            },
-          ]}
-        />
-      </>
-    );
-  }
-
   return (
-    <>
-      {nav}
-      <div className="min-h-full overflow-y-auto px-4 py-6">
-        <div className="mx-auto w-full max-w-3xl animate-fade-up space-y-5">
-          <PageSectionHeader
-            title={t('feedback.header.title')}
-            description={t('feedback.header.desc')}
-          />
+    // `p-4` is the gutter SettingsTabbedPage's full-bleed divider bleeds
+    // through, and `h-full` is what makes the body scroll: the content surface
+    // is `overflow-hidden`, so the `min-h-full` wrapper this replaced grew past
+    // the card and the board below the fold was unreachable.
+    <div className="h-full p-4" data-testid="feedback-page">
+      <SettingsTabbedPage
+        title={t('feedback.header.title')}
+        description={t('feedback.header.desc')}>
+        <div className="animate-fade-up space-y-5">
           <FeedbackSubmitForm onAccepted={handleAccepted} />
 
           <section className="space-y-4">
@@ -210,7 +158,7 @@ const Feedback = () => {
                 )}
               </h2>
 
-              <div className="inline-flex rounded-xl border border-line bg-surface-muted p-0.5 dark:border-line-strong dark:bg-white/[0.03]">
+              <div className="inline-flex rounded-xl border border-line bg-surface-muted p-0.5 dark:border-line-strong dark:bg-white/3">
                 {SORTS.map(option => (
                   <button
                     key={option}
@@ -219,7 +167,7 @@ const Feedback = () => {
                     aria-pressed={sort === option}
                     className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
                       sort === option
-                        ? 'bg-surface text-content shadow-sm'
+                        ? 'bg-surface text-content shadow-xs'
                         : 'text-content-muted hover:text-content-secondary dark:hover:text-content-secondary'
                     }`}>
                     {t(SORT_LABEL_KEYS[option])}
@@ -311,8 +259,8 @@ const Feedback = () => {
             )}
           </section>
         </div>
-      </div>
-    </>
+      </SettingsTabbedPage>
+    </div>
   );
 };
 

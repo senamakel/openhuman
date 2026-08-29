@@ -146,8 +146,9 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navOrder: 0,
   },
   {
-    // appearance also hosts the display-language selector (formerly an inline
-    // row on the old settings home list).
+    // appearance hosts the display-language selector (formerly an inline row on
+    // the old settings home list) and the whole former Theme studio page —
+    // palette, fonts, backdrop, import/export. `/settings/theme` redirects here.
     id: 'appearance',
     titleKey: 'settings.appearance.title',
     descriptionKey: 'settings.appearance.menuDesc',
@@ -159,35 +160,16 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
       'mode',
       'color',
       'colour',
+      'font',
+      'palette',
+      'background',
+      'backdrop',
       'language',
       'locale',
       'translation',
     ],
     navGroup: 'general',
     navOrder: 1,
-  },
-  {
-    // Theme Studio — full colour + font customization on top of the simple
-    // light/dark toggle in Appearance.
-    id: 'theme',
-    titleKey: 'settings.theme.title',
-    descriptionKey: 'settings.theme.menuDesc',
-    section: 'home',
-    searchKeywords: [
-      'theme',
-      'color',
-      'colour',
-      'font',
-      'palette',
-      'customize',
-      'customise',
-      'appearance',
-      'surface',
-      'background',
-      'accent',
-    ],
-    navGroup: 'general',
-    navOrder: 2,
   },
   {
     // devices: real pairing panel (the old "Coming Soon" stub was removed).
@@ -235,15 +217,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
 
   // --- About ---
   {
-    id: 'keyboard-shortcuts',
-    titleKey: 'shortcuts.title',
-    descriptionKey: 'shortcuts.menuDesc',
-    section: 'home',
-    searchKeywords: ['keyboard', 'shortcuts', 'keys', 'hotkeys', 'bindings', 'cheatsheet'],
-    navGroup: 'general',
-    navOrder: 98,
-  },
-  {
     // Core connection — promotes cloud-mode remote-core config (persisted
     // RPC URL + token) into a first-class setting plus a live status
     // indicator (GH-4396). Sits just above About in General.
@@ -281,21 +254,21 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // =========================================================================
   // ACCOUNT section leaf panels
   // =========================================================================
-  {
-    id: 'team',
-    titleKey: 'pages.settings.account.team',
-    descriptionKey: 'pages.settings.account.teamDesc',
-    section: 'account',
-    searchKeywords: ['members', 'invites', 'organization', 'organisation', 'workspace'],
-    navParent: 'account',
-  },
+  // Teams were removed from the product; the `team` entry went with them. The
+  // route slugs survive as redirects in `settingsRouteElements`.
+  //
+  // Privacy, Security and Migration are their OWN sidebar rows rather than
+  // sub-nav pills under Account (`navParent: 'account'`, as they were): each is
+  // a full page of unrelated controls, and burying three of them behind one
+  // Account row meant the sidebar named one destination for four pages.
   {
     id: 'privacy',
     titleKey: 'pages.settings.account.privacy',
     descriptionKey: 'pages.settings.account.privacyDesc',
     section: 'account',
     searchKeywords: ['telemetry', 'tracking', 'analytics', 'data'],
-    navParent: 'account',
+    navGroup: 'general',
+    navOrder: 5,
   },
   {
     id: 'security',
@@ -303,7 +276,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'pages.settings.account.securityDesc',
     section: 'account',
     searchKeywords: ['keychain', 'secret', 'password', 'encryption', 'credentials'],
-    navParent: 'account',
+    navGroup: 'general',
+    navOrder: 6,
   },
   {
     id: 'migration',
@@ -311,7 +285,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     descriptionKey: 'pages.settings.account.migrationDesc',
     section: 'account',
     searchKeywords: ['import', 'export', 'transfer', 'data'],
-    navParent: 'account',
+    navGroup: 'general',
+    navOrder: 7,
   },
 
   // =========================================================================
@@ -567,15 +542,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   },
   // dev-workflow (the cron-based GitHub dev-automation panel) was retired —
   // superseded by first-level Workflows (/flows) and the skills workflow runner.
-  {
-    id: 'cron-jobs',
-    titleKey: 'settings.developerMenu.cronJobs.title',
-    descriptionKey: 'settings.developerMenu.cronJobs.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'automationIntegrations',
-    searchKeywords: ['cron', 'schedule', 'jobs'],
-  },
   // Composio trigger-triage config merged into the Connections Composio page.
   // Agent Chat + Local Model Debug are now chips on the Connections → LLM page.
   {

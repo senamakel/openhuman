@@ -25,7 +25,9 @@ use super::defaults::{
     network_defaults as default_networks, rpc_url_for_chain, EvmNetwork, WalletAssetDefinition,
     WalletNetworkDefaults,
 };
-use super::ops::{status as wallet_status, WalletAccount, WalletChain};
+use super::ops::{
+    status as wallet_status, WalletAccount, WalletChain, WALLET_NOT_CONFIGURED_MESSAGE,
+};
 
 const LOG_PREFIX: &str = "[wallet]";
 const QUOTE_TTL_MS: u64 = 5 * 60 * 1000;
@@ -316,7 +318,7 @@ pub(crate) async fn require_evm_account() -> Result<String, String> {
 async fn require_account(chain: WalletChain) -> Result<WalletAccount, String> {
     let status = wallet_status().await?.value;
     if !status.configured {
-        return Err("wallet is not configured; run wallet setup first".to_string());
+        return Err(WALLET_NOT_CONFIGURED_MESSAGE.to_string());
     }
     status
         .accounts
@@ -346,10 +348,10 @@ pub(crate) fn validate_amount(raw: &str) -> Result<u128, String> {
 
 /// Validate `addr` for `chain`, returning it trimmed.
 ///
-/// Every arm delegates to the vendored [`tinywallet`] crate, which owns the
+/// Every arm delegates to the vendored [`tinywallet_bus`] crate, which owns the
 /// four address formats. The dispatch stays here rather than calling
-/// `tinywallet::address::validate` directly because [`WalletChain`] is
-/// OpenHuman's enum, and mapping it onto `tinywallet::Chain` here keeps that
+/// `tinywallet_bus::address::validate` directly because [`WalletChain`] is
+/// OpenHuman's enum, and mapping it onto `tinywallet_bus::Chain` here keeps that
 /// translation in one place.
 ///
 /// For Bitcoin this is the **recipient** rule — any well-formed mainnet
@@ -358,13 +360,13 @@ pub(crate) fn validate_amount(raw: &str) -> Result<u128, String> {
 /// the other three chains, so it cannot be expressed through this entry point.
 fn validate_address(chain: WalletChain, addr: &str) -> Result<String, String> {
     let tw_chain = match chain {
-        WalletChain::Evm => tinywallet::Chain::Evm,
-        WalletChain::Btc => tinywallet::Chain::Btc,
-        WalletChain::Solana => tinywallet::Chain::Solana,
-        WalletChain::Tron => tinywallet::Chain::Tron,
+        WalletChain::Evm => tinywallet_bus::Chain::Evm,
+        WalletChain::Btc => tinywallet_bus::Chain::Btc,
+        WalletChain::Solana => tinywallet_bus::Chain::Solana,
+        WalletChain::Tron => tinywallet_bus::Chain::Tron,
     };
-    debug!("{LOG_PREFIX} validate_address chain={chain:?} role=recipient dispatch=tinywallet");
-    let result = tinywallet::address::validate(tw_chain, addr).map_err(|e| e.to_string());
+    debug!("{LOG_PREFIX} validate_address chain={chain:?} role=recipient dispatch=tinywallet_bus");
+    let result = tinywallet_bus::address::validate(tw_chain, addr).map_err(|e| e.to_string());
     debug!(
         "{LOG_PREFIX} validate_address chain={chain:?} role=recipient result={}",
         if result.is_ok() {
@@ -676,7 +678,7 @@ fn evm_native_asset(network: EvmNetwork) -> Result<WalletAssetDefinition, String
 pub async fn balances() -> Result<RpcOutcome<Vec<BalanceInfo>>, String> {
     let status = wallet_status().await?.value;
     if !status.configured {
-        return Err("wallet is not configured; run wallet setup first".to_string());
+        return Err(WALLET_NOT_CONFIGURED_MESSAGE.to_string());
     }
     let mut out = Vec::with_capacity(status.accounts.len() + EVM_BALANCE_NETWORKS.len());
     for account in &status.accounts {

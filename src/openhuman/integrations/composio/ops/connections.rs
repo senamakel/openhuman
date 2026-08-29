@@ -153,6 +153,7 @@ pub async fn composio_delete_connection(
 ) -> OpResult<RpcOutcome<ComposioDeleteResponse>> {
     tracing::debug!(connection_id = %connection_id, "[composio] rpc delete_connection");
     let client = resolve_client(config)?;
+    #[cfg(feature = "memory")]
     let toolkit = match resolve_toolkit_for_connection(&client, connection_id).await {
         Ok(toolkit) => Some(toolkit),
         Err(error) if clear_memory => {
@@ -162,6 +163,8 @@ pub async fn composio_delete_connection(
         }
         Err(_) => None,
     };
+    #[cfg(not(feature = "memory"))]
+    let toolkit = resolve_toolkit_for_connection(&client, connection_id).await.ok();
     #[cfg(not(feature = "memory"))]
     let memory_targets: Vec<super::memory_cleanup::MemoryCleanupTarget> = {
         let _ = clear_memory;

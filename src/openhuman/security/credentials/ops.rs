@@ -631,10 +631,12 @@ async fn store_session_inner(
     // opened the engine's database a second time in this process (#4378 fixed
     // the workspace it pointed at; the module port removes the second reader).
     #[cfg(feature = "memory")]
-    crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
-        effective_config.workspace_dir.clone(),
-    );
-    logs.push("conversation persistence bound to active workspace".to_string());
+    {
+        crate::openhuman::memory::conversations::register_conversation_persistence_subscriber(
+            effective_config.workspace_dir.clone(),
+        );
+        logs.push("conversation persistence bound to active workspace".to_string());
+    }
 
     // Start all login-gated services (voice, orchestration, and local AI).
     // Uses the effective config so services see the user-scoped workspace

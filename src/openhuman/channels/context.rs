@@ -173,7 +173,7 @@ pub(crate) async fn build_memory_context(
     context
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod tests {
     use super::*;
     use crate::openhuman::channels::traits;

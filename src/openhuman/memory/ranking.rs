@@ -222,7 +222,7 @@ pub fn mmr_select(
                 selected_embeddings
                     .iter()
                     .map(|sel| cosine_similarity(candidate.embedding, sel))
-                    .fold(0.0_f64, f64::max)
+                    .fold(f64::NEG_INFINITY, f64::max)
             };
             let mmr_score = lambda * candidate.relevance - (1.0 - lambda) * max_sim_to_selected;
             if mmr_score > best_mmr {

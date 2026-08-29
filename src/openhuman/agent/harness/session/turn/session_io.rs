@@ -903,13 +903,14 @@ impl Agent {
     ///
     /// Fire-and-forget: failures are logged, never propagated.
     pub(in super::super) fn spawn_transcript_ingestion(&self) {
+        #[cfg(feature = "memory")]
+        {
         let Some(path) = self.session_transcript_path.clone() else {
             log::debug!("[transcript_ingest] no session transcript path yet — skipping spawn");
             return;
         };
         let memory = std::sync::Arc::clone(&self.memory);
 
-        #[cfg(feature = "memory")]
         tokio::spawn(async move {
             match crate::openhuman::agent::learning::transcript_ingest::ingest_transcript_path(
                 memory.as_ref(),
@@ -932,5 +933,6 @@ impl Agent {
                 ),
             }
         });
+        }
     }
 }

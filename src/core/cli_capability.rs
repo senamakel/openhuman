@@ -199,6 +199,14 @@ pub fn bound_memory_driver_for(
     }
 }
 
+#[cfg(not(feature = "memory"))]
+pub fn bound_memory_driver_for(
+    _workspace_dir: &std::path::Path,
+    _cfg: &crate::openhuman::config::schema::MemorySubsystemConfig,
+) -> Option<(String, DriverClass, Capabilities)> {
+    None
+}
+
 /// Blocking gate for the synchronous CLI call sites.
 ///
 /// `required == None` short-circuits before any runtime is built or any config

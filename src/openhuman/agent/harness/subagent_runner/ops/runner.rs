@@ -1741,7 +1741,7 @@ async fn run_typed_mode(
         artifact_paths: Vec::new(),
     })
 }
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod fast_path_tests {
     use super::{
         apply_max_result_chars, format_deterministic_memory_hits, parse_memory_fast_path_enabled,

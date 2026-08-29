@@ -752,6 +752,17 @@ fn handle_searxng_search(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
+        #[cfg(not(feature = "memory"))]
+        {
+            let _ = params;
+            return Err(
+                "apify_linkedin_scrape unavailable: the `memory` feature is disabled in this build"
+                    .to_string(),
+            );
+        }
+
+        #[cfg(feature = "memory")]
+        {
         let profile_url = params
             .get("profile_url")
             .and_then(Value::as_str)
@@ -769,16 +780,6 @@ fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture 
         // `agent::learning::linkedin_enrichment`, which enriches profile
         // facets — memory-family behaviour end to end. With the family off the
         // whole handler is a build-fact error rather than a partial answer.
-        #[cfg(not(feature = "memory"))]
-        {
-            let _ = (client, profile_url);
-            Err(
-                "apify_linkedin_scrape unavailable: the `memory` feature is disabled in this build"
-                    .to_string(),
-            )
-        }
-        #[cfg(feature = "memory")]
-        {
             let data =
                 crate::openhuman::agent::learning::linkedin_enrichment::scrape_linkedin_profile(
                     &client,
@@ -799,6 +800,7 @@ fn handle_apify_linkedin_scrape(params: Map<String, Value>) -> ControllerFuture 
                 markdown.chars().count()
             )];
             RpcOutcome::new(payload, log).into_cli_compatible_json()
+        }
         }
     })
 }

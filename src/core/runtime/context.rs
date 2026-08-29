@@ -720,7 +720,7 @@ pub async fn init_stores(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod tests {
     use super::*;
     use std::path::PathBuf;

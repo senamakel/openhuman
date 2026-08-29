@@ -28,8 +28,11 @@ use crate::openhuman::security::approval::{
     APPROVAL_FLOW_RUN_CONTEXT,
 };
 use crate::rpc::RpcOutcome;
+// `MemoryProvider` brings `driver_id()` / `as_documents()` into scope for the
+// `MemoryGuard` this file's delete path clears through. Nothing here names the
+// engine crate any more — `flows_delete_impl`'s test seam took an
+// `Arc<MemoryClient>` until #5560 and takes the guard now.
 use tinymemory_api::provider::MemoryProvider;
-use tinymemory_core::store::MemoryClientRef;
 
 /// Overall safety bound on a single `flows_run` / `flows_resume`. Individual
 /// capabilities have their own timeouts (HTTP, sandbox), but a hung LLM/tool
@@ -1134,7 +1137,7 @@ pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph
 /// a nonsense path (e.g. suggesting `.item.json.data.successful`).
 async fn graph_output_field_warnings(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     use crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog;
-    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_api::composio::toolkit_from_slug;
 
     let mut warnings = Vec::new();
     for node in &graph.nodes {
@@ -1314,7 +1317,7 @@ async fn graph_split_out_path_warnings(config: &Config, graph: &WorkflowGraph) -
     use crate::openhuman::flows::tinyflows::caps::{
         apply_probe_override, fetch_live_toolkit_catalog,
     };
-    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_api::composio::toolkit_from_slug;
 
     let mut warnings = Vec::new();
     for node in &graph.nodes {
@@ -2408,7 +2411,15 @@ pub(crate) async fn validate_inference_readiness(
 /// builder-tool warnings (`get_tool_contract` / `search_tool_catalog`) must all
 /// agree on it — one home for the check so they cannot drift.
 pub(crate) fn toolkit_has_curated_catalog(toolkit: &str) -> bool {
-    use tinymemory_core::sync::composio::providers::{catalog_for_toolkit, get_provider};
+    // The one site in this file that still needs the engine-backed shim, and it
+    // is not an oversight (#5560). `tinymemory-bus` deliberately kept the
+    // *shapes* (`CuratedTool`, `ToolScope`) and left the **curated catalogs and
+    // the provider registry** in the engine crate — several thousand `&'static
+    // str` action slugs and a process-global map of trait objects, which is
+    // provider data rather than wire vocabulary. `toolkit_from_slug` and
+    // friends moved and are named at `tinymemory_api::composio` above; these
+    // two cannot until the registry itself goes behind the module.
+    use crate::openhuman::memory::sync::composio::providers::{catalog_for_toolkit, get_provider};
     get_provider(toolkit)
         .and_then(|p| p.curated_tools())
         .or_else(|| catalog_for_toolkit(toolkit))
@@ -2419,7 +2430,7 @@ pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGra
     use crate::openhuman::flows::tinyflows::caps::{
         fetch_live_toolkit_catalog, missing_required_args, unsupported_arg_names,
     };
-    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_api::composio::toolkit_from_slug;
 
     let mut errors = Vec::new();
     for node in &graph.nodes {
@@ -2673,7 +2684,7 @@ fn validate_connection_refs_against(
     graph: &WorkflowGraph,
     connections: Option<&[FlowConnection]>,
 ) -> Vec<String> {
-    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_api::composio::toolkit_from_slug;
 
     let mut errors = Vec::new();
     for node in &graph.nodes {
@@ -4153,20 +4164,32 @@ pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>
     flows_delete_impl(config, id, None).await
 }
 
-/// Backs [`flows_delete`]. `memory_client_override`, when `Some`, is used in
-/// place of the process-global memory client for the namespace-clear step
-/// below — mirrors `bus::FlowRunDigestSubscriber`'s `with_memory` seam.
+/// Backs [`flows_delete`]. `memory_override`, when `Some`, is the guarded
+/// driver used for the namespace-clear step below in place of the one
+/// `memory::ops::guard::active_memory_guard` resolves — the same seam, and now
+/// the same type, as `bus::FlowRunDigestSubscriber`'s `with_memory`.
 ///
-/// The process-global client (`memory::global`) is a single shared `OnceLock`
-/// that any test in the binary may rebind to its own tempdir workspace, so a
-/// test asserting this clear step deterministically must not depend on it —
-/// injecting a directly-constructed [`MemoryClientRef`] lets the test seed
-/// and read back through the SAME instance `flows_delete` itself writes to,
-/// with no race against the global.
+/// # Why an override at all
+///
+/// `active_memory_guard` resolves the ambient `CoreContext`'s workspace, and a
+/// pre-boot unit test has no context — it falls back to the single shared test
+/// workspace that every `memory::ops` fixture writes into, not to the
+/// `tempdir` this call's `config` names. A test asserting that *this* clear
+/// step ran therefore has to be handed the binding over its own workspace, or
+/// it is asserting against a store it never wrote to.
+///
+/// # What changed (#5560)
+///
+/// This used to take a `tinymemory_core::store::MemoryClientRef` — a direct
+/// handle on the in-process engine, and the only reason this file named the
+/// engine crate at all. It is an `Arc<MemoryGuard>` now, so the injected path
+/// and the resolved path are the same type running the same policy steps; the
+/// override can no longer be a second, unguarded door into memory. Production
+/// still passes `None`.
 async fn flows_delete_impl(
     config: &Config,
     id: &str,
-    memory_client_override: Option<MemoryClientRef>,
+    memory_override: Option<Arc<crate::openhuman::memory::guard::MemoryGuard>>,
 ) -> Result<RpcOutcome<Value>, String> {
     match store::get_flow(config, id) {
         Ok(Some(flow)) => unbind_trigger(config, &flow),
@@ -4200,27 +4223,27 @@ async fn flows_delete_impl(
     // entries or run digests behind. Never fails the delete itself: the flow
     // row is already gone by this point regardless of what happens here.
     let memory_namespace = flow_namespace(id);
-    let clear_result = if let Some(client) = memory_client_override {
-        client
-            .clear_namespace(&memory_namespace)
-            .await
-            .map_err(|error| error.to_string())
-    } else {
-        #[cfg(not(feature = "memory"))]
-        {
-            Err("memory feature disabled at compile time — nothing to clear".to_string())
-        }
-        #[cfg(feature = "memory")]
-        match crate::openhuman::memory::ops::guard::active_memory_guard().await {
-            Ok(guard) => match guard.as_documents() {
+    let guard = match memory_override {
+        Some(guard) => Ok(guard),
+        None => crate::openhuman::memory::ops::guard::active_memory_guard().await,
+    };
+    let clear_result = match guard {
+        Ok(guard) => {
+            tracing::debug!(target: "flows", flow_id = %id, namespace = %memory_namespace, driver = %guard.driver_id(), "[flows] flows_delete: clearing flow memory namespace through the bound driver");
+            match guard.as_documents() {
                 Some(documents) => documents
                     .clear_namespace(&memory_namespace)
                     .await
                     .map_err(|error| error.to_string()),
-                None => Err("memory driver does not support the documents family".to_string()),
-            },
-            Err(error) => Err(error),
+                // Name the driver: "does not support" with no subject reads as
+                // a host bug, and the actual fact is which driver is bound.
+                None => Err(format!(
+                    "the bound memory driver '{}' does not serve the documents family",
+                    guard.driver_id()
+                )),
+            }
         }
+        Err(error) => Err(error),
     };
     if let Err(error) = clear_result {
         tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, %error, "[flows] flows_delete: failed to clear flow memory namespace");
@@ -7603,7 +7626,7 @@ pub(crate) async fn connected_toolkits(config: &Config) -> std::collections::Has
 /// `oh:` tools and `http_request` nodes need no Composio connection and are
 /// skipped.
 pub async fn compute_required_connections(config: &Config, graph: &WorkflowGraph) -> Vec<Value> {
-    use tinymemory_core::sync::composio::providers::toolkit_from_slug;
+    use tinymemory_api::composio::toolkit_from_slug;
 
     // Collect required toolkits (deduped, order-preserving).
     let mut required: Vec<String> = Vec::new();
@@ -7958,7 +7981,7 @@ pub async fn flows_get_tool_contract(
     slug: &str,
 ) -> Result<RpcOutcome<Value>, String> {
     let slug = slug.trim();
-    let Some(toolkit) = tinymemory_core::sync::composio::providers::toolkit_from_slug(slug) else {
+    let Some(toolkit) = tinymemory_api::composio::toolkit_from_slug(slug) else {
         return Err(format!(
             "Could not extract a toolkit from slug '{slug}' — it must look like \
              '<TOOLKIT>_<ACTION>' (e.g. 'GMAIL_SEND_EMAIL')."

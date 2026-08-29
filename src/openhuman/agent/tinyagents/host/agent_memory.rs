@@ -15,10 +15,10 @@
 //!   rather than calling `Memory::recall` directly, so this adapter inherits
 //!   OpenHuman's ranking engine verbatim, the `path_scope` dedupe rule, and the
 //!   `AgentEvent::MemoryLoaded` emission instead of forking a second recall path.
-//! - [`tinymemory_core::store::safety`] — `sanitize_text`, the
+//! - [`crate::openhuman::memory::safety`] — `sanitize_text`, the
 //!   conservative secret + PII scrubber, applied on the way out of recall and on
 //!   the way in to `remember`.
-//! - [`crate::openhuman::memory::citation::MemoryCitation`] — the
+//! - [`crate::openhuman::memory::agent::memory_loader::MemoryCitation`] — the
 //!   host's citation shape, rendered down to the opaque string the crate wants.
 //!
 //! # Where the policy lives, and why it lives *here*
@@ -88,10 +88,10 @@ use tinyagents::error::{Result as TaResult, TinyAgentsError};
 use tinyagents::harness::host::{AgentMemory, MemoryId, MemoryItem, NewMemory, RecallRequest};
 use tinyagents::harness::ids::ThreadId;
 
-use crate::openhuman::memory::citation::MemoryCitation;
+use crate::openhuman::memory::agent::memory_loader::MemoryCitation;
+use crate::openhuman::memory::safety::sanitize_text;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, MemoryTaint, RecallOpts};
 use crate::openhuman::util::truncate_with_ellipsis;
-use tinymemory_core::store::safety::sanitize_text;
 
 /// Namespace agent-produced memories are written to and recalled from when the
 /// wiring site does not choose one.
@@ -372,7 +372,21 @@ impl AgentMemory for OpenHumanAgentMemory {
             // absent means "exclude nothing" — the agent gets handed back what
             // it just said. Resolving it here keeps the behaviour identical on
             // both paths.
-            exclude_session_id: current_thread_id_ref.as_deref(),
+            //
+            // It does not fight `session_id` above. The engine filters only
+            // document-kind hits by this field, while `session_id` and
+            // `cross_session` scope the episodic and event tiers — so scoping
+            // to a session and excluding it is not a contradiction, and a
+            // thread hint still narrows *to* that session.
+            //
+            // Ambient first, the request's thread as fallback — not either
+            // alone. Inside a turn the task-local names the thread whose
+            // trigger was auto-saved, and when both are set they agree. But a
+            // recall reaching this adapter *outside* a turn (an RPC-driven
+            // recall carrying a thread hint) has no ambient value, and its
+            // hint names exactly the thread whose saved trigger would echo
+            // back. Dropping the fallback reintroduces the echo on that path.
+            exclude_session_id: current_thread_id_ref.as_deref().or(session),
             // Widening past the requested session is a wiring decision, never a
             // runtime hint.
             cross_session: self.cross_session,
@@ -530,6 +544,17 @@ mod tests {
         rows: Mutex<Vec<MemoryEntry>>,
         /// When set, every fallible method returns this error.
         fail: Option<String>,
+        /// The `exclude_session_id` the adapter last asked for.
+        ///
+        /// Recorded rather than acted on. The real backend applies that field
+        /// to document-kind hits only, while `session_id` / `cross_session`
+        /// scope the episodic and event tiers — a flat row list cannot tell
+        /// those apart, and a stub that filtered every row by it asserts a
+        /// backend behaviour that does not exist. That is not hypothetical:
+        /// doing so broke the two thread-hint tests below, which pin that a
+        /// hint *narrows to* a session rather than away from it. What is the
+        /// host's to get right is which exclusion it asks for.
+        last_exclusion: Mutex<Option<Option<String>>>,
     }
 
     impl StubMemory {
@@ -537,6 +562,7 @@ mod tests {
             Self {
                 rows: Mutex::new(rows),
                 fail: None,
+                last_exclusion: Mutex::new(None),
             }
         }
 
@@ -544,11 +570,17 @@ mod tests {
             Self {
                 rows: Mutex::new(Vec::new()),
                 fail: Some("backend down".to_string()),
+                last_exclusion: Mutex::new(None),
             }
         }
 
         fn snapshot(&self) -> Vec<MemoryEntry> {
             self.rows.lock().unwrap().clone()
+        }
+
+        /// The `exclude_session_id` of the last recall, if one has run.
+        fn last_exclusion(&self) -> Option<Option<String>> {
+            self.last_exclusion.lock().unwrap().clone()
         }
     }
 
@@ -627,6 +659,8 @@ mod tests {
             limit: usize,
             opts: RecallOpts<'_>,
         ) -> anyhow::Result<Vec<MemoryEntry>> {
+            *self.last_exclusion.lock().unwrap() =
+                Some(opts.exclude_session_id.map(str::to_string));
             if let Some(err) = &self.fail {
                 anyhow::bail!("{err}");
             }
@@ -772,6 +806,37 @@ mod tests {
 
         let items = mem.recall(RecallRequest::new("note")).await.unwrap();
         assert_eq!(items.len(), DEFAULT_RECALL_LIMIT);
+    }
+
+    #[tokio::test]
+    async fn recall_asks_the_backend_to_exclude_the_turns_own_thread() {
+        // The harness saves the user's message as a `[conversation]` document
+        // tagged with the active thread *before* the agent runs, so a recall
+        // issued during that turn can retrieve its own trigger as the best
+        // "relevant" hit unless the backend is told to drop that thread's
+        // documents.
+        //
+        // Asserted on the request rather than the result: the drop is the
+        // engine's, and it applies to document-kind hits only, which a flat
+        // stub cannot model without contradicting the thread-hint tests below.
+        // Asking for the right exclusion is the part that lives here.
+        let stub = Arc::new(StubMemory::with_rows(vec![entry("r1", "k1", "note")]));
+        let memory: Arc<dyn Memory> = stub.clone();
+        let mem = OpenHumanAgentMemory::new(memory);
+
+        mem.recall(RecallRequest::new("note").with_thread(ThreadId::new("t1")))
+            .await
+            .unwrap();
+        assert_eq!(
+            stub.last_exclusion(),
+            Some(Some("t1".to_string())),
+            "the active thread must be excluded, or recall returns the turn's own request"
+        );
+
+        // No thread, nothing to echo: excluding a session the caller never
+        // named would drop rows for no reason.
+        mem.recall(RecallRequest::new("note")).await.unwrap();
+        assert_eq!(stub.last_exclusion(), Some(None));
     }
 
     #[tokio::test]

@@ -76,6 +76,15 @@ pub struct CoreContext {
     /// phase 2 of `docs/plans/pluggable-core/` introduced for exactly this
     /// migration — lets that loader prefer it without any handler changing.
     embedder_config: Option<crate::openhuman::config::Config>,
+    /// Per-tool-group disclosure for this context (see
+    /// [`ToolGroups`](crate::openhuman::tools::toolpacks::ToolGroups)).
+    ///
+    /// The third narrowing axis, independent of `domains` the same way
+    /// `DomainSet` is independent of `ServiceSet`: `DomainSet` decides which
+    /// families *exist*, `ToolGroups` decides how the ones that exist reach
+    /// the model. Defaults to every group withheld, which is what the
+    /// compiled-in pack table meant before the type existed.
+    tool_groups: crate::openhuman::tools::toolpacks::ToolGroups,
 }
 
 /// The complete input to a workspace-scoped memory binding.
@@ -112,7 +121,7 @@ impl CoreContext {
         bool,
         Option<crate::openhuman::config::Config>,
     )> {
-        Self::init_with_config(host_kind, token, domains, None).await
+        Self::init_with_config(host_kind, token, domains, Default::default(), None).await
     }
 
     /// [`init`](Self::init) with an optional caller-supplied configuration.
@@ -130,13 +139,17 @@ impl CoreContext {
         host_kind: HostKind,
         token: &TokenSource,
         domains: crate::core::runtime::DomainSet,
+        tool_groups: crate::openhuman::tools::toolpacks::ToolGroups,
         preloaded_config: Option<crate::openhuman::config::Config>,
     ) -> anyhow::Result<(
         Arc<CoreContext>,
         bool,
         Option<crate::openhuman::config::Config>,
     )> {
-        log::debug!("[core-context] init: host_kind={host_kind:?} domains={domains:?}");
+        log::debug!(
+            "[core-context] init: host_kind={host_kind:?} domains={domains:?} \
+             tool_groups={tool_groups:?}"
+        );
         // 1. Ensure all controllers are registered before anything dispatches.
         let _ = crate::core::all::all_registered_controllers();
 
@@ -211,7 +224,7 @@ impl CoreContext {
             }
             Err(e) => {
                 log::error!(
-                    "[boot] memory::global init SKIPPED — \
+                    "[boot] workspace-bound store init SKIPPED — \
                      Config::load_or_init failed ({e:#}). Memory persistence is \
                      DISABLED for this run; no silent fallback to the default \
                      workspace (which would cause chunk loss / cross-workspace \
@@ -242,6 +255,7 @@ impl CoreContext {
                 memory_subsystem,
             }),
             domains,
+            tool_groups,
             embedder_config,
         });
 
@@ -260,6 +274,11 @@ impl CoreContext {
     /// Which domain families are live for this context (#4796). The controller
     /// registry consults this (via [`CoreContext::current`]) to filter its
     /// schema/dispatch/tool surface. `full()` for desktop/CLI.
+    /// Per-group tool disclosure for this context.
+    pub fn tool_groups(&self) -> crate::openhuman::tools::toolpacks::ToolGroups {
+        self.tool_groups.clone()
+    }
+
     pub fn domains(&self) -> crate::core::runtime::DomainSet {
         self.domains
     }
@@ -297,7 +316,6 @@ impl CoreContext {
     /// pointing at the previous workspace, so a failed bind for workspace B
     /// cannot hand back workspace A's driver. Pinned by
     /// `failed_bind_never_returns_previous_workspace_binding`.
-    #[cfg(feature = "memory")]
     pub fn memory_binding(
         &self,
     ) -> Result<Arc<crate::openhuman::memory::binding::MemoryBinding>, String> {
@@ -335,7 +353,6 @@ impl CoreContext {
     /// would keep `memory_store` / `memory_recall` / `memory.list_documents`
     /// answering off the embedded store the guarded re-point has not yet
     /// covered. See [`MemoryBinding::disables_memory`](crate::openhuman::memory::binding::MemoryBinding::disables_memory).
-    #[cfg(feature = "memory")]
     pub fn memory_capabilities(&self) -> tinymemory_api::capabilities::Capabilities {
         self.memory_binding()
             .map(|binding| {
@@ -367,7 +384,6 @@ impl CoreContext {
     ///
     /// As [`Self::memory_binding`]: only when the workspace dir cannot be
     /// resolved or the binding cache lock is poisoned.
-    #[cfg(feature = "memory")]
     pub fn memory(&self) -> Result<Arc<crate::openhuman::memory::guard::MemoryGuard>, String> {
         Ok(self.memory_binding()?.guard())
     }
@@ -376,28 +392,10 @@ impl CoreContext {
     /// there is no context at all. This is the direct analogue of
     /// `core::all::group_allowed` and is the function a future capability
     /// registration filter calls.
-    #[cfg(feature = "memory")]
     pub fn current_memory_capabilities() -> tinymemory_api::capabilities::Capabilities {
         Self::current()
             .map(|ctx| ctx.memory_capabilities())
             .unwrap_or_else(crate::openhuman::memory::binding::unbound_default_capabilities)
-    }
-
-    /// With the `memory` family compiled out, the answer is the EMPTY set —
-    /// the one place this function answers closed by default.
-    ///
-    /// The open default above exists because a capability set is unknowable
-    /// until a driver has answered, and denying before that would fail every
-    /// memory call for a reason that has nothing to do with the driver. None of
-    /// that applies here: there is no driver to ask and never will be in this
-    /// build, so "unknown" is not the state — "absent" is. Every controller
-    /// this gates is itself compiled out, so the value is belt-and-braces
-    /// rather than load-bearing; it is written this way so that a future
-    /// caller which is *not* gated cannot read an open set off a build with no
-    /// memory in it.
-    #[cfg(not(feature = "memory"))]
-    pub fn current_memory_capabilities() -> tinymemory_api::capabilities::Capabilities {
-        tinymemory_api::capabilities::Capabilities::default()
     }
 
     /// The context for the current dispatch: the one scoped by
@@ -520,15 +518,20 @@ impl CoreContext {
                 memory_subsystem: memory_subsystem.unwrap_or_default(),
             }),
             domains,
+            tool_groups: Default::default(),
             embedder_config: None,
         })
     }
 }
 
-/// Initialize the global `MemoryClient` and the other workspace-bound stores so
-/// composio providers (gmail/slack/notion) can persist their `sync_state`, and
-/// so any subsystem that calls `memory::global::client_if_ready()` gets a live
-/// handle.
+/// Bind the memory driver for this workspace and initialize the other
+/// workspace-bound stores.
+///
+/// This no longer initializes an in-process `MemoryClient`: the memory
+/// subsystem is reached through [`crate::openhuman::memory::binding`], which is
+/// a workspace-keyed cache rather than a process-global slot (#5560). The
+/// engine handle that `memory::global` still hands out is a lazy singleton, so
+/// the remaining holders construct it on first use.
 ///
 /// A `Config::load_or_init` failure here is operator-visible and serious
 /// (corrupt toml, bad permissions, missing/unwritable `OPENHUMAN_WORKSPACE` —
@@ -552,7 +555,8 @@ impl CoreContext {
 /// `DomainSet` needs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StoreInitPlan {
-    /// `memory::global` — gated on [`DomainGroup::Memory`].
+    /// The memory driver binding (`memory::binding`) — gated on
+    /// [`DomainGroup::Memory`].
     pub memory: bool,
     /// `agent::multimodal` attachments sidecar dir — gated on [`DomainGroup::Agent`].
     pub agent_attachments: bool,
@@ -592,36 +596,58 @@ pub async fn init_stores(
         domains,
     );
     if plan.memory {
-        // The extracted memory subsystem reaches back into this crate through
-        // process-global seams. They must be installed BEFORE the first memory
-        // call: the embedding, chat, Composio and config seams fail loudly when
+        // The seams the in-process engine calls back through. They must be
+        // installed BEFORE the first memory call: they fail loudly when
         // unwired rather than degrading, because a quiet degrade would write
         // vectors into the wrong embedding space or make a sync run look empty
         // instead of broken.
-        #[cfg(feature = "memory")]
+        //
+        // #5560 removed this on the reasoning that "this process embeds no
+        // engine, so there is nothing to call back". That is not true yet.
+        // `tinymemory-core` is still a normal dependency of this crate, and
+        // `session::builder::factory` still reaches
+        // `store::factories::create_session_memory_with_local_ai`, which calls
+        // `require_embedding_host()` on the chat hot path — so every chat turn
+        // failed with "no EmbeddingHost installed". The module installing its
+        // own seams does not help: a `cdylib` has its own statics, so what it
+        // sets is invisible here.
+        //
+        // These go when the last in-process engine caller goes, not before.
         crate::openhuman::memory::host_impls::install_memory_host_seams(Arc::new(cfg.clone()));
         // Publish the config a module-backed memory driver should load
         // against, before the binding below can construct one. Boot-only and
         // idempotent (first call wins) — see `modules::memory::set_modules_policy`
         // for why this must be a process-global rather than threaded through
         // `MemoryBinding::for_workspace`.
-        #[cfg(all(feature = "modules", feature = "memory"))]
+        #[cfg(feature = "modules")]
         crate::openhuman::modules::memory::set_modules_policy(Arc::new(cfg.clone()));
-        #[cfg(feature = "memory")]
-        match tinymemory_core::global::init(cfg.workspace_dir.clone()) {
-            Ok(_) => log::info!(
-                "[boot] memory::global initialized (workspace={})",
-                cfg.workspace_dir.display()
-            ),
-            Err(e) => log::warn!("[boot] memory::global init failed: {e}"),
-        }
+        // ── No second engine is booted here any more (#5560 phase F) ────────
+        //
+        // This block used to call `tinymemory_core::global::init(...)` directly
+        // above the bind below, so boot left **two** live `MemoryClient`s over
+        // one `<workspace>/memory/memory.db`: the loadable TinyMemory module
+        // reached over TinyBus, and a second in-process copy of the engine
+        // crate. `memory::binding`'s module docs and
+        // `CoreContext::memory_binding`'s both already argued that the
+        // workspace-keyed binding map supersedes that process-global slot —
+        // the slot needs a clear-on-failed-rebind guard, the map structurally
+        // cannot hand workspace B's caller workspace A's driver — and this is
+        // where that argument is executed.
+        //
+        // `memory::global` is a lazy singleton, so the callers that still hold
+        // an in-process handle (`memory::ops::helpers::active_memory_client`,
+        // `agent::experience::ops`, the session builder's shared-experience
+        // handle, `openhuman memory ingest`/`query`) construct it on first use
+        // exactly as before. What changes is that a boot which never reaches
+        // one no longer pays for it — and that the engine's own lifetime is now
+        // owned by the code that still needs it rather than by kernel boot.
+        //
         // Bind the memory driver for this workspace (kernel.md §3.1), on the
         // same `plan.memory` gate as the store above — the binding is part of
         // the memory domain's init, not a separate gate. Warmed here rather
         // than lazily so a bad `[subsystems.memory]` is loud at boot instead of
         // at the first recall. Infallible by design: an inadmissible driver
         // falls back, publishes `MemoryDriverBindFailed`, and records why.
-        #[cfg(feature = "memory")]
         match crate::openhuman::memory::binding::for_workspace(
             &cfg.workspace_dir,
             &cfg.subsystems.memory,
@@ -641,7 +667,6 @@ pub async fn init_stores(
             Err(e) => log::warn!("[boot] memory driver bind failed: {e}"),
         }
     } else {
-        log::debug!("[boot] memory::global init SKIPPED — Memory domain disabled");
         log::debug!("[boot] memory driver bind SKIPPED — Memory domain disabled");
     }
     // Install the on-disk image-attachment sidecar dir so inbound
@@ -708,6 +733,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         })
     }
@@ -735,6 +761,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: Some(config),
         })
     }
@@ -813,7 +840,7 @@ mod tests {
     fn store_init_plan_harness_gates_by_owning_group() {
         let plan = StoreInitPlan::for_domains(crate::core::runtime::DomainSet::harness());
         // harness() = agent + memory + threads + config + security.
-        assert!(plan.memory, "harness keeps memory::global (Memory)");
+        assert!(plan.memory, "harness keeps the memory binding (Memory)");
         assert!(
             plan.agent_attachments,
             "harness keeps agent attachments sidecar (Agent)"
@@ -888,6 +915,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         };
 
@@ -936,6 +964,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         });
         let b = Arc::new(CoreContext {
@@ -945,6 +974,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         });
 
@@ -970,6 +1000,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         };
 
@@ -996,6 +1027,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         };
 
@@ -1035,6 +1067,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         };
         let b = CoreContext {
@@ -1044,6 +1077,7 @@ mod tests {
                 memory_subsystem: untrusted_external_memory_cfg(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         };
 
@@ -1073,6 +1107,7 @@ mod tests {
                 memory_subsystem: Default::default(),
             }),
             domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
             embedder_config: None,
         };
         assert!(ctx.memory_binding().is_err(), "no workspace ⇒ no binding");

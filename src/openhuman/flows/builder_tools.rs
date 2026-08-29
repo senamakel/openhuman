@@ -1463,8 +1463,16 @@ impl Tool for ListConnectableToolkitsTool {
     }
 
     async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
-        use tinymemory_core::sync::composio::providers::agent_ready_toolkits;
-        tracing::debug!(target: "flows", "[flows] list_connectable_toolkits: listing toolkits + connected state (read-only)");
+        // The contract crate, not `memory::sync::composio::providers` (#5560).
+        // That host shim is `pub use tinymemory_core::sync::composio::providers::*`
+        // and the engine's `providers` module in turn re-exports this function
+        // verbatim from `tinymemory_api::composio::scopes` — so the two paths
+        // name the SAME item and this is a path change with no behaviour delta.
+        // Naming the contract directly is what lets the shim's caller list
+        // shrink to the sites that genuinely need the engine's registry and
+        // curated catalogs.
+        use tinymemory_api::composio::agent_ready_toolkits;
+        tracing::debug!(target: "flows", "[flows] list_connectable_toolkits: listing toolkits + connected state (read-only) via the memory contract");
         let connected = ops::connected_toolkits(&self.config).await;
         let toolkits: Vec<Value> = agent_ready_toolkits()
             .into_iter()
@@ -1815,7 +1823,7 @@ const MAX_CATALOG_RESULTS: usize = 40;
 /// in `query` (case-insensitive AND). When `toolkit` is set, only that
 /// toolkit is scanned — this is how the builder can search ANY named app
 /// (connected or not) rather than only the toolkits already
-/// [`agent_ready_toolkits`](tinymemory_core::sync::composio::providers::agent_ready_toolkits);
+/// `tinymemory_api::composio::agent_ready_toolkits`;
 /// with no `toolkit` filter, the search is scoped to that agent-ready set (a
 /// bare keyword query with no app named would otherwise have to fan out to
 /// every toolkit Composio knows about).
@@ -1901,7 +1909,9 @@ pub(crate) async fn search_catalog(
     limit: usize,
 ) -> CatalogSearchOutcome {
     use crate::openhuman::flows::tinyflows::caps::fetch_live_toolkit_catalog;
-    use tinymemory_core::sync::composio::providers::agent_ready_toolkits;
+    // Contract crate — same item the `memory::sync::composio::providers` shim
+    // re-exported; see `ListConnectableToolkitsTool::execute` for why (#5560).
+    use tinymemory_api::composio::agent_ready_toolkits;
 
     let terms: Vec<String> = query
         .split_whitespace()
@@ -2229,8 +2239,10 @@ impl Tool for GetToolContractTool {
             Some(s) if !s.is_empty() => s.to_string(),
             _ => return Ok(ToolResult::error("Missing 'slug' parameter".to_string())),
         };
-        let Some(toolkit) = tinymemory_core::sync::composio::providers::toolkit_from_slug(&slug)
-        else {
+        // Contract crate — `toolkit_from_slug` is defined in
+        // `tinymemory_api::composio::scopes` and only re-exported by the engine's
+        // providers module, so this names the same function (#5560).
+        let Some(toolkit) = tinymemory_api::composio::toolkit_from_slug(&slug) else {
             return Ok(ToolResult::error(format!(
                 "Could not extract a toolkit from slug '{slug}' — it must look like \
                  '<TOOLKIT>_<ACTION>' (e.g. 'GMAIL_SEND_EMAIL')."

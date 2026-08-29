@@ -16,7 +16,6 @@ pub(crate) mod user_filter;
 pub(crate) mod implementations;
 
 pub use crate::openhuman::agent::artifacts::tools::*;
-#[cfg(feature = "memory")]
 pub use crate::openhuman::agent::learning::tools::*;
 pub use crate::openhuman::agent::orchestration::tools::*;
 pub use crate::openhuman::agent::tools::*;
@@ -31,29 +30,20 @@ pub use crate::openhuman::flows::builder_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::discovery_tools::*;
 #[cfg(feature = "flows")]
-#[cfg(feature = "memory")]
 pub use crate::openhuman::flows::memory_tools::*;
 #[cfg(feature = "flows")]
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::tools::*;
-pub use crate::openhuman::hosted::billing::tools::*;
 pub use crate::openhuman::hosted::orchestration::tools::*;
-pub use crate::openhuman::hosted::referral::tools::*;
-pub use crate::openhuman::hosted::team::tools::*;
 pub use crate::openhuman::integrations::composio::tools::*;
 pub use crate::openhuman::integrations::task_sources::tools::*;
 pub use crate::openhuman::integrations::tools::*;
 #[cfg(feature = "mcp")]
 pub use crate::openhuman::mcp::registry::tools::*;
-#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::agent::tools::*;
 #[cfg(feature = "memory-git")]
 pub use crate::openhuman::memory::tools::diff::*;
-#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::tools::goals::*;
-#[cfg(feature = "memory")]
-pub use crate::openhuman::memory::tools::people::*;
-#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::platform::cost::tools::*;
 pub use crate::openhuman::platform::doctor::tools::*;
@@ -69,8 +59,6 @@ pub use crate::openhuman::skills::runtime::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::openhuman::skills::tools::*;
 pub use crate::openhuman::threads::todos::tools::*;
-pub use crate::openhuman::threads::tools::*;
-pub use crate::openhuman::tinyplace::tools::*;
 #[cfg(feature = "voice")]
 pub use crate::openhuman::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]

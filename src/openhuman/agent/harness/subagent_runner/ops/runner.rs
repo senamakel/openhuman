@@ -38,11 +38,11 @@ use crate::openhuman::agent::harness::subagent_runner::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
     SubagentUsage,
 };
+use crate::openhuman::agent::harness::turn_dispatch_guard;
 use crate::openhuman::agent::harness::{
     current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
 use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
-#[cfg(feature = "memory")]
 use crate::openhuman::memory::tree::retrieval::{
     fast_retrieve, FastRetrieveOptions, QueryResponse,
 };
@@ -136,7 +136,6 @@ fn parse_memory_fast_path_enabled(env_value: Option<&str>) -> bool {
 /// block for the parent turn. Returns `None` when there are no hits, so the
 /// caller falls back to the model-driven walk (the empty/degraded case is
 /// #4655's territory and still benefits from the model's judgement).
-#[cfg(feature = "memory")]
 fn format_deterministic_memory_hits(resp: &QueryResponse) -> Option<String> {
     use std::fmt::Write as _;
     if resp.hits.is_empty() {
@@ -221,7 +220,6 @@ fn apply_max_result_chars(output: &mut String, cap: Option<usize>, agent_id: &st
 /// unrelated top-k memories as a "completed" retrieval instead of letting the
 /// model-driven agent judge relevance (or emit "no relevant memory found").
 /// Grounded queries keep the fast path; ungrounded ones defer to the full agent.
-#[cfg(feature = "memory")]
 async fn try_deterministic_memory_retrieval(
     task_prompt: &str,
     definition: &AgentDefinition,
@@ -253,11 +251,44 @@ async fn try_deterministic_memory_retrieval(
     // extraction here is deterministic and cheap (regex, or one spaCy call);
     // `fast_retrieve` repeats it internally, which is the same work its first
     // model-driven tool call would have done.
-    #[cfg(feature = "memory")]
-    if crate::openhuman::memory::tree::nlp::extract_query_entities(config, query)
-        .await
-        .is_empty()
-    {
+    //
+    // Extraction goes through the provider's scoring family so the host no longer
+    // calls `tinymemory_core::` directly. Any failure (binding unavailable,
+    // scoring not exposed, extraction error) is fail-safe: treat as entities_empty
+    // = true so the fast path is skipped and the model-driven walk runs instead.
+    // This preserves the pre-scoring behavior where an unavailable extractor
+    // returned empty entities, keeping the guard conservative.
+    let entities_empty = match crate::openhuman::memory::binding::for_config(config) {
+        Ok(binding) => match binding.provider().as_scoring() {
+            Some(scoring) => match scoring.extract_entities(query).await {
+                Ok(entities) => entities.is_empty(),
+                Err(e) => {
+                    tracing::debug!(
+                        task_id = %task_id,
+                        error = %e,
+                        "[subagent_runner] scoring extract_entities failed (non-fatal) — deferring to model walk (#4677)"
+                    );
+                    true
+                }
+            },
+            None => {
+                tracing::debug!(
+                    task_id = %task_id,
+                    "[subagent_runner] driver does not expose scoring (module not loaded or policy excluded) — deferring to model walk (#4677)"
+                );
+                true
+            }
+        },
+        Err(e) => {
+            tracing::debug!(
+                task_id = %task_id,
+                error = %e,
+                "[subagent_runner] memory binding unavailable (non-fatal) — deferring to model walk (#4677)"
+            );
+            true
+        }
+    };
+    if entities_empty {
         tracing::debug!(
             task_id = %task_id,
             "[subagent_runner] agent_memory fast-path skipped — ungrounded query (no entities/topics); deferring to model walk (#4677)"
@@ -310,13 +341,18 @@ async fn try_deterministic_memory_retrieval(
 /// Run a sub-agent based on its definition and a task prompt.
 ///
 /// This is the primary entry point for agent delegation. It performs the following:
-/// 1. Resolves the [`ParentExecutionContext`] task-local.
-/// 2. Generates a unique `task_id` if one wasn't provided.
-/// 3. Dispatches to `run_typed_mode`.
+/// 1. Generates a unique `task_id` if one wasn't provided.
+/// 2. Asks the turn's
+///    [dispatch guard](crate::openhuman::agent::harness::turn_dispatch_guard)
+///    whether a delegation can still succeed, and refuses before spending
+///    anything if it cannot (#5804).
+/// 3. Resolves the [`ParentExecutionContext`] task-local.
+/// 4. Dispatches to `run_typed_mode`.
 ///
 /// On success returns a [`SubagentRunOutcome`] whose `output` is the
 /// final assistant text. On failure the error is suitable for stringifying
-/// into a `tool_result` block.
+/// into a `tool_result` block — including the two dispatch refusals, whose
+/// messages tell the model to summarise rather than delegate again.
 pub async fn run_subagent(
     definition: &AgentDefinition,
     task_prompt: &str,
@@ -337,11 +373,63 @@ pub async fn run_subagent(
     // child's tinyagents drive future further chunk the child's state so
     // a single sub-agent run can't blow the stack either.
     Box::pin(async move {
-        let parent = current_parent().ok_or(SubagentRunError::NoParentContext)?;
         let task_id = options
             .task_id
             .clone()
             .unwrap_or_else(|| format!("sub-{}", uuid::Uuid::new_v4()));
+
+        // Turn-scoped dispatch gate (#5804) — deliberately the FIRST gate, for
+        // the same reason the depth gate is synchronous and pre-dispatch: a
+        // delegation we already know cannot land should cost nothing, not a
+        // config load, a hook, or a provider round-trip.
+        //
+        // Two refusals, both evidence-based and both derived from what this
+        // turn has actually observed rather than from any configured constant
+        // or task shape: a graceful pause has been requested at the model-call
+        // cap, or less wall-clock remains than this turn's slowest completed
+        // sub-agent took. Outside a turn scope the guard is absent and this is
+        // a no-op, so CLI and direct invocations are unaffected.
+        match turn_dispatch_guard::check() {
+            turn_dispatch_guard::DispatchDecision::Allow => {}
+            turn_dispatch_guard::DispatchDecision::RefusePaused {
+                completed_model_calls,
+                cap,
+            } => {
+                tracing::info!(
+                    agent_id = %definition.id,
+                    task_id = %task_id,
+                    completed_model_calls,
+                    cap,
+                    "[subagent_runner] dispatch refused — turn already requested a graceful pause"
+                );
+                return Err(SubagentRunError::PauseRequested {
+                    completed_model_calls,
+                    cap,
+                });
+            }
+            turn_dispatch_guard::DispatchDecision::RefuseBudget {
+                remaining_ms,
+                observed_max_ms,
+                observed_samples,
+            } => {
+                tracing::info!(
+                    agent_id = %definition.id,
+                    task_id = %task_id,
+                    remaining_ms,
+                    observed_max_ms,
+                    observed_samples,
+                    "[subagent_runner] dispatch refused — remaining budget is shorter than this \
+                     turn's slowest sub-agent"
+                );
+                return Err(SubagentRunError::DispatchBudgetExhausted {
+                    remaining_ms,
+                    observed_max_ms,
+                    observed_samples,
+                });
+            }
+        }
+
+        let parent = current_parent().ok_or(SubagentRunError::NoParentContext)?;
         let started = Instant::now();
         let current_depth = current_spawn_depth();
         let attempted_depth = current_depth.saturating_add(1);
@@ -425,7 +513,6 @@ pub async fn run_subagent(
         // of a ≤6-iteration model walk (~30–40s of round-trips). Falls through
         // to the full sub-agent when the fast path is disabled/errs/finds
         // nothing (the empty/degraded case is handled by #4655).
-        #[cfg(feature = "memory")]
         if definition.id == AGENT_MEMORY_ID {
             if let Some(outcome) = try_deterministic_memory_retrieval(
                 task_prompt,
@@ -436,6 +523,19 @@ pub async fn run_subagent(
             )
             .await
             {
+                // The fast path completes a real delegation and returns here,
+                // short-circuiting the recorder below — so record it too, or a
+                // turn whose only delegations are deterministic memory
+                // retrievals never accumulates a sample and the budget gate
+                // stays disarmed for the whole turn (#5804 review).
+                //
+                // Including it cannot weaken the gate. `observed_max` is a
+                // running **maximum**, so a short sample can only leave it
+                // where it was — an earlier revision of this comment claimed
+                // the opposite and was wrong about its own statistic. What it
+                // does buy is a correct `observed_samples` count and a gate
+                // that arms on a turn shaped entirely from fast-path work.
+                turn_dispatch_guard::record_subagent_elapsed(started.elapsed());
                 return Ok(outcome);
             }
         }
@@ -476,7 +576,7 @@ pub async fn run_subagent(
                 "[subagent_runner] worktree-isolated worker: descriptor will route acting-tool CWD"
             );
         }
-        let mut outcome = with_spawn_depth(attempted_depth, async {
+        let run_result = with_spawn_depth(attempted_depth, async {
             with_file_state_agent_id(task_id.clone(), async {
                 with_current_sandbox_mode(definition.sandbox_mode, async {
                     with_parent_context(parent_for_subagent.clone(), async {
@@ -496,7 +596,27 @@ pub async fn run_subagent(
             })
             .await
         })
-        .await?;
+        .await;
+
+        // Feed this delegation's wall-clock into the turn's running maximum,
+        // which is the only thing the budget gate above judges a later
+        // dispatch against (#5804). The deterministic fast path above records
+        // separately and returns, so it cannot reach here twice.
+        //
+        // Recorded on BOTH the success and the failure path, and before the
+        // `?`: a delegation that ran for three minutes and then errored spent
+        // exactly as much of the turn's budget as one that succeeded, and is
+        // exactly as much evidence about what a dispatch costs. Dropping
+        // failures would bias the estimate downwards, and the gate fails open,
+        // so the bias would show up as the guard not firing when it should.
+        //
+        // Measured from the outer `started` rather than `outcome.elapsed`, so
+        // the config load and the tier/hook gates are inside the figure — the
+        // question the gate asks is how long a *dispatch* takes end to end,
+        // not how long the child's own loop ran.
+        turn_dispatch_guard::record_subagent_elapsed(started.elapsed());
+
+        let mut outcome = run_result?;
 
         // #3883: offload an oversized worker result to `action_dir/outputs/`
         // BEFORE the cap below truncates it, so the parent receives a path plus
@@ -1629,7 +1749,14 @@ mod fast_path_tests {
     };
     use crate::openhuman::memory::tree::retrieval::types::{NodeKind, QueryResponse, RetrievalHit};
     use chrono::Utc;
-    use tinymemory_core::store::trees::types::TreeKind;
+    // `RetrievalHit::tree_kind` is TinyCortex's own enum. `tinymemory_core::
+    // store::trees::types::TreeKind` was a re-export of exactly this item
+    // (`tinymemory_core::store::trees::types` → `engine::backend::tree::store`
+    // → `tinycortex::memory::tree::store`), so naming the owning crate here
+    // changes no type — only which crate alias holds it, which is what #5560
+    // is removing from the production graph. Same precedent as
+    // `memory/tools/flavour.rs`, which already imports it from this path.
+    use tinycortex::memory::tree::store::TreeKind;
 
     fn hit(content: &str, scope: &str, score: f32) -> RetrievalHit {
         RetrievalHit {

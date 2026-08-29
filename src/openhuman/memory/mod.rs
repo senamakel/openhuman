@@ -32,10 +32,15 @@
 //! binary. A path that has no contract equivalent is a gap to report, not a
 //! reason to reach for the engine.
 
+#[cfg(feature = "memory")]
 pub mod agent;
 pub mod api;
+#[cfg(feature = "memory")]
 pub mod binding;
+pub mod citation;
+#[cfg(feature = "memory")]
 pub mod driver;
+#[cfg(feature = "memory")]
 pub mod guard;
 pub mod host;
 /// Host implementations of the seam traits the ENGINE declares.
@@ -46,58 +51,84 @@ pub mod host;
 /// is the test suite, which binds the in-process TinyCortex driver directly —
 /// legitimate, because `tinymemory-core` is a dev-dependency there and a
 /// dev-dependency is not linked into the shipped binary.
+#[cfg(feature = "memory")]
 pub mod host_impls;
 /// Host desktop policy: is the memory content root a vault Obsidian already
 /// knows about? See the module docs for why this is OpenHuman's and not the
 /// engine's.
+#[cfg(feature = "memory")]
 pub mod obsidian_registry;
+#[cfg(feature = "memory")]
+pub mod namespaces;
+#[cfg(feature = "memory")]
 pub mod ops;
+#[cfg(feature = "memory")]
 pub mod preferences;
+#[cfg(feature = "memory")]
 pub mod sync_events_bridge;
 // The consolidated `memory_query` agent tool and its six retrieval modes. Came
 // back from `tinymemory-core` with the rest of the agent tools — it is a `Tool`
 // impl end to end, and the engine crate cannot name that trait.
+#[cfg(feature = "memory")]
 pub mod query;
+pub mod ranking;
+#[cfg(feature = "memory")]
 pub mod read_rpc;
 /// The host-side secret / PII scrubbers applied to anything this host persists
 /// or hands on. See the module docs for why this is OpenHuman's and not the
 /// engine's.
 pub mod safety;
+#[cfg(feature = "memory")]
 pub mod schemas;
 /// The host-side per-turn memory-source allowlist. See the module docs for why
 /// this is OpenHuman's and not the engine's.
 pub mod source_scope;
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 pub(crate) mod test_support;
+#[cfg(feature = "memory")]
 pub mod tools;
+
+#[cfg(not(feature = "memory"))]
+mod stub;
+#[cfg(not(feature = "memory"))]
+pub use stub::*;
 
 // Domains that are *mostly* extracted but keep their JSON-RPC surface here.
 // Each of these is a thin wrapper: `pub use tinymemory_core::<domain>::*;`
 // plus the handler/schema modules that name `RpcOutcome` and
 // `ControllerSchema`. See the module docs on each for the split.
+#[cfg(feature = "memory")]
 pub mod conversations;
+#[cfg(feature = "memory")]
 pub mod diff;
+#[cfg(feature = "memory")]
 pub mod goals;
+#[cfg(feature = "memory")]
 pub mod people;
+#[cfg(feature = "memory")]
 pub mod schema;
+#[cfg(feature = "memory")]
 pub mod sources;
+#[cfg(feature = "memory")]
 pub mod sync;
+#[cfg(feature = "memory")]
 pub mod tool_memory;
+#[cfg(feature = "memory")]
 pub mod tree;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod api_identity_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod bypass_allowlist_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod direct_engine_refs_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod profile_conn_guard_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod seam_integration_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod sync_pipeline_e2e_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "memory"))]
 mod tree_e2e_tests;
 
 // ── The extracted subsystem, re-exported under its historical paths ─────────
@@ -119,8 +150,11 @@ mod tree_e2e_tests;
 // These are types, not module trees: `memory::MemoryCategory` names one value
 // type, where `memory::store::…` opened the whole engine. They still have to
 // move to `memory::api`'s equivalents, but they hide nothing in the meantime.
+#[cfg(feature = "memory")]
 pub use ops as rpc;
+#[cfg(feature = "memory")]
 pub use ops::*;
+#[cfg(feature = "memory")]
 pub use schemas::{
     all_controller_schemas as all_memory_controller_schemas,
     all_core_recall_controller_schemas as all_memory_core_recall_controller_schemas,
@@ -153,6 +187,7 @@ pub use schemas::{
 // dependency of this crate, `tinymemory-core` is the one being shed — and no
 // type, wire byte or call site changes. Same move as `memory::people`,
 // `memory::tool_memory` and `memory::tree::health`'s taxonomy half.
+#[cfg(feature = "memory")]
 pub use tinycortex::memory::ingest::{
     ExtractedEntity, ExtractedRelation, ExtractionMode, MemoryIngestionConfig,
     MemoryIngestionRequest, MemoryIngestionResult, DEFAULT_MEMORY_EXTRACTION_MODEL,
@@ -170,6 +205,7 @@ pub use tinycortex::memory::ingest::{
 // because they are one module's worth of a single domain and splitting a queue
 // from its own job type would leave a re-export that documents nothing; when
 // the queue moves behind the bus they go together.
+#[cfg(feature = "memory")]
 pub use tinymemory_core::ingestion::{
     IngestionJob, IngestionQueue, IngestionState, IngestionStatusSnapshot,
 };
@@ -178,7 +214,9 @@ pub use tinymemory_core::ingestion::{
 // in `tinymemory` ever named one, so the engine crate was carrying this host's
 // RPC surface (#5560). Same glob, same paths, same wire bytes — the definitions
 // are simply ours now. See `rpc_models`'s module docs.
+#[cfg(feature = "memory")]
 pub mod rpc_models;
+#[cfg(feature = "memory")]
 pub use rpc_models::*;
 // Named on the crate directly — `traits` is engine scaffolding, not bus
 // vocabulary, and is deliberately not re-exported from `memory::api` (#5560).
@@ -197,4 +235,5 @@ pub use tinymemory_api::traits::Memory;
 // the engine bought for nobody (#5560). A caller that genuinely needs the
 // in-process handle names the crate deliberately rather than reaching it
 // through the memory module's public surface.
+#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::api::types::NamespaceDocumentInput;

@@ -16,6 +16,7 @@ pub(crate) mod user_filter;
 pub(crate) mod implementations;
 
 pub use crate::openhuman::agent::artifacts::tools::*;
+#[cfg(feature = "memory")]
 pub use crate::openhuman::agent::learning::tools::*;
 pub use crate::openhuman::agent::orchestration::tools::*;
 pub use crate::openhuman::agent::tools::*;
@@ -30,6 +31,7 @@ pub use crate::openhuman::flows::builder_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::openhuman::flows::discovery_tools::*;
 #[cfg(feature = "flows")]
+#[cfg(feature = "memory")]
 pub use crate::openhuman::flows::memory_tools::*;
 #[cfg(feature = "flows")]
 #[cfg(feature = "flows")]
@@ -40,10 +42,13 @@ pub use crate::openhuman::integrations::task_sources::tools::*;
 pub use crate::openhuman::integrations::tools::*;
 #[cfg(feature = "mcp")]
 pub use crate::openhuman::mcp::registry::tools::*;
+#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::agent::tools::*;
-#[cfg(feature = "memory-git")]
+#[cfg(all(feature = "memory-git", feature = "memory"))]
 pub use crate::openhuman::memory::tools::diff::*;
+#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::tools::goals::*;
+#[cfg(feature = "memory")]
 pub use crate::openhuman::memory::tools::*;
 pub use crate::openhuman::platform::cost::tools::*;
 pub use crate::openhuman::platform::doctor::tools::*;

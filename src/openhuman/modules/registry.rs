@@ -26,6 +26,9 @@
 
 use super::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 
+/// Stable registry identifier for the optional TinyMemory module.
+pub const TINYMEMORY_MODULE_ID: &str = "tinymemory";
+
 /// The `tinydocs` module: `.docx` / `.pptx` synthesis and `.pdf` extraction.
 ///
 /// Lazy, because a user who never asks for a document should not pay a download,

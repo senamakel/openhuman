@@ -302,7 +302,6 @@ const DIGEST_MAX_CHARS: usize = 1000;
 /// per flow's memory namespace before pruning the oldest.
 const DIGEST_RETENTION_CAP: usize = 50;
 
-#[cfg(feature = "memory")]
 /// Listens for `DomainEvent::FlowRunFinished` and, on a successful terminal
 /// status, writes a compact digest of the run into the flow's own private
 /// memory namespace ([`flow_namespace`]) — e.g. so a later run of the same
@@ -317,6 +316,7 @@ const DIGEST_RETENTION_CAP: usize = 50;
 /// and swallowed, never propagated — by the time this subscriber observes
 /// `FlowRunFinished`, the run has already settled its own `flow_runs` row, so
 /// a memory-layer hiccup must never retroactively affect run status.
+#[cfg(feature = "memory")]
 pub struct FlowRunDigestSubscriber {
     config: Arc<Config>,
     /// Test-only memory override. In production this is `None` and the digest

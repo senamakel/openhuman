@@ -95,7 +95,7 @@ fn should_eager_load(record: &super::types::ModuleRecord, config: &Config) -> bo
     #[cfg(not(feature = "memory"))]
     {
         let _ = config;
-        return record.id != "tinymemory";
+        return record.id != super::registry::TINYMEMORY_MODULE_ID;
     }
     #[cfg(feature = "memory")]
     {

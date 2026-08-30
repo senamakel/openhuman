@@ -226,7 +226,10 @@ impl ComposioHost for OpenHumanComposioHost {
                 })?
             }
         };
-        Ok(response.connections)
+        // Across the seam into `tinymemory`'s parallel copy — see
+        // `integrations::composio::types::reencode`. Removed with the trait in
+        // phase 4 of the connector extraction.
+        crate::openhuman::integrations::composio::types::reencode(&response.connections)
     }
 
     async fn execute(

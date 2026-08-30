@@ -751,67 +751,68 @@ const TINYCONNECTORS: ModuleRecord = ModuleRecord {
     description: "OAuth connector integrations: accounts, actions, triggers, and record sync",
     bus_name: "ai.tinyhumans.connectors.Composio",
     object_path: "/ai/tinyhumans/connectors/Composio",
-    version: "0.3.0",
-    release_url: "https://github.com/tinyhumansai/tinyconnectors/releases/tag/v0.3.0",
+    version: "0.3.1",
+    release_url: "https://github.com/tinyhumansai/tinyconnectors/releases/tag/v0.3.1",
     assets: &[
         PlatformAsset {
             host_key: "ubuntu-24.04-x86_64",
-            archive: "tinyconnectors-0.3.0-ubuntu-24.04-x86_64.tar.gz",
-            sha256: "4990d23429bdc57c6dd2be393a043870aef2a6701f60ec643b6ecfa2b6d4fe73",
+            archive: "tinyconnectors-0.3.1-ubuntu-24.04-x86_64.tar.gz",
+            sha256: "e6bba93e9da6110a2799e36704c82dd96e075aa0a754d8d8e0f527b1960dcc20",
         },
         PlatformAsset {
             host_key: "ubuntu-24.04-arm64",
-            archive: "tinyconnectors-0.3.0-ubuntu-24.04-arm64.tar.gz",
-            sha256: "493c88aa61837e8e04d8ef0d2ecf4cbff37c26afa1cebbcb21a9f7aff3dbcbd9",
+            archive: "tinyconnectors-0.3.1-ubuntu-24.04-arm64.tar.gz",
+            sha256: "b4a8375e3a0a1687106c10c434fa3d99026fbc664f0810323d4aa08025cca224",
         },
         PlatformAsset {
             host_key: "ubuntu-22.04-x86_64",
-            archive: "tinyconnectors-0.3.0-ubuntu-22.04-x86_64.tar.gz",
-            sha256: "f144cfa1d94b2daa7fc267fe990bb5068ae265b43558ac217c0448e55fda1fe6",
+            archive: "tinyconnectors-0.3.1-ubuntu-22.04-x86_64.tar.gz",
+            sha256: "54108d61153f27591bac4158c42da31863f87368a1cfe2e18f6f552e954b4977",
         },
         PlatformAsset {
             host_key: "ubuntu-22.04-arm64",
-            archive: "tinyconnectors-0.3.0-ubuntu-22.04-arm64.tar.gz",
-            sha256: "18ea24aca1f8419e5e63461364189684824aa01f6baabd23b9e8c60f8322f655",
+            archive: "tinyconnectors-0.3.1-ubuntu-22.04-arm64.tar.gz",
+            sha256: "5c9ee95b917057f1c8c08e12a3f55b63c8e7048b00e16ab7bf622f4f348c5270",
         },
         PlatformAsset {
             host_key: "macos-26-arm64",
-            archive: "tinyconnectors-0.3.0-macos-26-arm64.tar.gz",
-            sha256: "6a9dac7fd9becf9116d1b2423022829a9fe421a81fbf22b4174181813707debc",
+            archive: "tinyconnectors-0.3.1-macos-26-arm64.tar.gz",
+            sha256: "ca1cdb92556850cd9d04e05fbd3edd79ef181843828339ee8702144798029156",
         },
         PlatformAsset {
             host_key: "macos-26-x86_64",
-            archive: "tinyconnectors-0.3.0-macos-26-x86_64.tar.gz",
-            sha256: "1043311728fa823ae7d071aec594b706259efd97a815640fa0509b7d9bae0b98",
+            archive: "tinyconnectors-0.3.1-macos-26-x86_64.tar.gz",
+            sha256: "cc79fe1d39d5ebddba084f2f1cfb80415cd3b5ac8de40af222bb4cbd45834114",
         },
         PlatformAsset {
             host_key: "macos-15-arm64",
-            archive: "tinyconnectors-0.3.0-macos-15-arm64.tar.gz",
-            sha256: "69a15690c6078a03a2405007f5ceeff246673cef0fc5b5c358a175eeb10441e7",
+            archive: "tinyconnectors-0.3.1-macos-15-arm64.tar.gz",
+            sha256: "ada550c550865078c479128e4ec447c8385f65128982f338500dc7f98de645fa",
         },
         PlatformAsset {
             host_key: "macos-15-x86_64",
-            archive: "tinyconnectors-0.3.0-macos-15-x86_64.tar.gz",
-            sha256: "f1b97497e73ac1ed2f7b6dbc587cf0d4b5e7381b11c7e4d50ce1554f5295a9e2",
+            archive: "tinyconnectors-0.3.1-macos-15-x86_64.tar.gz",
+            sha256: "282966dd7fd581eb1853d2153c89bf6519f454ae0e399fed56bb4c5f6a842f50",
         },
         PlatformAsset {
             host_key: "windows-2025-x86_64",
-            archive: "tinyconnectors-0.3.0-windows-2025-x86_64.zip",
-            sha256: "b9ba48e2e5f51ac07028e7eac7223da2c8d8dbab1b507c137ac74751fcd4f06f",
+            archive: "tinyconnectors-0.3.1-windows-2025-x86_64.zip",
+            sha256: "cf246d5029c00fb295accaf2088e59617096ef4312b8d65eea90870c6f553c73",
         },
         PlatformAsset {
             host_key: "windows-2022-x86_64",
-            archive: "tinyconnectors-0.3.0-windows-2022-x86_64.zip",
-            sha256: "2c248a9953eb2356f84883104754ace26ec51755729f23bbf47cefae1985b78f",
+            archive: "tinyconnectors-0.3.1-windows-2022-x86_64.zip",
+            sha256: "a48a76b5a1a13fed7174596e2012a1e94abe939065fe853b753ecf1f3de7ba94",
         },
         PlatformAsset {
             host_key: "windows-11-arm64",
-            archive: "tinyconnectors-0.3.0-windows-11-arm64.zip",
-            sha256: "093af104fd0a6ff50e769dc4512d289b5e6f18001a1b89c4350fe1704949db9e",
+            archive: "tinyconnectors-0.3.1-windows-11-arm64.zip",
+            sha256: "a6cc65c13751be840e08d03bbc1648b30a9420d774d282a14cf90529ad79c7f6",
         },
     ],
     // Lazy: a user with no connected accounts should not pay to load it, and
-    // most sessions never touch a connector.
+    // most sessions never touch a connector. Safe even signed out — the module
+    // loads without configuration and still answers the capability members.
     load: LoadPolicy::Lazy,
 };
 

@@ -52,8 +52,7 @@ pub async fn composio_list_capabilities(
     // `integrations::composio::types::reencode`. Phase 4 moves the registry
     // into the connector module and this conversion goes away.
     let resp = ComposioCapabilitiesResponse {
-        capabilities: super::super::types::reencode(&capability_matrix())
-            .map_err(|error| crate::rpc::OpError::internal(error))?,
+        capabilities: super::super::types::reencode(&capability_matrix())?,
     };
     let count = resp.capabilities.len();
     Ok(RpcOutcome::new(

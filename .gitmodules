@@ -56,4 +56,4 @@
 [submodule "vendor/tinyconnectors"]
 	path = vendor/tinyconnectors
 	url = https://github.com/tinyhumansai/tinyconnectors
-	branch = connectors-migration
+	branch = main

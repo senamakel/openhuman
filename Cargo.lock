@@ -4153,6 +4153,7 @@ dependencies = [
  "tinyagents",
  "tinybus",
  "tinychannels",
+ "tinyconnectors-bus",
  "tinycortex",
  "tinycortex-api",
  "tinydocs-bus",
@@ -6408,6 +6409,14 @@ dependencies = [
  "whatsapp-rust",
  "whatsapp-rust-tokio-transport",
  "whatsapp-rust-ureq-http-client",
+]
+
+[[package]]
+name = "tinyconnectors-bus"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

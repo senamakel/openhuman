@@ -37,7 +37,7 @@ use crate::openhuman::config::Config;
 use std::sync::Arc;
 use tinyagents::harness::model::{ModelRequest, ModelResponse};
 use tinybus::ObjectPath;
-use tinymemory_api::host::composio::{ComposioConnection, ComposioExecuteResponse};
+use tinyconnectors_bus::{ComposioConnection, ComposioExecuteResponse};
 use tinymemory_api::host::{MemoryEvent, SpacyResponse};
 
 const EMBEDDING_NAME: &str = "ai.tinyhumans.tinymemory.EmbeddingHost";

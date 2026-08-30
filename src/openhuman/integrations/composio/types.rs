@@ -1,15 +1,20 @@
 //! Domain types for the Composio integration.
 //!
-//! The definitions **moved to `tinymemory_api::host::composio`** during the
-//! memory extraction: the extracted sync pipelines read these fields directly
-//! on every run, so they had to live somewhere both crates can name. They are
-//! inert serde data and carry no dependencies, so the contract crate's
-//! dependency-light guarantee is unaffected.
+//! The definitions live in **`tinyconnectors_bus`**, the connector module's wire
+//! contract, and are re-exported here so every existing
+//! `integrations::composio::types::…` path keeps resolving and keeps naming the
+//! same types.
 //!
-//! Every existing `integrations::composio::types::…` path keeps resolving and
-//! keeps naming the same types. **Their serde form mirrors the backend's
-//! response envelopes** under `/agent-integrations/composio/*` — field names and
-//! `#[serde(...)]` attributes are a wire contract, not an implementation
-//! detail.
+//! They were previously reached through `tinymemory_api::host::composio`, which
+//! held them only because two crates needed to name them and there was nowhere
+//! else both could. That is no longer true: the crate that *produces* these
+//! shapes owns them, and memory takes them — or, after the sync migration,
+//! stops needing them at all.
+//!
+//! **Their serde form is a wire contract**, not an implementation detail: it
+//! mirrors the backend's response envelopes under
+//! `/agent-integrations/composio/*`, and a field renamed on one side fails at
+//! runtime with a decode error rather than at compile time. The contract crate
+//! pins every one of them in a test for that reason.
 
-pub use tinymemory_api::host::composio::*;
+pub use tinyconnectors_bus::composio::*;

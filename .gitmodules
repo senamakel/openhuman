@@ -53,3 +53,7 @@
 	path = vendor/tinyjuice
 	url = https://github.com/tinyhumansai/tinyjuice
 	branch = main
+[submodule "vendor/tinyconnectors"]
+	path = vendor/tinyconnectors
+	url = https://github.com/tinyhumansai/tinyconnectors
+	branch = connectors-migration

@@ -244,17 +244,20 @@ impl ComposioHost for OpenHumanComposioHost {
             create_composio_client, direct_execute, ComposioClientKind,
         };
         let config = live_config(config).await?;
-        match create_composio_client(&config).map_err(|e| format!("{e:#}"))? {
+        let response = match create_composio_client(&config).map_err(|e| format!("{e:#}"))? {
             ComposioClientKind::Backend(client) => client
                 .execute_tool(tool, arguments)
                 .await
-                .map_err(|e| format!("{e:#}")),
+                .map_err(|e| format!("{e:#}"))?,
             ComposioClientKind::Direct(direct) => {
                 direct_execute(&direct, tool, arguments, entity_id, connection_id)
                     .await
-                    .map_err(|e| format!("{e:#}"))
+                    .map_err(|e| format!("{e:#}"))?
             }
-        }
+        };
+        // Across the seam into `tinymemory`'s parallel copy — see
+        // `integrations::composio::types::reencode`.
+        crate::openhuman::integrations::composio::types::reencode(&response)
     }
 
     fn api_key(&self, config: &SeamConfig) -> Option<String> {

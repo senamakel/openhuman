@@ -250,6 +250,17 @@ tinyruntime-bus = { path = "vendor/tinyruntime/crates/tinyruntime-bus" }
 
 tinymemory = { path = "vendor/tinymemory/crates/tinymemory" }
 tinymemory-api = { path = "vendor/tinymemory/crates/tinymemory-api" }
+# tinyconnectors-bus — the OAuth connector wire contract
+# (https://github.com/tinyhumansai/tinyconnectors). Payload types and member
+# names for the connector surface, with no transport and no behaviour: this
+# crate makes calls into the loaded `tinyconnectors` module and compiles none
+# of it.
+#
+# These types previously came from `tinymemory-api::host::composio`, which held
+# them only because two crates needed to name them and there was nowhere else
+# both could. That is what this dependency fixes — one definition, owned by the
+# crate that produces the shapes.
+tinyconnectors-bus = { path = "vendor/tinyconnectors/crates/tinyconnectors-bus" }
 # tinymemory-bus is the wire contract (method names, ABI). Normally transitive
 # through tinymemory-api, but modules/memory.rs names the method constants
 # directly (EXTRACT_ENTITIES, EMBED_TEXT, EMBEDDER_SLUG) — prefer compile

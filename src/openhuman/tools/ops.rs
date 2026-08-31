@@ -291,6 +291,14 @@ pub fn all_tools_with_runtime(
         Box::new(
             crate::openhuman::hosted::orchestration::tools::SendToAgentTool::new(config.clone()),
         ),
+        // The scheduler surface the model sees. The six per-operation tools
+        // below are its implementation and stay registered as
+        // `ToolExposure::Hidden` so a replayed transcript or a saved skill
+        // naming `cron_add` still dispatches — see `cron::tools::collapsed`.
+        Box::new(crate::openhuman::cron::tools::CronTool::new(
+            config.clone(),
+            security.clone(),
+        )),
         Box::new(CronAddTool::new(config.clone(), security.clone())),
         Box::new(CronListTool::new(config.clone())),
         Box::new(CronRemoveTool::new(config.clone())),

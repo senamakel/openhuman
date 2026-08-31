@@ -90,6 +90,26 @@ impl Agent {
         Arc::clone(&self.tool_specs)
     }
 
+    /// The agent's **advertised** tool names — the set whose schemas actually
+    /// reach the provider on every request.
+    ///
+    /// This is not `tools()`. The builder materialises this set from the
+    /// definition's [`ToolScope`] and then applies
+    /// [`crate::openhuman::tools::toolpacks::strip_packed_from_visible`], so it
+    /// is narrower than the registry in two independent ways. Anything
+    /// measuring or reporting a turn's fixed cost must read *this*, not the
+    /// registry: `debug::render_via_session` reported the registry for years
+    /// and told every reader that `researcher` ships 197 tools when its real
+    /// belt is two.
+    ///
+    /// An empty set is not a thing that happens here — the builder seeds it
+    /// with every registered tool name before stripping, precisely so the
+    /// "empty means all visible" sentinel used elsewhere cannot reach this
+    /// accessor.
+    pub fn visible_tool_names(&self) -> &std::collections::HashSet<String> {
+        &self.visible_tool_names
+    }
+
     #[cfg(test)]
     pub(crate) fn visible_tool_names_for_test(&self) -> &std::collections::HashSet<String> {
         &self.visible_tool_names

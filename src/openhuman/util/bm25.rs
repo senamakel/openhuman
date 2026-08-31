@@ -23,6 +23,26 @@
 
 use std::collections::HashMap;
 
+/// Words that carry no capability meaning, dropped from a query before ranking.
+///
+/// A document-frequency threshold alone cannot do this job on a small corpus,
+/// and the failure is not hypothetical: with three skills installed, "a"
+/// appeared in exactly one description, so by frequency it was the *most*
+/// distinguishing term in the query "provision a kubernetes cluster" — and the
+/// changelog skill was returned as the match. The df rule handles a large
+/// corpus; this list handles a small one. Both are needed.
+///
+/// Deliberately short and deliberately English-only. It can only ever *remove*
+/// terms, so a description in another language ranks exactly as it does today
+/// rather than worse. Words that could name a capability are left out on
+/// purpose — "up" stays, because "look up" is a thing a tool does.
+const STOPWORDS: &[&str] = &[
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "can", "do", "for", "from", "how", "i",
+    "if", "in", "into", "is", "it", "its", "me", "my", "of", "on", "or", "our", "so", "that",
+    "the", "their", "them", "then", "there", "these", "they", "this", "to", "was", "we", "were",
+    "what", "when", "which", "who", "will", "with", "would", "you", "your",
+];
+
 /// BM25 term-frequency saturation. The standard default.
 pub const K1: f64 = 1.2;
 /// BM25 length normalisation. The standard default.
@@ -175,6 +195,9 @@ impl Bm25Index {
     ///
     /// One skill: the threshold is 2 and no term can reach it. Three: a term in
     /// all three goes. Twenty: a term in sixteen or more goes.
+    ///
+    /// The threshold alone is not enough on a small corpus — see [`STOPWORDS`],
+    /// which is the other half and the one that caught the real bug.
     fn significant(&self, terms: Vec<String>) -> Vec<String> {
         let n = self.documents.len();
         if n == 0 {
@@ -183,6 +206,7 @@ impl Bm25Index {
         let threshold = std::cmp::max(2, (0.8 * n as f64).ceil() as usize);
         terms
             .into_iter()
+            .filter(|term| !STOPWORDS.contains(&term.as_str()))
             .filter(|term| *self.document_frequency.get(term).unwrap_or(&0) < threshold)
             .collect()
     }
@@ -245,11 +269,14 @@ mod tests {
 
     #[test]
     fn a_query_matching_only_on_stopwords_is_a_miss() {
-        // The regression this cost a real debugging pass to find: "a" appears
-        // in all three documents, so before `significant` existed this query
-        // ranked a changelog skill as a match for provisioning a cluster.
+        // The regression, and it took two attempts to fix. "a" appears in
+        // exactly ONE of these three documents, so by document frequency it is
+        // the most distinguishing term in the query — the df threshold cannot
+        // catch it, and the first fix that only had the threshold still ranked
+        // a changelog skill as the match for provisioning a cluster.
         assert!(corpus().search("provision a kubernetes cluster", 3).is_empty());
         assert!(corpus().search("a", 3).is_empty());
+        assert!(corpus().search("what is it that you will do for me", 3).is_empty());
     }
 
     #[test]

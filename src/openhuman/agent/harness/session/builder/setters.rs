@@ -452,6 +452,14 @@ impl AgentBuilder {
         let tool_specs: Vec<ToolSpec> = tools.iter().map(|tool| tool.spec()).collect();
 
         let mut visible_names = self.visible_tool_names.unwrap_or_default();
+        // Whether this agent's belt was written by hand.
+        //
+        // A `ToolScope::Named` definition arrives here with its names already
+        // in `visible_names`; a `Wildcard` one arrives empty and is seeded
+        // below with the whole registry. That distinction decides whether
+        // per-tool exposure applies — see the `strip_deferred_from_visible`
+        // call further down.
+        let belt_is_explicit = !visible_names.is_empty();
         // Resolved here rather than at its historical position below: the pack
         // withholding is per-agent (a pack is skipped for the specialist that
         // owns its family), so the id has to exist before the strip.
@@ -478,12 +486,25 @@ impl AgentBuilder {
         // of one tool that `tool_search` recovers — and they compose by simple
         // subtraction, so a tool that is both is just absent twice.
         //
-        // Neither can widen anything. This runs on a set the belt and the
-        // security policy already produced, and only ever removes from it.
-        let deferred = crate::openhuman::tools::implementations::meta::strip_deferred_from_visible(
-            &mut visible_names,
-            tools.as_slice(),
-        );
+        // **Only for a wildcard belt.** Exposure exists to tame the
+        // everything-belt; a hand-written `[tools] named` list is already the
+        // answer to "what should this agent see", and second-guessing it does
+        // real damage in both directions. Applying exposure to a narrow belt
+        // would have swapped `flow_memory_agent`'s three small read-only memory
+        // tools (2,396 B) for the whole collapsed `memory` tool (3,788 B) —
+        // bigger *and* wider, handing an agent documented as read-only the
+        // `store` and `forget` actions its belt deliberately withheld.
+        //
+        // Neither branch can widen anything: this only ever removes from a set
+        // the belt and the security policy already produced.
+        let deferred = if belt_is_explicit {
+            Vec::new()
+        } else {
+            crate::openhuman::tools::implementations::meta::strip_deferred_from_visible(
+                &mut visible_names,
+                tools.as_slice(),
+            )
+        };
         if !deferred.is_empty() {
             tracing::info!(
                 agent = %agent_definition_name,

@@ -213,6 +213,16 @@ pub fn install(workspace_dir: &Path) -> InstallReport {
     report
 }
 
+/// Boot entry point: install every bundled skill and discard the report.
+///
+/// Separate from [`install`] only so it can have the same signature as the
+/// skills-off stub, which cannot name [`InstallReport`] (that type lives inside
+/// the gate). The one caller logs nothing extra — [`install`] already logs per
+/// skill — so nothing is lost by dropping the report here.
+pub fn install_bundled_skills(workspace_dir: &Path) {
+    let _ = install(workspace_dir);
+}
+
 /// Returns `Ok(true)` when the bundle was (re)written, `Ok(false)` when the
 /// on-disk copy was already current.
 fn install_one(root: &Path, skill: &BundledSkill) -> Result<bool, String> {

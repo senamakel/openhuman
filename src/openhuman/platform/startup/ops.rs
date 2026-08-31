@@ -5,15 +5,6 @@ use std::path::Path;
 /// Failures are logged and do not abort startup. Individual migration helpers
 /// remain responsible for their own idempotency markers.
 pub fn run_workspace_migrations(workspace_dir: &Path) {
-    // Skills compiled into the binary, written out under
-    // `<workspace>/.openhuman/builtin-skills/` so discovery finds them like any
-    // other bundle. Here rather than in `init_workspace` because that is a
-    // one-shot RPC: an existing workspace never runs it again, so an upgrade
-    // that ships a new page would reach nobody. This runs on every core boot,
-    // which is also every workspace switch (login/logout restarts the core),
-    // and a bundle whose digest already matches is a single file read.
-    crate::openhuman::skills::install_bundled_skills(workspace_dir);
-
     match crate::openhuman::agent::harness::session::migrate_session_layout_if_needed(workspace_dir)
     {
         Ok(outcome) if outcome.already_done => {

@@ -616,6 +616,27 @@ impl CoreBuilder {
         )
         .await?;
 
+        // Materialise the skills compiled into this binary, into whichever
+        // workspace this host resolved.
+        //
+        // HERE, not in `run_workspace_migrations`, and that distinction cost a
+        // working feature: that function has exactly one caller, the RPC server
+        // boot in `jsonrpc.rs`. The CLI (`openhuman agent dump-prompt`), the TUI
+        // and `Harness` — the library front door — never reach it, so an
+        // embedder got a `workflow_builder` whose system prompt pointed at a
+        // reference manual that did not exist on its disk. `CoreBuilder::build`
+        // is the one path every host takes, including the RPC server.
+        //
+        // Not fallible, and cheap when current: one file read per bundle to
+        // compare digests. Failures are logged per skill inside `install`.
+        if let Ok(workspace_dir) = ctx.workspace_dir() {
+            crate::openhuman::skills::install_bundled_skills(&workspace_dir);
+        } else {
+            tracing::debug!(
+                "[skills][bundled] no workspace resolved at build; builtin skills not installed"
+            );
+        }
+
         Ok(CoreRuntime {
             ctx,
             config,

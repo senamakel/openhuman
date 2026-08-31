@@ -44,7 +44,7 @@ impl Tool for TodoTool {
             "properties": {
                 "op": {
                     "type": "string",
-                    "enum": ["add", "edit", "update_status", "remove", "replace", "clear", "list"]
+                    "enum": ["add", "edit", "update_status", "decide_plan", "remove", "replace", "clear", "list"]
                 },
                 "id": { "type": "string", "description": "Card id (required for edit/update_status/remove)." },
                 "content": { "type": "string", "description": "Card title (required for add; optional for edit)." },
@@ -54,6 +54,10 @@ impl Tool for TodoTool {
                 },
                 "notes": { "type": "string" },
                 "blocker": { "type": "string" },
+                "approve": {
+                    "type": "boolean",
+                    "description": "decide_plan: approve (true) or reject (false) a card awaiting plan approval."
+                },
                 "objective": { "type": "string", "description": "Desired outcome for this task." },
                 "plan": {
                     "type": "array",
@@ -138,11 +142,20 @@ impl Tool for TodoTool {
                     .map_err(|e| anyhow::anyhow!("invalid `cards`: {e}"))?;
                 ops::replace(&location, cards).await
             }
+            "decide_plan" => {
+                let id = required_string(&args, "id")?;
+                let approve = args
+                    .get("approve")
+                    .and_then(serde_json::Value::as_bool)
+                    .ok_or_else(|| anyhow::anyhow!("missing required boolean `approve`"))?;
+                ops::decide_plan(&location, &id, approve).await
+            }
             "clear" => ops::clear(&location).await,
             "list" => ops::list(&location).await,
             other => {
                 return Ok(ToolResult::error(format!(
-                "unknown op '{other}' (expected add|edit|update_status|remove|replace|clear|list)"
+                "unknown op '{other}' (expected \
+                 add|edit|update_status|decide_plan|remove|replace|clear|list)"
             )))
             }
         };

@@ -46,35 +46,5 @@ hint = "burst"
 # party can influence (an inbound email, a webhook payload), so a
 # write-capable tool would be an injection foothold.
 named = [
-    # Targeted recall over the memory namespaces (global, background, …).
-    "memory_recall",
-    # Keyword/lexical memory lookup — complements `memory_recall`'s semantic
-    # search when the step needs an exact-term hit.
-    "memory_hybrid_search",
-    # Compiled persona distillation profile for one facet (communication,
-    # coding_style, stack, workflow, environment, directives,
-    # anti_preferences) — the user's distilled style/preference summary, read
-    # only.
-    "memory_flavour",
-    # Enumerate known people/contacts (read-only) — the people-graph
-    # counterpart to memory recall for "who is X" / "find the person who…"
-    # steps.
-    # Transcripts: recall what the user said/decided in earlier chats. Backed
-    # by the cross-thread trigram index; read-only and workspace-scoped.
-    # Thread metadata: enumerate / read titles+labels to locate the right past
-    # conversation before pulling its transcript. Read-only (the create/
-    # update/delete thread tools are deliberately excluded).
-    # Read the messages of a located thread (read-only). Complements
-    # `transcript_search` (content search) for title/label lookups where the
-    # thread is found by metadata but its transcript still has to be pulled.
-    #
-    # NOTE: `memory_tree` is intentionally NOT here, and must never be added.
-    # It bundles a write mode (`ingest_document` → MemoryTreeIngestDocumentTool)
-    # under a ReadOnly-declared wrapper (its argless `permission_level()`
-    # reports ReadOnly while the tool still dispatches an `ingest_document`
-    # WRITE mode), so it survives the read-only sandbox filter in
-    # `session/builder/factory.rs` despite being a write tool. This agent runs
-    # on prompt-injectable flow/trigger content, so that would hand injected
-    # data a memory-write foothold. Retrieval-only tools above cover every
-    # legitimate need.
+    "memory",
 ]

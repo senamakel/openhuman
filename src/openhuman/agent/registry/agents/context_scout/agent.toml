@@ -44,34 +44,10 @@ hint = "burst"
 # genuinely read-only: the scout auto-runs on prompt-injectable input, so a
 # write-capable tool would be an injection foothold.
 named = [
-    # Targeted recall over the memory namespaces (global, background, …).
-    # NOTE: `memory_tree` is intentionally NOT here. That tool bundles a
-    # write mode (`ingest_document` → MemoryTreeIngestDocumentTool) under a
-    # ReadOnly-declared wrapper, so an auto-run, prompt-injectable scout could
-    # mutate memory ("remember this document") despite running read-only.
-    # Retrieval-only `memory_recall` covers the scout's needs safely.
-    "memory_recall",
-    # Compiled persona distillation profile for one facet (communication,
-    # coding_style, stack, workflow, environment, directives,
-    # anti_preferences) — the user's distilled style/preference summary, read
-    # only, complements `memory_recall`'s raw-fact search.
-    "memory_flavour",
-    # Transcripts: recall what the user said/decided in earlier chats. Backed
-    # by the cross-thread trigram index; read-only and workspace-scoped.
-    # Thread metadata: enumerate / read titles+labels to locate the right past
-    # conversation before pulling its transcript. Read-only (the create/update/
-    # delete thread tools are deliberately excluded).
-    # Read the messages of a located thread (read-only). Complements
-    # `transcript_search` (content search) for title/label lookups like
-    # "summarize my Database work thread", where the thread is found by metadata
-    # but its transcript still has to be pulled.
-    # Skills: discover which skills are installed and search the registry so the
-    # scout can recommend a relevant one back to the orchestrator. All three are
-    # read-only — `skill_registry_install` / `_uninstall` are deliberately out.
+    "memory",
     "list_workflows",
     "skill_registry_browse",
     "skill_registry_search",
-    # Fresh external facts when the question needs them.
     "web_search_tool",
     "web_fetch",
 ]

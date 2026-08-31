@@ -21,11 +21,19 @@
 //!
 //! # Permissions
 //!
-//! The members disagree: `memory_recall` reads, `memory_store` writes, and
-//! `memory_forget` destroys. `permission_level_with_args` resolves the real one
-//! from the action; the argument-free `permission_level` reports the strictest
-//! so an argument-less caller over-restricts. See
-//! `tools::implementations::meta::collapse`.
+//! `permission_level_with_args` resolves the member's own level from the
+//! action; the argument-free `permission_level` reports the strictest any
+//! member requires, so an argument-less caller over-restricts rather than
+//! under-. See `tools::implementations::meta::collapse`.
+//!
+//! **Pre-existing, and left alone:** this family declares one level between
+//! them. Neither `memory_store` nor `memory_forget` overrides
+//! `permission_level`, so a write and a delete both inherit the `ReadOnly`
+//! default; both gate internally through their own `SecurityPolicy` +
+//! `ToolOperation` check, so they are not ungated, but what they *declare* to
+//! the approval gate is wrong. Collapsing reproduces that exactly and does not
+//! correct it — raising them would change which turns get parked for approval,
+//! which is a product decision rather than a token optimisation.
 
 use std::sync::Arc;
 
@@ -235,26 +243,43 @@ mod tests {
     }
 
     #[test]
-    fn a_read_is_not_gated_at_the_destructive_level() {
+    fn each_action_resolves_to_exactly_its_members_level() {
+        // The real contract, and the one that keeps collapsing honest: whatever
+        // a member declares, the collapsed tool reports for that action.
+        //
+        // Note this family currently declares one level between them (see the
+        // module docs): `memory_store` and `memory_forget` never override
+        // `permission_level`, so they inherit the `ReadOnly` default. That is
+        // pre-existing and deliberately not changed here — raising them is a
+        // behaviour change to the approval gate, not a token optimisation. An
+        // inequality assertion would therefore be asserting a bug.
         let tool = tool();
-        let recall = serde_json::json!({"action": "recall", "query": "x"});
-        assert!(
-            tool.permission_level_with_args(&recall) < tool.permission_level(),
-            "recall must resolve below the family's strictest level"
-        );
+        for entry in tool.actions() {
+            let args = serde_json::json!({"action": entry.action});
+            assert_eq!(
+                tool.permission_level_with_args(&args),
+                entry.tool.permission_level_with_args(&args),
+                "action `{}` must report what `{}` reports",
+                entry.action,
+                entry.tool.name()
+            );
+        }
     }
 
     #[test]
-    fn forget_is_gated_at_the_familys_strictest_level() {
-        // The inverse of the test above, and the one that would catch a
-        // dispatch bug quietly downgrading a delete.
+    fn collapsing_never_lowers_the_argument_free_level() {
+        // The safety property that does not depend on what the members happen
+        // to declare today: a caller that cannot pass arguments is never told
+        // a level below any member's.
         let tool = tool();
-        let forget = serde_json::json!({"action": "forget", "id": "m1"});
-        assert_eq!(
-            tool.permission_level_with_args(&forget),
-            tool.forget.permission_level(),
-            "forget must resolve to exactly what the member requires"
-        );
+        let floor = tool.permission_level();
+        for entry in tool.actions() {
+            assert!(
+                entry.tool.permission_level() <= floor,
+                "`{}` requires more than the collapsed tool advertises",
+                entry.tool.name()
+            );
+        }
     }
 
     #[test]

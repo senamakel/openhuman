@@ -348,6 +348,12 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         (
             "skills",
             &[
+                // Ranked lookup over installed skills. Deliberately IN this
+                // pack rather than advertised: on its own it produced ids for
+                // skills whose `describe_workflow` / `run_skill` were still
+                // withheld — 748 B on every wildcard agent for a doorway to a
+                // locked room.
+                "skill_search",
                 "run_skill",
                 "setup_skills",
                 "skill_registry_browse",

@@ -75,12 +75,12 @@
 #
 #               Every one of those was invisible until this file existed.
 
-morning_briefing:14279:82972
-trigger_triage:11075:82972
-workflow_builder:67850:29703
-summarizer:10644:82972
-tools_agent:8260:82972
-orchestrator:33726:43139
+morning_briefing:14279:82986
+trigger_triage:11075:82986
+workflow_builder:46405:30259
+summarizer:10644:82986
+tools_agent:8260:82986
+orchestrator:33823:43153
 code_executor:13327:12338
 crypto_agent:12049:12357
 task_manager_agent:7104:15601
@@ -89,12 +89,12 @@ skill_creator:7311:12411
 flow_discovery:10111:9503
 profile_memory_agent:7202:11815
 settings_agent:7065:11220
-context_scout:10427:7638
-skill_executor:9613:8076
+context_scout:10427:7652
+skill_executor:9613:8090
 scheduler_agent:9635:7008
 agent_memory:9761:6698
 mcp_setup:10368:5078
-skill_setup:7272:7959
+skill_setup:7272:7973
 trigger_reactor:7966:6423
 mcp_agent:8927:4472
 flow_memory_agent:9026:3809
@@ -168,4 +168,4 @@ tool:save_workflow:1957
 tool:spawn_parallel_agents:1851
 tool:todo:1831
 tool:search_tool_catalog:1695
-tool:use_skill:1620
+tool:use_skill:1627

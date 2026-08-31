@@ -218,6 +218,24 @@ fn discover_filtered(
     // a name wins, so we scan user first, then project, then legacy.
     let mut by_name: HashMap<String, Workflow> = HashMap::new();
 
+    // Builtin skills (`<workspace>/.openhuman/builtin-skills/`) are a skill
+    // root scanned FIRST and at the lowest precedence, so every other scope
+    // shadows them on a name collision. No trust marker is consulted: the
+    // directory is core-managed and its contents were written from constants
+    // compiled into this binary, which is a stronger provenance claim than the
+    // marker makes about a project directory. See `skills::bundled`.
+    if let Some(ws) = workspace_dir {
+        if kinds.contains(&RootKind::Skill) {
+            let root = crate::openhuman::skills::bundled::builtin_root(ws);
+            tracing::trace!(
+                root = %root.display(),
+                scope = ?WorkflowScope::Builtin,
+                "[workflows] discover:branch:builtin"
+            );
+            absorb(&mut by_name, scan_root(&root, WorkflowScope::Builtin));
+        }
+    }
+
     if let Some(home) = home_dir {
         for (root, kind) in user_roots(home) {
             if kinds.contains(&kind) {
@@ -387,11 +405,16 @@ fn absorb(by_name: &mut HashMap<String, Workflow>, incoming: Vec<Workflow>) {
 
 fn precedence(scope: WorkflowScope) -> u8 {
     match scope {
-        WorkflowScope::Legacy => 0,
-        WorkflowScope::User => 1,
-        WorkflowScope::Project => 2,
+        // Builtin sits below everything, including Legacy: a bundle that ships
+        // with the binary must never shadow something the user installed or
+        // wrote. Adding a builtin skill is then a change that cannot take a
+        // name away from an existing workspace.
+        WorkflowScope::Builtin => 0,
+        WorkflowScope::Legacy => 1,
+        WorkflowScope::User => 2,
+        WorkflowScope::Project => 3,
         // Profile-local skills win against every global scope for their owner.
-        WorkflowScope::Profile => 3,
+        WorkflowScope::Profile => 4,
     }
 }
 

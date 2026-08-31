@@ -152,7 +152,10 @@ fn legacy_workflow_dir(
         // Profile-local skills are placed by hand under
         // `<workspace>/personalities/<id>/skills/`, never scaffolded through
         // the create path; treat them like Legacy here (no create target).
-        WorkflowScope::Legacy | WorkflowScope::Profile => return None,
+        // Builtin bundles come from a `const` table compiled into the
+        // binary; a create RPC that could write one would make that table
+        // remotely extensible, which is the whole thing it exists to prevent.
+        WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Profile => return None,
     };
     for root in roots {
         let canonical_root = match std::fs::canonicalize(&root) {
@@ -217,7 +220,7 @@ pub(crate) fn create_workflow_inner(
             }
             workspace_dir.join(".openhuman").join("workflows")
         }
-        WorkflowScope::Legacy | WorkflowScope::Profile => {
+        WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Profile => {
             return Err(
                 "cannot create skill in legacy or profile scope; choose 'user' or 'project'"
                     .to_string(),

@@ -102,7 +102,6 @@ pub async fn init_workspace(force: bool) -> Result<serde_json::Value, String> {
     init_workflows_dir(&workspace_dir)
         .map_err(|e| format!("failed to initialize skills dir: {e}"))?;
 
-
     // Report what the call actually did, not what it was expected to do.
     //
     // These two were previously classified from the pre-check alone, which

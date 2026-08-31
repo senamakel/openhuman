@@ -219,7 +219,6 @@ impl PromptSection for IdentitySection {
         "identity"
     }
 
-
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut prompt = String::from("## Project Context\n\n");
         prompt.push_str(
@@ -347,7 +346,6 @@ impl PromptSection for AgentsInstructionsSection {
         "agents_md"
     }
 
-
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut out = String::new();
         super::render_helpers::write_agents_md_blocks(
@@ -363,7 +361,6 @@ impl PromptSection for ToolsSection {
     fn name(&self) -> &str {
         "tools"
     }
-
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         // Native function-calling: the provider already sends full JSON
@@ -539,7 +536,6 @@ impl PromptSection for RuntimeSection {
         "runtime"
     }
 
-
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let host =
             hostname::get().map_or_else(|_| "unknown".into(), |h| h.to_string_lossy().to_string());
@@ -560,7 +556,6 @@ impl PromptSection for UserReflectionsSection {
     fn name(&self) -> &str {
         "user_reflections"
     }
-
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         if ctx.learned.reflections.is_empty() {
@@ -599,7 +594,6 @@ impl PromptSection for UserMemorySection {
     fn name(&self) -> &str {
         "user_memory"
     }
-
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         if ctx.learned.tree_root_summaries.is_empty() {
@@ -657,7 +651,6 @@ impl PromptSection for DateTimeSection {
         "datetime"
     }
 
-
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         // No concrete timestamp here. The live "now" is injected per turn
         // on the user message via `render_helpers::current_datetime_line`
@@ -710,8 +703,6 @@ impl PromptSection for UserIdentitySection {
     fn name(&self) -> &str {
         "user_identity"
     }
-
-
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let identity = match ctx.user_identity.as_ref() {

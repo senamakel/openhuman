@@ -264,12 +264,16 @@ mod tests {
         ToolSearchIndex::build(&[
             spec("stock_quote", "Get the latest price for a stock ticker"),
             spec("cron_add", "Schedule a recurring job to run later"),
-            spec("memory_hybrid_search", "Search stored memories semantically"),
-            spec("generate_presentation", "Build a pptx slide deck from an outline"),
+            spec(
+                "memory_hybrid_search",
+                "Search stored memories semantically",
+            ),
+            spec(
+                "generate_presentation",
+                "Build a pptx slide deck from an outline",
+            ),
         ])
     }
-
-
 
     #[test]
     fn a_plain_language_query_finds_the_right_tool() {
@@ -318,8 +322,16 @@ mod tests {
     #[test]
     fn ranking_is_stable_across_identical_queries() {
         let index = index();
-        let first: Vec<&str> = index.search("search", 4).iter().map(|t| t.name.as_str()).collect();
-        let second: Vec<&str> = index.search("search", 4).iter().map(|t| t.name.as_str()).collect();
+        let first: Vec<&str> = index
+            .search("search", 4)
+            .iter()
+            .map(|t| t.name.as_str())
+            .collect();
+        let second: Vec<&str> = index
+            .search("search", 4)
+            .iter()
+            .map(|t| t.name.as_str())
+            .collect();
         assert_eq!(first, second);
     }
 }

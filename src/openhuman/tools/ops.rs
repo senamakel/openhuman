@@ -1538,11 +1538,9 @@ pub(crate) fn tool_capability(name: &str) -> Option<tinymemory_api::capabilities
         // are: it must stay registered whenever the mandatory family is, and
         // it filters its own action list by capability so an unavailable
         // action is never advertised. See `memory::tools::collapsed`.
-        "memory"
-        | "memory_store"
-        | "memory_forget"
-        | "remember_preference"
-        | "save_preference" => Capability::Core,
+        "memory" | "memory_store" | "memory_forget" | "remember_preference" | "save_preference" => {
+            Capability::Core
+        }
         // Chunk/recall retrieval surface. NOT `Tree` — these read chunk
         // embeddings and chunk rows, never the summary tree.
         "memory_recall"

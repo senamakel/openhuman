@@ -72,11 +72,10 @@ pub fn merge_action_schemas(actions: &[CollapsedAction<'_>]) -> Value {
             continue;
         };
         for (name, spec) in props {
-            owners
+            owners.entry(name.clone()).or_default().push(entry.action);
+            properties
                 .entry(name.clone())
-                .or_default()
-                .push(entry.action);
-            properties.entry(name.clone()).or_insert_with(|| spec.clone());
+                .or_insert_with(|| spec.clone());
         }
     }
 
@@ -241,7 +240,12 @@ mod tests {
         }
     }
 
-    fn stub(name: &'static str, schema: Value, permission: PermissionLevel, external: bool) -> Stub {
+    fn stub(
+        name: &'static str,
+        schema: Value,
+        permission: PermissionLevel,
+        external: bool,
+    ) -> Stub {
         Stub {
             name,
             schema,
@@ -252,7 +256,12 @@ mod tests {
 
     #[test]
     fn the_union_carries_every_members_properties() {
-        let list = stub("list", json!({"type": "object", "properties": {}}), PermissionLevel::ReadOnly, false);
+        let list = stub(
+            "list",
+            json!({"type": "object", "properties": {}}),
+            PermissionLevel::ReadOnly,
+            false,
+        );
         let runs = stub(
             "runs",
             json!({"type": "object", "properties": {
@@ -263,8 +272,14 @@ mod tests {
             false,
         );
         let actions = vec![
-            CollapsedAction { action: "list", tool: &list },
-            CollapsedAction { action: "runs", tool: &runs },
+            CollapsedAction {
+                action: "list",
+                tool: &list,
+            },
+            CollapsedAction {
+                action: "runs",
+                tool: &runs,
+            },
         ];
         let merged = merge_action_schemas(&actions);
         let props = merged["properties"].as_object().expect("properties");
@@ -278,7 +293,12 @@ mod tests {
     fn only_action_is_required_because_a_union_cannot_say_otherwise() {
         // `job_id` is required for `runs` and meaningless for `list`. Marking
         // it required here would make every `list` call invalid.
-        let list = stub("list", json!({"type": "object", "properties": {}}), PermissionLevel::ReadOnly, false);
+        let list = stub(
+            "list",
+            json!({"type": "object", "properties": {}}),
+            PermissionLevel::ReadOnly,
+            false,
+        );
         let runs = stub(
             "runs",
             json!({"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]}),
@@ -286,15 +306,29 @@ mod tests {
             false,
         );
         let actions = vec![
-            CollapsedAction { action: "list", tool: &list },
-            CollapsedAction { action: "runs", tool: &runs },
+            CollapsedAction {
+                action: "list",
+                tool: &list,
+            },
+            CollapsedAction {
+                action: "runs",
+                tool: &runs,
+            },
         ];
-        assert_eq!(merge_action_schemas(&actions)["required"], json!(["action"]));
+        assert_eq!(
+            merge_action_schemas(&actions)["required"],
+            json!(["action"])
+        );
     }
 
     #[test]
     fn a_property_only_some_actions_take_is_labelled_with_them() {
-        let a = stub("a", json!({"type": "object", "properties": {"shared": {"type": "string"}}}), PermissionLevel::ReadOnly, false);
+        let a = stub(
+            "a",
+            json!({"type": "object", "properties": {"shared": {"type": "string"}}}),
+            PermissionLevel::ReadOnly,
+            false,
+        );
         let b = stub(
             "b",
             json!({"type": "object", "properties": {
@@ -305,8 +339,14 @@ mod tests {
             false,
         );
         let actions = vec![
-            CollapsedAction { action: "a", tool: &a },
-            CollapsedAction { action: "b", tool: &b },
+            CollapsedAction {
+                action: "a",
+                tool: &a,
+            },
+            CollapsedAction {
+                action: "b",
+                tool: &b,
+            },
         ];
         let merged = merge_action_schemas(&actions);
         let props = &merged["properties"];
@@ -321,9 +361,18 @@ mod tests {
         let execute = stub("x", json!({}), PermissionLevel::Execute, false);
         let write = stub("w", json!({}), PermissionLevel::Write, false);
         let actions = vec![
-            CollapsedAction { action: "r", tool: &read },
-            CollapsedAction { action: "x", tool: &execute },
-            CollapsedAction { action: "w", tool: &write },
+            CollapsedAction {
+                action: "r",
+                tool: &read,
+            },
+            CollapsedAction {
+                action: "x",
+                tool: &execute,
+            },
+            CollapsedAction {
+                action: "w",
+                tool: &write,
+            },
         ];
         assert_eq!(strictest_permission(&actions), PermissionLevel::Execute);
     }
@@ -332,10 +381,19 @@ mod tests {
     fn external_effect_is_true_when_any_member_has_one() {
         let clean = stub("c", json!({}), PermissionLevel::ReadOnly, false);
         let dirty = stub("d", json!({}), PermissionLevel::ReadOnly, true);
-        assert!(!any_external_effect(&[CollapsedAction { action: "c", tool: &clean }]));
+        assert!(!any_external_effect(&[CollapsedAction {
+            action: "c",
+            tool: &clean
+        }]));
         assert!(any_external_effect(&[
-            CollapsedAction { action: "c", tool: &clean },
-            CollapsedAction { action: "d", tool: &dirty },
+            CollapsedAction {
+                action: "c",
+                tool: &clean
+            },
+            CollapsedAction {
+                action: "d",
+                tool: &dirty
+            },
         ]));
     }
 
@@ -349,7 +407,10 @@ mod tests {
     #[test]
     fn an_unknown_action_names_the_valid_ones() {
         let a = stub("a", json!({}), PermissionLevel::ReadOnly, false);
-        let actions = vec![CollapsedAction { action: "add", tool: &a }];
+        let actions = vec![CollapsedAction {
+            action: "add",
+            tool: &a,
+        }];
         assert_eq!(
             unknown_action_message(&actions, Some("addd")),
             "unknown action 'addd' (expected add)"

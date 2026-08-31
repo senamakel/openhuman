@@ -50,13 +50,25 @@ fn the_digest_covers_paths_as_well_as_contents() {
     let moved = BundledSkill {
         dir_name: "sample",
         files: &[
-            BundledFile { path: "WORKFLOW.md", contents: A.contents },
-            BundledFile { path: "references/detail.md", contents: "detai" },
+            BundledFile {
+                path: "WORKFLOW.md",
+                contents: A.contents,
+            },
+            BundledFile {
+                path: "references/detail.md",
+                contents: "detai",
+            },
         ],
     };
     let renamed = BundledSkill {
         dir_name: "sample",
-        files: &[A, BundledFile { path: "references/other.md", contents: B.contents }],
+        files: &[
+            A,
+            BundledFile {
+                path: "references/other.md",
+                contents: B.contents,
+            },
+        ],
     };
     assert_ne!(SAMPLE.digest(), moved.digest());
     assert_ne!(SAMPLE.digest(), renamed.digest());
@@ -93,8 +105,14 @@ fn a_traversal_path_is_rejected() {
 #[test]
 fn a_bad_dir_name_is_rejected() {
     for bad in ["", ".hidden", "a/b", "a\\b"] {
-        let skill = BundledSkill { dir_name: bad, files: &[A] };
-        assert!(skill.validate().is_err(), "`{bad}` must be rejected as a dir_name");
+        let skill = BundledSkill {
+            dir_name: bad,
+            files: &[A],
+        };
+        assert!(
+            skill.validate().is_err(),
+            "`{bad}` must be rejected as a dir_name"
+        );
     }
 }
 
@@ -105,7 +123,10 @@ fn a_bundle_with_no_manifest_is_rejected() {
     // never appear — the worst failure mode available, because nothing errors.
     let skill = BundledSkill {
         dir_name: "sample",
-        files: &[BundledFile { path: "references/detail.md", contents: "x" }],
+        files: &[BundledFile {
+            path: "references/detail.md",
+            contents: "x",
+        }],
     };
     assert!(skill.validate().is_err());
 }
@@ -135,7 +156,10 @@ fn a_version_bump_removes_a_file_the_new_version_dropped() {
     let root = builtin_root(tmp.path());
     assert!(install_one(&root, &SAMPLE).expect("install v1"));
 
-    let v2 = BundledSkill { dir_name: "sample", files: &[A] };
+    let v2 = BundledSkill {
+        dir_name: "sample",
+        files: &[A],
+    };
     assert!(install_one(&root, &v2).expect("install v2"));
     assert!(
         !root.join("sample").join("references/detail.md").exists(),
@@ -164,7 +188,10 @@ fn install_reports_rather_than_fails_the_boot() {
     // must not stop the core from starting.
     let tmp = tempfile::tempdir().expect("tempdir");
     let report = install(tmp.path());
-    assert!(report.failed.is_empty(), "clean workspace must install: {report:?}");
+    assert!(
+        report.failed.is_empty(),
+        "clean workspace must install: {report:?}"
+    );
     assert_eq!(
         report.written.len() + report.unchanged.len(),
         BUNDLED.len(),
@@ -222,7 +249,10 @@ fn a_materialised_bundle_is_discoverable_and_readable_end_to_end() {
                 std::path::Path::new(file.path),
             )
             .unwrap_or_else(|e| {
-                panic!("reading `{}` of `{}` failed: {e}", file.path, skill.dir_name)
+                panic!(
+                    "reading `{}` of `{}` failed: {e}",
+                    file.path, skill.dir_name
+                )
             });
             assert_eq!(
                 body, file.contents,

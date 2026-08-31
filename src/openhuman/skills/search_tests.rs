@@ -76,7 +76,11 @@ fn nothing_relevant_returns_nothing() {
 fn the_limit_caps_the_result_set() {
     let all = corpus();
     let query = "changelog ascii tinyflows";
-    assert_eq!(rank(&all, query, 10).len(), 3, "all three must match unlimited");
+    assert_eq!(
+        rank(&all, query, 10).len(),
+        3,
+        "all three must match unlimited"
+    );
     assert_eq!(rank(&all, query, 1).len(), 1);
 }
 

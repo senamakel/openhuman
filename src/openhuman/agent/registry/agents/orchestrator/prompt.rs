@@ -158,7 +158,11 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
         };
         let _ = writeln!(out, "- **{id}**: {desc}");
     }
-    if let Some(hidden) = skills.len().checked_sub(MAX_LISTED_SKILLS).filter(|n| *n > 0) {
+    if let Some(hidden) = skills
+        .len()
+        .checked_sub(MAX_LISTED_SKILLS)
+        .filter(|n| *n > 0)
+    {
         // The catalogue is a per-turn cost that grows with how many skills the
         // user has installed, and it is frozen for the session (see
         // `refresh_workflows` — the KV-cache prefix cannot be rewritten
@@ -463,10 +467,7 @@ mod tests {
             rendered.contains("7 more installed skill(s)"),
             "the reader must be told how many are missing: {rendered}"
         );
-        assert!(
-            rendered.contains("skill_search"),
-            "and how to reach them"
-        );
+        assert!(rendered.contains("skill_search"), "and how to reach them");
     }
 
     #[test]

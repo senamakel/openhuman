@@ -1,7 +1,9 @@
 use crate::openhuman::config::Config;
 use crate::openhuman::cron::{self, DeliveryConfig, JobType, Schedule, SessionTarget};
 use crate::openhuman::security::SecurityPolicy;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
+use crate::openhuman::tools::traits::{
+    PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult,
+};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;

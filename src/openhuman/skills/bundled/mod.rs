@@ -89,15 +89,17 @@ impl BundledSkill {
             || self.dir_name.contains('/')
             || self.dir_name.contains('\\')
         {
-            return Err(format!("invalid bundled skill dir_name `{}`", self.dir_name));
+            return Err(format!(
+                "invalid bundled skill dir_name `{}`",
+                self.dir_name
+            ));
         }
         if self.files.is_empty() {
             return Err(format!("bundled skill `{}` has no files", self.dir_name));
         }
-        let has_manifest = self
-            .files
-            .iter()
-            .any(|f| f.path == super::ops_types::WORKFLOW_MD || f.path == super::ops_types::SKILL_MD);
+        let has_manifest = self.files.iter().any(|f| {
+            f.path == super::ops_types::WORKFLOW_MD || f.path == super::ops_types::SKILL_MD
+        });
         if !has_manifest {
             return Err(format!(
                 "bundled skill `{}` has no WORKFLOW.md or SKILL.md; discovery would skip it",

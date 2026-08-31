@@ -319,7 +319,11 @@ impl SystemPromptBuilder {
         let mut output = String::new();
         let mut breakpoints: Vec<usize> = Vec::new();
 
-        for tier in [PromptTier::Stable, PromptTier::Context, PromptTier::Volatile] {
+        for tier in [
+            PromptTier::Stable,
+            PromptTier::Context,
+            PromptTier::Volatile,
+        ] {
             for section in self.sections.iter().filter(|s| s.tier() == tier) {
                 let part = section.build(ctx)?;
                 if part.trim().is_empty() {

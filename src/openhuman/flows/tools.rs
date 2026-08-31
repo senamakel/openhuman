@@ -68,9 +68,10 @@ impl Tool for ProposeWorkflowTool {
         // it now passes by construction, and stays as the regression guard for
         // anyone tempted to hand-write this again.
         static DESCRIPTION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-        DESCRIPTION.get_or_init(|| {
-            format!(
-                "Propose a candidate automation workflow for the user to review and save. \
+        DESCRIPTION
+            .get_or_init(|| {
+                format!(
+                    "Propose a candidate automation workflow for the user to review and save. \
                  This tool ONLY VALIDATES the graph and returns a summary — it NEVER creates \
                  or enables the flow; the user must click \"Save & enable\" in the UI before \
                  anything is persisted or can run. If validation fails, fix the graph and call \
@@ -92,10 +93,10 @@ impl Tool for ProposeWorkflowTool {
                  Call `get_node_kind_contract {{ kind }}` for a kind's optional fields, ports, \
                  a worked example, and its gotchas — it is generated from the catalog the \
                  validator enforces, so it is always current.",
-                kinds = crate::openhuman::flows::render_node_kinds_required()
-            )
-        })
-        .as_str()
+                    kinds = crate::openhuman::flows::render_node_kinds_required()
+                )
+            })
+            .as_str()
     }
 
     fn parameters_schema(&self) -> Value {

@@ -52,9 +52,8 @@ impl ChatMessage {
         let breakpoints: Vec<usize> = breakpoints
             .into_iter()
             .filter(|&offset| {
-                let ok = offset > previous
-                    && offset < content.len()
-                    && content.is_char_boundary(offset);
+                let ok =
+                    offset > previous && offset < content.len() && content.is_char_boundary(offset);
                 if ok {
                     previous = offset;
                 } else {

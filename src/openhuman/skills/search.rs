@@ -213,7 +213,10 @@ impl Tool for SkillSearchTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        let query = args.get("query").and_then(Value::as_str).unwrap_or_default();
+        let query = args
+            .get("query")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         if query.trim().is_empty() {
             return Ok(ToolResult::error(
                 "skill_search needs a `query` describing what you want done.".to_string(),

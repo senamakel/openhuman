@@ -109,9 +109,9 @@ impl MemoryTool {
         self.all_actions()
             .into_iter()
             .filter(|entry| {
-                crate::core::all::capability_allowed(
-                    crate::openhuman::tools::ops::tool_capability(entry.tool.name()),
-                )
+                crate::core::all::capability_allowed(crate::openhuman::tools::ops::tool_capability(
+                    entry.tool.name(),
+                ))
             })
             .collect()
     }
@@ -119,17 +119,50 @@ impl MemoryTool {
     /// Every action this tool can serve, before capability filtering.
     fn all_actions(&self) -> Vec<CollapsedAction<'_>> {
         vec![
-            CollapsedAction { action: "recall", tool: &self.recall },
-            CollapsedAction { action: "store", tool: &self.store },
-            CollapsedAction { action: "forget", tool: &self.forget },
-            CollapsedAction { action: "hybrid_search", tool: &self.hybrid_search },
-            CollapsedAction { action: "vector_search", tool: &self.vector_search },
-            CollapsedAction { action: "chunk_context", tool: &self.chunk_context },
-            CollapsedAction { action: "raw_search", tool: &self.raw_search },
-            CollapsedAction { action: "raw_chunks", tool: &self.raw_chunks },
-            CollapsedAction { action: "kinds", tool: &self.kinds },
-            CollapsedAction { action: "flavour", tool: &self.flavour },
-            CollapsedAction { action: "doctor", tool: &self.doctor },
+            CollapsedAction {
+                action: "recall",
+                tool: &self.recall,
+            },
+            CollapsedAction {
+                action: "store",
+                tool: &self.store,
+            },
+            CollapsedAction {
+                action: "forget",
+                tool: &self.forget,
+            },
+            CollapsedAction {
+                action: "hybrid_search",
+                tool: &self.hybrid_search,
+            },
+            CollapsedAction {
+                action: "vector_search",
+                tool: &self.vector_search,
+            },
+            CollapsedAction {
+                action: "chunk_context",
+                tool: &self.chunk_context,
+            },
+            CollapsedAction {
+                action: "raw_search",
+                tool: &self.raw_search,
+            },
+            CollapsedAction {
+                action: "raw_chunks",
+                tool: &self.raw_chunks,
+            },
+            CollapsedAction {
+                action: "kinds",
+                tool: &self.kinds,
+            },
+            CollapsedAction {
+                action: "flavour",
+                tool: &self.flavour,
+            },
+            CollapsedAction {
+                action: "doctor",
+                tool: &self.doctor,
+            },
         ]
     }
 }
@@ -308,7 +341,10 @@ mod tests {
         // Pinning the decision in the module docs: `memory_tree` dispatches on
         // its own `mode`, and folding it in would make this two-level.
         assert!(
-            !tool().all_actions().iter().any(|e| e.tool.name() == "memory_tree"),
+            !tool()
+                .all_actions()
+                .iter()
+                .any(|e| e.tool.name() == "memory_tree"),
             "memory_tree stays a separate tool"
         );
     }

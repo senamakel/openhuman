@@ -154,9 +154,9 @@ impl Tool for TodoTool {
             "list" => ops::list(&location).await,
             other => {
                 return Ok(ToolResult::error(format!(
-                "unknown op '{other}' (expected \
+                    "unknown op '{other}' (expected \
                  add|edit|update_status|decide_plan|remove|replace|clear|list)"
-            )))
+                )))
             }
         };
 

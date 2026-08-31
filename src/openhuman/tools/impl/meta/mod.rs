@@ -9,11 +9,10 @@ pub mod collapse;
 pub mod tool_search;
 
 pub use collapse::{
-    any_external_effect, args_without_action, merge_action_schemas, resolve,
-    strictest_permission, unknown_action_message, CollapsedAction,
+    any_external_effect, args_without_action, merge_action_schemas, resolve, strictest_permission,
+    unknown_action_message, CollapsedAction,
 };
 pub use tool_search::{
     bind_tool_search_index, strip_deferred_from_visible, ToolSearchHandle, ToolSearchIndex,
-    ToolSearchTool,
-    TOOL_SEARCH_NAME,
+    ToolSearchTool, TOOL_SEARCH_NAME,
 };

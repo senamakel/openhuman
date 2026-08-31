@@ -1,6 +1,8 @@
 use crate::openhuman::config::Config;
 use crate::openhuman::cron;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
+use crate::openhuman::tools::traits::{
+    PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult,
+};
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::json;

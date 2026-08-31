@@ -59,7 +59,6 @@ fn reasoning_extra_metadata(content: &[ContentBlock]) -> Option<serde_json::Valu
         .map(|reasoning| serde_json::json!({ REASONING_EXT_KEY: reasoning }))
 }
 
-
 /// Split `text` at `breakpoints`, interleaving a
 /// [`ContentBlock::CacheBreakpoint`] marker after each piece.
 ///

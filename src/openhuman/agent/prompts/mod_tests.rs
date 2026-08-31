@@ -2295,7 +2295,11 @@ mod cache_tiers {
         .build_tiered(&ctx)
         .expect("builds");
 
-        assert_eq!(tiered.breakpoints.len(), 2, "stable and context each end once");
+        assert_eq!(
+            tiered.breakpoints.len(),
+            2,
+            "stable and context each end once"
+        );
         for &offset in &tiered.breakpoints {
             assert!(
                 tiered.text.is_char_boundary(offset),

@@ -76,12 +76,30 @@ impl CronTool {
     /// of a self-referential field.
     fn actions(&self) -> Vec<CollapsedAction<'_>> {
         vec![
-            CollapsedAction { action: "list", tool: &self.list },
-            CollapsedAction { action: "add", tool: &self.add },
-            CollapsedAction { action: "update", tool: &self.update },
-            CollapsedAction { action: "remove", tool: &self.remove },
-            CollapsedAction { action: "run", tool: &self.run },
-            CollapsedAction { action: "runs", tool: &self.runs },
+            CollapsedAction {
+                action: "list",
+                tool: &self.list,
+            },
+            CollapsedAction {
+                action: "add",
+                tool: &self.add,
+            },
+            CollapsedAction {
+                action: "update",
+                tool: &self.update,
+            },
+            CollapsedAction {
+                action: "remove",
+                tool: &self.remove,
+            },
+            CollapsedAction {
+                action: "run",
+                tool: &self.run,
+            },
+            CollapsedAction {
+                action: "runs",
+                tool: &self.runs,
+            },
         ]
     }
 }

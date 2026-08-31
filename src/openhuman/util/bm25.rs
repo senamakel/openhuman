@@ -165,7 +165,11 @@ impl Bm25Index {
         scored.sort_by(|a, b| {
             b.0.partial_cmp(&a.0)
                 .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| self.documents[a.1].sort_key.cmp(&self.documents[b.1].sort_key))
+                .then_with(|| {
+                    self.documents[a.1]
+                        .sort_key
+                        .cmp(&self.documents[b.1].sort_key)
+                })
         });
         scored.into_iter().take(limit).map(|(_, i)| i).collect()
     }
@@ -240,8 +244,14 @@ mod tests {
 
     #[test]
     fn snake_case_and_camel_case_both_split() {
-        assert_eq!(tokenize("memory_hybrid_search"), ["memory", "hybrid", "search"]);
-        assert_eq!(tokenize("readWorkflowResource"), ["read", "workflow", "resource"]);
+        assert_eq!(
+            tokenize("memory_hybrid_search"),
+            ["memory", "hybrid", "search"]
+        );
+        assert_eq!(
+            tokenize("readWorkflowResource"),
+            ["read", "workflow", "resource"]
+        );
         assert_eq!(tokenize("HTTPServer2"), ["httpserver2"]);
     }
 
@@ -274,9 +284,13 @@ mod tests {
         // the most distinguishing term in the query — the df threshold cannot
         // catch it, and the first fix that only had the threshold still ranked
         // a changelog skill as the match for provisioning a cluster.
-        assert!(corpus().search("provision a kubernetes cluster", 3).is_empty());
+        assert!(corpus()
+            .search("provision a kubernetes cluster", 3)
+            .is_empty());
         assert!(corpus().search("a", 3).is_empty());
-        assert!(corpus().search("what is it that you will do for me", 3).is_empty());
+        assert!(corpus()
+            .search("what is it that you will do for me", 3)
+            .is_empty());
     }
 
     #[test]

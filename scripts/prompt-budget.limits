@@ -8,13 +8,24 @@
 # "trim the description" — it is to defer the tool, collapse a family of verbs
 # into one tool, or move the capability into a skill.
 #
-# Measured on a HERMETIC EMPTY WORKSPACE (`--workspace $(mktemp -d)`), so the
-# numbers do not move with whoever runs them. A signed-in workspace is larger:
-# it injects PROFILE.md / MEMORY.md / AGENTS.md and synthesises one `delegate_*`
-# tool per connected Composio toolkit, which took the orchestrator from the 50
-# tools below to 139 on the machine this was first measured on. That difference
-# is a property of the user's account, not of this repo, and does not belong in
-# a ratchet.
+# Measured with `--hermetic`, which relocates BOTH the workspace and
+# `config_path` into a temp dir. Overriding the workspace alone is not enough
+# and the first version of this file got it wrong: credentials, auth profiles
+# and integration toggles resolve against `config_path`'s parent, so a
+# workspace-only override still read `~/.openhuman`. Roughly twenty
+# backend-proxied tools (`google_places_*`, `stock_*`, `storage_*`,
+# `twilio_call`, `composio_*`, `tinyfish_*`) all sit behind a single
+# `if let Some(client) = integrations::build_client(..)`, so the whole block
+# appeared or vanished depending on whether the developer happened to be signed
+# in — a 12 KB swing that looked exactly like a code change. `openhuman/CLAUDE.md`
+# documents this trap under "config_path is not cosmetic"; this file walked into
+# it anyway, which is why the numbers below were re-recorded.
+#
+# Consequence worth knowing: this ratchet measures a SIGNED-OUT install, so it
+# cannot see savings on tools that only register when a backend client exists.
+# Deferring the five `stock_*` tools, for instance, is real but invisible here.
+# Judge integration-tool work with `prompt-size` against a signed-in workspace
+# and record the finding in a PR body, not in this file.
 #
 # The ratchet only goes DOWN. Lowering a number is the point; the check fails
 # both on growth and on an un-ratcheted improvement, because a saving nobody
@@ -47,16 +58,16 @@
 #
 #               Every one of those was invisible until this file existed.
 
-morning_briefing:14282:104567
-trigger_triage:11080:104567
-workflow_builder:80353:35270
-summarizer:10653:104567
-tools_agent:8268:104567
-orchestrator:33808:45199
-code_executor:13409:14534
-crypto_agent:12104:13956
+morning_briefing:14282:92553
+trigger_triage:11080:92553
+workflow_builder:80284:33948
+summarizer:10653:92553
+tools_agent:8268:92553
+orchestrator:33726:43003
+code_executor:13327:12338
+crypto_agent:12049:12357
 task_manager_agent:7104:15601
-planner:10089:10577
+planner:9927:5664
 skill_creator:7311:12411
 flow_discovery:10111:9503
 profile_memory_agent:7202:11815
@@ -72,9 +83,9 @@ mcp_agent:8927:4472
 flow_memory_agent:9026:3809
 tool_maker:6273:6087
 presentation_agent:6547:5678
-video_agent:7014:3826
+video_agent:6973:2266
 help:8469:2365
-image_agent:7058:3699
+image_agent:7017:2266
 goals_agent:6725:3124
 vision_agent:6885:2266
 archivist:5985:3133

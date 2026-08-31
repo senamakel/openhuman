@@ -263,9 +263,23 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
         .build_system_prompt(LearnedContextData::default())
         .with_context(|| format!("rendering system prompt for `{agent_id}`"))?;
 
-    let tools = agent.tools();
+    // Report the **advertised** surface, not the registry.
+    //
+    // `agent.tools()` is every tool the agent can dispatch; the set whose
+    // schemas ride on the wire is `agent.visible_tool_names()`, which the
+    // builder narrowed by the definition's `ToolScope` and then by
+    // `strip_packed_from_visible`. Dumping the registry overstated a narrow
+    // specialist by two orders of magnitude — `researcher` reported 197 tools
+    // against a real belt of `web_search_tool` + `web_fetch` — which made the
+    // dump useless as a budget instrument for every agent but the orchestrator.
+    let visible = agent.visible_tool_names().clone();
+    let tools: Vec<_> = agent
+        .tools()
+        .iter()
+        .filter(|t| visible.contains(t.name()))
+        .collect();
     let tool_names: Vec<String> = tools.iter().map(|t| t.name().to_string()).collect();
-    let tool_specs = tool_specs_of(tools);
+    let tool_specs = tool_specs_of(tools.as_slice());
     let skill_tool_count = tools
         .iter()
         .filter(|t| t.category() == ToolCategory::Workflow)

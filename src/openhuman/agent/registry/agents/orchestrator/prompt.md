@@ -14,6 +14,8 @@ Take the first branch that applies:
 
 3. **Solvable with a direct tool** — do it yourself:
 
+   Names after a `→` in the right-hand column are `agent` values for `delegate_to`, not tools you can call directly.
+
    | Work                                           | Direct tool                                                                                                                                  | Delegate only for                                                                                                                                     |
    | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
    | Recall a fact, store a fact, save a preference | `memory_recall`, `memory_store`, `save_preference`                                                                                           | multi-hop memory-tree walks, ingest, reconciling overlapping notes → `retrieve_memory`; people-graph/alias or persona edits → `manage_profile_memory` |
@@ -23,9 +25,11 @@ Take the first branch that applies:
 
    After a `memory_store`, call `update_memory_md` on `MEMORY.md` to keep the index in sync with the store; `save_preference` needs no reconcile. Keep code work end-to-end — when asked for a change, edit and verify in the same turn, and never delegate merely because a task touches a repository. GitHub state I/O (issues, PRs, comments, reviews, checks, labels) goes through the connected GitHub integration, not a shell `gh`.
 
-4. **Needs a specialist** — route by intent:
+4. **Needs a specialist** — route by intent.
 
-   | Intent                                                                                                      | Tool                |
+   Every specialist below is reached with one tool: `delegate_to { agent: "<name>", prompt: "<the task>" }`. The names in the right-hand column are `agent` values, not tools of their own — `delegate_to` is the only handle, and its own description lists what each specialist is for.
+
+   | Intent                                                                                                      | `agent`             |
    | ----------------------------------------------------------------------------------------------------------- | ------------------- |
    | OpenHuman behavior, settings, docs, feature availability, "where do I click"                                | `ask_docs`          |
    | Remind, schedule, repeat, pause, remove, inspect jobs                                                       | `schedule_task`     |

@@ -376,13 +376,15 @@ mod tests {
 
     #[test]
     fn a_plain_language_query_finds_the_right_tool() {
-        let hits = index().search("schedule something to run every morning", 3);
+        let index = index();
+        let hits = index.search("schedule something to run every morning", 3);
         assert_eq!(hits.first().map(|t| t.name.as_str()), Some("cron_add"));
     }
 
     #[test]
     fn a_query_matching_the_name_rather_than_the_description_still_hits() {
-        let hits = index().search("stock", 3);
+        let index = index();
+        let hits = index.search("stock", 3);
         assert_eq!(hits.first().map(|t| t.name.as_str()), Some("stock_quote"));
     }
 
@@ -390,17 +392,20 @@ mod tests {
     fn nothing_relevant_returns_nothing_rather_than_padding_to_the_limit() {
         // Padding would spend exactly the tokens deferral saves, and would
         // invite a call to something unrelated to the ask.
-        assert!(index().search("xyzzy quantum flux", 5).is_empty());
+        let index = index();
+        assert!(index.search("xyzzy quantum flux", 5).is_empty());
     }
 
     #[test]
     fn results_are_capped_at_the_requested_limit() {
-        assert!(index().search("search a stock job memory slide", 2).len() <= 2);
+        let index = index();
+        assert!(index.search("search a stock job memory slide", 2).len() <= 2);
     }
 
     #[test]
     fn an_empty_query_matches_nothing() {
-        assert!(index().search("   ", 5).is_empty());
+        let index = index();
+        assert!(index.search("   ", 5).is_empty());
     }
 
     #[test]

@@ -23,12 +23,12 @@ impl Tool for ArchetypeDelegationTool {
         &self.tool_description
     }
 
-    /// The delegation envelope, shared with the collapsed [`DelegateTool`].
+    /// The delegation envelope, shared with the collapsed [`CollapsedDelegationTool`].
     ///
     /// See [`delegation_envelope_properties`] for why it is description-light
     /// and where the field semantics live instead.
     ///
-    /// [`DelegateTool`]: super::DelegateTool
+    /// [`CollapsedDelegationTool`]: super::CollapsedDelegationTool
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
@@ -43,14 +43,14 @@ impl Tool for ArchetypeDelegationTool {
 
     /// Off the wire, still callable.
     ///
-    /// The collapsed [`DelegateTool`] advertises this hand-off as an `agent`
+    /// The collapsed [`CollapsedDelegationTool`] advertises this hand-off as an `agent`
     /// enum value, so advertising the member as well would ship both surfaces
     /// and save nothing. It stays registered — and therefore dispatchable — so
     /// a replayed transcript, a saved skill or a flow node that names
     /// `research` still resolves. Same treatment as the members of the
     /// collapsed `cron` and `memory` tools.
     ///
-    /// [`DelegateTool`]: super::DelegateTool
+    /// [`CollapsedDelegationTool`]: super::CollapsedDelegationTool
     fn exposure(&self) -> ToolExposure {
         ToolExposure::Hidden
     }
@@ -137,7 +137,7 @@ impl Tool for ArchetypeDelegationTool {
 
 /// The delegation envelope's properties, defined **once**.
 ///
-/// Both this tool and the collapsed [`DelegateTool`] emit it, and
+/// Both this tool and the collapsed [`CollapsedDelegationTool`] emit it, and
 /// `render_structured_handoff` below reads these exact property names back out
 /// again. A second copy would be a third place for the three to drift, and the
 /// drift is silent: a field the collapsed schema advertises but the renderer
@@ -164,7 +164,7 @@ impl Tool for ArchetypeDelegationTool {
 /// Enforced by `envelope_descriptions_stay_within_budget`. If you are about to
 /// add a description here, put it in prompt.md instead.
 ///
-/// [`DelegateTool`]: super::DelegateTool
+/// [`CollapsedDelegationTool`]: super::CollapsedDelegationTool
 pub(super) fn delegation_envelope_properties() -> Value {
     json!({
         "prompt": { "type": "string" },

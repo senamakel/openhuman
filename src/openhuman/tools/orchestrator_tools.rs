@@ -40,7 +40,7 @@ use crate::openhuman::agent::harness::definition::{
 #[allow(unused_imports)]
 use super::SpawnWorkerThreadTool;
 use super::{ArchetypeDelegationTool, SkillDelegationTool, Tool};
-use crate::openhuman::agent::orchestration::tools::{DelegateTarget, DelegateTool};
+use crate::openhuman::agent::orchestration::tools::{CollapsedDelegationTool, DelegateTarget};
 
 /// Synthesise the delegation tool list for an agent based on its
 /// declarative `subagents` field.
@@ -237,7 +237,7 @@ pub fn collect_orchestrator_tools(
         }
     }
 
-    match DelegateTool::for_targets(delegate_targets) {
+    match CollapsedDelegationTool::for_targets(delegate_targets) {
         Some(tool) => {
             log::debug!(
                 "[orchestrator_tools] registering collapsed delegation tool ({} targets)",

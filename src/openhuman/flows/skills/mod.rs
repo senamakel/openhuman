@@ -152,6 +152,32 @@ mod tests {
     }
 
     #[test]
+    fn the_frontmatter_description_does_not_advertise_a_dropped_page() {
+        // The description is what the model reads in the `## Installed Skills`
+        // catalogue to decide whether to open the skill at all, and it is prose
+        // rather than a path — so the `references/` token check below cannot
+        // see it. It went stale the first time a page moved back into the
+        // standing prompt: the description still promised graph sizing after
+        // `graph-shape.md` was deleted.
+        let manifest = FLOW_AUTHORING
+            .files
+            .iter()
+            .find(|f| f.path == "WORKFLOW.md")
+            .expect("manifest")
+            .contents;
+        let description = manifest
+            .lines()
+            .find(|l| l.starts_with("description:"))
+            .expect("frontmatter description");
+        for dropped in ["how large a graph", "graph should be", "graph-shape"] {
+            assert!(
+                !description.contains(dropped),
+                "the description still advertises `{dropped}`, which no longer ships"
+            );
+        }
+    }
+
+    #[test]
     fn the_builder_prompt_points_at_pages_that_ship() {
         // Same check from the other side. The prompt carries its own copy of
         // the table (the model needs to know the manual exists before it has

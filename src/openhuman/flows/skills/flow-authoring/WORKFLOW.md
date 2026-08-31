@@ -1,6 +1,6 @@
 ---
 name: flow-authoring
-description: The tinyflows authoring reference — expression and jq syntax, node configuration for memory/dedup/trigger nodes, per-node error handling, how large a graph should be, and how to read a dry run honestly. Read a page before configuring the thing it covers.
+description: The tinyflows authoring reference — expression and jq syntax, node configuration for memory/dedup/trigger nodes, per-node error handling, and how to read a dry run honestly. Read a page before configuring the thing it covers.
 metadata:
   version: "1.0.0"
   author: OpenHuman

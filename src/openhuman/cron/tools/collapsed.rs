@@ -39,9 +39,10 @@ use crate::openhuman::tools::implementations::meta::collapse::{
     any_external_effect, args_without_action, merge_action_schemas, resolve, strictest_permission,
     unknown_action_message, CollapsedAction,
 };
-use crate::openhuman::tools::traits::{
-    PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult,
-};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+
+#[cfg(test)]
+use crate::openhuman::tools::traits::ToolExposure;
 
 /// The advertised name. A constant so the registration site, the legacy-alias
 /// carve-out and the tests cannot disagree.
@@ -159,25 +160,6 @@ impl Tool for CronTool {
     }
 }
 
-/// Mark the six legacy tools as dispatchable-but-unadvertised.
-///
-/// Applied at registration rather than on each tool's own `exposure()` because
-/// these types are also constructed directly by tests and by the cron RPC
-/// surface, where "hidden" is meaningless — the concept only applies to an
-/// agent's advertised belt.
-pub const LEGACY_CRON_TOOL_NAMES: &[&str] = &[
-    "cron_add",
-    "cron_list",
-    "cron_update",
-    "cron_remove",
-    "cron_run",
-    "cron_runs",
-];
-
-/// The exposure the legacy names get. Named so the registration site reads as
-/// a decision rather than a magic constant.
-pub const LEGACY_CRON_EXPOSURE: ToolExposure = ToolExposure::Hidden;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,10 +241,17 @@ mod tests {
     }
 
     #[test]
-    fn the_legacy_name_list_matches_the_action_table() {
-        // If someone adds an action they must add its legacy name too, or the
-        // old name stays advertised and the collapse saves nothing.
-        let tool = tool();
-        assert_eq!(tool.actions().len(), LEGACY_CRON_TOOL_NAMES.len());
+    fn every_member_is_hidden_so_the_collapse_actually_saves_something() {
+        // The load-bearing assertion. Adding an action to the table while
+        // leaving its member `Direct` would ship both surfaces and save
+        // nothing, and nothing else in the build would notice.
+        for entry in tool().actions() {
+            assert_eq!(
+                entry.tool.exposure(),
+                ToolExposure::Hidden,
+                "`{}` is still advertised alongside the collapsed `cron` tool",
+                entry.tool.name()
+            );
+        }
     }
 }

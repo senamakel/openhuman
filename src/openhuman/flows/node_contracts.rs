@@ -340,7 +340,7 @@ mod prompt_index_tests {
             .expect("the prompt carries a node-kind index");
         let missing: Vec<&str> = NODE_KINDS
             .iter()
-            .map(|contract| contract.kind.as_str())
+            .copied()
             .filter(|kind| !table.contains(&format!("`{kind}`")))
             .collect();
         assert!(
@@ -361,10 +361,7 @@ mod prompt_index_tests {
             .nth(1)
             .and_then(|rest| rest.split("\n### ").next())
             .expect("the index table is delimited by the next subsection");
-        let known: Vec<&str> = NODE_KINDS
-            .iter()
-            .map(|contract| contract.kind.as_str())
-            .collect();
+        let known: Vec<&str> = NODE_KINDS.to_vec();
         for line in table.lines().filter(|l| l.starts_with("| `")) {
             let kind = line
                 .trim_start_matches("| `")

@@ -214,10 +214,6 @@ impl PromptSection for IdentitySection {
         "identity"
     }
 
-    fn tier(&self) -> PromptTier {
-        // Carries per-personality recent context.
-        PromptTier::Volatile
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut prompt = String::from("## Project Context\n\n");
@@ -336,10 +332,6 @@ impl PromptSection for AgentsInstructionsSection {
         "agents_md"
     }
 
-    fn tier(&self) -> PromptTier {
-        // PROFILE.md / MEMORY.md — rewritten by the archivist and by onboarding.
-        PromptTier::Volatile
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut out = String::new();
@@ -357,10 +349,6 @@ impl PromptSection for ToolsSection {
         "tools"
     }
 
-    fn tier(&self) -> PromptTier {
-        // AGENTS.md layers — per project, stable within a session.
-        PromptTier::Context
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         // Native function-calling: the provider already sends full JSON
@@ -526,10 +514,6 @@ impl PromptSection for RuntimeSection {
         "runtime"
     }
 
-    fn tier(&self) -> PromptTier {
-        // Resolved workspace and action dir; per install, not per build.
-        PromptTier::Context
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let host =
@@ -547,10 +531,6 @@ impl PromptSection for UserReflectionsSection {
         "user_reflections"
     }
 
-    fn tier(&self) -> PromptTier {
-        // Host runtime facts; per install, not per build.
-        PromptTier::Context
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         if ctx.learned.reflections.is_empty() {
@@ -585,10 +565,6 @@ impl PromptSection for UserMemorySection {
         "user_memory"
     }
 
-    fn tier(&self) -> PromptTier {
-        // Learned reflections, refreshed by the learning subsystem.
-        PromptTier::Volatile
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         if ctx.learned.tree_root_summaries.is_empty() {
@@ -641,10 +617,6 @@ impl PromptSection for DateTimeSection {
         "datetime"
     }
 
-    fn tier(&self) -> PromptTier {
-        // The memory tree summary, which changes whenever memory is written.
-        PromptTier::Volatile
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         // No concrete timestamp here. The live "now" is injected per turn
@@ -694,15 +666,7 @@ impl PromptSection for UserIdentitySection {
         "user_identity"
     }
 
-    fn tier(&self) -> PromptTier {
-        // The signed-in user, which changes on login and logout.
-        PromptTier::Volatile
-    }
 
-    fn tier(&self) -> PromptTier {
-        // The clock. Nothing after this can ever be cached.
-        PromptTier::Volatile
-    }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let identity = match ctx.user_identity.as_ref() {

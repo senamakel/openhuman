@@ -525,7 +525,7 @@ mod tests {
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert_eq!(
             names,
-            vec!["do_crypto"],
+            vec!["do_crypto", "delegate_to"],
             "a subagent entry must synthesise its stable delegate_name \
              (`do_crypto`), not the default `delegate_crypto_agent`"
         );

@@ -568,6 +568,67 @@ mod tests {
         assert_eq!(names, vec!["research", "delegate_to"]);
     }
 
+    /// A delegate route the pack table withholds must not reappear as an
+    /// `agent` value inside the collapsed tool.
+    ///
+    /// This is a regression guard, not a hypothetical. Collapsing the archetype
+    /// delegates without a pack check silently re-advertised seven routes
+    /// (`do_crypto`, `setup_mcp_server`, `use_mcp_server`, `setup_skills`,
+    /// `run_skill`, `build_workflow`, `discover_workflows`): each stopped being
+    /// a tool of its own, so `strip_packed_from_visible` had nothing left to
+    /// remove, and it came back as a string in another tool's schema where no
+    /// visible-set subtraction could reach it.
+    ///
+    /// `do_crypto` is the standing case — `crypto_agent` carries a
+    /// `delegate_name` override and the `crypto` pack lists that exact name.
+    #[test]
+    fn a_packed_delegate_route_is_omitted_from_the_collapsed_tool() {
+        let mut orch = def("orchestrator", "test", None);
+        orch.subagents = vec![
+            SubagentEntry::AgentId("researcher".into()),
+            SubagentEntry::AgentId("crypto_agent".into()),
+        ];
+        let mut reg = registry_with_targets();
+        reg.insert(def(
+            "crypto_agent",
+            "Crypto specialist - wallet balances, transfers and swaps.",
+            Some("do_crypto"),
+        ));
+        let tools = collect_orchestrator_tools(&orch, &reg, &[]);
+
+        // The member is still synthesised, so `use_skill` can still dispatch
+        // to it after a `load_skill` — the route is withheld, never removed.
+        assert!(
+            tools.iter().any(|t| t.name() == "do_crypto"),
+            "the packed route must stay registered and dispatchable"
+        );
+
+        let collapsed = tools
+            .iter()
+            .find(|t| t.name() == "delegate_to")
+            .expect("collapsed tool is synthesised");
+        let listed = collapsed.description();
+        assert!(
+            listed.contains("`research`"),
+            "an unpacked route must still be listed"
+        );
+        assert!(
+            !listed.contains("`do_crypto`"),
+            "a packed route must not be advertised inside the collapsed tool: {listed}"
+        );
+
+        let enum_values: Vec<String> = collapsed.parameters_schema()["properties"]["agent"]["enum"]
+            .as_array()
+            .expect("enum")
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect();
+        assert!(
+            !enum_values.iter().any(|v| v == "do_crypto"),
+            "a packed route must not be a callable `agent` value: {enum_values:?}"
+        );
+    }
+
     /// An empty `subagents` list should produce zero tools — regular
     /// non-delegating agents (code_executor, etc.) reach this
     /// path without any subagents and must not pick up stray tools.

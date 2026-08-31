@@ -247,6 +247,7 @@ fn from_dialect_message(message: DialectMessage) -> ChatMessage {
         role: message.role.as_str().to_string(),
         content: message.content,
         extra_metadata: message.extra_metadata,
+        cache_breakpoints: Vec::new(),
     }
 }
 

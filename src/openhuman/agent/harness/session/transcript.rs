@@ -948,6 +948,7 @@ fn message_from_line(ml: MessageLine) -> ChatMessage {
         role: ml.role,
         content: ml.content,
         extra_metadata: ml.extra_metadata,
+        cache_breakpoints: Vec::new(),
     };
     if let Some(turn_usage) = turn_usage.as_ref() {
         attach_turn_usage_metadata(&mut message, turn_usage);
@@ -1099,6 +1100,7 @@ fn display_message_from_line(ml: MessageLine) -> DisplayMessage {
             role: ml.role,
             content: ml.content,
             extra_metadata: ml.extra_metadata,
+            cache_breakpoints: Vec::new(),
         },
     }
 }
@@ -1780,6 +1782,7 @@ fn parse_legacy_messages(raw: &str) -> Result<Vec<ChatMessage>> {
                 role,
                 content: content.replace(LEGACY_MSG_CLOSE_ESCAPED, LEGACY_MSG_CLOSE),
                 extra_metadata: None,
+                cache_breakpoints: Vec::new(),
             });
             search_from = content_start + content_end_rel + LEGACY_MSG_CLOSE.len();
             continue;
@@ -1791,6 +1794,7 @@ fn parse_legacy_messages(raw: &str) -> Result<Vec<ChatMessage>> {
             role,
             content: content.replace(LEGACY_MSG_CLOSE_ESCAPED, LEGACY_MSG_CLOSE),
             extra_metadata: None,
+            cache_breakpoints: Vec::new(),
         });
 
         search_from = content_start + content_end_rel + close_tag.len();

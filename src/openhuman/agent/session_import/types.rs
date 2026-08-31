@@ -197,6 +197,7 @@ impl From<JournalMessage> for ChatMessage {
             role: rec.role,
             content: rec.content,
             extra_metadata: rec.extra_metadata,
+            cache_breakpoints: Vec::new(),
         }
     }
 }

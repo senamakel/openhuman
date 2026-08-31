@@ -347,6 +347,7 @@ pub async fn prepare_messages_for_provider(
             role: message.role.clone(),
             content,
             extra_metadata: message.extra_metadata.clone(),
+            cache_breakpoints: Vec::new(),
         });
     }
 
@@ -543,6 +544,7 @@ pub fn rehydrate_image_placeholders(messages: &[ChatMessage]) -> Vec<ChatMessage
                 role: m.role.clone(),
                 content: markers::rehydrate_placeholders_in_text(&m.content, &index),
                 extra_metadata: m.extra_metadata.clone(),
+                cache_breakpoints: Vec::new(),
             }
         })
         .collect()

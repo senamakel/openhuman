@@ -1,4 +1,4 @@
-//! `delegate` — every archetype hand-off as one action-dispatched tool.
+//! `delegate_to` — every archetype hand-off as one action-dispatched tool.
 //!
 //! Replaces the per-sub-agent fan-out where `collect_orchestrator_tools`
 //! synthesised one [`ArchetypeDelegationTool`] per named sub-agent. On the
@@ -45,6 +45,17 @@
 //! a saved skill, or a flow node that names `research` still resolves. Only
 //! the advertised surface shrinks.
 //!
+//! # The name
+//!
+//! `delegate_to`, not `delegate`: a config-driven [`DelegateTool`] already
+//! claims `delegate` whenever a user hand-writes an `[agents]` block, and the
+//! builder's collision guard resolves a clash by dropping the *synthesised*
+//! tool. Naming this one `delegate` would therefore have removed the
+//! orchestrator's entire delegation surface for exactly those users, silently.
+//! It also puts this tool in the same family as its sibling
+//! `delegate_to_integrations_agent`.
+//!
+//! [`DelegateTool`]: crate::openhuman::agent::tools::DelegateTool
 //! [`ArchetypeDelegationTool`]: super::ArchetypeDelegationTool
 //! [`SkillDelegationTool`]: super::SkillDelegationTool
 //! [`ToolExposure::Hidden`]: crate::openhuman::tools::traits::ToolExposure::Hidden
@@ -60,7 +71,7 @@ use tinytools::ToolRunContext;
 
 /// The advertised name. A constant so the synthesis site, the prompt's
 /// delegation section and the tests cannot disagree about it.
-pub const DELEGATE_TOOL_NAME: &str = "delegate";
+pub const DELEGATE_TO_TOOL_NAME: &str = "delegate_to";
 
 /// One routable sub-agent.
 pub struct DelegateTarget {
@@ -76,12 +87,12 @@ pub struct DelegateTarget {
 }
 
 /// Every archetype hand-off as one tool.
-pub struct DelegateTool {
+pub struct CollapsedDelegationTool {
     targets: Vec<DelegateTarget>,
     description: String,
 }
 
-impl DelegateTool {
+impl CollapsedDelegationTool {
     /// Build the collapsed tool, or `None` when there is nothing to route to.
     ///
     /// `None` rather than an empty enum: a `delegate` tool whose `agent` has no
@@ -134,9 +145,9 @@ fn build_description(targets: &[DelegateTarget]) -> String {
 }
 
 #[async_trait]
-impl Tool for DelegateTool {
+impl Tool for CollapsedDelegationTool {
     fn name(&self) -> &str {
-        DELEGATE_TOOL_NAME
+        DELEGATE_TO_TOOL_NAME
     }
 
     fn description(&self) -> &str {
@@ -225,7 +236,7 @@ impl Tool for DelegateTool {
             .to_string();
         if raw_prompt.is_empty() {
             return Ok(ToolResult::error(format!(
-                "{DELEGATE_TOOL_NAME}: `prompt` is required"
+                "{DELEGATE_TO_TOOL_NAME}: `prompt` is required"
             )));
         }
         let prompt = render_structured_handoff(&raw_prompt, &args);
@@ -255,7 +266,7 @@ impl Tool for DelegateTool {
             via = %target.tool_name,
             "[delegate] dispatch"
         );
-        // `target.tool_name`, not `DELEGATE_TOOL_NAME`: the dispatch name rides
+        // `target.tool_name`, not `DELEGATE_TO_TOOL_NAME`: the dispatch name rides
         // into run records and the UI, and reporting every hand-off as
         // `delegate` would erase which specialist was chosen from every trace.
         super::dispatch_subagent(

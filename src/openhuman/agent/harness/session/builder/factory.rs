@@ -840,7 +840,30 @@ impl Agent {
                     ToolScope::Named(names) => {
                         let mut set: std::collections::HashSet<String> =
                             names.iter().cloned().collect();
+                        // Only the *advertised* ones. A synthesised tool that
+                        // reports `ToolExposure::Hidden` is a member of a
+                        // collapsed tool — today every `ArchetypeDelegationTool`,
+                        // whose family the single `delegate_to` tool now stands
+                        // for. Inserting it here would put it back on the wire
+                        // beside the tool that replaced it, shipping both
+                        // surfaces and saving nothing.
+                        //
+                        // This is not the same judgement as
+                        // `strip_deferred_from_visible`, which deliberately
+                        // leaves a hand-written `[tools] named` belt alone. That
+                        // restraint is about not second-guessing a human's
+                        // choice; these names were never chosen by a human, they
+                        // are inserted right here. Hiding one removes nothing an
+                        // author asked for.
+                        //
+                        // The tool stays in `synthed`, so it stays registered
+                        // and dispatchable for a replayed transcript or a saved
+                        // skill that names it — exactly like a packed tool.
                         for t in &synthed {
+                            if t.exposure() == crate::openhuman::tools::traits::ToolExposure::Hidden
+                            {
+                                continue;
+                            }
                             set.insert(t.name().to_string());
                         }
                         Some(set)

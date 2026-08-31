@@ -8,6 +8,7 @@
 pub mod tool_search;
 
 pub use tool_search::{
-    strip_deferred_from_visible, ToolSearchHandle, ToolSearchIndex, ToolSearchTool,
+    bind_tool_search_index, strip_deferred_from_visible, ToolSearchHandle, ToolSearchIndex,
+    ToolSearchTool,
     TOOL_SEARCH_NAME,
 };

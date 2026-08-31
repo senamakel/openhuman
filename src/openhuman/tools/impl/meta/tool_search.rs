@@ -34,7 +34,7 @@
 //! trade than a package on the floor of every embedder's build.
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use serde_json::{json, Value};
@@ -205,23 +205,30 @@ impl ToolSearchIndex {
     }
 }
 
-/// Shared handle to the index, so the tool can be constructed before the
-/// registry it searches exists.
+/// Shared handle to the index.
 ///
-/// Same shape and same reason as `toolpacks::PackRegistryHandle`: the tool is
-/// built during registry assembly and cannot be handed a finished registry at
-/// that point.
+/// The tool is constructed during registry assembly, before anything knows
+/// which tools will end up deferred — that depends on the agent's belt, which
+/// is resolved later in the session builder. So the tool owns an empty index
+/// and the builder fills it in through [`bind_tool_search_index`], the same
+/// two-step shape `toolpacks::bind_pack_registry` already uses.
 pub type ToolSearchHandle = Arc<RwLock<ToolSearchIndex>>;
 
 /// Look up a deferred capability by description.
 pub struct ToolSearchTool {
-    index: Weak<RwLock<ToolSearchIndex>>,
+    index: ToolSearchHandle,
+}
+
+impl Default for ToolSearchTool {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ToolSearchTool {
-    pub fn new(index: &ToolSearchHandle) -> Self {
+    pub fn new() -> Self {
         Self {
-            index: Arc::downgrade(index),
+            index: Arc::new(RwLock::new(ToolSearchIndex::default())),
         }
     }
 }
@@ -265,6 +272,16 @@ impl Tool for ToolSearchTool {
         ToolCategory::System
     }
 
+    /// Exposes the index so [`bind_tool_search_index`] can populate it after
+    /// the agent's belt is resolved.
+    ///
+    /// Erased for the same reason `PackRegistryHandle` is: a `ToolSearchIndex`
+    /// is this host's concept, and a vocabulary shared with other hosts has no
+    /// business naming it.
+    fn host_extension(&self) -> Option<&(dyn std::any::Any + Send + Sync)> {
+        Some(&self.index)
+    }
+
     fn permission_level(&self) -> PermissionLevel {
         // Reads a static in-memory index. Calling it cannot change anything,
         // and gating it would put an approval prompt in front of the model
@@ -290,17 +307,8 @@ impl Tool for ToolSearchTool {
             .map(|n| (n as usize).clamp(1, MAX_LIMIT))
             .unwrap_or(DEFAULT_LIMIT);
 
-        let Some(index) = self.index.upgrade() else {
-            // The registry outlives every tool in it, so this is a programmer
-            // error rather than a user-visible condition. Report it as one
-            // instead of pretending nothing matched, which would send the model
-            // off to tell the user a capability does not exist.
-            tracing::error!("[tool_search] index handle is dangling; registry dropped early");
-            return Ok(ToolResult::error(
-                "tool search is unavailable in this session (internal error)",
-            ));
-        };
-        let index = index
+        let index = self
+            .index
             .read()
             .map_err(|_| anyhow::anyhow!("tool search index lock poisoned"))?;
 
@@ -453,3 +461,40 @@ pub fn strip_deferred_from_visible(
 /// The advertised name of [`ToolSearchTool`], as a constant so the carve-out
 /// above and the registration site cannot disagree about it.
 pub const TOOL_SEARCH_NAME: &str = "tool_search";
+
+/// Populate the registry's `tool_search` index with the deferred specs.
+///
+/// Returns `false` when the registry has no `tool_search` — which is not an
+/// error: an agent whose belt defers nothing does not need one, and a build
+/// with the tool compiled out is a legitimate configuration. It **is** worth a
+/// warning when specs were deferred and there is nowhere to index them, because
+/// that combination makes capabilities unreachable.
+pub fn bind_tool_search_index(tools: &[Box<dyn Tool>], deferred: Vec<ToolSpec>) -> bool {
+    let handle = tools.iter().find_map(|tool| {
+        if tool.name() != TOOL_SEARCH_NAME {
+            return None;
+        }
+        tool.host_extension()
+            .and_then(|any| any.downcast_ref::<ToolSearchHandle>())
+    });
+    let Some(handle) = handle else {
+        if !deferred.is_empty() {
+            tracing::warn!(
+                deferred = deferred.len(),
+                "[tool_search] tools were deferred but no tool_search is registered; \
+                 they are unreachable this session"
+            );
+        }
+        return false;
+    };
+    match handle.write() {
+        Ok(mut index) => {
+            *index = ToolSearchIndex::build(&deferred);
+            true
+        }
+        Err(_) => {
+            tracing::error!("[tool_search] index lock poisoned; leaving it empty");
+            false
+        }
+    }
+}

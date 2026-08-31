@@ -140,11 +140,26 @@ pub fn collect_orchestrator_tools(
                 // but it reports `ToolExposure::Hidden` and so never reaches
                 // the wire; the collapsed `delegate` tool built below is what
                 // the model actually sees.
-                delegate_targets.push(DelegateTarget {
-                    tool_name: tool_name.clone(),
-                    agent_id: target.id.clone(),
-                    description: target.when_to_use.clone(),
-                });
+                // …unless the pack table withholds this route from this
+                // parent. The `agent` enum is an advertised surface, so a
+                // packed delegate that merely stopped being its own tool would
+                // reappear here as a string and undo the withholding — see
+                // `toolpacks::is_withheld_from`. A withheld route is still
+                // reachable exactly as before: `load_skill` then `use_skill`.
+                if crate::openhuman::tools::toolpacks::is_withheld_from(&definition.id, &tool_name)
+                {
+                    log::debug!(
+                        "[orchestrator_tools] delegate route '{}' is packed for '{}' —                          omitted from the collapsed tool",
+                        tool_name,
+                        definition.id
+                    );
+                } else {
+                    delegate_targets.push(DelegateTarget {
+                        tool_name: tool_name.clone(),
+                        agent_id: target.id.clone(),
+                        description: target.when_to_use.clone(),
+                    });
+                }
                 tools.push(Box::new(ArchetypeDelegationTool {
                     tool_name,
                     agent_id: target.id.clone(),

@@ -131,8 +131,8 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
          approval gate. Use `describe_workflow` for full details on one of THESE \
          installed skills (it only knows about entries in this list, not Flows \
          automations — do not call it with a Flows `workflow_id`, it will error). \
-         `skill_search` ranks these same skills by what you want done — reach for it \
-         when you know the capability but not the name. Use \
+         `skill_search` ranks these by what you want done, when you know the \
+         capability but not the name. Use \
          `skill_registry_browse` / `skill_registry_search` to find and install new skills. \
          For Flows automations (build/inspect/run a tinyflows workflow), use \
          `build_workflow` / the workflow_builder delegate instead.\n\n",

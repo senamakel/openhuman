@@ -122,8 +122,8 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "skills",
-        summary: "Search installed skills, and find, install and run agent skills \
-                  from the community registries.",
+        summary: "Search installed skills; install and run more from community \
+                  registries.",
         tools: &[
             // In the pack, not outside it. A search tool advertised while every
             // tool it hands off to (`describe_workflow`, `run_skill`) stays

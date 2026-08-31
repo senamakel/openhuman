@@ -220,7 +220,8 @@ impl Agent {
                 let _ = self.refresh_delegation_tools();
             }
             let learned = self.fetch_learned_context().await;
-            let rendered_prompt = self.build_system_prompt(learned)?;
+            let rendered = self.build_system_prompt_tiered(learned)?;
+            let rendered_prompt = rendered.text;
             log::info!("[agent] system prompt built — initialising conversation history");
             log::info!(
                 "[agent_loop] system prompt built chars={}",
@@ -253,8 +254,9 @@ impl Agent {
                 );
             }
             self.history
-                .push(ConversationMessage::Chat(ChatMessage::system(
+                .push(ConversationMessage::Chat(ChatMessage::system_tiered(
                     rendered_prompt,
+                    rendered.breakpoints,
                 )));
             // Seed the per-turn mid-session refresh baseline with the
             // hash of whatever Composio actually returned just now.

@@ -481,13 +481,16 @@ impl Agent {
         // intentionally so this fallback path stays synchronous and
         // doesn't fan out to the memory store on every cold-boot turn.
         let learned = crate::openhuman::agent::prompts::LearnedContextData::default();
-        let system_prompt = self.build_system_prompt(learned)?;
+        let system_prompt = self.build_system_prompt_tiered(learned)?;
 
         let mut cached: Vec<crate::openhuman::agent::messages::ChatMessage> =
             Vec::with_capacity(prior.len() + 1);
-        cached.push(crate::openhuman::agent::messages::ChatMessage::system(
-            system_prompt,
-        ));
+        cached.push(
+            crate::openhuman::agent::messages::ChatMessage::system_tiered(
+                system_prompt.text,
+                system_prompt.breakpoints,
+            ),
+        );
         for (role, content) in prior {
             let chat = match role.as_str() {
                 "user" => crate::openhuman::agent::messages::ChatMessage::user(content),

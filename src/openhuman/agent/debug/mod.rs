@@ -251,6 +251,12 @@ async fn load_dump_config(
         config.config_path = override_path;
     }
     std::fs::create_dir_all(&config.workspace_dir).ok();
+    // The dump renders a prompt without booting a core, so it never reaches
+    // `CoreBuilder::build` — where builtin skills are installed. Without this
+    // the `## Installed Skills` catalogue is missing every bundled skill and
+    // the reported prompt size is smaller than any real turn's. A diagnostic
+    // that under-reports is worse than one that is merely slow.
+    crate::openhuman::skills::install_bundled_skills(&config.workspace_dir);
     if let Some(model) = model_override {
         config.default_model = Some(model);
     }

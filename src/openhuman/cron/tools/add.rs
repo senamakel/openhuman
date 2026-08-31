@@ -1,7 +1,7 @@
 use crate::openhuman::config::Config;
 use crate::openhuman::cron::{self, DeliveryConfig, JobType, Schedule, SessionTarget};
 use crate::openhuman::security::SecurityPolicy;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
@@ -93,6 +93,14 @@ impl CronAddTool {
 
 #[async_trait]
 impl Tool for CronAddTool {
+    /// Superseded by the `cron` tool, which dispatches every scheduler
+    /// operation on one `action` field. Kept registered and dispatchable so a
+    /// replayed transcript or a saved skill naming `cron_*` keeps working;
+    /// hidden from the wire so six schemas do not ship where one does.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "cron_add"
     }

@@ -130,7 +130,7 @@ impl Bm25Index {
     /// mechanism exists to save, and would invite the model to act on something
     /// that has nothing to do with what it asked for.
     pub fn search(&self, query: &str, limit: usize) -> Vec<usize> {
-        let terms = tokenize(query);
+        let terms = self.significant(tokenize(query));
         if terms.is_empty() || self.documents.is_empty() {
             return Vec::new();
         }
@@ -148,6 +148,43 @@ impl Bm25Index {
                 .then_with(|| self.documents[a.1].sort_key.cmp(&self.documents[b.1].sort_key))
         });
         scored.into_iter().take(limit).map(|(_, i)| i).collect()
+    }
+
+    /// Drop query terms that are too common in this corpus to mean anything.
+    ///
+    /// # Why this is needed, and why the obvious fix is wrong
+    ///
+    /// The IDF below carries the standard `+ 1`, which keeps a term that
+    /// appears in every document at a small **positive** weight rather than a
+    /// negative one. That is deliberate — without it, a corpus of one document
+    /// scores every term at zero and nothing is ever findable, which is the
+    /// common case here (a user with one installed skill).
+    ///
+    /// The cost is that "a" and "the" score. Measured on a three-skill corpus,
+    /// the query "provision a kubernetes cluster" matched a changelog skill,
+    /// on the strength of the word "a" alone. A model handed that result has
+    /// been told, with a ranking behind it, that a changelog tool provisions
+    /// clusters.
+    ///
+    /// Clamping negative IDF to zero — the usual textbook answer — fixes the
+    /// stopwords and breaks the one-document case in the same edit. So the
+    /// filter is a document-frequency threshold instead, with a floor of 2 that
+    /// makes it inert on a single-document corpus:
+    ///
+    /// `drop the term when df >= max(2, ceil(0.8 * n))`
+    ///
+    /// One skill: the threshold is 2 and no term can reach it. Three: a term in
+    /// all three goes. Twenty: a term in sixteen or more goes.
+    fn significant(&self, terms: Vec<String>) -> Vec<String> {
+        let n = self.documents.len();
+        if n == 0 {
+            return Vec::new();
+        }
+        let threshold = std::cmp::max(2, (0.8 * n as f64).ceil() as usize);
+        terms
+            .into_iter()
+            .filter(|term| *self.document_frequency.get(term).unwrap_or(&0) < threshold)
+            .collect()
     }
 
     fn score(&self, doc: &Document, terms: &[String]) -> f64 {
@@ -207,6 +244,32 @@ mod tests {
     }
 
     #[test]
+    fn a_query_matching_only_on_stopwords_is_a_miss() {
+        // The regression this cost a real debugging pass to find: "a" appears
+        // in all three documents, so before `significant` existed this query
+        // ranked a changelog skill as a match for provisioning a cluster.
+        assert!(corpus().search("provision a kubernetes cluster", 3).is_empty());
+        assert!(corpus().search("a", 3).is_empty());
+    }
+
+    #[test]
+    fn a_single_document_corpus_stays_searchable() {
+        // The reason the threshold has a floor of 2 rather than being a plain
+        // ratio. With one document every term is in every document, so a ratio
+        // rule would filter the entire query and make the only installed skill
+        // permanently unfindable.
+        let one = Bm25Index::build([("solo", "post a message to discord")]);
+        assert_eq!(one.search("discord", 1), vec![0]);
+        assert_eq!(one.search("post a message", 1), vec![0]);
+    }
+
+    #[test]
+    fn a_real_term_still_matches_even_alongside_stopwords() {
+        // The filter must drop the noise, not the query.
+        assert_eq!(corpus().search("look up a stock", 3), vec![1]);
+    }
+
+    #[test]
     fn an_empty_query_and_an_empty_index_are_both_safe() {
         assert!(corpus().search("", 3).is_empty());
         assert!(Bm25Index::build([]).search("anything", 3).is_empty());
@@ -226,16 +289,22 @@ mod tests {
         // Two documents with identical text score identically; the sort key
         // decides. Built in reverse order so insertion order would give the
         // opposite answer.
-        let index = Bm25Index::build([("zulu", "same words here"), ("alpha", "same words here")]);
+        // Three documents, two identical: with only two, every term would be
+        // in every document and `significant` would filter the query away.
+        let index = Bm25Index::build([
+            ("zulu", "same words here"),
+            ("alpha", "same words here"),
+            ("other", "entirely different text"),
+        ]);
         assert_eq!(index.search("same words", 2), vec![1, 0]);
     }
 
     #[test]
     fn the_limit_is_honoured() {
-        // "a" appears in every document, so the unlimited search returns all
-        // three — which is what makes this a real test of the cap rather than
-        // a query that happened to match once.
-        assert_eq!(corpus().search("a", 10).len(), 3);
-        assert_eq!(corpus().search("a", 1).len(), 1);
+        // "read email stock" hits all three documents on a real term each, so
+        // the unlimited search returns three — which is what makes this a test
+        // of the cap rather than a query that happened to match once.
+        assert_eq!(corpus().search("read email stock", 10).len(), 3);
+        assert_eq!(corpus().search("read email stock", 1).len(), 1);
     }
 }

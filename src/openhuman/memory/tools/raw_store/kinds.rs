@@ -17,6 +17,14 @@ pub struct MemoryStoreKindsTool;
 
 #[async_trait]
 impl Tool for MemoryStoreKindsTool {
+    /// Superseded by the `memory` tool, which dispatches every memory
+    /// operation on one `action` field. Kept registered and dispatchable so a
+    /// replayed transcript or a saved skill naming `memory_*` keeps working;
+    /// hidden from the wire so eleven schemas do not ship where one does.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "memory_store_kinds"
     }

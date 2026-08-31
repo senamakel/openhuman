@@ -1,3 +1,4 @@
+mod collapsed;
 mod doctor;
 // `pub(crate)` (not `mod`): the tinyflows `memory` node's `OpenHumanMemory`
 // adapter (`crate::openhuman::flows::tinyflows::memory_adapter`) reaches
@@ -22,6 +23,7 @@ pub mod search;
 pub mod tool_memory;
 
 pub use crate::openhuman::memory::query::*;
+pub use collapsed::{MemoryTool, MEMORY_TOOL_NAME};
 pub use doctor::MemoryDoctorTool;
 pub use flavour::MemoryFlavourTool;
 pub use forget::MemoryForgetTool;

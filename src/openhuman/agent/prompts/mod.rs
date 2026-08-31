@@ -7,7 +7,7 @@ pub mod agents_md;
 pub use agents_md::{load_agents_md, load_agents_md_layers, AgentsMdContent, AGENTS_MD_FILENAME};
 
 pub mod builder;
-pub use builder::{SystemPromptBuilder, GLOBAL_STYLE_SUFFIX};
+pub use builder::{SystemPromptBuilder, TieredPrompt, GLOBAL_STYLE_SUFFIX};
 
 pub mod sections;
 pub use sections::*;

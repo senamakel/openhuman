@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use crate::openhuman::config::rpc as config_rpc;
-use crate::openhuman::skills::{init_workflows_dir, install_bundled_skills};
+use crate::openhuman::skills::init_workflows_dir;
 use std::path::Path;
 
 const BOOTSTRAP_FILES: [(&str, &str); 2] = [
@@ -102,11 +102,6 @@ pub async fn init_workspace(force: bool) -> Result<serde_json::Value, String> {
     init_workflows_dir(&workspace_dir)
         .map_err(|e| format!("failed to initialize skills dir: {e}"))?;
 
-    // Materialise the skills compiled into this binary. Deliberately not
-    // fallible: a workspace that cannot take a builtin skill boots without it
-    // (the failure is logged per skill) rather than refusing to boot at all —
-    // these are conveniences the model looks up, not state anything depends on.
-    install_bundled_skills(&workspace_dir);
 
     // Report what the call actually did, not what it was expected to do.
     //

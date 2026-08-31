@@ -20,8 +20,4 @@ omit_skills_catalog = true
 hint = "local"
 
 [tools]
-named = [
-    "update_memory_md",
-    "insert_sql_record",
-    "memory",
-]
+named = ["update_memory_md", "insert_sql_record", "memory_store"]

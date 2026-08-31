@@ -19,7 +19,14 @@ hint = "agentic"
 
 [tools]
 named = [
-    "todo",
+    "todo_list",
+    "todo_add",
+    "todo_edit",
+    "todo_update_status",
+    "todo_decide_plan",
+    "todo_remove",
+    "todo_replace",
+    "todo_clear",
     "todowrite",
     "update_task",
     "task_source_list",
@@ -42,6 +49,8 @@ named = [
     "artifact_get",
     "artifact_delete",
     "current_time",
+    # Resolve due-date / reminder windows to exact timestamps instead of
+    # hand-computing epoch seconds.
     "resolve_time",
     "ask_user_clarification",
 ]

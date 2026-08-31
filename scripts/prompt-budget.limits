@@ -74,6 +74,14 @@
 # `integrations_agent` is absent by construction: it is parameterised by a
 # connected Composio toolkit and renders nothing on an empty workspace.
 #
+# A prompt REGRESSION can be the right trade, and one is recorded below. The
+# orchestrator's prompt grew 168 B to say that specialists are now reached with
+# `delegate_to { agent: "..." }` rather than as tools of their own. Without
+# those two sentences the model calls `ask_docs` and gets "unknown tool" — the
+# routing table in `## Delegation` names the specialists, and the names stopped
+# being tool names. 168 B of prose bought 13,332 B of schema. The ratchet is
+# there to make a trade like that visible and deliberate, not to forbid it.
+#
 # Measure with: openhuman-core agent prompt-size --workspace <empty dir> --json
 #
 # History
@@ -96,13 +104,52 @@
 #                 this was first measured.
 #
 #               Every one of those was invisible until this file existed.
+#
+#   2026-09-01  The archetype delegates collapsed into one `delegate_to` tool.
+#               Orchestrator tools 43,153 -> 29,821 B (46 -> 30 tools); fleet
+#               total 934,265 -> 921,351 B.
+#
+#               The cause is worth recording because it was not a big schema,
+#               it was a small one repeated: `ArchetypeDelegationTool::
+#               parameters_schema` is a `json!` literal that never reads
+#               `self`, so all 16 synthesised delegates carried a byte-identical
+#               delegation envelope. 17,746 B — 41% of the orchestrator's whole
+#               tool budget — was one object, sixteen times. The per-agent
+#               number could not show that: every individual tool sat under the
+#               1,600 B attention threshold, so nothing in this file flagged
+#               them. **A family of near-identical schemas hides from both
+#               ratchets.** When the next one is looked for, group by schema
+#               body, not by size.
+#
+#               Two regressions this introduced, both caught by measurement
+#               rather than review, and both now pinned by tests:
+#
+#               * The first version made tools go UP, 43,153 -> 52,513. The
+#                 members were marked `ToolExposure::Hidden`, but exposure is
+#                 only applied to a WILDCARD belt, and the orchestrator's belt
+#                 is `Named` — with every synthesised name force-inserted into
+#                 it by `factory.rs` and again by `refresh_delegation_tools`.
+#                 Both surfaces shipped. Hiding is now filtered at those two
+#                 insertion points, which is the correct place: those names
+#                 were never chosen by a human, so skipping one takes nothing
+#                 an author asked for.
+#               * The collapse then silently RE-ADVERTISED seven routes the
+#                 pack table withholds (`do_crypto`, `setup_mcp_server`,
+#                 `use_mcp_server`, `setup_skills`, `run_skill`,
+#                 `build_workflow`, `discover_workflows`). Each stopped being a
+#                 tool of its own, so `strip_packed_from_visible` had nothing
+#                 to remove, and it reappeared as a string inside another
+#                 tool's schema where no visible-set subtraction reaches it.
+#                 `toolpacks::is_withheld_from` now filters the enum.
+#                 **A collapse must never widen what a pack narrowed** — check
+#                 it whenever a surface moves from "a tool" to "a value".
 
 morning_briefing:14279:82986
 trigger_triage:11075:82986
 workflow_builder:46405:30259
 summarizer:10644:82986
 tools_agent:8260:82986
-orchestrator:34073:43153
+orchestrator:34241:29821
 code_executor:13327:12338
 crypto_agent:12049:12357
 task_manager_agent:7104:15601
@@ -172,11 +219,28 @@ critic:6222:1855
 #   generate_presentation (2,662)
 #       A deck spec: slides, layouts, per-layout fields. Genuinely wide.
 #
+#   delegate_to (5,302)
+#       The collapsed archetype delegation tool. 1,404 B of that is the shared
+#       envelope and the `agent` enum; the other 3,898 B is 17 specialists'
+#       `when_to_use` blurbs, which are the routing information itself — this
+#       tool is how the orchestrator picks a specialist at all.
+#
+#       It is large because 16 tools worth 17,746 B became one. Do not "fix" it
+#       by splitting it back up, and do not trim the blurbs mechanically: at
+#       least three carry NEGATIVE boundaries that prevent mis-routing
+#       (`scheduler_agent`: "reading live calendar events ... belongs to the
+#       calendar/email integration"), and a first-sentence truncation drops
+#       exactly those. The real remaining duplication is with the prompt's own
+#       `## Delegation` routing table, which names the same specialists again
+#       in 7,912 B — deduplicating the two is the next saving here, and it is
+#       an editorial change, not a mechanical one.
+#
 #   search_tool_catalog (1,695) / use_skill (1,620)
 #       Discovery tools. Both are the recovery path for a withheld surface, so
 #       their descriptions carry the "here is what you can still reach" copy.
 #
 tool:memory:3788
+tool:delegate_to:5302
 tool:spawn_subagent:3554
 tool:cron:3228
 tool:propose_workflow:3170

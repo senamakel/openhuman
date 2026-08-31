@@ -40,6 +40,7 @@ use crate::openhuman::agent::harness::definition::{
 #[allow(unused_imports)]
 use super::SpawnWorkerThreadTool;
 use super::{ArchetypeDelegationTool, SkillDelegationTool, Tool};
+use crate::openhuman::agent::orchestration::tools::{DelegateTarget, DelegateTool};
 
 /// Synthesise the delegation tool list for an agent based on its
 /// declarative `subagents` field.
@@ -79,6 +80,9 @@ pub fn collect_orchestrator_tools(
     connected_integrations: &[ConnectedIntegration],
 ) -> Vec<Box<dyn Tool>> {
     let mut tools: Vec<Box<dyn Tool>> = Vec::new();
+    // Every archetype hand-off collapses into a single `delegate` tool. See
+    // `DelegateTool` for why this family collapses rather than being packed.
+    let mut delegate_targets: Vec<DelegateTarget> = Vec::new();
 
     // Orchestrator-only tool: spawn_worker_thread.
     // Temporarily disabled — worker threads do not yet have a proper UI
@@ -131,6 +135,16 @@ pub fn collect_orchestrator_tools(
                 // "**Direct-first always**". A parent whose prompt does not
                 // state that rule should gain it there, once, rather than
                 // paying for it on every delegate schema on every turn.
+                // Both, deliberately. The member is registered so a replayed
+                // transcript or saved skill naming `research` still resolves,
+                // but it reports `ToolExposure::Hidden` and so never reaches
+                // the wire; the collapsed `delegate` tool built below is what
+                // the model actually sees.
+                delegate_targets.push(DelegateTarget {
+                    tool_name: tool_name.clone(),
+                    agent_id: target.id.clone(),
+                    description: target.when_to_use.clone(),
+                });
                 tools.push(Box::new(ArchetypeDelegationTool {
                     tool_name,
                     agent_id: target.id.clone(),
@@ -220,6 +234,21 @@ pub fn collect_orchestrator_tools(
                     }
                 }
             }
+        }
+    }
+
+    match DelegateTool::for_targets(delegate_targets) {
+        Some(tool) => {
+            log::debug!(
+                "[orchestrator_tools] registering collapsed delegation tool ({} targets)",
+                tool.target_names().len()
+            );
+            tools.push(Box::new(tool));
+        }
+        None => {
+            log::debug!(
+                "[orchestrator_tools] no routable sub-agents — collapsed delegation tool omitted"
+            );
         }
     }
 

@@ -2187,3 +2187,112 @@ fn subagent_renderer_omits_agents_md_when_none() {
         "public wrapper passes None/None and must emit no AGENTS.md block"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Cache tiers (P1)
+// ---------------------------------------------------------------------------
+
+mod cache_tiers {
+    use super::*;
+
+    /// A section with a fixed body and a declared tier.
+    struct Fixed(&'static str, &'static str, PromptTier);
+    impl PromptSection for Fixed {
+        fn name(&self) -> &str {
+            self.0
+        }
+        fn build(&self, _ctx: &PromptContext<'_>) -> anyhow::Result<String> {
+            Ok(self.1.to_string())
+        }
+        fn tier(&self) -> PromptTier {
+            self.2
+        }
+    }
+
+    fn builder(sections: Vec<Box<dyn PromptSection>>) -> SystemPromptBuilder {
+        let mut b = SystemPromptBuilder::default();
+        for s in sections {
+            b = b.add_section(s);
+        }
+        b
+    }
+
+    #[test]
+    fn volatile_sections_are_emitted_after_stable_ones_regardless_of_declaration_order() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ctx = test_prompt_context(dir.path());
+        let prompt = builder(vec![
+            Box::new(Fixed("memory", "MEMORY_BLOCK", PromptTier::Volatile)),
+            Box::new(Fixed("identity", "IDENTITY_BLOCK", PromptTier::Stable)),
+            Box::new(Fixed("agents_md", "AGENTS_BLOCK", PromptTier::Context)),
+        ])
+        .build(&ctx)
+        .expect("builds");
+
+        let identity = prompt.find("IDENTITY_BLOCK").expect("identity present");
+        let agents = prompt.find("AGENTS_BLOCK").expect("agents present");
+        let memory = prompt.find("MEMORY_BLOCK").expect("memory present");
+        assert!(
+            identity < agents && agents < memory,
+            "tiers must order the prompt stable → context → volatile, got:\n{prompt}"
+        );
+    }
+
+    #[test]
+    fn breakpoints_land_on_the_tier_boundaries() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ctx = test_prompt_context(dir.path());
+        let tiered = builder(vec![
+            Box::new(Fixed("identity", "IDENTITY_BLOCK", PromptTier::Stable)),
+            Box::new(Fixed("agents_md", "AGENTS_BLOCK", PromptTier::Context)),
+            Box::new(Fixed("memory", "MEMORY_BLOCK", PromptTier::Volatile)),
+        ])
+        .build_tiered(&ctx)
+        .expect("builds");
+
+        assert_eq!(tiered.breakpoints.len(), 2, "stable and context each end once");
+        for &offset in &tiered.breakpoints {
+            assert!(
+                tiered.text.is_char_boundary(offset),
+                "offset {offset} must be sliceable"
+            );
+        }
+        // Everything before the first breakpoint is the stable tier.
+        let stable = &tiered.text[..tiered.breakpoints[0]];
+        assert!(stable.contains("IDENTITY_BLOCK"));
+        assert!(!stable.contains("AGENTS_BLOCK"));
+        assert!(!stable.contains("MEMORY_BLOCK"));
+        // Everything before the second is stable + context, and no memory.
+        let through_context = &tiered.text[..tiered.breakpoints[1]];
+        assert!(through_context.contains("AGENTS_BLOCK"));
+        assert!(!through_context.contains("MEMORY_BLOCK"));
+    }
+
+    #[test]
+    fn a_prompt_with_no_context_or_volatile_sections_declares_one_boundary() {
+        // Narrow sub-agents are all-stable. One breakpoint at the end of the
+        // stable tier is right; two identical offsets would be wasted, and the
+        // provider caps how many it accepts.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ctx = test_prompt_context(dir.path());
+        let tiered = builder(vec![Box::new(Fixed("a", "ONLY", PromptTier::Stable))])
+            .build_tiered(&ctx)
+            .expect("builds");
+        assert_eq!(tiered.breakpoints.len(), 1);
+    }
+
+    #[test]
+    fn build_returns_exactly_the_tiered_text() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ctx = test_prompt_context(dir.path());
+        let b = builder(vec![
+            Box::new(Fixed("identity", "IDENTITY_BLOCK", PromptTier::Stable)),
+            Box::new(Fixed("memory", "MEMORY_BLOCK", PromptTier::Volatile)),
+        ]);
+        assert_eq!(
+            b.build(&ctx).expect("builds"),
+            b.build_tiered(&ctx).expect("builds").text,
+            "the two entry points must never disagree about the bytes"
+        );
+    }
+}

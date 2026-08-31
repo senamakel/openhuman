@@ -471,6 +471,23 @@ impl AgentBuilder {
             &mut visible_names,
             &agent_definition_name,
         );
+        // Per-tool exposure, applied after the pack posture and for the same
+        // reason: the tool stays registered and executable, only its schema
+        // leaves the wire. The two are independent — a pack is a group a config
+        // posture withholds and `load_skill` recovers, exposure is a property
+        // of one tool that `tool_search` recovers — and they compose by simple
+        // subtraction, so a tool that is both is just absent twice.
+        //
+        // Neither can widen anything. This runs on a set the belt and the
+        // security policy already produced, and only ever removes from it.
+        let deferred = strip_deferred_from_visible(&mut visible_names, tools.as_slice());
+        if !deferred.is_empty() {
+            tracing::info!(
+                agent = %agent_definition_name,
+                deferred = deferred.len(),
+                "[tools] withheld deferred tool schemas; reachable via tool_search"
+            );
+        }
         let config = self.config.clone().unwrap_or_default();
         let event_session_id = self
             .event_session_id

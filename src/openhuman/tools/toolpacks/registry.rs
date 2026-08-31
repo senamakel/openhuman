@@ -122,8 +122,18 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "skills",
-        summary: "Find, install and run agent skills from the community registries.",
+        summary: "Search installed skills, and find, install and run agent skills \
+                  from the community registries.",
         tools: &[
+            // In the pack, not outside it. A search tool advertised while every
+            // tool it hands off to (`describe_workflow`, `run_skill`) stays
+            // withheld would cost 748 B on every wildcard agent to produce an id
+            // the agent then cannot act on without a `load_skill` anyway. One
+            // recovery step for the whole family beats a doorway to a locked
+            // room. The orchestrator prompt names it for the same reason it
+            // already names `describe_workflow` and `skill_registry_browse` —
+            // those are packed too.
+            "skill_search",
             "run_skill",
             "setup_skills",
             "skill_registry_browse",

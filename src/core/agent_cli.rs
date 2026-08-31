@@ -61,6 +61,12 @@ pub fn run_agent_command(args: &[String]) -> Result<()> {
 const PROMPT_SIZE_SECTION_ROWS: usize = 15;
 const PROMPT_SIZE_TOOL_ROWS: usize = 20;
 
+/// Where `--hermetic` puts the config file, relative to the workspace's parent.
+///
+/// Mirrors the layout `Config::load_or_init` produces and `Harness` reproduces:
+/// `config.toml` beside the `workspace` directory, not inside it.
+const HERMETIC_CONFIG_FILENAME: &str = "config.toml";
+
 struct PromptSizeFlags {
     /// `None` means "every registered agent" — the fleet-wide view the ratchet
     /// consumes.
@@ -70,6 +76,9 @@ struct PromptSizeFlags {
     model: Option<String>,
     json: bool,
     verbose: bool,
+    /// Also relocate `config_path` beside the workspace, so credentials and
+    /// integration toggles come from the temp dir rather than `~/.openhuman`.
+    hermetic: bool,
 }
 
 fn parse_prompt_size_flags(args: &[String]) -> Result<PromptSizeFlags> {
@@ -79,9 +88,14 @@ fn parse_prompt_size_flags(args: &[String]) -> Result<PromptSizeFlags> {
     let mut model: Option<String> = None;
     let mut json = false;
     let mut verbose = false;
+    let mut hermetic = false;
     let mut i = 0usize;
     while i < args.len() {
         match args[i].as_str() {
+            "--hermetic" => {
+                hermetic = true;
+                i += 1;
+            }
             "--agent" | "-a" => {
                 agent = Some(
                     args.get(i + 1)
@@ -135,6 +149,7 @@ fn parse_prompt_size_flags(args: &[String]) -> Result<PromptSizeFlags> {
         model,
         json,
         verbose,
+        hermetic,
     })
 }
 
@@ -154,17 +169,36 @@ fn run_prompt_size(args: &[String]) -> Result<()> {
         .max_blocking_threads(crate::core::runtime::MAX_BLOCKING_THREADS)
         .build()?;
 
+    // `--hermetic` without `--workspace` would silently measure the real
+    // install, which is the failure this flag exists to prevent — so refuse
+    // rather than guess.
+    let config_path = if flags.hermetic {
+        let Some(workspace) = flags.workspace.as_ref() else {
+            return Err(anyhow!("--hermetic requires --workspace <dir>"));
+        };
+        let parent = workspace.parent().unwrap_or(workspace.as_path());
+        Some(parent.join(HERMETIC_CONFIG_FILENAME))
+    } else {
+        None
+    };
+
     let reports: Vec<PromptSizeReport> = match &flags.agent {
         Some(agent_id) => {
             let mut options = DumpPromptOptions::new(agent_id.clone());
             options.toolkit = flags.toolkit.clone();
             options.workspace_dir_override = flags.workspace.clone();
+            options.config_path_override = config_path.clone();
             options.model_override = flags.model.clone();
             vec![rt.block_on(PromptSizeReport::build(options))?]
         }
         None => {
             let dumps: Vec<DumpedPrompt> = rt.block_on(async {
-                dump_all_agent_prompts(flags.workspace.clone(), flags.model.clone()).await
+                dump_all_agent_prompts(
+                    flags.workspace.clone(),
+                    config_path.clone(),
+                    flags.model.clone(),
+                )
+                .await
             })?;
             dumps.iter().map(PromptSizeReport::from_dump).collect()
         }
@@ -219,6 +253,10 @@ fn print_prompt_size_help() {
     println!("  --toolkit, -t <slug> REQUIRED when `--agent integrations_agent`.");
     println!("  --workspace, -w <p>  Workspace to resolve identity/memory files against.");
     println!("  --model, -m <name>   Override the resolved model name.");
+    println!("  --hermetic           Also resolve config + credentials from the --workspace");
+    println!("                       parent, not ~/.openhuman. REQUIRED for a reproducible");
+    println!("                       number: ~20 backend-proxied integration tools appear or");
+    println!("                       vanish with whether you happen to be signed in.");
     println!("  --json               Full machine-readable breakdown (every row).");
     println!("  -v, --verbose        Restore normal logging.");
     println!();
@@ -307,7 +345,7 @@ fn run_dump_all(args: &[String]) -> Result<()> {
         .build()?;
     log::debug!("[agent-cli] run_dump_all: calling dump_all_agent_prompts");
     let dumps = rt.block_on(async {
-        dump_all_agent_prompts(flags.workspace.clone(), flags.model.clone()).await
+        dump_all_agent_prompts(flags.workspace.clone(), None, flags.model.clone()).await
     })?;
     log::debug!(
         "[agent-cli] run_dump_all: dump_all_agent_prompts returned {} prompt(s)",

@@ -60,7 +60,7 @@ if [[ ! -x "$BIN" ]]; then
 fi
 
 echo "[prompt-budget] measuring against hermetic workspace $WORKSPACE" >&2
-if ! measured="$(RUST_LOG=error "$BIN" agent prompt-size --workspace "$WORKSPACE" --json)"; then
+if ! measured="$(RUST_LOG=error "$BIN" agent prompt-size --workspace "$WORKSPACE/workspace" --hermetic --json)"; then
   echo "::error::prompt-size failed to measure" >&2
   exit 1
 fi

@@ -540,7 +540,11 @@ mod tests {
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert_eq!(
             names,
-            vec!["do_crypto", "delegate_to"],
+            // No `delegate_to`: `do_crypto` is the *only* subagent here and
+            // the `crypto` pack withholds it, so there is no advertised route
+            // left to collapse and `for_targets` correctly declines to build a
+            // tool whose `agent` enum would have been empty.
+            vec!["do_crypto"],
             "a subagent entry must synthesise its stable delegate_name \
              (`do_crypto`), not the default `delegate_crypto_agent`"
         );

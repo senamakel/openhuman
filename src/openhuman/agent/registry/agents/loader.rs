@@ -1195,7 +1195,8 @@ mod tests {
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",
-                    "memory",
+                    "memory_recall",
+                    "memory_hybrid_search",
                 ];
                 for required in expected {
                     assert!(
@@ -1270,7 +1271,7 @@ mod tests {
                 );
                 // A representative slice of the read-only gathering surface.
                 for required in [
-                    "memory",
+                    "memory_recall",
                     "list_flows",
                     "list_flow_connections",
                     "search_tool_catalog",
@@ -1323,9 +1324,7 @@ mod tests {
         assert!(matches!(scheduler.model, ModelSpec::Hint(ref h) if h == "burst"));
         match &scheduler.tools {
             ToolScope::Named(names) => {
-                // `add`, `list` and `remove` are actions on the collapsed
-                // `cron` tool now; the belt names the tool.
-                for required in ["current_time", "cron"] {
+                for required in ["current_time", "cron_add", "cron_list", "cron_remove"] {
                     assert!(
                         names.iter().any(|name| name == required),
                         "scheduler_agent missing `{required}`"
@@ -1460,7 +1459,7 @@ mod tests {
         match &def.tools {
             ToolScope::Named(tools) => {
                 for required in [
-                    "memory",
+                    "memory_recall",
                     // Transcripts + thread metadata + message reader (read-only).
                     // Skill discovery (read-only).
                     "list_workflows",
@@ -1530,9 +1529,7 @@ mod tests {
         // no more, no less.
         match &def.tools {
             ToolScope::Named(tools) => {
-                // `recall`, `hybrid_search` and `flavour` are actions on the
-                // collapsed `memory` tool now; the belt names the tool.
-                let expected = ["memory"];
+                let expected = ["memory_recall", "memory_hybrid_search", "memory_flavour"];
                 for required in expected {
                     assert!(
                         tools.iter().any(|t| t == required),

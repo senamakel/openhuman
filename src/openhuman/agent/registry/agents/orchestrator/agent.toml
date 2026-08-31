@@ -238,7 +238,8 @@ named = [
     # `manage_profile_memory` (profile_memory_agent) below. These are memory-store
     # writes, NOT file/shell mutation — the "no write tools" rule (below) is about
     # editing files and running commands, which stays out.
-    "memory",
+    "memory_recall",
+    "memory_store",
     "save_preference",
     # Memory-protocol close-out (#4116). A successful `memory_store` is a durable
     # write, so the memory-protocol middleware appends a "call `update_memory_md`

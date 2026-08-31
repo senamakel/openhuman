@@ -19,7 +19,9 @@ hint = "agentic"
 
 [tools]
 named = [
-    "memory",
+    "memory_store",
+    "memory_forget",
+    "memory_doctor",
     "memory_tools_list",
     "memory_tools_put",
     "remember_preference",
@@ -44,5 +46,6 @@ named = [
     # anti_preferences) — complements `learning_get_facet` when the agent
     # needs the agent's-eye-view style/preference summary rather than the raw
     # facet cache.
+    "memory_flavour",
     "ask_user_clarification",
 ]

@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolExposure, ToolResult};
 
 use super::ops::{self, BoardLocation, CardPatch, TodosSnapshot};
 

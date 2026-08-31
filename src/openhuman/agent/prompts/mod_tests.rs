@@ -2068,14 +2068,26 @@ fn agents_md_section_registered_in_default_builder() {
         "with_defaults() must include the AGENTS.md section"
     );
     assert!(rendered.contains("DEFAULT_BUILDER_MARKER"));
-    // Ordering contract: AGENTS.md after user-context, before the tool catalogue.
+    // Ordering contract, restated for the cache tiers.
+    //
+    // This used to assert "AGENTS.md after user-context, before the tool
+    // catalogue". Neither half of that survives tiering, and neither half was
+    // load-bearing: the catalogue is a reference list and AGENTS.md is standing
+    // guidance, so no behaviour depended on their relative order, and the
+    // "alongside user-context" intent was impossible to honour once identity
+    // moved to the front of the prompt and memory to the back.
+    //
+    // What replaces it is the tier order, which does carry a reason: AGENTS.md
+    // is `Context` (per project, stable within a session) so it renders after
+    // the `Stable` tool catalogue and before the `Volatile` user context. That
+    // puts the two most-reused blocks ahead of the first byte that can change.
     let agents_pos = rendered
         .find("## Project instructions (AGENTS.md)")
         .unwrap();
     let tools_pos = rendered.find("## Tools").unwrap();
     assert!(
-        agents_pos < tools_pos,
-        "AGENTS.md must render before the ## Tools catalogue"
+        tools_pos < agents_pos,
+        "the Stable tool catalogue must render before the Context AGENTS.md block"
     );
 }
 

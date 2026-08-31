@@ -75,7 +75,14 @@ hint = "reasoning"
 # could only ever reach `memory_recall` — leaving the guidance's "keyword
 # lookups" half unsatisfiable. `memory_hybrid_search`'s `lexical` mode is
 # the real keyword-heavy retrieval this agent needs; both stay READ-ONLY.
+# `read_workflow_resource` fetches a page of the `flow-authoring` builtin skill
+# — the reference manual this agent's prompt points at (expression syntax, node
+# config, graph shape, reading a dry run). That text used to be ~25 KB of the
+# standing prompt, paid on every turn including the ones that wire two nodes
+# together; as a skill it is read when it is needed. READ-ONLY, and scoped by
+# discovery to installed bundles.
 named = [
+    "read_workflow_resource",
     "propose_workflow",
     "revise_workflow",
     "edit_workflow",

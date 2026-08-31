@@ -442,6 +442,47 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
+    fn the_catalogue_is_capped_and_points_at_search_for_the_rest() {
+        // The cost this cap exists to bound is per-turn and frozen for the
+        // session, so it grows silently with an install and nothing else in the
+        // build measures it.
+        let many: Vec<Workflow> = (0..MAX_LISTED_SKILLS + 7)
+            .map(|i| Workflow {
+                dir_name: format!("skill-{i:02}"),
+                description: format!("does thing {i}"),
+                ..Default::default()
+            })
+            .collect();
+        let rendered = render_installed_skills(&many);
+        assert!(rendered.contains("skill-00"));
+        assert!(
+            !rendered.contains("skill-25"),
+            "the catalogue must stop at the cap"
+        );
+        assert!(
+            rendered.contains("7 more installed skill(s)"),
+            "the reader must be told how many are missing: {rendered}"
+        );
+        assert!(
+            rendered.contains("skill_search"),
+            "and how to reach them"
+        );
+    }
+
+    #[test]
+    fn an_uncapped_catalogue_says_nothing_about_hidden_skills() {
+        // The other half: below the cap nothing changes for existing users, so
+        // this is not a trim of a cost that already hurts.
+        let few = vec![Workflow {
+            dir_name: "only-one".into(),
+            description: "does a thing".into(),
+            ..Default::default()
+        }];
+        let rendered = render_installed_skills(&few);
+        assert!(!rendered.contains("more installed skill(s)"));
+    }
+
+    #[test]
     fn render_installed_skills_lists_skills_and_steers_to_run_skill() {
         let skills = vec![
             Workflow {

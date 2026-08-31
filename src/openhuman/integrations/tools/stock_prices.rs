@@ -13,7 +13,7 @@
 //! Pricing is metered by the backend; the response includes `costUsd` per call.
 
 use super::IntegrationClient;
-use crate::openhuman::tools::traits::{Tool, ToolResult};
+use crate::openhuman::tools::traits::{Tool, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;

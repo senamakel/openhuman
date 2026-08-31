@@ -401,6 +401,43 @@ pub struct PromptContext<'a> {
 pub trait PromptSection: Send + Sync {
     fn name(&self) -> &str;
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String>;
+
+    /// Which cache tier this section's bytes belong to.
+    ///
+    /// Defaults to [`PromptTier::Stable`], which is right for the large
+    /// majority: identity, role, rules, safety, grounding and style are the
+    /// same bytes on every turn of every session. A section must override this
+    /// only if its output can change — and then it **must**, because a volatile
+    /// section rendered inside the stable tier invalidates every byte after it.
+    fn tier(&self) -> PromptTier {
+        PromptTier::Stable
+    }
+}
+
+/// How stable a [`PromptSection`]'s bytes are, which decides where in the
+/// assembled prompt they are emitted.
+///
+/// The prompt is frozen after turn 1 (`session/turn/core.rs`), so within a
+/// session nothing here moves. The tiers matter *across* sessions and to
+/// providers that must be told where to cache: a prefix is reusable only up to
+/// the first byte that differs, so the ordering rule is simply "most stable
+/// first". Put the user's memory near the front — as this builder did until
+/// #5701's successor — and one memory write invalidates the identity, the
+/// rules, the safety contract and the entire tool catalogue behind it.
+///
+/// Hermes reaches the same three-way split from the same reasoning
+/// (`agent/system_prompt.py`'s `stable` / `context` / `volatile`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PromptTier {
+    /// Identical across sessions for a given build and agent: identity, role,
+    /// delegation rules, safety, grounding, writing style.
+    Stable,
+    /// Stable for the life of a session but not across sessions — project
+    /// instructions (`AGENTS.md`) and the resolved workspace.
+    Context,
+    /// Changes whenever the user's state does: memory, profile, the skills
+    /// index, connected integrations, the clock.
+    Volatile,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

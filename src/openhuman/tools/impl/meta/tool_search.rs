@@ -53,30 +53,21 @@ pub struct SearchableTool {
     pub name: String,
     pub description: String,
     pub parameters: Value,
-    /// Lowercased `name` + `description` tokens, precomputed.
-    tokens: Vec<String>,
+    /// `name` + `description`, the text the ranker sees.
+    searchable: String,
 }
 
 impl SearchableTool {
     pub fn from_spec(spec: &ToolSpec) -> Self {
-        let tokens = tokenize(&format!("{} {}", spec.name, spec.description));
         Self {
             name: spec.name.clone(),
             description: spec.description.clone(),
             parameters: spec.parameters.clone(),
-            tokens,
+            searchable: format!("{} {}", spec.name, spec.description),
         }
     }
 }
 
-/// Split on anything that is not alphanumeric, and additionally split
-/// `snake_case` and `camelCase` runs.
-///
-/// Tool names are the highest-signal field in the index and they are almost all
-/// `snake_case`, so a tokenizer that treats `memory_hybrid_search` as one term
-/// matches the query "search memory" at zero. Splitting on `_` fixes that; the
-/// camel split costs little and covers the handful of MCP-imported names that
-/// arrive in that shape.
 /// A BM25 index over the deferred tools.
 ///
 /// A thin adapter: the ranking lives in [`crate::openhuman::util::bm25`], which

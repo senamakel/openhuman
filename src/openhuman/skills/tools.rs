@@ -58,7 +58,7 @@ fn read_workflow_id(args: &serde_json::Value) -> anyhow::Result<String> {
 type SkillAllowlist = Option<std::collections::HashSet<String>>;
 
 /// Whether `dir_name` passes the optional per-profile skill allowlist.
-fn skill_allowed(allowlist: &SkillAllowlist, dir_name: &str) -> bool {
+pub(super) fn skill_allowed(allowlist: &SkillAllowlist, dir_name: &str) -> bool {
     match allowlist {
         None => true,
         Some(set) => set.contains(dir_name),

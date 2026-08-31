@@ -540,6 +540,17 @@ pub fn all_tools_with_runtime(
                 .with_skill_allowlist(skill_allowlist.cloned())
                 .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
+        // Ranked lookup over the same corpus `list_workflows` lists, with the
+        // same profile scoping. It exists because that list grows — bundled
+        // skills ship in the binary and a catalogue install is one call away —
+        // and neither the prompt catalogue nor a full `list_workflows` dump
+        // scales with it. See `skills::search`.
+        #[cfg(feature = "skills")]
+        Box::new(
+            crate::openhuman::skills::search::SkillSearchTool::new(config.clone())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
         // operation (fetches remote content and writes to disk).

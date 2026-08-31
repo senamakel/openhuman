@@ -25,7 +25,9 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context, Result};
 
 pub mod dump_writer;
+pub mod prompt_size;
 pub use dump_writer::{write_prompt_dumps, DumpWriteSummary};
+pub use prompt_size::{PromptSizeReport, SectionSize, ToolSize};
 
 use crate::openhuman::agent::context::prompt::{
     LearnedContextData, PromptContext, PromptTool, ToolCallFormat,

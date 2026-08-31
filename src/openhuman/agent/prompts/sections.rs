@@ -214,6 +214,11 @@ impl PromptSection for IdentitySection {
         "identity"
     }
 
+    fn tier(&self) -> PromptTier {
+        // Carries per-personality recent context.
+        PromptTier::Volatile
+    }
+
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut prompt = String::from("## Project Context\n\n");
         prompt.push_str(
@@ -331,6 +336,11 @@ impl PromptSection for AgentsInstructionsSection {
         "agents_md"
     }
 
+    fn tier(&self) -> PromptTier {
+        // PROFILE.md / MEMORY.md — rewritten by the archivist and by onboarding.
+        PromptTier::Volatile
+    }
+
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut out = String::new();
         super::render_helpers::write_agents_md_blocks(
@@ -345,6 +355,11 @@ impl PromptSection for AgentsInstructionsSection {
 impl PromptSection for ToolsSection {
     fn name(&self) -> &str {
         "tools"
+    }
+
+    fn tier(&self) -> PromptTier {
+        // AGENTS.md layers — per project, stable within a session.
+        PromptTier::Context
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
@@ -511,6 +526,11 @@ impl PromptSection for RuntimeSection {
         "runtime"
     }
 
+    fn tier(&self) -> PromptTier {
+        // Resolved workspace and action dir; per install, not per build.
+        PromptTier::Context
+    }
+
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let host =
             hostname::get().map_or_else(|_| "unknown".into(), |h| h.to_string_lossy().to_string());
@@ -525,6 +545,11 @@ impl PromptSection for RuntimeSection {
 impl PromptSection for UserReflectionsSection {
     fn name(&self) -> &str {
         "user_reflections"
+    }
+
+    fn tier(&self) -> PromptTier {
+        // Host runtime facts; per install, not per build.
+        PromptTier::Context
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
@@ -558,6 +583,11 @@ impl PromptSection for UserReflectionsSection {
 impl PromptSection for UserMemorySection {
     fn name(&self) -> &str {
         "user_memory"
+    }
+
+    fn tier(&self) -> PromptTier {
+        // Learned reflections, refreshed by the learning subsystem.
+        PromptTier::Volatile
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
@@ -611,6 +641,11 @@ impl PromptSection for DateTimeSection {
         "datetime"
     }
 
+    fn tier(&self) -> PromptTier {
+        // The memory tree summary, which changes whenever memory is written.
+        PromptTier::Volatile
+    }
+
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         // No concrete timestamp here. The live "now" is injected per turn
         // on the user message via `render_helpers::current_datetime_line`
@@ -657,6 +692,16 @@ impl PromptSection for DateTimeSection {
 impl PromptSection for UserIdentitySection {
     fn name(&self) -> &str {
         "user_identity"
+    }
+
+    fn tier(&self) -> PromptTier {
+        // The signed-in user, which changes on login and logout.
+        PromptTier::Volatile
+    }
+
+    fn tier(&self) -> PromptTier {
+        // The clock. Nothing after this can ever be cached.
+        PromptTier::Volatile
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {

@@ -19,14 +19,7 @@ hint = "agentic"
 
 [tools]
 named = [
-    "todo_list",
-    "todo_add",
-    "todo_edit",
-    "todo_update_status",
-    "todo_decide_plan",
-    "todo_remove",
-    "todo_replace",
-    "todo_clear",
+    "todo",
     "todowrite",
     "update_task",
     "task_source_list",

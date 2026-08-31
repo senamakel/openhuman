@@ -37,7 +37,7 @@ hint = "agentic"
 #   - spawn_subagent: escalate to a real specialist if the reaction
 #     turns out to be bigger than the triage agent expected
 named = [
-    "memory_store",
+    "memory",
     "read_workspace_state",
     "spawn_subagent",
 ]

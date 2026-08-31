@@ -114,6 +114,17 @@ impl TodoListTool {
 
 #[async_trait]
 impl Tool for TodoListTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_list"
     }
@@ -156,6 +167,17 @@ impl TodoAddTool {
 
 #[async_trait]
 impl Tool for TodoAddTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_add"
     }
@@ -217,6 +239,17 @@ impl TodoEditTool {
 
 #[async_trait]
 impl Tool for TodoEditTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_edit"
     }
@@ -277,6 +310,17 @@ impl TodoUpdateStatusTool {
 
 #[async_trait]
 impl Tool for TodoUpdateStatusTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_update_status"
     }
@@ -329,6 +373,17 @@ impl TodoDecidePlanTool {
 
 #[async_trait]
 impl Tool for TodoDecidePlanTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_decide_plan"
     }
@@ -383,6 +438,17 @@ impl TodoRemoveTool {
 
 #[async_trait]
 impl Tool for TodoRemoveTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_remove"
     }
@@ -433,6 +499,17 @@ impl TodoReplaceTool {
 
 #[async_trait]
 impl Tool for TodoReplaceTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_replace"
     }
@@ -491,6 +568,17 @@ impl TodoClearTool {
 
 #[async_trait]
 impl Tool for TodoClearTool {
+    /// Superseded by the `todo` tool's `op` dispatch, which covers every
+    /// operation this family offers. Kept registered and dispatchable so a
+    /// replayed transcript, a saved skill, or a model working from a cached
+    /// prompt that still names `todo_*` keeps working; hidden from the wire so
+    /// nine schemas do not ship where one does the job.
+    ///
+    /// Delete this family once no live transcript names it.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn name(&self) -> &str {
         "todo_clear"
     }

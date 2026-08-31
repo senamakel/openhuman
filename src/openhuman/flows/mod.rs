@@ -28,6 +28,7 @@
 //! `flows::tinyflows` in **comments only**. If either ever becomes a real
 //! `use`, this family must convert to the facade+stub shape (see `voice/`).
 
+pub mod skills;
 pub mod agents;
 mod build_registry;
 pub mod builder_tools;

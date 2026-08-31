@@ -43,6 +43,12 @@ pub const MAX_WORKFLOW_RESOURCE_BYTES: u64 = 128 * 1024;
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
 pub enum WorkflowScope {
+    /// A skill compiled into the binary and materialised under
+    /// `<workspace>/.openhuman/builtin-skills/` at boot. LOWEST precedence:
+    /// a user or project skill of the same name shadows it, so shipping a
+    /// bundle can never take a name away from someone already using it.
+    /// See `skills::bundled`.
+    Builtin,
     /// Workflow shipped with the user's global config (`~/.openhuman/skills/...`).
     #[default]
     User,

@@ -27,6 +27,28 @@
 # Judge integration-tool work with `prompt-size` against a signed-in workspace
 # and record the finding in a PR body, not in this file.
 #
+# Moving prose into a SKILL trades prompt bytes for tool bytes, and the trade is
+# only worth recording if both halves are. `workflow_builder` gave up 21,445 B
+# of standing prompt when its reference manual became the `flow-authoring`
+# builtin skill, and took on 556 B for `read_workflow_resource` — the tool that
+# reads a page. Net -20,889 B per turn. The other agents pay ~14 B for the
+# mechanism (`skill_search` joined the withheld `skills` pack, which lengthened
+# `load_skill`/`use_skill`'s summary) and the orchestrator 97 B for the sentence
+# that tells it search exists.
+#
+# Two things that made the first attempt worse rather than better, both caught
+# by numbers here rather than by review:
+#
+#   * `read_workflow_resource` sat in the withheld `skills` pack, so naming it
+#     on the builder's belt advertised `load_skill` + `use_skill` (3,137 B)
+#     INSTEAD of the tool (556 B), and put a round trip in front of every read.
+#     Adding `workflow_builder` to that pack's `owners` fixed it and widened
+#     nothing — its belt is `Named`, so no other pack member is visible to it.
+#   * `skill_search` was registered outside any pack, costing 748 B on every
+#     wildcard agent to produce a skill id those agents could not act on,
+#     because `describe_workflow` and `run_skill` were still withheld. A
+#     doorway to a locked room. It belongs in the pack with them.
+#
 # A FALLING tool-byte count is not automatically good. Collapsing the memory,
 # todo and cron families showed both failure modes in one afternoon:
 #

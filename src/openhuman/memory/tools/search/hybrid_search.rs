@@ -12,7 +12,7 @@ use std::fmt::Write;
 use crate::openhuman::memory::api::provider::MemoryProvider;
 use crate::openhuman::memory::api::types::MemoryItemKind;
 use crate::openhuman::memory::ops::guard::active_memory_guard;
-use crate::openhuman::tools::traits::{Tool, ToolResult};
+use crate::openhuman::tools::traits::{Tool, ToolExposure, ToolResult};
 use tinycortex::memory::WeightProfile;
 
 pub struct MemoryHybridSearchTool;

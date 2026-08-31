@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 
 use crate::openhuman::memory::api::provider::MemoryProvider;
 use crate::openhuman::memory::ops::guard::active_memory_guard;
-use crate::openhuman::tools::traits::{Tool, ToolResult};
+use crate::openhuman::tools::traits::{Tool, ToolExposure, ToolResult};
 
 pub struct MemoryStoreKindsTool;
 

@@ -8,7 +8,7 @@
 
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree::health::async_run_doctor;
-use crate::openhuman::tools::traits::{Tool, ToolResult};
+use crate::openhuman::tools::traits::{Tool, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;

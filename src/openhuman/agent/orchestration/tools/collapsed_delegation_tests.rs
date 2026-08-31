@@ -6,6 +6,7 @@
 //! nothing ships both surfaces).
 
 use super::*;
+use crate::openhuman::agent::orchestration::tools::ArchetypeDelegationTool;
 use crate::openhuman::tools::traits::ToolExposure;
 
 fn targets() -> Vec<DelegateTarget> {
@@ -213,7 +214,7 @@ fn every_member_is_hidden_so_the_collapse_actually_saves_something() {
     // The load-bearing assertion, matching the one on the collapsed `cron` and
     // `memory` tools: leaving a member `Direct` would ship both surfaces and
     // save nothing, and nothing else in the build would notice.
-    let member = super::ArchetypeDelegationTool {
+    let member = ArchetypeDelegationTool {
         tool_name: "research".to_string(),
         agent_id: "researcher".to_string(),
         tool_description: "Web research.".to_string(),
@@ -228,7 +229,7 @@ fn the_member_and_the_collapsed_tool_agree_on_the_envelope() {
     // Both call `delegation_envelope_properties`, so this pins that neither
     // grew a private copy. A drift here is silent: the collapsed schema would
     // advertise a field `render_structured_handoff` never reads.
-    let member = super::ArchetypeDelegationTool {
+    let member = ArchetypeDelegationTool {
         tool_name: "research".to_string(),
         agent_id: "researcher".to_string(),
         tool_description: "Web research.".to_string(),

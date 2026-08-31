@@ -194,8 +194,9 @@ mod tests {
 
     #[test]
     fn a_plain_language_query_finds_the_right_document() {
-        assert_eq!(corpus().search("what is the share price", 3), Vec::<usize>::new());
         assert_eq!(corpus().search("stock ticker", 3), vec![1]);
+        assert_eq!(corpus().search("email a colleague", 3)[0], 0);
+        assert_eq!(corpus().search("read from the workspace", 3)[0], 2);
     }
 
     #[test]
@@ -231,7 +232,10 @@ mod tests {
 
     #[test]
     fn the_limit_is_honoured() {
-        assert_eq!(corpus().search("a the to", 1).len().min(1), corpus().search("a the to", 1).len());
-        assert!(corpus().search("a", 1).len() <= 1);
+        // "a" appears in every document, so the unlimited search returns all
+        // three — which is what makes this a real test of the cap rather than
+        // a query that happened to match once.
+        assert_eq!(corpus().search("a", 10).len(), 3);
+        assert_eq!(corpus().search("a", 1).len(), 1);
     }
 }

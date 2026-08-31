@@ -175,6 +175,11 @@ pub struct PersonalityRosterSection;
 // ─────────────────────────────────────────────────────────────────────────────
 
 impl PromptSection for PersonalityRosterSection {
+    fn tier(&self) -> PromptTier {
+        // Carries each personality's recent context, which the session rewrites.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "personality_roster"
     }
@@ -267,6 +272,11 @@ impl PromptSection for IdentitySection {
 }
 
 impl PromptSection for UserFilesSection {
+    fn tier(&self) -> PromptTier {
+        // PROFILE.md / MEMORY.md — rewritten by the archivist and by onboarding.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "user_files"
     }
@@ -328,6 +338,11 @@ impl PromptSection for UserFilesSection {
 }
 
 impl PromptSection for AgentsInstructionsSection {
+    fn tier(&self) -> PromptTier {
+        // AGENTS.md layers: per project and per install, stable within a session.
+        PromptTier::Context
+    }
+
     fn name(&self) -> &str {
         "agents_md"
     }
@@ -461,6 +476,11 @@ impl PromptSection for GroundingSection {
 }
 
 impl PromptSection for WorkspaceSection {
+    fn tier(&self) -> PromptTier {
+        // Names the resolved workspace; per install, not per build.
+        PromptTier::Context
+    }
+
     fn name(&self) -> &str {
         "workspace"
     }
@@ -510,6 +530,11 @@ impl PromptSection for WorkspaceSection {
 }
 
 impl PromptSection for RuntimeSection {
+    fn tier(&self) -> PromptTier {
+        // Host runtime facts; per install, not per build.
+        PromptTier::Context
+    }
+
     fn name(&self) -> &str {
         "runtime"
     }
@@ -527,6 +552,11 @@ impl PromptSection for RuntimeSection {
 }
 
 impl PromptSection for UserReflectionsSection {
+    fn tier(&self) -> PromptTier {
+        // Learned reflections, refreshed by the learning subsystem.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "user_reflections"
     }
@@ -561,6 +591,11 @@ impl PromptSection for UserReflectionsSection {
 }
 
 impl PromptSection for UserMemorySection {
+    fn tier(&self) -> PromptTier {
+        // The memory-tree summary, which moves on every memory write.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "user_memory"
     }
@@ -613,6 +648,11 @@ impl PromptSection for UserMemorySection {
 }
 
 impl PromptSection for DateTimeSection {
+    fn tier(&self) -> PromptTier {
+        // The clock. Nothing emitted after this can ever be cached.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "datetime"
     }
@@ -662,6 +702,11 @@ impl PromptSection for DateTimeSection {
 }
 
 impl PromptSection for UserIdentitySection {
+    fn tier(&self) -> PromptTier {
+        // The signed-in user, which changes on login and on logout.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "user_identity"
     }

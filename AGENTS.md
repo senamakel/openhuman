@@ -480,6 +480,69 @@ the wrong index. `tests/orchestrator_thread_list_wiring.rs`, which existed to
 pin that fix, was deleted with the tool. If threads need a chat route again, the
 cheap fix is a single read-only `thread_list` rather than restoring the family.
 
+### Bundled skills — `src/openhuman/skills/bundled/`
+
+A skill can ship **inside the binary**. `BUNDLED` is a `const` table of
+`include_str!`'d SKILL.md bundles; `run_workspace_migrations` writes each into
+`<workspace>/.openhuman/builtin-skills/<dir>/` at boot, and from there discovery,
+`describe_workflow`, `read_workflow_resource` and `run_skill` treat it exactly
+like a skill the user installed. There is no second reader and no
+`location: None` case downstream.
+
+Five things to know before adding one:
+
+- **It is not an extension point.** The table is compiled in, for the same
+  reason `modules::registry` is: a table config or RPC could add rows to would
+  let a remote party place instructions in front of the model. A skill the user
+  wants comes from `skill_registry_install`.
+- **`WorkflowScope::Builtin` is the LOWEST precedence**, below `Legacy`. A user
+  or project skill of the same name shadows it, so shipping a bundle can never
+  take a name away from a workspace already using it.
+  (`a_user_skill_of_the_same_name_shadows_the_builtin` pins this.)
+- **Builtin bypasses the per-profile skill allowlist**, like `Profile` does.
+  The allowlist scopes *user content*; these are neither the user's nor scoped,
+  and one of them is the reference manual an agent's own prompt points at.
+  `tools::is_builtin_skill` is the single place that decision lives, and the
+  exempt set is fixed at compile time.
+- **Materialised, not served from memory**, because every consumer downstream
+  resolves a real path and inherits `read_workflow_resource`'s traversal and
+  symlink hardening. `install_one` deletes and rewrites a bundle whose digest
+  moved rather than overwriting file-by-file — a stale reference page left
+  behind would keep answering reads after the skill stopped shipping it — and
+  writes the digest LAST, so an interrupted install is redone.
+- **Boot, not `init_workspace`.** That RPC is a one-shot an existing workspace
+  never runs again, so a shipped page would reach nobody after an upgrade.
+
+**What belongs in a bundled skill, and what does not.** `flow-authoring` (in
+`src/openhuman/flows/skills/`) holds ~25 KB that used to be `workflow_builder`'s
+standing prompt: expression and jq syntax, `memory`/`dedup`/trigger node config,
+per-node error handling, how to read a dry run. **A rule that binds stays in the
+prompt; a rule you look up moves.** "Propose, never persist" cannot live in a
+manual, because a manual only binds a model that chose to open it. This line is
+easy to get wrong and is guarded by tests, not review: "prefer the minimal
+viable graph" was moved into the skill on the first pass and moved back, because
+`standing_prompt_keeps_minimal_graph_warning_alongside_specialist_guidance`
+pins it — correctly, since it constrains an instinct the model has before it
+would consult anything.
+
+**`skill_search`** (`skills::search`) ranks installed skills by capability, over
+the shared BM25 in `util::bm25`. It lives **in** the withheld `skills` toolpack
+with `describe_workflow` and `run_skill`: advertised on its own it cost 748 B on
+every wildcard agent to produce an id those agents could not act on. The
+orchestrator's `## Installed Skills` catalogue is capped at `MAX_LISTED_SKILLS`
+(20) and points past the cap at search — the catalogue is a per-turn cost frozen
+for the session, so it grows silently with every install.
+
+**`util::bm25` names nothing from `crate::`** and must stay that way; it is the
+half of skill discovery that is the same for every host. Two rules there cost a
+debugging pass each: the IDF keeps its `+ 1` so a one-document corpus stays
+searchable, and because that lets stopwords score, queries are filtered by BOTH
+a document-frequency threshold (`df >= max(2, ceil(0.8n))`) and a small
+`STOPWORDS` list. Neither alone is enough — with three skills installed, "a"
+appeared in exactly one description, making it by frequency the *most*
+distinguishing term in "provision a kubernetes cluster", which duly returned a
+changelog skill.
+
 **Skills runtime**: the QuickJS per-skill VM engine is gone. `src/openhuman/skills/` holds skill metadata/tool descriptors; execution of installed `SKILL.md` workflows lives in `src/openhuman/skills/runtime/` (starts/cancels runs, hosts the `skill_executor` agent, reuses `runtime::node`/`runtime::python`, which are clients for the `tinyruntime` module).
 
 ### Tool calling lives in tinyagents — `src/openhuman/agent/dispatcher.rs` is a seam

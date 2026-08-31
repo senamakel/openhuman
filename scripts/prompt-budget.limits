@@ -27,6 +27,23 @@
 # Judge integration-tool work with `prompt-size` against a signed-in workspace
 # and record the finding in a PR body, not in this file.
 #
+# A FALLING tool-byte count is not automatically good. Collapsing the memory,
+# todo and cron families showed both failure modes in one afternoon:
+#
+#   * Nine agents named the legacy tools in their `[tools] named` belts. Hiding
+#     those tools dropped the count on every one of them — and `scheduler_agent`
+#     was left with no scheduler tool at all. The ratchet reported that as an
+#     improvement.
+#   * Migrating a NARROW belt onto a collapsed tool makes it bigger and wider:
+#     `flow_memory_agent`'s three read-only memory tools (2,396 B) became the
+#     whole `memory` tool (3,788 B), handing an agent documented as read-only
+#     the `store` and `forget` actions its belt existed to withhold.
+#
+# So per-tool exposure now applies only to a wildcard belt (see
+# `AgentBuilder::build`), and a drop here should be read alongside the agent's
+# tool LIST, which `prompt-size --json` carries in full. Fewer bytes and fewer
+# capabilities look identical in this file.
+#
 # The ratchet only goes DOWN. Lowering a number is the point; the check fails
 # both on growth and on an un-ratcheted improvement, because a saving nobody
 # writes back is a saving that grows back. Use
@@ -58,12 +75,12 @@
 #
 #               Every one of those was invisible until this file existed.
 
-morning_briefing:14282:92553
-trigger_triage:11080:92553
+morning_briefing:14279:82972
+trigger_triage:11075:82972
 workflow_builder:80284:33948
-summarizer:10653:92553
-tools_agent:8268:92553
-orchestrator:33726:43003
+summarizer:10644:82972
+tools_agent:8260:82972
+orchestrator:33726:43139
 code_executor:13327:12338
 crypto_agent:12049:12357
 task_manager_agent:7104:15601

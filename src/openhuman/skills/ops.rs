@@ -29,6 +29,7 @@
 
 // Re-export everything that was previously public from this file so external
 // callers are unaffected.
+pub use super::bundled::install as install_bundled_skills;
 pub use super::ops_create::{create_workflow, CreateWorkflowParams, WorkflowCreateInputDef};
 pub use super::ops_discover::{
     discover_automations, discover_workflows, discover_workflows_with_profile, init_workflows_dir,

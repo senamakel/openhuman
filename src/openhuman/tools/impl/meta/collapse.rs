@@ -150,15 +150,19 @@ pub fn any_external_effect(actions: &[CollapsedAction<'_>]) -> bool {
 
 /// Order the permission levels from least to most privileged.
 ///
-/// A dedicated ranking rather than `#[derive(Ord)]` on the enum, because that
-/// would silently rank by declaration order — and a reordering of the variants
-/// upstream would then quietly change what "strictest" means here.
+/// `PermissionLevel` does derive `Ord` over explicit discriminants, so `.max()`
+/// would work today. This exhaustive match is here for the day it gains a
+/// variant: a new level would compile fine against `.max()` and silently take
+/// whatever rank its discriminant implied, whereas here it is a compile error
+/// until someone decides where it sits. Getting that wrong under-restricts a
+/// collapsed tool, which is the failure this module exists to avoid.
 fn permission_rank(level: &PermissionLevel) -> u8 {
     match level {
         PermissionLevel::None => 0,
-        PermissionLevel::Read => 1,
+        PermissionLevel::ReadOnly => 1,
         PermissionLevel::Write => 2,
         PermissionLevel::Execute => 3,
+        PermissionLevel::Dangerous => 4,
     }
 }
 
@@ -248,7 +252,7 @@ mod tests {
 
     #[test]
     fn the_union_carries_every_members_properties() {
-        let list = stub("list", json!({"type": "object", "properties": {}}), PermissionLevel::Read, false);
+        let list = stub("list", json!({"type": "object", "properties": {}}), PermissionLevel::ReadOnly, false);
         let runs = stub(
             "runs",
             json!({"type": "object", "properties": {
@@ -274,7 +278,7 @@ mod tests {
     fn only_action_is_required_because_a_union_cannot_say_otherwise() {
         // `job_id` is required for `runs` and meaningless for `list`. Marking
         // it required here would make every `list` call invalid.
-        let list = stub("list", json!({"type": "object", "properties": {}}), PermissionLevel::Read, false);
+        let list = stub("list", json!({"type": "object", "properties": {}}), PermissionLevel::ReadOnly, false);
         let runs = stub(
             "runs",
             json!({"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]}),
@@ -290,7 +294,7 @@ mod tests {
 
     #[test]
     fn a_property_only_some_actions_take_is_labelled_with_them() {
-        let a = stub("a", json!({"type": "object", "properties": {"shared": {"type": "string"}}}), PermissionLevel::Read, false);
+        let a = stub("a", json!({"type": "object", "properties": {"shared": {"type": "string"}}}), PermissionLevel::ReadOnly, false);
         let b = stub(
             "b",
             json!({"type": "object", "properties": {
@@ -313,7 +317,7 @@ mod tests {
 
     #[test]
     fn permission_is_the_strictest_member_not_the_first() {
-        let read = stub("r", json!({}), PermissionLevel::Read, false);
+        let read = stub("r", json!({}), PermissionLevel::ReadOnly, false);
         let execute = stub("x", json!({}), PermissionLevel::Execute, false);
         let write = stub("w", json!({}), PermissionLevel::Write, false);
         let actions = vec![
@@ -326,8 +330,8 @@ mod tests {
 
     #[test]
     fn external_effect_is_true_when_any_member_has_one() {
-        let clean = stub("c", json!({}), PermissionLevel::Read, false);
-        let dirty = stub("d", json!({}), PermissionLevel::Read, true);
+        let clean = stub("c", json!({}), PermissionLevel::ReadOnly, false);
+        let dirty = stub("d", json!({}), PermissionLevel::ReadOnly, true);
         assert!(!any_external_effect(&[CollapsedAction { action: "c", tool: &clean }]));
         assert!(any_external_effect(&[
             CollapsedAction { action: "c", tool: &clean },
@@ -344,7 +348,7 @@ mod tests {
 
     #[test]
     fn an_unknown_action_names_the_valid_ones() {
-        let a = stub("a", json!({}), PermissionLevel::Read, false);
+        let a = stub("a", json!({}), PermissionLevel::ReadOnly, false);
         let actions = vec![CollapsedAction { action: "add", tool: &a }];
         assert_eq!(
             unknown_action_message(&actions, Some("addd")),

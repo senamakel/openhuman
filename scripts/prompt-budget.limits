@@ -1,0 +1,82 @@
+# Fixed-prefix ratchet. `scripts/check-prompt-budget.sh` fails when an agent
+# exceeds its limit here.
+#
+# Format: <agent id>:<max system-prompt bytes>:<max advertised tool-schema bytes>
+#
+# The two halves are separate on purpose. Prompt bytes are prose somebody wrote
+# and can rewrite; tool bytes are schemas, and the fix for those is almost never
+# "trim the description" — it is to defer the tool, collapse a family of verbs
+# into one tool, or move the capability into a skill.
+#
+# Measured on a HERMETIC EMPTY WORKSPACE (`--workspace $(mktemp -d)`), so the
+# numbers do not move with whoever runs them. A signed-in workspace is larger:
+# it injects PROFILE.md / MEMORY.md / AGENTS.md and synthesises one `delegate_*`
+# tool per connected Composio toolkit, which took the orchestrator from the 50
+# tools below to 139 on the machine this was first measured on. That difference
+# is a property of the user's account, not of this repo, and does not belong in
+# a ratchet.
+#
+# The ratchet only goes DOWN. Lowering a number is the point; the check fails
+# both on growth and on an un-ratcheted improvement, because a saving nobody
+# writes back is a saving that grows back. Use
+# `scripts/check-prompt-budget.sh --write` to record a deliberate reduction.
+#
+# `integrations_agent` is absent by construction: it is parameterised by a
+# connected Composio toolkit and renders nothing on an empty workspace.
+#
+# Measure with: openhuman-core agent prompt-size --workspace <empty dir> --json
+#
+# History
+#   2026-08-31  Baseline, recorded the day the measurement first existed.
+#               Fleet total 1,073,644 B (~268k tokens of fixed prefix across 33
+#               agents). Three things in this table are worth reading as bugs
+#               rather than as facts:
+#
+#               * `morning_briefing`, `trigger_triage`, `summarizer` and
+#                 `tools_agent` each advertise 151 tools / 104,567 B (~26k
+#                 tokens). They declare no `[tools] named` belt, so they inherit
+#                 the whole registry. `summarizer` exists to compress text and
+#                 carries 151 tool schemas to do it.
+#               * `workflow_builder` renders 80,353 B (~20k tokens) of system
+#                 prompt — more than twice the orchestrator's — because the flow
+#                 DSL reference is inlined in its `prompt.md`. That body belongs
+#                 in a SKILL.md.
+#               * the orchestrator's 45,199 B across 50 tools is dominated by a
+#                 handful of schemas; `propose_workflow` alone was 7,568 B when
+#                 this was first measured.
+#
+#               Every one of those was invisible until this file existed.
+
+morning_briefing:14282:104567
+trigger_triage:11080:104567
+workflow_builder:80353:35270
+summarizer:10653:104567
+tools_agent:8268:104567
+orchestrator:33808:45199
+code_executor:13409:14534
+crypto_agent:12104:13956
+task_manager_agent:7104:15601
+planner:10089:10577
+skill_creator:7311:12411
+flow_discovery:10111:9503
+profile_memory_agent:7202:11815
+settings_agent:7065:11220
+context_scout:10427:7638
+skill_executor:9613:8076
+scheduler_agent:9635:7008
+agent_memory:9761:6698
+mcp_setup:10368:5078
+skill_setup:7272:7959
+trigger_reactor:7966:6423
+mcp_agent:8927:4472
+flow_memory_agent:9026:3809
+tool_maker:6273:6087
+presentation_agent:6547:5678
+video_agent:7014:3826
+help:8469:2365
+image_agent:7058:3699
+goals_agent:6725:3124
+vision_agent:6885:2266
+archivist:5985:3133
+researcher:6855:2229
+critic:6222:1855

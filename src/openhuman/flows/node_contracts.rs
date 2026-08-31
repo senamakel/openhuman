@@ -168,6 +168,42 @@ pub fn node_kind_contract(kind: &str) -> Option<NodeKindContract> {
     tinyflows::catalog::contract_for(kind).map(apply_host_overlay)
 }
 
+/// Renders the **terse** node-kind line: each kind and its REQUIRED config
+/// fields, nothing else.
+///
+/// This is what `propose_workflow`'s description carries. The fuller
+/// [`render_node_kinds_line`] (which also lists optional fields and a summary)
+/// is 3,881 bytes and the hand-written copy it replaced was 5,841 — both are
+/// too much for a description that ships on every request of every agent
+/// holding the tool, when `get_node_kind_contract { kind }` serves the same
+/// content on demand and serves it authoritatively.
+///
+/// What stays is exactly what a caller cannot discover from a failed call: the
+/// set of kinds, and which config each one cannot be built without. Everything
+/// else — optional fields, ports, examples, gotchas — is one tool call away.
+///
+/// Format: `kind(config.a, config.b)` for a kind with required config,
+/// bare `kind` otherwise, joined by `, `.
+pub fn render_node_kinds_required() -> String {
+    all_node_kind_contracts()
+        .iter()
+        .map(|c| {
+            let required: Vec<&str> = c
+                .config_fields
+                .iter()
+                .filter(|f| f.required)
+                .map(|f| f.name.as_str())
+                .collect();
+            if required.is_empty() {
+                c.kind.clone()
+            } else {
+                format!("{}(config.{})", c.kind, required.join(", config."))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// Renders the compact, one-line-per-kind node-kind enumeration used to keep
 /// `propose_workflow`'s description honest against the typed contracts (drift
 /// test). Format: `kind [required config.a/config.b; optional config.c] —
@@ -384,6 +420,8 @@ mod render_size_probe {
     fn print_rendered_line_size() {
         let line = render_node_kinds_line();
         println!("RENDERED_BYTES={}", line.len());
-        println!("{line}");
+        let terse = render_node_kinds_required();
+        println!("TERSE_BYTES={}", terse.len());
+        println!("{terse}");
     }
 }

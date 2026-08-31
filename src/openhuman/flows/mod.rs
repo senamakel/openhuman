@@ -61,7 +61,8 @@ pub use schemas::{
 // lives in the sibling `tinyflows` domain and persists each finished step onto
 // the `flow_runs` row through this function as the run executes.
 pub use node_contracts::{
-    all_node_kind_contracts, node_kind_contract, render_node_kinds_line, ConfigField,
+    all_node_kind_contracts, node_kind_contract, render_node_kinds_line,
+    render_node_kinds_required, ConfigField,
     NodeKindContract, PortSpec, NODE_KINDS,
 };
 pub use store::{kv_get, kv_set, upsert_flow_run_step};

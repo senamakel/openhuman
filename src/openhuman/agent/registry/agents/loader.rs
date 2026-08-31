@@ -1195,8 +1195,7 @@ mod tests {
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",
-                    "memory_recall",
-                    "memory_hybrid_search",
+                    "memory",
                 ];
                 for required in expected {
                     assert!(
@@ -1271,7 +1270,7 @@ mod tests {
                 );
                 // A representative slice of the read-only gathering surface.
                 for required in [
-                    "memory_recall",
+                    "memory",
                     "list_flows",
                     "list_flow_connections",
                     "search_tool_catalog",
@@ -1461,7 +1460,7 @@ mod tests {
         match &def.tools {
             ToolScope::Named(tools) => {
                 for required in [
-                    "memory_recall",
+                    "memory",
                     // Transcripts + thread metadata + message reader (read-only).
                     // Skill discovery (read-only).
                     "list_workflows",

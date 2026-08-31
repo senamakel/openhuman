@@ -272,13 +272,14 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
     // against a real belt of `web_search_tool` + `web_fetch` — which made the
     // dump useless as a budget instrument for every agent but the orchestrator.
     let visible = agent.visible_tool_names().clone();
-    let tools: Vec<_> = agent
+    let tools: Vec<&dyn Tool> = agent
         .tools()
         .iter()
+        .map(|t| t.as_ref())
         .filter(|t| visible.contains(t.name()))
         .collect();
     let tool_names: Vec<String> = tools.iter().map(|t| t.name().to_string()).collect();
-    let tool_specs = tool_specs_of(tools.as_slice());
+    let tool_specs = tool_specs_of(tools.iter().copied());
     let skill_tool_count = tools
         .iter()
         .filter(|t| t.category() == ToolCategory::Workflow)
@@ -508,7 +509,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         .iter()
         .map(|t| t.name().to_string())
         .collect();
-    let tool_specs = tool_specs_of(&rendered_tools);
+    let tool_specs = tool_specs_of(rendered_tools.iter().map(|t| t.as_ref()));
     let skill_tool_count = rendered_tools
         .iter()
         .filter(|t| t.category() == ToolCategory::Workflow)

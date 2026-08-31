@@ -103,6 +103,5 @@ named = [
     "composio_list_toolkits",
     "composio_list_connections",
     "composio_connect",
-    "memory_recall",
-    "memory_hybrid_search",
+    "memory",
 ]

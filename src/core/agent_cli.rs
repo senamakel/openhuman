@@ -9,6 +9,7 @@
 //!   openhuman agent dump-prompt --agent <id> [--toolkit <slug>] [--workspace <path>] [--json] [--with-tools] [-v]
 //!     (--toolkit is REQUIRED when --agent is `integrations_agent`.)
 //!   openhuman agent dump-all --out <dir> [--workspace <path>] [--model <name>] [-v]
+//!   openhuman agent prompt-size [--agent <id>] [--toolkit <slug>] [--workspace <path>] [--json] [-v]
 //!   openhuman agent list [--json] [-v]
 //!
 //! `dump-prompt` is the main tool: it renders the exact system prompt the
@@ -23,6 +24,7 @@
 use anyhow::{anyhow, Result};
 use std::path::PathBuf;
 
+use crate::openhuman::agent::debug::prompt_size::{render_text, PromptSizeReport};
 use crate::openhuman::agent::debug::{
     dump_agent_prompt, dump_all_agent_prompts, write_prompt_dumps, DumpPromptOptions, DumpedPrompt,
 };
@@ -38,11 +40,189 @@ pub fn run_agent_command(args: &[String]) -> Result<()> {
     match args[0].as_str() {
         "dump-prompt" => run_dump_prompt(&args[1..]),
         "dump-all" => run_dump_all(&args[1..]),
+        "prompt-size" => run_prompt_size(&args[1..]),
         "list" => run_list(&args[1..]),
         other => Err(anyhow!(
             "unknown agent subcommand '{other}'. Run `openhuman agent --help`."
         )),
     }
+}
+
+// ---------------------------------------------------------------------------
+// prompt-size
+// ---------------------------------------------------------------------------
+
+/// How many rows the human-readable section / tool tables print.
+///
+/// `--json` always carries every row; these caps only keep the terminal
+/// output readable. The orchestrator advertises well over a hundred tools and
+/// a full dump scrolls the interesting rows off the screen, which defeats the
+/// point of a diagnostic.
+const PROMPT_SIZE_SECTION_ROWS: usize = 15;
+const PROMPT_SIZE_TOOL_ROWS: usize = 20;
+
+struct PromptSizeFlags {
+    /// `None` means "every registered agent" — the fleet-wide view the ratchet
+    /// consumes.
+    agent: Option<String>,
+    toolkit: Option<String>,
+    workspace: Option<PathBuf>,
+    model: Option<String>,
+    json: bool,
+    verbose: bool,
+}
+
+fn parse_prompt_size_flags(args: &[String]) -> Result<PromptSizeFlags> {
+    let mut agent: Option<String> = None;
+    let mut toolkit: Option<String> = None;
+    let mut workspace: Option<PathBuf> = None;
+    let mut model: Option<String> = None;
+    let mut json = false;
+    let mut verbose = false;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--agent" | "-a" => {
+                agent = Some(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --agent"))?
+                        .clone(),
+                );
+                i += 2;
+            }
+            "--toolkit" | "-t" => {
+                toolkit = Some(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --toolkit"))?
+                        .clone(),
+                );
+                i += 2;
+            }
+            "--workspace" | "-w" => {
+                workspace = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --workspace"))?,
+                ));
+                i += 2;
+            }
+            "--model" | "-m" => {
+                model = Some(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow!("missing value for --model"))?
+                        .clone(),
+                );
+                i += 2;
+            }
+            "--json" => {
+                json = true;
+                i += 1;
+            }
+            "-v" | "--verbose" => {
+                verbose = true;
+                i += 1;
+            }
+            "-h" | "--help" => {
+                print_prompt_size_help();
+                std::process::exit(0);
+            }
+            other => return Err(anyhow!("unknown prompt-size arg: {other}")),
+        }
+    }
+    Ok(PromptSizeFlags {
+        agent,
+        toolkit,
+        workspace,
+        model,
+        json,
+        verbose,
+    })
+}
+
+/// `openhuman agent prompt-size` — report where an agent's fixed per-turn
+/// budget goes.
+///
+/// With `--agent`, renders one agent. Without it, renders every registered
+/// agent through the same `dump_all_agent_prompts` path `dump-all` uses, so
+/// the fleet view and the per-agent view cannot disagree.
+fn run_prompt_size(args: &[String]) -> Result<()> {
+    let flags = parse_prompt_size_flags(args)?;
+    init_quiet_logging(flags.verbose);
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .max_blocking_threads(crate::core::runtime::MAX_BLOCKING_THREADS)
+        .build()?;
+
+    let reports: Vec<PromptSizeReport> = match &flags.agent {
+        Some(agent_id) => {
+            let mut options = DumpPromptOptions::new(agent_id.clone());
+            options.toolkit = flags.toolkit.clone();
+            options.workspace_dir_override = flags.workspace.clone();
+            options.model_override = flags.model.clone();
+            vec![rt.block_on(PromptSizeReport::build(options))?]
+        }
+        None => {
+            let dumps: Vec<DumpedPrompt> = rt.block_on(async {
+                dump_all_agent_prompts(flags.workspace.clone(), flags.model.clone()).await
+            })?;
+            dumps.iter().map(PromptSizeReport::from_dump).collect()
+        }
+    };
+
+    if flags.json {
+        // A bare array for a single agent would force every consumer to
+        // special-case arity. The ratchet reads `agents`, always a list.
+        let total: usize = reports.iter().map(|r| r.fixed_prefix_bytes).sum();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "agents": reports,
+                "fixed_prefix_bytes_total": total,
+            }))?
+        );
+        return Ok(());
+    }
+
+    for (idx, report) in reports.iter().enumerate() {
+        if idx > 0 {
+            println!("\n{}\n", "-".repeat(72));
+        }
+        print!(
+            "{}",
+            render_text(report, PROMPT_SIZE_SECTION_ROWS, PROMPT_SIZE_TOOL_ROWS)
+        );
+    }
+    if reports.len() > 1 {
+        let total: usize = reports.iter().map(|r| r.fixed_prefix_bytes).sum();
+        println!("\n{}\n", "=".repeat(72));
+        println!(
+            "{} agents, {} B of fixed prefix in total",
+            reports.len(),
+            total
+        );
+    }
+    Ok(())
+}
+
+fn print_prompt_size_help() {
+    println!("openhuman agent prompt-size — where an agent's fixed per-turn budget goes");
+    println!();
+    println!("Reports the system prompt AND the advertised tool schemas, which ride");
+    println!("alongside it in every request and are typically the larger half.");
+    println!();
+    println!("Usage:");
+    println!("  openhuman agent prompt-size [--agent <id>] [options]");
+    println!();
+    println!("Options:");
+    println!("  --agent, -a <id>     One agent. Omit to report every registered agent.");
+    println!("  --toolkit, -t <slug> REQUIRED when `--agent integrations_agent`.");
+    println!("  --workspace, -w <p>  Workspace to resolve identity/memory files against.");
+    println!("  --model, -m <name>   Override the resolved model name.");
+    println!("  --json               Full machine-readable breakdown (every row).");
+    println!("  -v, --verbose        Restore normal logging.");
+    println!();
+    println!("Bytes are the unit of record; the `~tok` column is an estimate for reading.");
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +656,7 @@ fn print_agent_help() {
     println!("  openhuman agent list [--workspace <path>] [--json]");
     println!("  openhuman agent dump-prompt --agent <id> [--workspace <path>] [--model <name>] [--with-tools] [--json] [-v]");
     println!("  openhuman agent dump-all --out <dir> [--workspace <path>] [--model <name>] [-v]");
+    println!("  openhuman agent prompt-size [--agent <id>] [--toolkit <slug>] [--workspace <path>] [--json] [-v]");
     println!();
     println!("Run `openhuman agent <subcommand> --help` for details.");
 }

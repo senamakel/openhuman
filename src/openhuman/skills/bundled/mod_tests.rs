@@ -64,15 +64,37 @@ fn the_digest_covers_paths_as_well_as_contents() {
 
 #[test]
 fn a_traversal_path_is_rejected() {
-    for bad in ["../escape.md", "refs/../../escape.md", "/etc/passwd", "refs//x.md"] {
-        let skill = BundledSkill {
-            dir_name: "sample",
-            files: &[A, BundledFile { path: bad, contents: "x" }],
-        };
+    // Checked against the free function rather than through `validate`,
+    // because `BundledSkill::files` is `&'static [_]` — a table compiled into
+    // the binary cannot be assembled from loop variables, which is itself part
+    // of why the table is safe.
+    for bad in [
+        "../escape.md",
+        "refs/../../escape.md",
+        "/etc/passwd",
+        "refs//x.md",
+        "C:/windows/system32",
+        ".hidden.md",
+        "",
+    ] {
         assert!(
-            skill.validate().is_err(),
+            validate_relative_path("sample", bad).is_err(),
             "`{bad}` must be rejected as a bundled file path"
         );
+    }
+    for good in ["WORKFLOW.md", "references/expressions.md", "scripts/run.py"] {
+        assert!(
+            validate_relative_path("sample", good).is_ok(),
+            "`{good}` must be accepted"
+        );
+    }
+}
+
+#[test]
+fn a_bad_dir_name_is_rejected() {
+    for bad in ["", ".hidden", "a/b", "a\\b"] {
+        let skill = BundledSkill { dir_name: bad, files: &[A] };
+        assert!(skill.validate().is_err(), "`{bad}` must be rejected as a dir_name");
     }
 }
 

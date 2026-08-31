@@ -249,6 +249,7 @@ impl Tool for ToolSearchTool {
 
 #[cfg(test)]
 mod tests {
+    // The tokenizer's own tests live with it, in `util::bm25`.
     use super::*;
 
     fn spec(name: &str, description: &str) -> ToolSpec {
@@ -268,20 +269,7 @@ mod tests {
         ])
     }
 
-    #[test]
-    fn snake_case_names_are_split_into_searchable_terms() {
-        // The whole point: `memory_hybrid_search` as one opaque term would
-        // score zero against "search memory", which is how a user would ask.
-        assert_eq!(
-            tokenize("memory_hybrid_search"),
-            vec!["memory", "hybrid", "search"]
-        );
-    }
 
-    #[test]
-    fn camel_case_is_split_too() {
-        assert_eq!(tokenize("getUserProfile"), vec!["get", "user", "profile"]);
-    }
 
     #[test]
     fn a_plain_language_query_finds_the_right_tool() {

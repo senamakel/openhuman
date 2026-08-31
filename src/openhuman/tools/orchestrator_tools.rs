@@ -392,11 +392,31 @@ mod tests {
                 // see tinyhumansai/openhuman#1624. Re-add the leading entry
                 // when the registration in `collect_orchestrator_tools` is
                 // restored.
+                // The archetype members. Still synthesised — and so still
+                // dispatchable for a replayed transcript — but each reports
+                // `ToolExposure::Hidden`, so none of them reaches the wire.
                 "research",           // researcher's delegate_name override
                 "delegate_archivist", // archivist has no delegate_name → default
                 "delegate_to_integrations_agent",
+                // The one archetype delegation tool the model actually sees.
+                "delegate_to",
             ],
             "skills wildcard must collapse to a single delegate_to_integrations_agent tool"
+        );
+
+        // The members are synthesised but withheld; only `delegate_to` and the
+        // integrations tool are advertised. Asserting this here is what stops
+        // someone re-exposing a member and silently shipping both surfaces.
+        let advertised: Vec<&str> = tools
+            .iter()
+            .filter(|t| {
+                t.exposure() != crate::openhuman::tools::traits::ToolExposure::Hidden
+            })
+            .map(|t| t.name())
+            .collect();
+        assert_eq!(
+            advertised,
+            vec!["delegate_to_integrations_agent", "delegate_to"]
         );
 
         // Archetype tool descriptions come from `when_to_use`.
@@ -449,7 +469,7 @@ mod tests {
         let tools = collect_orchestrator_tools(&orch, &reg, &[]);
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         // `spawn_worker_thread` is temporarily disabled — see #1624.
-        assert_eq!(names, vec!["research", "delegate_archivist"]);
+        assert_eq!(names, vec!["research", "delegate_archivist", "delegate_to"]);
     }
 
     /// An AgentId entry whose target carries a `delegate_name` override
@@ -530,7 +550,7 @@ mod tests {
         let tools = collect_orchestrator_tools(&orch, &reg, &[]);
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         // `spawn_worker_thread` is temporarily disabled — see #1624.
-        assert_eq!(names, vec!["research"]);
+        assert_eq!(names, vec!["research", "delegate_to"]);
     }
 
     /// An empty `subagents` list should produce zero tools — regular

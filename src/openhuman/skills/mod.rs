@@ -68,6 +68,8 @@ pub mod registry;
 #[cfg(feature = "skills")]
 pub mod run_log;
 #[cfg(feature = "skills")]
+pub mod search;
+#[cfg(feature = "skills")]
 pub mod schemas;
 #[cfg(feature = "skills")]
 pub mod tools;

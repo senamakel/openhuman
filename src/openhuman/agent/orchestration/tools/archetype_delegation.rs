@@ -54,37 +54,7 @@ impl Tool for ArchetypeDelegationTool {
         json!({
             "type": "object",
             "required": ["prompt"],
-            "properties": {
-                "prompt": { "type": "string" },
-                "objective": { "type": "string" },
-                "evidence": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Only facts, paths, URLs, ids or tool outputs you actually observed."
-                },
-                "constraints": {
-                    "type": "array",
-                    "items": { "type": "string" }
-                },
-                "must_not_assume": {
-                    "type": "array",
-                    "items": { "type": "string" }
-                },
-                "expected_output": { "type": "string" },
-                "citation_requirement": {
-                    "type": "string",
-                    "enum": ["none", "file_paths", "urls", "retrieval_hits", "tool_outputs"],
-                    "description": "Evidence style the child must preserve in its result."
-                },
-                "model": {
-                    "type": "string",
-                    "description": "Pin the child to this exact model id. Omit unless you have a reason."
-                },
-                "blocking": {
-                    "type": "boolean",
-                    "description": "Default false: async worker, result arrives as a later turn. true: waits, and the result gates this reply."
-                }
-            }
+            "properties": delegation_envelope_properties()
         })
     }
 
@@ -172,7 +142,71 @@ impl Tool for ArchetypeDelegationTool {
     }
 }
 
-fn render_structured_handoff(prompt: &str, args: &Value) -> String {
+/// The delegation envelope's properties, defined **once**.
+///
+/// Both this tool and the collapsed [`DelegateTool`] emit it, and
+/// `render_structured_handoff` below reads these exact property names back out
+/// again. A second copy would be a third place for the three to drift, and the
+/// drift is silent: a field the collapsed schema advertises but the renderer
+/// does not read is simply dropped from the hand-off, with nothing failing.
+///
+/// Deliberately description-light. This object used to be emitted once per
+/// synthesised `delegate_*` tool — 16 of them on the Master Agent — so every
+/// word here was billed 16x on every turn. Fully described the envelope was
+/// 356 tokens x 16. The field *semantics* live once in the parent's system
+/// prompt (`registry/agents/orchestrator/prompt.md`, "Structured handoffs"),
+/// which is where policy belonged anyway.
+///
+/// Four descriptions survive, each because its property name does not carry
+/// the meaning on its own:
+///
+/// * `blocking` - the default is behaviour-critical and not inferable from the
+///   name. Getting it wrong is silent and asymmetric: async when it should
+///   have blocked finalizes the turn before the result lands, the exact
+///   failure the prompt's result-gating rule exists to prevent.
+/// * `evidence` - "actually observed" is the anti-fabrication contract, not a
+///   label.
+/// * `citation_requirement` / `model` - a bare name reads as neither.
+///
+/// Enforced by `envelope_descriptions_stay_within_budget`. If you are about to
+/// add a description here, put it in prompt.md instead.
+///
+/// [`DelegateTool`]: super::DelegateTool
+pub(super) fn delegation_envelope_properties() -> Value {
+    json!({
+        "prompt": { "type": "string" },
+        "objective": { "type": "string" },
+        "evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Only facts, paths, URLs, ids or tool outputs you actually observed."
+        },
+        "constraints": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "must_not_assume": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "expected_output": { "type": "string" },
+        "citation_requirement": {
+            "type": "string",
+            "enum": ["none", "file_paths", "urls", "retrieval_hits", "tool_outputs"],
+            "description": "Evidence style the child must preserve in its result."
+        },
+        "model": {
+            "type": "string",
+            "description": "Pin the child to this exact model id. Omit unless you have a reason."
+        },
+        "blocking": {
+            "type": "boolean",
+            "description": "Default false: async worker, result arrives as a later turn. true: waits, and the result gates this reply."
+        }
+    })
+}
+
+pub(super) fn render_structured_handoff(prompt: &str, args: &Value) -> String {
     let mut out = String::new();
     out.push_str("Task:\n");
     out.push_str(prompt.trim());

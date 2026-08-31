@@ -104,11 +104,10 @@ pub struct DumpedPrompt {
     pub tool_specs: Vec<serde_json::Value>,
 }
 
-fn tool_specs_of<T: std::ops::Deref<Target = dyn crate::openhuman::tools::Tool>>(
-    tools: &[T],
+fn tool_specs_of<'a>(
+    tools: impl Iterator<Item = &'a dyn crate::openhuman::tools::Tool>,
 ) -> Vec<serde_json::Value> {
     tools
-        .iter()
         .map(|t| {
             serde_json::json!({
                 "name": t.name(),

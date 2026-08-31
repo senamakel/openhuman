@@ -537,6 +537,24 @@ impl Agent {
         let synthed = collect_orchestrator_tools(def, reg, &self.connected_integrations);
         let synthed_names: std::collections::HashSet<String> =
             synthed.iter().map(|t| t.name().to_string()).collect();
+        // The subset that may reach the wire. A synthesised tool reporting
+        // `ToolExposure::Hidden` is a member of a collapsed tool — every
+        // `ArchetypeDelegationTool`, whose family the single `delegate_to`
+        // tool stands for — and re-advertising it here would ship both
+        // surfaces on the first Composio reconcile, silently undoing the
+        // collapse. Exactly the hazard the `strip_packed_from_visible` call
+        // below already guards for packs; this is the same shape for exposure.
+        //
+        // `synthed_names` itself stays complete: it is also the removal mask
+        // for the previous synthesis, and a mask missing the hidden names
+        // would leak stale instances on every refresh.
+        let advertised_names: std::collections::HashSet<String> = synthed
+            .iter()
+            .filter(|t| {
+                t.exposure() != crate::openhuman::tools::traits::ToolExposure::Hidden
+            })
+            .map(|t| t.name().to_string())
+            .collect();
         let synthed_specs: Vec<crate::openhuman::tools::ToolSpec> =
             synthed.iter().map(|t| t.spec()).collect();
 
@@ -601,7 +619,7 @@ impl Agent {
             for name in &old_synth {
                 self.visible_tool_names.remove(name);
             }
-            for name in &synthed_names {
+            for name in &advertised_names {
                 self.visible_tool_names.insert(name.clone());
             }
             // The synthesis above re-adds delegate names wholesale, including

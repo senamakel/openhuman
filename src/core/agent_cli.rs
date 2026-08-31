@@ -468,6 +468,11 @@ fn run_dump_prompt(args: &[String]) -> Result<()> {
         agent_id: agent,
         toolkit: flags.toolkit.clone(),
         workspace_dir_override: flags.workspace.clone(),
+        // `dump-prompt` deliberately keeps reading the real install: its job is
+        // to show what the signed-in user's agent actually receives, including
+        // their connected integrations. `prompt-size --hermetic` is the one
+        // that needs reproducibility.
+        config_path_override: None,
         model_override: flags.model.clone(),
     };
 

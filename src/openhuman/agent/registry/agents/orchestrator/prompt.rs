@@ -104,6 +104,15 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
 /// Render the `## Installed Skills` section listing locally installed
 /// workflows so the orchestrator knows what's available without calling
 /// `list_workflows` on every turn. Omitted when no skills are installed.
+/// How many skills the catalogue names before deferring the rest to
+/// `skill_search`.
+///
+/// Chosen to be above what any real install has today, so this changes nothing
+/// for current users — it is a ceiling on a cost that would otherwise grow
+/// without a decision, not a trim of one that already hurts. Every skill past
+/// it is still reachable; only its line in the prompt is gone.
+const MAX_LISTED_SKILLS: usize = 20;
+
 fn render_installed_skills(skills: &[Workflow]) -> String {
     if skills.is_empty() {
         tracing::debug!("[orchestrator-prompt] no installed skills, section omitted");
@@ -121,12 +130,14 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
          step the worker couldn't perform — execute those steps yourself under the \
          approval gate. Use `describe_workflow` for full details on one of THESE \
          installed skills (it only knows about entries in this list, not Flows \
-         automations — do not call it with a Flows `workflow_id`, it will error). Use \
+         automations — do not call it with a Flows `workflow_id`, it will error). \
+         `skill_search` ranks these same skills by what you want done — reach for it \
+         when you know the capability but not the name. Use \
          `skill_registry_browse` / `skill_registry_search` to find and install new skills. \
          For Flows automations (build/inspect/run a tinyflows workflow), use \
          `build_workflow` / the workflow_builder delegate instead.\n\n",
     );
-    for skill in skills {
+    for skill in skills.iter().take(MAX_LISTED_SKILLS) {
         let id = if skill.dir_name.is_empty() {
             &skill.name
         } else {
@@ -146,6 +157,24 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
                 .to_string()
         };
         let _ = writeln!(out, "- **{id}**: {desc}");
+    }
+    if let Some(hidden) = skills.len().checked_sub(MAX_LISTED_SKILLS).filter(|n| *n > 0) {
+        // The catalogue is a per-turn cost that grows with how many skills the
+        // user has installed, and it is frozen for the session (see
+        // `refresh_workflows` — the KV-cache prefix cannot be rewritten
+        // mid-session). Past the cap the list stops being a summary and starts
+        // being a bill. `skill_search` covers the remainder on demand, so what
+        // is lost is visibility, not reach.
+        let _ = writeln!(
+            out,
+            "\n{hidden} more installed skill(s) are not listed here. \
+             Use `skill_search` with a plain-language description to find them."
+        );
+        tracing::debug!(
+            listed = MAX_LISTED_SKILLS,
+            hidden,
+            "[orchestrator-prompt] installed-skills catalogue capped"
+        );
     }
     out
 }

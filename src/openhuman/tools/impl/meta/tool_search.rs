@@ -33,24 +33,19 @@
 //! (`scripts/kernel-floor.limits`), and ~70 lines of arithmetic is a better
 //! trade than a package on the floor of every embedder's build.
 
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use serde_json::{json, Value};
 
 use crate::openhuman::tools::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolSpec};
+use crate::openhuman::util::bm25::Bm25Index;
 
 /// How many matches a search returns when the caller does not say.
 const DEFAULT_LIMIT: usize = 5;
 /// Ceiling on `limit`, so one call cannot undo the saving by asking for
 /// everything.
 const MAX_LIMIT: usize = 20;
-
-/// BM25 term-frequency saturation. The standard default.
-const BM25_K1: f64 = 1.2;
-/// BM25 length normalisation. The standard default.
-const BM25_B: f64 = 0.75;
 
 /// One deferred tool, as the index sees it.
 #[derive(Clone, Debug)]
@@ -82,61 +77,27 @@ impl SearchableTool {
 /// matches the query "search memory" at zero. Splitting on `_` fixes that; the
 /// camel split costs little and covers the handful of MCP-imported names that
 /// arrive in that shape.
-fn tokenize(text: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut current = String::new();
-    let mut previous_lower = false;
-    for ch in text.chars() {
-        if ch.is_alphanumeric() {
-            if ch.is_uppercase() && previous_lower && !current.is_empty() {
-                out.push(std::mem::take(&mut current));
-            }
-            current.push(ch.to_ascii_lowercase());
-            previous_lower = ch.is_lowercase() || ch.is_numeric();
-        } else if !current.is_empty() {
-            out.push(std::mem::take(&mut current));
-            previous_lower = false;
-        }
-    }
-    if !current.is_empty() {
-        out.push(current);
-    }
-    out
-}
-
 /// A BM25 index over the deferred tools.
+///
+/// A thin adapter: the ranking lives in [`crate::openhuman::util::bm25`], which
+/// knows nothing about tools, and this type owns the part that is about tools —
+/// what text is searchable and what a result looks like.
 #[derive(Default, Debug)]
 pub struct ToolSearchIndex {
     tools: Vec<SearchableTool>,
-    /// Document frequency per term.
-    document_frequency: HashMap<String, usize>,
-    average_length: f64,
+    index: Bm25Index,
 }
 
 impl ToolSearchIndex {
     pub fn build(specs: &[ToolSpec]) -> Self {
         let tools: Vec<SearchableTool> = specs.iter().map(SearchableTool::from_spec).collect();
-        let mut document_frequency: HashMap<String, usize> = HashMap::new();
-        for tool in &tools {
-            let mut seen: Vec<&str> = Vec::new();
-            for token in &tool.tokens {
-                if !seen.contains(&token.as_str()) {
-                    seen.push(token);
-                    *document_frequency.entry(token.clone()).or_insert(0) += 1;
-                }
-            }
-        }
-        let total: usize = tools.iter().map(|t| t.tokens.len()).sum();
-        let average_length = if tools.is_empty() {
-            0.0
-        } else {
-            total as f64 / tools.len() as f64
-        };
-        Self {
-            tools,
-            document_frequency,
-            average_length,
-        }
+        let index = Bm25Index::build(
+            tools
+                .iter()
+                .map(|t| (t.name.as_str(), t.searchable.as_str()))
+                .collect::<Vec<_>>(),
+        );
+        Self { tools, index }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -154,53 +115,10 @@ impl ToolSearchIndex {
     /// mechanism exists to save, and would invite the model to call something
     /// that has nothing to do with what it asked for.
     pub fn search(&self, query: &str, limit: usize) -> Vec<&SearchableTool> {
-        let terms = tokenize(query);
-        if terms.is_empty() || self.tools.is_empty() {
-            return Vec::new();
-        }
-        let count = self.tools.len() as f64;
-        let mut scored: Vec<(f64, usize)> = self
-            .tools
-            .iter()
-            .enumerate()
-            .map(|(index, tool)| {
-                let length = tool.tokens.len() as f64;
-                let score: f64 = terms
-                    .iter()
-                    .map(|term| {
-                        let frequency =
-                            tool.tokens.iter().filter(|t| *t == term).count() as f64;
-                        if frequency == 0.0 {
-                            return 0.0;
-                        }
-                        let df = *self.document_frequency.get(term).unwrap_or(&0) as f64;
-                        // Standard BM25 IDF with the +1 that keeps a term
-                        // present in every document at a small positive weight
-                        // rather than a negative one.
-                        let idf = (((count - df + 0.5) / (df + 0.5)) + 1.0).ln();
-                        let denominator = frequency
-                            + BM25_K1
-                                * (1.0 - BM25_B
-                                    + BM25_B * length / self.average_length.max(1.0));
-                        idf * (frequency * (BM25_K1 + 1.0)) / denominator
-                    })
-                    .sum();
-                (score, index)
-            })
-            .filter(|(score, _)| *score > 0.0)
-            .collect();
-        // Ties break on name so repeated identical queries give identical
-        // results; an unstable order would make the model's transcript
-        // non-reproducible for no benefit.
-        scored.sort_by(|a, b| {
-            b.0.partial_cmp(&a.0)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| self.tools[a.1].name.cmp(&self.tools[b.1].name))
-        });
-        scored
+        self.index
+            .search(query, limit)
             .into_iter()
-            .take(limit)
-            .map(|(_, index)| &self.tools[index])
+            .map(|i| &self.tools[i])
             .collect()
     }
 }

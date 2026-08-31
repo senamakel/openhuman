@@ -7,6 +7,7 @@
 //! - [`retry`]    — retry-with-backoff + transient-filesystem-error classification
 //! - [`sanitize`] — LLM-facing text sanitization (control-char stripping,
 //!   instruction-fence removal, UTF-8-safe byte caps)
+//! - [`bm25`]     — BM25 ranking over short documents (tool + skill search)
 //! - [`tls`]      — TLS client/connector construction
 //! - [`types`]    — shared utility types
 //!
@@ -14,6 +15,9 @@
 //! `openhuman::util::<fn>` paths (including the `truncate_with_ellipsis`
 //! doctest) still resolve.
 
+/// BM25 ranking over short documents, shared by `tool_search` and
+/// `skill_search`. Deliberately names nothing from `crate::` — see its docs.
+pub mod bm25;
 /// PII redaction for log output. See the module docs for why this is here and
 /// not taken from the memory engine.
 pub mod redact;

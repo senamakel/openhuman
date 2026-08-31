@@ -550,9 +550,7 @@ impl Agent {
         // would leak stale instances on every refresh.
         let advertised_names: std::collections::HashSet<String> = synthed
             .iter()
-            .filter(|t| {
-                t.exposure() != crate::openhuman::tools::traits::ToolExposure::Hidden
-            })
+            .filter(|t| t.exposure() != crate::openhuman::tools::traits::ToolExposure::Hidden)
             .map(|t| t.name().to_string())
             .collect();
         let synthed_specs: Vec<crate::openhuman::tools::ToolSpec> =

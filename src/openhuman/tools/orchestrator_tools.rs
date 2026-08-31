@@ -424,9 +424,7 @@ mod tests {
         // someone re-exposing a member and silently shipping both surfaces.
         let advertised: Vec<&str> = tools
             .iter()
-            .filter(|t| {
-                t.exposure() != crate::openhuman::tools::traits::ToolExposure::Hidden
-            })
+            .filter(|t| t.exposure() != crate::openhuman::tools::traits::ToolExposure::Hidden)
             .map(|t| t.name())
             .collect();
         assert_eq!(

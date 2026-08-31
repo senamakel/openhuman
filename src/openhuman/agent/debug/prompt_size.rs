@@ -238,7 +238,7 @@ pub fn render_text(report: &PromptSizeReport, section_limit: usize, tool_limit: 
     );
 
     let mut sections: Vec<&SectionSize> = report.sections.iter().collect();
-    sections.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    sections.sort_by_key(|s| std::cmp::Reverse(s.bytes));
     let _ = writeln!(out, "\nPrompt sections by size");
     for s in sections.iter().take(section_limit) {
         let _ = writeln!(

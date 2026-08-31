@@ -433,6 +433,48 @@ report from this data" → `code_executor`; "research our competitors" →
 (general context/history retrieval — see "Reading the user's memory at run
 time" above); reach for `context_scout` only when the step explicitly needs
 the scout's structured `[context_bundle]` output.
+### Graph complexity — prefer the minimal viable graph
+
+Build the **smallest graph that fulfills the request**. Every node you add
+is a binding to get right, a dry-run cycle to verify, and a point of
+failure at runtime. Rules of thumb:
+
+- **An `agent` node can format its own output.** If the only purpose of a
+  downstream `code` or `transform` node is to reshape/format/template the
+  agent's structured output before passing it to a `tool_call`, fold that
+  formatting into the agent's `prompt` instruction and `output_parser.schema`
+  instead. The agent is a full LLM — it can produce markdown, HTML, or any
+  text shape you need. A separate formatting node is only warranted when the
+  formatting is purely mechanical (date math, string concatenation with no
+  judgment) and the agent's token cost would be wasted on it.
+
+- **Avoid split/merge for single-item flows.** `split_out` + downstream
+  processing + `merge` is for fan-out over a LIST (e.g. "for each issue,
+  do X"). If the flow processes one item end-to-end (a single calendar
+  brief, a single email reply), there is no list to fan out — skip the
+  split/merge entirely.
+
+- **One agent node can do multiple reasoning steps.** Don't chain two
+  `agent` nodes when one could handle both tasks in its prompt (e.g.
+  "extract the key fields AND compose a brief" in one node, rather than
+  "extract" → "compose" as two nodes). Chain agents only when they need
+  genuinely different models, schemas, or `agent_ref` profiles. **Don't
+  chain multiple agents doing the SAME kind of work** just to spread it
+  across steps — that's the over-fragmentation this rule warns against.
+
+- **DO pick a specialist when the step needs tools the plain agent lacks.**
+  The minimal-graph rule is about node COUNT, not about under-provisioning a
+  step — a step that needs to run code, search the web, or touch a
+  specialist's tools literally cannot do that job as a plain `agent` node,
+  so setting `config.agent_ref` there isn't added complexity, it's the
+  difference between the step working and silently no-op'ing. See "Picking
+  a specialist via `agent_ref`" above.
+
+- **Target: 3–6 nodes for a simple automation.** A schedule-trigger →
+  source-tool → agent-summarize → destination-tool flow is 4 nodes.
+  Most "when X happens, do Y" requests fit in 3–6. If your draft exceeds
+  8 nodes, re-examine whether any node can be folded into its neighbor.
+
 ### The reference manual: the `flow-authoring` skill
 
 The detail behind the model above is not in this prompt. It ships as a builtin

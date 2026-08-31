@@ -55,7 +55,7 @@ fn read_workflow_id(args: &serde_json::Value) -> anyhow::Result<String> {
 
 /// Skill/workflow allowlist applied per agent profile. `None` = all skills are
 /// visible (the default). `Some(set)` restricts to the named `dir_name` slugs.
-type SkillAllowlist = Option<std::collections::HashSet<String>>;
+pub(super) type SkillAllowlist = Option<std::collections::HashSet<String>>;
 
 /// Whether `dir_name` passes the optional per-profile skill allowlist.
 pub(super) fn skill_allowed(allowlist: &SkillAllowlist, dir_name: &str) -> bool {

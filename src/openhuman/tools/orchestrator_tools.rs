@@ -491,7 +491,7 @@ mod tests {
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert_eq!(
             names,
-            vec!["do_custom"],
+            vec!["do_custom", "delegate_to"],
             "custom_agent subagent entry must synthesise a tool named after its \
              `delegate_name` override (`do_custom`), not the default \
              `delegate_custom_agent`"

@@ -216,13 +216,28 @@ impl ContextManager {
     /// Assemble the opening system prompt for a session using the
     /// manager's default [`SystemPromptBuilder`].
     ///
-    /// The returned bytes are the full system prompt, intended to be
-    /// built once at session start and reused verbatim on every turn —
-    /// the inference backend's prefix cache picks up the stable prefix
-    /// automatically, so no boundary marker is emitted.
+    /// The returned bytes are the full system prompt, intended to be built
+    /// once at session start and reused verbatim on every turn. Callers that
+    /// can carry cache breakpoints to the provider should use
+    /// [`Self::build_system_prompt_tiered`] instead; this wrapper exists for
+    /// the call sites that only want the bytes.
     pub fn build_system_prompt(&self, ctx: &PromptContext<'_>) -> Result<String> {
-        let prompt = self.default_prompt_builder.build(ctx)?;
-        Ok(prompt)
+        Ok(self.build_system_prompt_tiered(ctx)?.text)
+    }
+
+    /// Assemble the system prompt and report its cache-tier boundaries.
+    ///
+    /// The doc comment above used to end "the inference backend's prefix cache
+    /// picks up the stable prefix automatically, so no boundary marker is
+    /// emitted." That is true of backends with automatic longest-prefix caching
+    /// and false of Anthropic, which caches nothing without an explicit
+    /// breakpoint — so on Anthropic-family models this codebase re-paid full
+    /// input price on a ~37k-token prefix, every turn, silently.
+    pub fn build_system_prompt_tiered(
+        &self,
+        ctx: &PromptContext<'_>,
+    ) -> Result<crate::openhuman::agent::prompts::TieredPrompt> {
+        self.default_prompt_builder.build_tiered(ctx)
     }
 
     /// Assemble the system prompt via a caller-supplied builder.

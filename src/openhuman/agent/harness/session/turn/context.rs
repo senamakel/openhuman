@@ -278,6 +278,15 @@ impl Agent {
     /// Builds the system prompt for the current turn, including tool
     /// instructions and learned context.
     pub fn build_system_prompt(&self, learned: LearnedContextData) -> Result<String> {
+        Ok(self.build_system_prompt_tiered(learned)?.text)
+    }
+
+    /// As [`Self::build_system_prompt`], but reporting the cache-tier
+    /// boundaries so the turn can hand them to the provider.
+    pub fn build_system_prompt_tiered(
+        &self,
+        learned: LearnedContextData,
+    ) -> Result<crate::openhuman::agent::prompts::TieredPrompt> {
         let tools_slice: &[Box<dyn Tool>] = self.tools.as_slice();
         let instructions = self
             .tool_dispatcher
@@ -335,10 +344,20 @@ impl Agent {
         // Route through the global context manager so every
         // prompt-building call-site — main agent, sub-agent runner,
         // channel runtimes — shares one builder configuration.
-        let mut prompt = self.context.build_system_prompt(&ctx)?;
+        let mut tiered = self.context.build_system_prompt_tiered(&ctx)?;
         if let Some(boundary) = render_tool_policy_boundary(&self.tool_policy_session, 2048) {
-            prompt = format!("{boundary}\n\n{prompt}");
+            // The boundary is prepended, so every offset the builder reported
+            // moves by exactly its length. It is itself stable for the session
+            // (it renders the resolved tool policy, which the prompt freeze
+            // pins), so it belongs inside the first cached tier — shifting
+            // rather than dropping the breakpoints is what puts it there.
+            let prefix = format!("{boundary}\n\n");
+            let shift = prefix.len();
+            tiered.text = format!("{prefix}{}", tiered.text);
+            for offset in &mut tiered.breakpoints {
+                *offset += shift;
+            }
         }
-        Ok(prompt)
+        Ok(tiered)
     }
 }

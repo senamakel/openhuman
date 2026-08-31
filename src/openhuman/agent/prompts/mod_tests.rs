@@ -2209,6 +2209,37 @@ mod cache_tiers {
         }
     }
 
+    /// A minimal `PromptContext` for tier tests. Every optional input is off:
+    /// these tests are about section *ordering*, and real sections would add
+    /// bytes that make the offset assertions read as magic numbers.
+    fn test_prompt_context<'a>(
+        workspace_dir: &'a std::path::Path,
+        tools: &'a [PromptTool<'a>],
+    ) -> PromptContext<'a> {
+        PromptContext {
+            workspace_dir,
+            model_name: "test-model",
+            agent_id: "",
+            tools,
+            workflows: &[],
+            dispatcher_instructions: "",
+            learned: LearnedContextData::default(),
+            visible_tool_names: &NO_FILTER,
+            tool_call_format: ToolCallFormat::PFormat,
+            connected_integrations: &[],
+            connected_identities_md: String::new(),
+            include_profile: false,
+            include_memory_md: false,
+            curated_snapshot: None,
+            user_identity: None,
+            personality_soul_md: None,
+            personality_memory_md: None,
+            personality_roster: vec![],
+            agents_md_global: None,
+            agents_md_local: None,
+        }
+    }
+
     fn builder(sections: Vec<Box<dyn PromptSection>>) -> SystemPromptBuilder {
         let mut b = SystemPromptBuilder::default();
         for s in sections {
@@ -2220,7 +2251,8 @@ mod cache_tiers {
     #[test]
     fn volatile_sections_are_emitted_after_stable_ones_regardless_of_declaration_order() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let ctx = test_prompt_context(dir.path());
+        let no_tools: Vec<PromptTool<'_>> = Vec::new();
+        let ctx = test_prompt_context(dir.path(), &no_tools);
         let prompt = builder(vec![
             Box::new(Fixed("memory", "MEMORY_BLOCK", PromptTier::Volatile)),
             Box::new(Fixed("identity", "IDENTITY_BLOCK", PromptTier::Stable)),
@@ -2241,7 +2273,8 @@ mod cache_tiers {
     #[test]
     fn breakpoints_land_on_the_tier_boundaries() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let ctx = test_prompt_context(dir.path());
+        let no_tools: Vec<PromptTool<'_>> = Vec::new();
+        let ctx = test_prompt_context(dir.path(), &no_tools);
         let tiered = builder(vec![
             Box::new(Fixed("identity", "IDENTITY_BLOCK", PromptTier::Stable)),
             Box::new(Fixed("agents_md", "AGENTS_BLOCK", PromptTier::Context)),
@@ -2274,7 +2307,8 @@ mod cache_tiers {
         // stable tier is right; two identical offsets would be wasted, and the
         // provider caps how many it accepts.
         let dir = tempfile::tempdir().expect("tempdir");
-        let ctx = test_prompt_context(dir.path());
+        let no_tools: Vec<PromptTool<'_>> = Vec::new();
+        let ctx = test_prompt_context(dir.path(), &no_tools);
         let tiered = builder(vec![Box::new(Fixed("a", "ONLY", PromptTier::Stable))])
             .build_tiered(&ctx)
             .expect("builds");
@@ -2284,7 +2318,8 @@ mod cache_tiers {
     #[test]
     fn build_returns_exactly_the_tiered_text() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let ctx = test_prompt_context(dir.path());
+        let no_tools: Vec<PromptTool<'_>> = Vec::new();
+        let ctx = test_prompt_context(dir.path(), &no_tools);
         let b = builder(vec![
             Box::new(Fixed("identity", "IDENTITY_BLOCK", PromptTier::Stable)),
             Box::new(Fixed("memory", "MEMORY_BLOCK", PromptTier::Volatile)),

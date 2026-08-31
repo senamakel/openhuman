@@ -88,7 +88,28 @@ impl MemoryTool {
     ///
     /// Ordered by how often a turn needs it — `recall` and `store` first — so
     /// the enum reads as a recommendation as well as a list.
+    ///
+    /// **Filtered by memory capability.** The eleven members span five of them
+    /// (`Core`, `Recall`, `Tree`, `Entities`, `Maintenance`), and the registry
+    /// drops a tool whose capability the active memory driver does not serve —
+    /// on the stated principle that absence beats a registered tool that
+    /// fails. Collapsing would have quietly broken that: one tool cannot be
+    /// dropped for one capability, so an unavailable action would sit in the
+    /// enum inviting a call that always errors. Filtering here keeps the
+    /// original behaviour, one action at a time.
     fn actions(&self) -> Vec<CollapsedAction<'_>> {
+        self.all_actions()
+            .into_iter()
+            .filter(|entry| {
+                crate::core::all::capability_allowed(
+                    crate::openhuman::tools::ops::tool_capability(entry.tool.name()),
+                )
+            })
+            .collect()
+    }
+
+    /// Every action this tool can serve, before capability filtering.
+    fn all_actions(&self) -> Vec<CollapsedAction<'_>> {
         vec![
             CollapsedAction { action: "recall", tool: &self.recall },
             CollapsedAction { action: "store", tool: &self.store },

@@ -1335,7 +1335,16 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         return DomainGroup::Voice;
     }
     // Memory family (harness-kept): memory_* store/search/etc + goals_* + extras.
-    if name.starts_with("memory_") || name.starts_with("goals_") || MEMORY_EXTRA.contains(&name) {
+    //
+    // The bare `memory` name is matched explicitly: the collapsed tool drops
+    // the `memory_` prefix its members carry, so prefix matching alone would
+    // land it in `Platform` and leave the whole memory surface callable under
+    // a `DomainSet { platform: true, memory: false }`.
+    if name == crate::openhuman::memory::tools::MEMORY_TOOL_NAME
+        || name.starts_with("memory_")
+        || name.starts_with("goals_")
+        || MEMORY_EXTRA.contains(&name)
+    {
         return DomainGroup::Memory;
     }
     // Threads family (harness-kept): thread_* + todo_* + per-thread goal + search.
@@ -1492,7 +1501,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
 /// about what the *model is told exists*, and the later re-point onto
 /// `MemoryGuard` must not change the advertised surface. Assigning them `None`
 /// to dodge the mismatch would bake the wrong contract in.
-fn tool_capability(name: &str) -> Option<tinymemory_api::capabilities::Capability> {
+pub(crate) fn tool_capability(name: &str) -> Option<tinymemory_api::capabilities::Capability> {
     use tinymemory_api::capabilities::Capability;
 
     // Not driver-backed. Each entry is an argued exception, not a fallthrough.
@@ -1506,9 +1515,15 @@ fn tool_capability(name: &str) -> Option<tinymemory_api::capabilities::Capabilit
 
     let capability = match name {
         // ── Mandatory families: always advertised, listed for the record ──
-        "memory_store" | "memory_forget" | "remember_preference" | "save_preference" => {
-            Capability::Core
-        }
+        // The collapsed `memory` tool is `Core` because `store` and `forget`
+        // are: it must stay registered whenever the mandatory family is, and
+        // it filters its own action list by capability so an unavailable
+        // action is never advertised. See `memory::tools::collapsed`.
+        "memory"
+        | "memory_store"
+        | "memory_forget"
+        | "remember_preference"
+        | "save_preference" => Capability::Core,
         // Chunk/recall retrieval surface. NOT `Tree` — these read chunk
         // embeddings and chunk rows, never the summary tree.
         "memory_recall"

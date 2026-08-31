@@ -480,7 +480,10 @@ impl AgentBuilder {
         //
         // Neither can widen anything. This runs on a set the belt and the
         // security policy already produced, and only ever removes from it.
-        let deferred = strip_deferred_from_visible(&mut visible_names, tools.as_slice());
+        let deferred = crate::openhuman::tools::r#impl::meta::strip_deferred_from_visible(
+            &mut visible_names,
+            tools.as_slice(),
+        );
         if !deferred.is_empty() {
             tracing::info!(
                 agent = %agent_definition_name,

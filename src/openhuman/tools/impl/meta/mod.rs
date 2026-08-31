@@ -7,4 +7,7 @@
 
 pub mod tool_search;
 
-pub use tool_search::{ToolSearchHandle, ToolSearchIndex, ToolSearchTool};
+pub use tool_search::{
+    strip_deferred_from_visible, ToolSearchHandle, ToolSearchIndex, ToolSearchTool,
+    TOOL_SEARCH_NAME,
+};

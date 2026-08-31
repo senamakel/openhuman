@@ -229,7 +229,7 @@ impl ToolSearchTool {
 #[async_trait::async_trait]
 impl Tool for ToolSearchTool {
     fn name(&self) -> &str {
-        "tool_search"
+        TOOL_SEARCH_NAME
     }
 
     fn description(&self) -> &str {
@@ -413,3 +413,43 @@ mod tests {
         assert_eq!(first, second);
     }
 }
+
+/// Remove every [`ToolExposure::Deferred`] and [`ToolExposure::Hidden`] tool
+/// from an agent's advertised set, returning the specs of the deferred ones so
+/// the caller can index them.
+///
+/// Hidden tools are dropped and **not** returned: they are not searchable
+/// either, by definition.
+///
+/// `tool_search` itself is never removed, whatever it declares. A search tool
+/// the model cannot see is the one failure mode this whole mechanism cannot
+/// recover from — every deferred capability would be unreachable, silently.
+pub fn strip_deferred_from_visible(
+    visible: &mut std::collections::HashSet<String>,
+    tools: &[Box<dyn Tool>],
+) -> Vec<ToolSpec> {
+    use crate::openhuman::tools::ToolExposure;
+
+    let mut deferred = Vec::new();
+    for tool in tools {
+        let name = tool.name();
+        if name == TOOL_SEARCH_NAME || !visible.contains(name) {
+            continue;
+        }
+        match tool.exposure() {
+            ToolExposure::Direct => {}
+            ToolExposure::Deferred => {
+                visible.remove(name);
+                deferred.push(tool.spec());
+            }
+            ToolExposure::Hidden => {
+                visible.remove(name);
+            }
+        }
+    }
+    deferred
+}
+
+/// The advertised name of [`ToolSearchTool`], as a constant so the carve-out
+/// above and the registration site cannot disagree about it.
+pub const TOOL_SEARCH_NAME: &str = "tool_search";

@@ -491,6 +491,13 @@ impl AgentBuilder {
                 "[tools] withheld deferred tool schemas; reachable via tool_search"
             );
         }
+        // Index them where the model can find them again. Done here rather than
+        // at registration because which tools are deferred depends on the belt,
+        // and the belt is only known now.
+        crate::openhuman::tools::implementations::meta::bind_tool_search_index(
+            tools.as_slice(),
+            deferred,
+        );
         let config = self.config.clone().unwrap_or_default();
         let event_session_id = self
             .event_session_id

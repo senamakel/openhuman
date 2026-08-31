@@ -1182,6 +1182,17 @@ pub fn all_tools_with_runtime(
     // `orchestrator_tools::collect_orchestrator_tools` — which never pass
     // through this function.
     crate::openhuman::tools::toolpacks::append_pack_tools(&mut tools);
+
+    // The lookup half of `ToolExposure::Deferred`. Always registered, for the
+    // same reason `load_skill` / `use_skill` are: whether anything is actually
+    // deferred depends on the agent's belt, which is resolved later in the
+    // session builder, and a search tool that arrived *after* the tools it
+    // searches were hidden would be one release of silently unreachable
+    // capabilities. Its index starts empty and costs one small schema; the
+    // builder fills it via `bind_tool_search_index`.
+    tools.push(Box::new(
+        crate::openhuman::tools::implementations::meta::ToolSearchTool::new(),
+    ));
     tools
 }
 

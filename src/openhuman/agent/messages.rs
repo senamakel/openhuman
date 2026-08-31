@@ -16,6 +16,16 @@ pub struct ChatMessage {
     pub content: String,
     #[serde(default, skip_serializing)]
     pub extra_metadata: Option<serde_json::Value>,
+    /// Ascending byte offsets into [`Self::content`] at which the provider may
+    /// place a prompt-cache breakpoint. Only meaningful on the system message.
+    ///
+    /// `skip_serializing` like `id` and `extra_metadata` above: these are a
+    /// property of *this call*, derived from the freshly assembled prompt, and
+    /// writing them into the JSONL transcript would persist offsets that stop
+    /// matching the moment the prompt is rebuilt. `serde(default)` keeps every
+    /// record already on disk loadable.
+    #[serde(default, skip_serializing)]
+    pub cache_breakpoints: Vec<usize>,
 }
 
 impl ChatMessage {
@@ -25,6 +35,7 @@ impl ChatMessage {
             role: "system".into(),
             content: content.into(),
             extra_metadata: None,
+            cache_breakpoints: Vec::new(),
         }
     }
 
@@ -34,6 +45,7 @@ impl ChatMessage {
             role: "user".into(),
             content: content.into(),
             extra_metadata: None,
+            cache_breakpoints: Vec::new(),
         }
     }
 
@@ -43,6 +55,7 @@ impl ChatMessage {
             role: "assistant".into(),
             content: content.into(),
             extra_metadata: None,
+            cache_breakpoints: Vec::new(),
         }
     }
 
@@ -52,6 +65,7 @@ impl ChatMessage {
             role: "tool".into(),
             content: content.into(),
             extra_metadata: None,
+            cache_breakpoints: Vec::new(),
         }
     }
 }

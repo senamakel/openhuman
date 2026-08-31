@@ -59,6 +59,19 @@ pub struct DumpPromptOptions {
     pub toolkit: Option<String>,
     /// Optional override for the workspace directory.
     pub workspace_dir_override: Option<PathBuf>,
+    /// Optional override for `Config::config_path`.
+    ///
+    /// **Set this whenever you set `workspace_dir_override` and want a
+    /// reproducible measurement.** Credential state, auth profiles and the
+    /// keyring file backend resolve against this path's *parent*, not against
+    /// the workspace, so overriding the workspace alone yields a dump that
+    /// looks hermetic and reads the operator's real credentials. That is not
+    /// hypothetical: it made ~20 backend-proxied integration tools
+    /// (`google_places_*`, `stock_*`, `storage_*`, `twilio_call`, `composio_*`)
+    /// appear or vanish from a "hermetic" measurement depending on whether the
+    /// developer happened to be signed in, because they all sit behind one
+    /// `if let Some(client) = integrations::build_client(..)`.
+    pub config_path_override: Option<PathBuf>,
     /// Optional override for the resolved model name.
     pub model_override: Option<String>,
 }
@@ -69,6 +82,7 @@ impl DumpPromptOptions {
             agent_id: agent_id.into(),
             toolkit: None,
             workspace_dir_override: None,
+            config_path_override: None,
             model_override: None,
         }
     }
@@ -125,6 +139,7 @@ fn tool_specs_of<'a>(
 pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPrompt> {
     let config = load_dump_config(
         options.workspace_dir_override.clone(),
+        options.config_path_override.clone(),
         options.model_override.clone(),
     )
     .await?;
@@ -163,9 +178,11 @@ pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPromp
 /// `integrations_agent` replaced in place by its per-toolkit expansion.
 pub async fn dump_all_agent_prompts(
     workspace_dir_override: Option<PathBuf>,
+    config_path_override: Option<PathBuf>,
     model_override: Option<String>,
 ) -> Result<Vec<DumpedPrompt>> {
-    let config = load_dump_config(workspace_dir_override, model_override).await?;
+    let config =
+        load_dump_config(workspace_dir_override, config_path_override, model_override).await?;
 
     AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .context("initialising AgentDefinitionRegistry for prompt dump")?;
@@ -213,6 +230,7 @@ pub async fn dump_all_agent_prompts(
 
 async fn load_dump_config(
     workspace_dir_override: Option<PathBuf>,
+    config_path_override: Option<PathBuf>,
     model_override: Option<String>,
 ) -> Result<Config> {
     let mut config = Config::load_or_init()
@@ -221,6 +239,16 @@ async fn load_dump_config(
     config.apply_env_overrides();
     if let Some(override_dir) = workspace_dir_override {
         config.workspace_dir = override_dir;
+    }
+    // See `DumpPromptOptions::config_path_override`: this is what actually
+    // decouples the dump from the operator's credentials. Applied after
+    // `apply_env_overrides` so an explicit caller argument wins over the
+    // environment, matching how the workspace override above behaves.
+    if let Some(override_path) = config_path_override {
+        if let Some(parent) = override_path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        config.config_path = override_path;
     }
     std::fs::create_dir_all(&config.workspace_dir).ok();
     if let Some(model) = model_override {

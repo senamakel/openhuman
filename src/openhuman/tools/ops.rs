@@ -1384,9 +1384,20 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     // leak the #4808 review flagged. Keep these in
     // lockstep with the `push(...)` tags in `core::all`.
     //
-    // Automation: scheduled jobs (`cron_*`) plus the subconscious monitor +
+    // Automation: scheduled jobs plus the subconscious monitor +
     // proactive-notify surface.
-    if name.starts_with("cron_") || name == "schedule" || MONITORS.contains(&name) {
+    //
+    // The bare `cron` name is matched explicitly. The collapsed tool does not
+    // carry the `cron_` prefix its members do, so prefix matching alone would
+    // drop it into `Platform` below and leave the whole scheduler callable
+    // under a `DomainSet { platform: true, automation: false }` — exactly the
+    // leak #4808 added prefix matching to prevent, reintroduced by the
+    // collapse rather than by a new tool.
+    if name == crate::openhuman::cron::tools::CRON_TOOL_NAME
+        || name.starts_with("cron_")
+        || name == "schedule"
+        || MONITORS.contains(&name)
+    {
         return DomainGroup::Automation;
     }
     // Integrations: every external connector reached on the user's behalf.

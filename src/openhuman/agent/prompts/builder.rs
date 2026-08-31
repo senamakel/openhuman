@@ -1,6 +1,21 @@
 //! [`SystemPromptBuilder`] — assembles ordered [`PromptSection`]s into a
 //! final system-prompt string.
 
+/// A rendered system prompt together with the byte offsets at which a provider
+/// may place a prompt-cache breakpoint.
+///
+/// Offsets are ends-of-tier, in ascending order, and always fall on a UTF-8
+/// character boundary because they are taken at a point where only whole
+/// sections have been pushed. At most two are produced today (end of `Stable`,
+/// end of `Context`), comfortably inside the four Anthropic accepts.
+#[derive(Debug, Clone, Default)]
+pub struct TieredPrompt {
+    /// The assembled prompt — byte-identical to what [`SystemPromptBuilder::build`] returns.
+    pub text: String,
+    /// Ascending byte offsets into [`Self::text`].
+    pub breakpoints: Vec<usize>,
+}
+
 use super::render_helpers::sync_workspace_file;
 use super::sections::*;
 use super::types::*;
@@ -278,14 +293,51 @@ impl SystemPromptBuilder {
     /// cache-boundary marker to emit because the entire prompt is
     /// static from the provider's perspective.
     pub fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        Ok(self.build_tiered(ctx)?.text)
+    }
+
+    /// Assemble the prompt **and** report where its cache tiers end.
+    ///
+    /// Sections are emitted grouped by [`PromptSection::tier`] — every
+    /// `Stable` section in declaration order, then every `Context` one, then
+    /// every `Volatile` one. Within a tier the declaration order is preserved
+    /// exactly, so this is a stable partition rather than a sort: a section
+    /// that does not change tier does not change its neighbours.
+    ///
+    /// The grouping is the whole point. A prefix is reusable only up to the
+    /// first byte that differs, so a volatile section emitted early throws away
+    /// every stable byte behind it. `with_defaults` used to place
+    /// `UserFilesSection` second and `UserMemorySection` fourth, ahead of the
+    /// tool catalogue, the safety contract and the writing-style rules — so a
+    /// single `MEMORY.md` write invalidated all of them.
+    ///
+    /// It does not change the prompt's **size**: the same sections render the
+    /// same bytes, in a different order. `scripts/prompt-budget.limits` should
+    /// therefore not move when this lands, and if it does, something else
+    /// changed too.
+    pub fn build_tiered(&self, ctx: &PromptContext<'_>) -> Result<TieredPrompt> {
         let mut output = String::new();
-        for section in &self.sections {
-            let part = section.build(ctx)?;
-            if part.trim().is_empty() {
-                continue;
+        let mut breakpoints: Vec<usize> = Vec::new();
+
+        for tier in [PromptTier::Stable, PromptTier::Context, PromptTier::Volatile] {
+            for section in self.sections.iter().filter(|s| s.tier() == tier) {
+                let part = section.build(ctx)?;
+                if part.trim().is_empty() {
+                    continue;
+                }
+                output.push_str(part.trim_end());
+                output.push_str("\n\n");
             }
-            output.push_str(part.trim_end());
-            output.push_str("\n\n");
+            // A boundary is only worth declaring when the tier actually
+            // contributed something and something can still follow it. A
+            // breakpoint at offset 0 caches nothing, and one at the very end
+            // of the prompt is the provider's default anyway.
+            if tier != PromptTier::Volatile && !output.is_empty() {
+                match breakpoints.last() {
+                    Some(&last) if last == output.len() => {}
+                    _ => breakpoints.push(output.len()),
+                }
+            }
         }
         // Grounding / anti-hallucination contract is appended centrally here
         // (and in the narrow sub-agent renderer) rather than per-section, so
@@ -307,6 +359,17 @@ impl SystemPromptBuilder {
         }
         output.push_str(global_style_block(ctx.workspace_dir).trim_end());
         output.push('\n');
-        Ok(output)
+        // The grounding contract and the style block are byte-stable and are
+        // appended after every tier, so they land behind the volatile bytes and
+        // are not covered by any breakpoint. That is deliberate and costs
+        // nothing worth recovering: together they are under a kilobyte, and
+        // moving them ahead of the volatile tier would put the prompt's closing
+        // contract in the middle of the document, which is worse to read and
+        // worse to edit. If they ever grow, make them their own `Stable`
+        // sections instead of special-casing them here.
+        Ok(TieredPrompt {
+            text: output,
+            breakpoints,
+        })
     }
 }

@@ -1194,6 +1194,13 @@ mod tests {
                     "composio_connect",
                     "memory_recall",
                     "memory_hybrid_search",
+                    // Reads a page of the `flow-authoring` builtin skill — the
+                    // reference manual this agent's prompt points at, ~25 KB of
+                    // text that used to be in the standing prompt. Read-only,
+                    // and discovery-scoped: it can only reach files inside an
+                    // installed bundle, with traversal, symlink and size
+                    // rejection in `read_workflow_resource` itself.
+                    "read_workflow_resource",
                 ];
                 for required in expected {
                     assert!(

@@ -533,8 +533,9 @@ mod tests {
             ToolScope::Named(tools) => {
                 assert!(!tools.iter().any(|t| t == "call_memory_agent"));
                 assert!(
-                    tools.iter().any(|t| t == "memory_store"),
-                    "trigger_reactor needs memory_store"
+                    tools.iter().any(|t| t == "memory"),
+                    "trigger_reactor needs the `memory` tool (was `memory_store` \
+                     before the family collapsed onto one action-dispatched tool)"
                 );
                 assert!(
                     tools.iter().any(|t| t == "spawn_subagent"),
@@ -868,7 +869,9 @@ mod tests {
                 // can hang or return a 0-char result with persistence unconfirmed.
                 // Deep tree walks / reconciliation still delegate to
                 // `retrieve_memory` / `manage_profile_memory`.
-                for direct in ["memory_recall", "memory_store", "save_preference"] {
+                // `memory` carries `recall` and `store` as actions; before the
+                // family collapsed these were two separate belt entries.
+                for direct in ["memory", "save_preference"] {
                     assert!(
                         tools.iter().any(|t| t == direct),
                         "orchestrator must have direct memory tool `{direct}` (#4762)"

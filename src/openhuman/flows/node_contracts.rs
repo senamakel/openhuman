@@ -411,17 +411,3 @@ mod prompt_index_tests {
         }
     }
 }
-
-#[cfg(test)]
-mod render_size_probe {
-    use super::*;
-    #[test]
-    #[ignore = "measurement probe, not an assertion"]
-    fn print_rendered_line_size() {
-        let line = render_node_kinds_line();
-        println!("RENDERED_BYTES={}", line.len());
-        let terse = render_node_kinds_required();
-        println!("TERSE_BYTES={}", terse.len());
-        println!("{terse}");
-    }
-}

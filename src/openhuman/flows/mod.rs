@@ -28,7 +28,6 @@
 //! `flows::tinyflows` in **comments only**. If either ever becomes a real
 //! `use`, this family must convert to the facade+stub shape (see `voice/`).
 
-pub mod skills;
 pub mod agents;
 mod build_registry;
 pub mod builder_tools;
@@ -38,6 +37,10 @@ mod draft_store;
 pub mod medulla_bridge;
 pub mod memory_tools;
 mod n8n_import;
+/// Skills this domain ships inside the binary. Needs BOTH gates: the pages
+/// teach flows authoring, and `BundledSkill` is part of the skills subsystem.
+#[cfg(feature = "skills")]
+pub mod skills;
 pub mod node_contracts;
 pub mod ops;
 mod run_registry;

@@ -2,6 +2,7 @@ pub mod browser;
 #[cfg(feature = "documents")]
 pub mod document;
 pub mod filesystem;
+pub mod meta;
 pub mod network;
 #[cfg(feature = "documents")]
 pub mod presentation;

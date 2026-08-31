@@ -141,6 +141,17 @@ pub const PACKS: &[ToolPack] = &[
             "skill_executor",
             "skill_creator",
             "context_scout",
+            // `workflow_builder` owns exactly ONE tool from this pack —
+            // `read_workflow_resource`, which fetches a page of the
+            // `flow-authoring` builtin skill, the reference manual its own
+            // system prompt points it at. Ownership here advertises nothing
+            // else: its belt is `ToolScope::Named`, so `visible` holds only the
+            // 30 tools its `agent.toml` lists, and the other ten members of
+            // this pack are not among them. Without it the manual costs a
+            // `load_skill` round trip before every read, and the recovery pair
+            // (`load_skill` + `use_skill`, 3,137 B) lands on the belt in place
+            // of the tool's own ~500 B — measured, not estimated.
+            "workflow_builder",
         ],
     },
     ToolPack {

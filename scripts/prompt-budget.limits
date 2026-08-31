@@ -77,7 +77,7 @@
 
 morning_briefing:14279:82972
 trigger_triage:11075:82972
-workflow_builder:80284:33948
+workflow_builder:62107:33948
 summarizer:10644:82972
 tools_agent:8260:82972
 orchestrator:33726:43139

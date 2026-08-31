@@ -343,6 +343,96 @@ how to configure it.
 | `approval` | put a subject in front of a human and route the verdict |
 | `void` | an explicit terminal sink |
 
+### Memory and specialists at run time
+
+**Reading the user's memory at run time.** A plain `agent` node has NO
+memory access: it is a single completion, so it cannot look anything up
+and it cannot decide to. Prompting one to "recall the user's preference"
+does not read memory — the model simply INVENTS an answer, and the graph
+still looks correct. Never author that. Four mechanisms actually work:
+- **A `memory` node** (`config.operation: "recall"` or `"search"`,
+  `config.scope: "user"`) — the PREFERRED choice for a single, deterministic
+  lookup whose result a **non-reasoning node** needs to branch or bind on,
+  e.g. a `condition` gating on whether something was already found. It is a
+  verb with static config, not a reasoning step, so it fires exactly once
+  per item and can't loop or decide what to look up next — use `tool_call
+  oh:memory_recall`/`oh:memory_hybrid_search` (below) only when you
+  specifically need that native-tool result shape instead. See "The
+  `memory` node" below for the full operation/scope reference.
+- **A `tool_call` node** with `config.slug` = `oh:memory_recall` (semantic
+  recall) or `oh:memory_hybrid_search` (keyword/lexical lookup). Same
+  one-shot-read shape as the `memory` node above, but returns a native
+  tool result, so bind downstream off
+  `=nodes.<id>.item.json.content[0].text` — NOT `.item.json.<field>`. Both
+  are valid; prefer the `memory` node for new graphs unless you need this
+  exact output shape.
+- **`config.agent_ref` = `flow_memory_agent`** — the PREFERRED general
+  route: any step that needs the user's context, style, history, or
+  people → `flow_memory_agent` via `agent_ref`, for ANY use case, not a fixed list.
+  That covers drafting in someone's tone, resolving "the customer from
+  last week", checking a preference, looking up a contact, or anything
+  else a step needs pulled from memory at run time. It runs a real
+  read-only agent turn over memory recall, hybrid search, style/preference
+  flavour, people lookup, transcript search, and thread reads, looping
+  across as many retrievals as the step needs, and returns plain text you
+  feed into a following `agent` node via `input_context`.
+- **`config.agent_ref` = `context_scout`** — narrower niche: use it only
+  when the step specifically needs the scout's structured
+  `[context_bundle]` output (a summary plus `recommended_tool_calls` /
+  `recommended_skills`). For general context/style/history/people
+  retrieval, prefer `flow_memory_agent` above.
+
+**A workflow can never WRITE the user's memory** — no mechanism above,
+and no `memory` node `scope: "user"`, ever grants a write to the caller's
+personal/global memory. `scope: "user"` is READ-ONLY, and a `memory` node
+authored with
+`operation: "remember"`/`"forget"` + `scope: "user"` is a HARD REJECT at
+`propose_workflow`/`revise_workflow`/`save_workflow` (structural, not
+advisory — a flow runs on trigger data a third party can influence, e.g. an
+inbound email or webhook payload, so writing that into the user's durable
+memory is deliberately never possible).
+
+**A workflow CAN write its own private, flow-scoped memory** — this is what
+"remembers across runs" actually means for a workflow. A `memory` node with
+`operation: "remember"`/`"forget"` + `scope: "flow"` reads/writes a sandbox
+namespace unique to that saved flow (never the user's memory, never another
+flow's). **Always place the `remember` AFTER the real action, never before**
+— if the action fails, the item was never marked done, so the next run
+retries it instead of silently skipping it. If the user asks for a workflow
+that "remembers" something, this is the mechanism: build it with a `memory`
+node at `scope: "flow"`, not by claiming memory writes are unavailable.
+
+**Exact "process each item once" dedup is NOT reliably expressible this
+way.** Semantic `recall` ranks results by similarity, not exact key
+membership, so there is no sound `recall → condition` pattern that
+correctly answers "have I already handled this exact item" — don't
+improvise one. Use a **`dedup` node** instead; see "The `dedup` node"
+below.
+
+Use memory reads sparingly — only when the workflow genuinely needs the
+user's context, rather than hardcoding what memory already holds.
+
+**Picking a specialist via `agent_ref`.** A plain `agent` node (no
+`agent_ref`) only has the default LLM plus whatever it's given in
+`input_context`/`prompt` — it cannot run code, browse the web, or reach
+any domain-specific tool. If a step genuinely needs to DO something —
+execute code, search the web, touch a domain the workflow author didn't
+already wire as a `tool_call` — set `config.agent_ref` to the specialist
+that owns those tools instead of hoping the plain agent can wing it.
+Setting `agent_ref` runs that step as a REAL agent turn: the selected
+agent's full persona, model, tool loop, and iteration cap, not just a
+differently-worded completion. **WHEN**: the step needs code/file
+execution, web research, or any tool a specialist owns that the plain
+agent doesn't have. **HOW**: call `list_agent_profiles`, pick the `id`
+whose `tools`/`description` match the step's need, and set it verbatim on
+`config.agent_ref` — never hallucinate an id, exactly like grounding a
+`tool_call` slug via `search_tool_catalog`. Examples: "generate an HTML
+report from this data" → `code_executor`; "research our competitors" →
+`researcher`; "draft a reply in the user's tone" → `flow_memory_agent`;
+"work out what this customer has asked us before" → `flow_memory_agent`
+(general context/history retrieval — see "Reading the user's memory at run
+time" above); reach for `context_scout` only when the step explicitly needs
+the scout's structured `[context_bundle]` output.
 ### The `memory` node
 
 A `memory` node is a **verb with static config**, not a reasoning step — it

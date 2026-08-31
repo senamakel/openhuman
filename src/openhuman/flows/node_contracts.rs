@@ -311,3 +311,70 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod prompt_index_tests {
+    use super::*;
+
+    /// The `workflow_builder` prompt, as compiled into the binary.
+    const BUILDER_PROMPT: &str = include_str!("agents/workflow_builder/prompt.md");
+
+    /// Every node kind must appear in the prompt's index table.
+    ///
+    /// The prompt used to carry ~20 KB enumerating each kind's config fields,
+    /// ports and gotchas — a duplicate of what `get_node_kind_contract` serves,
+    /// and one the prompt itself flagged as such ("when it and the contract
+    /// tool disagree, the tool wins"). That detail is gone; what remains is a
+    /// one-line-per-kind index so the model knows what exists without a tool
+    /// call.
+    ///
+    /// An index is only useful while it is complete. A kind added to the
+    /// catalog and not to the table is invisible to the builder unless it
+    /// happens to call `list_node_kinds`, which is exactly the failure a
+    /// summary is supposed to prevent.
+    #[test]
+    fn the_prompt_index_lists_every_node_kind() {
+        let table = BUILDER_PROMPT
+            .split("### The node kinds")
+            .nth(1)
+            .expect("the prompt carries a node-kind index");
+        let missing: Vec<&str> = NODE_KINDS
+            .iter()
+            .map(|contract| contract.kind.as_str())
+            .filter(|kind| !table.contains(&format!("`{kind}`")))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "node kinds missing from the workflow_builder prompt index: {missing:?}. \
+             Add a row to the table in `agents/workflow_builder/prompt.md`."
+        );
+    }
+
+    /// …and must not list a kind the catalog does not have.
+    ///
+    /// The opposite drift: a kind removed upstream leaves a row advertising a
+    /// node the validator will reject, which is worse than no row at all.
+    #[test]
+    fn the_prompt_index_lists_no_kind_the_catalog_lacks() {
+        let table = BUILDER_PROMPT
+            .split("### The node kinds")
+            .nth(1)
+            .and_then(|rest| rest.split("\n### ").next())
+            .expect("the index table is delimited by the next subsection");
+        let known: Vec<&str> = NODE_KINDS
+            .iter()
+            .map(|contract| contract.kind.as_str())
+            .collect();
+        for line in table.lines().filter(|l| l.starts_with("| `")) {
+            let kind = line
+                .trim_start_matches("| `")
+                .split('`')
+                .next()
+                .unwrap_or_default();
+            assert!(
+                known.contains(&kind),
+                "the prompt index lists `{kind}`, which is not in the node-kind catalog"
+            );
+        }
+    }
+}

@@ -160,7 +160,12 @@ impl SkillSearchTool {
         );
         if self.skill_allowlist.is_some() {
             workflows.retain(|w| {
-                w.scope == WorkflowScope::Profile
+                // Builtin and profile-local scopes bypass the allowlist — see
+                // `tools::is_builtin_skill`. Search must apply exactly the
+                // filter `list_workflows` applies; a search that saw one skill
+                // more than the list would be a way around the scoping.
+                w.scope == WorkflowScope::Builtin
+                    || w.scope == WorkflowScope::Profile
                     || skill_allowed(&self.skill_allowlist, &w.dir_name)
             });
         }

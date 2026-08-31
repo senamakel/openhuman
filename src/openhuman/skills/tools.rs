@@ -65,6 +65,23 @@ pub(super) fn skill_allowed(allowlist: &SkillAllowlist, dir_name: &str) -> bool 
     }
 }
 
+/// Whether `skill_id` names a skill compiled into this binary.
+///
+/// Builtin bundles are exempt from the per-profile allowlist for the same
+/// reason profile-local ones are: the allowlist scopes **user content**, and
+/// these are neither the user's nor scoped — they come from a `const` table in
+/// this build and one of them (`flow-authoring`) is the reference manual an
+/// agent's own system prompt points it at. A profile that narrowed its skills
+/// would otherwise leave that agent pointing at a page it is refused.
+///
+/// This widens nothing a user chose: no RPC and no config can add a row to that
+/// table (see `skills::bundled`), so the exempt set is fixed at compile time.
+pub(super) fn is_builtin_skill(skill_id: &str) -> bool {
+    super::bundled::BUNDLED
+        .iter()
+        .any(|s| s.dir_name == skill_id)
+}
+
 /// Whether `skill_id` is usable given the profile's allowlist AND its private
 /// skills. A profile's own (profile-local) skills are implicitly allowed for
 /// their owner — they bypass the `allowed_skills` allowlist, mirroring
@@ -75,7 +92,9 @@ fn skill_allowed_including_profile(
     profile_local_ids: &std::collections::HashSet<String>,
     skill_id: &str,
 ) -> bool {
-    profile_local_ids.contains(skill_id) || skill_allowed(allowlist, skill_id)
+    is_builtin_skill(skill_id)
+        || profile_local_ids.contains(skill_id)
+        || skill_allowed(allowlist, skill_id)
 }
 
 /// List installed skills.
@@ -147,7 +166,8 @@ impl Tool for WorkflowListTool {
             // bypass the `allowed_skills` allowlist (which scopes only global
             // skills). Keep any skill whose scope is `Profile`.
             workflows.retain(|w| {
-                w.scope == WorkflowScope::Profile
+                w.scope == WorkflowScope::Builtin
+                    || w.scope == WorkflowScope::Profile
                     || skill_allowed(&self.skill_allowlist, &w.dir_name)
             });
             log::debug!(

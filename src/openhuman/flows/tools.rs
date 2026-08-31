@@ -48,80 +48,54 @@ impl Tool for ProposeWorkflowTool {
     }
 
     fn description(&self) -> &str {
-        "Propose a candidate automation workflow for the user to review and save. This tool \
-         ONLY VALIDATES the graph and returns a summary — it NEVER creates or enables the flow; \
-         the user must click \"Save & enable\" in the UI before anything is persisted or can \
-         run. Build a tinyflows WorkflowGraph: nodes[] ({id, kind, name, config}) + edges[] \
-         ({from_node, to_node, from_port?, to_port?}; ports default \"main\"). For a branching \
-         node (condition/switch), the branch label goes on from_port — NEVER on to_port \
-         (to_port just stays \"main\"); routing is keyed exclusively on from_port, so a label \
-         on to_port instead silently turns the branch into an unconditional fan-out and is a \
-         hard reject. Exactly ONE \
-         trigger node is required. The 22 node kinds: trigger (config.trigger_kind: manual | \
-         schedule | webhook | app_event | form | chat_message | evaluation | system | \
-         execute_by_workflow; schedule needs config.schedule = {kind:\"cron\",expr,tz?} | \
-         {kind:\"at\",at} | {kind:\"every\",every_ms}; app_event needs config.toolkit + \
-         config.trigger_slug), agent (config.prompt), tool_call (config.slug REQUIRED + \
-         config.args), http_request (config.method/url, optional headers/body), code \
-         (config.language: \"javascript\"|\"python\" + config.source), shell (exactly one of \
-         config.source or config.script_path; optional config.interpreter: \"sh\"|\"bash\", \
-         config.cwd, config.env; this host rejects execution until it has a policy-aware shell \
-         capability), condition (config.field; \
-         routes on from_port \"true\"/\"false\", e.g. {from_node:\"gate\",from_port:\"true\",\
-         to_node:\"x\",to_port:\"main\"}), switch (config.expression or config.field; routes to \
-         the matching case port, or \"default\"), transform (config.set: {key: \"=expr\"} \
-         merged onto each item), split_out (config.path to an array field; fans out one item per \
-         element), merge (fan-in passthrough, no config), output_parser (passthrough today; no \
-         config required), sub_workflow (config.workflow: an embedded child WorkflowGraph), \
-         memory (config.operation REQUIRED: recall | search | flavour | people | remember | \
-         forget; config.scope for recall/remember/forget: \"user\" is READ-ONLY, \"flow\" is \
-         this flow's own memory and the ONLY scope remember/forget may target, \"flows\" is \
-         cross-flow READ-ONLY; config.query for recall/search; config.flavour for the flavour \
-         slug; config.key/config.value for remember/forget. Place remember AFTER the real \
-         action it records, never before, so a failed action never marks an item as done), \
-         dedup (config.key REQUIRED: an \"=expr\" per-item key, e.g. \"=item.id\"; drops an item \
-         whose key was already committed by a PRIOR successful run, else passes it through. Use \
-         this — not a memory recall/condition graph — for exact \"process each item once\": \
-         place it right after the item source and before the action, e.g. split_out → dedup → \
-         …action…), \
-         loop (optional config.max_iterations, positive, default 25; optional config.on_exceeded: \
-         \"error\" (default, fails the run) | \"continue\" (stop looping, leave via `done`); \
-         optional config.condition \"=expr\" for an early exit. Emits on the `body` port while \
-         it keeps looping and on `done` when it stops; CLOSE THE LOOP by wiring the body's last \
-         node back to the loop node. The pass number is readable as \
-         \"=nodes.<loop id>.iteration\". The `body` must ROUTE BACK to the loop node, not merely \
-         leave it. A fan-in `merge` must not sit on the cycle, and the loop node must not itself \
-         be a fan-in — join before it instead), \
-         spawn (config.target REQUIRED: workflow | tool | http — starts work WITHOUT waiting \
-         and emits an opaque ticket, so the branch carries on; target=tool needs config.slug + \
-         config.args, target=workflow needs config.workflow, target=http needs config.request. \
-         Pass the ticket to a `gate`; never interpret it. A spawn no gate collects simply runs \
-         — wire it into a `void` to say that on purpose), \
-         gate (the collecting half of spawn: config.from = ids of the spawn nodes to wait on, \
-         or config.tickets \"=expr\"; optional config.release: \"all\" (default) | \"any\" | \
-         \"first_n\" | \"quorum\" | \"timeout_partial\", with config.n REQUIRED and > 0 for \
-         first_n/quorum; optional config.wait_mode: \"poll\" (default) | \"suspend\". EVERY \
-         poll costs a super-step, so a long wait wants \"suspend\", not a big max_polls), \
-         scatter (fans the whole DOWNSTREAM PATH into parallel lanes, not just the immediate \
-         successors: scatter → enrich → score → gather runs that pipeline once per lane. \
-         Optional config.path to an array to fan out over, else the node's own input items are \
-         the lanes; optional config.lanes to chunk into at most N lanes, clamped to 256. MUST \
-         reach a `gather`, and lane nodes are read as \"=nodes.<id>.lanes.<lane>\", NOT \
-         \"=nodes.<id>.item\". A nested scatter, a loop head, or requires_approval inside a \
-         lane are each rejected), \
-         gather (collects the lanes: config.from REQUIRED = ids of the lane-terminal nodes; same \
-         config.release/config.n policies as gate; optional config.on_lane_error: \"collect\" \
-         (default) | \"skip\" | \"fail_fast\". Output is ordered by lane index, not by finish \
-         order), \
-         approval (a HUMAN review step, distinct from requires_approval: optional config.subject \
-         or \"=expr\", config.subject_kind, config.title, config.prompt, config.assignees, and \
-         config.metadata; routes the verdict as data on \"approved\" / \"rejected\". With no \
-         host review provider it parks the run and is settled through flows_resume), \
-         void (terminal sink, no config: accepts items, discards them, runs nothing downstream. \
-         Says \"this branch is a side effect and nothing waits on it\" where an unwired port \
-         would read like a forgotten one. An outgoing edge is a hard reject, and so is having \
-         no incoming edge; it adds NO concurrency — use spawn for that). If \
-         validation fails, fix the graph and call this tool again."
+        // Generated once, not hand-written.
+        //
+        // This description used to carry a 5,841-byte copy of the node-kind
+        // reference: every kind, its required *and* optional config, and a
+        // paragraph of gotchas each. That is the third copy of the same
+        // material — `get_node_kind_contract` serves it authoritatively and
+        // `workflow_builder`'s prompt carries an index — and it shipped on
+        // every request of every agent holding this tool.
+        //
+        // `render_node_kinds_required()` reduces it to the one thing a caller
+        // cannot recover from a failed call: which kinds exist and what config
+        // each cannot be built without (401 bytes). Everything else is one
+        // `get_node_kind_contract { kind }` away.
+        //
+        // Generating it also retires a drift class rather than testing for it.
+        // `propose_workflow_description_matches_typed_node_contracts` existed
+        // because a hand-written copy could fall behind `node_contracts.rs`;
+        // it now passes by construction, and stays as the regression guard for
+        // anyone tempted to hand-write this again.
+        static DESCRIPTION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        DESCRIPTION.get_or_init(|| {
+            format!(
+                "Propose a candidate automation workflow for the user to review and save. \
+                 This tool ONLY VALIDATES the graph and returns a summary — it NEVER creates \
+                 or enables the flow; the user must click \"Save & enable\" in the UI before \
+                 anything is persisted or can run. If validation fails, fix the graph and call \
+                 this tool again.\n\
+                 \n\
+                 Build a tinyflows WorkflowGraph: nodes[] ({{id, kind, name, config}}) + \
+                 edges[] ({{from_node, to_node, from_port?, to_port?}}; ports default \
+                 \"main\"). Exactly ONE trigger node is required.\n\
+                 \n\
+                 Branching (condition/switch): the branch label goes on from_port, NEVER on \
+                 to_port (which stays \"main\"). Routing is keyed exclusively on from_port, so \
+                 a label on to_port silently turns the branch into an unconditional fan-out \
+                 and is a hard reject.\n\
+                 \n\
+                 A memory node may only target config.scope \"flow\" for remember/forget; \
+                 \"user\" is READ-ONLY and a write to it is a hard reject.\n\
+                 \n\
+                 Node kinds and their required config: {kinds}.\n\
+                 Call `get_node_kind_contract {{ kind }}` for a kind's optional fields, ports, \
+                 a worked example, and its gotchas — it is generated from the catalog the \
+                 validator enforces, so it is always current.",
+                kinds = crate::openhuman::flows::render_node_kinds_required()
+            )
+        })
+        .as_str()
     }
 
     fn parameters_schema(&self) -> Value {

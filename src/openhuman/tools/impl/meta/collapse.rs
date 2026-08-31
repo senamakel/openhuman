@@ -259,7 +259,7 @@ mod tests {
                 "job_id": {"type": "string"},
                 "limit": {"type": "integer", "description": "How many."}
             }}),
-            PermissionLevel::Read,
+            PermissionLevel::ReadOnly,
             false,
         );
         let actions = vec![
@@ -282,7 +282,7 @@ mod tests {
         let runs = stub(
             "runs",
             json!({"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]}),
-            PermissionLevel::Read,
+            PermissionLevel::ReadOnly,
             false,
         );
         let actions = vec![
@@ -301,7 +301,7 @@ mod tests {
                 "shared": {"type": "string"},
                 "only_b": {"type": "string", "description": "B's field."}
             }}),
-            PermissionLevel::Read,
+            PermissionLevel::ReadOnly,
             false,
         );
         let actions = vec![

@@ -134,7 +134,6 @@ impl Bm25Index {
         if terms.is_empty() || self.documents.is_empty() {
             return Vec::new();
         }
-        let count = self.documents.len() as f64;
         let mut scored: Vec<(f64, usize)> = self
             .documents
             .iter()

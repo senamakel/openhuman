@@ -146,6 +146,14 @@ impl StockQuoteTool {
 
 #[async_trait]
 impl Tool for StockQuoteTool {
+    /// Deferred: market data is a niche capability on a general assistant, and
+    /// these five schemas cost ~720 tokens on every turn of every agent that
+    /// carries them. The names are self-describing, so `tool_search("stock
+    /// price")` finds them on the turns that need them.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Deferred
+    }
+
     fn name(&self) -> &str {
         "stock_quote"
     }
@@ -221,6 +229,14 @@ impl StockExchangeRateTool {
 
 #[async_trait]
 impl Tool for StockExchangeRateTool {
+    /// Deferred: market data is a niche capability on a general assistant, and
+    /// these five schemas cost ~720 tokens on every turn of every agent that
+    /// carries them. The names are self-describing, so `tool_search("stock
+    /// price")` finds them on the turns that need them.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Deferred
+    }
+
     fn name(&self) -> &str {
         "stock_exchange_rate"
     }
@@ -309,6 +325,14 @@ impl StockOptionsTool {
 
 #[async_trait]
 impl Tool for StockOptionsTool {
+    /// Deferred: market data is a niche capability on a general assistant, and
+    /// these five schemas cost ~720 tokens on every turn of every agent that
+    /// carries them. The names are self-describing, so `tool_search("stock
+    /// price")` finds them on the turns that need them.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Deferred
+    }
+
     fn name(&self) -> &str {
         "stock_options"
     }
@@ -402,6 +426,14 @@ impl StockCryptoSeriesTool {
 
 #[async_trait]
 impl Tool for StockCryptoSeriesTool {
+    /// Deferred: market data is a niche capability on a general assistant, and
+    /// these five schemas cost ~720 tokens on every turn of every agent that
+    /// carries them. The names are self-describing, so `tool_search("stock
+    /// price")` finds them on the turns that need them.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Deferred
+    }
+
     fn name(&self) -> &str {
         "stock_crypto_series"
     }
@@ -497,6 +529,14 @@ impl StockCommodityTool {
 
 #[async_trait]
 impl Tool for StockCommodityTool {
+    /// Deferred: market data is a niche capability on a general assistant, and
+    /// these five schemas cost ~720 tokens on every turn of every agent that
+    /// carries them. The names are self-describing, so `tool_search("stock
+    /// price")` finds them on the turns that need them.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Deferred
+    }
+
     fn name(&self) -> &str {
         "stock_commodity"
     }

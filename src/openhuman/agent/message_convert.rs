@@ -863,3 +863,96 @@ mod tests {
         assert_eq!(oh.arguments, r#"{"msg":"hi"}"#);
     }
 }
+
+#[cfg(test)]
+mod cache_breakpoint_tests {
+    use super::*;
+    use crate::openhuman::agent::messages::ChatMessage;
+
+    fn blocks(msg: &ChatMessage) -> Vec<ContentBlock> {
+        match chat_message_to_message(msg) {
+            Message::System(system) => system.content,
+            other => panic!("expected a system message, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_system_message_without_breakpoints_is_one_text_block() {
+        // The no-op path. Every provider on the OpenAI-compatible wire shares
+        // this conversion, and most of them cache automatically — a content
+        // array where a string used to be is a change they did not ask for.
+        assert_eq!(
+            blocks(&ChatMessage::system("body")),
+            vec![ContentBlock::Text("body".into())]
+        );
+    }
+
+    #[test]
+    fn breakpoints_split_the_prompt_without_losing_or_duplicating_a_byte() {
+        let text = "STABLE\n\nCONTEXT\n\nVOLATILE";
+        let stable_end = text.find("CONTEXT").expect("marker");
+        let context_end = text.find("VOLATILE").expect("marker");
+        let got = blocks(&ChatMessage::system_tiered(
+            text,
+            vec![stable_end, context_end],
+        ));
+        assert_eq!(
+            got,
+            vec![
+                ContentBlock::Text("STABLE\n\n".into()),
+                ContentBlock::CacheBreakpoint,
+                ContentBlock::Text("CONTEXT\n\n".into()),
+                ContentBlock::CacheBreakpoint,
+                ContentBlock::Text("VOLATILE".into()),
+            ]
+        );
+        let rejoined: String = got
+            .iter()
+            .filter_map(|b| match b {
+                ContentBlock::Text(t) => Some(t.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(rejoined, text, "splitting must be lossless");
+    }
+
+    #[test]
+    fn an_out_of_range_offset_is_dropped_rather_than_splitting_the_prompt() {
+        // A bad offset would cut mid-sentence and the model would read the
+        // damage. A dropped one costs a cache miss and nothing else.
+        let msg = ChatMessage::system_tiered("short", vec![9_999]);
+        assert!(msg.cache_breakpoints.is_empty());
+        assert_eq!(blocks(&msg), vec![ContentBlock::Text("short".into())]);
+    }
+
+    #[test]
+    fn a_non_ascending_offset_is_dropped() {
+        let msg = ChatMessage::system_tiered("aaaaaaaaaa", vec![5, 3]);
+        assert_eq!(msg.cache_breakpoints, vec![5]);
+    }
+
+    #[test]
+    fn an_offset_inside_a_multibyte_character_is_dropped() {
+        // "é" is two bytes; offset 1 lands inside it and would panic a naive
+        // slice.
+        let msg = ChatMessage::system_tiered("é tail", vec![1]);
+        assert!(msg.cache_breakpoints.is_empty());
+    }
+
+    #[test]
+    fn an_offset_at_the_very_end_is_dropped_as_worthless() {
+        let text = "body";
+        let msg = ChatMessage::system_tiered(text, vec![text.len()]);
+        assert!(msg.cache_breakpoints.is_empty());
+    }
+
+    #[test]
+    fn breakpoints_are_not_persisted() {
+        // They describe *this* assembly of the prompt. Writing them into the
+        // JSONL transcript would persist offsets that stop matching the moment
+        // the prompt is rebuilt.
+        let msg = ChatMessage::system_tiered("abcdef", vec![3]);
+        let json = serde_json::to_value(&msg).expect("serializes");
+        assert!(json.get("cache_breakpoints").is_none());
+    }
+}

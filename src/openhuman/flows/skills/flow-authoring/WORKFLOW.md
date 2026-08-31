@@ -28,7 +28,6 @@ Read the one page that covers what you are about to configure.
 | --- | --- |
 | `references/expressions.md` | write any `=` expression or jq filter, or attach a produced file to an outbound action |
 | `references/node-config.md` | configure a `memory`, `dedup` or `trigger` node, or set per-node error handling |
-| `references/graph-shape.md` | decide how many nodes a request actually needs |
 | `references/dry-run.md` | report what a dry run did and did not prove |
 
 Fetch one with:
@@ -47,5 +46,8 @@ These pages cover the rules that span kinds, which is why they have nowhere
 generated to live.
 
 **The rules you must not break.** Propose rather than persist, ask before a
-real run, ground every slug — those stay in the system prompt, because a rule
-that only binds once someone chooses to read it is not a rule.
+real run, ground every slug, prefer the minimal viable graph — those stay in
+the system prompt, because a rule that only binds once someone chooses to read
+it is not a rule. Graph sizing was moved here during an earlier pass and moved
+back for exactly that reason: it shapes every graph, including the ones built
+without opening a manual.

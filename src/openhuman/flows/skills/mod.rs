@@ -13,6 +13,13 @@
 //! opposite — nothing goes wrong by not knowing it until you need it, and a
 //! lot goes wrong by half-remembering it.
 //!
+//! The line is not obvious from the outside, and getting it wrong is caught by
+//! tests rather than by review: "prefer the minimal viable graph" was moved
+//! here on the first pass and moved back, because
+//! `standing_prompt_keeps_minimal_graph_warning_alongside_specialist_guidance`
+//! pins it in the prompt — correctly. It constrains an instinct the model has
+//! before it would think to consult anything.
+//!
 //! # Where this belongs eventually
 //!
 //! Upstream, in tinyflows. The pages name no OpenHuman type and no host
@@ -47,10 +54,6 @@ pub const FLOW_AUTHORING: BundledSkill = BundledSkill {
         BundledFile {
             path: "references/node-config.md",
             contents: include_str!("flow-authoring/references/node-config.md"),
-        },
-        BundledFile {
-            path: "references/graph-shape.md",
-            contents: include_str!("flow-authoring/references/graph-shape.md"),
         },
         BundledFile {
             path: "references/dry-run.md",
@@ -168,6 +171,6 @@ mod tests {
                 );
             }
         }
-        assert!(pointed >= 4, "the prompt's pointer table lost its rows");
+        assert!(pointed >= 3, "the prompt's pointer table lost its rows");
     }
 }

@@ -77,7 +77,7 @@
 
 morning_briefing:14279:82972
 trigger_triage:11075:82972
-workflow_builder:67850:33948
+workflow_builder:67850:29703
 summarizer:10644:82972
 tools_agent:8260:82972
 orchestrator:33726:43139
@@ -108,3 +108,64 @@ vision_agent:6885:2266
 archivist:5985:3133
 researcher:6855:2229
 critic:6222:1855
+
+# ── Per-tool schema ratchet ──────────────────────────────────────────────
+#
+# One line per tool whose schema is over the attention threshold (1,600 B,
+# ~400 tokens). Being here is not a fault; being here *unexamined* is. Each
+# entry should be justified by the comment above it or be trimmed.
+#
+# Why the big ones are big, as of 2026-08-31:
+#
+#   memory (3,788) / cron (3,228) / todo (1,831)
+#       Collapsed families. `memory` replaced eleven tools worth 7,879 B and
+#       `cron` six worth 3,938 B, so each is large *because* the surface got
+#       smaller. A union schema costs more than any one member and less than
+#       all of them. Do not "fix" these by splitting them back up.
+#
+#   spawn_subagent (3,554) / spawn_async_subagent (1,965) /
+#   spawn_parallel_agents (1,851)
+#       The delegation surface: three tools describing overlapping arguments.
+#       A collapse candidate on the same argument as memory/cron/todo, and the
+#       next obvious one — 7,370 B between them.
+#
+#   memory_tree (3,008) / cron_add (3,003)
+#       `memory_tree` dispatches eight tree operations on `mode` and is the
+#       one memory tool deliberately left out of the `memory` collapse.
+#       `cron_add` is a member of the collapsed `cron` tool and no longer
+#       reaches the wire itself, but is measured here because some agent still
+#       carries it on a hand-written belt.
+#
+#   propose_workflow (3,170)
+#       Was 7,415 until its node-kind reference stopped being hand-written and
+#       started being generated from `node_contracts.rs`
+#       (`render_node_kinds_required`). What remains is this tool's own
+#       contract plus 401 B of generated kinds.
+#
+#   edit_workflow (2,721) / save_workflow (1,957) / suggest_workflows (2,445)
+#       The rest of the flow-authoring belt. Each carries its own prose copy of
+#       graph-shape rules; the same generate-don't-hand-write treatment that
+#       shrank `propose_workflow` applies and has not been done.
+#
+#   generate_presentation (2,662)
+#       A deck spec: slides, layouts, per-layout fields. Genuinely wide.
+#
+#   search_tool_catalog (1,695) / use_skill (1,620)
+#       Discovery tools. Both are the recovery path for a withheld surface, so
+#       their descriptions carry the "here is what you can still reach" copy.
+#
+tool:memory:3788
+tool:spawn_subagent:3554
+tool:cron:3228
+tool:propose_workflow:3170
+tool:memory_tree:3008
+tool:cron_add:3003
+tool:edit_workflow:2721
+tool:generate_presentation:2662
+tool:suggest_workflows:2445
+tool:spawn_async_subagent:1965
+tool:save_workflow:1957
+tool:spawn_parallel_agents:1851
+tool:todo:1831
+tool:search_tool_catalog:1695
+tool:use_skill:1620

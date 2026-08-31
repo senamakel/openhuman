@@ -211,7 +211,10 @@ mod tests {
 
     #[test]
     fn every_member_is_hidden_so_the_collapse_actually_saves_something() {
-        for entry in tool().actions() {
+        // `all_actions`, not `actions`: capability filtering could hide a
+        // still-advertised member from this check in some environments, and
+        // the property being pinned holds regardless of capabilities.
+        for entry in tool().all_actions() {
             assert_eq!(
                 entry.tool.exposure(),
                 ToolExposure::Hidden,
@@ -280,7 +283,7 @@ mod tests {
         // Pinning the decision in the module docs: `memory_tree` dispatches on
         // its own `mode`, and folding it in would make this two-level.
         assert!(
-            !tool().actions().iter().any(|e| e.tool.name() == "memory_tree"),
+            !tool().all_actions().iter().any(|e| e.tool.name() == "memory_tree"),
             "memory_tree stays a separate tool"
         );
     }

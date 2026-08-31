@@ -445,6 +445,14 @@ pub fn all_tools_with_runtime(
         Box::new(WalletTxReceiptTool::new()),
         #[cfg(feature = "web3")]
         Box::new(WalletLookupTxTool::new()),
+        // The memory surface the model sees. The eleven per-operation tools it
+        // dispatches to stay registered as `ToolExposure::Hidden` so a
+        // replayed transcript or a saved skill naming `memory_*` still works —
+        // see `memory::tools::collapsed`.
+        Box::new(crate::openhuman::memory::tools::MemoryTool::new(
+            config.clone(),
+            security.clone(),
+        )),
         Box::new(MemoryStoreTool::new(security.clone())),
         Box::new(MemoryRecallTool::new()),
         Box::new(MemoryForgetTool::new(security.clone())),

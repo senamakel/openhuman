@@ -64,15 +64,20 @@ fn nothing_relevant_returns_nothing() {
     // The property that makes a miss legible. A ranker that always returns
     // `limit` entries would hand the model `ascii-art` for a database query
     // and invite it to run the thing.
+    //
+    // This query is also the stopword regression: before `Bm25Index::significant`
+    // existed it matched `changelog`, on the strength of the word "a".
     let all = corpus();
     assert!(rank(&all, "provision a kubernetes cluster", 3).is_empty());
+    assert!(rank(&all, "photosynthesis", 3).is_empty());
 }
 
 #[test]
 fn the_limit_caps_the_result_set() {
     let all = corpus();
-    assert_eq!(rank(&all, "a", 10).len(), rank(&all, "a", 10).len().min(3));
-    assert!(rank(&all, "the", 1).len() <= 1);
+    let query = "changelog ascii tinyflows";
+    assert_eq!(rank(&all, query, 10).len(), 3, "all three must match unlimited");
+    assert_eq!(rank(&all, query, 1).len(), 1);
 }
 
 #[test]
@@ -113,25 +118,34 @@ async fn an_empty_query_is_an_error_rather_than_every_skill() {
     assert!(result.is_error);
 }
 
-#[tokio::test]
-async fn a_miss_says_so_instead_of_returning_a_bare_empty_list() {
-    let tmp = tempfile::tempdir().expect("tempdir");
-    let config = Config {
-        workspace_dir: tmp.path().to_path_buf(),
-        ..Default::default()
-    };
-    let tool = SkillSearchTool::new(Arc::new(config));
-    let result = tool
-        .execute(json!({ "query": "provision a kubernetes cluster" }))
-        .await
-        .expect("dispatch");
-    assert!(!result.is_error);
-    let text = format!("{result:?}");
-    assert!(text.contains("\\\"matched\\\":0") || text.contains("matched"));
+#[test]
+fn a_miss_says_so_instead_of_returning_a_bare_empty_list() {
+    // Against `render`, not `execute`. The tool discovers through
+    // `dirs::home_dir()`, so an `execute`-level miss test ranks against the
+    // developer's own installed skills — this exact test failed that way,
+    // matching five real skills in a supposedly empty temp workspace.
+    let value = render(&[], 14);
+    assert_eq!(value["matched"], 0);
+    assert_eq!(value["installed"], 14);
     assert!(
-        text.contains("skill_registry_search"),
-        "a miss must say what to do next: {text}"
+        value["hint"]
+            .as_str()
+            .expect("hint")
+            .contains("skill_registry_search"),
+        "a miss must say what to do next"
     );
+}
+
+#[test]
+fn a_hit_reports_how_many_were_searched() {
+    // `installed` is what lets the model tell "nothing matched" from "you have
+    // three skills and none is close" without a second call.
+    let all = corpus();
+    let hits = rank(&all, "changelog", 5);
+    let value = render(&hits, all.len());
+    assert_eq!(value["matched"], 1);
+    assert_eq!(value["installed"], 3);
+    assert!(value["hint"].is_null(), "a hit carries no miss hint");
 }
 
 #[tokio::test]

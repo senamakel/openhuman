@@ -234,25 +234,38 @@ impl Tool for SkillSearchTool {
             "[tool][skill_search] ranked"
         );
 
-        if matches.is_empty() {
-            // An explicit miss, not an empty list. "No skill matched" and "you
-            // have no skills" call for different next moves, and a bare `[]`
-            // does not distinguish them.
-            return Ok(ToolResult::success(serde_json::to_string(&json!({
-                "matched": 0,
-                "installed": workflows.len(),
-                "skills": [],
-                "hint": "No installed skill matched. Try `skill_registry_search` \
-                         to find one to install, or do the task directly.",
-            }))?));
-        }
-
-        Ok(ToolResult::success(serde_json::to_string(&json!({
-            "matched": matches.len(),
-            "installed": workflows.len(),
-            "skills": matches.iter().map(|w| project(w)).collect::<Vec<_>>(),
-        }))?))
+        Ok(ToolResult::success(serde_json::to_string(&render(
+            &matches,
+            workflows.len(),
+        ))?))
     }
+}
+
+/// Build the tool's reply.
+///
+/// Split out from `execute` so it is testable without a workspace: the tool
+/// itself discovers through `dirs::home_dir()`, so any test that went through
+/// `execute` would rank against whatever skills the developer running it
+/// happens to have installed. That is the same non-hermetic trap the prompt
+/// budget lane hit — a test whose corpus is the machine it runs on.
+fn render(matches: &[&Workflow], installed: usize) -> Value {
+    if matches.is_empty() {
+        // An explicit miss, not an empty list. "No skill matched" and "you have
+        // no skills installed" call for different next moves, and a bare `[]`
+        // does not distinguish them.
+        return json!({
+            "matched": 0,
+            "installed": installed,
+            "skills": [],
+            "hint": "No installed skill matched. Try `skill_registry_search` to \
+                     find one to install, or just do the task directly.",
+        });
+    }
+    json!({
+        "matched": matches.len(),
+        "installed": installed,
+        "skills": matches.iter().map(|w| project(w)).collect::<Vec<_>>(),
+    })
 }
 
 #[cfg(test)]

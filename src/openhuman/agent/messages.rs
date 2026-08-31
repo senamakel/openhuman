@@ -39,6 +39,43 @@ impl ChatMessage {
         }
     }
 
+    /// A system message carrying prompt-cache breakpoints.
+    ///
+    /// `breakpoints` are ends-of-tier from
+    /// [`crate::openhuman::agent::prompts::SystemPromptBuilder::build_tiered`].
+    /// Out-of-range or non-ascending offsets are dropped rather than trusted:
+    /// a bad offset would split the prompt mid-sentence and the model would
+    /// read the damage, whereas a dropped one costs only a cache miss.
+    pub fn system_tiered(content: impl Into<String>, breakpoints: Vec<usize>) -> Self {
+        let content = content.into();
+        let mut previous = 0usize;
+        let breakpoints: Vec<usize> = breakpoints
+            .into_iter()
+            .filter(|&offset| {
+                let ok = offset > previous
+                    && offset < content.len()
+                    && content.is_char_boundary(offset);
+                if ok {
+                    previous = offset;
+                } else {
+                    tracing::warn!(
+                        offset,
+                        len = content.len(),
+                        "[prompts] dropping an invalid cache breakpoint"
+                    );
+                }
+                ok
+            })
+            .collect();
+        Self {
+            id: None,
+            role: "system".into(),
+            content,
+            extra_metadata: None,
+            cache_breakpoints: breakpoints,
+        }
+    }
+
     pub fn user(content: impl Into<String>) -> Self {
         Self {
             id: None,

@@ -59,6 +59,46 @@ fn reasoning_extra_metadata(content: &[ContentBlock]) -> Option<serde_json::Valu
         .map(|reasoning| serde_json::json!({ REASONING_EXT_KEY: reasoning }))
 }
 
+
+/// Split `text` at `breakpoints`, interleaving a
+/// [`ContentBlock::CacheBreakpoint`] marker after each piece.
+///
+/// With no breakpoints this returns the single `Text` block it always did, and
+/// the OpenAI-compatible wire renders it as a bare string exactly as before —
+/// which matters, because most providers on that path cache automatically and
+/// a content array where a string used to be is a change they did not ask for.
+///
+/// Offsets are validated at construction (`ChatMessage::system_tiered`), so by
+/// the time they reach here they are ascending, in range and on character
+/// boundaries. This function still slices defensively rather than indexing,
+/// because a panic here would take down the turn.
+fn split_at_breakpoints(text: String, breakpoints: &[usize]) -> Vec<ContentBlock> {
+    if breakpoints.is_empty() {
+        return vec![ContentBlock::Text(text)];
+    }
+    let mut blocks = Vec::with_capacity(breakpoints.len() * 2 + 1);
+    let mut start = 0usize;
+    for &offset in breakpoints {
+        let Some(piece) = text.get(start..offset) else {
+            tracing::warn!(
+                start,
+                offset,
+                "[prompts] cache breakpoint is not sliceable; emitting the prompt uncut"
+            );
+            return vec![ContentBlock::Text(text)];
+        };
+        blocks.push(ContentBlock::Text(piece.to_string()));
+        blocks.push(ContentBlock::CacheBreakpoint);
+        start = offset;
+    }
+    if let Some(tail) = text.get(start..) {
+        if !tail.is_empty() {
+            blocks.push(ContentBlock::Text(tail.to_string()));
+        }
+    }
+    blocks
+}
+
 /// Convert one openhuman [`ChatMessage`] into a harness [`Message`].
 ///
 /// Role strings map onto the typed arms. A seeded **native** tool round is
@@ -75,7 +115,7 @@ pub(crate) fn chat_message_to_message(msg: &ChatMessage) -> Message {
     let text = msg.content.clone();
     match msg.role.as_str() {
         "system" => Message::System(SystemMessage {
-            content: vec![ContentBlock::Text(text)],
+            content: split_at_breakpoints(text, &msg.cache_breakpoints),
         }),
         "assistant" => {
             // Restore any `reasoning_content` stashed on the persisted message so a

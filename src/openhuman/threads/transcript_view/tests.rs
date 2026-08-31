@@ -356,6 +356,7 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
         role: "tool".into(),
         content: r#"{"tool_call_id":"call-1","content":"boom"}"#.into(),
         extra_metadata: None,
+        cache_breakpoints: Vec::new(),
     };
     transcript::attach_tool_failure_metadata(&mut tool_msg, Some("boom: exit 1"));
 
@@ -365,6 +366,7 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
             role: "user".into(),
             content: "do it".into(),
             extra_metadata: None,
+            cache_breakpoints: Vec::new(),
         },
         tool_msg,
     ];
@@ -468,6 +470,7 @@ fn append_transcript_turn_projects_full_display_shape() {
         role: role.into(),
         content: content.into(),
         extra_metadata: None,
+        cache_breakpoints: Vec::new(),
     };
 
     let first = vec![

@@ -86,6 +86,7 @@ impl ChatModel<()> for SequenceProvider {
                         _ => message.text(),
                     },
                     extra_metadata: None,
+                    cache_breakpoints: Vec::new(),
                 })
                 .collect(),
         );

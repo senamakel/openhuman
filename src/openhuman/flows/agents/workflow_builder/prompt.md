@@ -486,7 +486,6 @@ skill and you read the page you need, when you need it:
 | --- | --- |
 | `references/expressions.md` | write any `=` expression or jq filter, or attach a produced file to an outbound action |
 | `references/node-config.md` | configure a `memory`, `dedup` or `trigger` node, or set per-node error handling |
-| `references/graph-shape.md` | decide how many nodes a request actually needs |
 | `references/dry-run.md` | report what a dry run did and did not prove |
 
 Read the page rather than reconstructing it. These are exact rules — an

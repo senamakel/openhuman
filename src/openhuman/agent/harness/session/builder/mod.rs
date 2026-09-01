@@ -73,7 +73,12 @@ pub(super) fn visible_tool_specs_for_policy(
 /// means "no filter" (all tools visible), so it is left untouched — including
 /// the deliberately tool-less `Named([])` case, which must stay tool-less.
 pub(super) fn ensure_recovery_tool_visible(visible: &mut std::collections::HashSet<String>) {
-    if !visible.is_empty() {
+    // `is_empty_tool_scope`, not `is_empty`: a belt holding only
+    // `NO_TOOLS_SENTINEL` is a deliberate zero-tool agent, and the compaction
+    // recovery tool has nothing to recover for one — there are no tool outputs
+    // to truncate. Adding it would turn "no tools" into "one tool" and put a
+    // schema back on a turn whose whole point is that it stays flat.
+    if !crate::openhuman::agent::harness::definition::is_empty_tool_scope(visible) {
         for name in crate::openhuman::inference::tokenjuice::RECOVERY_TOOL_NAMES {
             visible.insert((*name).to_string());
         }

@@ -3,6 +3,7 @@
 
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
+use crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::openhuman::agent::context::prompt::SystemPromptBuilder;
 use crate::openhuman::agent::dispatcher::{
     NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher,
@@ -866,6 +867,14 @@ impl Agent {
                             }
                             set.insert(t.name().to_string());
                         }
+                        // `named = []` means zero tools. An empty set here is
+                        // the harness's "no filter" sentinel and would advertise
+                        // the whole registry instead — the exact inversion that
+                        // handed `summarizer` and `trigger_triage` 109 tools
+                        // each. Spell the empty belt so it survives.
+                        if set.is_empty() {
+                            set.insert(NO_TOOLS_SENTINEL.to_string());
+                        }
                         Some(set)
                     }
                     ToolScope::Wildcard => None,
@@ -916,7 +925,17 @@ impl Agent {
                      tool scope"
                 );
                 let filter: Option<std::collections::HashSet<String>> = match &def.tools {
-                    ToolScope::Named(names) => Some(names.iter().cloned().collect()),
+                    ToolScope::Named(names) => {
+                        let mut set: std::collections::HashSet<String> =
+                            names.iter().cloned().collect();
+                        // Same rule as the branch above: an empty named scope
+                        // is zero tools, and an empty set would mean the
+                        // opposite.
+                        if set.is_empty() {
+                            set.insert(NO_TOOLS_SENTINEL.to_string());
+                        }
+                        Some(set)
+                    }
                     ToolScope::Wildcard => None,
                 };
                 (Vec::new(), filter)
@@ -999,7 +1018,7 @@ impl Agent {
                 // non-empty with an unregistered name so it advertises and
                 // permits zero tools rather than accidentally broadening.
                 if visible.is_empty() {
-                    visible.insert("__profile_no_tools__".to_string());
+                    visible.insert(NO_TOOLS_SENTINEL.to_string());
                 }
             }
         }

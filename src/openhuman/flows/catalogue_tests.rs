@@ -187,14 +187,9 @@ fn a_saved_flow_reaches_the_catalogue_with_its_real_id() {
         ],
         ..Default::default()
     };
-    let saved = super::super::store::create_flow(
-        &config,
-        "Weekly Report".to_string(),
-        graph,
-        false,
-        true,
-    )
-    .expect("flow saves");
+    let saved =
+        super::super::store::create_flow(&config, "Weekly Report".to_string(), graph, false, true)
+            .expect("flow saves");
 
     let entries = flow_entries(&config);
     assert_eq!(entries.len(), 1, "the saved flow must appear: {entries:?}");

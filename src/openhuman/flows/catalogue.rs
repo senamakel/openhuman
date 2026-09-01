@@ -114,10 +114,17 @@ fn entry_for(flow: super::types::Flow) -> Workflow {
 /// the model carries. See the module docs: inventing a purpose from node
 /// internals would read as authoritative and frequently be wrong.
 fn describe(flow: &super::types::Flow) -> String {
+    // Read out of the trigger node's free-form config, which is where the
+    // engine keeps it — the same way `tinyflows`' own `trigger_kind` does.
+    // A graph with zero or several triggers has no single answer, and
+    // validation reports that separately, so this stays quiet.
     let trigger = flow
         .graph
-        .trigger_kind()
-        .unwrap_or_else(|| "manual".to_string());
+        .trigger()
+        .and_then(|node| node.config.get("trigger_kind"))
+        .and_then(|value| value.as_str())
+        .unwrap_or("manual")
+        .to_string();
     let steps = flow
         .graph
         .nodes

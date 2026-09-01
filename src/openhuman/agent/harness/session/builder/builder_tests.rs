@@ -803,6 +803,11 @@ async fn an_empty_named_scope_advertises_no_tools_at_all() {
     // `summarizer` is a shipped definition with `named = []`. Using the real
     // one rather than a fixture is deliberate: the bug was in how a real
     // declaration was read, and a fixture could drift away from it.
+    // Tolerant of an already-initialised singleton: this binary shares one
+    // `OnceLock` across every test, so whether we are first is a property of
+    // test ordering, not of this test.
+    let _ = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
+
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
     let agent = Agent::from_config_for_agent(&config, "summarizer")
@@ -831,6 +836,11 @@ async fn a_zero_tool_agent_does_not_gain_the_compaction_recovery_tool() {
     crate::openhuman::memory::host_impls::install_for_tests();
     use crate::openhuman::agent::harness::session::types::Agent;
     use crate::openhuman::inference::tokenjuice::RETRIEVE_TOOL_NAME;
+
+    // Tolerant of an already-initialised singleton: this binary shares one
+    // `OnceLock` across every test, so whether we are first is a property of
+    // test ordering, not of this test.
+    let _ = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);

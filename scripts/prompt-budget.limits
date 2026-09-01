@@ -168,13 +168,47 @@
 #               whose empty state was already spoken for. It replaced a literal
 #               that existed twice, once with a comment saying it was a verbatim
 #               copy.
+#
+#               Also trimmed 606 B from the orchestrator's "Running several
+#               workers at once" section, and fixed a bug it was hiding. Two of
+#               its four paragraphs restated `spawn_async_subagent`'s own
+#               description ("Fire-and-forget ... Returns immediately ... never
+#               use it for ... anything whose result must gate your final
+#               answer") in the prompt, where it is billed on every turn whether
+#               or not the tool is used. The schema is the better home: it is
+#               already paid for, and it cannot drift from the tool.
+#
+#               The bug: the section told the model to call
+#               `spawn_async_subagent` with `blocking: true`. **That parameter
+#               does not exist on that tool** — its properties are agent_id,
+#               context, fresh, model, prompt, task_key, task_title, toolkit.
+#               `blocking` is on `delegate_to`. So the one hard rule about
+#               result-gating pointed at an impossible call, and the same
+#               section opened by asserting the tool is "always async ... you do
+#               not wait for it", contradicting its own closing paragraph.
+#
+#               Worth noting how it was found: not by reading the prompt, but by
+#               reading the prompt NEXT TO the tool schemas, which is what
+#               `dump-prompt --wire` exists to make easy. A contradiction between
+#               a prompt and a schema is invisible while the two live in
+#               different files.
+#
+#               The six bullets stay. They are identity and recovery rules that
+#               appear in no schema — track by `subagent_session_id` because
+#               `agentId` is only the worker type; `[active_subagents]` over
+#               recollection; `list_subagents` as the recovery move; and
+#               `continue_subagent` for an `awaiting_user` worker, which is the
+#               prose half of the #4291 infinite-re-delegation fix that
+#               `toolpacks::registry` cites as its reason for never packing the
+#               fleet tools. Deleting the section wholesale would have removed
+#               a known bug's fix along with the redundancy.
 
 morning_briefing:14279:82986
 trigger_triage:9214:0
 workflow_builder:46405:30259
 summarizer:8783:0
 tools_agent:8260:82986
-orchestrator:34241:29821
+orchestrator:33629:29821
 code_executor:13327:12338
 crypto_agent:12049:12357
 task_manager_agent:7104:15601

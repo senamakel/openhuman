@@ -142,3 +142,90 @@ fn the_synthesised_description_never_claims_to_know_the_purpose() {
     );
     assert!(!entry.description.contains("invoice"));
 }
+
+// ── Against a real store ──────────────────────────────────────────────────
+//
+// The mapping tests above never touch `flows.db`. These do, because the
+// interesting failure is not the mapping — it is `flow_entries` reading the
+// wrong database, or silently swallowing a real one. A unit test over
+// `entry_for` would pass in both cases.
+
+use tempfile::TempDir;
+
+fn store_config(tmp: &TempDir) -> crate::openhuman::config::Config {
+    let config = crate::openhuman::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+    config
+}
+
+#[test]
+fn an_empty_store_contributes_nothing_to_the_catalogue() {
+    // Also the common case: most workspaces have no flows, and the catalogue
+    // must not grow a `[flow]` header or an empty group for them.
+    let tmp = TempDir::new().unwrap();
+    assert!(flow_entries(&store_config(&tmp)).is_empty());
+}
+
+#[test]
+fn a_saved_flow_reaches_the_catalogue_with_its_real_id() {
+    let tmp = TempDir::new().unwrap();
+    let config = store_config(&tmp);
+
+    let graph = WorkflowGraph {
+        nodes: vec![
+            node(
+                "t",
+                NodeKind::Trigger,
+                serde_json::json!({ "trigger_kind": "manual" }),
+            ),
+            node("a", NodeKind::Agent, serde_json::json!({})),
+        ],
+        ..Default::default()
+    };
+    let saved = super::super::store::create_flow(
+        &config,
+        "Weekly Report".to_string(),
+        graph,
+        false,
+        true,
+    )
+    .expect("flow saves");
+
+    let entries = flow_entries(&config);
+    assert_eq!(entries.len(), 1, "the saved flow must appear: {entries:?}");
+    let entry = &entries[0];
+    assert_eq!(entry.name, "Weekly Report");
+    // The store's generated id, not one this test made up — that is what
+    // `run_workflow` will be handed.
+    assert_eq!(entry.dir_name, saved.id);
+    assert_eq!(entry.scope, WorkflowScope::Flow);
+    assert!(entry.description.contains("manual trigger"));
+    assert!(entry.description.contains("1 step)"));
+}
+
+#[test]
+fn entries_are_sorted_by_name_so_the_prompt_prefix_is_stable() {
+    // The catalogue is rendered into a system prompt that is frozen for a whole
+    // session and cached by prefix. Insertion-order listing would reshuffle the
+    // prefix whenever a flow was created, invalidating the cache for reasons
+    // unrelated to the conversation.
+    let tmp = TempDir::new().unwrap();
+    let config = store_config(&tmp);
+    for name in ["Zebra", "Alpha", "Mango"] {
+        super::super::store::create_flow(
+            &config,
+            name.to_string(),
+            WorkflowGraph::default(),
+            false,
+            true,
+        )
+        .expect("flow saves");
+    }
+    let names: Vec<String> = flow_entries(&config).into_iter().map(|e| e.name).collect();
+    assert_eq!(names, vec!["Alpha", "Mango", "Zebra"]);
+}

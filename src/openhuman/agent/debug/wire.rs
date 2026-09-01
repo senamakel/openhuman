@@ -112,7 +112,7 @@ pub fn render(dumped: &DumpedPrompt) -> String {
     );
     out.push('\n');
 
-    out.push_str("──────────────────────────────────────────────────────────────────── \n");
+    out.push_str("────────────────────────────────────────────────────────────────────\n");
     let _ = writeln!(
         out,
         " 1/2  SYSTEM PROMPT  ·  role: system  ·  {} B  ·  verbatim",

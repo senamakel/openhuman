@@ -122,21 +122,32 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
         count = skills.len(),
         "[orchestrator-prompt] rendering installed skills section"
     );
+    let has_flows = skills.iter().any(|s| s.scope == WorkflowScope::Flow);
+    // One catalogue, two kinds of entry.
+    //
+    // This header used to carry ~200 bytes explaining that the list below
+    // deliberately omitted Flows automations, that `describe_workflow` "only
+    // knows about entries in this list ... do not call it with a Flows
+    // `workflow_id`, it will error", and that Flows needed a different tool
+    // entirely. Prose that exists to explain a gap is worth spending on
+    // closing it: flows are entries now (`flows::catalogue`), each labelled
+    // with how to run it, so the caveat has nothing left to warn about.
     let mut out = String::from(
         "## Installed Skills\n\n\
-         The following skills are installed locally. Run one with `run_skill` \
-         (name the skill and what you want done); it loads and runs the skill in an \
-         isolated worker and returns only the result, plus a `## Handoff Plan` for any \
-         step the worker couldn't perform — execute those steps yourself under the \
-         approval gate. Use `describe_workflow` for full details on one of THESE \
-         installed skills (it only knows about entries in this list, not Flows \
-         automations — do not call it with a Flows `workflow_id`, it will error). \
-         `skill_search` ranks these by what you want done, when you know the \
-         capability but not the name. Use \
-         `skill_registry_browse` / `skill_registry_search` to find and install new skills. \
-         For Flows automations (build/inspect/run a tinyflows workflow), use \
-         `build_workflow` / the workflow_builder delegate instead.\n\n",
+         Everything the user already has, in one list. Entries marked \
+         `[flow]` are saved Flows automations — run one with `run_workflow` \
+         by its id. Everything else is a SKILL.md bundle: run it with \
+         `run_skill` (name the skill and what you want done) and it executes \
+         in an isolated worker, returning only the result plus a \
+         `## Handoff Plan` for any step the worker could not perform — carry \
+         those out yourself under the approval gate. `skill_search` ranks \
+         this list by what you want done, for when you know the capability \
+         but not the name; `describe_workflow` gives full detail on a bundle. \
+         To find something that is NOT here, use `skill_registry_browse` / \
+         `skill_registry_search` to install a new skill, or `build_workflow` \
+         to author a new automation.\n\n",
     );
+    let _ = has_flows;
     for skill in skills.iter().take(MAX_LISTED_SKILLS) {
         let id = if skill.dir_name.is_empty() {
             &skill.name
@@ -156,7 +167,15 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
                 .trim()
                 .to_string()
         };
-        let _ = writeln!(out, "- **{id}**: {desc}");
+        // The marker is what lets the header stop explaining the difference:
+        // an entry now says which tool runs it, in situ, rather than the
+        // reader having to remember a rule from a paragraph above.
+        let marker = if skill.scope == WorkflowScope::Flow {
+            " `[flow]`"
+        } else {
+            ""
+        };
+        let _ = writeln!(out, "- **{id}**{marker}: {desc}");
     }
     if let Some(hidden) = skills
         .len()

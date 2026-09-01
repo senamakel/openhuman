@@ -777,3 +777,102 @@ async fn from_config_for_agent_still_errors_for_a_genuinely_unknown_id() {
         "error should name the unresolved agent id: {err}"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// `named = []` means zero tools, not every tool.
+//
+// The harness's visible-tool set uses empty as its "no filter" sentinel, so an
+// agent declaring an empty named scope was handed the entire registry — the
+// exact opposite of what it asked for. `summarizer` and `trigger_triage` both
+// declare `named = []` in their shipped `agent.toml`, and both were carrying
+// 109 tools / 82,986 B of schema apiece: 18% of the fleet's whole fixed prefix,
+// on the two agents that had asked for none. `trigger_triage`'s own comment
+// says local 1B-class models are unreliable at nested tool calls, "so we keep
+// the turn flat" — so this was not only waste, it was actively working against
+// the thing the author documented.
+//
+// `NO_TOOLS_SENTINEL` is how an empty belt survives a set whose empty state is
+// already spoken for.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn an_empty_named_scope_advertises_no_tools_at_all() {
+    crate::openhuman::memory::host_impls::install_for_tests();
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    // `summarizer` is a shipped definition with `named = []`. Using the real
+    // one rather than a fixture is deliberate: the bug was in how a real
+    // declaration was read, and a fixture could drift away from it.
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let agent = Agent::from_config_for_agent(&config, "summarizer")
+        .expect("summarizer is a shipped agent definition");
+
+    let visible = agent.visible_tool_names_for_test();
+    let real: Vec<&String> = visible
+        .iter()
+        .filter(|n| {
+            n.as_str() != crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL
+        })
+        .collect();
+    assert!(
+        real.is_empty(),
+        "an agent declaring `named = []` must advertise nothing, got: {real:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_zero_tool_agent_does_not_gain_the_compaction_recovery_tool() {
+    // `ensure_recovery_tool_visible` joins the recovery tool to any non-empty
+    // named belt, and the sentinel makes a zero-tool belt non-empty for the
+    // first time. Without `is_empty_tool_scope` there, "no tools" would have
+    // quietly become "one tool" — and there is nothing for it to recover,
+    // because an agent with no tools produces no tool output to truncate.
+    crate::openhuman::memory::host_impls::install_for_tests();
+    use crate::openhuman::agent::harness::session::types::Agent;
+    use crate::openhuman::inference::tokenjuice::RETRIEVE_TOOL_NAME;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let agent = Agent::from_config_for_agent(&config, "trigger_triage")
+        .expect("trigger_triage is a shipped agent definition");
+
+    assert!(
+        !agent.visible_tool_names_for_test().contains(RETRIEVE_TOOL_NAME),
+        "a deliberately tool-less agent must not be handed the recovery tool"
+    );
+}
+
+#[test]
+fn the_no_tools_sentinel_can_never_name_a_real_tool() {
+    // The value is load-bearing: it works only because no registry can contain
+    // it. Leading underscores are not a legal tool name for any provider's
+    // function-calling schema, which is why this shape was chosen.
+    use crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL;
+    assert!(NO_TOOLS_SENTINEL.starts_with("__"));
+    assert!(!NO_TOOLS_SENTINEL.chars().next().unwrap().is_alphanumeric());
+}
+
+#[test]
+fn is_empty_tool_scope_distinguishes_the_three_states() {
+    use crate::openhuman::agent::harness::definition::{
+        is_empty_tool_scope, NO_TOOLS_SENTINEL,
+    };
+    use std::collections::HashSet;
+
+    // Unset — the historical "everything" sentinel.
+    assert!(is_empty_tool_scope(&HashSet::new()));
+    // Deliberately empty.
+    let sentinel: HashSet<String> = [NO_TOOLS_SENTINEL.to_string()].into_iter().collect();
+    assert!(is_empty_tool_scope(&sentinel));
+    // A real belt is neither.
+    let real: HashSet<String> = ["shell".to_string()].into_iter().collect();
+    assert!(!is_empty_tool_scope(&real));
+    // The sentinel alongside a real tool is not an empty scope — that
+    // combination should never be built, but reading it as "empty" would hide
+    // a real tool from the belt rather than surface the mistake.
+    let mixed: HashSet<String> = [NO_TOOLS_SENTINEL.to_string(), "shell".to_string()]
+        .into_iter()
+        .collect();
+    assert!(!is_empty_tool_scope(&mixed));
+}

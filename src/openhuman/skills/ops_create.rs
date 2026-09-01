@@ -155,7 +155,12 @@ fn legacy_workflow_dir(
         // Builtin bundles come from a `const` table compiled into the
         // binary; a create RPC that could write one would make that table
         // remotely extensible, which is the whole thing it exists to prevent.
-        WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Profile => return None,
+        // Flow entries are rows in `flows.db`, not bundle directories — there
+        // is no path to resolve. Creating one is `save_workflow`'s job.
+        WorkflowScope::Builtin
+        | WorkflowScope::Legacy
+        | WorkflowScope::Profile
+        | WorkflowScope::Flow => return None,
     };
     for root in roots {
         let canonical_root = match std::fs::canonicalize(&root) {
@@ -219,6 +224,16 @@ pub(crate) fn create_workflow_inner(
                 ));
             }
             workspace_dir.join(".openhuman").join("workflows")
+        }
+        WorkflowScope::Flow => {
+            // Named separately from the others because the fix differs: the
+            // caller does not want a different skill scope, they want a
+            // different tool.
+            return Err(
+                "'flow' is not a skill scope — a Flows automation is a saved graph, not a \
+                 SKILL.md bundle. Use `save_workflow` / `create_workflow` to author one."
+                    .to_string(),
+            );
         }
         WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Profile => {
             return Err(

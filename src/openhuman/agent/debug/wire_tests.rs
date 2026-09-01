@@ -74,7 +74,10 @@ fn the_header_totals_the_two_halves() {
     let expected = 10 + serde_json::to_string(&s).unwrap().len();
     let rendered = render(&d);
 
-    assert_eq!(total_tool_bytes(&d), serde_json::to_string(&s).unwrap().len());
+    assert_eq!(
+        total_tool_bytes(&d),
+        serde_json::to_string(&s).unwrap().len()
+    );
     assert!(
         rendered.contains(&thousands(expected)),
         "header must report prompt + tools as one figure ({expected})"

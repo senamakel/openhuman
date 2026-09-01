@@ -806,7 +806,9 @@ async fn an_empty_named_scope_advertises_no_tools_at_all() {
     // Tolerant of an already-initialised singleton: this binary shares one
     // `OnceLock` across every test, so whether we are first is a property of
     // test ordering, not of this test.
-    let _ = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
+    let _ =
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins(
+        );
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -816,9 +818,7 @@ async fn an_empty_named_scope_advertises_no_tools_at_all() {
     let visible = agent.visible_tool_names_for_test();
     let real: Vec<&String> = visible
         .iter()
-        .filter(|n| {
-            n.as_str() != crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL
-        })
+        .filter(|n| n.as_str() != crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL)
         .collect();
     assert!(
         real.is_empty(),
@@ -840,7 +840,9 @@ async fn a_zero_tool_agent_does_not_gain_the_compaction_recovery_tool() {
     // Tolerant of an already-initialised singleton: this binary shares one
     // `OnceLock` across every test, so whether we are first is a property of
     // test ordering, not of this test.
-    let _ = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
+    let _ =
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins(
+        );
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -848,7 +850,9 @@ async fn a_zero_tool_agent_does_not_gain_the_compaction_recovery_tool() {
         .expect("trigger_triage is a shipped agent definition");
 
     assert!(
-        !agent.visible_tool_names_for_test().contains(RETRIEVE_TOOL_NAME),
+        !agent
+            .visible_tool_names_for_test()
+            .contains(RETRIEVE_TOOL_NAME),
         "a deliberately tool-less agent must not be handed the recovery tool"
     );
 }
@@ -865,9 +869,7 @@ fn the_no_tools_sentinel_can_never_name_a_real_tool() {
 
 #[test]
 fn is_empty_tool_scope_distinguishes_the_three_states() {
-    use crate::openhuman::agent::harness::definition::{
-        is_empty_tool_scope, NO_TOOLS_SENTINEL,
-    };
+    use crate::openhuman::agent::harness::definition::{is_empty_tool_scope, NO_TOOLS_SENTINEL};
     use std::collections::HashSet;
 
     // Unset — the historical "everything" sentinel.

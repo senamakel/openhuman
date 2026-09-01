@@ -3,11 +3,11 @@
 
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
-use crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::openhuman::agent::context::prompt::SystemPromptBuilder;
 use crate::openhuman::agent::dispatcher::{
     NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher,
 };
+use crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::openhuman::agent::harness::definition::{
     AgentDefinitionRegistry, PromptSource, ToolScope,
 };

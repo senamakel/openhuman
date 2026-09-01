@@ -501,7 +501,10 @@ fn run_dump_prompt(args: &[String]) -> Result<()> {
         // and splitting the header onto stderr the way `print_human` does
         // would make `> turn.txt` drop the byte counts that give the payload
         // its meaning.
-        print!("{}", crate::openhuman::agent::debug::render_wire_dump(&dumped));
+        print!(
+            "{}",
+            crate::openhuman::agent::debug::render_wire_dump(&dumped)
+        );
     } else if flags.json {
         print_json(&dumped, flags.with_tools)?;
     } else {
@@ -735,12 +738,14 @@ fn print_dump_prompt_help() {
     println!("                       Config::workspace_dir / ~/.openhuman/workspace).");
     println!("  --model, -m <name>   Override the resolved model name (affects only the");
     println!("                       `## Runtime` section).");
-    println!("  --with-tools         Also print the full list of tool names the agent sees.
+    println!(
+        "  --with-tools         Also print the full list of tool names the agent sees.
   --wire               Print the ENTIRE fixed prefix exactly as the model
                        receives it: the system prompt verbatim, then every
                        advertised tool schema minified the way it is sent,
                        with byte counts for each half. This is the whole
-                       per-turn cost in one document.");
+                       per-turn cost in one document."
+    );
     println!("  --json               Emit a machine-readable JSON object on stdout.");
     println!("  -v, --verbose        Enable debug logging on stderr.");
     println!();

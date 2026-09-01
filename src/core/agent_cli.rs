@@ -6,7 +6,7 @@
 //! agent definitions / tool registry and printing something.
 //!
 //! Usage:
-//!   openhuman agent dump-prompt --agent <id> [--toolkit <slug>] [--workspace <path>] [--json] [--with-tools] [-v]
+//!   openhuman agent dump-prompt --agent <id> [--toolkit <slug>] [--workspace <path>] [--json] [--with-tools] [--wire] [-v]
 //!     (--toolkit is REQUIRED when --agent is `integrations_agent`.)
 //!   openhuman agent dump-all --out <dir> [--workspace <path>] [--model <name>] [-v]
 //!   openhuman agent prompt-size [--agent <id>] [--toolkit <slug>] [--workspace <path>] [--json] [-v]
@@ -371,6 +371,7 @@ struct DumpFlags {
     model: Option<String>,
     json: bool,
     with_tools: bool,
+    wire: bool,
     verbose: bool,
 }
 
@@ -382,6 +383,7 @@ fn parse_dump_flags(args: &[String]) -> Result<DumpFlags> {
         model: None,
         json: false,
         with_tools: false,
+        wire: false,
         verbose: false,
     };
     let mut i = 0usize;
@@ -424,6 +426,10 @@ fn parse_dump_flags(args: &[String]) -> Result<DumpFlags> {
             }
             "--with-tools" => {
                 out.with_tools = true;
+                i += 1;
+            }
+            "--wire" => {
+                out.wire = true;
                 i += 1;
             }
             "-v" | "--verbose" => {
@@ -490,7 +496,13 @@ fn run_dump_prompt(args: &[String]) -> Result<()> {
         dumped.text.len()
     );
 
-    if flags.json {
+    if flags.wire {
+        // Everything on stdout, deliberately: this artefact is one document
+        // and splitting the header onto stderr the way `print_human` does
+        // would make `> turn.txt` drop the byte counts that give the payload
+        // its meaning.
+        print!("{}", crate::openhuman::agent::debug::render_wire_dump(&dumped));
+    } else if flags.json {
         print_json(&dumped, flags.with_tools)?;
     } else {
         print_human(&dumped, flags.with_tools);
@@ -697,7 +709,7 @@ fn print_agent_help() {
     println!();
     println!("Usage:");
     println!("  openhuman agent list [--workspace <path>] [--json]");
-    println!("  openhuman agent dump-prompt --agent <id> [--workspace <path>] [--model <name>] [--with-tools] [--json] [-v]");
+    println!("  openhuman agent dump-prompt --agent <id> [--workspace <path>] [--model <name>] [--with-tools] [--wire] [--json] [-v]");
     println!("  openhuman agent dump-all --out <dir> [--workspace <path>] [--model <name>] [-v]");
     println!("  openhuman agent prompt-size [--agent <id>] [--toolkit <slug>] [--workspace <path>] [--json] [-v]");
     println!();
@@ -723,7 +735,12 @@ fn print_dump_prompt_help() {
     println!("                       Config::workspace_dir / ~/.openhuman/workspace).");
     println!("  --model, -m <name>   Override the resolved model name (affects only the");
     println!("                       `## Runtime` section).");
-    println!("  --with-tools         Also print the full list of tool names the agent sees.");
+    println!("  --with-tools         Also print the full list of tool names the agent sees.
+  --wire               Print the ENTIRE fixed prefix exactly as the model
+                       receives it: the system prompt verbatim, then every
+                       advertised tool schema minified the way it is sent,
+                       with byte counts for each half. This is the whole
+                       per-turn cost in one document.");
     println!("  --json               Emit a machine-readable JSON object on stdout.");
     println!("  -v, --verbose        Enable debug logging on stderr.");
     println!();

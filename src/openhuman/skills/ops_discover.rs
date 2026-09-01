@@ -415,6 +415,11 @@ fn precedence(scope: WorkflowScope) -> u8 {
         WorkflowScope::Project => 3,
         // Profile-local skills win against every global scope for their owner.
         WorkflowScope::Profile => 4,
+        // Flows are never discovered by this scanner, so they never take part
+        // in a name collision resolved here. Ranked above everything so that
+        // if one ever reaches this function the answer is deterministic rather
+        // than accidental.
+        WorkflowScope::Flow => 5,
     }
 }
 

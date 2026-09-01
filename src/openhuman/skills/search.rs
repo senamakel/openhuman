@@ -174,6 +174,17 @@ impl SkillSearchTool {
                     || skill_allowed(&self.skill_allowlist, &w.dir_name)
             });
         }
+        // Saved Flows automations, appended AFTER the allowlist filter.
+        //
+        // A profile's skill allowlist is a list of `dir_name` slugs for
+        // SKILL.md bundles; it has no opinion about flow ids, so running flows
+        // through it would filter every one of them out on any profile that
+        // sets an allowlist — silently, and looking exactly like "you have no
+        // automations". Flow visibility is the flow store's business.
+        #[cfg(feature = "flows")]
+        workflows.extend(crate::openhuman::flows::catalogue::flow_entries(
+            &self.config,
+        ));
         workflows
     }
 }

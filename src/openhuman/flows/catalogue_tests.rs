@@ -70,9 +70,17 @@ fn the_description_names_the_trigger_and_step_count() {
         ],
     );
     let entry = entry_for(f);
-    assert!(entry.description.contains("schedule"), "{}", entry.description);
+    assert!(
+        entry.description.contains("schedule"),
+        "{}",
+        entry.description
+    );
     // Two steps: the trigger is not a step a user thinks about.
-    assert!(entry.description.contains("2 steps"), "{}", entry.description);
+    assert!(
+        entry.description.contains("2 steps"),
+        "{}",
+        entry.description
+    );
 }
 
 #[test]
@@ -98,7 +106,11 @@ fn a_graph_with_no_trigger_reads_as_manual_rather_than_blank() {
     // Either way the catalogue must say something; validation reports the real
     // problem separately, so this stays quiet rather than duplicating it.
     let entry = entry_for(flow("Headless", true, vec![]));
-    assert!(entry.description.contains("manual"), "{}", entry.description);
+    assert!(
+        entry.description.contains("manual"),
+        "{}",
+        entry.description
+    );
 }
 
 #[test]

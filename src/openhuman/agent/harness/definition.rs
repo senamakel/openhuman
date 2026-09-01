@@ -625,7 +625,46 @@ pub enum ToolScope {
     Wildcard,
     /// An explicit allowlist of tool names. Names not present in the parent
     /// registry at spawn time are silently dropped (logged at debug).
+    ///
+    /// **An empty list means zero tools, not every tool.** `named = []` is a
+    /// real declaration two agents make on purpose, and honouring it needs
+    /// [`NO_TOOLS_SENTINEL`] — see that constant for why.
     Named(Vec<String>),
+}
+
+/// The name inserted into a visible-tool set that must stay empty.
+///
+/// The harness's visible-tool set uses **empty as the "no filter" sentinel**:
+/// an agent with an empty set is advertised every tool in the registry. That
+/// makes "this agent may use nothing" inexpressible by the set alone, so it is
+/// spelled as a set holding one name no registry can ever contain.
+///
+/// This is not hypothetical bookkeeping. `summarizer` and `trigger_triage` both
+/// declare `named = []` in their `agent.toml` — the second with a comment
+/// explaining that local 1B-class models are unreliable at nested tool calls,
+/// "so we keep the turn flat" — and both were being handed the **entire
+/// registry**: 109 tools, 82,986 bytes of schema each, 18% of the whole fleet's
+/// fixed prefix, on the two agents that had asked for none. The declaration was
+/// not ignored so much as inverted.
+///
+/// The name is deliberately unregistrable (leading underscores are not a legal
+/// tool name), so a set holding only this advertises nothing and permits
+/// nothing.
+///
+/// Two callers, and they are the same problem twice:
+///
+/// * an empty `ToolScope::Named` (this module's concern), and
+/// * a profile allowlist that is disjoint from a definition's named scope,
+///   where an empty intersection must not broaden back to everything.
+pub const NO_TOOLS_SENTINEL: &str = "__no_tools__";
+
+/// Is this set one that deliberately holds no usable tool?
+///
+/// True for both the genuinely empty set and the sentinel-only set, so callers
+/// that must not add anything to a zero-tool belt have one predicate to ask
+/// rather than two conditions to keep in step.
+pub fn is_empty_tool_scope(visible: &std::collections::HashSet<String>) -> bool {
+    visible.is_empty() || (visible.len() == 1 && visible.contains(NO_TOOLS_SENTINEL))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

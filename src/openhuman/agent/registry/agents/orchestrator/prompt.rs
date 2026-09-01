@@ -122,7 +122,6 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
         count = skills.len(),
         "[orchestrator-prompt] rendering installed skills section"
     );
-    let has_flows = skills.iter().any(|s| s.scope == WorkflowScope::Flow);
     // One catalogue, two kinds of entry.
     //
     // This header used to carry ~200 bytes explaining that the list below
@@ -147,7 +146,6 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
          `skill_registry_search` to install a new skill, or `build_workflow` \
          to author a new automation.\n\n",
     );
-    let _ = has_flows;
     for skill in skills.iter().take(MAX_LISTED_SKILLS) {
         let id = if skill.dir_name.is_empty() {
             &skill.name

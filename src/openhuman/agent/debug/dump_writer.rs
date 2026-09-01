@@ -60,6 +60,15 @@ pub fn write_prompt_dumps(dir: &Path, dumps: &[DumpedPrompt]) -> Result<DumpWrit
         )
         .with_context(|| format!("writing {}", tools_path.display()))?;
 
+        // The one artefact that shows both halves of the fixed prefix in the
+        // form they are sent. The `.md` and `.tools.json` above stay: the first
+        // is diffable prose, the second is machine-readable. Neither is what
+        // the model receives, and reading them together while mentally
+        // minifying one of them is not a thing anyone does.
+        let wire_path = dir.join(format!("{stem}.wire.txt"));
+        std::fs::write(&wire_path, super::wire::render(dumped))
+            .with_context(|| format!("writing {}", wire_path.display()))?;
+
         let label = label_for(dumped);
         let _ = writeln!(
             summary,

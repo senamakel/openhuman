@@ -15,7 +15,7 @@ use crate::openhuman::agent::context::prompt::{
     render_datetime, render_identity, render_tools, render_user_files, render_workspace,
     ConnectedIntegration, PromptContext, ToolCallFormat,
 };
-use crate::openhuman::skills::ops_types::Workflow;
+use crate::openhuman::skills::ops_types::{Workflow, WorkflowScope};
 use crate::openhuman::tools::orchestrator_tools::sanitise_slug;
 use anyhow::Result;
 use std::fmt::Write;

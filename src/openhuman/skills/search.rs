@@ -122,6 +122,10 @@ pub struct SkillSearchTool {
     workspace_dir: PathBuf,
     skill_allowlist: SkillAllowlist,
     profile_skills_root: Option<PathBuf>,
+    /// Kept whole so saved Flows automations can be listed alongside SKILL.md
+    /// bundles. Search has to see the same catalogue the prompt renders, or
+    /// "find me the thing that does X" answers from half the library.
+    config: Arc<Config>,
 }
 
 impl SkillSearchTool {
@@ -130,6 +134,7 @@ impl SkillSearchTool {
             workspace_dir: config.workspace_dir.clone(),
             skill_allowlist: None,
             profile_skills_root: None,
+            config,
         }
     }
 

@@ -143,11 +143,36 @@
 #                 `toolpacks::is_withheld_from` now filters the enum.
 #                 **A collapse must never widen what a pack narrowed** — check
 #                 it whenever a surface moves from "a tool" to "a value".
+#
+#   2026-09-01  `named = []` now means zero tools. Fleet 921,327 -> 751,657 B.
+#
+#               `summarizer` and `trigger_triage` each declare an empty named
+#               scope in their shipped `agent.toml`, and each was handed the
+#               ENTIRE registry — 109 tools, 82,986 B of schema — because an
+#               empty visible set is the harness's "no filter" sentinel. The
+#               declaration was not ignored, it was inverted. 165,972 B, 18% of
+#               the fleet's fixed prefix, on the two agents that asked for none.
+#
+#               `trigger_triage`'s own comment says local 1B-class models are
+#               unreliable at nested tool calls, "so we keep the turn flat" — so
+#               this was not merely waste, it was working against the thing the
+#               author had written down. That is the general lesson: **this file
+#               cannot tell a large number from a wrong one.** Both agents sat
+#               at the top of the table from the day it was created, and the
+#               baseline note called them out as a bug in the wrong terms —
+#               "they declare no `[tools]` belt" — when in fact they declare an
+#               empty one, which is the opposite problem and a much cheaper fix.
+#               Read a definition, not just a row.
+#
+#               `NO_TOOLS_SENTINEL` spells the empty belt so it survives a set
+#               whose empty state was already spoken for. It replaced a literal
+#               that existed twice, once with a comment saying it was a verbatim
+#               copy.
 
 morning_briefing:14279:82986
-trigger_triage:11075:82986
+trigger_triage:9214:0
 workflow_builder:46405:30259
-summarizer:10644:82986
+summarizer:8783:0
 tools_agent:8260:82986
 orchestrator:34241:29821
 code_executor:13327:12338

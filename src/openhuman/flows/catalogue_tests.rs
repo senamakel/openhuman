@@ -10,7 +10,9 @@ fn node(id: &str, kind: NodeKind, config: serde_json::Value) -> Node {
         kind,
         name: id.to_string(),
         config,
-        ..Default::default()
+        type_version: 1,
+        ports: Vec::new(),
+        position: None,
     }
 }
 

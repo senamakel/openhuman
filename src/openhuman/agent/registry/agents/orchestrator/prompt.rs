@@ -526,6 +526,67 @@ mod tests {
         assert!(out.contains("- **no-dir**: (no description)"));
     }
 
+    /// A flow and a bundle sit in one list, and each says how it runs.
+    ///
+    /// This replaced ~200 bytes of header explaining that the list below
+    /// deliberately omitted Flows automations and that `describe_workflow`
+    /// "will error" if called with a flow id. The marker is what lets that
+    /// paragraph go: an entry now carries its own routing, in situ.
+    #[test]
+    fn a_flow_and_a_bundle_share_one_catalogue_and_each_says_how_to_run() {
+        let entries = vec![
+            Workflow {
+                dir_name: "apple-notes".into(),
+                name: "apple-notes".into(),
+                description: "Manage Apple Notes.".into(),
+                scope: WorkflowScope::User,
+                ..Default::default()
+            },
+            Workflow {
+                dir_name: "3f2a-uuid".into(),
+                name: "Weekly Report".into(),
+                description: "Saved Flows automation (schedule trigger, 3 steps).".into(),
+                scope: WorkflowScope::Flow,
+                ..Default::default()
+            },
+        ];
+        let out = render_installed_skills(&entries);
+
+        assert!(out.contains("- **apple-notes**: Manage Apple Notes."));
+        assert!(
+            out.contains("- **3f2a-uuid** `[flow]`:"),
+            "a flow entry must be marked and keyed by its id: {out}"
+        );
+        // The header explains the marker rather than each entry repeating it.
+        assert!(out.contains("`[flow]`"));
+        assert!(out.contains("run_workflow"));
+
+        // And the caveats the marker made unnecessary are gone. These are the
+        // exact phrases that used to be billed on every turn.
+        assert!(
+            !out.contains("will error"),
+            "the describe_workflow caveat should be gone: {out}"
+        );
+        assert!(
+            !out.contains("not Flows"),
+            "the omission caveat should be gone: {out}"
+        );
+    }
+
+    #[test]
+    fn a_bundle_only_catalogue_carries_no_flow_marker() {
+        // The common case — most workspaces have no flows — must not pay for
+        // the distinction in its entries.
+        let out = render_installed_skills(&[Workflow {
+            dir_name: "solo".into(),
+            name: "solo".into(),
+            description: "One skill.".into(),
+            scope: WorkflowScope::User,
+            ..Default::default()
+        }]);
+        assert!(!out.contains("`[flow]`:"), "{out}");
+    }
+
     #[test]
     fn render_installed_skills_empty_is_omitted() {
         assert_eq!(render_installed_skills(&[]), "");

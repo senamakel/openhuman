@@ -54,7 +54,7 @@ pub const MAX_CATALOGUE_FLOWS: usize = 20;
 /// a prompt section and a search index, and a transient `flows.db` problem
 /// should degrade the catalogue, never fail the turn. The error is logged.
 pub fn flow_entries(config: &Config) -> Vec<Workflow> {
-    let (flows, skipped) = match crate::openhuman::flows::store::list_flows(config) {
+    let (flows, skipped) = match super::store::list_flows(config) {
         Ok(pair) => pair,
         Err(error) => {
             tracing::warn!(%error, "[flows][catalogue] could not list flows; catalogue omits them");
@@ -91,7 +91,7 @@ pub fn flow_entries(config: &Config) -> Vec<Workflow> {
     entries
 }
 
-fn entry_for(flow: crate::openhuman::flows::types::Flow) -> Workflow {
+fn entry_for(flow: super::types::Flow) -> Workflow {
     Workflow {
         name: flow.name.clone(),
         // The flow id, because that is what `run_workflow` / `get_flow` take.
@@ -113,7 +113,7 @@ fn entry_for(flow: crate::openhuman::flows::types::Flow) -> Workflow {
 /// Deliberately structural — trigger, size, paused-ness — because that is all
 /// the model carries. See the module docs: inventing a purpose from node
 /// internals would read as authoritative and frequently be wrong.
-fn describe(flow: &crate::openhuman::flows::types::Flow) -> String {
+fn describe(flow: &super::types::Flow) -> String {
     let trigger = flow
         .graph
         .trigger_kind()

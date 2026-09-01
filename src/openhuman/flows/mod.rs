@@ -32,6 +32,7 @@ pub mod agents;
 mod build_registry;
 pub mod builder_tools;
 pub mod bus;
+pub mod catalogue;
 pub mod discovery_tools;
 mod draft_store;
 pub mod medulla_bridge;

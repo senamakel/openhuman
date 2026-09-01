@@ -90,12 +90,13 @@ use crate::openhuman::config::Config;
 /// Sentinel inserted when a profile allowlist and a definition's named scope
 /// are disjoint.
 ///
-/// Copied verbatim from the session builder
-/// (`agent/harness/session/builder/factory.rs`), where it exists because an
-/// empty tool set is the "all tools" sentinel: a disjoint intersection must
-/// stay non-empty with an unregistered name so it permits zero tools rather
-/// than accidentally broadening to everything.
-const PROFILE_NO_TOOLS_SENTINEL: &str = "__profile_no_tools__";
+/// Was a verbatim copy of the session builder's own literal, with a comment
+/// saying so. Two spellings of one sentinel is a silent bug waiting for
+/// someone to change one of them: the sets would stop agreeing about what
+/// "no tools" is spelled as, and the disagreement surfaces as an agent quietly
+/// advertising the whole registry. It is one constant now — see
+/// [`NO_TOOLS_SENTINEL`] for why the value exists at all.
+use crate::openhuman::agent::harness::definition::NO_TOOLS_SENTINEL as PROFILE_NO_TOOLS_SENTINEL;
 
 // ── Registry handle ───────────────────────────────────────────────────────────
 

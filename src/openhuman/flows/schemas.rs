@@ -510,6 +510,14 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
                 FieldSchema {
+                    name: "description",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "One line saying what this automation is for. Surfaced in the \
+                              skills catalogue and ranked by skill_search; omitted, the \
+                              catalogue can only report the graph's shape.",
+                    required: false,
+                },
+                FieldSchema {
                     name: "graph",
                     ty: TypeSchema::Json,
                     comment:
@@ -659,6 +667,13 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     name: "name",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
                     comment: "New name, if changing it.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "description",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "New one-line summary, if changing it. Absent leaves the stored \
+                              one untouched; an empty string clears it.",
                     required: false,
                 },
                 FieldSchema {
@@ -1337,6 +1352,13 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     name: "name",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
                     comment: "New name, if changing it.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "description",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "New one-line summary, if changing it. Absent leaves the stored \
+                              one untouched; an empty string clears it.",
                     required: false,
                 },
                 FieldSchema {

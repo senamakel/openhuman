@@ -1453,3 +1453,171 @@ fn schema_reinitializes_when_the_database_file_is_deleted_at_runtime() {
     let (flows_final, _) = list_flows(&config).unwrap();
     assert_eq!(flows_final.len(), 1);
 }
+
+// ── description: the field, and the upgrade path ──────────────────────────
+
+#[test]
+fn a_description_round_trips_through_the_store() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = create_flow(
+        &config,
+        "Digest".to_string(),
+        "Posts the weekly digest to Slack.".to_string(),
+        trigger_graph(),
+        false,
+        true,
+    )
+    .unwrap();
+    let read_back = get_flow(&config, &created.id).unwrap().unwrap();
+    assert_eq!(read_back.description, "Posts the weekly digest to Slack.");
+    // And through the list path, which uses a different SELECT.
+    let (flows, skipped) = list_flows(&config).unwrap();
+    assert_eq!(skipped, 0);
+    assert_eq!(flows[0].description, "Posts the weekly digest to Slack.");
+}
+
+#[test]
+fn a_database_written_before_the_column_existed_still_opens() {
+    // The migration that matters. `add_column_if_missing` runs against a real
+    // pre-existing `flows.db`, so this builds one WITHOUT the column — exactly
+    // what an upgrading user has — and then opens it through the normal path.
+    //
+    // Constructed by hand rather than by checking in a fixture file: a binary
+    // fixture would drift silently as the rest of the schema moves, and the
+    // thing under test is one column, not the whole file format.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let db_path = tmp.path().join("workspace").join("flows").join("flows.db");
+    std::fs::create_dir_all(db_path.parent().unwrap()).unwrap();
+    {
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE flow_definitions (
+                id          TEXT PRIMARY KEY,
+                name        TEXT NOT NULL,
+                graph_json  TEXT NOT NULL,
+                enabled     INTEGER NOT NULL DEFAULT 1,
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL,
+                last_run_at TEXT,
+                last_status TEXT
+             );",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO flow_definitions
+                (id, name, graph_json, enabled, created_at, updated_at)
+             VALUES ('old-1', 'Legacy flow', ?1, 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            rusqlite::params![serde_json::to_string(&trigger_graph()).unwrap()],
+        )
+        .unwrap();
+    }
+
+    // Opening through the normal path must migrate, not fail.
+    let flow = get_flow(&config, "old-1")
+        .expect("an upgraded database must open")
+        .expect("the pre-existing row must survive");
+    assert_eq!(flow.name, "Legacy flow");
+    // The row predates the column, so it reads back empty — which every
+    // consumer already treats as "no description", not as corruption.
+    assert_eq!(flow.description, "");
+}
+
+#[test]
+fn an_update_without_a_description_leaves_the_stored_one_alone() {
+    // The `COALESCE(?, description)` contract. An edit that only reshapes the
+    // graph must not silently blank the catalogue line.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = create_flow(
+        &config,
+        "Digest".to_string(),
+        "Posts the weekly digest.".to_string(),
+        trigger_graph(),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let updated = update_flow_graph(
+        &config,
+        &created.id,
+        "Digest renamed".to_string(),
+        None,
+        trigger_graph(),
+        false,
+        None,
+        false,
+        None,
+    )
+    .expect("update succeeds");
+    assert_eq!(updated.name, "Digest renamed");
+    assert_eq!(updated.description, "Posts the weekly digest.");
+}
+
+#[test]
+fn an_update_can_replace_and_can_clear_the_description() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = create_flow(
+        &config,
+        "Digest".to_string(),
+        "Original.".to_string(),
+        trigger_graph(),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let replaced = update_flow_graph(
+        &config,
+        &created.id,
+        "Digest".to_string(),
+        Some("Rewritten.".to_string()),
+        trigger_graph(),
+        false,
+        None,
+        false,
+        None,
+    )
+    .unwrap();
+    assert_eq!(replaced.description, "Rewritten.");
+
+    // `Some("")` is the only way to say "clear it", and must work — otherwise
+    // a bad description is unfixable through this path.
+    let cleared = update_flow_graph(
+        &config,
+        &created.id,
+        "Digest".to_string(),
+        Some(String::new()),
+        trigger_graph(),
+        false,
+        None,
+        false,
+        None,
+    )
+    .unwrap();
+    assert_eq!(cleared.description, "");
+}
+
+#[test]
+fn a_duplicate_carries_the_description_across() {
+    // A duplicate is the same automation under a new name; its purpose is
+    // unchanged, so an empty description on the copy would be a regression the
+    // user has to repair by hand.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let source = create_flow(
+        &config,
+        "Digest".to_string(),
+        "Posts the weekly digest.".to_string(),
+        trigger_graph(),
+        false,
+        true,
+    )
+    .unwrap();
+    let copy = insert_duplicate_flow(&config, &source, "Digest (copy)".to_string()).unwrap();
+    assert_eq!(copy.description, "Posts the weekly digest.");
+}

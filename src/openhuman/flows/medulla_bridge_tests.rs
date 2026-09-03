@@ -446,7 +446,7 @@ async fn an_update_refuses_to_overwrite_a_concurrent_edit() {
     ops::flows_update(
         &config,
         &created.id,
-        Some("User edit".to_string()),
+        Some("User edit".to_string()), None,
         None,
         None,
         Some(created.updated_at.clone()),

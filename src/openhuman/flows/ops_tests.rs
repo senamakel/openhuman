@@ -603,7 +603,7 @@ async fn flows_update_allows_metadata_only_edits_of_legacy_incompatible_graph() 
     let updated = flows_update(
         &config,
         &flow.id,
-        Some("renamed legacy".to_string()),
+        Some("renamed legacy".to_string()), None,
         None,
         Some(true),
         None,
@@ -673,7 +673,7 @@ async fn flows_update_rejects_an_incompatible_saved_child_before_persisting() {
     let error = flows_update(
         &config,
         &parent.id,
-        None,
+        None, None,
         Some(referenced_child_graph(&child.id)),
         None,
         None,
@@ -809,7 +809,7 @@ async fn flows_update_replaces_name_and_graph() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        Some("renamed".to_string()),
+        Some("renamed".to_string()), None,
         Some(new_graph),
         None,
         None,
@@ -830,13 +830,13 @@ async fn flows_update_can_set_require_approval() {
         .unwrap();
     assert!(!created.value.require_approval);
 
-    let updated = flows_update(&config, &created.value.id, None, None, Some(true), None)
+    let updated = flows_update(&config, &created.value.id, None, None, None, Some(true), None)
         .await
         .unwrap();
     assert!(updated.value.require_approval);
 
     // Omitting `require_approval` on a later update preserves the current value.
-    let unchanged = flows_update(&config, &created.value.id, None, None, None, None)
+    let unchanged = flows_update(&config, &created.value.id, None, None, None, None, None)
         .await
         .unwrap();
     assert!(unchanged.value.require_approval);
@@ -859,7 +859,7 @@ async fn flows_update_rejects_invalid_replacement_graph() {
     let err = flows_update(
         &config,
         &created.value.id,
-        None,
+        None, None,
         Some(invalid_graph),
         None,
         None,
@@ -1681,7 +1681,7 @@ async fn flows_update_rebinds_schedule_cron_job_when_trigger_schedule_changes() 
     flows_update(
         &config,
         &created.value.id,
-        None,
+        None, None,
         Some(schedule_trigger_graph("30 8 * * *")),
         None,
         None,
@@ -1730,7 +1730,7 @@ async fn flows_update_does_not_rebind_when_graph_is_not_supplied() {
     flows_update(
         &config,
         &created.value.id,
-        Some("renamed".to_string()),
+        Some("renamed".to_string()), None,
         None,
         None,
         None,
@@ -1778,7 +1778,7 @@ async fn flows_update_disables_on_manual_to_automatic_trigger_transition_when_en
     let updated = flows_update(
         &config,
         &created.value.id,
-        None,
+        None, None,
         Some(schedule_trigger_graph("0 8 * * *")),
         None,
         None,
@@ -1843,7 +1843,7 @@ async fn flows_update_disarms_manual_to_automatic_transition_even_when_already_d
     let updated = flows_update(
         &config,
         &created.value.id,
-        None,
+        None, None,
         Some(schedule_trigger_graph("0 8 * * *")),
         None,
         None,
@@ -1885,7 +1885,7 @@ async fn flows_update_preserves_enabled_when_already_automatic() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        None,
+        None, None,
         Some(schedule_trigger_graph("30 8 * * *")),
         None,
         None,
@@ -1918,7 +1918,7 @@ async fn flows_update_preserves_enabled_for_manual_target() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        None,
+        None, None,
         Some(new_graph),
         None,
         None,
@@ -2041,7 +2041,7 @@ async fn flows_resume_refuses_when_the_graph_changed_after_park() {
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(),
+        created.value.name.clone(), None,
         structurally_valid_graph(rewritten),
         created.value.require_approval,
         None,  // enabled_override
@@ -2194,7 +2194,7 @@ async fn flows_resume_allows_a_legacy_row_with_null_graph_hash() {
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(),
+        created.value.name.clone(), None,
         structurally_valid_graph(rewritten),
         created.value.require_approval,
         None,  // enabled_override
@@ -2303,7 +2303,7 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(),
+        created.value.name.clone(), None,
         legacy_graph.clone(),
         created.value.require_approval,
         None,
@@ -2387,7 +2387,7 @@ async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(),
+        created.value.name.clone(), None,
         legacy_graph.clone(),
         created.value.require_approval,
         None,
@@ -7150,7 +7150,7 @@ async fn flows_update_forces_require_approval_when_adding_side_effect_nodes() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        None,
+        None, None,
         Some(tool_call_graph()),
         Some(false),
         None,
@@ -7186,7 +7186,7 @@ async fn flows_update_does_not_force_require_approval_on_readonly_graph() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        Some("renamed".to_string()),
+        Some("renamed".to_string()), None,
         None,
         None,
         None,
@@ -7348,7 +7348,7 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     store::update_flow_graph(
         &config,
         &flow_a.id,
-        flow_a.name.clone(),
+        flow_a.name.clone(), None,
         structurally_valid_graph(referenced_child_graph(&flow_b.id)),
         false,
         None,
@@ -7359,7 +7359,7 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     store::update_flow_graph(
         &config,
         &flow_b.id,
-        flow_b.name.clone(),
+        flow_b.name.clone(), None,
         structurally_valid_graph(referenced_child_graph(&flow_a.id)),
         false,
         None,
@@ -7469,7 +7469,7 @@ async fn flows_update_rejects_a_stale_expected_version() {
     let ok = flows_update(
         &config,
         &flow.id,
-        Some("renamed".to_string()),
+        Some("renamed".to_string()), None,
         None,
         None,
         Some(flow.updated_at.clone()),
@@ -7482,7 +7482,7 @@ async fn flows_update_rejects_a_stale_expected_version() {
     let err = flows_update(
         &config,
         &flow.id,
-        Some("again".to_string()),
+        Some("again".to_string()), None,
         None,
         None,
         Some(flow.updated_at.clone()),
@@ -7513,7 +7513,7 @@ async fn update_records_revisions_and_rollback_restores() {
         ],
         "edges": [ { "from_node": "t", "to_node": "a" } ]
     });
-    flows_update(&config, &flow.id, None, Some(two_node), None, None)
+    flows_update(&config, &flow.id, None, None, Some(two_node), None, None)
         .await
         .unwrap();
 

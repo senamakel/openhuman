@@ -113,7 +113,7 @@ fn update_flow_graph_bumps_updated_at_and_preserves_created_at() {
     let updated = update_flow_graph(
         &config,
         &flow.id,
-        "renamed".to_string(),
+        "renamed".to_string(), None,
         new_graph,
         false,
         None,
@@ -141,7 +141,7 @@ fn update_flow_graph_with_none_override_preserves_current_enabled_column() {
     let updated = update_flow_graph(
         &config,
         &flow.id,
-        flow.name.clone(),
+        flow.name.clone(), None,
         trigger_graph(),
         false,
         None,  // enabled_override
@@ -172,7 +172,7 @@ fn update_flow_graph_with_some_false_override_forces_disabled() {
     let updated = update_flow_graph(
         &config,
         &flow.id,
-        flow.name.clone(),
+        flow.name.clone(), None,
         trigger_graph(),
         false,
         Some(false), // enabled_override
@@ -217,7 +217,7 @@ fn update_flow_graph_override_wins_over_concurrently_enabled_row() {
     let updated = update_flow_graph(
         &config,
         &flow.id,
-        flow.name.clone(),
+        flow.name.clone(), None,
         trigger_graph(),
         false,
         Some(false), // the unconditional disarm override
@@ -258,7 +258,7 @@ fn update_flow_graph_disarms_transition_from_the_fresh_row_even_when_override_as
     let updated = update_flow_graph(
         &config,
         &flow.id,
-        flow.name.clone(),
+        flow.name.clone(), None,
         automatic_schedule_graph(),
         false,
         Some(true), // caller explicitly asks to stay enabled
@@ -302,7 +302,7 @@ fn update_flow_graph_does_not_disarm_an_automatic_to_automatic_update() {
     let updated = update_flow_graph(
         &config,
         &flow.id,
-        flow.name.clone(),
+        flow.name.clone(), None,
         automatic_schedule_graph(),
         false,
         None,  // no explicit override — preserve current.enabled
@@ -411,7 +411,7 @@ fn update_flow_graph_can_change_require_approval() {
     let updated = update_flow_graph(
         &config,
         &flow.id,
-        flow.name.clone(),
+        flow.name.clone(), None,
         trigger_graph(),
         true,
         None,

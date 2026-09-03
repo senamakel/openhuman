@@ -552,6 +552,10 @@ pub fn update_flow_graph(
     config: &Config,
     id: &str,
     name: String,
+    /// `None` leaves the stored description untouched — an edit that only
+    /// reshapes the graph must not silently blank the catalogue line. Passed
+    /// through `COALESCE` below so the UPDATE stays one static statement.
+    description: Option<String>,
     graph: tinyflows::model::WorkflowGraph,
     require_approval: bool,
     enabled_override: Option<bool>,
@@ -615,7 +619,9 @@ pub fn update_flow_graph(
         let changed = conn
             .execute(
                 "UPDATE flow_definitions SET name = ?1, graph_json = ?2, updated_at = ?3, \
-                 require_approval = ?4, enabled = ?5 WHERE id = ?6 AND updated_at = ?7",
+                 require_approval = ?4, enabled = ?5, \
+                 description = COALESCE(?8, description) \
+                 WHERE id = ?6 AND updated_at = ?7",
                 params![
                     name,
                     graph_json,
@@ -624,6 +630,7 @@ pub fn update_flow_graph(
                     if new_enabled { 1 } else { 0 },
                     id,
                     current.updated_at,
+                    description,
                 ],
             )
             .context("Failed to update flow")?;

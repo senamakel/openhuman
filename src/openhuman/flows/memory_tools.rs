@@ -792,7 +792,6 @@ the tool resolves the bound driver rather than being handed a memory handle"]
             job_id: job_id.to_string(),
             source: TrustedAutomationSource::Workflow {
                 require_approval: false,
-                description: String::new(),
             },
         }
     }
@@ -899,7 +898,6 @@ the tool resolves the bound driver rather than being handed a memory handle"]
             job_id: "f-real".to_string(),
             source: TrustedAutomationSource::Workflow {
                 require_approval: false,
-                description: String::new(),
             },
         };
         let result = turn_origin::with_origin(

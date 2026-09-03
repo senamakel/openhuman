@@ -2077,9 +2077,15 @@ mod tests {
         let config = Arc::new(resolver_test_config(&tmp));
 
         let graph_json = serde_json::to_value(trigger_only_graph()).unwrap();
-        let flow = flows::ops::flows_create(&config, "child".to_string(), String::new(), graph_json, false)
-            .await
-            .expect("create flow");
+        let flow = flows::ops::flows_create(
+            &config,
+            "child".to_string(),
+            String::new(),
+            graph_json,
+            false,
+        )
+        .await
+        .expect("create flow");
         let flow_id = flow.value.id.clone();
 
         let resolver = OpenHumanWorkflowResolver {
@@ -2120,7 +2126,8 @@ mod tests {
         let config = Arc::new(resolver_test_config(&tmp));
         let flow = flows::ops::flows_create(
             &config,
-            "legacy child".to_string(), String::new(),
+            "legacy child".to_string(),
+            String::new(),
             serde_json::to_value(trigger_only_graph()).unwrap(),
             false,
         )

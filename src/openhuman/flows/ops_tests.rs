@@ -464,7 +464,8 @@ fn resolver_lookup_rejects_an_incompatible_saved_child() {
     let config = test_config(&tmp);
     let child = store::create_flow(
         &config,
-        "legacy child".to_string(), String::new(),
+        "legacy child".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -486,7 +487,8 @@ fn resolver_lookup_rejects_an_incompatible_saved_grandchild() {
     let config = test_config(&tmp);
     let grandchild = store::create_flow(
         &config,
-        "legacy unsafe grandchild".to_string(), String::new(),
+        "legacy unsafe grandchild".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -494,7 +496,8 @@ fn resolver_lookup_rejects_an_incompatible_saved_grandchild() {
     .unwrap();
     let child = store::create_flow(
         &config,
-        "saved child".to_string(), String::new(),
+        "saved child".to_string(),
+        String::new(),
         structurally_valid_graph(referenced_child_graph(&grandchild.id)),
         false,
         false,
@@ -532,7 +535,15 @@ async fn flows_run_rejects_legacy_nested_conditional_fan_in_before_execution() {
     // Bypass the current author-time gate to simulate a definition persisted
     // by an older OpenHuman build. Reads remain supported; execution does not.
     let graph = structurally_valid_graph(nested_conditional_fan_in_graph());
-    let flow = store::create_flow(&config, "legacy".to_string(), String::new(), graph, false, true).unwrap();
+    let flow = store::create_flow(
+        &config,
+        "legacy".to_string(),
+        String::new(),
+        graph,
+        false,
+        true,
+    )
+    .unwrap();
 
     let err = flows_run(
         &config,
@@ -559,7 +570,8 @@ async fn flows_run_rejects_an_incompatible_saved_child_before_execution() {
     let config = test_config(&tmp);
     let child = store::create_flow(
         &config,
-        "legacy unsafe child".to_string(), String::new(),
+        "legacy unsafe child".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -567,7 +579,8 @@ async fn flows_run_rejects_an_incompatible_saved_child_before_execution() {
     .unwrap();
     let parent = store::create_flow(
         &config,
-        "parent".to_string(), String::new(),
+        "parent".to_string(),
+        String::new(),
         structurally_valid_graph(referenced_child_graph(&child.id)),
         false,
         true,
@@ -598,12 +611,21 @@ async fn flows_update_allows_metadata_only_edits_of_legacy_incompatible_graph() 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     let graph = structurally_valid_graph(nested_conditional_fan_in_graph());
-    let flow = store::create_flow(&config, "legacy".to_string(), String::new(), graph, false, false).unwrap();
+    let flow = store::create_flow(
+        &config,
+        "legacy".to_string(),
+        String::new(),
+        graph,
+        false,
+        false,
+    )
+    .unwrap();
 
     let updated = flows_update(
         &config,
         &flow.id,
-        Some("renamed legacy".to_string()), None,
+        Some("renamed legacy".to_string()),
+        None,
         None,
         Some(true),
         None,
@@ -622,7 +644,8 @@ async fn flows_create_rejects_an_incompatible_saved_child_before_persisting() {
     let config = test_config(&tmp);
     let child = store::create_flow(
         &config,
-        "legacy unsafe child".to_string(), String::new(),
+        "legacy unsafe child".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -631,7 +654,8 @@ async fn flows_create_rejects_an_incompatible_saved_child_before_persisting() {
 
     let error = flows_create(
         &config,
-        "rejected parent".to_string(), String::new(),
+        "rejected parent".to_string(),
+        String::new(),
         referenced_child_graph(&child.id),
         false,
     )
@@ -654,7 +678,8 @@ async fn flows_update_rejects_an_incompatible_saved_child_before_persisting() {
     let config = test_config(&tmp);
     let child = store::create_flow(
         &config,
-        "legacy unsafe child".to_string(), String::new(),
+        "legacy unsafe child".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -663,7 +688,8 @@ async fn flows_update_rejects_an_incompatible_saved_child_before_persisting() {
     let original_graph = structurally_valid_graph(trigger_only_graph());
     let parent = store::create_flow(
         &config,
-        "safe parent".to_string(), String::new(),
+        "safe parent".to_string(),
+        String::new(),
         original_graph.clone(),
         false,
         true,
@@ -673,7 +699,8 @@ async fn flows_update_rejects_an_incompatible_saved_child_before_persisting() {
     let error = flows_update(
         &config,
         &parent.id,
-        None, None,
+        None,
+        None,
         Some(referenced_child_graph(&child.id)),
         None,
         None,
@@ -704,9 +731,15 @@ async fn flows_create_rejects_graph_without_trigger() {
         "edges": []
     });
 
-    let err = flows_create(&config, "bad".to_string(), String::new(), graph_without_trigger, false)
-        .await
-        .expect_err("graph without a trigger must be rejected");
+    let err = flows_create(
+        &config,
+        "bad".to_string(),
+        String::new(),
+        graph_without_trigger,
+        false,
+    )
+    .await
+    .expect_err("graph without a trigger must be rejected");
     assert!(
         err.contains("trigger"),
         "expected a MissingTrigger-style error, got: {err}"
@@ -718,9 +751,15 @@ async fn flows_create_get_list_delete_roundtrip() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     let flow_id = created.value.id.clone();
 
     let fetched = flows_get(&config, &flow_id).await.unwrap();
@@ -741,9 +780,15 @@ async fn flows_duplicate_produces_disabled_unbound_copy_with_new_id() {
     let config = test_config(&tmp);
 
     // Enabled source with require_approval set.
-    let created = flows_create(&config, "My Flow".to_string(), String::new(), trigger_only_graph(), true)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "My Flow".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        true,
+    )
+    .await
+    .unwrap();
     assert!(created.value.enabled);
     let source_id = created.value.id.clone();
 
@@ -779,9 +824,15 @@ async fn flows_duplicate_missing_flow_errors() {
 async fn flows_set_enabled_toggles() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     assert!(created.value.enabled);
 
     let disabled = flows_set_enabled(&config, &created.value.id, false)
@@ -799,9 +850,15 @@ async fn flows_set_enabled_toggles() {
 async fn flows_update_replaces_name_and_graph() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let mut new_graph = trigger_only_graph();
     new_graph["name"] = json!("renamed-graph");
@@ -809,7 +866,8 @@ async fn flows_update_replaces_name_and_graph() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        Some("renamed".to_string()), None,
+        Some("renamed".to_string()),
+        None,
         Some(new_graph),
         None,
         None,
@@ -825,14 +883,28 @@ async fn flows_update_replaces_name_and_graph() {
 async fn flows_update_can_set_require_approval() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     assert!(!created.value.require_approval);
 
-    let updated = flows_update(&config, &created.value.id, None, None, None, Some(true), None)
-        .await
-        .unwrap();
+    let updated = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        None,
+        None,
+        Some(true),
+        None,
+    )
+    .await
+    .unwrap();
     assert!(updated.value.require_approval);
 
     // Omitting `require_approval` on a later update preserves the current value.
@@ -846,9 +918,15 @@ async fn flows_update_can_set_require_approval() {
 async fn flows_update_rejects_invalid_replacement_graph() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let invalid_graph = json!({
         "name": "no-trigger",
@@ -859,7 +937,8 @@ async fn flows_update_rejects_invalid_replacement_graph() {
     let err = flows_update(
         &config,
         &created.value.id,
-        None, None,
+        None,
+        None,
         Some(invalid_graph),
         None,
         None,
@@ -873,9 +952,15 @@ async fn flows_update_rejects_invalid_replacement_graph() {
 async fn flows_run_completes_trigger_only_graph() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let outcome = flows_run(
         &config,
@@ -909,9 +994,15 @@ async fn flows_run_completes_trigger_only_graph() {
 async fn flows_run_on_trigger_only_graph_surfaces_no_actionable_nodes_note() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "empty".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "empty".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let outcome = flows_run(
         &config,
@@ -1006,9 +1097,15 @@ async fn flows_run_on_graph_with_disconnected_component_still_surfaces_empty_flo
             { "from_node": "a", "to_node": "b" }
         ]
     });
-    let created = flows_create(&config, "disconnected".to_string(), String::new(), graph, false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "disconnected".to_string(),
+        String::new(),
+        graph,
+        false,
+    )
+    .await
+    .unwrap();
 
     let outcome = flows_run(
         &config,
@@ -1129,7 +1226,8 @@ async fn flows_run_threads_declared_inputs_into_the_run() {
 
     let created = flows_create(
         &config,
-        "parameterized".to_string(), String::new(),
+        "parameterized".to_string(),
+        String::new(),
         parameterized_graph(),
         false,
     )
@@ -1175,7 +1273,8 @@ async fn flows_run_detached_threads_and_validates_declared_inputs_too() {
 
     let created = flows_create(
         &config,
-        "parameterized".to_string(), String::new(),
+        "parameterized".to_string(),
+        String::new(),
         parameterized_graph(),
         false,
     )
@@ -1214,7 +1313,8 @@ async fn flows_run_rejects_a_missing_required_input_without_creating_a_run_row()
 
     let created = flows_create(
         &config,
-        "parameterized".to_string(), String::new(),
+        "parameterized".to_string(),
+        String::new(),
         parameterized_graph(),
         false,
     )
@@ -1257,7 +1357,8 @@ async fn flows_run_rejects_a_wrongly_typed_or_undeclared_input() {
 
     let created = flows_create(
         &config,
-        "parameterized".to_string(), String::new(),
+        "parameterized".to_string(),
+        String::new(),
         parameterized_graph(),
         false,
     )
@@ -1388,9 +1489,15 @@ async fn flows_run_populates_error_when_a_continue_policy_node_errors() {
         "edges": [ { "from_node": "t", "to_node": "x" } ]
     });
 
-    let created = flows_create(&config, "boom-continue".to_string(), String::new(), graph, false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "boom-continue".to_string(),
+        String::new(),
+        graph,
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -1454,7 +1561,8 @@ async fn flows_create_binds_schedule_cron_job_for_an_enabled_flow() {
 
     let created = flows_create(
         &config,
-        "scheduled".to_string(), String::new(),
+        "scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 9 * * *"),
         false,
     )
@@ -1491,7 +1599,8 @@ async fn flows_delete_unbinds_schedule_cron_job() {
     let config = test_config(&tmp);
     let created = flows_create(
         &config,
-        "scheduled".to_string(), String::new(),
+        "scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 9 * * *"),
         false,
     )
@@ -1530,7 +1639,8 @@ async fn reconcile_schedule_triggers_on_boot_survives_a_corrupt_row() {
 
     let good = flows_create(
         &config,
-        "good-scheduled".to_string(), String::new(),
+        "good-scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 9 * * *"),
         false,
     )
@@ -1542,7 +1652,8 @@ async fn reconcile_schedule_triggers_on_boot_survives_a_corrupt_row() {
 
     let bad = flows_create(
         &config,
-        "bad-scheduled".to_string(), String::new(),
+        "bad-scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 10 * * *"),
         false,
     )
@@ -1613,7 +1724,8 @@ async fn flows_delete_clears_flow_memory_namespace() {
 
     let created = flows_create(
         &config,
-        "with-memory".to_string(), String::new(),
+        "with-memory".to_string(),
+        String::new(),
         trigger_only_graph(),
         false,
     )
@@ -1664,7 +1776,8 @@ async fn flows_update_rebinds_schedule_cron_job_when_trigger_schedule_changes() 
     let config = test_config(&tmp);
     let created = flows_create(
         &config,
-        "scheduled".to_string(), String::new(),
+        "scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 9 * * *"),
         false,
     )
@@ -1681,7 +1794,8 @@ async fn flows_update_rebinds_schedule_cron_job_when_trigger_schedule_changes() 
     flows_update(
         &config,
         &created.value.id,
-        None, None,
+        None,
+        None,
         Some(schedule_trigger_graph("30 8 * * *")),
         None,
         None,
@@ -1712,7 +1826,8 @@ async fn flows_update_does_not_rebind_when_graph_is_not_supplied() {
     let config = test_config(&tmp);
     let created = flows_create(
         &config,
-        "scheduled".to_string(), String::new(),
+        "scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 9 * * *"),
         false,
     )
@@ -1730,7 +1845,8 @@ async fn flows_update_does_not_rebind_when_graph_is_not_supplied() {
     flows_update(
         &config,
         &created.value.id,
-        Some("renamed".to_string()), None,
+        Some("renamed".to_string()),
+        None,
         None,
         None,
         None,
@@ -1765,7 +1881,8 @@ async fn flows_update_disables_on_manual_to_automatic_trigger_transition_when_en
     // only gates automatic triggers).
     let created = flows_create(
         &config,
-        "manual-then-scheduled".to_string(), String::new(),
+        "manual-then-scheduled".to_string(),
+        String::new(),
         manual_trigger_graph(),
         false,
     )
@@ -1778,7 +1895,8 @@ async fn flows_update_disables_on_manual_to_automatic_trigger_transition_when_en
     let updated = flows_update(
         &config,
         &created.value.id,
-        None, None,
+        None,
+        None,
         Some(schedule_trigger_graph("0 8 * * *")),
         None,
         None,
@@ -1830,7 +1948,8 @@ async fn flows_update_disarms_manual_to_automatic_transition_even_when_already_d
 
     let created = flows_create(
         &config,
-        "manual-then-scheduled".to_string(), String::new(),
+        "manual-then-scheduled".to_string(),
+        String::new(),
         manual_trigger_graph(),
         false,
     )
@@ -1843,7 +1962,8 @@ async fn flows_update_disarms_manual_to_automatic_transition_even_when_already_d
     let updated = flows_update(
         &config,
         &created.value.id,
-        None, None,
+        None,
+        None,
         Some(schedule_trigger_graph("0 8 * * *")),
         None,
         None,
@@ -1869,7 +1989,8 @@ async fn flows_update_preserves_enabled_when_already_automatic() {
     // explicitly — this IS the "already reviewed and opted in" state.
     let created = flows_create(
         &config,
-        "scheduled".to_string(), String::new(),
+        "scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 9 * * *"),
         false,
     )
@@ -1885,7 +2006,8 @@ async fn flows_update_preserves_enabled_when_already_automatic() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        None, None,
+        None,
+        None,
         Some(schedule_trigger_graph("30 8 * * *")),
         None,
         None,
@@ -1906,9 +2028,15 @@ async fn flows_update_preserves_enabled_for_manual_target() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let created = flows_create(&config, "manual".to_string(), String::new(), manual_trigger_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "manual".to_string(),
+        String::new(),
+        manual_trigger_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     assert!(created.value.enabled);
 
     // manual → manual: no automatic trigger ever enters the picture, so
@@ -1918,7 +2046,8 @@ async fn flows_update_preserves_enabled_for_manual_target() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        None, None,
+        None,
+        None,
         Some(new_graph),
         None,
         None,
@@ -1951,9 +2080,15 @@ fn approval_gated_graph() -> Value {
 async fn flows_resume_continues_a_paused_run_to_completion() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2008,9 +2143,15 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
 async fn flows_resume_refuses_when_the_graph_changed_after_park() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2041,7 +2182,8 @@ async fn flows_resume_refuses_when_the_graph_changed_after_park() {
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(), None,
+        created.value.name.clone(),
+        None,
         structurally_valid_graph(rewritten),
         created.value.require_approval,
         None,  // enabled_override
@@ -2099,9 +2241,15 @@ async fn flows_resume_refuses_when_the_graph_changed_after_park() {
 async fn flows_resume_succeeds_when_the_graph_is_unchanged() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2149,9 +2297,15 @@ async fn flows_resume_succeeds_when_the_graph_is_unchanged() {
 async fn flows_resume_allows_a_legacy_row_with_null_graph_hash() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2194,7 +2348,8 @@ async fn flows_resume_allows_a_legacy_row_with_null_graph_hash() {
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(), None,
+        created.value.name.clone(),
+        None,
         structurally_valid_graph(rewritten),
         created.value.require_approval,
         None,  // enabled_override
@@ -2280,9 +2435,15 @@ fn graph_hash_is_stable_across_serialization_key_order() {
 async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     let run = flows_run(
         &config,
         &created.value.id,
@@ -2303,7 +2464,8 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(), None,
+        created.value.name.clone(),
+        None,
         legacy_graph.clone(),
         created.value.require_approval,
         None,
@@ -2360,9 +2522,15 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
 async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     let run = flows_run(
         &config,
         &created.value.id,
@@ -2377,7 +2545,8 @@ async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed
         serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
     let child = store::create_flow(
         &config,
-        "legacy unsafe child".to_string(), String::new(),
+        "legacy unsafe child".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -2387,7 +2556,8 @@ async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed
     store::update_flow_graph(
         &config,
         &created.value.id,
-        created.value.name.clone(), None,
+        created.value.name.clone(),
+        None,
         legacy_graph.clone(),
         created.value.require_approval,
         None,
@@ -2458,9 +2628,15 @@ async fn flows_resume_missing_flow_errors() {
 async fn flows_resume_with_empty_approvals_is_rejected_and_does_not_complete_the_run() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2498,9 +2674,15 @@ async fn flows_resume_with_empty_approvals_is_rejected_and_does_not_complete_the
 async fn flows_resume_with_mismatched_approvals_is_rejected() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2530,9 +2712,15 @@ async fn flows_resume_with_mismatched_approvals_is_rejected() {
 async fn flows_resume_with_the_correct_gate_completes_and_runs_downstream() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2591,7 +2779,8 @@ async fn flows_resume_denying_a_gate_routes_to_its_error_port() {
     let config = test_config(&tmp);
     let created = flows_create(
         &config,
-        "gated-deny".to_string(), String::new(),
+        "gated-deny".to_string(),
+        String::new(),
         approval_gated_graph_with_error_port(),
         false,
     )
@@ -2645,9 +2834,15 @@ async fn flows_resume_denying_a_gate_with_no_error_port_fails_the_run() {
     let config = test_config(&tmp);
     // `approval_gated_graph()` has only a `main` edge out of the gate — no
     // `error` port to route a denial to, so the whole run must fail.
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2684,9 +2879,15 @@ async fn flows_resume_denying_a_gate_with_no_error_port_fails_the_run() {
 async fn flows_resume_rejects_a_gate_named_in_both_approvals_and_rejections() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2719,9 +2920,15 @@ async fn flows_resume_rejects_a_gate_named_in_both_approvals_and_rejections() {
 async fn flows_resume_of_a_non_paused_run_errors_clearly() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     // This run completes outright (no approval gate) — its recorded status
     // is "completed", not "pending_approval".
@@ -2749,9 +2956,15 @@ async fn flows_resume_of_a_non_paused_run_errors_clearly() {
 async fn flows_resume_with_no_recorded_run_for_thread_id_errors_clearly() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let err = flows_resume(
         &config,
@@ -2771,9 +2984,15 @@ async fn flows_resume_with_no_recorded_run_for_thread_id_errors_clearly() {
 async fn flows_run_persists_a_flow_run_row_queryable_via_list_and_get() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -2807,12 +3026,24 @@ async fn flows_list_all_runs_aggregates_across_flows_newest_first() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let a = flows_create(&config, "alpha".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
-    let b = flows_create(&config, "beta".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let a = flows_create(
+        &config,
+        "alpha".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+    let b = flows_create(
+        &config,
+        "beta".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     // Run alpha first, then beta — beta's run is the newest.
     flows_run(
@@ -2866,7 +3097,8 @@ async fn flows_run_emits_pending_approval_notification() {
 
     let created = flows_create(
         &config,
-        "gated-notify".to_string(), String::new(),
+        "gated-notify".to_string(),
+        String::new(),
         approval_gated_graph(),
         false,
     )
@@ -2927,9 +3159,15 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
     let config = test_config(&tmp);
     let mut rx = crate::openhuman::desktop::notifications::bus::subscribe_core_notifications();
 
-    let created = flows_create(&config, "no-gate".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "no-gate".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     let created_id = created.value.id.clone();
 
     flows_run(
@@ -3007,7 +3245,8 @@ async fn flows_run_publishes_flow_run_started_with_flow_and_run_id() {
     let config = test_config(&tmp);
     let created = flows_create(
         &config,
-        "b35-run-started".to_string(), String::new(),
+        "b35-run-started".to_string(),
+        String::new(),
         trigger_only_graph(),
         false,
     )
@@ -3100,7 +3339,8 @@ async fn flows_run_finished_event_skips_pending_approval_and_fires_once_on_resum
     let config = test_config(&tmp);
     let created = flows_create(
         &config,
-        "b35-finished-skips-pause".to_string(), String::new(),
+        "b35-finished-skips-pause".to_string(),
+        String::new(),
         approval_gated_graph(),
         false,
     )
@@ -3192,9 +3432,15 @@ async fn observer_persists_each_step_incrementally() {
     // `start_flow_run_row`), so seed a flow + a running run row first.
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "obs".to_string(), String::new(), passthrough_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "obs".to_string(),
+        String::new(),
+        passthrough_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     let run_id = format!("flow:{}:run-under-test", created.value.id);
     store::insert_flow_run(
         &config,
@@ -3263,7 +3509,8 @@ async fn flows_run_persists_live_steps_with_status_and_timing() {
     let config = test_config(&tmp);
     let created = flows_create(
         &config,
-        "passthrough".to_string(), String::new(),
+        "passthrough".to_string(),
+        String::new(),
         passthrough_graph(),
         false,
     )
@@ -3318,9 +3565,15 @@ async fn flows_run_persists_live_steps_with_status_and_timing() {
 async fn flows_cancel_run_cancels_a_parked_pending_approval_run() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     // Run pauses at the gate → a durable `pending_approval` row with no live
     // task (the run future already returned): the not-in-flight cancel path.
@@ -3377,9 +3630,15 @@ async fn flows_cancel_run_cancels_a_parked_pending_approval_run() {
 async fn flows_cancel_run_of_an_already_completed_run_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -3407,9 +3666,15 @@ async fn flows_cancel_run_of_a_completed_with_warnings_run_errors() {
     // the run already recorded.
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -3448,9 +3713,15 @@ async fn flows_cancel_run_of_an_interrupted_run_errors() {
     // discarding the interruption reason it already carries.
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -3505,9 +3776,15 @@ async fn flows_cancel_run_missing_run_errors() {
 async fn parked_run_ttl_sweep_expires_stale_runs_but_spares_fresh_ones() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "gated".to_string(), String::new(), approval_gated_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "gated".to_string(),
+        String::new(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     // Seed a parked run whose "parked since" (finished_at) is far in the past,
     // so it is well beyond the TTL.
@@ -3710,7 +3987,8 @@ async fn flows_set_enabled_surfaces_unfired_trigger_warning_at_enable() {
 
     let created = flows_create(
         &config,
-        "hooked".to_string(), String::new(),
+        "hooked".to_string(),
+        String::new(),
         webhook_trigger_graph(),
         false,
     )
@@ -3741,7 +4019,8 @@ async fn flows_set_enabled_schedule_flow_has_no_warning() {
 
     let created = flows_create(
         &config,
-        "scheduled".to_string(), String::new(),
+        "scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("0 9 * * *"),
         false,
     )
@@ -4724,9 +5003,15 @@ async fn flows_run_fails_cleanly_without_invoking_engine_when_inference_not_read
         ],
         "edges": [ { "from_node": "t", "to_node": "a" } ]
     });
-    let created = flows_create(&config, "needs-a-provider".to_string(), String::new(), g, false)
-        .await
-        .expect("creating (authoring) an agent-node flow must succeed even when signed out");
+    let created = flows_create(
+        &config,
+        "needs-a-provider".to_string(),
+        String::new(),
+        g,
+        false,
+    )
+    .await
+    .expect("creating (authoring) an agent-node flow must succeed even when signed out");
 
     let err = flows_run(
         &config,
@@ -6811,9 +7096,15 @@ async fn flows_create_rejects_condition_edges_with_branch_label_on_to_port() {
     let config = test_config(&tmp);
 
     let bad_graph = condition_graph("main", "true", "main", "false");
-    let err = flows_create(&config, "bad-condition".to_string(), String::new(), bad_graph, false)
-        .await
-        .expect_err("flows_create must reject a condition graph routed on to_port");
+    let err = flows_create(
+        &config,
+        "bad-condition".to_string(),
+        String::new(),
+        bad_graph,
+        false,
+    )
+    .await
+    .expect_err("flows_create must reject a condition graph routed on to_port");
     assert!(
         err.contains("condition") && err.contains("from_port"),
         "expected an InvalidConditionRouting-style error, got: {err}"
@@ -6930,7 +7221,8 @@ async fn flows_create_schedule_trigger_creates_disabled() {
 
     let created = flows_create(
         &config,
-        "scheduled".to_string(), String::new(),
+        "scheduled".to_string(),
+        String::new(),
         schedule_trigger_graph("30 7 * * 1-5"),
         false,
     )
@@ -6964,7 +7256,8 @@ async fn flows_create_app_event_trigger_creates_disabled() {
 
     let created = flows_create(
         &config,
-        "app-event".to_string(), String::new(),
+        "app-event".to_string(),
+        String::new(),
         app_event_trigger_graph(),
         false,
     )
@@ -6982,9 +7275,15 @@ async fn flows_create_manual_trigger_creates_enabled() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let created = flows_create(&config, "manual".to_string(), String::new(), manual_trigger_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "manual".to_string(),
+        String::new(),
+        manual_trigger_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     assert!(
         created.value.enabled,
@@ -6997,9 +7296,15 @@ async fn flows_create_no_trigger_kind_creates_enabled() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let created = flows_create(&config, "legacy".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "legacy".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     assert!(
         created.value.enabled,
@@ -7013,9 +7318,15 @@ async fn flows_create_outbound_node_forces_require_approval() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let created = flows_create(&config, "tool-flow".to_string(), String::new(), tool_call_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "tool-flow".to_string(),
+        String::new(),
+        tool_call_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     assert!(
         created.value.require_approval,
@@ -7039,7 +7350,8 @@ async fn flows_create_outbound_http_forces_require_approval() {
 
     let created = flows_create(
         &config,
-        "http-flow".to_string(), String::new(),
+        "http-flow".to_string(),
+        String::new(),
         http_request_graph(),
         false,
     )
@@ -7057,9 +7369,15 @@ async fn flows_create_outbound_code_forces_require_approval() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let created = flows_create(&config, "code-flow".to_string(), String::new(), code_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "code-flow".to_string(),
+        String::new(),
+        code_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     assert!(
         created.value.require_approval,
@@ -7074,7 +7392,8 @@ async fn flows_create_readonly_graph_respects_caller_require_approval() {
 
     let created = flows_create(
         &config,
-        "readonly-flow".to_string(), String::new(),
+        "readonly-flow".to_string(),
+        String::new(),
         readonly_graph(),
         false,
     )
@@ -7115,9 +7434,15 @@ async fn flows_create_schedule_outbound_creates_disabled_and_approval() {
         "edges": [ { "from_node": "t", "to_node": "post" } ]
     });
 
-    let created = flows_create(&config, "scheduled-slack".to_string(), String::new(), graph, false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "scheduled-slack".to_string(),
+        String::new(),
+        graph,
+        false,
+    )
+    .await
+    .unwrap();
 
     assert!(
         !created.value.enabled,
@@ -7139,9 +7464,15 @@ async fn flows_update_forces_require_approval_when_adding_side_effect_nodes() {
     // re-checked.
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     assert!(
         !created.value.require_approval,
         "a trigger-only graph must not force require_approval on create"
@@ -7150,7 +7481,8 @@ async fn flows_update_forces_require_approval_when_adding_side_effect_nodes() {
     let updated = flows_update(
         &config,
         &created.value.id,
-        None, None,
+        None,
+        None,
         Some(tool_call_graph()),
         Some(false),
         None,
@@ -7177,16 +7509,23 @@ async fn flows_update_forces_require_approval_when_adding_side_effect_nodes() {
 async fn flows_update_does_not_force_require_approval_on_readonly_graph() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "demo".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "demo".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     assert!(!created.value.require_approval);
 
     // Name-only update — no graph change, no side-effect nodes.
     let updated = flows_update(
         &config,
         &created.value.id,
-        Some("renamed".to_string()), None,
+        Some("renamed".to_string()),
+        None,
         None,
         None,
         None,
@@ -7272,7 +7611,8 @@ async fn strict_gate_rejects_an_incompatible_saved_child_reference() {
     let config = test_config(&tmp);
     let child = store::create_flow(
         &config,
-        "legacy unsafe child".to_string(), String::new(),
+        "legacy unsafe child".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -7296,7 +7636,8 @@ async fn builder_proposal_rejects_an_incompatible_saved_child_reference() {
     let config = test_config(&tmp);
     let child = store::create_flow(
         &config,
-        "legacy unsafe child".to_string(), String::new(),
+        "legacy unsafe child".to_string(),
+        String::new(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         false,
         false,
@@ -7331,7 +7672,8 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     let config = test_config(&tmp);
     let flow_a = store::create_flow(
         &config,
-        "cycle a".to_string(), String::new(),
+        "cycle a".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         false,
@@ -7339,7 +7681,8 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     .unwrap();
     let flow_b = store::create_flow(
         &config,
-        "cycle b".to_string(), String::new(),
+        "cycle b".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         false,
@@ -7348,7 +7691,8 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     store::update_flow_graph(
         &config,
         &flow_a.id,
-        flow_a.name.clone(), None,
+        flow_a.name.clone(),
+        None,
         structurally_valid_graph(referenced_child_graph(&flow_b.id)),
         false,
         None,
@@ -7359,7 +7703,8 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     store::update_flow_graph(
         &config,
         &flow_b.id,
-        flow_b.name.clone(), None,
+        flow_b.name.clone(),
+        None,
         structurally_valid_graph(referenced_child_graph(&flow_a.id)),
         false,
         None,
@@ -7407,10 +7752,16 @@ async fn draft_promote_with_flow_id_updates_the_existing_flow() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let flow = flows_create(&config, "Original".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = flows_create(
+        &config,
+        "Original".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
 
     let draft = flows_draft_create(
         &config,
@@ -7460,16 +7811,23 @@ async fn draft_promote_of_invalid_graph_is_rejected_and_keeps_the_draft() {
 async fn flows_update_rejects_a_stale_expected_version() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = flows_create(&config, "V".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = flows_create(
+        &config,
+        "V".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
 
     // A correct expected_version succeeds.
     let ok = flows_update(
         &config,
         &flow.id,
-        Some("renamed".to_string()), None,
+        Some("renamed".to_string()),
+        None,
         None,
         None,
         Some(flow.updated_at.clone()),
@@ -7482,7 +7840,8 @@ async fn flows_update_rejects_a_stale_expected_version() {
     let err = flows_update(
         &config,
         &flow.id,
-        Some("again".to_string()), None,
+        Some("again".to_string()),
+        None,
         None,
         None,
         Some(flow.updated_at.clone()),
@@ -7500,10 +7859,16 @@ async fn flows_update_rejects_a_stale_expected_version() {
 async fn update_records_revisions_and_rollback_restores() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = flows_create(&config, "Orig".to_string(), String::new(), trigger_only_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = flows_create(
+        &config,
+        "Orig".to_string(),
+        String::new(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
 
     // Update the graph → the prior graph is snapshotted as a revision.
     let two_node = json!({
@@ -8005,7 +8370,8 @@ fn seed_running_run(tmp: &TempDir) -> (Config, String, String) {
     let config = test_config(tmp);
     let flow = store::create_flow(
         &config,
-        "reliability".to_string(), String::new(),
+        "reliability".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8163,7 +8529,8 @@ async fn flows_run_detached_returns_running_run_id_and_inserts_row() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "detached".to_string(), String::new(),
+        "detached".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8205,7 +8572,8 @@ async fn flows_run_detached_registers_the_run_before_returning_its_id() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "detached-cancel-race".to_string(), String::new(),
+        "detached-cancel-race".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8401,7 +8769,8 @@ async fn finish_flow_run_refuses_to_overwrite_an_already_terminal_row() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "guarded-finish".to_string(), String::new(),
+        "guarded-finish".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8451,7 +8820,8 @@ async fn cancel_does_not_relabel_a_run_that_settled_concurrently() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "cancel-toctou".to_string(), String::new(),
+        "cancel-toctou".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8486,7 +8856,8 @@ async fn mark_run_resuming_claims_only_a_parked_row() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "resume-claim".to_string(), String::new(),
+        "resume-claim".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8535,7 +8906,8 @@ async fn ttl_sweep_cannot_expire_a_run_a_resume_has_claimed() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "resume-vs-ttl".to_string(), String::new(),
+        "resume-vs-ttl".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8580,7 +8952,8 @@ async fn ttl_sweep_still_expires_an_unclaimed_parked_run() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "ttl-still-works".to_string(), String::new(),
+        "ttl-still-works".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,
@@ -8654,7 +9027,8 @@ async fn stale_approval_refusal_does_not_settle_a_run_another_resume_claimed() {
     let config = test_config(&tmp);
     let flow = store::create_flow(
         &config,
-        "refusal-vs-winner".to_string(), String::new(),
+        "refusal-vs-winner".to_string(),
+        String::new(),
         structurally_valid_graph(trigger_only_graph()),
         false,
         true,

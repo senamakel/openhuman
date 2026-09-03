@@ -1618,7 +1618,8 @@ async fn revise_workflow_rejects_a_missing_required_composio_arg() {
 async fn seed_flow(config: &Arc<Config>, name: &str) -> String {
     let outcome = ops::flows_create(
         config,
-        name.to_string(), String::new(),
+        name.to_string(),
+        String::new(),
         json!({
             "nodes": [ { "id": "t", "kind": "trigger", "name": "Manual" } ],
             "edges": []
@@ -2232,7 +2233,8 @@ async fn edit_workflow_does_not_persist_an_incompatible_saved_child_reference() 
     tinyflows::validate::validate(&child_graph).unwrap();
     let child = crate::openhuman::flows::store::create_flow(
         &config,
-        "Legacy unsafe child".to_string(), String::new(),
+        "Legacy unsafe child".to_string(),
+        String::new(),
         child_graph,
         false,
         false,
@@ -2331,10 +2333,16 @@ async fn edit_workflow_edits_a_saved_flow_by_id() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     // Create a saved flow to edit.
-    let flow = ops::flows_create(&config, "Base flow".to_string(), String::new(), valid_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = ops::flows_create(
+        &config,
+        "Base flow".to_string(),
+        String::new(),
+        valid_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
 
     let tool = EditWorkflowTool::new(config.clone());
     let result = tool
@@ -2612,10 +2620,16 @@ async fn create_workflow_rejects_an_invalid_graph() {
 async fn duplicate_flow_creates_a_disabled_copy() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = ops::flows_create(&config, "Original".to_string(), String::new(), valid_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = ops::flows_create(
+        &config,
+        "Original".to_string(),
+        String::new(),
+        valid_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
     let tool = DuplicateFlowTool::new(config.clone());
     let result = tool.execute(json!({ "flow_id": flow.id })).await.unwrap();
     assert!(!result.is_error, "{}", result.output());
@@ -2629,10 +2643,16 @@ async fn duplicate_flow_creates_a_disabled_copy() {
 async fn list_flow_runs_is_empty_for_a_fresh_flow() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = ops::flows_create(&config, "F".to_string(), String::new(), valid_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = ops::flows_create(
+        &config,
+        "F".to_string(),
+        String::new(),
+        valid_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
     let tool = ListFlowRunsTool::new(config.clone());
     let result = tool.execute(json!({ "flow_id": flow.id })).await.unwrap();
     assert!(!result.is_error, "{}", result.output());
@@ -2695,7 +2715,8 @@ async fn cancel_flow_run_refuses_a_run_the_caller_does_not_own() {
 
     let owner_flow = ops::flows_create(
         &config,
-        "owner".to_string(), String::new(),
+        "owner".to_string(),
+        String::new(),
         cancel_test_approval_gated_graph(),
         false,
     )
@@ -2704,7 +2725,8 @@ async fn cancel_flow_run_refuses_a_run_the_caller_does_not_own() {
     .value;
     let other_flow = ops::flows_create(
         &config,
-        "other".to_string(), String::new(),
+        "other".to_string(),
+        String::new(),
         cancel_test_approval_gated_graph(),
         false,
     )
@@ -2757,7 +2779,8 @@ async fn cancel_flow_run_cancels_when_flow_id_matches_the_owner() {
 
     let flow = ops::flows_create(
         &config,
-        "F".to_string(), String::new(),
+        "F".to_string(),
+        String::new(),
         cancel_test_approval_gated_graph(),
         false,
     )
@@ -2824,10 +2847,16 @@ async fn edit_workflow_by_flow_id_seeds_a_retrievable_draft_and_marks_unpersiste
     let config = test_config(&tmp);
     // A saved flow to edit — editing it must NOT write onto the flow (the WS2
     // bug: a flow_id edit used to persist nothing and return no handle).
-    let flow = ops::flows_create(&config, "Base flow".to_string(), String::new(), valid_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = ops::flows_create(
+        &config,
+        "Base flow".to_string(),
+        String::new(),
+        valid_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
 
     let tool = EditWorkflowTool::new(config.clone());
     let result = tool
@@ -2881,10 +2910,16 @@ async fn edit_workflow_by_flow_id_seeds_a_retrievable_draft_and_marks_unpersiste
 async fn dry_run_workflow_by_flow_id_runs_the_saved_flow_graph() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = ops::flows_create(&config, "Runnable".to_string(), String::new(), valid_graph(), false)
-        .await
-        .unwrap()
-        .value;
+    let flow = ops::flows_create(
+        &config,
+        "Runnable".to_string(),
+        String::new(),
+        valid_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
     let tool = DryRunWorkflowTool::new(config.clone());
     let result = tool.execute(json!({ "flow_id": flow.id })).await.unwrap();
     assert!(!result.is_error, "{}", result.output());

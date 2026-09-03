@@ -455,7 +455,8 @@ async fn propose_workflow_rejects_an_incompatible_saved_child_reference() {
         .expect("legacy child should remain structurally valid");
     let child = crate::openhuman::flows::store::create_flow(
         &config,
-        "Legacy unsafe child".to_string(), String::new(),
+        "Legacy unsafe child".to_string(),
+        String::new(),
         child_graph,
         false,
         false,

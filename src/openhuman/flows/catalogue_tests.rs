@@ -228,9 +228,15 @@ fn a_saved_flow_reaches_the_catalogue_with_its_real_id() {
         ],
         ..Default::default()
     };
-    let saved =
-        super::super::store::create_flow(&config, "Weekly Report".to_string(), String::new(), graph, false, true)
-            .expect("flow saves");
+    let saved = super::super::store::create_flow(
+        &config,
+        "Weekly Report".to_string(),
+        String::new(),
+        graph,
+        false,
+        true,
+    )
+    .expect("flow saves");
 
     let entries = flow_entries(&config);
     assert_eq!(entries.len(), 1, "the saved flow must appear: {entries:?}");
@@ -255,7 +261,8 @@ fn entries_are_sorted_by_name_so_the_prompt_prefix_is_stable() {
     for name in ["Zebra", "Alpha", "Mango"] {
         super::super::store::create_flow(
             &config,
-            name.to_string(), String::new(),
+            name.to_string(),
+            String::new(),
             WorkflowGraph::default(),
             false,
             true,

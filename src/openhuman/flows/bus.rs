@@ -961,6 +961,7 @@ mod tests {
             last_run_at: None,
             last_status: None,
             require_approval: false,
+            description: String::new(),
         }
     }
 
@@ -993,6 +994,7 @@ mod tests {
             last_run_at: None,
             last_status: None,
             require_approval: false,
+            description: String::new(),
         }
     }
 
@@ -1659,6 +1661,7 @@ mod tests {
             last_run_at: None,
             last_status: None,
             require_approval: false,
+            description: String::new(),
         };
         store::upsert_flow(&config, &flow).unwrap();
 

@@ -61,6 +61,7 @@ fn flow(id: &str, name: &str, graph: WorkflowGraph) -> Flow {
         last_run_at: None,
         last_status: None,
         require_approval: false,
+        description: String::new(),
     }
 }
 

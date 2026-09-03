@@ -3439,6 +3439,7 @@ pub fn flows_import(
 pub async fn flows_create(
     config: &Config,
     name: String,
+    description: String,
     graph_json: Value,
     require_approval: bool,
 ) -> Result<RpcOutcome<Flow>, String> {
@@ -3470,8 +3471,15 @@ pub async fn flows_create(
         require_approval = effective_require_approval,
         "[flows] flows_create: persisting new flow"
     );
-    let flow = store::create_flow(config, name, graph, effective_require_approval, enabled)
-        .map_err(|e| e.to_string())?;
+    let flow = store::create_flow(
+        config,
+        name,
+        description,
+        graph,
+        effective_require_approval,
+        enabled,
+    )
+    .map_err(|e| e.to_string())?;
 
     if flow.enabled {
         tracing::debug!(target: "flows", flow_id = %flow.id, "[flows] flows_create: flow is enabled — binding automatic-dispatch trigger");

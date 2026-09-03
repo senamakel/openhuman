@@ -552,9 +552,9 @@ pub fn update_flow_graph(
     config: &Config,
     id: &str,
     name: String,
-    /// `None` leaves the stored description untouched — an edit that only
-    /// reshapes the graph must not silently blank the catalogue line. Passed
-    /// through `COALESCE` below so the UPDATE stays one static statement.
+    // `None` leaves the stored description untouched — an edit that only
+    // reshapes the graph must not silently blank the catalogue line. Passed
+    // through `COALESCE` below so the UPDATE stays one static statement.
     description: Option<String>,
     graph: tinyflows::model::WorkflowGraph,
     require_approval: bool,

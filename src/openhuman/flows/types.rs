@@ -205,6 +205,21 @@ pub struct Flow {
     pub id: String,
     /// Human-readable name shown in the Workflows UI.
     pub name: String,
+    /// One line saying what this automation is *for*, authored by whoever
+    /// built it.
+    ///
+    /// Lives here rather than on `tinyflows::model::WorkflowGraph` for the
+    /// same reason [`Flow::name`] does: it is catalogue metadata about a saved
+    /// automation, not part of the executable graph, and the engine never
+    /// reads it. Keeping it host-side also means the vendored crate does not
+    /// have to change for a field only this catalogue consumes.
+    ///
+    /// Empty is a real and common state — every flow saved before this field
+    /// existed has one, and the builder does not force a description. Readers
+    /// must handle that rather than rendering a blank line;
+    /// `flows::catalogue` falls back to describing the graph's shape.
+    #[serde(default)]
+    pub description: String,
     /// Whether this flow may currently be triggered (B2) / run.
     pub enabled: bool,
     /// The validated, migrated workflow graph.

@@ -112,6 +112,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
          CREATE TABLE IF NOT EXISTS flow_definitions (
             id          TEXT PRIMARY KEY,
             name        TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
             graph_json  TEXT NOT NULL,
             enabled     INTEGER NOT NULL DEFAULT 1,
             created_at  TEXT NOT NULL,
@@ -193,6 +194,18 @@ fn init_schema(conn: &Connection) -> Result<()> {
     // approval.
     add_column_if_missing(conn, "flow_runs", "graph_hash", "TEXT")?;
 
+    // The catalogue description — added post-hoc so a `flows.db` written
+    // before it existed still opens cleanly. Rows predating it read back as
+    // `''`, which every consumer already has to handle: the builder does not
+    // require a description, so an empty one is a normal state and not a
+    // migration artefact.
+    add_column_if_missing(
+        conn,
+        "flow_definitions",
+        "description",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
+
     Ok(())
 }
 
@@ -263,7 +276,7 @@ fn add_column_if_missing(conn: &Connection, table: &str, name: &str, sql_type: &
 /// Shared column list for every `flow_definitions` SELECT — keeps
 /// [`map_flow_row`]'s positional `row.get(N)` calls in sync with the query.
 const FLOW_DEFINITION_COLUMNS: &str = "id, name, graph_json, enabled, created_at, updated_at, \
-     last_run_at, last_status, require_approval";
+     last_run_at, last_status, require_approval, description";
 
 /// Inserts or fully replaces a flow definition row.
 pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
@@ -271,10 +284,11 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO flow_definitions
-                (id, name, graph_json, enabled, created_at, updated_at, last_run_at, last_status, require_approval)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                (id, name, graph_json, enabled, created_at, updated_at, last_run_at, last_status, require_approval, description)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
+                description = excluded.description,
                 graph_json = excluded.graph_json,
                 enabled = excluded.enabled,
                 updated_at = excluded.updated_at,
@@ -291,6 +305,7 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
                 flow.last_run_at,
                 flow.last_status,
                 if flow.require_approval { 1 } else { 0 },
+                flow.description,
             ],
         )
         .context("Failed to upsert flow definition")?;
@@ -318,6 +333,9 @@ pub fn insert_duplicate_flow(config: &Config, source: &Flow, new_name: String) -
         last_run_at: None,
         last_status: None,
         require_approval: source.require_approval,
+        // A duplicate is the same automation under a new name; its purpose
+        // does not change, so the description carries over.
+        description: source.description.clone(),
     };
     upsert_flow(config, &flow)?;
     tracing::debug!(target: "flows", source_id = %source.id, new_id = %flow.id, "[flows] inserted duplicate flow (disabled)");
@@ -736,6 +754,10 @@ fn map_flow_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Flow> {
         last_run_at: row.get(6)?,
         last_status: row.get(7)?,
         require_approval: row.get::<_, i64>(8)? != 0,
+        // Appended to `FLOW_DEFINITION_COLUMNS` rather than inserted beside
+        // `name`, so every existing positional `row.get(N)` above keeps its
+        // index. Reordering that list silently remaps columns.
+        description: row.get(9)?,
     })
 }
 

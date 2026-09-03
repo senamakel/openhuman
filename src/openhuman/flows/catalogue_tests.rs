@@ -30,6 +30,14 @@ fn flow(name: &str, enabled: bool, nodes: Vec<Node>) -> Flow {
         last_run_at: None,
         last_status: None,
         require_approval: false,
+        description: String::new(),
+    }
+}
+
+fn flow_described(name: &str, description: &str) -> Flow {
+    Flow {
+        description: description.to_string(),
+        ..flow(name, true, vec![])
     }
 }
 
@@ -129,18 +137,51 @@ fn an_enabled_flow_does_not_claim_to_be_disabled() {
 }
 
 #[test]
-fn the_synthesised_description_never_claims_to_know_the_purpose() {
-    // Pinning the module's own rule. `Flow` carries no description field, so
-    // anything purpose-shaped here would be invented. If a `description` lands
-    // on the flow model, this test should be replaced by one asserting it is
-    // used — not deleted quietly.
+fn an_authored_description_is_used_verbatim() {
+    // The whole point of the field: when someone says what the automation is
+    // for, the catalogue says that and not the graph's shape.
+    let entry = entry_for(flow_described(
+        "Invoices",
+        "Files incoming supplier invoices into the accounting folder.",
+    ));
+    assert_eq!(
+        entry.description,
+        "Files incoming supplier invoices into the accounting folder."
+    );
+    assert!(!entry.description.contains("Saved Flows automation"));
+}
+
+#[test]
+fn a_flow_with_no_description_falls_back_to_the_graphs_shape() {
+    // Not a rare path: every flow saved before the field existed has none, the
+    // canvas does not force one, and a promoted draft carries none.
     let entry = entry_for(flow("Send invoices to accounting", true, vec![]));
     assert!(
         entry.description.starts_with("Saved Flows automation"),
-        "description must describe the shape, not guess the intent: {}",
+        "fallback must describe the shape: {}",
         entry.description
     );
+    // And it must not guess a purpose out of the name.
     assert!(!entry.description.contains("invoice"));
+}
+
+#[test]
+fn a_whitespace_only_description_falls_back_rather_than_rendering_blank() {
+    // A blank catalogue line reads as a broken entry. `"   "` reaches here
+    // from a canvas field someone tabbed through.
+    let entry = entry_for(flow_described("Spaces", "   "));
+    assert!(entry.description.starts_with("Saved Flows automation"));
+}
+
+#[test]
+fn the_paused_note_survives_an_authored_description() {
+    // Whether a flow currently runs is a fact about the record, not about its
+    // purpose, so an author's line must not suppress it.
+    let mut f = flow_described("Paused", "Posts the weekly digest to Slack.");
+    f.enabled = false;
+    let entry = entry_for(f);
+    assert!(entry.description.contains("Posts the weekly digest"));
+    assert!(entry.description.contains("Currently disabled"));
 }
 
 // ── Against a real store ──────────────────────────────────────────────────

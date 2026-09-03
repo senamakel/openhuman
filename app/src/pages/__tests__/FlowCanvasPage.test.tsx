@@ -87,6 +87,7 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
   return {
     id: 'test-id',
     name: 'Daily digest',
+    description: '',
     enabled: true,
     graph: {
       schema_version: 1,

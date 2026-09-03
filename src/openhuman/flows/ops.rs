@@ -3929,6 +3929,7 @@ pub async fn flows_update(
     config: &Config,
     id: &str,
     name: Option<String>,
+    description: Option<String>,
     graph_json: Option<Value>,
     require_approval: Option<bool>,
     expected_version: Option<String>,
@@ -3937,6 +3938,7 @@ pub async fn flows_update(
         config,
         id,
         name,
+        description,
         graph_json,
         require_approval,
         expected_version,
@@ -3976,6 +3978,9 @@ async fn flows_update_inner(
     config: &Config,
     id: &str,
     name: Option<String>,
+    // `None` means "not part of this edit" and leaves the stored description
+    // alone; `Some("")` deliberately clears it.
+    description: Option<String>,
     graph_json: Option<Value>,
     require_approval: Option<bool>,
     expected_version: Option<String>,
@@ -4057,6 +4062,7 @@ async fn flows_update_inner(
         config,
         id,
         new_name,
+        description,
         graph,
         effective_require_approval,
         None,

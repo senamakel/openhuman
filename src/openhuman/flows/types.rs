@@ -513,6 +513,7 @@ mod tests {
         let flow = Flow {
             id: "flow_1".to_string(),
             name: "demo".to_string(),
+            description: "Round-trips through JSON.".to_string(),
             enabled: true,
             graph: sample_graph(),
             created_at: "2026-01-01T00:00:00Z".to_string(),

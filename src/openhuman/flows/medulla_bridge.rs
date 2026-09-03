@@ -505,7 +505,15 @@ async fn apply_proposal(
                 .to_string();
             // `true`, not the proposal's own value: nothing authored by a remote
             // instruction acts outward without a human decision at run time.
-            let flow = ops::flows_create(config, name, graph, true).await?.value;
+            let description = proposal
+                .get("description")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string();
+            let flow = ops::flows_create(config, name, description, graph, true)
+                .await?
+                .value;
             Ok(AppliedProposal {
                 flow,
                 created: true,

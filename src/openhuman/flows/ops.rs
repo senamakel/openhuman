@@ -8118,6 +8118,10 @@ pub async fn flows_draft_promote(
             flows_create(
                 config,
                 draft.name.clone(),
+                // Drafts carry no description field; promoting one leaves the
+                // catalogue to describe the graph's shape until an author
+                // writes one.
+                String::new(),
                 draft.graph.clone(),
                 require_approval.unwrap_or(false),
             )

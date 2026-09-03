@@ -1256,9 +1256,10 @@ impl Tool for CreateWorkflowTool {
                     "properties": { "nodes": { "type": "array" }, "edges": { "type": "array" } },
                     "required": ["nodes", "edges"]
                 },
-                "require_approval": { "type": "boolean", "description": "Force the approval gate (defaults true)." }
+                "require_approval": { "type": "boolean", "description": "Force the approval gate (defaults true)." },
+                "description": { "type": "string", "description": "One line saying what this automation is for, in the user's terms. Shown in the skills catalogue and ranked by skill_search — without it the catalogue can only report the graph's shape." }
             },
-            "required": ["name", "graph"],
+            "required": ["name", "graph", "description"],
             "additionalProperties": false
         })
     }
@@ -1285,6 +1286,15 @@ impl Tool for CreateWorkflowTool {
             .get("require_approval")
             .and_then(Value::as_bool)
             .unwrap_or(true);
+        // Required in the schema, but not enforced here: a missing description
+        // costs the catalogue a line of prose, and refusing an otherwise valid
+        // graph over it would trade a working automation for a nicer listing.
+        let description = args
+            .get("description")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_string();
 
         // Same structural + hard-gate stack an agent save must pass.
         if let Err(msg) = ops::strict_gate(&self.config, &graph_json).await {
@@ -1294,7 +1304,15 @@ impl Tool for CreateWorkflowTool {
         }
 
         tracing::info!(target: "flows", %name, "[flows] create_workflow: agent-initiated create (born disabled)");
-        let flow = match ops::flows_create(&self.config, name, graph_json, require_approval).await {
+        let flow = match ops::flows_create(
+            &self.config,
+            name,
+            description,
+            graph_json,
+            require_approval,
+        )
+        .await
+        {
             Ok(outcome) => outcome.value,
             Err(e) => return Ok(ToolResult::error(format!("Could not create flow: {e}"))),
         };

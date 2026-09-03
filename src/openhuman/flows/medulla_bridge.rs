@@ -484,6 +484,10 @@ async fn apply_proposal(
                 config,
                 id,
                 name,
+                proposal
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .map(|s| s.trim().to_string()),
                 Some(graph),
                 None,
                 expected_version.map(str::to_string),

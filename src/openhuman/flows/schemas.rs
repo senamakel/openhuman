@@ -1883,13 +1883,6 @@ fn handle_draft_create(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let name = read_required::<String>(&params, "name")?;
-        // Optional: the canvas can save a flow before its author has written
-        // one, and every flow saved before this field existed has none.
-        let description = params
-            .get("description")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string();
         let graph = read_required::<Value>(&params, "graph")?;
         let flow_id = params
             .get("flow_id")

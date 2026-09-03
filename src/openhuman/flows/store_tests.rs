@@ -52,7 +52,7 @@ fn create_get_list_delete_roundtrip() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     assert_eq!(flow.name, "demo");
     assert!(flow.enabled);
 
@@ -89,7 +89,7 @@ fn remove_flow_errors_when_not_found() {
 fn set_enabled_toggles_and_persists() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     assert!(flow.enabled);
 
     let disabled = set_enabled(&config, &flow.id, false).unwrap();
@@ -106,7 +106,7 @@ fn set_enabled_toggles_and_persists() {
 fn update_flow_graph_bumps_updated_at_and_preserves_created_at() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     let mut new_graph = trigger_graph();
     new_graph.name = "renamed-graph".to_string();
@@ -135,7 +135,7 @@ fn update_flow_graph_bumps_updated_at_and_preserves_created_at() {
 fn update_flow_graph_with_none_override_preserves_current_enabled_column() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     assert!(flow.enabled, "flow created enabled");
 
     let updated = update_flow_graph(
@@ -166,7 +166,7 @@ fn update_flow_graph_with_none_override_preserves_current_enabled_column() {
 fn update_flow_graph_with_some_false_override_forces_disabled() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     assert!(flow.enabled, "flow created enabled");
 
     let updated = update_flow_graph(
@@ -205,7 +205,7 @@ fn update_flow_graph_with_some_false_override_forces_disabled() {
 fn update_flow_graph_override_wins_over_concurrently_enabled_row() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, false).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, false).unwrap();
     assert!(!flow.enabled, "flow created disabled");
 
     // Simulates a concurrent `flows_set_enabled(id, true)` racing in after
@@ -252,7 +252,7 @@ fn update_flow_graph_disarms_transition_from_the_fresh_row_even_when_override_as
 {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     assert!(flow.enabled, "flow created enabled");
 
     let updated = update_flow_graph(
@@ -289,7 +289,7 @@ fn update_flow_graph_does_not_disarm_an_automatic_to_automatic_update() {
     let config = test_config(&tmp);
     let flow = create_flow(
         &config,
-        "demo".to_string(),
+        "demo".to_string(), String::new(),
         automatic_schedule_graph(),
         false,
         false,
@@ -321,7 +321,7 @@ fn update_flow_graph_does_not_disarm_an_automatic_to_automatic_update() {
 fn record_run_sets_last_run_fields() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     assert!(flow.last_run_at.is_none());
 
     record_run(&config, &flow.id, "completed").unwrap();
@@ -394,7 +394,7 @@ fn create_flow_persists_require_approval() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), true, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), true, true).unwrap();
     assert!(flow.require_approval);
 
     let reloaded = get_flow(&config, &flow.id).unwrap().unwrap();
@@ -405,7 +405,7 @@ fn create_flow_persists_require_approval() {
 fn update_flow_graph_can_change_require_approval() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     assert!(!flow.require_approval);
 
     let updated = update_flow_graph(
@@ -459,10 +459,10 @@ fn list_enabled_flows_excludes_disabled() {
     let config = test_config(&tmp);
 
     let enabled_flow =
-        create_flow(&config, "enabled".to_string(), trigger_graph(), false, true).unwrap();
+        create_flow(&config, "enabled".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     let disabled_flow = create_flow(
         &config,
-        "disabled".to_string(),
+        "disabled".to_string(), String::new(),
         trigger_graph(),
         false,
         true,
@@ -482,7 +482,7 @@ fn list_enabled_flows_excludes_disabled() {
 fn flow_run_insert_finish_get_round_trip() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     let thread_id = format!("flow:{}:run-1", flow.id);
     insert_flow_run(
@@ -537,7 +537,7 @@ fn flow_run_insert_finish_get_round_trip() {
 fn finish_flow_run_records_error_on_failure() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     let thread_id = format!("flow:{}:run-2", flow.id);
     insert_flow_run(
         &config,
@@ -576,8 +576,8 @@ fn get_flow_run_returns_none_for_unknown_id() {
 fn list_flow_runs_orders_newest_first_and_is_scoped_to_flow() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow_a = create_flow(&config, "a".to_string(), trigger_graph(), false, true).unwrap();
-    let flow_b = create_flow(&config, "b".to_string(), trigger_graph(), false, true).unwrap();
+    let flow_a = create_flow(&config, "a".to_string(), String::new(), trigger_graph(), false, true).unwrap();
+    let flow_b = create_flow(&config, "b".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     insert_flow_run(
         &config,
@@ -624,7 +624,7 @@ fn insert_duplicate_flow_makes_a_disabled_copy_with_new_id_and_same_graph() {
     // Enabled source with require_approval + a distinctive graph name.
     let mut graph = trigger_graph();
     graph.name = "original-graph".to_string();
-    let source = create_flow(&config, "My Flow".to_string(), graph, true, true).unwrap();
+    let source = create_flow(&config, "My Flow".to_string(), String::new(), graph, true, true).unwrap();
     assert!(source.enabled);
     record_run(&config, &source.id, "completed").unwrap();
     let source = get_flow(&config, &source.id).unwrap().unwrap();
@@ -677,7 +677,7 @@ fn seed_run(config: &Config, flow_id: &str, id: &str, day: u32, status: &str) {
 fn prune_flow_runs_keeps_newest_n_terminal_runs() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     // 5 completed runs on ascending days.
     for i in 1..=5 {
@@ -696,7 +696,7 @@ fn prune_flow_runs_keeps_newest_n_terminal_runs() {
 fn prune_flow_runs_never_removes_pending_approval_run() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     // An OLD parked pending_approval run (day 1) plus newer completed runs.
     seed_run(&config, &flow.id, "parked", 1, "pending_approval");
@@ -722,7 +722,7 @@ fn prune_flow_runs_never_removes_pending_approval_run() {
 fn prune_flow_runs_leaves_running_rows_alone() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     seed_run(&config, &flow.id, "live", 1, "running");
     for i in 2..=4 {
@@ -739,7 +739,7 @@ fn prune_flow_runs_leaves_running_rows_alone() {
 fn insert_flow_run_auto_prunes_beyond_retention_cap() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     // Seed exactly MAX_FLOW_RUNS_PER_FLOW completed runs.
     let cap = MAX_FLOW_RUNS_PER_FLOW;
@@ -784,7 +784,7 @@ fn insert_flow_run_auto_prunes_beyond_retention_cap() {
 fn list_flow_runs_respects_limit() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     for i in 0..3 {
         let id = format!("run-{i}");
@@ -903,7 +903,7 @@ fn upsert_suggestions_empty_is_noop() {
 fn list_running_run_ids_returns_only_running_rows() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     insert_flow_run(
         &config,
@@ -957,7 +957,7 @@ fn list_running_run_ids_returns_only_running_rows() {
 fn list_running_run_ids_excludes_rows_started_at_or_after_the_floor() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     insert_flow_run(
         &config,
@@ -1001,7 +1001,7 @@ fn list_running_run_ids_excludes_rows_started_at_or_after_the_floor() {
 fn mark_run_interrupted_reconciles_a_running_row_with_reason() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     insert_flow_run(&config, "run-x", &flow.id, "run-x", "2026-01-01T00:00:00Z").unwrap();
 
     let flipped =
@@ -1018,7 +1018,7 @@ fn mark_run_interrupted_reconciles_a_running_row_with_reason() {
 fn mark_run_interrupted_is_a_noop_for_a_terminal_row() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     insert_flow_run(&config, "run-y", &flow.id, "run-y", "2026-01-01T00:00:00Z").unwrap();
     finish_flow_run(
         &config,
@@ -1060,7 +1060,7 @@ fn mark_run_interrupted_is_a_noop_for_a_terminal_row() {
 fn expire_parked_runs_returns_only_rows_it_actually_flipped() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "ttl".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "ttl".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     let stale_at = "2000-01-01T00:00:00+00:00";
     for id in ["claimed-run", "genuinely-stale-run"] {
@@ -1123,9 +1123,9 @@ fn list_flows_skips_a_corrupt_row_and_reports_the_count() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let good_a = create_flow(&config, "good-a".to_string(), trigger_graph(), false, true).unwrap();
-    let bad = create_flow(&config, "bad".to_string(), trigger_graph(), false, true).unwrap();
-    let good_b = create_flow(&config, "good-b".to_string(), trigger_graph(), false, true).unwrap();
+    let good_a = create_flow(&config, "good-a".to_string(), String::new(), trigger_graph(), false, true).unwrap();
+    let bad = create_flow(&config, "bad".to_string(), String::new(), trigger_graph(), false, true).unwrap();
+    let good_b = create_flow(&config, "good-b".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     force_corrupt_graph_json_for_test(&config, &bad.id, "{ not even valid json").unwrap();
 
     let (flows, skipped) = list_flows(&config).unwrap();
@@ -1152,9 +1152,9 @@ fn list_flows_skips_a_row_whose_schema_version_is_newer_than_this_build_supports
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let good = create_flow(&config, "good".to_string(), trigger_graph(), false, true).unwrap();
+    let good = create_flow(&config, "good".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     let too_new =
-        create_flow(&config, "too-new".to_string(), trigger_graph(), false, true).unwrap();
+        create_flow(&config, "too-new".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     let newer_schema_json = serde_json::json!({
         "schema_version": 999,
         "name": "from-the-future",
@@ -1178,8 +1178,8 @@ fn list_enabled_flows_still_returns_the_good_rows_when_one_is_corrupt() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let good = create_flow(&config, "good".to_string(), trigger_graph(), false, true).unwrap();
-    let bad = create_flow(&config, "bad".to_string(), trigger_graph(), false, true).unwrap();
+    let good = create_flow(&config, "good".to_string(), String::new(), trigger_graph(), false, true).unwrap();
+    let bad = create_flow(&config, "bad".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     force_corrupt_graph_json_for_test(&config, &bad.id, "not json at all").unwrap();
 
     let (enabled, skipped) = list_enabled_flows(&config).unwrap();
@@ -1197,10 +1197,10 @@ fn list_enabled_flows_excludes_a_corrupt_disabled_row_without_counting_it_as_ski
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let good = create_flow(&config, "good".to_string(), trigger_graph(), false, true).unwrap();
+    let good = create_flow(&config, "good".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     let disabled_and_corrupt = create_flow(
         &config,
-        "disabled-bad".to_string(),
+        "disabled-bad".to_string(), String::new(),
         trigger_graph(),
         false,
         true,
@@ -1228,7 +1228,7 @@ fn concurrent_step_upserts_do_not_lose_a_step() {
     // `status: None`, not its real outcome.
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     let run_id = "run-concurrent";
     insert_flow_run(&config, run_id, &flow.id, run_id, "2026-01-01T00:00:00Z").unwrap();
 
@@ -1289,7 +1289,7 @@ fn concurrent_upserts_to_the_same_node_id_do_not_corrupt_the_step_list() {
     // serialization order), never a torn/duplicated list.
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let flow = create_flow(&config, "demo".to_string(), String::new(), trigger_graph(), false, true).unwrap();
     let run_id = "run-same-node";
     insert_flow_run(&config, run_id, &flow.id, run_id, "2026-01-01T00:00:00Z").unwrap();
 
@@ -1339,7 +1339,7 @@ fn schema_initializes_correctly_on_a_fresh_database_and_is_idempotent_across_cal
     // has never been opened before.
     let flow = create_flow(
         &config,
-        "fresh-db".to_string(),
+        "fresh-db".to_string(), String::new(),
         trigger_graph(),
         true, // require_approval
         true,
@@ -1374,11 +1374,11 @@ fn schema_initializes_independently_for_each_distinct_database_path() {
     // creation and every write against it would fail with "no such table".
     let tmp_a = TempDir::new().unwrap();
     let config_a = test_config(&tmp_a);
-    let flow_a = create_flow(&config_a, "a".to_string(), trigger_graph(), false, true).unwrap();
+    let flow_a = create_flow(&config_a, "a".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     let tmp_b = TempDir::new().unwrap();
     let config_b = test_config(&tmp_b);
-    let flow_b = create_flow(&config_b, "b".to_string(), trigger_graph(), false, true).unwrap();
+    let flow_b = create_flow(&config_b, "b".to_string(), String::new(), trigger_graph(), false, true).unwrap();
 
     assert_eq!(list_flows(&config_a).unwrap().0.len(), 1);
     assert_eq!(list_flows(&config_b).unwrap().0.len(), 1);
@@ -1410,7 +1410,7 @@ fn schema_reinitializes_when_the_database_file_is_deleted_at_runtime() {
     // First use populates the per-path cache and creates the schema.
     let flow = create_flow(
         &config,
-        "before-deletion".to_string(),
+        "before-deletion".to_string(), String::new(),
         trigger_graph(),
         false,
         true,
@@ -1443,7 +1443,7 @@ fn schema_reinitializes_when_the_database_file_is_deleted_at_runtime() {
     // And the store is fully usable again, not merely readable.
     let recreated = create_flow(
         &config,
-        "after-deletion".to_string(),
+        "after-deletion".to_string(), String::new(),
         trigger_graph(),
         false,
         true,

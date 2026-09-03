@@ -135,6 +135,15 @@ export interface Flow {
   id: string;
   /** Human-readable name shown in the Workflows UI. */
   name: string;
+  /**
+   * One line saying what this automation is for.
+   *
+   * Empty is normal and must be rendered as such, not as a missing value:
+   * every flow saved before this field existed has none, and the canvas does
+   * not require one. Surfaced in the agent's skills catalogue, where an empty
+   * description falls back to describing the graph's shape.
+   */
+  description: string;
   /** Whether this flow may currently be triggered/run. */
   enabled: boolean;
   /** The validated, migrated workflow graph — opaque to this client. */
@@ -237,6 +246,8 @@ export interface FlowConnection {
 /** Optional fields for {@link updateFlow}. Omitted fields are left untouched. */
 interface FlowUpdate {
   name?: string;
+  /** Omit to leave the stored description untouched; `''` clears it. */
+  description?: string;
   graph?: unknown;
   requireApproval?: boolean;
   /**
@@ -373,15 +384,16 @@ function unwrapCliEnvelope<T>(payload: unknown): T {
 export async function createFlow(
   name: string,
   graph: unknown,
-  requireApproval?: boolean
+  requireApproval?: boolean,
+  description?: string
 ): Promise<Flow> {
   log('createFlow: request name=%s requireApproval=%s', name, requireApproval ?? 'default');
+  const params: Record<string, unknown> = { name, graph };
+  if (requireApproval !== undefined) params.require_approval = requireApproval;
+  if (description !== undefined) params.description = description;
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_create',
-    params:
-      requireApproval === undefined
-        ? { name, graph }
-        : { name, graph, require_approval: requireApproval },
+    params,
   });
   const flow = unwrapCliEnvelope<Flow>(response);
   log('createFlow: response id=%s name=%s enabled=%s', flow.id, flow.name, flow.enabled);
@@ -650,6 +662,7 @@ export async function updateFlow(id: string, update: FlowUpdate): Promise<Flow> 
   );
   const params: Record<string, unknown> = { id };
   if (update.name !== undefined) params.name = update.name;
+  if (update.description !== undefined) params.description = update.description;
   if (update.graph !== undefined) params.graph = update.graph;
   if (update.requireApproval !== undefined) params.require_approval = update.requireApproval;
   if (update.expectedVersion !== undefined) params.expected_version = update.expectedVersion;

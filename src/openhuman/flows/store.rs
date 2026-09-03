@@ -353,6 +353,7 @@ pub fn insert_duplicate_flow(config: &Config, source: &Flow, new_name: String) -
 pub fn create_flow(
     config: &Config,
     name: String,
+    description: String,
     graph: tinyflows::model::WorkflowGraph,
     require_approval: bool,
     enabled: bool,
@@ -368,6 +369,7 @@ pub fn create_flow(
         last_run_at: None,
         last_status: None,
         require_approval,
+        description,
     };
     upsert_flow(config, &flow)?;
     Ok(flow)

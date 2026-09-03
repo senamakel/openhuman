@@ -24,16 +24,22 @@
 //! in as `User` skills: the difference is real, and a consumer that needs to
 //! know can ask.
 //!
-//! # Descriptions are synthesised, and this is a real limitation
+//! # Descriptions: the author's, or the graph's shape
 //!
-//! `Flow` and `tinyflows::model::WorkflowGraph` carry **no description field** —
-//! only a name. A catalogue entry therefore says what the graph *is* (its
-//! trigger and size), never what it is *for*, which is what a reader actually
-//! wants and what ranks well in `skill_search`. A one-line `description` on the
-//! flow model, authored in the builder, is the fix; until then a flow named
-//! "Morning digest" contributes its name and little else. Do not paper over
-//! this by inventing prose from node internals — a confident wrong summary is
-//! worse than an honest thin one.
+//! [`Flow::description`] is what the catalogue wants — one line saying what the
+//! automation is *for*, which is the half a reader acts on and the half
+//! `skill_search` ranks well. When it is set, it is used verbatim.
+//!
+//! It is often not set, and that is not a bug to design around: every flow
+//! saved before the field existed has none, the canvas does not force one, and
+//! a draft promoted to a flow carries none. Those fall back to describing the
+//! graph's **shape** — trigger and step count — which says what the thing is
+//! without claiming to know why it exists.
+//!
+//! Do not close that gap by inventing prose from node internals. A summary
+//! synthesised from a graph reads exactly as authoritative as one a human
+//! wrote, and is wrong often enough to route work to the wrong automation. An
+//! honestly thin line beats a confident wrong one.
 
 use crate::openhuman::config::Config;
 use crate::openhuman::skills::{Workflow, WorkflowScope};
@@ -108,12 +114,29 @@ fn entry_for(flow: super::types::Flow) -> Workflow {
     }
 }
 
-/// A one-line summary of what the graph *is*.
+/// The author's description, or a structural fallback.
+///
+/// The paused note is appended either way: whether a flow currently runs is a
+/// fact about the record, not about its purpose, so an author's line never
+/// suppresses it.
+fn describe(flow: &super::types::Flow) -> String {
+    let authored = flow.description.trim();
+    if !authored.is_empty() {
+        let mut out = authored.to_string();
+        if !flow.enabled {
+            out.push_str(" Currently disabled.");
+        }
+        return out;
+    }
+    describe_shape(flow)
+}
+
+/// A one-line summary of what the graph *is*, for a flow with no description.
 ///
 /// Deliberately structural — trigger, size, paused-ness — because that is all
-/// the model carries. See the module docs: inventing a purpose from node
+/// the record carries. See the module docs: inventing a purpose from node
 /// internals would read as authoritative and frequently be wrong.
-fn describe(flow: &super::types::Flow) -> String {
+fn describe_shape(flow: &super::types::Flow) -> String {
     // Read out of the trigger node's free-form config, which is where the
     // engine keeps it — the same way `tinyflows`' own `trigger_kind` does.
     // A graph with zero or several triggers has no single answer, and

@@ -3593,6 +3593,10 @@ impl Tool for SaveWorkflowTool {
                 "name": {
                     "type": "string",
                     "description": "Optional new human-readable name for the flow."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional new one-line summary of what this automation is for. Omit to leave the existing one unchanged."
                 }
             },
             "required": ["flow_id"],
@@ -3659,6 +3663,13 @@ impl Tool for SaveWorkflowTool {
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string);
+        // Absent leaves the stored description alone. Unlike `name`, an empty
+        // string is NOT filtered out: clearing a description is a thing an
+        // author may legitimately want, and there is no other way to say it.
+        let description = args
+            .get("description")
+            .and_then(Value::as_str)
+            .map(|s| s.trim().to_string());
 
         // Same migrate/validate + enforcing binding-resolvability gate as
         // propose_workflow/revise_workflow, run HERE at the tool level (not

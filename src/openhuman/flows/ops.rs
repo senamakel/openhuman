@@ -3966,6 +3966,7 @@ pub(crate) async fn flows_update_disarming_automatic(
         config,
         id,
         name,
+        description,
         graph_json,
         require_approval,
         expected_version,
@@ -4156,6 +4157,10 @@ pub async fn flows_rollback(
         config,
         id,
         Some(rev.name),
+        // Revisions capture the graph, not the catalogue description, so a
+        // rollback restores the shape and leaves the description as-is rather
+        // than blanking it from a record that never held one.
+        None,
         Some(rev.graph),
         Some(rev.require_approval),
         expected_version,
@@ -8114,6 +8119,9 @@ pub async fn flows_draft_promote(
                 config,
                 flow_id,
                 Some(draft.name.clone()),
+                // Drafts carry no description; promoting one must not clear
+                // the description the live flow already has.
+                None,
                 Some(draft.graph.clone()),
                 require_approval,
                 None,

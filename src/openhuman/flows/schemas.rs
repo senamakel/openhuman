@@ -1526,6 +1526,11 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
                 &config,
                 id.trim(),
                 name,
+                // Absent means "not part of this edit". `Some("")` clears it.
+                params
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
                 graph,
                 require_approval,
                 expected_version,

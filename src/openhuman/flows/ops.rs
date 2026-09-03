@@ -3958,6 +3958,7 @@ pub(crate) async fn flows_update_disarming_automatic(
     config: &Config,
     id: &str,
     name: Option<String>,
+    description: Option<String>,
     graph_json: Option<Value>,
     require_approval: Option<bool>,
     expected_version: Option<String>,

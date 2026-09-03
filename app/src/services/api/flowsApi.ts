@@ -391,10 +391,7 @@ export async function createFlow(
   const params: Record<string, unknown> = { name, graph };
   if (requireApproval !== undefined) params.require_approval = requireApproval;
   if (description !== undefined) params.description = description;
-  const response = await callCoreRpc<unknown>({
-    method: 'openhuman.flows_create',
-    params,
-  });
+  const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_create', params });
   const flow = unwrapCliEnvelope<Flow>(response);
   log('createFlow: response id=%s name=%s enabled=%s', flow.id, flow.name, flow.enabled);
   return flow;

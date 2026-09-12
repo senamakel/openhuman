@@ -303,7 +303,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ path: 'crates/openhuman-core/src/tools' }),
         })
       )
-    ).toEqual({ title: 'Listing directory', detail: 'crates/openhuman-core/src/tools' });
+    ).toEqual({ title: 'Listing directory', detail: '…/src/tools' });
   });
 
   it('formats browser_open with hostname', () => {

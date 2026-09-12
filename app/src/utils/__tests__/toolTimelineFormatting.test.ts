@@ -298,7 +298,10 @@ describe('formatTimelineEntry', () => {
   it('formats list with directory path', () => {
     expect(
       formatTimelineEntry(
-        entry({ name: 'list', argsBuffer: JSON.stringify({ path: 'crates/openhuman-core/src/tools' }) })
+        entry({
+          name: 'list',
+          argsBuffer: JSON.stringify({ path: 'crates/openhuman-core/src/tools' }),
+        })
       )
     ).toEqual({ title: 'Listing directory', detail: 'crates/openhuman-core/src/tools' });
   });

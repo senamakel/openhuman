@@ -142,6 +142,17 @@ fi
 # execute. Keep this list in the same canonical source as `pnpm test:rust`.
 PRODUCT_FEATURES="$(bash "$REPO_ROOT/scripts/ci/product-features.sh")"
 
+# Memory-backed RPC tests use the pinned native module. Build the submodule
+# artifact when CI/local callers have not supplied an explicit release pin;
+# otherwise the clean E2E container falls back to unavailable release metadata.
+if [ -z "${TINYMEMORY_TEST_MODULE:-}" ]; then
+  memory_manifest="vendor/tinymemory/crates/tinymemory-module/Cargo.toml"
+  memory_module="vendor/tinymemory/crates/tinymemory-module/target/release/libtinymemory_module.so"
+  echo "[rust-e2e] Building pinned TinyMemory test module ..."
+  "$CARGO_BIN" build --release --manifest-path "$memory_manifest"
+  export TINYMEMORY_TEST_MODULE="$REPO_ROOT/$memory_module"
+fi
+
 echo "[rust-e2e] Running ${#SUITES[@]} suite(s) serially."
 
 run_json_rpc_e2e_suite() {

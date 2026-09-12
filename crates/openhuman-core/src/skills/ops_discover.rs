@@ -4,12 +4,12 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use self::ops_discover_resource::resolve_workflow_for_resource;
 use super::ops_parse::{load_from_legacy_manifest, load_from_workflow_md};
 use super::ops_types::{
     Workflow, WorkflowScope, MAX_WORKFLOW_RESOURCE_BYTES, SKILL_JSON, SKILL_MD, TRUST_MARKER,
     WORKFLOW_MD,
 };
-use self::ops_discover_resource::resolve_workflow_for_resource;
 
 #[path = "ops_discover_resource.rs"]
 mod ops_discover_resource;

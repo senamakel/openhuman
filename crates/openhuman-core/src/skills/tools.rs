@@ -28,10 +28,7 @@ use super::ops_discover::{
     discover_workflows_with_profile, is_workspace_trusted, profile_local_skill_ids,
     read_workflow_resource_with_profile,
 };
-use super::ops_install::{
-    install_workflow_from_url, uninstall_workflow, InstallWorkflowFromUrlParams,
-    UninstallWorkflowParams,
-};
+use super::ops_install::{install_workflow_from_url, InstallWorkflowFromUrlParams};
 use super::ops_types::WorkflowScope;
 use super::registry::get_workflow_with_profile;
 use super::run_log::{read_run_log_slice, scan_runs};

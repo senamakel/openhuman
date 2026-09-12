@@ -98,7 +98,7 @@ const EMBEDDINGS_BLOCKING_CAUSES = new Set([
  */
 async function embeddingsHardDown(): Promise<boolean> {
   const status = await pipelineStatus();
-  const cause = status.first_blocking_cause?.code;
+  const cause = status.first_blocking_cause?.code ?? status.degraded?.cause?.code;
   return (
     status.degraded?.semantic_recall === true ||
     (cause !== undefined && EMBEDDINGS_BLOCKING_CAUSES.has(cause))
@@ -321,7 +321,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
             backfillStatus(),
           ]);
           const pending = now?.chunks_pending ?? 0;
-          const cause = pipeline.first_blocking_cause?.code;
+          const cause = pipeline.first_blocking_cause?.code ?? pipeline.degraded?.cause?.code;
           const embeddingsBlocked = cause !== undefined && EMBEDDINGS_BLOCKING_CAUSES.has(cause);
           const hard =
             pipeline.degraded?.semantic_recall === true ||

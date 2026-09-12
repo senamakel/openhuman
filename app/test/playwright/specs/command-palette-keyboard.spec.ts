@@ -124,10 +124,15 @@ test.describe('Command palette — keyboard-only selection', () => {
 
     const ids = await visibleIds(page);
     const first = ids[0];
-    const target = ids[1];
-    expect(target).toBeTruthy();
-
     const firstDest = DESTINATIONS[first];
+    const targetIndex = ids.findIndex(
+      (id, index) => index > 0 && DESTINATIONS[id]?.source !== firstDest?.source
+    );
+    expect(
+      targetIndex,
+      'no visible action has a destination distinct from the first action'
+    ).toBeGreaterThan(0);
+    const target = ids[targetIndex];
     const targetDest = DESTINATIONS[target];
     expect(targetDest, `no known destination for '${target}' — extend DESTINATIONS`).toBeTruthy();
 
@@ -136,11 +141,13 @@ test.describe('Command palette — keyboard-only selection', () => {
     // say so, rather than reporting a green that discriminates nothing.
     expect(
       firstDest?.source,
-      `items 0 ('${first}') and 1 ('${target}') share a destination; ` +
+      `items 0 ('${first}') and ${targetIndex} ('${target}') share a destination; ` +
         'this test cannot detect the regression it names — pick a different fixture'
     ).not.toBe(targetDest.source);
 
-    await page.keyboard.press('ArrowDown');
+    for (let index = 0; index < targetIndex; index += 1) {
+      await page.keyboard.press('ArrowDown');
+    }
     await expect.poll(() => selectedId(page)).toBe(target);
 
     await page.keyboard.press('Enter');

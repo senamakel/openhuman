@@ -14,3 +14,4 @@ yarn.lock
 package-lock.json
 target-test-run
 test/e2e/artifacts
+test-results

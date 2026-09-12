@@ -36,6 +36,10 @@ use super::ops_types::WorkflowScope;
 use super::registry::get_workflow_with_profile;
 use super::run_log::{read_run_log_slice, scan_runs};
 
+#[path = "tools_uninstall.rs"]
+mod tools_uninstall;
+pub use tools_uninstall::WorkflowUninstallTool;
+
 fn read_required_str(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
     args.get(key)
         .and_then(serde_json::Value::as_str)
@@ -709,43 +713,6 @@ impl Tool for WorkflowInstallFromUrlTool {
         let outcome = install_workflow_from_url(&self.workspace_dir, params)
             .await
             .map_err(|e| anyhow::anyhow!("install_workflow_from_url: {e}"))?;
-        Ok(ToolResult::success(serde_json::to_string(&outcome)?))
-    }
-}
-
-/// Uninstall a user skill. **Deletes from disk** — default-OFF.
-pub struct WorkflowUninstallTool;
-
-#[async_trait]
-impl Tool for WorkflowUninstallTool {
-    fn name(&self) -> &str {
-        "uninstall_workflow"
-    }
-
-    fn description(&self) -> &str {
-        "Uninstall a user-scope workflow by `name`, deleting its directory under \
-         `~/.openhuman/skills/`. Irreversible; project/legacy workflows are \
-         read-only and cannot be removed. Only use when the user asks to remove \
-         a specific workflow."
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": { "name": { "type": "string", "description": "Workflow name (directory) to remove." } },
-            "required": ["name"]
-        })
-    }
-
-    fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::Dangerous
-    }
-
-    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        log::debug!("[tool][skills] uninstall invoked");
-        let name = read_required_str(&args, "name")?;
-        let outcome = uninstall_workflow(UninstallWorkflowParams { name }, None)
-            .map_err(|e| anyhow::anyhow!("uninstall_workflow: {e}"))?;
         Ok(ToolResult::success(serde_json::to_string(&outcome)?))
     }
 }

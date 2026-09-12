@@ -9,6 +9,10 @@ use super::ops_types::{
     Workflow, WorkflowScope, MAX_WORKFLOW_RESOURCE_BYTES, SKILL_JSON, SKILL_MD, TRUST_MARKER,
     WORKFLOW_MD,
 };
+use self::ops_discover_resource::resolve_workflow_for_resource;
+
+#[path = "ops_discover_resource.rs"]
+mod ops_discover_resource;
 
 const EXCLUDED_SKILL_DIRS: &[&str] = &[
     ".git",
@@ -716,48 +720,6 @@ pub fn read_workflow_resource_with_profile(
     Ok(content)
 }
 
-fn resolve_workflow_for_resource(
-    workflows: Vec<Workflow>,
-    skill_id: &str,
-) -> Result<Workflow, String> {
-    let mut dir_match: Option<Workflow> = None;
-    let mut name_match: Option<Workflow> = None;
-
-    for workflow in workflows {
-        if workflow.dir_name == skill_id {
-            if dir_match.is_some() {
-                return Err(format!(
-                    "skill id '{skill_id}' is ambiguous across multiple skill directories"
-                ));
-            }
-            dir_match = Some(workflow);
-            continue;
-        }
-
-        if workflow.name == skill_id {
-            if name_match.is_some() {
-                return Err(format!(
-                    "skill name '{skill_id}' is ambiguous; use the directory id"
-                ));
-            }
-            name_match = Some(workflow);
-        }
-    }
-
-    match (dir_match, name_match) {
-        (Some(dir_skill), Some(name_skill)) => {
-            if dir_skill.location == name_skill.location {
-                Ok(dir_skill)
-            } else {
-                Err(format!(
-                    "skill id '{skill_id}' matches both a directory id and a different skill name"
-                ))
-            }
-        }
-        (Some(skill), None) | (None, Some(skill)) => Ok(skill),
-        (None, None) => Err(format!("skill '{skill_id}' not found")),
-    }
-}
 #[cfg(test)]
 #[path = "ops_discover_include_skills_tests_tests.rs"]
 mod include_skills_tests;

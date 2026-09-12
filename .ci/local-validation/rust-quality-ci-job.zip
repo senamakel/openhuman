@@ -1,0 +1,908 @@
+﻿2026-09-12T21:26:13.8734095Z Current runner version: '2.337.0'
+2026-09-12T21:26:13.8760581Z ##[group]Runner Image Provisioner
+2026-09-12T21:26:13.8761627Z Hosted Compute Agent
+2026-09-12T21:26:13.8762261Z Version: 20260828.587
+2026-09-12T21:26:13.8762973Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-12T21:26:13.8763751Z Build Date: 2026-08-28T16:44:25Z
+2026-09-12T21:26:13.8764467Z Worker ID: {0ffea75f-2429-4eab-9134-a4d94c95edfa}
+2026-09-12T21:26:13.8765282Z Azure Region: northcentralus
+2026-09-12T21:26:13.8766298Z ##[endgroup]
+2026-09-12T21:26:13.8768034Z ##[group]Operating System
+2026-09-12T21:26:13.8768752Z Ubuntu
+2026-09-12T21:26:13.8769287Z 22.04.5
+2026-09-12T21:26:13.8769879Z LTS
+2026-09-12T21:26:13.8770430Z ##[endgroup]
+2026-09-12T21:26:13.8770973Z ##[group]Runner Image
+2026-09-12T21:26:13.8771688Z Image: ubuntu-22.04
+2026-09-12T21:26:13.8772276Z Version: 20260907.292.1
+2026-09-12T21:26:13.8773656Z Included Software: https://github.com/actions/runner-images/blob/ubuntu22/20260907.292/images/ubuntu/Ubuntu2204-Readme.md
+2026-09-12T21:26:13.8775265Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu22%2F20260907.292
+2026-09-12T21:26:13.8776844Z ##[endgroup]
+2026-09-12T21:26:13.8778294Z ##[group]GITHUB_TOKEN Permissions
+2026-09-12T21:26:13.8780490Z Actions: read
+2026-09-12T21:26:13.8781171Z Contents: read
+2026-09-12T21:26:13.8781885Z Metadata: read
+2026-09-12T21:26:13.8782483Z Packages: read
+2026-09-12T21:26:13.8783039Z PullRequests: read
+2026-09-12T21:26:13.8783779Z ##[endgroup]
+2026-09-12T21:26:13.8786188Z Secret source: None
+2026-09-12T21:26:13.8787306Z Cache mode: write
+2026-09-12T21:26:13.8788026Z Prepare workflow directory
+2026-09-12T21:26:13.9665510Z Prepare all required actions
+2026-09-12T21:26:13.9744665Z Getting action download info
+2026-09-12T21:26:14.1914433Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-09-12T21:26:14.3088865Z Download action repository 'Swatinem/rust-cache@v2' (SHA:6323deb102c322ba6fcbdcafc7e3dddab59af2b6)
+2026-09-12T21:26:14.7092659Z Download action repository 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9' (SHA:55cc8345863c7cc4c66a329aec7e433d2d1c52a9)
+2026-09-12T21:26:15.0705814Z Complete job name: Rust Quality (fmt, clippy)
+2026-09-12T21:26:15.1318880Z ##[group]Checking docker version
+2026-09-12T21:26:15.1333280Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+2026-09-12T21:26:15.2139606Z '1.48'
+2026-09-12T21:26:15.2156950Z Docker daemon API version: '1.48'
+2026-09-12T21:26:15.2158156Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+2026-09-12T21:26:15.2373385Z '1.48'
+2026-09-12T21:26:15.2392698Z Docker client API version: '1.48'
+2026-09-12T21:26:15.2399351Z ##[endgroup]
+2026-09-12T21:26:15.2402519Z ##[group]Clean up resources from previous jobs
+2026-09-12T21:26:15.2408467Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=ede413"
+2026-09-12T21:26:15.2592612Z ##[command]/usr/bin/docker network prune --force --filter "label=ede413"
+2026-09-12T21:26:15.2769531Z ##[endgroup]
+2026-09-12T21:26:15.2770394Z ##[group]Create local container network
+2026-09-12T21:26:15.2781614Z ##[command]/usr/bin/docker network create --label ede413 github_network_07e122f9c7ab4379aa5bae38afcd0973
+2026-09-12T21:26:15.3422609Z 0bb039e266c86c1834a03532e4b88fd93590cd27160b0c815becb581c4f82272
+2026-09-12T21:26:15.3451430Z ##[endgroup]
+2026-09-12T21:26:15.3477528Z ##[group]Starting job container
+2026-09-12T21:26:15.3504589Z ##[command]/usr/bin/docker --config /home/runner/work/_temp/.docker_812bdbda-c05a-4349-b968-7b34b58322c6 login ghcr.io -u senamakel --password-stdin
+2026-09-12T21:26:15.6184055Z ##[command]/usr/bin/docker --config /home/runner/work/_temp/.docker_812bdbda-c05a-4349-b968-7b34b58322c6 pull ghcr.io/tinyhumansai/openhuman_ci:latest
+2026-09-12T21:26:16.0270865Z latest: Pulling from tinyhumansai/openhuman_ci
+2026-09-12T21:26:16.0272437Z f63eb04151bc: Pulling fs layer
+2026-09-12T21:26:16.0273659Z feb4c67ce0a8: Pulling fs layer
+2026-09-12T21:26:16.0275017Z e7fea9a229fd: Pulling fs layer
+2026-09-12T21:26:16.0276943Z 51e1311157f3: Pulling fs layer
+2026-09-12T21:26:16.0277828Z 913e23227568: Pulling fs layer
+2026-09-12T21:26:16.0278612Z 4f4fb700ef54: Pulling fs layer
+2026-09-12T21:26:16.0279462Z d251cbde1c4c: Pulling fs layer
+2026-09-12T21:26:16.0280378Z 0a831f6b49bf: Pulling fs layer
+2026-09-12T21:26:16.0281093Z 6309adafdf11: Pulling fs layer
+2026-09-12T21:26:16.0282142Z e9a9c03d4556: Pulling fs layer
+2026-09-12T21:26:16.0283049Z 7591fa7013e6: Pulling fs layer
+2026-09-12T21:26:16.0283696Z 296fa24a12d4: Pulling fs layer
+2026-09-12T21:26:16.0284579Z 65bf49ee3268: Pulling fs layer
+2026-09-12T21:26:16.0285377Z 51e1311157f3: Waiting
+2026-09-12T21:26:16.0286038Z 913e23227568: Waiting
+2026-09-12T21:26:16.0286921Z 4f4fb700ef54: Waiting
+2026-09-12T21:26:16.0287523Z d251cbde1c4c: Waiting
+2026-09-12T21:26:16.0288213Z 0a831f6b49bf: Waiting
+2026-09-12T21:26:16.0288938Z 6309adafdf11: Waiting
+2026-09-12T21:26:16.0289664Z e9a9c03d4556: Waiting
+2026-09-12T21:26:16.0290410Z 7591fa7013e6: Waiting
+2026-09-12T21:26:16.0291098Z 296fa24a12d4: Waiting
+2026-09-12T21:26:16.0291831Z 65bf49ee3268: Waiting
+2026-09-12T21:26:16.2817157Z f63eb04151bc: Verifying Checksum
+2026-09-12T21:26:16.2818649Z f63eb04151bc: Download complete
+2026-09-12T21:26:17.2669251Z 51e1311157f3: Verifying Checksum
+2026-09-12T21:26:17.2671589Z 51e1311157f3: Download complete
+2026-09-12T21:26:17.3926561Z 913e23227568: Verifying Checksum
+2026-09-12T21:26:17.3935295Z 913e23227568: Download complete
+2026-09-12T21:26:17.4947713Z 4f4fb700ef54: Verifying Checksum
+2026-09-12T21:26:17.4950157Z 4f4fb700ef54: Download complete
+2026-09-12T21:26:17.6499152Z d251cbde1c4c: Verifying Checksum
+2026-09-12T21:26:17.6501990Z d251cbde1c4c: Download complete
+2026-09-12T21:26:17.8330998Z 0a831f6b49bf: Verifying Checksum
+2026-09-12T21:26:17.8332425Z 0a831f6b49bf: Download complete
+2026-09-12T21:26:17.8963911Z e7fea9a229fd: Verifying Checksum
+2026-09-12T21:26:17.8964823Z e7fea9a229fd: Download complete
+2026-09-12T21:26:17.9251712Z f63eb04151bc: Pull complete
+2026-09-12T21:26:18.0587308Z 6309adafdf11: Download complete
+2026-09-12T21:26:18.1746887Z 7591fa7013e6: Verifying Checksum
+2026-09-12T21:26:18.1749919Z 7591fa7013e6: Download complete
+2026-09-12T21:26:18.2897976Z 296fa24a12d4: Download complete
+2026-09-12T21:26:18.3794104Z e9a9c03d4556: Verifying Checksum
+2026-09-12T21:26:18.3794873Z e9a9c03d4556: Download complete
+2026-09-12T21:26:18.3996780Z 65bf49ee3268: Verifying Checksum
+2026-09-12T21:26:18.3998024Z 65bf49ee3268: Download complete
+2026-09-12T21:26:19.5270833Z feb4c67ce0a8: Verifying Checksum
+2026-09-12T21:26:19.5271927Z feb4c67ce0a8: Download complete
+2026-09-12T21:26:34.2243818Z feb4c67ce0a8: Pull complete
+2026-09-12T21:26:38.2996427Z e7fea9a229fd: Pull complete
+2026-09-12T21:26:41.7138749Z 51e1311157f3: Pull complete
+2026-09-12T21:26:41.7968275Z 913e23227568: Pull complete
+2026-09-12T21:26:41.8059720Z 4f4fb700ef54: Pull complete
+2026-09-12T21:26:41.9349188Z d251cbde1c4c: Pull complete
+2026-09-12T21:26:42.9742252Z 0a831f6b49bf: Pull complete
+2026-09-12T21:26:43.4202269Z 6309adafdf11: Pull complete
+2026-09-12T21:26:45.2231800Z e9a9c03d4556: Pull complete
+2026-09-12T21:26:45.2334631Z 7591fa7013e6: Pull complete
+2026-09-12T21:26:45.2607837Z 296fa24a12d4: Pull complete
+2026-09-12T21:26:45.2749907Z 65bf49ee3268: Pull complete
+2026-09-12T21:26:45.2788822Z Digest: sha256:f68d68a8bf8173e4fa1eef12d5b0c41edf97044e760dc75152b570ef246f8dc7
+2026-09-12T21:26:45.2818282Z Status: Downloaded newer image for ghcr.io/tinyhumansai/openhuman_ci:latest
+2026-09-12T21:26:45.2831488Z ghcr.io/tinyhumansai/openhuman_ci:latest
+2026-09-12T21:26:45.2930670Z ##[command]/usr/bin/docker create --name 3d566e28fd3f434ba702788af12cde91_ghcriotinyhumansaiopenhuman_cilatest_cd9cb5 --label ede413 --workdir /__w/openhuman/openhuman --network github_network_07e122f9c7ab4379aa5bae38afcd0973  -e "HOME=/github/home" -e GITHUB_ACTIONS=true -e CI=true -v "/var/run/docker.sock":"/var/run/docker.sock" -v "/home/runner/work":"/__w" -v "/home/runner/actions-runner/cached/2.337.0/externals":"/__e":ro -v "/home/runner/work/_temp":"/__w/_temp" -v "/home/runner/work/_actions":"/__w/_actions" -v "/opt/hostedtoolcache":"/__t" -v "/home/runner/work/_temp/_github_home":"/github/home" -v "/home/runner/work/_temp/_github_workflow":"/github/workflow" --entrypoint "tail" ghcr.io/tinyhumansai/openhuman_ci:latest "-f" "/dev/null"
+2026-09-12T21:26:45.3217150Z 61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd
+2026-09-12T21:26:45.3245282Z ##[command]/usr/bin/docker start 61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd
+2026-09-12T21:26:45.5301292Z 61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd
+2026-09-12T21:26:45.5327891Z ##[command]/usr/bin/docker ps --all --filter id=61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2026-09-12T21:26:45.5542366Z 61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd Up Less than a second
+2026-09-12T21:26:45.5565469Z ##[command]/usr/bin/docker inspect --format "{{range .Config.Env}}{{println .}}{{end}}" 61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd
+2026-09-12T21:26:45.5717121Z HOME=/github/home
+2026-09-12T21:26:45.5718201Z GITHUB_ACTIONS=true
+2026-09-12T21:26:45.5726650Z CI=true
+2026-09-12T21:26:45.5727416Z PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+2026-09-12T21:26:45.5728305Z DEBIAN_FRONTEND=noninteractive
+2026-09-12T21:26:45.5728924Z RUSTUP_HOME=/usr/local/rustup
+2026-09-12T21:26:45.5729441Z CARGO_HOME=/usr/local/cargo
+2026-09-12T21:26:45.5743455Z ##[endgroup]
+2026-09-12T21:26:45.5752717Z ##[group]Waiting for all services to be ready
+2026-09-12T21:26:45.5754467Z ##[endgroup]
+2026-09-12T21:26:45.6036186Z ##[group]Run actions/checkout@v7
+2026-09-12T21:26:45.6036830Z with:
+2026-09-12T21:26:45.6037034Z   fetch-depth: 1
+2026-09-12T21:26:45.6037264Z   persist-credentials: false
+2026-09-12T21:26:45.6037515Z   submodules: recursive
+2026-09-12T21:26:45.6037756Z   repository: tinyhumansai/openhuman
+2026-09-12T21:26:45.6040207Z   token: ***
+2026-09-12T21:26:45.6040414Z   ssh-strict: true
+2026-09-12T21:26:45.6040622Z   ssh-user: git
+2026-09-12T21:26:45.6040826Z   clean: true
+2026-09-12T21:26:45.6041043Z   sparse-checkout-cone-mode: true
+2026-09-12T21:26:45.6041298Z   fetch-tags: false
+2026-09-12T21:26:45.6041500Z   show-progress: true
+2026-09-12T21:26:45.6041702Z   lfs: false
+2026-09-12T21:26:45.6041891Z   set-safe-directory: true
+2026-09-12T21:26:45.6042140Z   allow-unsafe-pr-checkout: false
+2026-09-12T21:26:45.6042573Z env:
+2026-09-12T21:26:45.6044809Z   GH_TOKEN: ***
+2026-09-12T21:26:45.6045142Z   NPM_CONFIG_STORE_DIR: .pnpm-store
+2026-09-12T21:26:45.6045655Z   CARGO_INCREMENTAL: 0
+2026-09-12T21:26:45.6046329Z   RUSTFLAGS: -C link-arg=-fuse-ld=mold
+2026-09-12T21:26:45.6046600Z ##[endgroup]
+2026-09-12T21:26:45.6110613Z ##[command]/usr/bin/docker exec  61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd sh -c "cat /etc/*release | grep ^ID"
+2026-09-12T21:26:45.8228284Z Syncing repository: tinyhumansai/openhuman
+2026-09-12T21:26:45.8230361Z ##[group]Getting Git version info
+2026-09-12T21:26:45.8230765Z Working directory is '/__w/openhuman/openhuman'
+2026-09-12T21:26:45.8231339Z [command]/usr/bin/git version
+2026-09-12T21:26:45.8231624Z git version 2.34.1
+2026-09-12T21:26:45.8289099Z ##[endgroup]
+2026-09-12T21:26:45.8302878Z Temporarily overriding HOME='/__w/_temp/e448d886-257d-440a-9590-bcea4fae26ec' before making global git config changes
+2026-09-12T21:26:45.8304063Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-12T21:26:45.8309384Z [command]/usr/bin/git config --global --add safe.directory /__w/openhuman/openhuman
+2026-09-12T21:26:45.8349538Z Deleting the contents of '/__w/openhuman/openhuman'
+2026-09-12T21:26:45.8353500Z ##[group]Determining repository object format
+2026-09-12T21:26:45.8355533Z ##[endgroup]
+2026-09-12T21:26:45.8356449Z ##[group]Initializing the repository
+2026-09-12T21:26:45.8361529Z [command]/usr/bin/git init /__w/openhuman/openhuman
+2026-09-12T21:26:45.8402397Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-12T21:26:45.8403391Z hint: is subject to change. To configure the initial branch name to use in all
+2026-09-12T21:26:45.8404267Z hint: of your new repositories, which will suppress this warning, call:
+2026-09-12T21:26:45.8404865Z hint: 
+2026-09-12T21:26:45.8405184Z hint: 	git config --global init.defaultBranch <name>
+2026-09-12T21:26:45.8405587Z hint: 
+2026-09-12T21:26:45.8406236Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-12T21:26:45.8406756Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-12T21:26:45.8407171Z hint: 
+2026-09-12T21:26:45.8407389Z hint: 	git branch -m <name>
+2026-09-12T21:26:45.8412548Z Initialized empty Git repository in /__w/openhuman/openhuman/.git/
+2026-09-12T21:26:45.8425958Z [command]/usr/bin/git remote add origin https://github.com/tinyhumansai/openhuman
+2026-09-12T21:26:45.8461703Z ##[endgroup]
+2026-09-12T21:26:45.8462147Z ##[group]Disabling automatic garbage collection
+2026-09-12T21:26:45.8465785Z [command]/usr/bin/git config --local gc.auto 0
+2026-09-12T21:26:45.8500455Z ##[endgroup]
+2026-09-12T21:26:45.8501084Z ##[group]Setting up auth
+2026-09-12T21:26:45.8502836Z Removing SSH command configuration
+2026-09-12T21:26:45.8507910Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-12T21:26:45.8547855Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-12T21:26:45.8828384Z Removing HTTP extra header
+2026-09-12T21:26:45.8834531Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-12T21:26:45.8874578Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-12T21:26:45.9146700Z Removing includeIf entries pointing to credentials config files
+2026-09-12T21:26:45.9157827Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:26:45.9190315Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-12T21:26:45.9480016Z [command]/usr/bin/git config --file /__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-12T21:26:45.9531562Z [command]/usr/bin/git config --local includeIf.gitdir:/__w/openhuman/openhuman/.git.path /__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:26:45.9570986Z [command]/usr/bin/git config --local includeIf.gitdir:/__w/openhuman/openhuman/.git/worktrees/*.path /__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:26:45.9610928Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:26:45.9654114Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:26:45.9693810Z ##[endgroup]
+2026-09-12T21:26:45.9694490Z ##[group]Fetching the repository
+2026-09-12T21:26:45.9703320Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +f867c8a43490bc72686adcb27b168e84069bdeb0:refs/remotes/pull/6238/merge
+2026-09-12T21:26:48.3421042Z From https://github.com/tinyhumansai/openhuman
+2026-09-12T21:26:48.3421835Z  * [new ref]         f867c8a43490bc72686adcb27b168e84069bdeb0 -> pull/6238/merge
+2026-09-12T21:26:48.3448344Z ##[endgroup]
+2026-09-12T21:26:48.3449213Z ##[group]Determining the checkout info
+2026-09-12T21:26:48.3450127Z ##[endgroup]
+2026-09-12T21:26:48.3454769Z [command]/usr/bin/git sparse-checkout disable
+2026-09-12T21:26:48.3506294Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-12T21:26:48.3530445Z ##[group]Checking out the ref
+2026-09-12T21:26:48.3534266Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/6238/merge
+2026-09-12T21:26:48.9406421Z Note: switching to 'refs/remotes/pull/6238/merge'.
+2026-09-12T21:26:48.9407030Z 
+2026-09-12T21:26:48.9407375Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-09-12T21:26:48.9408165Z changes and commit them, and you can discard any commits you make in this
+2026-09-12T21:26:48.9408966Z state without impacting any branches by switching back to a branch.
+2026-09-12T21:26:48.9409434Z 
+2026-09-12T21:26:48.9409897Z If you want to create a new branch to retain commits you create, you may
+2026-09-12T21:26:48.9410628Z do so (now or later) by using -c with the switch command. Example:
+2026-09-12T21:26:48.9411056Z 
+2026-09-12T21:26:48.9411256Z   git switch -c <new-branch-name>
+2026-09-12T21:26:48.9411544Z 
+2026-09-12T21:26:48.9411710Z Or undo this operation with:
+2026-09-12T21:26:48.9411965Z 
+2026-09-12T21:26:48.9412108Z   git switch -
+2026-09-12T21:26:48.9412295Z 
+2026-09-12T21:26:48.9412651Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-09-12T21:26:48.9413167Z 
+2026-09-12T21:26:48.9413759Z HEAD is now at f867c8a Merge b1f5f120007c240bdcb0ad5cb2be1ebbb9dfee5d into 11a2b7969dc9415df8e1adbdba70c5e54df4ef31
+2026-09-12T21:26:48.9426205Z ##[endgroup]
+2026-09-12T21:26:48.9426844Z ##[group]Setting up auth for fetching submodules
+2026-09-12T21:26:48.9433167Z [command]/usr/bin/git config --file /__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-12T21:26:48.9508288Z [command]/usr/bin/git config --global include.path /__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:26:48.9544562Z [command]/usr/bin/git config --global --unset-all url.https://github.com/.insteadOf
+2026-09-12T21:26:48.9583087Z [command]/usr/bin/git config --global --add url.https://github.com/.insteadOf git@github.com:
+2026-09-12T21:26:48.9620035Z [command]/usr/bin/git config --global --add url.https://github.com/.insteadOf org-246003628@github.com:
+2026-09-12T21:26:48.9654434Z ##[endgroup]
+2026-09-12T21:26:48.9655235Z ##[group]Fetching submodules
+2026-09-12T21:26:48.9659294Z [command]/usr/bin/git submodule sync --recursive
+2026-09-12T21:26:48.9960643Z [command]/usr/bin/git -c protocol.version=2 submodule update --init --force --depth=1 --recursive
+2026-09-12T21:26:49.0247725Z Submodule 'vendor/tinyagents' (https://github.com/tinyhumansai/tinyagents) registered for path 'vendor/tinyagents'
+2026-09-12T21:26:49.0252000Z Submodule 'vendor/tinybox' (https://github.com/tinyhumansai/tinybox) registered for path 'vendor/tinybox'
+2026-09-12T21:26:49.0261391Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus.git) registered for path 'vendor/tinybus'
+2026-09-12T21:26:49.0268612Z Submodule 'vendor/tinychannels' (https://github.com/tinyhumansai/tinychannels) registered for path 'vendor/tinychannels'
+2026-09-12T21:26:49.0296337Z Submodule 'vendor/tinyconnectors' (https://github.com/tinyhumansai/tinyconnectors) registered for path 'vendor/tinyconnectors'
+2026-09-12T21:26:49.0304015Z Submodule 'vendor/tinydocs' (https://github.com/tinyhumansai/tinydocs) registered for path 'vendor/tinydocs'
+2026-09-12T21:26:49.0311456Z Submodule 'vendor/tinyflows' (https://github.com/tinyhumansai/tinyflows) registered for path 'vendor/tinyflows'
+2026-09-12T21:26:49.0318912Z Submodule 'vendor/tinyhosts' (https://github.com/tinyhumansai/tinyhosts.git) registered for path 'vendor/tinyhosts'
+2026-09-12T21:26:49.0327168Z Submodule 'vendor/tinyhumans-sdk' (https://github.com/tinyhumansai/sdk.git) registered for path 'vendor/tinyhumans-sdk'
+2026-09-12T21:26:49.0334352Z Submodule 'vendor/tinyjuice' (https://github.com/tinyhumansai/tinyjuice) registered for path 'vendor/tinyjuice'
+2026-09-12T21:26:49.0342118Z Submodule 'vendor/tinymcp' (https://github.com/tinyhumansai/tinymcp) registered for path 'vendor/tinymcp'
+2026-09-12T21:26:49.0350500Z Submodule 'vendor/tinymemory' (https://github.com/tinyhumansai/tinymemory.git) registered for path 'vendor/tinymemory'
+2026-09-12T21:26:49.0358786Z Submodule 'vendor/tinyruntime' (https://github.com/tinyhumansai/tinyruntime.git) registered for path 'vendor/tinyruntime'
+2026-09-12T21:26:49.0366810Z Submodule 'vendor/tinyvoice' (https://github.com/tinyhumansai/tinyvoice) registered for path 'vendor/tinyvoice'
+2026-09-12T21:26:49.0375387Z Submodule 'vendor/tinywallet' (https://github.com/tinyhumansai/tinywallet) registered for path 'vendor/tinywallet'
+2026-09-12T21:26:49.0440073Z Cloning into '/__w/openhuman/openhuman/vendor/tinyagents'...
+2026-09-12T21:26:49.8494291Z Cloning into '/__w/openhuman/openhuman/vendor/tinybox'...
+2026-09-12T21:26:50.3643391Z Cloning into '/__w/openhuman/openhuman/vendor/tinybus'...
+2026-09-12T21:26:51.2187327Z Cloning into '/__w/openhuman/openhuman/vendor/tinychannels'...
+2026-09-12T21:26:51.7768918Z Cloning into '/__w/openhuman/openhuman/vendor/tinyconnectors'...
+2026-09-12T21:26:52.6238720Z Cloning into '/__w/openhuman/openhuman/vendor/tinydocs'...
+2026-09-12T21:26:53.0880391Z Cloning into '/__w/openhuman/openhuman/vendor/tinyflows'...
+2026-09-12T21:26:53.7635555Z Cloning into '/__w/openhuman/openhuman/vendor/tinyhosts'...
+2026-09-12T21:26:54.1955005Z Cloning into '/__w/openhuman/openhuman/vendor/tinyhumans-sdk'...
+2026-09-12T21:26:54.6337765Z Cloning into '/__w/openhuman/openhuman/vendor/tinyjuice'...
+2026-09-12T21:26:56.3087189Z Cloning into '/__w/openhuman/openhuman/vendor/tinymcp'...
+2026-09-12T21:26:57.0691865Z Cloning into '/__w/openhuman/openhuman/vendor/tinymemory'...
+2026-09-12T21:26:57.7381462Z Cloning into '/__w/openhuman/openhuman/vendor/tinyruntime'...
+2026-09-12T21:26:58.2022803Z Cloning into '/__w/openhuman/openhuman/vendor/tinyvoice'...
+2026-09-12T21:26:58.6411442Z Cloning into '/__w/openhuman/openhuman/vendor/tinywallet'...
+2026-09-12T21:26:59.1646612Z Submodule path 'vendor/tinyagents': checked out '44afb2e6884690a59eb43e268a09868a9852c410'
+2026-09-12T21:26:59.1699859Z Submodule 'vendor/tinyinference' (https://github.com/tinyhumansai/tinyinference.git) registered for path 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:26:59.1705262Z Submodule 'vendor/tinytools' (https://github.com/tinyhumansai/tinytools.git) registered for path 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:26:59.1711484Z Submodule 'wiki' (https://github.com/tinyhumansai/tinyagents.wiki.git) registered for path 'vendor/tinyagents/wiki'
+2026-09-12T21:26:59.1762094Z Cloning into '/__w/openhuman/openhuman/vendor/tinyagents/vendor/tinyinference'...
+2026-09-12T21:26:59.6656579Z Cloning into '/__w/openhuman/openhuman/vendor/tinyagents/vendor/tinytools'...
+2026-09-12T21:27:00.0638218Z Cloning into '/__w/openhuman/openhuman/vendor/tinyagents/wiki'...
+2026-09-12T21:27:00.4923542Z Submodule path 'vendor/tinyagents/vendor/tinyinference': checked out 'b5bcb85be392360e937f113d28b690b09c649951'
+2026-09-12T21:27:00.5176776Z Submodule path 'vendor/tinyagents/vendor/tinytools': checked out 'b25dbf308650e7dba25f2fa8eba059ef422aab04'
+2026-09-12T21:27:00.5394238Z Submodule path 'vendor/tinyagents/wiki': checked out '5b8f5927caa2ba0730985e686bf5ef5550e53e6d'
+2026-09-12T21:27:00.5737506Z Submodule path 'vendor/tinybox': checked out '593109a6e44222c76db1d78d136811af610191e3'
+2026-09-12T21:27:00.5788524Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:00.5836961Z Cloning into '/__w/openhuman/openhuman/vendor/tinybox/vendor/tinybus'...
+2026-09-12T21:27:02.6659634Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:02.6660328Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:02.6818226Z Submodule path 'vendor/tinybox/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:02.7127136Z Submodule path 'vendor/tinybus': checked out 'd5ce18dff1ba1dd1891b17be7de1c1a936cbfc70'
+2026-09-12T21:27:02.7510236Z Submodule path 'vendor/tinychannels': checked out '1c287610a56fda151a0b33d9d6dff6aace863b4d'
+2026-09-12T21:27:02.7561492Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:02.7566248Z Submodule 'wiki' (https://github.com/tinyhumansai/tinychannels.wiki.git) registered for path 'vendor/tinychannels/wiki'
+2026-09-12T21:27:02.7616686Z Cloning into '/__w/openhuman/openhuman/vendor/tinychannels/vendor/tinybus'...
+2026-09-12T21:27:03.7110887Z Cloning into '/__w/openhuman/openhuman/vendor/tinychannels/wiki'...
+2026-09-12T21:27:04.9753122Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:04.9753633Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:04.9916322Z Submodule path 'vendor/tinychannels/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:05.0131359Z Submodule path 'vendor/tinychannels/wiki': checked out 'cc6c73569d99ca408278d7b66a8180833a2e6f1f'
+2026-09-12T21:27:05.0476723Z Submodule path 'vendor/tinyconnectors': checked out '4b8c7465caa7b5ac0bfacd0492a5a1bfb7da7006'
+2026-09-12T21:27:05.0531289Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:05.0584853Z Cloning into '/__w/openhuman/openhuman/vendor/tinyconnectors/vendor/tinybus'...
+2026-09-12T21:27:06.7285139Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:06.7286347Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:06.7449463Z Submodule path 'vendor/tinyconnectors/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:06.7722710Z Submodule path 'vendor/tinydocs': checked out '56c556f436f1bb25d9e3614016a86b2a18b7006b'
+2026-09-12T21:27:06.7776730Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:06.7828068Z Cloning into '/__w/openhuman/openhuman/vendor/tinydocs/vendor/tinybus'...
+2026-09-12T21:27:08.7178452Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:08.7179205Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:08.7334530Z Submodule path 'vendor/tinydocs/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:09.6373097Z From https://github.com/tinyhumansai/tinyflows
+2026-09-12T21:27:09.6373663Z  * branch            99f275351d4cae7445ceca08a2e266086fcb64e5 -> FETCH_HEAD
+2026-09-12T21:27:09.6937465Z Submodule path 'vendor/tinyflows': checked out '99f275351d4cae7445ceca08a2e266086fcb64e5'
+2026-09-12T21:27:10.5557401Z From https://github.com/tinyhumansai/tinyhosts
+2026-09-12T21:27:10.5558194Z  * branch            c0ff4075dc9dabcc309581d478ac7ec753b22088 -> FETCH_HEAD
+2026-09-12T21:27:10.5684286Z Submodule path 'vendor/tinyhosts': checked out 'c0ff4075dc9dabcc309581d478ac7ec753b22088'
+2026-09-12T21:27:10.5750963Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:10.5818337Z Cloning into '/__w/openhuman/openhuman/vendor/tinyhosts/vendor/tinybus'...
+2026-09-12T21:27:12.3395025Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:12.3395525Z  * branch            0b161d201f4517116d3df2f33662eec2538724dc -> FETCH_HEAD
+2026-09-12T21:27:12.3568925Z Submodule path 'vendor/tinyhosts/vendor/tinybus': checked out '0b161d201f4517116d3df2f33662eec2538724dc'
+2026-09-12T21:27:13.2199289Z From https://github.com/tinyhumansai/sdk
+2026-09-12T21:27:13.2200129Z  * branch            5b44a333593372004b31cf5da6b67443ddec9ad1 -> FETCH_HEAD
+2026-09-12T21:27:13.2328308Z Submodule path 'vendor/tinyhumans-sdk': checked out '5b44a333593372004b31cf5da6b67443ddec9ad1'
+2026-09-12T21:27:13.4540211Z Submodule path 'vendor/tinyjuice': checked out '2f020420298f728949540a5801297b0400b86093'
+2026-09-12T21:27:13.4595138Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus.git) registered for path 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:13.4599608Z Submodule 'wiki' (https://github.com/tinyhumansai/tinyjuice.wiki.git) registered for path 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:13.4652682Z Cloning into '/__w/openhuman/openhuman/vendor/tinyjuice/vendor/tinybus'...
+2026-09-12T21:27:14.1171837Z Cloning into '/__w/openhuman/openhuman/vendor/tinyjuice/wiki'...
+2026-09-12T21:27:15.4275383Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:15.4276337Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:15.4438189Z Submodule path 'vendor/tinyjuice/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:15.4662123Z Submodule path 'vendor/tinyjuice/wiki': checked out '2301a53a566a2c41b3fafdcd7e33e01ddee72c98'
+2026-09-12T21:27:16.5208396Z From https://github.com/tinyhumansai/tinymcp
+2026-09-12T21:27:16.5209048Z  * branch            8b0627d1e0054375e3935535fedb5e997194e90a -> FETCH_HEAD
+2026-09-12T21:27:16.5398656Z Submodule path 'vendor/tinymcp': checked out '8b0627d1e0054375e3935535fedb5e997194e90a'
+2026-09-12T21:27:16.5453119Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:16.5505418Z Cloning into '/__w/openhuman/openhuman/vendor/tinymcp/vendor/tinybus'...
+2026-09-12T21:27:18.2754244Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:18.2755332Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:18.2916786Z Submodule path 'vendor/tinymcp/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:19.1458896Z From https://github.com/tinyhumansai/tinymemory
+2026-09-12T21:27:19.1459537Z  * branch            cc0903239563b7448bbacc759867524507545c9d -> FETCH_HEAD
+2026-09-12T21:27:19.2063509Z Submodule path 'vendor/tinymemory': checked out 'cc0903239563b7448bbacc759867524507545c9d'
+2026-09-12T21:27:19.2118068Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:19.2123520Z Submodule 'vendor/tinycortex' (https://github.com/tinyhumansai/tinycortex.git) registered for path 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:19.2129552Z Submodule 'vendor/tinyinference' (https://github.com/tinyhumansai/tinyinference.git) registered for path 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:19.2181988Z Cloning into '/__w/openhuman/openhuman/vendor/tinymemory/vendor/tinybus'...
+2026-09-12T21:27:19.6667624Z Cloning into '/__w/openhuman/openhuman/vendor/tinymemory/vendor/tinycortex'...
+2026-09-12T21:27:20.9439761Z Cloning into '/__w/openhuman/openhuman/vendor/tinymemory/vendor/tinyinference'...
+2026-09-12T21:27:22.6997353Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:22.6998120Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:22.7156831Z Submodule path 'vendor/tinymemory/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:23.0508846Z Submodule path 'vendor/tinymemory/vendor/tinycortex': checked out '79131f275cf98f06421fefd9dc812c5a63a5a182'
+2026-09-12T21:27:23.9134978Z From https://github.com/tinyhumansai/tinyinference
+2026-09-12T21:27:23.9135513Z  * branch            cc8aca484bb995fbab3b7358f0d72ab5056b587c -> FETCH_HEAD
+2026-09-12T21:27:23.9272092Z Submodule path 'vendor/tinymemory/vendor/tinyinference': checked out 'cc8aca484bb995fbab3b7358f0d72ab5056b587c'
+2026-09-12T21:27:23.9574628Z Submodule path 'vendor/tinyruntime': checked out '8985f060b1415da38efb80e1f9ca1b5b049bad70'
+2026-09-12T21:27:23.9625324Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:23.9673140Z Cloning into '/__w/openhuman/openhuman/vendor/tinyruntime/vendor/tinybus'...
+2026-09-12T21:27:25.5038286Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:25.5038792Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:25.5197833Z Submodule path 'vendor/tinyruntime/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:25.5472961Z Submodule path 'vendor/tinyvoice': checked out 'c3ac1e5788b479e94a51d58a756dedb14d9b62ff'
+2026-09-12T21:27:25.5526142Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:25.5575366Z Cloning into '/__w/openhuman/openhuman/vendor/tinyvoice/vendor/tinybus'...
+2026-09-12T21:27:27.3707397Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:27.3708263Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:27.3863742Z Submodule path 'vendor/tinyvoice/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:27.4169531Z Submodule path 'vendor/tinywallet': checked out 'c7477ecc057c018d2195a87154ce81b6de69d533'
+2026-09-12T21:27:27.4222880Z Submodule 'vendor/tinybus' (https://github.com/tinyhumansai/tinybus) registered for path 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:27.4276730Z Cloning into '/__w/openhuman/openhuman/vendor/tinywallet/vendor/tinybus'...
+2026-09-12T21:27:29.0549111Z From https://github.com/tinyhumansai/tinybus
+2026-09-12T21:27:29.0550221Z  * branch            92b817e42ecb980628166dd31b465524130de2f5 -> FETCH_HEAD
+2026-09-12T21:27:29.0705369Z Submodule path 'vendor/tinywallet/vendor/tinybus': checked out '92b817e42ecb980628166dd31b465524130de2f5'
+2026-09-12T21:27:29.0796141Z [command]/usr/bin/git submodule foreach --recursive git config --local gc.auto 0
+2026-09-12T21:27:29.1079114Z Entering 'vendor/tinyagents'
+2026-09-12T21:27:29.1121604Z Entering 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:27:29.1166900Z Entering 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:27:29.1209778Z Entering 'vendor/tinyagents/wiki'
+2026-09-12T21:27:29.1254593Z Entering 'vendor/tinybox'
+2026-09-12T21:27:29.1297902Z Entering 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:29.1344208Z Entering 'vendor/tinybus'
+2026-09-12T21:27:29.1388166Z Entering 'vendor/tinychannels'
+2026-09-12T21:27:29.1431889Z Entering 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:29.1475348Z Entering 'vendor/tinychannels/wiki'
+2026-09-12T21:27:29.1522343Z Entering 'vendor/tinyconnectors'
+2026-09-12T21:27:29.1565778Z Entering 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:29.1610892Z Entering 'vendor/tinydocs'
+2026-09-12T21:27:29.1653117Z Entering 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:29.1698850Z Entering 'vendor/tinyflows'
+2026-09-12T21:27:29.1742355Z Entering 'vendor/tinyhosts'
+2026-09-12T21:27:29.1784214Z Entering 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:29.1829850Z Entering 'vendor/tinyhumans-sdk'
+2026-09-12T21:27:29.1873270Z Entering 'vendor/tinyjuice'
+2026-09-12T21:27:29.1917624Z Entering 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:29.1962584Z Entering 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:29.2008175Z Entering 'vendor/tinymcp'
+2026-09-12T21:27:29.2051178Z Entering 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:29.2097072Z Entering 'vendor/tinymemory'
+2026-09-12T21:27:29.2141725Z Entering 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:29.2187067Z Entering 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:29.2231196Z Entering 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:29.2278242Z Entering 'vendor/tinyruntime'
+2026-09-12T21:27:29.2324847Z Entering 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:29.2369141Z Entering 'vendor/tinyvoice'
+2026-09-12T21:27:29.2412092Z Entering 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:29.2458165Z Entering 'vendor/tinywallet'
+2026-09-12T21:27:29.2501458Z Entering 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:29.2559588Z ##[endgroup]
+2026-09-12T21:27:29.2601460Z [command]/usr/bin/git log -1 --format=%H
+2026-09-12T21:27:29.2631102Z f867c8a43490bc72686adcb27b168e84069bdeb0
+2026-09-12T21:27:29.2642007Z ##[group]Removing auth
+2026-09-12T21:27:29.2642516Z Removing SSH command configuration
+2026-09-12T21:27:29.2647012Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-12T21:27:29.2684914Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-12T21:27:29.2963686Z Entering 'vendor/tinyagents'
+2026-09-12T21:27:29.3011265Z Entering 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:27:29.3061616Z Entering 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:27:29.3109162Z Entering 'vendor/tinyagents/wiki'
+2026-09-12T21:27:29.3157890Z Entering 'vendor/tinybox'
+2026-09-12T21:27:29.3204851Z Entering 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:29.3255760Z Entering 'vendor/tinybus'
+2026-09-12T21:27:29.3304354Z Entering 'vendor/tinychannels'
+2026-09-12T21:27:29.3352762Z Entering 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:29.3400345Z Entering 'vendor/tinychannels/wiki'
+2026-09-12T21:27:29.3451667Z Entering 'vendor/tinyconnectors'
+2026-09-12T21:27:29.3498580Z Entering 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:29.3551019Z Entering 'vendor/tinydocs'
+2026-09-12T21:27:29.3597482Z Entering 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:29.3650639Z Entering 'vendor/tinyflows'
+2026-09-12T21:27:29.3701241Z Entering 'vendor/tinyhosts'
+2026-09-12T21:27:29.3747878Z Entering 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:29.3798748Z Entering 'vendor/tinyhumans-sdk'
+2026-09-12T21:27:29.3848382Z Entering 'vendor/tinyjuice'
+2026-09-12T21:27:29.3896477Z Entering 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:29.3945162Z Entering 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:29.3997672Z Entering 'vendor/tinymcp'
+2026-09-12T21:27:29.4043575Z Entering 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:29.4093616Z Entering 'vendor/tinymemory'
+2026-09-12T21:27:29.4142184Z Entering 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:29.4190588Z Entering 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:29.4238657Z Entering 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:29.4315052Z Entering 'vendor/tinyruntime'
+2026-09-12T21:27:29.4340185Z Entering 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:29.4394269Z Entering 'vendor/tinyvoice'
+2026-09-12T21:27:29.4442290Z Entering 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:29.4495283Z Entering 'vendor/tinywallet'
+2026-09-12T21:27:29.4544905Z Entering 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:29.4607197Z Removing HTTP extra header
+2026-09-12T21:27:29.4611929Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-12T21:27:29.4652241Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-12T21:27:29.4943207Z Entering 'vendor/tinyagents'
+2026-09-12T21:27:29.4992095Z Entering 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:27:29.5042522Z Entering 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:27:29.5091556Z Entering 'vendor/tinyagents/wiki'
+2026-09-12T21:27:29.5144602Z Entering 'vendor/tinybox'
+2026-09-12T21:27:29.5194287Z Entering 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:29.5247005Z Entering 'vendor/tinybus'
+2026-09-12T21:27:29.5296838Z Entering 'vendor/tinychannels'
+2026-09-12T21:27:29.5346777Z Entering 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:29.5398174Z Entering 'vendor/tinychannels/wiki'
+2026-09-12T21:27:29.5452032Z Entering 'vendor/tinyconnectors'
+2026-09-12T21:27:29.5500941Z Entering 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:29.5554174Z Entering 'vendor/tinydocs'
+2026-09-12T21:27:29.5603346Z Entering 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:29.5656457Z Entering 'vendor/tinyflows'
+2026-09-12T21:27:29.5708641Z Entering 'vendor/tinyhosts'
+2026-09-12T21:27:29.5757353Z Entering 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:29.5810222Z Entering 'vendor/tinyhumans-sdk'
+2026-09-12T21:27:29.5859989Z Entering 'vendor/tinyjuice'
+2026-09-12T21:27:29.5909038Z Entering 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:29.5958717Z Entering 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:29.6012745Z Entering 'vendor/tinymcp'
+2026-09-12T21:27:29.6063812Z Entering 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:29.6116622Z Entering 'vendor/tinymemory'
+2026-09-12T21:27:29.6168263Z Entering 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:29.6216978Z Entering 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:29.6267375Z Entering 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:29.6320334Z Entering 'vendor/tinyruntime'
+2026-09-12T21:27:29.6368098Z Entering 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:29.6422666Z Entering 'vendor/tinyvoice'
+2026-09-12T21:27:29.6471237Z Entering 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:29.6525016Z Entering 'vendor/tinywallet'
+2026-09-12T21:27:29.6571864Z Entering 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:29.6632953Z Removing includeIf entries pointing to credentials config files
+2026-09-12T21:27:29.6636997Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.6665714Z includeif.gitdir:/__w/openhuman/openhuman/.git.path
+2026-09-12T21:27:29.6666945Z includeif.gitdir:/__w/openhuman/openhuman/.git/worktrees/*.path
+2026-09-12T21:27:29.6667611Z includeif.gitdir:/github/workspace/.git.path
+2026-09-12T21:27:29.6668658Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-09-12T21:27:29.6680227Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/__w/openhuman/openhuman/.git.path
+2026-09-12T21:27:29.6709855Z /__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:27:29.6719878Z [command]/usr/bin/git config --local --unset includeif.gitdir:/__w/openhuman/openhuman/.git.path \/__w\/_temp\/git\-credentials\-7042c4ac\-ab5a\-4494\-a400\-f0c8922814ba\.config
+2026-09-12T21:27:29.6759291Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/__w/openhuman/openhuman/.git/worktrees/*.path
+2026-09-12T21:27:29.6784771Z /__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:27:29.6794469Z [command]/usr/bin/git config --local --unset includeif.gitdir:/__w/openhuman/openhuman/.git/worktrees/*.path \/__w\/_temp\/git\-credentials\-7042c4ac\-ab5a\-4494\-a400\-f0c8922814ba\.config
+2026-09-12T21:27:29.6834498Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-09-12T21:27:29.6861408Z /github/runner_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:27:29.6871108Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-7042c4ac\-ab5a\-4494\-a400\-f0c8922814ba\.config
+2026-09-12T21:27:29.6910657Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-09-12T21:27:29.6937494Z /github/runner_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config
+2026-09-12T21:27:29.6946609Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-7042c4ac\-ab5a\-4494\-a400\-f0c8922814ba\.config
+2026-09-12T21:27:29.6986335Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-12T21:27:29.7269221Z Entering 'vendor/tinyagents'
+2026-09-12T21:27:29.7292300Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/config	remote.origin.url
+2026-09-12T21:27:29.7314261Z Entering 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:27:29.7336153Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinyinference/config	remote.origin.url
+2026-09-12T21:27:29.7359376Z Entering 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:27:29.7382164Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinytools/config	remote.origin.url
+2026-09-12T21:27:29.7405558Z Entering 'vendor/tinyagents/wiki'
+2026-09-12T21:27:29.7427986Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/wiki/config	remote.origin.url
+2026-09-12T21:27:29.7453096Z Entering 'vendor/tinybox'
+2026-09-12T21:27:29.7476513Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinybox/config	remote.origin.url
+2026-09-12T21:27:29.7497638Z Entering 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:29.7519948Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinybox/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.7542981Z Entering 'vendor/tinybus'
+2026-09-12T21:27:29.7566073Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.7589083Z Entering 'vendor/tinychannels'
+2026-09-12T21:27:29.7611387Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinychannels/config	remote.origin.url
+2026-09-12T21:27:29.7631206Z Entering 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:29.7653508Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.7675256Z Entering 'vendor/tinychannels/wiki'
+2026-09-12T21:27:29.7697005Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/wiki/config	remote.origin.url
+2026-09-12T21:27:29.7721279Z Entering 'vendor/tinyconnectors'
+2026-09-12T21:27:29.7742893Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/config	remote.origin.url
+2026-09-12T21:27:29.7764191Z Entering 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:29.7786174Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.7810309Z Entering 'vendor/tinydocs'
+2026-09-12T21:27:29.7832946Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinydocs/config	remote.origin.url
+2026-09-12T21:27:29.7853308Z Entering 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:29.7875365Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinydocs/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.7899554Z Entering 'vendor/tinyflows'
+2026-09-12T21:27:29.7922701Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyflows/config	remote.origin.url
+2026-09-12T21:27:29.7945279Z Entering 'vendor/tinyhosts'
+2026-09-12T21:27:29.7967691Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/config	remote.origin.url
+2026-09-12T21:27:29.7987974Z Entering 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:29.8010641Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.8034121Z Entering 'vendor/tinyhumans-sdk'
+2026-09-12T21:27:29.8056608Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyhumans-sdk/config	remote.origin.url
+2026-09-12T21:27:29.8078767Z Entering 'vendor/tinyjuice'
+2026-09-12T21:27:29.8101608Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/config	remote.origin.url
+2026-09-12T21:27:29.8123800Z Entering 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:29.8147210Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.8168975Z Entering 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:29.8191561Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/wiki/config	remote.origin.url
+2026-09-12T21:27:29.8215709Z Entering 'vendor/tinymcp'
+2026-09-12T21:27:29.8237539Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymcp/config	remote.origin.url
+2026-09-12T21:27:29.8257966Z Entering 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:29.8280884Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymcp/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.8304756Z Entering 'vendor/tinymemory'
+2026-09-12T21:27:29.8326795Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/config	remote.origin.url
+2026-09-12T21:27:29.8348686Z Entering 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:29.8370608Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.8392651Z Entering 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:29.8415066Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinycortex/config	remote.origin.url
+2026-09-12T21:27:29.8439224Z Entering 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:29.8463301Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinyinference/config	remote.origin.url
+2026-09-12T21:27:29.8486214Z Entering 'vendor/tinyruntime'
+2026-09-12T21:27:29.8509368Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/config	remote.origin.url
+2026-09-12T21:27:29.8529663Z Entering 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:29.8553778Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.8578532Z Entering 'vendor/tinyvoice'
+2026-09-12T21:27:29.8601133Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/config	remote.origin.url
+2026-09-12T21:27:29.8621139Z Entering 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:29.8643083Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.8668447Z Entering 'vendor/tinywallet'
+2026-09-12T21:27:29.8690493Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinywallet/config	remote.origin.url
+2026-09-12T21:27:29.8709941Z Entering 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:29.8732303Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinywallet/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:29.8769913Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.8803906Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinyinference/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.8837266Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinytools/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.8871698Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/wiki/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.8909766Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinybox/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.8943759Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinybox/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.8977628Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9011267Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinychannels/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9050786Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9086745Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/wiki/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9122667Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9160051Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9199404Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinydocs/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9235408Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinydocs/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9269693Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyflows/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9304477Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9341737Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9379075Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyhumans-sdk/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9411845Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9444258Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9477393Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/wiki/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9517264Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymcp/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9550513Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymcp/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9584205Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9618387Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9653314Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinycortex/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9688759Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinyinference/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9724544Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9761816Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9797319Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9835160Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9870393Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinywallet/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9906886Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinywallet/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:29.9939520Z Removing credentials config '/__w/_temp/git-credentials-7042c4ac-ab5a-4494-a400-f0c8922814ba.config'
+2026-09-12T21:27:29.9950616Z ##[endgroup]
+2026-09-12T21:27:30.0230028Z ##[group]Run Swatinem/rust-cache@v2
+2026-09-12T21:27:30.0230518Z with:
+2026-09-12T21:27:30.0230794Z   workspaces: . -> target
+crates/openhuman-app -> target
+
+2026-09-12T21:27:30.0231136Z   cache-on-failure: true
+2026-09-12T21:27:30.0231377Z   shared-key: pr-rust-quality
+2026-09-12T21:27:30.0231621Z   prefix-key: v0-rust
+2026-09-12T21:27:30.0231835Z   add-job-id-key: true
+2026-09-12T21:27:30.0232069Z   add-rust-environment-hash-key: true
+2026-09-12T21:27:30.0232336Z   cache-targets: true
+2026-09-12T21:27:30.0232551Z   cache-all-crates: false
+2026-09-12T21:27:30.0232789Z   cache-workspace-crates: false
+2026-09-12T21:27:30.0233028Z   save-if: true
+2026-09-12T21:27:30.0233228Z   cache-provider: github
+2026-09-12T21:27:30.0233447Z   cache-bin: true
+2026-09-12T21:27:30.0233655Z   lookup-only: false
+2026-09-12T21:27:30.0233857Z   cmd-format: {0}
+2026-09-12T21:27:30.0234049Z env:
+2026-09-12T21:27:30.0236873Z   GH_TOKEN: ***
+2026-09-12T21:27:30.0237120Z   NPM_CONFIG_STORE_DIR: .pnpm-store
+2026-09-12T21:27:30.0237448Z   CARGO_INCREMENTAL: 0
+2026-09-12T21:27:30.0237698Z   RUSTFLAGS: -C link-arg=-fuse-ld=mold
+2026-09-12T21:27:30.0237972Z ##[endgroup]
+2026-09-12T21:27:30.0243778Z ##[command]/usr/bin/docker exec  61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd sh -c "cat /etc/*release | grep ^ID"
+2026-09-12T21:27:40.6637448Z ##[group]Cache Configuration
+2026-09-12T21:27:40.6637943Z Cache Provider:
+2026-09-12T21:27:40.6638283Z     github
+2026-09-12T21:27:40.6638593Z Workspaces:
+2026-09-12T21:27:40.6638939Z     /__w/openhuman/openhuman
+2026-09-12T21:27:40.6639433Z     /__w/openhuman/openhuman/crates/openhuman-app
+2026-09-12T21:27:40.6639967Z Cache Paths:
+2026-09-12T21:27:40.6640322Z     /usr/local/cargo/bin
+2026-09-12T21:27:40.6640733Z     /usr/local/cargo/.crates.toml
+2026-09-12T21:27:40.6641179Z     /usr/local/cargo/.crates2.json
+2026-09-12T21:27:40.6641609Z     /usr/local/cargo/registry
+2026-09-12T21:27:40.6642006Z     /usr/local/cargo/git
+2026-09-12T21:27:40.6642434Z     /__w/openhuman/openhuman/target
+2026-09-12T21:27:40.6642983Z     /__w/openhuman/openhuman/crates/openhuman-app/target
+2026-09-12T21:27:40.6643511Z Restore Key:
+2026-09-12T21:27:40.6643910Z     v0-rust-pr-rust-quality-Linux-x64-7e9ff86b
+2026-09-12T21:27:40.6644425Z Cache Key:
+2026-09-12T21:27:40.6644885Z     v0-rust-pr-rust-quality-Linux-x64-7e9ff86b-6297ac13
+2026-09-12T21:27:40.6645431Z .. Prefix:
+2026-09-12T21:27:40.6645826Z   - v0-rust-pr-rust-quality-Linux-x64
+2026-09-12T21:27:40.6646546Z .. Environment considered:
+2026-09-12T21:27:40.6646953Z   - Rust Versions:
+2026-09-12T21:27:40.6647501Z     - 1.93.0 x86_64-unknown-linux-gnu 254b59607d4417e9dffbc307138ae5c86280fe4c
+2026-09-12T21:27:40.6648333Z     - 1.96.1 x86_64-unknown-linux-gnu 31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd
+2026-09-12T21:27:40.6648776Z   - CARGO_HOME
+2026-09-12T21:27:40.6648975Z   - CARGO_INCREMENTAL
+2026-09-12T21:27:40.6649177Z   - RUSTFLAGS
+2026-09-12T21:27:40.6649364Z   - RUSTUP_HOME
+2026-09-12T21:27:40.6649564Z .. Lockfiles considered:
+2026-09-12T21:27:40.6649826Z   - /__w/openhuman/openhuman/.cargo/config.toml
+2026-09-12T21:27:40.6650132Z   - /__w/openhuman/openhuman/Cargo.lock
+2026-09-12T21:27:40.6650470Z   - /__w/openhuman/openhuman/crates/openhuman-app/Cargo.lock
+2026-09-12T21:27:40.6650881Z   - /__w/openhuman/openhuman/crates/openhuman-app/Cargo.toml
+2026-09-12T21:27:40.6651273Z   - /__w/openhuman/openhuman/crates/openhuman-core/Cargo.toml
+2026-09-12T21:27:40.6651692Z   - /__w/openhuman/openhuman/crates/openhuman-embed/Cargo.toml
+2026-09-12T21:27:40.6652128Z   - /__w/openhuman/openhuman/crates/openhuman-rpc/Cargo.toml
+2026-09-12T21:27:40.6652761Z   - /__w/openhuman/openhuman/crates/openhuman-tui/Cargo.toml
+2026-09-12T21:27:40.6653467Z   - /__w/openhuman/openhuman/rust-toolchain.toml
+2026-09-12T21:27:40.6654200Z   - /__w/openhuman/openhuman/vendor/tinybox/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6654900Z   - /__w/openhuman/openhuman/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6655754Z   - /__w/openhuman/openhuman/vendor/tinychannels/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6657097Z   - /__w/openhuman/openhuman/vendor/tinyconnectors/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6657681Z   - /__w/openhuman/openhuman/vendor/tinydocs/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6658219Z   - /__w/openhuman/openhuman/vendor/tinyhosts/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6658838Z   - /__w/openhuman/openhuman/vendor/tinyjuice/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6659495Z   - /__w/openhuman/openhuman/vendor/tinymcp/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6660025Z   - /__w/openhuman/openhuman/vendor/tinymemory/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6660612Z   - /__w/openhuman/openhuman/vendor/tinyruntime/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6661380Z   - /__w/openhuman/openhuman/vendor/tinyvoice/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6661901Z   - /__w/openhuman/openhuman/vendor/tinywallet/vendor/tinybus/rust-toolchain.toml
+2026-09-12T21:27:40.6662599Z ##[endgroup]
+2026-09-12T21:27:40.6662797Z 
+2026-09-12T21:27:40.6662893Z ... Restoring cache ...
+2026-09-12T21:27:40.7698619Z Cache hit for: v0-rust-pr-rust-quality-Linux-x64-7e9ff86b-6297ac13
+2026-09-12T21:27:41.8909605Z Received 130023424 of 232521343 (55.9%), 123.9 MBs/sec
+2026-09-12T21:27:42.7570797Z Received 232521343 of 232521343 (100.0%), 118.8 MBs/sec
+2026-09-12T21:27:42.7571498Z Cache Size: ~222 MB (232521343 B)
+2026-09-12T21:27:42.7637036Z [command]/usr/bin/tar -xf /__w/_temp/39520f46-ad5a-43c2-9521-2041ecf11381/cache.tgz -P -C /__w/openhuman/openhuman -z
+2026-09-12T21:27:45.7922406Z Cache restored successfully
+2026-09-12T21:27:45.8439536Z Restored from cache key "v0-rust-pr-rust-quality-Linux-x64-7e9ff86b-6297ac13" full match: true.
+2026-09-12T21:27:45.8699428Z ##[group]Run cargo fmt --all -- --check
+2026-09-12T21:27:45.8699842Z [36;1mcargo fmt --all -- --check[0m
+2026-09-12T21:27:45.8705179Z shell: bash --noprofile --norc -e -o pipefail {0}
+2026-09-12T21:27:45.8705521Z env:
+2026-09-12T21:27:45.8708290Z   GH_TOKEN: ***
+2026-09-12T21:27:45.8708537Z   NPM_CONFIG_STORE_DIR: .pnpm-store
+2026-09-12T21:27:45.8708814Z   CARGO_INCREMENTAL: 0
+2026-09-12T21:27:45.8709063Z   RUSTFLAGS: -C link-arg=-fuse-ld=mold
+2026-09-12T21:27:45.8709339Z   CACHE_ON_FAILURE: true
+2026-09-12T21:27:45.8709560Z ##[endgroup]
+2026-09-12T21:27:58.4787774Z ##[group]Run node scripts/ci/check-openhuman-rust-layout.mjs
+2026-09-12T21:27:58.4788298Z [36;1mnode scripts/ci/check-openhuman-rust-layout.mjs[0m
+2026-09-12T21:27:58.4788934Z shell: bash --noprofile --norc -e -o pipefail {0}
+2026-09-12T21:27:58.4789241Z env:
+2026-09-12T21:27:58.4791617Z   GH_TOKEN: ***
+2026-09-12T21:27:58.4791855Z   NPM_CONFIG_STORE_DIR: .pnpm-store
+2026-09-12T21:27:58.4792132Z   CARGO_INCREMENTAL: 0
+2026-09-12T21:27:58.4792375Z   RUSTFLAGS: -C link-arg=-fuse-ld=mold
+2026-09-12T21:27:58.4792655Z   CACHE_ON_FAILURE: true
+2026-09-12T21:27:58.4792882Z ##[endgroup]
+2026-09-12T21:27:58.7082348Z OpenHuman Rust layout check failed:
+2026-09-12T21:27:58.7083097Z   - crates/openhuman-core/src/skills/ops_discover.rs: 766 lines (limit 750)
+2026-09-12T21:27:58.7083667Z   - crates/openhuman-core/src/skills/tools.rs: 755 lines (limit 750)
+2026-09-12T21:27:58.7179972Z ##[error]Process completed with exit code 1.
+2026-09-12T21:27:58.7328681Z Post job cleanup.
+2026-09-12T21:27:58.7333481Z ##[command]/usr/bin/docker exec  61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd sh -c "cat /etc/*release | grep ^ID"
+2026-09-12T21:27:58.9839247Z Cache up-to-date.
+2026-09-12T21:27:59.0054328Z Post job cleanup.
+2026-09-12T21:27:59.0062034Z ##[command]/usr/bin/docker exec  61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd sh -c "cat /etc/*release | grep ^ID"
+2026-09-12T21:27:59.2058174Z [command]/usr/bin/git version
+2026-09-12T21:27:59.2104396Z git version 2.34.1
+2026-09-12T21:27:59.2157830Z Temporarily overriding HOME='/__w/_temp/f0d992df-7570-4ca9-ad91-97a3af8bc4a3' before making global git config changes
+2026-09-12T21:27:59.2159212Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-12T21:27:59.2163256Z [command]/usr/bin/git config --global --add safe.directory /__w/openhuman/openhuman
+2026-09-12T21:27:59.2204798Z Removing SSH command configuration
+2026-09-12T21:27:59.2205545Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-12T21:27:59.2246663Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-12T21:27:59.2517253Z Entering 'vendor/tinyagents'
+2026-09-12T21:27:59.2562180Z Entering 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:27:59.2609628Z Entering 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:27:59.2658671Z Entering 'vendor/tinyagents/wiki'
+2026-09-12T21:27:59.2709237Z Entering 'vendor/tinybox'
+2026-09-12T21:27:59.2756632Z Entering 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:59.2805203Z Entering 'vendor/tinybus'
+2026-09-12T21:27:59.2854014Z Entering 'vendor/tinychannels'
+2026-09-12T21:27:59.2900403Z Entering 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:59.2948455Z Entering 'vendor/tinychannels/wiki'
+2026-09-12T21:27:59.2997047Z Entering 'vendor/tinyconnectors'
+2026-09-12T21:27:59.3043036Z Entering 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:59.3093193Z Entering 'vendor/tinydocs'
+2026-09-12T21:27:59.3139719Z Entering 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:59.3189437Z Entering 'vendor/tinyflows'
+2026-09-12T21:27:59.3238163Z Entering 'vendor/tinyhosts'
+2026-09-12T21:27:59.3284293Z Entering 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:59.3333939Z Entering 'vendor/tinyhumans-sdk'
+2026-09-12T21:27:59.3381329Z Entering 'vendor/tinyjuice'
+2026-09-12T21:27:59.3430652Z Entering 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:59.3478788Z Entering 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:59.3528092Z Entering 'vendor/tinymcp'
+2026-09-12T21:27:59.3574252Z Entering 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:59.3624310Z Entering 'vendor/tinymemory'
+2026-09-12T21:27:59.3672216Z Entering 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:59.3720002Z Entering 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:59.3768279Z Entering 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:59.3817797Z Entering 'vendor/tinyruntime'
+2026-09-12T21:27:59.3864898Z Entering 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:59.3914295Z Entering 'vendor/tinyvoice'
+2026-09-12T21:27:59.3960344Z Entering 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:59.4011454Z Entering 'vendor/tinywallet'
+2026-09-12T21:27:59.4061341Z Entering 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:59.4129023Z Removing HTTP extra header
+2026-09-12T21:27:59.4134898Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-12T21:27:59.4178019Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-12T21:27:59.4464170Z Entering 'vendor/tinyagents'
+2026-09-12T21:27:59.4511894Z Entering 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:27:59.4561131Z Entering 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:27:59.4611222Z Entering 'vendor/tinyagents/wiki'
+2026-09-12T21:27:59.4660525Z Entering 'vendor/tinybox'
+2026-09-12T21:27:59.4709182Z Entering 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:59.4762022Z Entering 'vendor/tinybus'
+2026-09-12T21:27:59.4810393Z Entering 'vendor/tinychannels'
+2026-09-12T21:27:59.4857182Z Entering 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:59.4908470Z Entering 'vendor/tinychannels/wiki'
+2026-09-12T21:27:59.4958029Z Entering 'vendor/tinyconnectors'
+2026-09-12T21:27:59.5006731Z Entering 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:59.5059302Z Entering 'vendor/tinydocs'
+2026-09-12T21:27:59.5109218Z Entering 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:59.5162375Z Entering 'vendor/tinyflows'
+2026-09-12T21:27:59.5209773Z Entering 'vendor/tinyhosts'
+2026-09-12T21:27:59.5256724Z Entering 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:59.5307872Z Entering 'vendor/tinyhumans-sdk'
+2026-09-12T21:27:59.5356487Z Entering 'vendor/tinyjuice'
+2026-09-12T21:27:59.5407019Z Entering 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:59.5455598Z Entering 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:59.5507109Z Entering 'vendor/tinymcp'
+2026-09-12T21:27:59.5554170Z Entering 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:59.5604670Z Entering 'vendor/tinymemory'
+2026-09-12T21:27:59.5652348Z Entering 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:59.5699852Z Entering 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:59.5748403Z Entering 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:59.5798329Z Entering 'vendor/tinyruntime'
+2026-09-12T21:27:59.5844231Z Entering 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:59.5893931Z Entering 'vendor/tinyvoice'
+2026-09-12T21:27:59.5941466Z Entering 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:59.5991527Z Entering 'vendor/tinywallet'
+2026-09-12T21:27:59.6038729Z Entering 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:59.6098785Z Removing includeIf entries pointing to credentials config files
+2026-09-12T21:27:59.6105705Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.6139501Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-12T21:27:59.6409054Z Entering 'vendor/tinyagents'
+2026-09-12T21:27:59.6430947Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/config	remote.origin.url
+2026-09-12T21:27:59.6453337Z Entering 'vendor/tinyagents/vendor/tinyinference'
+2026-09-12T21:27:59.6474417Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinyinference/config	remote.origin.url
+2026-09-12T21:27:59.6495555Z Entering 'vendor/tinyagents/vendor/tinytools'
+2026-09-12T21:27:59.6518222Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinytools/config	remote.origin.url
+2026-09-12T21:27:59.6539710Z Entering 'vendor/tinyagents/wiki'
+2026-09-12T21:27:59.6562394Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/wiki/config	remote.origin.url
+2026-09-12T21:27:59.6585922Z Entering 'vendor/tinybox'
+2026-09-12T21:27:59.6608915Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinybox/config	remote.origin.url
+2026-09-12T21:27:59.6629569Z Entering 'vendor/tinybox/vendor/tinybus'
+2026-09-12T21:27:59.6652356Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinybox/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.6675446Z Entering 'vendor/tinybus'
+2026-09-12T21:27:59.6699111Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.6720711Z Entering 'vendor/tinychannels'
+2026-09-12T21:27:59.6744193Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinychannels/config	remote.origin.url
+2026-09-12T21:27:59.6763597Z Entering 'vendor/tinychannels/vendor/tinybus'
+2026-09-12T21:27:59.6786306Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.6808022Z Entering 'vendor/tinychannels/wiki'
+2026-09-12T21:27:59.6829627Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/wiki/config	remote.origin.url
+2026-09-12T21:27:59.6853541Z Entering 'vendor/tinyconnectors'
+2026-09-12T21:27:59.6875853Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/config	remote.origin.url
+2026-09-12T21:27:59.6896184Z Entering 'vendor/tinyconnectors/vendor/tinybus'
+2026-09-12T21:27:59.6918923Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.6940923Z Entering 'vendor/tinydocs'
+2026-09-12T21:27:59.6963054Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinydocs/config	remote.origin.url
+2026-09-12T21:27:59.6984845Z Entering 'vendor/tinydocs/vendor/tinybus'
+2026-09-12T21:27:59.7008087Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinydocs/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7030929Z Entering 'vendor/tinyflows'
+2026-09-12T21:27:59.7054392Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyflows/config	remote.origin.url
+2026-09-12T21:27:59.7075235Z Entering 'vendor/tinyhosts'
+2026-09-12T21:27:59.7098594Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/config	remote.origin.url
+2026-09-12T21:27:59.7119242Z Entering 'vendor/tinyhosts/vendor/tinybus'
+2026-09-12T21:27:59.7140117Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7164089Z Entering 'vendor/tinyhumans-sdk'
+2026-09-12T21:27:59.7186348Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyhumans-sdk/config	remote.origin.url
+2026-09-12T21:27:59.7208088Z Entering 'vendor/tinyjuice'
+2026-09-12T21:27:59.7230017Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/config	remote.origin.url
+2026-09-12T21:27:59.7250954Z Entering 'vendor/tinyjuice/vendor/tinybus'
+2026-09-12T21:27:59.7273287Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7294775Z Entering 'vendor/tinyjuice/wiki'
+2026-09-12T21:27:59.7317469Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/wiki/config	remote.origin.url
+2026-09-12T21:27:59.7340268Z Entering 'vendor/tinymcp'
+2026-09-12T21:27:59.7363003Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymcp/config	remote.origin.url
+2026-09-12T21:27:59.7383301Z Entering 'vendor/tinymcp/vendor/tinybus'
+2026-09-12T21:27:59.7406673Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymcp/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7431632Z Entering 'vendor/tinymemory'
+2026-09-12T21:27:59.7453196Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/config	remote.origin.url
+2026-09-12T21:27:59.7475064Z Entering 'vendor/tinymemory/vendor/tinybus'
+2026-09-12T21:27:59.7497187Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7519063Z Entering 'vendor/tinymemory/vendor/tinycortex'
+2026-09-12T21:27:59.7541327Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinycortex/config	remote.origin.url
+2026-09-12T21:27:59.7562974Z Entering 'vendor/tinymemory/vendor/tinyinference'
+2026-09-12T21:27:59.7585435Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinyinference/config	remote.origin.url
+2026-09-12T21:27:59.7610012Z Entering 'vendor/tinyruntime'
+2026-09-12T21:27:59.7632242Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/config	remote.origin.url
+2026-09-12T21:27:59.7651616Z Entering 'vendor/tinyruntime/vendor/tinybus'
+2026-09-12T21:27:59.7676147Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7698054Z Entering 'vendor/tinyvoice'
+2026-09-12T21:27:59.7720391Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/config	remote.origin.url
+2026-09-12T21:27:59.7741377Z Entering 'vendor/tinyvoice/vendor/tinybus'
+2026-09-12T21:27:59.7763257Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7786894Z Entering 'vendor/tinywallet'
+2026-09-12T21:27:59.7809979Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinywallet/config	remote.origin.url
+2026-09-12T21:27:59.7830012Z Entering 'vendor/tinywallet/vendor/tinybus'
+2026-09-12T21:27:59.7852214Z file:/__w/openhuman/openhuman/.git/modules/vendor/tinywallet/modules/vendor/tinybus/config	remote.origin.url
+2026-09-12T21:27:59.7891312Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.7940723Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinyinference/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.7970673Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/vendor/tinytools/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8035478Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyagents/modules/wiki/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8074288Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinybox/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8118284Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinybox/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8149812Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8184575Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinychannels/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8219772Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8255742Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinychannels/modules/wiki/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8291057Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8327731Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyconnectors/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8362623Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinydocs/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8396741Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinydocs/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8427972Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyflows/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8461614Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8496671Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyhosts/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8531670Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyhumans-sdk/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8573293Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8608879Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8642722Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyjuice/modules/wiki/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8675760Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymcp/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8711846Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymcp/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8745150Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8778954Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8812292Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinycortex/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8847713Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinymemory/modules/vendor/tinyinference/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8880446Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8915416Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyruntime/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8949346Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.8987107Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinyvoice/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.9020861Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinywallet/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.9053983Z [command]/usr/bin/git config --file /__w/openhuman/openhuman/.git/modules/vendor/tinywallet/modules/vendor/tinybus/config --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-12T21:27:59.9254072Z Stop and remove container: 3d566e28fd3f434ba702788af12cde91_ghcriotinyhumansaiopenhuman_cilatest_cd9cb5
+2026-09-12T21:27:59.9258997Z ##[command]/usr/bin/docker rm --force 61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd
+2026-09-12T21:28:00.7072194Z 61a6ea5071a4cb7c56cacdbc698352c2c0c85925504e7ba9f1eb674727a172dd
+2026-09-12T21:28:00.7107753Z Remove container network: github_network_07e122f9c7ab4379aa5bae38afcd0973
+2026-09-12T21:28:00.7112809Z ##[command]/usr/bin/docker network rm github_network_07e122f9c7ab4379aa5bae38afcd0973
+2026-09-12T21:28:00.8270224Z github_network_07e122f9c7ab4379aa5bae38afcd0973
+2026-09-12T21:28:00.8352627Z Cleaning up orphan processes

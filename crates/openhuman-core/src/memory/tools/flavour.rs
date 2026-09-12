@@ -284,6 +284,19 @@ pub(crate) async fn lookup_flavour(
             )))
         }
         Err(err) => {
+            // A direct library/tool invocation can legitimately happen before
+            // the process boot path publishes module policy. No module means
+            // no persisted persona tree is available to this read-only tool,
+            // which is the same user-facing state as a fresh workspace.
+            if err
+                .to_string()
+                .contains("the module host policy was never published")
+            {
+                return Ok(FlavourLookup::NotBuilt(format!(
+                    "No profile built yet for {heading}. Run persona ingestion first, then try \
+                     again."
+                )));
+            }
             tracing::warn!(
                 %err,
                 flavour = flavour_raw,

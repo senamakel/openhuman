@@ -124,6 +124,12 @@ async function openSources(page: Page, user: string): Promise<void> {
   await expect(page.getByTestId('memory-sources')).toBeVisible({ timeout: 20_000 });
 }
 
+async function authenticate(page: Page, user: string): Promise<void> {
+  await bootAuthenticatedPage(page, user);
+  await waitForAppReady(page);
+  await dismissWalkthroughIfPresent(page);
+}
+
 /**
  * Every corpus this file creates, so none is left behind in the OS temp
  * directory. Each run would otherwise leak a directory of generated markdown.
@@ -271,7 +277,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     page,
   }) => {
     const label = `PW Brain Unembedded ${Date.now()}`;
-    await openSources(page, 'pw-brain-unembedded');
+    await authenticate(page, 'pw-brain-unembedded');
     const { id } = await addAndSync(label);
 
     // Establish the incident's precondition from the CORE, not from the UI.
@@ -291,6 +297,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
 
     requireDegraded(status);
 
+    await openSources(page, 'pw-brain-unembedded');
     const row = page.getByTestId('memory-source-row-folder').filter({ hasText: label });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
@@ -356,7 +363,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     // A degraded state that only renders on the first poll is worse than none:
     // the user refreshes to check and the app tells them everything is fine.
     const label = `PW Brain Reload ${Date.now()}`;
-    await openSources(page, 'pw-brain-reload');
+    await authenticate(page, 'pw-brain-reload');
     const { id } = await addAndSync(label);
 
     let status: SourceStatus | undefined;
@@ -371,6 +378,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
       .toBeGreaterThan(0);
     await requireHardDegraded(status);
 
+    await openSources(page, 'pw-brain-reload');
     const warning = page.getByTestId(`memory-source-pipeline-warning-${id}`);
     await expect(warning).toBeVisible({ timeout: 30_000 });
 
@@ -387,7 +395,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     // The warning is only actionable if it leads somewhere. Without this the
     // user is told semantic search is broken and given nothing to do about it.
     const label = `PW Brain Health ${Date.now()}`;
-    await openSources(page, 'pw-brain-health');
+    await authenticate(page, 'pw-brain-health');
     const { id } = await addAndSync(label);
 
     let status: SourceStatus | undefined;
@@ -402,6 +410,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
       .toBeGreaterThan(0);
     await requireHardDegraded(status);
 
+    await openSources(page, 'pw-brain-health');
     await expect(page.getByTestId(`memory-source-pipeline-warning-${id}`)).toBeVisible({
       timeout: 30_000,
     });

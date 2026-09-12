@@ -363,11 +363,10 @@ jobs:
           ls -la crates/openhuman-app/target/debug/OpenHuman app/dist | head
 
       - name: Install checksum-pinned TinyMemory test module
-        if: matrix.shard.name == 'providers'
         run: |
-          # memory-roundtrip runs in this shard. Supply the native module
+          # Every shard resets the memory tree. Supply the native module
           # directly so the packaged app never depends on GitHub's release
-          # metadata API while the test is running.
+          # metadata API while tests are running.
           # Version and digest are ONE decision and live on adjacent lines for that
           # reason: the archive name, the release tag and the checksum each used to
           # carry the version independently, so a bump could update two of the three

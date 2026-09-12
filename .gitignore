@@ -66,6 +66,10 @@ scripts/ci-secrets.local.json
 *.sln
 *.sw?
 references/
+# Flow-authoring pages are compiled into the core binary; do not hide them
+# behind the generic generated-reference-directory rule above.
+!crates/openhuman-core/src/flows/skills/flow-authoring/references/
+!crates/openhuman-core/src/flows/skills/flow-authoring/references/*.md
 crates/openhuman-app/runtime-skill-*
 .mypy_cache
 .ruff_cache

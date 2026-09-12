@@ -4218,6 +4218,7 @@ name = "openhuman-embed"
 version = "0.63.25"
 dependencies = [
  "anyhow",
+ "dirs 5.0.1",
  "env_logger",
  "log",
  "openhuman",

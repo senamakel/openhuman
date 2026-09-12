@@ -18,6 +18,7 @@ use openhuman_core::config::Config;
 /// An async mutex, not a `std` one: these tests hold it across `build().await`,
 /// and a blocking guard held over an await point can deadlock a single-threaded
 /// runtime.
+#[cfg(feature = "skills")]
 static GUARD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[test]
@@ -87,8 +88,10 @@ fn a_provider_route_is_never_written_to_config() {
 
 #[test]
 fn inheriting_a_provider_leaves_the_configured_model_alone() {
-    let mut config = Config::default();
-    config.default_model = Some("operators-choice".into());
+    let mut config = Config {
+        default_model: Some("operators-choice".into()),
+        ..Default::default()
+    };
     apply_provider(&mut config, &Provider::inherit());
     assert_eq!(config.default_model.as_deref(), Some("operators-choice"));
 }
@@ -154,9 +157,11 @@ async fn an_inherited_workspace_still_applies_the_builder_knobs() {
     //
     // Asserted on the assembly, not through a real build — booting a core is
     // process-global and cannot be undone between tests.
-    let mut config = Config::default();
-    config.api_url = Some("https://operator.example".into());
-    config.default_model = Some("operators-choice".into());
+    let mut config = Config {
+        api_url: Some("https://operator.example".into()),
+        default_model: Some("operators-choice".into()),
+        ..Default::default()
+    };
 
     // What `build_inner` does to a config once it has one, in order.
     let backend_url = Some("https://harness.example".to_string());
@@ -179,9 +184,14 @@ async fn an_inherited_workspace_still_applies_the_builder_knobs() {
 fn backend_url_overrides_a_supplied_configs_api_url() {
     // Order matters: the explicit builder call is more specific than whatever
     // the starting config carried, so it must be applied after it.
-    let mut config = Config::default();
-    config.api_url = Some("https://from-config.example".into());
-    config.api_url = Some("https://from-builder.example".to_string());
+    let supplied = Config {
+        api_url: Some("https://from-config.example".into()),
+        ..Default::default()
+    };
+    let config = Config {
+        api_url: Some("https://from-builder.example".to_string()),
+        ..supplied
+    };
     assert_eq!(
         config.api_url.as_deref(),
         Some("https://from-builder.example")

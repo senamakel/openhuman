@@ -47,5 +47,6 @@ url = "2"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+dirs = "5"
 env_logger = "0.11"
 wiremock = "0.6"

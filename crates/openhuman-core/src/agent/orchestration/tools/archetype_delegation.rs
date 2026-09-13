@@ -3,7 +3,7 @@ use serde_json::json;
 use serde_json::Value;
 
 use crate::tools::traits::{
-    PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolTimeout,
+    PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolExposure, ToolResult, ToolTimeout,
 };
 use tinytools::ToolRunContext;
 
@@ -42,6 +42,10 @@ impl Tool for ArchetypeDelegationTool {
 
     fn description(&self) -> &str {
         &self.tool_description
+    }
+
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
     }
 
     /// Publishes the routing target on the erased host-extension slot, the same

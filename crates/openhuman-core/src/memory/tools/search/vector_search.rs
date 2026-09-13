@@ -15,7 +15,7 @@ use crate::memory::api::chunks::SourceKind;
 use crate::memory::api::provider::ChunkQuery;
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolResult};
+use crate::tools::traits::{Tool, ToolExposure, ToolResult};
 
 pub struct MemoryVectorSearchTool;
 
@@ -225,6 +225,10 @@ impl Tool for MemoryVectorSearchTool {
          Fast (single embedding call, no LLM). Use for semantic lookup when \
          you know roughly what you're looking for. Returns chunk-level results \
          with scores."
+    }
+
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

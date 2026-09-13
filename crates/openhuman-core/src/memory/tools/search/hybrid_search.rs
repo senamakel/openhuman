@@ -12,7 +12,7 @@ use std::fmt::Write;
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::api::types::MemoryItemKind;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolResult};
+use crate::tools::traits::{Tool, ToolExposure, ToolResult};
 
 pub struct MemoryHybridSearchTool;
 
@@ -167,6 +167,10 @@ impl Tool for MemoryHybridSearchTool {
          the signal most relevant to your query: 'balanced' (equal graph+vector), \
          'semantic' (vector-heavy), 'lexical' (keyword-heavy), \
          'graph_first' (relationship-heavy)."
+    }
+
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

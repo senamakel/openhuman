@@ -31,7 +31,7 @@ use serde_json::json;
 
 use crate::config::Config;
 use crate::memory::api::provider::MemoryProvider;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::tools::traits::{PermissionLevel, Tool, ToolExposure, ToolResult};
 
 /// The seven persona facets, host-side (#5560).
 ///
@@ -323,6 +323,10 @@ impl Tool for MemoryFlavourTool {
          parallelism), environment (editors, harnesses, CLIs, OS), directives (explicit \
          standing rules), anti_preferences (things to never do). Returns markdown prose, or \
          a clear message if no profile has been built yet. Read-only."
+    }
+
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

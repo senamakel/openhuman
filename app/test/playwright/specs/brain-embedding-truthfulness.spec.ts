@@ -156,21 +156,7 @@ function makeCorpus(files: number): string {
   return root;
 }
 
-/**
- * Authenticated session initialization can select the user's saved embedding
- * provider after the harness config has loaded. The browser contract here is
- * specifically the hard "stored without vectors" state, so establish that
- * state through the supported controller before seeding each source.
- */
-async function disableEmbeddings(): Promise<void> {
-  await callCoreRpc('openhuman.embeddings_update_settings', {
-    provider: 'none',
-    confirm_wipe: true,
-  });
-}
-
 async function addAndSync(label: string, files = 3): Promise<{ id: string; root: string }> {
-  await disableEmbeddings();
   const root = makeCorpus(files);
   const added = await callCoreRpc<{ source?: { id?: string } }>('openhuman.memory_sources_add', {
     kind: 'folder',

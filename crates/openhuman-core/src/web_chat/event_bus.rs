@@ -1,3 +1,7 @@
+//! In-process `WebChannelEvent` broadcast bus, plus the `DomainEvent`
+//! surface subscribers (approval/plan-review, artifact, egress) that bridge
+//! domain events onto it for Socket.IO and the JSON-RPC `/events` stream.
+
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, OnceLock};

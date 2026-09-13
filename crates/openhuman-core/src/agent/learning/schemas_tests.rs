@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::{Map, Value};
 
 #[test]
 fn all_schemas_returns_eleven() {

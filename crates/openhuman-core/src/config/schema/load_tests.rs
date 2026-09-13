@@ -100,13 +100,13 @@ async fn write_binary(path: &std::path::Path, bytes: &[u8]) {
         .unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
 }
 
-#[path = "load_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "load_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "load_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "load_tests_part_04_tests.rs"]
-mod part_04_tests;
-#[path = "load_tests_part_05_tests.rs"]
-mod part_05_tests;
+#[path = "load_active_user_and_dirs_tests.rs"]
+mod active_user_and_dirs_tests;
+#[path = "load_backup_tests.rs"]
+mod backup_tests;
+#[path = "load_corruption_recovery_tests.rs"]
+mod corruption_recovery_tests;
+#[path = "load_env_overlay_tests.rs"]
+mod env_overlay_tests;
+#[path = "load_migration_tests.rs"]
+mod migration_tests;

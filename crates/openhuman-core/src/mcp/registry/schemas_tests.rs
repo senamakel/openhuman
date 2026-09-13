@@ -1,6 +1,7 @@
 use super::*;
 use serde_json::json;
 
+use serde_json::{Map, Value};
 // ── schemas() coverage ────────────────────────────────────────────────────
 
 #[test]

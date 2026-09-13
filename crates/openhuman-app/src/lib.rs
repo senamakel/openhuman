@@ -1,3 +1,27 @@
+//! Desktop host for OpenHuman: Tauri v2 + Wry, targeting Windows, macOS, and
+//! Linux.
+//!
+//! `openhuman_core` is linked in-process; its JSON-RPC server runs as a
+//! tokio task (`core_process`) instead of a spawned sidecar. The renderer
+//! reaches it over `http://127.0.0.1:<port>/rpc`, using the per-launch
+//! bearer returned by the `core_rpc_token` command.
+//!
+//! Public surface is exactly two functions: [`run`] starts the Tauri
+//! application, and [`run_core_from_args`] dispatches straight into the
+//! core CLI for the `core`/`mcp` subcommands `main.rs` routes here.
+//!
+//! The Cargo features `gateways`, `custom-protocol`, `e2e-test-support`, and
+//! `sandbox-bubblewrap` are shell-local and not part of the product feature
+//! list; the `openhuman_core` product gates are forwarded explicitly in
+//! `Cargo.toml` and guarded by the `VOICE_COMPILED_IN` /
+//! `HTTP_SERVER_COMPILED_IN` compile-time asserts below.
+//!
+//! This crate is excluded from the root Cargo workspace — build it with
+//! `cargo check --manifest-path crates/openhuman-app/Cargo.toml`. See
+//! `README.md` in this crate and
+//! [`gitbooks/developing/architecture/tauri-shell.md`](../../../gitbooks/developing/architecture/tauri-shell.md)
+//! for the full IPC surface and lifecycle model.
+
 // Desktop targets: Windows, macOS, Linux. iOS + Android live in
 // `app/src-tauri-mobile/`.
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
@@ -545,10 +569,10 @@ async fn check_app_update(app: tauri::AppHandle<AppRuntime>) -> Result<AppUpdate
 
 /// Download and install the latest shell update, then relaunch.
 ///
-/// Shuts the core sidecar down before download begins so the install step
+/// Shuts the in-process core down before download begins so the install step
 /// (which on macOS replaces the entire `.app` bundle) does not race against
-/// a live sidecar holding file handles inside `Contents/Resources/`. The
-/// new bundled sidecar is launched fresh after `app.restart()`.
+/// a live core holding file handles inside `Contents/Resources/`. The core
+/// starts fresh in the new process after `app.restart()`.
 ///
 /// Emits Tauri events `app-update:status` and `app-update:progress` so the
 /// frontend can show a snackbar / progress bar.
@@ -590,9 +614,9 @@ async fn apply_app_update(
     );
     let _ = app.emit("app-update:status", "downloading");
 
-    // Shut the core sidecar down before the install step replaces the .app.
+    // Shut the in-process core down before the install step replaces the .app.
     // We hold the restart lock until app.restart() so nothing tries to
-    // respawn the sidecar from the in-flight (or freshly-replaced) bundle.
+    // respawn the core from the in-flight (or freshly-replaced) bundle.
     let _guard = state.inner().restart_lock().await;
     log::debug!("[app-update] acquired core restart lock");
     state.inner().shutdown().await;
@@ -3595,11 +3619,11 @@ pub fn run_core_from_args(args: &[String]) -> Result<(), String> {
 
 /// Canonical release tag: `openhuman@<version>[+<short_sha>]`.
 ///
-/// Mirrors `build_release_tag` in the core sidecar's `src/main.rs` and the
+/// Mirrors `build_release_tag` in `crates/openhuman-core/src/main.rs` and the
 /// `SENTRY_RELEASE` value computed in `app/vite.config.ts` so events from
-/// every surface (React frontend, core sidecar, Tauri shell) group under the
-/// same release in Sentry and benefit from the same source-map / debug-info
-/// upload.
+/// every surface (React frontend, standalone `openhuman-core` binary, Tauri
+/// shell) group under the same release in Sentry and benefit from the same
+/// source-map / debug-info upload.
 /// Return `true` when the Sentry event is a "Failed to request
 /// http://localhost:…" message originating from the vendored
 /// `tauri-runtime-cef` dev-server proxy.

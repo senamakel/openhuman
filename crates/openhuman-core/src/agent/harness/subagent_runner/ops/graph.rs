@@ -27,8 +27,43 @@
 //! and a graceful model-call-cap checkpoint summary
 //! (`SubagentCheckpoint::summarize_cap_hit`).
 
+// Split by responsibility rather than by line count:
+//
+// - [`dispatch`] — drives one sub-agent turn through the shared tinyagents
+//   seam, builds its context middleware, and folds a cap-hit checkpoint
+//   summary back into the result.
+// - [`transcript`] — persists a sub-agent turn's (or a failed run's) raw
+//   transcript to `session_raw`.
+// - [`worker_mirror`] — mirrors a sub-agent turn's conversation onto its
+//   spawn's worker thread.
+mod dispatch;
+mod transcript;
+mod worker_mirror;
+
+// Re-exported under the original flat `graph::` path so external callers
+// (`ops/mod.rs`, `ops/runner.rs`, `graph_tests.rs`'s `use super::*`) are
+// unaffected by the responsibility split.
+pub(crate) use dispatch::run_agent_turn_request_via_default_graph;
+pub(super) use dispatch::{run_subagent_via_graph, AggregatedUsage};
+
+// Only what `graph_tests.rs`'s `use super::*` still needs directly (the rest
+// of the original flat imports now live with the code that uses them, in
+// `dispatch.rs` / `transcript.rs` / `worker_mirror.rs`).
+#[cfg(test)]
+use crate::agent::messages::{ChatMessage, ConversationMessage};
+#[cfg(test)]
+use crate::agent::progress::AgentProgress;
+#[cfg(test)]
+use crate::inference::tokenjuice::AgentTokenjuiceCompression;
+#[cfg(test)]
+use crate::tools::Tool;
+#[cfg(test)]
+use std::collections::HashSet;
+#[cfg(test)]
+use std::sync::Arc;
+#[cfg(test)]
+use worker_mirror::{mirror_worker_thread, mirror_worker_thread_from_history};
+
 #[cfg(test)]
 #[path = "graph_tests.rs"]
 mod tests;
-include!("graph_part_01.rs");
-include!("graph_part_02.rs");

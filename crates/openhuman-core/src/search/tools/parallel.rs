@@ -18,8 +18,37 @@
 //!
 //! The backend handles Parallel API keys, billing, and rate limiting.
 
+mod chat;
+mod dataset;
+mod enrich;
+mod extract;
+mod research;
+mod search;
+
 #[cfg(test)]
 #[path = "parallel_tests.rs"]
 mod tests;
-include!("parallel_part_01.rs");
-include!("parallel_part_02.rs");
+
+pub use chat::ParallelChatTool;
+pub use dataset::ParallelDatasetTool;
+pub use enrich::ParallelEnrichTool;
+pub use extract::ParallelExtractTool;
+pub use research::ParallelResearchTool;
+pub use search::{ParallelSearchTool, SearchResponse, SearchResultItem};
+
+// Re-exported only for the test module (`super::*`), which asserts on the
+// raw backend response shapes and formatting helpers directly.
+#[cfg(test)]
+use crate::integrations::IntegrationClient;
+#[cfg(test)]
+use crate::tools::traits::Tool;
+#[cfg(test)]
+use enrich::{enrich_payload, format_enrich_response, EnrichResponse};
+#[cfg(test)]
+use extract::ExtractResponse;
+#[cfg(test)]
+use research::{format_research_response, research_payload, ResearchResponse};
+#[cfg(test)]
+use serde_json::json;
+#[cfg(test)]
+use std::sync::Arc;

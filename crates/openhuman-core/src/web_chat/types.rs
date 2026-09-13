@@ -1,3 +1,8 @@
+//! Shared state and RPC parameter types for the web chat turn: the cached
+//! `SessionEntry`/`SessionCacheFingerprint`, in-flight/parallel turn tracking
+//! (`InFlightEntry`, `ParallelEntry`), the turn result (`WebChatTaskResult`),
+//! and the `channel.web_*` request param structs.
+
 use serde::Deserialize;
 
 use crate::agent::Agent;

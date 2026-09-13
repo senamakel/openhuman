@@ -41,7 +41,7 @@
 //!
 //!
 //! ```ignore
-//! use openhuman::openhuman::memory::source_scope::{with_source_scope, current_source_scope};
+//! use openhuman_core::memory::source_scope::{with_source_scope, current_source_scope};
 //!
 //! with_source_scope(Some(vec!["slack:#eng".into()]), async {
 //!     assert!(current_source_scope().unwrap().contains("slack:#eng"));

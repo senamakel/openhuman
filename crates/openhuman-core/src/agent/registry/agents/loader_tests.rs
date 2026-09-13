@@ -12,9 +12,9 @@ fn find(id: &str) -> AgentDefinition {
         .unwrap_or_else(|| panic!("missing built-in {id}"))
 }
 
-#[path = "loader_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "loader_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "loader_tests_part_03_tests.rs"]
-mod part_03_tests;
+#[path = "loader_tests_builtin_registration_tests.rs"]
+mod builtin_registration_tests;
+#[path = "loader_tests_orchestrator_tier_tests.rs"]
+mod orchestrator_tier_tests;
+#[path = "loader_tests_specialist_agents_tests.rs"]
+mod specialist_agents_tests;

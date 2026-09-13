@@ -1,3 +1,14 @@
+//! `WebSearchTool` — the managed, backend-proxied `web_search_tool`.
+//!
+//! Registered by `engines/managed.rs` (the effective default, and the fallback
+//! when a BYOK engine has no key configured) and alongside the Parallel family
+//! by `engines/parallel.rs`. Requests go through
+//! `crate::integrations::IntegrationClient` to
+//! `POST /agent-integrations/parallel/search`; `resolve_managed_provider`
+//! attributes each response to the provider the backend reports, falling back
+//! to `MANAGED_DEFAULT_PROVIDER`, for UI display. `with_direct_search` can
+//! swap in a `SeltzSearchTool` that bypasses the proxy; only tests use it.
+
 use super::{SearchResponse, SearchResultItem, SeltzSearchTool};
 use crate::config::Config;
 use crate::integrations::IntegrationClient;

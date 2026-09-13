@@ -61,14 +61,14 @@ fn custom_profile(id: &str, dedicated_memory: bool) -> crate::agent::profiles::A
     profile
 }
 
-#[path = "builder_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "builder_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "builder_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "builder_tests_part_04_tests.rs"]
-mod part_04_tests;
+#[path = "builder_tests_memory_write_instruction_tests.rs"]
+mod memory_write_instruction_tests;
+#[path = "builder_tests_profile_soul_prompt_tests.rs"]
+mod profile_soul_prompt_tests;
+#[path = "builder_tests_session_agent_profile_tests.rs"]
+mod session_agent_profile_tests;
+#[path = "builder_tests_tool_spec_views_tests.rs"]
+mod tool_spec_views_tests;
 
 // ── use_skill's advertised spec is scoped to the session ────────────────────
 

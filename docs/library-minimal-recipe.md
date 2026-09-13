@@ -5,7 +5,7 @@ Rust core as a library in "opencompany" — headless, no RPC server, no Tauri
 shell, targeting 100-1000 live agents in a 2 GB RAM / 2 vCPU box.
 
 It follows the repo's existing slim convention (`cargo build --no-default-features
---features "<explicit list>"`, see AGENTS.md "Compile-time domain gates") and keeps
+--features "<explicit list>"`, see `crates/openhuman-core/README.md` "Feature flags" and the policy comments above `[features]` in `crates/openhuman-core/Cargo.toml`) and keeps
 only the domains the opencompany use cases actually exercise: **agent turns,
 subagent delegation, memory ingest, workflow (flows) runs, and python/js skill
 execution.**
@@ -36,7 +36,7 @@ There is **no** `library-minimal` meta-feature in `Cargo.toml`, on purpose — s
 ## Keep / drop table
 
 The single `default` list this session was written against no longer exists.
-There are two sets now (AGENTS.md, "Compile-time domain gates"): **Contrib** is
+There are two sets now (`crates/openhuman-core/README.md`, "Feature flags"): **Contrib** is
 `[features] default`, what a bare `cargo check` compiles; **Product** is
 `scripts/ci/product-features.txt`, what the desktop app ships. Both columns
 below are current. `desktop-automation` has since been removed from the tree
@@ -122,7 +122,7 @@ recipe; the RSS win is real but secondary.
 
 ## What is functionally absent in this build
 
-Summarized from the per-gate behavior notes in AGENTS.md. Dropped domains fail
+Summarized from the per-gate comments in `crates/openhuman-core/Cargo.toml`. Dropped domains fail
 *closed and cleanly* — controllers become unknown-method, tools are simply absent
 from the tool list (not degraded to runtime errors), CLI subcommands report a
 build-fact error:
@@ -155,15 +155,16 @@ graph create/run/schedule + `workflow_builder`/`flow_discovery` agents).
 
 ## Test verification
 
-The disabled-build test gotcha (AGENTS.md: CI's smoke lane runs `cargo check`
-only and never compiles `--no-default-features` test code) was checked directly:
+The disabled-build test gotcha (AGENTS.md says to test both enabled and disabled
+builds after changing a gate; CI's `cargo check` lanes never compile
+`--no-default-features` test code) was checked directly:
 
 ```bash
 cargo test -p openhuman --lib --no-default-features --features "skills,flows" core::
 # result: ok. 660 passed; 0 failed; 1 ignored; 10513 filtered out
 ```
 
-The both-ways gate tests in `src/core/all_tests.rs` (which assert dropped domains
+The both-ways gate tests in `crates/openhuman-core/src/core/all_tests.rs` (which assert dropped domains
 become unknown-method) pass under this recipe. No pre-existing failures.
 
 ## CI note
@@ -177,7 +178,7 @@ risk and needs no `INTENTIONALLY_NOT_FORWARDED` entry.
 
 ## Why no `Cargo.toml` alias
 
-The repo convention (AGENTS.md "Slim-profile convention") is deliberate: **no
+The repo convention (the `[features]` policy comments in `crates/openhuman-core/Cargo.toml`) is deliberate: **no
 `full` meta-feature; build slim variants with an explicit feature list.** A
 `library-minimal = ["skills","flows"]` alias would be convenient, but it:
 
@@ -205,7 +206,7 @@ prioritization.
    from every build, not just the slim one, and with them the whisper.cpp + GGML
    C++ static link that previously required a platform-specific build workaround.
    Speech-to-text is a hosted call now, with the engine chosen by
-   `voice_server.stt_engine` (see the AGENTS.md scope note). The `inference`
+   `voice_server.stt_engine` (see the `inference` gate comment in `crates/openhuman-core/Cargo.toml`). The `inference`
    feature survives with a narrower job: it gates `cpal` alone, which is what a
    headless library host wanted to shed anyway.
 
@@ -235,6 +236,7 @@ prioritization.
 
 - [`docs/library-benchmarking.md`](library-benchmarking.md) — the benchmark
   environment, scenario definitions, and default/slim baselines.
-- `docs/resource-profiling-session-2026-07-21.md`
-  — deep memory/CPU attribution (why RSS is mostly not live heap).
-- AGENTS.md "Compile-time domain gates" — the per-gate behavior and dependency notes.
+- The original profiling session write-up covering deep memory/CPU attribution
+  (why RSS is mostly not live heap) was removed from the tree; see git history
+  at `0017c58d86~1`.
+- `crates/openhuman-core/README.md` "Feature flags" and the per-gate comments in `crates/openhuman-core/Cargo.toml` — the per-gate behavior and dependency notes.

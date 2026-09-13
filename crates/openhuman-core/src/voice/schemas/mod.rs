@@ -1,4 +1,16 @@
 //! Controller schemas and RPC handler dispatch for the voice domain.
+//!
+//! Split by concern:
+//! - `registry.rs` — the controller table (`all_voice_controller_schemas`,
+//!   `all_voice_registered_controllers`, `voice_schemas`).
+//! - `params.rs` — `Deserialize` param structs for each RPC method.
+//! - `helpers.rs` — shared plumbing (`to_json`, `deserialize_params`,
+//!   provider validation, silent-WAV generation).
+//! - `handlers.rs` — re-exports the actual `handle_voice_*` /
+//!   `handle_overlay_stt_notify` implementations, split further into
+//!   `handlers/transcribe_tts.rs` (transcription, synthesis, factory-dispatch)
+//!   and `handlers/provider_server.rs` (provider settings, model listing,
+//!   provider testing, dictation-server lifecycle).
 
 mod handlers;
 mod helpers;

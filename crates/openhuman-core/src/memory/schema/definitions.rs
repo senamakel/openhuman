@@ -9,16 +9,16 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 pub(crate) const NAMESPACE: &str = "memory_tree";
 
 /// Lookup the [`ControllerSchema`] for a single `memory_tree` function name.
-#[path = "schema_schema_part_01.rs"]
-mod schema_schema_part_01;
-#[path = "schema_schema_part_02.rs"]
-mod schema_schema_part_02;
+#[path = "tree_operations_schema.rs"]
+mod tree_operations_schema;
+#[path = "vault_and_pipeline_schema.rs"]
+mod vault_and_pipeline_schema;
 
 pub fn schemas(function: &str) -> ControllerSchema {
-    if let Some(schema) = schema_schema_part_01::lookup(function) {
+    if let Some(schema) = tree_operations_schema::lookup(function) {
         return schema;
     }
-    if let Some(schema) = schema_schema_part_02::lookup(function) {
+    if let Some(schema) = vault_and_pipeline_schema::lookup(function) {
         return schema;
     }
     ControllerSchema {

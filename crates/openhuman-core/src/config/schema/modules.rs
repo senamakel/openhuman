@@ -2,7 +2,7 @@
 //!
 //! A module is trusted in-process code, so this block deliberately cannot add
 //! one. The set of loadable modules is compiled into
-//! `openhuman::modules::registry`; what config controls is whether they load at
+//! `crate::modules::registry`; what config controls is whether they load at
 //! all, whether this host may fetch them, and where a developer's own build
 //! lives. A config file that could name a new artifact to `dlopen` would be a
 //! remote-code-execution surface with a download step.

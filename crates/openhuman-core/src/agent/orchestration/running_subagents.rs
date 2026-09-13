@@ -6,7 +6,8 @@
 //! closes both gaps.
 //!
 //! Each running async sub-agent registers in TinyAgents'
-//! [`DetachedTaskRegistry`], keyed by its `task_id`, with:
+//! [`DetachedTaskRegistry`](crate::agent::tinyagents::orchestration::DetachedTaskRegistry),
+//! keyed by its `task_id`, with:
 //! - an `Arc<RunQueue>` — the same steering channel the steering forwarder in
 //!   `run_turn_via_tinyagents_shared` drains mid-turn, so `steer_subagent` can
 //!   inject a message when no crate-native steering handle is registered;
@@ -33,9 +34,44 @@
 //! terminal status into the store (`Completed`/`Failed`/`Awaiting`); the cancel
 //! paths record `Cancelled`. This gives a typed, queryable lifecycle
 //! (`task_records`) alongside the crate-owned runtime registry.
+//!
+//! ## Module layout
+//!
+//! - [`registry`] — the in-process table itself: [`SubagentStatus`],
+//!   registration, and status channels.
+//! - [`task_ledger`] — the durable per-workspace task store and the typed
+//!   lifecycle records mirrored into it.
+//! - [`roster`] — read-only snapshots for prompt injection and control tools.
+//! - [`resolve`] — mapping a durable session id (or bare task id) to the live
+//!   registry entry or a durable fallback record.
+//! - [`steering`] — injecting messages and control directives into a running
+//!   sub-agent.
+//! - [`wait`] — blocking collection of a sub-agent's terminal result.
+//! - [`cancel`] — aborting sub-agents by task, session, thread, or all at once.
+
+mod cancel;
+mod registry;
+mod resolve;
+mod roster;
+mod steering;
+mod task_ledger;
+mod wait;
 
 #[cfg(test)]
 #[path = "running_subagents_tests.rs"]
 mod tests;
-include!("running_subagents_part_01.rs");
-include!("running_subagents_part_02.rs");
+
+#[cfg(test)]
+pub(crate) use cancel::prune;
+pub(crate) use cancel::{
+    cancel_all, cancel_by_session_in_workspace, cancel_by_task, cancel_for_thread,
+};
+pub(crate) use registry::{register, status_channel, SubagentResumeRef, SubagentStatus};
+pub(crate) use resolve::{resume_ref_for_task_in_workspace, task_id_for_session_in_workspace};
+pub(crate) use roster::active_subagents_context_block;
+pub(crate) use steering::steer_control;
+pub use steering::{steer, SteerError};
+#[cfg(test)]
+pub(crate) use task_ledger::task_records;
+pub(crate) use task_ledger::{reconcile_orphaned_tasks_on_boot, task_record_for_task_in_workspace};
+pub(crate) use wait::{wait_in_workspace, WaitError, WaitOutcome};

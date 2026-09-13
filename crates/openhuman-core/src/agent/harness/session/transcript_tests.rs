@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::messages::ChatMessage;
 use crate::inference::provider::ToolCall;
 use tempfile::TempDir;
 
@@ -91,9 +92,9 @@ fn roles(messages: &[ChatMessage]) -> Vec<&str> {
     messages.iter().map(|m| m.role.as_str()).collect()
 }
 
-#[path = "transcript_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "transcript_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "transcript_tests_part_03_tests.rs"]
-mod part_03_tests;
+#[path = "transcript_forward_compat_tests.rs"]
+mod transcript_forward_compat_tests;
+#[path = "transcript_roundtrip_and_paths_tests.rs"]
+mod transcript_roundtrip_and_paths_tests;
+#[path = "transcript_thread_and_append_tests.rs"]
+mod transcript_thread_and_append_tests;

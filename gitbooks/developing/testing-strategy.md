@@ -13,10 +13,10 @@ How OpenHuman tests its product. Source of truth for "where does my test go?". C
 
 | Layer                | Where it lives                                                                                                                                        | What it tests                                                                                                                                   | Driver                                                                                                        |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Rust unit**        | `#[cfg(test)] mod tests` inside the same `*.rs` file, or sibling `tests.rs`, or `tests/` subdir under a domain (e.g. `crates/openhuman-core/src/channels/tests/`) | Pure domain logic, schemas, RPC handler shape, in-memory state machines                                                                         | `cargo test`                                                                                                  |
-| **Rust integration** | `tests/*.rs` at repo root                                                                                                                             | Full domain wiring with real Tokio runtime, mock external services, JSON-RPC end-to-end (`tests/json_rpc_e2e.rs`), domain × domain interactions | `pnpm test:rust` (which calls `bash scripts/test-rust-with-mock.sh`)                                          |
+| **Rust unit**        | Sibling `<module>_tests.rs` files beside the module under `crates/openhuman-core/src/<domain>/`, or a `tests/` subdir under a domain (e.g. `crates/openhuman-core/src/channels/tests/`); inline `#[cfg(test)] mod` blocks and files named `tests.rs`/`test.rs` fail `pnpm rust:layout` | Pure domain logic, schemas, RPC handler shape, in-memory state machines                                                                         | `cargo test`                                                                                                  |
+| **Rust integration** | `tests/*.rs` at repo root, each an explicit `[[test]]` target in `crates/openhuman-core/Cargo.toml` (`autotests = false`); `tests/raw_coverage/*.rs` is globbed by `build.rs` into the single `raw_coverage_all` target | Full domain wiring with real Tokio runtime, mock external services, JSON-RPC end-to-end (`tests/json_rpc_e2e.rs`), domain × domain interactions | `pnpm test:rust` (which calls `bash scripts/test-rust-with-mock.sh`)                                          |
 | **Vitest unit**      | Co-located as `*.test.ts(x)` next to source under `app/src/**`, or under `app/src/**/__tests__/`                                                      | React components, hooks, store slices, pure utilities, service-layer adapters                                                                   | `pnpm test:unit`                                                                                              |
-| **WDIO E2E**         | `app/test/e2e/specs/*.spec.ts`                                                                                                                        | Full desktop flow: UI → Tauri → in-process core → JSON-RPC; user-visible behaviour                                                              | All platforms: Appium Chromium driver (port 4723) against the CEF runtime. See [E2E Testing](e2e-testing.md). |
+| **WDIO E2E**         | `app/test/e2e/specs/*.spec.ts`                                                                                                                        | Full desktop flow: UI → Tauri → in-process core → JSON-RPC; user-visible behaviour                                                              | All platforms: Linux CI drives the Wry-based debug build (macOS/Windows desktop E2E is disabled until a native driver lands, #5485). See [E2E Testing](e2e-testing.md). |
 | **Manual smoke**     | [`docs/RELEASE-MANUAL-SMOKE.md`](../../docs/RELEASE-MANUAL-SMOKE.md)                                                                                  | OS-level surfaces drivers cannot assert: TCC permission prompts, Gatekeeper, code signing, DMG install, OS-native toasts                        | Human at release-cut, signed off in release PR                                                                |
 
 ---
@@ -24,14 +24,14 @@ How OpenHuman tests its product. Source of truth for "where does my test go?". C
 ## Decision tree - where does my test go?
 
 ```text
-Is the change behind the JSON-RPC boundary (in `src/`)?
+Is the change behind the JSON-RPC boundary (in `crates/openhuman-core/src/`, `crates/openhuman-rpc/`, or `crates/openhuman-embed/`)?
 ├─ YES - does it cross domains or talk to external services?
 │   ├─ YES → Rust integration (tests/*.rs)
 │   └─ NO  → Rust unit (next to source)
 └─ NO - change is in `app/`
     ├─ Is it a pure function, hook, slice, or component in isolation?
     │   └─ YES → Vitest unit (*.test.tsx co-located)
-    └─ Is it user-visible AND it crosses UI ⇄ Tauri ⇄ sidecar ⇄ JSON-RPC?
+    └─ Is it user-visible AND it crosses UI ⇄ Tauri ⇄ embedded core ⇄ JSON-RPC?
         ├─ YES → WDIO E2E (app/test/e2e/specs/*.spec.ts)
         └─ Is it OS-level (TCC, Gatekeeper, install, OS toasts)?
             └─ YES → Manual smoke checklist
@@ -78,7 +78,7 @@ A spec that asserts only the happy path is incomplete.
 - **Auth shortcut**: `triggerAuthDeepLink` / `triggerAuthDeepLinkBypass` in `helpers/deep-link-helpers.ts` skips real OAuth.
 - **Element helpers**: `clickNativeButton`, `waitForWebView`, `clickToggle` in `helpers/element-helpers.ts`, use these instead of raw `XCUIElementType*` selectors.
 - **Shared flows**: `completeOnboardingIfVisible`, `navigateViaHash`, `navigateToSkills`, `walkOnboarding` in `helpers/shared-flows.ts`.
-- **Core RPC from spec**: `callOpenhumanRpc` in `helpers/core-rpc.ts`, drives the sidecar directly when a UI step would be brittle.
+- **Core RPC from spec**: `callOpenhumanRpc` in `helpers/core-rpc.ts`, drives the embedded core directly when a UI step would be brittle.
 - **Platform guards**: `isTauriDriver`, `isMac2`, `supportsExecuteScript` in `helpers/platform.ts` (the first two are legacy shims — everything runs on the Appium Chromium driver now).
 - **Artifact capture on failure**: `captureFailureArtifacts` runs from `wdio.conf.ts`, screenshots + DOM dumps land under `app/test/e2e/artifacts/`.
 
@@ -100,7 +100,7 @@ Run before opening a PR. CI runs the same set, but local runs are faster:
 ```bash
 # Rust core
 cargo fmt --check
-cargo check --manifest-path Cargo.toml
+cargo check --manifest-path Cargo.toml   # covers openhuman-core, openhuman-embed, openhuman-rpc, openhuman-tui
 cargo clippy --manifest-path Cargo.toml -- -D warnings
 cargo test --manifest-path Cargo.toml
 
@@ -152,5 +152,5 @@ When you add / remove / rename a feature, **update the matrix row in the same PR
 ## When in doubt
 
 - Push the test as low in the layer stack as possible (Rust unit > Rust integration > Vitest > WDIO). Lower layers are faster, more deterministic, and cheaper to run.
-- WDIO is for behaviours that genuinely cross UI ⇄ Tauri ⇄ sidecar ⇄ JSON-RPC. Don't drive a unit-testable concern through WDIO just because the UI exists.
+- WDIO is for behaviours that genuinely cross UI ⇄ Tauri ⇄ embedded core ⇄ JSON-RPC. Don't drive a unit-testable concern through WDIO just because the UI exists.
 - A failing happy path is a regression. A missing failure-path test is a gap. Both are bugs.

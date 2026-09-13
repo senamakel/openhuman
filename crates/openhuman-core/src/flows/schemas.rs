@@ -496,16 +496,25 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
     ]
 }
 
-#[path = "flows_schema_part_01.rs"]
-mod flows_schema_part_01;
-#[path = "flows_schema_part_02.rs"]
-mod flows_schema_part_02;
+mod builder_schemas;
+mod definition_schemas;
+mod draft_schemas;
+mod run_schemas;
 
+/// Builds the `ControllerSchema` for one `flows.<function>`. Each schema
+/// group owns a disjoint set of function names; an unknown name yields the
+/// placeholder schema below.
 pub fn schemas(function: &str) -> ControllerSchema {
-    if let Some(schema) = flows_schema_part_01::lookup(function) {
+    if let Some(schema) = definition_schemas::lookup(function) {
         return schema;
     }
-    if let Some(schema) = flows_schema_part_02::lookup(function) {
+    if let Some(schema) = run_schemas::lookup(function) {
+        return schema;
+    }
+    if let Some(schema) = builder_schemas::lookup(function) {
+        return schema;
+    }
+    if let Some(schema) = draft_schemas::lookup(function) {
         return schema;
     }
     ControllerSchema {

@@ -1,10 +1,19 @@
-use super::super::proxy::{
-    normalize_no_proxy_list, normalize_proxy_url_option, normalize_service_list,
-    parse_proxy_enabled, parse_proxy_scope, set_runtime_proxy_config, ProxyScope,
-};
-use super::super::{Config, UpdateRestartStrategy};
+//! Environment-variable overlay applied on top of the persisted config.
+//!
+//! The entry points and the process-wide side effects live here; each
+//! config section's overrides live in a submodule below.
+
+mod dictation_context;
+mod learning_memory;
+mod observability;
+mod proxy;
+mod runtime;
+mod search;
+mod subsystems_update;
+
+use super::super::proxy::{set_runtime_proxy_config, ProxyScope};
+use super::super::Config;
 use super::dirs::MEMORY_SYNC_INTERVAL_SECS_ENV_VAR;
-use super::env::parse_env_bool;
 use std::path::PathBuf;
 
 /// Classification of an `OPENHUMAN_SHELL_HIDE_WINDOW` env value. Split out from
@@ -31,5 +40,161 @@ pub(super) fn classify_shell_hide_window(raw: &str) -> ShellHideWindowParse {
         _ => ShellHideWindowParse::Unrecognized,
     }
 }
-include!("env_overlay_impl_01_part_01.rs");
-include!("env_overlay_impl_01_part_02.rs");
+
+impl Config {
+    pub fn apply_env_overrides(&mut self) {
+        use super::env::ProcessEnv;
+        self.apply_env_overrides_from(&ProcessEnv);
+    }
+
+    pub(super) fn apply_env_overrides_from(
+        &mut self,
+        env: &(dyn super::env::EnvLookup + Send + Sync),
+    ) {
+        self.apply_env_overlay_with(env);
+
+        if self.proxy.enabled && self.proxy.scope == ProxyScope::Environment {
+            self.proxy.apply_to_process_env();
+        }
+
+        set_runtime_proxy_config(self.proxy.clone());
+
+        crate::inference::embeddings::rate_limit::set_embedding_rate_limit(
+            self.memory.embedding_rate_limit_per_min,
+        );
+
+        // Launch flags are process-local and intentionally win over both the
+        // persisted file and ordinary environment overlays. They are applied
+        // after loading so `openhuman -p <provider> -m <model>` never mutates
+        // config.toml and desktop launches remain unaffected.
+        super::super::cli_overrides::apply_cli_inference_overrides(self);
+    }
+
+    /// Pure-ish env overlay: applies overrides read from `env` to `self`.
+    ///
+    /// "Pure-ish" because it still emits `tracing` logs and calls
+    /// `self.proxy.validate()` (which only reads). Crucially, it does
+    /// **not** write to the process environment nor the
+    /// `set_runtime_proxy_config` global — those stay in the public
+    /// [`Self::apply_env_overrides`] wrapper so unit tests can call this
+    /// with a [`HashMapEnv`] (see tests) without requiring the
+    /// `TEST_ENV_LOCK` or tainting sibling tests.
+    pub(crate) fn apply_env_overlay_with<E: super::env::EnvLookup + ?Sized>(&mut self, env: &E) {
+        // Only the namespaced `OPENHUMAN_MODEL` is honoured. The bare `MODEL`
+        // env var used to be accepted as an alias but collides with vendor
+        // asset-tag env vars (e.g. Dell OptiPlex sets `MODEL=7080`), which
+        // silently clobbered the LLM model and 400'd every backend call
+        // (Sentry OPENHUMAN-TAURI-J8).
+        if let Some(model) = env.get("OPENHUMAN_MODEL") {
+            let trimmed = model.trim();
+            if !trimmed.is_empty() {
+                self.default_model = Some(trimmed.to_string());
+            }
+        }
+
+        if let Some(workspace) = env.get("OPENHUMAN_WORKSPACE") {
+            if !workspace.is_empty() {
+                let (_, workspace_dir) =
+                    super::dirs::resolve_config_dir_for_workspace(&PathBuf::from(workspace));
+                self.workspace_dir = workspace_dir;
+            }
+        }
+
+        if let Some(v) = env.get("OPENHUMAN_ACTION_DIR") {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                self.action_dir = PathBuf::from(trimmed);
+            }
+        }
+
+        if let Some(temp_str) = env.get("OPENHUMAN_TEMPERATURE") {
+            if let Ok(temp) = temp_str.parse::<f64>() {
+                if (0.0..=2.0).contains(&temp) {
+                    self.default_temperature = temp;
+                }
+            }
+        }
+
+        if let Some(raw) = env.get("OPENHUMAN_MAX_ACTIONS_PER_HOUR") {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                match trimmed.parse::<u32>() {
+                    Ok(limit) => self.autonomy.max_actions_per_hour = limit,
+                    Err(_) => tracing::warn!(
+                        value = %raw,
+                        "invalid OPENHUMAN_MAX_ACTIONS_PER_HOUR ignored; expected an unsigned integer"
+                    ),
+                }
+            }
+        }
+
+        if let Some(raw) = env.get(MEMORY_SYNC_INTERVAL_SECS_ENV_VAR) {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                match trimmed.parse::<u64>() {
+                    Ok(secs) => self.memory_sync_interval_secs = Some(secs),
+                    Err(_) => tracing::warn!(
+                        env = %MEMORY_SYNC_INTERVAL_SECS_ENV_VAR,
+                        value = %raw,
+                        "invalid memory-sync interval ignored; expected an unsigned integer (0 = manual)"
+                    ),
+                }
+            }
+        }
+
+        if let Some(language) = env.get("OPENHUMAN_OUTPUT_LANGUAGE") {
+            let language = language.trim();
+            if !language.is_empty() {
+                self.output_language = Some(language.to_string());
+            }
+        }
+
+        if let Some(flag) = env.get_any(&["OPENHUMAN_REASONING_ENABLED", "REASONING_ENABLED"]) {
+            let normalized = flag.trim().to_ascii_lowercase();
+            match normalized.as_str() {
+                "1" | "true" | "yes" | "on" => self.runtime.reasoning_enabled = Some(true),
+                "0" | "false" | "no" | "off" => self.runtime.reasoning_enabled = Some(false),
+                _ => {}
+            }
+        }
+
+        if let Some(flag) = env.get_any(&["OPENHUMAN_SHELL_HIDE_WINDOW", "SHELL_HIDE_WINDOW"]) {
+            match classify_shell_hide_window(&flag) {
+                // An empty / whitespace-only value means the var is present but
+                // unset (common when a `.env` or launcher exports `VAR=`). Treat
+                // it as absent — keep the current value rather than warning on
+                // every boot. Trace-level so the no-op stays diagnosable without
+                // the INFO/WARN noise this change exists to remove.
+                ShellHideWindowParse::Unset => tracing::trace!(
+                    "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW empty value treated as unset; \
+                     keeping hide_window={}",
+                    self.shell.hide_window
+                ),
+                ShellHideWindowParse::Set(value) => {
+                    self.shell.hide_window = value;
+                    tracing::debug!(
+                        value = %flag,
+                        "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW applied: hide_window={value}"
+                    );
+                }
+                ShellHideWindowParse::Unrecognized => tracing::warn!(
+                    value = %flag,
+                    "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW unrecognized value ignored; \
+                     keeping current hide_window={}",
+                    self.shell.hide_window
+                ),
+            }
+        }
+
+        self.apply_search_env(env);
+        self.apply_proxy_env(env);
+        self.apply_runtime_env(env);
+        self.apply_observability_env(env);
+        self.apply_learning_env(env);
+        self.apply_memory_tree_env(env);
+        self.apply_subsystems_env(env);
+        self.apply_update_env(env);
+        self.apply_dictation_env(env);
+        self.apply_context_env(env);
+    }
+}

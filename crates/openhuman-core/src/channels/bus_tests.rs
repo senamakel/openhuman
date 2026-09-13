@@ -1,7 +1,13 @@
 use super::*;
 use crate::api::rest::BackendApiError;
 use crate::core::events::DomainEvent;
+use tinybus::EventHandler;
 
+use crate::channels::bus::progressive_ui::channel_edits_unsupported;
+use crate::channels::bus::progressive_ui::classify_edit_failure;
+use crate::channels::bus::progressive_ui::edit_capability_key;
+use crate::channels::bus::progressive_ui::mark_channel_edits_unsupported;
+use crate::channels::bus::progressive_ui::EditFailure;
 #[test]
 fn subscriber_metadata_is_stable() {
     let subscriber = ChannelInboundSubscriber::new();

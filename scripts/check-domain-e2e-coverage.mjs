@@ -84,7 +84,7 @@ const MODULES = [
 // the report.
 //
 // This has to live HERE and not in Rust. The schemas are already `#[cfg]`-
-// correct — `crates/openhuman-core/src/mod.rs` gates the whole `test_support` module — but
+// correct — `crates/openhuman-core/src/lib.rs` gates the whole `test_support` module — but
 // discovery reads source text off disk and would find these literals even if
 // every line were `#[cfg(never)]`. There is no Rust-side edit that changes what
 // a text scan sees.
@@ -104,7 +104,7 @@ const UNREACHABLE_NAMESPACES = {
   test_support: {
     feature: 'e2e-test-support',
     reason:
-      'Same gate as `test`: crates/openhuman-core/src/mod.rs declares the whole `test_support` module behind ' +
+      'Same gate as `test`: crates/openhuman-core/src/lib.rs declares the whole `test_support` module behind ' +
       '`#[cfg(feature = "e2e-test-support")]`, so these workspace- and chat-introspection helpers exist only in ' +
       'the E2E build produced by app/scripts/e2e-build.sh.',
   },
@@ -197,8 +197,8 @@ function collectInvokedMethods() {
  * This reads EVERY `.rs` file under those roots. It used to read only files
  * whose path matched `/(^|\/)schemas?(\.rs|\/)/`, which stopped working on
  * 2026-08-30: the `include!` split (#5856/#5857) moved `ControllerSchema`
- * literals out of `schemas.rs` into `*_part_NN.rs` siblings that the pattern
- * does not match, and out of `flows/schemas.rs` into `flows_schema_part_*.rs`
+ * literals out of `schemas.rs` into sibling files that the pattern does not
+ * match, and out of `flows/schemas.rs` into `flows/schemas/*_schemas.rs`
  * entirely. Thirteen files and 180 controllers went invisible in one commit,
  * with no signal — the gate simply reported a smaller world.
  *
@@ -373,7 +373,7 @@ function attributesBefore(text, index) {
  * `#[cfg]` sits on the `mod` declaration in the PARENT, never in the file
  * itself, so this walks upward: `crates/openhuman-core/src/test_support/schemas.rs` is
  * reached through `mod schemas;` in `test_support/mod.rs` and then through
- * `pub mod test_support;` in `openhuman/mod.rs` — and only the second carries
+ * `pub mod test_support;` in `crates/openhuman-core/src/lib.rs` — and only the second carries
  * the gate. A file pulled in by `include!` has no `mod` of its own and simply
  * contributes nothing at its own level, which is why a missing declaration is
  * not an error here; one gated ancestor anywhere on the chain is enough.

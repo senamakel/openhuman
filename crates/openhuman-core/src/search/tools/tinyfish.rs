@@ -13,17 +13,11 @@
 
 use crate::integrations::IntegrationClient;
 use crate::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
+use crate::util::truncate_chars_flagged as truncate_chars;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-
-fn truncate_chars(s: &str, max_chars: usize) -> (&str, bool) {
-    match s.char_indices().nth(max_chars) {
-        Some((byte_idx, _)) => (&s[..byte_idx], true),
-        None => (s, false),
-    }
-}
 
 fn non_empty_string<'a>(args: &'a serde_json::Value, key: &str) -> anyhow::Result<&'a str> {
     args.get(key)

@@ -33,13 +33,19 @@
 //! Same pattern lists, same replacement tokens, same 128-level JSON depth cap,
 //! same sensitive-key classifier, same checksum gates, and the same priority and
 //! overlap-resolution order — so every caller stores exactly the bytes it always
-//! stored. The engine's module tree (`safety` over `pii` over
-//! `checks`/`normalize`/`prefilter`) is flat here because nothing outside it ever
-//! named the inner modules; every item keeps its name, so the two copies stay
-//! diffable line for line.
+//! stored. This copy mirrors the engine's own `safety` over `pii` over
+//! `checks`/`normalize`/`prefilter` split (`secrets` here plays the role of
+//! the engine's `safety`, and [`pii::checksums`]/[`pii::normalize`]/
+//! [`pii::patterns`] the role of its `checks`/`normalize`/`prefilter`); every
+//! item keeps its name, so the two copies stay diffable function for
+//! function even though the file layout is no longer identical.
 
 #[cfg(test)]
 #[path = "safety_tests.rs"]
 mod tests;
-include!("safety_part_01.rs");
-include!("safety_part_02.rs");
+
+mod pii;
+mod secrets;
+
+pub use pii::{has_likely_email, has_likely_pii};
+pub use secrets::{has_likely_secret, sanitize_json, sanitize_text, SanitizationReport, Sanitized};

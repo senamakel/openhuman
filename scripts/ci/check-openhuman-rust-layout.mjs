@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = "crates/openhuman-core/src";
+const CRATES_ROOT = "crates";
 const CORE_MANIFEST = "crates/openhuman-core/Cargo.toml";
 const LINE_LIMIT = 750;
 
@@ -30,6 +31,23 @@ function rustFiles(directory) {
   });
 }
 
+// Every Rust file under every crate, no exclusions — used for the naming and
+// inline-test-module checks, which apply repository-wide. The line-limit
+// check above stays scoped to `ROOT` exactly as before.
+function allRustFiles(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "target") return [];
+      return allRustFiles(file);
+    }
+    return entry.isFile() && entry.name.endsWith(".rs") ? [file] : [];
+  });
+}
+
+const INLINE_TEST_MODULE_RE =
+  /^\s*#\[cfg\([^\n]*\btest\b[^\n]*\)\]\s*\n(?:\s*#\[[^\n]+\]\s*\n)*\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{/m;
+
 const failures = [];
 for (const file of rustFiles(ROOT)) {
   const source = fs.readFileSync(file, "utf8");
@@ -41,16 +59,16 @@ for (const file of rustFiles(ROOT)) {
       `${file}: ${lineCount} lines (limit ${legacyLimit ?? LINE_LIMIT})`,
     );
   }
+}
+
+for (const file of allRustFiles(CRATES_ROOT)) {
+  const source = fs.readFileSync(file, "utf8");
   if (["tests.rs", "test.rs"].includes(path.basename(file))) {
     failures.push(
       `${file}: test modules must use a descriptive *_tests.rs filename`,
     );
   }
-  if (
-    /^#\[cfg\([^\n]*\btest\b[^\n]*\)\]\s*\n(?:#\[[^\n]+\]\s*\n)*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{/m.test(
-      source,
-    )
-  ) {
+  if (INLINE_TEST_MODULE_RE.test(source)) {
     failures.push(
       `${file}: inline test module; move it to a sibling *_tests.rs file`,
     );

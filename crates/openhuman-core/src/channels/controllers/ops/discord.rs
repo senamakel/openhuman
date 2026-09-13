@@ -10,7 +10,7 @@ use crate::rpc::RpcOutcome;
 use crate::security::credentials;
 
 use super::super::definitions::ChannelAuthMode;
-use super::connect::credential_provider;
+use super::connect::shared::credential_provider;
 use super::types::{DiscordLinkCheckResult, DiscordLinkStartResult};
 
 // ---------------------------------------------------------------------------

@@ -87,7 +87,7 @@ fn yuanbao_test_config(mock_uri: &str) -> (tempfile::TempDir, Config) {
     (tmp, config)
 }
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "ops_connect_status_tests.rs"]
+mod connect_status_tests;
+#[path = "ops_yuanbao_email_tests.rs"]
+mod yuanbao_email_tests;

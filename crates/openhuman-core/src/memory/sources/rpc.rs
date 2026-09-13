@@ -45,16 +45,53 @@
 //! a right one, on the two screens where the number is a promise about money
 //! and about how long an import will take.
 //!
-//! ## On this file's length
+//! ## Module layout
 //!
-//! It is over the ~500-line guidance, and was before this change; it is not
-//! split as part of it. The seam is visible, though, and the routing made it
-//! sharper: `coding_session_status_rpc`, `ingest_coding_sessions_rpc`,
-//! `reconcile_rpc`, `sync_audit_log_rpc`, `estimate_sync_cost_rpc` and
-//! `monthly_cost_summary_rpc` are the driver-facing half — six handlers over
-//! two capability families, all sharing the binding preamble — while the
-//! registry CRUD between them talks only to `registry` and `readers` and never
-//! resolves a binding at all.
+//! Split by responsibility rather than kept as one file: [`coding_sessions`]
+//! (discovery + ingestion), [`registry_crud`] (list/get/add/update/remove and
+//! the per-source item browse — talks only to `registry` and `readers` and
+//! never resolves a binding), [`source_sync`] (the row-level Sync button and
+//! raw-archive reconciliation), [`status_toolkits`] (ingest status and the
+//! supported-toolkit catalog), [`cost_reporting`] (the audit log, per-source
+//! cost estimate, and the monthly summary), and [`apply_all`] (the "apply all
+//! in" sweep). Every handler keeps its original `rpc::<name>` path through the
+//! re-exports below.
+
+mod apply_all;
+mod coding_sessions;
+mod cost_reporting;
+mod registry_crud;
+mod source_sync;
+mod status_toolkits;
+
+pub use apply_all::{apply_all_in_rpc, AllInResponse};
+pub(crate) use coding_sessions::ingest_budget;
+pub use coding_sessions::{
+    coding_session_status_rpc, ingest_coding_sessions_rpc, CodingSessionIngestRequest,
+    CodingSessionStatusResponse,
+};
+pub use cost_reporting::{
+    estimate_sync_cost_rpc, monthly_cost_summary_rpc, sync_audit_log_rpc, EstimateSyncCostRequest,
+    EstimateSyncCostResponse, MonthlyCostSummaryResponse, SyncAuditLogResponse,
+};
+pub use registry_crud::{
+    add_rpc, get_rpc, list_items_rpc, list_rpc, read_item_rpc, remove_rpc, update_rpc, AddRequest,
+    AddResponse, GetRequest, GetResponse, ListItemsRequest, ListItemsResponse, ListResponse,
+    ReadItemRequest, ReadItemResponse, RemoveRequest, RemoveResponse, UpdateRequest,
+    UpdateResponse,
+};
+pub use source_sync::{
+    reconcile_rpc, sync_rpc, ReconcileRequest, ReconcileResponse, ReconcileScopeReport,
+    SyncRequest, SyncResponse,
+};
+pub use status_toolkits::{
+    status_list_rpc, supported_toolkits_rpc, StatusListResponse, SupportedToolkitsResponse,
+};
+
+// Test-only visibility: the sibling test modules below are declared directly
+// under `rpc` (not under the submodule that owns each helper) and reach these
+// through `use super::*;`. Private `use` is enough — a descendant module can
+// see everything visible in its ancestors, `unserved` and friends included.
 
 #[cfg(test)]
 #[path = "rpc_filter_tests_tests.rs"]
@@ -75,5 +112,3 @@ mod monthly_summary_tests;
 #[cfg(test)]
 #[path = "rpc_tests.rs"]
 mod rpc_tests;
-include!("rpc_part_01.rs");
-include!("rpc_part_02.rs");

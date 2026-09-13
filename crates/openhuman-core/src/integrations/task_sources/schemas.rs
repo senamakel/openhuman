@@ -5,13 +5,13 @@
 //! `all_*` registry pair, and thin handlers that parse params and
 //! delegate to [`super::ops`].
 
-use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
 use crate::config::rpc as config_rpc;
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::rpc::RpcOutcome;
+use crate::util::{read_optional, read_required};
 
 use super::ops;
 use super::types::{FilterSpec, ProviderSlug, SourceTarget, TaskSourcePatch};
@@ -533,26 +533,6 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
 fn read_provider(params: &Map<String, Value>) -> Result<ProviderSlug, String> {
     let raw = read_required::<String>(params, "provider")?;
     ProviderSlug::parse(&raw)
-}
-
-fn read_required<T: DeserializeOwned>(params: &Map<String, Value>, key: &str) -> Result<T, String> {
-    let value = params
-        .get(key)
-        .cloned()
-        .ok_or_else(|| format!("missing required param '{key}'"))?;
-    serde_json::from_value(value).map_err(|e| format!("invalid '{key}': {e}"))
-}
-
-fn read_optional<T: DeserializeOwned>(
-    params: &Map<String, Value>,
-    key: &str,
-) -> Result<Option<T>, String> {
-    match params.get(key) {
-        None | Some(Value::Null) => Ok(None),
-        Some(value) => serde_json::from_value(value.clone())
-            .map(Some)
-            .map_err(|e| format!("invalid '{key}': {e}")),
-    }
 }
 
 /// Read an optional unsigned integer parameter and checked-convert it to

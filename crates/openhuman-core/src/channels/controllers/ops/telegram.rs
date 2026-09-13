@@ -10,7 +10,7 @@ use crate::rpc::RpcOutcome;
 use crate::security::credentials;
 
 use super::super::definitions::ChannelAuthMode;
-use super::connect::credential_provider;
+use super::connect::shared::credential_provider;
 use super::types::{TelegramLoginCheckResult, TelegramLoginStartResult};
 
 /// Default managed Telegram bot when `OPENHUMAN_APP_ENV` is staging and no username override is set.

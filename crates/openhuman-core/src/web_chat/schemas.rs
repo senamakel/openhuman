@@ -1,3 +1,7 @@
+//! `ControllerSchema`/`RegisteredController` definitions for the `channel`
+//! RPC namespace: `web_chat`, `web_cancel`, `web_queue_status`,
+//! `web_queue_clear`.
+
 use serde_json::{Map, Value};
 
 use crate::core::all::{ControllerFuture, RegisteredController};

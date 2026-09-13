@@ -1,7 +1,6 @@
-use super::{
-    channel_message_body_with_idempotency, channel_supports_progressive_ui,
-    derive_inbound_client_id, derive_inbound_thread_id,
-};
+use super::delivery::channel_message_body_with_idempotency;
+use super::progressive_ui::channel_supports_progressive_ui;
+use super::thread_id::{derive_inbound_client_id, derive_inbound_thread_id};
 use serde_json::json;
 
 #[test]

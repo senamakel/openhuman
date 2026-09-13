@@ -1,7 +1,12 @@
-# Virtual workspace root. OpenHuman's implementation and package manifest live
-# under `crates/openhuman-core`. Vendored
-# module workspaces are excluded so their workspace-inherited keys continue to
-# resolve against their own roots.
+# Virtual workspace root. Members: `crates/openhuman-core` (package `openhuman`,
+# the core + `openhuman-core` CLI), `crates/openhuman-embed` (library facade),
+# `crates/openhuman-rpc` (shared RPC contracts/client), and `crates/openhuman-tui`
+# (terminal client). `crates/openhuman-app` is deliberately excluded: it is its
+# own Cargo world with its own lockfile and target directory so that root-only
+# Cargo commands don't resolve GTK/WebKit/Tauri, and it must mirror this file's
+# `[patch]` tables rather than inherit them. Vendored module workspaces are also
+# excluded so their workspace-inherited keys continue to resolve against their
+# own roots.
 [workspace]
 resolver = "2"
 members = ["crates/openhuman-core", "crates/openhuman-embed", "crates/openhuman-rpc", "crates/openhuman-tui"]

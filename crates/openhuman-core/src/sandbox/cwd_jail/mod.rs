@@ -21,7 +21,7 @@
 //! ## Quick start
 //!
 //! ```ignore
-//! use openhuman::openhuman::sandbox::cwd_jail::{spawn, Jail};
+//! use openhuman_core::sandbox::cwd_jail::{spawn, Jail};
 //! use std::process::Command;
 //!
 //! let mut jail = Jail::new("/Users/x/work/proj", "agent.delegate")
@@ -71,7 +71,7 @@ pub fn default_backend() -> Arc<dyn JailBackend> {
     DEFAULT_BACKEND.get_or_init(detect::pick_backend).clone()
 }
 
-/// Spawn `cmd` inside the jail described by `spawn`, using the default backend.
+/// Spawn `cmd` inside the jail described by `jail`, using the default backend.
 ///
 /// `jail.canonicalize()` is called once here so the backends never see
 /// `..` or symlinks. If the root does not exist, the spawn fails with
@@ -83,7 +83,7 @@ pub fn spawn(jail: &Jail, cmd: Command) -> std::io::Result<Child> {
     default_backend().spawn(&jail, cmd)
 }
 
-/// Same as [`jail`] but with a caller-supplied backend. Useful in
+/// Same as [`spawn`] but with a caller-supplied backend. Useful in
 /// tests and for callers that want to opt into a weaker backend
 /// explicitly (e.g. forcing [`NoopBackend`] during local dev).
 pub fn spawn_with(backend: &dyn JailBackend, jail: &Jail, cmd: Command) -> std::io::Result<Child> {

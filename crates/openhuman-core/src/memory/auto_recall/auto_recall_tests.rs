@@ -516,5 +516,5 @@ async fn from_guard_over_a_driver_without_retrieval_stays_silent() {
     assert!(lane.block_for(QUESTION).await.is_none());
 }
 
-#[path = "auto_recall_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "notes_lane_tests.rs"]
+mod notes_lane_tests;

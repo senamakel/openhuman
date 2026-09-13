@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
 use super::*;
 use crate::config::Config;
-use serde_json::json;
+use crate::flows::ops;
+use crate::tools::traits::{PermissionLevel, Tool};
+use serde_json::{json, Value};
 use tempfile::TempDir;
 
 fn test_config(tmp: &TempDir) -> Arc<Config> {
@@ -214,13 +218,13 @@ fn cancel_test_approval_gated_graph() -> Value {
     })
 }
 
-#[path = "builder_tools_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "builder_tools_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "builder_tools_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "builder_tools_tests_part_04_tests.rs"]
-mod part_04_tests;
-#[path = "builder_tools_tests_part_05_tests.rs"]
-mod part_05_tests;
+#[path = "builder_tools_draft_id_tests.rs"]
+mod draft_id_tests;
+#[path = "builder_tools_dry_run_tests.rs"]
+mod dry_run_tests;
+#[path = "builder_tools_reads_and_catalog_tests.rs"]
+mod reads_and_catalog_tests;
+#[path = "builder_tools_save_and_edit_tests.rs"]
+mod save_and_edit_tests;
+#[path = "builder_tools_validate_and_create_tests.rs"]
+mod validate_and_create_tests;

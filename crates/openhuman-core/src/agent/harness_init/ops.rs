@@ -1,7 +1,8 @@
 //! Harness-init orchestrator + RPC handlers.
 //!
-//! `run_harness_init` is spawned (non-blocking) from `bootstrap_core_runtime`
-//! after the core is RPC-ready, so the frontend can connect and watch progress.
+//! `run_harness_init` is spawned (non-blocking) from
+//! `core::runtime::services::start_boot_once_jobs` once the runtime enters
+//! `serve()`, so the frontend can connect and watch progress.
 //! It walks the [`registry`] step list, marking each `Done` instantly when its
 //! cheap `is_done` probe passes, otherwise running it and recording the result.
 

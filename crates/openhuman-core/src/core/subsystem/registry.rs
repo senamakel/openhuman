@@ -4,8 +4,8 @@
 //! per process), §3.7 (a failed bind falls back to the embedded default,
 //! "logged loudly, surfaced in status, never silent"), and §6 items 1 and 6.
 //!
-//! Unlike [`crate::core::event_bus`], this is a **plain owned struct** — no
-//! `OnceLock`, no global. The registry is constructed once at `CoreBuilder`
+//! Unlike the process-wide [`crate::core::bus::BUS`], this is a **plain owned
+//! struct** — no `OnceLock`, no global. The registry is constructed once at `CoreBuilder`
 //! time and owned by the core context; a global would be a second, competing
 //! source of truth for which driver answers.
 

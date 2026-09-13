@@ -1,8 +1,9 @@
 //! Native chat-model construction plus cloud/local inference policy and DTOs.
 //!
-//! This module was previously `crates/openhuman-core/src/providers/`. It now lives under
-//! `inference/provider/` so all inference concerns (local runtime, cloud
-//! providers, HTTP endpoint) share a single domain root.
+//! This module was previously `providers/` (in the pre-consolidation,
+//! single-crate layout). It now lives under `inference/provider/` so all
+//! inference concerns (local runtime, cloud providers, HTTP endpoint) share
+//! a single domain root.
 
 pub mod auth;
 pub mod billing_error;

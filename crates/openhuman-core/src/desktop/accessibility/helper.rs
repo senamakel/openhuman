@@ -17,6 +17,23 @@
 //!
 //! Fire-and-forget callers never touch `RESPONSE_RX` or `RECV_SERIALISER`,
 //! so `show`/`hide` can proceed while a `focus` query is in-flight.
+//!
+//! Split by responsibility: [`process`] owns the process lifecycle and the
+//! send/receive paths, and the `swift_*` modules hold the embedded Swift
+//! source (assembled by [`swift_source`]) that the helper binary compiles
+//! from.
 
-include!("helper_part_01.rs");
-include!("helper_part_02.rs");
+mod process;
+mod swift_ax_actions;
+mod swift_focus;
+mod swift_overlay;
+mod swift_paste;
+mod swift_source;
+
+#[cfg(target_os = "macos")]
+#[allow(unused_imports)]
+pub(crate) use process::helper_send_receive;
+pub use process::precompile_helper_background;
+#[cfg(target_os = "macos")]
+#[allow(unused_imports)]
+pub(in crate::desktop::accessibility) use process::{helper_quit, helper_send_fire_and_forget};

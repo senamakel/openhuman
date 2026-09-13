@@ -1,4 +1,7 @@
-// Sub-modules split by concern from the original ollama_admin.rs (1586 lines).
+//! Ollama daemon lifecycle: binary resolution, health checks, model pulls,
+//! diagnostics, and start/stop/adopt handling for `ollama serve`.
+//!
+//! Sub-modules split by concern from the original ollama_admin.rs (1586 lines).
 mod binary;
 mod diagnostics;
 mod health;

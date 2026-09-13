@@ -1,3 +1,26 @@
+//! Declares the LLM-callable orchestration tools kept in `tools/` (via
+//! `#[path]`, since this file lives in `orchestration/` rather than a
+//! `tools/mod.rs`).
+//!
+//! Tools, by role:
+//! - **Spawn**: `spawn_subagent`, `spawn_async_subagent`,
+//!   `spawn_parallel_agents`, `spawn_worker_thread`.
+//! - **Control**: `steer_subagent`, `continue_subagent`, `close_subagent`,
+//!   `wait_subagent`, `wait` / `wait_loop`, `list_subagents`.
+//! - **Delegation**: `DelegateGraphTool`, `ArchetypeDelegationTool`,
+//!   `SkillDelegationTool`, `CollapsedDelegationTool` (`delegate_to`), and
+//!   `agent_prepare_context`.
+//!
+//! `dispatch.rs`, `awaiting_user.rs`, and `worker_thread.rs` are `pub(crate)`
+//! helpers shared by the tools above (the common spawn path, the awaiting-user
+//! envelope, and worker thread creation), not tools themselves.
+//!
+//! All tools are re-exported through `crate::tools` (`tools/mod.rs`:
+//! `pub use crate::agent::orchestration::tools::*`), which is how the agent
+//! tool-calling loop discovers them. Execution itself goes through
+//! `agent::harness::run_subagent`; this module only owns the tool-call
+//! surface (schema, argument parsing, response formatting).
+
 #[path = "tools/agent_prepare_context.rs"]
 mod agent_prepare_context;
 #[path = "tools/archetype_delegation.rs"]

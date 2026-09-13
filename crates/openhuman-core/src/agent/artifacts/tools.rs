@@ -10,7 +10,8 @@
 //! `artifact_list` / `artifact_get` are read-only and default-enabled.
 //! `artifact_delete` is `Dangerous` (irreversible directory removal) and
 //! ships default-OFF — it must be opted in via the tool toggle
-//! (`TOOL_ID_TO_RUST_NAMES` in `tools/user_filter.rs`).
+//! (the `artifact_delete` `ToolFamily` in `TOOL_FAMILIES`,
+//! `tools/user_filter.rs`).
 
 use std::sync::Arc;
 

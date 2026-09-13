@@ -4,7 +4,7 @@
 use crate::memory::api::provider::chunks::ChunkQuery;
 use crate::memory::api::provider::retrieval::{CoverWindowQuery, FastRetrieveQuery};
 use crate::memory::api::provider::types::SourceScope;
-use crate::memory::api::provider::{MemoryMaintenance, MemoryProvider, MemoryTree};
+use crate::memory::api::provider::{MemoryProvider, MemoryTree};
 use crate::memory::api::tree::IngestRequest;
 use crate::memory::api::types::MemoryTaint;
 

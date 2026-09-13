@@ -1,3 +1,9 @@
+//! `run_chat_task` — resolves or builds the cached session agent
+//! (`session.rs`), spawns the progress bridge alongside the turn, runs it
+//! through the agent harness, and applies the per-thread budget correlation
+//! to a failed turn. Called from `start_chat` and `spawn_parallel_turn`
+//! (`ops/start_chat.rs`/`ops/parallel_turn.rs`) once the message has been validated.
+
 use std::sync::Arc;
 
 use crate::agent::profiles::AgentProfileStore;

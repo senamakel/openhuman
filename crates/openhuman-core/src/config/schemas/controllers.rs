@@ -1,5 +1,22 @@
+//! `config` namespace controllers, grouped by the settings area they serve.
+
 #[cfg(test)]
 #[path = "controllers_tests.rs"]
 mod tests;
-include!("controllers_part_01.rs");
-include!("controllers_part_02.rs");
+
+mod agent;
+mod inference;
+mod integrations;
+mod registry;
+mod voice;
+mod workspace;
+
+pub use registry::{all_controller_schemas, all_registered_controllers};
+
+#[cfg(test)]
+pub(super) use agent::{handle_get_autonomy_settings, handle_update_autonomy_settings};
+#[cfg(test)]
+pub(super) use workspace::{handle_get_agent_paths, handle_get_data_paths};
+
+#[cfg(test)]
+use serde_json::{Map, Value};

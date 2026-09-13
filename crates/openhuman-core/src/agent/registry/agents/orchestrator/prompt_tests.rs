@@ -626,5 +626,5 @@ fn withheld_names_presented_as_callable(text: &str) -> Vec<&'static str> {
         .collect()
 }
 
-#[path = "prompt_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "prompt_tests_session_routing_tests.rs"]
+mod session_routing_tests;

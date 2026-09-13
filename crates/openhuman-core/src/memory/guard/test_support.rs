@@ -9,6 +9,13 @@
 
 #![cfg(test)]
 
-include!("test_support_part_01.rs");
-include!("test_support_part_02.rs");
-include!("test_support_part_03.rs");
+mod fixtures;
+
+mod core_and_docs_impls;
+mod provider_and_sync_impls;
+mod retrieval_and_ingest_impls;
+
+pub use fixtures::{
+    document, embedded_policy, entry, export_record, external_policy, guarded, guarded_with,
+    namespace_hit, namespace_summary, RecordingProvider,
+};

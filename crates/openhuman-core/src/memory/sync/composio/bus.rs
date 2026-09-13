@@ -45,9 +45,31 @@
 //! Both subscribers do their work in a `tokio::spawn`-ed task so the
 //! event bus dispatch loop is never blocked by a long-running provider
 //! call (sync can take seconds).
+//!
+//! ## Module layout
+//!
+//! Split by responsibility: [`trigger_subscriber`] (`ComposioTriggerSubscriber`
+//! and the triage-disabled gate), [`connection_created_subscriber`]
+//! (`ComposioConnectionCreatedSubscriber`, the toolkit-registrable predicate,
+//! and connection-readiness polling), [`config_changed_subscriber`]
+//! (`ComposioConfigChangedSubscriber`), and [`registration`] (wiring all
+//! three onto the global bus at startup).
+
+mod config_changed_subscriber;
+mod connection_created_subscriber;
+mod registration;
+mod trigger_subscriber;
+
+pub use config_changed_subscriber::ComposioConfigChangedSubscriber;
+pub use connection_created_subscriber::ComposioConnectionCreatedSubscriber;
+pub use registration::register_composio_trigger_subscriber;
+pub use trigger_subscriber::ComposioTriggerSubscriber;
+
+// Test-only visibility: `tests` below is declared directly under `bus` (not
+// under the submodule that owns each helper) and reaches these through
+// `use super::*;`. Private `use` is enough — a descendant module can see
+// everything visible in its ancestors.
 
 #[cfg(test)]
 #[path = "bus_tests.rs"]
 mod tests;
-include!("bus_part_01.rs");
-include!("bus_part_02.rs");

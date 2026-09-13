@@ -2,8 +2,9 @@
 //! they came home from `tinycortex::memory::ingest::canonicalize` (#5560),
 //! plus the `invalid_payload_message` formatter their handlers share.
 //!
-//! Split out of `rpc_part_01.rs` purely for the file-layout gate; every name
-//! is re-exported from there, so no import path changed. The serde behaviour
+//! Split out of `rpc.rs` purely for the file-layout gate; every name is
+//! re-exported through `rpc/ingest.rs`, so no import path changed. The serde
+//! behaviour
 //! in here is wire contract: the timestamp leniency, the provider default,
 //! and the epoch-ms/RFC-3339 dual parse are what deployed producers already
 //! send.
@@ -30,7 +31,7 @@ use tinymemory_api::chunks::SourceKind;
 // asking `tinymemory-api` to carry a payload that never crosses the bus. What
 // pins the *shape* is the wire, not the type: the driver's reconstruction is
 // documented field-for-field on [`email_items`] and [`chat_items`], and
-// `rpc_tests_part_01_tests` pins the serde tolerances. Change a field name
+// `rpc_ingest_and_chunk_tests` pins the serde tolerances. Change a field name
 // here and the round trip breaks in exactly the way those tests describe —
 // which is the same exposure the import had, since a rename upstream would
 // have reshaped this RPC's published request body without anything here

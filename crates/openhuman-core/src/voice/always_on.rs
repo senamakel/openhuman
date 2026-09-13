@@ -24,9 +24,32 @@
 //!
 //! Privacy: always-on is **opt-in** (`config.voice_server.always_on_enabled`,
 //! default false) and pauses when the screen is locked.
+//!
+//! ## Module layout
+//!
+//! - [`capture`] — the `cpal` stream and its realtime callback.
+//! - [`lock_watcher`] — the macOS screen-lock privacy hook.
+//! - [`processor`] — the async pipeline: VAD session, segmentation, gating.
+//! - [`transcribe`] — STT, wake-word gating, and local fast-path commands.
+
+mod capture;
+mod lock_watcher;
+mod processor;
+mod transcribe;
+
+pub use processor::{start_if_enabled, stop};
+
+use processor::notch_status;
+#[cfg(target_os = "macos")]
+use processor::PAUSED;
+
+#[cfg(test)]
+use crate::modules::voice as tinyvoice;
+#[cfg(test)]
+use processor::ENABLED;
 
 #[cfg(test)]
 #[path = "always_on_tests.rs"]
 mod tests;
-include!("always_on_part_01.rs");
-include!("always_on_part_02.rs");
+
+const LOG_PREFIX: &str = "[voice::always_on]";

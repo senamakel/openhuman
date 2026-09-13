@@ -1,7 +1,8 @@
 //! Local AI runtime — Ollama, LM Studio, Piper sub-process management.
 //!
-//! This module was previously `crates/openhuman-core/src/local_ai/`. It now lives under
-//! `inference/local/` so all inference concerns share a single domain root.
+//! This module was previously `local_ai/` (in the pre-consolidation,
+//! single-crate layout). It now lives under `inference/local/` so all
+//! inference concerns share a single domain root.
 
 #[cfg(test)]
 pub(crate) static INFERENCE_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =

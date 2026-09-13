@@ -30,15 +30,11 @@ fn flow(name: &str, enabled: bool, nodes: Vec<Node>) -> Flow {
         last_run_at: None,
         last_status: None,
         require_approval: false,
-        description: String::new(),
     }
 }
 
-fn flow_described(name: &str, description: &str) -> Flow {
-    Flow {
-        description: description.to_string(),
-        ..flow(name, true, vec![])
-    }
+fn flow_described(name: &str, _description: &str) -> Flow {
+    flow(name, true, vec![])
 }
 
 #[test]
@@ -228,15 +224,9 @@ fn a_saved_flow_reaches_the_catalogue_with_its_real_id() {
         ],
         ..Default::default()
     };
-    let saved = super::super::store::create_flow(
-        &config,
-        "Weekly Report".to_string(),
-        String::new(),
-        graph,
-        false,
-        true,
-    )
-    .expect("flow saves");
+    let saved =
+        super::super::store::create_flow(&config, "Weekly Report".to_string(), graph, false, true)
+            .expect("flow saves");
 
     let entries = flow_entries(&config);
     assert_eq!(entries.len(), 1, "the saved flow must appear: {entries:?}");
@@ -262,7 +252,6 @@ fn entries_are_sorted_by_name_so_the_prompt_prefix_is_stable() {
         super::super::store::create_flow(
             &config,
             name.to_string(),
-            String::new(),
             WorkflowGraph::default(),
             false,
             true,

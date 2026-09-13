@@ -1,3 +1,9 @@
+//! Cross-cutting system tools: shell, Node/npm/Python execution, tool
+//! detection/install, time helpers, LSP, proxy config, update check/apply.
+//! Each family, its tool structs, and its registration gates are catalogued in
+//! `tools/impl/README.md`; `security_for_tool_context` below is the shared
+//! `SecurityPolicy` resolver that must stay in step with the `filesystem` copy.
+
 mod command_output;
 mod current_time;
 mod detect_tools;

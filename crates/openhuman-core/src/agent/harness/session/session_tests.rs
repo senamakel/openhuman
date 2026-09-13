@@ -553,11 +553,11 @@ fn agent_with_fake_locator(
     (agent, handle)
 }
 
-#[path = "session_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "session_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "session_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "session_tests_part_04_tests.rs"]
-mod part_04_tests;
+#[path = "session_builder_and_listener_tests.rs"]
+mod session_builder_and_listener_tests;
+#[path = "session_dispatch_and_resume_tests.rs"]
+mod session_dispatch_and_resume_tests;
+#[path = "session_prefix_stability_tests.rs"]
+mod session_prefix_stability_tests;
+#[path = "session_thread_resume_tests.rs"]
+mod session_thread_resume_tests;

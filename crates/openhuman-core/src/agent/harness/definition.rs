@@ -24,8 +24,24 @@
 #[cfg(test)]
 #[path = "definition_tests.rs"]
 mod tests;
-include!("definition_part_01.rs");
-include!("definition_part_02.rs");
+
+mod agent_definition;
+mod execution_spec;
+mod prompt_source;
+mod registry;
+mod source;
+mod subagents;
+mod tier;
+
+pub use agent_definition::{
+    AgentDefinition, IterationPolicy, TriggerMemoryAgent, EXTENDED_MAX_TOOL_ITERATIONS,
+};
+pub use execution_spec::{ModelSpec, SandboxMode, ToolScope};
+pub use prompt_source::{PromptBuilder, PromptSource};
+pub use registry::AgentDefinitionRegistry;
+pub use source::DefinitionSource;
+pub use subagents::{SkillsWildcard, SubagentEntry};
+pub use tier::{validate_tier_transition, AgentTier};
 
 /// Sentinel used to represent an explicit zero-tool scope.
 pub const NO_TOOLS_SENTINEL: &str = "__no_tools__";

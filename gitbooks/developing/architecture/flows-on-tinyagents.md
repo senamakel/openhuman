@@ -23,9 +23,9 @@ runs, and how the two runtimes compose.
 
 ## Two crates, one engine
 
-| Crate                         | Role                                                                                                                                            | Where                                                                                                  |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `tinyflows`                   | Host-agnostic workflow model + validate + compile + run. Never hard-codes a vendor; every outside-world effect goes through a capability trait. | [`vendor/tinyflows/`](../../../vendor/tinyflows/)                                                      |
+| Crate                         | Role                                                                                                                                            | Where                                                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `tinyflows`                   | Host-agnostic workflow model + validate + compile + run. Never hard-codes a vendor; every outside-world effect goes through a capability trait. | [`vendor/tinyflows/`](../../../vendor/tinyflows/)                                                                              |
 | `tinyagents`                  | The published state-graph + agent-loop harness both runtimes lower onto.                                                                        | crate; OpenHuman seam in [`crates/openhuman-core/src/agent/tinyagents/`](../../../crates/openhuman-core/src/agent/tinyagents/) |
 | `openhuman::flows`            | The host: CRUD/run/resume RPCs, SQLite store, triggers, the builder/scout agents.                                                               | [`crates/openhuman-core/src/flows/`](../../../crates/openhuman-core/src/flows/)                                                |
 | `openhuman::flows::tinyflows` | The **capability seam** - adapters implementing the `tinyflows` traits over real OpenHuman services.                                            | [`crates/openhuman-core/src/flows/tinyflows/`](../../../crates/openhuman-core/src/flows/tinyflows/)                            |
@@ -36,12 +36,12 @@ is the first downstream host and injects everything real through the seam.
 
 ## The run pipeline
 
-A flow is a [`WorkflowGraph`](../../../vendor/tinyflows/src/model/) - a directed
+A flow is a [`WorkflowGraph`](../../../vendor/tinyflows/crates/tinyflows/src/model/) - a directed
 graph of typed [`Node`]s joined by [`Edge`]s, JSON on the wire. Running it is a
 fixed four-stage pipeline
-([`vendor/tinyflows/src/lib.rs`](../../../vendor/tinyflows/src/lib.rs),
-[`compiler.rs`](../../../vendor/tinyflows/src/compiler.rs),
-[`engine.rs`](../../../vendor/tinyflows/src/engine.rs)):
+([`vendor/tinyflows/crates/tinyflows/src/lib.rs`](../../../vendor/tinyflows/crates/tinyflows/src/lib.rs),
+[`compiler.rs`](../../../vendor/tinyflows/crates/tinyflows/src/compiler.rs),
+[`engine.rs`](../../../vendor/tinyflows/crates/tinyflows/src/engine.rs)):
 
 ```mermaid
 flowchart LR
@@ -56,18 +56,18 @@ flowchart LR
   seam["openhuman::flows::tinyflows<br/>capability seam"] -. host-injected .-> run
 ```
 
-1. **validate** ([`validate.rs`](../../../vendor/tinyflows/src/validate.rs)) -
+1. **validate** ([`validate.rs`](../../../vendor/tinyflows/crates/tinyflows/src/validate.rs)) -
    structural checks over the raw graph: unique node ids, that every referenced
    node exists, and **exactly one trigger node** (0 → `MissingTrigger`, >1 →
    `MultipleTriggers`). This is the single-trigger invariant the whole model
    rests on (see [Trigger model](#the-trigger-model)).
-2. **compile** ([`compiler.rs`](../../../vendor/tinyflows/src/compiler.rs)) - runs
+2. **compile** ([`compiler.rs`](../../../vendor/tinyflows/crates/tinyflows/src/compiler.rs)) - runs
    validation, then lowers the validated graph onto a fresh `tinyagents` state
    graph. **Every tinyflows node becomes a tinyagents graph node**; every
    tinyflows edge becomes a graph edge, with conditional/parallel routing and a
    merge barrier expressed on the tinyagents graph layer. The graph is rebuilt
    per run so compilation stays independent of any host state.
-3. **run** ([`engine.rs`](../../../vendor/tinyflows/src/engine.rs)) - the host
+3. **run** ([`engine.rs`](../../../vendor/tinyflows/crates/tinyflows/src/engine.rs)) - the host
    calls `engine::run_with_checkpointer_journaled_observed`
    ([`flows/ops.rs`](../../../crates/openhuman-core/src/flows/ops.rs), `flows_run`), which
    drives the compiled graph to completion, folding each node's output into the
@@ -81,30 +81,24 @@ Because the engine keys persisted state by a caller-supplied `thread_id`,
 durable **HITL resume** is `engine::resume_with_checkpointer` over the same
 `tinyagents::graph::SqliteCheckpointer` the agent harness uses - opened once per
 host at `<workspace_dir>/flows/checkpoints.db`
-([`caps.rs`](../../../crates/openhuman-core/src/flows/tinyflows/caps.rs), `open_flow_checkpointer`).
+([`caps/ops.rs`](../../../crates/openhuman-core/src/flows/tinyflows/caps/ops.rs), `open_flow_checkpointer`).
 
 ## Run state: one JSON map, a merge reducer, and the `{json,text,raw}` envelope
 
 The entire run's working memory is a single `serde_json::Value` laid out as
-([`vendor/tinyflows/src/engine.rs`](../../../vendor/tinyflows/src/engine.rs)):
+([`vendor/tinyflows/crates/tinyflows/src/engine.rs`](../../../vendor/tinyflows/crates/tinyflows/src/engine.rs)):
 
 ```json
 {
   "run": {
-    "trigger": {
-      /* the trigger payload seeded at start */
-    }
+    "trigger": {/* the trigger payload seeded at start */}
   },
   "nodes": {
     "planner": {
-      "items": [
-        /* … */
-      ]
+      "items": [/* … */]
     },
     "drafter": {
-      "items": [
-        /* … */
-      ]
+      "items": [/* … */]
     }
   }
 }
@@ -128,7 +122,7 @@ never see the raw completion shape - they bind against the envelope:
 ### The `=`-expression scope
 
 Node config is resolved through jq/jaq `=`-expressions
-([`vendor/tinyflows/src/expr.rs`](../../../vendor/tinyflows/src/expr.rs)) against a
+([`vendor/tinyflows/crates/tinyflows/src/expr.rs`](../../../vendor/tinyflows/crates/tinyflows/src/expr.rs)) against a
 per-node **scope** with four bindings:
 
 | Binding | What it holds                                                                               |
@@ -149,10 +143,10 @@ panicking - node wiring never crashes the run.
 
 `tinyflows` touches nothing real on its own. Everything - LLM calls, tools, HTTP,
 code, persistence, sub-workflow lookup - is a **capability trait** the host
-implements ([`vendor/tinyflows/src/caps/mod.rs`](../../../vendor/tinyflows/src/caps/mod.rs)).
+implements ([`vendor/tinyflows/crates/tinyflows/src/caps/mod.rs`](../../../vendor/tinyflows/crates/tinyflows/src/caps/mod.rs)).
 `openhuman::flows::tinyflows::caps` supplies one adapter per trait, assembled into a
 `Capabilities` bundle per run by `build_capabilities`
-([`caps.rs`](../../../crates/openhuman-core/src/flows/tinyflows/caps.rs)):
+([`caps/`](../../../crates/openhuman-core/src/flows/tinyflows/caps/mod.rs)):
 
 | tinyflows trait    | Node(s) it backs                | OpenHuman adapter           | Wraps                                            |
 | ------------------ | ------------------------------- | --------------------------- | ------------------------------------------------ |
@@ -163,11 +157,15 @@ implements ([`vendor/tinyflows/src/caps/mod.rs`](../../../vendor/tinyflows/src/c
 | `CodeRunner`       | `code`                          | `OpenHumanCode`             | the sandbox (`execute_in_sandbox`)               |
 | `StateStore`       | resumable/stateful runs         | `FlowStateStore`            | the `flow_state` KV table                        |
 | `WorkflowResolver` | `sub_workflow` by id            | `OpenHumanWorkflowResolver` | the saved-flow store (`load_flow_graph`)         |
+| `MemoryProvider`   | `memory`                        | `OpenHumanMemory`           | the memory store (`tinyflows/memory_adapter.rs`) |
 
 `AgentRunner` is **optional** in the crate (`Capabilities::agent` is
 `Option`): a host without an agent registry leaves it `None` and `agent` nodes
 fall back to a bare `LlmProvider` completion. OpenHuman always wires it, so
-`agent` nodes get the real agent runtime described next.
+`agent` nodes get the real agent runtime described next. Of the remaining
+optional slots, `tasks` takes the crate's own `TokioTaskRunner`, while `shell`
+and `approvals` are left `None`: there is no host shell adapter yet, and
+approvals reuse the engine's pause-and-`flows_resume` fallback.
 
 ## Agent nodes: a graph within the graph
 
@@ -220,7 +218,7 @@ output**, so a prompt-injected upstream completion cannot pick an arbitrary agen
 kind. The **builder's dry-run** exercises this path too:
 `dry_run_workflow` compiles a draft and runs it against `tinyflows`' _mock_
 capabilities wired with a `MockAgentRunner`
-([`vendor/tinyflows/src/caps/mock.rs`](../../../vendor/tinyflows/src/caps/mock.rs)),
+([`vendor/tinyflows/crates/tinyflows/src/caps/mock.rs`](../../../vendor/tinyflows/crates/tinyflows/src/caps/mock.rs)),
 so a draft whose `agent` nodes carry an `agent_ref` is self-tested end-to-end
 before it is ever saved.
 
@@ -237,7 +235,7 @@ around the whole engine future
 `[autonomy]` tier through `SecurityPolicy::gate_decision` for that node's
 `CommandClass` (`http_request` → Network, `code` → Write, native `oh:` tools →
 their classified class) in `enforce_node_tier_gate`
-([`caps.rs`](../../../crates/openhuman-core/src/flows/tinyflows/caps.rs)):
+([`caps/`](../../../crates/openhuman-core/src/flows/tinyflows/caps/mod.rs)):
 
 - a `readonly` run **`Block`s** at the network/code boundary and never dispatches;
 - a `supervised` run's `Prompt` decision is escalated by `gate_call_for_tier`
@@ -268,7 +266,7 @@ approval checks) but never _which agent kind or tool identity_ runs.
 ## The trigger model
 
 `tinyflows` enforces **exactly one trigger node per graph** at validate time
-([`validate.rs`](../../../vendor/tinyflows/src/validate.rs)). A workflow therefore
+([`validate.rs`](../../../vendor/tinyflows/crates/tinyflows/src/validate.rs)). A workflow therefore
 has a single entry point, and the trigger's payload is what seeds `run.trigger`
 in the run state.
 
@@ -301,11 +299,11 @@ The three agents that touch flows all run on the shared agent harness -
 `Agent::from_config_for_agent` → `run_single` under a scoped origin - the same
 pattern the flow's own `agent` nodes use:
 
-| Agent                 | Registry id          | Entry point                                                        | Tool belt                                                                                                                                                                                                                             |
-| --------------------- | -------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent                 | Registry id          | Entry point                                                                    | Tool belt                                                                                                                                                                                                                                         |
+| --------------------- | -------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Builder** (copilot) | `workflow_builder`   | `flows_build` ([`ops.rs`](../../../crates/openhuman-core/src/flows/ops.rs))    | `propose_workflow` / `revise_workflow` (validate-only), `dry_run_workflow` (compile + run vs. mocks), `save_workflow`, `run_workflow`, catalog/connection reads ([`builder_tools.rs`](../../../crates/openhuman-core/src/flows/builder_tools.rs)) |
 | **Scout** (discovery) | `flow_discovery`     | `flows_discover` ([`ops.rs`](../../../crates/openhuman-core/src/flows/ops.rs)) | `suggest_workflows` ([`discovery_tools.rs`](../../../crates/openhuman-core/src/flows/discovery_tools.rs))                                                                                                                                         |
-| **Executor**          | _(n/a - the engine)_ | `flows_run` / `flows_resume`                                       | the capability seam above                                                                                                                                                                                                             |
+| **Executor**          | _(n/a - the engine)_ | `flows_run` / `flows_resume`                                                   | the capability seam above                                                                                                                                                                                                                         |
 
 Both agents live under
 [`crates/openhuman-core/src/flows/agents/`](../../../crates/openhuman-core/src/flows/agents/) as
@@ -339,11 +337,11 @@ sequenceDiagram
 
 ## Where to look in the code
 
-| Path                                                                                                            | What lives there                                                                               |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [`vendor/tinyflows/src/`](../../../vendor/tinyflows/src/)                                                       | The engine: `model/`, `validate.rs`, `compiler.rs`, `engine.rs`, `expr.rs`, `caps/`, `nodes/`. |
-| [`vendor/tinyflows/src/caps/mod.rs`](../../../vendor/tinyflows/src/caps/mod.rs)                                 | The seven capability traits + `Capabilities` bundle.                                           |
-| [`crates/openhuman-core/src/flows/tinyflows/caps.rs`](../../../crates/openhuman-core/src/flows/tinyflows/caps.rs)                       | The host adapters, `build_capabilities`, `open_flow_checkpointer`, the two-layer gate helpers. |
+| Path                                                                                                                                    | What lives there                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [`vendor/tinyflows/crates/tinyflows/src/`](../../../vendor/tinyflows/crates/tinyflows/src/)                                             | The engine: `model/`, `validate.rs`, `compiler.rs`, `engine.rs`, `expr.rs`, `caps/`, `nodes/`. |
+| [`vendor/tinyflows/crates/tinyflows/src/caps/mod.rs`](../../../vendor/tinyflows/crates/tinyflows/src/caps/mod.rs)                       | The capability traits + `Capabilities` bundle.                                                 |
+| [`crates/openhuman-core/src/flows/tinyflows/caps/`](../../../crates/openhuman-core/src/flows/tinyflows/caps/mod.rs)                     | The host adapters, `build_capabilities`, `open_flow_checkpointer`, the two-layer gate helpers. |
 | [`crates/openhuman-core/src/flows/ops.rs`](../../../crates/openhuman-core/src/flows/ops.rs)                                             | `flows_run` / `flows_resume` / `flows_build` / `flows_discover` and CRUD.                      |
 | [`crates/openhuman-core/src/flows/bus.rs`](../../../crates/openhuman-core/src/flows/bus.rs)                                             | `FlowTriggerSubscriber` - the host-side multi-trigger bridge.                                  |
 | [`crates/openhuman-core/src/flows/builder_tools.rs`](../../../crates/openhuman-core/src/flows/builder_tools.rs)                         | The builder's `propose` / `revise` / `dry_run` / `save` / `run` tools.                         |

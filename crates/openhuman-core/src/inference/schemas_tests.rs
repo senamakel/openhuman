@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::core::TypeSchema;
 #[test]
 fn inference_catalog_counts_match_and_nonempty() {
     let declared = all_controller_schemas();

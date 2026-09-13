@@ -5,6 +5,7 @@
 //! native API structs so the two providers can evolve independently.
 
 use crate::config::{Config, LocalAiConfig};
+use crate::util::redact_url_for_log;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const DEFAULT_LM_STUDIO_BASE_URL: &str = "http://localhost:1234/v1";
@@ -120,22 +121,6 @@ pub(crate) fn apply_lm_studio_auth(
             request
         }
     }
-}
-
-fn redact_url_for_log(raw: &str) -> String {
-    let trimmed = raw.trim();
-    let parsed =
-        url::Url::parse(trimmed).or_else(|_| url::Url::parse(&format!("http://{trimmed}")));
-    let Ok(mut parsed) = parsed else {
-        return trimmed.to_string();
-    };
-    if !parsed.username().is_empty() {
-        let _ = parsed.set_username("redacted");
-    }
-    if parsed.password().is_some() {
-        let _ = parsed.set_password(Some("redacted"));
-    }
-    parsed.to_string().trim_end_matches('/').to_string()
 }
 
 #[derive(Debug, Deserialize)]

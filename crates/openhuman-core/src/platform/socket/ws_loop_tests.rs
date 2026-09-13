@@ -5,6 +5,12 @@ use tokio_tungstenite::tungstenite::http::{header::LOCATION, Response, StatusCod
 
 use crate::platform::socket::token_provider::{is_invalid_token_error, static_token_provider};
 
+use crate::platform::socket::manager::SharedState;
+use crate::platform::socket::types::ConnectionStatus;
+use futures_util::{SinkExt, StreamExt};
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
 fn make_shared() -> Arc<SharedState> {
     Arc::new(SharedState {
         webhook_router: RwLock::new(None),
@@ -193,7 +199,7 @@ async fn spawn_mock_invalid_token_server() -> std::net::SocketAddr {
     addr
 }
 
-#[path = "ws_loop_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ws_loop_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "ws_loop_dispatch_and_redirect_tests.rs"]
+mod dispatch_and_redirect_tests;
+#[path = "ws_loop_reconnect_tests.rs"]
+mod reconnect_tests;

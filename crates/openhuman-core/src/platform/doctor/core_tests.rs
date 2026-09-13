@@ -1,6 +1,7 @@
 use super::*;
 use tempfile::TempDir;
 
+use crate::memory::read_rpc::Config;
 fn test_config_in(tmp: &TempDir) -> Config {
     let mut cfg = Config::default();
     cfg.workspace_dir = tmp.path().to_path_buf();

@@ -1,6 +1,6 @@
 //! `tinyagents` [`Tool`] adapter over an openhuman [`Tool`] (issue #4249).
 //!
-//! Wraps `Arc<dyn openhuman::tools::Tool>` so the harness agent-loop can invoke
+//! Wraps `Arc<dyn crate::tools::Tool>` so the harness agent-loop can invoke
 //! the exact same tools the legacy loop runs. The harness calls `call` with a
 //! validated [`TaToolCall`] (parsed JSON arguments + correlation id); we execute
 //! the underlying tool and render the [`ToolResult`] the way the LLM should see

@@ -21,17 +21,17 @@ This module is the place to look first when asking "is this agent action allowed
 
 | Item                                                                                                                          | File         | Purpose                                                                 |
 | ----------------------------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------- |
-| `SecurityPolicy`                                                                                                              | `policy.rs`  | Assembles runtime policy from `AutonomyConfig` + workspace dir.         |
-| `AutonomyLevel` (`Supervised` / `SemiAutonomous` / `Autonomous`)                                                              | `policy.rs`  | Three-step autonomy ladder.                                             |
-| `CommandRiskLevel`, `ToolOperation`, `ActionTracker`                                                                          | `policy.rs`  | Risk classification + per-session counting.                             |
+| `SecurityPolicy`                                                                                                              | `policy/types.rs` (path checks in `policy/path_checks.rs`, command classification in `policy/command_checks.rs`, gating in `policy/enforcement.rs`) | Assembles runtime policy from `AutonomyConfig` + workspace dir.         |
+| `AutonomyLevel` (`Supervised` / `SemiAutonomous` / `Autonomous`)                                                              | `policy/types.rs` | Three-step autonomy ladder.                                             |
+| `CommandRiskLevel`, `ToolOperation`, `ActionTracker`                                                                          | `policy/types.rs` | Risk classification + per-session counting.                             |
 | `Sandbox` trait, `NoopSandbox`                                                                                                | `traits.rs`  | The pluggable sandbox abstraction; every backend implements `Sandbox`.  |
 | `create_sandbox(&SecurityConfig) -> Arc<dyn Sandbox>`                                                                         | `detect.rs`  | Picks the best backend available on the host at runtime.                |
 | `pub mod docker / bubblewrap / firejail / landlock`                                                                           | (siblings)   | Per-backend implementations of `Sandbox`.                               |
-| `SecretStore`                                                                                                                 | `secrets.rs` | XOR / OS-keychain encrypted secret persistence with round-trip helpers. |
+| `SecretStore`                                                                                                                 | `keyring/encrypted_store.rs` (`secrets.rs` re-exports it) | OS-keychain / encrypted-file secret persistence with round-trip helpers. |
 | `AuditLogger`, `AuditEventType`, `AuditEvent`, `Actor`, `Action`, `ExecutionResult`, `SecurityContext`, `CommandExecutionLog` | `audit.rs`   | Append-only audit trail.                                                |
-| `PairingGuard`, `constant_time_eq`, `is_public_bind`                                                                          | `pairing.rs` | Pairing-token check before binding the RPC server publicly.             |
+| `PairingGuard`, `constant_time_eq`, `is_public_bind`                                                                          | `pairing.rs` (`PairingGuard` and `constant_time_eq` are re-exported from `tinychannels_bus::security`) | Pairing-token check before binding the RPC server publicly.             |
 | `redact(value: &str) -> String`                                                                                               | `core.rs`    | Uniform 4-char-prefix redaction for logs.                               |
-| `security_policy_info() -> RpcOutcome<serde_json::Value>`                                                                     | `ops.rs`     | RPC handler for the doctor / settings UI.                               |
+| `security_policy_info_for_config(&Config) -> RpcOutcome<serde_json::Value>`                                                    | `ops.rs`     | RPC handler for the doctor / settings UI.                               |
 
 ## Sandbox backend selection
 
@@ -71,7 +71,7 @@ The agent never sees the choice; it just calls into `Sandbox::run(...)` and the 
 
 ## Secret store
 
-`SecretStore` (in `secrets.rs`) persists per-key secrets with at-rest encryption. On supported platforms the encryption key comes from the OS keychain; otherwise it falls back to a workspace-local XOR scheme (which is **obfuscation, not security**, and is documented as such in the source).
+`SecretStore` (implemented in `keyring/encrypted_store.rs`, re-exported through `secrets.rs`) encrypts config-field secrets with ChaCha20-Poly1305 (`enc2:` prefix) under a keychain-backed master key, migrating the legacy XOR `enc:` format on decrypt. Backend selection and the encrypted-file fallback are described in `crates/openhuman-core/src/security/keyring/README.md`.
 
 ## `redact()`
 
@@ -81,15 +81,15 @@ The agent never sees the choice; it just calls into `Sandbox::run(...)` and the 
 
 | Path                                                          | Role                                                                      |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `policy.rs`, `policy_tests.rs`                                | `SecurityPolicy`, `AutonomyLevel`, risk classification, action tracking.  |
+| `policy/` (`mod.rs`, `types.rs`, `path_checks.rs`, `command_checks.rs`, `enforcement.rs`, `policy_command*.rs`, `policy_tests*.rs`, `proptest_tests.rs`) | `SecurityPolicy`, `AutonomyLevel`, risk classification, path and command checks, action tracking. |
 | `traits.rs`                                                   | `Sandbox` trait + `NoopSandbox` fallback.                                 |
 | `detect.rs`                                                   | `create_sandbox`: best-available-backend selection.                       |
 | `docker.rs` / `bubblewrap.rs` / `firejail.rs` / `landlock.rs` | Per-backend `Sandbox` implementations.                                    |
-| `core.rs`                                                     | `redact()` + small shared helpers (has its own `#[cfg(test)] mod tests`). |
+| `core.rs`, `core_tests.rs`                                    | `redact()` + small shared helpers.                                        |
 | `audit.rs`                                                    | Append-only audit log types.                                              |
-| `secrets.rs`, `secrets_tests.rs`                              | `SecretStore` + round-trip tests.                                         |
+| `secrets.rs`, `keyring/`                                      | `SecretStore` (implemented in `keyring/encrypted_store.rs`) + round-trip tests. |
 | `pairing.rs`, `pairing_tests.rs`                              | `PairingGuard` + constant-time helpers.                                   |
-| `ops.rs`                                                      | RPC handler (`security_policy_info`).                                     |
+| `ops.rs`                                                      | RPC handler (`security_policy_info_for_config`).                          |
 | `schemas.rs`                                                  | Controller schemas + handler dispatch.                                    |
 | `mod.rs`                                                      | Re-exports of the public surface above.                                   |
 
@@ -101,18 +101,18 @@ The agent never sees the choice; it just calls into `Sandbox::run(...)` and the 
 
 ## Called by
 
-- `crates/openhuman-core/src/cron/scheduler.rs`: wraps shell jobs in `SecurityPolicy::from_config`.
-- `crates/openhuman-core/src/tools/local_cli.rs`, `tools/ops.rs`, and most `tools/impl/{system,network,memory,agent}/*.rs`: every executable tool consults `SecurityPolicy`.
-- `crates/openhuman-core/src/tools/impl/network/{curl,http_request,composio}.rs`: risk-classify outbound calls.
+- `crates/openhuman-core/src/cron/ops.rs`: wraps shell jobs in `SecurityPolicy::from_config`.
+- `crates/openhuman-core/src/tools/ops.rs` and most `tools/impl/{system,network,memory,agent}/*.rs`: every executable tool consults `SecurityPolicy`.
+- `crates/openhuman-core/src/tools/impl/network/{curl,http_request,web_fetch,mcp}.rs`: risk-classify outbound calls.
 - `crates/openhuman-core/src/memory/tools/{store,forget}.rs`: sensitive-write tracking.
 - `crates/openhuman-core/src/agent/tools/delegate.rs`: sub-agent dispatch goes through the autonomy gate.
 - `crates/openhuman-core/src/security/credentials/`: uses `SecretStore` and `redact`.
 
 ## Tests
 
-- Unit: `pairing_tests.rs`, `policy_tests.rs`, `secrets_tests.rs`.
-- `core.rs` has its own `#[cfg(test)] mod tests`, which round-trips `SecretStore` encrypt / decrypt, `redact()` cases, `PairingGuard` defaults.
-- Sandbox-backend smoke tests: each backend file has its own `#[cfg(test)]` blocks where the binary is available on the host.
+- Unit: `pairing_tests.rs`, `policy/policy_tests*.rs`, `policy/proptest_tests.rs`, `keyring/encrypted_store_tests*.rs`.
+- `core_tests.rs` covers `redact()`.
+- Sandbox-backend smoke tests: `docker_tests.rs`, `bubblewrap_tests.rs`, `firejail_tests.rs`, `landlock_tests.rs`, `detect_tests.rs`.
 
 ## Related
 

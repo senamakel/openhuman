@@ -644,5 +644,5 @@ fn dispatch_task(
     }
 }
 
-#[path = "spawn_parallel_agents_tests_part_01_tests.rs"]
-mod part_01_tests;
+#[path = "spawn_parallel_agents_policy_tests.rs"]
+mod policy_tests;

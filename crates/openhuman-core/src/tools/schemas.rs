@@ -9,5 +9,13 @@
 #[cfg(test)]
 #[path = "schemas_tests.rs"]
 mod tests;
-include!("schemas_part_01.rs");
-include!("schemas_part_02.rs");
+
+mod apify;
+mod composio;
+mod registry;
+mod web_search;
+
+pub use registry::{all_controller_schemas, all_registered_controllers};
+
+#[cfg(test)]
+use web_search::optional_string_array;

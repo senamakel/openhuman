@@ -15,11 +15,11 @@ fn tmp_config(tmp: &tempfile::TempDir) -> Config {
     cfg
 }
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "ops_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "ops_tests_part_04_tests.rs"]
-mod part_04_tests;
+#[path = "ops_agent_paths_tests.rs"]
+mod agent_paths_tests;
+#[path = "ops_loader_and_search_tests.rs"]
+mod loader_and_search_tests;
+#[path = "ops_model_and_local_ai_tests.rs"]
+mod model_and_local_ai_tests;
+#[path = "ops_voice_and_autonomy_tests.rs"]
+mod voice_and_autonomy_tests;

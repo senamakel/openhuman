@@ -56,6 +56,17 @@ pub fn truncate_with_ellipsis(s: &str, max_chars: usize) -> String {
     truncate_with_suffix(s, max_chars, "...")
 }
 
+/// Truncate `s` to at most `max_chars` characters (UTF-8-safe), returning the
+/// truncated slice plus whether truncation actually happened — so a caller
+/// can append its own marker only when needed, instead of always appending a
+/// fixed suffix like [`truncate_with_suffix`].
+pub fn truncate_chars_flagged(s: &str, max_chars: usize) -> (&str, bool) {
+    match s.char_indices().nth(max_chars) {
+        Some((byte_idx, _)) => (&s[..byte_idx], true),
+        None => (s, false),
+    }
+}
+
 /// Truncate a string to at most `max_chars` characters, appending `suffix` if truncated.
 pub fn truncate_with_suffix(s: &str, max_chars: usize, suffix: &str) -> String {
     match s.char_indices().nth(max_chars) {

@@ -1,6 +1,6 @@
 //! The one way the runtime clients reach the `tinyruntime` module.
 //!
-//! `openhuman::modules` is behind the `modules` feature, but this directory is
+//! `crate::modules` is behind the `modules` feature, but this directory is
 //! not: `ShellTool` holds an `Option<Arc<NodeBootstrap>>` as a field and is
 //! kernel, so the toolchain clients are always compiled. Importing
 //! `modules::runtime` directly would therefore break every build with the gate

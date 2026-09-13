@@ -1,3 +1,8 @@
+//! Podcast generation + email delivery (`audio_toolkit` RPC namespace).
+//!
+//! See [README.md](README.md) for responsibilities, the RPC surface, and the
+//! agent tools this module exposes.
+
 mod ops;
 mod schemas;
 pub mod tools;

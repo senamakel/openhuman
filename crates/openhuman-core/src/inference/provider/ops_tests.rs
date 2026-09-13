@@ -189,7 +189,7 @@ async fn configure_generic_workspace(tmp: &TempDir, endpoint: String) -> Config 
     config
 }
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "ops_tests_error_suppression_tests.rs"]
+mod error_suppression_tests;
+#[path = "ops_tests_models_parsing_tests.rs"]
+mod models_parsing_tests;

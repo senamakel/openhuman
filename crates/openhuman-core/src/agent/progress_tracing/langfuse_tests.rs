@@ -44,7 +44,7 @@ fn obs(offset: u64, event: AgentEvent) -> AgentObservation {
     }
 }
 
-#[path = "langfuse_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "langfuse_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "langfuse_batch_tests.rs"]
+mod batch_tests;
+#[path = "langfuse_trace_fields_tests.rs"]
+mod trace_fields_tests;

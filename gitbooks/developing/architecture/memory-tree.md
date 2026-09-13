@@ -1,85 +1,67 @@
 ---
 description: >-
-  The generic summary-tree engine under the Memory Tree feature - bucket-seal
-  cascades, scoring, embedding, entity extraction, retrieval, summarisation.
-  Kind-agnostic mechanics for the Source trees (the only kind now built).
+  OpenHuman's host layer over the Memory Tree engine - the JSON-RPC handlers,
+  controller schemas, CLI and event subscriber that stayed in the core after
+  the tree mechanics moved to the vendored TinyMemory module.
 icon: diagram-project
 ---
 
 # Memory Tree (`crates/openhuman-core/src/memory/tree/`)
 
-`crates/openhuman-core/src/memory/tree/` is the **generic tree engine** sitting under the user-facing [Memory Tree feature](../../features/obsidian-wiki/memory-tree.md). It owns the kind-agnostic mechanics that a concrete tree uses: appending leaves, cascading bucket seals, summarising one level to the next, scoring and embedding, and retrieving for agents. It is deliberately **unaware** of which flavour a tree belongs to.
+> **Status.** The generic tree mechanics (append, cascade seal, summarise,
+> score, embed, retrieve) are crate-owned: they live in `vendor/tinymemory`
+> (`tinymemory-core`, with `tinycortex` vendored beneath it) and are reached
+> through the `tinymemory-api` contract. `crates/openhuman-core/src/memory/tree/`
+> is OpenHuman's **host layer** over that engine: RPC handlers and controller
+> schemas that name OpenHuman's `RpcOutcome` and `ControllerSchema`, which the
+> engine crate cannot see. Nothing here opens SQLite or branches on tree kind.
 
-> **Removed: Global & Topic trees.** Earlier revisions also built a singleton **Global** (cross-source, time-axis: day → week → month → year) digest tree and per-entity **Topic** (subject-axis) trees. Both were derived projections over the Source trees (no original content lived only in them) and were removed in favour of "walk the Source trees + the entity index." Source-tree policy lives in `crates/openhuman-core/src/memory/tree_source`; persistence (the single `Tree` table) lives one layer down in `memory_store::trees`. The `TreeKind::Global`/`Topic` enum variants survive only as inert serialization plumbing so the one-shot purge migration can read and delete legacy rows.
+The user-facing feature is described in [Memory Tree](../../features/obsidian-wiki/memory-tree.md).
 
 ```text
-memory (orchestrator) ──┐
-                        │ writes leaves via TreeWriteRequest
-                        ▼
-memory_tree            (this module — generic mechanics)
-   ├── tree/           append + cascade seal + flush
-   ├── summarise.rs    L_n -> L_{n+1} text via the chat model
-   ├── retrieval/      agent-facing read tools (walk, drill, fetch)
-   ├── score/          scoring, embedding, entity extraction
-   ├── tools.rs        re-exports from memory::query
-   └── io.rs           canonical Tree{Write,Read}{Request,Outcome,Result}
-                        │
-                        ▼
-memory_store::trees    (persistence: one Tree table, one schema)
+memory (orchestrator, crates/openhuman-core/src/memory/)
+   │  binding.provider() → tinymemory-api contract
+   ▼
+memory/tree/              (this directory — host surface only)
+   ├── tree/              memory_tree write/status RPCs + canonical ingest payloads
+   ├── retrieval/         memory_tree read RPCs (query_source, drill_down, …)
+   ├── tree_runtime/      tree_summarizer RPCs, `tree-summarizer` CLI, bus subscriber
+   └── health/            pipeline failure taxonomy + doctor report
+   │
+   ▼
+vendor/tinymemory         (engine: tinymemory-core / tinycortex — persistence, seal, score)
 ```
 
 ## Layout
 
-| Path                                                                                             | Role                                                                                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`mod.rs`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/memory/tree/mod.rs) | Re-exports `io::*` and the controller-schema registries hosted in `memory`. Also re-exports `memory::tree_global` + `memory::tree_topic` under the legacy `memory_tree::tree_{global,topic}` paths for backward compatibility.       |
-| `io.rs`                                                                                          | Canonical contract types: `TreeWriteRequest` / `TreeWriteOutcome`, `TreeReadRequest` / `TreeReadHit` / `TreeReadResult`, `TreeLeafPayload`, `TreeLabelStrategy`. Pure types, no IO.                                                  |
-| `tree/`                                                                                          | `bucket_seal` (append leaf + cascade seal), `flush` (time-based partial seal), `registry` (kind-parameterized `get_or_create_tree` with UNIQUE-race recovery), `mod.rs` (re-exports + `memory_store::trees` shims for legacy paths). |
-| `summarise.rs`                                                                                   | One function: produce the next-level summary text for a bucket. Wraps the chat model with a fixed prompt and token budget.                                                                                                           |
-| `retrieval/`                                                                                     | Agent-facing tools. Read: `walk` (agentic), `drill_down`, `fetch_leaves`, `query_source`, `search_entities`. Write: `ingest_document` (orchestrator-facing). (`query_global`/`query_topic` were removed with those trees.)           |
-| `score/`                                                                                         | Scoring signals, embedding (cloud / Ollama / inert), entity extraction (regex / LLM), canonical resolver, entity index store.                                                                                                        |
-| `tools.rs`                                                                                       | Re-exports from `memory::query` for backward compatibility.                                                                                                                                                                          |
-| `tree_runtime/`                                                                                  | Tree-summarizer controller registry, exposed through `all_tree_summarizer_controller_schemas` / `all_tree_summarizer_registered_controllers` re-exports in `mod.rs`.                                                                 |
+| Path             | Role                                                                                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mod.rs`         | Declares the four submodules and re-exports the three controller registries wired into `core/all.rs`. Its module doc records why the old `pub use tinymemory_core::tree::*` glob was removed (#5560).                                                                                                  |
+| `tree/`          | Host wrappers mirroring `tinymemory_core::tree::tree`: the `memory_tree` write/status handlers in `rpc.rs` (`ingest_rpc`, `list_chunks_rpc`, `get_chunk_rpc`, `backfill_status_rpc`, `pipeline_status_rpc`, `doctor_rpc`, `retry_failed_rpc`, `set_enabled_rpc`) and the chat/email/document ingest payload shapes in `canonicalize_types.rs`. |
+| `retrieval/`     | Agent-facing read RPCs (`rpc.rs`, `schemas.rs`): `query_source`, `cover_window`, `search_entities`, `drill_down`, `fetch_leaves`. `rpc.rs` calls the contract on the **unguarded** `binding.provider()` and passes `source_scope::as_bus_scope()` explicitly on every scoped call.                    |
+| `tree_runtime/`  | The markdown time tree's host surface: `ops.rs` / `schemas.rs` (JSON-RPC), `cli.rs` (`tree-summarizer` CLI), `bus.rs` (event subscriber). Reaches the engine through the contract's runtime doors (`runtime_buffer_write`, `runtime_read_node`, `runtime_read_children`, `runtime_tree_status`, `runtime_summarize`, `runtime_rebuild`). |
+| `health/`        | Pipeline failure taxonomy (`FailureCode`, `FailureClass`, `PipelineFailure`, `DegradedState`), the `user_error` wire payload, and the doctor `report` read from the bound driver's `MemoryMaintenance`. Distinct from `tinymemory_api::health::MemoryHealth` (driver liveness).                      |
 
 ## Layer rules
 
-These are load-bearing invariants. Break one and the engine stops being kind-agnostic:
+- **No tree mechanics here.** Seal cascades, summarisation, scoring, embedding and entity extraction happen inside the engine. This directory converts RPC requests into contract calls and contract results into `RpcOutcome`.
+- **No persistence here.** The engine owns the tree tables; the host never opens them directly.
+- **Scope is explicit.** Task-local state does not cross the module boundary, so every scoped call passes its source scope and self-echo exclusions as arguments.
 
-- **No tree-kind branching here.** `bucket_seal`, `flush`, `registry`, and `summarise` all take `TreeKind` as a parameter or treat it as opaque. Conditionals on "is this a Source tree?" belong in the orchestrator (`crates/openhuman-core/src/memory/`), not here.
-- **No persistence here.** Reads and writes go through `memory_store::trees::{store, registry, hotness}`. This module does not open SQLite handles directly.
-- **No policy here.** Curator gates (hotness thresholds), digest cadence, global scope sentinels all live in `memory::tree_{global,topic}`. This module reacts to policy decisions, it does not make them.
+## Controller registries
 
-## How a write flows in
+`mod.rs` re-exports three registries that `crates/openhuman-core/src/core/all.rs` wires into the global registry:
 
-1. The orchestrator (`memory::*`) constructs a `TreeWriteRequest` with a `TreeKind` and a `TreeLeafPayload`.
-2. `tree::bucket_seal` appends the leaf to the open bucket at L0. If the bucket fills, it seals: `summarise.rs` produces the L1 summary, which becomes a leaf in the L1 bucket, and the cascade continues upward until a non-full bucket is hit.
-3. `score/` runs in the background: embeddings (cloud / Ollama / inert backend), entity extraction (regex first, LLM optional), hotness signals. None of this blocks the write path.
-4. The outcome (`TreeWriteOutcome`) is returned synchronously to the orchestrator; scoring catches up asynchronously.
+- `all_memory_tree_registered_controllers` (sourced from `memory/schema/`): the core `memory_tree` namespace — `ingest`, `list_chunks`, `get_chunk`, `pipeline_status`, `set_enabled`, `doctor`, `retry_failed`, `memory_backfill_status`, `smart_walk`, plus the `memory/read_rpc/` methods.
+- `all_retrieval_registered_controllers` (`retrieval/schemas.rs`): also under `memory_tree` — `query_source`, `cover_window`, `search_entities`, `drill_down`, `fetch_leaves`.
+- `all_tree_summarizer_registered_controllers` (`tree_runtime/schemas.rs`): the `tree_summarizer` namespace — `ingest`, `run`, `query`, `status`, `rebuild`.
 
-`tree::flush` exists for the time-bounded case: if a bucket hasn't filled within its TTL, it gets sealed partially so the next level always has something fresh to summarise.
-
-## How a read flows out
-
-Agents reach this module through the tools in `retrieval/`:
-
-- `walk`: agentic exploration; the agent picks summary nodes to drill into.
-- `drill_down`: deterministic traversal from a known starting summary.
-- `fetch_leaves`: pull raw leaves for a sealed bucket.
-- `query_source`: source-scoped retrieval (the only kind-scoped query left; `query_global`/`query_topic` were removed).
-- `search_entities`: entity-index lookup backed by `score/`.
-
-All retrieval handlers consult `memory_store::trees::hotness` so warm content surfaces first.
-
-## Controller registry
-
-`memory_tree::mod.rs` re-exports two controller registries that get wired into the global registry in `crates/openhuman-core/src/core/all.rs`:
-
-- `all_memory_tree_controller_schemas` / `all_memory_tree_registered_controllers`: sourced from `memory::schema` (the orchestrator hosts them; this module just surfaces them under the `memory_tree` path).
-- `all_retrieval_controller_schemas` / `all_retrieval_registered_controllers`: the agent-facing read tools listed above.
-- `all_tree_summarizer_controller_schemas` / `all_tree_summarizer_registered_controllers`: from `tree_runtime`, for summariser admin / inspection.
+RPC namespace strings are wire contracts; they did not change when the directory moved from `memory_tree/` to `memory/tree/`.
 
 ## Related
 
-- [`memory_tree/README.md`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/memory/tree/README.md): authoritative internal-audience overview this page mirrors.
+- [`crates/openhuman-core/src/memory/tree/README.md`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/memory/tree/README.md): the internal-audience overview this page mirrors.
+- [`crates/openhuman-core/src/memory/README.md`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/memory/README.md): the memory domain and the engine extraction.
+- `memory/query/`: the agent-facing `memory_tree` tool (`MemoryQueryTool`), which reuses `retrieval/rpc.rs` DTOs but goes through the guarded driver.
 - [Memory Tree feature](../../features/obsidian-wiki/memory-tree.md): what end users see.
 - [Architecture overview](../architecture.md): where this fits in the wider system.

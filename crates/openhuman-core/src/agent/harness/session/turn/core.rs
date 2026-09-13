@@ -5,19 +5,12 @@ use super::{
     integration_announcement_note, mcp_announcement_note, newly_connected_slugs,
     skill_announcement_note, skill_retraction_note,
 };
-use crate::agent::experience::{
-    prepend_experience_block, render_experience_hits, retrieve_across_stores, AgentExperienceStore,
-    ExperienceQuery,
-};
 use crate::agent::harness;
-use crate::agent::harness::definition::TriggerMemoryAgent;
-use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::hooks::{self, TurnContext};
+use crate::agent::hooks::{self};
 use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
 use crate::memory::agent::memory_loader::collect_recall_citations;
 use crate::memory::MemoryCategory;
-use crate::util::truncate_with_ellipsis;
 
 use anyhow::Result;
 use std::hash::{Hash, Hasher};
@@ -216,4 +209,10 @@ fn render_agent_context_status_note(sources: &[harness::AgentContextPreparedSour
 }
 
 include!("core_turn.rs");
-include!("core_session.rs");
+
+// `Agent`'s tinyagents-backed chat turn and the pre-turn context injection it
+// calls, split by responsibility into real submodules. Their `impl Agent`
+// blocks complement `turn()` above.
+mod experience_context;
+mod harness_turn;
+mod resumed_prefix;

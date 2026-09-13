@@ -26,11 +26,51 @@
 
 mod direct;
 
+mod authorize;
+mod connect;
+mod execute;
+mod list_connections;
+mod list_toolkits;
+mod list_tools;
+mod registry;
+mod visibility;
+
 // ── Tests ───────────────────────────────────────────────────────────
 
 #[cfg(test)]
 #[path = "tools_tests.rs"]
 mod tests;
-include!("tools_part_01.rs");
-include!("tools_part_02.rs");
-include!("tools_part_03.rs");
+
+pub use direct::{ComposioAction, ComposioConnectedAccount, ComposioTool};
+pub use execute::ComposioExecuteTool;
+pub use registry::all_composio_agent_tools;
+
+// Brought into this module's own namespace (private `use`, not `pub use`)
+// so `tools_tests.rs` — declared as a direct child module of `tools` above
+// — can still reach these via a plain `use super::*;`, exactly as when
+// this was one un-split file. See each item's `pub(super)` in its owning
+// submodule.
+pub(crate) use visibility::{action_mutates_external_state, resolve_action_scope};
+
+#[cfg(test)]
+use crate::tools::traits::Tool;
+#[cfg(test)]
+use crate::tools::traits::{PermissionLevel, ToolCategory};
+#[cfg(test)]
+use authorize::ComposioAuthorizeTool;
+#[cfg(test)]
+use connect::{
+    canonicalize_toolkit_slug, connection_is_active, parse_composio_connect_timeout,
+    ComposioConnectTool, DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS,
+};
+#[cfg(test)]
+use list_connections::ComposioListConnectionsTool;
+#[cfg(test)]
+use list_toolkits::ComposioListToolkitsTool;
+#[cfg(test)]
+use list_tools::ComposioListToolsTool;
+#[cfg(test)]
+use visibility::{
+    empty_uncurated_toolkits_message, normalized_scope_toolkits, render_tools_markdown,
+    retain_connected_tools,
+};

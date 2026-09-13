@@ -1,6 +1,8 @@
 use super::*;
 use crate::agent::error::AgentError;
 use crate::config::Config;
+use crate::cron::JobType;
+use crate::cron::SessionTarget;
 use crate::cron::{self, ActiveHours, DeliveryConfig};
 use crate::security::SecurityPolicy;
 use chrono::{Duration as ChronoDuration, Timelike, Utc};
@@ -99,11 +101,11 @@ fn next_user_error(
     }
 }
 
-#[path = "scheduler_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "scheduler_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "scheduler_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "scheduler_tests_part_04_tests.rs"]
-mod part_04_tests;
+#[path = "scheduler_classifier_and_delivery_tests.rs"]
+mod classifier_and_delivery_tests;
+#[path = "scheduler_frequency_tests.rs"]
+mod frequency_tests;
+#[path = "scheduler_halt_and_persist_tests.rs"]
+mod halt_and_persist_tests;
+#[path = "scheduler_profile_and_shell_tests.rs"]
+mod profile_and_shell_tests;

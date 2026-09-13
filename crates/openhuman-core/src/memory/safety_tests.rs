@@ -1,6 +1,16 @@
 use super::*;
 use serde_json::json;
 
+use crate::memory::safety::pii::redact_pii;
+// `pii`'s internals (checksum validators, the normalization pass) are test-only
+// re-exports at the `pii` module level; pull them in here so the nested test
+// submodules below can reach them through their own `use super::*;`.
+use super::pii::{
+    digits, scan_candidates, valid_cnpj, valid_cpf, valid_cuit, valid_dni_es, valid_iban,
+    valid_luhn, valid_nie_es, valid_nino, valid_ssn, valid_verhoeff, NormalizedView,
+};
+use super::secrets::{MAX_JSON_SANITIZE_DEPTH, REDACTED_PRIVATE_KEY, REDACTED_SECRET};
+
 /// Assembled rather than written out so a repository secret scanner does
 /// not read the fixture as a real key block.
 fn private_key_fixture(kind: &str, body: &str) -> String {
@@ -25,7 +35,7 @@ fn unchanged(input: &str) {
     assert_eq!(out.report.pii_redactions, 0);
 }
 
-#[path = "safety_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "safety_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "prefilter_and_checksum_tests.rs"]
+mod prefilter_and_checksum_tests;
+#[path = "sanitize_and_pii_id_tests.rs"]
+mod sanitize_and_pii_id_tests;

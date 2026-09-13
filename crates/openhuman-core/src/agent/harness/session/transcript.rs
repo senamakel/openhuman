@@ -43,7 +43,7 @@
 //! ### Compatibility
 //!
 //! Existing files (zero compaction records, no `version`) read identically.
-//! New record kinds and fields are additive: [`MessageLine`] carries a
+//! New record kinds and fields are additive: `MessageLine` carries a
 //! `#[serde(flatten)] _extra` catch-all and `MetaPayload` does not set
 //! `deny_unknown_fields`, so an **old** core reading a **new** file skips
 //! unknown-kind lines (a compaction record fails the `role`/`content`
@@ -91,12 +91,60 @@
 //! UI-visible rows may also carry a stable `id` and `extra_metadata` so
 //! the session transcript can eventually replace the separate thread
 //! message log without losing message-level addressing.
+//!
+//! ## Module layout
+//!
+//! | File            | Role                                                        |
+//! |-----------------|-------------------------------------------------------------|
+//! | `types`         | Public domain types (`TranscriptMeta`, projections, usage). |
+//! | `metadata`      | `extra_metadata` side-channel keys (turn usage, failures).  |
+//! | `jsonl`         | Line shapes and line ⇄ message conversions.                  |
+//! | `writer`        | Full rewrite, append-only turn delta, interrupted partials.  |
+//! | `reader`        | Model-context replay, display projection, meta-only scans.   |
+//! | `thread_lookup` | Thread → root transcript lookup and usage summaries.         |
+//! | `paths`         | `session_raw` / `sessions` path resolution and resume scan.  |
+//! | `markdown`      | Human-readable `.md` companion rendering.                    |
+//! | `legacy_md`     | Legacy HTML-comment `.md` reader.                            |
+
+mod jsonl;
+mod legacy_md;
+mod markdown;
+mod metadata;
+mod paths;
+mod reader;
+mod thread_lookup;
+mod types;
+mod writer;
+
+pub use legacy_md::read_transcript_legacy_md;
+pub(crate) use metadata::attach_tool_failure_metadata;
+#[cfg(test)]
+pub(crate) use metadata::attach_turn_usage_metadata;
+pub use paths::{
+    find_latest_transcript_in_subdir, resolve_keyed_transcript_path,
+    resolve_keyed_transcript_path_in_dir,
+};
+pub use reader::{read_transcript, read_transcript_display};
+pub use thread_lookup::{
+    find_root_transcript_for_thread, find_root_transcripts_for_thread, read_thread_usage_summary,
+};
+pub use types::{
+    CompactionMarker, DisplayMessage, DisplayRecord, MessageUsage, SessionTranscript,
+    TranscriptMeta, TurnUsage,
+};
+pub use writer::{append_interrupted_partial, append_transcript_turn, write_transcript};
+
+// Private helpers the colocated tests exercise directly.
+#[cfg(test)]
+use jsonl::build_message_line;
+#[cfg(test)]
+use paths::{
+    find_latest_transcript, latest_in_dir, md_companion_path, next_index, raw_session_dir,
+    resolve_new_transcript_path, sanitize_agent_name,
+};
 
 // ── Tests ─────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 #[path = "transcript_tests.rs"]
 mod tests;
-include!("transcript_part_01.rs");
-include!("transcript_part_02.rs");
-include!("transcript_part_03.rs");

@@ -153,5 +153,5 @@ fn custom_registry_entry(enabled: bool) -> crate::agent::registry::AgentRegistry
     }
 }
 
-#[path = "tinyflows_tests_part_01_tests.rs"]
-mod part_01_tests;
+#[path = "tinyflows_capabilities_tests.rs"]
+mod capabilities_tests;

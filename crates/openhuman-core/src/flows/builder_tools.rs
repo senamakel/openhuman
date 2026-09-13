@@ -64,13 +64,41 @@
 //! — this makes exactly one bounded real read to observe the actual shape
 //! instead. It can never send/create/update/delete anything.
 
+mod catalog_search;
+mod connection_reads;
+mod draft_edit;
+mod draft_revise;
+mod draft_validate;
+mod dry_run;
+mod dry_run_diagnostics;
+mod flow_reads;
+mod kind_reads;
+mod persistence;
+mod run_control;
+mod tool_contract;
+
+pub(crate) use catalog_search::search_live_catalog;
+pub use catalog_search::SearchToolCatalogTool;
+pub use connection_reads::{ListConnectableToolkitsTool, ListFlowConnectionsTool};
+pub use draft_edit::EditWorkflowTool;
+pub use draft_revise::ReviseWorkflowTool;
+pub use draft_validate::ValidateWorkflowTool;
+pub use dry_run::DryRunWorkflowTool;
+pub use flow_reads::{
+    GetFlowHistoryTool, GetFlowRunTool, GetFlowTool, ListFlowRunsTool, ListFlowsTool,
+};
+pub use kind_reads::{GetNodeKindContractTool, ListAgentProfilesTool, ListNodeKindsTool};
+pub use persistence::{CreateWorkflowTool, DuplicateFlowTool, SaveWorkflowTool};
+pub use run_control::{CancelFlowRunTool, ResumeFlowRunTool};
+pub use tool_contract::{GetToolContractTool, GetToolOutputSampleTool};
+
+#[cfg(test)]
+use connection_reads::flow_connection_to_json;
+#[cfg(test)]
+use draft_validate::validate_workflow_report_is_ok;
+#[cfg(test)]
+use persistence::create_workflow_report;
+
 #[cfg(test)]
 #[path = "builder_tools_tests.rs"]
 mod tests;
-include!("builder_tools_part_01.rs");
-include!("builder_tools_part_02.rs");
-include!("builder_tools_part_03.rs");
-include!("builder_tools_part_04.rs");
-include!("builder_tools_part_05.rs");
-include!("builder_tools_part_06.rs");
-include!("builder_tools_part_07.rs");

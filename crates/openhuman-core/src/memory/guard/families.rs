@@ -32,7 +32,18 @@
 #[cfg(test)]
 #[path = "families_tests.rs"]
 mod tests;
-include!("families_part_01.rs");
-include!("families_part_02.rs");
-include!("families_part_03.rs");
-include!("families_part_04.rs");
+
+mod types;
+
+mod graph_and_bookkeeping;
+mod ingest_and_tree;
+mod retrieval_and_profile;
+mod typed_ingest_and_answer;
+
+pub use types::{
+    GuardedAnswer, GuardedChunks, GuardedCodingSessions, GuardedConversationIngest, GuardedDiff,
+    GuardedDocumentIngest, GuardedDocuments, GuardedEntities, GuardedEpisodic, GuardedEventIngest,
+    GuardedGoals, GuardedGraph, GuardedIngest, GuardedLearningIngest, GuardedMaintenance,
+    GuardedPeople, GuardedProfile, GuardedRetrieval, GuardedScoring, GuardedSourceSync,
+    GuardedSources, GuardedToolMemory, GuardedTree,
+};

@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::security::credentials::AuthService;
 use tempfile::TempDir;
 
+use crate::inference::provider::factory::access_gates::host_requires_session;
 fn create_test_chat_model_from_string(
     role: &str,
     provider: &str,
@@ -181,9 +182,9 @@ fn only_library_hosts_are_exempt_from_app_login() {
     }
 }
 
-#[path = "factory_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "factory_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "factory_tests_part_03_tests.rs"]
-mod part_03_tests;
+#[path = "factory_crate_native_tests.rs"]
+mod crate_native_tests;
+#[path = "factory_egress_fallback_tests.rs"]
+mod egress_fallback_tests;
+#[path = "factory_route_resolution_tests.rs"]
+mod route_resolution_tests;

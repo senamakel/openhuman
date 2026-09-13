@@ -132,7 +132,7 @@ impl Drop for DirectAuthFailureGuard {
     }
 }
 
-#[path = "client_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "client_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "client_authorize_and_execute_tests.rs"]
+mod authorize_and_execute_tests;
+#[path = "client_triggers_and_factory_tests.rs"]
+mod triggers_and_factory_tests;

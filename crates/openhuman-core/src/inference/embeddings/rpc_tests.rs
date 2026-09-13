@@ -1,4 +1,6 @@
 use super::*;
+use crate::inference::embeddings::rpc::probe::final_probe_dims;
+use std::collections::HashMap;
 // Production code now routes managed construction through
 // `create_embedding_provider_with_config`; this low-level custom-endpoint
 // regression test still drives the credentialed factory directly.

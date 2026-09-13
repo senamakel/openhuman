@@ -1,8 +1,9 @@
 //! End-to-end proof that `Harness` runs a real agent turn as a library call.
 //!
-//! This is the acceptance test `docs/plans/pluggable-core/phase-1-corebuilder.md`
-//! specified and never got: build with no transport and no background services,
-//! run one turn, and assert nothing was bound.
+//! This is the acceptance test for the `openhuman_core::core::runtime`
+//! composition (`CoreBuilder` + `DomainSet` + `ServiceSet::none()`): build with
+//! no transport and no background services, run one turn, and assert nothing
+//! was bound.
 //!
 //! # Why one test does all of it
 //!

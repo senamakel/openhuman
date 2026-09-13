@@ -1,13 +1,15 @@
 use super::*;
+use crate::memory::read_rpc::Config;
 use chrono::Utc;
 use serde_json::json;
 use tempfile::TempDir;
 // `DocumentInput` (and its `ChatBatch` / `EmailThread` siblings, which
-// `rpc_tests_part_01_tests` reaches the same way) now arrive through the
-// `use super::*` above: they are defined in `rpc_part_01.rs` rather than
-// imported from the engine crate. Naming the engine's copy here would compile
-// and then fail on the first call into `document_item`, since the two are
-// distinct types with identical fields.
+// `rpc_ingest_and_chunk_tests` reaches the same way) now arrive through the
+// `use super::*` above: they are defined in `canonicalize_types.rs` and
+// re-exported through `rpc/ingest.rs`, rather than imported from the engine
+// crate. Naming the engine's copy here would compile and then fail on the
+// first call into `document_item`, since the two are distinct types with
+// identical fields.
 use tinymemory_api::chunks::SourceKind;
 
 fn test_config() -> (TempDir, Config) {
@@ -94,7 +96,7 @@ fn reported_failure(
     }
 }
 
-#[path = "rpc_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "rpc_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "rpc_ingest_and_chunk_tests.rs"]
+mod ingest_and_chunk_tests;
+#[path = "rpc_pipeline_status_tests.rs"]
+mod pipeline_status_tests;

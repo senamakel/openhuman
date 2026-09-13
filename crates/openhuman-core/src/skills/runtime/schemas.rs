@@ -1,8 +1,9 @@
 //! Controller schemas and handlers for `openhuman.skill_runtime_*`.
 //!
 //! This namespace is the CLI/RPC-friendly execution surface for installed
-//! skills. The older `workflows_*` run/log/cancel controllers are kept for
-//! compatibility, but new scripts should call `skill_runtime_*` directly.
+//! skills. The `skills_run` / `skills_cancel` / `skills_recent_runs` /
+//! `skills_read_run_log` controllers in `skills/schemas/` wrap the same run
+//! machinery; new scripts should call `skill_runtime_*` directly.
 
 use serde::Deserialize;
 use serde_json::{Map, Value};

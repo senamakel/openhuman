@@ -1,12 +1,12 @@
 //! One-time import of legacy OpenHuman sessions into TinyAgents stores.
 //!
-//! Implements the P1 migration from `docs/tinyagents-session-migration-design.md`
-//! (issue #4249): legacy transcript JSONL (`session_raw/`, flat and
-//! `DDMMYYYY` date folders) and legacy Markdown sessions are normalized into
-//! TinyAgents `Store`/`AppendStore` records under
+//! Implements the P1 migration (issue #4249; see [`README.md`](README.md) for
+//! source/destination layout): legacy transcript JSONL (`session_raw/`, flat
+//! and `DDMMYYYY` date folders) and legacy Markdown sessions are normalized
+//! into TinyAgents `Store`/`AppendStore` records under
 //! `{workspace}/tinyagents_store/`. Sources are never mutated; the command is
 //! idempotent (global marker + per-item fingerprint ledger) and exposed as
-//! `openhuman.session_import_run` (`openhuman-core session-import run`). It
+//! `openhuman.session_import_run` (`openhuman-core session_import run`). It
 //! is an explicit command, never a boot hook.
 
 mod convert;

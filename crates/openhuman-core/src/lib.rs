@@ -1,9 +1,44 @@
-//! Core library for the OpenHuman platform.
+//! `openhuman-core` — the in-process Rust core.
 //!
-//! This crate provides the central logic for the OpenHuman core binary, including:
-//! - API and RPC handlers for external interactions.
-//! - Core system services (CLI, configuration, monitoring).
-//! - Domain-specific logic for the OpenHuman agent runtime.
+//! Cargo package `openhuman`, library `openhuman_core`, binary `openhuman-core`
+//! (`src/main.rs`). Owns business rules, persistence, execution
+//! policy, the JSON-RPC/Socket.IO server, and the CLI. Hosted in-process by
+//! `openhuman-app` (the Tauri shell), `openhuman-embed` (the typed facade for
+//! third-party embedders such as Medulla and OpenCompany), and `openhuman-tui`.
+//!
+//! Business logic lives one directory per domain family under `src/`, listed
+//! below in the order they are declared (module declarations are kept
+//! alphabetical, with the `rpc` re-export sitting between `platform` and
+//! `runtime` — keep new modules sorted the same way): `agent`, `api`,
+//! `channels`, `config`, `core`, `cron`, `desktop`, `flows` (feature
+//! `flows`), `hooks`, `hosted`, `hosting` (feature `hosting`), `http_host`
+//! (feature `http-server`), `inference`, `integrations`, `json_schema`,
+//! `mcp`, `media` (feature `media`), `medulla`, `memory`, `modules` (feature
+//! `modules`), `platform`, `runtime`, `sandbox`, `search`, `security`,
+//! `skills`, `test_support` (feature `e2e-test-support`), `threads`, `tools`,
+//! `util`, `voice`, `web3`, `web_chat`. `channels`, `mcp`, `medulla`,
+//! `skills`, `voice` and `web3` are always declared but gate most of their
+//! contents inside their own `mod.rs` behind the feature of the same name.
+//! `core/` is not a domain: it holds transport, dispatch, the controller
+//! registry (`core::all`), auth, the CLI, the event bus, and runtime
+//! composition (`core::runtime`). See `README.md` and AGENTS.md ("Rust domain
+//! structure") for the preferred per-domain module shape.
+//!
+//! `pub use openhuman_rpc as rpc;` re-exports the `openhuman-rpc` crate, so
+//! `crate::rpc::{RpcOutcome, StructuredRpcError, ...}` are the same types the
+//! app and TUI decode responses with — there is no separate RPC contract
+//! layer in this crate.
+//!
+//! [`CoreBuilder`], [`CoreRuntime`], [`DomainSet`], [`ServiceSet`],
+//! [`TokenSource`] and [`HostKind`] are the embeddable composition API;
+//! `openhuman-embed` layers a typed facade on top of them.
+//! [`run_core_from_args`] is the CLI entry point shared by `src/main.rs` and
+//! the desktop shell binary's `core` and `mcp` subcommands.
+//!
+//! Cargo features split into a contributor `default` set and a larger
+//! shipped-product set (`scripts/ci/product-features.txt`); slim or headless
+//! embedding builds use `--no-default-features --features "<list>"`. See the
+//! `[features]` block in `Cargo.toml` for the full gate list and rationale.
 
 // The RPC dispatch chokepoint wraps each handler future in an ambient
 // `CoreContext` scope (Phase 2). Combined with the already very deep async type
@@ -61,7 +96,8 @@ pub use config::DaemonConfig;
 
 /// Embeddable core composition API. Host the OpenHuman core in any process —
 /// the Tauri shell, a CLI, a stdio MCP server, or a cloud/team server — via
-/// [`CoreBuilder`] → [`CoreRuntime`]. See `docs/plans/pluggable-core/`.
+/// [`CoreBuilder`] → [`CoreRuntime`]. See `crates/openhuman-embed/README.md`
+/// and [`crate::core::runtime`] for the composition this builds on.
 pub use core::runtime::{CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource};
 pub use core::types::HostKind;
 

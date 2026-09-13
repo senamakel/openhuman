@@ -1,5 +1,7 @@
 use super::*;
+use crate::config::{default_root_openhuman_dir, user_openhuman_dir, write_active_user_id, Config};
 use crate::security::credentials::session_support::local_session_user_id;
+use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 use axum::http::StatusCode;
 use axum::routing::get;
 use axum::Router;
@@ -134,7 +136,7 @@ fn store_live_session(user_id: &str) -> Config {
     config
 }
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "ops_provider_oauth_tests.rs"]
+mod provider_oauth_tests;
+#[path = "ops_session_tests.rs"]
+mod session_tests;

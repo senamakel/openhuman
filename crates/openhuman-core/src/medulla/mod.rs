@@ -15,8 +15,8 @@
 //!
 //! | Module | Role | Transport |
 //! |---|---|---|
-//! | `openhuman::medulla` (here) | OpenHuman as a Medulla **client** | outbound HTTP/SSE to the backend |
-//! | `openhuman::platform::socket::medulla` | OpenHuman as a Medulla **worker** | inbound Socket.IO from a remote operator |
+//! | `crate::medulla` (here) | OpenHuman as a Medulla **client** | outbound HTTP/SSE to the backend |
+//! | `crate::platform::socket::medulla` | OpenHuman as a Medulla **worker** | inbound Socket.IO from a remote operator |
 //!
 //! A single binary can be both at once.
 //!

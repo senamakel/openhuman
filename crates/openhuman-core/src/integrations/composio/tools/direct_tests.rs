@@ -1,6 +1,8 @@
 use super::*;
 use crate::security::{AutonomyLevel, SecurityPolicy};
 
+use serde_json::json;
+use std::sync::Arc;
 fn test_security() -> Arc<SecurityPolicy> {
     Arc::new(SecurityPolicy::default())
 }
@@ -17,7 +19,7 @@ async fn start_mock_backend(app: axum::Router) -> String {
     format!("http://127.0.0.1:{}", addr.port())
 }
 
-#[path = "direct_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "direct_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "direct_tests_constructor_and_wire_types_tests.rs"]
+mod constructor_and_wire_types_tests;
+#[path = "direct_tests_sanitization_and_connected_accounts_tests.rs"]
+mod sanitization_and_connected_accounts_tests;

@@ -1,3 +1,8 @@
+//! Builds and fingerprints the cached session `Agent`: target agent
+//! resolution, model-override normalization, locale reply directive, and the
+//! `SessionCacheFingerprint` that decides whether a cached agent can be
+//! reused for the next turn on a thread.
+
 use crate::agent::profiles::{AgentProfile, DEFAULT_PROFILE_ID};
 use crate::agent::Agent;
 use crate::config::Config;

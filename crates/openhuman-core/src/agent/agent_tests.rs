@@ -29,7 +29,7 @@ use crate::agent::dispatcher::{
 };
 use crate::agent::harness::session::Agent;
 use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
-use crate::config::{AgentConfig, MemoryConfig};
+use crate::config::AgentConfig;
 use crate::inference::provider::{ChatResponse, ToolCall};
 use crate::memory::Memory;
 use crate::tools::{Tool, ToolResult};
@@ -331,9 +331,9 @@ fn xml_tool_response(name: &str, args: &str) -> ChatResponse {
     }
 }
 
-#[path = "agent_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "agent_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "agent_tests_part_03_tests.rs"]
-mod part_03_tests;
+#[path = "agent_dispatch_format_tests.rs"]
+mod agent_dispatch_format_tests;
+#[path = "agent_memory_attribution_tests.rs"]
+mod agent_memory_attribution_tests;
+#[path = "agent_turn_loop_tests.rs"]
+mod agent_turn_loop_tests;

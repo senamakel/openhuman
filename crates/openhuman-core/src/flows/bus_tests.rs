@@ -104,7 +104,7 @@ fn dedup_state_namespace(flow_id: &str) -> String {
     format!("flow:{flow_id}")
 }
 
-#[path = "bus_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "bus_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "bus_dedup_commit_lock_tests.rs"]
+mod dedup_commit_lock_tests;
+#[path = "bus_subscriber_tests.rs"]
+mod subscriber_tests;

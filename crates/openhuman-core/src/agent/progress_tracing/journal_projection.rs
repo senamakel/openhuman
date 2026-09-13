@@ -232,7 +232,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             // synthesises the pair itself. Without this arm the projection was
             // short a whole tool span — a span *count* divergence, not just a
             // missing attribute — on every turn the model named a tool it did
-            // not have. Mirrors `observability_part_02.rs`'s `UnknownToolCall`
+            // not have. Mirrors `observability/event_projection.rs`'s `UnknownToolCall`
             // arm exactly, including the `Unknown` (recoverable) class.
             let failure = Some(crate::tools::status::describe(
                 crate::tools::status::ToolFailureClass::Unknown,
@@ -347,7 +347,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
 
         AgentEvent::UsageRecorded { usage } => {
             // The cost footer is a top-level surface: the live bridge suppresses
-            // the per-child roll-up (`observability_part_01.rs`, `self.scope`
+            // the per-child roll-up (`observability/event_bridge.rs`, `self.scope`
             // guard), and a child run's usage is accounted separately. Skipping
             // entirely — rather than accumulating silently — is what keeps the
             // projected parent total equal to the live one, because live the

@@ -15,6 +15,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::json;
+use std::sync::Arc;
 
 // ── Integration: HTTP error propagation through `post`/`get` ──────
 
@@ -108,7 +109,7 @@ async fn product_identity_seen_by_backend(identity: Option<&str>) -> ProductIden
     ProductIdentitySeen { sdk, download }
 }
 
-#[path = "client_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "client_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "client_error_propagation_tests.rs"]
+mod error_propagation_tests;
+#[path = "client_session_expiry_tests.rs"]
+mod session_expiry_tests;

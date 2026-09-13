@@ -1,7 +1,7 @@
 //! Typed embedding facade over [`CoreRuntime`].
 //!
 //! [`CoreBuilder`](openhuman_core::core::runtime::CoreBuilder) gives an embedder a
-//! running core; [`CoreRuntime::invoke`] gives it JSON. This module is the
+//! running core; [`CoreRuntime::invoke`] gives it JSON. This crate is the
 //! third piece: real Rust types, so a host application never writes
 //! `serde_json::json!` or matches on an error string.
 //!

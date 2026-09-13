@@ -6,26 +6,22 @@
 //! them out keeps `turn.rs` focused on the interaction lifecycle and
 //! makes it obvious which methods are cheap getters vs which actually
 //! drive the model.
+//!
+//! Each child module contributes one `impl Agent` block:
+//!
+//! | File            | Role                                                  |
+//! |-----------------|-------------------------------------------------------|
+//! | `accessors`     | Getters / setters and the tool-visibility filter.     |
+//! | `resume`        | Cold-boot resume seeding of the LLM context.          |
+//! | `turn_results`  | Usage totals, cap flag, and citations of the last turn.|
+//! | `turn_helpers`  | Static per-turn parsing and telemetry helpers.        |
+//! | `run_loop`      | `run_single` and `run_interactive`.                   |
 
-use super::types::{Agent, AgentBuilder};
-use crate::agent::dispatcher::ParsedToolCall;
-use crate::agent::error::AgentError;
-use crate::agent::messages::ConversationMessage;
-use crate::core::bus::BUS;
-use crate::core::events::DomainEvent;
-use crate::inference::provider::{self, ToolCall};
-use crate::memory::Memory;
-use crate::security::prompt_injection::{
-    enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
-};
-use crate::tools::agent_policy::ToolPolicyEngine;
-use crate::tools::{Tool, ToolSpec};
-use crate::util::truncate_with_ellipsis;
-use anyhow::Result;
-use std::collections::HashSet;
-use std::sync::Arc;
-include!("runtime_impl_01_part_01.rs");
-include!("runtime_impl_01_part_02.rs");
+mod accessors;
+mod resume;
+mod run_loop;
+mod turn_helpers;
+mod turn_results;
 
 #[cfg(test)]
 #[path = "runtime_tests.rs"]

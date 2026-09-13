@@ -6,7 +6,6 @@ use super::super::runtime::process_channel_message;
 use super::super::{traits, Channel};
 use super::common::{HistoryCaptureModel, RecordingChannel};
 use crate::inference::provider;
-use crate::memory::Memory;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tinymemory_api::provider::MemoryCore as _;

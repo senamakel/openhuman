@@ -12,6 +12,7 @@
  * `runStepSummary.ts` — so callers (React components that already hold a `t`
  * / `locale` from `useT()`) stay in control of localization.
  */
+import { truncateText } from '../../utils/truncateText';
 import { describeSchedule, type Translate } from './cron';
 import type { NodeKind } from './types';
 
@@ -23,10 +24,6 @@ function str(config: Record<string, unknown>, key: string): string {
 function num(config: Record<string, unknown>, key: string): number | undefined {
   const v = config[key];
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
-}
-
-function truncate(value: string, max = 52): string {
-  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
 /**
@@ -65,7 +62,7 @@ export function describeNode(
         : t('flows.nodeSummary.agent.defaultModel');
       return prompt
         ? t('flows.nodeSummary.agent.withPrompt')
-            .replace('{prompt}', truncate(prompt, 40))
+            .replace('{prompt}', truncateText(prompt, 40))
             .replace('{model}', modelLabel)
         : t('flows.nodeSummary.agent.default').replace('{model}', modelLabel);
     }
@@ -87,7 +84,7 @@ export function describeNode(
       return url
         ? t('flows.nodeSummary.http.withUrl')
             .replace('{method}', method)
-            .replace('{url}', truncate(url, 40))
+            .replace('{url}', truncateText(url, 40))
         : t('flows.nodeSummary.http.noUrl').replace('{method}', method);
     }
     case 'code': {
@@ -162,7 +159,7 @@ export function describeNode(
     case 'dedup': {
       const key = str(config, 'key');
       return key
-        ? t('flows.nodeSummary.dedup.withKey').replace('{key}', truncate(key, 40))
+        ? t('flows.nodeSummary.dedup.withKey').replace('{key}', truncateText(key, 40))
         : t('flows.nodeSummary.dedup.default');
     }
     case 'loop': {
@@ -174,7 +171,7 @@ export function describeNode(
       if (condition) {
         return t('flows.nodeSummary.loop.whileCondition')
           .replace('{max}', String(max ?? 25))
-          .replace('{condition}', truncate(condition, 30));
+          .replace('{condition}', truncateText(condition, 30));
       }
       return t('flows.nodeSummary.loop.upTo').replace('{max}', String(max ?? 25));
     }

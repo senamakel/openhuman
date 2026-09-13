@@ -16,9 +16,32 @@
 //!   - `composio.refresh_all_identities` → `openhuman.composio_refresh_all_identities`
 //!   - `composio.sync`                → `openhuman.composio_sync`
 
+mod definitions;
+mod handlers_connections;
+mod handlers_identity;
+mod handlers_tools;
+mod handlers_triggers;
+mod params;
+mod registry;
+mod util;
+
 #[cfg(test)]
 #[path = "schemas_tests.rs"]
 mod tests;
-include!("schemas_part_01.rs");
-include!("schemas_part_02.rs");
-include!("schemas_part_03.rs");
+
+pub use registry::{all_controller_schemas, all_registered_controllers};
+
+#[cfg(test)]
+use definitions::schemas;
+
+// Brought into this module's own namespace (private `use`, not `pub use`)
+// so `schemas_tests.rs` — declared as a direct child module of `schemas`
+// above — can still reach these via a plain `use super::*;`, exactly as
+// when this was one un-split file. See each item's `pub(super)` in its
+// owning submodule.
+#[cfg(test)]
+use crate::rpc::RpcOutcome;
+#[cfg(test)]
+use serde_json::{Map, Value};
+#[cfg(test)]
+use util::{read_optional, read_required, read_required_non_empty, to_json};

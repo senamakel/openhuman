@@ -2,7 +2,7 @@
 
 OpenHuman can route any chat workload through **Anthropic's `claude` CLI** instead of calling the Anthropic HTTP API directly. The CLI handles model selection, auth, and prompt-cache management; OpenHuman drives it as a child process per turn, parses its stream-json output, and re-exposes its own read-only tools back into the CLI over MCP so the model can reach native OpenHuman state (memory, threads, channels, people).
 
-> Locked decisions live in [`.planning/claude-code-provider/PLAN.md`](../../../.planning/claude-code-provider/PLAN.md) §13.
+> Implementation notes live in [`crates/openhuman-core/src/inference/provider/claude_code/README.md`](../../../crates/openhuman-core/src/inference/provider/claude_code/README.md).
 
 ## Requirements
 

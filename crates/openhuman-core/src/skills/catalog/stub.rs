@@ -41,6 +41,6 @@ pub mod ops {
     }
 }
 
-// NOTE: no `tools` module here — the `pub use skill_registry::tools::*` glob in
+// NOTE: no `tools` module here — the `pub use crate::skills::catalog::tools::*` glob in
 // `tools/mod.rs` is `#[cfg(feature = "skills")]` instead, mirroring the `voice`
 // gate. See the note in `skills/stub.rs`.

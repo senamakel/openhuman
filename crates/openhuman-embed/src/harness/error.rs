@@ -37,10 +37,11 @@ pub enum HarnessError {
     ///
     /// Not a limitation of the harness but of the core it wraps: the keyring
     /// master key, the RPC bearer, the global event bus and the `Once`-guarded
-    /// domain subscribers are all process-scoped (see the pluggable-core plan's
-    /// phase 3). Two harnesses would share those while believing they had
-    /// separate workspaces, which corrupts state quietly rather than loudly.
-    /// Failing here is the loud version.
+    /// domain subscribers are all process-scoped — seeded by
+    /// [`CoreContext::init`](openhuman_core::core::runtime::context::CoreContext::init).
+    /// Two harnesses would share those while believing they had separate
+    /// workspaces, which corrupts state quietly rather than loudly. Failing
+    /// here is the loud version.
     #[error(
         "an OpenHuman harness is already running in this process; \
          core state (keyring, event bus, domain subscribers) is process-scoped, \

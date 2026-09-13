@@ -78,14 +78,14 @@ Classify each comment:
 - `stale-outdated` — no longer applies.
 - `disagree` / `defer-human` / `question` — surface in final report; never silently dismiss.
 
-Also do a standards pass against `CLAUDE.md` / `AGENTS.md` on the diff:
-- New Rust functionality lives under `crates/openhuman-core/src/openhuman/<domain>/`, not root-level files.
+Also do a standards pass against `AGENTS.md` (`CLAUDE.md` is a symlink to it) on the diff:
+- New Rust functionality lives under `crates/openhuman-core/src/<domain>/`, not flat `crates/openhuman-core/src/*.rs` files or `crates/openhuman-core/src/core/`.
 - Domain exposure via `schemas.rs` + registry — not ad-hoc branches in `crates/openhuman-core/src/core/cli.rs` / `crates/openhuman-core/src/core/jsonrpc.rs`.
 - No dynamic `import()` in production `app/src` code.
 - Frontend `VITE_*` reads go through `app/src/utils/config.ts`.
 - `crates/openhuman-app` is desktop-only.
 - Debug logging on new flows; no secrets logged.
-- Capability changes update `crates/openhuman-core/src/openhuman/about_app/`.
+- Capability changes update `crates/openhuman-core/src/platform/about_app/`.
 - Files preferably ≤ ~500 lines.
 
 ### 4. Apply fixes (REQUIRED)

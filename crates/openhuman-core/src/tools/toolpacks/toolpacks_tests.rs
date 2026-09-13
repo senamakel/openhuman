@@ -710,5 +710,5 @@ fn the_reactive_fleet_tools_are_never_packed() {
     }
 }
 
-#[path = "toolpacks_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "toolpacks_tests_scoping_and_visibility_tests.rs"]
+mod scoping_and_visibility_tests;

@@ -1855,7 +1855,7 @@ async fn run_server_with_services(
     // background services on (`ServiceSet::desktop`), Socket.IO per the caller
     // flag, and the legacy `embedded_core` → `HostKind` mapping (embedded ==
     // Tauri shell; standalone splits CLI / Docker via `detect_standalone`).
-    // See `docs/plans/pluggable-core/phase-1-corebuilder.md`.
+    // See the pluggable-core work (`core::runtime`).
     let host_kind = if embedded_core {
         crate::core::types::HostKind::TauriShell
     } else {

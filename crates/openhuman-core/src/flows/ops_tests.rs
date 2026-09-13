@@ -693,29 +693,29 @@ const PRIOR_PROCESS_STARTED_AT: &str = "2020-01-01T00:00:00+00:00";
 mod support_tests;
 use support_tests::*;
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "ops_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "ops_tests_part_04_tests.rs"]
-mod part_04_tests;
-#[path = "ops_tests_part_05_tests.rs"]
-mod part_05_tests;
-#[path = "ops_tests_part_06_tests.rs"]
-mod part_06_tests;
-#[path = "ops_tests_part_07_tests.rs"]
-mod part_07_tests;
-#[path = "ops_tests_part_08_tests.rs"]
-mod part_08_tests;
-#[path = "ops_tests_part_09_tests.rs"]
-mod part_09_tests;
-#[path = "ops_tests_part_10_tests.rs"]
-mod part_10_tests;
-#[path = "ops_tests_part_11_tests.rs"]
-mod part_11_tests;
-#[path = "ops_tests_part_12_tests.rs"]
-mod part_12_tests;
-#[path = "ops_tests_part_13_tests.rs"]
-mod part_13_tests;
+#[path = "ops_agent_binding_tests.rs"]
+mod agent_binding_tests;
+#[path = "ops_approval_manifest_and_catalog_tests.rs"]
+mod approval_manifest_and_catalog_tests;
+#[path = "ops_builder_trail_off_tests.rs"]
+mod builder_trail_off_tests;
+#[path = "ops_connection_ref_gate_tests.rs"]
+mod connection_ref_gate_tests;
+#[path = "ops_engine_compatibility_tests.rs"]
+mod engine_compatibility_tests;
+#[path = "ops_migration_and_side_effect_tests.rs"]
+mod migration_and_side_effect_tests;
+#[path = "ops_resume_checkpoint_tests.rs"]
+mod resume_checkpoint_tests;
+#[path = "ops_run_lifecycle_tests.rs"]
+mod run_lifecycle_tests;
+#[path = "ops_run_rows_and_notifications_tests.rs"]
+mod run_rows_and_notifications_tests;
+#[path = "ops_run_status_and_prompt_binding_tests.rs"]
+mod run_status_and_prompt_binding_tests;
+#[path = "ops_tool_contract_and_wiring_warnings_tests.rs"]
+mod tool_contract_and_wiring_warnings_tests;
+#[path = "ops_triggers_and_resume_tests.rs"]
+mod triggers_and_resume_tests;
+#[path = "ops_validate_warnings_and_connections_tests.rs"]
+mod validate_warnings_and_connections_tests;

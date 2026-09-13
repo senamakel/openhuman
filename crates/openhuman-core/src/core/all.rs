@@ -1334,11 +1334,11 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
 /// | HTTP JSON-RPC | `core::jsonrpc` |
 /// | dynamic dispatch fallback | `core::dispatch::try_registry_dispatch` |
 /// | CLI | `core::cli` |
-/// | MCP read and write tools | `openhuman::mcp::server::tools::params` |
+/// | MCP read and write tools | `crate::mcp::server::tools::params` |
 ///
 /// The one call site that does not validate for itself is
-/// `openhuman::mcp::server::write_dispatch`, whose sole caller
-/// (`openhuman::mcp::server::tools::dispatch`) validates immediately before it.
+/// `crate::mcp::server::write_dispatch`, whose sole caller
+/// (`crate::mcp::server::tools::dispatch`) validates immediately before it.
 /// That is not a gap today, but it is the place a refactor could open one.
 ///
 /// # Relationship to handler-side parameter checks (#6073)

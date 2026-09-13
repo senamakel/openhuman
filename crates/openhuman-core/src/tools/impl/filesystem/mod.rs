@@ -1,3 +1,9 @@
+//! Cross-cutting filesystem tools: read/write/edit/patch, grep/glob/list,
+//! diffs, CSV export, git operations, linter/test runners. Every tool struct
+//! and its registration gate is listed in `tools/impl/README.md`;
+//! `security_for_tool_context` below resolves the `SecurityPolicy` for a tool
+//! run and is mirrored by the `system` family.
+
 mod apply_patch;
 mod csv_export;
 mod edit_file;

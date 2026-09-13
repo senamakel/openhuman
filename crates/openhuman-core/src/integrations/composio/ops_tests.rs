@@ -327,11 +327,11 @@ fn make_connections_response(
     super::super::types::ComposioConnectionsResponse { connections }
 }
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "ops_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "ops_tests_part_04_tests.rs"]
-mod part_04_tests;
+#[path = "ops_direct_mode_and_error_classification_tests.rs"]
+mod direct_mode_and_error_classification_tests;
+#[path = "ops_fetch_integrations_and_triggers_tests.rs"]
+mod fetch_integrations_and_triggers_tests;
+#[path = "ops_no_session_and_cache_tests.rs"]
+mod no_session_and_cache_tests;
+#[path = "ops_profile_tools_execute_mock_tests.rs"]
+mod profile_tools_execute_mock_tests;

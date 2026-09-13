@@ -1,3 +1,6 @@
+//! Binary entry point for the standalone terminal frontend; all logic lives in
+//! the `openhuman_tui` library (see `lib.rs` and `README.md`).
+
 fn main() {
     // Keep the guard alive for the entire terminal session. `init_for_tui`
     // installs the tracing layer, while this creates the client that receives

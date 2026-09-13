@@ -76,9 +76,9 @@ Classify each comment:
 - **Disagree / out of scope**: flag for the user with reasoning. Do not silently dismiss.
 - **Question / discussion**: flag for the user to answer.
 
-Also do a standards pass against `CLAUDE.md` on the full diff, as a safety net for anything reviewers missed:
+Also do a standards pass against `AGENTS.md` (`CLAUDE.md` is a symlink to it) on the full diff, as a safety net for anything reviewers missed:
 
-- New Rust functionality lives in a subdirectory under `crates/openhuman-core/src/openhuman/`, not root-level `.rs` files.
+- New Rust functionality lives in a subdirectory under `crates/openhuman-core/src/<domain>/`, not flat `crates/openhuman-core/src/*.rs` files or `crates/openhuman-core/src/core/`.
 - Controllers exposed via `schemas.rs` + registry, not ad-hoc branches in `core/cli.rs` / `core/jsonrpc.rs`.
 - No dynamic `import()` in production `app/src` code.
 - Frontend reads `VITE_*` via `app/src/utils/config.ts`, not `import.meta.env` directly.
@@ -102,7 +102,7 @@ Run in parallel where independent. Capture output; do not swallow failures.
 
 ```
 # Frontend
-cd app && pnpm typecheck
+cd app && pnpm compile      # typecheck
 cd app && pnpm lint
 cd app && pnpm format       # auto-fix
 cd app && pnpm test:unit

@@ -691,5 +691,5 @@ async fn the_defaulted_members_dispatch_to_the_module_instead_of_refusing() {
     );
 }
 
-#[path = "memory_tests_part_01_tests.rs"]
-mod part_01_tests;
+#[path = "memory_capability_and_dispatch_tests.rs"]
+mod capability_and_dispatch_tests;

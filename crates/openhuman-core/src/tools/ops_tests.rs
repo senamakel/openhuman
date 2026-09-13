@@ -454,11 +454,11 @@ const OPTIONAL_FAMILY_MEMORY_TOOLS: &[&str] = &[
 /// disables every driver-backed capability.
 const ALWAYS_PRESENT_MEMORY_TOOLS: &[&str] = &["update_memory_md", "memory_store_kinds"];
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "ops_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "ops_tests_part_04_tests.rs"]
-mod part_04_tests;
+#[path = "ops_tests_capability_gating_tests.rs"]
+mod capability_gating_tests;
+#[path = "ops_tests_default_registry_tests.rs"]
+mod default_registry_tests;
+#[path = "ops_tests_domain_family_tests.rs"]
+mod domain_family_tests;
+#[path = "ops_tests_execution_and_serde_tests.rs"]
+mod execution_and_serde_tests;

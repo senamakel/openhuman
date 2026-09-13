@@ -181,5 +181,5 @@ fn cfg_with_class(driver: &str, class: &str) -> MemorySubsystemConfig {
     cfg
 }
 
-#[path = "binding_tests_part_01_tests.rs"]
-mod part_01_tests;
+#[path = "binding_admission_tests.rs"]
+mod binding_admission_tests;

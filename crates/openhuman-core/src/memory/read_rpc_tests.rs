@@ -20,7 +20,7 @@ fn test_config() -> (TempDir, Config) {
 
 // ── tree-mode graph export (summaries + leaf chunks) ────────────────────
 
-#[path = "read_rpc_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "read_rpc_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "display_name_and_vault_rpc_tests.rs"]
+mod display_name_and_vault_rpc_tests;
+#[path = "flush_now_rpc_tests.rs"]
+mod flush_now_rpc_tests;

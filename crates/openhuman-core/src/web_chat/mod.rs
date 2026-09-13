@@ -1,3 +1,30 @@
+//! Web/desktop channel turn runner.
+//!
+//! Drives a chat turn from a Socket.IO `chat:start` event (or an inbound
+//! `channels/` provider message) through the agent harness to a delivered,
+//! durably-persisted reply: `start_chat` (`ops/start_chat.rs`) validates and
+//! preprocesses the message, applies the queue mode against the thread's
+//! in-flight state, and spawns `run_task::run_chat_task` under the cancel
+//! token / wall-clock backstop / `APPROVAL_CHAT_CONTEXT` scope
+//! (`run_turn_under_cancel_and_deadline`, `ops/turn_guards.rs`). `run_chat_task`
+//! resolves or builds the cached session `Agent` (`session.rs`), spawns
+//! `spawn_progress_bridge` alongside the run, and returns the result; the
+//! spawning task then hands an `Ok` to `presentation::deliver_response`,
+//! which persists the reply (`reply_persistence.rs`) before announcing it,
+//! and an `Err` to `web_errors::classify_inference_error`. Exposes the
+//! `channel.web_*` RPC namespace (`schemas.rs`) and the `WebChannelEvent`
+//! broadcast bus (`event_bus.rs`) that both Socket.IO and the JSON-RPC
+//! `/events` SSE stream consume. See `README.md` for the full lifecycle and
+//! wiring.
+//!
+//! Submodules: `ops*.rs` (request surface, session/in-flight state),
+//! `run_task.rs` (turn execution), `session.rs` (agent build/fingerprint),
+//! `progress_bridge.rs` (progress → socket event bridge), `presentation.rs`
+//! (reply delivery), `reply_persistence.rs` (durable reply write),
+//! `event_bus.rs` (broadcast + `DomainEvent` surface subscribers),
+//! `web_errors*.rs` (provider error classification), `schemas.rs` (RPC
+//! contract), `types.rs` (shared param/state types).
+
 mod event_bus;
 mod ops;
 // Response delivery/segmentation for the web surface (folded in from the former

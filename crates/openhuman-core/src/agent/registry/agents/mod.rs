@@ -1,9 +1,33 @@
+//! Built-in agent archetypes.
+//!
+//! Each submodule below is one shipped agent and owns the same three
+//! files, so none of the 29 leaf `mod.rs` files need their own doc
+//! comment:
+//!
+//! * `agent.toml`  — id, `when_to_use`, model, tool scope, sandbox mode,
+//!   iteration cap, tier, and `omit_*` flags. Parsed directly into
+//!   [`crate::agent::harness::definition::AgentDefinition`]; ships without
+//!   a `system_prompt`.
+//! * `prompt.md`   — the static archetype body. `prompt.rs` embeds it with
+//!   `include_str!`; nothing else reads it.
+//! * `prompt.rs`   — exposes `pub fn build(&PromptContext) ->
+//!   anyhow::Result<String>`, which appends runtime-dependent sections
+//!   (rendered tool list, user files, workspace) to the `prompt.md` body.
+//!   [`BUILTINS`] installs it as `PromptSource::Dynamic` on the parsed
+//!   definition. Most archetypes keep a `prompt_tests.rs` beside it.
+//!
+//! `researcher` additionally owns a `graph.rs` exposing
+//! `fn graph() -> AgentGraph` for a bespoke turn graph; see
+//! [`BuiltinAgent::graph_fn`].
+//!
+//! `loader.rs` holds [`BUILTINS`], [`load_builtins`] and
+//! [`validate_tier_hierarchy`]. The slice also registers archetypes that
+//! live with other domains (`memory/agent/agent/`, `skills/*/agent/`,
+//! `flows/agents/`), so this directory is not the full built-in set. The
+//! package `README.md` one level up describes what each archetype does.
+
 mod loader;
 
-// Built-in agents. Each module owns an `agent.toml` (metadata), the
-// legacy `prompt.md` (kept alongside for reference / workspace
-// overrides), and a `prompt.rs` exposing a `pub fn build(&PromptContext)
-// -> Result<String>` that the loader wires into `PromptSource::Dynamic`.
 pub mod archivist;
 pub mod code_executor;
 pub mod context_scout;

@@ -82,7 +82,7 @@ async fn create_thread_with_title(_workspace: &tempfile::TempDir, thread_id: &st
     .expect("ensure thread");
 }
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "ops_conversion_tests.rs"]
+mod conversion_tests;
+#[path = "ops_title_and_cancellation_tests.rs"]
+mod title_and_cancellation_tests;

@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::tools::schemas::registry::tools_schemas;
+use serde_json::{json, Map};
 const BASE_CONTROLLERS: usize = 6;
 
 #[test]

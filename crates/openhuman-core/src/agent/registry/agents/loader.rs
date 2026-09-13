@@ -21,14 +21,11 @@
 //!
 //! 1. [`load_builtins`] walks [`BUILTINS`].
 //! 2. For each entry, parses `agent.toml` into an [`AgentDefinition`].
-//! 3. Replaces the (unset) `system_prompt` with `PromptSource::Inline(prompt.md contents)`.
-//! 4. Stamps `source = DefinitionSource::Builtin`.
+//! 3. Replaces the (unset) `system_prompt` with `PromptSource::Dynamic(prompt_fn)`
+//!    and installs the optional `graph_fn` result as the turn graph.
+//! 4. Stamps `source = DefinitionSource::Builtin` and checks the folder id
+//!    matches the TOML `id`.
 //! 5. Returns the full `Vec<AgentDefinition>`, in the order listed in [`BUILTINS`].
-//!
-//! The synthetic `fork` definition is *not* listed here — it's a
-//! byte-stable replay of the parent and has no standalone prompt. It is
-//! added by [`crate::agent::harness::builtin_definitions::all`] on top of the
-//! loader output.
 //!
 //! Workspace-level overrides (`$OPENHUMAN_WORKSPACE/agents/*.toml`) are
 //! handled separately by [`crate::agent::harness::definition_loader`] and merged

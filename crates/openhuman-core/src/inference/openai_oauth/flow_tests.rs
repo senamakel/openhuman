@@ -77,7 +77,7 @@ fn test_oauth_config(token_url: &'static str) -> OAuthConfig {
     }
 }
 
-#[path = "flow_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "flow_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "flow_tests_bearer_token_tests.rs"]
+mod bearer_token_tests;
+#[path = "flow_tests_lifecycle_tests.rs"]
+mod lifecycle_tests;

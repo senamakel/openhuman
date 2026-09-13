@@ -29,6 +29,7 @@ import { useFlowRunPoller } from '../../hooks/useFlowRunPoller';
 import { type FlowNodeRunStatus, useFlowRunProgress } from '../../hooks/useFlowRunProgress';
 import { type FlowRunItem, normalizeItems } from '../../lib/flows/runItems';
 import { summarizeStep } from '../../lib/flows/runStepSummary';
+import { formatRunTimestamp } from '../../lib/flows/runTimestamp';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { FlowRunStep } from '../../services/api/flowsApi';
 import { Alert, AlertDescription, Button, CenteredLoadingState } from '../ui';
@@ -53,19 +54,6 @@ export interface FlowRepairRequest {
 }
 
 const log = debug('flows:run-inspector-drawer');
-
-function formatTimestamp(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return null;
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(parsed));
-}
 
 /**
  * Live per-node status dot colour, keyed off the socket `flow:run_progress`
@@ -254,8 +242,8 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
 
   if (!runId) return null;
 
-  const startedAt = formatTimestamp(run?.started_at);
-  const finishedAt = formatTimestamp(run?.finished_at);
+  const startedAt = formatRunTimestamp(run?.started_at, { withSeconds: true });
+  const finishedAt = formatRunTimestamp(run?.finished_at, { withSeconds: true });
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" data-testid="flow-run-inspector-drawer">

@@ -11,12 +11,12 @@ subconscious pass, a memory ingest, a bare embed) that each have their own
 startup cost, steady-state footprint, and growth curve.
 
 This document describes the benchmark environment built to measure that: a
-pinned `library-profile` binary with eight scenarios, four driver scripts
+pinned `library-profile` binary with eight scenarios, the driver scripts
 under `scripts/profile/`, and the comparison point the team cares about
-(ZeroClaw). It builds on the manual investigation in
-`docs/resource-profiling-session-2026-07-21.md`;
-read that document for the deep memory/CPU attribution work. This document is
-about running repeatable benchmarks, not re-deriving those findings.
+(ZeroClaw). It builds on an earlier manual investigation into deep memory/CPU
+attribution (removed from the tree; see git history at `0017c58d86~1` for the
+original write-up). This document is about running repeatable benchmarks, not
+re-deriving those findings.
 
 ## The eight scenarios
 
@@ -140,12 +140,12 @@ visible directly.
 ~42 MiB slim-build snapshot broken down as roughly 15.2 MiB private physical
 footprint, 3.18 MiB live heap, 18.7 MiB resident executable text, and ~9.4 MiB
 of resident-but-mostly-inactive malloc pages (allocator high-water
-retention). See
-`docs/resource-profiling-session-2026-07-21.md`
-for the full breakdown, the executable-paging finding (a cold turn faults in
-~15 MiB of previously nonresident OpenHuman code), and the warmed-process
-control showing steady-state turns cost ~0.5-1.9 MiB once warm rather than
-the ~26-31 MiB a cold turn costs. Use `library-bench.sh` for the RSS/duration
+retention). See the original profiling session write-up (removed from the
+tree; git history at `0017c58d86~1`) for the full breakdown, the
+executable-paging finding (a cold turn faults in ~15 MiB of previously
+nonresident OpenHuman code), and the warmed-process control showing
+steady-state turns cost ~0.5-1.9 MiB once warm rather than the ~26-31 MiB a
+cold turn costs. Use `library-bench.sh` for the RSS/duration
 headline numbers, `library-cpu.sh` when CPU attribution is the question, and
 `library-heap.sh` only when RSS numbers need live-allocation attribution
 (accepting the dhat perturbation).
@@ -369,6 +369,6 @@ attribution + cap before real 1000-agent runs), and p95 latency at N=500 on
 
 ## See also
 
-- `docs/resource-profiling-session-2026-07-21.md` — the full manual investigation (deep attribution, cold-path CPU, library-design implications, recommended optimization order).
+- The original profiling session write-up (deep attribution, cold-path CPU, library-design implications, recommended optimization order) was removed from the tree; see git history at `0017c58d86~1`.
 - [`scripts/profile/README.md`](../scripts/profile/README.md) — script quick reference.
-- `src/bin/library_profile/main.rs` — the scenario implementations.
+- `crates/openhuman-core/src/bin/library_profile/main.rs` — the scenario implementations.

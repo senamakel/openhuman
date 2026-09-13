@@ -1,3 +1,9 @@
+//! Agent-facing search tool implementations, one module per provider.
+//!
+//! See `README.md` for the provider -> tool -> transport table and how each
+//! family is registered (engine registry, `IntegrationClient`, or a direct
+//! RPC handler).
+
 mod brave;
 mod exa;
 mod parallel;

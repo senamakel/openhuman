@@ -2,8 +2,13 @@ use super::*;
 use crate::config::Config;
 use crate::cron::ActiveHours;
 use chrono::Duration as ChronoDuration;
+use chrono::Utc;
 use tempfile::TempDir;
 
+use crate::cron::CronJobPatch;
+use crate::cron::JobType;
+use crate::cron::Schedule;
+use crate::cron::SessionTarget;
 fn test_config(tmp: &TempDir) -> Config {
     let config = Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -613,5 +618,5 @@ fn dedup_named_jobs_ignores_unnamed_jobs() {
     assert_eq!(list_jobs(&config).unwrap().len(), 2);
 }
 
-#[path = "store_tests_part_01_tests.rs"]
-mod part_01_tests;
+#[path = "store_agent_floor_tests.rs"]
+mod agent_floor_tests;

@@ -1,14 +1,14 @@
 //! Skill runtime: execution, cancellation, and run-log polling for installed
 //! SKILL.md workflows.
 //!
-//! `workflows` owns discovery and installed skill metadata. `skill_registry`
-//! owns remote catalogs and install sources. This module owns actually running
-//! a skill, regardless of whether the skill's instructions call Python, Node,
-//! shell tools, or another OpenHuman agent tool.
+//! `crate::skills` owns discovery and installed skill metadata.
+//! `crate::skills::catalog` owns remote catalogs and install sources. This
+//! module owns actually running a skill, regardless of whether the skill's
+//! instructions call Python, Node, shell tools, or another OpenHuman agent tool.
 //!
 //! ## Compile-time gate (`skills` feature)
 //!
-//! `pub mod skill_runtime;` is ALWAYS compiled — it is a facade. The real
+//! `pub mod runtime;` is ALWAYS compiled — it is a facade. The real
 //! implementation is gated behind the default-ON `skills` Cargo feature (the
 //! same gate as `openhuman::skills` and `openhuman::skills::catalog` — the
 //! three domains ship as one unit). When the feature is off, [`stub`] takes

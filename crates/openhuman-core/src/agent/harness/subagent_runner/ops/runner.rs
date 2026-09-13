@@ -49,7 +49,6 @@ use crate::memory::source_scope::as_bus_scope;
 use crate::tools::{Tool, ToolCategory, ToolSpec};
 use tinyagents_harness::tool::SandboxMode as TinyagentsSandboxMode;
 
-include!("runner_part_01.rs");
 use tinyagents_harness::workspace::WorkspaceDescriptor;
 
 use super::prompt::{
@@ -820,6 +819,9 @@ type LoadedConfig = Result<std::sync::Arc<crate::config::Config>, String>;
 // ─────────────────────────────────────────────────────────────────────────────
 // Typed mode — narrow prompt, filtered tools, cheaper model
 // ─────────────────────────────────────────────────────────────────────────────
+
+mod toolkit_scope_filter;
+use toolkit_scope_filter::filter_cached_toolkit_actions_with_current_scope;
 
 /// Execute a sub-agent in "Typed" mode.
 ///

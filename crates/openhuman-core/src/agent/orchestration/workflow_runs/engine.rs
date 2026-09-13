@@ -39,9 +39,33 @@
 //! interrupt→checkpoint→resume path once a human-review phase kind exists. The
 //! current between-phase cancellation bookkeeping is intentionally left in place
 //! until that phase kind lands, to keep stop/resume semantics unchanged.
+//!
+//! ## Module layout
+//!
+//! - [`cancel`] — the process-wide per-run cancellation registry.
+//! - [`state`] — `phase_states` shape, dependency walk, prompt building, and
+//!   the shared `persist` write.
+//! - [`scheduler`] — the `dispatch` step: pick the next runnable phase.
+//! - [`phase_exec`] — the `run_phase` step: fan a phase's agents out.
+//! - [`lifecycle`] — `start`/`stop`/`resume` and the spawned engine loop.
+
+mod cancel;
+mod lifecycle;
+mod phase_exec;
+mod scheduler;
+mod state;
 
 #[cfg(test)]
 #[path = "engine_tests.rs"]
 mod engine_tests;
-include!("engine_part_01.rs");
-include!("engine_part_02.rs");
+
+pub(super) const LOG_TARGET: &str = "workflow_run_engine";
+
+pub use lifecycle::{resume_workflow_run, start_workflow_run, stop_workflow_run};
+pub(crate) use phase_exec::{execute_phase, PhaseExecOutcome};
+pub(crate) use scheduler::{select_next_phase, PhaseSelection};
+
+#[cfg(test)]
+pub(crate) use lifecycle::run_engine_loop;
+#[cfg(test)]
+pub(crate) use state::init_phase_states;

@@ -7,6 +7,7 @@
 //! a foreign test can call it would leak implementation surface to the whole
 //! crate to satisfy a test.
 
+use crate::json_schema::compute_primary_array_path_from_value;
 // `super` is `catalog` itself — this file is included as its child module — so
 // the glob reaches its private helpers as well as its imports.
 use super::*;

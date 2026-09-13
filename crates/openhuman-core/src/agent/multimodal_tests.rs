@@ -24,7 +24,7 @@ startxref\n0\n%%EOF\n";
 
 const TINY_PNG_DATA_URI: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-#[path = "multimodal_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "multimodal_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "multimodal_attachment_handling_tests.rs"]
+mod multimodal_attachment_handling_tests;
+#[path = "multimodal_marker_extraction_tests.rs"]
+mod multimodal_marker_extraction_tests;

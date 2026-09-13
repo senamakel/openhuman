@@ -1,5 +1,32 @@
+use super::approval::approval_tool_name;
+use super::artifact_index_toc::NO_WINDOW_ALLOWANCE;
+use super::message_trim::{estimate_message_tokens, estimate_text_tokens, IMAGE_MARKER_TOKEN_COST};
+use super::repeated_failure::{is_body_level_failure, user_actionable_escalation};
+use super::tool_output::{
+    is_compaction_exempt, is_truncation_exempt, COMPACTION_EXEMPT_TOOLS, SAMPLING_TOOLS,
+};
+use super::turn_context::DEFAULT_TOOL_RESULT_BUDGET_BYTES;
 use super::*;
+use crate::agent::tinyagents::middleware::tool_output::ToolOutputMiddleware;
 use serde_json::json;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+
+use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware};
+use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
+use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
+use tinyinference::message::{ContentBlock, Message as TaMessage};
+use tinyinference::model::{ModelResponse, SegmentRole};
+use tinyinference::tool::{ToolCall as TaToolCall, ToolSchema};
+
+use crate::agent::context::CLEARED_PLACEHOLDER;
+use crate::agent::tinyagents::payload_summarizer::{
+    PayloadSummarizer, SummarizeOutcome, UnavailableReason,
+};
+use crate::inference::tokenjuice::AgentTokenjuiceCompression;
+use crate::tools::Tool;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::no_progress::{
     DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
@@ -382,11 +409,11 @@ fn embedder_hook_mw(
     })])
 }
 
-#[path = "middleware_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "middleware_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "middleware_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "middleware_tests_part_04_tests.rs"]
-mod part_04_tests;
+#[path = "middleware_loop_guard_tests.rs"]
+mod loop_guard_tests;
+#[path = "middleware_tool_output_tests.rs"]
+mod tool_output_tests;
+#[path = "middleware_tool_policy_tests.rs"]
+mod tool_policy_tests;
+#[path = "middleware_wrap_up_toc_tests.rs"]
+mod wrap_up_toc_tests;

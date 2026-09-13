@@ -1,3 +1,8 @@
+//! Network tools: HTTP request/fetch/curl, GitBooks docs lookup, Gmail
+//! unsubscribe, and (under the `mcp` feature) the MCP client/setup tools.
+//! `url_guard` is the shared SSRF/allowlist validator. Registration gates are
+//! documented in `tools/impl/README.md`.
+
 mod curl;
 mod gitbooks;
 mod gmail_unsubscribe;

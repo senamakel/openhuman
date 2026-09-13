@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::config::Config;
 pub fn resolve_yuanbao_app_secret_for_test(
     yb_cfg: crate::channels::providers::yuanbao::YuanbaoConfig,
     config: &Config,

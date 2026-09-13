@@ -58,8 +58,8 @@ pub mod progress_sink;
 pub(crate) mod progress_tracing;
 /// Prompt plumbing — types, section builders, and
 /// [`SystemPromptBuilder`](prompts::SystemPromptBuilder). Moved from
-/// `openhuman::agent::context::prompt` so prompt rendering lives next to the
-/// agents that consume it. `openhuman::agent::context::prompt` is retained as
+/// `crate::agent::context::prompt` so prompt rendering lives next to the
+/// agents that consume it. `crate::agent::context::prompt` is retained as
 /// a thin re-export shim for now.
 pub mod prompts;
 pub mod registry;

@@ -323,7 +323,7 @@ impl UserIdentity {
 
 /// Frozen `MEMORY.md` + `USER.md` bodies for prompt injection.
 ///
-/// Lives in the prompt layer (not `openhuman::curated_memory`) so agent
+/// Lives in the prompt layer (not `crate::curated_memory`) so agent
 /// prompt plumbing compiles in builds where the curated-memory domain
 /// module is not present.
 #[derive(Debug, Clone)]

@@ -1,7 +1,8 @@
 //! Controller schemas + handlers for the `profiles` RPC namespace.
 //!
-//! Methods: `openhuman.profiles_list`, `openhuman.profile_select`,
-//! `openhuman.profile_upsert`, `openhuman.profile_delete`.
+//! JSON-RPC methods: `openhuman.profiles_list`, `openhuman.profiles_select`,
+//! `openhuman.profiles_upsert`, `openhuman.profiles_delete` (see
+//! `core::all::rpc_method_name`).
 
 use serde::de::DeserializeOwned;
 use serde::Deserialize;

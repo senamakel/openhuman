@@ -2,12 +2,12 @@
 //! (an external, host-agnostic crate — validate → compile → run on its own
 //! in-crate state-graph runtime) to real OpenHuman services.
 //!
-//! This module is export-focused. Six of the seven capability adapters plus
-//! the two run entry points — [`build_capabilities`] and
+//! This module is export-focused. Every capability adapter except `memory`,
+//! plus the two run entry points — [`build_capabilities`] and
 //! [`open_flow_checkpointer`], re-exported below — live in [`caps`]; the
 //! `memory` node's `MemoryProvider` adapter (`OpenHumanMemory`) lives in its
 //! own [`memory_adapter`] module, per this repo's ~500-line file-size
-//! convention (`caps.rs` is already large); the durable SQLite checkpoint
+//! convention (`caps/` is already large); the durable SQLite checkpoint
 //! backend lives in `tinyflows_sqlite::checkpoint`; run observability logging lives
 //! in [`observability`]; post-run Langfuse export of a run's durable graph
 //! observations lives in [`langfuse_export`]. The `flows::` domain

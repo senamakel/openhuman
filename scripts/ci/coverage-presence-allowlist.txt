@@ -26,8 +26,13 @@
 # generic facade stub.
 crates/openhuman-core/src/runtime/client/disabled.rs
 
-# `helper.rs` includes this fragment only to build the macOS Swift accessibility
-# helper. The production feature set is compiled for Linux in this coverage lane,
-# so the fragment's `#[cfg(target_os = "macos")]` definition is intentionally
-# absent. It is exercised by the macOS desktop E2E matrix instead.
-crates/openhuman-core/src/desktop/accessibility/helper_part_02.rs
+# `helper/swift_source.rs` assembles these fragments only to build the macOS
+# Swift accessibility helper. The production feature set is compiled for Linux
+# in this coverage lane, so each fragment's `#[cfg(target_os = "macos")]`
+# definition is intentionally absent. They are exercised by the macOS desktop
+# E2E matrix instead.
+crates/openhuman-core/src/desktop/accessibility/helper/swift_source.rs
+crates/openhuman-core/src/desktop/accessibility/helper/swift_focus.rs
+crates/openhuman-core/src/desktop/accessibility/helper/swift_paste.rs
+crates/openhuman-core/src/desktop/accessibility/helper/swift_ax_actions.rs
+crates/openhuman-core/src/desktop/accessibility/helper/swift_overlay.rs

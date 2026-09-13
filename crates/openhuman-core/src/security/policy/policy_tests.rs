@@ -111,13 +111,13 @@ fn turn_workspace_policy() -> (tempfile::TempDir, PathBuf, SecurityPolicy) {
     (root, checkout, policy)
 }
 
-#[path = "policy_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "policy_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "policy_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "policy_tests_part_04_tests.rs"]
-mod part_04_tests;
-#[path = "policy_tests_part_05_tests.rs"]
-mod part_05_tests;
+#[path = "policy_allowlist_tests.rs"]
+mod allowlist_tests;
+#[path = "policy_injection_tests.rs"]
+mod injection_tests;
+#[path = "policy_paths_and_risk_tests.rs"]
+mod paths_and_risk_tests;
+#[path = "policy_trusted_roots_tests.rs"]
+mod trusted_roots_tests;
+#[path = "policy_workspace_internal_tests.rs"]
+mod workspace_internal_tests;

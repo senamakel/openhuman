@@ -416,5 +416,5 @@ impl MemoryProvider for RecordingRetrieval {
     }
 }
 
-#[path = "rpc_tests_part_01_tests.rs"]
-mod part_01_tests;
+#[path = "rpc_handlers_tests.rs"]
+mod handlers_tests;

@@ -8,6 +8,7 @@ import {
   type NotificationItem,
   notificationReceived,
 } from '../../store/notificationSlice';
+import { truncateText } from '../../utils/truncateText';
 import { ensureNotificationPermission, showNativeNotification } from './tauriBridge';
 
 const log = debug('native-notifications');
@@ -165,8 +166,7 @@ function dispatchAndMaybeBanner(
 }
 
 function truncate(input: string, max: number): string {
-  if (input.length <= max) return input;
-  return `${input.slice(0, max - 1)}…`;
+  return truncateText(input, max);
 }
 
 /**

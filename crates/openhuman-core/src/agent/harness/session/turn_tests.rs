@@ -534,13 +534,13 @@ fn tool_calls_envelope(id: &str) -> String {
     .to_string()
 }
 
-#[path = "turn_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "turn_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "turn_tests_part_03_tests.rs"]
-mod part_03_tests;
-#[path = "turn_tests_part_04_tests.rs"]
-mod part_04_tests;
-#[path = "turn_tests_part_05_tests.rs"]
-mod part_05_tests;
+#[path = "turn_auto_recall_tests.rs"]
+mod turn_auto_recall_tests;
+#[path = "turn_checkpoint_and_wrapup_tests.rs"]
+mod turn_checkpoint_and_wrapup_tests;
+#[path = "turn_history_and_context_tests.rs"]
+mod turn_history_and_context_tests;
+#[path = "turn_learned_context_and_announcements_tests.rs"]
+mod turn_learned_context_and_announcements_tests;
+#[path = "turn_required_output_tests.rs"]
+mod turn_required_output_tests;

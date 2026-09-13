@@ -222,7 +222,7 @@ fn voice_and_audio_controllers_registered_when_feature_on() {
 /// With the `voice` feature off, both domains are compiled out: their
 /// controllers never enter the registry, so voice/audio RPC methods are
 /// unknown-method and absent from `/schema`. This is the compile-time
-/// stub-facade correctness gate (see `openhuman::voice::stub`).
+/// stub-facade correctness gate (see `crate::voice::stub`).
 #[test]
 #[cfg(not(feature = "voice"))]
 fn voice_and_audio_controllers_absent_when_feature_off() {
@@ -279,7 +279,7 @@ fn skill_controllers_registered_when_feature_on() {
 /// With the `skills` feature off, all three domains are compiled out: their
 /// controllers never enter the registry, so skills RPC methods are
 /// unknown-method and absent from `/schema`. This is the compile-time
-/// stub-facade correctness gate (see `openhuman::skills::stub`).
+/// stub-facade correctness gate (see `crate::skills::stub`).
 ///
 /// Note this does NOT cover `skills::types` / `skills::ops_types`: those stay
 /// compiled in both directions (the type carve-out — `tools::traits` re-exports
@@ -327,7 +327,7 @@ fn wallet_web3_x402_controllers_registered_when_feature_on() {
 /// controllers never enter the registry (wallet/web3/x402 RPC methods are
 /// unknown-method and absent from `/schema`) and the web3 agent tools are
 /// gone. This is the compile-time stub-facade correctness gate (see
-/// `openhuman::web3::{self,wallet,x402}::stub`).
+/// `crate::web3::{self,wallet,x402}::stub`).
 #[test]
 #[cfg(not(feature = "web3"))]
 fn wallet_web3_x402_controllers_absent_when_feature_off() {

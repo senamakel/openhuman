@@ -23,9 +23,46 @@
 //! Take the values verbatim from the release's `checksum.toml`. Do not compute
 //! them from a local build — the point is to pin what the release publishes, and
 //! a locally recomputed digest would agree with itself no matter what was served.
+//!
+//! # Module layout
+//!
+//! Records are grouped into one file per module family rather than by line
+//! count — see `registry/records_*.rs`. This file only wires them into
+//! [`ALL`] and answers [`find`].
 
 #[cfg(test)]
 #[path = "registry_tests.rs"]
 mod tests;
-include!("registry_part_01.rs");
-include!("registry_part_02.rs");
+
+mod records_docs_wallet;
+mod records_mcp_connectors;
+mod records_memory_juice;
+mod records_runtime;
+mod records_voice;
+
+use crate::modules::types::ModuleRecord;
+use records_docs_wallet::{TINYDOCS, TINYWALLET};
+use records_mcp_connectors::{TINYCONNECTORS, TINYMCP};
+use records_memory_juice::{TINYJUICE, TINYMEMORY};
+use records_runtime::{TINYRUNTIME, TINYRUNTIME_NODEJS, TINYRUNTIME_PYTHON};
+use records_voice::TINYVOICE;
+
+/// Every module this build can load.
+pub const ALL: &[ModuleRecord] = &[
+    TINYDOCS,
+    TINYWALLET,
+    TINYMEMORY,
+    TINYJUICE,
+    TINYVOICE,
+    TINYRUNTIME,
+    TINYRUNTIME_NODEJS,
+    TINYRUNTIME_PYTHON,
+    TINYMCP,
+    TINYCONNECTORS,
+];
+
+/// The record for `id`, if this build knows it.
+#[must_use]
+pub fn find(id: &str) -> Option<&'static ModuleRecord> {
+    ALL.iter().find(|record| record.id == id)
+}

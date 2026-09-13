@@ -142,18 +142,21 @@ const EMBEDDING_PROBE_TO_CONFIGURED_PROVIDER: Option<CapabilityPrivacy> = Some(C
 
 use std::sync::LazyLock;
 
-#[path = "catalog_part_01.rs"]
-mod catalog_part_01;
-#[path = "catalog_part_02.rs"]
-mod catalog_part_02;
-#[path = "catalog_part_03.rs"]
-mod catalog_part_03;
+#[path = "catalog_auth_channels_team.rs"]
+mod catalog_auth_channels_team;
+#[path = "catalog_conversation_intelligence.rs"]
+mod catalog_conversation_intelligence;
+#[path = "catalog_localai_settings_mobile.rs"]
+mod catalog_localai_settings_mobile;
+#[path = "catalog_workflows_automation.rs"]
+mod catalog_workflows_automation;
 
 pub(super) static CAPABILITIES: LazyLock<Vec<Capability>> = LazyLock::new(|| {
     [
-        catalog_part_01::CAPABILITIES,
-        catalog_part_02::CAPABILITIES,
-        catalog_part_03::CAPABILITIES,
+        catalog_conversation_intelligence::CAPABILITIES,
+        catalog_workflows_automation::CAPABILITIES,
+        catalog_auth_channels_team::CAPABILITIES,
+        catalog_localai_settings_mobile::CAPABILITIES,
     ]
     .concat()
 });

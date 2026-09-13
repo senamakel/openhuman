@@ -17,8 +17,46 @@
 //! ride along only while `observability.agent_tracing.capture_content` is on;
 //! with the default off, content is withheld and export stays metadata-only.
 
+use std::time::Duration;
+
+mod environment;
+mod ingestion_batch;
+mod journal_export;
+mod span_export;
+
+pub(crate) use environment::{environment_for_base, ingestion_url};
+pub(crate) use journal_export::push_observations;
+pub(crate) use span_export::push_spans;
+
+use super::{SpanStatus, TraceContext, TraceSpan};
+use environment::skip_push;
+
+#[cfg(test)]
+use crate::config::Config;
+#[cfg(test)]
+use environment::push_allowed;
+#[cfg(test)]
+use ingestion_batch::{iso_millis, split_ingestion_batch};
+#[cfg(test)]
+use journal_export::{
+    insert_run_telemetry_generation, observations_for_export, trace_config_from_context,
+    trace_ctx_with_run_lineage,
+};
+#[cfg(test)]
+use serde_json::{json, Value};
+#[cfg(test)]
+use std::borrow::Cow;
+#[cfg(test)]
+use tinyagents_harness::events::AgentEvent;
+#[cfg(test)]
+use tinyagents_harness::observability::{AgentObservation, LangfuseClient};
+#[cfg(test)]
+use tinyagents_session::run_ledger::RunTelemetry;
+
+const LOG_TARGET: &str = "agent-tracing::langfuse";
+/// Cap the push so a slow/hung Langfuse never stalls run teardown.
+const PUSH_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[cfg(test)]
 #[path = "langfuse_tests.rs"]
 mod tests;
-include!("langfuse_part_01.rs");
-include!("langfuse_part_02.rs");

@@ -333,5 +333,5 @@ fn projects_turn_content_from_root_model_io() {
     );
 }
 
-#[path = "journal_projection_tests_part_02_tests.rs"]
-mod part_02_tests;
+#[path = "journal_projection_cost_rollup_tests.rs"]
+mod cost_rollup_tests;

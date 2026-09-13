@@ -12,9 +12,14 @@
 //!   2. `spacy`          — spaCy venv + `en_core_web_sm` model. Opt-in
 //!      (`memory_tree.spacy_enabled`, default OFF) so a fresh install does not
 //!      provision it — nor spawn the runtime Python server — on launch.
-//!   3. `runtime_python_server` — long-running Python backend host. Derived:
+//!   3. `kompress`       — dedicated torch venv for the TokenJuice ML
+//!      compressor. Only when `tokenjuice.ml_compression_enabled` and spaCy is
+//!      off; with spaCy on, the server launch step installs torch into the
+//!      shared spaCy venv instead.
+//!   4. `runtime_python_server` — long-running Python backend host. Derived:
 //!      launches only when `enabled_backends` is non-empty.
-//!   4. `node_runtime`   — managed Node.js (skills / MCP).
+//!   5. `node_runtime`   — managed Node.js (skills / MCP); absent when the
+//!      `runtime-node` feature is compiled out.
 //!
 //! Voice models (Piper) and Ollama stay lazy/opt-in and are
 //! intentionally NOT registered here; they can be added later as steps.

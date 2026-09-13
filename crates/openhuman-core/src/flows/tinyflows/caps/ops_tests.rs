@@ -84,9 +84,9 @@ fn trigger_only_graph() -> WorkflowGraph {
     }
 }
 
-#[path = "ops_tests_part_01_tests.rs"]
-mod part_01_tests;
-#[path = "ops_tests_part_02_tests.rs"]
-mod part_02_tests;
-#[path = "ops_tests_part_03_tests.rs"]
-mod part_03_tests;
+#[path = "ops_schema_and_structured_output_tests.rs"]
+mod schema_and_structured_output_tests;
+#[path = "ops_tier_gate_and_timeouts_tests.rs"]
+mod tier_gate_and_timeouts_tests;
+#[path = "ops_tool_results_and_credentials_tests.rs"]
+mod tool_results_and_credentials_tests;

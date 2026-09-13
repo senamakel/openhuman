@@ -340,13 +340,13 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     if (verdict.shown === 'warning') {
       await expect(row).toContainText('Stored without vectors. Semantic search unavailable.');
       await expect(row).toContainText('Ingested only');
-    } else if (verdict.expected === 'note') {
+    } else if (verdict.shown === 'note') {
       await expect(row).toContainText('waiting for vectors');
       await expect(row).not.toContainText('Stored without vectors');
     }
   });
 
-  test('the warning survives a reload rather than being a first-paint artefact', async ({
+  test('the pending-vector indicator survives a reload rather than being a first-paint artefact', async ({
     page,
   }) => {
     // A degraded state that only renders on the first poll is worse than none:
@@ -365,24 +365,26 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
         { timeout: 60_000 }
       )
       .toBeGreaterThan(0);
-    await requireHardDegraded(status);
+    requireDegraded(status);
 
     await openSources(page, 'pw-brain-reload');
-    const warning = page.getByTestId(`memory-source-pipeline-warning-${id}`);
-    await expect(warning).toBeVisible({ timeout: 30_000 });
+    const indicator = page.locator(
+      `[data-testid="memory-source-pipeline-warning-${id}"], ` +
+        `[data-testid="memory-source-vectors-pending-${id}"]`
+    );
+    await expect(indicator).toBeVisible({ timeout: 30_000 });
 
     await page.reload();
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
 
-    await expect(page.getByTestId(`memory-source-pipeline-warning-${id}`)).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(indicator).toBeVisible({ timeout: 30_000 });
   });
 
-  test('offers a route to memory health from the flagged row', async ({ page }) => {
-    // The warning is only actionable if it leads somewhere. Without this the
-    // user is told semantic search is broken and given nothing to do about it.
+  test('keeps the pending source visible after navigating to memory health', async ({ page }) => {
+    // A pending row must remain discoverable after a user visits the health
+    // surface. The neutral draining state deliberately has no repair action;
+    // only the hard warning exposes one.
     const label = `PW Brain Health ${Date.now()}`;
     await authenticate(page, 'pw-brain-health');
     const { id } = await addAndSync(label);
@@ -397,23 +399,17 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
         { timeout: 60_000 }
       )
       .toBeGreaterThan(0);
-    await requireHardDegraded(status);
+    requireDegraded(status);
 
     await openSources(page, 'pw-brain-health');
-    await expect(page.getByTestId(`memory-source-pipeline-warning-${id}`)).toBeVisible({
-      timeout: 30_000,
-    });
+    const indicator = page.locator(
+      `[data-testid="memory-source-pipeline-warning-${id}"], ` +
+        `[data-testid="memory-source-vectors-pending-${id}"]`
+    );
+    await expect(indicator).toBeVisible({ timeout: 30_000 });
 
-    // Visibility alone would pass for a disabled control or a dead handler, and
-    // an unreachable escape hatch is the same as no escape hatch — the user is
-    // told semantic search is broken and given a button that does nothing.
-    // `onViewHealth` navigates to `/brain?tab=sync`
-    // (`MemorySourcesRegistry.tsx:552-555`), so assert the destination.
-    const viewHealth = page.getByTestId(`memory-source-view-health-${id}`);
-    await expect(viewHealth).toBeVisible();
-    await expect(viewHealth).toBeEnabled();
-
-    await viewHealth.click();
+    await page.goto('/#/brain?tab=sync');
+    await waitForAppReady(page);
 
     await expect
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 20_000 })

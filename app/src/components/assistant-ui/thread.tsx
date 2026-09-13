@@ -351,7 +351,7 @@ const ThreadBottomFollower: FC<{
     }
     const userMessages = contentRef.current?.querySelectorAll<HTMLElement>('[data-role="user"]');
     userMessages?.item(userMessages.length - 1)?.scrollIntoView({ block: 'start' });
-  }, [contentRef, latestMessage?.id]);
+  }, [contentRef, latestMessage?.id, latestMessage?.role, viewportRef]);
 
   return null;
 };

@@ -108,7 +108,11 @@ jobs:
           OPENHUMAN_WORKSPACE: ${{ runner.temp }}/openhuman-playwright-workspace
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
-          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh
+          # Each shard gets a fresh standalone core. This bounds the core's
+          # per-process memory while retaining coverage of the full suite.
+          for shard in 1/4 2/4 3/4 4/4; do
+            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
+          done
 
       - name: Pack Playwright E2E failure artifacts
         if: failure()

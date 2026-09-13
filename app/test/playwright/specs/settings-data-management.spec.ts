@@ -16,8 +16,9 @@ test.describe('Settings - Data Management', () => {
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
 
-    await expect(page.getByText('Clear App Data')).toBeVisible();
-    await page.getByText('Clear App Data').click();
+    const clearData = page.getByTestId('settings-nav-logout-and-clear');
+    await expect(clearData).toBeVisible();
+    await clearData.click();
     await expect(
       page.getByText('This will sign you out and permanently delete local app data')
     ).toBeVisible();
@@ -26,6 +27,6 @@ test.describe('Settings - Data Management', () => {
     await expect(
       page.getByText('This will sign you out and permanently delete local app data')
     ).toHaveCount(0);
-    await expect(page.getByText('Clear App Data')).toBeVisible();
+    await expect(clearData).toBeVisible();
   });
 });

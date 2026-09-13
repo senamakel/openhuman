@@ -87,7 +87,9 @@ async function expectSelectedTab(page: import('@playwright/test').Page, tab: str
   await expect(page.locator('[data-testid^="two-pane-nav-"][aria-current="page"]')).toHaveCount(1);
 }
 
-test('Connections deep links preserve their selected pane, search, and fragment', async ({ page }) => {
+test('Connections deep links preserve their selected pane, search, and fragment', async ({
+  page,
+}) => {
   await openRoute(page, 'pw-connection-deeplinks', '/connections');
 
   const navigate = async (route: string, settlesOn = '/connections') => {
@@ -98,14 +100,21 @@ test('Connections deep links preserve their selected pane, search, and fragment'
   };
   const expectWelcome = async () => {
     await expect(page.getByTestId('connections-welcome')).toBeVisible();
-    await expect(page.locator('[data-testid^="two-pane-nav-"][aria-current="page"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid^="two-pane-nav-"][aria-current="page"]')).toHaveCount(
+      0
+    );
   };
 
   await page.getByTestId('two-pane-nav-channels').click();
   await expect.poll(() => currentHash(page), { timeout: 10_000 }).toContain('tab=channels');
   await page.getByTestId('two-pane-nav-mcp').click();
   await expect.poll(() => currentHash(page), { timeout: 10_000 }).toContain('tab=mcp');
-  await expect(page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first()).toBeVisible();
+  await expect(
+    page
+      .getByRole('searchbox')
+      .or(page.getByPlaceholder(/search/i))
+      .first()
+  ).toBeVisible();
 
   await navigate('/connections?tab=channels');
   await expectSelectedTab(page, 'channels');

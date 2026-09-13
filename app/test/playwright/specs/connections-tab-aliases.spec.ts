@@ -87,7 +87,9 @@ async function openConnections(
   await dismissWalkthroughIfPresent(page);
 }
 
-test('Connections aliases, fallback, and /channels resolve to the correct pane', async ({ page }) => {
+test('Connections aliases, fallback, and /channels resolve to the correct pane', async ({
+  page,
+}) => {
   // Each login starts the core's login-gated services. Reusing one authenticated
   // browser fixture keeps this route-only contract from repeatedly allocating
   // those services; the assertions still exercise every URL independently.

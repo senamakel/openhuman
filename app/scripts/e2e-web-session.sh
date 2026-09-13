@@ -103,6 +103,10 @@ chat_provider = "e2e:e2e-mock-model"
 reasoning_provider = "e2e:e2e-mock-model"
 agentic_provider = "e2e:e2e-mock-model"
 coding_provider = "e2e:e2e-mock-model"
+# The browser truthfulness specs seed a real memory source whose chunks must
+# remain unembedded. Keep this harness intentionally providerless so it covers
+# the hard degraded state rather than a transient backlog being drained.
+embedding_provider = "none"
 
 [update]
 enabled = false

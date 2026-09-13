@@ -133,6 +133,15 @@ describe('rpcMethods catalog', () => {
     // Over-inclusion is harmless — the guard only searches for substrings —
     // and `readFileSync` still throws if a listed base file moves entirely,
     // which is the loud failure we want.
+    const readRustTree = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+        const entryPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) return readRustTree(entryPath);
+        return entry.name.endsWith('.rs') && !entry.name.endsWith('_tests.rs')
+          ? [fs.readFileSync(entryPath, 'utf8')]
+          : [];
+      });
+
     const readWithParts = (relFile: string): string => {
       const abs = path.resolve(__dirname, relFile);
       const dir = path.dirname(abs);
@@ -141,7 +150,12 @@ describe('rpcMethods catalog', () => {
         .filter(name => name.endsWith('.rs') && name.includes('_part_'))
         .sort()
         .map(name => fs.readFileSync(path.join(dir, name), 'utf8'));
-      return [fs.readFileSync(abs, 'utf8'), ...parts].join('\n');
+      // A split can instead promote `foo.rs` to `foo/mod.rs` with the former
+      // file retained as the module root. Scan that named companion directory
+      // too, excluding test modules, so its controller literals stay covered.
+      const companionDir = path.join(dir, path.basename(abs, '.rs'));
+      const companion = fs.existsSync(companionDir) ? readRustTree(companionDir) : [];
+      return [fs.readFileSync(abs, 'utf8'), ...parts, ...companion].join('\n');
     };
 
     const schemaSources = [
@@ -150,7 +164,11 @@ describe('rpcMethods catalog', () => {
       readWithParts('../../../../crates/openhuman-core/src/inference/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/inference/local/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/inference/embeddings/schemas.rs'),
-      readWithParts('../../../../crates/openhuman-core/src/mcp/registry/schemas.rs'),
+      // The MCP registry split its schemas module into a directory. Controller
+      // definitions (and therefore the mcp_clients literals this guard owns)
+      // live in `registry.rs`; keep this path explicit so another move fails
+      // loudly instead of silently shortening the scanned catalog.
+      readWithParts('../../../../crates/openhuman-core/src/mcp/registry/schemas/registry.rs'),
       readWithParts('../../../../crates/openhuman-core/src/tools/registry/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/platform/health/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/channels/controllers/schemas.rs'),

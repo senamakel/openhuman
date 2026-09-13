@@ -358,7 +358,7 @@ jobs:
           mkdir -p "$OPENHUMAN_WORKSPACE"
           # Each shard gets a fresh standalone core. This bounds the core's
           # per-process memory while retaining coverage of the full suite.
-          for shard in 1/4 2/4 3/4 4/4; do
+          for shard in 1/8 2/8 3/8 4/8 5/8 6/8 7/8 8/8; do
             bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
           done
 

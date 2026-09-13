@@ -123,6 +123,27 @@ jobs:
           bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
             test/playwright/specs/connections-tab-deeplinks.spec.ts
 
+          # The Skills catalog tests intentionally start real connector-backed
+          # discovery. On hosted runners, keeping that native module alive
+          # across the next browser context exhausts the core process. Run
+          # every assertion with a new core instead of dropping coverage.
+          skills_tests=(
+            'a burst of typing issues ONE catalog search'
+            'a pause between words issues a second search'
+            'a query with no matches leaves no catalog rows'
+            'the typed text is preserved in the box while results load'
+            'offers Install, and the button is enabled before it is pressed'
+            'disables the button and shows Installing while the RPC is in flight'
+            'a failed install re-enables the button rather than stranding it'
+          )
+          for skills_index in "${!skills_tests[@]}"; do
+            export OPENHUMAN_WORKSPACE="$workspace_root/skills-$skills_index"
+            mkdir -p "$OPENHUMAN_WORKSPACE"
+            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+              test/playwright/specs/skills-search-install.spec.ts \
+              -g "${skills_tests[$skills_index]}"
+          done
+
           # Each remaining shard gets a fresh standalone core. Keep the
           # shard's persisted state fresh too: reusing a workspace silently
           # carries every prior shard's transcripts and memory tree into the
@@ -132,7 +153,8 @@ jobs:
             export OPENHUMAN_WORKSPACE="$workspace_root/shard-$shard_index"
             mkdir -p "$OPENHUMAN_WORKSPACE"
             bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
-              --shard="$shard" --grep-invert='Connections (aliases|deep links)'
+              --shard="$shard" \
+              --grep-invert='Connections (aliases|deep links)|Skills explorer'
           done
 
       - name: Pack Playwright E2E failure artifacts

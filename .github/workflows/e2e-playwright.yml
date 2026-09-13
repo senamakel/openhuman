@@ -112,7 +112,8 @@ jobs:
           # roughly 74 specs in a process: the core rose from ~700 MiB to the
           # runner's 1.2 GiB limit during shard 2. Smaller slices bound that
           # growth while retaining coverage of the full suite.
-          for shard in {1..16}/16; do
+          for shard_index in $(seq 1 16); do
+            shard="$shard_index/16"
             bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
           done
 

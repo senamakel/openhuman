@@ -105,7 +105,7 @@ agentic_provider = "e2e:e2e-mock-model"
 coding_provider = "e2e:e2e-mock-model"
 # Tinymemory resolves this workload-routing setting when it initializes its
 # binding. Keep it disabled before process startup for the degraded-state
-# browser fixture; `[memory].embedding_provider` alone is not authoritative.
+# browser fixture; the memory-section embedding provider alone is not authoritative.
 embeddings_provider = "none"
 [update]
 enabled = false

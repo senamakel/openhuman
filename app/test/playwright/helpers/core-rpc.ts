@@ -124,6 +124,21 @@ export async function bootRuntimeReadyGuestPage(page: Page): Promise<void> {
   await page.waitForSelector('#root');
 }
 
+/**
+ * Open a new browser context against the session already active in the core.
+ *
+ * The serial web lane keeps one core alive for every Playwright shard. Some
+ * route-only specs intentionally share that authenticated core but receive a
+ * fresh browser context. Clearing and storing the same session again restarts
+ * login-gated services and needlessly doubles their peak allocation.
+ */
+export async function bootRuntimeReadyExistingSessionPage(page: Page): Promise<void> {
+  await seedBrowserCoreMode(page);
+  await page.goto('/#/');
+  await waitForAuthenticatedSnapshot(page);
+  await waitForAppReady(page);
+}
+
 export async function signInViaCallbackToken(page: Page, token: string): Promise<void> {
   await completeAuthCallback(page, token);
   await waitForAuthenticatedSnapshot(page);

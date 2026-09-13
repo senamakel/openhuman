@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 import {
+  bootRuntimeReadyExistingSessionPage,
   bootRuntimeReadyGuestPage,
+  callCoreRpc,
   dismissWalkthroughIfPresent,
   signInViaCallbackToken,
   waitForAppReady,
@@ -51,8 +53,18 @@ async function openRoute(
   route: string,
   settlesOn?: string
 ) {
-  await bootRuntimeReadyGuestPage(page);
-  await signInViaCallbackToken(page, userId);
+  const snapshot = await callCoreRpc<{
+    result?: { currentUser?: { _id?: string | null } | null };
+    currentUser?: { _id?: string | null } | null;
+  }>('openhuman.app_state_snapshot', {});
+  const currentUser = (snapshot.result ?? snapshot).currentUser;
+
+  if (currentUser?._id) {
+    await bootRuntimeReadyExistingSessionPage(page);
+  } else {
+    await bootRuntimeReadyGuestPage(page);
+    await signInViaCallbackToken(page, userId);
+  }
   await page.evaluate(
     ({ target }) => {
       try {

@@ -4,7 +4,7 @@
   "version": "0.63.25",
   "identifier": "com.openhuman.app",
   "build": {
-    "beforeDevCommand": "pnpm --dir ../../app run dev",
+    "beforeDevCommand": "pnpm --dir ../app run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm --dir ../../app run build:app",
     "frontendDist": "../../app/dist"

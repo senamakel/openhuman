@@ -108,9 +108,11 @@ jobs:
           OPENHUMAN_WORKSPACE: ${{ runner.temp }}/openhuman-playwright-workspace
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
-          # Each shard gets a fresh standalone core. This bounds the core's
-          # per-process memory while retaining coverage of the full suite.
-          for shard in 1/8 2/8 3/8 4/8 5/8 6/8 7/8 8/8; do
+          # Each shard gets a fresh standalone core. Eight shards still leave
+          # roughly 74 specs in a process: the core rose from ~700 MiB to the
+          # runner's 1.2 GiB limit during shard 2. Smaller slices bound that
+          # growth while retaining coverage of the full suite.
+          for shard in {1..16}/16; do
             bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
           done
 

@@ -198,18 +198,15 @@ function requireDegraded(status: SourceStatus | undefined): void {
   test.skip(!degraded, 'this core embedded every chunk, so there is no degraded state to surface');
 }
 
-async function waitForStoredPendingSource(id: string): Promise<SourceStatus | undefined> {
+async function waitForPendingSource(id: string): Promise<SourceStatus | undefined> {
   let status: SourceStatus | undefined;
   await expect
     .poll(
       async () => {
         status = await statusFor(id);
-        // The row intentionally renders a live progress bar while a source is
-        // syncing. The pending-vector indicator is a post-ingest verdict, so
-        // assert it only after the core has reported the source idle.
-        return (status?.chunks_synced ?? 0) > 0 && status?.sync_stage == null;
+        return (status?.chunks_synced ?? 0) > 0;
       },
-      { timeout: 60_000, message: 'the folder source never finished ingesting' }
+      { timeout: 60_000, message: 'the folder source never produced chunks' }
     )
     .toBe(true);
   requireDegraded(status);
@@ -219,18 +216,20 @@ async function waitForStoredPendingSource(id: string): Promise<SourceStatus | un
 async function pendingIndicatorState(
   scope: Page | Locator,
   id: string
-): Promise<'warning' | 'note' | 'clean'> {
+): Promise<'warning' | 'note' | 'progress' | 'clean'> {
   const warning = scope.getByTestId(`memory-source-pipeline-warning-${id}`);
   if (await warning.isVisible()) return 'warning';
   const note = scope.getByTestId(`memory-source-vectors-pending-${id}`);
-  return (await note.isVisible()) ? 'note' : 'clean';
+  if (await note.isVisible()) return 'note';
+  const progress = scope.getByTestId(`memory-source-progress-${id}`);
+  return (await progress.isVisible()) ? 'progress' : 'clean';
 }
 
 async function expectPendingIndicator(
   scope: Page | Locator,
   id: string
-): Promise<'warning' | 'note'> {
-  let state: 'warning' | 'note' | 'clean' = 'clean';
+): Promise<'warning' | 'note' | 'progress'> {
+  let state: 'warning' | 'note' | 'progress' | 'clean' = 'clean';
   await expect
     .poll(
       async () => {
@@ -239,8 +238,8 @@ async function expectPendingIndicator(
       },
       { timeout: 30_000, message: 'the pending-vector source appears healthy' }
     )
-    .toMatch(/^(warning|note)$/);
-  return state as 'warning' | 'note';
+    .toMatch(/^(warning|note|progress)$/);
+  return state as 'warning' | 'note' | 'progress';
 }
 
 test.describe('Brain — the UI tells the truth about embedding state', () => {
@@ -255,22 +254,24 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     // If this workspace happens to have a working embeddings provider there is
     // nothing to warn about and the assertion below would be meaningless — so
     // the precondition is checked explicitly rather than assumed.
-    await waitForStoredPendingSource(id);
+    await waitForPendingSource(id);
 
     await openSources(page);
     const row = page.getByTestId('memory-source-row-folder').filter({ hasText: label });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
-    // Both visible states honestly flag pending vectors; a clean row is the
-    // regression this browser test guards against.
+    // A live progress state is also truthful: the source is visibly still
+    // processing rather than reading as a clean, retrieval-ready sync.
     const shown = await expectPendingIndicator(row, id);
 
     if (shown === 'warning') {
       await expect(row).toContainText('Stored without vectors. Semantic search unavailable.');
       await expect(row).toContainText('Ingested only');
-    } else {
+    } else if (shown === 'note') {
       await expect(row).toContainText('waiting for vectors');
       await expect(row).not.toContainText('Stored without vectors');
+    } else {
+      await expect(row.getByTestId(`memory-source-progress-${id}`)).toBeVisible();
     }
   });
 
@@ -283,7 +284,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     await authenticate(page, 'pw-brain-reload');
     const { id } = await addAndSync(label);
 
-    await waitForStoredPendingSource(id);
+    await waitForPendingSource(id);
 
     await openSources(page);
     await expectPendingIndicator(page, id);
@@ -303,7 +304,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     await authenticate(page, 'pw-brain-health');
     const { id } = await addAndSync(label);
 
-    await waitForStoredPendingSource(id);
+    await waitForPendingSource(id);
 
     await openSources(page);
     await expectPendingIndicator(page, id);

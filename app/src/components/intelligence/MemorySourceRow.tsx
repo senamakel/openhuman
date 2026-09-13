@@ -171,7 +171,7 @@ export function MemorySourceRow({
             </div>
             {detail && <p className="mt-0.5 truncate pl-7 text-xs text-content-faint">{detail}</p>}
             {progress && (
-              <div className="mt-2 pl-7">
+              <div className="mt-2 pl-7" data-testid={`memory-source-progress-${source.id}`}>
                 <div className="flex items-center gap-2 text-xs text-content-muted">
                   <span className="capitalize">{progress.stage}</span>
                   {progress.percent !== null && (

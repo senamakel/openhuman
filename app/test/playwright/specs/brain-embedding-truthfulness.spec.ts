@@ -43,6 +43,7 @@ interface SourceStatus {
   source_id: string;
   chunks_synced: number;
   chunks_pending: number;
+  sync_stage?: string | null;
 }
 
 async function seedDeveloperMode(page: Page): Promise<void> {
@@ -197,6 +198,24 @@ function requireDegraded(status: SourceStatus | undefined): void {
   test.skip(!degraded, 'this core embedded every chunk, so there is no degraded state to surface');
 }
 
+async function waitForStoredPendingSource(id: string): Promise<SourceStatus | undefined> {
+  let status: SourceStatus | undefined;
+  await expect
+    .poll(
+      async () => {
+        status = await statusFor(id);
+        // The row intentionally renders a live progress bar while a source is
+        // syncing. The pending-vector indicator is a post-ingest verdict, so
+        // assert it only after the core has reported the source idle.
+        return (status?.chunks_synced ?? 0) > 0 && status?.sync_stage == null;
+      },
+      { timeout: 60_000, message: 'the folder source never finished ingesting' }
+    )
+    .toBe(true);
+  requireDegraded(status);
+  return status;
+}
+
 async function pendingIndicatorState(
   scope: Page | Locator,
   id: string
@@ -236,18 +255,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     // If this workspace happens to have a working embeddings provider there is
     // nothing to warn about and the assertion below would be meaningless — so
     // the precondition is checked explicitly rather than assumed.
-    let status: SourceStatus | undefined;
-    await expect
-      .poll(
-        async () => {
-          status = await statusFor(id);
-          return status?.chunks_synced ?? 0;
-        },
-        { timeout: 60_000, message: 'the folder source never produced chunks' }
-      )
-      .toBeGreaterThan(0);
-
-    requireDegraded(status);
+    await waitForStoredPendingSource(id);
 
     await openSources(page);
     const row = page.getByTestId('memory-source-row-folder').filter({ hasText: label });
@@ -275,17 +283,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     await authenticate(page, 'pw-brain-reload');
     const { id } = await addAndSync(label);
 
-    let status: SourceStatus | undefined;
-    await expect
-      .poll(
-        async () => {
-          status = await statusFor(id);
-          return status?.chunks_synced ?? 0;
-        },
-        { timeout: 60_000 }
-      )
-      .toBeGreaterThan(0);
-    requireDegraded(status);
+    await waitForStoredPendingSource(id);
 
     await openSources(page);
     await expectPendingIndicator(page, id);
@@ -305,17 +303,7 @@ test.describe('Brain — the UI tells the truth about embedding state', () => {
     await authenticate(page, 'pw-brain-health');
     const { id } = await addAndSync(label);
 
-    let status: SourceStatus | undefined;
-    await expect
-      .poll(
-        async () => {
-          status = await statusFor(id);
-          return status?.chunks_synced ?? 0;
-        },
-        { timeout: 60_000 }
-      )
-      .toBeGreaterThan(0);
-    requireDegraded(status);
+    await waitForStoredPendingSource(id);
 
     await openSources(page);
     await expectPendingIndicator(page, id);

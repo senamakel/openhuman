@@ -108,12 +108,16 @@ jobs:
           OPENHUMAN_WORKSPACE: ${{ runner.temp }}/openhuman-playwright-workspace
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
+          workspace_root="$OPENHUMAN_WORKSPACE"
           # Each shard gets a fresh standalone core. The 32-way split still
           # leaves an 18-spec connections slice that the runner kills without
-          # a Rust error at roughly 560 MiB RSS. Smaller slices bound that
-          # growth while retaining coverage of the full suite.
+          # a Rust error at roughly 560 MiB RSS. Keep the shard's persisted
+          # state fresh too: reusing a workspace silently carries every prior
+          # shard's transcripts and memory tree into the next core process.
           for shard_index in $(seq 1 64); do
             shard="$shard_index/64"
+            export OPENHUMAN_WORKSPACE="$workspace_root/shard-$shard_index"
+            mkdir -p "$OPENHUMAN_WORKSPACE"
             bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
           done
 

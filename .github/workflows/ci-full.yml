@@ -356,13 +356,46 @@ jobs:
           OPENHUMAN_WORKSPACE: ${{ runner.temp }}/openhuman-playwright-workspace
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
-          # Each shard gets a fresh standalone core. Eight shards still leave
-          # roughly 74 specs in a process: the core rose from ~700 MiB to the
-          # runner's 1.2 GiB limit during shard 2. Smaller slices bound that
-          # growth while retaining coverage of the full suite.
-          for shard_index in $(seq 1 16); do
-            shard="$shard_index/16"
-            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
+          workspace_root="$OPENHUMAN_WORKSPACE"
+          export OPENHUMAN_WORKSPACE="$workspace_root/connections-aliases"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/connections-tab-aliases.spec.ts
+
+          export OPENHUMAN_WORKSPACE="$workspace_root/connections-deeplinks"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/connections-tab-deeplinks.spec.ts
+
+          export OPENHUMAN_WORKSPACE="$workspace_root/chat-harness-subagent"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/chat-harness-subagent.spec.ts
+
+          skills_index=0
+          while IFS= read -r skills_test; do
+            export OPENHUMAN_WORKSPACE="$workspace_root/skills-$skills_index"
+            mkdir -p "$OPENHUMAN_WORKSPACE"
+            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+              test/playwright/specs/skills-search-install.spec.ts -g "$skills_test"
+            skills_index=$((skills_index + 1))
+          done <<'EOF'
+          a burst of typing issues ONE catalog search
+          a pause between words issues a second search
+          a query with no matches leaves no catalog rows
+          the typed text is preserved in the box while results load
+          offers Install, and the button is enabled before it is pressed
+          disables the button and shows Installing while the RPC is in flight
+          a failed install re-enables the button rather than stranding it
+          EOF
+
+          for shard_index in $(seq 1 64); do
+            shard="$shard_index/64"
+            export OPENHUMAN_WORKSPACE="$workspace_root/shard-$shard_index"
+            mkdir -p "$OPENHUMAN_WORKSPACE"
+            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+              --shard="$shard" \
+              --grep-invert='Connections (aliases|deep links)|Skills explorer|Chat Harness - Subagent'
           done
 
       - name: Pack Playwright E2E failure artifacts

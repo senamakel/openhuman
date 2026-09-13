@@ -173,6 +173,13 @@ export async function bootAuthenticatedPage(
       .toMatch(/^#\/chat/);
   }
   await waitForAppReady(page);
+  // The shell can restore its persisted chat route after the first post-auth
+  // navigation. Reapply a requested non-home route once the shell is ready so
+  // callers never start assertions on that stale restoration.
+  if (hash !== '/home' && !(await page.evaluate(() => window.location.hash)).includes(hash)) {
+    await page.goto(`/#${hash}`);
+    await waitForAppReady(page);
+  }
 }
 
 export async function waitForAppReady(page: Page): Promise<void> {

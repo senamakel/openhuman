@@ -5,7 +5,8 @@ import { bootAuthenticatedPage, waitForAppReady } from '../helpers/core-rpc';
 test.describe('Crypto Payment Flow', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     const slug = testInfo.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    await bootAuthenticatedPage(page, `pw-crypto-payment-${slug}`, '/settings/billing');
+    await bootAuthenticatedPage(page, `pw-crypto-payment-${slug}`);
+    await page.goto('/#/settings/billing');
   });
 
   test('billing panel shows the moved-to-web redirect page', async ({ page }) => {

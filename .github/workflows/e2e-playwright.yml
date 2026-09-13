@@ -108,12 +108,12 @@ jobs:
           OPENHUMAN_WORKSPACE: ${{ runner.temp }}/openhuman-playwright-workspace
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
-          # Each shard gets a fresh standalone core. Sixteen shards still let
-          # a 39-spec slice push the core to 853 MiB, where the runner's
-          # browser-plus-core memory budget kills it. Smaller slices bound
-          # that growth while retaining coverage of the full suite.
-          for shard_index in $(seq 1 32); do
-            shard="$shard_index/32"
+          # Each shard gets a fresh standalone core. The 32-way split still
+          # leaves an 18-spec connections slice that the runner kills without
+          # a Rust error at roughly 560 MiB RSS. Smaller slices bound that
+          # growth while retaining coverage of the full suite.
+          for shard_index in $(seq 1 64); do
+            shard="$shard_index/64"
             bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
           done
 

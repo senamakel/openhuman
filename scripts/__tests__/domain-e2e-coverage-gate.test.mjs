@@ -420,7 +420,7 @@ test('fails when the module is no longer behind the #[cfg] the exclusion claims'
   );
   assert.match(
     result.stderr,
-    /src\/openhuman\/test_support\/schemas\.rs/,
+    /crates\/openhuman-core\/src\/test_support\/schemas\.rs/,
     `the file that lost its gate must be named; got:\n${result.stderr}`,
   );
 });

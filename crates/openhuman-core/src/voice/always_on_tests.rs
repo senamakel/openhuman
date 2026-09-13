@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::atomic::Ordering;
 
 #[test]
 fn stop_clears_enabled_gate() {

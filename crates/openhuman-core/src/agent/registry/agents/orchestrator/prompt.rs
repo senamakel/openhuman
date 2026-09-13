@@ -383,7 +383,16 @@ fn format_connected_mcp_block(
         // (a malicious description could otherwise smuggle routing-overriding
         // instructions into the prompt). Flatten newlines/tabs so a single
         // list item can't be broken or hijacked across lines.
-        let desc_raw = s.description.as_deref().unwrap_or("").trim();
+        // Hand-added servers have no registry description. Their initialize
+        // instructions are the only capability hint available in that case,
+        // and are equally untrusted remote text.
+        let desc_raw = s
+            .description
+            .as_deref()
+            .filter(|description| !description.trim().is_empty())
+            .or(s.instructions.as_deref())
+            .unwrap_or("")
+            .trim();
         let desc = if desc_raw.is_empty() {
             String::new()
         } else {

@@ -39,7 +39,7 @@ pub(crate) use broadcast::{sign_and_broadcast_evm, sign_and_broadcast_solana};
 pub use queries::{balances, chain_status, network_defaults, supported_assets};
 pub use quotes::prepared_quotes_for_test;
 #[cfg(test)]
-pub(crate) use quotes::{insert_quote_for_test, reset_quote_store_for_tests};
+pub(crate) use quotes::{insert_quote_for_test, now_ms, reset_quote_store_for_tests};
 pub use transfer::prepare_transfer;
 pub use tx_lookup::{lookup_tx, tx_receipt, tx_status};
 pub(crate) use types::RawBroadcastResult;

@@ -641,6 +641,9 @@ jobs:
         # build count unchanged at 2. 273 -> 275 on 2026-08-31: the compatible
         # dependency refresh recorded in `kernel-floor.limits` raised the
         # resolved Linux name count while keeping the native build count at 2.
+        # 269 -> 270 on 2026-09-13: the core/wrapper split adds the required
+        # `openhuman-rpc` workspace crate; its five dependencies were already
+        # in the profile, so this is one package/name and no native build.
         # See the kernel-floor history for why
         # these raises are temporary/justified. macOS resolves one higher per
         # the host skew recorded in the limits history — this expects the CI
@@ -650,7 +653,7 @@ jobs:
         # it is a second source of truth for the same Linux name count and is
         # not derived from that file. Bump both in the same PR that raises
         # (or lowers) the floor.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 269
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 270
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on

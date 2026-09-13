@@ -13,6 +13,16 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   288/270/2  2026-09-13  the core/wrapper split moves shared RPC contracts
+#                      and the authenticated HTTP client into the new
+#                      `openhuman-rpc` workspace crate. `openhuman` depends on
+#                      it in every profile, including `flows`, so the crate
+#                      itself is one required package and one required name.
+#                      Its `log`, `reqwest`, `serde`, `serde_json`, and `url`
+#                      dependencies were already present; native builds remain
+#                      `libsqlite3-sys` and `ring` (2). Measured on CI Linux
+#                      with `scripts/kernel-floor.sh flows --json`; this is a
+#                      structural refactor cost, not a new third-party tail.
 #   287/269/2  2026-08-31  openhuman#5560: the memory engine crates leave the
 #                      product build (see the PR for the full inventory).
 #                      Measured on CI Linux; macOS resolves one extra
@@ -541,4 +551,4 @@
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
 # 307/284  2026-08-12  Re-baseline after the upstream lockfile resolution;
 #                      `flows` remains at two native packages.
-flows:287:269:2
+flows:288:270:2

@@ -1163,6 +1163,19 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      # actions/checkout populates the pinned submodule commits but does not
+      # fetch their tag refs. The pin gate uses `git describe --tags` to compare
+      # each source contract to its registry artifact version, so make that
+      # metadata available explicitly without widening the main checkout.
+      - name: Fetch submodule tags for module pin verification
+        run: |
+          for module in \
+            vendor/tinydocs vendor/tinywallet vendor/tinymemory vendor/tinyjuice \
+            vendor/tinyvoice vendor/tinyruntime vendor/tinymcp vendor/tinyconnectors
+          do
+            git -C "$module" fetch --unshallow --tags origin
+          done
+
       # Nine subsystems load as downloaded cdylib modules and each is pinned
       # twice: once as a submodule (the contract compiled here) and once as a
       # version + digest in modules/registry.rs (the artifact loaded at runtime).

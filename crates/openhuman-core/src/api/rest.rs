@@ -583,14 +583,14 @@ impl BackendOAuthClient {
         self.finish_authed_json(method, path, response)
     }
 
-    /// Fetch the deployed billing summary through the SDK's typed payments API.
+    /// Fetch the deployed billing summary through the SDK's authenticated raw API.
     pub async fn fetch_billing_summary(&self, bearer_jwt: &str) -> Result<Value> {
         const PATH: &str = "/payments/summary";
         let sdk = self
             .sdk
             .clone()
             .with_token(Some(bearer_jwt.trim().to_string()));
-        let response = sdk.payments().get_summary().await.map(|value| value.0);
+        let response = sdk.raw().send(Method::GET, PATH, &[], None, true).await;
         self.finish_authed_json(Method::GET, PATH, response)
     }
 

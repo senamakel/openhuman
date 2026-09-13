@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::Config;
 
 fn sample_account(chain: WalletChain) -> WalletAccount {
     WalletAccount {

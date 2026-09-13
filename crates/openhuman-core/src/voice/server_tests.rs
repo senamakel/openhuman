@@ -1,5 +1,6 @@
 use super::*;
 use crate::voice::audio_capture::RecordingResult;
+use crate::voice::server::types::{MAX_INITIAL_PROMPT_CHARS, MAX_RECENT_TRANSCRIPTS};
 
 #[test]
 fn default_server_config() {

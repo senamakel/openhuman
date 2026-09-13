@@ -119,7 +119,6 @@ test('Connections deep links preserve their selected pane, search, and fragment'
   await navigate('/connections?tab=channels');
   await expectSelectedTab(page, 'channels');
   await page.reload();
-  await waitForAppReady(page);
   await expectSelectedTab(page, 'channels');
 
   await navigate('/connections?tab=messaging');

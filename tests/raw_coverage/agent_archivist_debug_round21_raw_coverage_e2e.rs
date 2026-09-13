@@ -337,6 +337,7 @@ async fn debug_prompt_dump_requires_toolkit_before_composio_network() -> Result<
         agent_id: "integrations_agent".to_string(),
         toolkit: None,
         workspace_dir_override: Some(tmp.path().to_path_buf()),
+        config_path_override: None,
         model_override: Some("round21-debug-model".to_string()),
     })
     .await

@@ -608,6 +608,7 @@ async fn agent_builder_prompt_and_debug_dump_cover_public_session_paths() {
         agent_id: "integrations_agent".to_string(),
         toolkit: None,
         workspace_dir_override: Some(workspace),
+        config_path_override: None,
         model_override: Some("round15-model".to_string()),
     })
     .await

@@ -103,13 +103,14 @@ chat_provider = "e2e:e2e-mock-model"
 reasoning_provider = "e2e:e2e-mock-model"
 agentic_provider = "e2e:e2e-mock-model"
 coding_provider = "e2e:e2e-mock-model"
+[update]
+enabled = false
+
+[memory]
 # The browser truthfulness specs seed a real memory source whose chunks must
 # remain unembedded. Keep this harness intentionally providerless so it covers
 # the hard degraded state rather than a transient backlog being drained.
 embedding_provider = "none"
-
-[update]
-enabled = false
 
 [context]
 # Deterministic e2e specs script the mock-LLM call sequence exactly; the

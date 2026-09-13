@@ -109,13 +109,16 @@ jobs:
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
           workspace_root="$OPENHUMAN_WORKSPACE"
-          # Each shard gets a fresh standalone core. The 32-way split still
-          # leaves an 18-spec connections slice that the runner kills without
-          # a Rust error at roughly 560 MiB RSS. Keep the shard's persisted
-          # state fresh too: reusing a workspace silently carries every prior
-          # shard's transcripts and memory tree into the next core process.
-          for shard_index in $(seq 1 64); do
-            shard="$shard_index/64"
+          # Each shard gets a fresh standalone core. Even the 64-way split
+          # can place two otherwise-small browser contexts together: their
+          # second application bootstrap pushed the core to 929 MiB RSS and
+          # the hosted runner killed it without a Rust error. One test group
+          # per core keeps that process lifetime below the runner limit. Keep
+          # the shard's persisted state fresh too: reusing a workspace silently
+          # carries every prior shard's transcripts and memory tree into the
+          # next core process.
+          for shard_index in $(seq 1 512); do
+            shard="$shard_index/512"
             export OPENHUMAN_WORKSPACE="$workspace_root/shard-$shard_index"
             mkdir -p "$OPENHUMAN_WORKSPACE"
             bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"

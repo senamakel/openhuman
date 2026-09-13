@@ -12,7 +12,7 @@
  *   - 13.5.3 Full State Reset → back to Welcome screen
  */
 import { waitForApp } from '../helpers/app-helpers';
-import { clickTestId, textExists, waitForText } from '../helpers/element-helpers';
+import { clickTestId, clickText, textExists, waitForText } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';

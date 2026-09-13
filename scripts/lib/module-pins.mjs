@@ -58,7 +58,7 @@ export function parseAllList(src) {
 export function parseRecords(src) {
   const records = new Map();
   const re =
-    /(?:pub )?const ([A-Z0-9_]+): ModuleRecord = ModuleRecord \{([\s\S]*?)\n\};/g;
+    /(?:pub(?:\([^)]*\))?\s+)?const ([A-Z0-9_]+): ModuleRecord = ModuleRecord \{([\s\S]*?)\n\};/g;
   for (const m of src.matchAll(re)) {
     const [, name, body] = m;
     const field = (f) => {

@@ -42,6 +42,22 @@ const readRustModule = (relativePath) =>
   expandRustIncludes(relativePath, (includedPath) =>
     readFileSync(join(REPO_ROOT, includedPath), "utf8"),
   );
+const readRegistry = () => {
+  const relativePath = "crates/openhuman-core/src/modules/registry.rs";
+  const entry = readRustModule(relativePath);
+  const recordsDir = relativePath.replace(/\.rs$/, "");
+  const recordModules = [
+    ...entry.matchAll(/^mod (records_[a-z0-9_]+);$/gm),
+  ].map(([, name]) => `${recordsDir}/${name}.rs`);
+  return [entry, ...recordModules.map(readRustModule)].join("\n");
+};
+const readMemory = () => {
+  const relativePath = "crates/openhuman-core/src/modules/memory.rs";
+  const entry = readRustModule(relativePath);
+  return /^mod capabilities;$/m.test(entry)
+    ? `${entry}\n${readRustModule("crates/openhuman-core/src/modules/memory/capabilities.rs")}`
+    : entry;
+};
 
 const run = (cli, args = [], env = {}) =>
   spawnSync(process.execPath, [cli, ...args], {
@@ -51,7 +67,7 @@ const run = (cli, args = [], env = {}) =>
   });
 
 /**
- * Is `vendor/tinymemory` really a checked-out submodule?
+ * Are all module sources checked out with enough tag history for the gate?
  *
  * NOT `rev-parse --git-dir`: git walks UPWARD, so from an uninitialised — or
  * merely empty — `vendor/tinymemory` that command happily answers the
@@ -62,21 +78,39 @@ const run = (cli, args = [], env = {}) =>
  *
  * `--show-toplevel` is the honest question: it answers the root of whichever
  * repository owns that directory. Only when that root IS the submodule path is
- * the submodule genuinely checked out. Compared through `realpathSync` because
- * macOS resolves `/tmp/...` to `/private/tmp/...`.
+ * the submodule genuinely checked out. The gate also calls `git describe`, so
+ * this end-to-end test needs tags to be present. Paths are compared through
+ * `realpathSync` because macOS resolves `/tmp/...` to `/private/tmp/...`.
  */
 function submodulesPresent() {
-  const path = join(REPO_ROOT, "vendor/tinymemory");
+  const paths = [
+    "vendor/tinydocs",
+    "vendor/tinywallet",
+    "vendor/tinymemory",
+    "vendor/tinyjuice",
+    "vendor/tinyvoice",
+    "vendor/tinyruntime",
+    "vendor/tinymcp",
+    "vendor/tinyconnectors",
+  ];
   try {
-    const top = execFileSync(
-      "git",
-      ["-C", path, "rev-parse", "--show-toplevel"],
-      {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      },
-    ).trim();
-    return toplevelProvesSubmodule(realpathSync(top), realpathSync(path));
+    return paths.every((relativePath) => {
+      const path = join(REPO_ROOT, relativePath);
+      const top = execFileSync(
+        "git",
+        ["-C", path, "rev-parse", "--show-toplevel"],
+        {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        },
+      ).trim();
+      if (!toplevelProvesSubmodule(realpathSync(top), realpathSync(path)))
+        return false;
+      execFileSync("git", ["-C", path, "describe", "--tags", "HEAD"], {
+        stdio: "ignore",
+      });
+      return true;
+    });
   } catch {
     return false;
   }
@@ -85,7 +119,7 @@ function submodulesPresent() {
 // ── Registry parsing ──────────────────────────────────────────────────────────
 
 test("parses every record `ALL` lists out of the real registry", () => {
-  const src = readRustModule("crates/openhuman-core/src/modules/registry.rs");
+  const src = readRegistry();
   const names = parseAllList(src);
   const records = parseRecords(src);
   assert.ok(
@@ -105,7 +139,7 @@ test("parses every record `ALL` lists out of the real registry", () => {
 });
 
 test("parses per-platform assets, digests included", () => {
-  const src = readRustModule("crates/openhuman-core/src/modules/registry.rs");
+  const src = readRegistry();
   const mem = [...parseRecords(src).values()].find(
     (r) => r.id === "tinymemory",
   );
@@ -125,8 +159,15 @@ test("reading a registry with no ALL block throws rather than returning empty", 
   assert.throws(() => parseRecords("fn main() {}"), /parsed zero/);
 });
 
+test("parses a crate-visible record definition", () => {
+  const records = parseRecords(
+    'pub(crate) const TINYTEST: ModuleRecord = ModuleRecord {\n  id: "tinytest",\n  version: "1.2.3",\n  assets: &[],\n};',
+  );
+  assert.equal(records.get("TINYTEST")?.id, "tinytest");
+});
+
 test("finds ARTIFACT_CAPABILITIES_PIN and the workflow memory blocks", () => {
-  const memSrc = readRustModule("crates/openhuman-core/src/modules/memory.rs");
+  const memSrc = readMemory();
   assert.match(parseArtifactCapabilitiesPin(memSrc), /^\d+\.\d+\.\d+$/);
   const wf = readFileSync(
     join(REPO_ROOT, ".github/workflows/ci-lite.yml"),
@@ -301,7 +342,8 @@ const MINIMAL_WORKFLOW =
 
 test("an unparseable registry fails the gate instead of passing", () => {
   const root = fixtureRoot({
-    "crates/openhuman-core/src/modules/registry.rs": "// everything here got deleted\n",
+    "crates/openhuman-core/src/modules/registry.rs":
+      "// everything here got deleted\n",
     "crates/openhuman-core/src/modules/memory.rs":
       'pub(crate) const ARTIFACT_CAPABILITIES_PIN: &str = "9.9.9";\n',
     ".github/workflows/ci-full.yml": MINIMAL_WORKFLOW,

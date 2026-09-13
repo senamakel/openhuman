@@ -134,12 +134,41 @@ function readRustModule(relativePath, what) {
   );
 }
 
+/** Read an entrypoint plus an optional Rust sibling module it declares. */
+function readDeclaredSibling(relativePath, moduleName, what) {
+  const entry = readRustModule(relativePath, what);
+  if (!new RegExp(`^mod ${moduleName};$`, "m").test(entry)) return entry;
+  const sibling = `${relativePath.replace(/\.rs$/, "")}/${moduleName}.rs`;
+  return `${entry}\n${readRustModule(sibling, `${what} ${moduleName}`)}`;
+}
+
+/**
+ * Read the registry entrypoint and every record fragment it declares.
+ *
+ * The registry deliberately keeps its `ModuleRecord` definitions in small
+ * `registry/records_*.rs` siblings. This gate must inspect those definitions,
+ * not merely the `ALL` wiring file, or a source-layout refactor turns its
+ * security check into an empty scan.
+ */
+function readRegistry() {
+  const relativePath = "crates/openhuman-core/src/modules/registry.rs";
+  const entry = readRustModule(relativePath, "registry");
+  const recordsDir = relativePath.replace(/\.rs$/, "");
+  const recordModules = [
+    ...entry.matchAll(/^mod (records_[a-z0-9_]+);$/gm),
+  ].map(([, name]) => `${recordsDir}/${name}.rs`);
+
+  return [
+    entry,
+    ...recordModules.map((path) =>
+      readRustModule(path, `registry record ${path}`),
+    ),
+  ].join("\n");
+}
+
 // ── Parse the registry ────────────────────────────────────────────────────────
 
-const registrySrc = readRustModule(
-  "crates/openhuman-core/src/modules/registry.rs",
-  "registry",
-);
+const registrySrc = readRegistry();
 const allNames = parseAllList(registrySrc);
 const records = parseRecords(registrySrc);
 
@@ -268,8 +297,9 @@ if (!memRec) {
     'modules::registry::ALL no longer has a "tinymemory" record; the tinymemory pin-set check cannot run',
   );
 } else {
-  const memSrc = readRustModule(
+  const memSrc = readDeclaredSibling(
     "crates/openhuman-core/src/modules/memory.rs",
+    "capabilities",
     "modules/memory.rs",
   );
   const pin = parseArtifactCapabilitiesPin(memSrc);

@@ -122,7 +122,7 @@ async fn a_build_only_runtime_is_swept_before_it_can_be_invoked() {
     let output = std::process::Command::new(exe)
         .args([
             "--exact",
-            "openhuman::agent::tinyagents::reaper::tests::\
+            "agent::tinyagents::reaper::tests::\
              a_build_only_runtime_is_swept_before_it_can_be_invoked",
             "--test-threads=1",
             "--nocapture",
@@ -139,7 +139,11 @@ async fn a_build_only_runtime_is_swept_before_it_can_be_invoked() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let after = store
+    // The child writes the durable store in a separate process. Reopen it for
+    // verification instead of reading through the parent's handle, whose
+    // refactored KV layer may still serve the status it cached while seeding.
+    let after_store = FileStatusStore::new(open_session_stores(&workspace).kv);
+    let after = after_store
         .get_status(&orphan)
         .await
         .unwrap()
@@ -150,7 +154,7 @@ async fn a_build_only_runtime_is_swept_before_it_can_be_invoked() {
         "build() must reap before any RPC can be dispatched"
     );
     assert_eq!(after.error.as_deref(), Some(ORPHAN_REAP_REASON));
-    assert!(store.list_active().await.unwrap().is_empty());
+    assert!(after_store.list_active().await.unwrap().is_empty());
 
     let _ = std::fs::remove_dir_all(&tmp);
 }

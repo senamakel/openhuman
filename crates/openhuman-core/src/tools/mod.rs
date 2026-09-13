@@ -52,6 +52,8 @@ pub use crate::skills::catalog::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::skills::runtime::tools::*;
 #[cfg(feature = "skills")]
+pub use crate::skills::search::SkillSearchTool;
+#[cfg(feature = "skills")]
 pub use crate::skills::tools::*;
 pub use crate::threads::todos::tools::*;
 #[cfg(feature = "voice")]

@@ -509,6 +509,12 @@ pub fn all_tools_with_runtime(
                 .with_skill_allowlist(skill_allowlist.cloned())
                 .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
+        #[cfg(feature = "skills")]
+        Box::new(
+            SkillSearchTool::new(config.clone())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
         // operation (fetches remote content and writes to disk).

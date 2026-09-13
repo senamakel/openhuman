@@ -56,6 +56,7 @@ fn workflow_builder_is_registered_worker_with_bounded_authoring_scope() {
             // creation/enable via the raw controller" invariant still
             // holds via the forbidden list.
             let expected = [
+                "read_workflow_resource",
                 "propose_workflow",
                 "revise_workflow",
                 "edit_workflow",

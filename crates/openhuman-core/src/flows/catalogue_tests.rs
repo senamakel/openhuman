@@ -33,10 +33,6 @@ fn flow(name: &str, enabled: bool, nodes: Vec<Node>) -> Flow {
     }
 }
 
-fn flow_described(name: &str, _description: &str) -> Flow {
-    flow(name, true, vec![])
-}
-
 #[test]
 fn the_entry_is_keyed_by_the_flow_id_not_a_slug_of_its_name() {
     // `run_workflow` and `get_flow` take the id. A slug of the display name
@@ -133,24 +129,10 @@ fn an_enabled_flow_does_not_claim_to_be_disabled() {
 }
 
 #[test]
-fn an_authored_description_is_used_verbatim() {
-    // The whole point of the field: when someone says what the automation is
-    // for, the catalogue says that and not the graph's shape.
-    let entry = entry_for(flow_described(
-        "Invoices",
-        "Files incoming supplier invoices into the accounting folder.",
-    ));
-    assert_eq!(
-        entry.description,
-        "Files incoming supplier invoices into the accounting folder."
-    );
-    assert!(!entry.description.contains("Saved Flows automation"));
-}
-
-#[test]
-fn a_flow_with_no_description_falls_back_to_the_graphs_shape() {
-    // Not a rare path: every flow saved before the field existed has none, the
-    // canvas does not force one, and a promoted draft carries none.
+fn a_flow_description_is_always_derived_from_its_graph_shape() {
+    // The shared catalog type deliberately carries no free-text description.
+    // Do not infer a purpose from a user-provided name: that would make the
+    // prompt sound authoritative while merely guessing.
     let entry = entry_for(flow("Send invoices to accounting", true, vec![]));
     assert!(
         entry.description.starts_with("Saved Flows automation"),
@@ -159,25 +141,6 @@ fn a_flow_with_no_description_falls_back_to_the_graphs_shape() {
     );
     // And it must not guess a purpose out of the name.
     assert!(!entry.description.contains("invoice"));
-}
-
-#[test]
-fn a_whitespace_only_description_falls_back_rather_than_rendering_blank() {
-    // A blank catalogue line reads as a broken entry. `"   "` reaches here
-    // from a canvas field someone tabbed through.
-    let entry = entry_for(flow_described("Spaces", "   "));
-    assert!(entry.description.starts_with("Saved Flows automation"));
-}
-
-#[test]
-fn the_paused_note_survives_an_authored_description() {
-    // Whether a flow currently runs is a fact about the record, not about its
-    // purpose, so an author's line must not suppress it.
-    let mut f = flow_described("Paused", "Posts the weekly digest to Slack.");
-    f.enabled = false;
-    let entry = entry_for(f);
-    assert!(entry.description.contains("Posts the weekly digest"));
-    assert!(entry.description.contains("Currently disabled"));
 }
 
 // ── Against a real store ──────────────────────────────────────────────────

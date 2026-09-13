@@ -27,14 +27,16 @@ fn agents_md_section_registered_in_default_builder() {
         "with_defaults() must include the AGENTS.md section"
     );
     assert!(rendered.contains("DEFAULT_BUILDER_MARKER"));
-    // Ordering contract: AGENTS.md after user-context, before the tool catalogue.
+    // Cache-tier contract: stable tool schemas precede context-tier project
+    // instructions. build_tiered groups by tier before preserving section
+    // order within each group.
     let agents_pos = rendered
         .find("## Project instructions (AGENTS.md)")
         .unwrap();
     let tools_pos = rendered.find("## Tools").unwrap();
     assert!(
-        agents_pos < tools_pos,
-        "AGENTS.md must render before the ## Tools catalogue"
+        tools_pos < agents_pos,
+        "stable ## Tools must render before context-tier AGENTS.md"
     );
 }
 
@@ -62,15 +64,15 @@ fn agents_md_section_registered_in_dynamic_builder() {
         "from_dynamic() must include the AGENTS.md section for the main/orchestrator agent"
     );
     assert!(rendered.contains("DYNAMIC_GLOBAL_MARKER"));
-    // Ordering contract: the agent's own body renders first, AGENTS.md follows
-    // as trailing standing guidance (before the central grounding suffix).
+    // Cache-tier contract: the dynamic body is volatile, while AGENTS.md is
+    // context-tier guidance, so instructions render before the volatile body.
     let body_pos = rendered.find("DYNAMIC_AGENT_BODY").unwrap();
     let agents_pos = rendered
         .find("## Project instructions (AGENTS.md)")
         .unwrap();
     assert!(
-        body_pos < agents_pos,
-        "AGENTS.md must render after the dynamic agent body"
+        agents_pos < body_pos,
+        "context-tier AGENTS.md must render before the volatile dynamic body"
     );
 }
 

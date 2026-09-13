@@ -519,12 +519,10 @@ async fn deployment_logs_report_the_build_error_behind_a_failed_status() {
 
     Mock::given(method("GET"))
         .and(path("/v3/deployments/dpl_broken/events"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "events": [
-                {"created": 1, "type": "stdout", "payload": "installing dependencies"},
-                {"created": 2, "type": "stderr", "payload": "error TS2304: cannot find name 'foo'"}
-            ]
-        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"created": 1, "type": "stdout", "payload": "installing dependencies"},
+            {"created": 2, "type": "stderr", "payload": "error TS2304: cannot find name 'foo'"}
+        ])))
         .mount(&server)
         .await;
 
@@ -566,7 +564,7 @@ async fn a_limited_log_read_keeps_the_end_where_the_failure_is() {
         .collect();
     Mock::given(method("GET"))
         .and(path("/v3/deployments/dpl_long/events"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"events": events})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(events))
         .mount(&server)
         .await;
 
@@ -595,7 +593,7 @@ async fn a_negative_log_limit_is_clamped_to_one() {
         .collect();
     Mock::given(method("GET"))
         .and(path("/v3/deployments/dpl_negative_limit/events"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"events": events})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(events))
         .mount(&server)
         .await;
 

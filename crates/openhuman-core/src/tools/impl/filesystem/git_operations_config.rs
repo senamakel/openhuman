@@ -203,6 +203,13 @@ pub(super) fn suppress_ambient_git_config(
 ) -> &mut tokio::process::Command {
     cmd.env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CONFIG_GLOBAL", NULL_CONFIG_PATH)
+        // A parent `git -c` invocation propagates its command-line settings
+        // through these variables. They outrank every config file, so leaving
+        // them intact would let an ambient `core.hooksPath` or any other
+        // command-valued setting bypass both the file suppression and the
+        // repository allowlist below.
+        .env_remove("GIT_CONFIG_PARAMETERS")
+        .env_remove("GIT_CONFIG_COUNT")
         // `git` consults these before it reads any config file.
         .env_remove("GIT_EXTERNAL_DIFF")
         .env_remove("GIT_PAGER")

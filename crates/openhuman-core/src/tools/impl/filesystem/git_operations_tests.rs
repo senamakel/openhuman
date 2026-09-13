@@ -159,12 +159,7 @@ fn is_read_only_detection() {
 #[tokio::test]
 async fn blocks_readonly_mode_for_write_ops() {
     let tmp = TempDir::new().unwrap();
-    // Initialize a git repository
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(tmp.path())
-        .output()
-        .unwrap();
+    init_git_repo(tmp.path());
 
     let security = Arc::new(SecurityPolicy {
         autonomy: AutonomyLevel::ReadOnly,
@@ -184,12 +179,7 @@ async fn blocks_readonly_mode_for_write_ops() {
 #[tokio::test]
 async fn allows_branch_listing_in_readonly_mode() {
     let tmp = TempDir::new().unwrap();
-    // Initialize a git repository so the command can succeed
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(tmp.path())
-        .output()
-        .unwrap();
+    init_git_repo(tmp.path());
 
     let security = Arc::new(SecurityPolicy {
         autonomy: AutonomyLevel::ReadOnly,
@@ -243,12 +233,7 @@ async fn rejects_missing_operation() {
 #[tokio::test]
 async fn rejects_unknown_operation() {
     let tmp = TempDir::new().unwrap();
-    // Initialize a git repository
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(tmp.path())
-        .output()
-        .unwrap();
+    init_git_repo(tmp.path());
 
     let tool = test_tool(tmp.path());
 
@@ -379,6 +364,8 @@ async fn not_in_git_repo_returns_error() {
 pub(super) fn hermetic(cmd: &mut std::process::Command) -> &mut std::process::Command {
     cmd.env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CONFIG_GLOBAL", NULL_CONFIG_PATH)
+        .env_remove("GIT_CONFIG_PARAMETERS")
+        .env_remove("GIT_CONFIG_COUNT")
 }
 
 /// Initialise a git repo at `path` and fail the test if `git init`

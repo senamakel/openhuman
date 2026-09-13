@@ -95,7 +95,6 @@ test('Connections deep links preserve their selected pane, search, and fragment'
       window.location.hash = target;
     }, route);
     await expect.poll(() => currentHash(page), { timeout: 15_000 }).toContain(settlesOn);
-    await waitForAppReady(page);
   };
   const expectWelcome = async () => {
     await expect(page.getByTestId('connections-welcome')).toBeVisible();

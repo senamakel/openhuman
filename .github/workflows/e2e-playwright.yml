@@ -109,19 +109,30 @@ jobs:
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
           workspace_root="$OPENHUMAN_WORKSPACE"
-          # Each shard gets a fresh standalone core. Even the 64-way split
-          # can place two otherwise-small browser contexts together: their
-          # second application bootstrap pushed the core to 929 MiB RSS and
-          # the hosted runner killed it without a Rust error. One test group
-          # per core keeps that process lifetime below the runner limit. Keep
-          # the shard's persisted state fresh too: reusing a workspace silently
+          # These route-only files each create a browser context. Running them
+          # together made the second bootstrap push the core to 929 MiB RSS,
+          # where the hosted runner kills it without a Rust error. Give each
+          # one its own core, then omit their titles from the regular matrix.
+          export OPENHUMAN_WORKSPACE="$workspace_root/connections-aliases"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/connections-tab-aliases.spec.ts
+
+          export OPENHUMAN_WORKSPACE="$workspace_root/connections-deeplinks"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/connections-tab-deeplinks.spec.ts
+
+          # Each remaining shard gets a fresh standalone core. Keep the
+          # shard's persisted state fresh too: reusing a workspace silently
           # carries every prior shard's transcripts and memory tree into the
           # next core process.
-          for shard_index in $(seq 1 512); do
-            shard="$shard_index/512"
+          for shard_index in $(seq 1 64); do
+            shard="$shard_index/64"
             export OPENHUMAN_WORKSPACE="$workspace_root/shard-$shard_index"
             mkdir -p "$OPENHUMAN_WORKSPACE"
-            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh --shard="$shard"
+            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+              --shard="$shard" --grep-invert='Connections (aliases|deep links)'
           done
 
       - name: Pack Playwright E2E failure artifacts

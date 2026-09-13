@@ -31,8 +31,7 @@ mod tests;
 
 pub use registry::{all_controller_schemas, all_registered_controllers};
 
-#[cfg(test)]
-use definitions::schemas;
+pub use definitions::schemas;
 
 // Brought into this module's own namespace (private `use`, not `pub use`)
 // so `schemas_tests.rs` — declared as a direct child module of `schemas`

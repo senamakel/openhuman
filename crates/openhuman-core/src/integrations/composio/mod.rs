@@ -40,7 +40,7 @@ pub mod auth_retry;
 pub mod bus;
 pub mod catalog;
 pub mod client;
-mod connected_integrations;
+pub mod connected_integrations;
 pub mod contract_gate;
 pub(crate) mod direct_auth;
 pub mod error_mapping;
@@ -70,7 +70,7 @@ pub use crate::memory::sync::composio::bus::{
 pub use action_tool::ComposioActionTool;
 pub use client::ComposioClient;
 pub use identity::connection_identity;
-pub(crate) use ops::{
+pub use ops::{
     cached_active_integrations, cached_active_integrations_including_expired, connected_set_hash,
     fetch_connected_integrations, fetch_connected_integrations_status, fetch_toolkit_actions,
     FetchConnectedIntegrationsStatus,

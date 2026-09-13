@@ -56,19 +56,15 @@ pub(crate) use visibility::{action_mutates_external_state, resolve_action_scope}
 use crate::tools::traits::Tool;
 #[cfg(test)]
 use crate::tools::traits::{PermissionLevel, ToolCategory};
-#[cfg(test)]
-use authorize::ComposioAuthorizeTool;
+pub use authorize::ComposioAuthorizeTool;
 #[cfg(test)]
 use connect::{
     canonicalize_toolkit_slug, connection_is_active, parse_composio_connect_timeout,
     ComposioConnectTool, DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS,
 };
-#[cfg(test)]
-use list_connections::ComposioListConnectionsTool;
-#[cfg(test)]
-use list_toolkits::ComposioListToolkitsTool;
-#[cfg(test)]
-use list_tools::ComposioListToolsTool;
+pub use list_connections::ComposioListConnectionsTool;
+pub use list_toolkits::ComposioListToolkitsTool;
+pub use list_tools::ComposioListToolsTool;
 #[cfg(test)]
 use visibility::{
     empty_uncurated_toolkits_message, normalized_scope_toolkits, render_tools_markdown,

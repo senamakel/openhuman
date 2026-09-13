@@ -665,26 +665,27 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED=$(cat <<'EOF'
-          core/all.rs
-          core/all_tests.rs
-          core/cli_tests.rs
-          core/dispatch.rs
-          core/jsonrpc.rs
-          core/jsonrpc_tests.rs
-          core/legacy_aliases.rs
-          core/runtime/services.rs
           agent/harness/builtin_definitions_tests.rs
           agent/harness/definition_tests.rs
           agent/harness/mod.rs
           agent/harness/session/builder/factory.rs
-          agent/harness/session/session_tests_part_01_tests.rs
+          agent/harness/session/session_builder_and_listener_tests.rs
           agent/harness/session/turn/tools.rs
           agent/harness/subagent_runner/tool_prep_tests.rs
           agent/registry/agents/loader.rs
-          agent/registry/agents/loader_tests_part_01_tests.rs
-          agent/registry/agents/loader_tests_part_02_tests.rs
-          agent/registry/agents/loader_tests_part_03_tests.rs
+          agent/registry/agents/loader_tests_builtin_registration_tests.rs
+          agent/registry/agents/loader_tests_orchestrator_tier_tests.rs
+          agent/registry/agents/loader_tests_specialist_agents_tests.rs
+          agent/tinyagents/mod.rs
           config/migrations/retire_local_whisper_stt_tests.rs
+          core/all.rs
+          core/all_tests.rs
+          core/cli_tests.rs
+          core/dispatch_tests.rs
+          core/jsonrpc.rs
+          core/jsonrpc_tests.rs
+          core/legacy_aliases_tests.rs
+          core/runtime/services.rs
           flows/mod.rs
           mcp/server/resources.rs
           mcp/server/tools/mod.rs
@@ -696,9 +697,9 @@ jobs:
           tools/impl/network/http_request.rs
           tools/ops.rs
           tools/ops_tests.rs
-          tools/ops_tests_part_01_tests.rs
-          tools/ops_tests_part_03_tests.rs
-          tools/ops_tests_part_04_tests.rs
+          tools/ops_tests_capability_gating_tests.rs
+          tools/ops_tests_default_registry_tests.rs
+          tools/ops_tests_domain_family_tests.rs
           tools/registry/ops_tests.rs
           tools/registry/schemas_tests.rs
           voice/compile_status_tests.rs

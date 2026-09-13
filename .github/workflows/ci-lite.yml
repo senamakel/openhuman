@@ -673,41 +673,39 @@ jobs:
           core/jsonrpc_tests.rs
           core/legacy_aliases.rs
           core/runtime/services.rs
-          embed/harness/builder.rs
-          embed/harness/builder_tests.rs
-          openhuman/agent/harness/builtin_definitions_tests.rs
-          openhuman/agent/harness/definition_tests.rs
-          openhuman/agent/harness/mod.rs
-          openhuman/agent/harness/session/builder/factory.rs
-          openhuman/agent/harness/session/session_tests_part_01_tests.rs
-          openhuman/agent/harness/session/turn/tools.rs
-          openhuman/agent/harness/subagent_runner/tool_prep_tests.rs
-          openhuman/agent/registry/agents/loader.rs
-          openhuman/agent/registry/agents/loader_tests_part_01_tests.rs
-          openhuman/agent/registry/agents/loader_tests_part_02_tests.rs
-          openhuman/agent/registry/agents/loader_tests_part_03_tests.rs
-          openhuman/config/migrations/retire_local_whisper_stt_tests.rs
-          openhuman/flows/mod.rs
-          openhuman/mcp/server/resources.rs
-          openhuman/mcp/server/tools/mod.rs
-          openhuman/platform/socket/event_handlers.rs
-          openhuman/platform/socket/ops.rs
-          openhuman/skills/bundled/mod.rs
-          openhuman/skills/mod.rs
-          openhuman/skills/search.rs
-          openhuman/tools/impl/network/http_request.rs
-          openhuman/tools/ops.rs
-          openhuman/tools/ops_tests.rs
-          openhuman/tools/ops_tests_part_01_tests.rs
-          openhuman/tools/ops_tests_part_03_tests.rs
-          openhuman/tools/ops_tests_part_04_tests.rs
-          openhuman/tools/registry/ops_tests.rs
-          openhuman/tools/registry/schemas_tests.rs
-          openhuman/voice/compile_status_tests.rs
-          openhuman/web3/mod.rs
-          openhuman/web3/stub.rs
-          openhuman/web3/wallet/stub.rs
-          openhuman/web3/x402/stub.rs
+          agent/harness/builtin_definitions_tests.rs
+          agent/harness/definition_tests.rs
+          agent/harness/mod.rs
+          agent/harness/session/builder/factory.rs
+          agent/harness/session/session_tests_part_01_tests.rs
+          agent/harness/session/turn/tools.rs
+          agent/harness/subagent_runner/tool_prep_tests.rs
+          agent/registry/agents/loader.rs
+          agent/registry/agents/loader_tests_part_01_tests.rs
+          agent/registry/agents/loader_tests_part_02_tests.rs
+          agent/registry/agents/loader_tests_part_03_tests.rs
+          config/migrations/retire_local_whisper_stt_tests.rs
+          flows/mod.rs
+          mcp/server/resources.rs
+          mcp/server/tools/mod.rs
+          platform/socket/event_handlers.rs
+          platform/socket/ops.rs
+          skills/bundled/mod.rs
+          skills/mod.rs
+          skills/search.rs
+          tools/impl/network/http_request.rs
+          tools/ops.rs
+          tools/ops_tests.rs
+          tools/ops_tests_part_01_tests.rs
+          tools/ops_tests_part_03_tests.rs
+          tools/ops_tests_part_04_tests.rs
+          tools/registry/ops_tests.rs
+          tools/registry/schemas_tests.rs
+          voice/compile_status_tests.rs
+          web3/mod.rs
+          web3/stub.rs
+          web3/wallet/stub.rs
+          web3/x402/stub.rs
           EOF
           )
           ACTUAL=$(node scripts/ci/list-feature-gated-rust-tests.mjs | sort -u)

@@ -70,8 +70,10 @@ import {
   createContext,
   type FC,
   type PropsWithChildren,
+  type RefObject,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from 'react';
 
@@ -257,6 +259,8 @@ const ThreadRoot: FC<{
   onEscape?: () => void;
 }> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const messageGroupRef = useRef<HTMLDivElement>(null);
 
   return (
     <ThreadPrimitive.Root
@@ -268,6 +272,12 @@ const ThreadRoot: FC<{
         ['--composer-padding' as string]: '8px',
       }}>
       <ThreadPrimitive.Viewport
+        ref={viewportRef}
+        // The host follower below checks the reader's live distance from the
+        // bottom. Disable assistant-ui's unconditional run-start jump so it
+        // cannot override a reader who intentionally scrolled into history.
+        autoScroll={false}
+        scrollToBottomOnRunStart={false}
         data-slot="aui_thread-viewport"
         className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth">
         <div
@@ -291,10 +301,14 @@ const ThreadRoot: FC<{
             </>
           )}
 
-          <div data-slot="aui_message-group" className="mb-14 flex flex-col gap-y-6 empty:hidden">
+          <div
+            ref={messageGroupRef}
+            data-slot="aui_message-group"
+            className="mb-14 flex flex-col gap-y-6 empty:hidden">
             <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
             <RunningStatusSlot />
           </div>
+          <ThreadBottomFollower viewportRef={viewportRef} contentRef={messageGroupRef} />
 
           <ThreadPrimitive.ViewportFooter
             className={cn(
@@ -312,6 +326,34 @@ const ThreadRoot: FC<{
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );
+};
+
+const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
+
+/**
+ * Align a new turn only for a reader who remains near the bottom. assistant-ui's
+ * run-start scroll is unconditional, which would pull a reader from older
+ * messages into every new turn.
+ */
+const ThreadBottomFollower: FC<{
+  viewportRef: RefObject<HTMLDivElement | null>;
+  contentRef: RefObject<HTMLDivElement | null>;
+}> = ({ viewportRef, contentRef }) => {
+  const latestMessage = useAuiState(s => s.thread.messages.at(-1));
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const distanceFromBottom = viewport
+      ? viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+      : Infinity;
+    if (latestMessage?.role !== 'user' || distanceFromBottom > FOLLOW_BOTTOM_THRESHOLD_PX) {
+      return;
+    }
+    const userMessages = contentRef.current?.querySelectorAll<HTMLElement>('[data-role="user"]');
+    userMessages?.item(userMessages.length - 1)?.scrollIntoView({ block: 'start' });
+  }, [contentRef, latestMessage?.id]);
+
+  return null;
 };
 
 /**

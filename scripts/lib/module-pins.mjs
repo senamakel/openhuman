@@ -132,7 +132,24 @@ export function classifyPin({ id, version, submodulePath, actual, exemption }) {
     return { ok: true, kind: "match" };
   }
   if (exemption) {
-    if (exemption.expect !== actual) {
+    // `git describe` lengthens an abbreviated object ID when the local object
+    // database needs more characters to make it unique. The release tag and
+    // commit distance remain part of the prefix, and either hash abbreviation
+    // must be a prefix of the other, so this accepts only the same commit.
+    const sameDescribe = (expected, observed) => {
+      if (expected === observed) return true;
+      const parse = (value) => value.match(/^(.*-g)([0-9a-f]+)$/);
+      const expectedParts = parse(expected);
+      const observedParts = parse(observed);
+      return (
+        expectedParts !== null &&
+        observedParts !== null &&
+        expectedParts[1] === observedParts[1] &&
+        (expectedParts[2].startsWith(observedParts[2]) ||
+          observedParts[2].startsWith(expectedParts[2]))
+      );
+    };
+    if (!sameDescribe(exemption.expect, actual)) {
       return {
         ok: false,
         kind: "exemption-widened",

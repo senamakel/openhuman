@@ -246,7 +246,7 @@ function describe(submodulePath) {
   // report it rather than get an opaque failure.
   return mustRun(
     "git",
-    ["describe", "--tags", "HEAD"],
+    ["describe", "--tags", "--abbrev=8", "HEAD"],
     abs,
     `describe ${submodulePath}`,
   );

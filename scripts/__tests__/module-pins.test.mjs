@@ -217,6 +217,14 @@ test("a declared exemption passes only for the exact drift it declares", () => {
   assert.equal(same.ok, true);
   assert.equal(same.kind, "exempt");
 
+  const longerAbbreviation = classifyPin({
+    ...base,
+    actual: "v1.2.3-7-gabc12345",
+    exemption,
+  });
+  assert.equal(longerAbbreviation.ok, true);
+  assert.equal(longerAbbreviation.kind, "exempt");
+
   // Drifting FURTHER is a new fact, and must be re-declared.
   const wider = classifyPin({
     ...base,

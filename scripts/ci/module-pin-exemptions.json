@@ -33,7 +33,7 @@
     {
       "id": "tinymemory",
       "submodule": "vendor/tinymemory",
-      "expect": "v1.16.0-20-g74f2a529",
+      "expect": "v1.16.0-20-g74f2a52",
       "reason": "The source contract includes the unreleased CortexDB provider and Composio result-description work from tinymemory main, while the registry retains the published v1.16.0 native-memory artifact and its release-published digests. This exact source/artifact split is temporary and must be removed when a release containing this contract is pinned."
     }
   ]

@@ -27,6 +27,7 @@ export OPENHUMAN_KEYRING_BACKEND="${OPENHUMAN_KEYRING_BACKEND:-file}"
 MOCK_PID=""
 CORE_PID=""
 WEB_PID=""
+CORE_MONITOR_PID=""
 
 cleanup() {
   local status=$?
@@ -38,6 +39,10 @@ cleanup() {
   if [ -n "$CORE_PID" ]; then
     kill "$CORE_PID" 2>/dev/null || true
     wait "$CORE_PID" 2>/dev/null || true
+  fi
+  if [ -n "$CORE_MONITOR_PID" ]; then
+    kill "$CORE_MONITOR_PID" 2>/dev/null || true
+    wait "$CORE_MONITOR_PID" 2>/dev/null || true
   fi
   if [ -n "$MOCK_PID" ]; then
     kill "$MOCK_PID" 2>/dev/null || true
@@ -152,6 +157,22 @@ export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
 "$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" \
   >"$OPENHUMAN_WORKSPACE/core.log" 2>&1 &
 CORE_PID=$!
+
+# Preserve the core's final resource samples for a long Playwright lane. This
+# distinguishes a likely runner OOM from an in-process failure once later tests
+# can only report ECONNREFUSED.
+(
+  while kill -0 "$CORE_PID" 2>/dev/null; do
+    if [ -r "/proc/$CORE_PID/status" ]; then
+      awk '/^(VmRSS|VmHWM|Threads):/ { printf "%s ", $0 } END { print "" }' \
+        "/proc/$CORE_PID/status" >>"$OPENHUMAN_WORKSPACE/core-resource.log"
+    fi
+    sleep 5
+  done
+  printf 'core process disappeared while the Playwright session was active\n' \
+    >>"$OPENHUMAN_WORKSPACE/core-resource.log"
+) &
+CORE_MONITOR_PID=$!
 
 # Give the core process time to start and fail if it's going to
 sleep 2

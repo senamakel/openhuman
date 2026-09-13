@@ -1173,7 +1173,11 @@ jobs:
             vendor/tinydocs vendor/tinywallet vendor/tinymemory vendor/tinyjuice \
             vendor/tinyvoice vendor/tinyruntime vendor/tinymcp vendor/tinyconnectors
           do
-            git -C "$module" fetch --unshallow --tags origin
+            if [ "$(git -C "$module" rev-parse --is-shallow-repository)" = true ]; then
+              git -C "$module" fetch --unshallow --tags origin
+            else
+              git -C "$module" fetch --tags origin
+            fi
           done
 
       # Nine subsystems load as downloaded cdylib modules and each is pinned

@@ -594,7 +594,7 @@ fn prompt_builder_renders_dynamic_user_files_and_identity_branches() -> Result<(
     let tools = vec![PromptTool::with_schema(
         "echo",
         "Echo tool",
-        json!({"type":"object","properties":{"zeta":{},"alpha":{}}}).to_string(),
+        json!({"type":"object","properties":{"zeta":{"type":"string"},"alpha":{"type":"string"}}}).to_string(),
     )];
     let mut learned = LearnedContextData::default();
     learned.reflections = vec!["  prefers concise updates  ".to_string(), " ".to_string()];
@@ -641,7 +641,7 @@ fn prompt_builder_renders_dynamic_user_files_and_identity_branches() -> Result<(
     assert!(prompt.contains("### PROFILE.md"));
     assert!(prompt.contains("Curated memory"));
     assert!(prompt.contains("Curated user"));
-    assert!(prompt.contains("echo[alpha|zeta]"));
+    assert!(prompt.contains("echo[0|<alpha>|1|<zeta>]"));
     assert!(prompt.contains("- name: Ada Lovelace"));
     assert!(prompt.contains("- id: user id"));
     assert!(prompt.contains("## Current Date & Time"));

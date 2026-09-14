@@ -373,7 +373,11 @@ fn prompt_sections_render_files_identity_memory_tools_and_ambient_blocks() -> Re
     let prompt_tools = [PromptTool::with_schema(
         "echo",
         "Echo tool",
-        json!({"type":"object","properties":{"b":{},"a":{}}}).to_string(),
+        json!({
+            "type":"object",
+            "properties":{"b":{"type":"string"},"a":{"type":"string"}}
+        })
+        .to_string(),
     )];
     let visible = HashSet::from(["echo".to_string()]);
     let ctx = prompt_context(workspace.path(), &prompt_tools, &visible);
@@ -393,7 +397,7 @@ fn prompt_sections_render_files_identity_memory_tools_and_ambient_blocks() -> Re
     assert!(rendered.contains("### USER.md"));
     assert!(rendered.contains("curated user body"));
     assert!(rendered.contains("### work (last updated 2026-05-29)"));
-    assert!(rendered.contains("Call as: `echo[a|b]`"));
+    assert!(rendered.contains("Call as: `echo[0|<a>|1|<b>]`"));
     assert!(rendered.contains("# Writing style"));
 
     let user_files = render_user_files(&ctx)?;

@@ -301,7 +301,7 @@ fn prompt_renderers_cover_user_memory_identity_tools_and_subagent_variants() -> 
     assert!(built.contains("round26 personality memory override"));
     assert!(built.contains("## User Memory"));
     assert!(built.contains("projects (last updated 2026-05-28)"));
-    assert!(built.contains("round26_tool[alpha|zeta]"));
+    assert!(built.contains("round26_tool[0|<alpha>|1|<zeta>]"));
     assert!(built.contains("## Available Personalities"));
     assert!(built.contains("Recent context: "));
 

@@ -2789,13 +2789,16 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     let registry = build_registry(&tools);
     assert_eq!(
         render_signature_from_tool(tools[0].as_ref()),
-        "plan_exit[plan]"
+        "plan_exit[0|<plan>]"
     );
     assert_eq!(
         render_signature("plan_exit", registry.get("plan_exit").expect("plan params")),
-        "plan_exit[plan]"
+        "plan_exit[0|<plan>]"
     );
-    let (name, args) = parse_pformat_call(r"plan_exit[Read code \| add test \] commit]", &registry)
+    let (name, args) = parse_pformat_call(
+        r"plan_exit[0|Read code \| add test \] commit]",
+        &registry,
+    )
         .expect("p-format call parses");
     assert_eq!(name, "plan_exit");
     assert_eq!(
@@ -2824,8 +2827,11 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
             ],
         },
     );
-    let (_, coerced) = parse_pformat_call("coerce[yes|7|2.5|{\"x\":1}|plain]", &custom_registry)
-        .expect("custom p-format");
+    let (_, coerced) = parse_pformat_call(
+        "coerce[0|yes|1|7|2|2.5|3|{\"x\":1}|4|plain]",
+        &custom_registry,
+    )
+    .expect("custom p-format");
     assert_eq!(
         coerced,
         json!({
@@ -2908,7 +2914,7 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     };
 
     let tools_md = render_tools(&ctx).expect("render tools");
-    assert!(tools_md.contains("plan_exit[plan]"));
+    assert!(tools_md.contains("plan_exit[0|<plan>]"));
     assert!(!tools_md.contains("Parameters:"));
     let ambient = render_ambient_environment(&ctx).expect("ambient");
     assert!(ambient.contains("Model: agentic-v1"));
@@ -3303,7 +3309,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
     let pformat = PFormatToolDispatcher::new(registry);
     let mixed = ChatResponse {
         text: Some(
-            "first\n<tool_call>search_docs[coverage gaps]</tool_call>\n\
+            "first\n<tool_call>search_docs[0|coverage gaps]</tool_call>\n\
              <tool_call>unknown_tool[json fallback]</tool_call>"
                 .into(),
         ),

@@ -73,6 +73,10 @@ const AboutPanel = () => {
         <div className="px-4 py-3">
           <div className="text-xs text-content-muted">{t('settings.about.version')}</div>
           <div className="mt-1 text-lg font-semibold text-content">v{APP_VERSION}</div>
+          <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+            <span aria-hidden="true">🧪</span>
+            <span>Preview build — this row exists only to exercise the UI preview bot</span>
+          </div>
           {info?.available && info.available_version && (
             <div className="mt-1 text-xs text-primary-500">
               v{info.available_version} {t('settings.about.updateAvailable')}

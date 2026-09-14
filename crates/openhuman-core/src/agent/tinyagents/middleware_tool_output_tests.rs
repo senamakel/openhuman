@@ -314,6 +314,7 @@ async fn tool_output_truncates_over_the_flat_budget() {
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies: HashMap::new(),
     };
     let mut result = tool_result("echo", &"x".repeat(5_000));
@@ -334,6 +335,7 @@ async fn tool_output_leaves_small_results_untouched() {
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies: HashMap::new(),
     };
     let mut result = tool_result("echo", "tiny");
@@ -363,6 +365,7 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies,
     };
     // Tool declares its own char cap → surfaced for the per-tool truncation.
@@ -404,6 +407,7 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies,
     };
 
@@ -457,6 +461,7 @@ async fn tool_output_honors_a_tools_own_cap() {
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies,
     };
     let mut result = tool_result("capped", &"y".repeat(500));

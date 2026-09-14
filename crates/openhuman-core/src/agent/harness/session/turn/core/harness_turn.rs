@@ -126,6 +126,7 @@ impl Agent {
             artifact_store,
             tokenjuice_compaction_enabled: self.context.compaction_enabled(),
             tokenjuice_compression: self.tokenjuice_compression,
+            runtime_config: self.runtime_config.clone(),
             microcompact_keep_recent: self.context.microcompact_keep_recent(),
             // Honor the [context].enabled / autocompact_enabled opt-outs: when off,
             // the summarization middleware is not installed (no summarizer tokens,

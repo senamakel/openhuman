@@ -41,6 +41,9 @@ pub(crate) struct TurnContextMiddleware {
     pub(crate) tokenjuice_compaction_enabled: bool,
     /// Agent-level TokenJuice profile for tool-result compaction.
     pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
+    /// The config snapshot resolved for this turn, used by TokenJuice without
+    /// re-entering startup config loading from a tool callback.
+    pub(crate) runtime_config: Option<Arc<crate::config::Config>>,
     /// Keep-recent count for microcompact tool-body clearing. `0` disables it.
     pub(crate) microcompact_keep_recent: usize,
     /// Whether the LLM summarization step (`ContextCompressionMiddleware`) may be
@@ -125,6 +128,7 @@ impl TurnContextMiddleware {
             artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
+            runtime_config: None,
             microcompact_keep_recent: 0,
             autocompact_enabled: true,
             handoff: None,
@@ -187,6 +191,7 @@ impl TurnContextMiddleware {
                 artifact_store: self.artifact_store,
                 tokenjuice_compaction_enabled: self.tokenjuice_compaction_enabled,
                 tokenjuice_compression: self.tokenjuice_compression,
+                runtime_config: self.runtime_config,
                 tool_policies,
             }));
         }

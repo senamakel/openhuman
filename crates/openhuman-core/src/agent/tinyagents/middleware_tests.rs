@@ -79,6 +79,7 @@ fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies: HashMap::new(),
     }
 }
@@ -170,6 +171,7 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
         artifact_store: None,
         tokenjuice_compaction_enabled: true,
         tokenjuice_compression: AgentTokenjuiceCompression::Full,
+        runtime_config: None,
         tool_policies: HashMap::new(),
     }
 }
@@ -216,6 +218,7 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies: HashMap::new(),
     }
 }

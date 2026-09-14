@@ -95,6 +95,9 @@ pub(crate) struct ToolOutputMiddleware {
     pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     pub(crate) tokenjuice_compaction_enabled: bool,
     pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
+    /// Config resolved when the turn was constructed; avoids a disk reload from
+    /// the deep `after_tool` stack.
+    pub(crate) runtime_config: Option<Arc<crate::config::Config>>,
     /// SDK policy snapshot keyed by tool name. Used to honor the adapter-mapped
     /// `max_result_size_chars()` cap without re-querying the OpenHuman tool
     /// trait from `after_tool`.
@@ -224,11 +227,12 @@ impl Middleware<()> for ToolOutputMiddleware {
             //    `agent_tool_exec` stage that ran after semantic summarization and
             //    before the hard output caps.
             let before_tokenjuice_bytes = result.content.len();
-            let compacted = crate::inference::tokenjuice::compact_output_with_policy(
+            let compacted = crate::inference::tokenjuice::compact_output_with_config(
                 std::mem::take(&mut result.content),
                 &result.name,
                 self.tokenjuice_compaction_enabled,
                 self.tokenjuice_compression,
+                self.runtime_config.as_ref(),
             )
             .await;
             result.content = compacted;

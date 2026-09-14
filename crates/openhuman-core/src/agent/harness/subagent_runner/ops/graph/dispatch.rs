@@ -542,6 +542,7 @@ fn build_subagent_context_mw(
     mw.tokenjuice_compression = tokenjuice_compression;
     match config {
         Some(config) => {
+            mw.runtime_config = Some(Arc::new(config.clone()));
             let ctx = &config.context;
             // TokenJuice content-aware compaction gates on the same master
             // `[context].compaction_enabled` the chat path reads

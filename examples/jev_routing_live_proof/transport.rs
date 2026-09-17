@@ -76,7 +76,7 @@ impl SystemOneTransport for JevTransport {
             let latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
             self.traces
                 .lock()
-                .map_err(|_| TransportError {
+                .map_err(|_| TransportError::Transport {
                     status: None,
                     message: "System One trace lock was poisoned".to_owned(),
                 })?
@@ -103,7 +103,7 @@ fn native_request(
 
 /// Convert any native-client or wire failure into the transport port's error.
 fn transport_error(error: impl std::fmt::Display) -> TransportError {
-    TransportError {
+    TransportError::Transport {
         status: None,
         message: error.to_string(),
     }
@@ -122,8 +122,11 @@ mod tests {
     #[test]
     fn adapter_errors_do_not_invent_an_http_status() {
         let error = transport_error("bad wire");
-        assert_eq!(error.status, None);
-        assert_eq!(error.message, "bad wire");
+        let tinyhivemind_typesafe::Error::Transport { status, message } = error else {
+            panic!("adapter errors must use the transport variant");
+        };
+        assert_eq!(status, None);
+        assert_eq!(message, "bad wire");
     }
 
     #[test]

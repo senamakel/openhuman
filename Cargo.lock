@@ -6687,7 +6687,7 @@ dependencies = [
 [[package]]
 name = "tinyhivemind"
 version = "0.2.1"
-source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=86f1a8606e0cd55d023635a7c1783f3ce0b55848#86f1a8606e0cd55d023635a7c1783f3ce0b55848"
 dependencies = [
  "serde",
  "thiserror 2.0.20",
@@ -6697,7 +6697,7 @@ dependencies = [
 [[package]]
 name = "tinyhivemind-core"
 version = "0.2.1"
-source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=86f1a8606e0cd55d023635a7c1783f3ce0b55848#86f1a8606e0cd55d023635a7c1783f3ce0b55848"
 dependencies = [
  "serde",
  "thiserror 2.0.20",
@@ -6706,19 +6706,21 @@ dependencies = [
 [[package]]
 name = "tinyhivemind-embed"
 version = "0.2.1"
-source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=86f1a8606e0cd55d023635a7c1783f3ce0b55848#86f1a8606e0cd55d023635a7c1783f3ce0b55848"
 dependencies = [
  "serde",
+ "thiserror 2.0.20",
  "tinyhivemind",
 ]
 
 [[package]]
 name = "tinyhivemind-typesafe"
 version = "0.2.1"
-source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=86f1a8606e0cd55d023635a7c1783f3ce0b55848#86f1a8606e0cd55d023635a7c1783f3ce0b55848"
 dependencies = [
  "serde",
  "serde_json",
+ "thiserror 2.0.20",
  "tinyhivemind",
  "tinyhivemind-embed",
 ]

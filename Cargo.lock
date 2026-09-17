@@ -4177,9 +4177,13 @@ dependencies = [
  "tinyflows-catalog",
  "tinyflows-copilot",
  "tinyflows-sqlite",
+ "tinyhivemind",
+ "tinyhivemind-embed",
+ "tinyhivemind-typesafe",
  "tinyhosts",
  "tinyhumans-sdk",
  "tinyinference",
+ "tinyjevclient",
  "tinyjuice-bus",
  "tinymcp",
  "tinymcp-bus",
@@ -6610,6 +6614,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyhivemind"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+dependencies = [
+ "serde",
+ "thiserror 2.0.20",
+ "tinyhivemind-core",
+]
+
+[[package]]
+name = "tinyhivemind-core"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+dependencies = [
+ "serde",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "tinyhivemind-embed"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+dependencies = [
+ "serde",
+ "tinyhivemind",
+]
+
+[[package]]
+name = "tinyhivemind-typesafe"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyhivemind?rev=caf6415cc3b94a50ec81938f7c08129ff30ea24e#caf6415cc3b94a50ec81938f7c08129ff30ea24e"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tinyhivemind",
+ "tinyhivemind-embed",
+]
+
+[[package]]
 name = "tinyhosts"
 version = "0.1.6"
 dependencies = [
@@ -6651,6 +6694,19 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
+name = "tinyjevclient"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyjevclient?rev=8d116fc2ac9bceecdad9df7a0c72e0f14ee3fea5#8d116fc2ac9bceecdad9df7a0c72e0f14ee3fea5"
+dependencies = [
+ "httpdate",
+ "reqwest",
+ "serde",
+ "serde_json",
  "thiserror 2.0.20",
  "tokio",
 ]

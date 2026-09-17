@@ -52,7 +52,7 @@ struct ProofTotals {
 
 #[derive(Debug, Serialize)]
 struct ProofRecord {
-    content_included: bool,
+    secure_output_written: bool,
     proof_id: String,
     message: String,
     candidate_snapshot: Vec<RouteCandidate>,
@@ -146,7 +146,7 @@ async fn run() -> anyhow::Result<()> {
     let reasoning_calls = reasoning.traces().map_err(anyhow::Error::msg)?;
     let totals = totals(&jev_calls, &reasoning_calls, &turns);
     let mut record = ProofRecord {
-        content_included: include_content(),
+        secure_output_written: false,
         proof_id,
         message,
         candidate_snapshot: candidates,
@@ -156,9 +156,11 @@ async fn run() -> anyhow::Result<()> {
         turns,
         totals,
     };
-    if !record.content_included {
-        redact_content(&mut record);
+    if let Some(path) = std::env::var_os("JEV_PROOF_SECURE_OUTPUT") {
+        record.secure_output_written = true;
+        write_secure_output(&record, std::path::Path::new(&path))?;
     }
+    redact_content(&mut record);
     println!("{}", serde_json::to_string_pretty(&record)?);
     Ok(())
 }
@@ -180,14 +182,23 @@ fn resolve_candidates(
         .collect()
 }
 
-/// Return whether the operator explicitly opted into content-bearing stdout.
-fn include_content() -> bool {
-    std::env::var("JEV_PROOF_INCLUDE_CONTENT").is_ok_and(|value| value == "1")
+/// Write content-bearing evidence once without overwriting an existing file.
+fn write_secure_output(record: &ProofRecord, path: &std::path::Path) -> anyhow::Result<()> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    let file = options.open(path)?;
+    serde_json::to_writer_pretty(file, record)?;
+    Ok(())
 }
 
 /// Remove user/model text while preserving auditable routing metadata.
 fn redact_content(record: &mut ProofRecord) {
-    const REDACTED: &str = "[redacted; set JEV_PROOF_INCLUDE_CONTENT=1 for secure output]";
+    const REDACTED: &str = "[redacted; set JEV_PROOF_SECURE_OUTPUT for private evidence]";
     record.message = REDACTED.into();
     for call in &mut record.jev_calls {
         if let Some(state) = call.request.get_mut("state") {
@@ -197,6 +208,9 @@ fn redact_content(record: &mut ProofRecord) {
             if let Some(context) = state.get_mut("thread_context") {
                 *context = serde_json::Value::Array(Vec::new());
             }
+        }
+        if let Some(answers) = call.response.get_mut("answers") {
+            *answers = serde_json::json!({"redacted": true});
         }
     }
     for call in &mut record.reasoning_calls {
@@ -404,7 +418,13 @@ fn totals(
 
 #[cfg(test)]
 mod tests {
-    use super::{candidates, resolve_candidates, selected_agents, MAX_LIVE_SEATS};
+    use super::{
+        candidates, redact_content, resolve_candidates, selected_agents, write_secure_output,
+        ProofRecord, ProofTotals, SeatRecord, MAX_LIVE_SEATS,
+    };
+    use crate::reasoning::ReasoningTrace;
+    use crate::transport::SystemOneTrace;
+    use serde_json::json;
     use tinyhivemind_embed::{RoutingFallback, RoutingPlan};
 
     #[test]
@@ -471,5 +491,91 @@ mod tests {
         let candidates = candidates();
         let selected = vec!["engineering".into(), "unknown".into()];
         assert!(resolve_candidates(&selected, &candidates).is_err());
+    }
+
+    #[test]
+    fn stdout_redaction_removes_every_content_bearing_field() {
+        let mut record = record();
+        redact_content(&mut record);
+        assert!(record.message.starts_with("[redacted"));
+        assert_eq!(
+            record.jev_calls[0].request["state"]["message"],
+            record.message
+        );
+        assert_eq!(
+            record.jev_calls[0].response["answers"],
+            json!({"redacted": true})
+        );
+        assert!(record.reasoning_calls[0].prompt.starts_with("[redacted"));
+        assert!(record.reasoning_calls[0].reply.starts_with("[redacted"));
+        assert!(record.turns[0].reply.starts_with("[redacted"));
+    }
+
+    #[test]
+    fn secure_output_is_private_and_never_overwrites() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        let path = dir.path().join("proof.json");
+        write_secure_output(&record(), &path).expect("first write succeeds");
+        assert!(write_secure_output(&record(), &path).is_err());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = std::fs::metadata(path)
+                .expect("proof metadata")
+                .permissions()
+                .mode()
+                & 0o777;
+            assert_eq!(mode, 0o600);
+        }
+    }
+
+    fn record() -> ProofRecord {
+        ProofRecord {
+            secure_output_written: true,
+            proof_id: "proof".into(),
+            message: "sensitive request".into(),
+            candidate_snapshot: Vec::new(),
+            jev_calls: vec![SystemOneTrace {
+                sequence: 0,
+                request: json!({"state":{"message":"sensitive request","thread_context":["private"]}}),
+                response: json!({"answers":{"primary_responder":{"choice":"engineering"}},"usage":{}}),
+                attempts: 1,
+                latency_ms: 1,
+            }],
+            reasoning_calls: vec![ReasoningTrace {
+                sequence: 0,
+                prompt: "sensitive prompt".into(),
+                reply: "sensitive reasoning".into(),
+                latency_ms: 1,
+                input_tokens: 1,
+                output_tokens: 1,
+                cached_input_tokens: 0,
+                cost_usd: 0.0,
+            }],
+            accepted_plan: RoutingPlan::Fallback {
+                responder_id: "engineering".into(),
+                reason: RoutingFallback::ProviderUnavailable,
+            },
+            turns: vec![SeatRecord {
+                agent_id: "engineering".into(),
+                session_id: "session".into(),
+                reply: "sensitive reply".into(),
+                latency_ms: 1,
+                input_tokens: 1,
+                output_tokens: 1,
+                cached_input_tokens: 0,
+                cost_usd: 0.0,
+            }],
+            totals: ProofTotals {
+                jev_input_tokens: 1,
+                jev_output_tokens: 1,
+                openhuman_input_tokens: 1,
+                openhuman_output_tokens: 1,
+                openhuman_cost_usd: 0.0,
+                reasoning_input_tokens: 1,
+                reasoning_output_tokens: 1,
+                reasoning_cost_usd: 0.0,
+            },
+        }
     }
 }

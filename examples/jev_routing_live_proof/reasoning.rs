@@ -3,8 +3,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use openhuman_core::openhuman::agent::progress::AgentProgress;
-use openhuman_core::Harness;
+use openhuman_core::agent::progress::AgentProgress;
+use openhuman_embed::Harness;
 use serde::{Deserialize, Serialize};
 use tinyhivemind_embed::{
     CandidateProbability, ContributionProbability, EvaluationDisposition, Router, RouterFuture,

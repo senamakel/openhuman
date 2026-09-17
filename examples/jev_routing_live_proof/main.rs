@@ -9,10 +9,10 @@ mod transport;
 use std::sync::Arc;
 use std::time::Instant;
 
+use openhuman_core::agent::progress::AgentProgress;
+use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{AGENT_WORKER_STACK_BYTES, MAX_BLOCKING_THREADS};
-use openhuman_core::openhuman::agent::progress::AgentProgress;
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::{Access, Harness, Provider, Workspace};
+use openhuman_embed::{Access, Harness, Provider, Workspace};
 use serde::Serialize;
 use tinyhivemind_embed::{
     route_message, ConversationKind, ConversationRef, RouteCandidate, RoutingPlan, RoutingPolicy,

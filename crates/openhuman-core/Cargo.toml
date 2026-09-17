@@ -912,6 +912,9 @@ landlock = { version = "0.4", optional = true }
 rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
+# The Jev live proof drives OpenHuman through the public embedding facade,
+# keeping the example aligned with external OpenCompany integration.
+openhuman-embed = { path = "../openhuman-embed" }
 # LIVE EXAMPLE ONLY. Jev-first routing and its exact System One adapter are
 # pinned to the merged canonical TinyHiveMind commit. They remain outside the
 # shipped OpenHuman graph until the OpenCompany integration evidence is stable.

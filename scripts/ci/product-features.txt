@@ -5,7 +5,7 @@
 # CONTRIBUTOR set (what a bare `cargo check` / rust-analyzer compiles).
 #
 # Read by:
-#   * scripts/ci/check-feature-forwarding.mjs — asserts app/src-tauri/Cargo.toml
+#   * scripts/ci/check-feature-forwarding.mjs — asserts crates/openhuman-app/Cargo.toml
 #     forwards exactly this set, and that every name here is a real core gate.
 #   * the CI product lanes (clippy, unit tests, coverage), via
 #     scripts/ci/product-features.sh, so they keep compiling and testing the

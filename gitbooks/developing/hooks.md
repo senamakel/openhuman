@@ -12,7 +12,7 @@ same stdin envelope, same stdout decision, same exit codes. A hook script writte
 for either host runs on the other unchanged.
 
 > There is a second, unrelated meaning of "hook" in this codebase: the in-process
-> Rust traits in `src/openhuman/agent/hooks.rs` that an *embedding host* installs
+> Rust traits in `crates/openhuman-core/src/agent/hooks.rs` that an *embedding host* installs
 > by compiling against the core. Those are for building a product on top of
 > OpenHuman. This page is about the file-based kind, for using OpenHuman.
 
@@ -255,7 +255,7 @@ Both need `chmod +x`.
 
 ## Implementation
 
-`src/openhuman/hooks/` — `types` (the wire contract), `config` (the file and its
+`crates/openhuman-core/src/hooks/` — `types` (the wire contract), `config` (the file and its
 layering), `matcher`, `exec` (one hook: stdin, timeout, exit codes),
 `engine` (selection, ordering, aggregation), `context` (the envelope),
 `bridge` (mounting on the harness's existing tool and turn seams), `ops` (the

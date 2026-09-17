@@ -1,5 +1,5 @@
 // Tauri config overrides applied at CI build time on top of the static
-// `app/src-tauri/tauri.conf.json`. Anything returned here is merged via
+// `crates/openhuman-app/tauri.conf.json`. Anything returned here is merged via
 // `tauri build --config <json>` and wins over the static file.
 //
 // History note: this file used to inject `plugins.updater.pubkey` and
@@ -8,7 +8,7 @@
 // outage class — if the build-time pubkey ever drifted out of sync with the
 // `TAURI_SIGNING_PRIVATE_KEY` secret used to sign artifacts, every signed
 // installer was rejected by its own embedded pubkey at install time
-// ("bad keys"). The static `app/src-tauri/tauri.conf.json` is now the
+// ("bad keys"). The static `crates/openhuman-app/tauri.conf.json` is now the
 // single source of truth for the updater pubkey + endpoint; rotate via
 // commit + review instead of silent secret swaps.
 //

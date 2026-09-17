@@ -71,7 +71,7 @@ fi
 # contributor set. Without them the four `required-features` integration
 # targets (json_rpc_e2e, raw_coverage_all, observability_smoke,
 # x402_twit_sh_live) are silently SKIPPED and the run still exits 0 — the same
-# trap `--features bin-tools` already guards for the `src/bin/` targets.
+# trap `--features bin-tools` already guards for the `crates/openhuman-core/src/bin/` targets.
 # Source of truth: scripts/ci/product-features.txt.
 PRODUCT_FEATURES="$(bash "$REPO_ROOT/scripts/ci/product-features.sh")"
 
@@ -169,17 +169,13 @@ run_json_rpc_e2e() {
   done < <(cargo_test --test json_rpc_e2e -- --list | sed -n 's/: test$//p')
 }
 
-run_archivist_tree_tests() {
-  local test_name
-  for test_name in \
-    phase2_no_per_turn_tree_write \
-    phase2_exactly_one_tree_ingest_per_segment_close \
-    phase2_provenance_stamped_on_leaf_and_source_id_is_constant \
-    phase2_ingested_content_is_raw_prose_not_recap \
-    phase2_flush_also_triggers_tree_ingest; do
-    echo "[test-rust-with-mock] archivist tree test: ${test_name}"
-    cargo_test --lib "openhuman::agent::harness::archivist::tests::part_01_tests::${test_name}" -- --exact --test-threads=1 "$@"
-  done
+run_build_only_reaper_test() {
+  # Building the runtime installs process-global context that cannot be reset.
+  # Keep this real build-path regression in a fresh process so it cannot narrow
+  # the DomainSet observed by later registry and domain tests.
+  cargo_test --lib \
+    "openhuman::agent::tinyagents::reaper::tests::a_build_only_runtime_is_swept_before_it_can_be_invoked" \
+    -- --exact --test-threads=1 "$@"
 }
 
 run_full_suite() {
@@ -188,12 +184,8 @@ run_full_suite() {
   # integration targets below retain their own, narrower isolation strategies.
   TINYCONNECTORS_TEST_MODULE="${TINYCONNECTORS_TEST_MODULE:-$connectors_module}" \
     cargo_test --lib --bins -- --test-threads=1 \
-    --skip phase2_no_per_turn_tree_write \
-    --skip phase2_exactly_one_tree_ingest_per_segment_close \
-    --skip phase2_provenance_stamped_on_leaf_and_source_id_is_constant \
-    --skip phase2_ingested_content_is_raw_prose_not_recap \
-    --skip phase2_flush_also_triggers_tree_ingest "$@"
-  run_archivist_tree_tests "$@"
+    --skip a_build_only_runtime_is_swept_before_it_can_be_invoked "$@"
+  run_build_only_reaper_test "$@"
   cargo_test --doc -- "$@"
 
   while IFS= read -r target; do

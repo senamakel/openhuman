@@ -190,7 +190,7 @@ fi
   fi
 )
 
-python3 - "$REPO_ROOT/app/src-tauri/tauri.conf.json" <<'PY'
+python3 - "$REPO_ROOT/crates/openhuman-app/tauri.conf.json" <<'PY'
 import json, sys
 
 path = sys.argv[1]

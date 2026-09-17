@@ -1,0 +1,375 @@
+//! [`SystemPromptBuilder`] — assembles ordered [`PromptSection`]s into a
+//! final system-prompt string.
+
+/// A rendered system prompt together with the byte offsets at which a provider
+/// may place a prompt-cache breakpoint.
+///
+/// Offsets are ends-of-tier, in ascending order, and always fall on a UTF-8
+/// character boundary because they are taken at a point where only whole
+/// sections have been pushed. At most two are produced today (end of `Stable`,
+/// end of `Context`), comfortably inside the four Anthropic accepts.
+#[derive(Debug, Clone, Default)]
+pub struct TieredPrompt {
+    /// The assembled prompt — byte-identical to what [`SystemPromptBuilder::build`] returns.
+    pub text: String,
+    /// Ascending byte offsets into [`Self::text`].
+    pub breakpoints: Vec<usize>,
+}
+
+use super::render_helpers::sync_workspace_file;
+use super::sections::*;
+use super::types::*;
+use anyhow::Result;
+use std::path::Path;
+
+/// Global style rules appended to every assembled system prompt, regardless
+/// of which sections the agent opts in/out of. Kept tiny and byte-stable so
+/// it doesn't bust the inference backend's prefix cache.
+///
+/// These are the rules that make output read as written by a person. There
+/// used to be a **Be concise** bullet here too ("lead with the answer, then
+/// only the detail the task needs ... a one-line answer for a simple ask").
+/// It was removed deliberately: brevity is not the same goal as sounding
+/// human, and a global length ceiling was truncating answers that had more to
+/// say. Lead-with-the-answer and no-preamble survive in the per-agent voice
+/// sections, where they can be phrased as ordering rather than as a budget.
+/// Do not reintroduce a global length rule here.
+///
+/// The text itself now lives in `STYLE.md` (#5701) rather than in this
+/// constant, so it can be tuned on disk without a rebuild. This value is the
+/// bundled seed and the fallback when the workspace copy cannot be read; the
+/// authoritative content is whatever `sync_workspace_file` last wrote, plus
+/// any user edit on top of it.
+pub const GLOBAL_STYLE_SUFFIX: &str = include_str!("STYLE.md");
+
+/// The writing-style block appended to every agent's prompt.
+///
+/// Reads the workspace `STYLE.md`, seeding it from the bundled copy first so a
+/// fresh workspace still gets the rules. Falls back to the bundled text if the
+/// file cannot be read, because a prompt with no style contract at all is a
+/// worse failure than a stale one.
+///
+/// Synced here rather than only in [`IdentitySection`] because agents that set
+/// `omit_identity` skip that section entirely, and they need the style rules
+/// too.
+fn global_style_block(workspace_dir: &Path) -> String {
+    sync_workspace_file(workspace_dir, "STYLE.md");
+    std::fs::read_to_string(workspace_dir.join("STYLE.md")).unwrap_or_else(|error| {
+        tracing::warn!(
+            "[style] could not read workspace STYLE.md ({error}); \
+             falling back to the bundled copy"
+        );
+        GLOBAL_STYLE_SUFFIX.to_string()
+    })
+}
+
+#[derive(Default)]
+pub struct SystemPromptBuilder {
+    pub(super) sections: Vec<Box<dyn PromptSection>>,
+}
+
+impl SystemPromptBuilder {
+    pub fn with_defaults() -> Self {
+        Self {
+            sections: vec![
+                Box::new(IdentitySection),
+                // User files (PROFILE.md, MEMORY.md) ride right after the
+                // identity bootstrap so they land in the cache-friendly
+                // prefix alongside SOUL/IDENTITY. Gated per-agent — see
+                // `UserFilesSection`. Intentionally separate from
+                // `IdentitySection` so agents that strip the identity
+                // preamble via `for_subagent(omit_identity=true)` still
+                // get their user files (welcome / orchestrator / the
+                // trigger pair).
+                Box::new(UserFilesSection),
+                // Project instructions (AGENTS.md) sit right after the user
+                // context and before the tool catalogue — standing, per-project
+                // guidance the model should read alongside identity/memory. Both
+                // layers are pre-loaded into `PromptContext` and this section is
+                // empty (skipped) when neither exists or the gate is off.
+                Box::new(AgentsInstructionsSection),
+                // User memory sits right after the identity bootstrap so the
+                // model has rich, persistent context about the user before it
+                // sees the tool catalogue. Section is empty (and skipped) when
+                // the tree summarizer has nothing on disk yet.
+                //
+                // The privileged `UserReflectionsSection` is appended
+                // dynamically by `session::builder` when the
+                // learning subsystem is enabled, alongside
+                // `LearnedContextSection` / `UserProfileSection` — those
+                // three are config-gated and intentionally not part of
+                // the static default chain.
+                Box::new(UserMemorySection),
+                Box::new(ToolsSection),
+                Box::new(SafetySection),
+                Box::new(WorkspaceSection),
+                Box::new(DateTimeSection),
+                Box::new(RuntimeSection),
+            ],
+        }
+    }
+
+    /// Build a narrow prompt for a sub-agent.
+    ///
+    /// The sub-agent's archetype prompt is registered as a dedicated
+    /// section that always renders first. The remaining sections respect
+    /// the `omit_*` flags from the [`crate::agent::harness::definition::AgentDefinition`]:
+    /// `omit_identity` skips the project-context dump, `omit_safety_preamble`
+    /// skips the safety rules, and so on. The `WorkspaceSection` is always
+    /// included so the sub-agent knows its working directory.
+    ///
+    /// `archetype_prompt_text` is the already-loaded body of the
+    /// `system_prompt` source on the definition (the runner resolves
+    /// inline vs file before calling this).
+    ///
+    /// # KV cache stability
+    ///
+    /// `DateTimeSection` is intentionally **not** included here.
+    /// Repeat spawns of the same sub-agent definition must produce
+    /// byte-identical system prompts so the inference backend's
+    /// automatic prefix cache can reuse the prefill from the previous
+    /// run. Injecting `Local::now()` into the prompt would defeat that
+    /// goal — if a sub-agent genuinely needs the current time it
+    /// should receive it via the user message, not the system prompt.
+    pub fn for_subagent(
+        archetype_prompt_text: String,
+        omit_identity: bool,
+        omit_safety_preamble: bool,
+    ) -> Self {
+        let mut sections: Vec<Box<dyn PromptSection>> =
+            vec![Box::new(ArchetypePromptSection::new(archetype_prompt_text))];
+
+        if !omit_identity {
+            sections.push(Box::new(IdentitySection));
+        }
+        // User files (PROFILE.md / MEMORY.md) are gated independently of
+        // `omit_identity` so agents that drop the identity preamble (e.g.
+        // welcome's `omit_identity = true`) still surface the user's
+        // onboarding + archivist context when `omit_profile` /
+        // `omit_memory_md` are opted in.
+        sections.push(Box::new(UserFilesSection));
+        // Project instructions (AGENTS.md) — same placement as the default
+        // chain (after user files, before tools). Empty (skipped) unless the
+        // caller pre-loaded content onto `PromptContext`.
+        sections.push(Box::new(AgentsInstructionsSection));
+        // Tools section is always included — the sub-agent needs to see
+        // its own (filtered) tool catalogue.
+        sections.push(Box::new(ToolsSection));
+        if !omit_safety_preamble {
+            sections.push(Box::new(SafetySection));
+        }
+        // Skills catalogue and connected integrations are rendered by
+        // the individual agent's `prompt.rs` when that agent needs
+        // them (integrations_agent for the skill-executor voice,
+        // orchestrator/welcome for the delegator voice). The shared
+        // builder intentionally does not emit them — keeping
+        // agent-specific prose scoped to the agent that owns it.
+        sections.push(Box::new(WorkspaceSection));
+
+        Self { sections }
+    }
+
+    /// Build from a fully-assembled prompt string — no section wrapping.
+    ///
+    /// Used when the caller has already composed the final prompt (e.g.
+    /// via a function-driven `PromptSource::Dynamic` builder that calls
+    /// the `render_*` section helpers itself). The returned builder has
+    /// a single [`ArchetypePromptSection`] containing the body verbatim.
+    pub fn from_final_body(body: String) -> Self {
+        Self {
+            sections: vec![Box::new(ArchetypePromptSection::new(body))],
+        }
+    }
+
+    /// Build from a [`PromptSource::Dynamic`] function pointer.
+    ///
+    /// The function is called every time [`Self::build`] runs, with the
+    /// live [`PromptContext`] the call-site supplies — so late-arriving
+    /// state like `connected_integrations` (fetched asynchronously at
+    /// the start of a session) reaches the dynamic renderer instead of
+    /// being frozen into an empty slice at builder-construction time.
+    ///
+    /// KV-cache contract: callers must only invoke `build_system_prompt`
+    /// once per session (after `fetch_connected_integrations`). The
+    /// rendered bytes are then frozen for the rest of the session the
+    /// same way `from_final_body` freezes them — the difference is just
+    /// *when* the freeze happens.
+    pub fn from_dynamic(builder: crate::agent::harness::definition::PromptBuilder) -> Self {
+        Self {
+            sections: vec![
+                Box::new(DynamicPromptSection::new(builder)),
+                // Project instructions (AGENTS.md). The ~26 dynamic
+                // `agents/<id>/prompt.rs` builders (orchestrator / main chat,
+                // welcome, integrations_agent, …) hand-assemble their own body
+                // via the `render_*` helpers and none of them individually call
+                // `render_agents_md`, so the pre-loaded AGENTS.md layers on
+                // `PromptContext` would otherwise be silently dropped for the
+                // primary agent. Inject the shared section centrally here —
+                // mirroring how `build()` appends the grounding contract for all
+                // dynamic builders — so every dynamic agent inherits the same
+                // AGENTS.md injection as the `with_defaults` / `for_subagent`
+                // chains. Rendered after the agent's own body (as trailing
+                // standing guidance) and before the central grounding suffix.
+                // Empty (skipped) when neither layer carries content or the
+                // `agents_md_enabled` gate is off.
+                Box::new(AgentsInstructionsSection),
+            ],
+        }
+    }
+
+    pub fn add_section(mut self, section: Box<dyn PromptSection>) -> Self {
+        self.sections.push(section);
+        self
+    }
+
+    /// Insert `section` immediately before the first existing section
+    /// whose [`PromptSection::name`] matches `target_name`. When no
+    /// matching section is present (most dynamic / sub-agent builders
+    /// do not include `user_memory`, for example), the new section is
+    /// appended at the end instead.
+    ///
+    /// Used by the session builder to guarantee that the privileged
+    /// reflection block ranks ahead of broader memory sections like
+    /// `user_memory`, even when the surrounding builder was assembled
+    /// via [`Self::with_defaults`] which already contains them.
+    pub fn insert_section_before(
+        mut self,
+        target_name: &str,
+        section: Box<dyn PromptSection>,
+    ) -> Self {
+        let position = self.sections.iter().position(|s| s.name() == target_name);
+        match position {
+            Some(idx) => self.sections.insert(idx, section),
+            None => self.sections.push(section),
+        }
+        self
+    }
+
+    /// Append a [`ToolMemoryRulesSection`] carrying a pre-fetched
+    /// snapshot of Critical / High priority tool-scoped rules (#1400).
+    ///
+    /// Snapshot semantics — the rules are baked into the section at
+    /// construction so the rendered system prompt stays byte-identical
+    /// for the lifetime of the session. The session builder is
+    /// responsible for pre-fetching via
+    /// [`crate::memory::tool_memory::ToolMemoryStore::rules_for_prompt`]
+    /// (or the `memory_tool_rules_for_prompt` RPC) before invoking
+    /// this method.
+    ///
+    /// No-op when `rules` is empty.
+    pub fn with_tool_memory_rules(
+        mut self,
+        rules: Vec<crate::memory::tool_memory::ToolMemoryRule>,
+    ) -> Self {
+        if rules.is_empty() {
+            return self;
+        }
+        // Insert before the tool-catalogue section so these rules appear
+        // adjacent to the tool listings and survive tail-biased trimming.
+        // Falls back to push when no tools section is present.
+        let section: Box<dyn PromptSection> =
+            Box::new(crate::memory::tool_memory::prompt::ToolMemoryRulesSection::new(rules));
+        let tools_idx = self
+            .sections
+            .iter()
+            .position(|s| s.name() == "tools" || s.name() == "tool_catalogue");
+        match tools_idx {
+            Some(idx) => self.sections.insert(idx, section),
+            None => self.sections.push(section),
+        }
+        self
+    }
+
+    /// Render every section in order into a single prompt string.
+    ///
+    /// The rendered bytes are intended to be **frozen for the whole
+    /// session** — callers build the system prompt once at session
+    /// start and reuse the exact bytes on every subsequent turn so the
+    /// inference backend's prefix cache hits uniformly. There is no
+    /// cache-boundary marker to emit because the entire prompt is
+    /// static from the provider's perspective.
+    pub fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        Ok(self.build_tiered(ctx)?.text)
+    }
+
+    /// Assemble the prompt **and** report where its cache tiers end.
+    ///
+    /// Sections are emitted grouped by [`PromptSection::tier`] — every
+    /// `Stable` section in declaration order, then every `Context` one, then
+    /// every `Volatile` one. Within a tier the declaration order is preserved
+    /// exactly, so this is a stable partition rather than a sort: a section
+    /// that does not change tier does not change its neighbours.
+    ///
+    /// The grouping is the whole point. A prefix is reusable only up to the
+    /// first byte that differs, so a volatile section emitted early throws away
+    /// every stable byte behind it. `with_defaults` used to place
+    /// `UserFilesSection` second and `UserMemorySection` fourth, ahead of the
+    /// tool catalogue, the safety contract and the writing-style rules — so a
+    /// single `MEMORY.md` write invalidated all of them.
+    ///
+    /// It does not change the prompt's **size**: the same sections render the
+    /// same bytes, in a different order. `scripts/prompt-budget.limits` should
+    /// therefore not move when this lands, and if it does, something else
+    /// changed too.
+    pub fn build_tiered(&self, ctx: &PromptContext<'_>) -> Result<TieredPrompt> {
+        let mut output = String::new();
+        let mut breakpoints: Vec<usize> = Vec::new();
+
+        for tier in [
+            PromptTier::Stable,
+            PromptTier::Context,
+            PromptTier::Volatile,
+        ] {
+            for section in self.sections.iter().filter(|s| s.tier() == tier) {
+                let part = section.build(ctx)?;
+                if part.trim().is_empty() {
+                    continue;
+                }
+                output.push_str(part.trim_end());
+                output.push_str("\n\n");
+            }
+            // A boundary is only worth declaring when the tier actually
+            // contributed something and something can still follow it. A
+            // breakpoint at offset 0 caches nothing, and one at the very end
+            // of the prompt is the provider's default anyway.
+            if tier != PromptTier::Volatile && !output.is_empty() {
+                match breakpoints.last() {
+                    Some(&last) if last == output.len() => {}
+                    _ => breakpoints.push(output.len()),
+                }
+            }
+        }
+        // Grounding / anti-hallucination contract is appended centrally here
+        // (and in the narrow sub-agent renderer) rather than per-section, so
+        // EVERY agent inherits the same anti-fabrication floor — including the
+        // ~26 dynamic `agents/<id>/prompt.rs` builders that each hand-assemble
+        // their own body via the `render_*` helpers and would otherwise have
+        // to splice it in individually. Single source of truth: GROUNDING_BODY.
+        // Placed near the tail (just before the output-style rules) so it reads
+        // as a closing contract; byte-stable, so it stays cache-friendly.
+        // Skipped when the agent's own prompt already carries the contract.
+        // The orchestrator folds grounding into its merged `## Rules` section
+        // (#5701) so the rules read as one list rather than two that repeat
+        // each other; appending here as well would ship it twice. Matching on
+        // the heading keeps this self-maintaining: an agent that stops
+        // carrying its own copy silently gets the global one back.
+        if !output.contains(GROUNDING_HEADING) {
+            output.push_str(GROUNDING_BODY);
+            output.push_str("\n\n");
+        }
+        output.push_str(global_style_block(ctx.workspace_dir).trim_end());
+        output.push('\n');
+        // The grounding contract and the style block are byte-stable and are
+        // appended after every tier, so they land behind the volatile bytes and
+        // are not covered by any breakpoint. That is deliberate and costs
+        // nothing worth recovering: together they are under a kilobyte, and
+        // moving them ahead of the volatile tier would put the prompt's closing
+        // contract in the middle of the document, which is worse to read and
+        // worse to edit. If they ever grow, make them their own `Stable`
+        // sections instead of special-casing them here.
+        Ok(TieredPrompt {
+            text: output,
+            breakpoints,
+        })
+    }
+}

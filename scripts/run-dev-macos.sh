@@ -25,5 +25,5 @@ export OPENHUMAN_DEV_PORT="$dev_port"
 export APPLE_SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY:-OpenHuman Dev Signer}"
 config_override="{\"build\":{\"devUrl\":\"http://localhost:${dev_port}\"}}"
 
-cd "$REPO_ROOT/app"
+cd "$REPO_ROOT/crates/openhuman-app"
 exec cargo tauri dev --config "$config_override"

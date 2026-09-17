@@ -103,39 +103,37 @@ export const startLoopbackOauthListener = async (
     }
   };
 
+  // `done` closes the race where the timeout (or a cancel) lands *before* the
+  // async `listen()` registration resolves: the just-registered unlisten handle
+  // is torn down instead of being stored in module-global `activeUnlisten`.
+  let done = false;
+  let timer: number | undefined;
+  let unlisten: UnlistenFn | null = null;
+  const teardown = () => {
+    done = true;
+    window.clearTimeout(timer);
+    if (unlisten) {
+      unlisten();
+      if (activeUnlisten === unlisten) activeUnlisten = null;
+      unlisten = null;
+    }
+  };
+
   const awaitCallback = (): Promise<string> =>
     new Promise<string>((resolve, reject) => {
-      // `timedOut` closes the race where `setTimeout` fires *before* the async
-      // `listen()` registration resolves: previously the just-registered
-      // unlisten handle was stored in module-global `activeUnlisten` after the
-      // promise had already rejected, leaving the listener armed until the
-      // next `startLoopbackOauthListener` call cleaned it up.
-      let timedOut = false;
-      let unlisten: UnlistenFn | null = null;
-      const timer = window.setTimeout(() => {
-        timedOut = true;
-        if (unlisten) {
-          unlisten();
-          if (activeUnlisten === unlisten) activeUnlisten = null;
-        }
+      timer = window.setTimeout(() => {
+        teardown();
         void stop();
         reject(new Error('Loopback OAuth listener timed out'));
       }, timeoutSecs * 1000);
 
       listen<CallbackPayload>(CALLBACK_EVENT, event => {
-        if (timedOut) return;
-        window.clearTimeout(timer);
-        if (unlisten) {
-          unlisten();
-          if (activeUnlisten === unlisten) activeUnlisten = null;
-        }
+        if (done) return;
+        teardown();
         resolve(event.payload.url);
       })
         .then(fn => {
-          if (timedOut) {
-            // Timer already rejected the promise — tear down the
-            // just-registered handle so it does not leak into
-            // `activeUnlisten` and stay armed past the timeout.
+          if (done) {
             fn();
             return;
           }
@@ -143,13 +141,20 @@ export const startLoopbackOauthListener = async (
           activeUnlisten = fn;
         })
         .catch(err => {
-          if (timedOut) return;
+          if (done) return;
           window.clearTimeout(timer);
           reject(err);
         });
     });
 
-  return { redirectUri: redirectUriWithState, state: result.state, awaitCallback, cancel: stop };
+  // Cancel must also clear the timeout: a cancelled attempt's timer otherwise
+  // fires later and stops whichever listener is active by then (a retry's).
+  const cancel = async () => {
+    teardown();
+    await stop();
+  };
+
+  return { redirectUri: redirectUriWithState, state: result.state, awaitCallback, cancel };
 };
 
 const appendState = (uri: string, state: string): string => {

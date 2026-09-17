@@ -15,11 +15,9 @@
 
 use std::sync::Arc;
 
-use openhuman_core::openhuman::memory::api::recall::RecallOpts;
-use openhuman_core::openhuman::memory::api::types::{
-    MemoryCategory, MemoryEntry, NamespaceSummary,
-};
-use openhuman_core::openhuman::memory::Memory;
+use openhuman_core::memory::api::recall::RecallOpts;
+use openhuman_core::memory::api::types::{MemoryCategory, MemoryEntry, NamespaceSummary};
+use openhuman_core::memory::Memory;
 
 /// Accepts every write and answers empty.
 #[derive(Debug)]

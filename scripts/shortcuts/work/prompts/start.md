@@ -25,9 +25,9 @@ Ground the change in the existing codebase before writing any code:
 
 ## 2. Implement in Rust (if core logic is involved)
 
-- New functionality goes in a **dedicated subdirectory** under `src/openhuman/<domain>/`. Do **not** add new standalone `*.rs` files at the `src/openhuman/` root.
+- New functionality goes in a **dedicated subdirectory** under `crates/openhuman-core/src/<domain>/`. Do **not** add new standalone `*.rs` files at the `crates/openhuman-core/src/` root.
 - Domain `mod.rs` is export-focused; operational code in `ops.rs` / `store.rs` / `types.rs` / `schemas.rs`.
-- Expose features through the controller registry — never add domain branches in `src/core/cli.rs` / `src/core/jsonrpc.rs`.
+- Expose features through the controller registry — never add domain branches in `crates/openhuman-core/src/core/cli.rs` / `crates/openhuman-core/src/core/jsonrpc.rs`.
 - Use the event bus singletons (`publish_global` / `subscribe_global` / `register_native_global` / `request_native_global`); never construct `EventBus` / `NativeRegistry` directly.
 - Return `RpcOutcome<T>` per `AGENTS.md`.
 
@@ -40,7 +40,7 @@ When adding/renaming RPC methods, extend `tests/json_rpc_e2e.rs` (`scripts/test-
 - React screens/state live in `app/src/`. Use `core_rpc_relay` / `coreRpcClient` to call the core — never duplicate business logic in TypeScript.
 - Frontend `VITE_*` reads go through `app/src/utils/config.ts`. Never `import.meta.env` directly elsewhere.
 - No dynamic `import()` in production `app/src` code (see CLAUDE.md exceptions for test/setup/config files).
-- `app/src-tauri` is desktop-only. No Android/iOS branches.
+- `crates/openhuman-app` is desktop-only. No Android/iOS branches.
 - CEF webviews must not grow new JS injection — use CEF handlers + CDP from the scanner side instead.
 
 ## 5. Tests (REQUIRED)
@@ -56,7 +56,7 @@ Add verbose diagnostics on new/changed flows: entry/exit, branches, retries, tim
 
 ## 7. Capability catalog
 
-If this adds, removes, or renames a user-facing feature, update `src/openhuman/platform/about_app/` in the same change.
+If this adds, removes, or renames a user-facing feature, update `crates/openhuman-core/src/platform/about_app/` in the same change.
 
 ## 8. Pre-merge quality checks
 
@@ -69,10 +69,10 @@ cd app && pnpm lint
 cd app && pnpm format
 cd app && pnpm test:unit
 
-# Rust (if src/ or app/src-tauri changed)
+# Rust (if src/ or crates/openhuman-app changed)
 cargo fmt --manifest-path Cargo.toml
 cargo check --manifest-path Cargo.toml
-cargo check --manifest-path app/src-tauri/Cargo.toml
+cargo check --manifest-path crates/openhuman-app/Cargo.toml
 cargo test --manifest-path Cargo.toml
 ```
 

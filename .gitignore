@@ -66,7 +66,11 @@ scripts/ci-secrets.local.json
 *.sln
 *.sw?
 references/
-app/src-tauri/runtime-skill-*
+# Flow-authoring pages are compiled into the core binary; do not hide them
+# behind the generic generated-reference-directory rule above.
+!crates/openhuman-core/src/flows/skills/flow-authoring/references/
+!crates/openhuman-core/src/flows/skills/flow-authoring/references/*.md
+crates/openhuman-app/runtime-skill-*
 .mypy_cache
 .ruff_cache
 .kotlin
@@ -88,6 +92,7 @@ app/test/e2e/artifacts/
 tauri.key
 tauri.key.pub
 /target/
+/crates/*/target/
 src-tauri/target/
 app/src-tauri-mobile/gen/
 app/src-tauri-mobile/target/

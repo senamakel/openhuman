@@ -33,7 +33,9 @@ import {
 } from './memorySourcesIcons';
 import { relativeTimestamp, sourceDetail } from './memorySourcesRowHelpers';
 import {
+  showsStageDetail,
   STAGE_FALLBACK_PERCENT,
+  stageLabelKey,
   type SyncProgress,
   type SyncResult,
 } from './memorySourcesSyncTypes';
@@ -171,15 +173,17 @@ export function MemorySourceRow({
             </div>
             {detail && <p className="mt-0.5 truncate pl-7 text-xs text-content-faint">{detail}</p>}
             {progress && (
-              <div className="mt-2 pl-7">
+              <div className="mt-2 pl-7" data-testid={`memory-source-progress-${source.id}`}>
                 <div className="flex items-center gap-2 text-xs text-content-muted">
-                  <span className="capitalize">{progress.stage}</span>
+                  {/* openhuman#6257: a readable label, not the raw pipeline stage
+                      ("Queued" beside "queued chunk extraction for mem_src:…"). */}
+                  <span>{t(stageLabelKey(progress.stage))}</span>
                   {progress.percent !== null && (
                     <span className="font-medium text-primary-600 dark:text-primary-400">
                       {progress.percent}%
                     </span>
                   )}
-                  {progress.detail && (
+                  {progress.detail && showsStageDetail(progress.stage) && (
                     <span className="truncate text-content-faint">{progress.detail}</span>
                   )}
                 </div>

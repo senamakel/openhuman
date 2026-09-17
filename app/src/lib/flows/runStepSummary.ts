@@ -16,7 +16,7 @@
  *   - A node can also report engine-level success while the underlying tool
  *     call itself failed — the common Composio tool-call envelope shape is
  *     `{ data, successful, error, costUsd, markdownFormatted }`
- *     (`src/openhuman/flows/tinyflows/caps.rs`) — `successful: false` (with or
+ *     (`crates/openhuman-core/src/flows/tinyflows/caps.rs`) — `successful: false` (with or
  *     without a `status`) is treated as a failure too.
  *   - Known "the tool already told us in plain English" fields (`summary`,
  *     `message`, `text`) are surfaced verbatim when present — this is how a
@@ -30,6 +30,7 @@
  */
 import createDebug from 'debug';
 
+import { truncateText } from '../../utils/truncateText';
 import { type FlowRunItem, isPlainObject } from './runItems';
 
 const log = createDebug('app:flows:step-summary');
@@ -46,8 +47,7 @@ interface StepSummary {
 const MAX_SUMMARY_CHARS = 180;
 
 function truncate(text: string): string {
-  const trimmed = text.trim();
-  return trimmed.length > MAX_SUMMARY_CHARS ? `${trimmed.slice(0, MAX_SUMMARY_CHARS)}…` : trimmed;
+  return truncateText(text, MAX_SUMMARY_CHARS, { trim: true });
 }
 
 /** Read a string field off a plain object, ignoring blank/non-string values. */

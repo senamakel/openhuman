@@ -383,6 +383,18 @@ export function MemoryTreeStatusPanel({ onToast }: MemoryTreeStatusPanelProps) {
         </div>
       ) : null}
 
+      {/* openhuman#6257: the memory-tree job queue a sync feeds. `ready` is the
+          queue the Sources rows' "Processing into memory" stage and the retry
+          toast refer to; nothing on this tab showed it before. */}
+      {!loading && status ? (
+        <div className="text-xs text-content-muted" data-testid="memory-tree-job-queue">
+          {t('memoryTree.status.jobQueue')
+            .replace('{ready}', new Intl.NumberFormat().format(status.pipeline_jobs.ready))
+            .replace('{running}', new Intl.NumberFormat().format(status.pipeline_jobs.running))
+            .replace('{failed}', new Intl.NumberFormat().format(status.pipeline_jobs.failed))}
+        </div>
+      ) : null}
+
       <IntegrationHealthStrip integrations={integrations} loading={loading} t={t} />
 
       {/* Auto-sync toggle row — markup mirrors AIPanel's inline ToggleRow */}

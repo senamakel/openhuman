@@ -27,8 +27,14 @@
     {
       "id": "tinymcp",
       "submodule": "vendor/tinymcp",
-      "expect": "v0.3.2-2-g8b0627d",
-      "reason": "The host compiles the MCP contract against tinyhumansai/tinymcp#13 (Supervisor::tick returns a TickReport; needed by openhuman#5931), merged to tinymcp main but not yet in a tagged release, while the registry keeps the published v0.3.2 artifact. The drift is compile-only: the tinymcp module is registry-entered but not wired (AGENTS.md, 'step two of the extraction'), so no build downloads or loads that artifact. Delete this entry when tinymcp cuts its next release and the registry pin moves onto it."
+      "expect": "v0.3.2-3-gd3e4561",
+      "reason": "The host compiles the MCP contract against tinyhumansai/tinymcp#13 (Supervisor::tick returns a TickReport; needed by openhuman#5931) plus the unreleased ConnectedServerOverview initialize-instructions field. The registry retains the published v0.3.2 artifact. This is compile-only: the tinymcp module is registry-entered but not wired (AGENTS.md, 'step two of the extraction'), so no build downloads or loads that artifact. Delete this entry when tinymcp cuts its next release and the registry pin moves onto it."
+    },
+    {
+      "id": "tinymemory",
+      "submodule": "vendor/tinymemory",
+      "expect": "v1.16.0-20-g74f2a52",
+      "reason": "The source contract includes the unreleased CortexDB provider and Composio result-description work from tinymemory main, while the registry retains the published v1.16.0 native-memory artifact and its release-published digests. This exact source/artifact split is temporary and must be removed when a release containing this contract is pinned."
     }
   ]
 }

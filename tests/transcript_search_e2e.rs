@@ -19,10 +19,10 @@ use std::sync::OnceLock;
 use serde_json::json;
 use tempfile::tempdir;
 
-use openhuman_core::openhuman::memory::conversations::{
+use openhuman_core::memory::conversations::{
     ConversationMessage, ConversationStore, CreateConversationThread,
 };
-use openhuman_core::openhuman::threads::ops::transcript_search;
+use openhuman_core::threads::ops::transcript_search;
 
 // ── Env isolation (mirrors tests/memory_roundtrip_e2e.rs) ────────────────────
 

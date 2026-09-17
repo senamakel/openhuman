@@ -27,7 +27,7 @@
 
 use std::collections::HashSet;
 
-use openhuman_core::openhuman::memory::source_scope::{as_bus_scope, with_source_scope};
+use openhuman_core::memory::source_scope::{as_bus_scope, with_source_scope};
 
 /// Outside any scope, and for an explicit `None`, the rendering stays `None`.
 ///

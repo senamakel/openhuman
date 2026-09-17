@@ -1,14 +1,14 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::openhuman::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
-use openhuman_core::openhuman::agent::hooks::{PostTurnHook, TurnContext};
-use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::config::{AgentConfig, ContextConfig};
-use openhuman_core::openhuman::agent::context::session_memory::SessionMemoryConfig;
-use openhuman_core::openhuman::memory::{
+use openhuman_core::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
+use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
+use openhuman_core::agent::Agent;
+use openhuman_core::config::{AgentConfig, ContextConfig};
+use openhuman_core::agent::context::session_memory::SessionMemoryConfig;
+use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolContent, ToolResult};
+use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult};
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::VecDeque;

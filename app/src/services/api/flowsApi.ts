@@ -11,10 +11,10 @@
  *   - `flows_get_run`   — a single run record by id (B3b)
  *   - `flows_get`       — a single flow by id, graph included (B5b.1 canvas)
  *
- * Wire shape note: every `src/openhuman/flows/ops.rs` handler returns its
+ * Wire shape note: every `crates/openhuman-core/src/flows/ops.rs` handler returns its
  * value via `RpcOutcome::single_log(value, "...")`, which
  * `into_cli_compatible_json` ALWAYS wraps as `{ result: value, logs: [...] }`
- * (see `src/rpc/mod.rs`) because a log message is always attached. `callCoreRpc`
+ * (see `crates/openhuman-rpc/src/mod.rs`) because a log message is always attached. `callCoreRpc`
  * already unwraps the outer JSON-RPC envelope, so the value this client
  * receives is that `{ result, logs }` object — {@link unwrapCliEnvelope} peels
  * it back to the actual payload. This mirrors the private helper of the same
@@ -39,14 +39,14 @@ const log = debug('flowsApi');
 /**
  * `openhuman.flows_resume` and `openhuman.flows_run` both drive the tinyflows
  * engine and can run up to ~600s server-side (`FLOW_RUN_TIMEOUT_SECS` in
- * `src/openhuman/flows/ops.rs`). Give the client a slightly larger budget than
+ * `crates/openhuman-core/src/flows/ops.rs`). Give the client a slightly larger budget than
  * the default 30s so a slow run/resume doesn't fail client-side while the
  * engine is still running.
  */
 const FLOW_RESUME_TIMEOUT_MS = 610_000;
 
 // ---------------------------------------------------------------------------
-// Wire types — mirror `src/openhuman/flows/types.rs`. No rename_all attribute
+// Wire types — mirror `crates/openhuman-core/src/flows/types.rs`. No rename_all attribute
 // on the Rust structs, so field names are snake_case on the wire as-is.
 // ---------------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ export type FlowRunStatus =
   // B42). Carries a human `error` reason; rendered as a settled, non-active run.
   | 'interrupted';
 
-/** One reconstructed step of a persisted `FlowRun` (`src/openhuman/flows/types.rs::FlowRunStep`). */
+/** One reconstructed step of a persisted `FlowRun` (`crates/openhuman-core/src/flows/types.rs::FlowRunStep`). */
 export interface FlowRunStep {
   node_id: string;
   output: unknown;
@@ -85,7 +85,7 @@ export interface FlowRunStep {
   diagnostics?: Array<{ location: string; expression: string }>;
 }
 
-/** A persisted flow run record (`src/openhuman/flows/types.rs::FlowRun`). */
+/** A persisted flow run record (`crates/openhuman-core/src/flows/types.rs::FlowRun`). */
 export interface FlowRun {
   /** Same value as `thread_id` (the tinyflows checkpointer key). */
   id: string;
@@ -125,7 +125,7 @@ interface FlowResumeResult {
 }
 
 /**
- * A saved automation workflow (`src/openhuman/flows/types.rs::Flow`) — the
+ * A saved automation workflow (`crates/openhuman-core/src/flows/types.rs::Flow`) — the
  * Workflows list page (B5a) row shape. `graph` is the raw tinyflows
  * `WorkflowGraph`; the list page doesn't need to interpret it, only the
  * canvas (B5b) does, so it's kept as `unknown` here.
@@ -135,6 +135,15 @@ export interface Flow {
   id: string;
   /** Human-readable name shown in the Workflows UI. */
   name: string;
+  /**
+   * One line saying what this automation is for.
+   *
+   * Empty is normal and must be rendered as such, not as a missing value:
+   * every flow saved before this field existed has none, and the canvas does
+   * not require one. Surfaced in the agent's skills catalogue, where an empty
+   * description falls back to describing the graph's shape.
+   */
+  description: string;
   /** Whether this flow may currently be triggered/run. */
   enabled: boolean;
   /** The validated, migrated workflow graph — opaque to this client. */
@@ -152,7 +161,7 @@ export interface Flow {
 }
 
 /**
- * Result of `openhuman.flows_validate` (`src/openhuman/flows/types.rs::FlowValidation`).
+ * Result of `openhuman.flows_validate` (`crates/openhuman-core/src/flows/types.rs::FlowValidation`).
  * `valid === false` means the graph is structurally rejected and won't
  * persist/enable; `warnings` are advisory and orthogonal to validity (a valid
  * graph can still carry them). `errors` carries at most one message — the
@@ -168,7 +177,7 @@ export interface FlowValidation {
   warnings: string[];
 }
 
-/** One structured validation error (`src/openhuman/flows/types.rs::FlowValidationError`). */
+/** One structured validation error (`crates/openhuman-core/src/flows/types.rs::FlowValidationError`). */
 export interface FlowValidationErrorDetail {
   /** Stable machine-readable code, e.g. `missing_trigger`, `unknown_node`. */
   code: string;
@@ -180,11 +189,11 @@ export interface FlowValidationErrorDetail {
   field?: string;
 }
 
-/** Where a {@link FlowDraft} originated (`src/openhuman/flows/types.rs::DraftOrigin`). */
+/** Where a {@link FlowDraft} originated (`crates/openhuman-core/src/flows/types.rs::DraftOrigin`). */
 type DraftOrigin = 'chat' | 'canvas' | 'import';
 
 /**
- * A core-managed, durable workflow draft (`src/openhuman/flows/types.rs::FlowDraft`)
+ * A core-managed, durable workflow draft (`crates/openhuman-core/src/flows/types.rs::FlowDraft`)
  * — the shared working copy the agent tools and the canvas both read/write by
  * id across turns and reloads. Never live; promote runs the normal save gates.
  */
@@ -208,7 +217,7 @@ interface FlowDraft {
 type FlowImportFormat = 'native' | 'n8n' | 'auto';
 
 /**
- * Result of `openhuman.flows_import` (`src/openhuman/flows/types.rs::FlowImport`).
+ * Result of `openhuman.flows_import` (`crates/openhuman-core/src/flows/types.rs::FlowImport`).
  * The `graph` is the normalized, migrated + validated `WorkflowGraph` ready to
  * open on the canvas as an unsaved draft; `warnings` carries non-fatal import
  * notes (unmapped n8n node types, untranslated expressions, a synthesized or
@@ -221,7 +230,7 @@ interface FlowImport {
 
 /**
  * A secret-free credential reference for the node-config credential picker
- * (`src/openhuman/flows/types.rs::FlowConnection`). `connection_ref` is
+ * (`crates/openhuman-core/src/flows/types.rs::FlowConnection`). `connection_ref` is
  * `"composio:<toolkit>:<connection_id>"` (composio) or `"http_cred:<name>"`
  * (raw HTTP cred). `toolkit` is present only for composio; `scheme`
  * (`"bearer"|"basic"|"header"`) only for http.
@@ -237,6 +246,8 @@ export interface FlowConnection {
 /** Optional fields for {@link updateFlow}. Omitted fields are left untouched. */
 interface FlowUpdate {
   name?: string;
+  /** Omit to leave the stored description untouched; `''` clears it. */
+  description?: string;
   graph?: unknown;
   requireApproval?: boolean;
   /**
@@ -249,7 +260,7 @@ interface FlowUpdate {
   strict?: boolean;
 }
 
-/** A revision snapshot (`src/openhuman/flows/types.rs::FlowRevision`). */
+/** A revision snapshot (`crates/openhuman-core/src/flows/types.rs::FlowRevision`). */
 interface FlowRevision {
   id: string;
   flow_id: string;
@@ -291,11 +302,11 @@ export function parseFlowVersionConflict(err: unknown): FlowVersionConflict | nu
   return null;
 }
 
-/** Lifecycle status of a {@link FlowSuggestion} (`src/openhuman/flows/types.rs::SuggestionStatus`). */
+/** Lifecycle status of a {@link FlowSuggestion} (`crates/openhuman-core/src/flows/types.rs::SuggestionStatus`). */
 export type SuggestionStatus = 'new' | 'dismissed' | 'built';
 
 /**
- * A Flow Scout workflow suggestion (`src/openhuman/flows/types.rs::FlowSuggestion`)
+ * A Flow Scout workflow suggestion (`crates/openhuman-core/src/flows/types.rs::FlowSuggestion`)
  * — a *pitch*, not a graph. Rendered as a card in the Flows page "Suggested for
  * you" section. `build_prompt` is the natural-language brief handed to the
  * `workflow_builder` agent when the user clicks "Build this".
@@ -350,7 +361,7 @@ function unwrapCliEnvelope<T>(payload: unknown): T {
 /**
  * Create (and, by default, enable) a new saved flow via `openhuman.flows_create`
  * (issue B4). This is the ONLY path that persists a flow — the agent's
- * `propose_workflow` tool (`src/openhuman/flows/tools.rs`) only validates a
+ * `propose_workflow` tool (`crates/openhuman-core/src/flows/tools.rs`) only validates a
  * candidate graph and returns a summary; `WorkflowProposalCard`'s "Save &
  * enable" button is what calls this function, directly from the client, on
  * the user's explicit action. `requireApproval` defaults server-side to
@@ -373,16 +384,14 @@ function unwrapCliEnvelope<T>(payload: unknown): T {
 export async function createFlow(
   name: string,
   graph: unknown,
-  requireApproval?: boolean
+  requireApproval?: boolean,
+  description?: string
 ): Promise<Flow> {
   log('createFlow: request name=%s requireApproval=%s', name, requireApproval ?? 'default');
-  const response = await callCoreRpc<unknown>({
-    method: 'openhuman.flows_create',
-    params:
-      requireApproval === undefined
-        ? { name, graph }
-        : { name, graph, require_approval: requireApproval },
-  });
+  const params: Record<string, unknown> = { name, graph };
+  if (requireApproval !== undefined) params.require_approval = requireApproval;
+  if (description !== undefined) params.description = description;
+  const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_create', params });
   const flow = unwrapCliEnvelope<Flow>(response);
   log('createFlow: response id=%s name=%s enabled=%s', flow.id, flow.name, flow.enabled);
   return flow;
@@ -467,7 +476,7 @@ export async function getFlowRun(runId: string): Promise<FlowRun> {
  * List all saved flows via `openhuman.flows_list` (the Workflows list page,
  * B5a). No params. Unlike the run-surface calls above, the payload IS the
  * `Flow[]` array directly — there is no outer `{ flows: [...] }` wrapper (see
- * `src/openhuman/flows/ops.rs::flows_list`, which returns `Vec<Flow>`
+ * `crates/openhuman-core/src/flows/ops.rs::flows_list`, which returns `Vec<Flow>`
  * straight through `RpcOutcome::single_log`).
  */
 export async function listFlows(): Promise<Flow[]> {
@@ -498,7 +507,7 @@ export async function setFlowEnabled(id: string, enabled: boolean): Promise<Flow
  * Load a single saved flow by id via `openhuman.flows_get` (the Workflow
  * Canvas, B5b.1). Returns the `Flow` directly (same no-wrapper shape as
  * `flows_list`'s elements and `flows_set_enabled` — see
- * `src/openhuman/flows/schemas.rs::handle_get`, which delegates straight to
+ * `crates/openhuman-core/src/flows/schemas.rs::handle_get`, which delegates straight to
  * `ops::flows_get` through `RpcOutcome::single_log`).
  */
 export async function getFlow(id: string): Promise<Flow> {
@@ -650,6 +659,7 @@ export async function updateFlow(id: string, update: FlowUpdate): Promise<Flow> 
   );
   const params: Record<string, unknown> = { id };
   if (update.name !== undefined) params.name = update.name;
+  if (update.description !== undefined) params.description = update.description;
   if (update.graph !== undefined) params.graph = update.graph;
   if (update.requireApproval !== undefined) params.require_approval = update.requireApproval;
   if (update.expectedVersion !== undefined) params.expected_version = update.expectedVersion;
@@ -980,7 +990,7 @@ export async function promoteDraft(id: string, requireApproval?: boolean): Promi
 /**
  * `openhuman.flows_discover` runs the read-only Flow Scout agent, which reasons
  * over the user's memory/threads/connections/flows and can take up to ~600s
- * server-side (`FLOW_DISCOVER_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`,
+ * server-side (`FLOW_DISCOVER_TIMEOUT_SECS` in `crates/openhuman-core/src/flows/ops.rs`,
  * raised to match `FLOW_BUILD_TIMEOUT_SECS` for the same iteration cap). Give
  * the client a matching budget (mirrors {@link FLOW_BUILD_TIMEOUT_MS}) so a
  * slow discovery run doesn't time out client-side while the agent is still
@@ -999,7 +1009,7 @@ export async function discoverWorkflows(threadId?: string | null): Promise<FlowS
   // When a caller passes a chat thread id, the server streams the Flow Scout
   // turn's text/tool events onto that thread (Phase B) so a shared chat pane can
   // render them live. The param name matches the `thread_id` convention in
-  // `src/openhuman/flows/schemas.rs` (a per-turn `request_id` is minted
+  // `crates/openhuman-core/src/flows/schemas.rs` (a per-turn `request_id` is minted
   // server-side when omitted). Omitting it keeps the headless behaviour.
   const params: Record<string, unknown> = {};
   if (threadId) params.thread_id = threadId;
@@ -1078,7 +1088,7 @@ export interface BuilderTurnResult {
 
 /**
  * The `workflow_builder` agent can take up to ~600s server-side
- * (`FLOW_BUILD_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`); match it so a slow
+ * (`FLOW_BUILD_TIMEOUT_SECS` in `crates/openhuman-core/src/flows/ops.rs`); match it so a slow
  * authoring turn doesn't time out client-side while the agent is still working.
  */
 const FLOW_BUILD_TIMEOUT_MS = 610_000;
@@ -1113,7 +1123,7 @@ export async function buildWorkflow(
   // builder turn's text/thinking/tool events onto that thread (Phase B) so the
   // shared chat pane renders them live and `ChatRuntimeProvider` appends the
   // final assistant message on `chat_done`. Param name matches the `thread_id`
-  // convention in `src/openhuman/flows/schemas.rs`; a per-turn `request_id` is
+  // convention in `crates/openhuman-core/src/flows/schemas.rs`; a per-turn `request_id` is
   // minted server-side when omitted. Omitting it keeps the headless behaviour.
   if (threadId) params.thread_id = threadId;
   const response = await callCoreRpc<unknown>({

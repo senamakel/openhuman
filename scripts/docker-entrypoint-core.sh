@@ -44,7 +44,7 @@ OPENHUMAN_GID="$(id -g "${OPENHUMAN_USER}" 2>/dev/null || echo '')"
 # Prefer the env var if set; otherwise fall back to the image default.
 WORKSPACE_DIR="${OPENHUMAN_WORKSPACE:-/home/openhuman/.openhuman}"
 # The home directory (where core.token is written when OPENHUMAN_CORE_TOKEN is
-# unset — see src/core/auth.rs default_root_openhuman_dir()).
+# unset — see crates/openhuman-core/src/core/auth.rs default_root_openhuman_dir()).
 HOME_OPENHUMAN_DIR="/home/openhuman/.openhuman"
 
 echo "[docker-entrypoint] uid=$(id -u), gid=$(id -g), user=$(id -un 2>/dev/null || echo unknown)"
@@ -98,7 +98,7 @@ heal_dir() {
 #   HOME_OPENHUMAN_DIR   core.token always lands in $HOME/.openhuman, whatever
 #                        OPENHUMAN_WORKSPACE says.
 #   LEGACY_DIR           `resolve_config_dir_for_workspace`
-#                        (src/openhuman/config/schema/load/dirs.rs) falls back to
+#                        (crates/openhuman-core/src/config/schema/load/dirs.rs) falls back to
 #                        `<parent-of-workspace>/.openhuman` when the workspace
 #                        itself holds no config.toml. For the image default the
 #                        three collapse to one path; a custom OPENHUMAN_WORKSPACE

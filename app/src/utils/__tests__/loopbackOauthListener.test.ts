@@ -173,6 +173,28 @@ describe('startLoopbackOauthListener', () => {
     }
   });
 
+  test('cancel clears the pending timeout so it cannot stop a later listener', async () => {
+    vi.useFakeTimers();
+    try {
+      mockInvoke.mockResolvedValue({ redirectUri: 'http://127.0.0.1:53824/auth', state: 's' });
+      mockListen.mockResolvedValue(vi.fn());
+
+      const handle = await startLoopbackOauthListener({ timeoutSecs: 1 });
+      void handle!.awaitCallback().catch(() => {});
+      await Promise.resolve();
+      await handle!.cancel();
+      mockInvoke.mockClear();
+
+      // The cancelled attempt's timer must not fire stop() against whatever
+      // listener (e.g. a retry) is active by then.
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      expect(mockInvoke).not.toHaveBeenCalledWith('stop_loopback_oauth_listener');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test('ignores callback events that arrive after timeout', async () => {
     vi.useFakeTimers();
     try {

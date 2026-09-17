@@ -624,6 +624,55 @@ describe('SkillsExplorerTab', () => {
     });
   });
 
+  it('marks an entry with no SKILL.md download as not installable instead of offering Install', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([
+      {
+        ...MOCK_CATALOG_ENTRY,
+        id: 'lobehub/prompt-agent',
+        name: 'Prompt Agent',
+        source: 'LobeHub',
+        download_url: '',
+      },
+    ]);
+
+    render(<SkillsExplorerTab />);
+
+    const badge = await screen.findByTestId('registry-not-installable-lobehub/prompt-agent');
+    expect(badge).toHaveTextContent('Not installable');
+    expect(screen.queryByTestId('registry-install-lobehub/prompt-agent')).toBeNull();
+  });
+
+  it('explains in the detail dialog why an entry with no SKILL.md download cannot be installed', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([
+      {
+        ...MOCK_CATALOG_ENTRY,
+        id: 'lobehub/prompt-agent',
+        name: 'Prompt Agent',
+        source: 'LobeHub',
+        download_url: '',
+      },
+    ]);
+
+    render(<SkillsExplorerTab />);
+
+    const tile = await screen.findByTestId('registry-tile-lobehub/prompt-agent');
+    await act(async () => {
+      fireEvent.click(tile);
+    });
+
+    const hint = await screen.findByText(
+      'This entry has no SKILL.md to download, so it cannot be installed from here.'
+    );
+    expect(hint.closest('[data-slot="dialog-content"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
+  });
+
   it('shows error toast when registry install fails', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');

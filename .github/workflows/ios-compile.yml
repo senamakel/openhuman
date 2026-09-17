@@ -37,7 +37,7 @@ jobs:
           fetch-depth: 1
           # The mobile crate uses stock Tauri (no CEF), so we don't need
           # `submodules: recursive` — which would try to clone the
-          # `app/src-tauri/vendor/tauri-cef` submodule, a step that
+          # `crates/openhuman-app/vendor/tauri-cef` submodule, a step that
           # intermittently fails on macOS runners for fork PRs.
           submodules: false
 

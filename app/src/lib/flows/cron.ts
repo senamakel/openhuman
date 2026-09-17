@@ -1,7 +1,7 @@
 /**
  * Small cron helper for the schedule-trigger builder (`ScheduleField`). The
  * flows engine stores `trigger.config.schedule` as a bare 5-field cron string
- * (`minute hour day-of-month month day-of-week`) — `crate::openhuman::cron::
+ * (`minute hour day-of-month month day-of-week`) — `crate::cron::
  * Schedule` deserializes a bare string as `Cron { expr }` — so the visual
  * builder compiles to and parses from that same string, staying compatible with
  * existing saved flows and the workflow-builder agent.

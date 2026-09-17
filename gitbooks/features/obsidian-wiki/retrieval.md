@@ -10,13 +10,13 @@ icon: search
 
 The [Memory Tree](memory-tree.md) is the write path: it folds the stream of your day into chunks, scores, and hierarchical summary trees on disk. **Retrieval** is the read path - how the agent finds the right node, hydrates the right raw chunk, and resolves "Alice" to a stable id before answering you.
 
-There is deliberately **no classifier, gate, or composer** in the retrieval layer. The primitives are deterministic and scope-specific; deciding _which_ primitive to call and _how_ to combine results is left to the calling agent (or, for the deterministic `walk`, to a pure routing algorithm). Source: `src/openhuman/memory/tree/retrieval/mod.rs`.
+There is deliberately **no classifier, gate, or composer** in the retrieval layer. The primitives are deterministic and scope-specific; deciding _which_ primitive to call and _how_ to combine results is left to the calling agent (or, for the deterministic `walk`, to a pure routing algorithm). Source: `crates/openhuman-core/src/memory/tree/retrieval/mod.rs`.
 
 ---
 
 ## The `memory_tree` tool: one mode dispatcher
 
-The agent-facing surface is a single multi-mode tool named `memory_tree` (`src/openhuman/memory/query/mod.rs`). Its `mode` field routes to one underlying implementation. Every retrieval mode returns the same `RetrievalHit` shape so the model sees a uniform schema regardless of which mode ran.
+The agent-facing surface is a single multi-mode tool named `memory_tree` (`crates/openhuman-core/src/memory/query/mod.rs`). Its `mode` field routes to one underlying implementation. Every retrieval mode returns the same `RetrievalHit` shape so the model sees a uniform schema regardless of which mode ran.
 
 | Mode                  | What it's for                                                                                                                                               | Typical use                                                                                      |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -34,7 +34,7 @@ The historical `query_global` and `query_topic` modes were **removed**: source t
 
 ## The `RetrievalHit` shape
 
-Every primitive emits `RetrievalHit` (`src/openhuman/memory/tree/retrieval/types.rs`). The important fields:
+Every primitive emits `RetrievalHit`. Retrieval is engine-owned: `crates/openhuman-core/src/memory/tree/retrieval/` is only the JSON-RPC layer, and the primitives live under `vendor/tinymemory` in `crates/tinymemory-core/src/tree/retrieval/`, whose `types.rs` re-exports the shapes defined in the vendored `tinycortex` crate (`src/memory/retrieval/types.rs`). The important fields:
 
 - `node_id`, `node_kind` - `leaf` (a raw `mem_tree_chunks` row) or `summary` (a sealed `mem_tree_summaries` row). Consumers branch on this (e.g. "only `drill_down` on summaries").
 - `tree_id` / `tree_kind` / `tree_scope` / `level` - provenance, so a UI can say "from Slack #eng".
@@ -54,14 +54,14 @@ Query-style modes wrap hits in a `QueryResponse { hits, total, truncated }` wher
 Names are messy; ids are not. Before answering a question about a person, the agent resolves the surface form to a **canonical id** like `person:alice` or `email:alice@example.com`.
 
 - `search_entities` does the fuzzy lookup over the entity index that the tree summariser maintains.
-- The canonical registry lives in `src/openhuman/memory_entities/` - one Markdown file per entity at `<content_root>/entities/<kind>/<canonical_id>.md`, with YAML frontmatter (`id`, `kind`, `display_name`, `aliases`, `emails`, `handles`) plus a free-form notes body the user can edit in Obsidian. `lookup_alias` matches by alias / email / handle / display name, case-insensitively.
+- The canonical registry lives in `crates/openhuman-core/src/memory_entities/` - one Markdown file per entity at `<content_root>/entities/<kind>/<canonical_id>.md`, with YAML frontmatter (`id`, `kind`, `display_name`, `aliases`, `emails`, `handles`) plus a free-form notes body the user can edit in Obsidian. `lookup_alias` matches by alias / email / handle / display name, case-insensitively.
 - `kind` matches `memory_tree::score::extract::EntityKind`, so the ids the scorer emits round-trip through the registry unchanged. The vault is the source of truth - Obsidian, grep, and vector search all see the same data without a separate store.
 
 ---
 
 ## The entity graph (read-only, derived)
 
-`src/openhuman/memory_graph/` exposes entity relationships **without** a parallel triple-store table. The premise: _the graph is the tree mapped out_. Two entities that co-occur on the same tree node form an edge; the weight is the count of distinct shared nodes.
+`crates/openhuman-core/src/memory_graph/` exposes entity relationships **without** a parallel triple-store table. The premise: _the graph is the tree mapped out_. Two entities that co-occur on the same tree node form an edge; the weight is the count of distinct shared nodes.
 
 - `co_occurring_entities(config, subject, limit)` - `GraphEdge { subject, object, weight }` sorted by weight.
 - `neighbors(config, subject, limit)` - neighbour ids only.
@@ -72,7 +72,7 @@ It is a pure read-only SELF-JOIN over `mem_tree_entity_index` - no new tables, n
 
 ## Deterministic walk (`walk` / `smart_walk`, no LLM)
 
-`walk` and `smart_walk` both route through `fast_retrieve` (`src/openhuman/memory/tree/retrieval/fast.rs`), an **E2GraphRAG-style** algorithm that replaces the old agentic turn-by-turn loops. It never invokes an LLM. Routing is decided purely by query entities and co-occurrence-graph hop distance:
+`walk` and `smart_walk` both route through `fast_retrieve` (`crates/tinymemory-core/src/tree/retrieval/fast.rs` under `vendor/tinymemory`), an **E2GraphRAG-style** algorithm that replaces the old agentic turn-by-turn loops. It never invokes an LLM. Routing is decided purely by query entities and co-occurrence-graph hop distance:
 
 1. Extract query entities `Eq` (spaCy NLP, regex fallback).
 2. `Eq` empty -> **global**: dense rerank over the summary tree.
@@ -92,15 +92,15 @@ For "what happened in the last 24h" style questions, `cover_window` computes the
 
 ## `memory_recall` - legacy key-value search
 
-Distinct from the tree, `memory_recall` (`src/openhuman/memory/tools/recall.rs`) searches the older namespaced key-value memory: `memory_recall { namespace, query, limit }` over namespaces like `global`, `background`, `autocomplete`, or `skill-{id}`. It returns scored results and is best for exact preference / fact lookups ("does the user prefer dark mode?") that predate the tree.
+Distinct from the tree, `memory_recall` (`crates/openhuman-core/src/memory/tools/recall.rs`) searches the older namespaced key-value memory: `memory_recall { namespace, query, limit }` over namespaces like `global`, `background`, `autocomplete`, or `skill-{id}`. It returns scored results and is best for exact preference / fact lookups ("does the user prefer dark mode?") that predate the tree.
 
 ---
 
 ## The memory agent (specialist sub-agent)
 
-`src/openhuman/memory/agent/` owns a specialist retrieval sub-agent invoked via the `call_memory_agent` tool. It navigates the memory tree to answer a question by combining strategies the primitives expose: vector search, keyword search over raw files, entity search and relationship following, hierarchical tree browse, direct content reads, and source listing.
+`crates/openhuman-core/src/memory/agent/` owns a specialist retrieval sub-agent invoked via the `call_memory_agent` tool. It navigates the memory tree to answer a question by combining strategies the primitives expose: vector search, keyword search over raw files, entity search and relationship following, hierarchical tree browse, direct content reads, and source listing.
 
-Its tool allowlist (`src/openhuman/memory/agent/agent/agent.toml`) is the full retrieval surface: `memory_tree` (with all the modes above, including deterministic `walk` / `smart_walk`), `memory_recall`, and `query_memory`. The prompt and iteration cap live alongside in `agent/prompt.md` + `agent/prompt.rs`; performance is tracked by the benchmark harness in `ops.rs` (`scripts/bench-memory-walk.sh`).
+Its tool allowlist (`crates/openhuman-core/src/memory/agent/agent/agent.toml`) is the full retrieval surface: `memory_tree` (with all the modes above, including deterministic `walk` / `smart_walk`), `memory_recall`, and `query_memory`. The prompt and iteration cap live alongside in `agent/prompt.md` + `agent/prompt.rs`; performance is tracked by the benchmark harness in `ops.rs` (`scripts/bench-memory-walk.sh`).
 
 ---
 
@@ -109,4 +109,3 @@ Its tool allowlist (`src/openhuman/memory/agent/agent/agent.toml`) is the full r
 - [memory-tree.md](memory-tree.md) - the write path that builds the trees retrieval reads.
 - [memory-diff.md](memory-diff.md) - how memory changes are tracked over time.
 - [README.md](README.md) - feature index for the Obsidian-backed wiki.
-- [../subconscious.md](../subconscious.md) - the background loop that consumes recalled context.

@@ -4,23 +4,21 @@
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
-    let mut config = openhuman_core::openhuman::config::Config::load_or_init()
+    let mut config = openhuman_core::config::Config::load_or_init()
         .await
         .unwrap_or_default();
     config.apply_env_overrides();
     eprintln!("config_path={}", config.config_path.display());
 
-    openhuman_core::openhuman::memory::host::install_memory_event_sink();
+    openhuman_core::memory::host::install_memory_event_sink();
     #[cfg(feature = "modules")]
-    openhuman_core::openhuman::modules::memory::set_modules_policy(std::sync::Arc::new(
-        config.clone(),
-    ));
+    openhuman_core::modules::memory::set_modules_policy(std::sync::Arc::new(config.clone()));
 
-    let request = openhuman_core::openhuman::memory::sources::rpc::ReconcileRequest {
+    let request = openhuman_core::memory::sources::rpc::ReconcileRequest {
         source_id: None,
         execute: true,
     };
-    let outcome = openhuman_core::openhuman::memory::sources::rpc::reconcile_rpc(request)
+    let outcome = openhuman_core::memory::sources::rpc::reconcile_rpc(request)
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
     println!("{}", serde_json::to_string_pretty(&outcome.value)?);
@@ -30,8 +28,8 @@ async fn main() -> anyhow::Result<()> {
     let mut last = u64::MAX;
     for i in 0..60 {
         tokio::time::sleep(std::time::Duration::from_secs(15)).await;
-        let report = openhuman_core::openhuman::memory::sources::rpc::reconcile_rpc(
-            openhuman_core::openhuman::memory::sources::rpc::ReconcileRequest {
+        let report = openhuman_core::memory::sources::rpc::reconcile_rpc(
+            openhuman_core::memory::sources::rpc::ReconcileRequest {
                 source_id: None,
                 execute: false,
             },

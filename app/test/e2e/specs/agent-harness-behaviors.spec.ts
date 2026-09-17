@@ -12,7 +12,7 @@
  * Approval gate notes (verified against the codebase, not the issue text):
  *   - `ApprovalGate` installs by default under the desktop shell and parks
  *     `Prompt`-class external-effect tool calls on interactive chat turns
- *     (`src/core/jsonrpc.rs` boot path → `register_approval_surface_subscriber`).
+ *     (`crates/openhuman-core/src/core/jsonrpc.rs` boot path → `register_approval_surface_subscriber`).
  *   - Default autonomy is `Supervised` (`config/schema/autonomy.rs:157`), so the
  *     `Write` command class routes through the gate as `Prompt`
  *     (`security/policy/command_checks.rs:163-166`).

@@ -15,14 +15,14 @@
 //!    frontend actually dispatches ("openhuman.inference_tts"). A namespace or
 //!    function rename would therefore break every JS caller and every embedder
 //!    that spells the method out, while the whole Rust suite stayed green.
-//!    `rpc_method_name()` (`src/core/all.rs:1069`) is the contract; this is the
+//!    `rpc_method_name()` (`crates/openhuman-core/src/core/all.rs:1069`) is the contract; this is the
 //!    only place it is pinned.
 //!
 //! 2. **The controller boundary itself for the five that had none**:
 //!    `agent_chat_simple`, `transcribe`, `transcribe_bytes`, `tts` and
 //!    `download_asset`. The handlers deserialize params, load the ambient
 //!    config, and trim string inputs before delegating
-//!    (`src/openhuman/inference/local/schemas.rs:309-395`). None of that is
+//!    (`crates/openhuman-core/src/inference/local/schemas.rs:309-395`). None of that is
 //!    reachable from a direct call to the op, so none of it was covered.
 //!
 //! # Offline discipline
@@ -57,8 +57,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use openhuman_core::core::all::RegisteredController;
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::inference::local::all_local_inference_registered_controllers;
+use openhuman_core::config::Config;
+use openhuman_core::inference::local::all_local_inference_registered_controllers;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
@@ -182,7 +182,7 @@ fn write_stub_piper(dir: &Path, name: &str, transcript: &Path) -> PathBuf {
 }
 
 /// The eleven controllers `all_registered_controllers` builds
-/// (`src/openhuman/inference/local/schemas.rs:92-138`), paired with the wire
+/// (`crates/openhuman-core/src/inference/local/schemas.rs:92-138`), paired with the wire
 /// method name each one must dispatch under.
 const EXPECTED_WIRE_METHODS: &[(&str, &str)] = &[
     ("agent_chat", "openhuman.inference_agent_chat"),

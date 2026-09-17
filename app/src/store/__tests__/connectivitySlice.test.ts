@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import connectivityReducer, { setBackend, setCore, setInternet } from '../connectivitySlice';
+import connectivityReducer, {
+  setBackend,
+  setCore,
+  setHosted,
+  setInternet,
+} from '../connectivitySlice';
 
 describe('connectivitySlice', () => {
   it('setInternet flips the internet channel and tracks errors only on offline', () => {
@@ -54,6 +59,53 @@ describe('connectivitySlice', () => {
     expect(state.backend).toBe('connecting');
     expect(state.lastError.backend).toBeUndefined();
     expect('backend' in state.lastError).toBe(false);
+  });
+
+  it('setHosted mirrors the core link and keeps an error only for a degraded reading', () => {
+    // Boot default: the core's reconnect loop is not known to be running.
+    expect(connectivityReducer(undefined, { type: 'noop' }).hosted).toBe('unknown');
+
+    let state = connectivityReducer(
+      undefined,
+      setHosted({ value: 'reconnecting', error: 'Ping timeout' })
+    );
+    expect(state.hosted).toBe('reconnecting');
+    expect(state.lastError.hosted).toBe('Ping timeout');
+
+    // A degraded reading without a message must not leave the old one behind.
+    state = connectivityReducer(state, setHosted({ value: 'connecting' }));
+    expect(state.hosted).toBe('connecting');
+    expect('hosted' in state.lastError).toBe(false);
+
+    state = connectivityReducer(state, setHosted({ value: 'error', error: 'server error' }));
+    expect(state.lastError.hosted).toBe('server error');
+
+    // Namespace closed by the server on a live transport: stored like any
+    // other degraded reading.
+    state = connectivityReducer(
+      state,
+      setHosted({ value: 'disconnected', error: 'io server disconnect' })
+    );
+    expect(state.hosted).toBe('disconnected');
+    expect(state.lastError.hosted).toBe('io server disconnect');
+
+    // A loop that stopped for good keeps its user-visible reason too.
+    state = connectivityReducer(
+      state,
+      setHosted({ value: 'stopped', error: 'session expired — please sign in again' })
+    );
+    expect(state.hosted).toBe('stopped');
+    expect(state.lastError.hosted).toBe('session expired — please sign in again');
+
+    // Recovery clears it…
+    state = connectivityReducer(state, setHosted({ value: 'connected' }));
+    expect(state.hosted).toBe('connected');
+    expect('hosted' in state.lastError).toBe(false);
+
+    // …and so does the loop going away (sign-out), even if a message rides along.
+    state = connectivityReducer(state, setHosted({ value: 'unknown', error: 'session expired' }));
+    expect(state.hosted).toBe('unknown');
+    expect('hosted' in state.lastError).toBe(false);
   });
 
   it('initial internet state is "offline" when navigator.onLine is false (line 33)', () => {

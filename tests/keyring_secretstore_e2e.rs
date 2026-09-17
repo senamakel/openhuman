@@ -1,5 +1,5 @@
-use openhuman_core::openhuman::config::schema::{Config, StreamMode, TelegramConfig};
-use openhuman_core::openhuman::security::keyring;
+use openhuman_core::config::schema::{Config, StreamMode, TelegramConfig};
+use openhuman_core::security::keyring;
 use std::sync::OnceLock;
 
 async fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
@@ -69,14 +69,14 @@ async fn config_secrets_roundtrip_via_keyring_backed_master_key_migration() {
         config_path: config_path.clone(),
         workspace_dir: workspace_dir.clone(),
         api_key: Some("sk-direct-secret".into()),
-        search: openhuman_core::openhuman::config::schema::SearchConfig {
-            parallel: openhuman_core::openhuman::config::schema::SearchEngineCredentials {
+        search: openhuman_core::config::schema::SearchConfig {
+            parallel: openhuman_core::config::schema::SearchEngineCredentials {
                 api_key: Some("parallel-secret".into()),
                 ..Default::default()
             },
             ..Default::default()
         },
-        channels_config: openhuman_core::openhuman::config::schema::ChannelsConfig {
+        channels_config: openhuman_core::config::schema::ChannelsConfig {
             telegram: Some(TelegramConfig {
                 bot_token: "tg-bot-secret".into(),
                 chat_id: None,

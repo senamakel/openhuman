@@ -15,7 +15,7 @@
 set -euo pipefail
 
 APP_PATH="${1:?Usage: sign-and-notarize-macos.sh <app_path> [entitlements_plist]}"
-ENTITLEMENTS="${2:-app/src-tauri/entitlements.sidecar.plist}"
+ENTITLEMENTS="${2:-crates/openhuman-app/entitlements.sidecar.plist}"
 
 for var in APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
   if [ -z "${!var:-}" ]; then

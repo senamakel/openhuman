@@ -5,7 +5,7 @@
  * Exercises the agent harness routing prompts that trigger search-related
  * tool calls: memory recall, web search, and file read.
  *
- * Actual tool names discovered in src/openhuman/tools/impl/:
+ * Actual tool names discovered in crates/openhuman-core/src/tools/impl/:
  *   - "memory_recall"       — recall / search personal memories
  *   - "web_search_tool"     — search the web (NOT "web_search")
  *   - "file_read"           — read a file from the filesystem
@@ -145,7 +145,7 @@ describe('Harness — Search tool-flow', () => {
 
     const CANARY = 'canary-memory-recall-a1b2';
 
-    // Tool name: "memory_recall" (src/openhuman/tools/impl/memory/recall.rs)
+    // Tool name: "memory_recall" (crates/openhuman-core/src/tools/impl/memory/recall.rs)
     const FORCED = [
       {
         content: '',
@@ -217,7 +217,7 @@ describe('Harness — Search tool-flow', () => {
 
     const CANARY = 'canary-web-search-c3d4';
 
-    // Tool name: "web_search_tool" (src/openhuman/tools/impl/network/web_search.rs)
+    // Tool name: "web_search_tool" (crates/openhuman-core/src/tools/impl/network/web_search.rs)
     // NOTE: NOT "web_search" — the actual registered name is "web_search_tool".
     const FORCED = [
       {
@@ -281,7 +281,7 @@ describe('Harness — Search tool-flow', () => {
     const CANARY = 'canary-file-read-e5f6';
     const FILE_SNIPPET = 'OpenHuman is an AI assistant for communities';
 
-    // Tool name: "file_read" (src/openhuman/tools/impl/filesystem/file_read.rs)
+    // Tool name: "file_read" (crates/openhuman-core/src/tools/impl/filesystem/file_read.rs)
     // Path: use a clearly fictional path so no real data is read in test env.
     const FORCED = [
       {

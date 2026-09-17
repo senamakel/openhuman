@@ -37,6 +37,7 @@ ERRORS=0
 _fail() { fail "$*"; (( ERRORS++ )) || true; }
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$APP_DIR/.." && pwd)"
 
 info "Starting E2E pre-flight checks..."
 echo ""
@@ -52,15 +53,15 @@ BINARY_PATH=""
 
 case "$PLATFORM" in
   Darwin)
-    MACOS_BUNDLE="$APP_DIR/src-tauri/target/debug/bundle/macos/OpenHuman.app"
+    MACOS_BUNDLE="$REPO_ROOT/crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app"
     if [[ -d "$MACOS_BUNDLE" ]]; then
       BINARY_FOUND=1
       BINARY_PATH="$MACOS_BUNDLE"
     fi
     ;;
   Linux)
-    LINUX_BIN="$APP_DIR/src-tauri/target/debug/OpenHuman"
-    LINUX_DEB="$APP_DIR/src-tauri/target/debug/bundle/deb"
+    LINUX_BIN="$REPO_ROOT/crates/openhuman-app/target/debug/OpenHuman"
+    LINUX_DEB="$REPO_ROOT/crates/openhuman-app/target/debug/bundle/deb"
     if [[ -f "$LINUX_BIN" ]]; then
       BINARY_FOUND=1
       BINARY_PATH="$LINUX_BIN"
@@ -70,7 +71,7 @@ case "$PLATFORM" in
     fi
     ;;
   MINGW*|MSYS*|CYGWIN*|Windows*)
-    WIN_BIN="$APP_DIR/src-tauri/target/debug/OpenHuman.exe"
+    WIN_BIN="$REPO_ROOT/crates/openhuman-app/target/debug/OpenHuman.exe"
     if [[ -f "$WIN_BIN" ]]; then
       BINARY_FOUND=1
       BINARY_PATH="$WIN_BIN"

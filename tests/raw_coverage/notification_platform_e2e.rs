@@ -30,12 +30,12 @@ use tempfile::tempdir;
 
 use openhuman_core::core::auth::{get_rpc_token, init_rpc_token};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::config::rpc::load_config_with_timeout;
-use openhuman_core::openhuman::desktop::notifications::store as notification_store;
-use openhuman_core::openhuman::desktop::notifications::types::{
+use openhuman_core::config::rpc::load_config_with_timeout;
+use openhuman_core::desktop::notifications::store as notification_store;
+use openhuman_core::desktop::notifications::types::{
     CoreNotificationCategory, CoreNotificationEvent,
 };
-use openhuman_core::openhuman::platform::health::{mark_component_error, mark_component_ok};
+use openhuman_core::platform::health::{mark_component_error, mark_component_ok};
 
 // ── env serialisation ────────────────────────────────────────────────────────
 

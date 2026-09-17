@@ -67,7 +67,7 @@ const EXTRACTABLE_FILE_MIME_TYPES = ['application/pdf', 'text/plain', 'text/mark
 
 // Shared image-marker budget per message. Images cost 1 marker each; a video
 // costs VIDEO_FRAME_COUNT markers (its sampled frames). Mirrors the core default
-// `multimodal.max_images` (src/openhuman/config/schema/tools/multimodal.rs) — the
+// `multimodal.max_images` (crates/openhuman-core/src/config/schema/tools/multimodal.rs) — the
 // core counts every `[IMAGE:]` marker (frames included) and errors on overflow,
 // so the composer must budget images + video frames against this single cap.
 export const ATTACHMENT_MAX_IMAGES = 4;

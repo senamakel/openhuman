@@ -1,0 +1,1702 @@
+use serde_json::json;
+use std::ffi::OsString;
+#[cfg(all(feature = "crash-reporting", feature = "http-server"))]
+use std::sync::Arc;
+use std::sync::MutexGuard;
+use std::time::Duration;
+use tokio_util::sync::CancellationToken;
+
+use super::{
+    default_state, group_first_time_when_bus_ready, invoke_method, is_session_expired_error,
+    is_unconfirmed_unauthorized_error, learning_first_time_when_bus_ready, params_to_object,
+    parse_json_params, type_name, DomainSubscriberPlan,
+};
+// These are the `http-server`-gated RPC-surface symbols (#5048); the tests that
+// name them below carry the same `#[cfg]` so the disabled-build test compile
+// (`cargo test --no-default-features`) stays green.
+#[cfg(feature = "http-server")]
+use super::{
+    build_http_schema_dump, escape_html, is_param_validation_error, is_wallet_not_configured_error,
+    rpc_handler,
+};
+
+// ---- domain-subscriber gating (#4796 DoD item 3) ----------------------------
+// `register_domain_subscribers` registers on the process-global event bus behind
+// a `Once`, so its gating is proven via the pure `DomainSubscriberPlan` the
+// registrar consumes — no real subscribers, no bus mutation.
+
+#[test]
+fn domain_subscriber_plan_full_registers_every_gated_subscriber() {
+    let plan = DomainSubscriberPlan::for_domains(crate::core::runtime::DomainSet::full());
+    assert_eq!(
+        plan,
+        DomainSubscriberPlan {
+            platform: true,
+            integrations: true,
+            security: true,
+            desktop: true,
+            skills: true,
+            channels: true,
+            flows: true,
+            memory: true,
+            agent: true,
+            hosted: true,
+            mcp: true,
+        },
+        "full() must register every gated domain subscriber"
+    );
+}
+
+#[test]
+fn domain_subscriber_plan_none_registers_no_gated_subscriber() {
+    let plan = DomainSubscriberPlan::for_domains(crate::core::runtime::DomainSet::none());
+    assert_eq!(
+        plan,
+        DomainSubscriberPlan {
+            platform: false,
+            integrations: false,
+            security: false,
+            desktop: false,
+            skills: false,
+            channels: false,
+            flows: false,
+            memory: false,
+            agent: false,
+            hosted: false,
+            mcp: false,
+        },
+        "none() must register no gated domain subscriber (core infra still runs, ungated)"
+    );
+}
+
+#[test]
+fn domain_subscriber_plan_harness_gates_by_owning_group() {
+    let plan = DomainSubscriberPlan::for_domains(crate::core::runtime::DomainSet::harness());
+    // harness() = agent + memory + threads + config + security.
+    assert!(plan.agent, "harness keeps agent subscribers");
+    assert!(
+        plan.memory,
+        "harness keeps memory conversation-persistence + sync bridge"
+    );
+    // Platform / Channels / Flows / Meet / Mcp are NOT in harness.
+    assert!(
+        !plan.platform,
+        "harness must skip webhook/notification/composio/task-sources/device-tunnel"
+    );
+    assert!(
+        !plan.channels,
+        "harness must skip channel-inbound + web-only proactive"
+    );
+    assert!(!plan.flows, "harness must skip flows trigger dispatch");
+    assert!(
+        !plan.hosted,
+        "harness must skip hosted orchestration ingest"
+    );
+    assert!(!plan.mcp, "harness must skip mcp_registry bus init");
+}
+
+#[test]
+fn domain_subscriber_registration_retries_after_bus_becomes_ready() {
+    use crate::core::all::DomainGroup;
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+
+    let completed = Mutex::new(HashSet::new());
+
+    assert!(!group_first_time_when_bus_ready(
+        &completed,
+        DomainGroup::Flows,
+        false,
+    ));
+    assert!(
+        completed.lock().expect("registry lock").is_empty(),
+        "a deferred attempt must not mark the group complete"
+    );
+
+    assert!(group_first_time_when_bus_ready(
+        &completed,
+        DomainGroup::Flows,
+        true,
+    ));
+    assert!(
+        completed
+            .lock()
+            .expect("registry lock")
+            .contains(&DomainGroup::Flows),
+        "the ready retry must mark the group complete"
+    );
+}
+
+#[test]
+fn domain_subscriber_registration_is_idempotent_after_success() {
+    use crate::core::all::DomainGroup;
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+
+    let completed = Mutex::new(HashSet::new());
+
+    assert!(group_first_time_when_bus_ready(
+        &completed,
+        DomainGroup::Channels,
+        true,
+    ));
+    assert!(!group_first_time_when_bus_ready(
+        &completed,
+        DomainGroup::Channels,
+        true,
+    ));
+    assert_eq!(
+        completed.lock().expect("registry lock").len(),
+        1,
+        "a completed group must be recorded exactly once"
+    );
+}
+
+#[test]
+fn learning_subscriber_registration_retries_after_bus_becomes_ready() {
+    let completed = std::sync::Mutex::new(false);
+
+    assert!(!learning_first_time_when_bus_ready(&completed, false));
+    assert!(
+        !*completed.lock().expect("registry lock"),
+        "a deferred learning attempt must not consume its token"
+    );
+
+    assert!(learning_first_time_when_bus_ready(&completed, true));
+    assert!(
+        *completed.lock().expect("registry lock"),
+        "the ready retry must consume the learning token"
+    );
+}
+
+#[test]
+fn learning_subscriber_registration_is_idempotent_after_success() {
+    let completed = std::sync::Mutex::new(false);
+
+    assert!(learning_first_time_when_bus_ready(&completed, true));
+    assert!(!learning_first_time_when_bus_ready(&completed, true));
+}
+
+#[test]
+fn domain_subscriber_registration_readiness_helper_is_idempotent() {
+    use crate::core::all::DomainGroup;
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+
+    let completed = Mutex::new(HashSet::new());
+    assert!(group_first_time_when_bus_ready(
+        &completed,
+        DomainGroup::Media,
+        true
+    ));
+    assert!(!group_first_time_when_bus_ready(
+        &completed,
+        DomainGroup::Media,
+        true
+    ));
+}
+/// #5027 — the tool-execution timeout must be seeded on the always-on core boot
+/// path (`register_domain_subscribers`), NOT inside
+/// `channels::runtime::startup::start_channels`, which is skipped for
+/// channel-less / web-chat-only cores (and when `OPENHUMAN_DISABLE_CHANNEL_LISTENERS`
+/// is set). A minimal `DomainSet::none()` must still seed, because the seed is
+/// DomainSet-independent.
+///
+/// The seed sits just *before* the ungated `INFRA: Once` block, so it re-runs on
+/// every `register_domain_subscribers` call (each `bootstrap_core_runtime`),
+/// re-applying the freshly reloaded config on an in-process restart — a seed gated
+/// by the process-global `Once` would only fire on the first boot. `TEST_ENV_LOCK`
+/// (via `EnvVarGuard`) serializes with `OPENHUMAN_TOOL_TIMEOUT_SECS` cleared so the
+/// operator env override cannot mask the config-derived value. Runs under a tokio
+/// runtime like the real boot paths — the INFRA block calls `subscribe_global`,
+/// which `tokio::spawn`s when the global bus is already initialized by another test
+/// in the binary.
+#[tokio::test]
+async fn tool_timeout_seeds_on_channelless_core_boot() {
+    // Clear the operator override behind a panic-safe RAII guard: if any assertion
+    // below panics, `Drop` still restores the previous value, so sibling tests that
+    // share `TEST_ENV_LOCK` never inherit the cleared var.
+    let _env = EnvVarGuard::remove_many(vec!["OPENHUMAN_TOOL_TIMEOUT_SECS"]);
+
+    // Distinctive, in-range (1..=3600) value so the assertion can only pass on a
+    // real seed, never on the default. Channel-less: `channels_config` stays empty,
+    // which is exactly the config for which `start_channels` is skipped.
+    let mut config = crate::config::Config::default();
+    config.agent.agent_timeout_secs = 1234;
+    assert!(
+        config.channels_config.active_channel.is_none(),
+        "test premise: channel-less config, so start_channels would be skipped"
+    );
+
+    let tmp = tempfile::tempdir().expect("tempdir");
+    // Minimal DomainSet — INFRA (and thus the timeout seed) is DomainSet-independent,
+    // so even `none()` must seed. `embedded_core = true` skips the standalone
+    // process-exit shutdown subscriber.
+    super::register_domain_subscribers(
+        tmp.path().to_path_buf(),
+        config,
+        true,
+        crate::core::runtime::DomainSet::none(),
+    );
+
+    assert_eq!(
+        crate::tools::timeout::tool_execution_timeout_secs(),
+        1234,
+        "channel-less core boot must seed the tool-execution timeout from [agent].agent_timeout_secs"
+    );
+}
+
+struct EnvVarGuard {
+    old_values: Vec<(&'static str, Option<OsString>)>,
+    _lock: MutexGuard<'static, ()>,
+}
+
+impl EnvVarGuard {
+    fn set_many(vars: Vec<(&'static str, OsString)>) -> Self {
+        let lock = crate::config::TEST_ENV_LOCK
+            .lock()
+            .expect("test env lock poisoned");
+        let mut old_values = Vec::with_capacity(vars.len());
+        for (key, value) in vars {
+            let old = std::env::var_os(key);
+            std::env::set_var(key, value);
+            old_values.push((key, old));
+        }
+        Self {
+            old_values,
+            _lock: lock,
+        }
+    }
+
+    /// Remove the named vars (capturing their prior values) for the guard's
+    /// lifetime, restoring each on `Drop`. Mirrors [`set_many`] for tests that
+    /// need an env var *absent* rather than set to a fixed value.
+    fn remove_many(keys: Vec<&'static str>) -> Self {
+        let lock = crate::config::TEST_ENV_LOCK
+            .lock()
+            .expect("test env lock poisoned");
+        let mut old_values = Vec::with_capacity(keys.len());
+        for key in keys {
+            let old = std::env::var_os(key);
+            std::env::remove_var(key);
+            old_values.push((key, old));
+        }
+        Self {
+            old_values,
+            _lock: lock,
+        }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        for (key, old) in self.old_values.iter().rev() {
+            match old {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
+        }
+    }
+}
+
+async fn wait_until_port_accepts(port: u16) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .is_ok()
+        {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "server did not start accepting on port {port}"
+        );
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+}
+
+async fn wait_until_port_released(port: u16) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .is_err()
+        {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "server did not release port {port}"
+        );
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+}
+
+/// Regression test for issue #920 — the embedded server's `axum::serve`
+/// accept loop must stop within the cancellation timeout when its
+/// `CancellationToken` is fired.
+///
+/// **Ignored by default.** This test calls `run_server_embedded`,
+/// which triggers the full production bootstrap (`bootstrap_core_runtime`
+/// → `register_domain_subscribers` → `scheduler_gate::init_global` +
+/// `memory::tree::jobs::start` + `composio::start_periodic_sync` +
+/// cron scheduler). Those code paths spawn detached `tokio::spawn`
+/// background tasks and write to several process-global statics
+/// (`STATE: OnceLock`, `SIGNED_OUT: AtomicBool`, `LLM_PERMITS`
+/// semaphore, `GLOBAL_REGISTRY` agent.run_turn handler, `STARTED`
+/// `std::sync::Once`s, …) — *none of which have teardown semantics*.
+/// In a unit-test binary the leaked tasks then race with every other
+/// test, multiplying CI wall time by 10–20× (PR #1552 thread). The
+/// right shape for this regression is an integration test in a
+/// dedicated `tests/` binary where global pollution doesn't affect
+/// siblings — tracked as a follow-up.
+///
+/// To run manually: `cargo test --lib -p openhuman -- --ignored
+/// shutdown_token`.
+#[tokio::test]
+#[ignore = "calls full server bootstrap; leaks process-global state into sibling tests (#1552). Re-cover via integration test."]
+async fn shutdown_token_stops_axum_listener_within_timeout() {
+    let _signed_out_restore = crate::cron::scheduler_gate::SignedOutTestGuard::set(false);
+
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+
+    // Pin scheduler-gate policy to Aggressive while this test runs so
+    // the bootstrap's `init_global` snapshot can't capture transient
+    // CPU pressure and freeze the cached policy at Paused.
+    std::fs::write(
+        workspace.path().join("config.toml"),
+        "[scheduler_gate]\nmode = \"always_on\"\n",
+    )
+    .expect("seed scheduler_gate=always_on config.toml");
+    let _env = EnvVarGuard::set_many(vec![
+        (
+            "OPENHUMAN_WORKSPACE",
+            workspace.path().as_os_str().to_os_string(),
+        ),
+        ("OPENHUMAN_DISABLE_CHANNEL_LISTENERS", OsString::from("1")),
+        (
+            "OPENHUMAN_CORE_TOKEN",
+            OsString::from("test-token-shutdown"),
+        ),
+    ]);
+
+    let probe = std::net::TcpListener::bind("127.0.0.1:0").expect("allocate test port");
+    let port = probe.local_addr().expect("local addr").port();
+    drop(probe);
+
+    let shutdown_token = CancellationToken::new();
+    let server_token = shutdown_token.clone();
+    let server = tokio::spawn(async move {
+        super::run_server_embedded(Some("127.0.0.1"), Some(port), false, server_token).await
+    });
+
+    wait_until_port_accepts(port).await;
+    shutdown_token.cancel();
+
+    let result = tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .expect("embedded server task should stop within timeout")
+        .expect("embedded server task should not panic");
+    result.expect("embedded server should shut down cleanly");
+    wait_until_port_released(port).await;
+}
+
+#[tokio::test]
+async fn invoke_health_snapshot_via_registry() {
+    let result = invoke_method(default_state(), "openhuman.health_snapshot", json!({}))
+        .await
+        .expect("health snapshot should succeed");
+    assert!(result.get("result").is_some());
+}
+
+#[tokio::test]
+async fn invoke_encrypt_secret_missing_required_param_fails_validation() {
+    let err = invoke_method(default_state(), "openhuman.encrypt_secret", json!({}))
+        .await
+        .expect_err("missing plaintext should fail");
+    assert!(err.contains("missing required param 'plaintext'"));
+}
+
+#[tokio::test]
+async fn invoke_doctor_models_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.doctor_models",
+        json!({ "invalid": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'invalid'"));
+}
+
+// Uses a `flows.*` method as its gated-family vehicle: without the `flows`
+// feature there is no flows controller in the registry and the `.expect()`
+// below would panic. The transport-layer gating it proves is orthogonal to the
+// compile-time gate (#4797).
+#[cfg(feature = "flows")]
+#[tokio::test]
+async fn gated_method_is_unknown_at_transport_even_with_malformed_params() {
+    // #4808 review (CodeRabbit): prove the schema-gate fix at the JSON-RPC
+    // TRANSPORT layer (`invoke_method`), not only via direct dispatch. Under a
+    // harness() ambient context a gated method must return an unknown-method
+    // error for BOTH well-formed and malformed params — never the controller's
+    // param-validation error, which would leak that the hidden method exists.
+    use crate::core::runtime::context::CoreContext;
+    use crate::core::runtime::DomainSet;
+
+    let gated_method = crate::core::all::all_registered_controllers()
+        .into_iter()
+        .find(|c| c.schema.namespace == "flows")
+        .map(|c| c.rpc_method_name())
+        .expect("a flows.* method exists in the full registry");
+
+    for params in [json!({}), json!({ "obviously_not_a_real_param_xyz": true })] {
+        let ctx = CoreContext::for_test(DomainSet::harness(), None, None);
+        let err = CoreContext::scope(
+            ctx,
+            invoke_method(default_state(), &gated_method, params.clone()),
+        )
+        .await
+        .expect_err("gated flows method must error under harness()");
+        assert!(
+            err.contains("unknown method"),
+            "gated `{gated_method}` with params {params} must be unknown-method at transport, got: {err}"
+        );
+        assert!(
+            !err.contains("param"),
+            "gated `{gated_method}` must NOT leak a param-validation error (surface leak), got: {err}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn invoke_config_get_runtime_flags_via_registry() {
+    let result = invoke_method(
+        default_state(),
+        "openhuman.config_get_runtime_flags",
+        json!({}),
+    )
+    .await
+    .expect("runtime flags should succeed");
+    assert!(result.get("result").is_some());
+}
+
+#[tokio::test]
+async fn invoke_auth_store_session_missing_token_fails_validation() {
+    let err = invoke_method(default_state(), "openhuman.auth_store_session", json!({}))
+        .await
+        .expect_err("missing token should fail");
+    assert!(err.contains("missing required param 'token'"));
+}
+
+#[tokio::test]
+async fn invoke_service_status_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.service_status",
+        json!({ "x": 1 }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'x'"));
+}
+
+#[tokio::test]
+async fn invoke_memory_init_accepts_empty_params() {
+    // jwt_token is optional (accepted for backward compat but ignored).
+    // The call may still fail for workspace reasons in test, but must NOT
+    // fail with a missing-param error for jwt_token.
+    let result = invoke_method(default_state(), "openhuman.memory_init", json!({})).await;
+    if let Err(ref e) = result {
+        assert!(
+            !e.contains("missing required param") || !e.contains("jwt_token"),
+            "jwt_token should be optional, got: {e}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn invoke_memory_list_namespaces_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.memory_list_namespaces",
+        json!({ "extra": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("extra"));
+}
+
+#[tokio::test]
+async fn invoke_memory_query_namespace_missing_namespace_fails() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.memory_query_namespace",
+        json!({ "query": "who owns atlas" }),
+    )
+    .await
+    .expect_err("missing namespace should fail");
+    assert!(err.contains("namespace"));
+}
+
+#[tokio::test]
+async fn invoke_memory_recall_memories_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.memory_recall_memories",
+        json!({ "namespace": "team", "extra": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("extra"));
+}
+
+#[tokio::test]
+async fn invoke_migrate_openclaw_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.migrate_openclaw",
+        json!({ "x": 1 }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'x'"));
+}
+
+#[tokio::test]
+async fn invoke_migrate_hermes_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.migrate_hermes",
+        json!({ "x": 1 }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'x'"));
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn http_schema_dump_includes_openhuman_and_core_methods() {
+    let dump = build_http_schema_dump();
+    let methods = dump.methods;
+    assert!(
+        methods
+            .iter()
+            .any(|m| m.method == "core.version" && m.namespace == "core"),
+        "schema dump should include core methods"
+    );
+
+    assert!(
+        methods
+            .iter()
+            .any(|m| m.method == "openhuman.health_snapshot"),
+        "schema dump should include migrated openhuman methods"
+    );
+
+    assert!(
+        methods
+            .iter()
+            .any(|m| m.method == "openhuman.billing_get_summary"),
+        "schema dump should include billing methods"
+    );
+
+    assert!(
+        methods
+            .iter()
+            .any(|m| m.method == "openhuman.team_list_members"),
+        "schema dump should include team methods"
+    );
+}
+
+#[tokio::test]
+async fn billing_get_current_plan_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.billing_get_current_plan",
+        json!({ "extra": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'extra'"));
+}
+
+#[tokio::test]
+async fn billing_get_summary_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.billing_get_summary",
+        json!({ "extra": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'extra'"));
+}
+
+#[tokio::test]
+async fn billing_purchase_plan_missing_plan_fails_validation() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.billing_purchase_plan",
+        json!({}),
+    )
+    .await
+    .expect_err("missing plan should fail");
+    assert!(err.contains("missing required param 'plan'"));
+}
+
+#[tokio::test]
+async fn billing_top_up_missing_amount_fails_validation() {
+    let err = invoke_method(default_state(), "openhuman.billing_top_up", json!({}))
+        .await
+        .expect_err("missing amountUsd should fail");
+    assert!(err.contains("missing required param 'amountUsd'"));
+}
+
+#[tokio::test]
+async fn billing_top_up_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.billing_top_up",
+        json!({ "amountUsd": 10.0, "unknownField": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'unknownField'"));
+}
+
+#[tokio::test]
+async fn billing_create_portal_session_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.billing_create_portal_session",
+        json!({ "x": 1 }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'x'"));
+}
+
+#[tokio::test]
+async fn team_list_members_missing_team_id_fails_validation() {
+    let err = invoke_method(default_state(), "openhuman.team_list_members", json!({}))
+        .await
+        .expect_err("missing teamId should fail");
+    assert!(err.contains("missing required param 'teamId'"));
+}
+
+#[tokio::test]
+async fn team_list_members_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.team_list_members",
+        json!({ "teamId": "t1", "extra": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'extra'"));
+}
+
+#[tokio::test]
+async fn team_create_invite_missing_team_id_fails_validation() {
+    let err = invoke_method(default_state(), "openhuman.team_create_invite", json!({}))
+        .await
+        .expect_err("missing teamId should fail");
+    assert!(err.contains("missing required param 'teamId'"));
+}
+
+#[tokio::test]
+async fn team_remove_member_missing_required_params_fails_validation() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.team_remove_member",
+        json!({ "teamId": "t1" }),
+    )
+    .await
+    .expect_err("missing userId should fail");
+    assert!(err.contains("missing required param 'userId'"));
+}
+
+#[tokio::test]
+async fn team_change_member_role_missing_role_fails_validation() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.team_change_member_role",
+        json!({ "teamId": "t1", "userId": "u1" }),
+    )
+    .await
+    .expect_err("missing role should fail");
+    assert!(err.contains("missing required param 'role'"));
+}
+
+#[tokio::test]
+async fn billing_create_coinbase_charge_missing_plan_fails_validation() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.billing_create_coinbase_charge",
+        json!({}),
+    )
+    .await
+    .expect_err("missing plan should fail");
+    assert!(err.contains("missing required param 'plan'"));
+}
+
+#[tokio::test]
+async fn billing_create_coinbase_charge_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.billing_create_coinbase_charge",
+        json!({ "plan": "pro", "extra": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'extra'"));
+}
+
+#[tokio::test]
+async fn team_list_invites_missing_team_id_fails_validation() {
+    let err = invoke_method(default_state(), "openhuman.team_list_invites", json!({}))
+        .await
+        .expect_err("missing teamId should fail");
+    assert!(err.contains("missing required param 'teamId'"));
+}
+
+#[tokio::test]
+async fn team_list_invites_rejects_unknown_param() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.team_list_invites",
+        json!({ "teamId": "t1", "extra": true }),
+    )
+    .await
+    .expect_err("unknown param should fail");
+    assert!(err.contains("unknown param 'extra'"));
+}
+
+#[tokio::test]
+async fn team_revoke_invite_missing_team_id_fails_validation() {
+    let err = invoke_method(default_state(), "openhuman.team_revoke_invite", json!({}))
+        .await
+        .expect_err("missing teamId should fail");
+    assert!(err.contains("missing required param 'teamId'"));
+}
+
+#[tokio::test]
+async fn team_revoke_invite_missing_invite_id_fails_validation() {
+    let err = invoke_method(
+        default_state(),
+        "openhuman.team_revoke_invite",
+        json!({ "teamId": "t1" }),
+    )
+    .await
+    .expect_err("missing inviteId should fail");
+    assert!(err.contains("missing required param 'inviteId'"));
+}
+
+#[tokio::test]
+#[cfg(feature = "http-server")]
+async fn schema_dump_includes_new_billing_and_team_methods() {
+    let dump = build_http_schema_dump();
+    let methods: Vec<&str> = dump.methods.iter().map(|m| m.method.as_str()).collect();
+    for expected in &[
+        "openhuman.billing_get_summary",
+        "openhuman.billing_get_current_plan",
+        "openhuman.billing_purchase_plan",
+        "openhuman.billing_create_portal_session",
+        "openhuman.billing_top_up",
+        "openhuman.billing_create_coinbase_charge",
+        "openhuman.team_list_members",
+        "openhuman.team_create_invite",
+        "openhuman.team_list_invites",
+        "openhuman.team_revoke_invite",
+        "openhuman.team_remove_member",
+        "openhuman.team_change_member_role",
+    ] {
+        assert!(
+            methods.contains(expected),
+            "schema dump missing expected method: {expected}"
+        );
+    }
+}
+
+// --- helper coverage -----------------------------------------------------
+
+#[test]
+fn params_to_object_accepts_object() {
+    let map = params_to_object(json!({"a": 1, "b": "x"})).unwrap();
+    assert_eq!(map.len(), 2);
+    assert_eq!(map.get("a"), Some(&json!(1)));
+}
+
+#[test]
+fn params_to_object_accepts_null_as_empty_map() {
+    let map = params_to_object(json!(null)).unwrap();
+    assert!(map.is_empty());
+}
+
+#[test]
+fn params_to_object_rejects_array() {
+    let err = params_to_object(json!([1, 2, 3])).unwrap_err();
+    assert!(err.contains("invalid params"));
+    assert!(err.contains("array"));
+}
+
+#[test]
+fn params_to_object_rejects_scalars() {
+    assert!(params_to_object(json!(42)).unwrap_err().contains("number"));
+    assert!(params_to_object(json!("hi"))
+        .unwrap_err()
+        .contains("string"));
+    assert!(params_to_object(json!(true)).unwrap_err().contains("bool"));
+}
+
+#[test]
+fn type_name_labels_every_json_variant() {
+    assert_eq!(type_name(&json!(null)), "null");
+    assert_eq!(type_name(&json!(true)), "bool");
+    assert_eq!(type_name(&json!(3)), "number");
+    assert_eq!(type_name(&json!("s")), "string");
+    assert_eq!(type_name(&json!([])), "array");
+    assert_eq!(type_name(&json!({})), "object");
+}
+
+#[test]
+fn parse_json_params_roundtrips_object() {
+    let v = parse_json_params(r#"{"k":1}"#).unwrap();
+    assert_eq!(v, json!({"k": 1}));
+}
+
+#[test]
+fn parse_json_params_reports_error_message() {
+    let err = parse_json_params("{not json").unwrap_err();
+    assert!(err.contains("invalid JSON params"));
+}
+
+#[test]
+fn is_session_expired_error_matches_backend_path_401() {
+    // Issue #2286: only OpenHuman backend path 401s (HTTP-method prefix) should
+    // match, not generic 401/Unauthorized strings.
+    assert!(is_session_expired_error(
+        "GET /teams failed (401 Unauthorized): {\"success\":false}"
+    ));
+    assert!(is_session_expired_error(
+        "POST /auth/token failed (401 Unauthorized): session expired"
+    ));
+    assert!(is_session_expired_error(
+        "DELETE /sessions/abc failed (401 Unauthorized): unauthorized"
+    ));
+}
+
+#[test]
+fn is_session_expired_error_matches_flattened_backend_unauthorized() {
+    // #3297: after #2781 the backend 401 is a typed `BackendApiError::Unauthorized`
+    // that team/billing ops flatten via `api::flatten_authed_error`. The dispatcher
+    // classifier MUST recognise that flattened string as session expiry, so the
+    // 401 is suppressed from Sentry (TAURI-RUST-8WY on `/teams/me/usage`,
+    // TAURI-RUST-8WZ on `/payments/stripe/currentPlan`) AND triggers the
+    // `SessionExpired` publish. End-to-end: build the typed error → flatten → classify.
+    let flat = crate::api::flatten_authed_error(anyhow::Error::new(
+        crate::api::BackendApiError::Unauthorized {
+            method: "GET".to_string(),
+            path: "/teams/me/usage".to_string(),
+        },
+    ));
+    assert!(
+        is_session_expired_error(&flat),
+        "flattened backend Unauthorized must classify as session expiry: {flat}"
+    );
+}
+
+#[test]
+fn is_session_expired_error_does_not_match_generic_401_unauthorized() {
+    // Generic 401+unauthorized strings without HTTP-method prefix must NOT match.
+    assert!(!is_session_expired_error(
+        "backend returned 401 Unauthorized"
+    ));
+    assert!(!is_session_expired_error("401 UNAUTHORIZED"));
+    assert!(!is_session_expired_error("got 401 and unauthorized body"));
+}
+
+#[test]
+fn unconfirmed_unauthorized_error_matches_generic_401_for_diagnostics_only() {
+    // Generic 401+unauthorized text feeds the diagnostic-only branch — never
+    // SessionExpired publication.
+    assert!(is_unconfirmed_unauthorized_error(
+        "backend returned 401 Unauthorized"
+    ));
+    assert!(is_unconfirmed_unauthorized_error("401 UNAUTHORIZED"));
+    assert!(is_unconfirmed_unauthorized_error(
+        "got 401 and unauthorized body"
+    ));
+}
+
+#[test]
+fn is_session_expired_error_does_not_match_partial_auth_text() {
+    // 401 alone is not sufficient — could be HTTP/3.01 nonsense or
+    // unrelated text. We require the string "unauthorized" too, plus an
+    // HTTP-method prefix for the 401 path.
+    assert!(!is_session_expired_error("server returned 401"));
+    assert!(!is_session_expired_error("unauthorized without code"));
+}
+
+#[test]
+fn is_session_expired_error_matches_openhuman_backend_path_401() {
+    // OpenHuman backend calls via authed_json use the format:
+    // "{METHOD} /path failed (401 Unauthorized): {body}"
+    assert!(is_session_expired_error(
+        "GET /teams failed (401 Unauthorized): {\"success\":false}"
+    ));
+    assert!(is_session_expired_error(
+        "POST /auth/token failed (401 Unauthorized): session expired"
+    ));
+    assert!(is_session_expired_error(
+        "GET /teams/me/usage failed (401 Unauthorized): unauthorized"
+    ));
+    assert!(is_session_expired_error(
+        "PUT /profile failed (401 Unauthorized): token expired"
+    ));
+    assert!(is_session_expired_error(
+        "PATCH /settings failed (401 Unauthorized): unauthorized"
+    ));
+}
+
+#[test]
+fn is_session_expired_error_does_not_match_discord_api_error() {
+    // Issue #2286: Discord bot token 401 must not clear the user session.
+    assert!(!is_session_expired_error(
+        "Discord API error: Discord list guilds failed (401): Unauthorized"
+    ));
+    assert!(!is_session_expired_error(
+        "Discord API error: Discord get bot user failed (401): bad token"
+    ));
+}
+
+#[test]
+fn is_session_expired_error_does_not_match_byo_key_provider_401() {
+    // BYO-key provider 401 should not clear the user session.
+    assert!(!is_session_expired_error(
+        "OpenAI API error (401 Unauthorized): invalid api key"
+    ));
+    assert!(!is_session_expired_error(
+        "Anthropic API error (401 Unauthorized): authentication error"
+    ));
+    assert!(!is_session_expired_error(
+        "Composio v3 API error: HTTP 401: Unauthorized"
+    ));
+}
+
+#[test]
+fn is_session_expired_error_does_not_match_backend_wrapped_composio_invalid_api_key() {
+    // Issue #2537: the backend can return a 500 whose body wraps a Composio
+    // upstream 401. That is a scoped integration/service failure, not proof
+    // that the user's OpenHuman app session expired.
+    let msg = r#"[composio] list_connections failed: Backend returned 500 Internal Server Error for GET https://api.tinyhumans.ai/agent-integrations/composio/connections: 401 {"error":{"message":"Invalid API key: ak_o1Og5*****","code":10401,"slug":"HTTP_Unauthorized","status":401}}"#;
+
+    assert!(
+        !is_session_expired_error(msg),
+        "Composio upstream 401 wrapped by the backend must not publish SessionExpired"
+    );
+    assert!(
+        is_unconfirmed_unauthorized_error(msg),
+        "auth-looking upstream failures should still be logged diagnostically"
+    );
+}
+
+#[test]
+fn is_session_expired_error_does_not_match_invalid_token_case_insensitive() {
+    // "invalid token" is no longer a session-expiry trigger (issue #2286):
+    // it was too broad and caught Discord/OAuth provider token errors. It is
+    // still surfaced via the diagnostic-only `is_unconfirmed_unauthorized_error`.
+    assert!(!is_session_expired_error("Invalid Token"));
+    assert!(!is_session_expired_error("got an invalid token here"));
+    assert!(is_unconfirmed_unauthorized_error("Invalid Token"));
+    assert!(is_unconfirmed_unauthorized_error(
+        "got an invalid token here"
+    ));
+}
+
+#[test]
+fn is_session_expired_error_matches_openhuman_session_expired_body() {
+    // Even without an HTTP-method prefix, an explicit "Session expired" body
+    // text triggers session expiry via the shared observability classifier.
+    assert!(is_session_expired_error(
+        r#"OpenHuman API error (401 Unauthorized): {"success":false,"error":"Session expired. Please log in again."}"#
+    ));
+}
+
+#[test]
+fn is_session_expired_error_matches_session_expired_sentinel() {
+    // The SESSION_EXPIRED sentinel is case-sensitive by design.
+    assert!(is_session_expired_error("SESSION_EXPIRED: please re-auth"));
+    assert!(!is_session_expired_error("session_expired lowercase"));
+}
+
+#[test]
+fn is_session_expired_error_does_not_match_unrelated_errors() {
+    assert!(!is_session_expired_error("network timeout"));
+    assert!(!is_session_expired_error("500 internal server error"));
+    assert!(!is_session_expired_error(""));
+}
+
+#[test]
+fn is_session_expired_error_skips_discord_rewrap_for_2285() {
+    // Cross-module regression guard for #2285: the Discord domain
+    // controller intentionally formats its upstream-auth failures so
+    // they do NOT match this dispatch-time classifier. If anyone
+    // changes the wording on either side back into a string that
+    // contains both "401" and "unauthorized", a connected-Discord
+    // card click would once again log the user out of OpenHuman.
+    //
+    // We pin the exact substrings the Discord rewrap was designed
+    // to avoid, plus the canonical post-rewrap message body, so
+    // either-side drift fails loudly.
+    let canonical_rewrap = "Discord API error: Discord list_guilds: bot token was rejected \
+         (upstream HTTP four-oh-one). Open Connections → Channels → Discord \
+         and rotate / reconnect the bot token.";
+    assert!(
+        !is_session_expired_error(canonical_rewrap),
+        "Discord rewrap must NOT trip the session-expired classifier: {canonical_rewrap}"
+    );
+    // Defensive: also pin the 403 variant. Same rewrap path, same
+    // requirement — neither '403' nor 'forbidden' is part of the
+    // session classifier today, but locking the message in keeps a
+    // future regression visible.
+    let canonical_rewrap_403 =
+        "Discord API error: Discord list_channels: bot token lacks required Discord permissions \
+         (upstream HTTP four-oh-three). Open Connections → Channels → Discord \
+         and rotate / reconnect the bot token.";
+    assert!(!is_session_expired_error(canonical_rewrap_403));
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn is_param_validation_error_matches_the_three_validator_shapes() {
+    // Regression guard for OPENHUMAN-TAURI-20: pre-#1467 cores rejected
+    // `api_key` because it wasn't in the schema yet. The error string
+    // must keep matching here so it gets logged at info level and never
+    // reaches Sentry as an unactionable client/server skew event.
+    assert!(is_param_validation_error(
+        "unknown param 'api_key' for config.update_model_settings"
+    ));
+    // `all::validate_params` — missing required field.
+    assert!(is_param_validation_error(
+        "missing required param 'session_id': active session identifier"
+    ));
+    // `params_to_object` — params field is the wrong JSON shape.
+    assert!(is_param_validation_error(
+        "invalid params: expected object or null, got array"
+    ));
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn is_param_validation_error_does_not_match_unrelated_errors() {
+    // Handler-side / network / auth failures must still be reported.
+    assert!(!is_param_validation_error(
+        "backend returned 401 Unauthorized"
+    ));
+    assert!(!is_param_validation_error("network timeout"));
+    assert!(!is_param_validation_error(
+        "config.update_model_settings: store write failed"
+    ));
+    // Empty and substring-only matches don't qualify either.
+    assert!(!is_param_validation_error(""));
+    assert!(!is_param_validation_error(
+        "rpc failed: unknown param 'x' for ns.fn"
+    ));
+}
+
+#[test]
+fn is_session_expired_error_matches_missing_backend_session_token() {
+    // Composio / web search / billing / team / webhooks / referral all surface
+    // a "no backend session token" variant when the auth profile is gone. Each
+    // of these should funnel into the auto-cleanup path instead of being
+    // reported to Sentry as a fresh error on every 5 s poll.
+    assert!(is_session_expired_error(
+        "composio unavailable: no backend session token. Sign in first (auth_store_session)."
+    ));
+    assert!(is_session_expired_error(
+        "no backend session token; run auth_store_session first"
+    ));
+    assert!(is_session_expired_error(
+        "Web search unavailable: no backend session token. Sign in first so the server can proxy search."
+    ));
+    // Case-insensitive match — the helper lowercases first.
+    assert!(is_session_expired_error("NO BACKEND SESSION TOKEN"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
+async fn structured_rpc_error_envelope_passes_through_generic_dispatch() {
+    // The transport layer must surface any controller-emitted
+    // `StructuredRpcError` payload without inspecting the method name —
+    // this is what makes the boundary domain-agnostic. We register a
+    // throwaway method-name on a thread-scoped op and confirm the
+    // wire-shape carries the `kind`/`thread_id` data verbatim.
+    use axum::body::to_bytes;
+    use axum::extract::State;
+    use axum::Json;
+
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+    let _env = EnvVarGuard::set_many(vec![(
+        "OPENHUMAN_WORKSPACE",
+        workspace.path().as_os_str().to_os_string(),
+    )]);
+
+    let stale_thread_request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(7),
+        method: "openhuman.threads_generate_title".to_string(),
+        params: json!({ "thread_id": "thread-ghost" }),
+    };
+    let response = rpc_handler(State(default_state()), Json(stale_thread_request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+    assert_eq!(body["error"]["data"]["kind"], "ThreadNotFound");
+    assert_eq!(body["error"]["data"]["thread_id"], "thread-ghost");
+    // The structured-error message must be human-readable on the wire —
+    // never the encoded sentinel envelope.
+    let message = body["error"]["message"].as_str().expect("error message");
+    assert!(
+        !message.contains("__OPENHUMAN_STRUCTURED_RPC_ERROR_V1__"),
+        "sentinel-encoded envelope leaked onto the wire: {message}"
+    );
+    assert!(message.contains("thread-ghost"));
+}
+
+#[cfg(feature = "crash-reporting")]
+#[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
+async fn thread_not_found_rpc_error_does_not_report_to_sentry() {
+    use axum::body::to_bytes;
+    use axum::extract::State;
+    use axum::Json;
+    use sentry::test::TestTransport;
+    use tracing::Level;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+    let _env = EnvVarGuard::set_many(vec![(
+        "OPENHUMAN_WORKSPACE",
+        workspace.path().as_os_str().to_os_string(),
+    )]);
+
+    let transport = TestTransport::new();
+    let sentry_options = sentry::ClientOptions {
+        dsn: Some("https://public@sentry.invalid/1".parse().unwrap()),
+        transport: Some(Arc::new(transport.clone())),
+        ..Default::default()
+    };
+    let sentry_hub = Arc::new(sentry::Hub::new(
+        Some(Arc::new(sentry_options.into())),
+        Arc::new(Default::default()),
+    ));
+    let _sentry_guard = sentry::HubSwitchGuard::new(sentry_hub);
+
+    let subscriber = tracing_subscriber::registry().with(
+        sentry::integrations::tracing::layer().event_filter(|metadata| {
+            // Mirror the production sentry-tracing layer: events emitted from
+            // `report_error_message` are captured directly via
+            // `sentry::capture_message` and must not be picked up here too
+            // (otherwise this test sees double events).
+            if metadata.target() == crate::core::observability::REPORT_ERROR_TRACING_TARGET {
+                return sentry::integrations::tracing::EventFilter::Ignore;
+            }
+            match *metadata.level() {
+                Level::ERROR => sentry::integrations::tracing::EventFilter::Event,
+                Level::WARN | Level::INFO => sentry::integrations::tracing::EventFilter::Breadcrumb,
+                _ => sentry::integrations::tracing::EventFilter::Ignore,
+            }
+        }),
+    );
+    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
+
+    let stale_thread_request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(1),
+        method: "openhuman.threads_message_append".to_string(),
+        params: json!({
+            "thread_id": "thread-missing",
+            "message": {
+                "id": "msg-1",
+                "content": "hello",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "user",
+                "createdAt": "2026-01-01T00:00:00Z"
+            }
+        }),
+    };
+    let response = rpc_handler(State(default_state()), Json(stale_thread_request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+    assert_eq!(body["error"]["data"]["kind"], "ThreadNotFound");
+    assert!(
+        transport.fetch_and_clear_events().is_empty(),
+        "ThreadNotFound should not reach Sentry"
+    );
+
+    let unrelated_error_request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(2),
+        method: "core.not_a_real_method".to_string(),
+        params: json!({}),
+    };
+    let response = rpc_handler(State(default_state()), Json(unrelated_error_request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+    assert_eq!(body["error"]["data"], serde_json::Value::Null);
+
+    let events = transport.fetch_and_clear_events();
+    assert_eq!(
+        events.len(),
+        1,
+        "unrelated RPC errors should still reach Sentry"
+    );
+    assert_eq!(
+        events[0].tags.get("domain").map(String::as_str),
+        Some("rpc")
+    );
+    assert_eq!(
+        events[0].tags.get("operation").map(String::as_str),
+        Some("invoke_method")
+    );
+    assert_eq!(
+        events[0].tags.get("method").map(String::as_str),
+        Some("core.not_a_real_method")
+    );
+    // #3567: an unrecognised (non-allow-listed) method is still recorded for
+    // triage, but downgraded from error to *warning* severity so it no longer
+    // pages. The JSON-RPC method-not-found response above is unchanged.
+    assert_eq!(
+        events[0].level,
+        sentry::Level::Warning,
+        "unknown-method events should be warn-level (triage, not paging)"
+    );
+}
+
+#[cfg(feature = "crash-reporting")]
+#[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
+async fn unknown_method_severity_split_by_probe_allow_list() {
+    // #3567: prove the full severity split at the transport boundary —
+    // (1) an allow-listed probe name is NOT captured to Sentry (debug-only),
+    // (2) a genuinely-unknown method still surfaces at warn for triage,
+    // (3) the JSON-RPC error response to the caller is unchanged in both cases.
+    use axum::body::to_bytes;
+    use axum::extract::State;
+    use axum::Json;
+    use sentry::test::TestTransport;
+    use tracing::Level;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+    let _env = EnvVarGuard::set_many(vec![(
+        "OPENHUMAN_WORKSPACE",
+        workspace.path().as_os_str().to_os_string(),
+    )]);
+
+    let transport = TestTransport::new();
+    let sentry_options = sentry::ClientOptions {
+        dsn: Some("https://public@sentry.invalid/1".parse().unwrap()),
+        transport: Some(Arc::new(transport.clone())),
+        ..Default::default()
+    };
+    let sentry_hub = Arc::new(sentry::Hub::new(
+        Some(Arc::new(sentry_options.into())),
+        Arc::new(Default::default()),
+    ));
+    let _sentry_guard = sentry::HubSwitchGuard::new(sentry_hub);
+
+    let subscriber = tracing_subscriber::registry().with(
+        sentry::integrations::tracing::layer().event_filter(|metadata| {
+            // Mirror production: diagnostics from the report_* helpers are
+            // captured directly via `sentry::capture_message`, so the bridge
+            // must ignore their marker target to avoid double events.
+            if metadata.target() == crate::core::observability::REPORT_ERROR_TRACING_TARGET {
+                return sentry::integrations::tracing::EventFilter::Ignore;
+            }
+            match *metadata.level() {
+                Level::ERROR => sentry::integrations::tracing::EventFilter::Event,
+                Level::WARN | Level::INFO => sentry::integrations::tracing::EventFilter::Breadcrumb,
+                _ => sentry::integrations::tracing::EventFilter::Ignore,
+            }
+        }),
+    );
+    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
+
+    // (1) Allow-listed probe → debug-only, never reaches Sentry.
+    let probe_request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(1),
+        method: "rpc.discover".to_string(),
+        params: json!({}),
+    };
+    let response = rpc_handler(State(default_state()), Json(probe_request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+    // (3) Response is the unchanged JSON-RPC method-not-found envelope.
+    assert_eq!(body["error"]["code"], json!(-32000));
+    assert_eq!(
+        body["error"]["message"],
+        json!("unknown method: rpc.discover")
+    );
+    assert_eq!(body["error"]["data"], serde_json::Value::Null);
+    assert!(
+        transport.fetch_and_clear_events().is_empty(),
+        "allow-listed probe methods must not reach Sentry"
+    );
+
+    // (2) Genuinely-unknown method → still captured, but at warn for triage.
+    let unknown_request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(2),
+        method: "totally.made.up.method".to_string(),
+        params: json!({}),
+    };
+    let response = rpc_handler(State(default_state()), Json(unknown_request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+    // (3) Same unchanged method-not-found envelope for the unknown method.
+    assert_eq!(body["error"]["code"], json!(-32000));
+    assert_eq!(
+        body["error"]["message"],
+        json!("unknown method: totally.made.up.method")
+    );
+    assert_eq!(body["error"]["data"], serde_json::Value::Null);
+
+    let events = transport.fetch_and_clear_events();
+    assert_eq!(
+        events.len(),
+        1,
+        "genuinely-unknown methods should still be captured for triage"
+    );
+    assert_eq!(events[0].level, sentry::Level::Warning);
+    assert_eq!(
+        events[0].tags.get("domain").map(String::as_str),
+        Some("rpc")
+    );
+    assert_eq!(
+        events[0].tags.get("method").map(String::as_str),
+        Some("totally.made.up.method")
+    );
+}
+
+#[cfg(feature = "crash-reporting")]
+#[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
+async fn invalid_ingest_payload_is_captured_at_warn_not_error() {
+    // #5169 (CORE-RUST-1P0): a caller submitting an ingest payload that does
+    // not match the canonicaliser schema is a *caller* error — the handler
+    // already names the offending field and no core change can fix a producer
+    // sending the wrong shape. Prove the same split as the unknown-method case
+    // above: the JSON-RPC error response is unchanged, but the Sentry event is
+    // warn (triage) rather than error (pages).
+    use axum::body::to_bytes;
+    use axum::extract::State;
+    use axum::Json;
+    use sentry::test::TestTransport;
+    use tracing::Level;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    let workspace = tempfile::tempdir().expect("workspace tempdir");
+    let _env = EnvVarGuard::set_many(vec![(
+        "OPENHUMAN_WORKSPACE",
+        workspace.path().as_os_str().to_os_string(),
+    )]);
+
+    let transport = TestTransport::new();
+    let sentry_options = sentry::ClientOptions {
+        dsn: Some("https://public@sentry.invalid/1".parse().unwrap()),
+        transport: Some(Arc::new(transport.clone())),
+        ..Default::default()
+    };
+    let sentry_hub = Arc::new(sentry::Hub::new(
+        Some(Arc::new(sentry_options.into())),
+        Arc::new(Default::default()),
+    ));
+    let _sentry_guard = sentry::HubSwitchGuard::new(sentry_hub);
+
+    let subscriber = tracing_subscriber::registry().with(
+        sentry::integrations::tracing::layer().event_filter(|metadata| {
+            if metadata.target() == crate::core::observability::REPORT_ERROR_TRACING_TARGET {
+                return sentry::integrations::tracing::EventFilter::Ignore;
+            }
+            match *metadata.level() {
+                Level::ERROR => sentry::integrations::tracing::EventFilter::Event,
+                Level::WARN | Level::INFO => sentry::integrations::tracing::EventFilter::Breadcrumb,
+                _ => sentry::integrations::tracing::EventFilter::Ignore,
+            }
+        }),
+    );
+    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
+
+    // `platform` is genuinely required by `ChatBatch` (unlike `timestamp`,
+    // which now defaults — see `chat_payload_without_timestamp_is_accepted`),
+    // so this reaches the invalid-payload branch rather than succeeding.
+    let request = crate::core::types::RpcRequest {
+        jsonrpc: "2.0".to_string(),
+        id: json!(1),
+        method: "openhuman.memory_tree_ingest".to_string(),
+        params: json!({
+            "source_kind": "chat",
+            "source_id": "#general",
+            "payload": { "messages": [] },
+        }),
+    };
+    let response = rpc_handler(State(default_state()), Json(request)).await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("response body");
+    let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
+
+    // The caller still gets the precise, unchanged validation error.
+    assert_eq!(body["error"]["code"], json!(-32000));
+    let message = body["error"]["message"]
+        .as_str()
+        .expect("error message string");
+    assert!(
+        message.starts_with("invalid chat payload: "),
+        "expected an invalid-chat-payload error, got {message:?}"
+    );
+
+    let events = transport.fetch_and_clear_events();
+    assert_eq!(
+        events.len(),
+        1,
+        "invalid ingest payloads should still be captured for triage"
+    );
+    assert_eq!(
+        events[0].level,
+        sentry::Level::Warning,
+        "caller payload errors must be warn-level (triage, not paging)"
+    );
+    assert_eq!(
+        events[0].tags.get("method").map(String::as_str),
+        Some("openhuman.memory_tree_ingest")
+    );
+}
+
+#[test]
+fn is_session_expired_error_matches_session_jwt_required() {
+    // Regression: Sentry issue 7472592145.
+    // A prior 401 clears the stored JWT; the very next RPC call (e.g.
+    // channels_telegram_login_start) finds no token and returns "session JWT
+    // required; complete login first". This is the same auth-boundary condition
+    // and must not be reported to Sentry.
+    assert!(is_session_expired_error(
+        "session JWT required; complete login first"
+    ));
+    assert!(is_session_expired_error(
+        "session JWT required; complete login and store_session first"
+    ));
+    assert!(is_session_expired_error("session JWT required"));
+    // Case-insensitive.
+    assert!(is_session_expired_error("SESSION JWT REQUIRED"));
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn escape_html_escapes_all_special_chars() {
+    let raw = r#"<script>alert("x&y'z")</script>"#;
+    let escaped = escape_html(raw);
+    assert!(!escaped.contains('<'));
+    assert!(!escaped.contains('>'));
+    assert!(!escaped.contains('"'));
+    assert!(!escaped.contains('\''));
+    assert!(escaped.contains("&lt;"));
+    assert!(escaped.contains("&gt;"));
+    assert!(escaped.contains("&quot;"));
+    assert!(escaped.contains("&#x27;"));
+    // `&` must be escaped first so later substitutions don't double-encode.
+    assert!(escaped.contains("&amp;y"));
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn escape_html_is_noop_for_safe_text() {
+    assert_eq!(escape_html("safe text 123"), "safe text 123");
+    assert_eq!(escape_html(""), "");
+}
+
+// --- telegram callback fetch-metadata gate --------------------------------
+
+#[tokio::test]
+async fn invoke_method_rejects_array_params_for_registered_method() {
+    // Registered controllers expect named-argument style (JSON object).
+    // Passing an array must fail with a clear "invalid params" error
+    // instead of silently calling the handler with no args.
+    let err = invoke_method(
+        default_state(),
+        "openhuman.health_snapshot",
+        json!([1, 2, 3]),
+    )
+    .await
+    .expect_err("array params should be rejected");
+    assert!(err.contains("invalid params"));
+    assert!(err.contains("array"));
+}
+
+#[tokio::test]
+async fn invoke_method_rejects_string_params_for_registered_method() {
+    let err = invoke_method(default_state(), "openhuman.health_snapshot", json!("oops"))
+        .await
+        .expect_err("string params should be rejected");
+    assert!(err.contains("invalid params"));
+    assert!(err.contains("string"));
+}
+
+#[tokio::test]
+async fn invoke_method_accepts_null_params_for_registered_method() {
+    // JSON-RPC 2.0 allows omitting params; null must be treated like {}.
+    let result = invoke_method(default_state(), "openhuman.health_snapshot", json!(null)).await;
+    // Call should succeed or fail for domain reasons — but must NOT
+    // fail with the "invalid params" shape error.
+    if let Err(e) = result {
+        assert!(
+            !e.contains("invalid params"),
+            "null should be accepted as empty object, got: {e}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn invoke_method_unknown_method_returns_unknown_error() {
+    let err = invoke_method(default_state(), "openhuman.totally_made_up_xyz", json!({}))
+        .await
+        .expect_err("unknown methods must error");
+    assert!(err.contains("unknown method"));
+}
+
+#[tokio::test]
+async fn invoke_method_core_ping_via_tier1() {
+    // core.* methods aren't in the registry; they route through tier 1.
+    let result = invoke_method(default_state(), "core.ping", json!({}))
+        .await
+        .expect("core.ping should succeed via tier 1");
+    assert_eq!(result, json!({ "ok": true }));
+}
+
+#[tokio::test]
+async fn invoke_method_core_version_via_tier1_reflects_state() {
+    let state = super::AppState {
+        core_version: "0.0.1-abc".into(),
+    };
+    let result = invoke_method(state, "core.version", json!({}))
+        .await
+        .expect("core.version should succeed");
+    assert_eq!(result, json!({ "version": "0.0.1-abc" }));
+}
+
+#[tokio::test]
+#[cfg(feature = "http-server")]
+async fn test_http_health_handler_returns_correct_status() {
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
+
+    // Call the handler once and derive both the status and expected status from
+    // the same response — avoids a TOCTOU race where a separate snapshot()
+    // call before/after the handler could observe different component state.
+    let resp = super::health_handler().await.into_response();
+    let status = resp.status();
+
+    let body = to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .expect("failed to read body");
+    let snapshot: serde_json::Value =
+        serde_json::from_slice(&body).expect("failed to deserialize health snapshot");
+
+    let components = snapshot["components"]
+        .as_object()
+        .expect("components should be an object");
+
+    // Granular liveness (#3312): the HTTP status is driven by the `healthy`
+    // verdict (no *critical* component unhealthy), not by all-components-ok.
+    // Derive the expectation from the body so the test asserts the handler's
+    // internal consistency rather than racing on live component state.
+    let body_healthy = snapshot["healthy"]
+        .as_bool()
+        .expect("body exposes a `healthy` verdict flag");
+    let expected_status = if body_healthy {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    assert_eq!(status, expected_status);
+
+    // `healthy` must mean "no critical component is unhealthy", and any
+    // unhealthy component must be bucketed as either critical or degraded.
+    let critical_unhealthy = snapshot["critical_unhealthy"]
+        .as_array()
+        .expect("body exposes critical_unhealthy");
+    assert_eq!(body_healthy, critical_unhealthy.is_empty());
+
+    let unhealthy_count = components
+        .values()
+        .filter(|c| {
+            let s = c["status"].as_str().unwrap_or("");
+            s != "ok" && s != "starting"
+        })
+        .count();
+    let degraded_count = snapshot["degraded_components"]
+        .as_array()
+        .expect("body exposes degraded_components")
+        .len();
+    assert_eq!(
+        unhealthy_count,
+        critical_unhealthy.len() + degraded_count,
+        "every unhealthy component is bucketed as critical or degraded"
+    );
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn is_wallet_not_configured_error_matches_wallet_constant() {
+    // The classifier keys off the wallet layer's exact "not configured"
+    // message so wallet-backed RPCs stay out of Sentry.
+    assert!(is_wallet_not_configured_error(
+        crate::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE
+    ));
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn is_wallet_not_configured_error_is_coupled_to_the_wallet_constant() {
+    // Drift guard: if the wallet wording changes without updating the shared
+    // constant the classifier matches, this fails — preventing the noise from
+    // silently returning to Sentry. Mirrors the param-validation prefix locks.
+    assert_eq!(
+        crate::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE,
+        "wallet is not configured; run wallet setup first"
+    );
+}
+
+#[test]
+#[cfg(feature = "http-server")]
+fn is_wallet_not_configured_error_does_not_match_other_errors() {
+    // Other wallet/seed-derivation failures (decrypt, key derivation, locked
+    // keychain) are real defects and must keep reaching Sentry.
+    assert!(!is_wallet_not_configured_error(
+        "wallet signer init: bad seed"
+    ));
+    assert!(!is_wallet_not_configured_error(
+        "decrypt secret: kms timeout"
+    ));
+    assert!(!is_wallet_not_configured_error(""));
+    // Substring-only must not qualify — exact equality is required.
+    assert!(!is_wallet_not_configured_error(
+        "rpc failed: wallet is not configured; run wallet setup first"
+    ));
+}

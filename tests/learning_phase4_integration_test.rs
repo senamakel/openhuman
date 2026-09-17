@@ -16,15 +16,13 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-use openhuman_core::openhuman::agent::learning::cache::{class_prefix, FacetCache};
-use openhuman_core::openhuman::agent::learning::candidate::{
+use openhuman_core::agent::learning::cache::{class_prefix, FacetCache};
+use openhuman_core::agent::learning::candidate::{
     self as candidate, CueFamily, EvidenceRef, FacetClass, LearningCandidate,
 };
-use openhuman_core::openhuman::agent::learning::profile_md_renderer::ProfileMdRenderer;
-use openhuman_core::openhuman::agent::learning::stability_detector::StabilityDetector;
-use openhuman_core::openhuman::memory::api::provider::{
-    FacetState, FacetType, ProfileFacet, UserState,
-};
+use openhuman_core::agent::learning::profile_md_renderer::ProfileMdRenderer;
+use openhuman_core::agent::learning::stability_detector::StabilityDetector;
+use openhuman_core::memory::api::provider::{FacetState, FacetType, ProfileFacet, UserState};
 use tempfile::TempDir;
 
 fn now_secs() -> f64 {
@@ -72,9 +70,8 @@ impl TestHarness {
         // One shared profile behind both handles — the cache and the detector
         // must see the same facets, exactly as they shared one SQLite
         // connection before.
-        let profile: Arc<
-            openhuman_core::openhuman::agent::learning::test_profile::InMemoryProfile,
-        > = Arc::new(Default::default());
+        let profile: Arc<openhuman_core::agent::learning::test_profile::InMemoryProfile> =
+            Arc::new(Default::default());
         let cache = Arc::new(FacetCache::for_tests(Arc::clone(&profile) as Arc<_>));
 
         let workspace = TempDir::new().unwrap();
@@ -269,7 +266,7 @@ async fn phase4_end_to_end_pin_forget_profile_md_list() {
 
 #[tokio::test]
 async fn list_facets_cache_direct_active_vs_all() {
-    let cache = openhuman_core::openhuman::agent::learning::test_profile::in_memory_cache();
+    let cache = openhuman_core::agent::learning::test_profile::in_memory_cache();
 
     let make = |id: &str, key: &str, state: FacetState| ProfileFacet {
         facet_id: id.into(),

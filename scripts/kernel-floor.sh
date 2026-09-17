@@ -41,7 +41,7 @@ done
 # Build the cargo argument list. A bare feature list implies
 # --no-default-features, because measuring "default + flows" is never what a
 # floor question is asking.
-declare -a CARGO_ARGS=(tree -e normal --prefix none)
+declare -a CARGO_ARGS=(tree -p openhuman -e normal --prefix none)
 PROFILE_LABEL="default"
 if [[ -n "$FEATURES" ]]; then
   if [[ "$FEATURES" == --* ]]; then

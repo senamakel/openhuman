@@ -29,7 +29,7 @@ on:
         type: boolean
         default: true
       run_rust_tauri:
-        description: Run `cargo test --manifest-path app/src-tauri/Cargo.toml`.
+        description: Run `cargo test --manifest-path crates/openhuman-app/Cargo.toml`.
         type: boolean
         default: true
 
@@ -168,18 +168,24 @@ jobs:
           # owned directory outside the runner-owned checkout is required.
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
+          juice_dir="$module_root/tinyjuice"
           connectors_dir="$module_root/tinyconnectors"
           rm -rf "$module_root"
-          mkdir -p "$memory_dir" "$connectors_dir"
+          mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
           bash scripts/ci-cancel-aware.sh cargo build --release \
             --manifest-path vendor/tinymemory/crates/tinymemory-module/Cargo.toml
           cp vendor/tinymemory/crates/tinymemory-module/target/release/libtinymemory_module.so \
             "$memory_dir/libtinymemory_module.so"
           bash scripts/ci-cancel-aware.sh cargo build --release \
+            --manifest-path vendor/tinyjuice/crates/tinyjuice-module/Cargo.toml
+          cp vendor/tinyjuice/target/release/libtinyjuice_module.so \
+            "$juice_dir/libtinyjuice_module.so"
+          bash scripts/ci-cancel-aware.sh cargo build --release \
             --manifest-path vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml
           cp vendor/tinyconnectors/target/release/libtinyconnectors.so \
             "$connectors_dir/libtinyconnectors.so"
           echo "TINYMEMORY_TEST_MODULE=$memory_dir/libtinymemory_module.so" >> "$GITHUB_ENV"
+          echo "TINYJUICE_TEST_MODULE=$juice_dir/libtinyjuice_module.so" >> "$GITHUB_ENV"
           echo "TINYCONNECTORS_TEST_MODULE=$connectors_dir/libtinyconnectors.so" >> "$GITHUB_ENV"
       - name: Test core crate (openhuman)
         # This script uses Bash-only process substitution below. Reusable
@@ -216,7 +222,7 @@ jobs:
           echo "[test-reusable] feature set: ${FEATURES}"
 
           # `--features bin-tools` is load-bearing, not cosmetic: the ops binaries
-          # under src/bin/ declare `required-features = ["bin-tools"]`, so without
+          # under crates/openhuman-core/src/bin/ declare `required-features = ["bin-tools"]`, so without
           # it `--bins` silently skips them and this lane goes green having
           # compiled none of them. fleet.rs carries a `#[cfg(test)] mod`, so those
           # tests would vanish too, with no error.
@@ -303,7 +309,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
-          # Required for app/src-tauri/vendor/tauri-cef.
+          # Required for crates/openhuman-app/vendor/tauri-cef.
           persist-credentials: false
           submodules: recursive
       # See rust-core-tests: rust-cache only, sccache dropped (0% hits warm).
@@ -312,15 +318,15 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           key: tauri
       - name: Cache CEF binary distribution
         uses: actions/cache@v6
         with:
           path: ~/.cache/tauri-cef
-          key: cef-ubuntu-22.04-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-ubuntu-22.04-${{ hashFiles('crates/openhuman-app/Cargo.toml') }}
           restore-keys: |
             cef-ubuntu-22.04-
       - name: Test Tauri shell (OpenHuman)
-        run: bash scripts/ci-cancel-aware.sh cargo test --manifest-path app/src-tauri/Cargo.toml
+        run: bash scripts/ci-cancel-aware.sh cargo test --manifest-path crates/openhuman-app/Cargo.toml

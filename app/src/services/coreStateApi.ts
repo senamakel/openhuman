@@ -3,6 +3,7 @@ import type { TeamInvite, TeamMember, TeamWithRole } from '../types/team';
 import type { LocalAiStatus } from '../utils/tauriCommands/localAi';
 import type { ServiceStatus } from '../utils/tauriCommands/service';
 import { callCoreRpc } from './coreRpcClient';
+import { fetchCurrentUser } from './session/sessionOwner';
 
 interface OnboardingTasks {
   accessibilityPermissionGranted: boolean;
@@ -39,7 +40,12 @@ interface AppStateSnapshotResult {
     profileId: string | null;
   };
   sessionToken: string | null;
-  currentUser: User | null;
+  /**
+   * The live user: the session owner's `/auth/me` answer on the desktop, else
+   * the payload the core was handed at login. Older cores also populate it
+   * themselves.
+   */
+  currentUser?: User | null;
   onboardingCompleted: boolean;
   chatOnboardingCompleted: boolean;
   analyticsEnabled: boolean;
@@ -80,9 +86,9 @@ interface AppStateSnapshotResult {
    */
   currentUserStale?: boolean;
   /**
-   * Seconds since the core last got a successful `auth_get_me` answer this
-   * process. Absent when it never has — the stored snapshot then came off
-   * disk and its real age is unknown, which is a different statement from
+   * Seconds since the session owner last got a successful `/auth/me` answer
+   * this process. Absent when it never has — the stored snapshot then came
+   * off disk and its real age is unknown, which is a different statement from
    * "zero seconds old".
    */
   currentUserStaleSeconds?: number;
@@ -99,7 +105,7 @@ interface RawHealthSnapshot {
       status: string;
       updated_at: string;
       // Rust serializes absent `Option<String>` as `null` (no skip attribute),
-      // so match `src/openhuman/platform/health/core.rs` — not `string | undefined`.
+      // so match `crates/openhuman-core/src/platform/health/core.rs` — not `string | undefined`.
       last_ok?: string | null;
       last_error?: string | null;
       restart_count: number;
@@ -123,9 +129,49 @@ export const fetchCoreAppSnapshot = async (): Promise<AppStateSnapshotResult> =>
     method: 'openhuman.app_state_snapshot',
     timeoutMs: SNAPSHOT_TIMEOUT_MS,
   });
-  // Normalise the optional #1299 field at the API boundary so older core
-  // privacy-conservative `false` to callers (e.g. CoreStateProvider).
-  return { ...response.result };
+  const result: AppStateSnapshotResult = { ...response.result };
+  // The core reports the credential it holds and the user payload it was
+  // handed at login (`auth.user`); the *live* current user comes from the
+  // session owner's `/auth/me` cache — the Tauri shell's on the desktop, a
+  // small in-page one in the browser build and cloud mode — so this
+  // poll-frequency call stays cheap.
+  if (result.auth?.isAuthenticated) {
+    try {
+      const current = await fetchCurrentUser(false);
+      if (current.user) {
+        // A logout, or an A→B login, can land while the session owner's
+        // `/auth/me` request above is in flight: `current.user` would then
+        // belong to a different identity than the `auth`/`sessionToken`
+        // already captured from `app_state_snapshot`. `CoreStateProvider`
+        // scopes identity off `auth.userId`, so merging here could pair A's
+        // auth/token with B's live user (or A's after a logout). Re-read the
+        // active credential and retry the whole snapshot rather than merge a
+        // stale pairing (#6318).
+        const latestAuth = await callCoreRpc<{
+          result: { isAuthenticated: boolean; userId: string | null };
+        }>({ method: 'openhuman.auth_get_state' });
+        if (
+          latestAuth.result.isAuthenticated !== result.auth.isAuthenticated ||
+          latestAuth.result.userId !== result.auth.userId
+        ) {
+          return fetchCoreAppSnapshot();
+        }
+        result.currentUser = current.user as User;
+        result.currentUserStale = current.stale;
+        result.currentUserStaleSeconds = current.staleSeconds ?? undefined;
+      }
+    } catch (error) {
+      // A `REJECTED:` here means the owner already cleared the credential and
+      // emitted `auth://expired`; CoreStateProvider reacts to that event. Any
+      // other failure leaves the stored payload in place.
+      console.debug('[core-state] current user unavailable from the session owner:', error);
+    }
+  }
+  if (!result.currentUser && result.auth?.user) {
+    result.currentUser = result.auth.user as User;
+    result.currentUserStale = true;
+  }
+  return result;
 };
 
 export const updateCoreLocalState = async (params: UpdateCoreLocalStateParams): Promise<void> => {

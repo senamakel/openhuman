@@ -56,11 +56,10 @@ When a run pauses, you get a **Flow Approval Card** in your notifications naming
 
 ## RPC surface (for developers)
 
-The `flows` domain (`src/openhuman/flows/`) exposes ten controllers under `openhuman.flows_*`: `create`, `get`, `list`, `update`, `delete`, `set_enabled`, `run`, `resume`, `list_runs`, `get_run`. See the [Agent Harness](../developing/architecture/agent-harness.md) page for how flow runs share the tinyagents execution stack.
+The `flows` domain (`crates/openhuman-core/src/flows/`) exposes ten controllers under `openhuman.flows_*`: `create`, `get`, `list`, `update`, `delete`, `set_enabled`, `run`, `resume`, `list_runs`, `get_run`. See the [Agent Harness](../developing/architecture/agent-harness.md) page for how flow runs share the tinyagents execution stack.
 
 ## See also
 
 - [Triggers](integrations/triggers.md): the live app events that fire `app_event` workflows.
 - [Approval Gate](approval-gate.md): how pending approvals are surfaced and expire.
 - [Cron & Scheduling](native-tools/cron.md): one-shot and recurring agent jobs (workflows are the structured, multi-step upgrade).
-- [Subconscious Loop](subconscious.md): the background awareness layer that complements event-driven workflows.

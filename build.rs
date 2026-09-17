@@ -48,8 +48,13 @@ use std::path::Path;
 
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set");
+    let repository_root = Path::new(&manifest_dir).join("../..");
+    println!(
+        "cargo:rustc-env=OPENHUMAN_REPOSITORY_ROOT={}",
+        repository_root.display()
+    );
     warn_about_silently_skipped_test_targets(Path::new(&manifest_dir));
-    let tests_dir = Path::new(&manifest_dir).join("tests");
+    let tests_dir = repository_root.join("tests");
     let raw_dir = tests_dir.join("raw_coverage");
 
     // Re-run whenever a file is added to / removed from the directory.

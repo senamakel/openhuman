@@ -66,7 +66,12 @@ LINE = re.compile(r"^(\d+)([^\s]+) v([^\s]+)")
 
 
 def run_tree(features: str, default_features: bool, all_features: bool) -> str:
-    cmd = ["cargo", "tree", "-e", "normal", "--prefix", "depth"]
+    # The repository root is a virtual workspace. Select the implementation
+    # package explicitly so sibling wrappers do not become additional roots
+    # and inflate the kernel profile with their independently chosen features.
+    cmd = [
+        "cargo", "tree", "-p", "openhuman", "-e", "normal", "--prefix", "depth"
+    ]
     if all_features:
         cmd.append("--all-features")
     else:

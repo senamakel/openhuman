@@ -148,7 +148,7 @@ embedding_strict = false
     // Runtime config resolution is user-scoped before login, so the pre-login
     // `users/local` layer needs the same file or the RPC handlers load defaults.
     write(&openhuman_dir.join("users").join("local"));
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(cfg).expect("test config must match the Config schema");
 }
 

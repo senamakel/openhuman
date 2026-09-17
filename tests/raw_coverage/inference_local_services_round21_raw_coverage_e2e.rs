@@ -14,13 +14,13 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use openhuman_core::core::all::RegisteredController;
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::inference::local::ops::{
+use openhuman_core::config::Config;
+use openhuman_core::inference::local::ops::{
     local_ai_assets_status, local_ai_chat, local_ai_download_asset, local_ai_downloads_progress,
     local_ai_prompt, local_ai_should_react, local_ai_transcribe, local_ai_transcribe_bytes,
     LocalAiChatMessage,
 };
-use openhuman_core::openhuman::inference::local::{
+use openhuman_core::inference::local::{
     all_local_inference_registered_controllers, LocalAiService,
 };
 use serde_json::{json, Value};

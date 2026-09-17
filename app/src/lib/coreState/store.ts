@@ -58,7 +58,7 @@ export interface CoreAppSnapshot {
    * orchestrator agent for proactive follow-up actions (drafting Slack
    * messages, scheduling, etc.). Mirrors
    * `Config::meet.auto_orchestrator_handoff` in the Rust core (see
-   * `src/openhuman/config/schema/meet.rs`). Defaults to `false` —
+   * `crates/openhuman-core/src/config/schema/meet.rs`). Defaults to `false` —
    * privacy-conservative gate added in #1299. The webview meet flow
    * reads this before invoking `handoffToOrchestrator`.
    */

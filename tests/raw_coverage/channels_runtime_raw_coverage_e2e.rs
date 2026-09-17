@@ -10,14 +10,14 @@ use axum::{
 };
 use openhuman_core::core::events::DomainEvent;
 use tinybus::EventHandler;
-use openhuman_core::openhuman::web_chat::{
+use openhuman_core::web_chat::{
     cancel_chat, start_chat, subscribe_web_channel_events, ChatRequestMetadata,
 };
-use openhuman_core::openhuman::channels::providers::yuanbao::{YuanbaoChannel, YuanbaoConfig};
-use openhuman_core::openhuman::channels::{
+use openhuman_core::channels::providers::yuanbao::{YuanbaoChannel, YuanbaoConfig};
+use openhuman_core::channels::{
     bus::ChannelInboundSubscriber, lark::LarkChannel, Channel, SendMessage, TelegramChannel,
 };
-use openhuman_core::openhuman::config::{schema::LarkConfig, StreamMode};
+use openhuman_core::config::{schema::LarkConfig, StreamMode};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 

@@ -27,13 +27,13 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use openhuman_core::openhuman::agent::tool_policy::{
+use openhuman_core::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk,
 };
-use openhuman_core::openhuman::skills::types::tool_result_from_mcp;
-use openhuman_core::openhuman::tools::toolpacks::registry::PACKS;
-use openhuman_core::openhuman::tools::toolpacks::tools::{PackRegistryHandle, UseSkillTool};
-use openhuman_core::openhuman::tools::traits::{
+use openhuman_core::skills::types::tool_result_from_mcp;
+use openhuman_core::tools::toolpacks::registry::PACKS;
+use openhuman_core::tools::toolpacks::tools::{PackRegistryHandle, UseSkillTool};
+use openhuman_core::tools::traits::{
     generated_runtime_context, pack_registry_handle, PermissionLevel, Tool, ToolResult,
 };
 

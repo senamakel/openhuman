@@ -244,7 +244,7 @@ export interface SubagentToolCallEntry {
 export interface ToolFailureExplanation {
   /** PascalCase failure class, e.g. `MissingPermission`, `Timeout`, `Unknown`. */
   class: string;
-  /** `Recoverable` | `BlockedByPolicy` | `NeedsUserConfirmation`. */
+  /** `Recoverable` | `BlockedByPolicy` | `NeedsUserConfirmation` | `UserDeclined` | `Permanent`. */
   category: string;
   /** Whether the core considers the failure automatically recoverable. */
   recoverable: boolean;

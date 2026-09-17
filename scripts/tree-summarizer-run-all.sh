@@ -37,7 +37,7 @@ resolve_binary() {
     esac
 
     for bin in \
-        "$REPO_ROOT/app/src-tauri/binaries/openhuman-core-$arch" \
+        "$REPO_ROOT/crates/openhuman-app/binaries/openhuman-core-$arch" \
         "$REPO_ROOT/target/debug/openhuman-core" \
         "$REPO_ROOT/target/release/openhuman-core"; do
         if [ -x "$bin" ]; then

@@ -1,26 +1,29 @@
 #!/usr/bin/env node
-'use strict';
+"use strict";
 
 // postinstall: downloads the correct pre-built binary for this platform/arch,
-// verifies the SHA-256 checksum, then places it at bin/openhuman-bin[.exe].
+// verifies the SHA-256 checksum, then installs the core and TUI executables.
 //
 // The binary is fetched from the GitHub release that matches package.json version.
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { execFileSync } = require('child_process');
+const https = require("https");
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const { execFileSync } = require("child_process");
 
-const REPO = 'tinyhumansai/openhuman';
-const pkg = require('./package.json');
+const REPO = "tinyhumansai/openhuman";
+const pkg = require("./package.json");
 const VERSION = pkg.version;
 
 // Maps process.platform + process.arch → Rust target triple
 const TARGET_MAP = {
-  darwin: { x64: 'x86_64-apple-darwin', arm64: 'aarch64-apple-darwin' },
-  linux: { x64: 'x86_64-unknown-linux-gnu', arm64: 'aarch64-unknown-linux-gnu' },
-  win32: { x64: 'x86_64-pc-windows-msvc' },
+  darwin: { x64: "x86_64-apple-darwin", arm64: "aarch64-apple-darwin" },
+  linux: {
+    x64: "x86_64-unknown-linux-gnu",
+    arm64: "aarch64-unknown-linux-gnu",
+  },
+  win32: { x64: "x86_64-pc-windows-msvc" },
 };
 
 function getTarget() {
@@ -36,19 +39,21 @@ function getTarget() {
 function httpsGet(url) {
   return new Promise((resolve, reject) => {
     function request(u) {
-      https.get(u, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          return request(res.headers.location);
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          return reject(new Error(`HTTP ${res.statusCode} fetching ${u}`));
-        }
-        const chunks = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-        res.on('error', reject);
-      }).on('error', reject);
+      https
+        .get(u, (res) => {
+          if (res.statusCode === 301 || res.statusCode === 302) {
+            return request(res.headers.location);
+          }
+          if (res.statusCode !== 200) {
+            res.resume();
+            return reject(new Error(`HTTP ${res.statusCode} fetching ${u}`));
+          }
+          const chunks = [];
+          res.on("data", (c) => chunks.push(c));
+          res.on("end", () => resolve(Buffer.concat(chunks)));
+          res.on("error", reject);
+        })
+        .on("error", reject);
     }
     request(url);
   });
@@ -57,52 +62,67 @@ function httpsGet(url) {
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
     function request(u) {
-      https.get(u, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          return request(res.headers.location);
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          return reject(new Error(`HTTP ${res.statusCode} fetching ${u}`));
-        }
-        const out = fs.createWriteStream(dest);
-        res.pipe(out);
-        out.on('finish', () => out.close(resolve));
-        out.on('error', reject);
-        res.on('error', reject);
-      }).on('error', reject);
+      https
+        .get(u, (res) => {
+          if (res.statusCode === 301 || res.statusCode === 302) {
+            return request(res.headers.location);
+          }
+          if (res.statusCode !== 200) {
+            res.resume();
+            return reject(new Error(`HTTP ${res.statusCode} fetching ${u}`));
+          }
+          const out = fs.createWriteStream(dest);
+          res.pipe(out);
+          out.on("finish", () => out.close(resolve));
+          out.on("error", reject);
+          res.on("error", reject);
+        })
+        .on("error", reject);
     }
     request(url);
   });
 }
 
 function sha256hex(filePath) {
-  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(filePath))
+    .digest("hex");
 }
 
 async function main() {
   // Skip in CI environments that just need the package metadata
   if (process.env.SKIP_OPENHUMAN_BINARY_DOWNLOAD) {
-    console.log('[openhuman] Skipping binary download (SKIP_OPENHUMAN_BINARY_DOWNLOAD set)');
+    console.log(
+      "[openhuman] Skipping binary download (SKIP_OPENHUMAN_BINARY_DOWNLOAD set)",
+    );
     return;
   }
 
   const { platform, target } = getTarget();
-  const isWin = platform === 'win32';
-  const ext = isWin ? '.zip' : '.tar.gz';
+  const isWin = platform === "win32";
+  const ext = isWin ? ".zip" : ".tar.gz";
   const tarball = `openhuman-core-${VERSION}-${target}${ext}`;
   const checksumFile = `${tarball}.sha256`;
   const baseUrl = `https://github.com/${REPO}/releases/download/v${VERSION}`;
 
-  const binDir = path.join(__dirname, 'bin');
+  const binDir = path.join(__dirname, "bin");
   fs.mkdirSync(binDir, { recursive: true });
 
   const tmpTarball = path.join(binDir, tarball);
-  const binDest = path.join(binDir, isWin ? 'openhuman-bin.exe' : 'openhuman-bin');
+  const coreDest = path.join(
+    binDir,
+    isWin ? "openhuman-bin.exe" : "openhuman-bin",
+  );
+  const tuiDest = path.join(
+    binDir,
+    isWin ? "openhuman-tui-bin.exe" : "openhuman-tui-bin",
+  );
 
-  // Skip if binary already exists and is executable
-  if (fs.existsSync(binDest)) {
-    console.log('[openhuman] Binary already installed, skipping download.');
+  // Skip only when both commands are already installed. This lets an upgrade
+  // from a core-only package fetch the newly shipped TUI.
+  if (fs.existsSync(coreDest) && fs.existsSync(tuiDest)) {
+    console.log("[openhuman] Binaries already installed, skipping download.");
     return;
   }
 
@@ -110,7 +130,7 @@ async function main() {
 
   // Download checksum first (small)
   const checksumData = await httpsGet(`${baseUrl}/${checksumFile}`);
-  const expectedChecksum = checksumData.toString('utf8').trim().split(/\s+/)[0];
+  const expectedChecksum = checksumData.toString("utf8").trim().split(/\s+/)[0];
 
   // Download binary archive
   await downloadFile(`${baseUrl}/${tarball}`, tmpTarball);
@@ -120,48 +140,65 @@ async function main() {
   if (expectedChecksum !== actualChecksum) {
     fs.rmSync(tmpTarball, { force: true });
     throw new Error(
-      `[openhuman] Checksum mismatch!\n  expected: ${expectedChecksum}\n  got:      ${actualChecksum}`
+      `[openhuman] Checksum mismatch!\n  expected: ${expectedChecksum}\n  got:      ${actualChecksum}`,
     );
   }
-  console.log('[openhuman] Checksum verified.');
+  console.log("[openhuman] Checksum verified.");
 
   // Extract — use execFileSync (no shell interpolation) so paths with spaces
   // or shell metacharacters in `tmpTarball` / `binDir` can't be injected.
   if (isWin) {
     // PowerShell is available on Windows runners
     execFileSync(
-      'powershell',
+      "powershell",
       [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
         `Expand-Archive -Path $env:TC_SRC -DestinationPath $env:TC_DEST -Force`,
       ],
-      { stdio: 'inherit', env: { ...process.env, TC_SRC: tmpTarball, TC_DEST: binDir } }
+      {
+        stdio: "inherit",
+        env: { ...process.env, TC_SRC: tmpTarball, TC_DEST: binDir },
+      },
     );
-    const extracted = path.join(binDir, 'openhuman-core.exe');
-    if (fs.existsSync(extracted)) fs.renameSync(extracted, binDest);
+    const extractedCore = path.join(binDir, "openhuman-core.exe");
+    const extractedTui = path.join(binDir, "openhuman-tui.exe");
+    if (fs.existsSync(extractedCore)) fs.renameSync(extractedCore, coreDest);
+    if (fs.existsSync(extractedTui)) fs.renameSync(extractedTui, tuiDest);
   } else {
-    execFileSync('tar', ['-xzf', tmpTarball, '-C', binDir], { stdio: 'inherit' });
-    const extracted = path.join(binDir, 'openhuman-core');
-    if (fs.existsSync(extracted)) {
-      fs.renameSync(extracted, binDest);
-      fs.chmodSync(binDest, 0o755);
+    execFileSync("tar", ["-xzf", tmpTarball, "-C", binDir], {
+      stdio: "inherit",
+    });
+    const extractedCore = path.join(binDir, "openhuman-core");
+    const extractedTui = path.join(binDir, "openhuman-tui");
+    if (fs.existsSync(extractedCore)) {
+      fs.renameSync(extractedCore, coreDest);
+      fs.chmodSync(coreDest, 0o755);
+    }
+    if (fs.existsSync(extractedTui)) {
+      fs.renameSync(extractedTui, tuiDest);
+      fs.chmodSync(tuiDest, 0o755);
     }
   }
 
   // Clean up archive
   fs.rmSync(tmpTarball, { force: true });
 
-  if (!fs.existsSync(binDest)) {
-    throw new Error('[openhuman] Extraction failed — binary not found after unpack.');
+  if (!fs.existsSync(coreDest) || !fs.existsSync(tuiDest)) {
+    throw new Error(
+      "[openhuman] Extraction failed — core or TUI binary not found after unpack.",
+    );
   }
 
-  console.log(`[openhuman] Installed at ${binDest}`);
+  console.log(`[openhuman] Installed core at ${coreDest}`);
+  console.log(`[openhuman] Installed TUI at ${tuiDest}`);
 }
 
 main().catch((err) => {
-  console.error('\n[openhuman] Installation failed:', err.message);
-  console.error('You can file a bug at https://github.com/tinyhumansai/openhuman/issues');
+  console.error("\n[openhuman] Installation failed:", err.message);
+  console.error(
+    "You can file a bug at https://github.com/tinyhumansai/openhuman/issues",
+  );
   process.exit(1);
 });

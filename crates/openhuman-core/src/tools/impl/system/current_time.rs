@@ -1,0 +1,165 @@
+//! Tool: current_time — returns the current time in UTC and local time zones.
+//!
+//! Gives the orchestrator (and other agents) a way to ground reasoning that
+//! depends on "now" — reminders, scheduling, relative date parsing — without
+//! having to shell out to `date`. Read-only, no arguments beyond an optional
+//! IANA timezone for a convenience conversion.
+
+use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use async_trait::async_trait;
+use chrono::{Local, SecondsFormat, Utc};
+use chrono_tz::Tz;
+use serde_json::json;
+
+pub struct CurrentTimeTool;
+
+impl CurrentTimeTool {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for CurrentTimeTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Tool for CurrentTimeTool {
+    fn name(&self) -> &str {
+        "current_time"
+    }
+
+    fn description(&self) -> &str {
+        "Get the current date and time in UTC and the machine's local timezone. \
+         Optionally convert to a specific IANA timezone (e.g. 'America/Los_Angeles', \
+         'Asia/Kolkata'). Use before scheduling reminders / cron jobs or when the \
+         user refers to relative times like 'in 10 minutes', 'tomorrow', 'tonight'."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "timezone": {
+                    "type": "string",
+                    "description": "Optional IANA timezone name (e.g. 'Europe/London'). \
+                                    If omitted, only UTC and machine-local are returned."
+                }
+            }
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::ReadOnly
+    }
+
+    fn supports_markdown(&self) -> bool {
+        true
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_options(args, ToolCallOptions::default())
+            .await
+    }
+
+    async fn execute_with_options(
+        &self,
+        args: serde_json::Value,
+        options: ToolCallOptions,
+    ) -> anyhow::Result<ToolResult> {
+        tracing::debug!(args = %args, "[current_time] execute start");
+        let now_utc = Utc::now();
+        let now_local = Local::now();
+
+        let mut payload = json!({
+            "utc": now_utc.to_rfc3339_opts(SecondsFormat::Secs, true),
+            "local": now_local.to_rfc3339_opts(SecondsFormat::Secs, true),
+            "local_timezone": now_local.format("%Z").to_string(),
+            "unix_seconds": now_utc.timestamp(),
+            "weekday": now_local.format("%A").to_string(),
+        });
+
+        if let Some(tz_name) = args.get("timezone").and_then(|v| v.as_str()) {
+            let trimmed = tz_name.trim();
+            tracing::debug!(
+                tz_name = tz_name,
+                trimmed = trimmed,
+                now_utc = %now_utc,
+                now_local = %now_local,
+                "[current_time] normalized timezone input"
+            );
+            if !trimmed.is_empty() {
+                match trimmed.parse::<Tz>() {
+                    Ok(tz) => {
+                        let converted = now_utc.with_timezone(&tz);
+                        tracing::debug!(
+                            trimmed = trimmed,
+                            converted = %converted,
+                            "[current_time] timezone conversion succeeded"
+                        );
+                        payload["requested_timezone"] = json!({
+                            "name": trimmed,
+                            "time": converted.to_rfc3339_opts(SecondsFormat::Secs, true),
+                            "weekday": converted.format("%A").to_string(),
+                        });
+                    }
+                    Err(error) => {
+                        tracing::debug!(
+                            trimmed = trimmed,
+                            error = %error,
+                            "[current_time] timezone conversion failed"
+                        );
+                        payload["requested_timezone_error"] = json!(format!(
+                            "Unknown IANA timezone '{trimmed}' — use names like 'America/Los_Angeles'."
+                        ));
+                    }
+                }
+            }
+        }
+
+        tracing::debug!("[current_time] returning payload: {payload}");
+        let mut result = ToolResult::success(serde_json::to_string_pretty(&payload)?);
+        if options.prefer_markdown {
+            let mut md = String::new();
+            md.push_str(&format!(
+                "- **utc**: {}\n",
+                payload["utc"].as_str().unwrap_or("")
+            ));
+            md.push_str(&format!(
+                "- **local**: {} ({})\n",
+                payload["local"].as_str().unwrap_or(""),
+                payload["local_timezone"].as_str().unwrap_or("")
+            ));
+            md.push_str(&format!(
+                "- **weekday**: {}\n",
+                payload["weekday"].as_str().unwrap_or("")
+            ));
+            md.push_str(&format!(
+                "- **unix_seconds**: {}\n",
+                payload["unix_seconds"].as_i64().unwrap_or(0)
+            ));
+            if let Some(rt) = payload.get("requested_timezone") {
+                md.push_str(&format!(
+                    "- **{}**: {} ({})\n",
+                    rt["name"].as_str().unwrap_or(""),
+                    rt["time"].as_str().unwrap_or(""),
+                    rt["weekday"].as_str().unwrap_or("")
+                ));
+            }
+            if let Some(err) = payload
+                .get("requested_timezone_error")
+                .and_then(|v| v.as_str())
+            {
+                md.push_str(&format!("- **timezone error**: {err}\n"));
+            }
+            result.markdown_formatted = Some(md);
+        }
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+#[path = "current_time_tests.rs"]
+mod tests;

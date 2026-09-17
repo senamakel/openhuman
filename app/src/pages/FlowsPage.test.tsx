@@ -61,6 +61,7 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
   return {
     id: 'flow-1',
     name: 'Daily digest',
+    description: '',
     enabled: true,
     graph: { nodes: [], edges: [] },
     created_at: '2026-01-01T00:00:00Z',

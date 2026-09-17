@@ -11,7 +11,7 @@
  *
  * The backend publishes `DomainEvent::FlowRunStarted` right after
  * `flows::ops::start_flow_run_row` returns; the core socket bridge
- * (`src/core/socketio.rs`) re-emits it as both `flow:run_started` and
+ * (`crates/openhuman-core/src/core/socketio.rs`) re-emits it as both `flow:run_started` and
  * `flow_run_started` (colon + underscore aliases) with the payload
  * `{ flow_id, run_id }`.
  *

@@ -636,7 +636,7 @@ sanitize_elf_rpaths() {
 # bundle.
 #
 # Problem (issues #3224 and #4020): the app links libxdo.so.3 via enigo
-# (`#[link(name = "xdo")]`, used by src/openhuman/tools/impl/computer for Linux
+# (`#[link(name = "xdo")]`, used by crates/openhuman-core/src/tools/impl/computer for Linux
 # mouse/keyboard control). lib4bin's ldd-walk normally bundles it into
 # shared/lib, but if a future runner image drops libxdo-dev or bumps its soname,
 # the lib silently vanishes from the AppImage and the binary segfaults on launch

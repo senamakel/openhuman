@@ -23,6 +23,7 @@ import { useSyncExternalStore } from 'react';
 
 import type { SourceStatus } from '../../services/memorySourcesService';
 import {
+  isItemStage,
   STAGE_FALLBACK_PERCENT,
   type SyncNote,
   type SyncProgress,
@@ -144,6 +145,34 @@ const EMPTY: MemorySyncActivity = {
 let state: MemorySyncActivity = EMPTY;
 /** When each row's live entry was last written — the reconcile grace clock. */
 const liveSince = new Map<string, number>();
+/**
+ * How long a finished row ignores per-item stages: the core tracker's own
+ * ceiling (`STALE_AFTER_MS` in `memory/sync_activity.rs`). A new run normally
+ * announces itself first (the Sync button, or a `requested`, `fetching` or
+ * `running` stage), which clears the mark at once. Past the window, a per-item
+ * stage is taken as a later run whose start this app never saw, as the core's
+ * status list takes it.
+ */
+export const LATE_ITEM_STAGE_WINDOW_MS = 30 * 60 * 1_000;
+
+/**
+ * When each row's last run ended (openhuman#6257). The core's bridge re-emits
+ * the module's per-document events as `stored`, `queued` and `ingesting`, and
+ * they can arrive after the run's `completed`: without this the row went back
+ * to a live "Queued" bar and lost its result chip for a run that was over. A
+ * row leaves the map when a new run starts (any other stage, or the Sync
+ * button) or once its window has passed.
+ */
+const finishedRows = new Map<string, number>();
+
+/** Whether `stage` is a late per-item report of `rowId`'s finished run, as of `now`. */
+function isLateItemStage(rowId: string, stage: string, now: number): boolean {
+  const finishedAt = finishedRows.get(rowId);
+  if (finishedAt === undefined || !isItemStage(stage)) return false;
+  if (now - finishedAt <= LATE_ITEM_STAGE_WINDOW_MS) return true;
+  finishedRows.delete(rowId);
+  return false;
+}
 const listeners = new Set<() => void>();
 const terminalListeners = new Set<TerminalListener>();
 
@@ -218,10 +247,19 @@ export function applyStageEvent(data: SyncStageEventDetail | null | undefined): 
     syncingIds.delete(rowId);
     const results = new Map(state.results);
     results.set(rowId, result);
+    finishedRows.set(rowId, Date.now());
     commit({ syncingIds, progress, results });
     for (const listener of terminalListeners) listener({ rowId, stage, detail, result });
     return;
   }
+
+  // A per-item stage for a run that already ended is a late report of that
+  // run, not a new one: keep the result chip (openhuman#6257).
+  if (isLateItemStage(rowId, stage, Date.now())) {
+    console.debug(`[ui-flow][memory-sync] ignored late stage=${stage} for finished rowId=${rowId}`);
+    return;
+  }
+  finishedRows.delete(rowId);
 
   // Non-terminal stage: a sync is genuinely in progress. Drop any stale
   // terminal result for this row so the live bar replaces the old chip.
@@ -240,6 +278,7 @@ export function applyStageEvent(data: SyncStageEventDetail | null | undefined): 
  * (RC#1, #3295) and drop the previous run's chip.
  */
 export function noteSyncRequested(rowId: string): void {
+  finishedRows.delete(rowId);
   const syncingIds = new Set(state.syncingIds);
   syncingIds.add(rowId);
   const results = new Map(state.results);
@@ -284,6 +323,9 @@ export function reconcileWithStatuses(statuses: SourceStatus[], now = Date.now()
     const live = status.sync_stage;
     const knownLive = progress.has(rowId) || syncingIds.has(rowId);
     if (live) {
+      // A per-item stage for a run that already ended is a late report of
+      // that run, not a new one (openhuman#6257).
+      if (isLateItemStage(rowId, live, now)) continue;
       // The core has the row running: the flag follows, whether the store
       // learns of the run here (a cold mount) or already had the bar.
       if (!syncingIds.has(rowId)) {
@@ -312,6 +354,7 @@ export function reconcileWithStatuses(statuses: SourceStatus[], now = Date.now()
 /** Back to nothing in flight. Tests only. */
 export function resetMemorySyncActivityForTests(): void {
   liveSince.clear();
+  finishedRows.clear();
   commit(EMPTY);
 }
 

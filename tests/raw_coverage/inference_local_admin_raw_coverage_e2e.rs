@@ -16,18 +16,18 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
-use openhuman_core::openhuman::config::schema::cloud_providers::{
+use openhuman_core::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
-use openhuman_core::openhuman::inference::local::ops::{
+use openhuman_core::config::Config;
+use openhuman_core::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
+use openhuman_core::inference::local::ops::{
     local_ai_chat, local_ai_download_asset, local_ai_downloads_progress, local_ai_should_react,
     LocalAiChatMessage,
 };
-use openhuman_core::openhuman::inference::local::LocalAiService;
-use openhuman_core::openhuman::inference::provider::factory::auth_key_for_slug;
-use openhuman_core::openhuman::inference::provider::list_configured_models;
+use openhuman_core::inference::local::LocalAiService;
+use openhuman_core::inference::provider::factory::auth_key_for_slug;
+use openhuman_core::inference::provider::list_configured_models;
 
 #[derive(Clone, Default)]
 struct MockState {

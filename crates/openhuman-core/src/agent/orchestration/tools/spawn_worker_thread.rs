@@ -1,0 +1,306 @@
+//! Tool: `spawn_worker_thread` — spawn a dedicated worker thread for a complex delegated task.
+//!
+//! Unlike `spawn_subagent`, which collapses sub-agent work into a single
+//! tool result in the current thread, `spawn_worker_thread` creates a new
+//! persisted thread with label `worker`. The sub-agent's full transcript
+//! is recorded into that thread, and the parent receives a compact
+//! reference (worker thread id) instead of the full output.
+//!
+//! Worker threads carry a hard cap on depth: a worker thread cannot spawn
+//! another worker thread.
+
+use crate::agent::harness::definition::AgentDefinitionRegistry;
+use crate::agent::harness::fork_context::current_parent;
+use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
+use crate::memory::conversations;
+use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use async_trait::async_trait;
+use serde_json::json;
+use tinytools::ToolRunContext;
+
+/// Spawns a sub-agent in a dedicated worker thread.
+pub struct SpawnWorkerThreadTool;
+
+impl Default for SpawnWorkerThreadTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SpawnWorkerThreadTool {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Tool for SpawnWorkerThreadTool {
+    fn name(&self) -> &str {
+        "spawn_worker_thread"
+    }
+
+    fn description(&self) -> &str {
+        "Spawn a dedicated worker thread for a complex delegated task. \
+         Use this when the task is long or involves many steps that would \
+         clutter the current conversation. The sub-agent runs in a fresh \
+         thread labeled 'worker', and you receive the thread ID and a \
+         summary. Worker threads cannot spawn other worker threads."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        let agent_ids: Vec<String> = AgentDefinitionRegistry::global()
+            .map(|reg| reg.list().iter().map(|d| d.id.clone()).collect())
+            .unwrap_or_default();
+
+        let agent_id_schema = if agent_ids.is_empty() {
+            json!({
+                "type": "string",
+                "description": "Sub-agent id (e.g. code_executor, researcher, planner)."
+            })
+        } else {
+            json!({
+                "type": "string",
+                "enum": agent_ids,
+                "description": "Sub-agent id from the registry."
+            })
+        };
+
+        json!({
+            "type": "object",
+            "required": ["agent_id", "prompt", "task_title"],
+            "properties": {
+                "agent_id": agent_id_schema,
+                "prompt": {
+                    "type": "string",
+                    "description": "Clear, specific instruction for the sub-agent. The sub-agent has no memory of the parent's conversation, so include all context the sub-agent needs to act."
+                },
+                "task_title": {
+                    "type": "string",
+                    "description": "A short, descriptive title for the worker thread (e.g. 'Researching Rust async patterns')."
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Optional context blob from prior task results. Rendered as a `[Context]` block before the prompt."
+                },
+                "toolkit": {
+                    "type": "string",
+                    "description": "Composio toolkit slug to scope this spawn to (e.g. `gmail`, `notion`)."
+                },
+                "model": {
+                    "type": "string",
+                    "description": "Optional exact model id for this spawn only. Keeps the parent provider/routing, but pins the worker child agent to this model instead of the agent definition's default."
+                }
+            }
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Execute
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let started = std::time::Instant::now();
+
+        let agent_id = args
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let prompt = args
+            .get("prompt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let task_title = args
+            .get("task_title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Worker Task")
+            .to_string();
+        let context = args
+            .get("context")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let toolkit_override = args
+            .get("toolkit")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let model_override = args
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        if agent_id.is_empty() || prompt.is_empty() {
+            tracing::warn!(
+                agent_id = %agent_id,
+                prompt_empty = prompt.is_empty(),
+                "[spawn_worker_thread] rejected: agent_id and prompt are required"
+            );
+            return Ok(ToolResult::error("agent_id and prompt are required"));
+        }
+
+        let parent = current_parent().ok_or_else(|| anyhow::anyhow!("no parent context"))?;
+
+        // ── Depth Guard ────────────────────────────────────────────────
+        // Check if the current thread is already a worker thread.
+        let current_thread_id = crate::agent::tinyagents::thread_context::current_thread_id()
+            .unwrap_or_else(|| "unknown".to_string());
+
+        tracing::info!(
+            agent_id = %agent_id,
+            task_title = %task_title,
+            current_thread_id = %current_thread_id,
+            toolkit_override = ?toolkit_override,
+            has_context = context.is_some(),
+            "[spawn_worker_thread] invoked"
+        );
+
+        let threads = conversations::list_threads(parent.workspace_dir.clone())
+            .map_err(|e| anyhow::anyhow!(e))?;
+        if let Some(current_thread) = threads.iter().find(|t| t.id == current_thread_id) {
+            let is_delegated_label = current_thread
+                .labels
+                .iter()
+                .any(|label| label == "tasks" || label == "worker" || label == "agent-task");
+            if is_delegated_label || current_thread.parent_thread_id.is_some() {
+                tracing::warn!(
+                    agent_id = %agent_id,
+                    current_thread_id = %current_thread_id,
+                    is_delegated_label,
+                    has_parent_thread_id = current_thread.parent_thread_id.is_some(),
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "[spawn_worker_thread] depth guard blocked spawn from worker thread"
+                );
+                return Ok(ToolResult::error("Worker threads cannot spawn other worker threads. Depth is capped at 1. Use spawn_subagent for inline delegation instead."));
+            }
+        }
+
+        let registry = AgentDefinitionRegistry::global()
+            .ok_or_else(|| anyhow::anyhow!("AgentDefinitionRegistry not initialised"))?;
+
+        let definition = registry
+            .get(&agent_id)
+            .ok_or_else(|| anyhow::anyhow!("agent_id '{}' not found", agent_id))?;
+
+        if !parent.allowed_subagent_ids.contains(&definition.id) {
+            tracing::warn!(
+                parent_agent = %parent.agent_definition_id,
+                requested_agent = %definition.id,
+                allowed = ?parent.allowed_subagent_ids,
+                "[spawn_worker_thread] blocked subagent outside parent allowlist"
+            );
+            return Ok(ToolResult::error(format!(
+                "spawn_worker_thread: agent '{}' is not in parent agent '{}' subagents.allowlist",
+                definition.id, parent.agent_definition_id
+            )));
+        }
+
+        tracing::debug!(
+            parent_agent = %parent.agent_definition_id,
+            requested_agent = %definition.id,
+            "[spawn_worker_thread] subagent allowlist check passed"
+        );
+
+        // ── Create Worker Thread ───────────────────────────────────────
+        // Shared with `spawn_subagent` so both delegation paths persist an
+        // identical, reopenable sub-thread seeded with the prompt.
+        let worker_thread_id = super::worker_thread::create_worker_thread(
+            parent.workspace_dir.clone(),
+            &current_thread_id,
+            &agent_id,
+            &task_title,
+            &prompt,
+        )
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+        // We don't have an easy way to append a system message to the parent
+        // thread here without triggering a re-render of the history the model
+        // sees. Instead, we return the info in the tool result.
+
+        // ── Run Subagent ──────────────────────────────────────────────
+        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
+        let worktree_action_dir = workspace_descriptor
+            .as_ref()
+            .map(|descriptor| descriptor.root.clone());
+        if let Some(descriptor) = workspace_descriptor.as_ref() {
+            tracing::debug!(
+                agent_id = %agent_id,
+                worker_thread_id = %worker_thread_id,
+                workspace_root = %descriptor.root.display(),
+                policy_id = %descriptor.policy_id,
+                "[spawn_worker_thread] using ToolExecutionContext workspace root"
+            );
+        }
+        let options = SubagentRunOptions {
+            skill_filter_override: None,
+            toolkit_override,
+            context,
+            model_override,
+            task_id: None,
+            worker_thread_id: Some(worker_thread_id.clone()),
+            initial_history: None,
+            checkpoint_dir: None,
+            worktree_action_dir,
+            workspace_descriptor,
+            run_queue: None,
+        };
+
+        tracing::debug!(
+            agent_id = %agent_id,
+            worker_thread_id = %worker_thread_id,
+            "[spawn_worker_thread] dispatching run_subagent"
+        );
+
+        match run_subagent(definition, &prompt, options).await {
+            Ok(outcome) => {
+                tracing::info!(
+                    agent_id = %agent_id,
+                    worker_thread_id = %worker_thread_id,
+                    task_id = %outcome.task_id,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "[spawn_worker_thread] completed successfully"
+                );
+                let parent_visible = format!(
+                    "Spawned worker thread `{worker_thread_id}` for the task: {task_title}. \
+                     The sub-agent has completed its work. You can find the full transcript \
+                     in the worker thread.\n\n\
+                     [worker_thread_ref]\n{}\n[/worker_thread_ref]",
+                    json!({
+                        "thread_id": worker_thread_id,
+                        "label": "worker",
+                        "agent_id": agent_id,
+                        "task_id": outcome.task_id,
+                        "status": "completed"
+                    })
+                );
+                Ok(ToolResult::success(parent_visible))
+            }
+            Err(err) => {
+                tracing::error!(
+                    agent_id = %agent_id,
+                    worker_thread_id = %worker_thread_id,
+                    error = %err,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "[spawn_worker_thread] execution failed"
+                );
+                Ok(ToolResult::error(format!(
+                    "Worker thread execution failed: {err}"
+                )))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "spawn_worker_thread_tests.rs"]
+mod tests;

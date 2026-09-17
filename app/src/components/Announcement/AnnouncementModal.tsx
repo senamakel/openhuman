@@ -1,5 +1,6 @@
 import { useT } from '../../lib/i18n/I18nContext';
 import type { Announcement, AnnouncementSeverity } from '../../services/announcementService';
+import { openUrl } from '../../utils/openUrl';
 import Button from '../ui/Button';
 
 interface AnnouncementModalProps {
@@ -35,7 +36,9 @@ export default function AnnouncementModal({ announcement, onDismiss }: Announcem
       return;
     }
     // Open externally; never navigate the app shell to a backend-provided URL.
-    window.open(announcement.cta.url, '_blank', 'noopener,noreferrer');
+    void openUrl(announcement.cta.url).catch(() => {
+      // The OS handler refused; staying in the app beats a one-way navigation.
+    });
     onDismiss();
   };
 

@@ -13,6 +13,16 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   288/270/2  2026-09-13  the core/wrapper split moves shared RPC contracts
+#                      and the authenticated HTTP client into the new
+#                      `openhuman-rpc` workspace crate. `openhuman` depends on
+#                      it in every profile, including `flows`, so the crate
+#                      itself is one required package and one required name.
+#                      Its `log`, `reqwest`, `serde`, `serde_json`, and `url`
+#                      dependencies were already present; native builds remain
+#                      `libsqlite3-sys` and `ring` (2). Measured on CI Linux
+#                      with `scripts/kernel-floor.sh flows --json`; this is a
+#                      structural refactor cost, not a new third-party tail.
 #   287/269/2  2026-08-31  openhuman#5560: the memory engine crates leave the
 #                      product build (see the PR for the full inventory).
 #                      Measured on CI Linux; macOS resolves one extra
@@ -76,7 +86,7 @@
 #                      and every one of the 287 previous packages is still
 #                      exactly one package. The +1 is the crate itself.
 #
-#                      It cannot be gated. `src/openhuman/tools/` is kernel
+#                      It cannot be gated. `crates/openhuman-core/src/tools/` is kernel
 #                      surface — `shell.rs` alone is reached from the agent turn
 #                      path in every build — so the `Tool` trait compiles in
 #                      every configuration and the vocabulary has no feature to
@@ -147,7 +157,7 @@
 #                      first — per-dependency intuition over-counts exactly the
 #                      way per-dependency arithmetic does.
 #                      What this PR does land: `TINYMCP` in
-#                      `src/openhuman/modules/registry.rs`, pinning the v0.3.1
+#                      `crates/openhuman-core/src/modules/registry.rs`, pinning the v0.3.1
 #                      release so the module can be downloaded and verified. The
 #                      path dependency stays until `tinymcp-bus` publishes the
 #                      members and types the host reaches for (see the Cargo.toml
@@ -247,7 +257,7 @@
 #                      `SignTransaction`/`SignMessage` calls. `web3` stayed
 #                      gated out of this profile already, so the shed here is
 #                      not the wallet crate itself (never in `flows`) — it is
-#                      `app/src-tauri/Cargo.lock`'s stale cryptocurrency
+#                      `crates/openhuman-app/Cargo.lock`'s stale cryptocurrency
 #                      dependency tail that the old inlined copy had pulled in
 #                      and the delete-and-revendor removed (`chore(deps): prune
 #                      unused cryptocurrency dependencies from Cargo.lock`).
@@ -438,7 +448,7 @@
 #                      build was the reason `GGML_NATIVE=OFF` had to prefix
 #                      every macOS cargo invocation). Verified with
 #                      `cargo tree -e normal | grep -ci whisper` = 0 on both
-#                      the root crate and app/src-tauri.
+#                      the root crate and crates/openhuman-app.
 #   304/281/5  2026-08-08  tokenjuice-treesitter feature deleted entirely (AST-
 #                      aware code compression dropped; tinyjuice's non-AST
 #                      compression path is now the only mode). tinyjuice is
@@ -470,7 +480,7 @@
 #                      to a single 0.29 there). Call-site fix: tungstenite
 #                      0.29's `Message::Text` now wraps `Utf8Bytes` instead of
 #                      `String` — `.into()` at each send call site in
-#                      src/openhuman/platform/socket/ws_loop.rs (+ its test
+#                      crates/openhuman-core/src/platform/socket/ws_loop.rs (+ its test
 #                      double server in ws_loop_tests.rs) and
 #                      NOTE: the DEFAULT (full-feature) profile still shows
 #                      both tungstenite 0.24 and 0.29 — socketioxide 0.15.2 /
@@ -530,7 +540,7 @@
 #                      `scheduler-gate` (-3). Off-state = "on AC, no charge
 #                      signal", i.e. require_ac_power is not enforced.
 #   387/6  2026-08-01  M2 step 2: clap + env_logger behind default-OFF
-#                      `bin-tools`; the six src/bin/ targets declare it as a
+#                      `bin-tools`; the six crates/openhuman-core/src/bin/ targets declare it as a
 #                      required-feature (-14, a whole CLI stack).
 #   401/6  2026-08-01  M2 step 1: arboard/enigo/rdev folded into the `voice`
 #                      gate (-17). arboard alone was 11 of those — an X11/wayland
@@ -541,4 +551,4 @@
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
 # 307/284  2026-08-12  Re-baseline after the upstream lockfile resolution;
 #                      `flows` remains at two native packages.
-flows:287:269:2
+flows:288:270:2

@@ -52,7 +52,12 @@ export const ProviderKeyDialog = ({
   initialValue?: string;
   /** Pre-populate the API key field in `endpointKeyMode`. */
   initialKeyValue?: string;
-  oauthAction?: { label: string; description?: string; onClick: () => Promise<void> | void } | null;
+  oauthAction?: {
+    label: string;
+    description?: string;
+    /** `onPersisting` locks the dialog once a credential exists and is being saved. */
+    onClick: (hooks: { onPersisting: () => void }) => Promise<void> | void;
+  } | null;
   /** Register or remove the provider after the core OAuth operation succeeds. */
   openAiOAuth?: {
     onCompleted: () => Promise<void> | void;
@@ -74,6 +79,9 @@ export const ProviderKeyDialog = ({
   const [phase, setPhase] = useState<'idle' | 'saving' | 'oauth'>('idle');
   const [error, setError] = useState<string | null>(null);
   const busy = phase !== 'idle';
+  // A pending OAuth sign-in waits on the browser for up to minutes, so it must
+  // stay dismissable (onCancel aborts it); only an in-flight save locks the dialog.
+  const saving = phase === 'saving';
 
   const placeholder = isLocalRuntime
     ? defaultEndpointFor(slug) || t('settings.ai.defaultLocalEndpoint')
@@ -143,7 +151,9 @@ export const ProviderKeyDialog = ({
     setError(null);
     setPhase('oauth');
     try {
-      await oauthAction.onClick();
+      await oauthAction.onClick({ onPersisting: () => setPhase('saving') });
+      // Callers normally close the dialog on success; if one does not, release the lock.
+      setPhase('idle');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn('[ai-settings] provider oauth failed', {
@@ -170,18 +180,18 @@ export const ProviderKeyDialog = ({
     <DialogRoot
       open
       onOpenChange={next => {
-        if (!next && !busy) onCancel();
+        if (!next && !saving) onCancel();
       }}>
       <DialogContent
         aria-labelledby={titleId}
         onEscapeKeyDown={event => {
-          if (busy) event.preventDefault();
+          if (saving) event.preventDefault();
         }}
         onPointerDownOutside={event => {
-          if (busy) event.preventDefault();
+          if (saving) event.preventDefault();
         }}
         onInteractOutside={event => {
-          if (busy) event.preventDefault();
+          if (saving) event.preventDefault();
         }}
         className="border border-line p-6 shadow-soft">
         {platformLinkUrl ? (
@@ -299,7 +309,7 @@ export const ProviderKeyDialog = ({
           </div>
         ) : null}
         <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
+          <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={saving}>
             {t('common.cancel')}
           </Button>
           <Button

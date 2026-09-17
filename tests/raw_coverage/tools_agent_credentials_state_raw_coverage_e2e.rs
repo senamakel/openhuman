@@ -16,30 +16,30 @@ use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use chrono::{Duration as ChronoDuration, Utc};
-use openhuman_core::openhuman::agent::dispatcher::NativeToolDispatcher;
-use openhuman_core::openhuman::agent::harness::session::Agent;
-use openhuman_core::openhuman::agent::harness::{
+use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+use openhuman_core::agent::harness::session::Agent;
+use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, ParentExecutionContext, PromptSource,
     SandboxMode, SubagentRunOptions, ToolScope,
 };
-use openhuman_core::openhuman::desktop::app_state::{
+use openhuman_core::desktop::app_state::{
     snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
-use openhuman_core::openhuman::config::rpc as config_rpc;
-use openhuman_core::openhuman::config::{
+use openhuman_core::config::rpc as config_rpc;
+use openhuman_core::config::{
     BrowserConfig, Config, HttpRequestConfig, McpAuthConfig, McpServerConfig,
 };
-use openhuman_core::openhuman::agent::context::prompt::ToolCallFormat;
-use openhuman_core::openhuman::security::credentials::profiles::{
+use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::security::credentials::profiles::{
     AuthProfile, AuthProfileKind, AuthProfilesStore, TokenSet,
 };
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
-use openhuman_core::openhuman::security::{AuditLogger, SecurityPolicy};
-use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::openhuman::tools::{
+use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
+use openhuman_core::security::{AuditLogger, SecurityPolicy};
+use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::tools::{
     all_tools, BrowserTool, ComputerUseConfig, SpawnSubagentTool, Tool, ToolResult,
 };
 use parking_lot::Mutex as ParkingMutex;
@@ -164,7 +164,7 @@ impl Memory for StubMemory {
         &self,
         _query: &str,
         _limit: usize,
-        _opts: openhuman_core::openhuman::memory::RecallOpts<'_>,
+        _opts: openhuman_core::memory::RecallOpts<'_>,
     ) -> Result<Vec<MemoryEntry>> {
         Ok(Vec::new())
     }
@@ -358,7 +358,7 @@ fn parent_context(workspace: PathBuf, provider: Arc<ScriptedModel>) -> ParentExe
         ]
         .into_iter()
         .collect(),
-        turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
             provider,
         ),
         all_tools: Arc::new(tools),
@@ -374,7 +374,7 @@ fn parent_context(workspace: PathBuf, provider: Arc<ScriptedModel>) -> ParentExe
         workspace_dir: workspace,
         workspace_descriptor: None,
         memory: Arc::new(StubMemory),
-        agent_config: openhuman_core::openhuman::config::AgentConfig {
+        agent_config: openhuman_core::config::AgentConfig {
             max_tool_iterations: 3,
             ..Default::default()
         },
@@ -610,7 +610,7 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
         &harness.workspace,
         &HashMap::from([(
             "researcher".to_string(),
-            openhuman_core::openhuman::config::DelegateAgentConfig {
+            openhuman_core::config::DelegateAgentConfig {
                 model: "round16-delegate-model".to_string(),
                 system_prompt: Some("Delegate test prompt".to_string()),
                 temperature: Some(0.0),
@@ -743,7 +743,7 @@ async fn round16_agent_builder_turn_uses_public_harness_paths() {
         .tools(vec![Box::new(EchoTool)])
         .memory(Arc::new(StubMemory))
         .tool_dispatcher(Box::new(NativeToolDispatcher))
-        .config(openhuman_core::openhuman::config::AgentConfig {
+        .config(openhuman_core::config::AgentConfig {
             max_tool_iterations: 3,
             ..Default::default()
         })
@@ -763,7 +763,7 @@ async fn round16_agent_builder_turn_uses_public_harness_paths() {
     assert_eq!(answer, "builder final");
     assert!(agent.history().iter().any(|message| matches!(
         message,
-        openhuman_core::openhuman::agent::messages::ConversationMessage::ToolResults(results)
+        openhuman_core::agent::messages::ConversationMessage::ToolResults(results)
             if results.iter().any(|result| result.content.contains("echo:builder"))
     )));
 }
@@ -981,9 +981,9 @@ async fn round16_app_state_config_and_session_snapshot_edges() {
 /// would take all three and a test naming only `tinyplace` would miss it.
 #[tokio::test]
 async fn file_tools_cannot_reach_retained_legacy_state_in_the_workspace() {
-    use openhuman_core::openhuman::config::AutonomyConfig;
-    use openhuman_core::openhuman::security::AutonomyLevel;
-    use openhuman_core::openhuman::tools::{FileReadTool, FileWriteTool};
+    use openhuman_core::config::AutonomyConfig;
+    use openhuman_core::security::AutonomyLevel;
+    use openhuman_core::tools::{FileReadTool, FileWriteTool};
 
     let tmp = tempdir();
     let workspace = tmp.path().to_path_buf();
@@ -1093,8 +1093,8 @@ async fn file_tools_cannot_reach_retained_legacy_state_in_the_workspace() {
 /// guards against is one a *modules-enabled* build hits.
 #[tokio::test]
 async fn openclaw_import_names_a_null_classed_driver_rather_than_the_build() {
-    use openhuman_core::openhuman::config::migration_helpers::rpc as migration_rpc;
-    use openhuman_core::openhuman::config::schema::{MemoryDriverConfig, MemorySubsystemConfig};
+    use openhuman_core::config::migration_helpers::rpc as migration_rpc;
+    use openhuman_core::config::schema::{MemoryDriverConfig, MemorySubsystemConfig};
 
     let tmp = tempdir();
     let mut config = Config::default();

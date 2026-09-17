@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use openhuman_core::core::bus::BUS;
-use openhuman_core::openhuman::agent::bus::{
+use openhuman_core::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
 };
-use openhuman_core::openhuman::agent::progress::AgentProgress;
-use openhuman_core::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
-use openhuman_core::openhuman::agent::messages::ChatMessage;
-use openhuman_core::openhuman::security::POLICY_BLOCKED_MARKER;
-use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
+use openhuman_core::agent::progress::AgentProgress;
+use openhuman_core::config::{MultimodalConfig, MultimodalFileConfig};
+use openhuman_core::agent::messages::ChatMessage;
+use openhuman_core::security::POLICY_BLOCKED_MARKER;
+use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
 use serde_json::json;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -205,7 +205,7 @@ async fn run_turn(
     BUS.native().request::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
                 model,
             ),
             history: vec![
@@ -226,7 +226,7 @@ async fn run_turn(
             visible_tool_names: None,
             extra_tools: Vec::new(),
             on_progress,
-            origin: openhuman_core::openhuman::agent::turn_origin::AgentTurnOrigin::Cli,
+            origin: openhuman_core::agent::turn_origin::AgentTurnOrigin::Cli,
         },
     )
     .await

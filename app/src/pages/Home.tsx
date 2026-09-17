@@ -64,6 +64,8 @@ const Home = () => {
   const statusCopy = {
     ok: t('home.statusOk'),
     'backend-only': t('home.statusBackendOnly'),
+    'hosted-degraded': t('home.statusHostedDegraded'),
+    'hosted-stopped': t('home.statusHostedStopped'),
     'core-unreachable': t('home.statusCoreUnreachable'),
     'internet-offline': t('home.statusInternetOffline'),
   }[blocking];

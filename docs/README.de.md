@@ -76,9 +76,9 @@ OpenHuman ist drei Dinge, die die meisten Assistenten nicht sind: **ein Gehirn**
 
 ### 🔬 Der Deep Researcher & Macher
 
-- **Alles eingebaut**: Web-Suche, Scraper, Coder-Toolset, ein echter [Browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), [native Sprache](../gitbooks/features/native-tools/voice.md) mit In-Process-Whisper. Dazu [Model-Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing), das das passende LLM pro Workload auswählt, ein Abo, [lokale KI optional](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai).
+- **Alles eingebaut**: Web-Suche, Scraper, Coder-Toolset, ein echter [Browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), [native Sprache](../gitbooks/features/native-tools/voice.md) mit Spracherkennung über das Backend und gehosteter oder lokaler Piper-Sprachausgabe. Dazu [Model-Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing), das das passende LLM pro Workload auswählt, ein Abo, [lokale KI optional](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai).
 - **[Bild- & Videogenerierung](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit-Bilder und Seedance/Veo-Video, direkt in deinen Workspace im selben Abo.
-- **[17 Messaging-Kanäle](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… plus **native E-Mail** (IMAP IDLE + SMTP). Dein Agent erreicht dich dort, wo du ohnehin schon bist.
+- **[15 Messaging-Kanäle](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… plus **native E-Mail** (IMAP IDLE + SMTP). Dein Agent erreicht dich dort, wo du ohnehin schon bist.
 
 ### 🧍 Menschlich, privat, deins
 
@@ -143,7 +143,7 @@ Gespeicherte Workflows sind dauerhaft und trigger-gesteuert: sie feuern auf Zeit
 | **Orchestrierung**     | ⚠️ Sub-Tasks          | ⚠️ eine Schleife   | ⚠️ eine Schleife   | 🚀 Agent-Graphen + Checkpoints + E2E-verschlüsseltes A2A                                                 |
 | **Workflows**          | 🚫 keine              | ⚠️ Skripte         | ⚠️ Skripte         | 🚀 visuell, dauerhaft, agent-vorgeschlagen, freigabe-gesichert                                           |
 | **Meetings**           | 🚫 keine              | 🚫 keine           | 🚫 keine           | 🚀 nimmt an Meet/Zoom/Teams/Webex teil, spricht, Live-Transkript                                         |
-| **Messaging-Kanäle**   | 🚫 keine              | ⚠️ einige wenige   | ⚠️ einige wenige   | ✅ 17 inkl. nativer E-Mail (IMAP/SMTP)                                                                   |
+| **Messaging-Kanäle**   | 🚫 keine              | ⚠️ einige wenige   | ⚠️ einige wenige   | ✅ 15 inkl. nativer E-Mail (IMAP/SMTP)                                                                   |
 | **Nur-lokal-Modus**    | 🚫 nur Cloud          | ⚠️ BYO lokal       | ⚠️ BYO lokal       | ✅ per Schalter erzwungener Privacy Mode                                                                 |
 | **Observability**      | 🚫 undurchsichtig     | ⚠️ Logs            | ⚠️ Logs            | ✅ wiederabspielbare Lauf-Journale + Kostenabrechnung pro Aufruf                                         |
 | **API-Wildwuchs**      | 🚫 zusätzliche Keys   | 🚫 BYOK            | 🚫 Multi-Vendor    | ✅ ein Account                                                                                           |

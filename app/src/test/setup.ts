@@ -211,6 +211,21 @@ vi.mock('@tauri-apps/plugin-opener', () => ({ open: vi.fn() }));
 
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn().mockResolvedValue('macos') }));
 
+// The session owner (Tauri shell / browser equivalent) is mocked as a whole;
+// tests that care about a specific path override these.
+vi.mock('../services/session/sessionOwner', async importOriginal => {
+  const actual = await importOriginal<typeof import('../services/session/sessionOwner')>();
+  return {
+    ...actual,
+    useShellSessionOwner: vi.fn(() => false),
+    loginWithToken: vi.fn().mockResolvedValue(undefined),
+    storeSessionToken: vi.fn().mockResolvedValue(undefined),
+    logoutSession: vi.fn().mockResolvedValue(undefined),
+    fetchCurrentUser: vi.fn().mockResolvedValue({ user: null, stale: false, staleSeconds: null }),
+    fetchSessionOwnerState: vi.fn().mockResolvedValue(null),
+  };
+});
+
 // Mock tauriCommands to prevent Tauri API calls in tests
 vi.mock('../utils/tauriCommands', () => ({
   isTauri: vi.fn(() => false),
@@ -245,7 +260,6 @@ vi.mock('../utils/tauriCommands', () => ({
       },
       logs: [],
     }),
-  exchangeToken: vi.fn(),
   invoke: vi.fn(),
 }));
 

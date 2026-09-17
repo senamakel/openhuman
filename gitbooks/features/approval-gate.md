@@ -93,7 +93,7 @@ Pending requests are stored in SQLite (`{workspace_dir}/approval/approval.db`) a
 
 ## Background and cron bypass
 
-The gate is **interactive-only**. Background, triage, and cron turns carry no chat context, so there's nobody to answer a prompt. These turns are pre-authorized and pass straight through (no row, no event). Approval is only enforced for live chat turns. (The Subconscious loop has its own, separate escalation-card approval for _unsolicited_ writes; see below.)
+The gate is **interactive-only**. Background, triage, and cron turns carry no chat context, so there's nobody to answer a prompt. These turns are pre-authorized and pass straight through (no row, no event). Approval is only enforced for live chat turns.
 
 ---
 
@@ -117,5 +117,4 @@ The `approval` controller exposes three JSON-RPC methods:
 ## See also
 
 - [Privacy & Security](privacy-and-security.md): autonomy tiers, trusted roots, and path hardening.
-- [Subconscious Loop](subconscious.md): the background loop and its separate escalation approvals.
 - [Security architecture](../developing/architecture/security.md): the command-classification and policy internals.

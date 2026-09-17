@@ -27,7 +27,7 @@ import {
  * assertion that matches the fix's own reasoning.
  *
  * `custom` is a real catalog provider
- * (`src/openhuman/inference/embeddings/catalog.rs` — `PROVIDER_CUSTOM`, label
+ * (`crates/openhuman-core/src/inference/embeddings/catalog.rs` — `PROVIDER_CUSTOM`, label
  * "Custom (OpenAI-compatible)"), so it is served by the real core this lane
  * runs against and needs no fixture.
  */

@@ -47,9 +47,9 @@ fn ensure_memory_seams() {
             .name("memory-sources-e2e-seams".to_string())
             .stack_size(8 * 1024 * 1024)
             .spawn(|| {
-                let config = Arc::new(openhuman_core::openhuman::config::Config::default());
+                let config = Arc::new(openhuman_core::config::Config::default());
                 #[cfg(feature = "modules")]
-                openhuman_core::openhuman::modules::memory::set_modules_policy(config);
+                openhuman_core::modules::memory::set_modules_policy(config);
             })
             .expect("spawn memory sources seam installer")
             .join()
@@ -865,7 +865,7 @@ async fn memory_sources_composio_registry_flow() {
 // workspace it is handed: `PathBuf::from(base_path)` used the configured string
 // verbatim, so a RELATIVE path resolved against the host process's current
 // working directory. For the desktop app that is the Tauri build directory, so
-// a source configured as `docs` looked in `…/app/src-tauri/docs`, found
+// a source configured as `docs` looked in `…/crates/openhuman-app/docs`, found
 // nothing, and failed on every sync cycle forever.
 //
 // `resolve_base` now anchors a relative path on the workspace (absolute paths
@@ -1170,6 +1170,88 @@ async fn sources_sync_dispatches_to_the_module_rather_than_refusing_the_capabili
          SourceSync at all, so the bridged member was never reached. This is the same \
          class of failure as #5801, one layer up. Got: {message}"
     );
+
+    // openhuman#6257: whatever the run's outcome, it leaves a Sync History row.
+    // A sync that reached the driver and recorded nothing is how Brain › Sync ›
+    // Sync History stayed empty after every manual sync.
+    //
+    // The host's run log is read directly, not only through the history RPC.
+    // The module can fault inside the sync itself (the call above then answers
+    // `ModuleUnavailable`), and a faulted driver cannot serve its own audit log
+    // either, so through the RPC alone the row would be unobservable in exactly
+    // the run that failed. `write_config` seeds the pre-login `users/local`
+    // directory, whose workspace this core resolves.
+    let run_log = openhuman_home
+        .join("users")
+        .join("local")
+        .join("workspace")
+        .join("state")
+        .join("memory_sync_runs.jsonl");
+    let run_log_text = std::fs::read_to_string(&run_log).unwrap_or_else(|e| {
+        panic!(
+            "a manual sync must write the host run log at {}: {e}. Sync answered: {sync}",
+            run_log.display()
+        )
+    });
+    let rows: Vec<Value> = run_log_text
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|row| row.get("source_id").and_then(Value::as_str) == Some(source_id.as_str()))
+        .collect();
+    // Exactly one: a run recorded twice would read as two syncs in the history.
+    let [row] = rows.as_slice() else {
+        panic!(
+            "one manual sync must leave exactly one run row for its source, success or \
+             failure; found {}. Sync answered: {sync}. Log: {run_log_text}",
+            rows.len()
+        );
+    };
+    assert_eq!(
+        row.get("success").and_then(Value::as_bool),
+        Some(sync.get("error").is_none()),
+        "the row must carry the run's outcome. Sync answered: {sync}. Row: {row}"
+    );
+
+    // And through the RPC the panel reads, whenever the driver can serve its
+    // half. The host's half must always read: only the driver may refuse.
+    let history = rpc(
+        &rpc_base,
+        904,
+        "openhuman.memory_sources_sync_audit_log",
+        json!({}),
+    )
+    .await;
+    match history.get("error") {
+        None => {
+            let history = ok(&history, "sync history after a manual sync");
+            let entries = history
+                .get("entries")
+                .and_then(Value::as_array)
+                .expect("entries array in the sync history");
+            let named = entries
+                .iter()
+                .filter(|row| {
+                    row.get("source_id").and_then(Value::as_str) == Some(source_id.as_str())
+                })
+                .count();
+            assert_eq!(
+                named, 1,
+                "the history must include the manual sync's row, once. History: {entries:?}"
+            );
+        }
+        Some(history_error) => {
+            let history_message = history_error
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            assert!(
+                history_message.contains("sync audit log:")
+                    && !history_message.contains("sync run log:"),
+                "only the driver's audit log may be unreadable here; the host's run log \
+                 must always read. Got: {history_error}"
+            );
+        }
+    }
 
     let _ = rpc(
         &rpc_base,

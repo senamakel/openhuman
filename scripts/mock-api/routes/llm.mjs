@@ -511,7 +511,7 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
  *   POST /__admin/behavior  body: {"llmKeywordRules": "<json-string>"}
  *
  * This mirrors the Rust-side `KeywordScriptedProvider` in
- * `src/openhuman/agent/harness/test_support.rs` so the same testing
+ * `crates/openhuman-core/src/agent/harness/test_support.rs` so the same testing
  * mental model applies on both sides of the FFI.
  */
 

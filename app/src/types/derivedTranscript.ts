@@ -1,7 +1,7 @@
 /**
  * Wire shape of the transcript-derived view RPC
  * (`openhuman.threads_transcript_get`, Phase B — see
- * `src/openhuman/threads/transcript_view/types.rs`).
+ * `crates/openhuman-core/src/threads/transcript_view/types.rs`).
  *
  * The Rust core projects the append-only `session_raw/*.jsonl` source of truth
  * into typed **display items** in the frontend's chat vocabulary. Phase C maps

@@ -14,13 +14,13 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::openhuman::integrations::composio::ops::{composio_authorize, composio_list_tools};
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::integrations::composio::ops::{composio_authorize, composio_list_tools};
+use openhuman_core::config::Config;
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::security::SecurityPolicy;
-use openhuman_core::openhuman::tools::{
+use openhuman_core::security::SecurityPolicy;
+use openhuman_core::tools::{
     ComposioAuthorizeTool, ComposioListConnectionsTool, ComposioListToolkitsTool,
     ComposioListToolsTool, ComposioTool, SpawnSubagentTool, Tool, ToolCallOptions,
 };

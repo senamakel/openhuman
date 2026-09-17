@@ -36,11 +36,11 @@ Skipping this produces shallow reviews that miss architectural issues.
 **Correctness** — logic bugs, off-by-one, null/undefined, async/await misuse, race conditions, error propagation (`Result<T>` / `RpcOutcome<T>` / thrown errors).
 
 **Project standards** (from `CLAUDE.md`)
-- New Rust functionality lives in a subdirectory under `src/openhuman/`, not root-level `.rs` files.
+- New Rust functionality lives in a subdirectory under `crates/openhuman-core/src/`, not root-level `.rs` files.
 - Controllers exposed via `schemas.rs` + registry, not ad-hoc branches in `core/cli.rs` / `core/jsonrpc.rs`.
 - No dynamic `import()` in production `app/src` code.
 - Frontend reads `VITE_*` via `app/src/utils/config.ts`, not `import.meta.env` directly.
-- `app/src-tauri` is desktop-only; no Android/iOS branches there.
+- `crates/openhuman-app` is desktop-only; no Android/iOS branches there.
 - Domain `mod.rs` is export-focused; operational code in `ops.rs` / `store.rs` / `types.rs`.
 - Event bus via `publish_global` / `subscribe_global` / `register_native_global` / `request_native_global` — never construct `EventBus` / `NativeRegistry` directly.
 - CEF webviews must not grow new JS injection (see `CLAUDE.md` for details).
@@ -56,7 +56,7 @@ Skipping this produces shallow reviews that miss architectural issues.
 
 **UX / UI** (frontend) — accessibility, keyboard nav, loading/error/empty states, mobile responsiveness.
 
-**Documentation** — rustdoc/comments match new behavior; `AGENTS.md` / architecture docs updated for rule changes; capability catalog (`src/openhuman/platform/about_app/`) updated for user-facing feature changes.
+**Documentation** — rustdoc/comments match new behavior; `AGENTS.md` / architecture docs updated for rule changes; capability catalog (`crates/openhuman-core/src/platform/about_app/`) updated for user-facing feature changes.
 
 ## 4. Classify findings
 
@@ -115,12 +115,12 @@ Review body structure:
 <…same structure…>
 
 ### 💡 Refactor / suggestion
-#### 3. `src/openhuman/bar/ops.rs:200-240` — <short title>
+#### 3. `crates/openhuman-core/src/bar/ops.rs:200-240` — <short title>
 <…>
 
 ## Nitpicks (<count>)
 - `path/to/file.ts:15` — prefer `const` over `let`; not reassigned.
-- `src/openhuman/x/mod.rs:3` — unused import `std::collections::HashMap`.
+- `crates/openhuman-core/src/x/mod.rs:3` — unused import `std::collections::HashMap`.
 
 ## Questions for the author (<count>)
 - `path/to/file.ts:88` — <question>

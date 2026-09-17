@@ -53,7 +53,7 @@ import json, re, sys
 
 # Platforms that install.sh / install.ps1 claim to support. Keep in sync
 # with scripts/install.sh (OS/arch case branches) and the Tauri updater
-# manifest consumers in app/src-tauri/tauri.conf.json.
+# manifest consumers in crates/openhuman-app/tauri.conf.json.
 SUPPORTED = [
     "darwin-aarch64",
     "darwin-x86_64",

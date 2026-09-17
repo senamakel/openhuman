@@ -1,26 +1,26 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::openhuman::agent::debug::{
+use openhuman_core::agent::debug::{
     dump_agent_prompt, write_prompt_dumps, DumpPromptOptions, DumpedPrompt,
 };
-use openhuman_core::openhuman::agent::harness::archivist::ArchivistHook;
-use openhuman_core::openhuman::agent::harness::{
+use openhuman_core::agent::harness::archivist::ArchivistHook;
+use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, DefinitionSource, ModelSpec,
     ParentExecutionContext, PromptSource, SandboxMode, SubagentRunError, SubagentRunOptions,
     ToolScope,
 };
-use openhuman_core::openhuman::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
-use openhuman_core::openhuman::config::AgentConfig;
-use openhuman_core::openhuman::agent::context::prompt::ToolCallFormat;
-use openhuman_core::openhuman::memory::{
+use openhuman_core::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
+use openhuman_core::config::AgentConfig;
+use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::memory::api::provider::MemoryProvider;
+use openhuman_core::memory::api::provider::MemoryProvider;
 // Raw assertion reads against the engine the provider wraps — see the note in
 // `archivist_tests.rs`: production writes through the provider, the proof that
 // a row landed reads the store directly.
-use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolResult};
+use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde_json::json;
@@ -257,7 +257,7 @@ fn parent_context(workspace: &Path, model: Arc<ScriptedModel>) -> ParentExecutio
         ]
         .into_iter()
         .collect(),
-        turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
             model,
         ),
         all_tools: Arc::new(tools),
@@ -337,6 +337,7 @@ async fn debug_prompt_dump_requires_toolkit_before_composio_network() -> Result<
         agent_id: "integrations_agent".to_string(),
         toolkit: None,
         workspace_dir_override: Some(tmp.path().to_path_buf()),
+        config_path_override: None,
         model_override: Some("round21-debug-model".to_string()),
     })
     .await

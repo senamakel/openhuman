@@ -25,7 +25,7 @@ COMPOSE=(docker compose -f e2e/docker-compose.yml)
 RUN=("${COMPOSE[@]}" run --rm e2e)
 
 ensure_built() {
-  if [ ! -d "$REPO_ROOT/app/src-tauri/target/debug/bundle" ]; then
+  if [ ! -d "$REPO_ROOT/crates/openhuman-app/target/debug/bundle" ]; then
     echo "[run-local] CEF bundle not built yet — building (slow first run)..."
     "${RUN[@]}" bash -lc "pnpm --filter openhuman-app test:e2e:build"
   fi

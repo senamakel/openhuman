@@ -26,7 +26,7 @@ echo "Building E2E app with VITE_OPENHUMAN_E2E_RESTART_APP_AS_RELOAD=$VITE_OPENH
 
 if [ -n "${E2E_FORCE_CARGO_CLEAN:-}" ]; then
   echo "Forcing cargo clean (E2E_FORCE_CARGO_CLEAN is set)."
-  cargo clean --manifest-path src-tauri/Cargo.toml
+  cargo clean --manifest-path "$REPO_ROOT/crates/openhuman-app/Cargo.toml"
 else
   echo "Skipping cargo clean (default incremental E2E build)."
 fi
@@ -75,12 +75,12 @@ case "$OS" in
     ;;
   Darwin)
     # macOS: build .app bundle (wdio.conf points at
-    # src-tauri/target/debug/bundle/macos/OpenHuman.app).
+    # crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app).
     echo "Building for macOS (.app bundle)..."
     pnpm tauri build -c "$TAURI_CONFIG_OVERRIDE" --bundles app --debug --features e2e-test-support -- --bin OpenHuman
     ;;
   MINGW*|MSYS*|CYGWIN*|Windows_NT)
-    # Windows: bare .exe at src-tauri/target/debug/OpenHuman.exe.
+    # Windows: bare .exe at crates/openhuman-app/target/debug/OpenHuman.exe.
     echo "Building for Windows (.exe, no bundle)..."
     pnpm tauri build -c "$TAURI_CONFIG_OVERRIDE" --debug --no-bundle --features e2e-test-support -- --bin OpenHuman
     ;;

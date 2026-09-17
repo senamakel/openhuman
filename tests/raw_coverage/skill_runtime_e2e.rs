@@ -167,7 +167,7 @@ async fn setup(extra: Vec<EnvVarGuard>) -> Harness {
     let openhuman_home = home.join(".openhuman");
     std::fs::create_dir_all(&openhuman_home).expect("create .openhuman");
     std::fs::write(openhuman_home.join("config.toml"), MIN_CONFIG).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(MIN_CONFIG).expect("test config must match the config schema");
 
     let workspace = home.join("workspace");
@@ -245,7 +245,7 @@ fn ok<'a>(value: &'a Value, context: &str) -> &'a Value {
 /// The controller payload, unwrapping the `{result, logs}` envelope when one
 /// is present.
 ///
-/// `RpcOutcome::into_cli_compatible_json` (`src/rpc/mod.rs:54-62`) wraps the
+/// `RpcOutcome::into_cli_compatible_json` (`crates/openhuman-rpc/src/mod.rs:54-62`) wraps the
 /// value in `{result, logs}` **only when the handler emitted at least one log
 /// line**, and returns it bare otherwise. So the response shape of a single
 /// namespace varies with whether its handler happened to log — `javascript_*`

@@ -11,7 +11,6 @@ use std::time::Duration;
 
 use axum::extract::{Path as AxumPath, State};
 use axum::http::{header::AUTHORIZATION, HeaderMap};
-use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use reqwest::StatusCode;
@@ -24,10 +23,7 @@ use openhuman_core::api::config::{
     normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL,
     OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
 };
-use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
-use openhuman_core::core::events::DomainEvent;
-use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::config::schema::{
+use openhuman_core::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
     migrate_legacy_fields, AuditConfig, AuthStyle, CapabilityProviderConfig,
     CapabilityProviderTrustState, CloudProviderCreds, CloudProviderType, DashboardConfig,
@@ -37,33 +33,29 @@ use openhuman_core::openhuman::config::schema::{
     SttApiStyle, TelegramConfig, TtsApiStyle, VoiceCapability, VoiceProviderCreds, WebhookConfig,
     WhatsAppConfig,
 };
-use openhuman_core::openhuman::config::settings_cli::{
-    settings_section_json, ConfigSnapshotFields,
-};
-use openhuman_core::openhuman::config::{
+use openhuman_core::config::settings_cli::{settings_section_json, ConfigSnapshotFields};
+use openhuman_core::config::{
     clear_active_user, default_projects_dir, output_language_directive, pre_login_user_dir,
     read_active_user_id, user_openhuman_dir, write_active_user_id, AgentConfig, ChannelsConfig,
     Config, DaemonConfig, DelegateAgentConfig, DictationActivationMode, LlmBackend,
     ReflectionSource, TeamModelConfig, UpdateRestartStrategy,
 };
-use openhuman_core::openhuman::desktop::app_state::app_state_schemas;
-use openhuman_core::openhuman::platform::connectivity::{
+use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
+use openhuman_core::core::events::DomainEvent;
+use openhuman_core::core::jsonrpc::build_core_http_router;
+use openhuman_core::desktop::app_state::app_state_schemas;
+use openhuman_core::platform::connectivity::{
     all_connectivity_controller_schemas, all_connectivity_registered_controllers,
     connectivity_controller_schema,
 };
-use openhuman_core::openhuman::security::credentials::bus::SessionExpiredSubscriber;
-use openhuman_core::openhuman::security::credentials::cli::{
-    cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
-};
-use openhuman_core::openhuman::security::credentials::profiles::{
-    AuthProfile, AuthProfilesStore, TokenSet,
-};
-use openhuman_core::openhuman::security::credentials::session_support::{
+use openhuman_core::security::credentials::bus::SessionExpiredSubscriber;
+use openhuman_core::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use openhuman_core::security::credentials::session_support::{
     build_session_state, get_session_token, is_local_session_token, load_app_session_profile,
     parse_fields_value, profile_name_or_default, session_state_from_profile,
     session_token_from_profile, summarize_auth_profile,
 };
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::security::credentials::{
     clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
     list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
     store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
@@ -166,11 +158,6 @@ async fn serve_mock_backend() -> (
     let app = Router::new()
         .route("/auth/me", get(mock_auth_me))
         .route("/api/auth/me", get(mock_auth_me))
-        .route("/auth/login-token/consume", post(mock_consume_login_token))
-        .route(
-            "/api/auth/login-token/consume",
-            post(mock_consume_login_token),
-        )
         .route(
             "/auth/channels/{channel}/link-token",
             post(mock_channel_link_token),
@@ -216,78 +203,6 @@ async fn serve_mock_backend() -> (
     (format!("http://{addr}"), state, join)
 }
 
-#[derive(Clone, Default)]
-struct SequenceAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-}
-
-#[derive(Clone, Default)]
-struct NullAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-}
-
-#[derive(Clone)]
-struct StaticAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-    user: Arc<Value>,
-}
-
-async fn serve_sequence_auth_backend() -> (
-    String,
-    SequenceAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = SequenceAuthBackendState::default();
-    let app = Router::new()
-        .route("/auth/me", get(sequence_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind sequence auth backend");
-    let addr = listener.local_addr().expect("sequence auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
-async fn serve_null_auth_backend() -> (
-    String,
-    NullAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = NullAuthBackendState::default();
-    let app = Router::new()
-        .route("/auth/me", get(null_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind null auth backend");
-    let addr = listener.local_addr().expect("null auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
-async fn serve_static_auth_backend(
-    user: Value,
-) -> (
-    String,
-    StaticAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = StaticAuthBackendState {
-        auth_me_hits: Arc::new(AtomicUsize::new(0)),
-        user: Arc::new(user),
-    };
-    let app = Router::new()
-        .route("/auth/me", get(static_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind static auth backend");
-    let addr = listener.local_addr().expect("static auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
 fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(AUTHORIZATION)
@@ -305,91 +220,6 @@ async fn mock_auth_me(State(state): State<MockBackendState>, headers: HeaderMap)
             "name": "Remote Worker",
             "email": "remote-worker@example.test",
             "authHeader": auth
-        }
-    }))
-}
-
-async fn sequence_auth_me(
-    State(state): State<SequenceAuthBackendState>,
-    headers: HeaderMap,
-) -> Response {
-    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
-    match hit {
-        1 => {
-            let auth = bearer(&headers).unwrap_or_default();
-            Json(json!({
-                "success": true,
-                "data": {
-                    "id": "sequence-user",
-                    "name": "Sequence Worker",
-                    "email": "sequence-worker@example.test",
-                    "authHeader": auth
-                }
-            }))
-            .into_response()
-        }
-        2 => Json(json!({
-            "success": true,
-            "data": {}
-        }))
-        .into_response(),
-        _ => (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "success": false,
-                "error": "forced auth/me failure"
-            })),
-        )
-            .into_response(),
-    }
-}
-
-async fn null_auth_me(State(state): State<NullAuthBackendState>, headers: HeaderMap) -> Response {
-    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
-    match hit {
-        1 => {
-            let auth = bearer(&headers).unwrap_or_default();
-            Json(json!({
-                "success": true,
-                "data": {
-                    "id": "null-sequence-user",
-                    "name": "Null Sequence Worker",
-                    "email": "null-sequence@example.test",
-                    "authHeader": auth
-                }
-            }))
-            .into_response()
-        }
-        _ => Json(json!({
-            "success": true,
-            "data": null
-        }))
-        .into_response(),
-    }
-}
-
-async fn static_auth_me(
-    State(state): State<StaticAuthBackendState>,
-    _headers: HeaderMap,
-) -> Json<Value> {
-    state.auth_me_hits.fetch_add(1, Ordering::SeqCst);
-    Json(json!({
-        "success": true,
-        "data": (*state.user).clone()
-    }))
-}
-
-async fn mock_consume_login_token(Json(body): Json<Value>) -> Json<Value> {
-    // Token now arrives in the JSON body (`{ token }`), not the URL path, and the
-    // response field is `jwt` (matches backend `routes/auth.ts`).
-    let token = body
-        .get("token")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    Json(json!({
-        "success": true,
-        "data": {
-            "jwt": format!("jwt-from-{token}")
         }
     }))
 }
@@ -504,7 +334,7 @@ auto_save = false
 embedding_strict = false
 "#;
     std::fs::write(openhuman_dir.join("config.toml"), cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(cfg).expect("test config must match schema");
 }
 
@@ -752,11 +582,9 @@ fn config_schema_helpers_cover_provider_voice_agent_and_channel_defaults() {
     assert_eq!(voice_defaults.stt_api_style, SttApiStyle::OpenaiAudio);
     assert_eq!(voice_defaults.tts_api_style, TtsApiStyle::OpenaiAudio);
     assert_eq!(
-        openhuman_core::openhuman::config::schema::voice_providers::builtin_voice_provider(
-            "deepgram"
-        )
-        .expect("deepgram builtin")
-        .default_stt_model,
+        openhuman_core::config::schema::voice_providers::builtin_voice_provider("deepgram")
+            .expect("deepgram builtin")
+            .default_stt_model,
         Some("nova-2")
     );
     assert!(is_voice_slug_reserved(" whisper "));
@@ -1068,26 +896,26 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
     assert_eq!(audit.log_path, "audit.log");
     assert_eq!(audit.max_size_mb, 100);
 
-    let observability: openhuman_core::openhuman::config::schema::ObservabilityConfig =
+    let observability: openhuman_core::config::schema::ObservabilityConfig =
         serde_json::from_value(json!({})).expect("observability defaults");
     assert!(observability.analytics_enabled);
     assert!(observability.sentry_dsn.is_none());
-    let scheduler_gate: openhuman_core::openhuman::config::schema::SchedulerGateConfig =
+    let scheduler_gate: openhuman_core::config::schema::SchedulerGateConfig =
         serde_json::from_value(json!({})).expect("scheduler gate defaults");
     assert_eq!(
         scheduler_gate.mode,
-        openhuman_core::openhuman::config::schema::SchedulerGateMode::Auto
+        openhuman_core::config::schema::SchedulerGateMode::Auto
     );
     assert_eq!(
-        openhuman_core::openhuman::config::schema::SchedulerGateMode::AlwaysOn.as_str(),
+        openhuman_core::config::schema::SchedulerGateMode::AlwaysOn.as_str(),
         "always_on"
     );
     assert_eq!(
-        openhuman_core::openhuman::config::schema::SchedulerGateMode::Off.as_str(),
+        openhuman_core::config::schema::SchedulerGateMode::Off.as_str(),
         "off"
     );
 
-    let multimodal = openhuman_core::openhuman::config::schema::MultimodalConfig {
+    let multimodal = openhuman_core::config::schema::MultimodalConfig {
         max_images: 99,
         max_image_size_mb: 0,
         allow_remote_fetch: true,
@@ -1095,9 +923,9 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
     assert_eq!(multimodal.effective_limits(), (16, 1));
     assert_eq!(multimodal.clamp_image_count(120), 99);
 
-    let mut local_ai = openhuman_core::openhuman::config::schema::LocalAiConfig {
+    let mut local_ai = openhuman_core::config::schema::LocalAiConfig {
         runtime_enabled: false,
-        usage: openhuman_core::openhuman::config::schema::LocalAiUsage {
+        usage: openhuman_core::config::schema::LocalAiUsage {
             embeddings: true,
             heartbeat: true,
             learning_reflection: true,
@@ -1117,15 +945,15 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         assert!(local_ai.use_local_for_subconscious());
     }
 
-    let mut search = openhuman_core::openhuman::config::schema::SearchConfig {
+    let mut search = openhuman_core::config::schema::SearchConfig {
         engine: " Parallel ".into(),
         ..Default::default()
     };
     assert_eq!(
         search.effective_engine(),
-        openhuman_core::openhuman::config::schema::SearchEngine::Managed
+        openhuman_core::config::schema::SearchEngine::Managed
     );
-    search.parallel = openhuman_core::openhuman::config::schema::SearchEngineCredentials {
+    search.parallel = openhuman_core::config::schema::SearchEngineCredentials {
         api_key: Some(" parallel-key ".into()),
     };
     assert_eq!(
@@ -1135,33 +963,33 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
     );
     assert_eq!(
         search.effective_engine(),
-        openhuman_core::openhuman::config::schema::SearchEngine::Parallel
+        openhuman_core::config::schema::SearchEngine::Parallel
     );
     assert_eq!(search.requested_engine_str(), "Parallel");
     search.engine = "   ".into();
     assert_eq!(search.requested_engine_str(), "managed");
 
-    let integration = openhuman_core::openhuman::config::schema::IntegrationToggle {
+    let integration = openhuman_core::config::schema::IntegrationToggle {
         enabled: true,
         mode: "byo".into(),
         api_key: Some("   ".into()),
     };
     assert!(!integration.is_active());
-    let managed_integration = openhuman_core::openhuman::config::schema::IntegrationToggle {
+    let managed_integration = openhuman_core::config::schema::IntegrationToggle {
         enabled: true,
         mode: "managed".into(),
         api_key: None,
     };
     assert!(managed_integration.is_active());
 
-    let mcp_default = openhuman_core::openhuman::config::schema::McpServerConfig::default();
+    let mcp_default = openhuman_core::config::schema::McpServerConfig::default();
     assert!(mcp_default.enabled);
     assert_eq!(mcp_default.timeout_secs, 30);
     assert!(matches!(
         mcp_default.auth,
-        openhuman_core::openhuman::config::schema::McpAuthConfig::None
+        openhuman_core::config::schema::McpAuthConfig::None
     ));
-    let mcp_with_auth: openhuman_core::openhuman::config::schema::McpServerConfig =
+    let mcp_with_auth: openhuman_core::config::schema::McpServerConfig =
         serde_json::from_value(json!({
             "name": "worker-a-mcp",
             "endpoint": "https://mcp.example.test",
@@ -1174,14 +1002,14 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         .expect("mcp server auth config");
     assert!(matches!(
         mcp_with_auth.auth,
-        openhuman_core::openhuman::config::schema::McpAuthConfig::Header { .. }
+        openhuman_core::config::schema::McpAuthConfig::Header { .. }
     ));
     for auth in [
         json!({ "kind": "bearer_token", "token": "bearer" }),
         json!({ "kind": "basic", "username": "u", "password": "p" }),
         json!({ "kind": "query_param", "name": "api_key", "value": "secret" }),
     ] {
-        let _: openhuman_core::openhuman::config::schema::McpAuthConfig =
+        let _: openhuman_core::config::schema::McpAuthConfig =
             serde_json::from_value(auth).expect("mcp auth variant should deserialize");
     }
 }
@@ -1405,23 +1233,17 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
         invalid.enabled = false;
     }
 
-    openhuman_core::openhuman::config::set_runtime_proxy_config(services.clone());
-    assert!(openhuman_core::openhuman::config::runtime_proxy_config()
-        .should_apply_to_service("tool.browser"));
-    let _cached = openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
-    let _cached_again =
-        openhuman_core::openhuman::config::build_runtime_proxy_client("tool.browser");
+    openhuman_core::config::set_runtime_proxy_config(services.clone());
+    assert!(openhuman_core::config::runtime_proxy_config().should_apply_to_service("tool.browser"));
+    let _cached = openhuman_core::config::build_runtime_proxy_client("tool.browser");
+    let _cached_again = openhuman_core::config::build_runtime_proxy_client("tool.browser");
     let _timeout_client =
-        openhuman_core::openhuman::config::build_runtime_proxy_client_with_timeouts(
-            "memory.embeddings",
-            1,
-            1,
-        );
-    let _builder = openhuman_core::openhuman::config::apply_runtime_proxy_to_builder(
+        openhuman_core::config::build_runtime_proxy_client_with_timeouts("memory.embeddings", 1, 1);
+    let _builder = openhuman_core::config::apply_runtime_proxy_to_builder(
         reqwest::Client::builder(),
         "tool.http_request",
     );
-    openhuman_core::openhuman::config::set_runtime_proxy_config(ProxyConfig::default());
+    openhuman_core::config::set_runtime_proxy_config(ProxyConfig::default());
 }
 
 #[test]
@@ -1555,15 +1377,10 @@ async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
 #[tokio::test]
 async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_local_session() {
     let _lock = env_lock();
-    let (backend_base, _backend_state, backend_join) = serve_static_auth_backend(json!({
-        "id": "session-expired-user",
-        "name": "Session Expired Worker",
-        "email": "session-expired@example.test"
-    }))
-    .await;
     let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
 
+    // The host hands the core an already-obtained session; no backend is
+    // consulted to store it.
     let remote_session = rpc(
         &harness.rpc_base,
         18_101,
@@ -1581,9 +1398,9 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
     .await;
     assert_eq!(
         payload(&remote_session, "auth_store_session before SessionExpired")
-            .get("provider")
+            .get("credential")
             .and_then(Value::as_str),
-        Some("app-session")
+        Some("session")
     );
 
     let subscriber = SessionExpiredSubscriber::new();
@@ -1628,9 +1445,9 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
             &local_session,
             "auth_store_session local before SessionExpired"
         )
-        .get("provider")
+        .get("credential")
         .and_then(Value::as_str),
-        Some("app-session")
+        Some("local")
     );
 
     subscriber
@@ -1656,7 +1473,6 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
     );
 
     harness.join.abort();
-    backend_join.abort();
 }
 
 #[tokio::test]
@@ -2594,53 +2410,45 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
     std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
         .expect("create config parent");
 
-    openhuman_core::openhuman::security::credentials::start_login_gated_services(&config).await;
-    openhuman_core::openhuman::security::credentials::stop_login_gated_services(&config).await;
+    openhuman_core::security::credentials::start_login_gated_services(&config).await;
+    openhuman_core::security::credentials::stop_login_gated_services(&config).await;
 
     assert!(
-        openhuman_core::openhuman::security::credentials::auth_create_channel_link_token(
-            &config, "   "
-        )
-        .await
-        .expect_err("blank channel should fail")
-        .contains("channel is required")
+        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "   ")
+            .await
+            .expect_err("blank channel should fail")
+            .contains("channel is required")
     );
     assert!(
-        openhuman_core::openhuman::security::credentials::auth_create_channel_link_token(
-            &config, "matrix"
-        )
-        .await
-        .expect_err("unsupported channel should fail")
-        .contains("unsupported channel")
+        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "matrix")
+            .await
+            .expect_err("unsupported channel should fail")
+            .contains("unsupported channel")
     );
     assert!(
-        openhuman_core::openhuman::security::credentials::auth_create_channel_link_token(
-            &config, "telegram"
-        )
-        .await
-        .expect_err("missing session should fail")
-        .contains("session JWT required")
+        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "telegram")
+            .await
+            .expect_err("missing session should fail")
+            .contains("session JWT required")
     );
+    assert!(openhuman_core::security::credentials::oauth_connect(
+        &config,
+        "github",
+        Some("skill"),
+        Some("code"),
+        Some("handoff"),
+    )
+    .await
+    .expect_err("oauth connect without session should fail")
+    .contains("session JWT required"));
     assert!(
-        openhuman_core::openhuman::security::credentials::oauth_connect(
-            &config,
-            "github",
-            Some("skill"),
-            Some("code"),
-            Some("handoff"),
-        )
-        .await
-        .expect_err("oauth connect without session should fail")
-        .contains("session JWT required")
-    );
-    assert!(
-        openhuman_core::openhuman::security::credentials::oauth_list_integrations(&config)
+        openhuman_core::security::credentials::oauth_list_integrations(&config)
             .await
             .expect_err("oauth list without session should fail")
             .contains("session JWT required")
     );
     assert!(
-        openhuman_core::openhuman::security::credentials::oauth_fetch_integration_tokens(
+        openhuman_core::security::credentials::oauth_fetch_integration_tokens(
             &config,
             "0123456789abcdef01234567",
             "0123456789abcdef0123456789abcdef",
@@ -2650,7 +2458,7 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .contains("session JWT required")
     );
     assert!(
-        openhuman_core::openhuman::security::credentials::oauth_fetch_client_key(
+        openhuman_core::security::credentials::oauth_fetch_client_key(
             &config,
             "0123456789abcdef01234567",
         )
@@ -2659,7 +2467,7 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .contains("session JWT required")
     );
     assert!(
-        openhuman_core::openhuman::security::credentials::oauth_revoke_integration(
+        openhuman_core::security::credentials::oauth_revoke_integration(
             &config,
             "0123456789abcdef01234567",
         )
@@ -2695,100 +2503,6 @@ async fn credentials_secret_helpers_round_trip_with_file_keyring_backend() {
         .expect("decrypt secret")
         .value;
     assert_eq!(decrypted, "worker-a-sensitive-value");
-}
-
-#[tokio::test]
-async fn auth_cli_flows_cover_app_session_and_provider_storage_paths() {
-    let _lock = env_lock();
-    let harness = setup().await;
-
-    let fields = parse_field_equals_entries(&[
-        "scope=repo".to_string(),
-        "refresh_token=refresh-1".to_string(),
-    ])
-    .expect("parse cli fields");
-    assert_eq!(fields.get("scope").and_then(Value::as_str), Some("repo"));
-    assert!(parse_field_equals_entries(&["not-key-value".to_string()]).is_err());
-    assert!(parse_field_equals_entries(&[" =blank".to_string()]).is_err());
-
-    let provider_login = cli_auth_login(
-        " github ".to_string(),
-        "provider-token".to_string(),
-        None,
-        None,
-        fields,
-        Some("work".to_string()),
-        true,
-    )
-    .await
-    .expect("provider cli login");
-    assert!(
-        provider_login.to_string().contains("github"),
-        "provider login should mention provider: {provider_login}"
-    );
-
-    let provider_status = cli_auth_status("github".to_string(), None)
-        .await
-        .expect("provider status");
-    assert!(
-        provider_status.to_string().contains("github"),
-        "provider status should include github profile: {provider_status}"
-    );
-
-    let provider_list = cli_auth_list(Some(" github ".to_string()))
-        .await
-        .expect("provider list");
-    assert!(
-        provider_list.to_string().contains("github"),
-        "provider list should include github profile: {provider_list}"
-    );
-
-    let provider_logout = cli_auth_logout("github".to_string(), Some("work".to_string()))
-        .await
-        .expect("provider logout");
-    assert!(
-        provider_logout.to_string().contains("removed")
-            || provider_logout.to_string().contains("true"),
-        "provider logout should report removal: {provider_logout}"
-    );
-
-    let session_login = cli_auth_login(
-        APP_SESSION_PROVIDER.to_string(),
-        "header.payload.local".to_string(),
-        Some("cli-user".to_string()),
-        Some(json!({ "id": "cli-user", "name": "CLI User" })),
-        Value::Object(Default::default()),
-        None,
-        true,
-    )
-    .await
-    .expect("app-session cli login");
-    assert!(
-        session_login.to_string().contains("app-session")
-            && session_login.to_string().contains("session stored"),
-        "session login should store app session profile: {session_login}"
-    );
-
-    let session_status = cli_auth_status(APP_SESSION_PROVIDER.to_string(), None)
-        .await
-        .expect("session status");
-    assert!(
-        session_status.to_string().contains("isAuthenticated")
-            || session_status.to_string().contains("cli-user"),
-        "session status should expose auth state: {session_status}"
-    );
-
-    let session_logout = cli_auth_logout(APP_SESSION_PROVIDER.to_string(), None)
-        .await
-        .expect("session logout");
-    assert!(
-        session_logout.to_string().contains("isAuthenticated")
-            || session_logout.to_string().contains("false")
-            || session_logout.to_string().contains("removed"),
-        "session logout should clear auth state: {session_logout}"
-    );
-
-    harness.join.abort();
 }
 
 #[tokio::test]
@@ -2849,10 +2563,8 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
         (
             "auth",
             vec![
-                "openhuman.auth_clear_session",
-                "openhuman.auth_consume_login_token",
+                "openhuman.auth_clear_credential",
                 "openhuman.auth_create_channel_link_token",
-                "openhuman.auth_get_me",
                 "openhuman.auth_get_session_token",
                 "openhuman.auth_get_state",
                 "openhuman.auth_list_provider_credentials",
@@ -2862,8 +2574,8 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.auth_oauth_list_integrations",
                 "openhuman.auth_oauth_revoke_integration",
                 "openhuman.auth_remove_provider_credentials",
+                "openhuman.auth_set_credential",
                 "openhuman.auth_store_provider_credentials",
-                "openhuman.auth_store_session",
             ],
         ),
         (
@@ -3678,10 +3390,10 @@ async fn config_auto_approve_public_helper_persists_once_and_is_idempotent() {
         EnvVarGuard::unset(VITE_APP_ENV_VAR),
     ];
 
-    openhuman_core::openhuman::config::add_auto_approve_tool("tool.config.round10")
+    openhuman_core::config::add_auto_approve_tool("tool.config.round10")
         .await
         .expect("add auto approve tool");
-    openhuman_core::openhuman::config::add_auto_approve_tool("tool.config.round10")
+    openhuman_core::config::add_auto_approve_tool("tool.config.round10")
         .await
         .expect("idempotent auto approve tool");
 
@@ -3732,27 +3444,29 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
         "session token read should return a token field even when empty: {token}"
     );
 
+    // The core no longer talks to the backend's auth endpoints: a session JWT
+    // arrives already obtained, and one that is not tied to a user is refused.
     assert_error_contains(
         &rpc(
             &harness.rpc_base,
             20_003,
-            "openhuman.auth_get_me",
-            json!({}),
+            "openhuman.auth_set_credential",
+            json!({ "token": "opaque-jwt" }),
         )
         .await,
-        "auth_get_me without session",
-        "session JWT required",
+        "auth_set_credential without a user id",
+        "userId required",
     );
     assert_error_contains(
         &rpc(
             &harness.rpc_base,
             20_004,
-            "openhuman.auth_consume_login_token",
-            json!({ "loginToken": "" }),
+            "openhuman.auth_set_credential",
+            json!({ "token": "sk-1", "kind": "jwt" }),
         )
         .await,
-        "auth_consume_login_token empty",
-        "loginToken is required",
+        "auth_set_credential unknown kind",
+        "unknown credential kind",
     );
     assert_error_contains(
         &rpc(
@@ -3933,9 +3647,9 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
     .await;
     assert_eq!(
         payload(&session, "auth_store_session")
-            .get("provider")
+            .get("credential")
             .and_then(Value::as_str),
-        Some("app-session")
+        Some("local")
     );
 
     let authed = rpc(
@@ -3991,9 +3705,9 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
     .await;
     assert_eq!(
         payload(&session, "auth_store_session local")
-            .get("provider")
+            .get("credential")
             .and_then(Value::as_str),
-        Some("app-session")
+        Some("local")
     );
 
     let state = rpc(
@@ -4078,67 +3792,46 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
 }
 
 #[tokio::test]
-async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip() {
+async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_session() {
     let _lock = env_lock();
     let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
     let harness = setup().await;
     let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
 
+    // The host hands over an already-obtained session with the user it
+    // resolved; the core stores it without consulting the backend.
     let session = rpc(
         &harness.rpc_base,
         22_001,
-        "openhuman.auth_store_session",
+        "openhuman.auth_set_credential",
         json!({
             "token": "remote-jwt",
-            "user_id": "remote-user-1",
+            "userId": "remote-user-1",
             "user": {
-                "id": "stale-renderer-user",
-                "name": "Renderer Cache",
-                "email": "renderer-cache@example.test"
+                "id": "remote-user-1",
+                "name": "Remote Worker",
+                "email": "remote-worker@example.test"
             }
         }),
     )
     .await;
+    let state = payload(&session, "auth_set_credential remote");
     assert_eq!(
-        payload(&session, "auth_store_session remote")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
+        state.get("credential").and_then(Value::as_str),
+        Some("session")
+    );
+    assert_eq!(
+        state.get("userId").and_then(Value::as_str),
+        Some("remote-user-1")
     );
     assert_eq!(
         backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the JWT once"
+        0,
+        "installing a credential must not touch GET /auth/me"
     );
 
-    let me = rpc(
-        &harness.rpc_base,
-        22_002,
-        "openhuman.auth_get_me",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&me, "auth_get_me remote")
-            .get("email")
-            .and_then(Value::as_str),
-        Some("remote-worker@example.test")
-    );
-
-    let consumed = rpc(
-        &harness.rpc_base,
-        22_003,
-        "openhuman.auth_consume_login_token",
-        json!({ "loginToken": "telegram-login-token" }),
-    )
-    .await;
-    assert_eq!(
-        payload(&consumed, "auth_consume_login_token remote")
-            .get("jwtToken")
-            .and_then(Value::as_str),
-        Some("jwt-from-telegram-login-token")
-    );
-
+    // Every remaining auth.* backend call is bearer-only and keeps working
+    // against the stored session.
     let link = rpc(
         &harness.rpc_base,
         22_004,
@@ -4181,12 +3874,6 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
     .await;
     assert_eq!(
         payload(&oauth_connect, "auth_oauth_connect remote")
-            .get("state")
-            .and_then(Value::as_str),
-        Some("worker-a-state")
-    );
-    assert_eq!(
-        payload(&oauth_connect, "auth_oauth_connect remote")
             .get("oauthUrl")
             .and_then(Value::as_str),
         Some("https://github.example.test/oauth?state=worker-a-state")
@@ -4210,15 +3897,6 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
         .get("accessToken")
         .and_then(Value::as_str),
         Some("gh-access-token")
-    );
-    assert_eq!(
-        payload(
-            &integration_tokens,
-            "auth_oauth_fetch_integration_tokens remote"
-        )
-        .get("refreshToken")
-        .and_then(Value::as_str),
-        Some("gh-refresh-token")
     );
 
     let client_key = rpc(
@@ -4261,6 +3939,7 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
         "integrationId must be a 24-char hex id",
     );
 
+    // The snapshot reports the handed-over user and never refreshes it.
     let snapshot = rpc(
         &harness.rpc_base,
         22_009,
@@ -4274,485 +3953,51 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
             .and_then(Value::as_str),
         Some("remote-worker@example.test")
     );
-    let hits_after_first_snapshot = backend_state.auth_me_hits.load(Ordering::SeqCst);
-    assert!(
-        hits_after_first_snapshot >= 3,
-        "store_session, auth_get_me, and snapshot should all touch /auth/me at least once"
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        0,
+        "the snapshot must not call GET /auth/me; the host owns that"
     );
 
-    let cached_snapshot = rpc(
+    // Re-handing the same token for the same user is a cheap refresh that
+    // replaces the stored payload.
+    let refreshed = rpc(
         &harness.rpc_base,
-        22_010,
-        "openhuman.app_state_snapshot",
-        json!({}),
+        22_013,
+        "openhuman.auth_set_credential",
+        json!({
+            "token": "remote-jwt",
+            "userId": "remote-user-1",
+            "user": { "id": "remote-user-1", "name": "Renamed Worker" }
+        }),
     )
     .await;
     assert_eq!(
-        payload(&cached_snapshot, "app_state_snapshot remote cached")
-            .pointer("/currentUser/name")
+        payload(&refreshed, "auth_set_credential refresh")
+            .pointer("/user/name")
             .and_then(Value::as_str),
-        Some("Remote Worker")
+        Some("Renamed Worker")
     );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        hits_after_first_snapshot,
-        "the second snapshot should reuse the current-user cache"
-    );
-
-    let identity =
-        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
-            .expect("snapshot should seed cached identity");
+    let identity = openhuman_core::security::credentials::identity::peek_credential_user_identity()
+        .expect("set_credential should seed the identity slot");
     assert_eq!(identity.id.as_deref(), Some("remote-user-1"));
-    assert_eq!(identity.name.as_deref(), Some("Remote Worker"));
-    assert_eq!(
-        identity.email.as_deref(),
-        Some("remote-worker@example.test")
-    );
+    assert_eq!(identity.name.as_deref(), Some("Renamed Worker"));
 
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn auth_remote_backend_path_prefix_is_preserved_for_app_state_refresh() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &format!("{backend_base}/api"));
-
-    let session = rpc(
+    let cleared = rpc(
         &harness.rpc_base,
-        22_051,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "remote-path-prefix-jwt",
-            "user_id": "remote-user-1",
-            "user": {
-                "id": "stale-path-prefix-user",
-                "name": "Path Prefix Renderer",
-                "email": "path-prefix-renderer@example.test"
-            }
-        }),
+        22_014,
+        "openhuman.auth_clear_credential",
+        json!({ "kind": "session" }),
     )
     .await;
     assert_eq!(
-        payload(&session, "auth_store_session with backend path prefix")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_052,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "app_state_snapshot with backend path prefix")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("remote-worker@example.test"),
-        "app_state should join auth/me below the configured backend path prefix"
+        payload(&cleared, "auth_clear_credential")
+            .get("removedSession")
+            .and_then(Value::as_bool),
+        Some(true)
     );
     assert!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst) >= 2,
-        "store_session and app_state snapshot should both hit the prefixed backend"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_snapshot_clears_empty_current_user_cache_and_falls_back_to_stored_user() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_sequence_auth_backend().await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_101,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "sequence-remote-jwt",
-            "user_id": "stored-sequence-user",
-            "user": {
-                "id": "stored-sequence-user",
-                "name": "Stored Sequence Worker",
-                "email": "stored-sequence@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session sequence")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the sequence JWT once"
-    );
-
-    let empty_user_snapshot = rpc(
-        &harness.rpc_base,
-        22_102,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "first snapshot should refresh and receive the empty user payload"
-    );
-    assert_eq!(
-        payload(&empty_user_snapshot, "empty current-user snapshot")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("stored-sequence@example.test"),
-        "empty backend users should clear the cache and fall back to stored identity"
-    );
-    assert!(
-        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
-            .is_none(),
-        "empty backend user should clear the process current-user cache"
-    );
-
-    let failed_user_snapshot = rpc(
-        &harness.rpc_base,
-        22_103,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        3,
-        "second snapshot should retry after the empty-user cache clear"
-    );
-    assert_eq!(
-        payload(&failed_user_snapshot, "failed current-user snapshot")
-            .pointer("/currentUser/name")
-            .and_then(Value::as_str),
-        Some("Stored Sequence Worker"),
-        "failed backend user fetches should preserve stored session identity"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_snapshot_falls_back_to_stored_user_when_current_user_refresh_errors() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
-        "id": "refresh-error-user",
-        "name": "Refresh Error Worker",
-        "email": "refresh-error@example.test"
-    }))
-    .await;
-    let harness = setup().await;
-    let backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_121,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "refresh-error-remote-jwt",
-            "user_id": "stored-refresh-error-user",
-            "user": {
-                "id": "stored-refresh-error-user",
-                "name": "Stored Refresh Error Worker",
-                "email": "stored-refresh-error@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session refresh-error")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the remote JWT once"
-    );
-
-    drop(backend_guard);
-    let _broken_backend = EnvVarGuard::set("BACKEND_URL", "http://127.0.0.1:1");
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_122,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "app_state_snapshot refresh-error")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("stored-refresh-error@example.test"),
-        "backend refresh transport failures should preserve stored session identity"
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "snapshot should use the broken backend URL instead of hitting the original backend"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_snapshot_clears_null_current_user_cache_and_falls_back_to_stored_user() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_null_auth_backend().await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_151,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "null-sequence-remote-jwt",
-            "user_id": "stored-null-sequence-user",
-            "user": {
-                "id": "stored-null-sequence-user",
-                "name": "Stored Null Sequence Worker",
-                "email": "stored-null-sequence@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session null sequence")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the null-sequence JWT once"
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_152,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "snapshot should refresh and receive the null user payload"
-    );
-    assert_eq!(
-        payload(&snapshot, "null current-user snapshot")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("stored-null-sequence@example.test"),
-        "null backend users should clear the cache and fall back to stored identity"
-    );
-    assert!(
-        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
-            .is_none(),
-        "null backend user should clear the process current-user cache"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_cached_identity_peek_accepts_legacy_current_user_fields() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
-        "user_id": "legacy-user-id",
-        "displayName": "Legacy Display",
-        "email": "legacy-display@example.test"
-    }))
-    .await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_201,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "legacy-field-remote-jwt",
-            "user_id": "stored-legacy-user",
-            "user": {
-                "id": "stored-legacy-user",
-                "name": "Stored Legacy Worker",
-                "email": "stored-legacy@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session legacy fields")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_202,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "legacy-field current-user snapshot")
-            .pointer("/currentUser/user_id")
-            .and_then(Value::as_str),
-        Some("legacy-user-id")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "store_session and snapshot should each fetch the static backend once"
-    );
-    let identity =
-        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
-            .expect("legacy current-user keys should produce a prompt identity");
-    assert_eq!(identity.id.as_deref(), Some("legacy-user-id"));
-    assert_eq!(identity.name.as_deref(), Some("Legacy Display"));
-    assert_eq!(
-        identity.email.as_deref(),
-        Some("legacy-display@example.test")
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_cached_identity_peek_accepts_camel_case_fallback_fields() {
-    let _lock = env_lock();
-    let (backend_base, _backend_state, backend_join) = serve_static_auth_backend(json!({
-        "userId": "camel-user-id",
-        "fullName": "Camel Full Name"
-    }))
-    .await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_301,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "camel-field-remote-jwt",
-            "user_id": "stored-camel-user",
-            "user": {
-                "id": "stored-camel-user",
-                "name": "Stored Camel Worker",
-                "email": "stored-camel@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session camel fields")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_302,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "camel-field current-user snapshot")
-            .pointer("/currentUser/userId")
-            .and_then(Value::as_str),
-        Some("camel-user-id")
-    );
-    let identity =
-        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
-            .expect("camel-case current-user keys should produce a prompt identity");
-    assert_eq!(identity.id.as_deref(), Some("camel-user-id"));
-    assert_eq!(identity.name.as_deref(), Some("Camel Full Name"));
-    assert_eq!(identity.email, None);
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_cached_identity_peek_ignores_current_user_without_identity_fields() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
-        "metadata": "present-but-not-identity"
-    }))
-    .await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_351,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "identity-empty-remote-jwt",
-            "user_id": "stored-empty-identity-user",
-            "user": {
-                "id": "stored-empty-identity-user",
-                "name": "Stored Empty Identity Worker",
-                "email": "stored-empty-identity@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session identity-empty")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_352,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "identity-empty current-user snapshot")
-            .pointer("/currentUser/metadata")
-            .and_then(Value::as_str),
-        Some("present-but-not-identity")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "store_session and snapshot should each fetch the no-identity backend once"
-    );
-    assert!(
-        openhuman_core::openhuman::desktop::app_state::peek_cached_current_user_identity()
-            .is_none(),
-        "current-user objects without id/name/email should not produce prompt identity"
+        openhuman_core::security::credentials::identity::peek_credential_user_identity().is_none()
     );
 
     harness.join.abort();
@@ -5419,7 +4664,7 @@ fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_e
     let tmp = tempdir().expect("tempdir");
 
     let default_profiles =
-        openhuman_core::openhuman::security::credentials::profiles::AuthProfilesData::default();
+        openhuman_core::security::credentials::profiles::AuthProfilesData::default();
     assert_eq!(default_profiles.schema_version, 1);
     assert!(default_profiles.profiles.is_empty());
 
@@ -5659,7 +4904,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
     let hit_dir = tmp.path().join("keychain-hit");
     std::fs::create_dir_all(&hit_dir).expect("create keychain hit dir");
     let hit_profile_id = "github:main";
-    openhuman_core::openhuman::security::keyring::set(
+    openhuman_core::security::keyring::set(
         "keychain-hit",
         &format!("auth:{hit_profile_id}"),
         &json!({
@@ -5758,7 +5003,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
             .and_then(|profile| profile.token.as_deref()),
         Some("plain-token-for-migration")
     );
-    let migrated_keychain = openhuman_core::openhuman::security::keyring::get(
+    let migrated_keychain = openhuman_core::security::keyring::get(
         "keychain-migrate",
         &format!("auth:{migrate_profile_id}"),
     )
@@ -5772,7 +5017,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
     let fallback_dir = tmp.path().join("keychain-fallback");
     std::fs::create_dir_all(&fallback_dir).expect("create keychain fallback dir");
     let fallback_profile_id = "slack:bot";
-    openhuman_core::openhuman::security::keyring::set(
+    openhuman_core::security::keyring::set(
         "keychain-fallback",
         &format!("auth:{fallback_profile_id}"),
         "not-json",
@@ -5818,7 +5063,7 @@ fn credentials_profile_store_keychain_migration_and_fallback_paths_are_determini
         "migrated profile should be removable"
     );
     assert!(
-        openhuman_core::openhuman::security::keyring::get(
+        openhuman_core::security::keyring::get(
             "keychain-migrate",
             &format!("auth:{migrate_profile_id}"),
         )
@@ -5869,9 +5114,11 @@ fn connectivity_public_helpers_cover_schemas_and_port_probe() {
 
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
     let port = listener.local_addr().expect("probe local addr").port();
-    assert!(openhuman_core::openhuman::platform::connectivity::ops::is_port_in_use(port));
+    assert!(openhuman_core::platform::connectivity::ops::is_port_in_use(
+        port
+    ));
     drop(listener);
-    let _ = openhuman_core::openhuman::platform::connectivity::ops::is_port_in_use(port);
+    let _ = openhuman_core::platform::connectivity::ops::is_port_in_use(port);
 }
 
 #[tokio::test]
@@ -5891,7 +5138,7 @@ async fn connectivity_pick_listen_port_uses_fallback_when_preferred_is_busy() {
     }
     let held_listener = held_listener.expect("find preferred port with fallback room");
 
-    let picked = openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
+    let picked = openhuman_core::platform::connectivity::rpc::pick_listen_port_for_host(
         "127.0.0.1",
         preferred,
     )
@@ -5907,12 +5154,10 @@ async fn connectivity_pick_listen_port_uses_fallback_when_preferred_is_busy() {
 async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallbacks() {
     let _lock = env_lock();
 
-    let direct = openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
-        "127.0.0.1",
-        0,
-    )
-    .await
-    .expect("port 0 should bind directly");
+    let direct =
+        openhuman_core::platform::connectivity::rpc::pick_listen_port_for_host("127.0.0.1", 0)
+            .await
+            .expect("port 0 should bind directly");
     assert_eq!(direct.fallback_from, None);
     drop(direct.listener);
 
@@ -5942,15 +5187,14 @@ async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallback
         }
     }
     let preferred = preferred.expect("reserve preferred port and fallback range");
-    let exhausted =
-        openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port_for_host(
-            "127.0.0.1",
-            preferred,
-        )
-        .await
-        .expect_err("busy preferred and fallback range should fail");
+    let exhausted = openhuman_core::platform::connectivity::rpc::pick_listen_port_for_host(
+        "127.0.0.1",
+        preferred,
+    )
+    .await
+    .expect_err("busy preferred and fallback range should fail");
     match &exhausted {
-        openhuman_core::openhuman::platform::connectivity::rpc::PickListenPortError::NoAvailablePort {
+        openhuman_core::platform::connectivity::rpc::PickListenPortError::NoAvailablePort {
             preferred: err_preferred,
             attempted,
             fingerprint,
@@ -5972,7 +5216,7 @@ async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallback
     );
 
     let takeover =
-        openhuman_core::openhuman::platform::connectivity::rpc::PickListenPortError::WouldTakeOver {
+        openhuman_core::platform::connectivity::rpc::PickListenPortError::WouldTakeOver {
             preferred,
             fingerprint: "openhuman-core".into(),
         };
@@ -5980,7 +5224,7 @@ async fn connectivity_pick_listen_port_covers_direct_bind_and_exhausted_fallback
         .to_string()
         .contains("stale-listener takeover required"));
     let bind_failed =
-        openhuman_core::openhuman::platform::connectivity::rpc::PickListenPortError::BindFailed {
+        openhuman_core::platform::connectivity::rpc::PickListenPortError::BindFailed {
             port: preferred,
             reason: "synthetic bind failure".into(),
         };
@@ -6027,19 +5271,19 @@ async fn connectivity_diag_reports_runtime_port_sources() {
     {
         let _rpc_url = EnvVarGuard::set("OPENHUMAN_CORE_RPC_URL", "http://127.0.0.1:4567/rpc");
         let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "7788");
-        let snapshot = openhuman_core::openhuman::platform::connectivity::rpc::snapshot();
+        let snapshot = openhuman_core::platform::connectivity::rpc::snapshot();
         assert_eq!(snapshot.listen_port, 4567);
     }
     {
         let _rpc_url = EnvVarGuard::set("OPENHUMAN_CORE_RPC_URL", "not a url");
         let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "4568");
-        let snapshot = openhuman_core::openhuman::platform::connectivity::rpc::snapshot();
+        let snapshot = openhuman_core::platform::connectivity::rpc::snapshot();
         assert_eq!(snapshot.listen_port, 4568);
     }
     {
         let _rpc_url = EnvVarGuard::unset("OPENHUMAN_CORE_RPC_URL");
         let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", "not-a-port");
-        let snapshot = openhuman_core::openhuman::platform::connectivity::rpc::snapshot();
+        let snapshot = openhuman_core::platform::connectivity::rpc::snapshot();
         assert_eq!(snapshot.listen_port, 7788);
     }
 

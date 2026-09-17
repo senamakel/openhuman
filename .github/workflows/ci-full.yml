@@ -130,7 +130,7 @@ jobs:
           # reason: the archive name, the release tag and the checksum each used to
           # carry the version independently, so a bump could update two of the three
           # and leave a stale digest that only fails after the download. Both values
-          # are the ubuntu-22.04-x86_64 row of `src/openhuman/modules/registry.rs`,
+          # are the ubuntu-22.04-x86_64 row of `crates/openhuman-core/src/modules/registry.rs`,
           # which is the authoritative pin — copy them from there, never recompute.
           memory_version="1.16.0"
           memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
@@ -203,7 +203,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .ci/artifacts/e2e-playwright-linux.tar.gz
-          key: e2e-playwright-linux-${{ hashFiles('src/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/public/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-web-build.sh', 'app/scripts/build-parallel.mjs') }}
+          key: e2e-playwright-linux-${{ hashFiles('src/**', 'crates/openhuman-core/**', 'crates/openhuman-tui/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'app/src/**', 'app/public/**', 'app/index.html', 'app/vite.config.*', 'app/tailwind.config.*', 'app/postcss.config.*', 'app/package.json', 'pnpm-lock.yaml', 'app/scripts/e2e-web-build.sh', 'app/scripts/build-parallel.mjs') }}
 
       - name: Install dependencies
         if: steps.playwright-artifact-cache.outputs.cache-hit != 'true'
@@ -314,6 +314,40 @@ jobs:
           rm -rf repo e2e-playwright-linux.tar.gz
           chmod +x target/e2e-web-*/debug/openhuman-core
 
+      - name: Install native test modules
+        run: |
+          # tinybus validates every directory ancestor. GitHub mounts the
+          # checkout as the host runner uid while this container runs as root,
+          # so keep native fixtures in a root-owned, ephemeral tree.
+          memory_version="1.16.0"
+          memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
+          module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          memory_dir="$module_root/tinymemory"
+          juice_dir="$module_root/tinyjuice"
+          connectors_dir="$module_root/tinyconnectors"
+          memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
+          juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
+          rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
+          mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
+          curl --fail --location --silent --show-error \
+            "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
+            --output "$memory_archive"
+          curl --fail --location --silent --show-error \
+            "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
+            --output "$juice_archive"
+          echo "${memory_sha256}  $memory_archive" | sha256sum --check
+          echo "fd8caf7fccb53328870fd26922aa9768d253cd4b3bf758967847d6512df03863  $juice_archive" \
+            | sha256sum --check
+          tar --no-same-owner -xzf "$memory_archive" -C "$memory_dir"
+          tar --no-same-owner -xzf "$juice_archive" -C "$juice_dir"
+          bash scripts/ci-cancel-aware.sh cargo build --release \
+            --manifest-path vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml
+          cp vendor/tinyconnectors/target/release/libtinyconnectors.so \
+            "$connectors_dir/libtinyconnectors.so"
+          echo "TINYMEMORY_TEST_MODULE=$memory_dir/libtinymemory_module.so" >> "$GITHUB_ENV"
+          echo "TINYJUICE_TEST_MODULE=$juice_dir/libtinyjuice_module.so" >> "$GITHUB_ENV"
+          echo "TINYCONNECTORS_TEST_MODULE=$connectors_dir/libtinyconnectors.so" >> "$GITHUB_ENV"
+
       - name: Install Playwright Chromium headless shell
         run: pnpm --filter openhuman-app exec playwright install chromium-headless-shell
 
@@ -322,7 +356,47 @@ jobs:
           OPENHUMAN_WORKSPACE: ${{ runner.temp }}/openhuman-playwright-workspace
         run: |
           mkdir -p "$OPENHUMAN_WORKSPACE"
-          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh
+          workspace_root="$OPENHUMAN_WORKSPACE"
+          export OPENHUMAN_WORKSPACE="$workspace_root/connections-aliases"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/connections-tab-aliases.spec.ts
+
+          export OPENHUMAN_WORKSPACE="$workspace_root/connections-deeplinks"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/connections-tab-deeplinks.spec.ts
+
+          export OPENHUMAN_WORKSPACE="$workspace_root/chat-harness-subagent"
+          mkdir -p "$OPENHUMAN_WORKSPACE"
+          bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+            test/playwright/specs/chat-harness-subagent.spec.ts
+
+          skills_index=0
+          while IFS= read -r skills_test; do
+            export OPENHUMAN_WORKSPACE="$workspace_root/skills-$skills_index"
+            mkdir -p "$OPENHUMAN_WORKSPACE"
+            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+              test/playwright/specs/skills-search-install.spec.ts -g "$skills_test"
+            skills_index=$((skills_index + 1))
+          done <<'EOF'
+          a burst of typing issues ONE catalog search
+          a pause between words issues a second search
+          a query with no matches leaves no catalog rows
+          the typed text is preserved in the box while results load
+          offers Install, and the button is enabled before it is pressed
+          disables the button and shows Installing while the RPC is in flight
+          a failed install re-enables the button rather than stranding it
+          EOF
+
+          for shard_index in $(seq 1 64); do
+            shard="$shard_index/64"
+            export OPENHUMAN_WORKSPACE="$workspace_root/shard-$shard_index"
+            mkdir -p "$OPENHUMAN_WORKSPACE"
+            bash scripts/ci-cancel-aware.sh bash app/scripts/e2e-web-session.sh \
+              --shard="$shard" \
+              --grep-invert='Connections (aliases|deep links)|Skills explorer|Chat Harness - Subagent'
+          done
 
       - name: Pack Playwright E2E failure artifacts
         if: failure()

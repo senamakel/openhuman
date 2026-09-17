@@ -10,12 +10,12 @@ use axum::{
     routing::post,
     Json, Router,
 };
-use openhuman_core::openhuman::channels::providers::email_channel::{
+use openhuman_core::channels::providers::email_channel::{
     test_support as email_support, EmailChannel, EmailConfig,
 };
-use openhuman_core::openhuman::channels::providers::irc::test_support as irc_support;
-use openhuman_core::openhuman::channels::providers::telegram::TelegramChannel;
-use openhuman_core::openhuman::channels::providers::yuanbao::{
+use openhuman_core::channels::providers::irc::test_support as irc_support;
+use openhuman_core::channels::providers::telegram::TelegramChannel;
+use openhuman_core::channels::providers::yuanbao::{
     proto::decode_conn_msg,
     proto_biz::{
         decode_biz_rsp_code, decode_get_group_member_list_rsp, decode_query_group_info_rsp,
@@ -27,7 +27,7 @@ use openhuman_core::openhuman::channels::providers::yuanbao::{
     types::{MsgBodyElement, MsgContent},
     wire::{encode_field_bytes, encode_field_string, encode_field_varint},
 };
-use openhuman_core::openhuman::channels::traits::{Channel, SendMessage};
+use openhuman_core::channels::traits::{Channel, SendMessage};
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 

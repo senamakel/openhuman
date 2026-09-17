@@ -3,7 +3,7 @@
 # coverage records at all — i.e. the lane never compiled it, so neither the
 # scoped test run nor diff-cover could possibly have verified it.
 #
-# WHY THIS EXISTS (PR #5593). `src/openhuman/hosting/**` is gated behind a Cargo
+# WHY THIS EXISTS (PR #5593). `crates/openhuman-core/src/hosting/**` is gated behind a Cargo
 # feature that is in neither `[features] default` nor
 # `scripts/ci/product-features.txt`, so the coverage lane compiled none of it.
 # The scoped libtest filter matched nothing (`running 0 tests … ok`) and
@@ -42,13 +42,10 @@ die() {
 # is a path prefix plus the reason it can never appear, so a future reader can
 # tell "excluded on purpose" from "forgotten" — the ambiguity that let #4918 sit.
 #
-#   src/tui/                       `tui` is default-OFF and deliberately never
-#                                  forwarded (INTENTIONALLY_NOT_FORWARDED in
-#                                  scripts/lib/feature-forwarding.mjs).
-#   src/openhuman/test_support/    `e2e-test-support`; the destructive
+#   crates/openhuman-core/src/test_support/    `e2e-test-support`; the destructive
 #                                  `openhuman.test_reset` RPC must never ship.
 #   .../browser/native_backend.rs  `browser-native`, an opt-in dev backend.
-UNCOVERED_BY_DESIGN='^(src/tui/|src/openhuman/test_support/|src/openhuman/tools/impl/browser/native_backend\.rs$)'
+UNCOVERED_BY_DESIGN='^(crates/openhuman-core/src/test_support/|crates/openhuman-core/src/tools/impl/browser/native_backend\.rs$)'
 
 # Invocation help, printed to stdout for --help and to stderr on a usage error.
 usage() {
@@ -117,7 +114,7 @@ esac
 # the worst failure this script has, so it does not depend on the prefix.
 #
 # The last `/src/` rather than the first: a developer checkout at
-# `~/src/openhuman/` contains two, and the repo-relative path is the trailing
+# `~/crates/openhuman-core/src/` contains two, and the repo-relative path is the trailing
 # one. Unambiguous here because no tracked path under `src/` contains a nested
 # `src/` component, and all 1,354 `SF:` records in the reference artifact carry
 # the `/src/` marker.
@@ -132,6 +129,15 @@ for line in sys.stdin:
         continue
     path = posixpath.normpath(line)
     print(path)
+    marker = path.rfind("/crates/openhuman-core/src/")
+    if marker != -1:
+        print(path[marker + 1 :])
+    marker = path.rfind("/crates/openhuman-embed/src/")
+    if marker != -1:
+        print(path[marker + 1 :])
+    marker = path.rfind("/crates/openhuman-tui/src/")
+    if marker != -1:
+        print(path[marker + 1 :])
     marker = path.rfind("/src/")
     if marker != -1:
         print(path[marker + 1 :])' \
@@ -159,7 +165,7 @@ allowlisted() {
 # and is silently skipped. It only bites files long enough for the writer to
 # still be going when the reader leaves, i.e. exactly the large files this gate
 # most needs to check: it wrongly excluded 299 of 1,377 eligible sources,
-# `src/openhuman/hosting/tools.rs` (937 lines) among them.
+# `crates/openhuman-core/src/hosting/tools.rs` (937 lines) among them.
 #
 # The pattern avoids `\b` (a GNU extension) so the check behaves identically
 # under the BSD grep/awk a contributor runs locally and the GNU one in CI.
@@ -182,9 +188,9 @@ eligible() {
   base="$(basename "${f}")"
 
   case "${f}" in *.rs) ;; *) return 1 ;; esac  # non-Rust: assets, .md, fixtures
-  case "${f}" in src/*) ;; *) return 1 ;; esac # only crate sources
+  case "${f}" in src/* | crates/openhuman-core/src/* | crates/openhuman-embed/src/* | crates/openhuman-tui/src/*) ;; *) return 1 ;; esac
   [ -f "${f}" ] || return 1                    # deleted / renamed-away
-  case "${f}" in src/lib.rs | src/main.rs | src/bin/*) return 1 ;; esac
+  case "${f}" in src/lib.rs | src/main.rs | src/bin/* | crates/openhuman-core/src/lib.rs | crates/openhuman-core/src/main.rs | crates/openhuman-core/src/bin/* | crates/openhuman-tui/src/lib.rs | crates/openhuman-tui/src/main.rs) return 1 ;; esac
   # Test-only sources. We do not demand coverage OF test code, and a test file
   # only ever appears in the lcov as a side effect of its own execution.
   case "${base}" in *_tests.rs | *_test.rs | tests.rs | test.rs | test_support.rs) return 1 ;; esac
@@ -223,11 +229,11 @@ if [ "${MODE}" = all ]; then
   # working tree would also be checked, which is harmless (it is a real file
   # that either compiled or did not).
   listing=""
-  if listing="$(git ls-files 'src/*.rs' 'src/**/*.rs' 2>/dev/null)" && [ -n "${listing}" ]; then
+  if listing="$(git ls-files 'src/*.rs' 'src/**/*.rs' 'crates/openhuman-core/src/*.rs' 'crates/openhuman-core/src/**/*.rs' 'crates/openhuman-embed/src/*.rs' 'crates/openhuman-embed/src/**/*.rs' 'crates/openhuman-tui/src/*.rs' 'crates/openhuman-tui/src/**/*.rs' 2>/dev/null)" && [ -n "${listing}" ]; then
     log "enumerating tracked sources with git ls-files"
   else
     log "git ls-files unavailable or empty — falling back to a filesystem walk"
-    listing="$(find src -type f -name '*.rs' 2>/dev/null || true)"
+    listing="$(find src crates/openhuman-core/src crates/openhuman-embed/src crates/openhuman-tui/src -type f -name '*.rs' 2>/dev/null || true)"
   fi
   while IFS= read -r f; do
     [ -n "${f}" ] && candidates+=("${f}")

@@ -315,8 +315,8 @@ fn core_ping_request_structure() {
 /// Test Debian package dependencies configuration.
 #[test]
 fn debian_package_dependencies_configured() {
-    let config_path =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("app/src-tauri/tauri.conf.json");
+    let config_path = PathBuf::from(env!("OPENHUMAN_REPOSITORY_ROOT"))
+        .join("crates/openhuman-app/tauri.conf.json");
     let config_text = fs::read_to_string(&config_path).expect("read tauri.conf.json");
     let config: serde_json::Value =
         serde_json::from_str(&config_text).expect("parse tauri.conf.json");

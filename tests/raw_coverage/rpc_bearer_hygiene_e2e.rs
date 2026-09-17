@@ -72,7 +72,7 @@ fn the_detector_catches_every_spelling_of_the_bug() {
 
 #[test]
 fn no_raw_coverage_suite_sends_a_hard_coded_bearer() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/raw_coverage");
+    let dir = Path::new(env!("OPENHUMAN_REPOSITORY_ROOT")).join("tests/raw_coverage");
     let mut offenders = Vec::new();
     let mut scanned = 0usize;
 

@@ -41,7 +41,7 @@ type MemoryOperation = (typeof MEMORY_OPERATIONS)[number];
 
 /**
  * The seven persona facets the `flavour` operation's `memory_flavour` engine
- * reader (`src/openhuman/memory/tools/flavour.rs`) accepts — any other slug
+ * reader (`crates/openhuman-core/src/memory/tools/flavour.rs`) accepts — any other slug
  * returns "Unknown flavour". Rendered as a dropdown rather than free text so
  * an author can't type an invalid slug (e.g. `email-tone`) in the first place.
  */

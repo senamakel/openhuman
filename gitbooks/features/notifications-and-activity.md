@@ -62,17 +62,14 @@ Auto-routing re-reads the provider's settings the moment before escalating, so t
 
 ## Activity hub
 
-The Activity surface (`/activity`) is the transparency layer over everything the agent does without you in the loop. It has three tabs:
+The Activity surface (`/activity`) is the transparency layer over everything the agent does without you in the loop. It has two tabs:
 
-| Tab                     | What it shows                                                                                |
-| ----------------------- | -------------------------------------------------------------------------------------------- |
-| **Automations**         | Workflows the agent runs on your behalf (the workflows panel)                                |
-| **Background Activity** | The subconscious engine: status bar, active tasks, approval cards, and the evaluation ledger |
-| **Alerts**              | The notification center described above (integration + system streams)                       |
+| Tab             | What it shows                                                          |
+| --------------- | ---------------------------------------------------------------------- |
+| **Automations** | Workflows the agent runs on your behalf (the workflows panel)          |
+| **Alerts**      | The notification center described above (integration + system streams) |
 
-The **Background Activity** tab embeds the subconscious loop's controls and activity log: its tick interval, mode, a manual **Run Now** trigger, and a chronological feed of every background task evaluation with a colored status dot. That loop is documented in full on the [Subconscious Loop](subconscious.md) page; the Activity hub is just its front door.
-
-Older deep links (`?tab=memory`, `?tab=agents`, `?tab=tasks`, …) now live under Settings → Developer & Diagnostics and fall back to the Automations tab.
+The tab is URL-backed (`/activity?tab=…`), so navigating away and back restores the one you were on. Older deep links (`?tab=memory`, `?tab=agents`, `?tab=council`, `?tab=tasks`, …) are no longer visible tabs: they live under Settings → Developer & Diagnostics and fall back to the Automations tab.
 
 ---
 
@@ -91,6 +88,5 @@ Routines surface and manage the scheduled jobs; the underlying scheduling engine
 
 ## See also
 
-- [Subconscious Loop](subconscious.md) covers the background engine behind the Background Activity tab.
 - [Cron / scheduled tasks](native-tools/cron.md) covers the scheduling engine and agent tools behind Routines.
 - [Triggers](integrations/triggers.md) covers webhooks and inbound events that can raise notifications.

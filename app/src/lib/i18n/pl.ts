@@ -218,6 +218,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Coś poszło nie tak z tą czynnością.',
   'conversations.toolFailure.unknown.next':
     'Spróbuj ponownie; jeśli nadal się nie udaje, uruchom diagnostykę w Ustawieniach.',
+  'conversations.toolFailure.notFound.cause':
+    'To, o co prosiła ta akcja, nie istnieje lub nie jest tu dostępne.',
+  'conversations.toolFailure.notFound.next':
+    'Nic nie trzeba robić. Asystent może znaleźć właściwą nazwę i spróbować ponownie.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman nie potrafi jeszcze zrobić tego automatycznie.',
+  'conversations.toolFailure.unsupported.next': 'Zrób to ręcznie lub poproś o inną opcję.',
   'conversations.backgroundTasks.title': 'Zadania w tle',
   'nav.feedback': 'Podziel się opinią',
   'feedback.board': 'Tablica opinii',
@@ -389,6 +396,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'Sukces',
   'sync.status.failed': 'Niepowodzenie',
   'sync.status.partial': 'Pobrano, zapis do pamięci nie powiódł się',
+  'sync.nowSyncing.title': 'Trwa synchronizacja',
+  'sync.nowSyncing.empty': 'Obecnie nic nie jest synchronizowane.',
   'common.error': 'Błąd',
   'common.success': 'Sukces',
   'common.back': 'Wstecz',
@@ -668,6 +677,10 @@ const messages: TranslationMap = {
   'home.statusOk': 'Twój asystent jest gotowy, gdy tylko zechcesz. Napisz coś poniżej, aby zacząć.',
   'home.statusBackendOnly':
     'Ponowne łączenie z backendem… Twój agent będzie dostępny ponownie za chwilę.',
+  'home.statusHostedDegraded':
+    'Ponowne łączenie z chmurą… czat nadal działa; integracje i kanały wznowią się, gdy tylko połączenie wróci.',
+  'home.statusHostedStopped':
+    'Połączenie z chmurą zostało zatrzymane: zaloguj się ponownie, aby wznowić integracje i kanały. Czat nadal działa.',
   'home.statusCoreUnreachable':
     'Rdzeń OpenHuman nie odpowiada. Proces w tle mógł ulec awarii lub nie uruchomić się.',
   'home.statusInternetOffline':
@@ -779,6 +792,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Zainstalowano',
   'skills.explorer.install': 'Zainstaluj',
   'skills.explorer.installing': 'Instalowanie…',
+  'skills.explorer.notInstallable': 'Nie można zainstalować',
+  'skills.explorer.notInstallableHint':
+    'Ten wpis nie ma pliku SKILL.md do pobrania, więc nie można go tu zainstalować.',
   'skills.integrations': 'Integracje Composio',
   'skills.integrationsSubtitle':
     'Chmurowe połączenia OAuth: zaloguj się swoim kontem, a Composio pośredniczy w tokenach, dzięki czemu agenci mogą czytać i działać w Twoim imieniu. Bez kluczy API do utrzymywania.',
@@ -987,6 +1003,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedDone': 'Nieudane zadania wróciły do kolejki',
   'memoryTree.status.retryFailedCount': 'W kolejce do ponownego uruchomienia: {count}.',
   'memoryTree.status.retryFailedError': 'Nie udało się ponowić nieudanych zadań',
+  'memoryTree.status.jobQueue':
+    'Zadania pamięci (oczekujące: {ready}, w toku: {running}, nieudane: {failed})',
   'memoryTree.status.toggleFailed': 'Nie udało się przełączyć automatycznej synchronizacji',
   'memoryTree.status.justNow': 'przed chwilą',
   'memoryTree.status.secondsAgo': '{count} s temu',
@@ -2669,8 +2687,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Wyszukiwanie Twittera',
   'memorySources.kind.rss_feed': 'Kanał RSS',
   'memorySources.kind.web_page': 'Strona internetowa',
-  'memorySources.sync.successTitle': 'Synchronizowanie',
-  'memorySources.sync.successMessage': 'Postęp pojawi się za chwilę.',
   'memorySources.sync.failedTitle': 'Synchronizacja nie powiodła się:',
   'memorySources.sync.completeTitle': 'Zsynchronizowano',
   'memorySources.sync.itemsSynced': 'zsynchronizowanych elementów',
@@ -2678,6 +2694,13 @@ const messages: TranslationMap = {
   'memorySources.sync.failedLabel': 'Niepowodzenie',
   'memorySources.sync.morePending': 'Jest więcej do synchronizacji. Kliknij Synchronizuj ponownie',
   'memorySources.sync.budgetSpent': 'Dzisiejszy limit zapytań został wyczerpany. Spróbuj jutro',
+  'memorySources.stage.requested': 'Uruchamianie',
+  'memorySources.stage.running': 'Synchronizowanie',
+  'memorySources.stage.fetching': 'Pobieranie',
+  'memorySources.stage.stored': 'Zapisywanie',
+  'memorySources.stage.queued': 'Przetwarzanie do pamięci',
+  'memorySources.stage.ingesting': 'Przetwarzanie do pamięci',
+  'memorySources.stage.unknown': 'Synchronizowanie',
   'time.justNow': 'przed chwilą',
   'time.secondsAgoSuffix': 's temu',
   'time.minutesAgoSuffix': 'min temu',

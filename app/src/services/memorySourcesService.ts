@@ -144,6 +144,11 @@ export type FreshnessLabel = 'active' | 'recent' | 'idle';
 
 export interface SourceStatus {
   source_id: string;
+  /**
+   * The source's display label (openhuman#6257), so a screen that reads only
+   * the status list can name the row. Absent from a core that predates it.
+   */
+  label?: string;
   chunks_synced: number;
   chunks_pending: number;
   last_chunk_at_ms: number | null;
@@ -358,7 +363,7 @@ export interface CodingSessionDrainProgress {
  * Suppressing a timeout is only defensible when the work is genuinely still
  * running, and that needs proof — not merely the absence of a reply. The proof
  * used here is the message prefix: `ingest coding sessions: ` is added by
- * `ingest_coding_sessions_rpc` (`src/openhuman/memory/sources/rpc.rs`) around
+ * `ingest_coding_sessions_rpc` (`crates/openhuman-core/src/memory/sources/rpc.rs`) around
  * both of its deadline paths, so a message carrying it can only have been
  * produced *inside* that handler. The core received the request, resolved the
  * binding and started the call. Two shapes qualify:

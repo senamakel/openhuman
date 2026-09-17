@@ -205,36 +205,21 @@
       ]
     },
     {
-      "description": "Remove stored app session credentials.",
-      "function": "clear_session",
-      "inputs": [],
-      "method": "openhuman.auth_clear_session",
-      "namespace": "auth",
-      "outputs": [
-        {
-          "comment": "Session clear result payload.",
-          "name": "result",
-          "required": true,
-          "ty": "Json"
-        }
-      ]
-    },
-    {
-      "description": "Consume login handoff token and return session JWT.",
-      "function": "consume_login_token",
+      "description": "Remove the stored backend credential of one kind, or every kind.",
+      "function": "clear_credential",
       "inputs": [
         {
-          "comment": "One-time login token.",
-          "name": "loginToken",
-          "required": true,
-          "ty": "String"
+          "comment": "\"session\", \"api-key\" or \"local\"; omit to clear every credential.",
+          "name": "kind",
+          "required": false,
+          "ty": { "Option": "String" }
         }
       ],
-      "method": "openhuman.auth_consume_login_token",
+      "method": "openhuman.auth_clear_credential",
       "namespace": "auth",
       "outputs": [
         {
-          "comment": "Consumed login token result.",
+          "comment": "Which credentials were removed.",
           "name": "result",
           "required": true,
           "ty": "Json"
@@ -386,6 +371,52 @@
       ]
     },
     {
+      "description": "Install the backend credential the core authenticates with: a session JWT, a TinyHumans API key, or the offline local token. The core never validates it against the backend; the host that obtained it supplies the user id and payload it already knows.",
+      "function": "set_credential",
+      "inputs": [
+        {
+          "comment": "Session JWT, API key, or local session token.",
+          "name": "token",
+          "required": true,
+          "ty": "String"
+        },
+        {
+          "comment": "\"session\", \"api-key\" or \"local\". Defaults to classifying the token by shape; an API key must be named explicitly.",
+          "name": "kind",
+          "required": false,
+          "ty": { "Option": "String" }
+        },
+        {
+          "comment": "Backend user id. Optional when `user` carries one or the JWT has a subject claim.",
+          "name": "userId",
+          "required": false,
+          "ty": { "Option": "String" }
+        },
+        {
+          "comment": "Alias of `userId`.",
+          "name": "user_id",
+          "required": false,
+          "ty": { "Option": "String" }
+        },
+        {
+          "comment": "User payload (the host's /auth/me answer, or the local user).",
+          "name": "user",
+          "required": false,
+          "ty": { "Option": "Json" }
+        }
+      ],
+      "method": "openhuman.auth_set_credential",
+      "namespace": "auth",
+      "outputs": [
+        {
+          "comment": "Auth state after installing the credential.",
+          "name": "state",
+          "required": true,
+          "ty": "Json"
+        }
+      ]
+    },
+    {
       "description": "Store provider credentials for a profile.",
       "function": "store_provider_credentials",
       "inputs": [
@@ -420,35 +451,6 @@
       "outputs": [
         {
           "comment": "Stored provider profile summary.",
-          "name": "profile",
-          "required": true,
-          "ty": "Json"
-        }
-      ]
-    },
-    {
-      "description": "Store and validate app session JWT.",
-      "function": "store_session",
-      "inputs": [
-        { "comment": "Session JWT token.", "name": "token", "required": true, "ty": "String" },
-        {
-          "comment": "Optional user id hint.",
-          "name": "user_id",
-          "required": false,
-          "ty": { "Option": "Json" }
-        },
-        {
-          "comment": "Optional user payload.",
-          "name": "user",
-          "required": false,
-          "ty": { "Option": "Json" }
-        }
-      ],
-      "method": "openhuman.auth_store_session",
-      "namespace": "auth",
-      "outputs": [
-        {
-          "comment": "Stored auth profile summary.",
           "name": "profile",
           "required": true,
           "ty": "Json"

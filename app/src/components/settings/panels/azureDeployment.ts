@@ -57,7 +57,7 @@ const AZURE_ENDPOINT_HOSTS = [
  * host can be parsed.
  *
  * Mirrors the Rust `endpoint_host` helper in
- * `src/openhuman/config/schema/cloud_providers.rs` — including its tolerance
+ * `crates/openhuman-core/src/config/schema/cloud_providers.rs` — including its tolerance
  * for a missing scheme — so both sides classify a stored endpoint identically.
  */
 export function endpointHost(endpoint: string | null | undefined): string {

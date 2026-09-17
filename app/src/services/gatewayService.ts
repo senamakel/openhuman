@@ -18,7 +18,7 @@
  * and every caller above it follow along with no change of their own. That is
  * the whole design: there is no per-gateway transport in the frontend.
  *
- * Shell side: `app/src-tauri/src/gateway/`.
+ * Shell side: `crates/openhuman-app/src/gateway/`.
  */
 import { invoke } from '@tauri-apps/api/core';
 import debug from 'debug';

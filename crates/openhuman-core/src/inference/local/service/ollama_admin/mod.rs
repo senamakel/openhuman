@@ -1,0 +1,17 @@
+//! Ollama daemon lifecycle: binary resolution, health checks, model pulls,
+//! diagnostics, and start/stop/adopt handling for `ollama serve`.
+//!
+//! Sub-modules split by concern from the original ollama_admin.rs (1586 lines).
+mod binary;
+mod diagnostics;
+mod health;
+mod model_pull;
+mod server;
+mod util;
+
+// Re-export free functions that form the public/crate API of this module.
+pub(crate) use util::test_ollama_connection;
+
+#[cfg(test)]
+#[path = "../ollama_admin_tests.rs"]
+mod tests;

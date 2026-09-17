@@ -50,6 +50,7 @@ import {
   useAuiState,
 } from '@assistant-ui/react';
 import { LexicalComposerInput } from '@assistant-ui/react-lexical';
+import debugFactory from 'debug';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -70,9 +71,12 @@ import {
   createContext,
   type FC,
   type PropsWithChildren,
+  type RefObject,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
+  useState,
 } from 'react';
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
@@ -140,6 +144,23 @@ export type ThreadComponents = {
   ComposerIdleAction?: ComponentType | undefined;
   /** Switches the host chat surface into its microphone-first composer. */
   onSwitchToMicCloud?: (() => void) | undefined;
+  /**
+   * Host sink for files dropped on the composer or pasted into it.
+   *
+   * Supplying it also replaces `ComposerPrimitive.AttachmentDropzone` with the
+   * equivalent host-driven handlers, because that primitive routes files to the
+   * runtime's attachment adapter and refuses the drag outright
+   * (`dataTransfer.dropEffect = 'none'`) when the runtime declares no
+   * attachment capability — which is every runtime that keeps attachments on
+   * the host side, as this app does.
+   */
+  onComposerFiles?: ((files: FileList | File[] | null) => void) | undefined;
+  /**
+   * Whether the host can take files right now (feature enabled, composer
+   * unlocked, budget left). Drives the drag affordance only; the host still
+   * validates whatever arrives.
+   */
+  canAcceptComposerFiles?: boolean | undefined;
 };
 
 export type ThreadProps = {
@@ -184,6 +205,28 @@ export type ThreadProps = {
  */
 const lexicalDrivesTheStore = (): boolean =>
   typeof InputEvent !== 'undefined' && 'getTargetRanges' in InputEvent.prototype;
+
+// Counts only — never a filename, a MIME type or clipboard content.
+const debug = debugFactory('openhuman:assistant-composer');
+
+/**
+ * The files a drop is actually carrying.
+ *
+ * `dataTransfer.files` is the obvious source and is empty more often than it
+ * looks: several macOS drag sources — the floating screenshot thumbnail among
+ * them — hand the webview promise-backed items instead, leaving `files` at
+ * length 0 while `items` holds the same content. Reading `files` alone made
+ * those drops do nothing at all, with no error, because there was nothing to
+ * reject.
+ */
+function filesFromDrop(dataTransfer: DataTransfer | null): File[] {
+  const direct = Array.from(dataTransfer?.files ?? []);
+  if (direct.length > 0) return direct;
+  return Array.from(dataTransfer?.items ?? [])
+    .filter(item => item.kind === 'file')
+    .map(item => item.getAsFile())
+    .filter((file): file is File => file !== null);
+}
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
 
@@ -257,6 +300,8 @@ const ThreadRoot: FC<{
   onEscape?: () => void;
 }> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const messageGroupRef = useRef<HTMLDivElement>(null);
 
   return (
     <ThreadPrimitive.Root
@@ -268,7 +313,12 @@ const ThreadRoot: FC<{
         ['--composer-padding' as string]: '8px',
       }}>
       <ThreadPrimitive.Viewport
-        turnAnchor="top"
+        ref={viewportRef}
+        // The host follower below checks the reader's live distance from the
+        // bottom. Disable assistant-ui's unconditional run-start jump so it
+        // cannot override a reader who intentionally scrolled into history.
+        autoScroll={false}
+        scrollToBottomOnRunStart={false}
         data-slot="aui_thread-viewport"
         className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth">
         <div
@@ -292,10 +342,14 @@ const ThreadRoot: FC<{
             </>
           )}
 
-          <div data-slot="aui_message-group" className="mb-14 flex flex-col gap-y-6 empty:hidden">
+          <div
+            ref={messageGroupRef}
+            data-slot="aui_message-group"
+            className="mb-14 flex flex-col gap-y-6 empty:hidden">
             <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
             <RunningStatusSlot />
           </div>
+          <ThreadBottomFollower viewportRef={viewportRef} contentRef={messageGroupRef} />
 
           <ThreadPrimitive.ViewportFooter
             className={cn(
@@ -313,6 +367,34 @@ const ThreadRoot: FC<{
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );
+};
+
+const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
+
+/**
+ * Align a new turn only for a reader who remains near the bottom. assistant-ui's
+ * run-start scroll is unconditional, which would pull a reader from older
+ * messages into every new turn.
+ */
+const ThreadBottomFollower: FC<{
+  viewportRef: RefObject<HTMLDivElement | null>;
+  contentRef: RefObject<HTMLDivElement | null>;
+}> = ({ viewportRef, contentRef }) => {
+  const latestMessage = useAuiState(s => s.thread.messages.at(-1));
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const distanceFromBottom = viewport
+      ? viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+      : Infinity;
+    if (latestMessage?.role !== 'user' || distanceFromBottom > FOLLOW_BOTTOM_THRESHOLD_PX) {
+      return;
+    }
+    const userMessages = contentRef.current?.querySelectorAll<HTMLElement>('[data-role="user"]');
+    userMessages?.item(userMessages.length - 1)?.scrollIntoView({ block: 'start' });
+  }, [contentRef, latestMessage?.id, latestMessage?.role, viewportRef]);
+
+  return null;
 };
 
 /**
@@ -397,8 +479,13 @@ const Composer: FC<{
   const commands = useContext(SlashCommandsContext);
   const slash = unstable_useSlashCommandAdapter({ commands, fallbackIcon: SlashIcon });
   const inputWrapperRef = useRef<HTMLDivElement>(null);
-  const { ComposerHeader, ComposerAttachments: HostComposerAttachments } =
-    useContext(ThreadComponentsContext);
+  const {
+    ComposerHeader,
+    ComposerAttachments: HostComposerAttachments,
+    onComposerFiles,
+    canAcceptComposerFiles,
+  } = useContext(ThreadComponentsContext);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   useEffect(() => {
     const textbox = inputWrapperRef.current?.querySelector<HTMLElement>('[contenteditable="true"]');
     textbox?.setAttribute('aria-label', 'Message input');
@@ -431,6 +518,67 @@ const Composer: FC<{
   // composition that started in between makes this write stale, and dropping it
   // loses nothing, because the DOM is the source of truth and that
   // composition's own commit reads the whole of it.
+  // Host-driven file ingest. Mirrors the legacy composer's handlers
+  // (`ChatComposer.tsx`) so both surfaces accept a drop and a pasted
+  // screenshot through the same host path.
+  //
+  // `preventDefault` on a *file* drag happens whether or not ingest is allowed:
+  // without it the webview navigates away to the dropped file and the whole
+  // chat is gone.
+  const isFileDrag = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  const handleDragOver = (event: React.DragEvent) => {
+    if (!onComposerFiles || !isFileDrag(event)) return;
+    event.preventDefault();
+    if (!canAcceptComposerFiles) {
+      event.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    event.dataTransfer.dropEffect = 'copy';
+    setIsDraggingFiles(true);
+  };
+  const handleDragLeave = (event: React.DragEvent) => {
+    // Ignore leave events that bubble while the cursor is still over a child.
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingFiles(false);
+  };
+  const handleDrop = (event: React.DragEvent) => {
+    if (!onComposerFiles || !isFileDrag(event)) return;
+    event.preventDefault();
+    setIsDraggingFiles(false);
+    if (!canAcceptComposerFiles) {
+      debug('[assistant-composer] drop: refused, ingest not accepting');
+      return;
+    }
+    const files = filesFromDrop(event.dataTransfer);
+    if (files.length === 0) {
+      debug('[assistant-composer] drop: file drag carried no readable files');
+      return;
+    }
+    debug('[assistant-composer] drop: ingesting %d file(s)', files.length);
+    onComposerFiles(files);
+  };
+  // Capture phase, so the media is pulled out and the default cancelled before
+  // Lexical's own paste handling turns it into editor content.
+  const handlePasteCapture = (event: React.ClipboardEvent) => {
+    if (!onComposerFiles) return;
+    if (!canAcceptComposerFiles) {
+      debug('[assistant-composer] paste: refused, ingest not accepting');
+      return;
+    }
+    const files = Array.from(event.clipboardData?.items ?? [])
+      .filter(item => item.kind === 'file' && /^(image|video)\//.test(item.type))
+      .map(item => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (files.length === 0) {
+      // The overwhelmingly common case: an ordinary text paste. Left for Lexical.
+      return;
+    }
+    event.preventDefault();
+    debug('[assistant-composer] paste: ingesting %d media file(s)', files.length);
+    onComposerFiles(files);
+  };
+
   const syncComposerFromDom = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return;
     const text = target.textContent ?? '';
@@ -446,9 +594,20 @@ const Composer: FC<{
         className="aui-composer-root relative flex w-full flex-col"
         data-walkthrough="chat-agent-panel">
         {ComposerHeader ? <ComposerHeader /> : null}
-        <ComposerPrimitive.AttachmentDropzone asChild>
+        {/*
+         * Neutered whenever the host owns file ingest: every handler in the
+         * primitive short-circuits on `disabled`, so the drag handlers below
+         * are the only ones left and the `data-dragging` styling runs off this
+         * component's own state. Left enabled otherwise, so a host that does
+         * use a runtime attachment adapter keeps the primitive's behaviour.
+         */}
+        <ComposerPrimitive.AttachmentDropzone asChild disabled={!!onComposerFiles}>
           <div
             data-slot="aui_composer-shell"
+            data-dragging={onComposerFiles && isDraggingFiles ? 'true' : undefined}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             // Keyed to `content-faint` rather than `line`/`line-strong`, which
             // sat too close to the composer's own surface to read as an edge at
             // all; `content-faint` is a real step along the grey ramp in both
@@ -519,6 +678,7 @@ const Composer: FC<{
             <LexicalComposerInput
               ref={inputWrapperRef}
               placeholder="Send a message..."
+              onPasteCapture={handlePasteCapture}
               onCompositionStartCapture={() => {
                 isComposingTextRef.current = true;
               }}

@@ -18,8 +18,8 @@
 // fails to compile against the removed APIs (#4799).
 #![cfg(feature = "mcp")]
 
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::mcp::registry::ops;
+use openhuman_core::config::Config;
+use openhuman_core::mcp::registry::ops;
 use tinymcp_bus::{CommandKind, InstalledServer, Transport};
 
 /// The service over `config`'s workspace.
@@ -27,8 +27,8 @@ use tinymcp_bus::{CommandKind, InstalledServer, Transport};
 /// Resolved the same way the RPC handlers resolve it, so a connection this test
 /// opens directly is the same one a handler sees. Each case uses its own
 /// workspace, so each gets its own store.
-fn host(config: &Config) -> std::sync::Arc<openhuman_core::openhuman::mcp::host::McpHost> {
-    openhuman_core::openhuman::mcp::host::for_config(config).expect("the mcp host opens")
+fn host(config: &Config) -> std::sync::Arc<openhuman_core::mcp::host::McpHost> {
+    openhuman_core::mcp::host::for_config(config).expect("the mcp host opens")
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

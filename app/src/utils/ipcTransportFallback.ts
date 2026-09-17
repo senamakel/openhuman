@@ -7,7 +7,7 @@
  * ## The failure chain
  *
  * 1. Tauri's vendored IPC bootstrap
- *    (`app/src-tauri/vendor/tauri-cef/crates/tauri/scripts/ipc-protocol.js`)
+ *    (`crates/openhuman-app/vendor/tauri-cef/crates/tauri/scripts/ipc-protocol.js`)
  *    dispatches every `invoke()` over the `ipc://localhost/<cmd>` custom
  *    protocol via `fetch`. If that `fetch` **rejects** — webview teardown, a
  *    reload/navigation interrupting an in-flight request, or a CSP/scheme

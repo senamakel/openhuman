@@ -38,7 +38,7 @@ Each conversation can carry **one** thread goal: a durable "completion contract"
 
 The orchestrator sets a goal with `goal_set`, reads it with `goal_get`, and finishes it with `goal_complete`. Updates emit `thread/goal/updated` events so the UI stays live.
 
-**Autonomous idle continuation.** If a thread has an active goal and goes idle (no in-flight turn, no activity for a configured interval, e.g. 10 minutes), the [heartbeat](subconscious.md) can inject a single continuation turn that resumes the transcript and keeps working the objective. It's opt-in (`heartbeat.goal_continuation_enabled`) and guarded by a one-shot suppression flag per idle period, so the agent never self-drives into a loop.
+**Autonomous idle continuation.** If a thread has an active goal and goes idle (no in-flight turn, no activity for a configured interval, e.g. 10 minutes), the heartbeat can inject a single continuation turn that resumes the transcript and keeps working the objective. It's opt-in (`heartbeat.goal_continuation_enabled`) and guarded by a one-shot suppression flag per idle period, so the agent never self-drives into a loop.
 
 ---
 
@@ -74,5 +74,4 @@ RPC surface: `openhuman.todos_list` / `_add` / `_edit` / `_update_status` / `_se
 
 ## See also
 
-- [Subconscious Loop](subconscious.md): the background loop that powers idle continuation and task evaluation.
 - [Memory Tree](obsidian-wiki/memory-tree.md): what goal reflection reads from.

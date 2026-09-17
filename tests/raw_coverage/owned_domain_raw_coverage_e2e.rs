@@ -13,21 +13,21 @@ use axum::{Json, Router};
 use serde_json::{json, Map, Value};
 use tempfile::tempdir;
 
-use openhuman_core::openhuman::agent::task_board::{
+use openhuman_core::agent::task_board::{
     board_for_thread, TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
 };
-use openhuman_core::openhuman::integrations::composio::ComposioClient;
-use openhuman_core::openhuman::config::{
+use openhuman_core::integrations::composio::ComposioClient;
+use openhuman_core::config::{
     CapabilityProviderConfig, CapabilityProviderTrustState, Config, McpServerConfig,
 };
-use openhuman_core::openhuman::integrations::IntegrationClient;
-use openhuman_core::openhuman::tools::registry::{
+use openhuman_core::integrations::IntegrationClient;
+use openhuman_core::tools::registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
     capability_provider_by_id, capability_provider_diagnostics, get_tool,
     is_capability_provider_trusted_enabled, list_capability_providers, list_tools,
     normalize_capability_provider_id,
 };
-use openhuman_core::openhuman::tools::registry::{
+use openhuman_core::tools::registry::{
     denials as tool_registry_denials, ops as tool_registry_ops,
 };
 

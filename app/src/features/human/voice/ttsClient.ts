@@ -24,7 +24,7 @@ interface AlignmentFrame {
 /**
  * Normalized response from the core RPC `openhuman.voice_reply_synthesize`.
  * The core does the messy "tolerate multiple backend response shapes" work
- * (see `src/openhuman/voice/reply_speech.rs`) so the UI can stay strict.
+ * (see `crates/openhuman-core/src/voice/reply_speech.rs`) so the UI can stay strict.
  */
 interface TtsResponse {
   audio_base64: string;

@@ -24,7 +24,7 @@ import { callCoreRpc } from '../coreRpcClient';
 const log = debug('workflowRunsApi');
 
 // ---------------------------------------------------------------------------
-// Wire types — mirror `src/openhuman/workflow_runs/types.rs`.
+// Wire types — mirror `crates/openhuman-core/src/workflow_runs/types.rs`.
 // ---------------------------------------------------------------------------
 
 /** What a workflow's child agents are permitted to do. (`snake_case` on wire.) */

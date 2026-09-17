@@ -11,7 +11,7 @@ export const WINDOW_DRAG_BAR_HEIGHT = 28;
  * Transparent macOS window-drag band for the overlay title bar.
  *
  * The main window runs with `titleBarStyle: "Overlay"` + `hiddenTitle` (see
- * `app/src-tauri/tauri.conf.json`), so macOS draws transparent traffic lights
+ * `crates/openhuman-app/tauri.conf.json`), so macOS draws transparent traffic lights
  * over the web content but does NOT make the top draggable on its own — the
  * webview captures the pointer events. We opt back in with a `data-tauri-drag-
  * region` band.

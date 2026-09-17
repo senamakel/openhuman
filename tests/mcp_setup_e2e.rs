@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use openhuman_core::openhuman::config::Config;
+use openhuman_core::config::Config;
 use tinymcp::{SecretRef, SecretVault};
 
 /// A vault for one test.
@@ -75,7 +75,7 @@ async fn request_secret_blocks_until_submit_then_resolves() {
 #[tokio::test]
 async fn test_connection_against_stub_returns_tools() {
     let v = vault();
-    use openhuman_core::openhuman::mcp::config_servers::McpStdioClient;
+    use openhuman_core::mcp::config_servers::McpStdioClient;
 
     // Mirror what setup_ops::test_connection does end-to-end, minus the
     // registry::registry_get step (we don't want to hit a real upstream
@@ -93,7 +93,7 @@ async fn test_connection_against_stub_returns_tools() {
     // Through the host conversion, so the test builds the identity the same way
     // the application does rather than reaching past it.
     let cfg = Config::default();
-    let identity = openhuman_core::openhuman::mcp::host::client_config(&cfg).client_identity;
+    let identity = openhuman_core::mcp::host::client_config(&cfg).client_identity;
     let client = McpStdioClient::new(stub_path.to_string(), Vec::new(), env, None, &identity);
 
     client.initialize().await.expect("stub initialises");

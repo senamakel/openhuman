@@ -20,7 +20,7 @@
  * no auth.
  */
 import debug from 'debug';
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
@@ -249,6 +249,8 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
   const [authKind, setAuthKind] = useState<'detecting' | 'none' | 'token' | 'oauth'>('detecting');
   const [oauthWaiting, setOauthWaiting] = useState(false);
   const [showConfigHelp, setShowConfigHelp] = useState(false);
+  const oauthPollTimer = useRef<number | null>(null);
+  const oauthCancelled = useRef(false);
   // Host of the server's HTTP-remote endpoint (from the registry detail's
   // deployment_url). Surfaced as a "get your token from this provider" hint so
   // the user learns where the credential comes from BEFORE a 401 round-trip —
@@ -280,6 +282,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
   // Browser-OAuth: begin (discover + DCR + PKCE), open the authorize URL, then
   // poll until the /oauth/mcp/callback route has stored the token + reconnected.
   const handleOAuth = useCallback(() => {
+    oauthCancelled.current = false;
     setBusy(true);
     setError(null);
     setOauthWaiting(true);
@@ -289,7 +292,9 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
         await openUrl(url);
         const started = Date.now();
         const poll = async (): Promise<void> => {
+          if (oauthCancelled.current) return;
           const statuses = await mcpClientsApi.status();
+          if (oauthCancelled.current) return;
           const mine = statuses.find(s => s.server_id === server.server_id);
           if (mine?.status === 'connected') {
             const result = await mcpClientsApi.connect(server.server_id);
@@ -300,17 +305,19 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
           if (Date.now() - started > 180000) {
             throw new Error(t('mcp.connectAuth.oauthTimeout'));
           }
-          window.setTimeout(() => {
+          oauthPollTimer.current = window.setTimeout(() => {
             void poll().catch(handlePollError);
           }, 2500);
         };
         const handlePollError = (err: unknown) => {
+          if (oauthCancelled.current) return;
           setError(err instanceof Error ? err.message : String(err));
           setOauthWaiting(false);
           setBusy(false);
         };
         await poll().catch(handlePollError);
       } catch (err) {
+        if (oauthCancelled.current) return;
         const msg = err instanceof Error ? err.message : String(err);
         log('oauth failed: %s', msg);
         setError(msg);
@@ -319,6 +326,23 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
       }
     })();
   }, [server.server_id, onConnected, onClose, t]);
+
+  const cancelOAuthWait = useCallback(() => {
+    oauthCancelled.current = true;
+    if (oauthPollTimer.current !== null) {
+      window.clearTimeout(oauthPollTimer.current);
+      oauthPollTimer.current = null;
+    }
+    setOauthWaiting(false);
+    setBusy(false);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    cancelOAuthWait();
+    onClose();
+  }, [cancelOAuthWait, onClose]);
+
+  useEffect(() => () => cancelOAuthWait(), [cancelOAuthWait]);
 
   // Best-effort: pull the registry's declared fields (names + descriptions +
   // secret/required), so a server that labels its auth shows tailored inputs.
@@ -471,7 +495,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
 
   const modal = (
     <ModalShell
-      onClose={onClose}
+      onClose={handleClose}
       titleId={titleId}
       title={t('mcp.connectAuth.title').replace('{name}', server.display_name)}
       subtitle={
@@ -488,10 +512,18 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
       }
       maxWidthClassName="max-w-md"
       contentClassName="space-y-4 p-5"
-      closePolicy={{ backdrop: !busy, escape: !busy, button: !busy }}
+      closePolicy={{
+        backdrop: !busy || oauthWaiting,
+        escape: !busy || oauthWaiting,
+        button: !busy || oauthWaiting,
+      }}
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleClose}
+            disabled={busy && !oauthWaiting}>
             {t('common.cancel')}
           </Button>
           <Button variant="primary" size="sm" onClick={handleConnect} disabled={busy}>

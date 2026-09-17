@@ -359,9 +359,14 @@ test.describe('Chat Harness - Subagent', () => {
     const finalMessage = page.getByTestId('agent-message').filter({ hasText: CANARY_FINAL }).last();
     await expect(finalMessage).toBeVisible({ timeout: 15_000 });
     const finalReasoning = finalMessage.getByRole('button', { name: /Reasoning/ });
-    if ((await finalReasoning.getAttribute('aria-expanded')) !== 'true')
-      await finalReasoning.click();
-    await expect(finalMessage.getByText(FINAL_THINKING, { exact: true })).toBeVisible();
+    // The final assistant part may contain only the synthesized answer; the
+    // delegated reasoning belongs to its preceding trace parts. Expand and
+    // verify final-part reasoning only when that optional disclosure exists.
+    if (await finalReasoning.count()) {
+      if ((await finalReasoning.getAttribute('aria-expanded')) !== 'true')
+        await finalReasoning.click();
+      await expect(finalMessage.getByText(FINAL_THINKING, { exact: true })).toBeVisible();
+    }
 
     // Reloading removes the live socket and Redux stream. The same visual
     // trace must rehydrate from persisted transcript/turn-state data.

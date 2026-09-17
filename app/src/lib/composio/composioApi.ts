@@ -1,6 +1,6 @@
 /**
  * Imperative RPC wrapper for the Composio domain — typed counterpart
- * to `src/openhuman/integrations/composio/*` on the Rust side.
+ * to `crates/openhuman-core/src/integrations/composio/*` on the Rust side.
  *
  * Every function here calls the core sidecar via JSON-RPC. The core
  * in turn proxies to the openhuman backend's
@@ -30,7 +30,7 @@ import type {
 /**
  * Every `composio_*` op on the Rust side returns an `RpcOutcome` with a
  * user-visible log line attached. `RpcOutcome::into_cli_compatible_json`
- * (see `src/rpc/mod.rs`) therefore wraps the payload as
+ * (see `crates/openhuman-rpc/src/mod.rs`) therefore wraps the payload as
  * `{ "result": <flat shape>, "logs": [...] }` before handing it to the
  * JSON-RPC layer. This helper peels that envelope back off so every
  * caller in this file can work with the flat shapes declared in

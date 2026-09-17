@@ -1,6 +1,6 @@
 # Build artifacts
 target/
-app/src-tauri/target/
+crates/openhuman-app/target/
 
 # Node / frontend (not needed for core binary)
 app/
@@ -23,6 +23,7 @@ dist/
 .github/
 docs/
 *.md
+!README.md
 !Cargo.lock
 
 # Environment / secrets

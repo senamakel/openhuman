@@ -1,11 +1,11 @@
 ---
-description: The desktop host (`app/src-tauri/`) - Tauri v2 + WebView, IPC, embedded core lifecycle, core bridge.
+description: The desktop host (`crates/openhuman-app/`) - Tauri v2 + WebView, IPC, embedded core lifecycle, core bridge.
 icon: desktop
 ---
 
-# Tauri shell (`app/src-tauri/`)
+# Tauri shell (`crates/openhuman-app/`)
 
-The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window management, and bridging to the embedded `openhuman-core` Rust runtime (core JSON-RPC). It does **not** duplicate the full domain stack; that lives in the repo-root Rust crate (`openhuman_core`, `src/main.rs`).
+The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window management, and bridging to the embedded `openhuman-core` Rust runtime (core JSON-RPC). It does **not** duplicate the full domain stack; that lives in `crates/openhuman-core` (library `openhuman_core`, CLI at `crates/openhuman-core/src/main.rs`).
 
 ## Responsibilities
 
@@ -13,10 +13,11 @@ The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window managem
 2. **IPC**. Expose an explicit set of Tauri commands (see [Commands](#tauri-ipc-commands-app-src-tauri)).
 3. **Core lifecycle**. Run the core JSON-RPC server as an in-process tokio task (`core_process.rs`) and hand the renderer its URL/bearer via `core_rpc_url` / `core_rpc_token`.
 4. **Window + tray**. Desktop window behavior (main, mascot, notch, overlay windows) and system tray (see `lib.rs`).
+5. **Session ownership**. Log the user in and keep the current user fresh (`session/`, backed by `crates/openhuman-session`): exchange the login token, validate the JWT against `GET /auth/me`, cache `/auth/me`, and hand the resulting credential to the core with `auth.set_credential`. The core never talks to the backend's auth endpoints itself.
 
 ## Core process model
 
-`app/package.json` `core:stage` is intentionally a no-op kept for script compatibility. The desktop app links the core in-process, so local builds no longer need a staged `openhuman-core-*` sidecar under `app/src-tauri/binaries/`.
+`app/package.json` `core:stage` is intentionally a no-op kept for script compatibility. The desktop app links the core in-process, so local builds no longer need a staged `openhuman-core-*` sidecar under `crates/openhuman-app/binaries/`.
 
 ## Stuck process recovery
 
@@ -26,20 +27,20 @@ On macOS, hard exits (Force Quit, `SIGKILL`, renderer crash) can skip normal tea
 
 Startup recovery skips when `OPENHUMAN_CORE_REUSE_EXISTING=1` is set so manual CLI-core reuse still works. The Tauri command `process_diagnostics_list_owned` returns the currently owned process list; the macOS implementation is bundle-scoped, Linux/Windows currently return empty.
 
-## Tauri shell architecture (`app/src-tauri/`)
+## Tauri shell architecture (`crates/openhuman-app/`)
 
 ### Overview
 
-The **`app/src-tauri`** crate (Rust package **`OpenHuman`**, binary **`OpenHuman`**) is a **desktop-only** host. It embeds the React UI, registers plugins (deep link, opener, OS, notifications, autostart, updater), manages the main window and tray, and runs the core JSON-RPC server **in-process**.
+The **`crates/openhuman-app`** crate (Cargo package **`openhuman-app`**, lib **`openhuman`**, binary **`OpenHuman`**) is a **desktop-only** host. It embeds the React UI, registers plugins (deep link, opener, OS, notifications, autostart, updater), manages the main window and tray, and runs the core JSON-RPC server **in-process**.
 
 Non-desktop targets fail at compile time (`compile_error!` in `lib.rs`).
 
 ### Directory layout (actual)
 
-`app/src-tauri/src/` is a flat set of modules (no `commands/` or `utils/` subtree). Key modules:
+`crates/openhuman-app/src/` is a flat set of modules (no `commands/` or `utils/` subtree). Key modules:
 
 ```
-app/src-tauri/src/
+crates/openhuman-app/src/
 ├── lib.rs                  # `run()`, tray/menu, plugins, `generate_handler!`, most window/update/lifecycle commands
 ├── main.rs                 # Binary entry
 ├── core_process.rs         # CoreProcessHandle — embedded core server task, RPC token, port conflict handling
@@ -56,6 +57,7 @@ app/src-tauri/src/
 ├── workspace_paths.rs      # Safe workspace-relative file open/reveal/preview
 ├── app_update.rs           # Updater support (commands live in lib.rs)
 ├── loopback_oauth.rs       # Localhost OAuth redirect listener
+├── session/                # Session owner: auth_* commands over openhuman-session
 ├── claude_code.rs          # Claude Code login launch
 ├── mcp_commands.rs         # MCP client helpers
 ├── file_logging.rs         # Log file sink + logs-folder commands
@@ -82,7 +84,7 @@ React (fetch)
         → embedded openhuman core server (tokio task in this process)
 ```
 
-The renderer talks to the local core **directly over HTTP** — `app/src/services/coreRpcClient.ts` invokes `core_rpc_url` / `core_rpc_token` once, then issues plain `fetch()` calls. The `relay_http_rpc` Tauri command is a host-side fallback used only when the RPC URL is **not** a trustworthy origin for the secure `tauri://localhost` webview (e.g. a self-hosted runtime on a LAN IP, blocked as mixed content — #3865): the Rust host performs the POST with `reqwest` and mirrors status + body back verbatim.
+The renderer talks to the local core **directly over HTTP** — `app/src/services/coreRpcClient.ts` invokes `core_rpc_url` / `core_rpc_token` once, then issues plain `fetch()` calls. The `relay_http_rpc` Tauri command is a host-side fallback used only when the RPC URL is **not** a trustworthy origin for the secure `tauri://localhost` webview (e.g. a self-hosted runtime on a LAN IP, blocked as mixed content — #3865): the Rust host delegates to `openhuman_rpc::post_json_rpc` from the shared `crates/openhuman-rpc` crate (feature `http-client`): 30 s timeout, redirects disabled when a bearer is present, status + body mirrored back verbatim as `HttpRpcResponse`. The shell adds only the gateway transport guard (`validate_remote_transport`, feature `gateways`) before delegating.
 
 `CoreProcessHandle` in `core_process.rs` owns the embedded server task (started via `openhuman_core::core::jsonrpc::run_server_embedded_with_ready` with a per-launch random bearer token) and handles stale-listener/port-conflict recovery.
 
@@ -94,17 +96,18 @@ The renderer talks to the local core **directly over HTTP** — `app/src/service
 
 ### Bundled resources
 
-`tauri.conf.json` bundles **`../../src/openhuman/agent/prompts`** so the core prompt markdown ships with the app.
+`tauri.conf.json` bundles **`../../crates/openhuman-core/src/agent/prompts`** so the core prompt markdown ships with the app.
 
 ### Related
 
 - IPC surface: see the [Commands](#tauri-ipc-commands-app-src-tauri) section below
 - HTTP bridge: see the [Core bridge & helpers](#core-bridge-helpers-app-src-tauri) section below
-- Rust domains (implementation): repo root `src/openhuman/`, `src/core/`
+- Rust domains and runtime: `crates/openhuman-core/src/`, `crates/openhuman-core/src/core/`
+- Shared RPC contracts + HTTP client: `crates/openhuman-rpc/` (also used by `crates/openhuman-tui` for envelope decoding)
 
-## Tauri IPC commands (`app/src-tauri`)
+## Tauri IPC commands (`crates/openhuman-app`)
 
-All commands are registered in **`app/src-tauri/src/lib.rs`** inside `tauri::generate_handler![...]` — that list is the authoritative reference. The major families:
+All commands are registered in **`crates/openhuman-app/src/lib.rs`** inside `tauri::generate_handler![...]` — that list is the authoritative reference. The major families:
 
 ### Core RPC & diagnostics
 
@@ -152,7 +155,7 @@ identity path and a remote bearer are materially more sensitive than a window po
 the renderer's own notes on the cloud token (audit U3, `utils/configPersistence.ts`) already
 say a renderer XSS can read anything kept there. The frontend holds a gateway *id*.
 
-Shell-internal callers (`imessage_scanner`, `local_data_reset`, `companion`) deliberately
+Shell-internal callers (`imessage_scanner`, `local_data_reset`) deliberately
 keep talking to the embedded core: they are about *this* machine's iMessage database, *this*
 install's data, and *this* machine's audio, so routing them to a remote gateway would be
 wrong rather than incomplete.
@@ -174,17 +177,32 @@ Frontend: **`app/src/services/gatewayService.ts`**, surfaced in Settings → Cor
 | `app_quit` / `restart_app`                        | Quit or relaunch the app                      |
 | `get_active_user_id`                              | Read the active user id                       |
 
+### Session (`session/`)
+
+The shell is the session owner on the desktop: it talks to the TinyHumans backend's auth endpoints so the core never has to. `openhuman-session` does the work; the shell adds the link to the core (`HttpCoreLink`, the same `(url, token)` the renderer uses, so a gateway switch is followed) and these commands. Errors carry a stable `PREFIX:` (`REJECTED`, `EXPIRED`, `TRANSIENT`, `CONSUME_FAILED`, `USER_ID_UNAVAILABLE`, `CORE`) the renderer classifies on.
+
+| Command                 | Purpose                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `auth_login_with_token` | Exchange a one-time login token (`POST /auth/login-token/consume`), validate the JWT (`GET /auth/me`), install it in the core |
+| `auth_store_session`    | Install a JWT the renderer already holds (validated first) or the offline local token (stored as-is with its user)            |
+| `auth_logout`           | Clear the session credential in the core                                                                                       |
+| `auth_state`            | The core's credential state plus the cached current user                                                                       |
+| `auth_current_user`     | The current user from the `/auth/me` cache (5 s TTL, stale-while-revalidate, backoff); `force` bypasses the cache             |
+
+Events: `auth://changed` (credential or current user changed; payload `SessionState`) and `auth://expired` (the backend rejected the stored credential and it has been cleared; payload `{ source }`). `app/src/services/session/shellSessionEvents.ts` bridges them into the window events `CoreStateProvider` already handles.
+
+A JWT accepted while the backend is unreachable (live `exp`, subject claim) is installed with a `pendingBackendValidation` placeholder user and revalidated in the background; a rejected JWT is never installed. In cloud mode the renderer targets a remote core the shell does not know about, so `app/src/services/session/sessionOwner.ts` runs a thin browser equivalent there (and in the browser build).
+
 ### Updates
 
 `check_core_update` / `apply_core_update` (embedded core) and `check_app_update` / `download_app_update` / `install_app_update` / `apply_app_update` (desktop app, via the updater plugin).
 
-### Hotkeys (dictation, PTT, companion)
+### Hotkeys (dictation, PTT)
 
 | Command                                                                            | Purpose                                                                       |
 | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `register_dictation_hotkey` / `unregister_dictation_hotkey`                        | Global dictation shortcuts (`dictation_hotkeys.rs`)                           |
 | `register_ptt_hotkey` / `unregister_ptt_hotkey` / `show_ptt_overlay`               | Push-to-talk — see the [PTT section](#push-to-talk-ptt-hotkey--overlay) below |
-| `register_companion_hotkey` / `unregister_companion_hotkey` / `companion_activate` | Companion window hotkey + activation (`companion_commands.rs`)                |
 
 ### Notifications
 
@@ -239,13 +257,13 @@ Registered in **`lib.rs`** (`ptt_hotkeys.rs` + `ptt_overlay.rs`). These commands
 
 Registered in **`lib.rs`** at startup under the event-bus native-request method
 `computer.input_on_main_thread` (`INPUT_ON_MAIN_THREAD_METHOD`, defined in
-`openhuman_core::openhuman::tools::computer::main_thread`). This is **not** a
+`openhuman_core::tools::computer::main_thread`). This is **not** a
 `@tauri-apps/api` `invoke` command. It is an in-process native request the
 **core** dispatches to the **shell** so synthetic input runs on the real app
 main thread.
 
 Why: enigo's macOS keyboard-layout lookup (`TSMGetInputSourceProperty`) traps
-(`_dispatch_assert_queue_fail` / `EXC_BREAKPOINT`) and crashes the CEF host when
+(`_dispatch_assert_queue_fail` / `EXC_BREAKPOINT`) and crashes the desktop host when
 called off the main thread. The `mouse` / `keyboard` tools therefore never call
 enigo on their tokio worker; they build a closure and dispatch it here, where
 the shell runs it via `AppHandle::run_on_main_thread`.
@@ -276,9 +294,9 @@ const result = await callCoreRpc({
 
 ---
 
-_See `app/src-tauri/src/lib.rs` (`generate_handler!`) for the authoritative list._
+_See `crates/openhuman-app/src/lib.rs` (`generate_handler!`) for the authoritative list._
 
-## Core bridge & helpers (`app/src-tauri`)
+## Core bridge & helpers (`crates/openhuman-app`)
 
 The Tauri crate **does not** embed a duplicate Socket.io server or Telegram client; it focuses on **in-process core lifecycle** and the thin HTTP/auth glue around the core's JSON-RPC surface.
 
@@ -292,4 +310,4 @@ The Tauri crate **does not** embed a duplicate Socket.io server or Telegram clie
 ### `core_rpc` (`core_rpc.rs`)
 
 - Shared auth helpers for host-side calls to the local core (URL from `OPENHUMAN_CORE_RPC_URL` or the default port; bearer from `core_process::current_rpc_token`).
-- **`relay_http_rpc`** Tauri command: host-side `reqwest` POST for self-hosted runtimes on non-trustworthy origins (see [Core RPC & diagnostics](#core-rpc--diagnostics)).
+- **`relay_http_rpc`** Tauri command: a thin wrapper over `openhuman_rpc::post_json_rpc` (`crates/openhuman-rpc`, feature `http-client`) for self-hosted runtimes on non-trustworthy origins; `bearer_header`, `redact_url_for_log` and `HttpRpcResponse` are re-exported from that crate (see [Core RPC & diagnostics](#core-rpc--diagnostics)).

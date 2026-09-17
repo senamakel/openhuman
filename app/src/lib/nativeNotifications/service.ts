@@ -8,6 +8,7 @@ import {
   type NotificationItem,
   notificationReceived,
 } from '../../store/notificationSlice';
+import { truncateText } from '../../utils/truncateText';
 import { ensureNotificationPermission, showNativeNotification } from './tauriBridge';
 
 const log = debug('native-notifications');
@@ -165,8 +166,7 @@ function dispatchAndMaybeBanner(
 }
 
 function truncate(input: string, max: number): string {
-  if (input.length <= max) return input;
-  return `${input.slice(0, max - 1)}…`;
+  return truncateText(input, max);
 }
 
 /**
@@ -209,7 +209,7 @@ export function startNativeNotificationsService(): void {
 
   // Core-originated notifications (cron completions, webhook failures,
   // sub-agent completions) bridged over socket.io from the Rust event
-  // bus. See src/openhuman/desktop/notifications/bus.rs.
+  // bus. See crates/openhuman-core/src/desktop/notifications/bus.rs.
   coreNotificationListener = (...args: unknown[]) => {
     const p = (args[0] ?? {}) as CoreNotificationPayload;
     log('[socket] core_notification id=%s category=%s', p.id, p.category);

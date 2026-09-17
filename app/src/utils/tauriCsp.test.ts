@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const configPath = resolve(process.cwd(), 'src-tauri/tauri.conf.json');
+const configPath = resolve(process.cwd(), '../crates/openhuman-app/tauri.conf.json');
 const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
   app?: { security?: { csp?: string } };
 };

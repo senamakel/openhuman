@@ -1,0 +1,749 @@
+//! Concrete [`PromptSection`] implementations.
+//!
+//! Each unit struct renders one logical block of the system prompt.
+//! The rendering logic delegates to the free helpers in
+//! [`super::render_helpers`] for workspace-file injection and
+//! sub-agent plumbing.
+
+use super::render_helpers::{
+    inject_inline_content, inject_snapshot_content, inject_workspace_file,
+    inject_workspace_file_capped, sync_workspace_file,
+};
+use super::types::*;
+use anyhow::Result;
+use std::fmt::Write;
+use tinyagents_harness::tool_calling::dialect::render_pformat_catalogue;
+use tinyinference::tool::ToolSchema;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Special sections (archetype, dynamic, reflection)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Sub-agent role prompt — pre-loaded text from an
+/// [`crate::agent::harness::definition::AgentDefinition`]'s
+/// `system_prompt` field. Always rendered first when present.
+pub struct ArchetypePromptSection {
+    body: String,
+}
+
+impl ArchetypePromptSection {
+    pub fn new(body: String) -> Self {
+        Self { body }
+    }
+}
+
+impl PromptSection for ArchetypePromptSection {
+    fn name(&self) -> &str {
+        "archetype_prompt"
+    }
+
+    fn build(&self, _ctx: &PromptContext<'_>) -> Result<String> {
+        if self.body.trim().is_empty() {
+            return Ok(String::new());
+        }
+        Ok(self.body.clone())
+    }
+}
+
+/// Section that defers to a [`crate::agent::harness::definition::PromptBuilder`]
+/// every time it renders, so dynamic prompts (orchestrator, welcome,
+/// integrations_agent, …) get to see the live runtime
+/// [`PromptContext`] — including `connected_integrations`, which are
+/// fetched asynchronously after the builder itself has been
+/// constructed.
+pub struct DynamicPromptSection {
+    builder: crate::agent::harness::definition::PromptBuilder,
+}
+
+impl DynamicPromptSection {
+    pub fn new(builder: crate::agent::harness::definition::PromptBuilder) -> Self {
+        Self { builder }
+    }
+}
+
+impl PromptSection for DynamicPromptSection {
+    fn name(&self) -> &str {
+        "dynamic_prompt"
+    }
+
+    fn tier(&self) -> PromptTier {
+        PromptTier::Volatile
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        (self.builder)(ctx)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Standard section unit structs
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub struct IdentitySection;
+pub struct ToolsSection;
+pub struct SafetySection;
+/// Injects the pre-loaded `AGENTS.md` instruction layers
+/// ([`PromptContext::agents_md_global`] + [`PromptContext::agents_md_local`])
+/// under a `## Project instructions (AGENTS.md)` heading — OpenHuman's analog
+/// of Claude Code's `CLAUDE.md` / Codex's `AGENTS.md`.
+///
+/// Global (workspace) content renders first, then the local (project) layer.
+/// Empty (and skipped) when neither layer carries content — e.g. no `AGENTS.md`
+/// exists, or the `agents_md_enabled` config gate is off (the loader hands
+/// `None` for both fields in that case). Content is pre-loaded once at
+/// system-prompt build time and capped at [`BOOTSTRAP_MAX_CHARS`] per layer, so
+/// a growing on-disk file can't push the prompt out of the cache-friendly
+/// prefix range.
+pub struct AgentsInstructionsSection;
+/// Renders the canonical grounding / anti-hallucination contract
+/// ([`GROUNDING_BODY`]). Always included; never gated.
+pub struct GroundingSection;
+// `WorkflowsSection` and `ConnectedIntegrationsSection` previously lived
+// here and branched on `ctx.agent_id` to pick between the skill-
+// executor and delegator voice. They've been removed — each agent's
+// `prompt.rs` now renders its own block inline (integrations_agent owns the
+// `## Available Skills` + executor-voice `## Connected Integrations`
+// blocks, orchestrator owns `## Delegation Guide — Integrations`,
+// welcome owns its onboarding-flavoured connected list).
+pub struct WorkspaceSection;
+pub struct RuntimeSection;
+pub struct DateTimeSection;
+pub struct UserMemorySection;
+/// Renders explicit user reflections — a privileged memory class
+/// distinct from generic tree summaries. Rendered above
+/// [`UserMemorySection`] so the orchestrator sees the user's own
+/// intentional self-statements before any broader summary block.
+///
+/// Empty (and skipped) when [`LearnedContextData::reflections`] is
+/// empty — keeps the prompt clean for users who haven't yet expressed
+/// any reflection-style content.
+pub struct UserReflectionsSection;
+/// Renders the authenticated user's non-secret identity fields
+/// (`id` / `name` / `email`) into the system prompt — see issue #926.
+///
+/// Empty when [`PromptContext::user_identity`] is `None` or the
+/// identity has no populated fields. Tokens, refresh tokens, and any
+/// opaque credential material are forbidden — only the three
+/// identifying fields ship.
+pub struct UserIdentitySection;
+
+/// Injects the user-specific, session-frozen workspace files
+/// (`PROFILE.md` + `MEMORY.md`), each capped at [`USER_FILE_MAX_CHARS`].
+///
+/// Separate from [`IdentitySection`] so agents that strip the project-
+/// context preamble (`omit_identity = true` — welcome, orchestrator,
+/// the trigger pair) still get their user-file injection at runtime via
+/// [`super::builder::SystemPromptBuilder::for_subagent`], which skips
+/// `IdentitySection` entirely when `omit_identity` is on.
+///
+/// Cache-stability: static per session — the whole point of the
+/// 2000-char cap and the load-once rule documented on
+/// [`AgentDefinition::omit_profile`] / `omit_memory_md`.
+pub struct UserFilesSection;
+
+/// Framing preamble emitted immediately before the injected `MEMORY.md`
+/// (and, in the snapshot path, `USER.md`) block.
+///
+/// `MEMORY.md` is durable, cross-session memory — archivist-curated facts
+/// carried over from *past* sessions and previously ingested history. Without
+/// a frame, a relevant curated observation reads to the model as something
+/// already said *in this thread*, so on a brand-new thread it asserts
+/// continuity that isn't there ("already covered this in a previous chat")
+/// and shortcuts its answer (GH-4745). This note scopes the block as
+/// background knowledge and forbids claiming in-thread continuity.
+///
+/// `pub(crate)` so the sub-agent renderer
+/// ([`super::render_helpers::render_subagent_system_prompt_with_format`])
+/// can share the exact same frame — Inline/File sub-agents inject
+/// `MEMORY.md` through their own path and must not drift from this note.
+pub(crate) const MEMORY_MD_FRAMING: &str =
+    "### Long-term memory (background — not this conversation)\n\n\
+The block below is your durable, cross-session memory: facts and observations \
+carried over from *past* sessions and previously ingested history. Treat it as \
+background knowledge only — it is **not** part of the current thread. Do not \
+treat it as messages already exchanged here, never claim you \"already covered \
+this in a previous chat\" or otherwise assert continuity that isn't present in \
+the visible messages, and answer each new thread in full even when related \
+prior context appears here.\n\n";
+
+/// Renders the personality roster for the master agent's system prompt.
+///
+/// When [`PromptContext::personality_roster`] is non-empty, emits an
+/// `## Available Personalities` section listing each non-self personality
+/// with its `id`, `name`, `description`, and an optional truncated
+/// `memory_summary`. Empty (and skipped) for non-master agents.
+pub struct PersonalityRosterSection;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PromptSection implementations
+// ─────────────────────────────────────────────────────────────────────────────
+
+impl PromptSection for PersonalityRosterSection {
+    fn tier(&self) -> PromptTier {
+        // Carries each personality's recent context, which the session rewrites.
+        PromptTier::Volatile
+    }
+
+    fn name(&self) -> &str {
+        "personality_roster"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        if ctx.personality_roster.is_empty() {
+            return Ok(String::new());
+        }
+        let mut out = String::from("## Available Personalities\n\n");
+        out.push_str(
+            "You are the master agent. You can delegate tasks to these personality agents \
+             using the `delegate_to_personality` tool. Each personality has its own memory, \
+             identity, and expertise.\n\n",
+        );
+        for entry in &ctx.personality_roster {
+            out.push_str(&format!(
+                "- **{}** (`{}`): {}",
+                entry.name, entry.id, entry.description
+            ));
+            if let Some(ref summary) = entry.memory_summary {
+                let truncated = if summary.chars().count() > 200 {
+                    let head: String = summary.chars().take(200).collect();
+                    format!("{head}…")
+                } else {
+                    summary.clone()
+                };
+                out.push_str(&format!("\n  Recent context: {truncated}"));
+            }
+            out.push('\n');
+        }
+        Ok(out)
+    }
+}
+
+impl PromptSection for IdentitySection {
+    fn name(&self) -> &str {
+        "identity"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        let mut prompt = String::from("## Project Context\n\n");
+        prompt.push_str(
+            "The following workspace files define your identity, behavior, and context.\n\n",
+        );
+        // ROLE.md is the user-facing agent's own role brief (#5701) — the
+        // `# Master Agent` / `## Core Responsibilities` preamble that used to
+        // be compiled into `orchestrator/prompt.md`. It is synced for every
+        // agent so the file exists on disk to edit, but injected only for the
+        // orchestrator: a specialist sub-agent has its own role prompt and
+        // must not be told it is the Master Agent.
+        //
+        // HEARTBEAT.md used to ride along here. It was the periodic-task list
+        // the subconscious engine read, and that domain was deleted — nothing
+        // consumed the file any more, so every agent but the orchestrator was
+        // paying for an empty template. Its `WORKSPACE_INTERNAL_FILES` entry
+        // deliberately stays, so a file a user still has on disk keeps its
+        // not-agent-writable protection.
+        let is_orchestrator = !ctx.visible_tool_names.is_empty();
+        let all_files: &[&str] = &["SOUL.md", "IDENTITY.md", "ROLE.md"];
+        let skip_in_prompt: &[&str] = if is_orchestrator { &[] } else { &["ROLE.md"] };
+        for file in all_files {
+            // Always sync to disk so builtin updates ship.
+            sync_workspace_file(ctx.workspace_dir, file);
+            if skip_in_prompt.contains(file) {
+                continue;
+            }
+            if *file == "SOUL.md" {
+                if let Some(ref soul) = ctx.personality_soul_md {
+                    tracing::debug!(
+                        "[identity] personality SOUL.md override active ({} chars)",
+                        soul.len()
+                    );
+                    inject_inline_content(&mut prompt, "SOUL.md", soul, BOOTSTRAP_MAX_CHARS);
+                    continue;
+                }
+            }
+            inject_workspace_file(&mut prompt, ctx.workspace_dir, file);
+        }
+
+        // PROFILE.md / MEMORY.md injection lives in the dedicated
+        // `UserFilesSection` (below) so agents that strip the identity
+        // preamble (`omit_identity = true`) — welcome, orchestrator, the
+        // trigger pair — still get their user files at runtime via
+        // `SystemPromptBuilder::for_subagent`, which omits
+        // `IdentitySection` entirely when `omit_identity` is set.
+
+        Ok(prompt)
+    }
+}
+
+impl PromptSection for UserFilesSection {
+    fn tier(&self) -> PromptTier {
+        // PROFILE.md / MEMORY.md — rewritten by the archivist and by onboarding.
+        PromptTier::Volatile
+    }
+
+    fn name(&self) -> &str {
+        "user_files"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        // Gate on the per-agent flags derived from
+        // `AgentDefinition::omit_profile` / `omit_memory_md`. Both files
+        // are user-specific, potentially growing, and capped at
+        // [`USER_FILE_MAX_CHARS`] (~1000 tokens) so they can't bloat the
+        // cached prefix.
+        //
+        // KV-cache contract: once injected into a session's rendered
+        // prompt, the bytes are frozen for the remainder of that
+        // session — any mid-session archivist write or enrichment
+        // refresh lands on the NEXT session, never the in-flight one.
+        let mut out = String::new();
+        if ctx.include_profile {
+            inject_workspace_file_capped(
+                &mut out,
+                ctx.workspace_dir,
+                "PROFILE.md",
+                USER_FILE_MAX_CHARS,
+            );
+        }
+        if ctx.include_memory_md {
+            // Personality-specific MEMORY.md takes highest priority, then
+            // the session-frozen curated-memory snapshot, then the
+            // workspace file (pure prompt-unit tests and older call sites).
+            //
+            // Render into a scratch buffer first so the `MEMORY_MD_FRAMING`
+            // note is only emitted when the block actually carries content —
+            // the inject helpers silently skip empty/missing files, and a
+            // dangling frame pointing at nothing would be worse than none.
+            let mut mem = String::new();
+            if let Some(ref memory_md) = ctx.personality_memory_md {
+                tracing::debug!(
+                    "[user_files] personality MEMORY.md override active ({} chars)",
+                    memory_md.len()
+                );
+                inject_inline_content(&mut mem, "MEMORY.md", memory_md, USER_FILE_MAX_CHARS);
+            } else if let Some(snap) = &ctx.curated_snapshot {
+                inject_snapshot_content(&mut mem, "MEMORY.md", &snap.memory, USER_FILE_MAX_CHARS);
+                inject_snapshot_content(&mut mem, "USER.md", &snap.user, USER_FILE_MAX_CHARS);
+            } else {
+                inject_workspace_file_capped(
+                    &mut mem,
+                    ctx.workspace_dir,
+                    "MEMORY.md",
+                    USER_FILE_MAX_CHARS,
+                );
+            }
+            if !mem.trim().is_empty() {
+                out.push_str(MEMORY_MD_FRAMING);
+                out.push_str(&mem);
+            }
+        }
+        Ok(out)
+    }
+}
+
+impl PromptSection for AgentsInstructionsSection {
+    fn tier(&self) -> PromptTier {
+        // AGENTS.md layers: per project and per install, stable within a session.
+        PromptTier::Context
+    }
+
+    fn name(&self) -> &str {
+        "agents_md"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        let mut out = String::new();
+        super::render_helpers::write_agents_md_blocks(
+            &mut out,
+            ctx.agents_md_global.as_deref(),
+            ctx.agents_md_local.as_deref(),
+        );
+        Ok(out)
+    }
+}
+
+impl PromptSection for ToolsSection {
+    fn name(&self) -> &str {
+        "tools"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        // Native function-calling: the provider already sends full JSON
+        // schemas in the API request — no need to repeat the tool catalogue
+        // in the system prompt (pure token bloat). However, any non-empty
+        // `dispatcher_instructions` (e.g. the "## Tool Use Protocol" block
+        // from NativeToolDispatcher) must still be included so the model
+        // receives its behavioural guidance.
+        if ctx.tool_call_format == ToolCallFormat::Native {
+            if ctx.dispatcher_instructions.trim().is_empty() {
+                return Ok(String::new());
+            }
+            return Ok(ctx.dispatcher_instructions.to_string());
+        }
+        // One rendering shape for every dispatcher: a compact P-Format
+        // signature (`name[a|b|c]`), rendered by the crate from the same
+        // schemas its parser reconstructs arguments with — so the order the
+        // model reads is by construction the order the parser expects. For
+        // `Native` dispatchers the provider already has the full JSON schema in
+        // the API request (handled above); for `Json` / `PFormat` text
+        // dispatchers the dispatcher's own `prompt_instructions` block
+        // (appended below) carries whatever schema detail the wire format needs.
+        let has_filter = !ctx.visible_tool_names.is_empty();
+        let visible: Vec<ToolSchema> = ctx
+            .tools
+            .iter()
+            .filter(|tool| !has_filter || ctx.visible_tool_names.contains(tool.name))
+            .map(|tool| {
+                let parameters = match tool.parameters_schema.as_deref() {
+                    Some(schema) => match serde_json::from_str(schema) {
+                        Ok(value) => value,
+                        Err(err) => {
+                            log::warn!(
+                                "[prompts][tools] tool '{}' has an unparsable parameters_schema \
+                                 ({err}); rendering it with no arguments",
+                                tool.name
+                            );
+                            serde_json::Value::Null
+                        }
+                    },
+                    None => serde_json::Value::Null,
+                };
+                ToolSchema::new(tool.name, tool.description, parameters)
+            })
+            .collect();
+        let mut out = render_pformat_catalogue(&visible);
+        if !ctx.dispatcher_instructions.is_empty() {
+            out.push('\n');
+            out.push_str(ctx.dispatcher_instructions);
+        }
+        Ok(out)
+    }
+}
+
+impl PromptSection for SafetySection {
+    fn name(&self) -> &str {
+        "safety"
+    }
+
+    fn build(&self, _ctx: &PromptContext<'_>) -> Result<String> {
+        Ok("## Safety\n\n- Do not exfiltrate private data.\n- Do not run destructive commands without asking.\n- Do not bypass oversight or approval mechanisms.\n- Prefer `trash` over `rm`.\n- When in doubt, ask before acting externally.".into())
+    }
+}
+
+/// Canonical grounding / anti-hallucination contract.
+///
+/// This is the **single source of truth** for the tool-use and
+/// anti-fabrication rules every agent inherits. Before this block existed,
+/// the same "never invent ids / a tool not in your list does not exist"
+/// paragraph was copy-pasted (and slowly drifting) across crypto, markets,
+/// integrations, account-admin, mcp-setup, morning-briefing, researcher, …
+/// agent prompts. Centralising it kills that drift and guarantees a uniform
+/// floor of grounding discipline.
+///
+/// Inspired by Hermes's named guidance blocks (`TOOL_USE_ENFORCEMENT_GUIDANCE`
+/// "use tools to act, never end a turn with a promise", `TASK_COMPLETION_GUIDANCE`
+/// "never substitute fabricated output for results you couldn't produce").
+///
+/// Deliberately **generic**: every clause must be true for *every* agent,
+/// including the integrations executor. Agent-specific routing (e.g. "delegate
+/// external services", "pull slugs from `composio_list_tools`") stays in that
+/// agent's own `prompt.md`, not here.
+///
+/// Byte-stable (no time / RNG / host) so it lives in the KV-cache-friendly
+/// prefix. Must contain no em-dashes per [`super::builder::GLOBAL_STYLE_SUFFIX`].
+/// Heading the grounding contract renders under, in both the global
+/// [`GROUNDING_BODY`] and any agent prompt that carries its own copy. The
+/// builder matches on this to avoid emitting the contract twice.
+pub const GROUNDING_HEADING: &str = "Grounding and tool use";
+
+pub const GROUNDING_BODY: &str = "## Grounding and tool use\n\n\
+    - Your tools are exactly the ones listed in this prompt. You can only act through them. If a capability is not one of your tools, say so plainly rather than pretending it exists.\n\
+    - Never invent tool names, arguments, ids, slugs, file paths, URLs, chain ids, addresses, quotes, metrics, or any other value. If you do not have it from a tool result or the user, ask for it or look it up with a tool.\n\
+    - Preserve numeric evidence exactly. For numbers, counts, sizes, dates, timestamps, durations, currencies, percentages, quotas, and ids, copy the exact value from the observed tool result, user message, or cited memory into your answer.\n\
+    - Do not round, convert units, rewrite relative times, or recalculate numeric values unless the user asks and you show the calculation from observed values. If sources disagree, name the discrepancy instead of choosing a plausible value.\n\
+    - Use your tools to act. Do not just describe what you would do and stop, and never end a turn with a promise of future action: do it now, or hand back a concrete result.\n\
+    - Never substitute plausible looking but fabricated output (made up data, invented file contents, synthesised tool or API responses) for results you could not actually produce. If a step failed, say it failed.\n\
+    - When a tool or delegated sub-agent hands back an incomplete or blocked result (for example a [SUBAGENT_INCOMPLETE] envelope), relay what it did accomplish and the blocker to the user. Do not present it as finished, fabricate the rest, or silently re-run the identical call: change the approach or ask the user.\n\
+    - Ground every factual claim in evidence you actually observed: a tool result, the user's message, or cited memory. If the evidence is missing, partial, or truncated, say so or fetch more instead of guessing.\n\
+    - Skills run only via `run_workflow`, and only the skills listed as installed exist. Do not invent skill ids.";
+
+impl PromptSection for GroundingSection {
+    fn name(&self) -> &str {
+        "grounding"
+    }
+
+    fn build(&self, _ctx: &PromptContext<'_>) -> Result<String> {
+        Ok(GROUNDING_BODY.into())
+    }
+}
+
+impl PromptSection for WorkspaceSection {
+    fn tier(&self) -> PromptTier {
+        // Names the resolved workspace; per install, not per build.
+        PromptTier::Context
+    }
+
+    fn name(&self) -> &str {
+        "workspace"
+    }
+
+    fn build(&self, _ctx: &PromptContext<'_>) -> Result<String> {
+        // Intentionally does NOT print a hardcoded path: `shell` and the file
+        // tools resolve relative paths against the agent's *action directory*,
+        // which is not `workspace_dir`. Printing `workspace_dir` here used to
+        // point agents at a directory the file tools are sandboxed *out of*,
+        // causing write→read mismatches. Instead, tell the agent to discover
+        // its real working directory at runtime and keep writes/reads there.
+        let mut out = String::from(
+            "## Workspace\n\n\
+             Run `pwd` to confirm your working directory — that is where `shell` runs and \
+             where every file tool resolves a relative path. Create files in that \
+             directory and read them back from the same place (use the relative path, or \
+             confirm the absolute path with `pwd`). Writes and reads outside your granted \
+             locations (your working directory plus the scratch directory below) are blocked \
+             by the security sandbox.\n\n\
+             Prefer printing results to stdout. Only when output is too large for stdout, \
+             write it to a file in your working directory and read that file back.\n\n",
+        );
+        // Only advertise a concrete scratch path when the dir is actually present
+        // and safe (real dir, not a symlink) — matching the policy grant in
+        // `SecurityPolicy::from_config`. Otherwise fall back to env-var/working-dir
+        // wording so we never point file I/O at a location the sandbox would block.
+        // Read-only check (no fs side effects in prompt rendering).
+        let scratch = crate::security::openhuman_scratch_dir();
+        let scratch_granted = std::fs::symlink_metadata(&scratch)
+            .map(|m| !m.file_type().is_symlink() && m.is_dir())
+            .unwrap_or(false);
+        if scratch_granted {
+            let _ = write!(
+                out,
+                "For scratch or temporary files, use the directory `{}` (a granted scratch \
+                 space) or your `$TMPDIR` / `%TEMP%` — never a hardcoded `/tmp/<name>` path.",
+                scratch.display()
+            );
+        } else {
+            out.push_str(
+                "For scratch or temporary files, use `$TMPDIR` / `%TEMP%`, or create them in \
+                 your working directory — never a hardcoded `/tmp/<name>` path, which is blocked.",
+            );
+        }
+        Ok(out)
+    }
+}
+
+impl PromptSection for RuntimeSection {
+    fn tier(&self) -> PromptTier {
+        // Host runtime facts; per install, not per build.
+        PromptTier::Context
+    }
+
+    fn name(&self) -> &str {
+        "runtime"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        let host =
+            hostname::get().map_or_else(|_| "unknown".into(), |h| h.to_string_lossy().to_string());
+        Ok(format!(
+            "## Runtime\n\nHost: {host} | OS: {} | Model: {}",
+            std::env::consts::OS,
+            ctx.model_name
+        ))
+    }
+}
+
+impl PromptSection for UserReflectionsSection {
+    fn tier(&self) -> PromptTier {
+        // Learned reflections, refreshed by the learning subsystem.
+        PromptTier::Volatile
+    }
+
+    fn name(&self) -> &str {
+        "user_reflections"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        if ctx.learned.reflections.is_empty() {
+            return Ok(String::new());
+        }
+
+        let mut out = String::from("## User Reflections\n\n");
+        out.push_str(
+            "Explicit reflections the user authored about themselves, their goals, \
+             or how they want you to behave going forward. Treat these as \
+             higher-priority than the broader user-memory summaries below: \
+             they are recent, intentional, identity-relevant signals and \
+             should steer your responses ahead of any generic historical \
+             context.\n\n",
+        );
+        for reflection in &ctx.learned.reflections {
+            let trimmed = reflection.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            out.push_str("- ");
+            out.push_str(trimmed);
+            out.push('\n');
+        }
+        out.push('\n');
+        Ok(out)
+    }
+}
+
+impl PromptSection for UserMemorySection {
+    fn tier(&self) -> PromptTier {
+        // The memory-tree summary, which moves on every memory write.
+        PromptTier::Volatile
+    }
+
+    fn name(&self) -> &str {
+        "user_memory"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        if ctx.learned.tree_root_summaries.is_empty() {
+            return Ok(String::new());
+        }
+
+        let mut out = String::from("## User Memory\n\n");
+        out.push_str(
+            "Long-term memory distilled by the tree summarizer. \
+             Each section is the root summary for a memory namespace, \
+             representing everything we've learned about that domain over time. \
+             Treat this as durable background context, but NOT as fresh, \
+             present-tense fact: each section header shows when that memory \
+             was last updated. Compare those dates against the `## Current \
+             Date & Time` section below before answering time-sensitive \
+             questions (today's briefing, daily summary, reminders, calendar, \
+             notifications, \"today/tomorrow/this week\"). If a summary predates \
+             the period the user is asking about, treat it as potentially \
+             stale — say so explicitly and never present older memory as \
+             today's update.\n\n",
+        );
+
+        for NamespaceSummary {
+            namespace,
+            body,
+            updated_at,
+        } in &ctx.learned.tree_root_summaries
+        {
+            let trimmed = body.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            // Absolute date (not "N days ago") keeps this front-of-prompt
+            // section byte-stable for KV-cache reuse — see `NamespaceSummary`.
+            let _ = writeln!(
+                out,
+                "### {namespace} (last updated {})\n",
+                super::render_helpers::memory_date_label(*updated_at)
+            );
+            out.push_str(trimmed);
+            out.push_str("\n\n");
+        }
+
+        Ok(out)
+    }
+}
+
+impl PromptSection for DateTimeSection {
+    fn tier(&self) -> PromptTier {
+        // The live clock is carried in the user message. This section is static.
+        PromptTier::Stable
+    }
+
+    fn name(&self) -> &str {
+        "datetime"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        // No concrete timestamp here. The live "now" is injected per turn
+        // on the user message via `render_helpers::current_datetime_line`
+        // (the main session loop and the sub-agent runner both do this), so
+        // it stays fresh across a long-lived session instead of freezing
+        // into the cached system-prompt prefix and going stale (#3602).
+        // This section carries only the *static* discipline rules for using
+        // that stamp — keeping the prefix byte-stable for KV-cache reuse.
+        //
+        // Greeting/clock grounding is ungated: every agent that emits a
+        // time-relative word (a greeting, "today"/"tonight") needs it,
+        // whether or not it owns `resolve_time`. Without this rule the model
+        // treats the time line as passive reference and defaults to a
+        // learned "good morning" regardless of the actual hour (#3602).
+        let mut out = String::from(
+            "## Current Date & Time\n\n> The current local date and time is provided on a \
+             `Current Date & Time:` line with the latest message (local time, IANA timezone, \
+             UTC offset, weekday). Before any time-relative wording in your reply — greetings \
+             like \"good morning\"/\"good evening\", or \"today\"/\"tonight\"/\"tomorrow\" — read \
+             that line and match the actual local hour. Never assume it is morning. The time is \
+             already in context; no tool call is needed to greet or to reason about the current day.",
+        );
+        // Tool-argument discipline, gated on the agent actually having the
+        // `resolve_time` tool. LLMs are unreliable at epoch arithmetic — a
+        // real incident had an agent compute "24h ago" ~10 months off, then
+        // fetch Slack history ascending from that wrong floor and never reach
+        // the latest messages. Telling agents to lean on the tool (rather
+        // than hand-computing) is the fix. Auto-scopes: agents without the
+        // tool never see the rule.
+        if ctx.tools.iter().any(|t| t.name == "resolve_time") {
+            out.push_str(
+                "\n\n> For any date/time you pass as a tool argument \
+                 (`oldest`/`latest`/`since`/`after`, cron times, etc.), call \
+                 `resolve_time` and use its exact value — never hand-compute \
+                 epoch/Unix seconds. For \"recent / last N\" lookups, prefer \
+                 newest-first (omit `oldest`) so a wrong floor can't bury the \
+                 latest data.",
+            );
+        }
+        Ok(out)
+    }
+}
+
+impl PromptSection for UserIdentitySection {
+    fn tier(&self) -> PromptTier {
+        // The signed-in user, which changes on login and on logout.
+        PromptTier::Volatile
+    }
+
+    fn name(&self) -> &str {
+        "user_identity"
+    }
+
+    fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
+        let identity = match ctx.user_identity.as_ref() {
+            Some(id) if !id.is_empty() => id,
+            _ => return Ok(String::new()),
+        };
+
+        let mut fields = String::new();
+        if let Some(name) = identity.name.as_deref().filter(|s| !s.trim().is_empty()) {
+            let _ = writeln!(fields, "- name: {}", sanitize_identity_field(name));
+        }
+        if let Some(email) = identity.email.as_deref().filter(|s| !s.trim().is_empty()) {
+            let _ = writeln!(fields, "- email: {}", sanitize_identity_field(email));
+        }
+        if let Some(id) = identity.id.as_deref().filter(|s| !s.trim().is_empty()) {
+            let _ = writeln!(fields, "- id: {}", sanitize_identity_field(id));
+        }
+        if fields.trim().is_empty() {
+            return Ok(String::new());
+        }
+
+        let mut out = String::from("## User\n\n");
+        out.push_str(
+            "The signed-in user is identified below. Use these fields directly in tool \
+             calls and do not ask the user to repeat them.\n\n",
+        );
+        out.push_str(&fields);
+        Ok(out.trim_end().to_string())
+    }
+}
+
+/// Collapse whitespace in a user-identity field for a single markdown bullet.
+fn sanitize_identity_field(s: &str) -> String {
+    s.chars()
+        .map(|c| if c == '\n' || c == '\r' { ' ' } else { c })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}

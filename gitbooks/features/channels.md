@@ -19,7 +19,7 @@ Under the hood every channel implements one small Rust contract (a `send` path f
 Each channel does two things:
 
 - **Inbound**: when a message arrives, the channel normalizes it into a `ChannelMessage` (sender, reply target, content, optional thread id) and hands it to the dispatch loop. Dispatch spawns or resumes an agent run, scopes its tools, and the agent works the request. Some platforms support a `/models` and `/model` command to switch the model for that sender's session; Telegram additionally supports remote-control commands.
-- **Outbound**: the agent's response is sent back through the same channel to your `reply_target`, threaded when the platform supports it. Channels can also deliver **proactively** (no incoming message to reply to) when fired by a [trigger](integrations/triggers.md), a cron job, or the [subconscious loop](subconscious.md). A channel only receives proactive sends if it advertises a default delivery target; channels without one are skipped rather than posted to an empty recipient.
+- **Outbound**: the agent's response is sent back through the same channel to your `reply_target`, threaded when the platform supports it. Channels can also deliver **proactively** (no incoming message to reply to) when fired by a [trigger](integrations/triggers.md) or a cron job. A channel only receives proactive sends if it advertises a default delivery target; channels without one are skipped rather than posted to an empty recipient.
 
 Channels that support it can show a typing indicator, stream progressive **draft updates**, post **threaded replies**, and add **emoji reactions**. Capabilities are declared per channel, not assumed.
 
@@ -27,7 +27,7 @@ Channels that support it can show a typing indicator, stream progressive **draft
 
 ## Supported channels
 
-OpenHuman ships **18 channel provider modules** (16 built by default plus two behind Cargo feature flags), of which **17 are real messaging platforms**. The remaining one, `presentation`, is an internal response-rendering helper for the web chat, not a platform you connect to. A separate `cli` channel serves the `openhuman-core` terminal binary. Seven channels are exposed in the Settings UI; the rest are enabled through `config.toml`.
+OpenHuman ships **15 channel provider modules**: 14 built by default, plus WhatsApp Web behind the `whatsapp-web` Cargo feature. Alongside them, the in-app **Web** chat is built into the desktop app rather than being a provider module, and a separate `cli` channel serves the `openhuman-core` terminal binary. Seven channels are exposed in the Settings UI; the rest are enabled through `config.toml`.
 
 | Channel            | Direction     | Inbound transport            | Credential mode                                                    | In Settings UI |
 | ------------------ | ------------- | ---------------------------- | ------------------------------------------------------------------ | -------------- |
@@ -60,7 +60,7 @@ Telegram is the most fully featured channel. It supports typing indicators and l
 Channels authenticate one of a few ways:
 
 - **Connect via OpenHuman (managed)**: a one-click, encrypted connection brokered through the OpenHuman backend. Today this covers Telegram (message the managed bot directly) and Discord (link your account or install via OAuth). No tokens live on your machine.
-- **Your own credentials**: you supply a bot token, API key/secret, or app credentials. Telegram (BotFather token), Discord (bot token), Slack, WhatsApp, Lark/Feishu, DingTalk, Yuanbao, Matrix, Signal, Mattermost, QQ, Linq, IRC, and Email all support this. Maximum control; you own the platform account, rate limits, and any webhook endpoint.
+- **Your own credentials**: you supply a bot token, API key/secret, or app credentials. Telegram (BotFather token), Discord (bot token), Slack, WhatsApp, Lark/Feishu, DingTalk, Yuanbao, Signal, Mattermost, QQ, Linq, IRC, and Email all support this. Maximum control; you own the platform account, rate limits, and any webhook endpoint.
 - **Local, no credentials**: the **Web** chat and **iMessage** need no tokens at all. Web runs inside the desktop app; iMessage drives the local macOS Messages app over an AppleScript bridge (grant Full Disk Access). Both keep messages on your machine.
 
 Secrets supplied for any mode are stored through OpenHuman's credential layer and protected at rest by the [encryption layer](privacy-and-security.md). They are never written to `config.toml` in plaintext for the UI-managed channels.
@@ -80,7 +80,7 @@ Slack is connected as an **app** under **Connections → OAuth** (Composio) so t
 
 ## Choosing the default channel
 
-Open **Connections → Channels** to pick which channel is the **active route**: the one OpenHuman uses for proactive, recipient-less delivery (cron, triggers, subconscious). The default is the in-app **Web** chat until you change it. Setting a new default takes effect immediately, without restarting the channel runtime, and the panel shows which channel is currently active. Inbound messages always get answered on whatever channel they arrived on, regardless of the default route.
+Open **Connections → Channels** to pick which channel is the **active route**: the one OpenHuman uses for proactive, recipient-less delivery (cron, triggers). The default is the in-app **Web** chat until you change it. Setting a new default takes effect immediately, without restarting the channel runtime, and the panel shows which channel is currently active. Inbound messages always get answered on whatever channel they arrived on, regardless of the default route.
 
 ---
 
@@ -88,6 +88,5 @@ Open **Connections → Channels** to pick which channel is the **active route**:
 
 - [Integrations](integrations/README.md): the read-side catalog the agent pulls context from.
 - [Triggers](integrations/triggers.md): live events that fire proactive channel delivery.
-- [Subconscious Loop](subconscious.md): the background loop that can reach you through the active channel.
 - [Privacy & Security](privacy-and-security.md): where credentials live and the backend boundary.
 - [OS Keyring & Secret Storage](os-keyring-and-secret-storage.md): at-rest protection for channel secrets.

@@ -213,6 +213,14 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'С этим действием что-то пошло не так.',
   'conversations.toolFailure.unknown.next':
     'Повторите попытку; если ошибка повторяется, запустите диагностику в Настройках.',
+  'conversations.toolFailure.notFound.cause':
+    'Запрошенный элемент не существует или недоступен здесь.',
+  'conversations.toolFailure.notFound.next':
+    'Ничего делать не нужно. Ассистент может найти правильное название и попробовать снова.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman пока не может сделать это автоматически.',
+  'conversations.toolFailure.unsupported.next':
+    'Сделайте это вручную или попросите другой вариант.',
   'conversations.backgroundTasks.title': 'Фоновые задачи',
   'nav.feedback': 'Поделиться отзывом',
   'feedback.board': 'Доска отзывов',
@@ -383,6 +391,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'Успешно',
   'sync.status.failed': 'Сбой',
   'sync.status.partial': 'Получено, но не записано в память',
+  'sync.nowSyncing.title': 'Сейчас синхронизируется',
+  'sync.nowSyncing.empty': 'Сейчас ничего не синхронизируется.',
   'common.error': 'Ошибка',
   'common.success': 'Готово',
   'common.back': 'Назад',
@@ -662,6 +672,10 @@ const messages: TranslationMap = {
   'home.statusOk':
     'Ваш ассистент готов, когда вы будете готовы. Напишите что-нибудь ниже, чтобы начать.',
   'home.statusBackendOnly': 'Переподключение к серверу… агент скоро снова будет доступен.',
+  'home.statusHostedDegraded':
+    'Переподключение к облаку… чат продолжает работать; интеграции и каналы возобновятся, как только связь восстановится.',
+  'home.statusHostedStopped':
+    'Связь с облаком остановлена: войдите снова, чтобы возобновить интеграции и каналы. Чат продолжает работать.',
   'home.statusCoreUnreachable':
     'Локальный процесс OpenHuman не отвечает. Возможно, он завис или не запустился.',
   'home.statusInternetOffline':
@@ -773,6 +787,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Установлено',
   'skills.explorer.install': 'Установить',
   'skills.explorer.installing': 'Установка…',
+  'skills.explorer.notInstallable': 'Нельзя установить',
+  'skills.explorer.notInstallableHint':
+    'У этой записи нет файла SKILL.md для загрузки, поэтому её нельзя установить отсюда.',
   'skills.integrations': 'Интеграции Composio',
   'skills.integrationsSubtitle':
     'Облачные OAuth-подключения: войдите в свой аккаунт, и Composio управляет токенами, чтобы агенты могли читать и действовать от вашего имени. Никаких API-ключей для управления.',
@@ -981,6 +998,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedDone': 'Неудавшиеся задачи снова в очереди',
   'memoryTree.status.retryFailedCount': 'Задач в очереди на повторный запуск: {count}.',
   'memoryTree.status.retryFailedError': 'Не удалось вернуть неудавшиеся задачи в очередь',
+  'memoryTree.status.jobQueue':
+    'Задачи памяти (в очереди: {ready}, выполняются: {running}, с ошибкой: {failed})',
   'memoryTree.status.toggleFailed': 'Не удалось включить автосинхронизацию.',
   'memoryTree.status.justNow': 'прямо сейчас',
   'memoryTree.status.secondsAgo': '{count} сек. назад',
@@ -2657,8 +2676,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Поиск в Твиттере',
   'memorySources.kind.rss_feed': 'RSS Лента',
   'memorySources.kind.web_page': 'Веб-страница',
-  'memorySources.sync.successTitle': 'Синхронизация',
-  'memorySources.sync.successMessage': 'Прогресс появится в ближайшее время.',
   'memorySources.sync.failedTitle': 'Синхронизация не удалась:',
   'memorySources.sync.completeTitle': 'Синхронизировано',
   'memorySources.sync.itemsSynced': 'элементов синхронизировано',
@@ -2666,6 +2683,13 @@ const messages: TranslationMap = {
   'memorySources.sync.failedLabel': 'Не удалось',
   'memorySources.sync.morePending': 'Есть что синхронизировать. Нажмите «Синхронизировать» ещё раз',
   'memorySources.sync.budgetSpent': 'Дневной лимит запросов исчерпан. Попробуйте завтра',
+  'memorySources.stage.requested': 'Запуск',
+  'memorySources.stage.running': 'Синхронизация',
+  'memorySources.stage.fetching': 'Получение',
+  'memorySources.stage.stored': 'Сохранение',
+  'memorySources.stage.queued': 'Обработка в памяти',
+  'memorySources.stage.ingesting': 'Обработка в памяти',
+  'memorySources.stage.unknown': 'Синхронизация',
   'time.justNow': 'только что',
   'time.secondsAgoSuffix': 'с назад',
   'time.minutesAgoSuffix': 'мин назад',

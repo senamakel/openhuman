@@ -36,24 +36,13 @@ import {
   resolveDisplayStatus,
   useRunsPendingApprovalSet,
 } from '../../hooks/useRunsPendingApprovalSet';
+import { formatRunTimestamp } from '../../lib/flows/runTimestamp';
 import { useT } from '../../lib/i18n/I18nContext';
 import { Button, CenteredLoadingState, EmptyState, ErrorBanner } from '../ui';
 import { type FlowRepairRequest, FlowRunInspectorDrawer } from './FlowRunInspectorDrawer';
 import { FlowRunStatus, flowRunStatusLabel } from './FlowRunStatus';
 
 const log = debug('flows:runs-drawer');
-
-function formatTimestamp(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return null;
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(parsed));
-}
 
 interface Props {
   /** Flow to list runs for. Renders `null` (nothing) when absent. */
@@ -173,7 +162,7 @@ function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Props) {
             {!loading && !error && runs.length > 0 && (
               <ul className="space-y-2" data-testid="flow-runs-list">
                 {runs.map(run => {
-                  const startedAt = formatTimestamp(run.started_at);
+                  const startedAt = formatRunTimestamp(run.started_at);
                   const displayStatus = resolveDisplayStatus(run, pendingRunIds);
                   return (
                     <li key={run.id}>

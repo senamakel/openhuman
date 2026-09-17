@@ -140,8 +140,8 @@ export const FALLBACK_DEFINITIONS: ChannelDefinition[] = [
     capabilities: ['send_text', 'send_rich_text', 'receive_text'],
   },
   // Lark / Feishu — fields must stay aligned with `LarkConfig` in
-  // `src/openhuman/config/schema/channels.rs` and `lark_definition()` in
-  // `src/openhuman/channels/controllers/definitions.rs`. See #2048.
+  // `crates/openhuman-core/src/config/schema/channels.rs` and `lark_definition()` in
+  // `crates/openhuman-core/src/channels/controllers/definitions.rs`. See #2048.
   {
     id: 'lark',
     display_name: 'Lark / Feishu',
@@ -219,7 +219,7 @@ export const FALLBACK_DEFINITIONS: ChannelDefinition[] = [
     capabilities: ['send_text', 'receive_text', 'threaded_replies'],
   },
   // DingTalk (钉钉) — fields must stay aligned with `DingTalkConfig` in
-  // `src/openhuman/config/schema/channels.rs`. See #2048.
+  // `crates/openhuman-core/src/config/schema/channels.rs`. See #2048.
   {
     id: 'dingtalk',
     display_name: 'DingTalk (钉钉)',
@@ -259,7 +259,7 @@ export const FALLBACK_DEFINITIONS: ChannelDefinition[] = [
   },
   // Native IMAP/SMTP email (#4280). Field keys map 1:1 to
   // `config::schema::channels::EmailConfig` and `email_definition()` in
-  // `src/openhuman/channels/controllers/definitions.rs`; keep the two in sync.
+  // `crates/openhuman-core/src/channels/controllers/definitions.rs`; keep the two in sync.
   {
     id: 'email',
     display_name: 'Email (IMAP/SMTP)',

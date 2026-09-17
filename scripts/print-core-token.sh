@@ -4,7 +4,7 @@
 # current deploy mode, so operators don't have to remember which side of the
 # Tauri-vs-CLI / Docker-vs-binary split owns the value.
 #
-# Resolution order (matches src/core/auth.rs::init_rpc_token):
+# Resolution order (matches crates/openhuman-core/src/core/auth.rs::init_rpc_token):
 #   1. $OPENHUMAN_CORE_TOKEN if set and non-empty   (Tauri / Docker / cloud)
 #   2. ${OPENHUMAN_WORKSPACE:-$HOME/.openhuman}/core.token   (standalone CLI)
 #

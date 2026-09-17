@@ -46,11 +46,10 @@
  *
  * Lives here (not in the checker) so both the CI checker and the self-test read
  * the same source of truth — otherwise the self-test can demand a forward the
- * checker legitimately exempts, which is exactly the drift #5084's `tui` gate hit.
+ * checker legitimately exempts.
  */
 export const INTENTIONALLY_NOT_FORWARDED = {
   // 'some-gate': 'Reason it must not ship in the desktop build.',
-  tui: 'Terminal UI subcommand (openhuman tui/chat); the desktop app ships its own Tauri UI and never runs the ratatui terminal front-end. NOTE: `tui` is also default-OFF, so it is in NEITHER the contributor nor the product set and no ordinary lane compiles it — the feature-gate-smoke lane checks it explicitly. Any future entry here in the same position needs the same treatment.',
   medulla: 'Medulla orchestration-backend client; the desktop app is OpenHuman\'s own product and never dials a Medulla backend. Consumed by the Medulla TUI, which embeds this crate directly.',
 };
 
@@ -318,7 +317,7 @@ export function formatProductReport(result, { productFeatures, shell }) {
     lines.push(
       '',
       'Each of these is compiled OUT of the shipped desktop app, silently.',
-      'Add it to the `openhuman_core` features list in app/src-tauri/Cargo.toml.',
+      'Add it to the `openhuman_core` features list in crates/openhuman-app/Cargo.toml.',
       'See #4901 (voice, 56 users) and #4918 (tokenjuice-treesitter).'
     );
   }
@@ -391,7 +390,7 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
       '',
       'Each of these is compiled OUT of the shipped desktop app, silently.',
       'Fix by adding the gate to the `openhuman_core` features list in',
-      'app/src-tauri/Cargo.toml — or, if the exclusion is deliberate, add it to',
+      'crates/openhuman-app/Cargo.toml — or, if the exclusion is deliberate, add it to',
       'INTENTIONALLY_NOT_FORWARDED in scripts/ci/check-feature-forwarding.mjs',
       'with a reason. See #4901 (voice) and #4918 (tokenjuice-treesitter).'
     );

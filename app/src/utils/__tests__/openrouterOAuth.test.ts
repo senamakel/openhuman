@@ -105,6 +105,56 @@ describe('connectOpenRouterViaOAuth', () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects a Deny callback that carries only the state, without exchanging', async () => {
+    // OpenRouter's Deny redirects to callback_url with nothing but the echoed
+    // state (observed 2026-09-15).
+    const fetchImpl = vi.fn();
+
+    await expect(
+      connectOpenRouterViaOAuth({
+        startLoopbackListener: vi
+          .fn()
+          .mockResolvedValue({
+            redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+            state: 'expected-state',
+            awaitCallback: vi
+              .fn()
+              .mockResolvedValue('http://127.0.0.1:3000/auth?state=expected-state'),
+            cancel: vi.fn().mockResolvedValue(undefined),
+          }),
+        openExternalUrl: vi.fn().mockResolvedValue(undefined),
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).rejects.toThrow('OpenRouter OAuth did not return an authorization code.');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('passes the abort signal to the key exchange so a cancel stops it', async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ key: 'k' }) });
+
+    await connectOpenRouterViaOAuth({
+      signal: controller.signal,
+      startLoopbackListener: vi
+        .fn()
+        .mockResolvedValue({
+          redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+          state: 'expected-state',
+          awaitCallback: vi
+            .fn()
+            .mockResolvedValue('http://127.0.0.1:3000/auth?state=expected-state&code=abc123'),
+          cancel: vi.fn().mockResolvedValue(undefined),
+        }),
+      openExternalUrl: vi.fn().mockResolvedValue(undefined),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://openrouter.ai/api/v1/auth/keys',
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
   it('cancels the loopback listener when the OAuth flow is aborted', async () => {
     const cancel = vi.fn().mockResolvedValue(undefined);
     const controller = new AbortController();
@@ -127,5 +177,101 @@ describe('connectOpenRouterViaOAuth', () => {
 
     await expect(promise).rejects.toThrow('OpenRouter OAuth was cancelled.');
     expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels when the flow is aborted while the browser is still opening', async () => {
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
+
+    const promise = connectOpenRouterViaOAuth({
+      signal: controller.signal,
+      startLoopbackListener: vi
+        .fn()
+        .mockResolvedValue({
+          redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+          state: 'expected-state',
+          awaitCallback: vi.fn().mockImplementation(() => new Promise(() => {})),
+          cancel,
+        }),
+      // The abort lands after the listener is up but before the callback race exists.
+      openExternalUrl: vi.fn().mockImplementation(async () => controller.abort()),
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+
+    const outcome = await Promise.race([
+      promise.then(
+        () => 'resolved',
+        (err: Error) => err.message
+      ),
+      new Promise(resolve => setTimeout(() => resolve('still pending'), 50)),
+    ]);
+    expect(outcome).toBe('OpenRouter OAuth was cancelled.');
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects at once when aborted while the browser launch is still pending', async () => {
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
+
+    const promise = connectOpenRouterViaOAuth({
+      signal: controller.signal,
+      startLoopbackListener: vi
+        .fn()
+        .mockResolvedValue({
+          redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+          state: 'expected-state',
+          awaitCallback: vi.fn().mockImplementation(() => new Promise(() => {})),
+          cancel,
+        }),
+      // A launch that never settles: cancelling must not wait on it.
+      openExternalUrl: vi.fn().mockImplementation(() => {
+        setTimeout(() => controller.abort(), 0);
+        return new Promise<void>(() => {});
+      }),
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+
+    const outcome = await Promise.race([
+      promise.then(
+        () => 'resolved',
+        (err: Error) => err.message
+      ),
+      new Promise(resolve => setTimeout(() => resolve('still pending'), 50)),
+    ]);
+    expect(outcome).toBe('OpenRouter OAuth was cancelled.');
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open the browser when aborted while the code challenge is built', async () => {
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    const openExternalUrl = vi.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
+    const realDigest = crypto.subtle.digest.bind(crypto.subtle);
+    const digest = vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (algorithm, data) => {
+      controller.abort();
+      return realDigest(algorithm, data);
+    });
+
+    try {
+      await expect(
+        connectOpenRouterViaOAuth({
+          signal: controller.signal,
+          startLoopbackListener: vi
+            .fn()
+            .mockResolvedValue({
+              redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+              state: 'expected-state',
+              awaitCallback: vi.fn().mockImplementation(() => new Promise(() => {})),
+              cancel,
+            }),
+          openExternalUrl,
+          fetchImpl: vi.fn() as unknown as typeof fetch,
+        })
+      ).rejects.toThrow('OpenRouter OAuth was cancelled.');
+      expect(openExternalUrl).not.toHaveBeenCalled();
+      expect(cancel).toHaveBeenCalledTimes(1);
+    } finally {
+      digest.mockRestore();
+    }
   });
 });

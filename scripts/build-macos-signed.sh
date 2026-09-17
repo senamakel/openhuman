@@ -129,7 +129,7 @@ env | grep -E 'APPLE|TAURI|VITE' || true
 
 cd app
 echo "Building now... ${BUILD_ARGS[@]}"
-npx tauri build "${BUILD_ARGS[@]}"
+pnpm tauri build "${BUILD_ARGS[@]}"
 echo "Done building"
 cd ..
 
@@ -140,9 +140,9 @@ export APPLE_TEAM_ID="$_SAVED_APPLE_TEAM_ID"
 
 # ── Locate artifacts ─────────────────────────────────────────────────
 if [[ "$BUILD_MODE" == "debug" ]]; then
-  BUNDLE_DIR="app/src-tauri/target/debug/bundle"
+  BUNDLE_DIR="crates/openhuman-app/target/debug/bundle"
 else
-  BUNDLE_DIR="app/src-tauri/target/release/bundle"
+  BUNDLE_DIR="crates/openhuman-app/target/release/bundle"
 fi
 
 APP_PATH="$(find "$BUNDLE_DIR/macos" -name '*.app' -maxdepth 1 | head -1)"
@@ -156,7 +156,7 @@ echo
 echo "App bundle: $APP_PATH"
 
 # ── Sign .app contents and bundle ─────────────────────────────────────
-ENTITLEMENTS="app/src-tauri/entitlements.sidecar.plist"
+ENTITLEMENTS="crates/openhuman-app/entitlements.sidecar.plist"
 MAIN_EXE="$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleExecutable 2>/dev/null || echo "OpenHuman")"
 
 echo

@@ -143,7 +143,7 @@ export function initSentry(): void {
     dsn: SENTRY_DSN,
     environment: APP_ENVIRONMENT,
     // Canonical release tag shared with the Tauri shell (see
-    // `app/src-tauri/src/lib.rs::build_sentry_release_tag`) and the Vite
+    // `crates/openhuman-app/src/lib.rs::build_sentry_release_tag`) and the Vite
     // source-map upload (see `@sentry/vite-plugin` in app/vite.config.ts)
     // so events from every surface group under the same release.
     release: SENTRY_RELEASE,

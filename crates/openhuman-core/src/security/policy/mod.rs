@@ -1,0 +1,29 @@
+//! `SecurityPolicy` and the autonomy/risk gate. See [`README.md`](README.md)
+//! for the invariants this module enforces (workspace-internal path
+//! protection, fail-closed command classification, always-forbidden paths).
+
+mod command_checks;
+mod enforcement;
+mod path_checks;
+
+mod policy_command;
+
+mod types;
+
+pub use enforcement::validate_path_within_root;
+pub use enforcement::{ensure_openhuman_scratch_dir, openhuman_scratch_dir};
+pub use types::{
+    ActionTracker, ActiveProfileGuard, AutonomyLevel, CommandClass, CommandRiskLevel, GateDecision,
+    SecurityPolicy, ToolOperation, TrustedAccess, TrustedRoot, POLICY_BLOCKED_MARKER,
+    POLICY_DENIED_MARKER,
+};
+
+#[cfg(test)]
+use std::path::{Path, PathBuf};
+
+#[cfg(test)]
+#[path = "policy_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+mod proptest_tests;

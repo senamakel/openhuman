@@ -9,7 +9,7 @@ icon: git-compare
 
 The [Memory Tree](memory-tree.md) tells the agent what it knows. **Memory Diff** tells it what _changed_. It is a derived ledger that records the state of every memory source over time, so any agent (or you) can ask: what's new, what was edited, what disappeared - since the last sync, since I last read it, or since a named baseline.
 
-The chunk store (`mem_tree_chunks`) stays authoritative. The diff ledger is a read-only view built _from_ already-ingested data - so snapshots cost zero API calls. Source: `src/openhuman/memory/diff/`.
+The chunk store (`mem_tree_chunks`) stays authoritative. The diff ledger is a read-only view built _from_ already-ingested data - so snapshots cost zero API calls. Source: `crates/openhuman-core/src/memory/diff/`.
 
 ---
 
@@ -118,4 +118,3 @@ Because the ledger is real git history, Memory Diff gives the agent's knowledge 
 - [Memory Tree](memory-tree.md) - the authoritative knowledge base that snapshots are derived from.
 - [Auto-fetch from Integrations](auto-fetch.md) - what triggers the syncs that produce new snapshots.
 - [Obsidian Wiki](README.md) - the Markdown vault these sources ingest into.
-- [Subconscious Loop](../subconscious.md) - the background loop that reviews new memory changes for actionable items.

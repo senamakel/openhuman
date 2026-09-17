@@ -90,9 +90,9 @@ OpenHuman تین چیزیں ہے جو زیادہ تر اسسٹنٹس نہیں ہ
 
 ### 🔬 گہرا محقق اور کام کرنے والا
 
-- **سب کچھ شامل ہے**: ویب سرچ، سکریپر، کوڈر ٹول سیٹ، ایک حقیقی [براؤزر](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)، ان پروسیس Whisper کے ساتھ [مقامی آواز](../gitbooks/features/native-tools/voice.md)، اور ساتھ [ماڈل روٹنگ](https://tinyhumans.gitbook.io/openhuman/features/model-routing) جو ہر ورک لوڈ کے لیے صحیح LLM چنتی ہے، ایک سبسکرپشن، [مقامی AI اختیاری](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)۔
+- **سب کچھ شامل ہے**: ویب سرچ، سکریپر، کوڈر ٹول سیٹ، ایک حقیقی [براؤزر](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)، بیک اینڈ کے ذریعے تقریر سے متن اور ہوسٹ شدہ یا مقامی Piper کے ذریعے متن سے تقریر کے ساتھ [مقامی آواز](../gitbooks/features/native-tools/voice.md)، اور ساتھ [ماڈل روٹنگ](https://tinyhumans.gitbook.io/openhuman/features/model-routing) جو ہر ورک لوڈ کے لیے صحیح LLM چنتی ہے، ایک سبسکرپشن، [مقامی AI اختیاری](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)۔
 - **[تصویر اور ویڈیو جنریشن](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit تصاویر اور Seedance/Veo ویڈیو، براہ راست آپ کے ورک اسپیس میں، اسی سبسکرپشن پر۔
-- **[17 میسجنگ چینلز](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram، Discord، Slack، WhatsApp، Signal، iMessage… اور ساتھ **مقامی ای میل** (IMAP IDLE + SMTP)۔ آپ کا ایجنٹ آپ تک وہیں پہنچتا ہے جہاں آپ پہلے سے موجود ہیں۔
+- **[15 میسجنگ چینلز](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram، Discord، Slack، WhatsApp، Signal، iMessage… اور ساتھ **مقامی ای میل** (IMAP IDLE + SMTP)۔ آپ کا ایجنٹ آپ تک وہیں پہنچتا ہے جہاں آپ پہلے سے موجود ہیں۔
 
 ### 🧍 انسانی، نجی، آپ کا اپنا
 
@@ -185,7 +185,7 @@ n8n اور Zapier سے گہرے متاثر، [ورک فلوز](https://tinyhuman
 | **آرکسٹریشن**      | ⚠️ ذیلی ٹاسکس            | ⚠️ ایک لوپ          | ⚠️ ایک لوپ          | 🚀 ایجنٹ گرافس + چیک پوائنٹس + E2E-انکرپٹڈ A2A                                                         |
 | **ورک فلوز**       | 🚫 کوئی نہیں             | ⚠️ اسکرپٹس          | ⚠️ اسکرپٹس          | 🚀 بصری، پائیدار، ایجنٹ کی تجویز کردہ، منظوری سے محفوظ                                                 |
 | **میٹنگز**         | 🚫 کوئی نہیں             | 🚫 کوئی نہیں        | 🚫 کوئی نہیں        | 🚀 Meet/Zoom/Teams/Webex میں شامل، بولتا ہے، لائیو ٹرانسکرپٹ                                           |
-| **میسجنگ چینلز**   | 🚫 کوئی نہیں             | ⚠️ چند ایک          | ⚠️ چند ایک          | ✅ 17 بشمول مقامی ای میل (IMAP/SMTP)                                                                   |
+| **میسجنگ چینلز**   | 🚫 کوئی نہیں             | ⚠️ چند ایک          | ⚠️ چند ایک          | ✅ 15 بشمول مقامی ای میل (IMAP/SMTP)                                                                   |
 | **صرف مقامی موڈ**  | 🚫 صرف کلاؤڈ             | ⚠️ اپنا مقامی لائیں | ⚠️ اپنا مقامی لائیں | ✅ ایک سوئچ سے نافذ پرائیویسی موڈ                                                                      |
 | **مشاہدہ پذیری**   | 🚫 غیر شفاف              | ⚠️ لاگز             | ⚠️ لاگز             | ✅ قابلِ اعادہ رن جرنلز + فی کال لاگت کا حساب                                                          |
 | **API پھیلاؤ**     | 🚫 اضافی چابیاں          | 🚫 اپنی چابیاں      | 🚫 کئی وینڈر        | ✅ ایک اکاؤنٹ                                                                                          |

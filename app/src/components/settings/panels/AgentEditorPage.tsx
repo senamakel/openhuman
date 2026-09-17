@@ -33,7 +33,7 @@ import SettingsPanel from '../layout/SettingsPanel';
 import { AgentEditorToolsField } from './AgentEditorToolsPicker';
 
 // Known model options — mirrors the Rust tier constants + route hints
-// (src/openhuman/config/schema/types.rs, inference/provider/router.rs).
+// (crates/openhuman-core/src/config/schema/types.rs, inference/provider/router.rs).
 // Empty string means "inherit" (no override). Any other value not in this list
 // is treated as a raw BYOK provider model id (custom).
 const MODEL_HINTS = [

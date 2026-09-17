@@ -1,0 +1,316 @@
+# Fixed-prefix ratchet. `scripts/check-prompt-budget.sh` fails when an agent
+# exceeds its limit here.
+#
+# Format: <agent id>:<max system-prompt bytes>:<max advertised tool-schema bytes>
+#
+# The two halves are separate on purpose. Prompt bytes are prose somebody wrote
+# and can rewrite; tool bytes are schemas, and the fix for those is almost never
+# "trim the description" — it is to defer the tool, collapse a family of verbs
+# into one tool, or move the capability into a skill.
+#
+# Measured with `--hermetic`, which relocates BOTH the workspace and
+# `config_path` into a temp dir. Overriding the workspace alone is not enough
+# and the first version of this file got it wrong: credentials, auth profiles
+# and integration toggles resolve against `config_path`'s parent, so a
+# workspace-only override still read `~/.openhuman`. Roughly twenty
+# backend-proxied tools (`google_places_*`, `stock_*`, `storage_*`,
+# `twilio_call`, `composio_*`, `tinyfish_*`) all sit behind a single
+# `if let Some(client) = integrations::build_client(..)`, so the whole block
+# appeared or vanished depending on whether the developer happened to be signed
+# in — a 12 KB swing that looked exactly like a code change. `openhuman/CLAUDE.md`
+# documents this trap under "config_path is not cosmetic"; this file walked into
+# it anyway, which is why the numbers below were re-recorded.
+#
+# Consequence worth knowing: this ratchet measures a SIGNED-OUT install, so it
+# cannot see savings on tools that only register when a backend client exists.
+# Deferring the five `stock_*` tools, for instance, is real but invisible here.
+# Judge integration-tool work with `prompt-size` against a signed-in workspace
+# and record the finding in a PR body, not in this file.
+#
+# Moving prose into a SKILL trades prompt bytes for tool bytes, and the trade is
+# only worth recording if both halves are. `workflow_builder` gave up 21,445 B
+# of standing prompt when its reference manual became the `flow-authoring`
+# builtin skill, and took on 556 B for `read_workflow_resource` — the tool that
+# reads a page. Net -20,889 B per turn. The other agents pay ~14 B for the
+# mechanism (`skill_search` joined the withheld `skills` pack, which lengthened
+# `load_skill`/`use_skill`'s summary) and the orchestrator 97 B for the sentence
+# that tells it search exists.
+#
+# Two things that made the first attempt worse rather than better, both caught
+# by numbers here rather than by review:
+#
+#   * `read_workflow_resource` sat in the withheld `skills` pack, so naming it
+#     on the builder's belt advertised `load_skill` + `use_skill` (3,137 B)
+#     INSTEAD of the tool (556 B), and put a round trip in front of every read.
+#     Adding `workflow_builder` to that pack's `owners` fixed it and widened
+#     nothing — its belt is `Named`, so no other pack member is visible to it.
+#   * `skill_search` was registered outside any pack, costing 748 B on every
+#     wildcard agent to produce a skill id those agents could not act on,
+#     because `describe_workflow` and `run_skill` were still withheld. A
+#     doorway to a locked room. It belongs in the pack with them.
+#
+# A FALLING tool-byte count is not automatically good. Collapsing the memory,
+# todo and cron families showed both failure modes in one afternoon:
+#
+#   * Nine agents named the legacy tools in their `[tools] named` belts. Hiding
+#     those tools dropped the count on every one of them — and `scheduler_agent`
+#     was left with no scheduler tool at all. The ratchet reported that as an
+#     improvement.
+#   * Migrating a NARROW belt onto a collapsed tool makes it bigger and wider:
+#     `flow_memory_agent`'s three read-only memory tools (2,396 B) became the
+#     whole `memory` tool (3,788 B), handing an agent documented as read-only
+#     the `store` and `forget` actions its belt existed to withhold.
+#
+# So per-tool exposure now applies only to a wildcard belt (see
+# `AgentBuilder::build`), and a drop here should be read alongside the agent's
+# tool LIST, which `prompt-size --json` carries in full. Fewer bytes and fewer
+# capabilities look identical in this file.
+#
+# The ratchet only goes DOWN. Lowering a number is the point; the check fails
+# both on growth and on an un-ratcheted improvement, because a saving nobody
+# writes back is a saving that grows back. Use
+# `scripts/check-prompt-budget.sh --write` to record a deliberate reduction.
+#
+# `integrations_agent` is absent by construction: it is parameterised by a
+# connected Composio toolkit and renders nothing on an empty workspace.
+#
+# A prompt REGRESSION can be the right trade, and one is recorded below. The
+# orchestrator's prompt grew 168 B to say that specialists are now reached with
+# `delegate_to { agent: "..." }` rather than as tools of their own. Without
+# those two sentences the model calls `ask_docs` and gets "unknown tool" — the
+# routing table in `## Delegation` names the specialists, and the names stopped
+# being tool names. 168 B of prose bought 13,332 B of schema. The ratchet is
+# there to make a trade like that visible and deliberate, not to forbid it.
+#
+# Measure with: openhuman-core agent prompt-size --workspace <empty dir> --json
+#
+# History
+#   2026-08-31  Baseline, recorded the day the measurement first existed.
+#               Fleet total 1,073,644 B (~268k tokens of fixed prefix across 33
+#               agents). Three things in this table are worth reading as bugs
+#               rather than as facts:
+#
+#               * `morning_briefing`, `trigger_triage`, `summarizer` and
+#                 `tools_agent` each advertise 151 tools / 104,567 B (~26k
+#                 tokens). They declare no `[tools] named` belt, so they inherit
+#                 the whole registry. `summarizer` exists to compress text and
+#                 carries 151 tool schemas to do it.
+#               * `workflow_builder` renders 80,353 B (~20k tokens) of system
+#                 prompt — more than twice the orchestrator's — because the flow
+#                 DSL reference is inlined in its `prompt.md`. That body belongs
+#                 in a SKILL.md.
+#               * the orchestrator's 45,199 B across 50 tools is dominated by a
+#                 handful of schemas; `propose_workflow` alone was 7,568 B when
+#                 this was first measured.
+#
+#               Every one of those was invisible until this file existed.
+#
+#   2026-09-01  The archetype delegates collapsed into one `delegate_to` tool.
+#               Orchestrator tools 43,153 -> 29,821 B (46 -> 30 tools); fleet
+#               total 934,265 -> 921,351 B.
+#
+#               The cause is worth recording because it was not a big schema,
+#               it was a small one repeated: `ArchetypeDelegationTool::
+#               parameters_schema` is a `json!` literal that never reads
+#               `self`, so all 16 synthesised delegates carried a byte-identical
+#               delegation envelope. 17,746 B — 41% of the orchestrator's whole
+#               tool budget — was one object, sixteen times. The per-agent
+#               number could not show that: every individual tool sat under the
+#               1,600 B attention threshold, so nothing in this file flagged
+#               them. **A family of near-identical schemas hides from both
+#               ratchets.** When the next one is looked for, group by schema
+#               body, not by size.
+#
+#               Two regressions this introduced, both caught by measurement
+#               rather than review, and both now pinned by tests:
+#
+#               * The first version made tools go UP, 43,153 -> 52,513. The
+#                 members were marked `ToolExposure::Hidden`, but exposure is
+#                 only applied to a WILDCARD belt, and the orchestrator's belt
+#                 is `Named` — with every synthesised name force-inserted into
+#                 it by `factory.rs` and again by `refresh_delegation_tools`.
+#                 Both surfaces shipped. Hiding is now filtered at those two
+#                 insertion points, which is the correct place: those names
+#                 were never chosen by a human, so skipping one takes nothing
+#                 an author asked for.
+#               * The collapse then silently RE-ADVERTISED seven routes the
+#                 pack table withholds (`do_crypto`, `setup_mcp_server`,
+#                 `use_mcp_server`, `setup_skills`, `run_skill`,
+#                 `build_workflow`, `discover_workflows`). Each stopped being a
+#                 tool of its own, so `strip_packed_from_visible` had nothing
+#                 to remove, and it reappeared as a string inside another
+#                 tool's schema where no visible-set subtraction reaches it.
+#                 `toolpacks::is_withheld_from` now filters the enum.
+#                 **A collapse must never widen what a pack narrowed** — check
+#                 it whenever a surface moves from "a tool" to "a value".
+#
+#   2026-09-01  `named = []` now means zero tools. Fleet 921,327 -> 751,657 B.
+#
+#               `summarizer` and `trigger_triage` each declare an empty named
+#               scope in their shipped `agent.toml`, and each was handed the
+#               ENTIRE registry — 109 tools, 82,986 B of schema — because an
+#               empty visible set is the harness's "no filter" sentinel. The
+#               declaration was not ignored, it was inverted. 165,972 B, 18% of
+#               the fleet's fixed prefix, on the two agents that asked for none.
+#
+#               `trigger_triage`'s own comment says local 1B-class models are
+#               unreliable at nested tool calls, "so we keep the turn flat" — so
+#               this was not merely waste, it was working against the thing the
+#               author had written down. That is the general lesson: **this file
+#               cannot tell a large number from a wrong one.** Both agents sat
+#               at the top of the table from the day it was created, and the
+#               baseline note called them out as a bug in the wrong terms —
+#               "they declare no `[tools]` belt" — when in fact they declare an
+#               empty one, which is the opposite problem and a much cheaper fix.
+#               Read a definition, not just a row.
+#
+#               `NO_TOOLS_SENTINEL` spells the empty belt so it survives a set
+#               whose empty state was already spoken for. It replaced a literal
+#               that existed twice, once with a comment saying it was a verbatim
+#               copy.
+#
+#               Also trimmed 606 B from the orchestrator's "Running several
+#               workers at once" section, and fixed a bug it was hiding. Two of
+#               its four paragraphs restated `spawn_async_subagent`'s own
+#               description ("Fire-and-forget ... Returns immediately ... never
+#               use it for ... anything whose result must gate your final
+#               answer") in the prompt, where it is billed on every turn whether
+#               or not the tool is used. The schema is the better home: it is
+#               already paid for, and it cannot drift from the tool.
+#
+#               The bug: the section told the model to call
+#               `spawn_async_subagent` with `blocking: true`. **That parameter
+#               does not exist on that tool** — its properties are agent_id,
+#               context, fresh, model, prompt, task_key, task_title, toolkit.
+#               `blocking` is on `delegate_to`. So the one hard rule about
+#               result-gating pointed at an impossible call, and the same
+#               section opened by asserting the tool is "always async ... you do
+#               not wait for it", contradicting its own closing paragraph.
+#
+#               Worth noting how it was found: not by reading the prompt, but by
+#               reading the prompt NEXT TO the tool schemas, which is what
+#               `dump-prompt --wire` exists to make easy. A contradiction between
+#               a prompt and a schema is invisible while the two live in
+#               different files.
+#
+#               The six bullets stay. They are identity and recovery rules that
+#               appear in no schema — track by `subagent_session_id` because
+#               `agentId` is only the worker type; `[active_subagents]` over
+#               recollection; `list_subagents` as the recovery move; and
+#               `continue_subagent` for an `awaiting_user` worker, which is the
+#               prose half of the #4291 infinite-re-delegation fix that
+#               `toolpacks::registry` cites as its reason for never packing the
+#               fleet tools. Deleting the section wholesale would have removed
+#               a known bug's fix along with the redundancy.
+
+morning_briefing:14279:82986
+trigger_triage:9214:0
+workflow_builder:46405:30259
+summarizer:8783:0
+tools_agent:8260:82986
+orchestrator:33629:29821
+code_executor:13327:12338
+crypto_agent:12049:12357
+task_manager_agent:7104:15601
+planner:9927:5664
+skill_creator:7311:12411
+flow_discovery:10111:9503
+profile_memory_agent:7202:11815
+settings_agent:7065:11220
+context_scout:10427:7652
+skill_executor:9613:8090
+scheduler_agent:9635:7008
+agent_memory:9761:6698
+mcp_setup:10368:5078
+skill_setup:7272:7973
+trigger_reactor:7966:6423
+mcp_agent:8927:4472
+flow_memory_agent:9026:3809
+tool_maker:6273:6087
+presentation_agent:6547:5678
+video_agent:6973:2266
+help:8469:2365
+image_agent:7017:2266
+goals_agent:6725:3124
+vision_agent:6885:2266
+archivist:5985:3133
+researcher:6855:2229
+critic:6222:1855
+
+# ── Per-tool schema ratchet ──────────────────────────────────────────────
+#
+# One line per tool whose schema is over the attention threshold (1,600 B,
+# ~400 tokens). Being here is not a fault; being here *unexamined* is. Each
+# entry should be justified by the comment above it or be trimmed.
+#
+# Why the big ones are big, as of 2026-08-31:
+#
+#   memory (3,788) / cron (3,228) / todo (1,831)
+#       Collapsed families. `memory` replaced eleven tools worth 7,879 B and
+#       `cron` six worth 3,938 B, so each is large *because* the surface got
+#       smaller. A union schema costs more than any one member and less than
+#       all of them. Do not "fix" these by splitting them back up.
+#
+#   spawn_subagent (3,554) / spawn_async_subagent (1,965) /
+#   spawn_parallel_agents (1,851)
+#       The delegation surface: three tools describing overlapping arguments.
+#       A collapse candidate on the same argument as memory/cron/todo, and the
+#       next obvious one — 7,370 B between them.
+#
+#   memory_tree (3,008) / cron_add (3,003)
+#       `memory_tree` dispatches eight tree operations on `mode` and is the
+#       one memory tool deliberately left out of the `memory` collapse.
+#       `cron_add` is a member of the collapsed `cron` tool and no longer
+#       reaches the wire itself, but is measured here because some agent still
+#       carries it on a hand-written belt.
+#
+#   propose_workflow (3,170)
+#       Was 7,415 until its node-kind reference stopped being hand-written and
+#       started being generated from `node_contracts.rs`
+#       (`render_node_kinds_required`). What remains is this tool's own
+#       contract plus 401 B of generated kinds.
+#
+#   edit_workflow (2,721) / save_workflow (1,957) / suggest_workflows (2,445)
+#       The rest of the flow-authoring belt. Each carries its own prose copy of
+#       graph-shape rules; the same generate-don't-hand-write treatment that
+#       shrank `propose_workflow` applies and has not been done.
+#
+#   generate_presentation (2,662)
+#       A deck spec: slides, layouts, per-layout fields. Genuinely wide.
+#
+#   delegate_to (5,302)
+#       The collapsed archetype delegation tool. 1,404 B of that is the shared
+#       envelope and the `agent` enum; the other 3,898 B is 17 specialists'
+#       `when_to_use` blurbs, which are the routing information itself — this
+#       tool is how the orchestrator picks a specialist at all.
+#
+#       It is large because 16 tools worth 17,746 B became one. Do not "fix" it
+#       by splitting it back up, and do not trim the blurbs mechanically: at
+#       least three carry NEGATIVE boundaries that prevent mis-routing
+#       (`scheduler_agent`: "reading live calendar events ... belongs to the
+#       calendar/email integration"), and a first-sentence truncation drops
+#       exactly those. The real remaining duplication is with the prompt's own
+#       `## Delegation` routing table, which names the same specialists again
+#       in 7,912 B — deduplicating the two is the next saving here, and it is
+#       an editorial change, not a mechanical one.
+#
+#   search_tool_catalog (1,695) / use_skill (1,620)
+#       Discovery tools. Both are the recovery path for a withheld surface, so
+#       their descriptions carry the "here is what you can still reach" copy.
+#
+tool:memory:3788
+tool:delegate_to:5302
+tool:spawn_subagent:3554
+tool:cron:3228
+tool:propose_workflow:3170
+tool:memory_tree:3008
+tool:cron_add:3003
+tool:edit_workflow:2721
+tool:generate_presentation:2662
+tool:suggest_workflows:2445
+tool:spawn_async_subagent:1965
+tool:save_workflow:1957
+tool:spawn_parallel_agents:1851
+tool:todo:1831
+tool:search_tool_catalog:1695
+tool:use_skill:1627

@@ -76,9 +76,9 @@ OpenHuman 是大多数助手所不具备的三样东西的集合：**一颗大�
 
 ### 🔬 深度研究员与实干家
 
-- **开箱即用**：网络搜索、抓取器、编码工具集、真正的[浏览器](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、带进程内 Whisper 的[原生语音](../gitbooks/features/native-tools/voice.md)，以及为每个工作负载挑选合适 LLM 的[模型路由](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。一个订阅搞定，[本地 AI 可选](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)。
+- **开箱即用**：网络搜索、抓取器、编码工具集、真正的[浏览器](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、语音识别经后端代理、语音合成可选托管或本地 Piper 的[原生语音](../gitbooks/features/native-tools/voice.md)，以及为每个工作负载挑选合适 LLM 的[模型路由](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。一个订阅搞定，[本地 AI 可选](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)。
 - **[图像与视频生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**：Seedream/SeedEdit 图像和 Seedance/Veo 视频，直接输出到你的工作区，同一份订阅。
-- **[17 个消息渠道](https://tinyhumans.gitbook.io/openhuman/features/channels)**：Telegram、Discord、Slack、WhatsApp、Signal、iMessage……外加**原生邮件**（IMAP IDLE + SMTP）。无论你在哪里，智能体都能找到你。
+- **[15 个消息渠道](https://tinyhumans.gitbook.io/openhuman/features/channels)**：Telegram、Discord、Slack、WhatsApp、Signal、iMessage……外加**原生邮件**（IMAP IDLE + SMTP）。无论你在哪里，智能体都能找到你。
 
 ### 🧍 人性化、私密、属于你
 
@@ -143,7 +143,7 @@ OpenHuman 跳过了等待期。连接你的账户，让[自动拉取](https://ti
 | **编排**       | ⚠️ 子任务        | ⚠️ 单循环   | ⚠️ 单循环    | 🚀 智能体图 + 检查点 + E2E 加密的 A2A                                                       |
 | **工作流**     | 🚫 无            | ⚠️ 脚本     | ⚠️ 脚本      | 🚀 可视化、持久化、智能体提议、审批把关                                                     |
 | **会议**       | 🚫 无            | 🚫 无       | 🚫 无        | 🚀 加入 Meet/Zoom/Teams/Webex，能发言，实时转写                                             |
-| **消息渠道**   | 🚫 无            | ⚠️ 少数几个 | ⚠️ 少数几个  | ✅ 17 个，含原生邮件（IMAP/SMTP）                                                           |
+| **消息渠道**   | 🚫 无            | ⚠️ 少数几个 | ⚠️ 少数几个  | ✅ 15 个，含原生邮件（IMAP/SMTP）                                                           |
 | **纯本地模式** | 🚫 仅云端        | ⚠️ 自带本地 | ⚠️ 自带本地  | ✅ 一键强制的隐私模式                                                                       |
 | **可观测性**   | 🚫 不透明        | ⚠️ 日志     | ⚠️ 日志      | ✅ 可回放的运行日志 + 每次调用的成本核算                                                    |
 | **API 碎片化** | 🚫 额外密钥      | 🚫 自带密钥 | 🚫 多供应商  | ✅ 一个账户                                                                                 |

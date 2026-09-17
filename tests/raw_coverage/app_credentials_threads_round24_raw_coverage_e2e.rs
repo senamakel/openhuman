@@ -11,18 +11,18 @@ use chrono::{Duration as ChronoDuration, Utc};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::openhuman::desktop::app_state::{
+use openhuman_core::desktop::app_state::{
     snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use openhuman_core::openhuman::memory::{
+use openhuman_core::config::Config;
+use openhuman_core::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use openhuman_core::memory::{
     AppendConversationMessageRequest, ConversationMessageRecord, ConversationMessagesRequest,
     CreateConversationThreadRequest, DeleteConversationThreadRequest, EmptyRequest,
     UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
     UpdateConversationThreadTitleRequest,
 };
-use openhuman_core::openhuman::threads::ops::{
+use openhuman_core::threads::ops::{
     message_append, message_update, messages_list, thread_create_new, thread_delete,
     thread_update_labels, thread_update_title, threads_list, threads_purge,
 };

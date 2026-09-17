@@ -76,9 +76,9 @@ OpenHuman은 대부분의 어시스턴트가 갖지 못한 세 가지입니다: 
 
 ### 🔬 깊이 있는 리서처이자 실행가
 
-- **모든 것이 포함됨(Batteries included)**: 웹 검색, 스크레이퍼, 코더 툴셋, 실제 [브라우저](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), 인프로세스 Whisper를 갖춘 [네이티브 음성](../gitbooks/features/native-tools/voice.md), 그리고 워크로드별로 적합한 LLM을 선택하는 [모델 라우팅](https://tinyhumans.gitbook.io/openhuman/features/model-routing)까지. 하나의 구독으로, [로컬 AI는 선택 사항](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)입니다.
+- **모든 것이 포함됨(Batteries included)**: 웹 검색, 스크레이퍼, 코더 툴셋, 실제 [브라우저](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), 백엔드를 통한 음성 인식과 호스팅형 또는 로컬 Piper 음성 합성을 갖춘 [네이티브 음성](../gitbooks/features/native-tools/voice.md), 그리고 워크로드별로 적합한 LLM을 선택하는 [모델 라우팅](https://tinyhumans.gitbook.io/openhuman/features/model-routing)까지. 하나의 구독으로, [로컬 AI는 선택 사항](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)입니다.
 - **[이미지 및 비디오 생성](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit 이미지와 Seedance/Veo 비디오가 동일한 구독으로 워크스페이스에 바로 생성됩니다.
-- **[17개의 메시징 채널](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… 그리고 **네이티브 이메일**(IMAP IDLE + SMTP)까지. 에이전트는 당신이 이미 있는 곳에서 당신에게 닿습니다.
+- **[15개의 메시징 채널](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… 그리고 **네이티브 이메일**(IMAP IDLE + SMTP)까지. 에이전트는 당신이 이미 있는 곳에서 당신에게 닿습니다.
 
 ### 🧍 인간적이고, 프라이빗하며, 당신의 것
 
@@ -143,7 +143,7 @@ n8n과 Zapier에서 깊은 영감을 받은 [워크플로우](https://tinyhumans
 | **오케스트레이션** | ⚠️ 서브 태스크    | ⚠️ 단일 루프      | ⚠️ 단일 루프      | 🚀 에이전트 그래프 + 체크포인트 + E2E 암호화 A2A                                                     |
 | **워크플로우**     | 🚫 없음           | ⚠️ 스크립트       | ⚠️ 스크립트       | 🚀 시각적, 내구성, 에이전트 제안, 승인 게이트                                                        |
 | **회의**           | 🚫 없음           | 🚫 없음           | 🚫 없음           | 🚀 Meet/Zoom/Teams/Webex 참여, 발화, 실시간 자막                                                     |
-| **메시징 채널**    | 🚫 없음           | ⚠️ 소수           | ⚠️ 소수           | ✅ 네이티브 이메일(IMAP/SMTP) 포함 17개                                                              |
+| **메시징 채널**    | 🚫 없음           | ⚠️ 소수           | ⚠️ 소수           | ✅ 네이티브 이메일(IMAP/SMTP) 포함 15개                                                              |
 | **로컬 전용 모드** | 🚫 클라우드 전용  | ⚠️ 로컬 직접 구축 | ⚠️ 로컬 직접 구축 | ✅ 스위치 하나로 강제되는 Privacy Mode                                                               |
 | **관측 가능성**    | 🚫 불투명         | ⚠️ 로그           | ⚠️ 로그           | ✅ 재생 가능한 실행 저널 + 호출별 비용 집계                                                          |
 | **API 분산화**     | 🚫 추가 키 필요   | 🚫 BYOK           | 🚫 멀티 벤더      | ✅ 단일 계정                                                                                         |

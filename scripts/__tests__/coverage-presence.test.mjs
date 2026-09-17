@@ -107,6 +107,20 @@ test("passes when every eligible changed file is present in the lcov", () => {
   assert.match(res.output, /clean/);
 });
 
+test("treats standalone TUI sources as coverage-eligible", () => {
+  const source = "crates/openhuman-tui/src/app.rs";
+  const res = run({ [source]: WITH_FN }, [source], ["--files", source]);
+  assert.equal(res.status, 0);
+  assert.match(res.output, /checked 1 eligible/);
+});
+
+test("treats embedding facade sources as coverage-eligible", () => {
+  const source = "crates/openhuman-embed/src/lib.rs";
+  const res = run({ [source]: WITH_FN }, [source], ["--files", source]);
+  assert.equal(res.status, 0);
+  assert.match(res.output, /checked 1 eligible/);
+});
+
 test("skips barrel modules that declare no fn", () => {
   const res = run({ "src/a/mod.rs": NO_FN }, [], ["--files", "src/a/mod.rs"]);
   assert.equal(res.status, 0);
@@ -176,7 +190,7 @@ test("skips non-Rust paths, crate roots and src/bin", () => {
     {
       "src/lib.rs": WITH_FN,
       "src/main.rs": WITH_FN,
-      "src/bin/tool.rs": WITH_FN,
+      "crates/openhuman-core/src/bin/tool.rs": WITH_FN,
       "src/a/README.md": "# doc\n",
     },
     [],
@@ -184,7 +198,7 @@ test("skips non-Rust paths, crate roots and src/bin", () => {
       "--files",
       "src/lib.rs",
       "src/main.rs",
-      "src/bin/tool.rs",
+      "crates/openhuman-core/src/bin/tool.rs",
       "src/a/README.md",
     ],
   );
@@ -195,16 +209,14 @@ test("skips non-Rust paths, crate roots and src/bin", () => {
 test("skips families that are uncovered by design", () => {
   const res = run(
     {
-      "src/tui/app.rs": WITH_FN,
-      "src/openhuman/test_support/reset.rs": WITH_FN,
-      "src/openhuman/tools/impl/browser/native_backend.rs": WITH_FN,
+      "crates/openhuman-core/src/test_support/reset.rs": WITH_FN,
+      "crates/openhuman-core/src/tools/impl/browser/native_backend.rs": WITH_FN,
     },
     [],
     [
       "--files",
-      "src/tui/app.rs",
-      "src/openhuman/test_support/reset.rs",
-      "src/openhuman/tools/impl/browser/native_backend.rs",
+      "crates/openhuman-core/src/test_support/reset.rs",
+      "crates/openhuman-core/src/tools/impl/browser/native_backend.rs",
     ],
   );
   assert.equal(res.status, 0);

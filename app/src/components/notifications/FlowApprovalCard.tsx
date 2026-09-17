@@ -4,7 +4,7 @@
  *
  * Approval surface for a paused `tinyflows` run. When a flow run pauses on an
  * approval-gated node, the Rust side (`notify_pending_approval` in
- * `src/openhuman/flows/ops.rs`) publishes a `CoreNotification` whose id starts
+ * `crates/openhuman-core/src/flows/ops.rs`) publishes a `CoreNotification` whose id starts
  * with `"flow-pending-approval:"` and carries a single `"approve"` action with
  * `{ flow_id, thread_id, node_ids }` in its payload. `NotificationCenter`
  * routes any such notification here instead of the generic

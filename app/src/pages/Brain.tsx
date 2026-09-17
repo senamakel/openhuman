@@ -12,6 +12,7 @@ import { MemoryControls } from '../components/intelligence/MemoryControls';
 import { MemoryGraph } from '../components/intelligence/MemoryGraph';
 import { MemorySourcesRegistry } from '../components/intelligence/MemorySourcesRegistry';
 import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStatusPanel';
+import { SyncActivityCard } from '../components/intelligence/SyncActivityCard';
 import { SyncAuditPanel } from '../components/intelligence/SyncAuditPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PageWelcome from '../components/layout/PageWelcome';
@@ -398,6 +399,11 @@ export default function Brain() {
                     <div className="space-y-5 animate-fade-up">
                       <Card padded divided={false}>
                         <MemoryTreeStatusPanel onToast={addToast} />
+                      </Card>
+                      {/* openhuman#6257: what is syncing right now, beside the
+                      history of what already ran. */}
+                      <Card padded divided={false} data-testid="brain-sync-activity">
+                        <SyncActivityCard />
                       </Card>
                       {/* Sync history relocated from the Memory Inspection panel so
                       the Sync tab is the single sync surface. */}

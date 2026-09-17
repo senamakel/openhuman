@@ -1,19 +1,19 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::openhuman::agent::dispatcher::NativeToolDispatcher;
-use openhuman_core::openhuman::agent::harness::definition::AgentDefinitionRegistry;
-use openhuman_core::openhuman::agent::harness::session::Agent;
-use openhuman_core::openhuman::agent::harness::{
+use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+use openhuman_core::agent::harness::definition::AgentDefinitionRegistry;
+use openhuman_core::agent::harness::session::Agent;
+use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, ParentExecutionContext, PromptSource,
     SandboxMode, SubagentRunOptions, ToolScope,
 };
-use openhuman_core::openhuman::agent::progress::AgentProgress;
-use openhuman_core::openhuman::config::AgentConfig;
-use openhuman_core::openhuman::agent::context::prompt::ToolCallFormat;
-use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
-use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::openhuman::tools::SpawnSubagentTool;
-use openhuman_core::openhuman::tools::{Tool, ToolResult};
+use openhuman_core::agent::progress::AgentProgress;
+use openhuman_core::config::AgentConfig;
+use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
+use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::tools::SpawnSubagentTool;
+use openhuman_core::tools::{Tool, ToolResult};
 use parking_lot::Mutex;
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -87,7 +87,7 @@ impl Memory for StubMemory {
         &self,
         _query: &str,
         _limit: usize,
-        _opts: openhuman_core::openhuman::memory::RecallOpts<'_>,
+        _opts: openhuman_core::memory::RecallOpts<'_>,
     ) -> Result<Vec<MemoryEntry>> {
         Ok(Vec::new())
     }
@@ -271,7 +271,7 @@ fn parent_context(workspace: PathBuf, provider: Arc<ScriptedModel>) -> ParentExe
         ]
         .into_iter()
         .collect(),
-        turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
             provider,
         ),
         all_tools: Arc::new(tools),
@@ -498,7 +498,7 @@ async fn repeated_subagent_spawns_keep_cacheable_prefix_and_record_provider_cach
             },
         )
         .await?;
-        Ok::<_, openhuman_core::openhuman::agent::harness::SubagentRunError>((first, second))
+        Ok::<_, openhuman_core::agent::harness::SubagentRunError>((first, second))
     })
     .await?;
 

@@ -1,0 +1,129 @@
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde_json::{Map, Value};
+
+use crate::config::rpc as config_rpc;
+use crate::core::all::{ControllerFuture, RegisteredController};
+use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
+use crate::rpc::RpcOutcome;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReferralClaimParams {
+    code: String,
+    #[serde(default)]
+    device_fingerprint: Option<String>,
+}
+
+pub fn all_referral_controller_schemas() -> Vec<ControllerSchema> {
+    vec![
+        referral_schemas("referral_get_stats"),
+        referral_schemas("referral_claim"),
+    ]
+}
+
+pub fn all_referral_registered_controllers() -> Vec<RegisteredController> {
+    vec![
+        RegisteredController {
+            schema: referral_schemas("referral_get_stats"),
+            handler: handle_referral_get_stats,
+        },
+        RegisteredController {
+            schema: referral_schemas("referral_claim"),
+            handler: handle_referral_claim,
+        },
+    ]
+}
+
+pub fn referral_schemas(function: &str) -> ControllerSchema {
+    match function {
+        "referral_get_stats" => ControllerSchema {
+            namespace: "referral",
+            function: "get_stats",
+            description:
+                "Fetch referral code, link, totals, and referred-user rows from the backend.",
+            inputs: vec![],
+            outputs: vec![json_output(
+                "stats",
+                "Payload from GET /referral/stats (backend `data` field).",
+            )],
+        },
+        "referral_claim" => ControllerSchema {
+            namespace: "referral",
+            function: "claim",
+            description:
+                "Claim a referral link for the current user. Only users who have not yet subscribed are eligible.",
+            inputs: vec![
+                FieldSchema {
+                    name: "code",
+                    ty: TypeSchema::String,
+                    comment: "Referral code to claim.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "deviceFingerprint",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Optional client fingerprint for abuse signals.",
+                    required: false,
+                },
+            ],
+            outputs: vec![json_output(
+                "result",
+                "Payload from POST /referral/claim (backend `data` field).",
+            )],
+        },
+        _ => ControllerSchema {
+            namespace: "referral",
+            function: "unknown",
+            description: "Unknown referral controller.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "error",
+                ty: TypeSchema::String,
+                comment: "Lookup error details.",
+                required: true,
+            }],
+        },
+    }
+}
+
+fn handle_referral_get_stats(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(crate::hosted::referral::get_stats(&config).await?)
+    })
+}
+
+fn handle_referral_claim(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let payload = deserialize_params::<ReferralClaimParams>(params)?;
+        let fp = payload
+            .device_fingerprint
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        to_json(crate::hosted::referral::claim_referral(&config, payload.code.trim(), fp).await?)
+    })
+}
+
+fn to_json(outcome: RpcOutcome<Value>) -> Result<Value, String> {
+    outcome.into_cli_compatible_json()
+}
+
+fn deserialize_params<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
+    serde_json::from_value(Value::Object(params)).map_err(|e| format!("invalid params: {e}"))
+}
+
+fn json_output(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Json,
+        comment,
+        required: true,
+    }
+}
+
+#[cfg(test)]
+#[path = "schemas_tests.rs"]
+mod tests;

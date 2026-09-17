@@ -5,7 +5,7 @@
  * Auth: the in-process core requires a per-launch bearer token that lives only
  * inside the Tauri host. For e2e, debug builds of the Tauri shell write that
  * token to `${tmpdir}/openhuman-e2e-rpc-token` (see
- * `app/src-tauri/src/core_process.rs`). We read it here and attach
+ * `crates/openhuman-app/src/core_process.rs`). We read it here and attach
  * `Authorization: Bearer …` to every probe + call. Release builds never write
  * the file, so this code degrades to unauthenticated requests (which the core
  * will reject — acceptable since release builds are not the e2e target).

@@ -76,9 +76,9 @@ OpenHuman は、ほとんどのアシスタントが持っていない 3 つの�
 
 ### 🔬 ディープリサーチャー & 実行者
 
-- **電池同梱（Batteries included）**: ウェブ検索、スクレイパー、コーダーツールセット、本物の[ブラウザ](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、インプロセス Whisper による[ネイティブ音声](../gitbooks/features/native-tools/voice.md)、さらにワークロードごとに適切な LLM を選ぶ[モデルルーティング](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。1 つのサブスクリプションで、[ローカル AI はオプション](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)です。
+- **電池同梱（Batteries included）**: ウェブ検索、スクレイパー、コーダーツールセット、本物の[ブラウザ](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、バックエンド経由の音声認識と、ホスト型またはローカルの Piper による音声合成を備えた[ネイティブ音声](../gitbooks/features/native-tools/voice.md)、さらにワークロードごとに適切な LLM を選ぶ[モデルルーティング](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。1 つのサブスクリプションで、[ローカル AI はオプション](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)です。
 - **[画像・動画生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit の画像と Seedance/Veo の動画を、同じサブスクリプションでワークスペースに直接生成します。
-- **[17 のメッセージングチャネル](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram、Discord、Slack、WhatsApp、Signal、iMessage… さらに**ネイティブメール**（IMAP IDLE + SMTP）。エージェントはあなたが既にいる場所であなたに届きます。
+- **[15 のメッセージングチャネル](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram、Discord、Slack、WhatsApp、Signal、iMessage… さらに**ネイティブメール**（IMAP IDLE + SMTP）。エージェントはあなたが既にいる場所であなたに届きます。
 
 ### 🧍 ヒューマンで、プライベートで、あなたのもの
 
@@ -143,7 +143,7 @@ n8n と Zapier に強くインスパイアされた[ワークフロー](https://
 | **オーケストレーション**   | ⚠️ サブタスク          | ⚠️ 単一ループ       | ⚠️ 単一ループ       | 🚀 エージェントグラフ + チェックポイント + E2E 暗号化 A2A                                                          |
 | **ワークフロー**           | 🚫 なし                | ⚠️ スクリプト       | ⚠️ スクリプト       | 🚀 ビジュアル、永続、エージェント提案、承認ゲート付き                                                              |
 | **会議**                   | 🚫 なし                | 🚫 なし             | 🚫 なし             | 🚀 Meet/Zoom/Teams/Webex に参加、発話、ライブ文字起こし                                                            |
-| **メッセージングチャネル** | 🚫 なし                | ⚠️ 少数             | ⚠️ 少数             | ✅ ネイティブメール（IMAP/SMTP）を含む 17 チャネル                                                                 |
+| **メッセージングチャネル** | 🚫 なし                | ⚠️ 少数             | ⚠️ 少数             | ✅ ネイティブメール（IMAP/SMTP）を含む 15 チャネル                                                                 |
 | **ローカル専用モード**     | 🚫 クラウドのみ        | ⚠️ ローカル持ち込み | ⚠️ ローカル持ち込み | ✅ スイッチひとつで強制される Privacy Mode                                                                         |
 | **可観測性**               | 🚫 不透明              | ⚠️ ログ             | ⚠️ ログ             | ✅ リプレイ可能な実行ジャーナル + 呼び出しごとのコスト計上                                                         |
 | **API の乱立**             | 🚫 追加キー            | 🚫 BYOK             | 🚫 マルチベンダー   | ✅ 1 アカウント                                                                                                    |

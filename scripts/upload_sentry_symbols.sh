@@ -305,8 +305,8 @@ main() {
     # Validate version argument
     if [[ -z "${version}" ]]; then
         # Try to extract version from Cargo.toml or package.json
-        if [[ -f "app/src-tauri/Cargo.toml" ]]; then
-            version=$(grep -m1 '^version\s*=' app/src-tauri/Cargo.toml | sed 's/version\s*=\s*"\([^"]*\)"/\1/')
+        if [[ -f "crates/openhuman-app/Cargo.toml" ]]; then
+            version=$(grep -m1 '^version\s*=' crates/openhuman-app/Cargo.toml | sed 's/version\s*=\s*"\([^"]*\)"/\1/')
             log_info "Detected version from Cargo.toml: ${version}"
         elif [[ -f "app/package.json" ]]; then
             version=$(grep -m1 '"version"' app/package.json | sed 's/.*"version": *"\([^"]*\)".*/\1/')

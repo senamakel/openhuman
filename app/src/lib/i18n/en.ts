@@ -172,6 +172,8 @@ const en: TranslationMap = {
   'sync.status.success': 'Success',
   'sync.status.failed': 'Failed',
   'sync.status.partial': 'Fetched, memory ingest failed',
+  'sync.nowSyncing.title': 'Now syncing',
+  'sync.nowSyncing.empty': 'Nothing is syncing right now.',
   'common.error': 'Error',
   'common.success': 'Success',
   'common.back': 'Back',
@@ -476,6 +478,10 @@ const en: TranslationMap = {
   'home.askAssistant': 'Ask your assistant anything...',
   'home.statusOk': 'Your assistant is ready when you are. Type something below to get started.',
   'home.statusBackendOnly': 'Reconnecting to backend… your agent will be available again shortly.',
+  'home.statusHostedDegraded':
+    "Reconnecting to the cloud… chat keeps working; integrations and channels resume once it's back.",
+  'home.statusHostedStopped':
+    'The cloud link has stopped: sign in again to resume integrations and channels. Chat keeps working.',
   'home.statusCoreUnreachable':
     "The OpenHuman core isn't responding. The background process may have crashed or failed to start.",
   'home.statusInternetOffline':
@@ -625,6 +631,9 @@ const en: TranslationMap = {
   'skills.explorer.installed': 'Installed',
   'skills.explorer.install': 'Install',
   'skills.explorer.installing': 'Installing…',
+  'skills.explorer.notInstallable': 'Not installable',
+  'skills.explorer.notInstallableHint':
+    'This entry has no SKILL.md to download, so it cannot be installed from here.',
   'skills.integrations': 'Composio Integrations',
   'skills.integrationsSubtitle':
     'Cloud-based OAuth connections: sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
@@ -964,6 +973,7 @@ const en: TranslationMap = {
   'memoryTree.status.retryFailedDone': 'Failed jobs requeued',
   'memoryTree.status.retryFailedCount': 'Jobs queued to run again: {count}.',
   'memoryTree.status.retryFailedError': 'Could not requeue the failed jobs',
+  'memoryTree.status.jobQueue': 'Memory jobs: {ready} waiting, {running} running, {failed} failed',
   'memoryTree.status.toggleFailed': "Couldn't toggle auto-sync",
   // Relative-time buckets surfaced by the last-sync tile. `{count}` is
   // replaced client-side at the call site (the runtime `t()` does not
@@ -3008,8 +3018,6 @@ const en: TranslationMap = {
   'memorySources.kind.twitter_query': 'Twitter Search',
   'memorySources.kind.rss_feed': 'RSS Feed',
   'memorySources.kind.web_page': 'Web Page',
-  'memorySources.sync.successTitle': 'Syncing',
-  'memorySources.sync.successMessage': 'Progress will appear shortly.',
   'memorySources.sync.failedTitle': 'Sync failed:',
   'memorySources.sync.completeTitle': 'Synced',
   'memorySources.sync.itemsSynced': 'items synced',
@@ -3017,6 +3025,13 @@ const en: TranslationMap = {
   'memorySources.sync.failedLabel': 'Failed',
   'memorySources.sync.morePending': 'More to sync. Click Sync again',
   'memorySources.sync.budgetSpent': "Today's request budget is spent. Try again tomorrow",
+  'memorySources.stage.requested': 'Starting',
+  'memorySources.stage.running': 'Syncing',
+  'memorySources.stage.fetching': 'Fetching',
+  'memorySources.stage.stored': 'Saving',
+  'memorySources.stage.queued': 'Processing into memory',
+  'memorySources.stage.ingesting': 'Processing into memory',
+  'memorySources.stage.unknown': 'Syncing',
   'time.justNow': 'just now',
   'time.secondsAgoSuffix': 's ago',
   'time.minutesAgoSuffix': 'm ago',
@@ -3836,6 +3851,12 @@ const en: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Something went wrong with this action.',
   'conversations.toolFailure.unknown.next':
     'Try again; if it keeps failing, run diagnostics from Settings.',
+  'conversations.toolFailure.notFound.cause':
+    "What this action asked for doesn't exist or isn't available here.",
+  'conversations.toolFailure.notFound.next':
+    'No action needed. The assistant can look up the right name and try again.',
+  'conversations.toolFailure.unsupported.cause': "OpenHuman can't do this automatically yet.",
+  'conversations.toolFailure.unsupported.next': 'Do it manually, or ask for a different option.',
   'conversations.backgroundTasks.title': 'Background tasks',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',

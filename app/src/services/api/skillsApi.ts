@@ -91,7 +91,7 @@ interface RawWorkflowsReadResourceResult {
 /**
  * Parameters accepted by `openhuman.skills_create`.
  *
- * Matches the wire shape defined in `src/openhuman/skills/schemas.rs`
+ * Matches the wire shape defined in `crates/openhuman-core/src/skills/schemas.rs`
  * (`SkillsCreateParams`) — `allowedTools` is rekeyed to `allowed-tools` on
  * the JSON-RPC envelope per SKILL.md frontmatter convention (with
  * `allowed_tools` accepted as an alias by the Rust deserializer).
@@ -616,7 +616,7 @@ interface RawSkillRunStarted {
 
 /**
  * Slice of a run log file returned by `openhuman.skill_runtime_read_run_log`.
- * Mirrors `crate::openhuman::skills::run_log::RunLogSlice`. The FE
+ * Mirrors `crate::skills::run_log::RunLogSlice`. The FE
  * passes the returned `offset` as the next call's `offset` to tail
  * forward; polling can stop once `complete: true` (the `--- result ---`
  * footer has landed in the file).
@@ -634,7 +634,7 @@ export interface RunLogSlice {
 
 /**
  * One run entry returned by `openhuman.skill_runtime_recent_runs`. Wire shape
- * mirrors `crate::openhuman::skills::run_log::ScannedRun`. `status` is
+ * mirrors `crate::skills::run_log::ScannedRun`. `status` is
  * `"RUNNING"` while the run hasn't written its `--- result ---` footer
  * yet; after the footer lands it becomes `"DONE"` / `"DEGENERATE"` /
  * `"FAILED"`.

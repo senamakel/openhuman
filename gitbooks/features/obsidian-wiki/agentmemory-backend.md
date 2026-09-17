@@ -211,13 +211,11 @@ A dedicated bulk import path is filed as a follow-up.
 
 ## Implementation reference
 
-In-tree files:
+The backend is engine-owned: it lives in the memory engine vendored at `vendor/tinymemory`, not in `crates/openhuman-core`.
 
-- [`store/agentmemory/mod.rs`](https://github.com/tinyhumansai/openhuman/tree/main/src/openhuman/memory/store/agentmemory/mod.rs): module surface
-- [`store/agentmemory/backend.rs`](https://github.com/tinyhumansai/openhuman/tree/main/src/openhuman/memory/store/agentmemory/backend.rs): `impl Memory for AgentMemoryBackend`
-- [`store/agentmemory/client.rs`](https://github.com/tinyhumansai/openhuman/tree/main/src/openhuman/memory/store/agentmemory/client.rs): reqwest wrapper + plaintext-bearer guard
-- [`store/agentmemory/mapping.rs`](https://github.com/tinyhumansai/openhuman/tree/main/src/openhuman/memory/store/agentmemory/mapping.rs): `MemoryEntry` ↔ agentmemory JSON
-- [`tests/agentmemory_backend.rs`](https://github.com/tinyhumansai/openhuman/tree/main/tests/agentmemory_backend.rs): 12 axum-mock integration tests
+- [`crates/tinymemory-remote/src/agentmemory.rs`](https://github.com/tinyhumansai/tinymemory/blob/main/crates/tinymemory-remote/src/agentmemory.rs): the remote backend (client, mapping, and the `Memory` implementation)
+- [`crates/tinymemory-remote/src/agentmemory_test.rs`](https://github.com/tinyhumansai/tinymemory/blob/main/crates/tinymemory-remote/src/agentmemory_test.rs): mock-server integration tests
+- `scripts/ci/agentmemory-e2e.sh` in the same repo: the end-to-end lane against a real agentmemory server
 
 Related upstream:
 

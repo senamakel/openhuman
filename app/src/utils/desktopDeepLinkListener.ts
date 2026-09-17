@@ -3,9 +3,13 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 
 import { getCoreStateSnapshot, patchCoreStateSnapshot } from '../lib/coreState/store';
-import { consumeLoginToken } from '../services/api/authApi';
 import { confirmWaitlistDownload } from '../services/api/waitlistApi';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../services/coreRpcClient';
+import {
+  loginWithToken,
+  sessionErrorKind,
+  storeSessionToken,
+} from '../services/session/sessionOwner';
 import {
   beginDeepLinkAuthProcessing,
   completeDeepLinkAuthProcessing,
@@ -25,7 +29,7 @@ import {
 } from './oauthAppVersionGate';
 import { clearOAuthReturnRoute, takeOAuthReturnRoute } from './oauthReturnRoute';
 import { openUrl } from './openUrl';
-import { storeSession } from './tauriCommands';
+import { getSessionToken } from './tauriCommands';
 import { isTauri as coreIsTauri } from './tauriCommands/common';
 
 const SESSION_TOKEN_UPDATED_EVENT = 'core-state:session-token-updated';
@@ -158,69 +162,20 @@ const focusMainWindow = async () => {
   }
 };
 
-// The Rust core `auth_store_session` with `allowPendingBackendValidation: true`
-// connects to the backend `/auth/me` endpoint. The backend's HTTP client has
-// a 15s connect timeout + 120s request timeout. The frontend RPC timeout must
-// be long enough for the backend to establish a connection (15s) before the
-// first attempt fails, otherwise the retry loop never completes before the
-// backend responds. Set to 25s to cover the 15s connect window with headroom.
-const AUTH_STORE_TIMEOUT_MS = 25_000;
-const AUTH_STORE_RETRIES = 2;
-const AUTH_STORE_RETRY_BACKOFF_MS = 500;
-// The suppress-reauth window must cover the full worst-case retry duration:
-// AUTH_STORE_RETRIES × AUTH_STORE_TIMEOUT_MS + (AUTH_STORE_RETRIES − 1) × backoff
-// = 2 × 25 000 + 500 = 50 500 ms. Add 5 s of headroom for RPC serialization,
-// CoreStateProvider polling jitter, and the final try-catch turnaround.
-const AUTH_STORE_SUPPRESS_REAUTH_MS =
-  AUTH_STORE_RETRIES * AUTH_STORE_TIMEOUT_MS +
-  (AUTH_STORE_RETRIES - 1) * AUTH_STORE_RETRY_BACKOFF_MS +
-  5_000;
+// The session owner (the Tauri shell's `openhuman-session`, or the browser
+// equivalent) validates a fresh JWT against `GET /auth/me` with a 12s budget
+// and one retry, then falls back to a deferred-validation store when the
+// backend is merely unreachable. Cover that whole window, plus the login-token
+// exchange before it, with headroom for RPC serialisation and polling jitter.
+const AUTH_STORE_SUPPRESS_REAUTH_MS = 40_000;
 
 /**
- * Retry-safe wrapper around `storeSession` for transient backend timeouts.
- *
- * The Rust core's `auth_store_session` with `allowPendingBackendValidation: true`
- * already retries the `/auth/me` call once (150ms delay) and falls through to
- * deferred validation on a second transient failure *if* the JWT has a live
- * local exp. However, the frontend coreRpcClient's default timeout (30s) can
- * fire *before* Rust finishes its slow backend call + retry + deferred-validation
- * path, producing a `CoreRpcError(kind='timeout')` even though Rust would have
- * persisted the session successfully. This wrapper retries the whole RPC call
- * so a transient backend blip doesn't bounce the user back to sign-in.
+ * Hand a login token or a raw session token to the session owner and, once
+ * it is installed, surface the stored token to the core-state layer.
  */
-const storeSessionWithRetry = async (sessionToken: string): Promise<void> => {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= AUTH_STORE_RETRIES; attempt++) {
-    try {
-      await storeSession(
-        sessionToken,
-        {},
-        { allowPendingBackendValidation: true, timeoutMs: AUTH_STORE_TIMEOUT_MS }
-      );
-      return; // success
-    } catch (err) {
-      lastError = err;
-      const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-      const isTimeout = /timed out|timeout|operation timed out/.test(message);
-      if (isTimeout && attempt < AUTH_STORE_RETRIES) {
-        console.warn(
-          '[DeepLink][auth] auth_store_session timed out (attempt %d/%d), retrying in %dms',
-          attempt,
-          AUTH_STORE_RETRIES,
-          AUTH_STORE_RETRY_BACKOFF_MS
-        );
-        await new Promise(r => setTimeout(r, AUTH_STORE_RETRY_BACKOFF_MS));
-        continue;
-      }
-      throw err; // non-timeout or last attempt
-    }
-  }
-  throw lastError;
-};
-
-const applySessionToken = async (sessionToken: string): Promise<void> => {
-  // In cloud mode, bust any stale RPC URL/token caches so auth_store_session
-  // targets the user's configured remote core. See issue #2377.
+const applySessionToken = async (install: () => Promise<void>): Promise<void> => {
+  // In cloud mode, bust any stale RPC URL/token caches so the credential
+  // handoff targets the user's configured remote core. See issue #2377.
   const currentCoreMode = getStoredCoreMode();
   if (currentCoreMode === 'cloud') {
     console.debug('[DeepLink] cloud mode: busting RPC caches before session delivery');
@@ -235,9 +190,15 @@ const applySessionToken = async (sessionToken: string): Promise<void> => {
     })
   );
   try {
-    await storeSessionWithRetry(sessionToken);
+    await install();
   } finally {
     window.dispatchEvent(new CustomEvent('core-state:suppress-reauth', { detail: { until: 0 } }));
+  }
+  // The owner stored the JWT in the core; read it back rather than threading
+  // the secret through the renderer.
+  const sessionToken = await getSessionToken();
+  if (!sessionToken) {
+    throw new Error('CORE: session owner reported success but the core holds no session token');
   }
   patchCoreStateSnapshot({ snapshot: { sessionToken } });
   window.dispatchEvent(new CustomEvent(SESSION_TOKEN_UPDATED_EVENT, { detail: { sessionToken } }));
@@ -286,8 +247,9 @@ const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
       return;
     }
 
-    const sessionToken = key === 'auth' ? token : await consumeLoginToken(token);
-    await applySessionToken(sessionToken);
+    await applySessionToken(() =>
+      key === 'auth' ? storeSessionToken(token) : loginWithToken(token)
+    );
 
     // Wait for CoreStateProvider to process the session-token-updated
     // event and commit the refreshed snapshot to React state.
@@ -349,11 +311,10 @@ const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
       // The PII-free `kind` tag + stable fingerprint are all we need to group.
       //
       // Transient connectivity issues (timeout, gateway, network) are reported
-      // at `warning` rather than `error` — the auth flow already retried inside
-      // `storeSessionWithRetry`, and the Rust core with
-      // `allowPendingBackendValidation: true` also retries and falls back to
-      // deferred validation. If the backend was genuinely unreachable through
-      // all retries this is a connectivity observation, not an app crash
+      // at `warning` rather than `error` — the session owner already retried
+      // `/auth/me` and, for a JWT with a live `exp`, fell back to a deferred
+      // validation store. If the backend was genuinely unreachable through
+      // all of that this is a connectivity observation, not an app crash
       // (issue #5166).
       const isTransient =
         kind === 'auth_me_timeout' || kind === 'auth_me_gateway' || kind === 'network';
@@ -402,6 +363,20 @@ const isDecryptionFailure = (message: string): boolean => {
  * no tokens) safe to use as a Sentry tag / fingerprint.
  */
 export const classifyAuthStoreFailure = (message: string): string => {
+  // The session owner prefixes its errors with a stable kind; map those first
+  // so the buckets do not depend on the prose behind the prefix.
+  switch (sessionErrorKind(message)) {
+    case 'rejected':
+    case 'expired':
+      return 'auth_me_unauthorized';
+    case 'transient':
+      return 'auth_me_timeout';
+    case 'consume_failed':
+    case 'user_id':
+      return 'auth_me_other';
+    default:
+      break;
+  }
   const m = message.toLowerCase();
   // Most specific first: the core could not read its own config.toml. Checked
   // ahead of the transport buckets because it is permanent and host-side —
@@ -421,13 +396,13 @@ export const classifyAuthStoreFailure = (message: string): string => {
 /**
  * Build the user-facing message for an auth-*store* failure (issue #3025).
  *
- * `auth_store_session` makes the core validate the freshly minted session token
- * against the backend `GET /auth/me` before persisting it. In **cloud mode**
- * that validation runs on the user's *remote* `openhuman-core`, so the dominant
- * failure is the remote runtime being unable to reach/authenticate against the
- * backend (misconfigured `BACKEND_URL`, offline, or an older core that predates
- * `allowPendingBackendValidation`) — not a problem the desktop can retry away.
- * The old blanket "Sign-in failed. Please try again." gave cloud users no path
+ * The session owner validates the freshly minted session token against the
+ * backend `GET /auth/me` before handing it to the core. In **cloud mode** the
+ * credential is then handed to the user's *remote* `openhuman-core`, so the
+ * dominant failure is that runtime being unreachable or rejecting the RPC
+ * (misconfigured URL / token, offline, or an older core that predates
+ * `auth.set_credential`) — not a problem the desktop can retry away. The old
+ * blanket "Sign-in failed. Please try again." gave cloud users no path
  * forward; point them at the remote runtime instead. Local mode keeps the plain
  * retry message (a transient embedded-core/backend blip that retrying can fix).
  */

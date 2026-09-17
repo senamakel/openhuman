@@ -263,12 +263,12 @@ fn ensure_modules_policy() {
     #[cfg(feature = "modules")]
     {
         let workspace = root.path().to_path_buf();
-        openhuman_core::openhuman::modules::memory::set_modules_policy(Arc::new(
-            openhuman_core::openhuman::config::Config {
+        openhuman_core::modules::memory::set_modules_policy(Arc::new(
+            openhuman_core::config::Config {
                 workspace_dir: workspace.clone(),
                 action_dir: workspace.clone(),
                 config_path: workspace.join("config.toml"),
-                ..openhuman_core::openhuman::config::Config::default()
+                ..openhuman_core::config::Config::default()
             },
         ));
     }

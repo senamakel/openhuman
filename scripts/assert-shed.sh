@@ -26,7 +26,7 @@ profile="${1:?usage: assert-shed.sh <profile> <crate>...}"
 shift
 [[ $# -gt 0 ]] || { echo "assert-shed: no crates given" >&2; exit 2; }
 
-graph="$(GGML_NATIVE=OFF cargo tree -e normal --prefix none \
+graph="$(GGML_NATIVE=OFF cargo tree -p openhuman -e normal --prefix none \
   --no-default-features --features "$profile" 2>/dev/null \
   | sed 's/ (\*)$//' | awk '{print $1}' | sort -u)"
 

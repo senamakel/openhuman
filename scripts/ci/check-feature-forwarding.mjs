@@ -47,8 +47,10 @@ if (extra) {
   process.exit(2);
 }
 
-const corePath = coreArg ? resolve(coreArg) : resolve(REPO_ROOT, 'Cargo.toml');
-const shellPath = shellArg ? resolve(shellArg) : resolve(REPO_ROOT, 'app/src-tauri/Cargo.toml');
+const corePath = coreArg
+  ? resolve(coreArg)
+  : resolve(REPO_ROOT, 'crates/openhuman-core/Cargo.toml');
+const shellPath = shellArg ? resolve(shellArg) : resolve(REPO_ROOT, 'crates/openhuman-app/Cargo.toml');
 const productPath = productArg
   ? resolve(productArg)
   : resolve(REPO_ROOT, 'scripts/ci/product-features.txt');

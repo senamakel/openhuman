@@ -86,7 +86,7 @@ interface CategorizedError {
 /**
  * Map the stable Rust error prefixes from `install_skill_from_url` to a
  * short human-readable title + hint. See
- * `src/openhuman/skills/ops.rs::install_skill_from_url` for the full list.
+ * `crates/openhuman-core/src/skills/ops.rs::install_skill_from_url` for the full list.
  */
 function categorizeInstallError(
   t: (key: string, fallback?: string) => string,

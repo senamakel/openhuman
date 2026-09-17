@@ -18,14 +18,14 @@ use tempfile::{tempdir, TempDir};
 use tokio::time::timeout;
 
 use openhuman_core::core::socketio::WebChannelEvent;
-use openhuman_core::openhuman::web_chat::{
+use openhuman_core::web_chat::{
     all_web_channel_controller_schemas, all_web_channel_registered_controllers, cancel_chat,
     channel_web_cancel, publish_web_channel_event, schemas as web_channel_schema, start_chat,
     subscribe_web_channel_events, ChatRequestMetadata,
 };
-use openhuman_core::openhuman::config::{AutonomyConfig, Config};
-use openhuman_core::openhuman::security::{AutonomyLevel, SecurityPolicy};
-use openhuman_core::openhuman::tools::{
+use openhuman_core::config::{AutonomyConfig, Config};
+use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
+use openhuman_core::tools::{
     ComposioTool, GitOperationsTool, ScheduleTool, Tool, ToolCallOptions,
 };
 
@@ -75,7 +75,7 @@ fn temp_config() -> (TempDir, Config) {
     (tmp, config)
 }
 
-fn text(result: &openhuman_core::openhuman::tools::ToolResult) -> String {
+fn text(result: &openhuman_core::tools::ToolResult) -> String {
     result.output()
 }
 

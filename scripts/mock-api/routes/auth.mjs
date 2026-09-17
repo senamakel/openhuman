@@ -13,7 +13,7 @@ export async function handleAuth(ctx) {
 
   // Login-token consume. The core POSTs to `/auth/login-token/consume` with the
   // token in a JSON body `{ token, audience? }` and parses `{ success, data: { jwt } }`
-  // (see src/api/rest.rs `consume_login_token`). The legacy path-param route
+  // (see crates/openhuman-core/src/api/rest.rs `consume_login_token`). The legacy path-param route
   // `/telegram/login-tokens/:token/consume` was removed backend-side but is kept
   // here as a harmless alias in case an older client is exercised.
   if (

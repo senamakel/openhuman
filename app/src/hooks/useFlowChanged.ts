@@ -8,7 +8,7 @@
  * silently working against (and later clobbering) stale state.
  *
  * The backend publishes `DomainEvent::FlowChanged` on create/update/delete/
- * enable; the core socket bridge (`src/core/socketio.rs`) re-emits it as both
+ * enable; the core socket bridge (`crates/openhuman-core/src/core/socketio.rs`) re-emits it as both
  * `flow:changed` and `flow_changed` (colon + underscore aliases) with the
  * payload `{ flow_id, kind, actor }`.
  *

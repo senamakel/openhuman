@@ -7,6 +7,7 @@ import type { SourceStatus } from '../../../services/memorySourcesService';
 import {
   applyStageEvent,
   getMemorySyncActivity,
+  LATE_ITEM_STAGE_WINDOW_MS,
   noteSyncRejected,
   noteSyncRequested,
   RECONCILE_GRACE_MS,
@@ -129,5 +130,76 @@ describe('memorySyncActivityStore', () => {
     applyStageEvent({ stage: 'running', source_id: 'src-f', detail: null });
     reconcileWithStatuses([status('src-f')], Date.now() + RECONCILE_GRACE_MS * 10);
     expect(getMemorySyncActivity().progress.has('src-f')).toBe(true);
+  });
+
+  // openhuman#6257: the core's bridge re-emits per-document stages, and they
+  // can trail the run's terminal event.
+  it('keeps the result when a per-item stage trails the terminal event', () => {
+    applyStageEvent({ stage: 'running', source_id: 'src-i', detail: null });
+    applyStageEvent({ stage: 'completed', source_id: 'src-i', detail: 'ingested 2 item(s)' });
+    for (const stage of ['stored', 'queued', 'ingesting']) {
+      applyStageEvent({ stage, source_id: 'src-i', detail: 'queued chunk extraction' });
+    }
+    const s = getMemorySyncActivity();
+    expect(s.progress.has('src-i')).toBe(false);
+    expect(s.syncingIds.has('src-i')).toBe(false);
+    expect(s.results.get('src-i')).toEqual({ kind: 'success', items: 2, reason: null, note: null });
+  });
+
+  it('tracks a new run after a finished one', () => {
+    applyStageEvent({ stage: 'failed', source_id: 'src-j', detail: 'boom' });
+    applyStageEvent({ stage: 'requested', source_id: 'src-j', detail: null });
+    applyStageEvent({ stage: 'queued', source_id: 'src-j', detail: null });
+    const s = getMemorySyncActivity();
+    expect(s.progress.get('src-j')?.stage).toBe('queued');
+    expect(s.syncingIds.has('src-j')).toBe(true);
+    expect(s.results.has('src-j')).toBe(false);
+  });
+
+  it('lets a Sync press start a new run whose item stages count again', () => {
+    applyStageEvent({ stage: 'completed', source_id: 'src-k', detail: 'ingested 0 item(s)' });
+    noteSyncRequested('src-k');
+    applyStageEvent({ stage: 'stored', source_id: 'src-k', detail: null });
+    expect(getMemorySyncActivity().progress.get('src-k')?.stage).toBe('stored');
+  });
+
+  it('does not seed a per-item stage the poll reports for a finished run', () => {
+    applyStageEvent({ stage: 'completed', source_id: 'src-l', detail: 'ingested 1 item(s)' });
+    reconcileWithStatuses([status('src-l', { sync_stage: 'queued', sync_detail: null })]);
+    const s = getMemorySyncActivity();
+    expect(s.progress.has('src-l')).toBe(false);
+    expect(s.syncingIds.has('src-l')).toBe(false);
+  });
+
+  // A run whose start the app never saw shows up as per-item stages only, so
+  // once the window the core applies too has passed, those stages count.
+  it('counts per-item stages again once the finished run is past the window', () => {
+    const now = vi.spyOn(Date, 'now');
+    const finishedAt = 5_000_000;
+    now.mockReturnValue(finishedAt);
+    applyStageEvent({ stage: 'completed', source_id: 'src-m', detail: 'ingested 1 item(s)' });
+
+    now.mockReturnValue(finishedAt + LATE_ITEM_STAGE_WINDOW_MS);
+    applyStageEvent({ stage: 'queued', source_id: 'src-m', detail: null });
+    expect(getMemorySyncActivity().progress.has('src-m')).toBe(false);
+
+    now.mockReturnValue(finishedAt + LATE_ITEM_STAGE_WINDOW_MS + 1);
+    applyStageEvent({ stage: 'queued', source_id: 'src-m', detail: null });
+    expect(getMemorySyncActivity().progress.get('src-m')?.stage).toBe('queued');
+    expect(getMemorySyncActivity().syncingIds.has('src-m')).toBe(true);
+    now.mockRestore();
+  });
+
+  it('lets the poll seed a per-item stage once the finished run is past the window', () => {
+    const finishedAt = 7_000_000;
+    const now = vi.spyOn(Date, 'now').mockReturnValue(finishedAt);
+    applyStageEvent({ stage: 'completed', source_id: 'src-n', detail: 'ingested 1 item(s)' });
+    now.mockRestore();
+
+    const live = [status('src-n', { sync_stage: 'ingesting', sync_detail: null })];
+    reconcileWithStatuses(live, finishedAt + LATE_ITEM_STAGE_WINDOW_MS);
+    expect(getMemorySyncActivity().syncingIds.has('src-n')).toBe(false);
+    reconcileWithStatuses(live, finishedAt + LATE_ITEM_STAGE_WINDOW_MS + 1);
+    expect(getMemorySyncActivity().syncingIds.has('src-n')).toBe(true);
   });
 });

@@ -12,7 +12,7 @@
  *   - 13.5.3 Full State Reset → back to Welcome screen
  */
 import { waitForApp } from '../helpers/app-helpers';
-import { clickText, textExists, waitForText } from '../helpers/element-helpers';
+import { clickTestId, clickText, textExists, waitForText } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -34,24 +34,22 @@ describe('Settings - Data Management', function () {
 
   it('shows Clear App Data confirmation dialog and handles Cancel (13.5.1)', async () => {
     await navigateViaHash('/settings/account');
-    await waitForText('Clear App Data', 15_000);
+    await clickTestId('settings-nav-logout-and-clear', 15_000);
 
-    await clickText('Clear App Data');
     await waitForText('This will sign you out and permanently delete local app data', 5_000);
 
     await clickText('Cancel');
     expect(await textExists('This will sign you out and permanently delete local app data')).toBe(
       false
     );
-    expect(await textExists('Clear App Data')).toBe(true);
+    expect(await textExists('Clear app data')).toBe(true);
   });
 
   it('performs Full State Reset (13.5.3)', async function () {
     this.timeout(60_000);
     await navigateViaHash('/settings/account');
-    await waitForText('Clear App Data', 15_000);
+    await clickTestId('settings-nav-logout-and-clear', 15_000);
 
-    await clickText('Clear App Data');
     await waitForText('This will sign you out', 5_000);
     // The confirm button in the modal has the same label as the trigger.
     // Use browser.execute to click the amber-colored confirm button which
@@ -59,7 +57,7 @@ describe('Settings - Data Management', function () {
     await browser.execute(() => {
       const buttons = Array.from(document.querySelectorAll('button'));
       const confirmBtn = buttons
-        .filter(b => b.textContent?.trim().includes('Clear App Data'))
+        .filter(b => b.textContent?.trim().toLowerCase() === 'clear app data')
         .pop(); // last match = the modal confirm button
       confirmBtn?.click();
     });

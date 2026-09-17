@@ -2,12 +2,12 @@
 //!
 //! Parser/state seams only: no real network traffic.
 
-use openhuman_core::openhuman::channels::bus::test_support as bus_support;
-use openhuman_core::openhuman::channels::providers::email_channel::test_support as email_support;
-use openhuman_core::openhuman::channels::providers::lark::test_support as lark_support;
-use openhuman_core::openhuman::channels::providers::telegram::test_support as telegram_support;
-use openhuman_core::openhuman::channels::test_support as runtime_support;
-use openhuman_core::openhuman::channels::traits::ChannelMessage;
+use openhuman_core::channels::bus::test_support as bus_support;
+use openhuman_core::channels::providers::email_channel::test_support as email_support;
+use openhuman_core::channels::providers::lark::test_support as lark_support;
+use openhuman_core::channels::providers::telegram::test_support as telegram_support;
+use openhuman_core::channels::test_support as runtime_support;
+use openhuman_core::channels::traits::ChannelMessage;
 use serde_json::json;
 
 fn channel_message(channel: &str, reply_target: &str, content: &str) -> ChannelMessage {

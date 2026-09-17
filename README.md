@@ -79,9 +79,9 @@ OpenHuman is three things most assistants aren't: **a brain** that builds a pers
 
 ### 🔬 The deep researcher & doer
 
-- **Batteries included**: managed [web search](https://tinyhumans.gitbook.io/openhuman/features/native-tools/web-search), powered by [Exa](https://exa.ai), is included with your OpenHuman subscription and needs no API key; bring your own Exa key to search directly on your own Exa account and billing. Plus scraper, coder toolset, a real [browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), and [native voice](gitbooks/features/native-tools/voice.md) with in-process Whisper. [Model routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing) picks the right LLM per workload on one subscription. That subscription is a default, not a lock-in: point any workload at [your own provider key or a fully local Ollama model](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-and-byok-models), and mix the three however you like.
+- **Batteries included**: managed [web search](https://tinyhumans.gitbook.io/openhuman/features/native-tools/web-search), powered by [Exa](https://exa.ai), is included with your OpenHuman subscription and needs no API key; bring your own Exa key to search directly on your own Exa account and billing. Plus scraper, coder toolset, a real [browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), and [native voice](gitbooks/features/native-tools/voice.md) with backend-proxied speech-to-text and hosted or local Piper text-to-speech. [Model routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing) picks the right LLM per workload on one subscription. That subscription is a default, not a lock-in: point any workload at [your own provider key or a fully local Ollama model](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-and-byok-models), and mix the three however you like.
 - **[Image & video generation](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit images and Seedance/Veo video, straight into your workspace on the same subscription.
-- **[17 messaging channels](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… plus **native email** (IMAP IDLE + SMTP). Your agent reaches you where you already are.
+- **[15 messaging channels](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… plus **native email** (IMAP IDLE + SMTP). Your agent reaches you where you already are.
 
 ### 🧍 Human, private, yours
 
@@ -146,7 +146,7 @@ High-level comparison (products evolve, so verify against each vendor). OpenHuma
 | **Orchestration**      | ⚠️ Sub-tasks      | ⚠️ Single loop    | ⚠️ Single loop    | 🚀 Agent graphs + checkpoints + E2E-encrypted A2A                                                        |
 | **Workflows**          | 🚫 None           | ⚠️ Scripts        | ⚠️ Scripts        | 🚀 Visual, durable, agent-proposed, approval-gated                                                       |
 | **Meetings**           | 🚫 None           | 🚫 None           | 🚫 None           | 🚀 Joins Meet/Zoom/Teams/Webex, speaks, live transcript                                                  |
-| **Messaging channels** | 🚫 None           | ⚠️ A few          | ⚠️ A few          | ✅ 17 incl. native email (IMAP/SMTP)                                                                     |
+| **Messaging channels** | 🚫 None           | ⚠️ A few          | ⚠️ A few          | ✅ 15 incl. native email (IMAP/SMTP)                                                                     |
 | **Local-only mode**    | 🚫 Cloud-only     | ⚠️ BYO local      | ⚠️ BYO local      | ✅ One-switch enforced Privacy Mode                                                                      |
 | **Observability**      | 🚫 Opaque         | ⚠️ Logs           | ⚠️ Logs           | ✅ Replayable run journals + per-call cost accounting                                                    |
 | **API sprawl**         | 🚫 Extra keys     | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                                                                                           |
@@ -158,8 +158,16 @@ High-level comparison (products evolve, so verify against each vendor). OpenHuma
 New contributor? Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the fork/PR workflow and local validation commands, or use the copy-paste AI-agent prompt in [`CONTRIBUTING-BEGINNERS.md`](./docs/CONTRIBUTING-BEGINNERS.md#optional--let-an-ai-coding-agent-guide-you). The short path is:
 
 1. Install Git, Node.js 24+, pnpm 10.10.0, Rust 1.96.1 (`rustfmt` + `clippy`), CMake, Ninja, ripgrep, and the platform desktop build prerequisites.
-2. Fork and clone the repo, then run `git submodule update --init --recursive` before `pnpm install` so the vendored Tauri/CEF sources are present.
+2. Fork and clone the repo, then run `git submodule update --init --recursive` before `pnpm install` so the vendored Rust dependencies under `vendor/` (tinyagents, tinyflows, tinychannels, tinymemory, motosan-ai-oauth, ...) resolve.
 3. Use `pnpm dev` for web-only UI work, `pnpm --filter openhuman-app dev:app` (macOS) or `pnpm dev:app:win` (Windows) for the desktop shell, and focused checks such as `pnpm typecheck`, `pnpm format:check`, and `cargo check -p openhuman --lib` before opening a PR.
+
+The Rust workspace under `crates/` splits into `crates/openhuman-core` (package
+`openhuman`: the core plus the `openhuman-core` CLI), `crates/openhuman-app`
+(the Tauri desktop shell, built as a separate Cargo world), `crates/openhuman-embed`
+(the library facade for embedding the core), `crates/openhuman-rpc` (shared RPC
+contracts and client), and `crates/openhuman-tui` (the terminal client). See
+[Building the Rust core](./gitbooks/developing/building-rust-core.md) and
+[AGENTS.md](./AGENTS.md#repository-map) for the full layout.
 
 Deeper docs: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud Deploy](./gitbooks/features/cloud-deploy.md).
 

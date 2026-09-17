@@ -250,7 +250,7 @@ export interface ChatPlanReviewRequestEvent {
 /**
  * Lowercase variant of the Rust `ArtifactKind` enum surfaced on
  * artifact lifecycle socket events. Mirrors the slugs produced by
- * `ArtifactKind::as_str()` in `src/openhuman/agent/artifacts/types.rs`.
+ * `ArtifactKind::as_str()` in `crates/openhuman-core/src/agent/artifacts/types.rs`.
  */
 export type ArtifactKind = 'presentation' | 'document' | 'image' | 'other';
 
@@ -385,7 +385,7 @@ export interface ChatSubagentDoneEvent {
  * `subagent_tool_call`, `subagent_tool_result`).
  *
  * Matches the Rust `SubagentProgressDetail` struct in
- * `src/core/socketio.rs` — every field is optional so older cores that
+ * `crates/openhuman-core/src/core/socketio.rs` — every field is optional so older cores that
  * don't emit it stay parseable.
  */
 export interface SubagentProgressDetail {

@@ -6,7 +6,7 @@
  * through the mock LLM, which emits cron tool calls, and verifies that the
  * in-process core actually mutates cron state (confirmed via oracle RPCs).
  *
- * Actual tool names discovered in src/openhuman/tools/impl/cron/:
+ * Actual tool names discovered in crates/openhuman-core/src/tools/impl/cron/:
  *   - "cron_add"    — create a new cron job
  *   - "cron_list"   — list existing jobs
  *   - "cron_update" — change schedule / enabled flag
@@ -83,7 +83,7 @@ async function listCronJobs(): Promise<Array<{ id: string; name: string; schedul
  * because the harness scenarios exercise agent-style scheduled reminders.
  *
  * `cron_add` has no way to seed a job disabled (the RPC hard-codes
- * `enabled: true` for agent jobs; see `src/openhuman/cron/schemas.rs:359`).
+ * `enabled: true` for agent jobs; see `crates/openhuman-core/src/cron/schemas.rs:359`).
  * Since scenarios seed schedules like `0 9 * * *` and `0 10 * * 5`, a run
  * that crosses one of those times would otherwise let the scheduler fire
  * the oracle job during a later scenario — consuming mock LLM responses

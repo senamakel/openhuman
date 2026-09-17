@@ -133,6 +133,15 @@ describe('rpcMethods catalog', () => {
     // Over-inclusion is harmless — the guard only searches for substrings —
     // and `readFileSync` still throws if a listed base file moves entirely,
     // which is the loud failure we want.
+    const readRustTree = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+        const entryPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) return readRustTree(entryPath);
+        return entry.name.endsWith('.rs') && !entry.name.endsWith('_tests.rs')
+          ? [fs.readFileSync(entryPath, 'utf8')]
+          : [];
+      });
+
     const readWithParts = (relFile: string): string => {
       const abs = path.resolve(__dirname, relFile);
       const dir = path.dirname(abs);
@@ -141,22 +150,33 @@ describe('rpcMethods catalog', () => {
         .filter(name => name.endsWith('.rs') && name.includes('_part_'))
         .sort()
         .map(name => fs.readFileSync(path.join(dir, name), 'utf8'));
-      return [fs.readFileSync(abs, 'utf8'), ...parts].join('\n');
+      // A split can instead promote `foo.rs` to `foo/mod.rs` with the former
+      // file retained as the module root. Scan that named companion directory
+      // too, excluding test modules, so its controller literals stay covered.
+      const companionDir = path.join(dir, path.basename(abs, '.rs'));
+      const companion = fs.existsSync(companionDir) ? readRustTree(companionDir) : [];
+      return [fs.readFileSync(abs, 'utf8'), ...parts, ...companion].join('\n');
     };
 
     const schemaSources = [
-      readWithParts('../../../../src/openhuman/config/schemas/schema_defs.rs'),
-      readWithParts('../../../../src/openhuman/inference/provider/schemas.rs'),
-      readWithParts('../../../../src/openhuman/inference/schemas.rs'),
-      readWithParts('../../../../src/openhuman/inference/local/schemas.rs'),
-      readWithParts('../../../../src/openhuman/inference/embeddings/schemas.rs'),
-      readWithParts('../../../../src/openhuman/mcp/registry/schemas.rs'),
-      readWithParts('../../../../src/openhuman/tools/registry/schemas.rs'),
-      readWithParts('../../../../src/openhuman/platform/health/schemas.rs'),
-      readWithParts('../../../../src/openhuman/channels/controllers/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/config/schemas/schema_defs.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/inference/provider/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/inference/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/inference/local/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/inference/embeddings/schemas.rs'),
+      // The MCP registry split its schemas module into a directory. Controller
+      // definitions (and therefore the mcp_clients literals this guard owns)
+      // live in `registry.rs`; keep this path explicit so another move fails
+      // loudly instead of silently shortening the scanned catalog.
+      readWithParts('../../../../crates/openhuman-core/src/mcp/registry/schemas/registry.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/tools/registry/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/platform/health/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/channels/controllers/schemas.rs'),
+      // The credential handoff RPCs (`auth_set_credential` / `auth_clear_credential`).
+      readWithParts('../../../../crates/openhuman-core/src/security/credentials/schemas.rs'),
       // The channels_* namespace/function literals now live in the vendored
       // tinychannels workspace (`ChannelControllerSchema`), not in the thin
-      // `src/openhuman/channels/controllers/schemas.rs` adapter above, which
+      // `crates/openhuman-core/src/channels/controllers/schemas.rs` adapter above, which
       // only converts from it (#4557 "Use tinychannels provider
       // implementations") — read both so this drift guard still sees them.
       //
@@ -177,21 +197,23 @@ describe('rpcMethods catalog', () => {
       // core.* methods (e.g. core.ping) are special dispatch methods, not in the schema catalog.
       if (!method.startsWith('openhuman.')) continue;
       const methodRoot = method.slice('openhuman.'.length);
-      const namespace = methodRoot.startsWith('inference_')
-        ? 'inference'
-        : methodRoot.startsWith('embeddings_')
-          ? 'embeddings'
-          : methodRoot.startsWith('providers_')
-            ? 'providers'
-            : methodRoot.startsWith('mcp_clients_')
-              ? 'mcp_clients'
-              : methodRoot.startsWith('health_')
-                ? 'health'
-                : methodRoot.startsWith('channels_')
-                  ? 'channels'
-                  : methodRoot.startsWith('tool_registry_')
-                    ? 'tool_registry'
-                    : 'config';
+      const namespace = methodRoot.startsWith('auth_')
+        ? 'auth'
+        : methodRoot.startsWith('inference_')
+          ? 'inference'
+          : methodRoot.startsWith('embeddings_')
+            ? 'embeddings'
+            : methodRoot.startsWith('providers_')
+              ? 'providers'
+              : methodRoot.startsWith('mcp_clients_')
+                ? 'mcp_clients'
+                : methodRoot.startsWith('health_')
+                  ? 'health'
+                  : methodRoot.startsWith('channels_')
+                    ? 'channels'
+                    : methodRoot.startsWith('tool_registry_')
+                      ? 'tool_registry'
+                      : 'config';
       const fnName = methodRoot.slice(`${namespace}_`.length);
       expect(schemaSources).toContain(`namespace: "${namespace}"`);
       expect(schemaSources).toContain(`function: "${fnName}"`);

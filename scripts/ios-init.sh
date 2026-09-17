@@ -5,7 +5,7 @@
 # Run from the repo root.
 #
 # The iOS host lives in `app/src-tauri-mobile/` (separate Cargo crate from
-# the desktop host at `app/src-tauri/`) because the desktop crate is pinned
+# the desktop host at `crates/openhuman-app/`) because the desktop crate is pinned
 # to a vendored CEF Tauri fork that does not support iOS.
 #
 # After this script completes:
@@ -73,7 +73,7 @@ fi
 
 # The generated Xcode build phase runs `npm run -- tauri ...` from gen/apple.
 # In this repo that resolves the app-level package script and makes Tauri look
-# for app/src-tauri/gen/apple (desktop) instead of app/src-tauri-mobile/gen/apple.
+# for crates/openhuman-app/gen/apple (desktop) instead of app/src-tauri-mobile/gen/apple.
 # Tauri's `ios xcode-script` also loses access to the installed iOS simulator
 # Rust std in Xcode's script environment. Build the mobile staticlib directly
 # from the mobile crate root and copy it to the location the Xcode target links.

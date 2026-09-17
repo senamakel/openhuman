@@ -15,7 +15,7 @@ const USER_ID = 'e2e-tool-filesystem';
  * same security contract the agent-facing `file_read` / `file_write` tools
  * enforce: workspace-relative paths only, parent-traversal blocked, absolute
  * paths blocked, all writes confined to `OPENHUMAN_WORKSPACE`. The Rust unit
- * tests in `src/openhuman/tools/impl/filesystem/file_read.rs` /
+ * tests in `crates/openhuman-core/src/tools/impl/filesystem/file_read.rs` /
  * `file_write.rs` cover the in-process tool path; this WDIO spec proves the
  * UI⇄Tauri⇄sidecar wiring honours the same gates over JSON-RPC.
  *

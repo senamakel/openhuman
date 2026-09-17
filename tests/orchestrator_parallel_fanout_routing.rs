@@ -22,7 +22,7 @@
 //! asserting against a prompt that no longer mentions it.
 
 const ORCHESTRATOR_PROMPT: &str =
-    include_str!("../src/openhuman/agent/registry/agents/orchestrator/prompt.md");
+    include_str!("../crates/openhuman-core/src/agent/registry/agents/orchestrator/prompt.md");
 
 #[test]
 fn prompt_routes_fanout_to_concurrent_async_spawns() {

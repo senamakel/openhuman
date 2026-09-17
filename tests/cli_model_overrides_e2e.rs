@@ -13,7 +13,6 @@ fn cli_model_and_provider_flags_override_the_loaded_session_without_persisting()
             "ollama",
             "--model",
             "qwen3:8b",
-            "--no-tui",
             "inference",
             "get_client_config",
         ])
@@ -58,7 +57,7 @@ fn cli_model_and_provider_flags_override_the_loaded_session_without_persisting()
 fn a_mutating_cli_command_does_not_persist_launch_overrides() {
     let workspace = tempfile::tempdir().expect("temporary OpenHuman workspace");
     let initialize = Command::new(env!("CARGO_BIN_EXE_openhuman-core"))
-        .args(["--no-tui", "config", "get"])
+        .args(["config", "get"])
         .env("OPENHUMAN_WORKSPACE", workspace.path())
         .output()
         .expect("initialize OpenHuman config");
@@ -72,7 +71,6 @@ fn a_mutating_cli_command_does_not_persist_launch_overrides() {
             "ollama",
             "--model",
             "qwen3:8b",
-            "--no-tui",
             "config",
             "set_onboarding_completed",
             "--value",

@@ -18,7 +18,7 @@ import { callCoreRpc } from '../coreRpcClient';
 const log = debug('voiceInstallApi');
 
 /**
- * Stable wire shape of [`crate::openhuman::inference::local::voice_install_common::VoiceInstallState`].
+ * Stable wire shape of [`crate::inference::local::voice_install_common::VoiceInstallState`].
  *
  * The Rust enum serializes via `#[serde(rename_all = "snake_case")]` so
  * the TypeScript union mirrors the lowercase variants exactly.

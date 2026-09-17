@@ -8,7 +8,7 @@
 //!
 //! tinymemory v1.13.4 deleted the in-process Composio pipeline outright (72
 //! files, ~18.3k lines) — see
-//! `crate::openhuman::integrations::composio::providers`'s module docs for the
+//! `crate::integrations::composio::providers`'s module docs for the
 //! full account. This file originally instantiated the deleted engine's
 //! `SlackProvider` / `NotionProvider` / `GmailProvider` directly against a
 //! loopback HTTP router standing in for the Composio execute API, and
@@ -56,12 +56,12 @@ use std::sync::{Mutex, OnceLock};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::integrations::composio::identity_store::{
+use openhuman_core::config::Config;
+use openhuman_core::integrations::composio::identity_store::{
     delete_connected_identity_facets, load_connected_identities, persist_provider_profile,
 };
-use openhuman_core::openhuman::integrations::composio::ops::composio_get_user_profile;
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::integrations::composio::ops::composio_get_user_profile;
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use tinymemory_api::composio::{render_connected_identities_section, ProviderUserProfile};

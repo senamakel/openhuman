@@ -33,7 +33,7 @@ Implementation: `app/src/utils/oauthAppVersionGate.ts`, `app/src/utils/desktopDe
 
 ## Release checklist (avoid regressions)
 
-1. Bump `app/package.json` and `app/src-tauri/tauri.conf.json` (and root `Cargo.toml` / core) per existing version workflows.
+1. Bump `app/package.json` and `crates/openhuman-app/tauri.conf.json` (and root `Cargo.toml` / core) per existing version workflows.
 2. When dropping support for older installs, set **`VITE_MINIMUM_SUPPORTED_APP_VERSION`** to the new floor **before** or **with** that release (repo Actions variables + both workflow steps above).
 3. Remove, redirect, or retire older stable installers and stale **updater** entries from user-facing surfaces (GitHub Release assets, website, CDN, updater feed). Confirm deprecated artifacts are not reachable from default install/update flows.
 4. Smoke-test **Gmail connect** on a fresh install from **releases/latest**.

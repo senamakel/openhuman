@@ -4,8 +4,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_DIR="$REPO_ROOT/app"
-APP_BUNDLE="$REPO_ROOT/app/src-tauri/target/release/bundle/macos/OpenHuman.app"
-DMG_DIR="$REPO_ROOT/app/src-tauri/target/release/bundle/dmg"
+APP_BUNDLE="$REPO_ROOT/crates/openhuman-app/target/release/bundle/macos/OpenHuman.app"
+DMG_DIR="$REPO_ROOT/crates/openhuman-app/target/release/bundle/dmg"
 TEMP_ENV_CREATED=0
 TMP_TAURI_CONF=""
 
@@ -66,7 +66,7 @@ node -e '
   config.build = config.build || {};
   config.build.beforeBuildCommand = "echo \"[dry-run] beforeBuildCommand handled externally\"";
   fs.writeFileSync(output, `${JSON.stringify(config, null, 2)}\n`);
-' "$APP_DIR/src-tauri/tauri.conf.json" "$TMP_TAURI_CONF"
+' "$REPO_ROOT/crates/openhuman-app/tauri.conf.json" "$TMP_TAURI_CONF"
 
 echo "[dry-run] Building local DMG with staged sidecar"
 (

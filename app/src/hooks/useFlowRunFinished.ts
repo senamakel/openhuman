@@ -9,7 +9,7 @@
  *
  * The backend publishes `DomainEvent::FlowRunFinished` right after
  * `flows::ops::finish_flow_run_row` persists the settled row; the core socket
- * bridge (`src/core/socketio.rs`) re-emits it as both `flow:run_finished` and
+ * bridge (`crates/openhuman-core/src/core/socketio.rs`) re-emits it as both `flow:run_finished` and
  * `flow_run_finished` (colon + underscore aliases) with the payload
  * `{ flow_id, run_id, status }`.
  *

@@ -17,6 +17,14 @@ const log = debug('skillRegistryApi');
 const CATALOG_RPC_TIMEOUT_MS = 120_000;
 
 /**
+ * An install first locates the skill's SKILL.md (for skills.sh entries that
+ * means probing the GitHub repo and possibly listing it), then fetches it with
+ * the core's 60s download budget. That regularly outlasts the default 30s RPC
+ * timeout, which would report a failure for an install still in progress.
+ */
+const INSTALL_RPC_TIMEOUT_MS = 120_000;
+
+/**
  * In-memory, session-scoped cache for the unfiltered `browse()` catalog.
  *
  * The backend already single-flights the upstream ~90k-entry fetch, so warm
@@ -185,7 +193,11 @@ export const skillRegistryApi = {
     log('install: entryId=%s', entryId);
     const response = await callCoreRpc<
       Envelope<RawRegistryInstallResult> | RawRegistryInstallResult
-    >({ method: 'openhuman.skill_registry_install', params: { entry_id: entryId } });
+    >({
+      method: 'openhuman.skill_registry_install',
+      params: { entry_id: entryId },
+      timeoutMs: INSTALL_RPC_TIMEOUT_MS,
+    });
     const raw = unwrap(response);
     const result: RegistryInstallResult = {
       url: raw.url,

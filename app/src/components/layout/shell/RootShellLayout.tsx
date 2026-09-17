@@ -243,7 +243,7 @@ export default function RootShellLayout({ sidebar, children, unframed }: RootShe
           CDP-driven scanners and the `webview_accounts` surface they ran
           inside were removed (#5478), and the app itself moved off CEF onto
           Wry (#5456) — see `CLAUDE.md`'s Tauri-shell section. `grep -rln
-          "webview_accounts\|WebviewWindow::builder" app/src-tauri/src`
+          "webview_accounts\|WebviewWindow::builder" crates/openhuman-app/src`
           confirms there is no bounds-tracked child webview left anywhere in
           the shell; the whole app renders as one native webview, so there is
           no second compositing layer for a narrowed HTML column to be

@@ -3,7 +3,7 @@
 # Ingests data, runs ticks, verifies decisions.
 set -euo pipefail
 
-CORE_BIN="./app/src-tauri/binaries/openhuman-core-x86_64-pc-windows-msvc.exe"
+CORE_BIN="./crates/openhuman-app/binaries/openhuman-core-x86_64-pc-windows-msvc.exe"
 RPC_PORT=7810
 RPC_URL="http://127.0.0.1:${RPC_PORT}/rpc"
 FIXTURES="./tests/fixtures/subconscious"

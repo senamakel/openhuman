@@ -16,6 +16,8 @@ const LOCALIZED_FAILURE_CLASSES: ReadonlySet<string> = new Set([
   'timeout',
   'denied',
   'approvalExpired',
+  'notFound',
+  'unsupported',
   'unknown',
 ]);
 

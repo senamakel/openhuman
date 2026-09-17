@@ -1,0 +1,165 @@
+//! Context management configuration.
+//!
+//! Knobs for the global `crates/openhuman-core/src/agent/context/` module — budget
+//! thresholds, summarization trigger percentages, microcompact behavior,
+//! and the session-memory extraction cadence. Wired into the root
+//! [`super::Config`] as the `context` section; env overrides live in
+//! [`super::load`].
+
+use crate::agent::context::session_memory::SessionMemoryConfig;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+/// Top-level context-management config. All fields are optional in
+/// `config.toml` and fall back to the defaults shipped in
+/// [`ContextConfig::default`].
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+pub struct ContextConfig {
+    /// Master switch. When `false`, [`crate::agent::context::ContextManager`]
+    /// skips every reduction stage and the summarizer is never invoked.
+    /// Useful for tests and diagnostics; not recommended for production.
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+
+    /// Enable stage 3 (microcompact) — clearing older `ToolResults`
+    /// payloads to free tokens before falling back to summarization.
+    #[serde(default = "default_true")]
+    pub microcompact_enabled: bool,
+
+    /// Enable stage 4 (autocompact) — install the TinyAgents summarization
+    /// middleware when the transcript approaches the model context window.
+    #[serde(default = "default_true")]
+    pub autocompact_enabled: bool,
+
+    /// How many of the most-recent `ToolResults` envelopes microcompact
+    /// leaves untouched when it runs. Older envelopes are cleared first.
+    #[serde(default = "default_microcompact_keep_recent")]
+    pub microcompact_keep_recent: usize,
+
+    /// Maximum byte length of a single tool-result body before the
+    /// TinyAgents tool-output middleware budget stage truncates it.
+    /// `0` disables the cap. Applied inline at tool-execution time
+    /// before the result enters history, so it is cache-safe.
+    ///
+    /// **Migration note:** this field used to live on
+    /// [`super::AgentConfig::tool_result_budget_bytes`]. It has moved
+    /// here because it is logically a context-reduction knob. A
+    /// compatibility `#[serde(alias)]` on `AgentConfig` keeps existing
+    /// `config.toml` files parsing cleanly during the transition.
+    #[serde(default = "default_tool_result_budget_bytes")]
+    pub tool_result_budget_bytes: usize,
+
+    /// Tool results larger than this **token** count trigger the
+    /// `summarizer` sub-agent (orchestrator session only). The summarizer
+    /// compresses the payload into a dense note that preserves
+    /// identifiers and key facts, and the compressed summary replaces
+    /// the raw payload before it enters agent history. Default: 4000 tokens.
+    /// Set to 0 to disable.
+    ///
+    /// Token count is estimated as `chars / 4` (the same heuristic used
+    /// by `tree_summarizer::estimate_tokens`). Pairs with
+    /// [`Self::summarizer_max_payload_tokens`] which caps the upper end
+    /// (paying for an LLM call on a multi-million-token blob makes no
+    /// economic sense, so above the cap the existing
+    /// [`Self::tool_result_budget_bytes`] truncation handles it instead).
+    #[serde(
+        default = "default_summarizer_payload_threshold_tokens",
+        alias = "summarizer_payload_threshold_bytes"
+    )]
+    pub summarizer_payload_threshold_tokens: usize,
+
+    /// Hard cap on payload size (in **tokens**) above which summarization
+    /// is skipped entirely and the existing
+    /// [`Self::tool_result_budget_bytes`] truncation path takes over.
+    /// Default: `2_000_000` tokens (above the context window of every
+    /// model we ship against — a payload this big can't be summarized
+    /// cost-effectively).
+    #[serde(
+        default = "default_summarizer_max_payload_tokens",
+        alias = "summarizer_max_payload_bytes"
+    )]
+    pub summarizer_max_payload_tokens: usize,
+
+    /// Session-memory extraction thresholds.
+    #[serde(default)]
+    pub session_memory: SessionMemoryConfig,
+
+    /// Override for the model used by the summarizer when autocompaction
+    /// fires. `None` (the default) means "use the caller's current
+    /// model"; set this to a cheaper/faster model to reduce the cost of
+    /// summarization on long sessions.
+    #[serde(default)]
+    pub summarizer_model: Option<String>,
+
+    /// When `true`, the agent loop asks tools to render their results as
+    /// markdown instead of JSON before they enter LLM context. Tools that
+    /// support it populate `ToolResult::markdown_formatted`; the harness
+    /// prefers that field over the JSON fallback. Markdown is materially
+    /// cheaper than JSON in tokens, especially on tool-heavy loops.
+    /// Default: `true` — opt out per-deployment via config or env if a
+    /// downstream consumer expects strict JSON tool output.
+    #[serde(default = "default_true")]
+    pub prefer_markdown_tool_output: bool,
+
+    /// Master switch for native tool-output compaction (Stage 1a). When
+    /// `true` (the default), large structured tool outputs (build/test logs,
+    /// diffs, JSON arrays) are content-aware compressed in
+    /// `Agent::execute_tool_call` *before* the [`Self::tool_result_budget_bytes`]
+    /// byte cap and before they enter history. The compression never drops the
+    /// first/last/high-signal lines and only ever shrinks output, so it is on
+    /// by default.
+    ///
+    /// This is invisible infrastructure (like microcompact/autocompact): no
+    /// user-facing UI. The only reason to flip it off is a support / debugging
+    /// / A/B bisect, via config or the `OPENHUMAN_COMPACTION=0` env override.
+    /// See `compaction-plan.md`.
+    #[serde(default = "default_true")]
+    pub compaction_enabled: bool,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_microcompact_keep_recent() -> usize {
+    crate::agent::context::DEFAULT_KEEP_RECENT_TOOL_RESULTS
+}
+
+fn default_tool_result_budget_bytes() -> usize {
+    crate::agent::context::DEFAULT_TOOL_RESULT_BUDGET_BYTES
+}
+
+fn default_summarizer_payload_threshold_tokens() -> usize {
+    // Re-enabled at 4000 tokens after the recursive-dispatch root cause
+    // was fixed by the narrow sub-agent prompt built for the
+    // summarizer archetype (which prevents it from seeing `spawn_subagent`
+    // and thus cannot recurse). 0 would leave this entirely disabled.
+    4000
+}
+
+fn default_summarizer_max_payload_tokens() -> usize {
+    2_000_000
+}
+
+impl Default for ContextConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_enabled(),
+            microcompact_enabled: default_true(),
+            autocompact_enabled: default_true(),
+            microcompact_keep_recent: default_microcompact_keep_recent(),
+            tool_result_budget_bytes: default_tool_result_budget_bytes(),
+            summarizer_payload_threshold_tokens: default_summarizer_payload_threshold_tokens(),
+            summarizer_max_payload_tokens: default_summarizer_max_payload_tokens(),
+            session_memory: SessionMemoryConfig::default(),
+            summarizer_model: None,
+            prefer_markdown_tool_output: default_true(),
+            compaction_enabled: default_true(),
+        }
+    }
+}

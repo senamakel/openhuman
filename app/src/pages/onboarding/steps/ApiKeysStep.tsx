@@ -17,7 +17,7 @@ interface ApiKeysStepProps {
 type OpenAiOAuthStatus = { connected: boolean; authMethod?: string | null };
 
 // Fixed OpenAI OAuth loopback origin (mirrors `REDIRECT_URI` in
-// src/openhuman/inference/openai_oauth/config.rs). Interpolated into the
+// crates/openhuman-core/src/inference/openai_oauth/config.rs). Interpolated into the
 // translated callback hint via the `{url}` placeholder so the literal lives in
 // one place instead of inside all 14 locale strings.
 const OPENAI_OAUTH_CALLBACK_ORIGIN = 'http://127.0.0.1:1455/';

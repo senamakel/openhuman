@@ -66,6 +66,13 @@ vi.mock('../../components/intelligence/SyncAuditPanel', async () => {
     SyncAuditPanel: () => React.createElement('div', { 'data-testid': 'brain-sync-audit' }),
   };
 });
+vi.mock('../../components/intelligence/SyncActivityCard', async () => {
+  const React = await import('react');
+  return {
+    SyncActivityCard: () =>
+      React.createElement('div', { 'data-testid': 'brain-sync-activity-card' }),
+  };
+});
 
 const makeGraph = (n: number) => ({
   nodes: Array.from({ length: n }, (_, i) => ({ id: `n${i}`, kind: 'summary', label: `N${i}` })),
@@ -160,6 +167,8 @@ describe('Brain page', () => {
     await waitFor(() => {
       expect(screen.getByTestId('brain-sync-history')).toBeInTheDocument();
       expect(screen.getByTestId('brain-sync-audit')).toBeInTheDocument();
+      expect(screen.getByTestId('brain-sync-activity')).toBeInTheDocument();
+      expect(screen.getByTestId('brain-sync-activity-card')).toBeInTheDocument();
     });
   });
 });

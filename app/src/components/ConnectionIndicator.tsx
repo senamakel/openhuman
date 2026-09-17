@@ -21,12 +21,13 @@ interface StatusConfig {
 }
 
 /**
- * 3-channel connectivity chip (#1527).
+ * 4-channel connectivity chip (#1527, #6256).
  *
  * Reads `selectBlockingState`, which encodes the user-visible precedence:
- * internet > core > backend. The legacy `status` prop and `selectSocketStatus`
- * fallback are retained so existing call sites that pre-date the split keep
- * rendering correctly during rollout.
+ * internet > core > backend (renderer↔core socket) > hosted (the core's own
+ * link to the hosted backend). The legacy `status` prop and
+ * `selectSocketStatus` fallback are retained so existing call sites that
+ * pre-date the split keep rendering correctly during rollout.
  */
 const ConnectionIndicator = ({
   status: overrideStatus,
@@ -35,6 +36,7 @@ const ConnectionIndicator = ({
   const { t } = useT();
   const blocking = useAppSelector(selectBlockingState);
   const legacyStatus = useAppSelector(selectSocketStatus);
+  const hosted = useAppSelector(state => state.connectivity.hosted);
 
   const config: StatusConfig = (() => {
     if (overrideStatus) {
@@ -70,6 +72,28 @@ const ConnectionIndicator = ({
             legacyStatus === 'connecting'
               ? t('app.connectionIndicator.connecting')
               : t('app.connectionIndicator.reconnecting'),
+          pulse: false,
+        };
+      case 'hosted-degraded':
+        // Soft state, same treatment as `backend-only`: chat still works, the
+        // core is retrying its hosted link and the chip says so (#6256).
+        return {
+          color: 'bg-amber-500',
+          textColor: 'text-amber-500',
+          text:
+            hosted === 'connecting'
+              ? t('app.connectionIndicator.connecting')
+              : t('app.connectionIndicator.reconnecting'),
+          pulse: false,
+        };
+      case 'hosted-stopped':
+        // The core's loop stopped for good on an unusable session: nothing is
+        // retrying, so no "reconnecting" wording — the Home copy says to sign
+        // in again (#6270).
+        return {
+          color: 'bg-amber-500',
+          textColor: 'text-amber-500',
+          text: t('app.connectionIndicator.disconnected'),
           pulse: false,
         };
     }

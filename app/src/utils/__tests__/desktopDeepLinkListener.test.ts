@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { confirmWaitlistDownload } from '../../services/api/waitlistApi';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../../services/coreRpcClient';
+import { loginWithToken, storeSessionToken } from '../../services/session/sessionOwner';
 import {
   completeDeepLinkAuthProcessing,
   getDeepLinkAuthState,
@@ -19,7 +20,7 @@ import {
 } from '../desktopDeepLinkListener';
 import { BILLING_DASHBOARD_URL } from '../links';
 import { openUrl } from '../openUrl';
-import { storeSession } from '../tauriCommands';
+import { getSessionToken } from '../tauriCommands';
 
 vi.mock('../configPersistence', () => ({ getStoredCoreMode: vi.fn() }));
 vi.mock('../../services/coreRpcClient', () => ({
@@ -84,8 +85,13 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(onOpenUrl).mockResolvedValue(() => {});
     waitForOAuthAuthReadiness.mockReset();
     waitForOAuthAuthReadiness.mockResolvedValue({ ready: true });
-    vi.mocked(storeSession).mockReset();
-    vi.mocked(storeSession).mockResolvedValue(undefined);
+    vi.mocked(storeSessionToken).mockReset();
+    vi.mocked(storeSessionToken).mockResolvedValue(undefined);
+    vi.mocked(loginWithToken).mockReset();
+    vi.mocked(loginWithToken).mockResolvedValue(undefined);
+    // The owner installs the JWT in the core; the listener reads it back.
+    vi.mocked(getSessionToken).mockReset();
+    vi.mocked(getSessionToken).mockResolvedValue('stored-jwt');
     vi.mocked(getStoredCoreMode).mockReturnValue(null);
     vi.mocked(clearCoreRpcUrlCache).mockClear();
     vi.mocked(clearCoreRpcTokenCache).mockClear();
@@ -206,7 +212,7 @@ describe('desktopDeepLinkListener', () => {
   });
 
   it('flags requiresAppDataReset when auth fails with a decryption error', async () => {
-    vi.mocked(storeSession).mockRejectedValueOnce(
+    vi.mocked(storeSessionToken).mockRejectedValueOnce(
       new Error('Decryption failed — wrong key or tampered data')
     );
 
@@ -232,7 +238,7 @@ describe('desktopDeepLinkListener', () => {
     const state = getDeepLinkAuthState();
     expect(state.errorMessage).toBe('blocked:core_mode_unset');
     expect(state.isProcessing).toBe(false);
-    expect(storeSession).not.toHaveBeenCalled();
+    expect(storeSessionToken).not.toHaveBeenCalled();
   });
 
   it('rejects an auth deep link with no state nonce (CSRF guard, finding C3)', async () => {
@@ -243,7 +249,7 @@ describe('desktopDeepLinkListener', () => {
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
 
-    expect(storeSession).not.toHaveBeenCalled();
+    expect(storeSessionToken).not.toHaveBeenCalled();
     const state = getDeepLinkAuthState();
     expect(state.isProcessing).toBe(false);
     expect(state.errorMessage).toBe('Sign-in could not be verified. Please start sign-in again.');
@@ -259,32 +265,13 @@ describe('desktopDeepLinkListener', () => {
     );
     await waitForAuthSettled();
 
-    expect(storeSession).toHaveBeenCalledWith(
-      'web-token',
-      {},
-      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
-    );
+    expect(storeSessionToken).toHaveBeenCalledWith('web-token');
   });
 
-  it('retries storeSession on timeout then succeeds on second attempt', async () => {
-    vi.mocked(storeSession)
+  it('hands the token to the session owner exactly once — retries live in the owner', async () => {
+    vi.mocked(storeSessionToken)
       .mockReset()
-      .mockRejectedValueOnce(new Error('timed out'))
-      .mockResolvedValueOnce(undefined);
-
-    const state = registerAuthDeepLinkState();
-    const url = `openhuman://auth?token=retry-token&key=auth&state=${state}`;
-
-    vi.mocked(getCurrent).mockResolvedValue([url]);
-    await setupDesktopDeepLinkListener();
-    await waitForAuthSettled();
-
-    expect(storeSession).toHaveBeenCalledTimes(2);
-    expect(getDeepLinkAuthState().errorMessage).toBeNull();
-  });
-
-  it('does NOT retry storeSession on non-timeout error', async () => {
-    vi.mocked(storeSession).mockReset().mockRejectedValueOnce(new Error('network down'));
+      .mockRejectedValueOnce(new Error('TRANSIENT: timed out'));
 
     const state = registerAuthDeepLinkState();
     const url = `openhuman://auth?token=no-retry-token&key=auth&state=${state}`;
@@ -293,8 +280,30 @@ describe('desktopDeepLinkListener', () => {
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
 
-    // Non-timeout errors should not be retried — only one call expected.
-    expect(storeSession).toHaveBeenCalledTimes(1);
+    expect(storeSessionToken).toHaveBeenCalledTimes(1);
+    expect(getDeepLinkAuthState().errorMessage).not.toBeNull();
+  });
+
+  it('exchanges a login token through the session owner when no key=auth is present', async () => {
+    const state = registerAuthDeepLinkState();
+    vi.mocked(getCurrent).mockResolvedValue([`openhuman://auth?token=login-tok&state=${state}`]);
+
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    expect(loginWithToken).toHaveBeenCalledWith('login-tok');
+    expect(storeSessionToken).not.toHaveBeenCalled();
+    expect(getDeepLinkAuthState().errorMessage).toBeNull();
+  });
+
+  it('fails closed when the owner reports success but the core holds no session', async () => {
+    vi.mocked(getSessionToken).mockResolvedValue(null);
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
+
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    expect(storeSessionToken).toHaveBeenCalledWith('abc');
     expect(getDeepLinkAuthState().errorMessage).not.toBeNull();
   });
 
@@ -307,7 +316,7 @@ describe('desktopDeepLinkListener', () => {
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
 
-    expect(storeSession).not.toHaveBeenCalled();
+    expect(storeSessionToken).not.toHaveBeenCalled();
     expect(getDeepLinkAuthState().errorMessage).toBe(
       'Sign-in could not be verified. Please start sign-in again.'
     );
@@ -320,21 +329,17 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(getCurrent).mockResolvedValue([url]);
     await setupDesktopDeepLinkListener();
     await waitForAuthSettled();
-    expect(storeSession).toHaveBeenCalledWith(
-      'abc',
-      {},
-      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
-    );
+    expect(storeSessionToken).toHaveBeenCalledWith('abc');
 
     // Replay the exact same deep link — the nonce was consumed, so it fails.
-    vi.mocked(storeSession).mockClear();
+    vi.mocked(storeSessionToken).mockClear();
     await import('../desktopDeepLinkListener').then(m => m.handleDeepLinkUrls([url]));
     await waitForAuthSettled();
-    expect(storeSession).not.toHaveBeenCalled();
+    expect(storeSessionToken).not.toHaveBeenCalled();
   });
 
   it('keeps requiresAppDataReset false for non-decryption auth failures', async () => {
-    vi.mocked(storeSession).mockRejectedValueOnce(new Error('network down'));
+    vi.mocked(storeSessionToken).mockRejectedValueOnce(new Error('network down'));
 
     vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
 
@@ -354,7 +359,7 @@ describe('desktopDeepLinkListener', () => {
   // localized, and this module cannot call useT(), so it hands the rendering
   // component an i18n key instead of a literal.
   it('surfaces an unreadable core config as a translatable key, not a retry prompt', async () => {
-    vi.mocked(storeSession).mockRejectedValueOnce(
+    vi.mocked(storeSessionToken).mockRejectedValueOnce(
       new Error(
         'Failed to read config file: /home/openhuman/.openhuman/config.toml ' +
           '[config owner mismatch] (file uid=0 gid=0 mode=0600; process euid=10001 egid=10001): ' +
@@ -374,13 +379,13 @@ describe('desktopDeepLinkListener', () => {
   });
 
   it('injection #1: store-time /auth/me failure bounces to signin — no session applied, no /home nav', async () => {
-    // Root-cause hypothesis: `auth_store_session` validates the JWT against the
-    // backend GET /auth/me BEFORE persisting (credentials/ops.rs). If that call
-    // errors/times out, store_session returns Err → applySessionToken rethrows →
-    // the session is NEVER persisted and the login event NEVER fires, so the user
-    // stays on the signin page even though OAuth "succeeded".
-    vi.mocked(storeSession).mockRejectedValueOnce(
-      new Error('Session validation failed (GET /auth/me): 503 Service Unavailable')
+    // The session owner validates the JWT against the backend GET /auth/me
+    // BEFORE handing it to the core. If that call errors/times out, the owner
+    // rejects → applySessionToken rethrows → the session is NEVER installed and
+    // the login event NEVER fires, so the user stays on the signin page even
+    // though OAuth "succeeded".
+    vi.mocked(storeSessionToken).mockRejectedValueOnce(
+      new Error('TRANSIENT: GET /auth/me returned 503')
     );
 
     // The `core-state:session-token-updated` event is the ONLY trigger that drives
@@ -396,11 +401,7 @@ describe('desktopDeepLinkListener', () => {
       await waitForAuthSettled();
 
       // store WAS attempted (we reached the persistence call)...
-      expect(storeSession).toHaveBeenCalledWith(
-        'abc',
-        {},
-        { allowPendingBackendValidation: true, timeoutMs: 25_000 }
-      );
+      expect(storeSessionToken).toHaveBeenCalledWith('abc');
       // ...but it FAILED, so the session-applied event was never dispatched...
       expect(sessionTokenUpdated).not.toHaveBeenCalled();
       // ...and we never navigated to /home (ProtectedRoute/PublicRoute keep signin).
@@ -432,7 +433,7 @@ describe('desktopDeepLinkListener', () => {
     await expect(
       simulateDeepLink!('openhuman://auth?token=abc&key=auth&state=e2e-state-nonce')
     ).resolves.toBeUndefined();
-    expect(storeSession).not.toHaveBeenCalled();
+    expect(storeSessionToken).not.toHaveBeenCalled();
 
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(waitForOAuthAuthReadiness).toHaveBeenCalledTimes(1);
@@ -440,11 +441,7 @@ describe('desktopDeepLinkListener', () => {
     resolveReadiness({ ready: true });
     await waitForAuthSettled();
 
-    expect(storeSession).toHaveBeenCalledWith(
-      'abc',
-      {},
-      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
-    );
+    expect(storeSessionToken).toHaveBeenCalledWith('abc');
     expect(getDeepLinkAuthState().isProcessing).toBe(false);
   });
 
@@ -477,11 +474,7 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).toHaveBeenCalledTimes(1);
     expect(clearCoreRpcTokenCache).toHaveBeenCalledTimes(1);
-    expect(storeSession).toHaveBeenCalledWith(
-      'abc',
-      {},
-      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
-    );
+    expect(storeSessionToken).toHaveBeenCalledWith('abc');
   });
 
   it('does NOT bust RPC caches before storeSession in local mode', async () => {
@@ -493,11 +486,7 @@ describe('desktopDeepLinkListener', () => {
 
     expect(clearCoreRpcUrlCache).not.toHaveBeenCalled();
     expect(clearCoreRpcTokenCache).not.toHaveBeenCalled();
-    expect(storeSession).toHaveBeenCalledWith(
-      'abc',
-      {},
-      { allowPendingBackendValidation: true, timeoutMs: 25_000 }
-    );
+    expect(storeSessionToken).toHaveBeenCalledWith('abc');
   });
 
   it('dispatches suppress-reauth before storeSession and clears it after in cloud mode', async () => {

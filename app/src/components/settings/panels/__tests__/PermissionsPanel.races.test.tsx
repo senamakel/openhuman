@@ -120,7 +120,7 @@ describe('PermissionsPanel — load-shape defaults', () => {
     mockUpdate.mockResolvedValue({ result: {} as never, logs: [] });
 
     renderWithProviders(<PermissionsPanel />);
-    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    await screen.findByText(/Full control/i);
 
     fireEvent.click(preset(/Full control/i));
 
@@ -138,7 +138,7 @@ describe('PermissionsPanel — load-shape defaults', () => {
     mockUpdate.mockResolvedValue({ result: {} as never, logs: [] });
 
     renderWithProviders(<PermissionsPanel />);
-    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    await screen.findByText(/Full control/i);
 
     fireEvent.click(preset(/Full control/i));
 
@@ -171,7 +171,7 @@ describe('PermissionsPanel — persist sequence guard', () => {
     mockUpdate.mockRejectedValue(new Error('autonomy save refused'));
 
     renderWithProviders(<PermissionsPanel />);
-    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    await screen.findByText(/Full control/i);
 
     fireEvent.click(preset(/Full control/i));
 
@@ -187,7 +187,7 @@ describe('PermissionsPanel — persist sequence guard', () => {
     mockUpdate.mockResolvedValueOnce({ result: {} as never, logs: [] });
 
     renderWithProviders(<PermissionsPanel />);
-    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    await screen.findByText(/Full control/i);
 
     fireEvent.click(preset(/Full control/i));
     fireEvent.click(preset(/Look, don't touch/i));
@@ -205,7 +205,7 @@ describe('PermissionsPanel — persist sequence guard', () => {
     mockUpdate.mockRejectedValueOnce(new Error('newer save refused'));
 
     renderWithProviders(<PermissionsPanel />);
-    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    await screen.findByText(/Full control/i);
 
     fireEvent.click(preset(/Full control/i));
     fireEvent.click(preset(/Look, don't touch/i));

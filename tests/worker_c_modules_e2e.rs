@@ -110,7 +110,7 @@ embedding_dimensions = 0
 embedding_strict = false
 "#;
     std::fs::write(openhuman_dir.join("config.toml"), cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(cfg).expect("test config must match schema");
 }
 
@@ -881,8 +881,8 @@ async fn memory_tree_ingest_feeds_memory_sync_status() {
     // its workspace at load; this is the only case in the binary that reaches
     // the driver, so nothing else contends for the slot.
     #[cfg(feature = "modules")]
-    openhuman_core::openhuman::modules::memory::set_modules_policy(std::sync::Arc::new(
-        openhuman_core::openhuman::config::Config::load_or_init()
+    openhuman_core::modules::memory::set_modules_policy(std::sync::Arc::new(
+        openhuman_core::config::Config::load_or_init()
             .await
             .expect("load the harness config for the module policy"),
     ));

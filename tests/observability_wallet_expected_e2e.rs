@@ -31,7 +31,7 @@ use std::sync::{Arc, Mutex};
 use openhuman_core::core::observability::{
     expected_error_kind, report_error_or_expected, ExpectedErrorKind,
 };
-use openhuman_core::openhuman::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE;
+use openhuman_core::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE;
 
 /// The exact wrapper `hosted/orchestration/schemas.rs` applies, reproduced from
 /// the log line quoted in #5805:
@@ -261,7 +261,7 @@ fn reporting_a_genuine_wallet_failure_still_emits_error() {
 // file's whole claim is that the wallet state "does not page".
 //
 // `report_error_message` reaches Sentry by calling `sentry::with_scope` /
-// `capture_message` directly (`src/core/observability.rs`), not through a
+// `capture_message` directly (`crates/openhuman-core/src/core/observability.rs`), not through a
 // tracing layer, and no Sentry tracing layer is installed here. So a capture
 // that started firing for the expected case — or one that stopped firing for a
 // genuine failure — would leave the INFO/ERROR text untouched and every

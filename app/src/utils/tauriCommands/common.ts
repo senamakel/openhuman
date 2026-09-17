@@ -103,10 +103,10 @@ export function parseServiceCliOutput<T>(raw: string): CommandResponse<T> {
 
 /**
  * Typed marker for the CEF "IPC bridge not wired" failure mode. The vendored
- * `app/src-tauri/vendor/tauri-cef/crates/tauri/scripts/ipc-protocol.js` falls
+ * `crates/openhuman-app/vendor/tauri-cef/crates/tauri/scripts/ipc-protocol.js` falls
  * back to `window.ipc.postMessage(...)` whenever the custom-protocol fetch
  * rejects (network blip, navigation interrupt, mid-session re-entry). On CEF
- * `window.ipc` is never wired — `app/src-tauri/src/cef_impl.rs` drops the
+ * `window.ipc` is never wired — `crates/openhuman-app/src/cef_impl.rs` drops the
  * `ipc_handler` registration — so the fallback throws
  * `TypeError: Cannot read properties of undefined (reading 'postMessage')`
  * **synchronously**, before the underlying `invoke()` constructs its Promise.

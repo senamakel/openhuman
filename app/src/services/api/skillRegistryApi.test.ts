@@ -25,6 +25,8 @@ describe('skillRegistryApi', () => {
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
       method: 'openhuman.skill_registry_install',
       params: { entry_id: 'demo' },
+      // Locating a skills.sh skill plus the 60s fetch outlasts the default 30s.
+      timeoutMs: 120_000,
     });
     expect(result.newSkills).toEqual(['demo']);
   });

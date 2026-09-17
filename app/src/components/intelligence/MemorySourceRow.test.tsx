@@ -86,3 +86,36 @@ describe('MemorySourceRow — settings disclosure', () => {
     expect(onToggleSettings).toHaveBeenCalledWith('src_1');
   });
 });
+
+describe('MemorySourceRow — live sync stage (openhuman#6257)', () => {
+  it('names a per-item stage in plain language and hides its internal detail', () => {
+    renderRow({
+      isSyncing: true,
+      progress: {
+        stage: 'queued',
+        detail: 'queued chunk extraction for mem_src:src_1:a.md',
+        percent: 25,
+      },
+    });
+    const bar = screen.getByTestId('memory-source-progress-src_1');
+    expect(bar).toHaveTextContent('memorySources.stage.queued');
+    expect(bar).not.toHaveTextContent('mem_src:');
+  });
+
+  it('keeps a progress detail a person can read', () => {
+    renderRow({
+      isSyncing: true,
+      progress: { stage: 'running', detail: 'pass 2 done, 400 item(s) so far', percent: null },
+    });
+    const bar = screen.getByTestId('memory-source-progress-src_1');
+    expect(bar).toHaveTextContent('memorySources.stage.running');
+    expect(bar).toHaveTextContent('pass 2 done, 400 item(s) so far');
+  });
+
+  it('falls back to a generic label for a stage it does not know', () => {
+    renderRow({ isSyncing: true, progress: { stage: 'mystery', detail: null, percent: null } });
+    expect(screen.getByTestId('memory-source-progress-src_1')).toHaveTextContent(
+      'memorySources.stage.unknown'
+    );
+  });
+});

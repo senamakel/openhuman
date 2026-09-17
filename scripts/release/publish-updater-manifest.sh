@@ -2,7 +2,7 @@
 # Generate and upload latest.json for the Tauri auto-updater.
 #
 # Tauri's updater fetches a JSON manifest at a fixed endpoint (configured in
-# app/src-tauri/tauri.conf.json via `plugins.updater.endpoints`), reads the
+# crates/openhuman-app/tauri.conf.json via `plugins.updater.endpoints`), reads the
 # `version` field, compares to the running app, and — if newer — downloads the
 # platform-specific `url` and verifies it against `signature`.
 #

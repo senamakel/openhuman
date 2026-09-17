@@ -24,7 +24,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   curl: 'Fetching',
   web_search: 'Searching the web',
   // The name the core actually registers and streams for the canonical search
-  // slot, whichever engine owns it (`src/openhuman/search/registry.rs`).
+  // slot, whichever engine owns it (`crates/openhuman-core/src/search/registry.rs`).
   // `web_search` above is the settings-family id, which never reaches a
   // timeline row — without this entry a real search rendered as the
   // humanized "Web Search Tool".

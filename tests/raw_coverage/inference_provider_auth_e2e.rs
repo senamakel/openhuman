@@ -39,7 +39,7 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{get_rpc_token, init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::inference::auth_error_registry;
+use openhuman_core::inference::auth_error_registry;
 
 const TEST_RPC_TOKEN: &str = "inference-provider-auth-e2e-token";
 
@@ -139,7 +139,7 @@ embedding_strict = false
 "#
     );
     std::fs::write(openhuman_dir.join("config.toml"), &cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("test config must match schema");
 }
 

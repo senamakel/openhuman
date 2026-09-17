@@ -2,7 +2,7 @@
 
 OpenHuman can route any chat workload through **Anthropic's `claude` CLI** instead of calling the Anthropic HTTP API directly. The CLI handles model selection, auth, and prompt-cache management; OpenHuman drives it as a child process per turn, parses its stream-json output, and re-exposes its own read-only tools back into the CLI over MCP so the model can reach native OpenHuman state (memory, threads, channels, people).
 
-> Locked decisions live in [`.planning/claude-code-provider/PLAN.md`](../../../.planning/claude-code-provider/PLAN.md) §13.
+> Implementation notes live in [`crates/openhuman-core/src/inference/provider/claude_code/README.md`](../../../crates/openhuman-core/src/inference/provider/claude_code/README.md).
 
 ## Requirements
 
@@ -38,7 +38,7 @@ The status RPC is on the existing inference namespace:
 openhuman-core rpc openhuman.inference_claude_code_status
 ```
 
-Returns one of (`CliStatus` in [`src/openhuman/inference/provider/claude_code/types.rs`](../../../src/openhuman/inference/provider/claude_code/types.rs)):
+Returns one of (`CliStatus` in [`crates/openhuman-core/src/inference/provider/claude_code/types.rs`](../../../crates/openhuman-core/src/inference/provider/claude_code/types.rs)):
 
 - `{"status":"ok","version":"2.0.4","path":"/usr/local/bin/claude"}`: ready
 - `{"status":"not_installed"}`: no usable `claude` was found through the
@@ -84,7 +84,7 @@ The `openhuman.inference_claude_code_auth_status` RPC probes sources 1 and 3 wit
 
 ## Tool surface exposed to the CLI
 
-The CLI sees these tools as `mcp__openhuman__<name>` (delivered by the existing stdio MCP server in [`src/openhuman/mcp/server/`](../../../src/openhuman/mcp/server/)):
+The CLI sees these tools as `mcp__openhuman__<name>` (delivered by the existing stdio MCP server in [`crates/openhuman-core/src/mcp/server/`](../../../crates/openhuman-core/src/mcp/server/)):
 
 - `core.list_tools`, `core.tool_instructions`
 - `memory.search`, `memory.recall`
@@ -96,6 +96,6 @@ The MCP server enforces `SecurityPolicy::ToolOperation` checks; all tools except
 
 ## Limitations (v1)
 
-- Vision input is not forwarded. Set the `vision_provider` to a different provider when you need images.
+- Vision input is forwarded as native image blocks when pasted images are available to the Claude Code provider. Images that cannot be read are sent as a short text notice.
 - `agentic` runs share the same `Semaphore(4)`; under load a CC turn waits in queue rather than failing fast.
-- Cost accounting from the CLI's `result.total_cost_usd` is captured in the mapper but not yet wired into OpenHuman's billing layer ([`src/openhuman/platform/cost/`](../../../src/openhuman/platform/cost/)).
+- Cost accounting from the CLI's `result.total_cost_usd` is captured in the mapper but not yet wired into OpenHuman's billing layer ([`crates/openhuman-core/src/platform/cost/`](../../../crates/openhuman-core/src/platform/cost/)).

@@ -7,10 +7,10 @@ use std::time::Duration;
 
 use openhuman_core::core::events::DomainEvent;
 use tinybus::EventHandler;
-use openhuman_core::openhuman::memory::agent::memory_loader::MemoryCitation;
-use openhuman_core::openhuman::channels::bus::ChannelInboundSubscriber;
-use openhuman_core::openhuman::web_chat::presentation::test_support as presentation_test_support;
-use openhuman_core::openhuman::web_chat::{
+use openhuman_core::memory::agent::memory_loader::MemoryCitation;
+use openhuman_core::channels::bus::ChannelInboundSubscriber;
+use openhuman_core::web_chat::presentation::test_support as presentation_test_support;
+use openhuman_core::web_chat::{
     subscribe_web_channel_events, test_support as web_test_support,
 };
 use serde_json::json;

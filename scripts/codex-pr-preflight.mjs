@@ -6,7 +6,7 @@ import { execSync } from 'node:child_process';
 const REQUIRED_FILES = ['AGENTS.md', 'gitbooks/developing/README.md', 'Cargo.toml', 'app/package.json'];
 const APP_PATTERNS = [/^app\//, /^docs\//];
 const ROOT_RUST_PATTERNS = [/^src\//, /^tests\//, /^Cargo\.toml$/, /^Cargo\.lock$/];
-const TAURI_PATTERNS = [/^app\/src-tauri\//];
+const TAURI_PATTERNS = [/^crates\/openhuman-app\//];
 
 function hasPattern(files, patterns) {
   return files.some((file) => patterns.some((pattern) => pattern.test(file)));
@@ -96,7 +96,7 @@ function recommendations(changedFiles, lightweight) {
     if (!lightweight) lines.push('pnpm debug rust <test-filter>');
   }
   if (hasPattern(changedFiles, TAURI_PATTERNS)) {
-    lines.push('cargo fmt --manifest-path app/src-tauri/Cargo.toml --all --check');
+    lines.push('cargo fmt --manifest-path crates/openhuman-app/Cargo.toml --all --check');
   }
   return [...new Set(lines)];
 }

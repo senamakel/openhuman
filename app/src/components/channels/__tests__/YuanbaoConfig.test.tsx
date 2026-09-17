@@ -15,7 +15,7 @@ vi.mock('../../../services/api/channelConnectionsApi', () => ({
 vi.mock('../../../utils/tauriCommands/core', () => ({ restartCoreProcess: vi.fn() }));
 
 // Mirrors the backend yuanbao_definition() in
-// src/openhuman/channels/controllers/definitions.rs — kept inline because
+// crates/openhuman-core/src/channels/controllers/definitions.rs — kept inline because
 // the frontend fallback definitions list does not (yet) include yuanbao.
 const yuanbaoDef: ChannelDefinition = {
   id: 'yuanbao',

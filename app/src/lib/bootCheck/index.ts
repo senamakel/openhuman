@@ -87,7 +87,7 @@ function isMethodNotFound(err: unknown): boolean {
 /**
  * Poll `core.ping` with exponential back-off until the core responds or we
  * exhaust the budget. `core.ping` is a Tier-1 dispatcher method (see
- * `src/core/dispatch.rs`) that responds before any domain controller is
+ * `crates/openhuman-core/src/core/dispatch.rs`) that responds before any domain controller is
  * registered, which is exactly what we want for a liveness probe — it tells
  * us "the HTTP server is up and the dispatcher is wired" without coupling to
  * any specific subsystem's readiness.
@@ -157,7 +157,7 @@ type VersionCheckResult = 'match' | 'outdated' | 'noVersionMethod' | 'unreachabl
 async function checkVersion(callRpc: BootCheckTransport['callRpc']): Promise<VersionCheckResult> {
   try {
     // `openhuman.update_version` is wrapped by RpcOutcome::single_log
-    // (see src/openhuman/platform/update/ops.rs + src/rpc/mod.rs::into_cli_compatible_json):
+    // (see crates/openhuman-core/src/platform/update/ops.rs + crates/openhuman-rpc/src/mod.rs::into_cli_compatible_json):
     // when logs are present the response shape is `{ result: VersionInfo, logs }`,
     // and VersionInfo is `{ version, target_triple, asset_prefix }`. Earlier
     // attempts read `result.version_info.version` (no such field) and then

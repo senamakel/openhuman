@@ -125,12 +125,12 @@ fn ensure_memory_seams() {
                     .keep()
                     .join("workspace");
                 std::fs::create_dir_all(&workspace).expect("create module workspace");
-                let config = Arc::new(openhuman_core::openhuman::config::Config {
+                let config = Arc::new(openhuman_core::config::Config {
                     workspace_dir: workspace,
-                    ..openhuman_core::openhuman::config::Config::default()
+                    ..openhuman_core::config::Config::default()
                 });
                 #[cfg(feature = "modules")]
-                openhuman_core::openhuman::modules::memory::set_modules_policy(config);
+                openhuman_core::modules::memory::set_modules_policy(config);
             })
             .expect("spawn agent orchestration e2e seam installer")
             .join()
@@ -185,7 +185,7 @@ spacy_enabled = false
     // Runtime config resolution is user-scoped before login, so the pre-login
     // `users/local` layer needs the same file or the RPC handlers load defaults.
     write(&openhuman_dir.join("users").join("local"));
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(cfg).expect("test config must match the Config schema");
 }
 

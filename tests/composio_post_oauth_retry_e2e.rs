@@ -18,7 +18,7 @@
 //!           → `execute_tool_with_post_oauth_retry` on `ComposioClient`
 //!           → mock backend HTTP server (in-process axum)
 //!
-//! Unlike the unit tests in `src/openhuman/composio/auth_retry_tests.rs` which
+//! Unlike the unit tests in `crates/openhuman-core/src/composio/auth_retry_tests.rs` which
 //! call the retry helper directly, here the call enters through the full
 //! registered controller surface, picks up the config-derived `ComposioClient`,
 //! and traverses the real `execute_composio_action_kind` dispatch path.

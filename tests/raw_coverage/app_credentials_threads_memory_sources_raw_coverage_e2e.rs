@@ -3,29 +3,29 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use chrono::Utc;
-use openhuman_core::openhuman::desktop::app_state::{
+use openhuman_core::desktop::app_state::{
     snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::config::rpc as config_rpc;
-use openhuman_core::openhuman::security::credentials::profiles::{
+use openhuman_core::config::Config;
+use openhuman_core::config::rpc as config_rpc;
+use openhuman_core::security::credentials::profiles::{
     profile_id, AuthProfile, AuthProfilesStore, TokenSet,
 };
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::security::credentials::{
     list_provider_credentials_by_prefix, AuthService, APP_SESSION_PROVIDER,
     DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::memory::{
+use openhuman_core::memory::{
     AppendConversationMessageRequest, ConversationMessageRecord, ConversationMessagesRequest,
     CreateConversationThreadRequest, DeleteConversationThreadRequest, EmptyRequest,
     GenerateConversationThreadTitleRequest, UpdateConversationMessageRequest,
     UpdateConversationThreadLabelsRequest, UpdateConversationThreadTitleRequest,
 };
-use openhuman_core::openhuman::memory::sources::readers::SourceReader;
-use openhuman_core::openhuman::memory::sources::{
+use openhuman_core::memory::sources::readers::SourceReader;
+use openhuman_core::memory::sources::{
     self as memory_sources, MemorySourceEntry, MemorySourcePatch, SourceKind,
 };
-use openhuman_core::openhuman::threads::{migrate_welcome_agent_artifacts, ops as thread_ops};
+use openhuman_core::threads::{migrate_welcome_agent_artifacts, ops as thread_ops};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -87,7 +87,7 @@ struct Harness {
 }
 
 impl Harness {
-    async fn config(&self) -> openhuman_core::openhuman::config::Config {
+    async fn config(&self) -> openhuman_core::config::Config {
         config_rpc::load_config_with_timeout()
             .await
             .expect("isolated config should load")
@@ -156,7 +156,7 @@ embedding_strict = false
 "#
     );
     std::fs::write(root.join("config.toml"), &cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("round19 config must match schema");
 }
 

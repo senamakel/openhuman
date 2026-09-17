@@ -16,20 +16,20 @@ use std::collections::HashSet;
 
 use tempfile::tempdir;
 
-use openhuman_core::openhuman::agent::profiles::{
+use openhuman_core::agent::profiles::{
     built_in_profiles, AgentProfile, AgentProfileStore, DEFAULT_PROFILE_ID,
 };
-use openhuman_core::openhuman::agent::profiles::{
+use openhuman_core::agent::profiles::{
     filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
     resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
     HasToolkit, PersonalityContext,
 };
-use openhuman_core::openhuman::agent::prompts::types::LearnedContextData;
-use openhuman_core::openhuman::agent::prompts::{
+use openhuman_core::agent::prompts::types::LearnedContextData;
+use openhuman_core::agent::prompts::{
     IdentitySection, PersonalityRosterEntry, PersonalityRosterSection, PromptContext,
     PromptSection, ToolCallFormat, UserFilesSection,
 };
-use openhuman_core::openhuman::memory::conversations::{
+use openhuman_core::memory::conversations::{
     ensure_thread, list_threads, update_thread_title, ConversationStore, CreateConversationThread,
 };
 // The engine handle is named on the crate rather than reached through the

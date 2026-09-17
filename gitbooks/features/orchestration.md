@@ -28,7 +28,7 @@ The orchestrator spawns specialized sub-agents (up to 3 levels deep), reuses com
 
 ## 4. An always-on split brain
 
-Inbound traffic hits a **fast reflex agent** that triages in seconds and hands a deep **reasoning core** a concise brief; the core does the multi-step work and delegates to workers. The [subconscious loop](subconscious.md) reviews compressed session history and injects steering directives, keeping the always-on layer aligned with your goals, while 20:1 compression keeps week-long sessions bounded.
+Inbound traffic hits a **fast reflex agent** that triages in seconds and hands a deep **reasoning core** a concise brief; the core does the multi-step work and delegates to workers. Mid-task steering input can be delivered into a live session, and 20:1 compression keeps week-long sessions bounded.
 
 ## What's next: RLMs
 
@@ -43,10 +43,10 @@ The direction we're building toward: **Rhai-backed language workflows**. These a
 | Execution model | One loop, one context                                  | Compiled graphs, conditional routing, checkpoint/resume         |
 | Parallelism     | Manual / plugin                                        | Native sub-agent fleets, map-reduce fan-out, worker reuse       |
 | Automation      | Scripts & cron                                         | Visual, durable, approval-gated workflows                       |
-| Always-on       | None                                                   | Split-brain reflex + reasoning core, subconscious steering      |
+| Always-on       | None                                                   | Split-brain reflex + reasoning core, mid-task steering          |
 
 ## See also
 
-- [Workflows](workflows.md) · [Subconscious Loop](subconscious.md)
+- [Workflows](workflows.md)
 - [Agent Harness](../developing/architecture/agent-harness.md): the developer deep-dive on graphs, breakers, journals.
 - [Agent Coordination tools](native-tools/agent-coordination.md): the user-facing spawn/delegate surface.

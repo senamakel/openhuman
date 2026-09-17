@@ -10,17 +10,17 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration as StdDuration;
 
 use chrono::Utc;
-use openhuman_core::openhuman::desktop::app_state::{
+use openhuman_core::desktop::app_state::{
     snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
-use openhuman_core::openhuman::config::rpc as config_rpc;
-use openhuman_core::openhuman::security::credentials::profiles::{
+use openhuman_core::config::rpc as config_rpc;
+use openhuman_core::security::credentials::profiles::{
     AuthProfile, AuthProfileKind, AuthProfilesStore,
 };
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::memory::{
+use openhuman_core::memory::{
     ai_list_memory_files, ai_read_memory_file, ai_write_memory_file, clear_namespace,
     context_query, context_recall, doc_delete, doc_list, doc_put, memory_delete_document,
     memory_init, memory_list_documents, memory_list_namespaces, memory_query_namespace,
@@ -29,13 +29,13 @@ use openhuman_core::openhuman::memory::{
     PutDocParams, QueryNamespaceParams, QueryNamespaceRequest, ReadMemoryFileRequest,
     RecallContextRequest, RecallMemoriesRequest, RecallNamespaceParams, WriteMemoryFileRequest,
 };
-use openhuman_core::openhuman::memory::sources::readers::SourceReader;
+use openhuman_core::memory::sources::readers::SourceReader;
 // The engine's own source pipeline. `memory::sources::sync` is host-side now and
 // carries only `derive_scopes`; `sync_source` stayed upstream because nothing in
 // `src/` calls it any more (#5560).
-use openhuman_core::openhuman::memory::sources::{ContentType, MemorySourceEntry, SourceKind};
-use openhuman_core::openhuman::threads::ops as thread_ops;
-use openhuman_core::openhuman::threads::welcome_migration::migrate_welcome_agent_artifacts;
+use openhuman_core::memory::sources::{ContentType, MemorySourceEntry, SourceKind};
+use openhuman_core::threads::ops as thread_ops;
+use openhuman_core::threads::welcome_migration::migrate_welcome_agent_artifacts;
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -81,7 +81,7 @@ struct Harness {
 }
 
 impl Harness {
-    async fn config(&self) -> openhuman_core::openhuman::config::Config {
+    async fn config(&self) -> openhuman_core::config::Config {
         config_rpc::load_config_with_timeout()
             .await
             .expect("isolated config should load")
@@ -107,13 +107,13 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-fn ensure_memory_seams(config: Arc<openhuman_core::openhuman::config::Config>) {
+fn ensure_memory_seams(config: Arc<openhuman_core::config::Config>) {
     std::thread::Builder::new()
         .name("round20-memory-seams".to_string())
         .stack_size(8 * 1024 * 1024)
         .spawn(move || {
             #[cfg(feature = "modules")]
-            openhuman_core::openhuman::modules::memory::set_modules_policy(config);
+            openhuman_core::modules::memory::set_modules_policy(config);
         })
         .expect("spawn round20 memory seam installer")
         .join()
@@ -163,7 +163,7 @@ embedding_strict = false
 "#
     );
     std::fs::write(root.join("config.toml"), &cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("round20 config must match schema");
 }
 
@@ -380,14 +380,33 @@ fn round20_credentials_profiles_cover_legacy_plaintext_errors_and_active_edges()
     .expect("write legacy plaintext store");
 
     let loaded = store.load().expect("load plaintext legacy profiles");
+    // Since #5432 `load` re-keys every profile to its canonical
+    // `<provider>:<profile_name>` id and rewrites `active_profiles` to match,
+    // so the raw `legacy-*` keys are gone after the load.
+    assert!(
+        !loaded.profiles.contains_key("legacy-token")
+            && !loaded.profiles.contains_key("legacy-oauth"),
+        "non-canonical profile ids must be re-keyed on load"
+    );
     assert_eq!(
         loaded
             .profiles
-            .get("legacy-token")
+            .get("token:plain")
             .and_then(|profile| profile.token.as_deref()),
         Some("plain-secret")
     );
-    let oauth = loaded.profiles.get("legacy-oauth").expect("oauth loaded");
+    assert_eq!(
+        loaded.active_profiles.get("token").map(String::as_str),
+        Some("token:plain")
+    );
+    assert_eq!(
+        loaded.active_profiles.get("github").map(String::as_str),
+        Some("github:oauth")
+    );
+    let oauth = loaded
+        .profiles
+        .get("github:oauth")
+        .expect("oauth re-keyed to its canonical id");
     assert_eq!(oauth.kind, AuthProfileKind::OAuth);
     assert_eq!(
         oauth.token_set.as_ref().map(|tokens| (
@@ -566,7 +585,7 @@ async fn round20_memory_documents_files_and_envelopes_cover_success_and_failure_
     assert!(!memories.memories.is_empty());
 
     let deleted =
-        memory_delete_document(openhuman_core::openhuman::memory::DeleteDocumentRequest {
+        memory_delete_document(openhuman_core::memory::DeleteDocumentRequest {
             namespace: namespace.clone(),
             document_id: "doc-round20".to_string(),
         })
@@ -599,7 +618,7 @@ async fn round20_threads_fallback_title_delete_missing_and_welcome_noop_paths() 
     let harness = setup("http://127.0.0.1:9");
 
     let created = thread_ops::thread_create_new(
-        openhuman_core::openhuman::memory::CreateConversationThreadRequest {
+        openhuman_core::memory::CreateConversationThreadRequest {
             labels: None,
             personality_id: None,
         },
@@ -610,7 +629,7 @@ async fn round20_threads_fallback_title_delete_missing_and_welcome_noop_paths() 
     .data
     .expect("created data");
 
-    let user_message = openhuman_core::openhuman::memory::ConversationMessageRecord {
+    let user_message = openhuman_core::memory::ConversationMessageRecord {
         id: "round20-user-msg".to_string(),
         content: "Please map the onboarding telemetry rollout across product analytics and QA."
             .to_string(),
@@ -620,7 +639,7 @@ async fn round20_threads_fallback_title_delete_missing_and_welcome_noop_paths() 
         created_at: Utc::now().to_rfc3339(),
     };
     thread_ops::message_append(
-        openhuman_core::openhuman::memory::AppendConversationMessageRequest {
+        openhuman_core::memory::AppendConversationMessageRequest {
             thread_id: created.id.clone(),
             message: user_message,
         },
@@ -629,7 +648,7 @@ async fn round20_threads_fallback_title_delete_missing_and_welcome_noop_paths() 
     .expect("append user");
 
     let fallback = thread_ops::thread_generate_title(
-        openhuman_core::openhuman::memory::GenerateConversationThreadTitleRequest {
+        openhuman_core::memory::GenerateConversationThreadTitleRequest {
             thread_id: created.id.clone(),
             assistant_message: None,
         },
@@ -643,7 +662,7 @@ async fn round20_threads_fallback_title_delete_missing_and_welcome_noop_paths() 
     assert_ne!(fallback.title, created.title);
 
     let missing_update = thread_ops::message_update(
-        openhuman_core::openhuman::memory::UpdateConversationMessageRequest {
+        openhuman_core::memory::UpdateConversationMessageRequest {
             thread_id: created.id.clone(),
             message_id: "missing-message".to_string(),
             extra_metadata: Some(json!({"x": true})),
@@ -654,7 +673,7 @@ async fn round20_threads_fallback_title_delete_missing_and_welcome_noop_paths() 
     assert!(missing_update.contains("message") || missing_update.contains("not found"));
 
     let missing_delete = thread_ops::thread_delete(
-        openhuman_core::openhuman::memory::DeleteConversationThreadRequest {
+        openhuman_core::memory::DeleteConversationThreadRequest {
             thread_id: "missing-thread-round20".to_string(),
             deleted_at: Utc::now().to_rfc3339(),
         },

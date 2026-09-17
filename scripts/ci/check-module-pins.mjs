@@ -5,7 +5,7 @@
 // Nine subsystems load as downloaded cdylib modules, and each is pinned TWICE,
 // independently: once as a git submodule (the source this repo compiles the
 // wire contract against) and once as a `version` + per-platform SHA-256 in
-// `src/openhuman/modules/registry.rs` (the artifact actually loaded at runtime).
+// `crates/openhuman-core/src/modules/registry.rs` (the artifact actually loaded at runtime).
 // Nothing compared the two. When they drift, the build compiles clean, every
 // lane is green, and a capability goes missing at runtime on a user's machine —
 // which is how #5598 (capability bitmask 8191 vs 262143), #5623 (missing
@@ -134,12 +134,41 @@ function readRustModule(relativePath, what) {
   );
 }
 
+/** Read an entrypoint plus an optional Rust sibling module it declares. */
+function readDeclaredSibling(relativePath, moduleName, what) {
+  const entry = readRustModule(relativePath, what);
+  if (!new RegExp(`^mod ${moduleName};$`, "m").test(entry)) return entry;
+  const sibling = `${relativePath.replace(/\.rs$/, "")}/${moduleName}.rs`;
+  return `${entry}\n${readRustModule(sibling, `${what} ${moduleName}`)}`;
+}
+
+/**
+ * Read the registry entrypoint and every record fragment it declares.
+ *
+ * The registry deliberately keeps its `ModuleRecord` definitions in small
+ * `registry/records_*.rs` siblings. This gate must inspect those definitions,
+ * not merely the `ALL` wiring file, or a source-layout refactor turns its
+ * security check into an empty scan.
+ */
+function readRegistry() {
+  const relativePath = "crates/openhuman-core/src/modules/registry.rs";
+  const entry = readRustModule(relativePath, "registry");
+  const recordsDir = relativePath.replace(/\.rs$/, "");
+  const recordModules = [
+    ...entry.matchAll(/^mod (records_[a-z0-9_]+);$/gm),
+  ].map(([, name]) => `${recordsDir}/${name}.rs`);
+
+  return [
+    entry,
+    ...recordModules.map((path) =>
+      readRustModule(path, `registry record ${path}`),
+    ),
+  ].join("\n");
+}
+
 // ── Parse the registry ────────────────────────────────────────────────────────
 
-const registrySrc = readRustModule(
-  "src/openhuman/modules/registry.rs",
-  "registry",
-);
+const registrySrc = readRegistry();
 const allNames = parseAllList(registrySrc);
 const records = parseRecords(registrySrc);
 
@@ -217,7 +246,7 @@ function describe(submodulePath) {
   // report it rather than get an opaque failure.
   return mustRun(
     "git",
-    ["describe", "--tags", "HEAD"],
+    ["describe", "--tags", "--abbrev=8", "HEAD"],
     abs,
     `describe ${submodulePath}`,
   );
@@ -268,14 +297,15 @@ if (!memRec) {
     'modules::registry::ALL no longer has a "tinymemory" record; the tinymemory pin-set check cannot run',
   );
 } else {
-  const memSrc = readRustModule(
-    "src/openhuman/modules/memory.rs",
+  const memSrc = readDeclaredSibling(
+    "crates/openhuman-core/src/modules/memory.rs",
+    "capabilities",
     "modules/memory.rs",
   );
   const pin = parseArtifactCapabilitiesPin(memSrc);
   if (!pin) {
     fail(
-      "src/openhuman/modules/memory.rs: could not find ARTIFACT_CAPABILITIES_PIN",
+      "crates/openhuman-core/src/modules/memory.rs: could not find ARTIFACT_CAPABILITIES_PIN",
     );
   } else if (pin !== memRec.version) {
     fail(

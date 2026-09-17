@@ -172,7 +172,7 @@ async function rpc(method, params, timeoutMs = opts.timeoutMs) {
  *
  * A token shaped `<a>.<b>.local` is recognized as a local session and is
  * persisted WITHOUT the `GET /auth/me` round-trip a remote JWT would trigger
- * (see is_local_session_token in src/openhuman/security/credentials/). That is
+ * (see is_local_session_token in crates/openhuman-core/src/security/credentials/). That is
  * what lets the benchmark skip a real login and keeps the mock's surface to the
  * inference and telemetry routes.
  */

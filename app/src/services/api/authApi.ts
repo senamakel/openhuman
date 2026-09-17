@@ -1,6 +1,6 @@
 import { getBackendUrl } from '../backendUrl';
 import { getClientVersionHeaders } from '../clientVersionHeaders';
-import { callCoreRpc } from '../coreRpcClient';
+import { loginWithToken } from '../session/sessionOwner';
 
 const EMAIL_MAGIC_LINK_TIMEOUT_MS = 15_000;
 
@@ -46,18 +46,9 @@ export async function sendEmailMagicLink(
 }
 
 /**
- * Consume a verified login token and return the JWT.
- * Works for both Telegram and OAuth login tokens.
- * POST /telegram/login-tokens/:token/consume (no auth required)
+ * Consume a verified login token and install the resulting session through
+ * the session owner. Works for both Telegram and OAuth login tokens.
  */
-export async function consumeLoginToken(loginToken: string): Promise<string> {
-  const response = await callCoreRpc<{ result: { jwtToken: string } }>({
-    method: 'openhuman.auth.consume_login_token',
-    params: { loginToken },
-  });
-  const jwtToken = response.result?.jwtToken;
-  if (!jwtToken) {
-    throw new Error('Login token invalid or expired');
-  }
-  return jwtToken;
+export async function loginWithLoginToken(loginToken: string): Promise<void> {
+  await loginWithToken(loginToken);
 }

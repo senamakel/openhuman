@@ -1,0 +1,147 @@
+use crate::agent::messages::ChatMessage;
+use crate::tools::ToolSpec;
+use serde::{Deserialize, Serialize};
+/// Token usage returned by a provider. Defined in the contract crate because
+/// the extracted memory subsystem threads it out of summarisation runs; every
+/// existing `inference::provider::UsageInfo` path keeps naming this one type.
+pub use tinymemory_api::host::UsageInfo;
+
+/// A tool call requested by the LLM.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+    /// Provider-specific passthrough metadata for this call, captured from the
+    /// response and echoed back verbatim on the next assistant turn. Carries
+    /// Google Gemini's required `extra_content.google.thought_signature` so
+    /// multi-turn tool calling round-trips without a 400 (TAURI-RUST-4PK).
+    /// `None`/omitted for every provider that doesn't emit it, so non-Gemini
+    /// history stays byte-identical.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_content: Option<serde_json::Value>,
+}
+
+/// An LLM response that may contain text, tool calls, or both.
+#[derive(Debug, Clone, Default)]
+pub struct ChatResponse {
+    /// Text content of the response (may be empty if only tool calls).
+    pub text: Option<String>,
+    /// Tool calls requested by the LLM.
+    pub tool_calls: Vec<ToolCall>,
+    /// Token usage info from the provider (if available).
+    pub usage: Option<UsageInfo>,
+    /// Raw reasoning/thinking content returned by thinking models (e.g.
+    /// DeepSeek-R1, Qwen3) in the `reasoning_content` field. This must be
+    /// passed back verbatim on the next turn — the API returns HTTP 400
+    /// ("reasoning_content in thinking mode must be passed back") if it is
+    /// omitted from the assistant message in a multi-turn conversation.
+    ///
+    /// Stored separately from `text` so callers can preserve it through
+    /// the conversation history without merging it into the visible reply.
+    pub reasoning_content: Option<String>,
+}
+
+impl ChatResponse {
+    /// True when the LLM wants to invoke at least one tool.
+    pub fn has_tool_calls(&self) -> bool {
+        !self.tool_calls.is_empty()
+    }
+
+    /// Convenience: return text content or empty string.
+    pub fn text_or_empty(&self) -> &str {
+        self.text.as_deref().unwrap_or("")
+    }
+}
+
+/// A fine-grained streaming event emitted by a provider while serving a
+/// `chat()` call. Providers that support SSE/streaming forward these to
+/// the optional sender on [`ChatRequest::stream`]; the final aggregated
+/// response is still returned from `chat()` so callers that ignore the
+/// stream keep working unchanged.
+#[derive(Debug, Clone)]
+pub enum ProviderDelta {
+    /// A chunk of the assistant's visible text output.
+    TextDelta { delta: String },
+    /// A chunk of the model's reasoning/thinking output (for models
+    /// that emit `reasoning_content` or an equivalent). Consumers should
+    /// render this in a separate UI affordance from the visible output.
+    ThinkingDelta { delta: String },
+    /// The start of a new native tool call. `call_id` is the
+    /// provider-assigned id that later appears on the result message.
+    ToolCallStart { call_id: String, tool_name: String },
+    /// A chunk of argument JSON text for an in-flight tool call.
+    /// Streamed verbatim; may arrive as partial JSON that only becomes
+    /// valid once the stream completes.
+    ToolCallArgsDelta { call_id: String, delta: String },
+}
+
+/// Upper bound on output tokens requested for an agent chat turn.
+///
+/// The agent loop used to leave `ChatRequest::max_tokens` `None` ("open-ended
+/// generation"), but an unset cap makes reservation-pricing providers (e.g.
+/// OpenRouter) reserve credit against the model's *entire* output window
+/// (64k+) during their pre-flight balance check — so a modest-balance BYO user
+/// can hit a `402` purely from the oversized reservation, a **preventable**
+/// condition. Capping every agent turn at a realistic ceiling prices the
+/// pre-flight against a budget the user can actually afford; a residual `402`
+/// is then the genuine flat-balance case the insufficient-credits demote arm
+/// is meant for (TAURI-RUST-C62; mirrors [`EXTRACTION_MAX_OUTPUT_TOKENS`] in
+/// `memory_tree::score::extract::llm`).
+///
+/// `16384` sits comfortably above any realistic single agent turn — `max_tokens`
+/// is an upper bound, not a forced length, so the model still stops at its
+/// natural end well below the cap on normal turns — while cutting the
+/// reservation 4× versus a 64k window.
+pub const AGENT_TURN_MAX_OUTPUT_TOKENS: u32 = 16384;
+
+/// Request payload for provider chat calls.
+///
+/// The system prompt is built once at session start and frozen for the
+/// rest of the session — the inference backend's automatic prefix
+/// cache covers the whole thing, so there is no explicit cache-boundary
+/// to thread through the request.
+#[derive(Debug, Clone, Copy)]
+pub struct ChatRequest<'a> {
+    pub messages: &'a [ChatMessage],
+    pub tools: Option<&'a [ToolSpec]>,
+    /// Optional sink for `ProviderDelta` events. When `Some`, providers
+    /// that support streaming will ask the upstream API for SSE and
+    /// forward fine-grained events here. Providers without a streaming
+    /// implementation ignore the sender and return only the aggregated
+    /// response.
+    pub stream: Option<&'a tokio::sync::mpsc::Sender<ProviderDelta>>,
+    /// Optional upper bound on output tokens to request from the provider
+    /// (`max_tokens` on the OpenAI-compatible wire).
+    ///
+    /// Left `None` only for the orchestrator's open-ended generation. Agent
+    /// turns cap at [`AGENT_TURN_MAX_OUTPUT_TOKENS`] and callers whose output
+    /// is bounded by construction set a small concrete value — notably memory
+    /// extraction, whose response is a tiny structured-JSON object.
+    /// Beyond capping wasted generation, this stops credit-metered providers
+    /// (e.g. OpenRouter) from reserving the model's *entire* output window
+    /// during their pre-flight balance check: an unset `max_tokens` makes
+    /// OpenRouter price the request against the full 64k+ window and 402 a
+    /// low-balance BYO user who could easily afford the few thousand tokens
+    /// the turn actually needs (TAURI-RUST-C62).
+    pub max_tokens: Option<u32>,
+}
+
+/// Errors that can occur during streaming.
+#[derive(Debug, thiserror::Error)]
+pub enum StreamError {
+    #[error("HTTP error: {0}")]
+    Http(reqwest::Error),
+
+    #[error("JSON parse error: {0}")]
+    Json(serde_json::Error),
+
+    #[error("Invalid SSE format: {0}")]
+    InvalidSse(String),
+
+    #[error("Provider error: {0}")]
+    Provider(String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+}

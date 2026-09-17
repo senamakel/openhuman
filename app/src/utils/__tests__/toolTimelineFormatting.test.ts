@@ -254,7 +254,7 @@ describe('formatTimelineEntry', () => {
       formatTimelineEntry(
         entry({
           name: 'file_read',
-          argsBuffer: JSON.stringify({ path: 'src/openhuman/agent/progress.rs' }),
+          argsBuffer: JSON.stringify({ path: 'crates/openhuman-core/src/agent/progress.rs' }),
         })
       )
     ).toEqual({ title: 'Reading file', detail: '…/agent/progress.rs' });
@@ -298,9 +298,12 @@ describe('formatTimelineEntry', () => {
   it('formats list with directory path', () => {
     expect(
       formatTimelineEntry(
-        entry({ name: 'list', argsBuffer: JSON.stringify({ path: 'src/openhuman/tools' }) })
+        entry({
+          name: 'list',
+          argsBuffer: JSON.stringify({ path: 'crates/openhuman-core/src/tools' }),
+        })
       )
-    ).toEqual({ title: 'Listing directory', detail: 'src/openhuman/tools' });
+    ).toEqual({ title: 'Listing directory', detail: '…/src/tools' });
   });
 
   it('formats browser_open with hostname', () => {
@@ -448,7 +451,7 @@ describe('categorizeTool', () => {
 
   it('categorizes the canonical web-search name, not only its settings id', () => {
     // `web_search` is the UI toggle id; the core expands it to `web_search_tool`
-    // (`src/openhuman/tools/user_filter.rs:79-80`), and that is the name a
+    // (`crates/openhuman-core/src/tools/user_filter.rs:79-80`), and that is the name a
     // timeline row actually carries. The rest of this file already special-cased
     // the canonical name for labels and provider attribution; the category map
     // was the one place that had not, so a real search row categorized as

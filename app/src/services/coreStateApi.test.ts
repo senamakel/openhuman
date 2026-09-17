@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCallCoreRpc = vi.fn();
+const mockFetchCurrentUser = vi.fn();
 
 vi.mock('./coreRpcClient', () => ({
   callCoreRpc: (...args: unknown[]) => mockCallCoreRpc(...args),
+}));
+
+vi.mock('./session/sessionOwner', () => ({
+  fetchCurrentUser: (...args: unknown[]) => mockFetchCurrentUser(...args),
 }));
 
 // Minimal fixtures -----------------------------------------------------------------
@@ -71,6 +76,7 @@ function makeInvite(id: string) {
 describe('coreStateApi.fetchCoreAppSnapshot', () => {
   beforeEach(() => {
     mockCallCoreRpc.mockReset();
+    mockFetchCurrentUser.mockReset();
   });
 
   it('calls the correct RPC method with the slow-snapshot timeout override (#2156)', async () => {
@@ -107,6 +113,65 @@ describe('coreStateApi.fetchCoreAppSnapshot', () => {
 
     const { fetchCoreAppSnapshot } = await import('./coreStateApi');
     await expect(fetchCoreAppSnapshot()).rejects.toThrow('snapshot failed');
+  });
+
+  // #6318 — a logout or an A→B login can land while the session owner's
+  // `/auth/me` call is in flight; merging its (now stale-identity) result
+  // with the snapshot's `auth`/`sessionToken` would pair one user's live
+  // data with another's credential.
+  it('retries the whole snapshot when the active credential changed underneath the current-user fetch', async () => {
+    mockCallCoreRpc
+      // 1) app_state_snapshot for user A.
+      .mockResolvedValueOnce({
+        result: makeSnapshotResult({
+          auth: { isAuthenticated: true, userId: 'user-a', user: null, profileId: 'p-a' },
+        }),
+      })
+      // 2) re-check: userId moved on to user B (or signed out and back in)
+      //    while `fetchCurrentUser` was in flight.
+      .mockResolvedValueOnce({ result: { isAuthenticated: true, userId: 'user-b' } })
+      // 3) the retried app_state_snapshot, now consistently for user B.
+      .mockResolvedValueOnce({
+        result: makeSnapshotResult({
+          auth: { isAuthenticated: true, userId: 'user-b', user: null, profileId: 'p-b' },
+        }),
+      })
+      // 4) re-check for the retry: matches this time.
+      .mockResolvedValueOnce({ result: { isAuthenticated: true, userId: 'user-b' } });
+    mockFetchCurrentUser
+      .mockResolvedValueOnce({ user: { _id: 'user-b', name: 'B' }, stale: false, staleSeconds: 0 })
+      .mockResolvedValueOnce({ user: { _id: 'user-b', name: 'B' }, stale: false, staleSeconds: 0 });
+
+    const { fetchCoreAppSnapshot } = await import('./coreStateApi');
+    const out = await fetchCoreAppSnapshot();
+
+    // The final result is entirely user B's — never A's auth paired with B's
+    // live user (or vice versa).
+    expect(out.auth.userId).toBe('user-b');
+    expect((out.currentUser as { _id: string })._id).toBe('user-b');
+    expect(mockCallCoreRpc).toHaveBeenCalledTimes(4);
+  });
+
+  it('merges the current user when the credential did not change', async () => {
+    mockCallCoreRpc
+      .mockResolvedValueOnce({
+        result: makeSnapshotResult({
+          auth: { isAuthenticated: true, userId: 'user-a', user: null, profileId: 'p-a' },
+        }),
+      })
+      .mockResolvedValueOnce({ result: { isAuthenticated: true, userId: 'user-a' } });
+    mockFetchCurrentUser.mockResolvedValueOnce({
+      user: { _id: 'user-a', name: 'A' },
+      stale: false,
+      staleSeconds: 0,
+    });
+
+    const { fetchCoreAppSnapshot } = await import('./coreStateApi');
+    const out = await fetchCoreAppSnapshot();
+
+    expect(out.auth.userId).toBe('user-a');
+    expect(out.currentUser).toEqual({ _id: 'user-a', name: 'A' });
+    expect(mockCallCoreRpc).toHaveBeenCalledTimes(2);
   });
 });
 

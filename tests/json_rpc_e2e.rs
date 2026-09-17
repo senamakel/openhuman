@@ -22,8 +22,8 @@ use tinyinference::model::ModelRequest;
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::memory::tree::all_memory_tree_registered_controllers;
-use openhuman_core::openhuman::platform::connectivity::rpc::pick_listen_port;
+use openhuman_core::memory::tree::all_memory_tree_registered_controllers;
+use openhuman_core::platform::connectivity::rpc::pick_listen_port;
 
 const TEST_RPC_TOKEN: &str = "json-rpc-e2e-local-token";
 static JSON_RPC_AUTH_INIT: OnceLock<()> = OnceLock::new();
@@ -118,12 +118,12 @@ fn ensure_json_rpc_e2e_memory_seams() {
             .name("json-rpc-e2e-memory-seams".to_string())
             .stack_size(8 * 1024 * 1024)
             .spawn(|| {
-                let config = Arc::new(openhuman_core::openhuman::config::Config {
+                let config = Arc::new(openhuman_core::config::Config {
                     workspace_dir: json_rpc_e2e_shared_workspace().to_path_buf(),
-                    ..openhuman_core::openhuman::config::Config::default()
+                    ..openhuman_core::config::Config::default()
                 });
                 #[cfg(feature = "modules")]
-                openhuman_core::openhuman::modules::memory::set_modules_policy(config);
+                openhuman_core::modules::memory::set_modules_policy(config);
             })
             .expect("spawn json_rpc e2e memory seam installer")
             .join()
@@ -1024,11 +1024,11 @@ async fn wait_for_chat_completion_request_with_message(message: &str) -> Value {
 
 async fn encrypt_test_mnemonic() -> String {
     let _keyring_backend_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
-    let config = openhuman_core::openhuman::config::load_config_with_timeout()
+    let config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load config for encrypted test mnemonic");
-    openhuman_core::openhuman::security::keyring::init_workspace(&config.workspace_dir);
-    openhuman_core::openhuman::security::encryption::rpc::encrypt_secret(
+    openhuman_core::security::keyring::init_workspace(&config.workspace_dir);
+    openhuman_core::security::encryption::rpc::encrypt_secret(
         &config,
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
     )
@@ -1125,7 +1125,7 @@ encrypt = false
         write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
     }
 
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
@@ -1158,7 +1158,7 @@ enabled = false
         write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
     }
 
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
@@ -3187,21 +3187,21 @@ async fn json_rpc_thread_turn_state_lifecycle() {
     // Drop a snapshot directly through the store — this is exactly what
     // the web-channel progress mirror does mid-turn.
     let workspace_dir = {
-        let cfg = openhuman_core::openhuman::config::Config::load_or_init()
+        let cfg = openhuman_core::config::Config::load_or_init()
             .await
             .expect("load config");
         cfg.workspace_dir
     };
-    let mut state = openhuman_core::openhuman::threads::turn_state::TurnState::started(
+    let mut state = openhuman_core::threads::turn_state::TurnState::started(
         "thread-turn-1",
         "req-turn-1",
         25,
         chrono::Utc::now().to_rfc3339(),
     );
-    state.lifecycle = openhuman_core::openhuman::threads::turn_state::TurnLifecycle::Streaming;
+    state.lifecycle = openhuman_core::threads::turn_state::TurnLifecycle::Streaming;
     state.iteration = 2;
     state.streaming_text = "partial".into();
-    openhuman_core::openhuman::threads::turn_state::store::put(workspace_dir.clone(), &state)
+    openhuman_core::threads::turn_state::store::put(workspace_dir.clone(), &state)
         .expect("seed snapshot");
 
     // get → present
@@ -3251,15 +3251,15 @@ async fn json_rpc_thread_turn_state_lifecycle() {
     // both instead of overwriting.
     // Far-future started_at guarantees turn-2 is the newest (turn-1 was seeded
     // with the real `now()`), so history ordering is deterministic.
-    let mut state2 = openhuman_core::openhuman::threads::turn_state::TurnState::started(
+    let mut state2 = openhuman_core::threads::turn_state::TurnState::started(
         "thread-turn-1",
         "req-turn-2",
         25,
         "2999-01-01T00:00:00Z",
     );
-    state2.lifecycle = openhuman_core::openhuman::threads::turn_state::TurnLifecycle::Completed;
+    state2.lifecycle = openhuman_core::threads::turn_state::TurnLifecycle::Completed;
     state2.updated_at = "2999-01-01T00:00:00Z".into();
-    openhuman_core::openhuman::threads::turn_state::store::put(workspace_dir.clone(), &state2)
+    openhuman_core::threads::turn_state::store::put(workspace_dir.clone(), &state2)
         .expect("seed snapshot 2");
 
     // history → both turns, newest first.
@@ -3374,7 +3374,7 @@ async fn json_rpc_run_ledger_lifecycle() {
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
 
-    let config = openhuman_core::openhuman::config::Config::load_or_init()
+    let config = openhuman_core::config::Config::load_or_init()
         .await
         .expect("load config");
 
@@ -3493,7 +3493,7 @@ async fn json_rpc_agent_work_list_groups_runs_by_bucket() {
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
 
-    let config = openhuman_core::openhuman::config::Config::load_or_init()
+    let config = openhuman_core::config::Config::load_or_init()
         .await
         .expect("load config");
 
@@ -3601,7 +3601,7 @@ async fn json_rpc_workflow_run_definitions_and_runs_roundtrip() {
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
 
-    let config = openhuman_core::openhuman::config::Config::load_or_init()
+    let config = openhuman_core::config::Config::load_or_init()
         .await
         .expect("load config");
 
@@ -3706,7 +3706,7 @@ async fn json_rpc_agent_team_coordination_roundtrip() {
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
 
-    let config = openhuman_core::openhuman::config::Config::load_or_init()
+    let config = openhuman_core::config::Config::load_or_init()
         .await
         .expect("load config");
 
@@ -5164,16 +5164,15 @@ async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header
             .any(|e| e.get("slug").and_then(Value::as_str) == Some("proxy")),
         "user's auth-none 'proxy' entry must survive the update: {providers:?}"
     );
-    let loaded_config = openhuman_core::openhuman::config::load_config_with_timeout()
+    let loaded_config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load_config after auth-none update");
-    let (model, model_id) =
-        openhuman_core::openhuman::inference::provider::create_chat_model_with_model_id(
-            "chat",
-            &loaded_config,
-            0.0,
-        )
-        .expect("custom auth-none model should build");
+    let (model, model_id) = openhuman_core::inference::provider::create_chat_model_with_model_id(
+        "chat",
+        &loaded_config,
+        0.0,
+    )
+    .expect("custom auth-none model should build");
     let direct = model
         .invoke(
             &(),
@@ -8506,7 +8505,7 @@ async fn public_paths_accessible_without_token() {
     // Axum's extractor (400) before the handler's own auth runs — it stays in
     // this `!= 401` group. `/ws/dictation` is asserted separately below now
     // that it is authenticated at the upgrade boundary (C4 / issue #1924).
-    for path in ["/auth/telegram", "/events"] {
+    for path in ["/events"] {
         let resp = client
             .get(format!("{base}{path}"))
             .send()
@@ -8543,7 +8542,7 @@ async fn public_paths_accessible_without_token() {
 // via either the Authorization header OR a `?token=…` query param. The
 // query-param fallback exists because browser `EventSource` cannot attach
 // custom headers (whatwg/html §10.7). See `QUERY_TOKEN_PATHS` in
-// src/core/auth.rs.
+// crates/openhuman-core/src/core/auth.rs.
 // ---------------------------------------------------------------------------
 
 /// GET /events/webhooks with neither header nor query token → 401.
@@ -8763,11 +8762,11 @@ async fn rpc_update_apply_can_be_disabled_by_config_policy() {
     let tmp = tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", tmp.path());
 
-    let mut config = openhuman_core::openhuman::config::Config {
+    let mut config = openhuman_core::config::Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
-        ..openhuman_core::openhuman::config::Config::default()
+        ..openhuman_core::config::Config::default()
     };
     config.update.rpc_mutations_enabled = false;
     config
@@ -9298,10 +9297,10 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
             "exampleConfig": { "command": stub_path, "args": [] }
         }]
     });
-    let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
+    let seed_config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp::registry::store::set_cached(
+    openhuman_core::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -9486,10 +9485,10 @@ async fn mcp_clients_set_enabled_smoke() {
             "exampleConfig": { "command": stub_path, "args": [] }
         }]
     });
-    let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
+    let seed_config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp::registry::store::set_cached(
+    openhuman_core::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -9599,10 +9598,10 @@ async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
             "exampleConfig": { "command": stub_path, "args": [] }
         }]
     });
-    let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
+    let seed_config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load config for cache seed");
-    openhuman_core::openhuman::mcp::registry::store::set_cached(
+    openhuman_core::mcp::registry::store::set_cached(
         &seed_config,
         &format!("smithery:detail:{qualified_name}"),
         &detail.to_string(),
@@ -9913,7 +9912,7 @@ encrypt = false
     //    next call to load_config_with_timeout reads the on-disk file, finds
     //    it broken, falls back to the .bak, and returns the backup sentinel
     //    temperature (1.2) without returning an error.
-    let recovered = openhuman_core::openhuman::config::load_config_with_timeout()
+    let recovered = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load_config_with_timeout must not error even with corrupt primary");
     assert!(
@@ -10016,7 +10015,7 @@ encrypt = false
     //    It should recover from the `.bak` (if save was called) or fall back
     //    to `Config::default()`.  Either outcome is acceptable — the contract
     //    is "no Err returned, no panic".
-    let recovered = openhuman_core::openhuman::config::load_config_with_timeout()
+    let recovered = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load_config_with_timeout must not return Err with corrupt primary");
 
@@ -10437,8 +10436,8 @@ async fn json_rpc_config_agent_timeout_settings_roundtrip() {
 
     // Restore the process-global timeout so later tests in this binary don't
     // inherit the 300s value set above (the AtomicU64 is per-process, not per-test).
-    openhuman_core::openhuman::tools::timeout::set_tool_timeout_secs(
-        openhuman_core::openhuman::tools::timeout::DEFAULT_TIMEOUT_SECS,
+    openhuman_core::tools::timeout::set_tool_timeout_secs(
+        openhuman_core::tools::timeout::DEFAULT_TIMEOUT_SECS,
     );
 
     mock_join.abort();
@@ -10702,7 +10701,7 @@ async fn json_rpc_task_sources_crud_and_status() {
 ///
 /// This test used to register a stub `ComposioProvider` (deleted by
 /// tinymemory v1.13.4 with the whole in-process provider registry — see
-/// `crate::openhuman::integrations::composio::providers`'s module docs) and
+/// `crate::integrations::composio::providers`'s module docs) and
 /// exercise the full fetch → enrich → route → ingest pipeline against it.
 /// `task_sources::pipeline::fetch_tasks_unavailable` documents why that
 /// capability was not ported forward: tinyconnectors' `Sync` member returns
@@ -11256,7 +11255,7 @@ async fn json_rpc_flows_lifecycle_round_trip() {
 /// the RPC-layer counterpart to the direct-API tests
 /// `flows_run_detached_returns_running_run_id_and_inserts_row` /
 /// `flows_run_detached_registers_the_run_before_returning_its_id` in
-/// `src/openhuman/flows/ops_tests.rs` — same contract, exercised through the
+/// `crates/openhuman-core/src/flows/ops_tests.rs` — same contract, exercised through the
 /// `openhuman.flows_run_detached` controller (schema + handler wiring), not
 /// just the `ops::flows_run_detached` fn directly.
 #[cfg(feature = "flows")]
@@ -11370,7 +11369,7 @@ async fn json_rpc_flows_run_detached_returns_before_run_completes() {
 /// caller's raw toggle. This is the RPC-layer counterpart to the direct-API
 /// tests `flows_update_forces_require_approval_when_adding_side_effect_nodes`
 /// / `flows_update_does_not_force_require_approval_on_readonly_graph` in
-/// `src/openhuman/flows/ops_tests.rs` — same rule, exercised through the
+/// `crates/openhuman-core/src/flows/ops_tests.rs` — same rule, exercised through the
 /// `openhuman.flows_update` controller (schema + handler wiring), not just
 /// the `ops::flows_update` fn directly.
 #[cfg(feature = "flows")]
@@ -11570,7 +11569,7 @@ compaction_enabled = false
     {
         write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
     }
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
@@ -12228,17 +12227,13 @@ async fn json_rpc_flows_list_connections_aggregates_secret_free() {
 
     // Seed an HTTP credential through the same encrypted-at-rest store the op
     // reads (config resolves under the guarded HOME set by boot_flows_rpc_env).
-    let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
+    let seed_config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load config to seed http_cred");
     const SECRET: &str = "sk_live_flows_list_connections_seed";
-    openhuman_core::openhuman::security::credentials::HttpCredentialsStore::from_config(
-        &seed_config,
-    )
-    .upsert(
-        &openhuman_core::openhuman::security::credentials::HttpCredential::bearer("stripe", SECRET),
-    )
-    .expect("seed http_cred");
+    openhuman_core::security::credentials::HttpCredentialsStore::from_config(&seed_config)
+        .upsert(&openhuman_core::security::credentials::HttpCredential::bearer("stripe", SECRET))
+        .expect("seed http_cred");
 
     let resp = post_json_rpc(
         &rpc_base,
@@ -12303,12 +12298,9 @@ async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner()
     let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
     // Activate the reply_speech test seam so synthesize_reply records and
     // short-circuits instead of calling the hosted backend.
-    let _seam_guard = EnvVarGuard::set(
-        openhuman_core::openhuman::voice::reply_speech::TEST_SEAM_ENV,
-        "1",
-    );
+    let _seam_guard = EnvVarGuard::set(openhuman_core::voice::reply_speech::TEST_SEAM_ENV, "1");
 
-    openhuman_core::openhuman::voice::reply_speech::test_seam::clear();
+    openhuman_core::voice::reply_speech::test_seam::clear();
 
     let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
     let mock_origin = format!("http://{}", mock_addr);
@@ -12377,7 +12369,7 @@ async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner()
     // because the bridge task may finish slightly after chat_done.
     let mut observed: Vec<String> = Vec::new();
     for _ in 0..50 {
-        observed = openhuman_core::openhuman::voice::reply_speech::test_seam::observed();
+        observed = openhuman_core::voice::reply_speech::test_seam::observed();
         if !observed.is_empty() {
             break;
         }
@@ -12944,7 +12936,7 @@ api_key = "ck_e2e_test"
     {
         write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
     }
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
@@ -14064,9 +14056,9 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
 /// 3. An unknown flavour slug is rejected.
 #[tokio::test]
 async fn memory_flavour_agent_tool_e2e_5172() {
-    use openhuman_core::openhuman::config::Config;
-    use openhuman_core::openhuman::tools::traits::Tool;
-    use openhuman_core::openhuman::tools::MemoryFlavourTool;
+    use openhuman_core::config::Config;
+    use openhuman_core::tools::traits::Tool;
+    use openhuman_core::tools::MemoryFlavourTool;
 
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
@@ -14099,10 +14091,10 @@ async fn memory_flavour_agent_tool_e2e_5172() {
 
 /// The `memory_diff` RPC surface is gone, and the `memory` domain is not (#5839).
 ///
-/// #5839 deleted the `memory-git` feature, `src/openhuman/memory/diff/`, the
+/// #5839 deleted the `memory-git` feature, `crates/openhuman-core/src/memory/diff/`, the
 /// `memory_diff` tool and `tests/memory_artifacts_e2e.rs`. What it left behind
 /// is a unit test over `all_controller_schemas()`
-/// (`src/core/all_tests.rs::memory_diff_controllers_are_gone_and_memory_survives`),
+/// (`crates/openhuman-core/src/core/all_tests.rs::memory_diff_controllers_are_gone_and_memory_survives`),
 /// which reads the registry as a data structure. Nothing dispatched a removed
 /// method through the live router, so nothing proved the wire surface actually
 /// went with it — a re-registration behind a different namespace, or a stale
@@ -14737,7 +14729,7 @@ driver = "null"
         &cfg,
     )
     .expect("write user config");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("config toml must match Config schema");
 
     // A Hermes source with something real to lose. `MEMORY.md` is the first of

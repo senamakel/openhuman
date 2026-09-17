@@ -19,8 +19,8 @@ use support::{assert_no_error, error_message, logs, peel, Harness};
 
 /// A `Config` pointing at the harness's workspace, for the few cases that seed
 /// domain state directly rather than through an RPC that cannot create it.
-fn config_for(harness: &Harness) -> openhuman_core::openhuman::config::Config {
-    openhuman_core::openhuman::config::Config {
+fn config_for(harness: &Harness) -> openhuman_core::config::Config {
+    openhuman_core::config::Config {
         workspace_dir: harness.workspace(),
         ..Default::default()
     }
@@ -589,7 +589,7 @@ async fn devices_list_and_revoke_over_the_real_store() {
 
     // Seed two paired devices directly — `devices_create_pairing` cannot do it
     // without a live backend tunnel.
-    openhuman_core::openhuman::security::devices::store::insert_device(
+    openhuman_core::security::devices::store::insert_device(
         &config,
         "chan-alpha",
         "iPhone 15",
@@ -597,7 +597,7 @@ async fn devices_list_and_revoke_over_the_real_store() {
         "hash-alpha",
     )
     .expect("seed the first paired device");
-    openhuman_core::openhuman::security::devices::store::insert_device(
+    openhuman_core::security::devices::store::insert_device(
         &config,
         "chan-beta",
         "iPad",
@@ -685,7 +685,7 @@ async fn devices_list_and_revoke_over_the_real_store() {
         "revoking chan-alpha must not touch chan-beta: {after}"
     );
     // The row still exists, revoked — the list filters, it does not delete.
-    let row = openhuman_core::openhuman::security::devices::store::get_device(
+    let row = openhuman_core::security::devices::store::get_device(
         &config,
         "chan-alpha",
     )
@@ -882,7 +882,7 @@ async fn wallet_reveal_recovery_phrase_returns_the_stored_mnemonic() {
                             abandon abandon abandon abandon abandon about";
     let normalized = MNEMONIC.split_whitespace().collect::<Vec<_>>().join(" ");
 
-    openhuman_core::openhuman::security::keyring::init_workspace(&harness.workspace());
+    openhuman_core::security::keyring::init_workspace(&harness.workspace());
     let encrypted = harness
         .call(
             81,

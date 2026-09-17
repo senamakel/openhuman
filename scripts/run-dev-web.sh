@@ -82,7 +82,7 @@ if [[ "$core_port" != "$original_core_port" ]]; then
 fi
 
 # A blank OPENHUMAN_CORE_TOKEN does NOT disable auth: `init_rpc_token`
-# (src/core/auth.rs) trims it, treats empty as unset, and falls through to
+# (crates/openhuman-core/src/core/auth.rs) trims it, treats empty as unset, and falls through to
 # generating a token and writing it to {workspace}/core.token. So an explicit
 # value is the only way both sides agree on a bearer without reading that file.
 core_token="${OPENHUMAN_CORE_TOKEN:-}"

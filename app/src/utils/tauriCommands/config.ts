@@ -121,7 +121,7 @@ export interface ModelSettingsUpdate {
 
 /**
  * Stepped user-facing memory-context window preset. Mirrors the core
- * `MemoryContextWindow` enum (`src/openhuman/config/schema/agent.rs`)
+ * `MemoryContextWindow` enum (`crates/openhuman-core/src/config/schema/agent.rs`)
  * — the actual char budgets are owned by the core, this is the label.
  */
 export type MemoryContextWindow = 'minimal' | 'balanced' | 'extended' | 'maximum';
@@ -219,7 +219,7 @@ export async function openhumanGetConfig(): Promise<CommandResponse<ConfigSnapsh
 /**
  * Safe client-facing config slice. Never contains the raw api_key — only
  * `api_key_set` indicates whether a custom backend key is stored. See
- * `config.get_client_config` in `src/openhuman/config/schemas.rs`.
+ * `config.get_client_config` in `crates/openhuman-core/src/config/schemas.rs`.
  */
 export interface ClientConfig {
   /** OpenHuman product backend URL (auth/billing/voice). */

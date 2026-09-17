@@ -111,7 +111,7 @@ embedding_dimensions = 0
 embedding_strict = false
 "#;
     std::fs::write(openhuman_dir.join("config.toml"), cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(cfg).expect("test config must match schema");
 }
 
@@ -152,8 +152,8 @@ async fn setup() -> TestHarness {
     // where none is present the binding degrades to its null placeholder and
     // the diagnostics answer empty, which is a round-trippable result rather
     // than a JSON-RPC error.
-    openhuman_core::openhuman::modules::memory::set_modules_policy(std::sync::Arc::new(
-        openhuman_core::openhuman::config::Config::default(),
+    openhuman_core::modules::memory::set_modules_policy(std::sync::Arc::new(
+        openhuman_core::config::Config::default(),
     ));
 
     let (addr, join) = serve_rpc().await;

@@ -39,7 +39,7 @@ use tempfile::TempDir;
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::config::Config;
+use openhuman_core::config::Config;
 
 /// Preferred bearer. Only the real one if this module wins the process-global
 /// `OnceLock` race — send [`rpc_bearer`], never this.
@@ -106,7 +106,7 @@ fn ensure_memory_seams() {
             .spawn(|| {
                 let config = Arc::new(shared_config_at(memory_workspace()));
                 #[cfg(feature = "modules")]
-                openhuman_core::openhuman::modules::memory::set_modules_policy(config);
+                openhuman_core::modules::memory::set_modules_policy(config);
             })
             .expect("spawn memory goals/people seam installer")
             .join()
@@ -477,7 +477,7 @@ async fn memory_goals_refuse_pii_secrets_blank_text_and_unknown_ids() {
 
     // The type contract. This is `core::all::validate_params`' wording, not the
     // handler's: every dispatch is schema-validated for required-presence and
-    // declared types before the handler body runs (`src/core/all.rs:1334`), so
+    // declared types before the handler body runs (`crates/openhuman-core/src/core/all.rs:1334`), so
     // `parse_value`'s own "invalid params: …" is unreachable over RPC.
     let missing_text = rpc(
         &harness.rpc_base,

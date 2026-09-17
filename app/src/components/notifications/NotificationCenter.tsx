@@ -40,7 +40,7 @@ const ALL_PROVIDERS = '__all__';
 
 /**
  * A paused `tinyflows` run's approval prompt (issue B3a) — id set by
- * `notify_pending_approval` in `src/openhuman/flows/ops.rs`. Routed to
+ * `notify_pending_approval` in `crates/openhuman-core/src/flows/ops.rs`. Routed to
  * `FlowApprovalCard` instead of the generic `CoreNotificationCard`, which is
  * hardcoded to the meeting auto-join RPC.
  */

@@ -20,15 +20,15 @@ use axum::{Json, Router};
 use serde_json::{json, Map, Value};
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::config::Config;
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::memory::{
+use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::security::{AuditLogger, SecurityPolicy};
-use openhuman_core::openhuman::tools::{
+use openhuman_core::security::{AuditLogger, SecurityPolicy};
+use openhuman_core::tools::{
     all_tools, all_tools_registered_controllers, ComposioExecuteTool, Tool,
 };
 

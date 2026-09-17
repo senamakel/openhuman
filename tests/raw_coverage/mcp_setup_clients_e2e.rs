@@ -160,7 +160,7 @@ async fn setup(extra: Vec<EnvVarGuard>) -> Harness {
     let openhuman_home = home.join(".openhuman");
     std::fs::create_dir_all(&openhuman_home).expect("create .openhuman");
     std::fs::write(openhuman_home.join("config.toml"), MIN_CONFIG).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(MIN_CONFIG).expect("test config must match the config schema");
 
     let workspace = home.join("workspace");
@@ -742,7 +742,7 @@ async fn mcp_setup_install_paths_validate_handles_and_report_dial_failure_in_ban
     // arm needs a package that installs and then refuses to dial, which means a
     // registry-resolvable package and a subprocess; it is covered by the unit
     // tests on `classify_install_connect` in
-    // `src/openhuman/mcp/registry/setup_ops_tests.rs`.
+    // `crates/openhuman-core/src/mcp/registry/setup_ops_tests.rs`.
     let install = rpc(
         &harness.rpc_base,
         225,
@@ -933,11 +933,11 @@ async fn mcp_audit_list_filters_and_orders_the_write_log() {
     );
 
     // Seed three rows: two clients, two tools, one failure.
-    let config = openhuman_core::openhuman::config::Config {
+    let config = openhuman_core::config::Config {
         workspace_dir: harness.workspace.clone(),
-        ..openhuman_core::openhuman::config::Config::default()
+        ..openhuman_core::config::Config::default()
     };
-    use openhuman_core::openhuman::mcp::audit::{record_write, NewMcpWriteRecord};
+    use openhuman_core::mcp::audit::{record_write, NewMcpWriteRecord};
     for (ts, client, tool, success, error) in [
         (1_000_i64, "mcp:claude-desktop", "memory.store", true, None),
         (

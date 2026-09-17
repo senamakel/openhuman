@@ -2,7 +2,7 @@
  * NotchApp
  *
  * Standalone React root rendered inside the native macOS NSPanel that floats
- * at the top-centre of the primary screen (see `app/src-tauri/src/notch_window.rs`).
+ * at the top-centre of the primary screen (see `crates/openhuman-app/src/notch_window.rs`).
  *
  * The panel has no Tauri IPC bridge (WKWebView outside the CEF runtime). The
  * Rust host injects the core base URL via `evaluateJavaScript` once

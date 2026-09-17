@@ -18,8 +18,8 @@
 
 use std::sync::OnceLock;
 
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::memory::read_rpc;
+use openhuman_core::config::Config;
+use openhuman_core::memory::read_rpc;
 use tempfile::TempDir;
 
 static WORKSPACE: OnceLock<TempDir> = OnceLock::new();

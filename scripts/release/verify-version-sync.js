@@ -23,26 +23,29 @@ function readJsonVersion(filePath, field = 'version') {
   return value;
 }
 
-function readCargoPackageVersion(filePath) {
+function readCargoVersion(filePath, section = 'package') {
   const cargo = fs.readFileSync(filePath, 'utf8');
-  const match = cargo.match(/^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
+  const escapedSection = section.replace('.', '\\.');
+  const match = cargo.match(
+    new RegExp(`^\\[${escapedSection}\\][\\s\\S]*?^version\\s*=\\s*"([^"]+)"`, 'm'),
+  );
   if (!match) {
-    throw new Error(`Failed to read [package].version in ${path.relative(root, filePath)}`);
+    throw new Error(`Failed to read [${section}].version in ${path.relative(root, filePath)}`);
   }
   return match[1];
 }
 
 const versions = {
   'app/package.json': readJsonVersion(path.join(root, 'app/package.json')),
-  'app/src-tauri/tauri.conf.json': readJsonVersion(path.join(root, 'app/src-tauri/tauri.conf.json')),
+  'crates/openhuman-app/tauri.conf.json': readJsonVersion(path.join(root, 'crates/openhuman-app/tauri.conf.json')),
   'app/src-tauri-mobile/tauri.conf.json': readJsonVersion(
     path.join(root, 'app/src-tauri-mobile/tauri.conf.json'),
   ),
-  'app/src-tauri/Cargo.toml': readCargoPackageVersion(path.join(root, 'app/src-tauri/Cargo.toml')),
-  'app/src-tauri-mobile/Cargo.toml': readCargoPackageVersion(
+  'crates/openhuman-app/Cargo.toml': readCargoVersion(path.join(root, 'crates/openhuman-app/Cargo.toml')),
+  'app/src-tauri-mobile/Cargo.toml': readCargoVersion(
     path.join(root, 'app/src-tauri-mobile/Cargo.toml'),
   ),
-  'Cargo.toml': readCargoPackageVersion(path.join(root, 'Cargo.toml')),
+  'Cargo.toml': readCargoVersion(path.join(root, 'Cargo.toml'), 'workspace.package'),
 };
 
 const values = Object.values(versions);

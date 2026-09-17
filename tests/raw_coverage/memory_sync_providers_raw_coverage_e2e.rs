@@ -8,7 +8,7 @@
 //!
 //! tinymemory v1.13.4 deleted the entire in-process Composio provider
 //! registry outright (72 files, ~18.3k lines) — see
-//! `crate::openhuman::integrations::composio::providers`'s module docs for
+//! `crate::integrations::composio::providers`'s module docs for
 //! the full account. This file used to instantiate the deleted engine's
 //! per-toolkit providers (`SlackProvider`, `GmailProvider`, `NotionProvider`,
 //! `GitHubProvider`, `LinearProvider`, `ClickUpProvider`) directly against a
@@ -65,12 +65,12 @@ use serde_json::json;
 use tempfile::TempDir;
 
 use openhuman_core::core::events::DomainEvent;
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::integrations::composio::ops::{composio_get_user_profile, composio_sync};
-use openhuman_core::openhuman::memory::sync::composio::bus::{
+use openhuman_core::config::Config;
+use openhuman_core::integrations::composio::ops::{composio_get_user_profile, composio_sync};
+use openhuman_core::memory::sync::composio::bus::{
     ComposioConfigChangedSubscriber, ComposioConnectionCreatedSubscriber, ComposioTriggerSubscriber,
 };
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use tinybus::EventHandler;

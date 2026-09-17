@@ -64,6 +64,6 @@ check_world() {
 }
 
 check_world core Cargo.toml
-check_world tauri app/src-tauri/Cargo.toml
+check_world tauri crates/openhuman-app/Cargo.toml
 
 printf 'Linux TLS/Sentry dependency policy passed for both Cargo worlds (%s)\n' "$target"

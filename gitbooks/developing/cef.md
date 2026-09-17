@@ -1,11 +1,15 @@
 ---
 description: >-
-  Why OpenHuman ships its own Chromium runtime, what we use it for today, and
-  what the same CDP surface unlocks next.
+  Historical design notes from when OpenHuman shipped its own Chromium (CEF)
+  runtime. The shell now runs on stock Tauri (Wry); kept as background only.
 icon: chrome
 ---
 
 # Chromium Embedded Framework
+
+{% hint style="warning" %}
+**Historical.** The desktop shell no longer ships CEF. `crates/openhuman-app/` builds on upstream Tauri's native webview runtime (Wry: WKWebView / WebView2 / WebKitGTK), and `AGENTS.md` forbids restoring CEF or CDP-scanner assumptions. The native iMessage scanner remains separate because it reads `chat.db` directly. Everything below describes the retired runtime and is kept only as design background; the file paths it cites (`crates/openhuman-app/src/webview_accounts/`, `scripts/ensure-tauri-cli.sh`, `vendor/tauri-cef`) no longer exist.
+{% endhint %}
 
 OpenHuman doesn't run on the platform's built-in webview. It ships its own **Chromium Embedded Framework (CEF) runtime** via a fork of `tauri-runtime`, and that single decision is load-bearing for almost every "OpenHuman knows what's happening in your tools" feature in the product.
 
@@ -25,7 +29,7 @@ CDP is the load-bearing primitive. Every "watch what's happening inside Slack / 
 
 Stock webviews can't give us any of that. So we vendor CEF.
 
-The vendored runtime lives at [`app/src-tauri/vendor/tauri-cef/`](https://github.com/tinyhumansai/openhuman/tree/main/app/src-tauri/vendor/tauri-cef) (forked from the upstream `tauri-cef` branch onto `tinyhumansai/tauri-cef:feat/cef-notification-intercept`, currently CEF 146.4.1). Every Tauri crate is patched at `app/src-tauri/Cargo.toml` via `[patch.crates-io]` to point at this fork. The vendored `cargo-tauri` CLI bundles Chromium correctly into `Contents/Frameworks/`; stock `@tauri-apps/cli` produces a broken bundle that panics in `cef::library_loader::LibraryLoader::new`. [`scripts/ensure-tauri-cli.sh`](../../scripts/ensure-tauri-cli.sh) reinstalls the vendored CLI whenever the fork is newer than the installed binary.
+The vendored runtime lived at `crates/openhuman-app/vendor/tauri-cef/` (forked from the upstream `tauri-cef` branch onto `tinyhumansai/tauri-cef:feat/cef-notification-intercept`, currently CEF 146.4.1). Every Tauri crate is patched at `crates/openhuman-app/Cargo.toml` via `[patch.crates-io]` to point at this fork. The vendored `cargo-tauri` CLI bundles Chromium correctly into `Contents/Frameworks/`; stock `@tauri-apps/cli` produces a broken bundle that panics in `cef::library_loader::LibraryLoader::new`. `scripts/ensure-tauri-cli.sh` (removed) reinstalled the vendored CLI whenever the fork is newer than the installed binary.
 
 ## What CEF is used for today
 
@@ -45,11 +49,11 @@ Every connected provider that runs as a hosted web app gets its own child CEF we
 - Google Messages
 - browserscan
 
-Per-account storage is isolated to `{app_local_data_dir}/webview_accounts/{id}/`. Two Slack workspaces, two browser profiles. Code: [`app/src-tauri/src/webview_accounts/mod.rs`](../../app/src-tauri/src/webview_accounts/mod.rs).
+Per-account storage is isolated to `{app_local_data_dir}/webview_accounts/{id}/`. Two Slack workspaces, two browser profiles. Code (removed): `crates/openhuman-app/src/webview_accounts/mod.rs`.
 
 ### CDP-driven scanners
 
-Each provider has a **scanner module** in [`app/src-tauri/src/`](https://github.com/tinyhumansai/openhuman/tree/main/app/src-tauri/src). Every scanner holds a long-lived WebSocket to CEF's `--remote-debugging-port=19222` and ticks on a fixed schedule:
+Each provider had a **scanner module** in `crates/openhuman-app/src/` (all removed except `imessage_scanner/`). Every scanner holds a long-lived WebSocket to CEF's `--remote-debugging-port=19222` and ticks on a fixed schedule:
 
 | Scanner             | Cadence                         | What it does                                                         |
 | ------------------- | ------------------------------- | -------------------------------------------------------------------- |
@@ -74,13 +78,13 @@ The flashiest CEF trick. The Meet agent doesn't just _attend_ a meeting, it **br
 
 There's also a build-time path that rasterizes the mascot SVG to Y4M and uses CEF's native `--use-file-for-fake-video-capture` flag, a fully native fake-camera source with no JS at all.
 
-Code: [`app/src-tauri/src/meet_video/`](https://github.com/tinyhumansai/openhuman/tree/main/app/src-tauri/src/meet_video).
+Code (removed): `crates/openhuman-app/src/meet_video/`.
 
 ### Native notification interception
 
 The fork at `feat/cef-notification-intercept` adds renderer-side shims for `Notification.permission`, `Notification.requestPermission()`, and `navigator.permissions.query({name: "notifications"})`. These now install in the real `tauri-runtime-cef` path on every runtime code path, so when Slack checks if it can show notifications, the answer is consistent with what CEF's permission callbacks already granted.
 
-This is the bulk of `docs/TAURI_CEF_FINDINGS_AND_CHANGES.md`. It's why Slack stops asking the same permission five times in a session.
+This was the bulk of the (since removed) `docs/TAURI_CEF_FINDINGS_AND_CHANGES.md`. It's why Slack stops asking the same permission five times in a session.
 
 ## The "no new JS injection" rule
 
@@ -103,7 +107,7 @@ Legacy injection should shrink, never grow. New providers go straight onto the C
 
 ## CEF prewarm
 
-A hidden CEF webview (`cef-prewarm`) boots the browser on app launch so the first child webview spawns instantly when the user clicks. It's torn down before `cef::shutdown()` to avoid races during quit. See `app/src-tauri/src/lib.rs` around the prewarm + close lifecycle.
+A hidden CEF webview (`cef-prewarm`) boots the browser on app launch so the first child webview spawns instantly when the user clicks. It's torn down before `cef::shutdown()` to avoid races during quit. See `crates/openhuman-app/src/lib.rs` around the prewarm + close lifecycle.
 
 ## Windows startup triage
 
@@ -157,7 +161,7 @@ Open the Vite URL in a regular browser, choose **Advanced** / remote core mode, 
 
 ## Plugin audit
 
-Anything new added to `app/src-tauri/src/lib.rs` must be audited for `js_init_script` calls. `tauri-plugin-opener` ships an init script (`init-iife.js`) by default that adds a global click listener; we configure it with `.open_js_links_on_click(false)` so it doesn't run inside third-party webviews. `tauri-plugin-notification`'s init script was likewise dropped from the vendored copy.
+Anything new added to `crates/openhuman-app/src/lib.rs` must be audited for `js_init_script` calls. `tauri-plugin-opener` ships an init script (`init-iife.js`) by default that adds a global click listener; we configure it with `.open_js_links_on_click(false)` so it doesn't run inside third-party webviews. `tauri-plugin-notification`'s init script was likewise dropped from the vendored copy.
 
 ## Where this could evolve
 

@@ -1,0 +1,598 @@
+//! Debug helper that renders the exact system prompt a live session
+//! would see for a given agent.
+//!
+//! Instead of re-implementing prompt assembly, this module routes
+//! through [`Agent::from_config_for_agent`] — the same entry point the
+//! Tauri web channel and CLI use — and then calls
+//! [`Agent::build_system_prompt`] on the constructed session. The
+//! output is byte-identical to what the LLM would receive on turn 1 of
+//! that agent.
+//!
+//! Entry points:
+//! * [`dump_agent_prompt`] — dump a single agent by id.
+//! * [`dump_all_agent_prompts`] — dump every registered agent in one call.
+//!
+//! `integrations_agent` is special: it is platform-parameterised and
+//! has no meaningful prompt without a `toolkit` argument. Callers must
+//! supply one (e.g. `"gmail"`, `"notion"`) via
+//! [`DumpPromptOptions::toolkit`]; `dump_all_agent_prompts` expands
+//! `integrations_agent` into one dump per currently-connected Composio
+//! toolkit.
+
+use std::collections::HashSet;
+use std::path::PathBuf;
+
+use anyhow::{anyhow, Context, Result};
+
+pub mod dump_writer;
+pub mod prompt_size;
+pub mod wire;
+pub use dump_writer::{write_prompt_dumps, DumpWriteSummary};
+pub use wire::render as render_wire_dump;
+
+use crate::agent::context::prompt::{
+    LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
+};
+use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, PromptSource};
+use crate::agent::harness::session::Agent;
+use crate::config::Config;
+use crate::integrations::composio::ComposioActionTool;
+use crate::tools::{Tool, ToolCategory};
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/// Id reserved for the Composio-backed integrations specialist.
+const INTEGRATIONS_AGENT_ID: &str = "integrations_agent";
+
+/// Inputs for [`dump_agent_prompt`].
+#[derive(Debug, Clone)]
+pub struct DumpPromptOptions {
+    /// Target agent id (any id registered in [`AgentDefinitionRegistry`]).
+    pub agent_id: String,
+    /// Composio toolkit to bind this dump to (e.g. `"gmail"`,
+    /// `"notion"`). **Required** when `agent_id == "integrations_agent"`
+    /// — the integrations specialist has no meaningful prompt without a
+    /// toolkit. Must match a currently-connected integration.
+    pub toolkit: Option<String>,
+    /// Optional override for the workspace directory.
+    pub workspace_dir_override: Option<PathBuf>,
+    pub config_path_override: Option<PathBuf>,
+    /// Optional override for the resolved model name.
+    pub model_override: Option<String>,
+}
+
+impl DumpPromptOptions {
+    pub fn new(agent_id: impl Into<String>) -> Self {
+        Self {
+            agent_id: agent_id.into(),
+            toolkit: None,
+            workspace_dir_override: None,
+            config_path_override: None,
+            model_override: None,
+        }
+    }
+}
+
+/// Result of a single prompt dump.
+#[derive(Debug, Clone)]
+pub struct DumpedPrompt {
+    /// Echoed from [`DumpPromptOptions::agent_id`].
+    pub agent_id: String,
+    /// Composio toolkit this dump was scoped to (set for
+    /// `integrations_agent`, `None` for everything else). Lets the CLI
+    /// / harness differentiate per-toolkit dumps on disk.
+    pub toolkit: Option<String>,
+    /// Always `"session"` — dumps come from the live session path.
+    pub mode: &'static str,
+    /// Resolved model name.
+    pub model: String,
+    /// Workspace directory used for identity file injection.
+    pub workspace_dir: PathBuf,
+    /// The final rendered system prompt — frozen bytes that would be
+    /// sent verbatim on every turn of a live session.
+    pub text: String,
+    /// Tool names that made it into the rendered prompt, in order.
+    pub tool_names: Vec<String>,
+    /// Number of `ToolCategory::Workflow` tools in the dump.
+    pub skill_tool_count: usize,
+    /// One `{name, description, parameters}` entry per tool the agent
+    /// exposes, in the same order as [`Self::tool_names`].
+    ///
+    /// The system prompt is only half of a turn's fixed cost: the tool
+    /// schemas ride alongside it in every request, and for an agent with a
+    /// few hundred tools they dominate. Dumping the prompt without them
+    /// measures the smaller half.
+    pub tool_specs: Vec<serde_json::Value>,
+}
+
+// The `+ 'a` is load-bearing: a bare `dyn Tool` here means `dyn Tool +
+// 'static`, which `Box<dyn Tool>` satisfies but a borrowed `&'a dyn Tool` (what
+// `Agent::all_tool_refs` yields) does not.
+fn tool_specs_of<'a, T: std::ops::Deref<Target = dyn crate::tools::Tool + 'a>>(
+    tools: &[T],
+) -> Vec<serde_json::Value> {
+    tools
+        .iter()
+        .map(|t| {
+            serde_json::json!({
+                "name": t.name(),
+                "description": t.description(),
+                "parameters": t.parameters_schema(),
+            })
+        })
+        .collect()
+}
+
+/// Render and return the system prompt for a single agent via the
+/// real [`Agent::from_config_for_agent`] construction path.
+pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPrompt> {
+    let config = load_dump_config(
+        options.workspace_dir_override.clone(),
+        options.config_path_override.clone(),
+        options.model_override.clone(),
+    )
+    .await?;
+
+    // Ensure the registry is populated — `from_config_for_agent`
+    // errors for any non-orchestrator id when the global registry
+    // hasn't been initialised.
+    AgentDefinitionRegistry::init_global(&config.workspace_dir)
+        .context("initialising AgentDefinitionRegistry for prompt dump")?;
+
+    if options.agent_id == INTEGRATIONS_AGENT_ID {
+        let toolkit = options.toolkit.as_deref().ok_or_else(|| {
+            anyhow!(
+                "integrations_agent requires a `toolkit` argument — e.g. \
+                 `gmail`, `notion`. See `composio list_connection` for \
+                 the currently-connected toolkits."
+            )
+        })?;
+        render_integrations_agent(&config, toolkit).await
+    } else {
+        render_via_session(&config, &options.agent_id).await
+    }
+}
+
+/// Dump every registered agent's system prompt in one shot.
+///
+/// The synthetic `fork` archetype is skipped (byte-stable replay, no
+/// standalone prompt). `integrations_agent` is expanded into one dump
+/// per currently-connected Composio toolkit — if the user has gmail +
+/// notion connected, `dump_all_agent_prompts` returns an entry for
+/// `integrations_agent@gmail` and another for `integrations_agent@notion`.
+/// When no toolkit is connected, `integrations_agent` is omitted
+/// entirely (there's nothing meaningful to render).
+///
+/// Order follows [`AgentDefinitionRegistry::list`], with
+/// `integrations_agent` replaced in place by its per-toolkit expansion.
+pub async fn dump_all_agent_prompts(
+    workspace_dir_override: Option<PathBuf>,
+    config_path_override: Option<PathBuf>,
+    model_override: Option<String>,
+) -> Result<Vec<DumpedPrompt>> {
+    let config =
+        load_dump_config(workspace_dir_override, config_path_override, model_override).await?;
+
+    AgentDefinitionRegistry::init_global(&config.workspace_dir)
+        .context("initialising AgentDefinitionRegistry for prompt dump")?;
+
+    let registry = AgentDefinitionRegistry::global()
+        .ok_or_else(|| anyhow!("AgentDefinitionRegistry missing after init"))?;
+
+    let ids: Vec<String> = registry
+        .list()
+        .iter()
+        .filter(|d| d.id != "fork")
+        .map(|d| d.id.clone())
+        .collect();
+
+    let mut results = Vec::with_capacity(ids.len());
+    for id in ids {
+        if id == INTEGRATIONS_AGENT_ID {
+            let toolkits = connected_toolkits_for(&config).await?;
+            if toolkits.is_empty() {
+                log::info!("[agent::debug] skipping integrations_agent — no connected toolkits");
+                continue;
+            }
+            for toolkit in toolkits {
+                let dumped = render_integrations_agent(&config, &toolkit)
+                    .await
+                    .with_context(|| {
+                        format!("rendering integrations_agent prompt for toolkit `{toolkit}`")
+                    })?;
+                results.push(dumped);
+            }
+            continue;
+        }
+
+        let dumped = render_via_session(&config, &id)
+            .await
+            .with_context(|| format!("rendering prompt for agent `{id}`"))?;
+        results.push(dumped);
+    }
+    Ok(results)
+}
+
+// ---------------------------------------------------------------------------
+// Internals
+// ---------------------------------------------------------------------------
+
+async fn load_dump_config(
+    workspace_dir_override: Option<PathBuf>,
+    config_path_override: Option<PathBuf>,
+    model_override: Option<String>,
+) -> Result<Config> {
+    let mut config = if let Some(path) = config_path_override {
+        let workspace = workspace_dir_override
+            .as_deref()
+            .ok_or_else(|| anyhow!("config path override requires workspace override"))?;
+        Config::load_from_config_path(&path, workspace)
+            .await
+            .context("loading hermetic Config for prompt dump")?
+    } else {
+        Config::load_or_init()
+            .await
+            .context("loading Config for prompt dump")?
+    };
+    config.apply_env_overrides();
+    if let Some(override_dir) = workspace_dir_override {
+        config.workspace_dir = override_dir;
+    }
+    std::fs::create_dir_all(&config.workspace_dir).ok();
+    if let Some(model) = model_override {
+        config.default_model = Some(model);
+    }
+
+    // The `agent` CLI dispatches straight to this dumper and never runs the
+    // runtime bootstrap, so nothing else wires the host's memory seams.
+    //
+    // The `tinymemory-core` seams this used to install are gone with the crate
+    // (#5560). The reason they were needed — building a session agent
+    // constructed an in-process memory store whose embedding seam failed loudly
+    // when unwired — no longer holds: `session::builder::factory` stopped
+    // booting one, so `dump-prompt` reaches no engine to call back into.
+    //
+    // The contract event sink still installs, idempotently, for the same reason
+    // as in `runtime::context`: it is a `tinymemory-api` seam with a live
+    // production publisher, and it drops silently rather than loudly when
+    // unwired. Same rationale as `memory_cli` / `subconscious_cli`.
+    crate::memory::host::install_memory_event_sink();
+
+    Ok(config)
+}
+
+/// Build a real [`Agent`] via `from_config_for_agent`, populate live
+/// connected integrations, and render the turn-1 system prompt.
+async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPrompt> {
+    let mut agent = Agent::from_config_for_agent(config, agent_id)
+        .with_context(|| format!("building session agent for `{agent_id}`"))?;
+
+    // Match turn-1 behaviour: fetch the user's active Composio
+    // connections so the rendered prompt mirrors what the LLM actually
+    // sees. Best-effort — failures degrade to an empty integration
+    // list, same as the live runtime.
+    agent.fetch_connected_integrations().await;
+    // Mirror turn-1: synthesise `delegate_*` tools for connected
+    // Composio toolkits now that we know what's actually authorised.
+    agent.refresh_delegation_tools();
+
+    let text = agent
+        .build_system_prompt(LearnedContextData::default())
+        .with_context(|| format!("rendering system prompt for `{agent_id}`"))?;
+
+    // The whole callable surface, so the dump shows the `delegate_*` tools
+    // the refresh above just synthesised alongside the durable registry.
+    let tools = agent.all_tool_refs();
+    let tool_names: Vec<String> = tools.iter().map(|t| t.name().to_string()).collect();
+    let tool_specs = tool_specs_of(&tools);
+    let skill_tool_count = tools
+        .iter()
+        .filter(|t| t.category() == ToolCategory::Workflow)
+        .count();
+
+    Ok(DumpedPrompt {
+        agent_id: agent_id.to_string(),
+        toolkit: None,
+        mode: "session",
+        model: agent.model_name().to_string(),
+        workspace_dir: agent.workspace_dir().to_path_buf(),
+        text,
+        tool_names,
+        skill_tool_count,
+        tool_specs,
+    })
+}
+
+/// Render the integrations_agent prompt bound to a single Composio
+/// toolkit. Mirrors the subagent_runner's per-toolkit path: strips
+/// Workflow-category parent tools, injects one [`ComposioActionTool`] per
+/// action in the toolkit, and narrows the `connected_integrations`
+/// slice to only the requested toolkit before calling the agent's
+/// dynamic prompt builder.
+async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<DumpedPrompt> {
+    let mut agent = Agent::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
+        .with_context(|| format!("building integrations_agent session for `{toolkit}`"))?;
+    agent.fetch_connected_integrations().await;
+
+    let mut integration = agent
+        .connected_integrations()
+        .iter()
+        .find(|ci| ci.connected && ci.toolkit.eq_ignore_ascii_case(toolkit))
+        .cloned()
+        .ok_or_else(|| {
+            let connected: Vec<String> = agent
+                .connected_integrations()
+                .iter()
+                .filter(|ci| ci.connected)
+                .map(|ci| ci.toolkit.clone())
+                .collect();
+            anyhow!(
+                "toolkit `{toolkit}` is not connected. Connected toolkits: [{}]",
+                connected.join(", ")
+            )
+        })?;
+
+    // Resolve the live client kind via the mode-aware factory so a
+    // direct-mode user can still render the prompt even without a
+    // backend session (#1710 Wave 2). Backend mode keeps the existing
+    // `fetch_toolkit_actions` round-trip; direct mode skips the
+    // refresh (no backend allowlist to consult) and keeps the cached
+    // catalogue, mirroring `ComposioListToolsTool`'s short-circuit.
+    use crate::integrations::composio::client::{create_composio_client, ComposioClientKind};
+    let client_kind = create_composio_client(config)
+        .map_err(|e| anyhow!("composio client unavailable — is the user signed in? ({e})"))?;
+
+    // Refresh the action catalogue for this toolkit at prompt-generation
+    // time so the dump reflects the **current** backend state rather
+    // than the session-start bulk fetch's snapshot (which can return an
+    // empty list for some toolkits even when the per-toolkit endpoint
+    // returns actions). Mirrors subagent_runner's typed-mode fallback:
+    // an empty fresh list or a network error keeps the cached catalogue
+    // rather than blanking it.
+    match &client_kind {
+        ComposioClientKind::Backend(composio_client) => {
+            match crate::integrations::composio::fetch_toolkit_actions(
+                config,
+                composio_client,
+                &integration.toolkit,
+                None,
+            )
+            .await
+            {
+                Ok(actions) if !actions.is_empty() => {
+                    integration.tools = actions;
+                }
+                Ok(_) => {
+                    log::debug!(
+                        "[agent::debug] fresh list_tools for `{}` returned empty; keeping cached catalogue ({} actions)",
+                        integration.toolkit,
+                        integration.tools.len()
+                    );
+                }
+                Err(e) => {
+                    log::warn!(
+                        "[agent::debug] fresh list_tools for `{}` failed ({e}); keeping cached catalogue ({} actions)",
+                        integration.toolkit,
+                        integration.tools.len()
+                    );
+                }
+            }
+        }
+        ComposioClientKind::Direct(_) => {
+            log::info!(
+                "[agent::debug][composio-direct] direct mode active — skipping backend list_tools refresh for `{}`; using cached catalogue ({} actions)",
+                integration.toolkit,
+                integration.tools.len()
+            );
+        }
+    }
+
+    // Build the tool list that subagent_runner would produce for a
+    // real spawn. Tool visibility honours the TOML scope on the
+    // `integrations_agent` definition — `named = [...]` narrows, and
+    // `wildcard = {}` means "every parent tool". The dynamic
+    // ComposioActionTools for the bound toolkit are added after.
+    let definition_snapshot = AgentDefinitionRegistry::global()
+        .and_then(|reg| reg.get(INTEGRATIONS_AGENT_ID).cloned())
+        .ok_or_else(|| anyhow!("integrations_agent definition missing from registry"))?;
+    let base_tools: Vec<Box<dyn Tool>> = match &definition_snapshot.tools {
+        crate::agent::harness::definition::ToolScope::Named(names) => {
+            let allow: HashSet<&str> = names.iter().map(|s| s.as_str()).collect();
+            agent
+                .tools()
+                .iter()
+                .filter(|t| allow.contains(t.name()))
+                .map(|t| clone_tool_as_prompt_proxy(t.as_ref()))
+                .collect()
+        }
+        crate::agent::harness::definition::ToolScope::Wildcard => agent
+            .tools()
+            .iter()
+            .map(|t| clone_tool_as_prompt_proxy(t.as_ref()))
+            .collect(),
+    };
+    // `ComposioActionTool` takes `Arc<Config>` rather than a pre-baked
+    // `ComposioClient` so the live `composio.mode` toggle is honoured
+    // per execute (#1710). For the debug prompt-dump path we don't
+    // actually execute the tool — we only render its schema /
+    // description into the system prompt — but we still need an
+    // `Arc<Config>` to construct it. The factory-resolved `client_kind`
+    // above is used only for the upstream `fetch_toolkit_actions`
+    // metadata probe (backend mode only).
+    let arc_config = std::sync::Arc::new(config.clone());
+    let action_tools: Vec<Box<dyn Tool>> = integration
+        .tools
+        .iter()
+        .map(|action| -> Box<dyn Tool> {
+            Box::new(ComposioActionTool::new(
+                arc_config.clone(),
+                action.name.clone(),
+                action.description.clone(),
+                action.parameters.clone(),
+            ))
+        })
+        .collect();
+    let mut rendered_tools: Vec<Box<dyn Tool>> = base_tools;
+    rendered_tools.extend(action_tools);
+
+    let prompt_tools: Vec<PromptTool<'_>> = rendered_tools
+        .iter()
+        .map(|t| PromptTool {
+            name: t.name(),
+            description: t.description(),
+            parameters_schema: Some(t.parameters_schema().to_string()),
+        })
+        .collect();
+
+    // Narrow the connected_integrations slice to just the bound
+    // toolkit so the prompt's Connected Integrations / tool catalogue
+    // doesn't leak peer toolkits into this sub-agent's context.
+    let narrow_integrations = vec![integration.clone()];
+
+    let registry = AgentDefinitionRegistry::global()
+        .ok_or_else(|| anyhow!("AgentDefinitionRegistry missing after init"))?;
+    let definition: AgentDefinition = registry
+        .get(INTEGRATIONS_AGENT_ID)
+        .cloned()
+        .ok_or_else(|| anyhow!("integrations_agent definition not in registry"))?;
+    let build = match &definition.system_prompt {
+        PromptSource::Dynamic(f) => *f,
+        _ => {
+            return Err(anyhow!(
+                "integrations_agent must use PromptSource::Dynamic; got {:?}",
+                match &definition.system_prompt {
+                    PromptSource::Inline(_) => "Inline",
+                    PromptSource::File { .. } => "File",
+                    PromptSource::Dynamic(_) => "Dynamic",
+                }
+            ));
+        }
+    };
+
+    let empty_visible: HashSet<String> = HashSet::new();
+    let model_name = definition.model.resolve(agent.model_name()).to_string();
+    let ctx = PromptContext {
+        workspace_dir: agent.workspace_dir(),
+        model_name: &model_name,
+        agent_id: INTEGRATIONS_AGENT_ID,
+        tools: &prompt_tools,
+        workflows: agent.workflows(),
+        dispatcher_instructions: "",
+        learned: LearnedContextData::default(),
+        visible_tool_names: &empty_visible,
+        tool_call_format: ToolCallFormat::PFormat,
+        connected_integrations: &narrow_integrations,
+        connected_identities_md: crate::agent::prompts::render_connected_identities(),
+        include_profile: !definition.omit_profile,
+        include_memory_md: !definition.omit_memory_md,
+        curated_snapshot: None,
+        user_identity: None,
+        personality_soul_md: None,
+        personality_memory_md: None,
+        personality_roster: vec![],
+        agents_md_global: None,
+        agents_md_local: None,
+    };
+
+    let mut text = build(&ctx)
+        .with_context(|| format!("building integrations_agent prompt for toolkit `{toolkit}`"))?;
+
+    // Mirror the runner's text-mode mutation: when integrations_agent
+    // has any tools the runner appends `build_text_mode_tool_instructions`
+    // to the system message (see `subagent_runner::run_typed_mode`,
+    // `force_text_mode` branch). Reproduce it here so
+    // the dump matches what the LLM actually receives on turn 1.
+    if !rendered_tools.is_empty() {
+        text.push_str("\n\n");
+        text.push_str(&crate::agent::harness::subagent_runner::build_text_mode_tool_instructions());
+    }
+
+    let tool_names: Vec<String> = rendered_tools
+        .iter()
+        .map(|t| t.name().to_string())
+        .collect();
+    let tool_specs = tool_specs_of(&rendered_tools);
+    let skill_tool_count = rendered_tools
+        .iter()
+        .filter(|t| t.category() == ToolCategory::Workflow)
+        .count();
+
+    Ok(DumpedPrompt {
+        agent_id: INTEGRATIONS_AGENT_ID.to_string(),
+        toolkit: Some(integration.toolkit.clone()),
+        mode: "session",
+        model: model_name,
+        workspace_dir: agent.workspace_dir().to_path_buf(),
+        text,
+        tool_names,
+        skill_tool_count,
+        tool_specs,
+    })
+}
+
+/// Wrap a `&dyn Tool` as a `Box<dyn Tool>` proxy that forwards
+/// `name()` / `description()` / `parameters_schema()` / `category()`
+/// — enough surface for prompt rendering. `execute` is intentionally
+/// left as a no-op error since dumps never call it.
+fn clone_tool_as_prompt_proxy(source: &dyn Tool) -> Box<dyn Tool> {
+    Box::new(PromptProxyTool {
+        name: source.name().to_string(),
+        description: source.description().to_string(),
+        schema: source.parameters_schema(),
+        category: source.category(),
+    })
+}
+
+struct PromptProxyTool {
+    name: String,
+    description: String,
+    schema: serde_json::Value,
+    category: ToolCategory,
+}
+
+#[async_trait::async_trait]
+impl Tool for PromptProxyTool {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn description(&self) -> &str {
+        &self.description
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        self.schema.clone()
+    }
+    fn category(&self) -> ToolCategory {
+        self.category
+    }
+    fn permission_level(&self) -> crate::tools::PermissionLevel {
+        crate::tools::PermissionLevel::None
+    }
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<crate::tools::ToolResult> {
+        Err(anyhow!(
+            "PromptProxyTool (`{}`) is a render-only stub — execute is not callable",
+            self.name
+        ))
+    }
+}
+
+/// Return the slugs of every currently-connected Composio toolkit.
+/// Used by [`dump_all_agent_prompts`] to decide how many times to
+/// render `integrations_agent`. Empty when the user is not signed in
+/// or has no active connections.
+async fn connected_toolkits_for(config: &Config) -> Result<Vec<String>> {
+    // Spin up a throwaway integrations_agent session just so we can
+    // reuse its `fetch_connected_integrations` cache — the call is
+    // deduped backend-side via `INTEGRATIONS_CACHE`, so repeated
+    // invocations in `dump_all_agent_prompts` only hit the wire once.
+    let mut agent = Agent::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
+        .with_context(|| "building integrations_agent probe session for toolkit discovery")?;
+    agent.fetch_connected_integrations().await;
+    Ok(agent
+        .connected_integrations()
+        .iter()
+        .filter(|ci| ci.connected)
+        .map(|ci| ci.toolkit.clone())
+        .collect())
+}

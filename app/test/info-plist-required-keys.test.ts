@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const INFO_PLIST_PATH = path.resolve(HERE, '..', 'src-tauri', 'Info.plist');
+const INFO_PLIST_PATH = path.resolve(HERE, '..', '..', 'crates', 'openhuman-app', 'Info.plist');
 
 const REQUIRED_PRIVACY_KEYS = [
   'NSMicrophoneUsageDescription',
@@ -46,7 +46,7 @@ function parsePlistKeyValuePairs(xml: string): Map<string, string> {
   return map;
 }
 
-describe('app/src-tauri/Info.plist macOS privacy keys', () => {
+describe('crates/openhuman-app/Info.plist macOS privacy keys', () => {
   const xml = readFileSync(INFO_PLIST_PATH, 'utf8');
   const pairs = parsePlistKeyValuePairs(xml);
 

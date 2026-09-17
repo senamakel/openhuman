@@ -93,6 +93,75 @@ describe('ConnectionIndicator', () => {
     expect(screen.getByText('Disconnected')).toBeInTheDocument();
   });
 
+  it("shows an amber dot and 'Disconnected' while the core's hosted link is retrying (#6256)", () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'reconnecting',
+          lastError: {},
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-amber-500')).not.toBeNull();
+    expect(container.querySelector('.animate-pulse')).toBeNull();
+  });
+
+  it("shows an amber dot and 'Disconnected' when the core's loop stopped on an unusable session", () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'stopped',
+          lastError: { hosted: 'session expired — please sign in again' },
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-amber-500')).not.toBeNull();
+  });
+
+  it('stays green on a server error event, which leaves the hosted link live', () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'error',
+          lastError: { hosted: 'boom' },
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-sage-500')).not.toBeNull();
+  });
+
+  it("stays green when the core's hosted link is simply not running (signed out / local)", () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'unknown',
+          lastError: {},
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-sage-500')).not.toBeNull();
+  });
+
   it('shows "Connecting" when blocking=backend-only and legacy socket status is connecting (line 67)', () => {
     renderWithProviders(<ConnectionIndicator />, {
       preloadedState: {

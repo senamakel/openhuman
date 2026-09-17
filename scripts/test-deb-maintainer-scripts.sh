@@ -2,12 +2,12 @@
 # scripts/test-deb-maintainer-scripts.sh — regression guard for the Debian
 # maintainer scripts that make the OpenHuman binary reachable from any shell
 # (openhuman#5497). No CI lane executes shell packaging tests today, so run this
-# locally / in review after touching app/src-tauri/{postinst,postrm} or the deb
+# locally / in review after touching crates/openhuman-app/{postinst,postrm} or the deb
 # bundle config: bash scripts/test-deb-maintainer-scripts.sh
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC_TAURI="$REPO_ROOT/app/src-tauri"
+SRC_TAURI="$REPO_ROOT/crates/openhuman-app"
 POSTINST="$SRC_TAURI/postinst"
 POSTRM="$SRC_TAURI/postrm"
 CONF="$SRC_TAURI/tauri.conf.json"

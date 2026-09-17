@@ -205,7 +205,7 @@ normalization on the keyword side.
 The working-memory recall builds the query string `"working.user {user_message}"`
 — a text hack meant to bias ranking — scans all of `global`, takes the top 5,
 and **then** filters `key.starts_with("working.user.")`
-(`src/openhuman/memory/agent/memory_loader.rs:218-232` in the pre-change code;
+(`crates/openhuman-core/src/memory/agent/memory_loader.rs:218-232` in the pre-change code;
 this PR removed the file's loader implementation).
 
 So it scans the entire namespace to find entries identified by a known key
@@ -230,7 +230,7 @@ feature quietly stops working long before anyone profiles it.
 ### Why `global` grows without bound
 
 Every autosaved user message is stored with an empty namespace
-(`src/openhuman/agent/harness/session/turn/core.rs:709`), which
+(`crates/openhuman-core/src/agent/harness/session/turn/core.rs:709`), which
 `sanitize_namespace` maps to `global` — the same namespace the two hot recalls
 scan. The corpus above is 2,024 `user_msg:*` documents and one other.
 
@@ -248,7 +248,7 @@ idle.
 
 ## What can be done, cheapest first
 
-The first three are in **`src/openhuman/`, not the vendored crate**, and reduce
+The first three are in **`crates/openhuman-core/src/`, not the vendored crate**, and reduce
 how much is scanned rather than how fast the scan runs.
 
 **1. Scope the working-memory recall to its own namespace.** The entries are

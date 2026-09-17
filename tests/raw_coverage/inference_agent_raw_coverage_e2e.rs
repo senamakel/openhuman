@@ -22,154 +22,154 @@ use tempfile::{tempdir, TempDir};
 use openhuman_core::core::all::RegisteredController;
 use openhuman_core::core::bus_testing::BUS_HANDLER_LOCK;
 use openhuman_core::core::bus::BUS;
-use openhuman_core::openhuman::agent::bus::{
+use openhuman_core::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
 };
-use openhuman_core::openhuman::agent::debug::{
+use openhuman_core::agent::debug::{
     write_prompt_dumps, DumpPromptOptions, DumpedPrompt,
 };
-use openhuman_core::openhuman::agent::dispatcher::{
+use openhuman_core::agent::dispatcher::{
     NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
     XmlToolDispatcher,
 };
-use openhuman_core::openhuman::agent::error::{
+use openhuman_core::agent::error::{
     is_context_limit_error, is_max_iterations_error, AgentError, MAX_ITERATIONS_ERROR_PREFIX,
 };
-use openhuman_core::openhuman::agent::harness::definition::{
+use openhuman_core::agent::harness::definition::{
     AgentTier, SkillsWildcard, SubagentEntry,
 };
-use openhuman_core::openhuman::agent::harness::subagent_runner::{
+use openhuman_core::agent::harness::subagent_runner::{
     autonomous_iter_cap, with_autonomous_iter_cap, SubagentMode, SubagentRunError,
     SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus, SubagentUsage,
 };
-use openhuman_core::openhuman::agent::harness::{
+use openhuman_core::agent::harness::{
     current_sandbox_mode, with_current_sandbox_mode, SandboxMode,
 };
-use openhuman_core::openhuman::agent::harness::{
+use openhuman_core::agent::harness::{
     AgentDefinition, AgentDefinitionRegistry, DefinitionSource, ModelSpec, PromptSource, ToolScope,
 };
-use openhuman_core::openhuman::agent::hooks::{
+use openhuman_core::agent::hooks::{
     fire_hooks, sanitize_tool_output, PostTurnHook, ToolCallRecord, TurnContext,
 };
-use openhuman_core::openhuman::agent::host_runtime::create_runtime;
-use openhuman_core::openhuman::agent::multimodal::{
+use openhuman_core::agent::host_runtime::create_runtime;
+use openhuman_core::agent::multimodal::{
     contains_image_markers, count_image_markers, extract_ollama_image_payload, parse_image_markers,
     prepare_messages_for_provider, MultimodalError,
 };
-use openhuman_core::openhuman::agent::messages::{
+use openhuman_core::agent::messages::{
     ChatMessage, ConversationMessage, ToolResultMessage,
 };
-use openhuman_core::openhuman::agent::pformat::{
+use openhuman_core::agent::pformat::{
     build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
     PFormatParamType, PFormatRegistry, PFormatToolParams,
 };
-use openhuman_core::openhuman::agent::prompts::{
+use openhuman_core::agent::prompts::{
     render_ambient_environment, render_subagent_system_prompt, render_tools, ConnectedIntegration,
     GatedIntegrationTool, LearnedContextData, NamespaceSummary, PersonalityRosterEntry,
     PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
     UserIdentity,
 };
-use openhuman_core::openhuman::agent::stop_hooks::{
+use openhuman_core::agent::stop_hooks::{
     current_stop_hooks, with_stop_hooks, BudgetStopHook, MaxIterationsStopHook, StopDecision,
     StopHook, TurnState,
 };
-use openhuman_core::openhuman::agent::task_board::{
+use openhuman_core::agent::task_board::{
     TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
 };
-use openhuman_core::openhuman::agent::task_dispatcher::build_task_prompt;
-use openhuman_core::openhuman::agent::tool_policy::{
+use openhuman_core::agent::task_dispatcher::build_task_prompt;
+use openhuman_core::agent::tool_policy::{
     AllowAllToolPolicy, GeneratedToolRuntimeContext, GeneratedToolRuntimePolicy,
     GeneratedToolRuntimePolicyConfig, GeneratedToolRuntimeRisk, RuntimeToolPolicyAction,
     ToolCallContext, ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
 };
-use openhuman_core::openhuman::agent::tools::remember_preference::{
+use openhuman_core::agent::tools::remember_preference::{
     pinned_content, pinned_key, FacetClass, RememberPreferenceTool, PINNED_PREFERENCES_NAMESPACE,
 };
-use openhuman_core::openhuman::agent::tools::save_preference::{PrefScope, SavePreferenceTool};
-use openhuman_core::openhuman::agent::tools::PlanExitTool;
-use openhuman_core::openhuman::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
-use openhuman_core::openhuman::agent::triage::evaluator::{run_triage_with_arms, TriageOutcome};
-use openhuman_core::openhuman::agent::triage::events::{
+use openhuman_core::agent::tools::save_preference::{PrefScope, SavePreferenceTool};
+use openhuman_core::agent::tools::PlanExitTool;
+use openhuman_core::agent::triage::envelope::{TriggerEnvelope, TriggerSource};
+use openhuman_core::agent::triage::evaluator::{run_triage_with_arms, TriageOutcome};
+use openhuman_core::agent::triage::events::{
     publish_escalated, publish_evaluated, publish_failed,
 };
-use openhuman_core::openhuman::agent::triage::routing::{
+use openhuman_core::agent::triage::routing::{
     build_local_provider_with_config, ResolvedProvider,
 };
-use openhuman_core::openhuman::agent::triage::{parse_triage_decision, ParseError, TriageAction};
-use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::agent::{
+use openhuman_core::agent::triage::{parse_triage_decision, ParseError, TriageAction};
+use openhuman_core::agent::Agent;
+use openhuman_core::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
 };
-use openhuman_core::openhuman::memory::agent::memory_loader::collect_recall_citations;
-use openhuman_core::openhuman::agent::registry::agents::BUILTINS;
-use openhuman_core::openhuman::config::schema::cloud_providers::{
+use openhuman_core::memory::agent::memory_loader::collect_recall_citations;
+use openhuman_core::agent::registry::agents::BUILTINS;
+use openhuman_core::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
-use openhuman_core::openhuman::config::schema::LocalAiConfig;
-use openhuman_core::openhuman::config::{
+use openhuman_core::config::schema::LocalAiConfig;
+use openhuman_core::config::{
     Config, DelegateAgentConfig, DockerRuntimeConfig, MultimodalConfig, MultimodalFileConfig,
     RuntimeConfig,
 };
-use openhuman_core::openhuman::security::credentials::profiles::{AuthProfile, TokenSet};
-use openhuman_core::openhuman::security::credentials::{AuthService, APP_SESSION_PROVIDER};
-use openhuman_core::openhuman::inference::context_window_for_model;
-use openhuman_core::openhuman::inference::local::{
+use openhuman_core::security::credentials::profiles::{AuthProfile, TokenSet};
+use openhuman_core::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_core::inference::context_window_for_model;
+use openhuman_core::inference::local::{
     global as local_ai_global, model_artifact_path, try_global as local_ai_try_global,
     LocalAiService,
 };
-use openhuman_core::openhuman::inference::openai_oauth::{
+use openhuman_core::inference::openai_oauth::{
     lookup_openai_bearer_token, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
 };
-use openhuman_core::openhuman::inference::presets::{
+use openhuman_core::inference::presets::{
     all_presets, apply_preset_to_config, current_tier_from_config, device_supports_local_ai,
     mvp_presets, preset_for_tier, recommend_tier, should_default_to_cloud_fallback,
     supports_screen_summary, vision_mode_for_config, vision_mode_for_tier, ModelTier, VisionMode,
     MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
 };
-use openhuman_core::openhuman::inference::provider::factory::{
+use openhuman_core::inference::provider::factory::{
     auth_key_for_slug, create_chat_model_from_string_with_model_id, provider_for_role,
     BYOK_INCOMPLETE_SENTINEL,
 };
-use openhuman_core::openhuman::inference::provider::OpenHumanBackendModel;
-use openhuman_core::openhuman::inference::provider::{
+use openhuman_core::inference::provider::OpenHumanBackendModel;
+use openhuman_core::inference::provider::{
     format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
     is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
 };
-use openhuman_core::openhuman::inference::provider::{
+use openhuman_core::inference::provider::{
     ChatResponse, ProviderRuntimeOptions, ToolCall, UsageInfo,
 };
-use openhuman_core::openhuman::inference::sentiment::local_ai_analyze_sentiment;
-use openhuman_core::openhuman::inference::temperature::{glob_match, temperature_for_model};
-use openhuman_core::openhuman::inference::voice::cloud_transcribe::{
+use openhuman_core::inference::sentiment::local_ai_analyze_sentiment;
+use openhuman_core::inference::temperature::{glob_match, temperature_for_model};
+use openhuman_core::inference::voice::cloud_transcribe::{
     transcribe_cloud, CloudTranscribeOptions,
 };
-use openhuman_core::openhuman::inference::voice::local_speech::{synthesize_piper, PiperOptions};
-use openhuman_core::openhuman::modules::voice::{
+use openhuman_core::inference::voice::local_speech::{synthesize_piper, PiperOptions};
+use openhuman_core::modules::voice::{
     is_hallucinated, HallucinationMode, VoiceCallError,
 };
-use openhuman_core::openhuman::inference::voice::postprocess::cleanup_transcription;
-use openhuman_core::openhuman::inference::{
+use openhuman_core::inference::voice::postprocess::cleanup_transcription;
+use openhuman_core::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
     all_local_inference_controller_schemas, all_local_inference_registered_controllers,
     DeviceProfile,
 };
-use openhuman_core::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
-use openhuman_core::openhuman::agent::profiles::{
+use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
+use openhuman_core::agent::profiles::{
     all_profiles_controller_schemas, all_profiles_registered_controllers,
 };
-use openhuman_core::openhuman::agent::profiles::{
+use openhuman_core::agent::profiles::{
     filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
     resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
     HasToolkit, PersonalityContext,
 };
-use openhuman_core::openhuman::agent::profiles::{
+use openhuman_core::agent::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
-use openhuman_core::openhuman::security::SecurityPolicy;
-use openhuman_core::openhuman::agent::tinyagents::thread_context::{current_thread_id, with_thread_id};
-use openhuman_core::openhuman::threads::todos::ops::BoardLocation;
-use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::openhuman::tools::{Tool, ToolResult, ToolSpec};
+use openhuman_core::security::SecurityPolicy;
+use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_thread_id};
+use openhuman_core::threads::todos::ops::BoardLocation;
+use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::tools::{Tool, ToolResult, ToolSpec};
 use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 static ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
@@ -338,7 +338,7 @@ impl Memory for ScriptedMemory {
 
     async fn namespace_summaries(
         &self,
-    ) -> anyhow::Result<Vec<openhuman_core::openhuman::memory::NamespaceSummary>> {
+    ) -> anyhow::Result<Vec<openhuman_core::memory::NamespaceSummary>> {
         Ok(Vec::new())
     }
 
@@ -464,7 +464,7 @@ impl Memory for RecordingMemory {
 
     async fn namespace_summaries(
         &self,
-    ) -> anyhow::Result<Vec<openhuman_core::openhuman::memory::NamespaceSummary>> {
+    ) -> anyhow::Result<Vec<openhuman_core::memory::NamespaceSummary>> {
         Ok(Vec::new())
     }
 
@@ -790,7 +790,7 @@ async fn call(controller: &RegisteredController, params: Value) -> Result<Value,
     (controller.handler)(params).await
 }
 
-fn base_agent_builder() -> openhuman_core::openhuman::agent::AgentBuilder {
+fn base_agent_builder() -> openhuman_core::agent::AgentBuilder {
     Agent::builder()
         .chat_model(Arc::new(EchoModel))
         .tools(vec![
@@ -925,9 +925,9 @@ async fn inference_registry_drives_config_oauth_models_and_provider_chat() {
     );
 
     let provider_schemas =
-        openhuman_core::openhuman::inference::provider::schemas::all_controller_schemas();
+        openhuman_core::inference::provider::schemas::all_controller_schemas();
     let provider_registered =
-        openhuman_core::openhuman::inference::provider::schemas::all_registered_controllers();
+        openhuman_core::inference::provider::schemas::all_registered_controllers();
     assert_eq!(provider_schemas.len(), provider_registered.len());
     assert_eq!(
         provider_registered[0].rpc_method_name(),
@@ -1233,7 +1233,7 @@ fn agent_builder_public_paths_cover_required_fields_defaults_and_filters() {
     assert_eq!(agent.tool_specs().len(), 2);
     assert_eq!(
         agent.model_name(),
-        openhuman_core::openhuman::config::DEFAULT_MODEL
+        openhuman_core::config::DEFAULT_MODEL
     );
     assert_eq!(agent.temperature(), 0.7);
     assert_eq!(agent.workspace_dir(), std::path::Path::new("."));
@@ -2045,7 +2045,7 @@ async fn inference_http_models_router_uses_isolated_config_and_dedupes_entries()
     });
     config.save().await.expect("save isolated config");
 
-    let app = openhuman_core::openhuman::inference::http::router().with_state(
+    let app = openhuman_core::inference::http::router().with_state(
         openhuman_core::core::types::AppState {
             core_version: "coverage".to_string(),
         },
@@ -2247,7 +2247,7 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     assert_eq!(allow_all.check(&request).await, ToolPolicyDecision::Allow);
     assert_eq!(
         request.context.source,
-        openhuman_core::openhuman::agent::tool_policy::ToolCallSource::Session
+        openhuman_core::agent::tool_policy::ToolCallSource::Session
     );
 
     let generated = request
@@ -2427,7 +2427,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
     let blocked = match BUS.native().request::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             history: vec![ChatMessage::user(
@@ -2447,7 +2447,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
             visible_tool_names: Some(HashSet::new()),
             extra_tools: Vec::new(),
             on_progress: None,
-            origin: openhuman_core::openhuman::agent::turn_origin::AgentTurnOrigin::Cli,
+            origin: openhuman_core::agent::turn_origin::AgentTurnOrigin::Cli,
         },
     )
     .await
@@ -2475,7 +2475,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
         },
     );
     let cloud = ResolvedProvider {
-        turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
             Arc::new(EchoModel),
         ),
         provider_name: "cloud-mock".into(),
@@ -2503,7 +2503,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
     );
     let deferred = run_triage_with_arms(
         ResolvedProvider {
-            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             provider_name: "cloud-mock".into(),
@@ -2545,7 +2545,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
     );
     let fallback = run_triage_with_arms(
         ResolvedProvider {
-            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             provider_name: "cloud-mock".into(),
@@ -2553,7 +2553,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
             used_local: false,
         },
         Some(ResolvedProvider {
-            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(EchoModel),
             ),
             provider_name: "local-mock".into(),
@@ -2789,13 +2789,16 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     let registry = build_registry(&tools);
     assert_eq!(
         render_signature_from_tool(tools[0].as_ref()),
-        "plan_exit[plan]"
+        "plan_exit[0|<plan>]"
     );
     assert_eq!(
         render_signature("plan_exit", registry.get("plan_exit").expect("plan params")),
-        "plan_exit[plan]"
+        "plan_exit[0|<plan>]"
     );
-    let (name, args) = parse_pformat_call(r"plan_exit[Read code \| add test \] commit]", &registry)
+    let (name, args) = parse_pformat_call(
+        r"plan_exit[0|Read code \| add test \] commit]",
+        &registry,
+    )
         .expect("p-format call parses");
     assert_eq!(name, "plan_exit");
     assert_eq!(
@@ -2824,8 +2827,11 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
             ],
         },
     );
-    let (_, coerced) = parse_pformat_call("coerce[yes|7|2.5|{\"x\":1}|plain]", &custom_registry)
-        .expect("custom p-format");
+    let (_, coerced) = parse_pformat_call(
+        "coerce[0|yes|1|7|2|2.5|3|{\"x\":1}|4|plain]",
+        &custom_registry,
+    )
+    .expect("custom p-format");
     assert_eq!(
         coerced,
         json!({
@@ -2908,7 +2914,7 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     };
 
     let tools_md = render_tools(&ctx).expect("render tools");
-    assert!(tools_md.contains("plan_exit[plan]"));
+    assert!(tools_md.contains("plan_exit[0|<plan>]"));
     assert!(!tools_md.contains("Parameters:"));
     let ambient = render_ambient_environment(&ctx).expect("ambient");
     assert!(ambient.contains("Model: agentic-v1"));
@@ -3031,12 +3037,12 @@ fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
 
 #[tokio::test]
 async fn agent_public_tools_cover_validation_and_metadata_paths() {
-    use openhuman_core::openhuman::agent::tools::{
+    use openhuman_core::agent::tools::{
         AskClarificationTool, DelegateToPersonalityTool, DelegateTool, RunWorkflowTool, TodoTool,
         RUN_WORKFLOW_TOOL_NAME,
     };
-    use openhuman_core::openhuman::agent::orchestration::tools::DelegationTarget;
-    use openhuman_core::openhuman::tools::{ArchetypeDelegationTool, SkillDelegationTool};
+    use openhuman_core::agent::orchestration::tools::DelegationTarget;
+    use openhuman_core::tools::{ArchetypeDelegationTool, SkillDelegationTool};
 
     let ask = AskClarificationTool::new();
     assert_eq!(ask.name(), "ask_user_clarification");
@@ -3303,7 +3309,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
     let pformat = PFormatToolDispatcher::new(registry);
     let mixed = ChatResponse {
         text: Some(
-            "first\n<tool_call>search_docs[coverage gaps]</tool_call>\n\
+            "first\n<tool_call>search_docs[0|coverage gaps]</tool_call>\n\
              <tool_call>unknown_tool[json fallback]</tool_call>"
                 .into(),
         ),
@@ -3632,8 +3638,8 @@ fn inference_openai_oauth_store_covers_persist_lookup_and_empty_profiles() {
     AuthService::from_config(&config)
         .load_profiles()
         .expect("profiles load before upsert");
-    openhuman_core::openhuman::security::credentials::profiles::AuthProfilesStore::new(
-        &openhuman_core::openhuman::security::credentials::state_dir_from_config(&config),
+    openhuman_core::security::credentials::profiles::AuthProfilesStore::new(
+        &openhuman_core::security::credentials::state_dir_from_config(&config),
         config.secrets.encrypt,
     )
     .upsert_profile(profile.clone(), true)
@@ -3672,8 +3678,8 @@ fn inference_openai_oauth_store_covers_persist_lookup_and_empty_profiles() {
             scope: None,
         },
     );
-    openhuman_core::openhuman::security::credentials::profiles::AuthProfilesStore::new(
-        &openhuman_core::openhuman::security::credentials::state_dir_from_config(&config),
+    openhuman_core::security::credentials::profiles::AuthProfilesStore::new(
+        &openhuman_core::security::credentials::state_dir_from_config(&config),
         config.secrets.encrypt,
     )
     .upsert_profile(blank, true)
@@ -3960,7 +3966,7 @@ async fn agent_debug_prompt_dump_and_identity_rendering_cover_file_layouts() {
         dumps[1].tool_specs.as_slice()
     );
 
-    let identities = openhuman_core::openhuman::agent::prompts::render_connected_identities();
+    let identities = openhuman_core::agent::prompts::render_connected_identities();
     assert_eq!(identities, "");
 }
 

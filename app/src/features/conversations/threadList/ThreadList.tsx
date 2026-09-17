@@ -152,7 +152,7 @@ export function ThreadList({
           moment it overflowed. That stylesheet's own comment records the escape
           hatch: a standard `scrollbar-*` property takes precedence and disables
           the `::-webkit-scrollbar` styling entirely. The runtime is Wry as of
-          #5456 (`app/src-tauri/Cargo.toml` enables the `wry` feature; the CEF
+          #5456 (`crates/openhuman-app/Cargo.toml` enables the `wry` feature; the CEF
           notes around it are historical), so on macOS/Linux WebKit that hands
           the pane back the platform's native overlay bar — zero reserved width,
           fading on its own, which is what the `data-scrolling` machinery in

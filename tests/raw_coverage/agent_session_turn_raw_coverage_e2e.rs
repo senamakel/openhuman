@@ -2,27 +2,27 @@
 mod noop_memory;
 
 use async_trait::async_trait;
-use openhuman_core::openhuman::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
-use openhuman_core::openhuman::agent::harness::definition::AgentTier;
-use openhuman_core::openhuman::agent::harness::subagent_runner::run_subagent;
-use openhuman_core::openhuman::agent::harness::{
+use openhuman_core::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
+use openhuman_core::agent::harness::definition::AgentTier;
+use openhuman_core::agent::harness::subagent_runner::run_subagent;
+use openhuman_core::agent::harness::{
     with_parent_context, AgentDefinition, DefinitionSource, ModelSpec, ParentExecutionContext,
     PromptSource, SandboxMode, SubagentRunError, SubagentRunOptions, ToolScope,
 };
-use openhuman_core::openhuman::agent::hooks::{PostTurnHook, TurnContext};
-use openhuman_core::openhuman::agent::progress::AgentProgress;
-use openhuman_core::openhuman::agent::tool_policy::{
+use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
+use openhuman_core::agent::progress::AgentProgress;
+use openhuman_core::agent::tool_policy::{
     ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
 };
-use openhuman_core::openhuman::agent::Agent;
-use openhuman_core::openhuman::config::{AgentConfig, Config, ContextConfig, MemoryConfig};
-use openhuman_core::openhuman::agent::messages::ConversationMessage;
-use openhuman_core::openhuman::memory::{
+use openhuman_core::agent::Agent;
+use openhuman_core::config::{AgentConfig, Config, ContextConfig, MemoryConfig};
+use openhuman_core::agent::messages::ConversationMessage;
+use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::openhuman::tools::traits::ToolCallOptions;
-use openhuman_core::openhuman::tools::{
+use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::tools::traits::ToolCallOptions;
+use openhuman_core::tools::{
     PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
 };
 use serde_json::json;
@@ -618,7 +618,7 @@ fn agent_with(
     model: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     workspace_path: PathBuf,
-    dispatcher: Box<dyn openhuman_core::openhuman::agent::dispatcher::ToolDispatcher>,
+    dispatcher: Box<dyn openhuman_core::agent::dispatcher::ToolDispatcher>,
     config: AgentConfig,
     context_config: ContextConfig,
 ) -> Agent {
@@ -1113,7 +1113,7 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
         ]
         .into_iter()
         .collect(),
-        turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
             provider.clone(),
         ),
         all_tools: Arc::new(all_tools),
@@ -1138,7 +1138,7 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
         session_id: "round17-parent-session".to_string(),
         channel: "round17-parent-channel".to_string(),
         connected_integrations: Vec::new(),
-        tool_call_format: openhuman_core::openhuman::agent::context::prompt::ToolCallFormat::Json,
+        tool_call_format: openhuman_core::agent::context::prompt::ToolCallFormat::Json,
         session_key: "123_parent".to_string(),
         session_parent_prefix: Some("root_ancestor".to_string()),
         on_progress: None,
@@ -1195,7 +1195,7 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
             && message.text().contains("delegate this")));
 
     let error_parent = ParentExecutionContext {
-        turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
             ScriptedModel::failing("subagent provider offline"),
         ),
         ..parent

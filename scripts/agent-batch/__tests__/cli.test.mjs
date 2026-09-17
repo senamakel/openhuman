@@ -52,7 +52,7 @@ test("validate.mjs exits 1 on a spec with malformed branch", () => {
         issue: 100,
         title: "t",
         branch: "feature/foo",
-        owned_paths: ["src/openhuman/foo/"],
+        owned_paths: ["crates/openhuman-core/src/foo/"],
       },
     ],
   });
@@ -79,14 +79,14 @@ test("overlap.mjs exits 1 when two agents own the same prefix", () => {
         issue: 100,
         title: "t",
         branch: "cursor/a01-100-x",
-        owned_paths: ["src/openhuman/foo/"],
+        owned_paths: ["crates/openhuman-core/src/foo/"],
       },
       {
         id: "a02",
         issue: 101,
         title: "t",
         branch: "cursor/a02-101-y",
-        owned_paths: ["src/openhuman/foo/inner/"],
+        owned_paths: ["crates/openhuman-core/src/foo/inner/"],
       },
     ],
   });

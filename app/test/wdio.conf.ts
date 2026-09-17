@@ -30,7 +30,15 @@ const tsconfigE2ePath = path.join(projectRoot, 'test', 'tsconfig.e2e.json');
 const testSpecsPath = path.join(projectRoot, 'test', 'e2e', 'specs', '**', '*.spec.ts');
 
 function linuxAppPath(): string {
-  const candidate = path.join(projectRoot, 'src-tauri', 'target', 'debug', 'OpenHuman');
+  const candidate = path.join(
+    projectRoot,
+    '..',
+    'crates',
+    'openhuman-app',
+    'target',
+    'debug',
+    'OpenHuman'
+  );
   if (fs.existsSync(candidate)) return candidate;
   return candidate;
 }

@@ -89,10 +89,11 @@ VITE_PID=$!
 until curl -s http://localhost:1420 >/dev/null 2>&1; do sleep 0.5; done
 
 # Build the .app bundle only (skip DMG) and run directly
+cd "$ROOT_DIR/crates/openhuman-app"
 cargo tauri build --debug --bundles app
 
 # Kill vite
 kill $VITE_PID 2>/dev/null
 
 echo "[dev-staging] launching app bundle..."
-exec "$ROOT_DIR/app/src-tauri/target/debug/bundle/macos/OpenHuman.app/Contents/MacOS/OpenHuman"
+exec "$ROOT_DIR/crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app/Contents/MacOS/OpenHuman"

@@ -16,15 +16,15 @@ use axum::{
 };
 use openhuman_core::core::bus::BUS;
 use openhuman_core::core::events::DomainEvent;
-use openhuman_core::openhuman::channels::providers::telegram::TelegramChannel;
-use openhuman_core::openhuman::web_chat::{
+use openhuman_core::channels::providers::telegram::TelegramChannel;
+use openhuman_core::web_chat::{
     cancel_chat, register_approval_surface_subscriber, start_chat, subscribe_web_channel_events,
     test_support as web_test_support, ChatRequestMetadata,
 };
-use openhuman_core::openhuman::channels::providers::yuanbao::{YuanbaoChannel, YuanbaoConfig};
-use openhuman_core::openhuman::channels::LarkChannel;
-use openhuman_core::openhuman::channels::{Channel, SendMessage};
-use openhuman_core::openhuman::config::{schema::LarkConfig, StreamMode};
+use openhuman_core::channels::providers::yuanbao::{YuanbaoChannel, YuanbaoConfig};
+use openhuman_core::channels::LarkChannel;
+use openhuman_core::channels::{Channel, SendMessage};
+use openhuman_core::config::{schema::LarkConfig, StreamMode};
 use serde_json::{json, Value};
 use tokio::time::timeout;
 

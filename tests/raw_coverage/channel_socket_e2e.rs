@@ -35,7 +35,7 @@ use tempfile::tempdir;
 
 use openhuman_core::core::auth::{get_rpc_token, init_rpc_token};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::platform::socket::{
+use openhuman_core::platform::socket::{
     global_socket_manager, set_global_socket_manager, SocketManager,
 };
 

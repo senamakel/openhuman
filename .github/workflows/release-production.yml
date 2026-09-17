@@ -105,7 +105,7 @@ jobs:
       sha: ${{ steps.resolve.outputs.sha }}
       # First 12 chars of `sha` — matches the truncation done at runtime by
       # app/src/utils/config.ts, app/vite.config.ts, src/main.rs, and
-      # app/src-tauri/src/lib.rs when they compute the canonical
+      # crates/openhuman-app/src/lib.rs when they compute the canonical
       # `openhuman@<version>+<short_sha>` release tag. Use this (not the
       # full `sha`) anywhere CI constructs SENTRY_RELEASE so uploaded
       # artifacts attach to the same release events report.
@@ -172,7 +172,7 @@ jobs:
       - name: Refresh Cargo.lock files
         run: |
           cargo update --workspace --manifest-path Cargo.toml
-          cargo update --workspace --manifest-path app/src-tauri/Cargo.toml
+          cargo update --workspace --manifest-path crates/openhuman-app/Cargo.toml
       - name: Ensure tag does not already exist
         if: inputs.create_release
         env:
@@ -193,7 +193,7 @@ jobs:
           TAG: ${{ steps.bump.outputs.tag }}
           CREATE_RELEASE: ${{ inputs.create_release }}
         run: |
-          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
+          git add app/package.json crates/openhuman-app/tauri.conf.json crates/openhuman-app/Cargo.toml Cargo.toml crates/openhuman-app/Cargo.lock Cargo.lock
           # [skip ci]: the bump commit lands on an already-validated release
           # tree — don't re-trigger the full suite (ci-full.yml, push:release).
           git commit -m "chore(release): v${VERSION} [skip ci]"
@@ -523,14 +523,16 @@ jobs:
             exit 1
           fi
           echo "OPENHUMAN_CORE_SENTRY_DSN is set (length=${#OPENHUMAN_CORE_SENTRY_DSN})"
-      - name: Build openhuman-core binary
+      - name: Build CLI binaries
         env:
           OPENHUMAN_CORE_SENTRY_DSN: ${{ vars.OPENHUMAN_CORE_SENTRY_DSN || vars.OPENHUMAN_SENTRY_DSN }}
           # Match the runtime release tag (`openhuman@<version>+<short_sha>`)
           # baked elsewhere — see prepare-build.outputs.short_sha comment.
           OPENHUMAN_BUILD_SHA: ${{ needs.prepare-build.outputs.short_sha }}
           OPENHUMAN_APP_ENV: production
-        run: bash scripts/ci-cancel-aware.sh cargo build --release --bin openhuman-core
+        run: |
+          bash scripts/ci-cancel-aware.sh cargo build --release -p openhuman --bin openhuman-core
+          bash scripts/ci-cancel-aware.sh cargo build --release -p openhuman-tui --bin openhuman-tui
       - name: Package and upload tarball to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -540,6 +542,7 @@ jobs:
         run: |
           bash scripts/release/package-cli-tarball.sh \
             target/release/openhuman-core \
+            target/release/openhuman-tui \
             "$VERSION" \
             "$TARGET"
 

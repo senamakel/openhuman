@@ -2,8 +2,8 @@
 
 create-dmg \
     --volname "OpenHuman installer" \
-    --volicon "./app/src-tauri/icons/icon.icns" \
-    --background "./app/src-tauri/images/background-dmg.svg" \
+    --volicon "./crates/openhuman-app/icons/icon.icns" \
+    --background "./crates/openhuman-app/images/background-dmg.svg" \
     --window-size 540 380 \
     --icon-size 100 \
     --icon "OpenHuman.app" 138 225 \

@@ -4,7 +4,7 @@
 #
 # Source of truth: scripts/ci/product-features.txt (one gate per line).
 # scripts/ci/check-feature-forwarding.mjs asserts that same file equals the
-# list app/src-tauri/Cargo.toml forwards, so the product lanes and the shipped
+# list crates/openhuman-app/Cargo.toml forwards, so the product lanes and the shipped
 # app can never diverge.
 #
 # Why the lanes need this at all: `[features] default` is the CONTRIBUTOR set

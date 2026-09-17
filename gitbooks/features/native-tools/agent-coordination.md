@@ -41,4 +41,4 @@ Asking for clarification is a tool too, on purpose: it makes "I should ask the u
 ## See also
 
 - [Coder](coder.md) - what a coder-archetype subagent typically uses.
-- [Subconscious Loop](../subconscious.md) - the always-on background agent thread.
+- [Cron & Scheduling](cron.md) - how background agent runs get scheduled.

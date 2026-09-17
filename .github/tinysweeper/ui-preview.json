@@ -1,0 +1,27 @@
+{
+  "serve": "bash .github/tinysweeper/serve.sh",
+  "ready": "/index.html",
+  "timeout_s": 1500,
+  "viewport": [1440, 900],
+  "auth": {
+    "visit": "/__preview-connect.html",
+    "cookies": [],
+    "localStorage": {
+      "openhuman:walkthrough_completed": "true"
+    }
+  },
+  "mocks": [],
+  "mask": [
+    "[data-testid=chat-mascot-overlay]",
+    "[data-walkthrough=home-card] h1",
+    "#react-joyride-portal"
+  ],
+  "entry_points": [
+    { "name": "chat", "path": "/#/chat" },
+    { "name": "settings", "path": "/#/settings" },
+    { "name": "connections (providers, channels, wallet)", "path": "/#/connections" },
+    { "name": "flows", "path": "/#/flows" },
+    { "name": "brain (memory)", "path": "/#/brain" }
+  ],
+  "max_flows": 4
+}

@@ -70,7 +70,7 @@ The webhook never reaches your machine raw. The backend is what holds the OAuth 
 
 ## The triage step
 
-Before any action runs, every trigger goes through the [`trigger_triage`](https://github.com/tinyhumansai/openhuman/tree/main/src/openhuman/agent/agents/trigger_triage) agent. Its only job is to decide what the rest of the system should do.
+Before any action runs, every trigger goes through the [`trigger_triage`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/agent/agents/trigger_triage) agent. Its only job is to decide what the rest of the system should do.
 
 It picks exactly one of four actions:
 
@@ -78,7 +78,7 @@ It picks exactly one of four actions:
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`drop`**        | Nothing. Trigger is silently logged and discarded.                                                                                                             | Spam, duplicates, irrelevant noise. The default for things you don't care about.                                                                             |
 | **`acknowledge`** | A short memory note is persisted, no agent runs.                                                                                                               | Passive notifications worth remembering ("a new page was created in archive").                                                                               |
-| **`react`**       | The [`trigger_reactor`](https://github.com/tinyhumansai/openhuman/tree/main/src/openhuman/agent/agents/trigger_reactor) agent runs with one or two tool calls. | A small, single-step side effect: store a memory entry, post a quick acknowledgement, mark a thread read.                                                    |
+| **`react`**       | The [`trigger_reactor`](https://github.com/tinyhumansai/openhuman/tree/main/crates/openhuman-core/src/agent/agents/trigger_reactor) agent runs with one or two tool calls. | A small, single-step side effect: store a memory entry, post a quick acknowledgement, mark a thread read.                                                    |
 | **`escalate`**    | The full **orchestrator** agent takes over with planning capability.                                                                                           | Anything that needs reasoning, multiple steps, or multiple skills: drafting a reply, updating several Notion pages, deciding how to triage an inbound issue. |
 
 The triage agent has the same memory and workspace context the rest of the agent has. It can tell whether a trigger is relevant to something you're currently working on, who the people involved are, and whether it's the kind of thing you've asked OpenHuman to act on before.
@@ -89,7 +89,7 @@ This is the part that distinguishes "OpenHuman has a Gmail integration" from "Op
 
 - **`react`** is the cheap path. The Trigger Reactor is a narrow specialist with a hard budget of a couple of tool calls. It's perfect for: writing a one-line memory note that says "saw a new charge from Stripe for $84, customer X, merchant Y", silently marking a Slack message as handled because it's the same automated alert you've already triaged twice this week, or storing a structured record of an event the user might want to look up later.
 
-- **`escalate`** is the heavy path. When the Triage agent decides the trigger needs real work, it hands off to the Orchestrator with a self-contained task description. The orchestrator has access to your full skill surface, tools, memory, and the [Subconscious Loop](../subconscious.md) outputs. From there it might:
+- **`escalate`** is the heavy path. When the Triage agent decides the trigger needs real work, it hands off to the Orchestrator with a self-contained task description. The orchestrator has access to your full skill surface, tools, and memory. From there it might:
   - Draft a reply to an important email and queue it for your approval.
   - Pull up the relevant Notion / Linear / Drive context for an inbound issue and write a structured comment.
   - Update three connected systems based on a single inbound event ("this customer's plan changed in Stripe, update HubSpot, post in #revenue, and add a note to their Notion file").
@@ -123,15 +123,14 @@ Triggers follow the same boundary as the rest of the product (see [Privacy & Sec
 
 ## Implementation pointers (for developers)
 
-- Triage agent: `src/openhuman/agent/agents/trigger_triage/`
-- Reactor agent: `src/openhuman/agent/agents/trigger_reactor/`
-- Composio bus subscriber: `src/openhuman/integrations/composio/bus.rs` (`ComposioTriggerSubscriber`)
-- Trigger history persistence: `src/openhuman/integrations/composio/trigger_history.rs`
-- Domain events: `DomainEvent::ComposioTriggerReceived`, `DomainEvent::TriggerEscalated` in `src/core/event_bus/events.rs`
-- Trigger settings RPC: `update_composio_trigger_settings` / `get_composio_trigger_settings` in `src/openhuman/config/`
+- Triage agent: `crates/openhuman-core/src/agent/agents/trigger_triage/`
+- Reactor agent: `crates/openhuman-core/src/agent/agents/trigger_reactor/`
+- Composio bus subscriber: `crates/openhuman-core/src/integrations/composio/bus.rs` (`ComposioTriggerSubscriber`)
+- Trigger history persistence: `crates/openhuman-core/src/integrations/composio/trigger_history.rs`
+- Domain events: `DomainEvent::ComposioTriggerReceived`, `DomainEvent::TriggerEscalated` in `crates/openhuman-core/src/core/events.rs`
+- Trigger settings RPC: `update_composio_trigger_settings` / `get_composio_trigger_settings` in `crates/openhuman-core/src/config/`
 
 ## See also
 
 - [Third-party Integrations](README.md), the catalog of services triggers come from.
 - [Auto-fetch from Integrations](../obsidian-wiki/auto-fetch.md), the polling counterpart, periodic ingest of source data into the Memory Tree.
-- [Subconscious Loop](../subconscious.md), the background loop that uses trigger context and memory to plan ahead.

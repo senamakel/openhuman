@@ -283,21 +283,21 @@ resolve_app_binary() {
   case "$OS" in
     Darwin)
       for base in \
-        "$APP_DIR/src-tauri/target/debug/bundle/macos/OpenHuman.app/Contents/MacOS/OpenHuman" \
+        "$REPO_ROOT/crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app/Contents/MacOS/OpenHuman" \
         "$REPO_ROOT/target/debug/bundle/macos/OpenHuman.app/Contents/MacOS/OpenHuman"; do
         if [ -x "$base" ]; then echo "$base"; return; fi
       done
       ;;
     Linux)
       for candidate in \
-        "$APP_DIR/src-tauri/target/debug/OpenHuman" \
+        "$REPO_ROOT/crates/openhuman-app/target/debug/OpenHuman" \
         "$REPO_ROOT/target/debug/OpenHuman"; do
         if [ -x "$candidate" ]; then echo "$candidate"; return; fi
       done
       ;;
     MINGW*|MSYS*|CYGWIN*|Windows_NT)
       for candidate in \
-        "$APP_DIR/src-tauri/target/debug/OpenHuman.exe" \
+        "$REPO_ROOT/crates/openhuman-app/target/debug/OpenHuman.exe" \
         "$REPO_ROOT/target/debug/OpenHuman.exe"; do
         if [ -x "$candidate" ]; then echo "$candidate"; return; fi
       done

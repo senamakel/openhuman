@@ -4,7 +4,7 @@
  * openhuman#5479 ("Cannot Pair iPhone") is a wire-contract failure on the
  * desktop side: `[devices/tunnel] parse tunnel:register ack failed: missing
  * field 'channelId'`. Nothing in this file can fix that — it is Rust, in
- * `src/openhuman/security/devices/tunnel_client.rs`. What this file protects is
+ * `crates/openhuman-core/src/security/devices/tunnel_client.rs`. What this file protects is
  * the thing that turns that bug from "retry it" into "the phone is bricked":
  * the route that lets a user pair again.
  *

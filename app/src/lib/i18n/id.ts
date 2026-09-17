@@ -215,6 +215,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Terjadi kesalahan pada tindakan ini.',
   'conversations.toolFailure.unknown.next':
     'Coba lagi; jika terus gagal, jalankan diagnostik dari Pengaturan.',
+  'conversations.toolFailure.notFound.cause':
+    'Hal yang diminta tidak ada atau tidak tersedia di sini.',
+  'conversations.toolFailure.notFound.next':
+    'Tidak perlu melakukan apa pun. Asisten dapat mencari nama yang benar dan mencoba lagi.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman belum bisa melakukan ini secara otomatis.',
+  'conversations.toolFailure.unsupported.next': 'Lakukan secara manual, atau minta opsi lain.',
   'conversations.backgroundTasks.title': 'Tugas latar belakang',
   'nav.feedback': 'Bagikan masukan',
   'feedback.board': 'Papan masukan',
@@ -384,6 +391,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'Berhasil',
   'sync.status.failed': 'Gagal',
   'sync.status.partial': 'Terambil, gagal masuk ke memori',
+  'sync.nowSyncing.title': 'Sedang disinkronkan',
+  'sync.nowSyncing.empty': 'Tidak ada yang sedang disinkronkan saat ini.',
   'common.error': 'Kesalahan',
   'common.success': 'Berhasil',
   'common.back': 'Kembali',
@@ -662,6 +671,10 @@ const messages: TranslationMap = {
   'home.statusOk': 'Asistenmu siap kapan pun kamu siap. Ketik sesuatu di bawah untuk memulai.',
   'home.statusBackendOnly':
     'Menghubungkan ulang ke backend... agen Anda akan segera tersedia lagi.',
+  'home.statusHostedDegraded':
+    'Menyambung kembali ke cloud… obrolan tetap berjalan; integrasi dan kanal akan berlanjut begitu koneksi kembali.',
+  'home.statusHostedStopped':
+    'Koneksi cloud terhenti: masuk kembali untuk melanjutkan integrasi dan kanal. Obrolan tetap berjalan.',
   'home.statusCoreUnreachable':
     'Core sidecar lokal tidak merespons. Proses latar OpenHuman mungkin crash atau gagal dimulai.',
   'home.statusInternetOffline':
@@ -773,6 +786,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Terpasang',
   'skills.explorer.install': 'Pasang',
   'skills.explorer.installing': 'Memasang…',
+  'skills.explorer.notInstallable': 'Tidak dapat dipasang',
+  'skills.explorer.notInstallableHint':
+    'Entri ini tidak memiliki SKILL.md untuk diunduh, jadi tidak dapat dipasang dari sini.',
   'skills.integrations': 'Integrasi Composio',
   'skills.integrationsSubtitle':
     'Koneksi OAuth berbasis cloud: masuk dengan akun Anda dan Composio mengelola token agar agen dapat membaca dan bertindak atas nama Anda. Tidak perlu mengelola API key.',
@@ -982,6 +998,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedDone': 'Tugas yang gagal masuk antrean lagi',
   'memoryTree.status.retryFailedCount': '{count} tugas diantrekan untuk dijalankan ulang.',
   'memoryTree.status.retryFailedError': 'Tidak dapat mengantrekan ulang tugas yang gagal',
+  'memoryTree.status.jobQueue':
+    'Tugas memori: {ready} menunggu, {running} berjalan, {failed} gagal',
   'memoryTree.status.toggleFailed': 'Gagal mengalihkan sinkronisasi otomatis',
   'memoryTree.status.justNow': 'baru saja',
   'memoryTree.status.secondsAgo': '{count} dtk lalu',
@@ -2650,8 +2668,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Pencarian Twitter',
   'memorySources.kind.rss_feed': 'Feed RSS',
   'memorySources.kind.web_page': 'Halaman Web',
-  'memorySources.sync.successTitle': 'Menyinkronkan',
-  'memorySources.sync.successMessage': 'Kemajuan akan segera muncul.',
   'memorySources.sync.failedTitle': 'Sinkronisasi gagal:',
   'memorySources.sync.completeTitle': 'Tersinkron',
   'memorySources.sync.itemsSynced': 'item tersinkron',
@@ -2659,6 +2675,13 @@ const messages: TranslationMap = {
   'memorySources.sync.failedLabel': 'Gagal',
   'memorySources.sync.morePending': 'Masih ada yang perlu disinkronkan. Klik Sinkronkan lagi',
   'memorySources.sync.budgetSpent': 'Anggaran permintaan hari ini sudah habis. Coba lagi besok',
+  'memorySources.stage.requested': 'Memulai',
+  'memorySources.stage.running': 'Menyinkronkan',
+  'memorySources.stage.fetching': 'Mengambil',
+  'memorySources.stage.stored': 'Menyimpan',
+  'memorySources.stage.queued': 'Memproses ke memori',
+  'memorySources.stage.ingesting': 'Memproses ke memori',
+  'memorySources.stage.unknown': 'Menyinkronkan',
   'time.justNow': 'baru saja',
   'time.secondsAgoSuffix': 'd lalu',
   'time.minutesAgoSuffix': 'm lalu',

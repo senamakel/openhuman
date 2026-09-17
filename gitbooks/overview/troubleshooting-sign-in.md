@@ -39,7 +39,7 @@ Successful desktop OAuth ends with an `openhuman://auth?...` callback. If the br
 
 1. Make sure only one OpenHuman desktop instance is running.
 2. Restart the app, keep the same remote-core settings, and retry sign-in.
-3. If using a remote core, check whether the core receives `openhuman.auth_store_session`.
+3. If using a remote core, check whether the core receives `openhuman.auth_set_credential` (the desktop shell validates the session against the backend first, then hands the credential to the core).
 
 ## Windows: `openhuman://` handler not registered
 
@@ -65,13 +65,13 @@ Set-ItemProperty -Path 'HKCU:\Software\Classes\openhuman\shell\open\command' -Na
 
 Restart OpenHuman afterwards and retry sign-in. If `register_all_error` is non-`None` in the log (for example because antivirus or a locked-down image is blocking writes to `HKCU\Software\Classes`), fixing the underlying policy is required; the manual script above will hit the same block.
 
-For a remote core, a temporary manual injection can confirm the core is otherwise healthy:
+For a remote core, a temporary manual injection can confirm the core is otherwise healthy (the core stores the credential as given; supply the user id the token belongs to unless the JWT carries a subject claim):
 
 ```bash
 curl -sS https://your-core.example/rpc \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer CORE_TOKEN" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"openhuman.auth_store_session","params":{"token":"JWT_FROM_CALLBACK"} }'
+  -d '{"jsonrpc":"2.0","id":1,"method":"openhuman.auth_set_credential","params":{"token":"JWT_FROM_CALLBACK","userId":"YOUR_USER_ID"} }'
 ```
 
 Do not paste real JWTs into public GitHub issues. Redact tokens and attach only status codes, hostnames, app version, OS, and the relevant log lines.

@@ -1,0 +1,158 @@
+use crate::config::Config;
+use crate::cron;
+use crate::tools::traits::{Tool, ToolCallOptions, ToolExposure, ToolResult};
+use async_trait::async_trait;
+use serde::Serialize;
+use serde_json::json;
+use std::fmt::Write as _;
+use std::sync::Arc;
+
+const MAX_RUN_OUTPUT_CHARS: usize = 500;
+
+pub struct CronRunsTool {
+    config: Arc<Config>,
+}
+
+impl CronRunsTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[derive(Serialize)]
+struct RunView {
+    id: i64,
+    job_id: String,
+    started_at: chrono::DateTime<chrono::Utc>,
+    finished_at: chrono::DateTime<chrono::Utc>,
+    status: String,
+    output: Option<String>,
+    duration_ms: Option<i64>,
+}
+
+#[async_trait]
+impl Tool for CronRunsTool {
+    /// Superseded by the `cron` tool, which dispatches every scheduler
+    /// operation on one `action` field. Kept registered and dispatchable so a
+    /// replayed transcript or a saved skill naming `cron_*` keeps working;
+    /// hidden from the wire so six schemas do not ship where one does.
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
+    fn name(&self) -> &str {
+        "cron_runs"
+    }
+
+    fn description(&self) -> &str {
+        "List recent run history for a cron job"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "job_id": { "type": "string" },
+                "limit": { "type": "integer" }
+            },
+            "required": ["job_id"]
+        })
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_options(args, ToolCallOptions::default())
+            .await
+    }
+
+    async fn execute_with_options(
+        &self,
+        args: serde_json::Value,
+        options: ToolCallOptions,
+    ) -> anyhow::Result<ToolResult> {
+        if !self.config.cron.enabled {
+            return Ok(ToolResult::error(
+                "cron is disabled by config (cron.enabled=false)".to_string(),
+            ));
+        }
+
+        let job_id = match args.get("job_id").and_then(serde_json::Value::as_str) {
+            Some(v) if !v.trim().is_empty() => v,
+            _ => {
+                return Ok(ToolResult::error("Missing 'job_id' parameter".to_string()));
+            }
+        };
+
+        let limit = args
+            .get("limit")
+            .and_then(serde_json::Value::as_u64)
+            .map_or(10, |v| usize::try_from(v).unwrap_or(10));
+
+        match cron::list_runs(&self.config, job_id, limit) {
+            Ok(runs) => {
+                let runs: Vec<RunView> = runs
+                    .into_iter()
+                    .map(|run| RunView {
+                        id: run.id,
+                        job_id: run.job_id,
+                        started_at: run.started_at,
+                        finished_at: run.finished_at,
+                        status: run.status,
+                        output: run.output.map(|out| truncate(&out, MAX_RUN_OUTPUT_CHARS)),
+                        duration_ms: run.duration_ms,
+                    })
+                    .collect();
+
+                let json_str = serde_json::to_string_pretty(&runs)?;
+                let mut result = ToolResult::success(json_str);
+                if options.prefer_markdown {
+                    result.markdown_formatted = Some(render_runs_markdown(job_id, &runs));
+                }
+                Ok(result)
+            }
+            Err(e) => Ok(ToolResult::error(e.to_string())),
+        }
+    }
+
+    fn supports_markdown(&self) -> bool {
+        true
+    }
+}
+
+fn render_runs_markdown(job_id: &str, runs: &[RunView]) -> String {
+    if runs.is_empty() {
+        return format!("_No recorded runs for job `{job_id}`._");
+    }
+    let mut out = format!("# Cron runs for `{job_id}` ({})\n", runs.len());
+    for r in runs {
+        let _ = writeln!(
+            out,
+            "\n## #{} — {}",
+            r.id,
+            r.started_at.format("%Y-%m-%d %H:%M:%S UTC")
+        );
+        let _ = writeln!(out, "- **status**: {}", r.status);
+        if let Some(ms) = r.duration_ms {
+            let _ = writeln!(out, "- **duration_ms**: {ms}");
+        }
+        if let Some(out_text) = &r.output {
+            let trimmed = out_text.trim();
+            if !trimmed.is_empty() {
+                let _ = writeln!(out, "- **output**:\n```\n{trimmed}\n```");
+            }
+        }
+    }
+    out
+}
+
+fn truncate(input: &str, max_chars: usize) -> String {
+    if input.chars().count() <= max_chars {
+        return input.to_string();
+    }
+    let mut out: String = input.chars().take(max_chars).collect();
+    out.push_str("...");
+    out
+}
+
+#[cfg(test)]
+#[path = "runs_tests.rs"]
+mod tests;

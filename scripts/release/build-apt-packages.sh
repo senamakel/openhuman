@@ -50,17 +50,25 @@ done
 tar -xzf "$TMPDIR/tarballs/openhuman-core-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
   -C "$TMPDIR/bins"
 mv "$TMPDIR/bins/openhuman-core" "$TMPDIR/bins/openhuman-core-amd64"
+mv "$TMPDIR/bins/openhuman-tui" "$TMPDIR/bins/openhuman-tui-amd64"
 
 tar -xzf "$TMPDIR/tarballs/openhuman-core-${VERSION}-aarch64-unknown-linux-gnu.tar.gz" \
   -C "$TMPDIR/bins"
 mv "$TMPDIR/bins/openhuman-core" "$TMPDIR/bins/openhuman-core-arm64"
+mv "$TMPDIR/bins/openhuman-tui" "$TMPDIR/bins/openhuman-tui-arm64"
 
-chmod +x "$TMPDIR/bins/openhuman-core-amd64" "$TMPDIR/bins/openhuman-core-arm64"
+chmod +x \
+  "$TMPDIR/bins/openhuman-core-amd64" "$TMPDIR/bins/openhuman-tui-amd64" \
+  "$TMPDIR/bins/openhuman-core-arm64" "$TMPDIR/bins/openhuman-tui-arm64"
 
 # ── Build .deb packages ─────────────────────────────────────────────────────
 echo "[apt] Building .deb packages ..."
-bash "$REPO_ROOT/packages/deb/build.sh" "$TMPDIR/bins/openhuman-core-amd64" "${VERSION}" amd64
-bash "$REPO_ROOT/packages/deb/build.sh" "$TMPDIR/bins/openhuman-core-arm64" "${VERSION}" arm64
+bash "$REPO_ROOT/packages/deb/build.sh" \
+  "$TMPDIR/bins/openhuman-core-amd64" "$TMPDIR/bins/openhuman-tui-amd64" \
+  "${VERSION}" amd64
+bash "$REPO_ROOT/packages/deb/build.sh" \
+  "$TMPDIR/bins/openhuman-core-arm64" "$TMPDIR/bins/openhuman-tui-arm64" \
+  "${VERSION}" arm64
 
 ls -lh openhuman_*.deb
 

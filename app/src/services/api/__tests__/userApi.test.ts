@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCallCoreCommand = vi.fn();
+const mockFetchCurrentUser = vi.fn();
 
-vi.mock('../../coreCommandClient', () => ({
-  callCoreCommand: (...args: unknown[]) => mockCallCoreCommand(...args),
+vi.mock('../../session/sessionOwner', () => ({
+  fetchCurrentUser: (...args: unknown[]) => mockFetchCurrentUser(...args),
 }));
 
 const { userApi } = await import('../userApi');
@@ -43,35 +43,36 @@ function getMockUser() {
 
 describe('userApi.getMe', () => {
   beforeEach(() => {
-    mockCallCoreCommand.mockReset();
+    mockFetchCurrentUser.mockReset();
   });
 
   it('returns user data on success', async () => {
-    mockCallCoreCommand.mockResolvedValue(getMockUser());
+    mockFetchCurrentUser.mockResolvedValue({ user: getMockUser(), stale: false, staleSeconds: 0 });
 
     const user = await userApi.getMe();
 
-    expect(mockCallCoreCommand).toHaveBeenCalledWith('openhuman.auth_get_me');
+    // A live answer: the session owner is asked to bypass its cache.
+    expect(mockFetchCurrentUser).toHaveBeenCalledWith(true);
     expect(user._id).toBe('user-123');
     expect(user.firstName).toBe('Test');
     expect(user.username).toBe('testuser');
     expect(user.subscription.plan).toBe('FREE');
   });
 
-  it('throws when API returns error response', async () => {
-    mockCallCoreCommand.mockRejectedValue(new Error('Unauthorized'));
+  it('throws when the owner rejects the session', async () => {
+    mockFetchCurrentUser.mockRejectedValue(new Error('REJECTED: Unauthorized'));
 
-    await expect(userApi.getMe()).rejects.toThrow();
+    await expect(userApi.getMe()).rejects.toThrow('REJECTED: Unauthorized');
   });
 
-  it('throws when API returns success=false', async () => {
-    mockCallCoreCommand.mockRejectedValue(new Error('Invalid token'));
+  it('throws when nobody is signed in', async () => {
+    mockFetchCurrentUser.mockResolvedValue({ user: null, stale: false, staleSeconds: null });
 
-    await expect(userApi.getMe()).rejects.toThrow('Invalid token');
+    await expect(userApi.getMe()).rejects.toThrow('no signed-in user');
   });
 
   it('throws on network error', async () => {
-    mockCallCoreCommand.mockRejectedValue(new Error('Service unavailable'));
+    mockFetchCurrentUser.mockRejectedValue(new Error('TRANSIENT: Service unavailable'));
 
     await expect(userApi.getMe()).rejects.toBeDefined();
   });

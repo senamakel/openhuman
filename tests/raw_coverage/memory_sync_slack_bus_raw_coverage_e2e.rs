@@ -9,7 +9,7 @@
 //!
 //! tinymemory v1.13.4 deleted the in-process Composio pipeline outright (72
 //! files, ~18.3k lines) — see
-//! `crate::openhuman::integrations::composio::providers`'s module docs. This
+//! `crate::integrations::composio::providers`'s module docs. This
 //! file used to instantiate the deleted engine's `SlackProvider` /
 //! `GmailProvider` directly against a loopback HTTP router standing in for
 //! the Composio execute API, exercising Slack's full sync (profile, users,
@@ -49,12 +49,12 @@ use serde_json::json;
 use tempfile::TempDir;
 
 use openhuman_core::core::events::DomainEvent;
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::integrations::composio::ops::composio_get_user_profile;
-use openhuman_core::openhuman::memory::sync::composio::bus::{
+use openhuman_core::config::Config;
+use openhuman_core::integrations::composio::ops::composio_get_user_profile;
+use openhuman_core::memory::sync::composio::bus::{
     ComposioConfigChangedSubscriber, ComposioConnectionCreatedSubscriber, ComposioTriggerSubscriber,
 };
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use tinybus::EventHandler;
@@ -69,7 +69,7 @@ fn ensure_memory_seams(config: Arc<Config>) {
             .stack_size(8 * 1024 * 1024)
             .spawn(move || {
                 #[cfg(feature = "modules")]
-                openhuman_core::openhuman::modules::memory::set_modules_policy(config);
+                openhuman_core::modules::memory::set_modules_policy(config);
             })
             .expect("spawn slack bus memory seam installer")
             .join()

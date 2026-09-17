@@ -5,7 +5,7 @@ import type { MascotFace } from '../features/human/Mascot/Ghosty';
 
 /**
  * Hosted inside a native macOS NSPanel + WKWebView (see
- * `app/src-tauri/src/mascot_native_window.rs`), NOT inside Tauri's runtime.
+ * `crates/openhuman-app/src/mascot_native_window.rs`), NOT inside Tauri's runtime.
  *
  * - No `@tauri-apps/api/*` calls work here.
  * - The panel is `ignoresMouseEvents=true` so the cursor passes straight

@@ -6,7 +6,7 @@
 #
 # The Android host shares the `app/src-tauri-mobile/` crate with iOS — both
 # mobile targets are wired into the same Tauri host (the desktop crate at
-# `app/src-tauri/` is pinned to a vendored CEF Tauri fork and does not
+# `crates/openhuman-app/` is pinned to a vendored CEF Tauri fork and does not
 # support mobile targets).
 #
 # Prereqs:

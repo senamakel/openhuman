@@ -1,6 +1,7 @@
 /**
  * Vitest for `<SyncAuditPanel />` (issue #3116 — coverage for the sync-audit
- * history surface shipped in PR #3113).
+ * history surface shipped in PR #3113; openhuman#6257 — the panel keeps
+ * itself current).
  *
  * Covers:
  * - loading → loaded transition (renders rows once the audit log resolves)
@@ -8,22 +9,39 @@
  * - the scope label mapping for github / gmail / rebuild scopes
  * - success ✓ vs failure ✗ status glyphs
  * - the empty state when no runs are recorded
+ * - registry labels from the status list, with the scope label as fallback
+ * - re-reading after a run ends, polling while one runs, and manual Refresh
+ * - an older read that answers last never replacing a newer history
  *
- * Only the `memorySyncAuditLog` wrapper is swapped for a spy; everything
- * else in the `tauriCommands` barrel (types, sibling wrappers) is inherited
- * verbatim so the panel sees the production module shape.
+ * Only the `memorySyncAuditLog` and `memorySourcesStatusList` wrappers are
+ * swapped for spies; everything else in those modules is inherited verbatim.
+ * The sync store is the real one, fed through `applyStageEvent` the way the
+ * socket feeds it.
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { SourceStatus } from '../../services/memorySourcesService';
 import type { SyncAuditEntry } from '../../utils/tauriCommands';
-import { SyncAuditPanel, timeAgo } from './SyncAuditPanel';
+import { applyStageEvent, resetMemorySyncActivityForTests } from './memorySyncActivityStore';
+import {
+  POLL_WHILE_SYNCING_MS,
+  REFETCH_AFTER_RUN_ENDS_MS,
+  SyncAuditPanel,
+  timeAgo,
+} from './SyncAuditPanel';
 
 const mockAuditLog = vi.fn();
+const mockStatusList = vi.fn();
 
 vi.mock('../../utils/tauriCommands', async importOriginal => {
   const actual = await importOriginal<typeof import('../../utils/tauriCommands')>();
   return { ...actual, memorySyncAuditLog: (...args: unknown[]) => mockAuditLog(...args) };
+});
+
+vi.mock('../../services/memorySourcesService', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../services/memorySourcesService')>();
+  return { ...actual, memorySourcesStatusList: (...args: unknown[]) => mockStatusList(...args) };
 });
 
 function entry(overrides: Partial<SyncAuditEntry> = {}): SyncAuditEntry {
@@ -43,9 +61,27 @@ function entry(overrides: Partial<SyncAuditEntry> = {}): SyncAuditEntry {
   };
 }
 
+function status(source_id: string, extra: Partial<SourceStatus> = {}): SourceStatus {
+  return {
+    source_id,
+    chunks_synced: 0,
+    chunks_pending: 0,
+    last_chunk_at_ms: null,
+    freshness: 'idle',
+    ...extra,
+  };
+}
+
 describe('<SyncAuditPanel />', () => {
   beforeEach(() => {
+    resetMemorySyncActivityForTests();
     mockAuditLog.mockReset();
+    mockStatusList.mockReset();
+    mockStatusList.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders the empty state when there are no runs', async () => {
@@ -194,6 +230,143 @@ describe('<SyncAuditPanel />', () => {
     expect(within(table).getByText('When')).toBeInTheDocument();
     expect(within(table).getByText('Source')).toBeInTheDocument();
     expect(within(table).getByText('Cost')).toBeInTheDocument();
+  });
+
+  it('names a row by its registry label and keeps the scope as the title', async () => {
+    mockAuditLog.mockResolvedValue([
+      entry({ source_id: 'src-gmail', source_kind: 'composio', scope: 'gmail:ca_1' }),
+    ]);
+    mockStatusList.mockResolvedValue([status('src-gmail', { label: 'Gmail · work' })]);
+    render(<SyncAuditPanel />);
+
+    const cell = await screen.findByText('Gmail · work');
+    expect(cell).toHaveAttribute('title', 'gmail:ca_1');
+  });
+
+  it('falls back to the scope label when the status list fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockAuditLog.mockResolvedValue([entry()]);
+    mockStatusList.mockRejectedValue(new Error('core down'));
+    render(<SyncAuditPanel />);
+
+    expect(await screen.findByText('GitHub · tinyhumansai/openhuman')).toBeInTheDocument();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('re-reads the history shortly after a sync run ends', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockAuditLog
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([entry({ source_id: 'src-new', scope: 'github:org/new' })]);
+    render(<SyncAuditPanel />);
+    await screen.findByText('No sync runs recorded yet.');
+
+    act(() => {
+      applyStageEvent({ stage: 'completed', source_id: 'src-new', detail: 'ingested 3 item(s)' });
+    });
+    expect(mockAuditLog).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(REFETCH_AFTER_RUN_ENDS_MS);
+    });
+    expect(await screen.findByText('GitHub · org/new')).toBeInTheDocument();
+    expect(mockAuditLog).toHaveBeenCalledTimes(2);
+  });
+
+  it('polls while a sync is running and stops once it ends', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockAuditLog.mockResolvedValue([]);
+    mockStatusList.mockResolvedValue([status('src-live')]);
+    render(<SyncAuditPanel />);
+    await screen.findByText('No sync runs recorded yet.');
+    expect(mockAuditLog).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      applyStageEvent({ stage: 'running', source_id: 'src-live', detail: null });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(POLL_WHILE_SYNCING_MS);
+    });
+    await waitFor(() => expect(mockAuditLog).toHaveBeenCalledTimes(2));
+
+    act(() => {
+      applyStageEvent({ stage: 'completed', source_id: 'src-live', detail: 'ingested 1 item(s)' });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(REFETCH_AFTER_RUN_ENDS_MS);
+    });
+    await waitFor(() => expect(mockAuditLog).toHaveBeenCalledTimes(3));
+
+    await act(async () => {
+      vi.advanceTimersByTime(POLL_WHILE_SYNCING_MS * 2);
+    });
+    expect(mockAuditLog).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not keep polling for a per-document row the registry does not know', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockAuditLog.mockResolvedValue([]);
+    mockStatusList.mockResolvedValue([status('src-known')]);
+    render(<SyncAuditPanel />);
+    await screen.findByText('No sync runs recorded yet.');
+
+    act(() => {
+      applyStageEvent({
+        stage: 'ingesting',
+        connection_id: 'slack:workspace-1:msg',
+        detail: 'queue_depth=1',
+      });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(POLL_WHILE_SYNCING_MS * 2);
+    });
+    expect(mockAuditLog).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the history without waiting for the status list', async () => {
+    mockAuditLog.mockResolvedValue([entry({ source_id: 'src-slow', scope: 'github:org/slow' })]);
+    mockStatusList.mockImplementation(() => new Promise<SourceStatus[]>(() => {}));
+    render(<SyncAuditPanel />);
+
+    expect(await screen.findByText('GitHub · org/slow')).toBeInTheDocument();
+    expect(screen.getByTestId('sync-history-refresh')).not.toBeDisabled();
+  });
+
+  it('re-reads the history when Refresh is pressed', async () => {
+    mockAuditLog.mockResolvedValue([]);
+    render(<SyncAuditPanel />);
+
+    fireEvent.click(await screen.findByTestId('sync-history-refresh'));
+    await waitFor(() => expect(mockAuditLog).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps the newer history when an older read answers last', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let resolveFirst: (rows: SyncAuditEntry[]) => void = () => {};
+    mockAuditLog
+      .mockImplementationOnce(
+        () =>
+          new Promise<SyncAuditEntry[]>(resolve => {
+            resolveFirst = resolve;
+          })
+      )
+      .mockResolvedValueOnce([entry({ source_id: 'newer', scope: 'github:org/newer' })]);
+    render(<SyncAuditPanel />);
+
+    act(() => {
+      applyStageEvent({ stage: 'completed', source_id: 'newer', detail: 'ingested 1 item(s)' });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(REFETCH_AFTER_RUN_ENDS_MS);
+    });
+    expect(await screen.findByText('GitHub · org/newer')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFirst([entry({ source_id: 'older', scope: 'github:org/older' })]);
+    });
+    expect(screen.queryByText('GitHub · org/older')).not.toBeInTheDocument();
+    expect(screen.getByText('GitHub · org/newer')).toBeInTheDocument();
   });
 });
 

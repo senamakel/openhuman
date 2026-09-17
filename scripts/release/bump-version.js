@@ -24,8 +24,8 @@ if (!allowed.has(RELEASE_TYPE)) {
 
 const root = path.resolve(__dirname, '..', '..');
 const packagePath = path.join(root, 'app/package.json');
-const tauriPath = path.join(root, 'app/src-tauri/tauri.conf.json');
-const tauriCargoPath = path.join(root, 'app/src-tauri/Cargo.toml');
+const tauriPath = path.join(root, 'crates/openhuman-app/tauri.conf.json');
+const tauriCargoPath = path.join(root, 'crates/openhuman-app/Cargo.toml');
 const mobileTauriPath = path.join(root, 'app/src-tauri-mobile/tauri.conf.json');
 const mobileCargoPath = path.join(root, 'app/src-tauri-mobile/Cargo.toml');
 const coreCargoPath = path.join(root, 'Cargo.toml');
@@ -65,10 +65,11 @@ function writeTauriVersion(filePath, nextVersion) {
 writeTauriVersion(tauriPath, nextVersion);
 writeTauriVersion(mobileTauriPath, nextVersion);
 
-function bumpCargoVersion(filePath, nextVersion) {
+function bumpCargoVersion(filePath, nextVersion, section = 'package') {
   const cargo = fs.readFileSync(filePath, 'utf8');
+  const escapedSection = section.replace('.', '\\.');
   const updatedCargo = cargo.replace(
-    /(\[package\][\s\S]*?^version\s*=\s*")([^"]+)(")/m,
+    new RegExp(`(\\[${escapedSection}\\][\\s\\S]*?^version\\s*=\\s*")([^"]+)(")`, 'm'),
     `$1${nextVersion}$3`,
   );
   if (updatedCargo === cargo) {
@@ -80,7 +81,7 @@ function bumpCargoVersion(filePath, nextVersion) {
 // ── Write Cargo.toml files ──────────────────────────────────────────────────
 bumpCargoVersion(tauriCargoPath, nextVersion);
 bumpCargoVersion(mobileCargoPath, nextVersion);
-bumpCargoVersion(coreCargoPath, nextVersion);
+bumpCargoVersion(coreCargoPath, nextVersion, 'workspace.package');
 
 // ── Output ──────────────────────────────────────────────────────────────────
 const lines = `version=${nextVersion}\ntag=v${nextVersion}\n`;

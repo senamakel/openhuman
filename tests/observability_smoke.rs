@@ -2,7 +2,7 @@
 //! transient-upstream provider, backend_api, integrations, and updater
 //! failures plus budget-exhausted user-state 400s (OPENHUMAN-TAURI-3M / 12 / 13).
 //!
-//! Unit tests in `src/core/observability.rs` exercise the pure filter
+//! Unit tests in `crates/openhuman-core/src/core/observability.rs` exercise the pure filter
 //! function. This integration test wires the actual `sentry::init` →
 //! `before_send` → transport chain so we have proof the runtime path
 //! behaves as designed: transient events are dropped, permanent events

@@ -251,7 +251,7 @@ encrypt = false
         write_one(&openhuman_dir.join("users").join("local"), &cfg);
     }
 
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("the fixture config.toml must match the Config schema");
 }
 

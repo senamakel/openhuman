@@ -84,7 +84,7 @@ const MODULES = [
 // the report.
 //
 // This has to live HERE and not in Rust. The schemas are already `#[cfg]`-
-// correct — `src/openhuman/mod.rs` gates the whole `test_support` module — but
+// correct — `crates/openhuman-core/src/lib.rs` gates the whole `test_support` module — but
 // discovery reads source text off disk and would find these literals even if
 // every line were `#[cfg(never)]`. There is no Rust-side edit that changes what
 // a text scan sees.
@@ -96,7 +96,7 @@ const UNREACHABLE_NAMESPACES = {
   test: {
     feature: 'e2e-test-support',
     reason:
-      '`openhuman.test_reset` wipes sidecar state in place, and src/core/all.rs registers it behind ' +
+      '`openhuman.test_reset` wipes sidecar state in place, and crates/openhuman-core/src/core/all.rs registers it behind ' +
       '`#[cfg(feature = "e2e-test-support")]` precisely so a shipped binary never carries the destructive RPC. ' +
       'Only app/scripts/e2e-build.sh turns that gate on; under the feature string scripts/test-rust-e2e.sh ' +
       'builds every e2e target with, dispatching it answers `unknown method`.',
@@ -104,7 +104,7 @@ const UNREACHABLE_NAMESPACES = {
   test_support: {
     feature: 'e2e-test-support',
     reason:
-      'Same gate as `test`: src/openhuman/mod.rs declares the whole `test_support` module behind ' +
+      'Same gate as `test`: crates/openhuman-core/src/lib.rs declares the whole `test_support` module behind ' +
       '`#[cfg(feature = "e2e-test-support")]`, so these workspace- and chat-introspection helpers exist only in ' +
       'the E2E build produced by app/scripts/e2e-build.sh.',
   },
@@ -118,12 +118,12 @@ const UNREACHABLE_NAMESPACES = {
 // decides real cases: `medulla` is absent from product-features.txt but present
 // in `[features] default`, so its nine controllers ARE dispatchable in an e2e
 // build and are genuine obligations, not exclusions.
-const CORE_MANIFEST = path.join(ROOT, 'Cargo.toml');
+const CORE_MANIFEST = path.join(ROOT, 'crates/openhuman-core/Cargo.toml');
 const PRODUCT_FEATURES_FILE = path.join(ROOT, 'scripts', 'ci', 'product-features.txt');
 
 // Where `ControllerSchema` literals live.
 //
-// `src/openhuman` is the bulk. The second root is not optional: the `channels`
+// `crates/openhuman-core/src` is the bulk. The second root is not optional: the `channels`
 // namespace's 20 controllers are declared in the vendored TinyChannels *bus*
 // crate as `ChannelControllerSchema` literals, and openhuman's
 // `channels/controllers/schemas.rs` only maps them across with
@@ -134,7 +134,7 @@ const PRODUCT_FEATURES_FILE = path.join(ROOT, 'scripts', 'ci', 'product-features
 // `app/src/services/__tests__/rpcMethods.test.ts` already reaches into the same
 // vendored crate for the same reason.
 const SCHEMA_ROOTS = [
-  path.join(ROOT, 'src', 'openhuman'),
+  path.join(ROOT, 'crates', 'openhuman-core', 'src'),
   path.join(ROOT, 'vendor', 'tinychannels', 'crates', 'tinychannels-bus', 'src', 'controllers'),
 ];
 
@@ -197,8 +197,8 @@ function collectInvokedMethods() {
  * This reads EVERY `.rs` file under those roots. It used to read only files
  * whose path matched `/(^|\/)schemas?(\.rs|\/)/`, which stopped working on
  * 2026-08-30: the `include!` split (#5856/#5857) moved `ControllerSchema`
- * literals out of `schemas.rs` into `*_part_NN.rs` siblings that the pattern
- * does not match, and out of `flows/schemas.rs` into `flows_schema_part_*.rs`
+ * literals out of `schemas.rs` into sibling files that the pattern does not
+ * match, and out of `flows/schemas.rs` into `flows/schemas/*_schemas.rs`
  * entirely. Thirteen files and 180 controllers went invisible in one commit,
  * with no signal — the gate simply reported a smaller world.
  *
@@ -371,9 +371,9 @@ function attributesBefore(text, index) {
  * Is `file` reachable only when `feature` is enabled?
  *
  * `#[cfg]` sits on the `mod` declaration in the PARENT, never in the file
- * itself, so this walks upward: `src/openhuman/test_support/schemas.rs` is
+ * itself, so this walks upward: `crates/openhuman-core/src/test_support/schemas.rs` is
  * reached through `mod schemas;` in `test_support/mod.rs` and then through
- * `pub mod test_support;` in `openhuman/mod.rs` — and only the second carries
+ * `pub mod test_support;` in `crates/openhuman-core/src/lib.rs` — and only the second carries
  * the gate. A file pulled in by `include!` has no `mod` of its own and simply
  * contributes nothing at its own level, which is why a missing declaration is
  * not an error here; one gated ancestor anywhere on the chain is enough.

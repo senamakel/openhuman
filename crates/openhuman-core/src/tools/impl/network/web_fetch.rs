@@ -1,0 +1,234 @@
+//! `web_fetch` — fetch a URL and return its text body.
+//!
+//! Coding-harness baseline tool (issue #1205). Distinct from
+//! `http_request` (full method/header surface) and `curl` (writes to
+//! disk). `web_fetch` is the single-purpose "GET and read" primitive
+//! the agent reaches for when researching: returns the response body
+//! as text, capped, with a tiny preamble (status + final URL).
+
+use super::url_guard::{normalize_allowed_domains, validate_url_with_dns_check};
+use crate::config::HttpRequestConfig;
+use crate::security::SecurityPolicy;
+use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::json;
+use std::sync::Arc;
+use std::time::Duration;
+
+pub struct WebFetchTool {
+    security: Arc<SecurityPolicy>,
+    allowed_domains: Vec<String>,
+    max_bytes: usize,
+    timeout_secs: u64,
+}
+
+impl WebFetchTool {
+    pub fn new(
+        security: Arc<SecurityPolicy>,
+        allowed_domains: Vec<String>,
+        max_bytes: Option<usize>,
+        timeout_secs: Option<u64>,
+    ) -> Self {
+        // Treat both `None` and `Some(0)` as "use default": callers wire these
+        // from `[http_request]`, and a 0-byte cap truncates every body to
+        // nothing while a 0-second timeout fails every request instantly.
+        // Stale-zero configs are repaired on load (migration 5→6); this clamp
+        // is the always-on guard at the point of use. Pull the fallbacks from
+        // `HttpRequestConfig::default()` so the tool shares one source with the
+        // schema + migration (no cross-layer drift). `Some(0)` is a genuine
+        // misconfiguration, so log it (grep-friendly, no payload); a bare
+        // `None` is a normal "use default" call and stays quiet.
+        let defaults = HttpRequestConfig::default();
+        let max_bytes = match max_bytes {
+            Some(0) => {
+                log::warn!(
+                    "[tool.web_fetch] coercing invalid limit field=max_bytes \
+                     from=0 to={} (stale/invalid config — see migration 5→6)",
+                    defaults.max_response_size
+                );
+                defaults.max_response_size
+            }
+            Some(n) => n,
+            None => defaults.max_response_size,
+        };
+        let timeout_secs = match timeout_secs {
+            Some(0) => {
+                log::warn!(
+                    "[tool.web_fetch] coercing invalid limit field=timeout_secs \
+                     from=0 to={} (stale/invalid config — see migration 5→6)",
+                    defaults.timeout_secs
+                );
+                defaults.timeout_secs
+            }
+            Some(n) => n,
+            None => defaults.timeout_secs,
+        };
+        Self {
+            security,
+            allowed_domains: normalize_allowed_domains(allowed_domains),
+            max_bytes,
+            timeout_secs,
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for WebFetchTool {
+    fn name(&self) -> &str {
+        "web_fetch"
+    }
+
+    fn description(&self) -> &str {
+        "GET a URL and return its body as text (truncated). Use this for \
+         reading docs / READMEs / spec pages. For richer HTTP semantics \
+         (POST, custom headers, …) use `http_request`."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "Absolute http(s) URL." },
+                "max_bytes": {
+                    "type": "integer",
+                    "description": "Truncate body at this many bytes (default 1_000_000).",
+                    "minimum": 1
+                }
+            },
+            "required": ["url"]
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::ReadOnly
+    }
+
+    /// Idempotent GET — safe to fan out across parallel `web_fetch`
+    /// calls. Targets that throttle aggressively are the user's
+    /// concern; we don't try to second-guess at the tool layer.
+    fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool {
+        true
+    }
+
+    /// Cap web_fetch results at ~50k chars before they reach the
+    /// model. The tool itself already truncates byte-wise via
+    /// `max_bytes` (default 1MB), but a 1MB HTML page is still tens
+    /// of thousands of tokens — the agent rarely needs that much, and
+    /// when it does, `read_file` on a saved copy is the right tool.
+    fn max_result_size_chars(&self) -> Option<usize> {
+        Some(50_000)
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let raw_url = args
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing 'url' parameter"))?;
+        let max_bytes = args
+            .get("max_bytes")
+            .and_then(|v| v.as_u64())
+            .map(|n| (n as usize).max(1))
+            .unwrap_or(self.max_bytes);
+
+        if self.security.is_rate_limited() {
+            return Ok(ToolResult::error(
+                "Rate limit exceeded: too many actions in the last hour",
+            ));
+        }
+        if !self.security.record_action() {
+            return Ok(ToolResult::error(
+                "Rate limit exceeded: action budget exhausted",
+            ));
+        }
+
+        // Local-only enforcement (privacy epic S7, #4441): refuse the fetch under
+        // LocalOnly before URL validation / DNS. The post-validation
+        // `emit_external_transfer` below stays the S2 disclosure point.
+        {
+            let host = reqwest::Url::parse(raw_url)
+                .ok()
+                .and_then(|u| u.host_str().map(str::to_string))
+                .unwrap_or_else(|| "unknown".to_string());
+            if let Some(msg) = crate::security::egress::local_only_tool_block(
+                &crate::security::egress::EgressDescriptor::network_fetch(host),
+            ) {
+                return Ok(ToolResult::error(msg));
+            }
+        }
+
+        let url = match validate_url_with_dns_check(raw_url, &self.allowed_domains).await {
+            Ok(u) => u,
+            Err(e) => return Ok(ToolResult::error(format!("URL rejected: {e}"))),
+        };
+
+        // Egress spine (privacy epic S2, #4436): disclose the fetch destination
+        // before contacting the host.
+        {
+            let host = reqwest::Url::parse(&url)
+                .ok()
+                .and_then(|u| u.host_str().map(str::to_string))
+                .unwrap_or_else(|| "unknown".to_string());
+            crate::security::egress::emit_external_transfer(
+                crate::security::egress::EgressDescriptor::network_fetch(host),
+            );
+        }
+
+        // Disable automatic redirect following: reqwest follows up to 10
+        // redirects by default, and a redirect target may be on a host
+        // outside the allowed-domains list. We surface 3xx responses to
+        // the caller so they can decide whether to refetch the new URL.
+        let client = match reqwest::Client::builder()
+            .timeout(Duration::from_secs(self.timeout_secs))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => return Ok(ToolResult::error(format!("Failed to build client: {e}"))),
+        };
+
+        let resp = match client.get(&url).send().await {
+            Ok(r) => r,
+            Err(e) => return Ok(ToolResult::error(format!("Request failed: {e}"))),
+        };
+        let status = resp.status();
+        let final_url = resp.url().to_string();
+        let location = resp
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        let body = match resp.text().await {
+            Ok(b) => b,
+            Err(e) => return Ok(ToolResult::error(format!("Failed to read body: {e}"))),
+        };
+
+        if let Some(loc) = &location {
+            if status.is_redirection() {
+                return Ok(ToolResult::success(format!(
+                    "status={} url={} location={loc}\n[redirect not followed — re-call web_fetch with the location URL if it's an allowed domain]",
+                    status.as_u16(),
+                    final_url
+                )));
+            }
+        }
+
+        let (snippet, truncated) = if body.len() > max_bytes {
+            let cut = crate::util::floor_char_boundary(&body, max_bytes);
+            (&body[..cut], true)
+        } else {
+            (body.as_str(), false)
+        };
+
+        let suffix = if truncated {
+            format!("\n[truncated at {max_bytes} bytes]")
+        } else {
+            String::new()
+        };
+        let header = format!("status={} url={}\n", status.as_u16(), final_url);
+        Ok(ToolResult::success(format!("{header}{snippet}{suffix}")))
+    }
+}
+
+#[cfg(test)]
+#[path = "web_fetch_tests.rs"]
+mod tests;

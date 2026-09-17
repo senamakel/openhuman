@@ -12,16 +12,14 @@
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
-    let mut config = openhuman_core::openhuman::config::Config::load_or_init()
+    let mut config = openhuman_core::config::Config::load_or_init()
         .await
         .unwrap_or_default();
     config.apply_env_overrides();
 
-    openhuman_core::openhuman::memory::host::install_memory_event_sink();
+    openhuman_core::memory::host::install_memory_event_sink();
     #[cfg(feature = "modules")]
-    openhuman_core::openhuman::modules::memory::set_modules_policy(std::sync::Arc::new(
-        config.clone(),
-    ));
+    openhuman_core::modules::memory::set_modules_policy(std::sync::Arc::new(config.clone()));
 
     eprintln!(
         "config_path={} embeddings_provider={:?} embedding_endpoint={:?}",
@@ -30,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
         config.memory_tree.embedding_endpoint,
     );
 
-    let report = openhuman_core::openhuman::memory::tree::health::report::run_doctor(&config).await;
+    let report = openhuman_core::memory::tree::health::report::run_doctor(&config).await;
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }

@@ -13,7 +13,7 @@
 //! to it": the whole `test_support` module — its one `test`-namespaced reset
 //! method plus the five read-only `test_support_*` introspection methods — is
 //! registered behind `#[cfg(feature = "e2e-test-support")]` at
-//! `src/core/all.rs:875`. That gate is in neither `[features] default` nor
+//! `crates/openhuman-core/src/core/all.rs:875`. That gate is in neither `[features] default` nor
 //! `scripts/ci/product-features.txt`; only `app/scripts/e2e-build.sh` turns it
 //! on. Dispatching the reset under the product feature string this wave
 //! mandates returns `unknown method`, which is the core's uniform "suppressed"
@@ -165,7 +165,7 @@ async fn setup(extra: Vec<EnvVarGuard>) -> Harness {
     std::fs::write(openhuman_home.join("config.toml"), MIN_CONFIG).expect("write config.toml");
     // Parsed here so a schema drift fails as a config error rather than as a
     // baffling handler error three calls later.
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(MIN_CONFIG).expect("test config must match the config schema");
 
     let workspace = home.join("workspace");

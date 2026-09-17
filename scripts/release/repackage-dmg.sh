@@ -74,9 +74,9 @@ DMG_NAME="$(basename "$ORIGINAL_DMG")"
 FINAL_DMG="$DMG_DIR/$DMG_NAME"
 echo "[dmg] Rebuilding $DMG_NAME from notarized $APP_NAME"
 
-# Background image — same one Tauri uses (declared in app/src-tauri/tauri.conf.json).
+# Background image — same one Tauri uses (declared in crates/openhuman-app/tauri.conf.json).
 # Allow override via env so callers (or tests) can point elsewhere.
-BACKGROUND_PATH="${DMG_BACKGROUND_PATH:-app/src-tauri/images/background-dmg.png}"
+BACKGROUND_PATH="${DMG_BACKGROUND_PATH:-crates/openhuman-app/images/background-dmg.png}"
 if [ ! -f "$BACKGROUND_PATH" ]; then
   echo "[dmg] WARNING: background image not found at $BACKGROUND_PATH — building without background" >&2
   BACKGROUND_PATH=""

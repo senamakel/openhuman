@@ -13,14 +13,19 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | Path | Purpose |
 | --- | --- |
 | `app/src/` | Vite and React frontend |
-| `app/src-tauri/` | Thin desktop host |
-| `src/core/` | Transport, dispatch, auth, and runtime composition |
-| `src/openhuman/` | Business domains |
-| `src/main.rs` | `openhuman-core` CLI |
+| `crates/openhuman-app/` | Thin desktop host; excluded from the root workspace, build with `--manifest-path crates/openhuman-app/Cargo.toml` |
+| `crates/openhuman-core/` | Package `openhuman`: business domains under `src/<domain>/`, transport/dispatch/auth under `src/core/` |
+| `crates/openhuman-core/src/<domain>/` | Flat business-domain modules (agent, memory, tools, security, channels, ...) |
+| `crates/openhuman-core/src/core/` | CLI, JSON-RPC and HTTP dispatch, controller registry, event bus, runtime composition; no business logic |
+| `crates/openhuman-core/src/main.rs` | `openhuman-core` CLI |
+| `crates/openhuman-embed/` | Typed library facade for embedding the core in another product |
+| `crates/openhuman-rpc/` | Shared RPC contracts, response decoding, and HTTP client used by app and TUI |
+| `crates/openhuman-session/` | Host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
+| `crates/openhuman-tui/` | Standalone terminal frontend |
 | `tests/` | Rust integration and JSON-RPC tests |
 | `gitbooks/` | Public product and contributor documentation |
 | `docs/` | Internal maintainer documentation |
-| `vendor/` | Recursive git submodules |
+| `vendor/` | Recursive git submodules; root `Cargo.toml` `[patch]` tables point into this tree |
 
 Run commands from the repository root. The root package is a private pnpm
 workspace.
@@ -35,7 +40,7 @@ workspace.
 - The frontend and Tauri shell present or orchestrate core behavior. Do not
   duplicate core policy in TypeScript or shell code.
 - The desktop core runs as a tokio task managed by
-  `app/src-tauri/src/core_process.rs`. Frontend RPC uses the per-launch bearer
+  `crates/openhuman-app/src/core_process.rs`. Frontend RPC uses the per-launch bearer
   returned through the `core_rpc_token` command.
 - `OPENHUMAN_CORE_REUSE_EXISTING=1` connects the shell to an external core for
   debugging.
@@ -57,7 +62,7 @@ pnpm test:rust
 
 cargo check --manifest-path Cargo.toml
 cargo build --manifest-path Cargo.toml --bin openhuman-core
-cargo check --manifest-path app/src-tauri/Cargo.toml
+cargo check --manifest-path crates/openhuman-app/Cargo.toml
 
 # Standard root-crate validation
 cargo check --manifest-path Cargo.toml
@@ -78,7 +83,7 @@ Long CI build or test commands must run through
 already configures shared build output where appropriate.
 
 Keep matching profile settings synchronized between `Cargo.toml` and
-`app/src-tauri/Cargo.toml`:
+`crates/openhuman-app/Cargo.toml`:
 
 - Development dependencies use `debug = false`.
 - Release builds use thin LTO, one codegen unit, symbol stripping, and
@@ -98,9 +103,19 @@ coverage must be at least 80 percent.
   `tests/json_rpc_e2e.rs`.
 - Frontend flows need mocked browser or desktop E2E coverage under
   `app/test/e2e/specs/`.
-- E2E code must use `element-helpers.ts`, not raw platform element types.
+- E2E code must use `app/test/e2e/helpers/element-helpers.ts`, not raw platform
+  element types.
 - Tests must not call real backend or third-party services.
 - Avoid time-based flakes and real network access in unit tests.
+- Root `tests/*.rs` and `examples/*.rs` are NOT auto-discovered (`autotests =
+  false`, `autoexamples = false` in `crates/openhuman-core/Cargo.toml`). Every
+  new file needs an explicit `[[test]]` / `[[example]]` entry with `path =
+  "../../tests/<name>.rs"`; `pnpm rust:layout`
+  (`scripts/ci/check-openhuman-rust-layout.mjs`) fails on missing or stale
+  entries, on inline `#[cfg(test)] mod` blocks, and on files named
+  `tests.rs`/`test.rs`. Files under `tests/raw_coverage/` are aggregated by
+  the root `build.rs` (`build = "../../build.rs"`) into the single
+  `raw_coverage_all` target and need no entry.
 
 Shared mock backend:
 
@@ -115,7 +130,7 @@ Shared mock backend:
 - Frontend environment access is centralized in `app/src/utils/config.ts`.
   Do not read `import.meta.env` elsewhere.
 - Rust configuration is defined under
-  `src/openhuman/config/schema/` and loaded through its config operations.
+  `crates/openhuman-core/src/config/schema/` and loaded through its config operations.
 
 The autonomy policy is security-sensitive:
 
@@ -141,13 +156,14 @@ generated documentation blocks.
   `app/src/store/index.ts`.
 - Persist user state through `userScopedStorage`, not ad hoc
   `localStorage`.
-- Use `coreRpcClient` for core RPC. It delegates to the
-  `relay_http_rpc` Tauri command.
+- Use `coreRpcClient` for core RPC. It `fetch()`es the loopback core
+  directly and routes only non-loopback plain-`http://` runtimes (blocked as
+  mixed content, #3865) through the `relay_http_rpc` Tauri command.
 - Auth state comes from `CoreStateProvider` and
   `fetchCoreAppSnapshot()`.
 - Routes are defined in `AppRoutes.tsx`. Check that file before adding links
   or redirects.
-- Bundled agent prompts live under `src/openhuman/agent/prompts/`, not in the
+- Bundled agent prompts live under `crates/openhuman-core/src/agent/prompts/`, not in the
   frontend.
 
 Analytics:
@@ -171,8 +187,8 @@ UI rules:
 
 ## Tauri shell
 
-Keep `app/src-tauri/` thin. The authoritative IPC list is the
-`generate_handler!` call in `app/src-tauri/src/lib.rs`.
+Keep `crates/openhuman-app/` thin. The authoritative IPC list is the
+`generate_handler!` call in `crates/openhuman-app/src/lib.rs`.
 
 Do not add JavaScript injection to child webviews. New behavior belongs in
 Rust-side IPC hooks. Audit new Tauri plugins for `js_init_script`.
@@ -182,8 +198,9 @@ iMessage scanner remains separate because it reads `chat.db` directly.
 
 ## Rust domain structure
 
-Business logic belongs under `src/openhuman/<domain>/`. Do not add flat
-`src/openhuman/*.rs` domain files or business logic to `src/core/`.
+Business logic belongs under `crates/openhuman-core/src/<domain>/`. Do not add flat
+`crates/openhuman-core/src/*.rs` domain files or business logic to
+`crates/openhuman-core/src/core/`.
 
 Preferred module shape:
 
@@ -200,17 +217,24 @@ Preferred module shape:
 
 Additional rules:
 
-- Wire controllers through the registry in `src/core/all.rs`. Do not add
+- Wire controllers through the registry in `crates/openhuman-core/src/core/all.rs`. Do not add
   namespace branches to `cli.rs` or `jsonrpc.rs`.
 - RPC namespace strings are wire contracts and do not follow directory
   renames.
 - Domain tools live with their domain and are re-exported through
-  `src/openhuman/tools/mod.rs`. Keep only cross-cutting tools in
+  `crates/openhuman-core/src/tools/mod.rs`. Keep only cross-cutting tools in
   `tools/impl/`.
 - Stable memory collection scope belongs in `metadata.path_scope`; item IDs
   are deduplication keys.
-- Update `src/openhuman/platform/about_app/` when user-visible capabilities
+- Update `crates/openhuman-core/src/platform/about_app/` when user-visible capabilities
   change.
+- `RpcOutcome<T>`, `StructuredRpcError`, `unwrap_rpc`, and the JSON-RPC HTTP
+  client live in `crates/openhuman-rpc/`; the core re-exports the crate as
+  `crate::rpc` (`pub use openhuman_rpc as rpc;` in
+  `crates/openhuman-core/src/lib.rs`), and `openhuman-app` and `openhuman-tui`
+  depend on it directly. Keep it free of business logic and core dependencies
+  (its only deps are serde, serde_json, and optional log/reqwest/url behind
+  the `http-client` feature).
 
 ## Tool, harness, and runtime boundaries
 
@@ -222,12 +246,34 @@ progress events.
 - Use the `tinytools` copy vendored through `vendor/tinyagents/`; a second path
   creates incompatible Rust types.
 - Keep conversions mechanical. Policy decisions belong in OpenHuman.
-- `openhuman_core::Harness` is the public prompt-to-reply API. Calls go through
-  `CoreRuntime::invoke`, not directly to domain operations.
+- `openhuman_embed::Runtime` → `Agent` is the public library API: one runtime
+  per process (features, services, backend URL, TinyHumans API key), then any
+  number of independently configured agents on it (`AgentSpec`: provider,
+  access, `action_dir`, MCP servers, skills, prompt, tool scope, sandbox).
+  `Harness` is the one-agent shorthand over the same two types. Agent turns
+  dispatch natively (`inference::local::ops::agent_chat_for`) under the
+  agent's own `CoreContext` (`CoreContext::derive_with`); other facade calls
+  go through `CoreRuntime::invoke`.
 - Set `config_path` with `workspace_dir`, and set a turn origin with its access
-  tier. `Access::full()` configures both access fields.
-- Use one `Harness` per process. Copy skills into its workspace because skill
-  discovery rejects symlinked bundles.
+  tier. `Access::full()` configures both access fields. Every agent on a
+  runtime shares its `config_path` (credentials, keyring, API key).
+- Copy skills into an agent's `personalities/<id>/skills/` (what
+  `AgentSpec::skills_dir` does) because skill discovery rejects symlinked
+  bundles. Library agents hide the operator's `~/.openhuman/skills` unless
+  `include_user_skills(true)`.
+- Library mode has no user login: the runtime's API key rides managed
+  inference as `Authorization: Bearer` and backend REST as `x-api-key`
+  (`security::credentials::api_key`, `session_support::BackendCredential`).
+- The core never obtains, validates, exchanges or refreshes a credential.
+  It takes one — a session JWT, an API key, or the offline local token —
+  through `auth.set_credential` (`security::credentials::ops::credential`)
+  and does only what it owns with it: user-dir activation, gated services,
+  the scheduler gate, Sentry and prompt identity. Login-token exchange,
+  `GET /auth/me` and the current-user cache belong to the host's session
+  owner: `crates/openhuman-session` behind the Tauri shell's `auth_*`
+  commands and the TUI, `openhuman_embed::Auth` for embedders, the CLI or
+  `OPENHUMAN_BACKEND_API_KEY` / `OPENHUMAN_BACKEND_SESSION_TOKEN` for
+  headless hosts. Do not add backend auth endpoints back to the core.
 
 `CoreBuilder` controls background services with `ServiceSet`, runtime domains
 with `DomainSet`, and tool visibility with `ToolGroups`. These controls only
@@ -236,10 +282,11 @@ narrow capabilities.
 Cargo default features define the contributor build;
 `scripts/ci/product-features.txt` defines the shipped product. The Tauri shell
 disables default features, so product gates must be forwarded explicitly in
-`app/src-tauri/Cargo.toml` and checked by
+`crates/openhuman-app/Cargo.toml` and checked by
 `scripts/ci/check-feature-forwarding.mjs`. Test both enabled and disabled
 builds after changing a gate. Use `scripts/assert-shed.sh` or
 `scripts/dep-sim.py` before claiming a dependency reduction.
+
 ## Loadable modules and bus contracts
 
 Each loadable module has a small `*-bus` contract crate for interface names,
@@ -254,6 +301,7 @@ method constants, request and response types, and its contract version.
 | `tinywallet-bus` | `web3` |
 | `tinymcp-bus` | `mcp` |
 | `tinychannels-bus` | channel vocabulary |
+| `tinyconnectors-bus` | OAuth connector (Composio) wire contract; called through `integrations/composio/module_client.rs` |
 
 Rules:
 
@@ -288,18 +336,25 @@ module release before migrating a host call to it.
 ## Backend API
 
 Backend calls use the vendored `tinyhumans-sdk`. Add missing backend routes to
-that SDK rather than recreating them in `src/api/`.
+that SDK rather than recreating them in `crates/openhuman-core/src/api/`.
 
-`src/api/` owns OpenHuman session-token lookup, base URL selection, transport
-configuration, and error classification. Every SDK error must pass through
-`classify_sdk_error`.
+`crates/openhuman-core/src/api/` owns OpenHuman session-token lookup, base URL
+selection, transport configuration, and error classification. Authenticated
+`BackendOAuthClient` requests go through `authed_json`, whose private
+`finish_authed_json` (`crates/openhuman-core/src/api/rest.rs`) classifies
+transient transport failures and maps 401/404 responses to typed
+`BackendApiError` variants; `IntegrationClient::map_sdk_error`
+(`crates/openhuman-core/src/integrations/client/errors.rs`) plays the same
+role for integrations. Route new SDK calls through those helpers instead of
+matching `tinyhumans_sdk::Error` by hand.
 
 Every TinyHumans backend request must carry a sanitized `x-sdk-name`:
 
 - `BackendOAuthClient`
 - `IntegrationClient`, except redirected file downloads
 - `MedullaClient`, including its separate SSE handshake
-- desktop `GET /auth/me`
+- the host session owner's `POST /auth/login-token/consume` and
+  `GET /auth/me` (`crates/openhuman-session`, through `ClientHeaders`)
 - the agent Langfuse ingestion request
 
 Set `ProductIdentity` once during startup before building clients. Do not add
@@ -311,7 +366,7 @@ auditing hand-built backend requests.
 
 ## Event bus
 
-`src/core/bus.rs` owns the process-wide `BUS` singleton. Use `BUS.publish` and
+`crates/openhuman-core/src/core/bus.rs` owns the process-wide `BUS` singleton. Use `BUS.publish` and
 `BUS.subscribe` for domain events. Use `BUS.native()` for typed, in-process
 request and response calls that carry values which cannot cross a serialized
 transport.
@@ -324,7 +379,7 @@ When adding an event:
 1. Add it to `DomainEvent`.
 2. Extend the `domain()` match.
 3. Register its subscriber at startup.
-4. Bump `EVENTS_VERSION` in `src/core/bus.rs`.
+4. Bump `EVENTS_VERSION` in `crates/openhuman-core/src/core/bus.rs`.
 
 Native request and response types must be `Send + 'static` and do not need
 serialization.

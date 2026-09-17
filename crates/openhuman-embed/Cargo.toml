@@ -1,0 +1,52 @@
+[package]
+name = "openhuman-embed"
+description = "Stable library facade for embedding OpenHuman in another application"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+publish = false
+
+[features]
+default = ["openhuman-core/default"]
+http-server = ["openhuman-core/http-server"]
+inference = ["openhuman-core/inference"]
+documents = ["openhuman-core/documents"]
+hosting = ["openhuman-core/hosting"]
+modules = ["openhuman-core/modules"]
+voice = ["openhuman-core/voice"]
+web3 = ["openhuman-core/web3"]
+runtime-node = ["openhuman-core/runtime-node"]
+contacts = ["openhuman-core/contacts"]
+media = ["openhuman-core/media"]
+flows = ["openhuman-core/flows"]
+skills = ["openhuman-core/skills"]
+mcp = ["openhuman-core/mcp"]
+crash-reporting = ["openhuman-core/crash-reporting"]
+medulla = ["openhuman-core/medulla"]
+channels = ["openhuman-core/channels"]
+sandbox-landlock = ["openhuman-core/sandbox-landlock"]
+sandbox-bubblewrap = ["openhuman-core/sandbox-bubblewrap"]
+peripheral-rpi = ["openhuman-core/peripheral-rpi"]
+browser-native = ["openhuman-core/browser-native"]
+whatsapp-web = ["openhuman-core/whatsapp-web"]
+file-logging = ["openhuman-core/file-logging"]
+scheduler-gate = ["openhuman-core/scheduler-gate"]
+
+[dependencies]
+openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
+anyhow = "1"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+dirs = "5"
+env_logger = "0.11"
+wiremock = "0.6"

@@ -6,7 +6,7 @@
 // green. That is the failure mode this file exists to make loud.
 //
 // Each test drives the real script against a fixture tree — the script keys off
-// `process.cwd()`, so a temp dir with `src/openhuman/**` and `tests/**` is a
+// `process.cwd()`, so a temp dir with `crates/openhuman-core/src/**` and `tests/**` is a
 // complete world — and asserts on the specific defect, not on the exit code
 // alone. Exit status is deliberately NOT the assertion where it cannot
 // discriminate: an incomplete fixture trips the `declaredButMissing` guard, so
@@ -58,7 +58,8 @@ function cargoToml(defaultFeatures, extraFeatures) {
  * A fixture world.
  *
  * Two things every fixture needs that a bare temp dir does not have. The gate
- * hard-requires `Cargo.toml` and `scripts/ci/product-features.txt`, because
+ * hard-requires `crates/openhuman-core/Cargo.toml` and
+ * `scripts/ci/product-features.txt`, because
  * that pair is what `scripts/test-rust-e2e.sh` builds its `--features` string
  * from and therefore the only honest answer to "which configuration is being
  * measured". And — unless a test is proving the stale-entry guard — it needs a
@@ -80,12 +81,12 @@ function fixture(t, options = {}) {
   // it — an undeclared gate is a rename the table missed, not a disabled one,
   // and the gate refuses it.
   const features = declareExcludedFeatures ? { 'e2e-test-support': [], ...featureGraph } : featureGraph;
-  write(root, 'Cargo.toml', cargoToml(defaultFeatures, features));
+  write(root, 'crates/openhuman-core/Cargo.toml', cargoToml(defaultFeatures, features));
   write(root, 'scripts/ci/product-features.txt', `${productFeatures.join('\n')}\n`);
   if (withExcludedNamespaces) {
     write(
       root,
-      'src/openhuman/test_support/schemas.rs',
+      'crates/openhuman-core/src/test_support/schemas.rs',
       controller('test', 'reset') + controller('test_support', 'workspace_root'),
     );
     // A faithful module tree: `schemas.rs` is reached through `mod schemas;`,
@@ -93,10 +94,10 @@ function fixture(t, options = {}) {
     // the exclusion claims lives on the SECOND of those — which is the whole
     // reason the gate walks the chain instead of reading the file it found the
     // controller in.
-    write(root, 'src/openhuman/test_support/mod.rs', 'mod schemas;\n');
+    write(root, 'crates/openhuman-core/src/test_support/mod.rs', 'mod schemas;\n');
     write(
       root,
-      'src/openhuman/mod.rs',
+      'crates/openhuman-core/src/mod.rs',
       `${excludedModuleCfg ? `${excludedModuleCfg}\n` : ''}pub mod test_support;\n`,
     );
   }
@@ -112,7 +113,7 @@ test('discovers controllers declared in an include!-split part file', (t) => {
   const root = fixture(t);
   // The filename is the point: `schemas_part_01.rs` does NOT match the old
   // path filter, because `schemas` is followed by `_` rather than `.rs` or `/`.
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -136,7 +137,7 @@ test('discovers controllers declared in an include!-split part file', (t) => {
 // hard failure, because nothing was measured.
 test('fails loudly when a declared namespace discovers no controllers', (t) => {
   const root = fixture(t);
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -163,8 +164,8 @@ test('fails loudly when a declared namespace discovers no controllers', (t) => {
 test('measures a discovered namespace that MODULES does not name', (t) => {
   const root = fixture(t);
   // `widgets` appears nowhere in MODULES.
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
-  write(root, 'src/openhuman/widgets/schemas_part_02.rs', controller('widgets', 'purge'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_02.rs', controller('widgets', 'purge'));
   // Only one of the two is named by an e2e target: 1/2 = 50%, under the 90% bar.
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
@@ -196,7 +197,7 @@ test('measures a discovered namespace that MODULES does not name', (t) => {
 // unreachable) and the dishonest one (0%, nobody bothered) looked identical.
 test('excludes namespaces compiled out of the measured configuration', (t) => {
   const root = fixture(t);
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -224,7 +225,7 @@ test('excludes namespaces compiled out of the measured configuration', (t) => {
 // "nothing here can be dispatched" — or nobody ever reviews it.
 test('reports what it excluded, with the gate and the reason', (t) => {
   const root = fixture(t);
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -252,7 +253,7 @@ test('reports what it excluded, with the gate and the reason', (t) => {
 // as success — strictly worse than the bug #6069 fixed.
 test('fails when an excluded namespace becomes reachable in the product set', (t) => {
   const root = fixture(t, { productFeatures: ['e2e-test-support'] });
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -280,7 +281,7 @@ test('fails when an excluded namespace is reachable only transitively', (t) => {
     defaultFeatures: ['bundle'],
     featureGraph: { bundle: ['e2e-test-support'], 'e2e-test-support': [] },
   });
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -298,7 +299,7 @@ test('fails when an excluded namespace is reachable only transitively', (t) => {
 // catches for MODULES, applied to the exclusion list.
 test('fails when an excluded namespace no longer exists', (t) => {
   const root = fixture(t, { withExcludedNamespaces: false });
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -317,7 +318,7 @@ test('fails when an excluded namespace no longer exists', (t) => {
 // status as a bad threshold.
 test('refuses to run without the files the measured feature set comes from', (t) => {
   const root = fixture(t);
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   fs.rmSync(join(root, 'scripts', 'ci', 'product-features.txt'));
 
   const result = runGate(root);
@@ -335,15 +336,15 @@ test('refuses to run without the files the measured feature set comes from', (t)
 // makes every exclusion look earned. Silence there would undo the check.
 test('refuses to run when the feature table cannot be parsed', (t) => {
   const root = fixture(t);
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
-  write(root, 'Cargo.toml', '[package]\nname = "openhuman"\n');
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/Cargo.toml', '[package]\nname = "openhuman"\n');
 
   const result = runGate(root);
 
   assert.equal(result.status, 2, `an unparseable feature table must be refused; got:\n${result.stdout}`);
   assert.match(
     result.stderr,
-    /no `\[features\] default` in Cargo\.toml/,
+    /no `\[features\] default` in crates\/openhuman-core\/Cargo\.toml/,
     `the failure must name what could not be resolved; got:\n${result.stderr}`,
   );
 });
@@ -357,7 +358,7 @@ test('refuses to run when the feature table cannot be parsed', (t) => {
 // must be different answers.
 test('fails when an excluded namespace names a gate the manifest does not declare', (t) => {
   const root = fixture(t, { declareExcludedFeatures: false });
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -381,8 +382,12 @@ test('fails when an excluded namespace names a gate the manifest does not declar
 // for controllers the measured build actually compiles in.
 test('reads a single-quoted TOML feature array', (t) => {
   const root = fixture(t);
-  write(root, 'Cargo.toml', "[features]\ndefault = ['e2e-test-support']\ne2e-test-support = []\n");
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(
+    root,
+    'crates/openhuman-core/Cargo.toml',
+    "[features]\ndefault = ['e2e-test-support']\ne2e-test-support = []\n",
+  );
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -402,7 +407,7 @@ test('reads a single-quoted TOML feature array', (t) => {
 // exclusion is a claim about the source, so it is checked against the source.
 test('fails when the module is no longer behind the #[cfg] the exclusion claims', (t) => {
   const root = fixture(t, { excludedModuleCfg: null });
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -415,7 +420,7 @@ test('fails when the module is no longer behind the #[cfg] the exclusion claims'
   );
   assert.match(
     result.stderr,
-    /src\/openhuman\/test_support\/schemas\.rs/,
+    /crates\/openhuman-core\/src\/test_support\/schemas\.rs/,
     `the file that lost its gate must be named; got:\n${result.stderr}`,
   );
 });
@@ -423,10 +428,10 @@ test('fails when the module is no longer behind the #[cfg] the exclusion claims'
 // The positive half, and the reason the walk climbs rather than reading the
 // file itself: `#[cfg]` sits on the `mod` declaration in the PARENT. Here the
 // gate is two levels up from the declaring file, with an ungated `mod schemas;`
-// in between — the arrangement `src/openhuman/test_support/` actually has.
+// in between — the arrangement `crates/openhuman-core/src/test_support/` actually has.
 test('finds the gate on an ancestor mod declaration, not just the immediate parent', (t) => {
   const root = fixture(t);
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -452,11 +457,11 @@ test('resolves the gate for a namespace declared in mod.rs itself', (t) => {
   const root = fixture(t, { withExcludedNamespaces: false });
   write(
     root,
-    'src/openhuman/test_support/mod.rs',
+    'crates/openhuman-core/src/test_support/mod.rs',
     controller('test', 'reset') + controller('test_support', 'workspace_root'),
   );
-  write(root, 'src/openhuman/mod.rs', '#[cfg(feature = "e2e-test-support")]\npub mod test_support;\n');
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/mod.rs', '#[cfg(feature = "e2e-test-support")]\npub mod test_support;\n');
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -488,7 +493,7 @@ const NOT_A_GATE = [
 for (const [description, attribute] of NOT_A_GATE) {
   test(`rejects ${description} as proof of the claimed gate`, (t) => {
     const root = fixture(t, { excludedModuleCfg: attribute });
-    write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+    write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
     write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
     const result = runGate(root);
@@ -515,7 +520,7 @@ const IS_A_GATE = [
 for (const [description, attribute] of IS_A_GATE) {
   test(`accepts ${description} as proof of the claimed gate`, (t) => {
     const root = fixture(t, { excludedModuleCfg: attribute });
-    write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+    write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
     write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
     const result = runGate(root);
@@ -545,17 +550,17 @@ test('fails when a second declaration makes the module reachable anyway', (t) =>
   const root = fixture(t, { withExcludedNamespaces: false });
   write(
     root,
-    'src/openhuman/test_support/schemas.rs',
+    'crates/openhuman-core/src/test_support/schemas.rs',
     controller('test', 'reset') + controller('test_support', 'workspace_root'),
   );
-  write(root, 'src/openhuman/test_support/mod.rs', 'mod schemas;\n');
+  write(root, 'crates/openhuman-core/src/test_support/mod.rs', 'mod schemas;\n');
   write(
     root,
-    'src/openhuman/mod.rs',
+    'crates/openhuman-core/src/mod.rs',
     '#[cfg(feature = "e2e-test-support")]\npub mod test_support;\n' +
       '#[cfg(not(feature = "e2e-test-support"))]\npub mod test_support;\n',
   );
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);
@@ -573,17 +578,17 @@ test('accepts repeated declarations when every one of them requires the gate', (
   const root = fixture(t, { withExcludedNamespaces: false });
   write(
     root,
-    'src/openhuman/test_support/schemas.rs',
+    'crates/openhuman-core/src/test_support/schemas.rs',
     controller('test', 'reset') + controller('test_support', 'workspace_root'),
   );
-  write(root, 'src/openhuman/test_support/mod.rs', 'mod schemas;\n');
+  write(root, 'crates/openhuman-core/src/test_support/mod.rs', 'mod schemas;\n');
   write(
     root,
-    'src/openhuman/mod.rs',
+    'crates/openhuman-core/src/mod.rs',
     '#[cfg(all(feature = "e2e-test-support", unix))]\npub mod test_support;\n' +
       '#[cfg(all(feature = "e2e-test-support", windows))]\npub mod test_support;\n',
   );
-  write(root, 'src/openhuman/widgets/schemas_part_01.rs', controller('widgets', 'list'));
+  write(root, 'crates/openhuman-core/src/widgets/schemas_part_01.rs', controller('widgets', 'list'));
   write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
 
   const result = runGate(root);

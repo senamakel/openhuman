@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::config::rpc as config_rpc;
-use openhuman_core::openhuman::memory::sources::readers::SourceReader;
-use openhuman_core::openhuman::memory::sources::{
+use openhuman_core::config::Config;
+use openhuman_core::config::rpc as config_rpc;
+use openhuman_core::memory::sources::readers::SourceReader;
+use openhuman_core::memory::sources::{
     self as memory_sources, ContentType, MemorySourceEntry, MemorySourcePatch, SourceKind,
 };
 use tempfile::{Builder, TempDir};
@@ -66,7 +66,7 @@ struct Harness {
 }
 
 impl Harness {
-    async fn config(&self) -> openhuman_core::openhuman::config::Config {
+    async fn config(&self) -> openhuman_core::config::Config {
         config_rpc::load_config_with_timeout()
             .await
             .expect("isolated config should load")

@@ -4,7 +4,7 @@
 //
 // Inputs:
 //   - A JSON file with the slim post-processed shape produced by
-//     `src/openhuman/memory/sync/composio/providers/gmail/post_process.rs`. Each entry
+//     `crates/openhuman-core/src/memory/sync/composio/providers/gmail/post_process.rs`. Each entry
 //     under `messages[]` looks like:
 //       { id, threadId, subject, from, to, date, labels, markdown, attachments }
 //     Default fixture: tests/fixtures/memory/composio_gmail_inbox.json
@@ -15,7 +15,7 @@
 //     EmailThread per source_id).
 //   - For each thread calls `openhuman.memory_tree_ingest` with
 //     source_kind=email + an EmailThread payload (see
-//     src/openhuman/memory/tree/canonicalize/email.rs).
+//     crates/openhuman-core/src/memory/tree/canonicalize/email.rs).
 //   - Verifies via `openhuman.memory_tree_list_chunks` that chunks landed.
 //
 // Pre-reqs: the core server must already be serving JSON-RPC on $RPC_URL

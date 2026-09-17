@@ -10,7 +10,7 @@ icon: scale
 
 Not every chunk deserves a place in the Memory Tree. A "thanks!" reply, an email footer, or a calendar auto-notification carry almost no signal, and folding them into summary trees only dilutes the result and burns LLM tokens. Scoring is the gate: a per-chunk pass that runs **after chunking and before the chunk is appended to the L0 buffer**, deciding whether the chunk is worth keeping, enriching it with extracted entities, and indexing it for retrieval.
 
-The entry point is `score_chunk` in [`src/openhuman/memory/tree/score/mod.rs`](https://github.com/tinyhumansai/tinymemory/blob/1d6b997874a06600ba0c4922708b5613497c9ffe/crates/tinymemory-core/src/tree/score/mod.rs). It is a pure function - it computes a result but does not touch the store; callers persist based on `ScoreResult::kept`.
+The entry point is `score_chunk` in [`crates/tinymemory-core/src/tree/score/mod.rs`](https://github.com/tinyhumansai/tinymemory/blob/1d6b997874a06600ba0c4922708b5613497c9ffe/crates/tinymemory-core/src/tree/score/mod.rs). It is a pure function - it computes a result but does not touch the store; callers persist based on `ScoreResult::kept`.
 
 ---
 
@@ -37,7 +37,7 @@ Two goals, both in service of a dense, relevant tree:
 | `entity_density`  | Distinct entities per token, capped at ~1 entity / 100 tokens. More entities → more substantive.                                     | 1.0            |
 | `llm_importance`  | LLM-derived importance rating in `[0.0, 1.0]`. Off by default; weight `2.0` once an LLM extractor is wired in.                       | 0.0            |
 
-`interaction` is deliberately the strongest signal - direct user engagement is the clearest proxy for "this mattered to a human." Weights live in `SignalWeights` ([`signals/types.rs`](../../../src/openhuman/memory/tree/score/signals/types.rs)); `combine` / `combine_cheap_only` in [`signals/ops.rs`](../../../src/openhuman/memory/tree/score/signals/ops.rs) produce the normalised total (the cheap variant excludes the `llm_importance` term).
+`interaction` is deliberately the strongest signal - direct user engagement is the clearest proxy for "this mattered to a human." Weights live in `SignalWeights` (`signals/types.rs`); `combine` / `combine_cheap_only` in `signals/ops.rs` produce the normalised total (the cheap variant excludes the `llm_importance` term). Scoring is engine-owned: both files are defined in the vendored `tinycortex` crate under `vendor/tinymemory` (`src/memory/score/signals/`) and re-exported through `tinymemory-core`, not in `crates/openhuman-core`.
 
 ---
 
@@ -80,7 +80,7 @@ Extraction enriches a chunk and feeds both the `entity_density` / `llm_importanc
 - **`RegexEntityExtractor`** - always on, deterministic, cheap. Once-compiled patterns pull mechanical identifiers: email, URL, handle (`@alice` and Discord-style `alice#1234`), and hashtag. UTF-8 safe (spans are char offsets).
 - **`LlmEntityExtractor`** - consulted only on borderline chunks. A single structured-JSON call asks the model for semantic NER (Person / Organization / Location / Topic / …) plus an importance rating, with span recovery and a soft warn-and-empty fallback on transport failure.
 
-The two are chained by **`CompositeExtractor`**, which runs a sequence of extractors and tolerates per-extractor failures. Outputs are merged (`ExtractedEntities::merge` deduplicates entities and takes the max importance), then **canonicalised** by [`resolver.rs`](../../../src/openhuman/memory/tree/score/resolver.rs) - lowercasing emails, stripping leading `@`/`#`, and assigning stable `canonical_id` strings - so the same person or topic resolves to one identity across chunks.
+The two are chained by **`CompositeExtractor`**, which runs a sequence of extractors and tolerates per-extractor failures. Outputs are merged (`ExtractedEntities::merge` deduplicates entities and takes the max importance), then **canonicalised** by `resolver.rs` - defined in the vendored `tinycortex` crate at `src/memory/score/resolver.rs` and re-exported through `tinymemory-core`'s `tree/score/mod.rs` - lowercasing emails, stripping leading `@`/`#`, and assigning stable `canonical_id` strings - so the same person or topic resolves to one identity across chunks.
 
 ---
 

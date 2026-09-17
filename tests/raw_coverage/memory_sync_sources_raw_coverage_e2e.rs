@@ -12,7 +12,7 @@
 //! `run_backfill_via_search`, and the registry functions
 //! (`init_default_composio_sync_providers`/`get_composio_sync_provider`/
 //! `all_composio_sync_providers`) — see
-//! `crate::openhuman::integrations::composio::providers`'s module docs. None
+//! `crate::integrations::composio::providers`'s module docs. None
 //! of that moved anywhere reachable from this crate: fetching a profile,
 //! normalizing a task, and post-processing a toolkit's response now happen
 //! inside the separately-versioned `tinyconnectors` module, reachable only
@@ -38,22 +38,22 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::config::Config;
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::integrations::composio::providers::{
+use openhuman_core::integrations::composio::providers::{
     has_native_provider, SyncReason, NATIVE_PROVIDERS,
 };
-use openhuman_core::openhuman::memory::sources::readers::SourceReader;
-use openhuman_core::openhuman::memory::sources::registry::{
+use openhuman_core::memory::sources::readers::SourceReader;
+use openhuman_core::memory::sources::registry::{
     add_source, get_source, list_enabled_by_kind, remove_composio_source_by_connection_id,
     remove_source, update_source,
 };
-use openhuman_core::openhuman::memory::sources::{
+use openhuman_core::memory::sources::{
     list_sources, upsert_composio_source, MemorySourceEntry, MemorySourcePatch, SourceKind,
 };
-use openhuman_core::openhuman::memory::sync::composio::bus::{
+use openhuman_core::memory::sync::composio::bus::{
     ComposioConfigChangedSubscriber, ComposioConnectionCreatedSubscriber, ComposioTriggerSubscriber,
 };
 
@@ -317,7 +317,7 @@ async fn rss_reader_rejects_private_hosts_before_fetching() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_in(&tmp);
 
-    let reader = openhuman_core::openhuman::memory::sources::readers::rss::RssReader::new();
+    let reader = openhuman_core::memory::sources::readers::rss::RssReader::new();
     let mut entry = source(SourceKind::RssFeed, "rss-round15");
     entry.url = Some("http://127.0.0.1:9/rss".to_string());
 
@@ -355,7 +355,7 @@ async fn github_reader_uses_fake_gh_for_list_and_read_paths() {
     let old_path = std::env::var("PATH").unwrap_or_default();
     let _path = EnvGuard::set("PATH", format!("{}:{old_path}", bin.display()));
 
-    let reader = openhuman_core::openhuman::memory::sources::readers::github::GithubReader;
+    let reader = openhuman_core::memory::sources::readers::github::GithubReader;
     let mut entry = source(SourceKind::GithubRepo, "github-round15");
     entry.url = Some("https://github.com/tinyhumansai/openhuman.git".to_string());
     entry.max_commits = Some(30);
@@ -451,7 +451,7 @@ async fn composio_ops_refuse_cleanly_without_a_loaded_connectors_module() {
         .expect("store session token");
 
     let profile_error =
-        openhuman_core::openhuman::integrations::composio::ops::composio_get_user_profile(
+        openhuman_core::integrations::composio::ops::composio_get_user_profile(
             &config,
             "conn-github",
         )
@@ -462,7 +462,7 @@ async fn composio_ops_refuse_cleanly_without_a_loaded_connectors_module() {
         "unexpected error: {profile_error}"
     );
 
-    let sync_error = openhuman_core::openhuman::integrations::composio::ops::composio_sync(
+    let sync_error = openhuman_core::integrations::composio::ops::composio_sync(
         &config,
         "conn-github",
         None,

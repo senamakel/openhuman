@@ -475,11 +475,15 @@ const AIPanel = ({
             keyDialogFor === 'openrouter' && !pendingLocalLabel
               ? {
                   label: t('settings.ai.signInWithOpenRouter'),
-                  onClick: async () => {
+                  onClick: async ({ onPersisting }) => {
                     const controller = new AbortController();
                     openRouterOauthAbortRef.current = controller;
                     try {
                       const apiKey = await connectOpenRouterViaOAuth({ signal: controller.signal });
+                      // A key exists now and cancelling cannot undo saving it, so a
+                      // cancel that already landed wins and later ones are locked out.
+                      if (controller.signal.aborted) return;
+                      onPersisting();
                       await connectProvider({
                         slug: 'openrouter',
                         value: apiKey,

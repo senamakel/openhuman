@@ -1,6 +1,6 @@
 /**
  * Wire shape of the per-thread agent-turn snapshot persisted by the
- * Rust core (`src/openhuman/threads/turn_state/types.rs`). The UI uses
+ * Rust core (`crates/openhuman-core/src/threads/turn_state/types.rs`). The UI uses
  * these payloads to rehydrate `chatRuntimeSlice` on thread switch and
  * to surface interrupted turns left behind by a previous core process.
  */

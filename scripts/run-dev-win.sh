@@ -572,9 +572,9 @@ export PATH="$PATH_PREFIX:$PATH"
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ -n "${CEF_RUNTIME_PATH:-}" && -f "$CEF_RUNTIME_PATH/libcef.dll" ]]; then
   # The dev OpenHuman.exe is produced by the *Tauri shell* crate
-  # (app/src-tauri/Cargo.toml), not the root core crate. When
+  # (crates/openhuman-app/Cargo.toml), not the root core crate. When
   # CARGO_TARGET_DIR is set both workspaces share it; when unset, the
-  # Tauri shell builds into app/src-tauri/target while the root crate
+  # Tauri shell builds into crates/openhuman-app/target while the root crate
   # builds into target/. Stage CEF next to where OpenHuman.exe will
   # actually live so Windows' DLL search order finds libcef.dll
   # regardless of how the exe is launched (terminal, OAuth deep-link,
@@ -582,7 +582,7 @@ if [[ -n "${CEF_RUNTIME_PATH:-}" && -f "$CEF_RUNTIME_PATH/libcef.dll" ]]; then
   if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
     CEF_STAGE_DIR="$(to_unix_path "$CARGO_TARGET_DIR" 2>/dev/null || printf '%s' "$CARGO_TARGET_DIR")/debug"
   else
-    CEF_STAGE_DIR="$REPO_ROOT/app/src-tauri/target/debug"
+    CEF_STAGE_DIR="$REPO_ROOT/crates/openhuman-app/target/debug"
   fi
   mkdir -p "$CEF_STAGE_DIR"
   if [[ ! -f "$CEF_STAGE_DIR/libcef.dll" \
@@ -707,4 +707,5 @@ fi
 CONFIG_OVERRIDE+="}}"
 
 echo "[run-dev-win] tauri config override: $CONFIG_OVERRIDE"
+cd "$REPO_ROOT/crates/openhuman-app"
 "$NODE_EXE_UNIX" "$APP_DIR/node_modules/@tauri-apps/cli/tauri.js" dev -c "$CONFIG_OVERRIDE"

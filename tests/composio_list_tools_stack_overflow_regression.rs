@@ -72,8 +72,8 @@
 //!     `run_subagent` to push 2 MB over.
 //!
 //! The actual stack-overflow fix is in
-//! [`src/openhuman/config/schema/load.rs`](`parse_config_with_recovery`)
-//! and [`src/openhuman/config/ops.rs`](`load_config_with_timeout`):
+//! [`crates/openhuman-core/src/config/schema/load.rs`](`parse_config_with_recovery`)
+//! and [`crates/openhuman-core/src/config/ops.rs`](`load_config_with_timeout`):
 //!
 //!   * `parse_config_with_recovery` runs `toml::from_str::<Config>` on
 //!     a blocking-pool thread via `spawn_blocking`. The blocking thread
@@ -108,15 +108,13 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::openhuman::agent::context::prompt::ToolCallFormat;
-use openhuman_core::openhuman::agent::harness::definition::{AgentDefinitionRegistry, ModelSpec};
-use openhuman_core::openhuman::agent::harness::{
+use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::agent::harness::definition::{AgentDefinitionRegistry, ModelSpec};
+use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, ParentExecutionContext, SubagentRunOptions,
 };
-use openhuman_core::openhuman::config::AgentConfig;
-use openhuman_core::openhuman::memory::{
-    Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
-};
+use openhuman_core::config::AgentConfig;
+use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::Arc;
@@ -339,8 +337,7 @@ async fn drive_subagent() {
     let parent = ParentExecutionContext {
         agent_definition_id: "orchestrator".into(),
         allowed_subagent_ids: ["integrations_agent".to_string()].into_iter().collect(),
-        turn_model_source:
-            openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(model),
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(model),
         all_tools: Arc::new(vec![]),
         all_tool_specs: Arc::new(vec![]),
         // #6145: empty means "same surface as `all_tool_specs`" — the

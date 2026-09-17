@@ -224,7 +224,7 @@ function withApproval(
  * `PermissionLevel` (`ReadOnly` / `Write` / `Execute` / `Dangerous`,
  * `vendor/tinyagents/vendor/tinytools/.../permission/types.rs:18-30`) on every
  * tool. It is simply not on the wire: `AgentProgress::ToolCallStarted`
- * (`src/openhuman/agent/progress.rs:31-47`) carries no permission field, so the
+ * (`crates/openhuman-core/src/agent/progress.rs:31-47`) carries no permission field, so the
  * renderer cannot see it. When that field is plumbed through to
  * `ToolTimelineEntry`, delete this set and the function below and test
  * `entry.permissionLevel === 'read_only'` instead.

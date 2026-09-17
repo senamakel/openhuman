@@ -225,6 +225,14 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Bei dieser Aktion ist etwas schiefgelaufen.',
   'conversations.toolFailure.unknown.next':
     'Versuche es erneut; wenn es weiterhin fehlschlägt, führe die Diagnose in den Einstellungen aus.',
+  'conversations.toolFailure.notFound.cause':
+    'Das angeforderte Element existiert nicht oder ist hier nicht verfügbar.',
+  'conversations.toolFailure.notFound.next':
+    'Du musst nichts tun. Der Assistent kann den richtigen Namen suchen und es erneut versuchen.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman kann das noch nicht automatisch erledigen.',
+  'conversations.toolFailure.unsupported.next':
+    'Erledige es manuell oder bitte um eine andere Option.',
   'conversations.backgroundTasks.title': 'Hintergrundaufgaben',
   'nav.feedback': 'Feedback geben',
   'feedback.board': 'Feedback-Board',
@@ -397,6 +405,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'Erfolg',
   'sync.status.failed': 'Fehlgeschlagen',
   'sync.status.partial': 'Abgerufen, Speicherung im Gedächtnis fehlgeschlagen',
+  'sync.nowSyncing.title': 'Wird gerade synchronisiert',
+  'sync.nowSyncing.empty': 'Gerade wird nichts synchronisiert.',
   'common.error': 'Fehler',
   'common.success': 'Erfolg',
   'common.back': 'Zurück',
@@ -683,6 +693,10 @@ const messages: TranslationMap = {
     'Dein Assistent ist bereit, wenn du es bist. Schreib unten etwas, um loszulegen.',
   'home.statusBackendOnly':
     'Verbindung zum Backend wird wiederhergestellt. Dein Agent wird in Kürze wieder verfügbar sein.',
+  'home.statusHostedDegraded':
+    'Verbindung zur Cloud wird wiederhergestellt… Der Chat funktioniert weiter; Integrationen und Kanäle laufen weiter, sobald sie wieder da ist.',
+  'home.statusHostedStopped':
+    'Die Cloud-Verbindung wurde beendet: Melde dich erneut an, um Integrationen und Kanäle wieder zu aktivieren. Der Chat funktioniert weiter.',
   'home.statusCoreUnreachable':
     'Der lokale Core-Sidecar reagiert nicht. Der Hintergrundprozess OpenHuman ist möglicherweise abgestürzt oder konnte nicht gestartet werden.',
   'home.statusInternetOffline':
@@ -795,6 +809,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Installiert',
   'skills.explorer.install': 'Installieren',
   'skills.explorer.installing': 'Wird installiert…',
+  'skills.explorer.notInstallable': 'Nicht installierbar',
+  'skills.explorer.notInstallableHint':
+    'Für diesen Eintrag gibt es keine SKILL.md zum Herunterladen, daher kann er hier nicht installiert werden.',
   'skills.integrations': 'Composio-Integrationen',
   'skills.integrationsSubtitle':
     'Cloud-basierte OAuth-Verbindungen – mit deinem Konto anmelden und Composio verwaltet die Tokens, damit Agenten in deinem Namen lesen und handeln können. Keine API-Schlüssel notwendig.',
@@ -1007,6 +1024,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedCount': 'Erneut eingereihte Jobs: {count}.',
   'memoryTree.status.retryFailedError':
     'Die fehlgeschlagenen Jobs konnten nicht neu eingereiht werden',
+  'memoryTree.status.jobQueue':
+    'Gedächtnisaufgaben: {ready} wartend, {running} laufend, {failed} fehlgeschlagen',
   'memoryTree.status.toggleFailed':
     'Automatische Synchronisierung konnte nicht umgeschaltet werden',
   'memoryTree.status.justNow': 'gerade eben',
@@ -2713,8 +2732,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Twitter-Suche',
   'memorySources.kind.rss_feed': 'RSS-Feed',
   'memorySources.kind.web_page': 'Webseite',
-  'memorySources.sync.successTitle': 'Synchronisierung läuft',
-  'memorySources.sync.successMessage': 'Der Fortschritt wird in Kürze angezeigt.',
   'memorySources.sync.failedTitle': 'Synchronisierung ist fehlgeschlagen',
   'memorySources.sync.completeTitle': 'Synchronisiert',
   'memorySources.sync.itemsSynced': 'Elemente synchronisiert',
@@ -2723,6 +2740,13 @@ const messages: TranslationMap = {
   'memorySources.sync.morePending': 'Mehr zu synchronisieren. Erneut auf Synchronisieren klicken',
   'memorySources.sync.budgetSpent':
     'Das heutige Anfragebudget ist aufgebraucht. Morgen erneut versuchen',
+  'memorySources.stage.requested': 'Wird gestartet',
+  'memorySources.stage.running': 'Synchronisierung läuft',
+  'memorySources.stage.fetching': 'Wird abgerufen',
+  'memorySources.stage.stored': 'Wird gespeichert',
+  'memorySources.stage.queued': 'Wird ins Gedächtnis übernommen',
+  'memorySources.stage.ingesting': 'Wird ins Gedächtnis übernommen',
+  'memorySources.stage.unknown': 'Synchronisierung läuft',
   'time.justNow': 'gerade eben',
   'time.secondsAgoSuffix': 'vor {count} Sek.',
   'time.minutesAgoSuffix': 'vor {count} Min.',

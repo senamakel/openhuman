@@ -4,15 +4,15 @@
 //! SMTP traffic is performed.
 
 use axum::{extract::Path, http::StatusCode, routing::get, Json, Router};
-use openhuman_core::openhuman::channels::providers::discord::api::test_support as discord_support;
-use openhuman_core::openhuman::channels::providers::email_channel::{
+use openhuman_core::channels::providers::discord::api::test_support as discord_support;
+use openhuman_core::channels::providers::email_channel::{
     test_support as email_support, EmailChannel, EmailConfig,
 };
-use openhuman_core::openhuman::channels::providers::lark::test_support as lark_support;
-use openhuman_core::openhuman::channels::test_support::{
+use openhuman_core::channels::providers::lark::test_support as lark_support;
+use openhuman_core::channels::test_support::{
     run_dispatch_harness, DispatchHarnessOptions, TestMemoryEntry,
 };
-use openhuman_core::openhuman::channels::LarkChannel;
+use openhuman_core::channels::LarkChannel;
 use reqwest::StatusCode as ReqwestStatusCode;
 use serde_json::json;
 // Lark's WS seam lives in tinychannels (tungstenite 0.29); use its re-export so

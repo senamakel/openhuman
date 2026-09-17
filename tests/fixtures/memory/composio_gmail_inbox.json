@@ -1,5 +1,5 @@
 {
-  "_comment": "Sample GMAIL_FETCH_EMAILS response after Gmail post_process slim-envelope rewrite (see src/openhuman/composio/providers/gmail/post_process.rs). Phase 1 fixture for memory ingestion: one entry per Gmail message in the inbox. The driver script (scripts/test-memory-email-ingest.mjs) maps each entry to an EmailThread payload and ingests it via openhuman.memory_tree_ingest with source_kind=email.",
+  "_comment": "Sample GMAIL_FETCH_EMAILS response after Gmail post_process slim-envelope rewrite (see crates/openhuman-core/src/composio/providers/gmail/post_process.rs). Phase 1 fixture for memory ingestion: one entry per Gmail message in the inbox. The driver script (scripts/test-memory-email-ingest.mjs) maps each entry to an EmailThread payload and ingests it via openhuman.memory_tree_ingest with source_kind=email.",
   "messages": [
     {
       "id": "18f3a1b2c4d5e6f7",

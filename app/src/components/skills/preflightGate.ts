@@ -2,9 +2,9 @@
 // `openhuman.skill_runtime_run` RPC returns when a skill's `[github]`
 // preflight gate refuses the run.
 //
-// Backend contract (see src/openhuman/skills/runtime's
+// Backend contract (see crates/openhuman-core/src/skills/runtime's
 // `spawn_workflow_run_background` → preflight branch and
-// src/openhuman/workflows/preflight.rs's `GithubGateError::tag` /
+// crates/openhuman-core/src/workflows/preflight.rs's `GithubGateError::tag` /
 // `to_user_message`): the error string is shaped as
 //
 //   `[preflight:<gate>:<tag>] <user-readable body>`

@@ -13,7 +13,7 @@
  *    automatically calls `download_app_update` so the user only sees a
  *    "Restart to apply" prompt — never a "click to start downloading" one
  *
- * Pairs with the Rust side in `app/src-tauri/src/lib.rs` (`check_app_update`,
+ * Pairs with the Rust side in `crates/openhuman-app/src/lib.rs` (`check_app_update`,
  * `download_app_update`, `install_app_update`). See `gitbooks/overview/auto-update.md`.
  */
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';

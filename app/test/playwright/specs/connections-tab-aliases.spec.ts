@@ -59,6 +59,13 @@ async function expectSelectedTab(page: import('@playwright/test').Page, tab: str
   await expect(page.locator('[data-testid^="two-pane-nav-"][aria-current="page"]')).toHaveCount(1);
 }
 
+async function expectWelcome(page: import('@playwright/test').Page) {
+  // Welcome is the Connections overview, rather than a TwoPaneNav item. It
+  // therefore intentionally has no `two-pane-nav-welcome` row to select.
+  await expect(page.getByTestId('connections-welcome')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-testid^="two-pane-nav-"][aria-current="page"]')).toHaveCount(0);
+}
+
 async function openConnections(
   page: import('@playwright/test').Page,
   userId: string,
@@ -80,54 +87,38 @@ async function openConnections(
   await dismissWalkthroughIfPresent(page);
 }
 
-test.describe('Connections — legacy ?tab= aliases resolve to their canonical tab', () => {
-  test('?tab=messaging selects Channels', async ({ page }) => {
-    await openConnections(page, 'pw-alias-messaging', '/connections?tab=messaging');
-    await expectSelectedTab(page, 'channels');
-  });
+test('Connections aliases, fallback, and /channels resolve to the correct pane', async ({
+  page,
+}) => {
+  // Each login starts the core's login-gated services. Reusing one authenticated
+  // browser fixture keeps this route-only contract from repeatedly allocating
+  // those services; the assertions still exercise every URL independently.
+  await openConnections(page, 'pw-alias-routes', '/connections?tab=messaging');
+  await expectSelectedTab(page, 'channels');
 
-  test('?tab=tools selects MCP', async ({ page }) => {
-    await openConnections(page, 'pw-alias-tools', '/connections?tab=tools');
-    await expectSelectedTab(page, 'mcp');
-  });
+  for (const [route, tab] of [
+    ['/connections?tab=tools', 'mcp'],
+    ['/connections?tab=explorer', 'skills'],
+    ['/connections?tab=llm', 'llm'],
+  ]) {
+    await page.evaluate(target => {
+      window.location.hash = target;
+    }, route);
+    await expectSelectedTab(page, tab);
+  }
 
-  test('?tab=explorer selects Skills', async ({ page }) => {
-    await openConnections(page, 'pw-alias-explorer', '/connections?tab=explorer');
-    await expectSelectedTab(page, 'skills');
-  });
+  for (const route of ['/connections?tab=zzz-not-a-tab', '/connections']) {
+    await page.evaluate(target => {
+      window.location.hash = target;
+    }, route);
+    await expectWelcome(page);
+  }
 
-  test('a canonical value still wins directly', async ({ page }) => {
-    // The control. If this failed alongside the alias tests, the fault would be
-    // in tab selection generally rather than in the alias table.
-    await openConnections(page, 'pw-alias-canonical', '/connections?tab=llm');
-    await expectSelectedTab(page, 'llm');
+  await page.evaluate(() => {
+    window.location.hash = '/channels';
   });
-});
-
-test.describe('Connections — unrecognised ?tab= falls back rather than breaking', () => {
-  test('an unknown tab value lands on Welcome, not a blank pane', async ({ page }) => {
-    // A stale bookmark naming a tab that no longer exists must degrade to the
-    // overview. `Skills.tsx:542` returns 'welcome' for anything unmatched.
-    await openConnections(page, 'pw-alias-unknown', '/connections?tab=zzz-not-a-tab');
-    await expectSelectedTab(page, 'welcome');
-  });
-
-  test('no ?tab= at all lands on Welcome', async ({ page }) => {
-    await openConnections(page, 'pw-alias-none', '/connections');
-    await expectSelectedTab(page, 'welcome');
-  });
-});
-
-test.describe('Connections — /channels depends on the alias table', () => {
-  test('/channels lands on the Channels TAB, not merely a messaging URL', async ({ page }) => {
-    // The two-layer contract in one assertion: `AppRoutes.tsx:188` rewrites
-    // /channels to `?tab=messaging`, and only the alias table turns that into
-    // the Channels tab. Asserting the hash alone (as the deeplinks spec does)
-    // passes even when the second layer is gone.
-    await openConnections(page, 'pw-alias-channels-route', '/channels');
-    await expect
-      .poll(async () => page.evaluate(() => window.location.hash), { timeout: 15_000 })
-      .toContain('tab=messaging');
-    await expectSelectedTab(page, 'channels');
-  });
+  await expect
+    .poll(async () => page.evaluate(() => window.location.hash), { timeout: 15_000 })
+    .toContain('tab=messaging');
+  await expectSelectedTab(page, 'channels');
 });

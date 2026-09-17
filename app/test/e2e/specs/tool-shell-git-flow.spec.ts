@@ -17,15 +17,15 @@ const USER_ID = 'e2e-tool-shell-git';
  *
  * The agent-facing `shell` and `git_operations` tools are intentionally NOT
  * exposed as JSON-RPC controllers — they are private to the agent's tool-call
- * loop (see `src/openhuman/tools/orchestrator_tools.rs`). Driving them via the
+ * loop (see `crates/openhuman-core/src/tools/orchestrator_tools.rs`). Driving them via the
  * full chat path requires a live LLM that returns structured `tool_calls`,
  * which we cannot do under the "Mock backend mandatory; no real network"
  * constraint of #967. So this spec mirrors the established pattern from
  * `skill-execution-flow.spec.ts` for that envelope: assert the deterministic
  * RPC and registry contract end-to-end, and skip the LLM-driven assertion
  * with an explicit reason. The execution path itself is covered by the Rust
- * unit suite under `src/openhuman/tools/impl/system/shell.rs` and
- * `src/openhuman/tools/impl/filesystem/git_operations.rs`.
+ * unit suite under `crates/openhuman-core/src/tools/impl/system/shell.rs` and
+ * `crates/openhuman-core/src/tools/impl/filesystem/git_operations.rs`.
  *
  * What this spec proves end-to-end:
  *  - 6.2.1 — the agent runtime is up and the `tools_agent` definition that
@@ -46,7 +46,7 @@ const USER_ID = 'e2e-tool-shell-git';
  *  - 6.2.4 — same fixture supports a Node-side commit, proving that a write
  *    op is structurally feasible against the resolved workspace. The full
  *    sidecar-driven write path is exercised by
- *    `src/openhuman/tools/impl/filesystem/git_operations_tests.rs`.
+ *    `crates/openhuman-core/src/tools/impl/filesystem/git_operations_tests.rs`.
  *
  * Future: when the harness gains a deterministic mock-LLM that emits
  * structured tool_calls (tracked alongside #68 in skill-execution-flow), the
@@ -204,7 +204,7 @@ describe('System tools — Shell + Git (registry, denial envelope, fixture repo)
 
   it('6.2.2 RPC denial envelope is structurally consistent (precondition for restricted-command surfacing)', async () => {
     // The shell tool's `validate_command_execution` allowlist is exercised
-    // exhaustively in `src/openhuman/security/policy_tests.rs`. Here we lock
+    // exhaustively in `crates/openhuman-core/src/security/policy_tests.rs`. Here we lock
     // the **denial envelope shape** the React UI relies on: invalid sidecar
     // arguments must round-trip as `{ ok: false, error: <message> }` and never
     // as `{ ok: true }` with a hidden error string. This is the contract every
@@ -291,7 +291,7 @@ describe('System tools — Shell + Git (registry, denial envelope, fixture repo)
     // Tracked alongside skill-execution-flow's `it.skip` for the same reason:
     // requires a deterministic mock-LLM that emits structured tool_calls.
     // The execution path itself is covered by Rust unit tests under
-    // `src/openhuman/tools/impl/system/shell.rs::tests::shell_executes_allowed_command`
+    // `crates/openhuman-core/src/tools/impl/system/shell.rs::tests::shell_executes_allowed_command`
     // and `shell_blocks_disallowed_command`.
   });
 });

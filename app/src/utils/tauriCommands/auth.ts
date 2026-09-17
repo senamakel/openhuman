@@ -1,27 +1,14 @@
 /**
  * Authentication commands.
+ *
+ * Session *ownership* (login-token exchange, `/auth/me`, current user) lives
+ * in `services/session/sessionOwner` — the Tauri shell on the desktop, a thin
+ * browser equivalent elsewhere. The core only reports and holds the credential
+ * (`auth.get_state`, `auth.get_session_token`, provider credentials).
  */
 import { callCoreRpc } from '../../services/coreRpcClient';
-// `safeInvoke` (aliased to `invoke`) replaces bare
-// `@tauri-apps/api/core::invoke` so the CEF `window.ipc.postMessage`
-// synchronous throw (Sentry TAURI-REACT-7 / TAURI-REACT-6) surfaces as a
-// rejected Promise. `exchangeToken` runs early in the auth flow where the
-// CEF bridge can still be unwired, so this matters most.
-import { type CommandResponse, safeInvoke as invoke, isTauri } from './common';
-
-/**
- * Exchange a login token for a session token
- */
-export async function exchangeToken(
-  backendUrl: string,
-  token: string
-): Promise<{ sessionToken: string; user: object }> {
-  if (!isTauri()) {
-    throw new Error('Not running in Tauri');
-  }
-
-  return await invoke('exchange_token', { backendUrl, token });
-}
+import { logoutSession, storeSessionToken } from '../../services/session/sessionOwner';
+import { type CommandResponse, isTauri } from './common';
 
 /**
  * Get the current authentication state from Rust
@@ -49,36 +36,19 @@ export async function getSessionToken(): Promise<string | null> {
 }
 
 /**
- * Logout and clear session
+ * Logout and clear session.
  */
 export async function logout(): Promise<void> {
-  await callCoreRpc({ method: 'openhuman.auth_clear_session' });
+  await logoutSession();
 }
 
 /**
- * Store session in secure storage.
- *
- * Options:
- * - `allowPendingBackendValidation` -- skip backend `/auth/me` proof and persist
- *   the session with a deferred-validation marker.
- * - `timeoutMs` -- per-call timeout (default 30s, clamped [1s, 10min]).
- *   Use a shorter value (e.g. 10s) when the caller will retry after a timeout
- *   rather than hang for the full default.
+ * Install a session token through the session owner. A backend JWT is
+ * validated against `/auth/me` by the owner before the core stores it; a
+ * local (`.local`) token is stored as-is with `user`.
  */
-export async function storeSession(
-  token: string,
-  user: object,
-  options?: { allowPendingBackendValidation?: boolean; timeoutMs?: number }
-): Promise<void> {
-  await callCoreRpc({
-    method: 'openhuman.auth_store_session',
-    params: {
-      token,
-      user,
-      ...(options?.allowPendingBackendValidation ? { allowPendingBackendValidation: true } : {}),
-    },
-    timeoutMs: options?.timeoutMs,
-  });
+export async function storeSession(token: string, user: object): Promise<void> {
+  await storeSessionToken(token, user);
 }
 
 export async function openhumanEncryptSecret(plaintext: string): Promise<CommandResponse<string>> {

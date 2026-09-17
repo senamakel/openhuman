@@ -8,7 +8,7 @@ icon: database
 
 # Memory Sources & Scoping
 
-A **memory source** is a configured connector that feeds the [Memory Tree](memory-tree.md). Where the tree owns _"how do I store and summarize?"_, the `memory_sources` domain (`src/openhuman/memory/sources/`) owns the upstream question: **"what feeds my memory?"** It is a typed registry of connectors, persisted in `config.toml` under `[[memory_sources]]`, with CRUD at runtime, a uniform reader abstraction, per-source sync status, and the `openhuman.memory_sources_*` RPC surface.
+A **memory source** is a configured connector that feeds the [Memory Tree](memory-tree.md). Where the tree owns _"how do I store and summarize?"_, the `memory_sources` domain (`crates/openhuman-core/src/memory/sources/`) owns the upstream question: **"what feeds my memory?"** It is a typed registry of connectors, persisted in `config.toml` under `[[memory_sources]]`, with CRUD at runtime, a uniform reader abstraction, per-source sync status, and the `openhuman.memory_sources_*` RPC surface.
 
 The domain only _defines connectors and reads from them_. The ingestion engine and sync scheduling live in `memory` / `memory_sync`; sources dispatch work to the right backend.
 
@@ -16,7 +16,7 @@ The domain only _defines connectors and reads from them_. The ingestion engine a
 
 ## Source kinds
 
-Every source is a single flat `MemorySourceEntry` (`src/openhuman/memory/sources/types.rs`) whose `kind` discriminator (the `SourceKind` enum) decides which fields are required. Validation is enforced at add/update time by `validate()`, not the type system. The kinds:
+Every source is a single flat `MemorySourceEntry` (defined in `crates/tinymemory-sources/src/types.rs` under `vendor/tinymemory`, and re-exported through `tinymemory-core`'s `sources/types.rs`) whose `kind` discriminator (the `SourceKind` enum) decides which fields are required. Validation is enforced at add/update time by `validate()`, not the type system. The kinds:
 
 | Kind              | `SourceKind`   | What it ingests                                                                                     |
 | ----------------- | -------------- | --------------------------------------------------------------------------------------------------- |
@@ -34,7 +34,7 @@ Each entry also carries optional per-sync budgets (`max_tokens_per_sync`, `max_c
 
 ## Adding and configuring sources
 
-Sources are CRUD-ed through the `memory_sources` controllers (`src/openhuman/memory/sources/schemas.rs` → `rpc.rs`), namespace `openhuman.memory_sources_*`:
+Sources are CRUD-ed through the `memory_sources` controllers (`crates/openhuman-core/src/memory/sources/schemas.rs` → `rpc.rs`), namespace `openhuman.memory_sources_*`:
 
 | RPC           | Purpose                                                         |
 | ------------- | --------------------------------------------------------------- |
@@ -54,7 +54,7 @@ All mutations reload the live `Config`, apply the change, and `config.save()` at
 
 ## The reader abstraction
 
-Every kind implements one async trait, `SourceReader` (`src/openhuman/memory/sources/readers/mod.rs`):
+Every kind implements one async trait, `SourceReader` (`crates/openhuman-core/src/memory/sources/readers/mod.rs`):
 
 ```rust
 #[async_trait]
@@ -87,7 +87,7 @@ Sync progress streams as `MemorySyncStageChanged` events (Requested → Fetching
 
 By default an agent recalls from **every** source. Source scoping lets an agent profile restrict recall to a whitelist of source ids, so a customer-support flavour never surfaces your personal Gmail, and a research flavour stays focused on the repos and feeds that matter. This is a privacy and focus control, not just a relevance tweak.
 
-The mechanism lives in `src/openhuman/memory/source_scope.rs`. Threading an allowlist through every memory tool and the deep `select_trees` retrieval layer would touch dozens of call sites. So, mirroring `thread_context`, the channel sets a `tokio::task_local!` around the agent turn and the retrieval layer reads it ambiently, with no explicit plumbing:
+The mechanism lives in `crates/openhuman-core/src/memory/source_scope.rs`. Threading an allowlist through every memory tool and the deep `select_trees` retrieval layer would touch dozens of call sites. So, mirroring `thread_context`, the channel sets a `tokio::task_local!` around the agent turn and the retrieval layer reads it ambiently, with no explicit plumbing:
 
 - **`None`** (outside any scope, or `with_source_scope(None, …)`) means **unrestricted**. This is the default for cron, sub-agents, the CLI, and any profile that left `memory_sources` unset.
 - **`Some(set)`** restricts recall to source scopes in the set. An **empty** set surfaces nothing (the profile selected no sources).

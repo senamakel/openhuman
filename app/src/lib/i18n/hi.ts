@@ -210,6 +210,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'इस कार्य में कुछ गड़बड़ हो गई।',
   'conversations.toolFailure.unknown.next':
     'दोबारा प्रयास करें; यदि यह बार-बार विफल हो, तो सेटिंग्स से डायग्नोस्टिक्स चलाएँ।',
+  'conversations.toolFailure.notFound.cause':
+    'इस कार्रवाई ने जो माँगा वह मौजूद नहीं है या यहाँ उपलब्ध नहीं है।',
+  'conversations.toolFailure.notFound.next':
+    'कुछ करने की ज़रूरत नहीं। सहायक सही नाम खोजकर फिर से कोशिश कर सकता है।',
+  'conversations.toolFailure.unsupported.cause': 'OpenHuman अभी इसे अपने आप नहीं कर सकता।',
+  'conversations.toolFailure.unsupported.next':
+    'इसे मैन्युअल रूप से करें, या कोई दूसरा विकल्प माँगें।',
   'conversations.backgroundTasks.title': 'नेपथ्य कार्य',
   'nav.feedback': 'फ़ीडबैक साझा करें',
   'feedback.board': 'फ़ीडबैक बोर्ड',
@@ -380,6 +387,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'सफल',
   'sync.status.failed': 'विफल',
   'sync.status.partial': 'प्राप्त हुआ, मेमोरी में दर्ज नहीं हुआ',
+  'sync.nowSyncing.title': 'अभी सिंक हो रहा है',
+  'sync.nowSyncing.empty': 'अभी कुछ भी सिंक नहीं हो रहा है।',
   'common.error': 'एरर',
   'common.success': 'सफल',
   'common.back': 'वापस',
@@ -653,6 +662,10 @@ const messages: TranslationMap = {
   'home.askAssistant': 'असिस्टेंट से कुछ भी पूछें...',
   'home.statusOk': 'आपका सहायक तैयार है। शुरू करने के लिए नीचे कुछ लिखें।',
   'home.statusBackendOnly': 'बैकएंड से फिर से जुड़ रहे हैं… आपका एजेंट जल्द ही उपलब्ध होगा।',
+  'home.statusHostedDegraded':
+    'क्लाउड से दोबारा कनेक्ट हो रहा है… चैट काम करती रहेगी; कनेक्शन लौटते ही इंटीग्रेशन और चैनल फिर से चालू हो जाएंगे।',
+  'home.statusHostedStopped':
+    'क्लाउड कनेक्शन रुक गया है: इंटीग्रेशन और चैनल फिर से चालू करने के लिए दोबारा साइन इन करें। चैट काम करती रहेगी।',
   'home.statusCoreUnreachable':
     'लोकल कोर साइडकार रिस्पॉन्ड नहीं कर रहा। OpenHuman का बैकग्राउंड प्रोसेस क्रैश हो गया होगा या शुरू नहीं हो पाया।',
   'home.statusInternetOffline':
@@ -764,6 +777,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'इंस्टॉल किया गया',
   'skills.explorer.install': 'इंस्टॉल करें',
   'skills.explorer.installing': 'इंस्टॉल हो रहा है…',
+  'skills.explorer.notInstallable': 'इंस्टॉल नहीं हो सकता',
+  'skills.explorer.notInstallableHint':
+    'इस प्रविष्टि में डाउनलोड करने के लिए कोई SKILL.md नहीं है, इसलिए इसे यहाँ से इंस्टॉल नहीं किया जा सकता।',
   'skills.integrations': 'Composio इंटीग्रेशन',
   'skills.integrationsSubtitle':
     'क्लाउड-आधारित OAuth कनेक्शन: अपने अकाउंट से साइन इन करें और Composio टोकन ब्रोकर करता है ताकि एजेंट आपकी ओर से पढ़ और कार्य कर सकें। कोई API कुंजी प्रबंधित नहीं करनी।',
@@ -971,6 +987,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedDone': 'विफल कार्य फिर से कतार में डाले गए',
   'memoryTree.status.retryFailedCount': '{count} कार्य दोबारा चलने के लिए कतार में हैं।',
   'memoryTree.status.retryFailedError': 'विफल कार्यों को फिर से कतार में नहीं डाला जा सका',
+  'memoryTree.status.jobQueue':
+    'मेमोरी कार्य: {ready} प्रतीक्षा में, {running} चल रहे हैं, {failed} विफल',
   'memoryTree.status.toggleFailed': 'ऑटो सिंक को टॉगल नहीं कर सका',
   'memoryTree.status.justNow': 'अभी',
   'memoryTree.status.secondsAgo': '{count} पहले',
@@ -2638,8 +2656,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Twitter खोज',
   'memorySources.kind.rss_feed': 'RSS फ़ीड',
   'memorySources.kind.web_page': 'वेब पेज',
-  'memorySources.sync.successTitle': 'सिंक करना',
-  'memorySources.sync.successMessage': 'प्रगति शीघ्र ही दिखाई देगी।',
   'memorySources.sync.failedTitle': 'सिंक विफल:',
   'memorySources.sync.completeTitle': 'सिंक हो गया',
   'memorySources.sync.itemsSynced': 'आइटम सिंक हुए',
@@ -2647,6 +2663,13 @@ const messages: TranslationMap = {
   'memorySources.sync.failedLabel': 'विफल',
   'memorySources.sync.morePending': 'और सिंक बाकी है। फिर से Sync पर क्लिक करें',
   'memorySources.sync.budgetSpent': 'आज का अनुरोध बजट खत्म हो गया है। कल फिर कोशिश करें',
+  'memorySources.stage.requested': 'शुरू हो रहा है',
+  'memorySources.stage.running': 'सिंक हो रहा है',
+  'memorySources.stage.fetching': 'प्राप्त किया जा रहा है',
+  'memorySources.stage.stored': 'सहेजा जा रहा है',
+  'memorySources.stage.queued': 'मेमोरी में जोड़ा जा रहा है',
+  'memorySources.stage.ingesting': 'मेमोरी में जोड़ा जा रहा है',
+  'memorySources.stage.unknown': 'सिंक हो रहा है',
   'time.justNow': 'अभी',
   'time.secondsAgoSuffix': 'सेकंड पहले',
   'time.minutesAgoSuffix': 'मिनट पहले',

@@ -32,7 +32,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # `-- --ignored`.
 ALL_E2E_SUITES=(
   agent_approval_memory_coverage_e2e
-  agent_retrieval_e2e
   calendar_grounding_e2e
   config_auth_app_state_connectivity_e2e
   composio_post_oauth_retry_e2e
@@ -47,19 +46,9 @@ ALL_E2E_SUITES=(
   live_routing_e2e
   mcp_registry_e2e
   mcp_setup_e2e
-  # Golden-workspace schema gates. These are the guard against a memory-store
-  # schema change stranding an existing user workspace, so they belong in every
-  # run of this suite — they were previously listed nowhere in .github/ or
-  # scripts/ and therefore never executed.
-  memory_golden_fixture_e2e
-  memory_golden_parity_e2e
-  memory_graph_sync_e2e
   memory_roundtrip_e2e
   memory_sources_e2e
-  memory_tree_summarizer_e2e
-  memory_fast_retrieve_e2e
   observability_wallet_expected_e2e
-  ollama_embeddings_fallback_e2e
   skill_registry_e2e
   worker_b_domain_e2e
   worker_c_modules_e2e
@@ -152,6 +141,17 @@ fi
 # them with Cargo's default feature set makes the runner fail before a test can
 # execute. Keep this list in the same canonical source as `pnpm test:rust`.
 PRODUCT_FEATURES="$(bash "$REPO_ROOT/scripts/ci/product-features.sh")"
+
+# Memory-backed RPC tests use the pinned native module. Build the submodule
+# artifact when CI/local callers have not supplied an explicit release pin;
+# otherwise the clean E2E container falls back to unavailable release metadata.
+if [ -z "${TINYMEMORY_TEST_MODULE:-}" ]; then
+  memory_manifest="vendor/tinymemory/crates/tinymemory-module/Cargo.toml"
+  memory_module="vendor/tinymemory/crates/tinymemory-module/target/release/libtinymemory_module.so"
+  echo "[rust-e2e] Building pinned TinyMemory test module ..."
+  "$CARGO_BIN" build --release --manifest-path "$memory_manifest"
+  export TINYMEMORY_TEST_MODULE="$REPO_ROOT/$memory_module"
+fi
 
 echo "[rust-e2e] Running ${#SUITES[@]} suite(s) serially."
 

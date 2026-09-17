@@ -216,6 +216,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Algo salió mal con esta acción.',
   'conversations.toolFailure.unknown.next':
     'Inténtalo de nuevo; si sigue fallando, ejecuta el diagnóstico desde Configuración.',
+  'conversations.toolFailure.notFound.cause':
+    'Lo que pidió esta acción no existe o no está disponible aquí.',
+  'conversations.toolFailure.notFound.next':
+    'No hace falta hacer nada. El asistente puede buscar el nombre correcto y volver a intentarlo.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman todavía no puede hacer esto automáticamente.',
+  'conversations.toolFailure.unsupported.next': 'Hazlo manualmente o pide otra opción.',
   'conversations.backgroundTasks.title': 'Tareas en segundo plano',
   'nav.feedback': 'Compartir opiniones',
   'feedback.board': 'Tablero de opiniones',
@@ -387,6 +394,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'Correcto',
   'sync.status.failed': 'Fallido',
   'sync.status.partial': 'Obtenido, pero no se pudo indexar en memoria',
+  'sync.nowSyncing.title': 'Sincronizando ahora',
+  'sync.nowSyncing.empty': 'No se está sincronizando nada en este momento.',
   'common.error': 'error',
   'common.success': 'Éxito',
   'common.back': 'Atrás',
@@ -672,6 +681,10 @@ const messages: TranslationMap = {
   'home.statusOk': 'Tu asistente está listo cuando tú lo estés. Escribe algo abajo para empezar.',
   'home.statusBackendOnly':
     'Reconectando al backend… tu agente estará disponible nuevamente en breve.',
+  'home.statusHostedDegraded':
+    'Reconectando con la nube… el chat sigue funcionando; las integraciones y los canales se reanudarán en cuanto vuelva.',
+  'home.statusHostedStopped':
+    'La conexión con la nube se detuvo: inicia sesión de nuevo para reanudar las integraciones y los canales. El chat sigue funcionando.',
   'home.statusCoreUnreachable':
     'El proceso en segundo plano de OpenHuman no responde. Es posible que haya fallado o no haya podido iniciarse.',
   'home.statusInternetOffline':
@@ -783,6 +796,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Instalada',
   'skills.explorer.install': 'Instalar',
   'skills.explorer.installing': 'Instalando…',
+  'skills.explorer.notInstallable': 'No instalable',
+  'skills.explorer.notInstallableHint':
+    'Esta entrada no tiene un SKILL.md para descargar, así que no se puede instalar desde aquí.',
   'skills.integrations': 'Integraciones de Composio',
   'skills.integrationsSubtitle':
     'Conexiones OAuth en la nube: inicia sesión con tu cuenta y Composio gestiona los tokens para que los agentes puedan leer y actuar en tu nombre. Sin claves de API que administrar.',
@@ -994,6 +1010,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedCount': 'Trabajos en cola para ejecutarse de nuevo: {count}.',
   'memoryTree.status.retryFailedError':
     'No se pudieron volver a poner en cola los trabajos fallidos',
+  'memoryTree.status.jobQueue':
+    'Tareas de memoria: {ready} en espera, {running} en curso, {failed} con error',
   'memoryTree.status.toggleFailed': 'No se pudo activar la sincronización automática',
   'memoryTree.status.justNow': 'justo ahora',
   'memoryTree.status.secondsAgo': '{count}s hace',
@@ -2690,8 +2708,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Búsqueda en Twitter',
   'memorySources.kind.rss_feed': 'RSS Alimentar',
   'memorySources.kind.web_page': 'Página web',
-  'memorySources.sync.successTitle': 'Sincronizando',
-  'memorySources.sync.successMessage': 'El progreso aparecerá en breve.',
   'memorySources.sync.failedTitle': 'Sincronización fallida:',
   'memorySources.sync.completeTitle': 'Sincronizado',
   'memorySources.sync.itemsSynced': 'elementos sincronizados',
@@ -2700,6 +2716,13 @@ const messages: TranslationMap = {
   'memorySources.sync.morePending': 'Queda más por sincronizar. Pulsa Sincronizar de nuevo',
   'memorySources.sync.budgetSpent':
     'El presupuesto de solicitudes de hoy se ha agotado. Inténtalo mañana',
+  'memorySources.stage.requested': 'Iniciando',
+  'memorySources.stage.running': 'Sincronizando',
+  'memorySources.stage.fetching': 'Obteniendo',
+  'memorySources.stage.stored': 'Guardando',
+  'memorySources.stage.queued': 'Procesando en la memoria',
+  'memorySources.stage.ingesting': 'Procesando en la memoria',
+  'memorySources.stage.unknown': 'Sincronizando',
   'time.justNow': 'ahora mismo',
   'time.secondsAgoSuffix': 's',
   'time.minutesAgoSuffix': 'min',

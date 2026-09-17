@@ -113,7 +113,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           key: e2e-linux-unified
 
@@ -125,7 +125,7 @@ jobs:
         with:
           path: |
             ~/.cache/tauri-cef
-          key: cef-x86_64-unknown-linux-gnu-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-x86_64-unknown-linux-gnu-${{ hashFiles('crates/openhuman-app/Cargo.toml') }}
           restore-keys: |
             cef-x86_64-unknown-linux-gnu-
 
@@ -166,7 +166,7 @@ jobs:
           # reason: the archive name, the release tag and the checksum each used to
           # carry the version independently, so a bump could update two of the three
           # and leave a stale digest that only fails after the download. Both values
-          # are the ubuntu-22.04-x86_64 row of `src/openhuman/modules/registry.rs`,
+          # are the ubuntu-22.04-x86_64 row of `crates/openhuman-core/src/modules/registry.rs`,
           # which is the authoritative pin — copy them from there, never recompute.
           memory_version="1.16.0"
           memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
@@ -254,7 +254,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           key: e2e-linux-unified
 
@@ -275,9 +275,9 @@ jobs:
           # under a single directory, so the consumer can extract straight
           # into the workspace.
           STAGE="$(mktemp -d)"
-          mkdir -p "$STAGE/repo/app/src-tauri/target/debug"
+          mkdir -p "$STAGE/repo/crates/openhuman-app/target/debug"
           mkdir -p "$STAGE/repo/app/dist"
-          cp -a app/src-tauri/target/debug/OpenHuman "$STAGE/repo/app/src-tauri/target/debug/"
+          cp -a crates/openhuman-app/target/debug/OpenHuman "$STAGE/repo/crates/openhuman-app/target/debug/"
           cp -a app/dist/. "$STAGE/repo/app/dist/"
           tar -czf e2e-build-linux.tar.gz -C "$STAGE" repo
           ls -lh e2e-build-linux.tar.gz
@@ -354,40 +354,46 @@ jobs:
       - name: Restore build artifact into workspace
         run: |
           tar -xzf e2e-build-linux.tar.gz
-          # The artifact contains: repo/{app/src-tauri/target/debug/OpenHuman, app/dist/...}.
-          mkdir -p app/src-tauri/target/debug app/dist
-          cp -a repo/app/src-tauri/target/debug/OpenHuman app/src-tauri/target/debug/
+          # The artifact contains: repo/{crates/openhuman-app/target/debug/OpenHuman, app/dist/...}.
+          mkdir -p crates/openhuman-app/target/debug app/dist
+          cp -a repo/crates/openhuman-app/target/debug/OpenHuman crates/openhuman-app/target/debug/
           cp -a repo/app/dist/. app/dist/
           rm -rf repo e2e-build-linux.tar.gz
-          chmod +x app/src-tauri/target/debug/OpenHuman
-          ls -la app/src-tauri/target/debug/OpenHuman app/dist | head
+          chmod +x crates/openhuman-app/target/debug/OpenHuman
+          ls -la crates/openhuman-app/target/debug/OpenHuman app/dist | head
 
-      - name: Install checksum-pinned TinyMemory test module
-        if: matrix.shard.name == 'providers'
+      - name: Install native E2E test modules
         run: |
-          # memory-roundtrip runs in this shard. Supply the native module
-          # directly so the packaged app never depends on GitHub's release
-          # metadata API while the test is running.
+          # Every shard resets memory and calls Composio RPCs. Supply both
+          # modules so the packaged app never depends on release metadata or
+          # a runner-owned cache while tests are running.
           # Version and digest are ONE decision and live on adjacent lines for that
           # reason: the archive name, the release tag and the checksum each used to
           # carry the version independently, so a bump could update two of the three
           # and leave a stale digest that only fails after the download. Both values
-          # are the ubuntu-22.04-x86_64 row of `src/openhuman/modules/registry.rs`,
+          # are the ubuntu-22.04-x86_64 row of `crates/openhuman-core/src/modules/registry.rs`,
           # which is the authoritative pin — copy them from there, never recompute.
           memory_version="1.16.0"
           memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
+          connectors_dir="$module_root/tinyconnectors"
           memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
-          rm -rf "$memory_dir"
-          mkdir -p "$memory_dir"
+          rm -rf "$memory_dir" "$connectors_dir"
+          mkdir -p "$memory_dir" "$connectors_dir"
           curl --fail --location --silent --show-error \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
           echo "${memory_sha256}  $memory_archive" \
             | sha256sum --check
           tar --no-same-owner -xzf "$memory_archive" -C "$memory_dir"
+          bash scripts/ci-cancel-aware.sh cargo build --release \
+            --manifest-path vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml
+          cp vendor/tinyconnectors/target/release/libtinyconnectors.so \
+            "$connectors_dir/libtinyconnectors.so"
           echo "TINYMEMORY_TEST_MODULE=$memory_dir/libtinymemory_module.so" \
+            >> "$GITHUB_ENV"
+          echo "TINYCONNECTORS_TEST_MODULE=$connectors_dir/libtinyconnectors.so" \
             >> "$GITHUB_ENV"
 
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
@@ -474,6 +480,46 @@ jobs:
           touch .env
           touch app/.env
 
+      - name: Install checksum-pinned native test modules
+        run: |
+          # Keep module-backed RPC coverage independent of release-metadata
+          # lookup. tinybus validates every directory ancestor, so keep each
+          # fixture outside the checkout owned by the host runner.
+          # Version and digest are the ubuntu-22.04-x86_64 registry pin; do
+          # not derive a replacement checksum from a local build.
+          memory_version="1.16.0"
+          memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
+          juice_version="0.2.2"
+          juice_sha256="fd8caf7fccb53328870fd26922aa9768d253cd4b3bf758967847d6512df03863"
+          module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          memory_dir="$module_root/tinymemory"
+          juice_dir="$module_root/tinyjuice"
+          connectors_dir="$module_root/tinyconnectors"
+          memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
+          juice_archive="$juice_dir/tinyjuice-module-${juice_version}-ubuntu-22.04-x86_64.tar.gz"
+          rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
+          mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
+          curl --fail --location --silent --show-error \
+            "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
+            --output "$memory_archive"
+          curl --fail --location --silent --show-error \
+            "https://github.com/tinyhumansai/tinyjuice/releases/download/v${juice_version}/$(basename "$juice_archive")" \
+            --output "$juice_archive"
+          echo "${memory_sha256}  $memory_archive" | sha256sum --check
+          echo "${juice_sha256}  $juice_archive" | sha256sum --check
+          tar --no-same-owner -xzf "$memory_archive" -C "$memory_dir"
+          tar --no-same-owner -xzf "$juice_archive" -C "$juice_dir"
+          bash scripts/ci-cancel-aware.sh cargo build --release \
+            --manifest-path vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml
+          cp vendor/tinyconnectors/target/release/libtinyconnectors.so \
+            "$connectors_dir/libtinyconnectors.so"
+          echo "TINYMEMORY_TEST_MODULE=$memory_dir/libtinymemory_module.so" \
+            >> "$GITHUB_ENV"
+          echo "TINYJUICE_TEST_MODULE=$juice_dir/libtinyjuice_module.so" \
+            >> "$GITHUB_ENV"
+          echo "TINYCONNECTORS_TEST_MODULE=$connectors_dir/libtinyconnectors.so" \
+            >> "$GITHUB_ENV"
+
       - name: Run Rust E2E suite (tests/*_e2e.rs vs mock backend)
         run: bash scripts/ci-cancel-aware.sh pnpm test:rust:e2e
 
@@ -534,7 +580,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           key: e2e-macos-unified-v2
 
@@ -543,7 +589,7 @@ jobs:
         with:
           path: |
             ~/Library/Caches/tauri-cef
-          key: cef-aarch64-apple-darwin-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-aarch64-apple-darwin-${{ hashFiles('crates/openhuman-app/Cargo.toml') }}
           restore-keys: |
             cef-aarch64-apple-darwin-
 
@@ -582,9 +628,9 @@ jobs:
       - name: Adhoc-sign the .app bundle
         run: |
           codesign --force --deep --sign - \
-            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+            crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app
           codesign --verify --deep --verbose=2 \
-            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+            crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app
 
       - name: Run E2E (${{ inputs.spec_label }})
         run: |
@@ -630,7 +676,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           key: e2e-windows-unified
 
@@ -639,7 +685,7 @@ jobs:
         with:
           path: |
             ~/AppData/Local/tauri-cef
-          key: cef-x86_64-pc-windows-msvc-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-x86_64-pc-windows-msvc-${{ hashFiles('crates/openhuman-app/Cargo.toml') }}
           restore-keys: |
             cef-x86_64-pc-windows-msvc-
 
@@ -748,7 +794,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           key: e2e-macos-unified-v2
 
@@ -757,7 +803,7 @@ jobs:
         with:
           path: |
             ~/Library/Caches/tauri-cef
-          key: cef-aarch64-apple-darwin-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-aarch64-apple-darwin-${{ hashFiles('crates/openhuman-app/Cargo.toml') }}
           restore-keys: |
             cef-aarch64-apple-darwin-
 
@@ -781,10 +827,10 @@ jobs:
           # self-contained for runtime, but e2e-run-session.sh also validates the
           # built frontend bundle before launching so shards need app/dist too.
           STAGE="$(mktemp -d)"
-          mkdir -p "$STAGE/repo/app/src-tauri/target/debug/bundle/macos"
+          mkdir -p "$STAGE/repo/crates/openhuman-app/target/debug/bundle/macos"
           mkdir -p "$STAGE/repo/app/dist"
-          cp -a app/src-tauri/target/debug/bundle/macos/OpenHuman.app \
-            "$STAGE/repo/app/src-tauri/target/debug/bundle/macos/"
+          cp -a crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app \
+            "$STAGE/repo/crates/openhuman-app/target/debug/bundle/macos/"
           cp -a app/dist/. "$STAGE/repo/app/dist/"
           tar -czf e2e-build-macos.tar.gz -C "$STAGE" repo
           ls -lh e2e-build-macos.tar.gz
@@ -861,13 +907,13 @@ jobs:
       - name: Restore .app bundle into workspace
         run: |
           tar -xzf e2e-build-macos.tar.gz
-          mkdir -p app/src-tauri/target/debug/bundle/macos
+          mkdir -p crates/openhuman-app/target/debug/bundle/macos
           mkdir -p app/dist
-          cp -a repo/app/src-tauri/target/debug/bundle/macos/OpenHuman.app \
-            app/src-tauri/target/debug/bundle/macos/
+          cp -a repo/crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app \
+            crates/openhuman-app/target/debug/bundle/macos/
           cp -a repo/app/dist/. app/dist/
           rm -rf repo e2e-build-macos.tar.gz
-          ls -la app/src-tauri/target/debug/bundle/macos/OpenHuman.app | head
+          ls -la crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app | head
           ls -la app/dist | head
 
       # macOS rejects dynamic-framework loads from unsigned bundles — adhoc
@@ -877,9 +923,9 @@ jobs:
       - name: Adhoc-sign the .app bundle
         run: |
           codesign --force --deep --sign - \
-            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+            crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app
           codesign --verify --deep --verbose=2 \
-            app/src-tauri/target/debug/bundle/macos/OpenHuman.app
+            crates/openhuman-app/target/debug/bundle/macos/OpenHuman.app
 
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
         env:
@@ -956,7 +1002,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           key: e2e-windows-unified
 
@@ -978,9 +1024,9 @@ jobs:
           # Windows shards need the .exe and frontend dist at the layout they
           # restore into.
           STAGE="$(mktemp -d)"
-          mkdir -p "$STAGE/repo/app/src-tauri/target/debug"
+          mkdir -p "$STAGE/repo/crates/openhuman-app/target/debug"
           mkdir -p "$STAGE/repo/app/dist"
-          cp -a app/src-tauri/target/debug/OpenHuman.exe "$STAGE/repo/app/src-tauri/target/debug/"
+          cp -a crates/openhuman-app/target/debug/OpenHuman.exe "$STAGE/repo/crates/openhuman-app/target/debug/"
           cp -a app/dist/. "$STAGE/repo/app/dist/"
           tar -czf e2e-build-windows.tar.gz -C "$STAGE" repo
           ls -lh e2e-build-windows.tar.gz
@@ -1060,11 +1106,11 @@ jobs:
         shell: bash
         run: |
           tar -xzf e2e-build-windows.tar.gz
-          mkdir -p app/src-tauri/target/debug app/dist
-          cp -a repo/app/src-tauri/target/debug/OpenHuman.exe app/src-tauri/target/debug/
+          mkdir -p crates/openhuman-app/target/debug app/dist
+          cp -a repo/crates/openhuman-app/target/debug/OpenHuman.exe crates/openhuman-app/target/debug/
           cp -a repo/app/dist/. app/dist/
           rm -rf repo e2e-build-windows.tar.gz
-          ls -la app/src-tauri/target/debug/OpenHuman.exe app/dist | head
+          ls -la crates/openhuman-app/target/debug/OpenHuman.exe app/dist | head
 
       - name: Run E2E shard (${{ matrix.shard.name }} — suites=${{ matrix.shard.suites }})
         shell: bash

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Build a .deb package for the openhuman-core CLI binary.
-# Usage: build.sh <binary_path> <version> <arch>
+# Build a .deb package for the openhuman core CLI and terminal UI binaries.
+# Usage: build.sh <core_binary_path> <tui_binary_path> <version> <arch>
 #   arch: amd64 | arm64
 set -euo pipefail
 
-BINARY="$1"
-VERSION="$2"
-ARCH="$3"
+CORE_BINARY="$1"
+TUI_BINARY="$2"
+VERSION="$3"
+ARCH="$4"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="$(mktemp -d)"
@@ -18,7 +19,8 @@ PKG_DIR="$WORK_DIR/$PKG_NAME"
 mkdir -p "$PKG_DIR/usr/bin"
 mkdir -p "$PKG_DIR/DEBIAN"
 
-install -m 755 "$BINARY" "$PKG_DIR/usr/bin/openhuman"
+install -m 755 "$CORE_BINARY" "$PKG_DIR/usr/bin/openhuman"
+install -m 755 "$TUI_BINARY" "$PKG_DIR/usr/bin/openhuman-tui"
 
 sed \
   -e "s/@VERSION@/${VERSION}/g" \

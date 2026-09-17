@@ -30,6 +30,29 @@ import {
 const SEARCH = 'skill-search-input';
 
 async function openSkillsTab(page: import('@playwright/test').Page, userId: string) {
+  // The Skills surface asks for Composio's curated-toolkit labels while it
+  // mounts. That native connector bootstrap is unrelated to local catalog
+  // search/install behavior and can fault the standalone test core, obscuring
+  // this spec's actual browser contract.
+  await page.route('**/rpc', async (route, request) => {
+    try {
+      const body = JSON.parse(request.postData() || '{}');
+      if (body.method === 'openhuman.composio_list_agent_ready_toolkits') {
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: { result: { toolkits: [] }, logs: [] },
+          }),
+        });
+        return;
+      }
+    } catch {
+      // Let malformed or unrelated RPCs reach the real core.
+    }
+    await route.continue();
+  });
   await bootRuntimeReadyGuestPage(page);
   await signInViaCallbackToken(page, userId);
   await page.evaluate(() => {

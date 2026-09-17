@@ -21,13 +21,13 @@ use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
-use openhuman_core::openhuman::security::approval::gate::{
+use openhuman_core::agent::turn_origin::{self, AgentTurnOrigin};
+use openhuman_core::security::approval::gate::{
     ApprovalChatContext, ApprovalGate, APPROVAL_CHAT_CONTEXT,
 };
-use openhuman_core::openhuman::security::approval::types::{ExecutionOutcome, GateOutcome};
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::security::approval::types::{ExecutionOutcome, GateOutcome};
+use openhuman_core::config::Config;
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
@@ -272,7 +272,7 @@ async fn setup() -> TestHarness {
     ];
 
     let _ =
-        openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry::init_global_builtins();
+        openhuman_core::agent::harness::AgentDefinitionRegistry::init_global_builtins();
 
     let (addr, rpc_join) = serve_rpc().await;
     TestHarness {

@@ -46,7 +46,7 @@ services:
       - e2e-cargo-registry:/usr/local/cargo/registry
       - e2e-cargo-git:/usr/local/cargo/git
       - e2e-rust-target:/workspace/target
-      - e2e-tauri-target:/workspace/app/src-tauri/target
+      - e2e-tauri-target:/workspace/crates/openhuman-app/target
       - e2e-pnpm-store:/root/.local/share/pnpm/store
       - e2e-npm-global:/usr/lib/node_modules
       # pnpm falls back to a project-local store (./.pnpm-store) when the

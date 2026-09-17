@@ -30,6 +30,7 @@ import {
   hasObjectRows,
 } from '../../lib/flows/runItems';
 import { useT } from '../../lib/i18n/I18nContext';
+import { truncateText } from '../../utils/truncateText';
 import {
   Table,
   TableBody,
@@ -50,7 +51,7 @@ const MAX_CELL_CHARS = 200;
 type ViewMode = 'table' | 'json';
 
 function truncate(text: string): string {
-  return text.length > MAX_CELL_CHARS ? `${text.slice(0, MAX_CELL_CHARS)}…` : text;
+  return truncateText(text, MAX_CELL_CHARS);
 }
 
 interface BinaryChipsProps {

@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const ROOT = "src";
+const SOURCE_ROOTS = ["crates/openhuman-core/src"];
 const FEATURE_GATE =
   /#\[cfg\((?:not\()?feature = "(?:voice|media|web3|meet|mcp|skills|flows|channels|contacts)"|#\[cfg\((?:not\()?all\([^\]]*feature = "contacts"/;
 const TEST_MARKER = /#\[test\]|#\[tokio::test\]|fn .*_test/;
@@ -33,9 +33,11 @@ function moduleContainsTest(file, seen = new Set()) {
   return false;
 }
 
-for (const file of rustFiles(ROOT)) {
-  const source = fs.readFileSync(file, "utf8");
-  if (FEATURE_GATE.test(source) && moduleContainsTest(file)) {
-    console.log(path.relative(ROOT, file).split(path.sep).join("/"));
+for (const root of SOURCE_ROOTS) {
+  for (const file of rustFiles(root)) {
+    const source = fs.readFileSync(file, "utf8");
+    if (FEATURE_GATE.test(source) && moduleContainsTest(file)) {
+      console.log(path.relative(root, file).split(path.sep).join("/"));
+    }
   }
 }

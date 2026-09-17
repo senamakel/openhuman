@@ -7,7 +7,7 @@
  * nodes as they execute (n8n's signature running/success/error interaction).
  *
  * The backend's `FlowRunObserver` publishes `DomainEvent::FlowRunProgress` on
- * each finished step; the core socket bridge (`src/core/socketio.rs`) re-emits it
+ * each finished step; the core socket bridge (`crates/openhuman-core/src/core/socketio.rs`) re-emits it
  * to the frontend as **both** `flow:run_progress` and `flow_run_progress`
  * (colon + underscore aliases, same as every other bridged event) with the
  * payload `{ run_id, node_id, status }`.

@@ -15,30 +15,30 @@ use serde_json::{json, Value};
 use tempfile::tempdir;
 
 use openhuman_core::core::all::RegisteredController;
-use openhuman_core::openhuman::integrations::composio::client::{
+use openhuman_core::integrations::composio::client::{
     create_composio_client, direct_execute, ComposioClientKind,
 };
-use openhuman_core::openhuman::integrations::composio::error_mapping::{
+use openhuman_core::integrations::composio::error_mapping::{
     classify_composio_error, format_provider_error, remap_transport_error, ComposioErrorClass,
 };
-use openhuman_core::openhuman::integrations::composio::execute_dispatch::{
+use openhuman_core::integrations::composio::execute_dispatch::{
     execute_composio_action, execute_composio_action_kind,
 };
-use openhuman_core::openhuman::integrations::composio::execute_prepare::prepare_execute_arguments;
-use openhuman_core::openhuman::integrations::composio::oauth_handoff::{
+use openhuman_core::integrations::composio::execute_prepare::prepare_execute_arguments;
+use openhuman_core::integrations::composio::oauth_handoff::{
     clear_non_active_connections, is_authorize_rate_limited, is_clearable_oauth_status,
     is_inflight_oauth_status, is_meta_oauth_toolkit, meta_oauth_rate_limit_message,
     wrap_authorize_rate_limit_error,
 };
-use openhuman_core::openhuman::integrations::composio::providers::{
+use openhuman_core::integrations::composio::providers::{
     classify_unknown, find_curated, toolkit_from_slug, CuratedTool, ToolScope, UserScopePref,
 };
-use openhuman_core::openhuman::integrations::composio::tools::{
+use openhuman_core::integrations::composio::tools::{
     ComposioAction, ComposioAuthorizeTool, ComposioConnectedAccount, ComposioExecuteTool,
     ComposioListConnectionsTool, ComposioListToolkitsTool, ComposioListToolsTool,
 };
-use openhuman_core::openhuman::integrations::composio::trigger_history::ComposioTriggerHistoryStore;
-use openhuman_core::openhuman::integrations::composio::types::{
+use openhuman_core::integrations::composio::trigger_history::ComposioTriggerHistoryStore;
+use openhuman_core::integrations::composio::types::{
     ComposioActiveTrigger, ComposioActiveTriggersResponse, ComposioAgentReadyToolkitsResponse,
     ComposioAuthorizeResponse, ComposioAvailableTrigger, ComposioAvailableTriggerRepo,
     ComposioAvailableTriggersResponse, ComposioCapabilitiesResponse, ComposioCapability,
@@ -48,21 +48,21 @@ use openhuman_core::openhuman::integrations::composio::types::{
     ComposioToolSchema, ComposioToolkitsResponse, ComposioToolsResponse, ComposioTriggerEvent,
     ComposioTriggerHistoryEntry, ComposioTriggerHistoryResult, ComposioTriggerMetadata,
 };
-use openhuman_core::openhuman::integrations::composio::{
+use openhuman_core::integrations::composio::{
     all_composio_agent_tools, all_composio_controller_schemas, all_composio_registered_controllers,
     cached_active_integrations, connected_set_hash, connection_identity,
     fetch_connected_integrations, fetch_connected_integrations_status,
     invalidate_connected_integrations_cache, ComposioActionTool,
     ComposioClient, FetchConnectedIntegrationsStatus,
 };
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::agent::context::prompt::ConnectedIntegration;
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::config::Config;
+use openhuman_core::agent::context::prompt::ConnectedIntegration;
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::integrations::IntegrationClient;
-use openhuman_core::openhuman::security::{AutonomyLevel, SecurityPolicy};
-use openhuman_core::openhuman::tools::{
+use openhuman_core::integrations::IntegrationClient;
+use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
+use openhuman_core::tools::{
     ComposioTool, PermissionLevel, Tool, ToolCallOptions, ToolCategory,
 };
 
@@ -372,7 +372,7 @@ async fn composio_ops_mode_is_local_and_trigger_history_reflects_module_archive_
     };
     config.composio.mode = "direct".into();
 
-    let mode = openhuman_core::openhuman::integrations::composio::ops::composio_get_mode(&config)
+    let mode = openhuman_core::integrations::composio::ops::composio_get_mode(&config)
         .await
         .expect("get mode should not call backend")
         .into_cli_compatible_json()
@@ -380,7 +380,7 @@ async fn composio_ops_mode_is_local_and_trigger_history_reflects_module_archive_
     assert_eq!(mode.pointer("/result/mode"), Some(&json!("direct")));
     assert!(mode.pointer("/result/api_key_set").is_some());
 
-    match openhuman_core::openhuman::integrations::composio::ops::composio_list_trigger_history(
+    match openhuman_core::integrations::composio::ops::composio_list_trigger_history(
         &config,
         Some(0),
     )
@@ -844,7 +844,7 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
             .starts_with("openhuman.composio_")
     }));
 
-    let unknown = openhuman_core::openhuman::integrations::composio::schemas::schemas("not_real");
+    let unknown = openhuman_core::integrations::composio::schemas::schemas("not_real");
     assert_eq!(unknown.function, "unknown");
     assert_eq!(unknown.inputs[0].name, "function");
 
@@ -940,7 +940,7 @@ fn composio_controller_schema_catalog_covers_all_declared_functions() {
     ];
 
     for (function, required_inputs, first_output) in expected {
-        let schema = openhuman_core::openhuman::integrations::composio::schemas::schemas(function);
+        let schema = openhuman_core::integrations::composio::schemas::schemas(function);
         assert_eq!(schema.namespace, "composio");
         assert_eq!(schema.function, function);
         let input_names: Vec<&str> = schema.inputs.iter().map(|f| f.name).collect();

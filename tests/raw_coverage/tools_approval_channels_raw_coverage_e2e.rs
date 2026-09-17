@@ -23,37 +23,37 @@ use openhuman_core::core::events::DomainEvent;
 use tinybus::EventHandler;
 use openhuman_core::core::jsonrpc::build_core_http_router;
 use openhuman_core::core::socketio::WebChannelEvent;
-use openhuman_core::openhuman::agent::harness::definition::{
+use openhuman_core::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, AgentTier, DefinitionSource, ModelSpec, PromptSource,
     SandboxMode, SkillsWildcard, SubagentEntry, ToolScope as AgentToolScope,
 };
-use openhuman_core::openhuman::agent::host_runtime::NativeRuntime;
-use openhuman_core::openhuman::channels::email_channel::EmailConfig;
-use openhuman_core::openhuman::channels::irc::IrcChannelConfig;
-use openhuman_core::openhuman::channels::proactive::ProactiveMessageSubscriber;
-use openhuman_core::openhuman::channels::traits::ChannelMessage;
-use openhuman_core::openhuman::channels::yuanbao::config::YuanbaoConfig;
-use openhuman_core::openhuman::channels::yuanbao::errors::{
+use openhuman_core::agent::host_runtime::NativeRuntime;
+use openhuman_core::channels::email_channel::EmailConfig;
+use openhuman_core::channels::irc::IrcChannelConfig;
+use openhuman_core::channels::proactive::ProactiveMessageSubscriber;
+use openhuman_core::channels::traits::ChannelMessage;
+use openhuman_core::channels::yuanbao::config::YuanbaoConfig;
+use openhuman_core::channels::yuanbao::errors::{
     AUTH_FAILED_CODES, AUTH_RETRYABLE_CODES, NO_RECONNECT_CLOSE_CODES,
 };
-use openhuman_core::openhuman::channels::yuanbao::inbound::{
+use openhuman_core::channels::yuanbao::inbound::{
     InboundPipeline, PipelineOutcome, PipelineState,
 };
-use openhuman_core::openhuman::channels::yuanbao::media::{
+use openhuman_core::channels::yuanbao::media::{
     build_file_msg_body, build_image_msg_body, guess_mime_type, image_format_code, is_image,
     parse_image_size,
 };
-use openhuman_core::openhuman::channels::yuanbao::proto::{
+use openhuman_core::channels::yuanbao::proto::{
     decode_auth_bind_rsp, decode_conn_msg, decode_inbound_json, decode_inbound_push,
     decode_push_msg, encode_auth_bind, encode_conn_msg, encode_msg_body_element, encode_ping,
     encode_push_ack,
 };
-use openhuman_core::openhuman::channels::yuanbao::proto_constants::{cmd, cmd_type, module};
-use openhuman_core::openhuman::channels::yuanbao::sign::{
+use openhuman_core::channels::yuanbao::proto_constants::{cmd, cmd_type, module};
+use openhuman_core::channels::yuanbao::sign::{
     build_timestamp, compute_signature, generate_nonce, SignManager,
 };
-use openhuman_core::openhuman::channels::yuanbao::splitter::split_markdown;
-use openhuman_core::openhuman::channels::yuanbao::types::{
+use openhuman_core::channels::yuanbao::splitter::split_markdown;
+use openhuman_core::channels::yuanbao::types::{
     Account as YuanbaoAccount, ConnFrame as YuanbaoConnFrame,
     ConnectionState as YuanbaoConnectionState, GroupInfo as YuanbaoGroupInfo,
     GroupMember as YuanbaoGroupMember, GroupMemberListPage as YuanbaoGroupMemberListPage,
@@ -62,45 +62,45 @@ use openhuman_core::openhuman::channels::yuanbao::types::{
     MsgBodyElement as YuanbaoMsgBodyElement, MsgContent as YuanbaoMsgContent,
     Source as YuanbaoSource,
 };
-use openhuman_core::openhuman::channels::yuanbao::wire::{
+use openhuman_core::channels::yuanbao::wire::{
     decode_varint, encode_field_bytes, encode_field_string, encode_field_varint, encode_varint,
     get_bytes, get_repeated_bytes, get_string, get_varint, next_seq_no, parse_fields, FieldValue,
 };
-use openhuman_core::openhuman::channels::yuanbao::YuanbaoChannel;
-use openhuman_core::openhuman::channels::{
+use openhuman_core::channels::yuanbao::YuanbaoChannel;
+use openhuman_core::channels::{
     doctor_channels, Channel, CliChannel, DingTalkChannel, EmailChannel, IMessageChannel,
     IrcChannel, LinqChannel, MattermostChannel, QQChannel, SendMessage, SignalChannel,
     SlackChannel, WhatsAppChannel,
 };
-use openhuman_core::openhuman::integrations::composio::all_composio_agent_tools;
-use openhuman_core::openhuman::config::schema::{
+use openhuman_core::integrations::composio::all_composio_agent_tools;
+use openhuman_core::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState, NodeConfig, WhatsAppConfig,
 };
-use openhuman_core::openhuman::config::{Config, IMessageConfig, WebhookConfig};
-use openhuman_core::openhuman::agent::context::prompt::ConnectedIntegration;
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::config::{Config, IMessageConfig, WebhookConfig};
+use openhuman_core::agent::context::prompt::ConnectedIntegration;
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::runtime::javascript::NodeBootstrap;
-use openhuman_core::openhuman::memory::{
+use openhuman_core::runtime::javascript::NodeBootstrap;
+use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
-use openhuman_core::openhuman::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::openhuman::tools::registry::ops::diagnostics_for_config;
-use openhuman_core::openhuman::tools::registry::{
+use openhuman_core::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
+use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use openhuman_core::tools::registry::ops::diagnostics_for_config;
+use openhuman_core::tools::registry::{
     all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
     capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
     denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
     list_tools, normalize_capability_provider_id, registry_entries,
     CapabilityProviderRegistryError,
 };
-use openhuman_core::openhuman::tools::generated::{
+use openhuman_core::tools::generated::{
     admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
     GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
 };
-use openhuman_core::openhuman::tools::orchestrator_tools::collect_orchestrator_tools;
-use openhuman_core::openhuman::tools::{
+use openhuman_core::tools::orchestrator_tools::collect_orchestrator_tools;
+use openhuman_core::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     default_tools, ApplyPatchTool, BrowserTool, CleaningStrategy,
     ComputerUseConfig, CsvExportTool, CurrentTimeTool, DefaultToolPolicy, DetectToolsTool,
@@ -329,7 +329,7 @@ fn coverage_connected_integration(
 struct DefaultPathTool;
 
 #[async_trait]
-impl openhuman_core::openhuman::tools::Tool for DefaultPathTool {
+impl openhuman_core::tools::Tool for DefaultPathTool {
     fn name(&self) -> &str {
         "default_path_tool"
     }
@@ -1571,7 +1571,7 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(!default_tool.is_concurrency_safe(&json!({})));
     assert!(!default_tool.external_effect());
     assert!(!default_tool.external_effect_with_args(&json!({})));
-    assert!(openhuman_core::openhuman::tools::traits::generated_runtime_context(
+    assert!(openhuman_core::tools::traits::generated_runtime_context(
         &default_tool,
         &json!({})
     )
@@ -2040,8 +2040,8 @@ async fn channel_provider_public_paths_cover_pre_network_errors_and_utilities() 
 
 #[tokio::test]
 async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
-    let mut rx = openhuman_core::openhuman::web_chat::subscribe_web_channel_events();
-    openhuman_core::openhuman::web_chat::publish_web_channel_event(WebChannelEvent {
+    let mut rx = openhuman_core::web_chat::subscribe_web_channel_events();
+    openhuman_core::web_chat::publish_web_channel_event(WebChannelEvent {
         event: "coverage_event".to_string(),
         client_id: "client-1".to_string(),
         thread_id: "thread-1".to_string(),
@@ -2059,7 +2059,7 @@ async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
     assert_eq!(event.message.as_deref(), Some("hello web channel"));
 
     assert_eq!(
-        openhuman_core::openhuman::web_chat::start_chat(
+        openhuman_core::web_chat::start_chat(
             "",
             "thread-1",
             "hello",
@@ -2068,14 +2068,14 @@ async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
             None,
             None,
             None,
-            openhuman_core::openhuman::web_chat::ChatRequestMetadata::default(),
+            openhuman_core::web_chat::ChatRequestMetadata::default(),
         )
         .await
         .expect_err("blank client_id"),
         "client_id is required"
     );
     assert_eq!(
-        openhuman_core::openhuman::web_chat::start_chat(
+        openhuman_core::web_chat::start_chat(
             "client-1",
             "",
             "hello",
@@ -2084,14 +2084,14 @@ async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
             None,
             None,
             None,
-            openhuman_core::openhuman::web_chat::ChatRequestMetadata::default(),
+            openhuman_core::web_chat::ChatRequestMetadata::default(),
         )
         .await
         .expect_err("blank thread_id"),
         "thread_id is required"
     );
     assert_eq!(
-        openhuman_core::openhuman::web_chat::start_chat(
+        openhuman_core::web_chat::start_chat(
             "client-1",
             "thread-1",
             "   ",
@@ -2100,7 +2100,7 @@ async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
             None,
             None,
             None,
-            openhuman_core::openhuman::web_chat::ChatRequestMetadata::default(),
+            openhuman_core::web_chat::ChatRequestMetadata::default(),
         )
         .await
         .expect_err("blank message"),
@@ -2108,26 +2108,26 @@ async fn web_channel_public_paths_cover_event_delivery_and_validation_errors() {
     );
 
     assert_eq!(
-        openhuman_core::openhuman::web_chat::cancel_chat("", "thread-1")
+        openhuman_core::web_chat::cancel_chat("", "thread-1")
             .await
             .expect_err("blank cancel client_id"),
         "client_id is required"
     );
     assert_eq!(
-        openhuman_core::openhuman::web_chat::cancel_chat("client-1", "")
+        openhuman_core::web_chat::cancel_chat("client-1", "")
             .await
             .expect_err("blank cancel thread_id"),
         "thread_id is required"
     );
     assert!(
-        openhuman_core::openhuman::web_chat::cancel_chat("client-1", "thread-1")
+        openhuman_core::web_chat::cancel_chat("client-1", "thread-1")
             .await
             .expect("cancel with no in-flight request")
             .is_none()
     );
-    openhuman_core::openhuman::web_chat::invalidate_thread_sessions("thread-1").await;
+    openhuman_core::web_chat::invalidate_thread_sessions("thread-1").await;
     assert!(
-        openhuman_core::openhuman::web_chat::in_flight_entries_for_test()
+        openhuman_core::web_chat::in_flight_entries_for_test()
             .await
             .is_empty()
     );
@@ -2154,7 +2154,7 @@ async fn proactive_subscriber_routes_web_and_active_external_channel_without_net
         }
     }
 
-    let mut rx = openhuman_core::openhuman::web_chat::subscribe_web_channel_events();
+    let mut rx = openhuman_core::web_chat::subscribe_web_channel_events();
     let capture = Arc::new(CapturingChannel::default());
     let mut channels: HashMap<String, Arc<dyn Channel>> = HashMap::new();
     channels.insert("capture".into(), capture.clone());
@@ -3169,7 +3169,7 @@ async fn proxy_config_tool_covers_temp_config_runtime_env_and_validation_paths()
         config_path: dir.path().join("config.toml"),
         ..Config::default()
     };
-    config.autonomy.level = openhuman_core::openhuman::security::AutonomyLevel::Full;
+    config.autonomy.level = openhuman_core::security::AutonomyLevel::Full;
     config.save().await.expect("write temp config");
 
     let security = Arc::new(SecurityPolicy::from_config(
@@ -3546,7 +3546,7 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
         &config.workspace_dir,
     ));
     let readonly_security = Arc::new(SecurityPolicy::from_config(
-        &openhuman_core::openhuman::config::AutonomyConfig {
+        &openhuman_core::config::AutonomyConfig {
             level: AutonomyLevel::ReadOnly,
             ..config.autonomy.clone()
         },
@@ -3560,7 +3560,7 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
         full_security.clone(),
         runtime.clone(),
         bootstrap.clone(),
-        openhuman_core::openhuman::config::RuntimePoolConfig {
+        openhuman_core::config::RuntimePoolConfig {
             enabled: false,
             ..Default::default()
         },
@@ -3592,7 +3592,7 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
         readonly_security.clone(),
         runtime.clone(),
         bootstrap.clone(),
-        openhuman_core::openhuman::config::RuntimePoolConfig {
+        openhuman_core::config::RuntimePoolConfig {
             enabled: false,
             ..Default::default()
         },
@@ -3668,13 +3668,13 @@ async fn node_and_npm_exec_tools_cover_validation_policy_and_disabled_runtime_pa
 #[tokio::test]
 async fn doctor_channels_covers_no_channel_and_local_validation_paths() {
     let mut empty = Config::default();
-    empty.channels_config = openhuman_core::openhuman::config::ChannelsConfig::default();
+    empty.channels_config = openhuman_core::config::ChannelsConfig::default();
     doctor_channels(empty)
         .await
         .expect("empty channel doctor is ok");
 
     let mut config = Config::default();
-    config.channels_config = openhuman_core::openhuman::config::ChannelsConfig::default();
+    config.channels_config = openhuman_core::config::ChannelsConfig::default();
     config.channels_config.imessage = Some(IMessageConfig {
         allowed_contacts: Vec::new(),
     });

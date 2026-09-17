@@ -7,7 +7,7 @@
  * apart means a run can be re-analyzed with different thresholds without
  * re-running the load.
  *
- * Why this exists alongside `src/openhuman/platform/proc_metrics/`: that module
+ * Why this exists alongside `crates/openhuman-core/src/platform/proc_metrics/`: that module
  * samples the CURRENT process, for benchmarks that embed the core as a library.
  * This tier deliberately measures a separate, normally-built server process
  * over RPC, so the sampling has to come from outside it.

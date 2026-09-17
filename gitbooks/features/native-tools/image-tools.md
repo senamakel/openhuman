@@ -6,7 +6,7 @@ single provider runtime.
 
 ## Scope
 
-The contract lives in the top-level `src/openhuman/media/image/` module and
+The contract lives in the top-level `crates/openhuman-core/src/media/image/` module and
 currently covers two model-facing tools:
 
 | Tool               | Purpose                                                   | Permission | Output                                |
@@ -82,7 +82,7 @@ runtime adapter, not in the hosted contract module.
 ## Media generation (GMI): image and video tools
 
 Separate from the high-level `image_generation` contract above, the
-`src/openhuman/media/generation/` domain ships **wired, executing** tools that
+`crates/openhuman-core/src/media/generation/` domain ships **wired, executing** tools that
 generate images and video through the OpenHuman backend's `media_generation`
 provider (GMI Cloud: Seedream, SeedEdit, Seedance, Veo).
 

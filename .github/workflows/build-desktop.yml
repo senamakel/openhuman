@@ -35,7 +35,7 @@ on:
       short_sha:
         description:
           12-char prefix of `sha` matching the runtime truncation in config.ts /
-          vite.config.ts / main.rs / app/src-tauri/src/lib.rs.
+          vite.config.ts / main.rs / crates/openhuman-app/src/lib.rs.
         type: string
         required: true
       base_url:
@@ -289,7 +289,7 @@ jobs:
         # `prepareTauriConfig.js` only reads `WITH_UPDATER` (flips
         # `bundle.createUpdaterArtifacts` on for the release pipeline) and
         # `KEYPAIR_ALIAS` (Windows DigiCert sign command). Pubkey + endpoint
-        # come from the static `app/src-tauri/tauri.conf.json`.
+        # come from the static `crates/openhuman-app/tauri.conf.json`.
         id: config-overrides
         uses: actions/github-script@v9
         env:
@@ -319,13 +319,13 @@ jobs:
             CORE_DIR="openhuman_core"
           elif [ -f "rust-core/Cargo.toml" ]; then
             CORE_DIR="rust-core"
-          elif [ -f "Cargo.toml" ] && grep -q '^name = "openhuman"' Cargo.toml; then
+          elif [ -f "crates/openhuman-core/Cargo.toml" ] && grep -q '^name = "openhuman"' crates/openhuman-core/Cargo.toml; then
             CORE_DIR="."
           else
             echo "No core Cargo manifest found (expected root Cargo.toml with openhuman, openhuman_core/Cargo.toml, or rust-core/Cargo.toml)"
             exit 1
           fi
-          SIDE_CAR_BASE="$(node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('app/src-tauri/tauri.conf.json','utf8'));const b=(c.bundle&&Array.isArray(c.bundle.externalBin)&&c.bundle.externalBin[0])||'binaries/openhuman-core';process.stdout.write(String(b).split('/').pop());")"
+          SIDE_CAR_BASE="$(node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('crates/openhuman-app/tauri.conf.json','utf8'));const b=(c.bundle&&Array.isArray(c.bundle.externalBin)&&c.bundle.externalBin[0])||'binaries/openhuman-core';process.stdout.write(String(b).split('/').pop());")"
           CORE_BIN_NAME="${SIDE_CAR_BASE}"
           echo "core_dir=$CORE_DIR" >> "$GITHUB_OUTPUT"
           echo "core_manifest=$CORE_DIR/Cargo.toml" >> "$GITHUB_OUTPUT"
@@ -399,7 +399,7 @@ jobs:
           VITE_DEBUG: ${{ vars.VITE_DEBUG }}
           VITE_BUILD_SHA: ${{ inputs.sha }}
           # Use short_sha (12 chars) — matches what config.ts / vite.config.ts
-          # / main.rs / app/src-tauri/src/lib.rs all slice VITE_BUILD_SHA /
+          # / main.rs / crates/openhuman-app/src/lib.rs all slice VITE_BUILD_SHA /
           # OPENHUMAN_BUILD_SHA down to at runtime when emitting events. The
           # sentry-vite-plugin reads SENTRY_RELEASE raw, so a long-SHA value
           # here would tag uploads against a different release than events.
@@ -418,7 +418,7 @@ jobs:
           # below.
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT_REACT }}
           # Keep in sync with bundle.macOS.minimumSystemVersion in
-          # app/src-tauri/tauri.conf.json — the Wry system-WebView floor (#5571).
+          # crates/openhuman-app/tauri.conf.json — the Wry system-WebView floor (#5571).
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.settings.platform == 'macos-latest' && '12.3' || '' }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.UPDATER_PRIVATE_KEY_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.UPDATER_PRIVATE_KEY }}
@@ -450,8 +450,8 @@ jobs:
         run: |
           set +e
           for BIN in \
-            "app/src-tauri/target/${MATRIX_TARGET}/${PROFILE}/OpenHuman" \
-            "app/src-tauri/target/${MATRIX_TARGET}/${PROFILE}/bundle/appimage_deb/data/usr/bin/OpenHuman" \
+            "crates/openhuman-app/target/${MATRIX_TARGET}/${PROFILE}/OpenHuman" \
+            "crates/openhuman-app/target/${MATRIX_TARGET}/${PROFILE}/bundle/appimage_deb/data/usr/bin/OpenHuman" \
             "target/${MATRIX_TARGET}/${PROFILE}/OpenHuman"; do
             if [ -x "$BIN" ]; then
               echo "==> ldd $BIN"
@@ -480,7 +480,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.UPDATER_PRIVATE_KEY_PASSWORD }}
         run: |
           bash scripts/release/strip-appimage-graphics-libs.sh \
-            "app/src-tauri/target/${MATRIX_TARGET}/${PROFILE}/bundle" \
+            "crates/openhuman-app/target/${MATRIX_TARGET}/${PROFILE}/bundle" \
             "target/${MATRIX_TARGET}/${PROFILE}/bundle"
 
       # Regression guard for #1403: if @sentry/vite-plugin silently no-op'd
@@ -501,7 +501,7 @@ jobs:
       # ---- Sentry DIF uploads ------------------------------------------------
       # Since #1061 the core lives in-process as a library linked into the
       # Tauri shell binary — there is exactly one Rust process and one
-      # `sentry::init` call (in `app/src-tauri/src/lib.rs::run()`), so all
+      # `sentry::init` call (in `crates/openhuman-app/src/lib.rs::run()`), so all
       # Rust events from the desktop app route to `openhuman-tauri`. Upload
       # DIFs to that project so they actually attach to the right events.
       # Symbols are keyed by debug-ID, so it's safe to run per-matrix-target
@@ -520,7 +520,7 @@ jobs:
           PROFILE: ${{ inputs.build_profile }}
         run: |
           set -euo pipefail
-          dif_dir="app/src-tauri/target/${MATRIX_TARGET}/${PROFILE}"
+          dif_dir="crates/openhuman-app/target/${MATRIX_TARGET}/${PROFILE}"
           # Hard-fail when the target dir is missing instead of silently
           # skipping (#1403). If we got past `cargo tauri build` with
           # SENTRY_AUTH_TOKEN set and this directory doesn't exist, the
@@ -578,7 +578,7 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           BUNDLE_ROOTS=(
-            "app/src-tauri/target/${MATRIX_TARGET}/${PROFILE}/bundle"
+            "crates/openhuman-app/target/${MATRIX_TARGET}/${PROFILE}/bundle"
             "target/${MATRIX_TARGET}/${PROFILE}/bundle"
           )
           UPLOAD=()
@@ -617,7 +617,7 @@ jobs:
           set -euo pipefail
           APP_PATH=""
           for candidate in \
-            "app/src-tauri/target/${MATRIX_TARGET}/${PROFILE}/bundle/macos/OpenHuman.app" \
+            "crates/openhuman-app/target/${MATRIX_TARGET}/${PROFILE}/bundle/macos/OpenHuman.app" \
             "target/${MATRIX_TARGET}/${PROFILE}/bundle/macos/OpenHuman.app"; do
             if [ -d "$candidate" ]; then
               APP_PATH="$candidate"
@@ -650,7 +650,7 @@ jobs:
         run: |
           bash scripts/release/sign-and-notarize-macos.sh \
             "${{ steps.locate-app.outputs.app_path }}" \
-            "app/src-tauri/entitlements.sidecar.plist"
+            "crates/openhuman-app/entitlements.sidecar.plist"
       - name: Re-package DMG after notarization
         if: inputs.with_macos_signing && matrix.settings.platform == 'macos-latest'
         shell: bash
@@ -695,7 +695,7 @@ jobs:
             desktop-bundles-${{ matrix.settings.platform }}-${{ matrix.settings.artifact_suffix
             }}
           path: |
-            app/src-tauri/target/${{ matrix.settings.target }}/${{ inputs.build_profile }}/bundle/**
+            crates/openhuman-app/target/${{ matrix.settings.target }}/${{ inputs.build_profile }}/bundle/**
             target/${{ matrix.settings.target }}/${{ inputs.build_profile }}/bundle/**
       - name: Upload standalone CLI artifact
         if: inputs.build_sidecar && !inputs.with_release_upload

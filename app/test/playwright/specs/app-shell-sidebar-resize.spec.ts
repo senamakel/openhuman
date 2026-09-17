@@ -38,6 +38,24 @@ const rail = (page: Page) => page.locator('[data-testid="root-shell-divider"]');
 const widthOf = (page: Page) =>
   sidebar(page).evaluate(el => Math.round(el.getBoundingClientRect().width));
 
+/** Read the persisted app-shell width that an application restart rehydrates. */
+async function persistedSidebarWidth(page: Page): Promise<number | null> {
+  return page.evaluate(() => {
+    const userId = localStorage.getItem('OPENHUMAN_ACTIVE_USER_ID');
+    const raw = userId ? localStorage.getItem(`${userId}:persist:layout`) : null;
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as { panels?: string | Record<string, unknown> };
+      const panels = typeof parsed.panels === 'string' ? JSON.parse(parsed.panels) : parsed.panels;
+      const panel = panels?.['app-shell'] as { sidebarWidth?: unknown } | undefined;
+      return typeof panel?.sidebarWidth === 'number' ? panel.sidebarWidth : null;
+    } catch {
+      return null;
+    }
+  });
+}
+
 /**
  * The rail itself has **zero layout width** — `w-0`, deliberately, so it adds
  * nothing to the content card's left gutter (`components/ui/Sidebar.tsx:330`).
@@ -135,6 +153,11 @@ test.describe('App shell — sidebar resize (#5676 AC-4)', () => {
     await page.keyboard.press('ArrowRight');
     const resized = before + 2 * SIDEBAR_KEYBOARD_STEP;
     await expect.poll(() => widthOf(page)).toBe(resized);
+
+    // redux-persist throttles storage writes. A reload before this completes
+    // correctly rehydrates the previous width, while making the test race the
+    // persistence behavior it is meant to prove.
+    await expect.poll(() => persistedSidebarWidth(page), { timeout: 5_000 }).toBe(resized);
 
     await page.reload();
     await dismissWalkthroughIfPresent(page);

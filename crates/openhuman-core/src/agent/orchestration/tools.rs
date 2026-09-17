@@ -1,0 +1,82 @@
+//! Declares the LLM-callable orchestration tools kept in `tools/` (via
+//! `#[path]`, since this file lives in `orchestration/` rather than a
+//! `tools/mod.rs`).
+//!
+//! Tools, by role:
+//! - **Spawn**: `spawn_subagent`, `spawn_async_subagent`,
+//!   `spawn_parallel_agents`, `spawn_worker_thread`.
+//! - **Control**: `steer_subagent`, `continue_subagent`, `close_subagent`,
+//!   `wait_subagent`, `wait` / `wait_loop`, `list_subagents`.
+//! - **Delegation**: `DelegateGraphTool`, `ArchetypeDelegationTool`,
+//!   `SkillDelegationTool`, `CollapsedDelegationTool` (`delegate_to`), and
+//!   `agent_prepare_context`.
+//!
+//! `dispatch.rs`, `awaiting_user.rs`, and `worker_thread.rs` are `pub(crate)`
+//! helpers shared by the tools above (the common spawn path, the awaiting-user
+//! envelope, and worker thread creation), not tools themselves.
+//!
+//! All tools are re-exported through `crate::tools` (`tools/mod.rs`:
+//! `pub use crate::agent::orchestration::tools::*`), which is how the agent
+//! tool-calling loop discovers them. Execution itself goes through
+//! `agent::harness::run_subagent`; this module only owns the tool-call
+//! surface (schema, argument parsing, response formatting).
+
+#[path = "tools/agent_prepare_context.rs"]
+mod agent_prepare_context;
+#[path = "tools/archetype_delegation.rs"]
+mod archetype_delegation;
+#[path = "tools/awaiting_user.rs"]
+mod awaiting_user;
+#[path = "tools/close_subagent.rs"]
+mod close_subagent;
+#[path = "tools/collapsed_delegation.rs"]
+mod collapsed_delegation;
+#[path = "tools/continue_subagent.rs"]
+mod continue_subagent;
+#[path = "tools/delegate_graph.rs"]
+mod delegate_graph;
+#[path = "tools/dispatch.rs"]
+mod dispatch;
+#[path = "tools/list_subagents.rs"]
+mod list_subagents;
+#[path = "tools/skill_delegation.rs"]
+mod skill_delegation;
+#[path = "tools/spawn_async_subagent.rs"]
+mod spawn_async_subagent;
+#[path = "tools/spawn_parallel_agents.rs"]
+mod spawn_parallel_agents;
+#[path = "tools/spawn_subagent.rs"]
+mod spawn_subagent;
+#[path = "tools/spawn_worker_thread.rs"]
+pub mod spawn_worker_thread;
+#[path = "tools/steer_subagent.rs"]
+mod steer_subagent;
+#[cfg(test)]
+#[path = "tools/tools_e2e_tests.rs"]
+mod tools_e2e_tests;
+#[path = "tools/wait.rs"]
+mod wait;
+#[path = "tools/wait_subagent.rs"]
+mod wait_subagent;
+#[path = "tools/worker_thread.rs"]
+mod worker_thread;
+
+pub(crate) use dispatch::dispatch_subagent;
+
+pub use agent_prepare_context::{
+    run_context_scout, run_context_scout_with_catalog, AgentPrepareContextTool,
+};
+pub use archetype_delegation::{ArchetypeDelegationTool, DelegationTarget};
+pub use close_subagent::CloseSubagentTool;
+pub use collapsed_delegation::{CollapsedDelegationTool, DelegateTarget, DELEGATE_TO_TOOL_NAME};
+pub use continue_subagent::ContinueSubagentTool;
+pub use delegate_graph::DelegateGraphTool;
+pub use list_subagents::ListSubagentsTool;
+pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};
+pub use spawn_async_subagent::SpawnAsyncSubagentTool;
+pub use spawn_parallel_agents::SpawnParallelAgentsTool;
+pub use spawn_subagent::SpawnSubagentTool;
+pub use spawn_worker_thread::SpawnWorkerThreadTool;
+pub use steer_subagent::SteerSubagentTool;
+pub use wait::{WaitLoopTool, WaitTool};
+pub use wait_subagent::WaitSubagentTool;

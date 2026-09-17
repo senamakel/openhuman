@@ -18,23 +18,23 @@ use chrono::{Duration as ChronoDuration, Utc};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::openhuman::desktop::app_state::{
-    peek_cached_current_user_identity, snapshot, update_local_state, StoredAppStatePatch,
-    StoredOnboardingTasks,
+use openhuman_core::desktop::app_state::{
+    snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
-use openhuman_core::openhuman::integrations::composio::ops::{
+use openhuman_core::security::credentials::identity::peek_credential_user_identity;
+use openhuman_core::integrations::composio::ops::{
     composio_authorize, composio_execute, composio_list_connections, composio_list_toolkits,
     composio_list_tools,
 };
-use openhuman_core::openhuman::integrations::composio::{
+use openhuman_core::integrations::composio::{
     all_composio_agent_tools, invalidate_connected_integrations_cache,
 };
-use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use openhuman_core::openhuman::security::credentials::{
+use openhuman_core::config::Config;
+use openhuman_core::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::openhuman::tools::{
+use openhuman_core::tools::{
     ComposioAuthorizeTool, ComposioExecuteTool, ComposioListConnectionsTool,
     ComposioListToolkitsTool, ComposioListToolsTool, Tool, ToolCallOptions,
 };
@@ -554,7 +554,7 @@ async fn round18_app_state_snapshot_uses_local_session_cache_and_patch_edges() {
     assert!(snap.onboarding_completed);
     assert!(!snap.analytics_enabled);
 
-    assert!(peek_cached_current_user_identity().is_none());
+    assert!(peek_credential_user_identity().is_none());
 }
 
 async fn composio_backend_handler(State(state): State<MockState>, request: Request) -> Response {

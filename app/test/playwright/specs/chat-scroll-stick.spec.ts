@@ -243,14 +243,12 @@ test.describe('Chat transcript stick-to-bottom', () => {
     // The positive half — without it, the case above would also pass against a
     // transcript that never moves at all, which is its own bug.
     //
-    // NOTE the contract being asserted. An earlier draft expected the reader to
-    // be left AT the bottom (`distanceFromBottom <= 80`), modelled on
-    // `useStickToBottom`'s `STICK_THRESHOLD_PX = 80`. That hook belongs to
-    // `ChatThreadView` — the LEGACY transcript. The shipped viewport is
-    // `ThreadPrimitive.Viewport turnAnchor="top"` (`thread.tsx:223-226`), which
-    // deliberately scrolls the START of a new turn to the top and lets it grow
-    // downward. Measured, that leaves ~1448px below the fold, so the old
-    // expectation failed on a UI that was behaving correctly.
+    // NOTE the contract being asserted. The shipped viewport retains assistant-ui's
+    // bottom-follow behaviour, but disables its unconditional run-start scroll.
+    // That lets a reader who has scrolled up keep their place while a reader at
+    // the bottom follows the new turn. Do not assert an exact bottom distance
+    // here; `useStickToBottom`'s 80px threshold belongs to the legacy
+    // `ChatThreadView`, not this viewport.
     //
     // What the user actually needs is that the new turn is brought into view,
     // and that is what this asserts.

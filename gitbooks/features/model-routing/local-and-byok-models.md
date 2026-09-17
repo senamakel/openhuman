@@ -19,11 +19,18 @@ This page covers how to set up the two self-owned options and, importantly, **wh
 | **Chat & reasoning**                   | Included                      | Your key, your billing                      | Yes, quality scales with model size       |
 | **Vision**                             | Included                      | Your key, if the model supports images      | Yes, but only with a vision-capable model |
 | **Embeddings**                         | Included                      | Your key, if the provider serves embeddings | Yes, `bge-m3` recommended                 |
-| **Speech to text**                     | Included                      | Not routed through BYOK                     | Local Whisper available                   |
-| **Text to speech**                     | Included                      | Not routed through BYOK                     | Local Piper available                     |
+| **Speech to text**                     | Included                      | Your own key, via a voice provider slug     | No local STT engine                       |
+| **Text to speech**                     | Included                      | Your own key, via a voice provider slug     | Local Piper available                     |
 | **Web search**                         | Included, no key needed       | Bring your own Exa key                      | Not applicable                            |
 | **Inference data leaves your machine** | Yes, to the OpenHuman backend | Yes, to your chosen provider                | No                                        |
 | **API keys to manage**                 | None                          | One per provider                            | None                                      |
+
+Speech is configured separately from the LLM workload fields, and the two halves are easy to confuse. `voice_providers` holds the third-party provider **definitions** (slug, endpoint, key, default model or voice); editing one does not change which provider is actually used. The **active route** is picked separately:
+
+- STT reads `stt_provider`, falling back to the legacy `local_ai.stt_provider`, and finally to `voice_server.stt_engine` when neither names a provider.
+- TTS reads `tts_provider`, falling back to the legacy `local_ai.tts_provider`, and finally to `cloud`.
+
+There is no local STT engine: speech-to-text is either the hosted proxy or a third-party API you supply a key for, while TTS keeps a local option in Piper.
 
 That last row is deliberately about **inference data only**. Sign-in, managed integration OAuth, billing, and hosted features such as meeting agents still use the OpenHuman backend even when inference is entirely yours, so running local models is not by itself a guarantee that nothing leaves the machine. If you want a hard guarantee that no inference leaves the machine, use [Privacy Mode](../privacy-mode.md), which enforces the local-only path in the Rust core rather than relying on configuration alone.
 

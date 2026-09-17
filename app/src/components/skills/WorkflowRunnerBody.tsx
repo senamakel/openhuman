@@ -1208,7 +1208,7 @@ const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyProps) =>
                     (() => {
                       // Detect the `[preflight:<gate>:<tag>] <body>` shape
                       // emitted by spawn_skill_run_background's preflight
-                      // branch (src/openhuman/skills/preflight.rs). When
+                      // branch (crates/openhuman-core/src/skills/preflight.rs). When
                       // matched, surface a dedicated "Preflight gate
                       // failed" pill above the body so the user knows
                       // this isn't a generic crash — there's a concrete

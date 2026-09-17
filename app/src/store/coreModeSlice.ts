@@ -6,7 +6,7 @@
  *   cloud    — user-supplied HTTP(S) URL to a remote core RPC endpoint.
  *   gateway  — a core the Tauri shell provisions and runs somewhere else: in a
  *              Docker container, on a machine reached over SSH, or a container
- *              on a machine over SSH (`app/src-tauri/src/gateway/`).
+ *              on a machine over SSH (`crates/openhuman-app/src/gateway/`).
  *
  * The gateway mode stores only an **id**.  Everything about how to reach that
  * core — an SSH destination, an identity path, a bearer — lives shell-side in

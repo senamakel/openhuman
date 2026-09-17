@@ -23,7 +23,7 @@
  *   - UI final-reply assertion is the user-visible acceptance criterion.
  *
  * NOTE: The composio tool name registered in Rust is "composio" (see
- * src/openhuman/tools/impl/network/composio.rs). The LLM-side tool call uses
+ * crates/openhuman-core/src/tools/impl/network/composio.rs). The LLM-side tool call uses
  * the Composio action name as the function.name (e.g. "GMAIL_GET_MAIL").
  * The mock execute endpoint is POST /agent-integrations/composio/execute with
  * body { action: "GMAIL_GET_MAIL", ... }.

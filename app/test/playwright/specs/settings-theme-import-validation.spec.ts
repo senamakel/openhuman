@@ -29,7 +29,8 @@ import {
  */
 
 const importBox = (page: Page) => page.getByLabel('Import theme');
-const importButton = (page: Page) => page.getByRole('button', { name: 'Import', exact: true });
+const importButton = (page: Page) =>
+  page.getByTestId('app-content-surface').getByRole('button', { name: 'Import', exact: true });
 const importError = (page: Page) => page.getByText('Could not parse that theme JSON.');
 
 async function openAppearance(page: Page) {

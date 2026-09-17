@@ -20,7 +20,8 @@
   },
   "license": "MIT",
   "bin": {
-    "openhuman": "./bin/openhuman.js"
+    "openhuman": "./bin/openhuman.js",
+    "openhuman-tui": "./bin/openhuman-tui.js"
   },
   "scripts": {
     "postinstall": "node install.js"

@@ -31,7 +31,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # The scenarios `library-profile` actually dispatches — keep in sync with
-# `src/bin/library_profile/scenarios/mod.rs`, which is the source of truth.
+# `crates/openhuman-core/src/bin/library_profile/scenarios/mod.rs`, which is the source of truth.
 #
 # This list had drifted before openhuman#6161 touched it: `subagents` and
 # `subconscious` are named here and neither has been a scenario for some time

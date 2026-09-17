@@ -61,7 +61,7 @@ while IFS= read -r line; do
          "crate still counts as dependency growth."
     echo "  Find the duplicate or new dependency with:"
     echo "    scripts/kernel-floor.sh $profile"
-    echo "    cargo tree --duplicates --no-default-features --features $profile"
+    echo "    cargo tree -p openhuman --duplicates --no-default-features --features $profile"
     echo "  If the growth is genuinely required, raise the limit in $LIMITS and"
     echo "  justify it in the PR body — do not raise it silently."
     status=1
@@ -78,7 +78,7 @@ while IFS= read -r line; do
          "names, limit is $max_names."
     echo "  A dependency was added to an always-on path. Find it with:"
     echo "    scripts/kernel-floor.sh $profile"
-    echo "    cargo tree -i <suspect> --no-default-features --features $profile"
+    echo "    cargo tree -p openhuman -i <suspect> --no-default-features --features $profile"
     echo "  If the growth is genuinely required, raise the limit in $LIMITS and"
     echo "  justify it in the PR body — do not raise it silently."
     status=1

@@ -204,6 +204,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': '이 작업에서 문제가 발생했습니다.',
   'conversations.toolFailure.unknown.next':
     '다시 시도하세요. 계속 실패하면 설정에서 진단을 실행하세요.',
+  'conversations.toolFailure.notFound.cause':
+    '이 작업이 요청한 항목이 없거나 여기서 사용할 수 없습니다.',
+  'conversations.toolFailure.notFound.next':
+    '따로 할 일은 없습니다. 어시스턴트가 올바른 이름을 찾아 다시 시도할 수 있습니다.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman은 아직 이 작업을 자동으로 할 수 없습니다.',
+  'conversations.toolFailure.unsupported.next': '직접 처리하거나 다른 옵션을 요청하세요.',
   'conversations.backgroundTasks.title': '백그라운드 작업',
   'nav.feedback': '피드백 보내기',
   'feedback.board': '피드백 보드',
@@ -374,6 +381,8 @@ const messages: TranslationMap = {
   'sync.status.success': '성공',
   'sync.status.failed': '실패',
   'sync.status.partial': '가져왔지만 메모리 기록 실패',
+  'sync.nowSyncing.title': '지금 동기화 중',
+  'sync.nowSyncing.empty': '지금 동기화 중인 항목이 없습니다.',
   'common.error': '오류',
   'common.success': '성공',
   'common.back': '뒤로',
@@ -646,6 +655,10 @@ const messages: TranslationMap = {
   'home.statusOk': '어시스턴트가 준비되어 있어요. 아래에 무언가 입력해 시작하세요.',
   'home.statusBackendOnly':
     '백엔드에 다시 연결하는 중입니다… 곧 에이전트를 다시 사용할 수 있습니다.',
+  'home.statusHostedDegraded':
+    '클라우드에 다시 연결하는 중… 채팅은 계속 사용할 수 있으며, 연결이 복구되면 통합과 채널이 다시 동작합니다.',
+  'home.statusHostedStopped':
+    '클라우드 연결이 중단되었습니다. 통합과 채널을 다시 사용하려면 다시 로그인하세요. 채팅은 계속 사용할 수 있습니다.',
   'home.statusCoreUnreachable':
     '로컬 코어 사이드카가 응답하지 않습니다. OpenHuman 백그라운드 프로세스가 중단되었거나 시작하지 못했을 수 있습니다.',
   'home.statusInternetOffline':
@@ -756,6 +769,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': '설치됨',
   'skills.explorer.install': '설치',
   'skills.explorer.installing': '설치 중…',
+  'skills.explorer.notInstallable': '설치 불가',
+  'skills.explorer.notInstallableHint':
+    '이 항목에는 다운로드할 SKILL.md가 없어 여기서 설치할 수 없습니다.',
   'skills.integrations': 'Composio 통합',
   'skills.integrationsSubtitle':
     '클라우드 기반 OAuth 연결: 계정으로 로그인하면 Composio가 토큰을 관리하여 에이전트가 사용자를 대신해 읽고 작동할 수 있습니다. API 키 관리가 필요 없습니다.',
@@ -961,6 +977,7 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedDone': '실패한 작업을 다시 대기열에 넣었습니다',
   'memoryTree.status.retryFailedCount': '{count}개 작업이 다시 실행되도록 대기열에 있습니다.',
   'memoryTree.status.retryFailedError': '실패한 작업을 다시 대기열에 넣지 못했습니다',
+  'memoryTree.status.jobQueue': '메모리 작업: 대기 {ready}개, 실행 중 {running}개, 실패 {failed}개',
   'memoryTree.status.toggleFailed': '자동 동기화를 전환할 수 없습니다.',
   'memoryTree.status.justNow': '방금 전',
   'memoryTree.status.secondsAgo': '{count}초 전',
@@ -2605,8 +2622,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Twitter 검색',
   'memorySources.kind.rss_feed': 'RSS 피드',
   'memorySources.kind.web_page': '웹 페이지',
-  'memorySources.sync.successTitle': '동기화 중',
-  'memorySources.sync.successMessage': '진행 상황이 곧 표시됩니다.',
   'memorySources.sync.failedTitle': '동기화 실패:',
   'memorySources.sync.completeTitle': '동기화됨',
   'memorySources.sync.itemsSynced': '항목 동기화됨',
@@ -2614,6 +2629,13 @@ const messages: TranslationMap = {
   'memorySources.sync.failedLabel': '실패',
   'memorySources.sync.morePending': '동기화할 항목이 더 있습니다. 동기화를 다시 클릭하세요',
   'memorySources.sync.budgetSpent': '오늘의 요청 한도를 모두 사용했습니다. 내일 다시 시도하세요',
+  'memorySources.stage.requested': '시작하는 중',
+  'memorySources.stage.running': '동기화 중',
+  'memorySources.stage.fetching': '가져오는 중',
+  'memorySources.stage.stored': '저장하는 중',
+  'memorySources.stage.queued': '메모리에 반영하는 중',
+  'memorySources.stage.ingesting': '메모리에 반영하는 중',
+  'memorySources.stage.unknown': '동기화 중',
   'time.justNow': '방금 전',
   'time.secondsAgoSuffix': '초 전',
   'time.minutesAgoSuffix': '분 전',

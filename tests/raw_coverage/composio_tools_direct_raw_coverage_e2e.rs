@@ -14,10 +14,10 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::tempdir;
 
-use openhuman_core::openhuman::integrations::composio::client::{direct_execute, direct_list_connections};
-use openhuman_core::openhuman::integrations::composio::trigger_history::ComposioTriggerHistoryStore;
-use openhuman_core::openhuman::security::{AutonomyLevel, SecurityPolicy};
-use openhuman_core::openhuman::tools::{ComposioTool, Tool};
+use openhuman_core::integrations::composio::client::{direct_execute, direct_list_connections};
+use openhuman_core::integrations::composio::trigger_history::ComposioTriggerHistoryStore;
+use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
+use openhuman_core::tools::{ComposioTool, Tool};
 
 #[derive(Clone, Default)]
 struct MockState {

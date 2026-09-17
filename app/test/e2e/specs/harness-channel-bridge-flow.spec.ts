@@ -31,7 +31,7 @@
  *   - "web_search_tool" (not web_search)
  *   - Composio: tool name = "composio", action name in function.name
  *
- * Connect payload shape (from src/openhuman/channels/controllers/schemas.rs):
+ * Connect payload shape (from crates/openhuman-core/src/channels/controllers/schemas.rs):
  *   { channel: "telegram", authMode: "bot_token", credentials: { bot_token: "..." } }
  *
  * Observation strategy:

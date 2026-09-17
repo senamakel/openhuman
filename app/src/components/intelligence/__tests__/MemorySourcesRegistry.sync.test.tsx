@@ -742,7 +742,10 @@ describe('MemorySourcesRegistry', () => {
     act(() => {
       window.dispatchEvent(makeSyncStageEvent({ stage: 'running', source_id: 'src-persist' }));
     });
-    await waitFor(() => expect(screen.getByText('running')).toBeInTheDocument());
+    // openhuman#6257: the row names the stage in plain language.
+    await waitFor(() =>
+      expect(screen.getByText('memorySources.stage.running')).toBeInTheDocument()
+    );
 
     first.unmount();
     // The run goes on with no screen listening.
@@ -754,7 +757,7 @@ describe('MemorySourcesRegistry', () => {
 
     const second = renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
     await waitFor(() => expect(screen.getByText('Source src-persist')).toBeInTheDocument());
-    expect(screen.getByText('fetching')).toBeInTheDocument();
+    expect(screen.getByText('memorySources.stage.fetching')).toBeInTheDocument();
 
     second.unmount();
     act(() => {
@@ -791,7 +794,9 @@ describe('MemorySourcesRegistry', () => {
     ]);
 
     renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
-    await waitFor(() => expect(screen.getByText('running')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('memorySources.stage.running')).toBeInTheDocument()
+    );
     expect(screen.getByText('sync.syncing')).toBeInTheDocument();
   });
 });

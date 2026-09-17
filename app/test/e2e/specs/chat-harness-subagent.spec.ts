@@ -2,10 +2,10 @@
  * Chat harness — orchestrator → subagent flow.
  *
  * The default chat agent after onboarding is the **orchestrator**
- * (`src/openhuman/channels/providers/web.rs::pick_target_agent_id`).
+ * (`crates/openhuman-core/src/channels/providers/web.rs::pick_target_agent_id`).
  * Its `[subagents] allowlist = [...]` section synthesises one delegated archetype tool
  * per archetype at build time (see
- * `src/openhuman/tools/orchestrator_tools.rs`). When the LLM calls
+ * `crates/openhuman-core/src/tools/orchestrator_tools.rs`). When the LLM calls
  * `research` (or any other delegated archetype tool), the tool dispatches
  * to a sub-agent which runs the agent harness loop a level deeper —
  * which means the LLM gets hit at least once more for the sub-agent.

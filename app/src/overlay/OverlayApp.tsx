@@ -2,7 +2,7 @@
  * OverlayApp
  *
  * Standalone React root rendered inside the Tauri `overlay` window (see
- * `app/src-tauri/tauri.conf.json`). The overlay lives in its own WebView
+ * `crates/openhuman-app/tauri.conf.json`). The overlay lives in its own WebView
  * and cannot share Redux state with the main window, so it reacts to
  * signals from the Rust core over a dedicated, unauthenticated Socket.IO
  * connection (same pattern as `useDictationHotkey`).
@@ -311,7 +311,7 @@ export default function OverlayApp() {
         });
 
         // Core emits each event under both colon and underscore forms
-        // (see `emit_with_aliases` in `src/core/socketio.rs`). Subscribe
+        // (see `emit_with_aliases` in `crates/openhuman-core/src/core/socketio.rs`). Subscribe
         // only to the canonical colon-delimited form so each signal fires
         // the handler exactly once.
         socket.on('dictation:toggle', handleDictationToggle);

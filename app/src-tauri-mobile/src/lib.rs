@@ -8,7 +8,7 @@
 
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 compile_error!(
-    "openhuman-mobile only supports iOS and Android. Use app/src-tauri for desktop."
+    "openhuman-mobile only supports iOS and Android. Use crates/openhuman-app for desktop."
 );
 
 use tauri::{AppHandle, Runtime};

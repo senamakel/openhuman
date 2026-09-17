@@ -162,7 +162,7 @@ embedding_dimensions = 0
 embedding_strict = false
 "#;
     std::fs::write(openhuman_dir.join("config.toml"), cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(cfg).expect("test config must match schema");
 }
 
@@ -616,7 +616,7 @@ async fn sandbox_status_local_backend_reports_an_unavailable_jail_as_not_ready()
 
     // `is_available` lives on the `JailBackend` trait, which must be in scope
     // for the method call on the returned `Arc<dyn JailBackend>`.
-    use openhuman_core::openhuman::sandbox::cwd_jail::{default_backend, JailBackend as _};
+    use openhuman_core::sandbox::cwd_jail::{default_backend, JailBackend as _};
     let jail_available = default_backend().is_available();
     if jail_available {
         assert_eq!(local.get("status"), Some(&json!("ready")));

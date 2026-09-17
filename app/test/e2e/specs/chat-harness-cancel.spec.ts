@@ -4,7 +4,7 @@
  *
  * The composer's Cancel button calls `chatService.chatCancel` →
  * `openhuman.channel_web_cancel` → `cancel_chat()` in
- * `src/openhuman/channels/providers/web.rs`. That handler aborts the
+ * `crates/openhuman-core/src/channels/providers/web.rs`. That handler aborts the
  * in-flight JoinHandle, removes the IN_FLIGHT entry, and publishes a
  * `chat_error` event with `error_type = "cancelled"`.
  *

@@ -11,7 +11,7 @@ const USER_ID = 'e2e-tool-browser';
  * 7.1.2 (browser automation). Tracked by issue #967.
  *
  * The `browser_open` and `browser` (automation) tools live in
- * `src/openhuman/tools/impl/browser/` and are agent-internal: they are not
+ * `crates/openhuman-core/src/tools/impl/browser/` and are agent-internal: they are not
  * exposed as JSON-RPC controllers, and the open path shells out to Brave on
  * the user's machine — explicitly out of bounds under the issue's "no real
  * network or shell side-effects" constraint. This spec mirrors the
@@ -20,7 +20,7 @@ const USER_ID = 'e2e-tool-browser';
  * captures the request shape that browser-automation flows would emit when a
  * real LLM eventually drives them. The tool's own validation logic is
  * covered exhaustively by Rust unit tests in
- * `src/openhuman/tools/impl/browser/browser_open_tests.rs` and
+ * `crates/openhuman-core/src/tools/impl/browser/browser_open_tests.rs` and
  * `browser_tests.rs`.
  *
  * What this spec proves end-to-end:
@@ -178,6 +178,6 @@ describe('System tools — Browser (open URL + automation registry)', () => {
     // requires a deterministic mock-LLM that emits structured tool_calls AND
     // a stub for the Brave open path so the test does not shell out on the
     // user's machine. The validation/allowlist path itself is covered by
-    // `src/openhuman/tools/impl/browser/browser_open_tests.rs::*`.
+    // `crates/openhuman-core/src/tools/impl/browser/browser_open_tests.rs::*`.
   });
 });

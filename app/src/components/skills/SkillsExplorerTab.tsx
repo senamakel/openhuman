@@ -282,6 +282,13 @@ function CatalogRow({ entry, installed, installing, onInstall, onClick }: Catalo
       <TableCell className="w-px whitespace-nowrap text-right">
         {installed ? (
           <Badge variant="success">{t('skills.explorer.installed')}</Badge>
+        ) : !entry.download_url ? (
+          <Badge
+            variant="neutral"
+            title={t('skills.explorer.notInstallableHint')}
+            data-testid={`registry-not-installable-${entry.id}`}>
+            {t('skills.explorer.notInstallable')}
+          </Badge>
         ) : (
           <Button
             variant="secondary"
@@ -348,9 +355,15 @@ function SkillDetailDialog({
       footer={
         !installed && onInstall ? (
           <div className="flex justify-end">
-            <Button variant="secondary" size="sm" disabled={installing} onClick={onInstall}>
-              {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
-            </Button>
+            {downloadUrl ? (
+              <Button variant="secondary" size="sm" disabled={installing} onClick={onInstall}>
+                {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
+              </Button>
+            ) : (
+              <p className="text-xs text-content-muted">
+                {t('skills.explorer.notInstallableHint')}
+              </p>
+            )}
           </div>
         ) : undefined
       }>

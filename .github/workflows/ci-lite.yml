@@ -155,6 +155,10 @@ jobs:
               - 'scripts/ci/check-openhuman-rust-layout.mjs'
               - 'scripts/ci/list-feature-gated-rust-tests.mjs'
               - 'Cargo.toml'
+              - 'crates/openhuman-core/**'
+              - 'crates/openhuman-embed/**'
+              - 'crates/openhuman-session/**'
+              - 'crates/openhuman-tui/**'
               - 'Cargo.lock'
               - 'build.rs'
               - '.cargo/config.toml'
@@ -186,6 +190,10 @@ jobs:
               - 'scripts/ci/assert-coverage-presence.sh'
               - 'scripts/ci/coverage-presence-allowlist.txt'
               - 'Cargo.toml'
+              - 'crates/openhuman-core/Cargo.toml'
+              - 'crates/openhuman-embed/Cargo.toml'
+              - 'crates/openhuman-session/Cargo.toml'
+              - 'crates/openhuman-tui/Cargo.toml'
               - 'Cargo.lock'
               - 'build.rs'
               - '.cargo/config.toml'
@@ -199,13 +207,19 @@ jobs:
               - 'vendor/**'
             rust-core-src:
               - 'src/**'
+              - 'crates/openhuman-core/src/**'
+              - 'crates/openhuman-embed/src/**'
+              - 'crates/openhuman-embed/tests/**'
+              - 'crates/openhuman-session/src/**'
+              - 'crates/openhuman-tui/src/**'
+              - 'crates/openhuman-tui/tests/**'
               - 'tests/**'
             rust-tauri:
               - '.github/workflows/ci-lite.yml'
               - 'Cargo.lock'
               - '.cargo/config.toml'
               - 'rust-toolchain.toml'
-              - 'app/src-tauri/**'
+              - 'crates/openhuman-app/**'
               - 'scripts/ci-cancel-aware.sh'
               # The shell is a second Cargo world with its own duplicate
               # `[patch.crates-io]` table pointing at the same submodules, so it
@@ -240,7 +254,7 @@ jobs:
             inventory:
               - '.github/workflows/**'
               - 'package.json'
-              - 'src/core/all.rs'
+              - 'crates/openhuman-core/src/core/all.rs'
               - 'tests/**'
               - 'scripts/**/*.test.mjs'
               - 'scripts/tests/**'
@@ -276,26 +290,21 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # The RPC-catalog drift-guard test (rpcMethods.test.ts) reads
-      # vendor/tinychannels/crates/tinychannels-bus/src/controllers/schemas.rs
-      # at test time (controller metadata is contract, so it lives in the bus
-      # crate). Still one submodule — the bus crate is a workspace member of
-      # vendor/tinychannels, not a submodule of its own. This lane
-      # otherwise checks out without submodules, so init just that one — not
-      # `submodules: recursive`, which would also pull the large tauri-cef fork
-      # this job never builds. Mirrors the same fix in test-reusable.yml's
-      # `unit-tests` job.
+      # The RPC-catalog drift guard reads tinychannels, while the app's
+      # `rust:format:check` now formats the virtual root workspace. Cargo must
+      # load every local path dependency's manifest before rustfmt can select
+      # workspace packages, so initialize the complete root vendor graph.
       #
       # `actions/checkout` scopes its own `safe.directory` config to a
       # temporary HOME for the duration of the checkout step only — it does
       # not persist into this container job's real HOME, so a bare `git`
       # invocation in a later step hits "detected dubious ownership" here.
       # Add the workspace as a safe directory ourselves before touching git.
-      - name: Init tinychannels submodule (drift-guard test reads its schemas)
+      - name: Init Rust workspace submodules
         if: needs.changes.outputs.frontend == 'true'
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git submodule update --init vendor/tinychannels
+          git submodule update --init --recursive vendor/
 
       - name: Cache pnpm store
         id: pnpm-cache
@@ -385,7 +394,10 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs['rust-core'] == 'true' || needs.changes.outputs['rust-tauri'] == 'true'
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    # This lane compiles the product and contributor core graphs, executes the
+    # embedding facade tests, then checks the detached Tauri Cargo world. A cold
+    # runner needs more than the former 20-minute budget to reach Tauri clippy.
+    timeout-minutes: 40
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
     env:
@@ -404,7 +416,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           # shared-key (not key) so the cache name is stable and not suffixed
           # with the job id. Swatinem caches the full target/, which is why we
@@ -444,6 +456,22 @@ jobs:
         # green. Cheap: this graph is ~356 packages against the product's ~567.
         run: bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman -- -D warnings
 
+      - name: Check embedding facade
+        if: needs.changes.outputs['rust-core'] == 'true'
+        run: |
+          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-embed --all-targets -- -D warnings
+          bash scripts/ci-cancel-aware.sh cargo check -p openhuman-embed --no-default-features
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed
+
+      - name: Check session crate
+        if: needs.changes.outputs['rust-core'] == 'true'
+        # `openhuman-session` is the host-side login/session owner shared by the
+        # Tauri shell and the TUI. It has no `openhuman` dependency, so it
+        # compiles in seconds and its tests run against in-process stubs.
+        run: |
+          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-session --all-targets -- -D warnings
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-session
+
       - name: Cache CEF binary distribution
         if: needs.changes.outputs['rust-tauri'] == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -451,13 +479,13 @@ jobs:
           path: |
             ~/Library/Caches/tauri-cef
             ~/.cache/tauri-cef
-          key: cef-x86_64-unknown-linux-gnu-v2-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-x86_64-unknown-linux-gnu-v2-${{ hashFiles('crates/openhuman-app/Cargo.toml') }}
           restore-keys: |
             cef-x86_64-unknown-linux-gnu-v2-
 
       - name: Run clippy (Tauri shell)
         if: needs.changes.outputs['rust-tauri'] == 'true'
-        run: bash scripts/ci-cancel-aware.sh cargo clippy --manifest-path app/src-tauri/Cargo.toml -- -D warnings
+        run: bash scripts/ci-cancel-aware.sh cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings
 
   # Feature-gate smoke: proves the core still compiles with a domain gate turned
   # OFF. The disabled build is the ONLY thing that catches stub-facade signature
@@ -504,15 +532,14 @@ jobs:
         # a #[cfg] and so do not compile with the gates off. That cleanup is tracked
         # in #5021 alongside running the full gates-off suite; until it lands, this
         # lane checks the lib and RUNS the gate-contract lib tests below.
-        run: bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml --no-default-features
+        run: bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml -p openhuman --no-default-features
 
-      - name: Check the gates that are in NEITHER the contributor nor the product set
-        # Two gates are default-OFF *and* absent from the product set, so
+      - name: Check the gate that is in neither the contributor nor the product set
+        # This gate is default-OFF *and* absent from the product set, so
         # nothing else in CI compiles them: the product lanes do not select
         # them, the contributor lanes no longer default them on, and the
         # gates-off check above turns them off.
         #
-        #   tui               — a terminal front-end; the app ships its own UI.
         #   e2e-test-support  — the `test`/`test_support` RPC family, turned on
         #                       only by app/scripts/e2e-build.sh for the packaged
         #                       desktop E2E binary. It includes
@@ -527,15 +554,10 @@ jobs:
         # `e2e-test-support` sat in this position from the day it was added
         # until #6086 and was never `cargo check`ed by CI in either state.
         #
-        # Checked in SEPARATE invocations on purpose: `--features tui,e2e-test-support`
-        # would let one gate compile only because the other pulled a dependency
-        # in, which is the false pass this lane exists to prevent.
-        #
         # If a future gate lands in this same neither-set position, add it here
         # AND to the list in CLAUDE.md's "gate in neither set" note.
         run: |
-          bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml --no-default-features --features tui
-          bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml --no-default-features --features e2e-test-support
+          bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support
 
       - name: Run the gate-contract tests with the default domain gates disabled
         # `cargo check` (even --all-targets) never RUNS tests, so a gated family that
@@ -558,10 +580,10 @@ jobs:
         # test by scope, not by skip. Running the full suite is tracked in #5021.
         run: |
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
-            --no-default-features --lib -- \
+            -p openhuman --no-default-features --lib -- \
             core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent::registry::agents::loader:: memory::people::contacts_gate_tests:: openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
-            --no-default-features --features mcp --lib -- \
+            -p openhuman --no-default-features --features mcp --lib -- \
             mcp::server::resources::
           # `test_support` is behind `e2e-test-support`, a gate in neither the
           # contributor nor the product set, so no other lane RUNS these — the
@@ -584,7 +606,7 @@ jobs:
           # expose, so the filter is narrowed and the gap is named instead.
           # Re-widen to `test_support::` once that is resolved.
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
-            --no-default-features --features e2e-test-support --lib -- \
+            -p openhuman --no-default-features --features e2e-test-support --lib -- \
             test_support::introspect::
 
       - name: Guard — the kernel dependency floor may not grow
@@ -631,6 +653,9 @@ jobs:
         # build count unchanged at 2. 273 -> 275 on 2026-08-31: the compatible
         # dependency refresh recorded in `kernel-floor.limits` raised the
         # resolved Linux name count while keeping the native build count at 2.
+        # 269 -> 270 on 2026-09-13: the core/wrapper split adds the required
+        # `openhuman-rpc` workspace crate; its five dependencies were already
+        # in the profile, so this is one package/name and no native build.
         # See the kernel-floor history for why
         # these raises are temporary/justified. macOS resolves one higher per
         # the host skew recorded in the limits history — this expects the CI
@@ -640,7 +665,7 @@ jobs:
         # it is a second source of truth for the same Linux name count and is
         # not derived from that file. Bump both in the same PR that raises
         # (or lowers) the floor.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 269
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 270
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on
@@ -652,46 +677,48 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED=$(cat <<'EOF'
+          agent/harness/builtin_definitions_tests.rs
+          agent/harness/definition_tests.rs
+          agent/harness/mod.rs
+          agent/harness/session/builder/factory.rs
+          agent/harness/session/session_builder_and_listener_tests.rs
+          agent/harness/session/turn/tools.rs
+          agent/harness/subagent_runner/tool_prep_tests.rs
+          agent/registry/agents/loader.rs
+          agent/registry/agents/loader_tests_builtin_registration_tests.rs
+          agent/registry/agents/loader_tests_orchestrator_tier_tests.rs
+          agent/registry/agents/loader_tests_specialist_agents_tests.rs
+          agent/tinyagents/mod.rs
+          config/migrations/retire_local_whisper_stt_tests.rs
           core/all.rs
           core/all_tests.rs
           core/cli_tests.rs
-          core/dispatch.rs
+          core/dispatch_tests.rs
           core/jsonrpc.rs
           core/jsonrpc_tests.rs
-          core/legacy_aliases.rs
+          core/legacy_aliases_tests.rs
           core/runtime/services.rs
-          embed/harness/builder.rs
-          embed/harness/builder_tests.rs
-          openhuman/agent/harness/builtin_definitions_tests.rs
-          openhuman/agent/harness/definition_tests.rs
-          openhuman/agent/harness/mod.rs
-          openhuman/agent/harness/session/session_tests_part_01_tests.rs
-          openhuman/agent/harness/subagent_runner/tool_prep_tests.rs
-          openhuman/agent/registry/agents/loader.rs
-          openhuman/agent/registry/agents/loader_tests_part_01_tests.rs
-          openhuman/agent/registry/agents/loader_tests_part_02_tests.rs
-          openhuman/agent/registry/agents/loader_tests_part_03_tests.rs
-          openhuman/config/migrations/retire_local_whisper_stt_tests.rs
-          openhuman/flows/mod.rs
-          openhuman/mcp/server/resources.rs
-          openhuman/mcp/server/tools/mod.rs
-          openhuman/platform/socket/event_handlers.rs
-          openhuman/platform/socket/ops.rs
-          openhuman/skills/mod.rs
-          openhuman/tools/impl/network/http_request.rs
-          openhuman/tools/ops.rs
-          openhuman/tools/ops_tests.rs
-          openhuman/tools/ops_tests_part_01_tests.rs
-          openhuman/tools/ops_tests_part_03_tests.rs
-          openhuman/tools/ops_tests_part_04_tests.rs
-          openhuman/tools/registry/ops_tests.rs
-          openhuman/tools/registry/schemas_tests.rs
-          openhuman/voice/compile_status_tests.rs
-          openhuman/web3/mod.rs
-          openhuman/web3/stub.rs
-          openhuman/web3/wallet/stub.rs
-          openhuman/web3/x402/stub.rs
-          tui/runner.rs
+          flows/mod.rs
+          mcp/server/resources.rs
+          mcp/server/tools/mod.rs
+          platform/socket/event_handlers.rs
+          platform/socket/ops.rs
+          skills/bundled/mod.rs
+          skills/mod.rs
+          skills/search.rs
+          tools/impl/network/http_request.rs
+          tools/ops.rs
+          tools/ops_tests.rs
+          tools/ops_tests_capability_gating_tests.rs
+          tools/ops_tests_default_registry_tests.rs
+          tools/ops_tests_domain_family_tests.rs
+          tools/registry/ops_tests.rs
+          tools/registry/schemas_tests.rs
+          voice/compile_status_tests.rs
+          web3/mod.rs
+          web3/stub.rs
+          web3/wallet/stub.rs
+          web3/x402/stub.rs
           EOF
           )
           ACTUAL=$(node scripts/ci/list-feature-gated-rust-tests.mjs | sort -u)
@@ -757,9 +784,10 @@ jobs:
     runs-on: ubuntu-22.04
     # 30 min was only ever enough because a stack overflow aborted the run early
     # (see RUST_MIN_STACK below). With the overflow fixed the job runs the full
-    # instrumented suite (~13.6k tests, single-threaded build) end-to-end, which
-    # needs more wall-time.
-    timeout-minutes: 50
+    # instrumented suite plus the embed/TUI and sequential integration targets
+    # end-to-end. The expanded workspace now runs past 50 minutes on a warm
+    # runner, so retain enough headroom for the integration tail to complete.
+    timeout-minutes: 90
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
     env:
@@ -829,7 +857,7 @@ jobs:
           # reason: the archive name, the release tag and the checksum each used to
           # carry the version independently, so a bump could update two of the three
           # and leave a stale digest that only fails after the download. Both values
-          # are the ubuntu-22.04-x86_64 row of `src/openhuman/modules/registry.rs`,
+          # are the ubuntu-22.04-x86_64 row of `crates/openhuman-core/src/modules/registry.rs`,
           # which is the authoritative pin — copy them from there, never recompute.
           memory_version="1.16.0"
           memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
@@ -953,7 +981,7 @@ jobs:
         with:
           workspaces: |
             . -> target
-            app/src-tauri -> target
+            crates/openhuman-app -> target
           cache-on-failure: true
           # Tauri shell coverage (instrumented) — its own stable cache; reuses
           # its warm dependency tree run-over-run.
@@ -966,7 +994,7 @@ jobs:
           path: |
             ~/Library/Caches/tauri-cef
             ~/.cache/tauri-cef
-          key: cef-x86_64-unknown-linux-gnu-v2-${{ hashFiles('app/src-tauri/Cargo.toml') }}
+          key: cef-x86_64-unknown-linux-gnu-v2-${{ hashFiles('crates/openhuman-app/Cargo.toml') }}
           restore-keys: |
             cef-x86_64-unknown-linux-gnu-v2-
 
@@ -974,11 +1002,11 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Clear stale Tauri coverage artifacts
-        # rust-cache restores app/src-tauri/target, including llvm-cov-target.
+        # rust-cache restores crates/openhuman-app/target, including llvm-cov-target.
         # cargo's fingerprints do not distinguish a previously restored
         # non-instrumented test executable, which then runs successfully but
         # produces no .profraw file for cargo-llvm-cov to merge.
-        run: cargo llvm-cov clean --manifest-path app/src-tauri/Cargo.toml
+        run: cargo llvm-cov clean --manifest-path crates/openhuman-app/Cargo.toml
 
       - name: Run cargo llvm-cov for Tauri shell
         run: |
@@ -989,7 +1017,7 @@ jobs:
           # The job-level linker flag must also be cleared: llvm-cov sets the
           # same variable with `-C instrument-coverage` for this invocation.
           unset RUSTFLAGS
-          bash scripts/ci-cancel-aware.sh cargo llvm-cov --no-rustc-wrapper --manifest-path app/src-tauri/Cargo.toml --lcov --output-path lcov-tauri.info
+          bash scripts/ci-cancel-aware.sh cargo llvm-cov --no-rustc-wrapper --manifest-path crates/openhuman-app/Cargo.toml --lcov --output-path lcov-tauri.info
         env:
           # Serialize codegen/link to cap peak memory + disk during the
           # instrumented Tauri-shell link (SIGBUS otherwise). Mirrors
@@ -1069,7 +1097,7 @@ jobs:
 
       # Node-only guard (no workspace deps): asserts every script-level test is
       # invoked by a package.json script/workflow, and every controller domain
-      # in src/core/all.rs is referenced under tests/.
+      # in crates/openhuman-core/src/core/all.rs is referenced under tests/.
       - name: Run test-inventory guard
         run: pnpm test:inventory
 
@@ -1146,6 +1174,23 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
+
+      # actions/checkout populates the pinned submodule commits but does not
+      # fetch their tag refs. The pin gate uses `git describe --tags` to compare
+      # each source contract to its registry artifact version, so make that
+      # metadata available explicitly without widening the main checkout.
+      - name: Fetch submodule tags for module pin verification
+        run: |
+          for module in \
+            vendor/tinydocs vendor/tinywallet vendor/tinymemory vendor/tinyjuice \
+            vendor/tinyvoice vendor/tinyruntime vendor/tinymcp vendor/tinyconnectors
+          do
+            if [ "$(git -C "$module" rev-parse --is-shallow-repository)" = true ]; then
+              git -C "$module" fetch --unshallow --tags origin
+            else
+              git -C "$module" fetch --tags origin
+            fi
+          done
 
       # Nine subsystems load as downloaded cdylib modules and each is pinned
       # twice: once as a submodule (the contract compiled here) and once as a

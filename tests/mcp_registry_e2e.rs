@@ -12,7 +12,7 @@
 // build's `cargo test --no-default-features --tests` fails to compile against the removed APIs (#4799).
 #![cfg(feature = "mcp")]
 
-use openhuman_core::openhuman::config::Config;
+use openhuman_core::config::Config;
 use tinymcp_bus::{CommandKind, InstalledServer, Transport};
 
 /// The service over `config`'s workspace.
@@ -20,15 +20,15 @@ use tinymcp_bus::{CommandKind, InstalledServer, Transport};
 /// Resolved the same way the RPC handlers resolve it, so a connection this test
 /// opens directly is the same one a handler sees. Each case uses its own
 /// workspace, so each gets its own store.
-fn host(config: &Config) -> std::sync::Arc<openhuman_core::openhuman::mcp::host::McpHost> {
-    openhuman_core::openhuman::mcp::host::for_config(config).expect("the mcp host opens")
+fn host(config: &Config) -> std::sync::Arc<openhuman_core::mcp::host::McpHost> {
+    openhuman_core::mcp::host::for_config(config).expect("the mcp host opens")
 }
 
 /// Runs exactly one supervision cycle against `host`.
 ///
 /// Driven a tick at a time rather than through the loop, so the test does not
 /// wait on a timer for something it can ask for directly.
-async fn supervise_once(host: &openhuman_core::openhuman::mcp::host::McpHost) {
+async fn supervise_once(host: &openhuman_core::mcp::host::McpHost) {
     let mut supervisor = tinymcp::Supervisor::new(
         tinymcp::SupervisorConfig::default(),
         tinymcp_bus::McpClientIdentityConfig::default(),
@@ -307,7 +307,7 @@ async fn status_reflects_last_connect_error() {
 
 #[tokio::test]
 async fn boot_skips_disabled_servers_and_records_errors() {
-    use openhuman_core::openhuman::mcp::registry::boot;
+    use openhuman_core::mcp::registry::boot;
 
     let (_tmp, cfg) = fresh_workspace_config();
     let h = host(&cfg);
@@ -363,7 +363,7 @@ async fn boot_skips_disabled_servers_and_records_errors() {
 
 #[tokio::test]
 async fn set_enabled_false_disconnects_running_server() {
-    use openhuman_core::openhuman::mcp::registry::ops;
+    use openhuman_core::mcp::registry::ops;
 
     let (_tmp, cfg) = fresh_workspace_config();
     let h = host(&cfg);
@@ -403,7 +403,7 @@ async fn set_enabled_false_disconnects_running_server() {
 
 #[tokio::test]
 async fn connect_refuses_disabled_server() {
-    use openhuman_core::openhuman::mcp::registry::ops;
+    use openhuman_core::mcp::registry::ops;
 
     let (_tmp, cfg) = fresh_workspace_config();
     let h = host(&cfg);
@@ -422,7 +422,7 @@ async fn connect_refuses_disabled_server() {
 
 #[tokio::test]
 async fn set_enabled_true_clears_disabled_status_but_does_not_auto_connect() {
-    use openhuman_core::openhuman::mcp::registry::ops;
+    use openhuman_core::mcp::registry::ops;
 
     let (_tmp, cfg) = fresh_workspace_config();
     let h = host(&cfg);
@@ -447,7 +447,7 @@ async fn set_enabled_true_clears_disabled_status_but_does_not_auto_connect() {
 
 #[tokio::test]
 async fn update_env_on_disabled_server_persists_but_does_not_reconnect() {
-    use openhuman_core::openhuman::mcp::registry::ops;
+    use openhuman_core::mcp::registry::ops;
     use std::collections::HashMap;
 
     let (_tmp, cfg) = fresh_workspace_config();
@@ -481,7 +481,7 @@ async fn update_env_merges_partial_update_preserving_other_secrets() {
     // payload over the stored env, not replace-all. The connect modal can only
     // send the field the user just typed (it cannot display existing secrets),
     // so a replace-all would silently erase every other stored credential.
-    use openhuman_core::openhuman::mcp::registry::ops;
+    use openhuman_core::mcp::registry::ops;
     use std::collections::HashMap;
 
     let (_tmp, cfg) = fresh_workspace_config();
@@ -697,8 +697,8 @@ async fn supervisor_skips_a_disabled_server() {
 /// An embedder holding its own per-config service is in that state permanently.
 #[tokio::test]
 async fn per_config_lookups_see_a_per_config_connection() {
-    use openhuman_core::openhuman::mcp::host;
-    use openhuman_core::openhuman::mcp::registry::connections;
+    use openhuman_core::mcp::host;
+    use openhuman_core::mcp::registry::connections;
 
     let (_tmp_a, cfg_a) = fresh_workspace_config();
     let (_tmp_b, cfg_b) = fresh_workspace_config();
@@ -892,8 +892,8 @@ fn make_http_remote_server(url: &str) -> InstalledServer {
 /// an error recorded — which is exactly the confusion #5701 was filed about.
 #[tokio::test]
 async fn per_config_failure_lookups_surface_the_reason() {
-    use openhuman_core::openhuman::mcp::host;
-    use openhuman_core::openhuman::mcp::registry::connections;
+    use openhuman_core::mcp::host;
+    use openhuman_core::mcp::registry::connections;
     use wiremock::matchers::any;
     use wiremock::{Mock, MockServer, ResponseTemplate};
 

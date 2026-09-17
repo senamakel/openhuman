@@ -115,6 +115,19 @@ describe('<MemoryTreeStatusPanel />', () => {
     expect(screen.getByTestId('memory-tree-last-sync')).toHaveTextContent(/min ago/);
   });
 
+  it('shows the memory-tree job queue a sync feeds (openhuman#6257)', async () => {
+    mockPipelineStatus.mockResolvedValue(
+      payload({ pipeline_jobs: { ready: 1234, running: 1, failed: 2 } })
+    );
+    render(<MemoryTreeStatusPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('memory-tree-job-queue')).toHaveTextContent(
+        'Memory jobs: 1,234 waiting, 1 running, 2 failed'
+      );
+    });
+  });
+
   it('fetches integration list and pipeline status in parallel on the same tick', async () => {
     mockPipelineStatus.mockResolvedValue(payload());
     mockSyncStatusList.mockResolvedValue([

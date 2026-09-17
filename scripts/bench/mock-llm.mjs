@@ -34,7 +34,7 @@
  * Options:
  *   --port <n>          listen port. MUST NOT be one of 11434/8000/8080/1234/8888:
  *                       the core classifies those as local-AI endpoints and
- *                       routes around them (see LOCAL_AI_PORTS in src/api/config.rs).
+ *                       routes around them (see LOCAL_AI_PORTS in crates/openhuman-core/src/api/config.rs).
  *   --latency-ms <n>    mean added latency per completion (default 0)
  *   --jitter-ms <n>     deterministic +/- jitter around that mean (default 0)
  *   --tool-depth <n>    tool calls to emit before the final answer (default 0)

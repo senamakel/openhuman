@@ -41,10 +41,10 @@ use tempfile::TempDir;
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::agent::learning::candidate::{
+use openhuman_core::agent::learning::candidate::{
     self, CueFamily, EvidenceRef, FacetClass, LearningCandidate,
 };
-use openhuman_core::openhuman::config::Config;
+use openhuman_core::config::Config;
 
 /// Preferred bearer. Only the real one if this module wins the process-global
 /// `OnceLock` race — send [`rpc_bearer`], never this.
@@ -116,7 +116,7 @@ fn ensure_memory_seams() {
             .spawn(|| {
                 let config = Arc::new(shared_config_at(learning_workspace()));
                 #[cfg(feature = "modules")]
-                openhuman_core::openhuman::modules::memory::set_modules_policy(config);
+                openhuman_core::modules::memory::set_modules_policy(config);
             })
             .expect("spawn learning facets seam installer")
             .join()
@@ -663,7 +663,7 @@ async fn learning_facet_lifecycle_from_rebuild_to_reset() {
 /// The wording asserted here is **`core::all::validate_params`'**, not the
 /// handlers'. Every dispatch is schema-validated for required-presence, unknown
 /// params and declared types *before* the handler body runs
-/// (`src/core/all.rs:1334`), so the handlers' own
+/// (`crates/openhuman-core/src/core/all.rs:1334`), so the handlers' own
 /// ``missing required `class` `` strings are unreachable over RPC. Asserting the
 /// handler's wording would pass only if that uniform gate were removed.
 #[tokio::test]

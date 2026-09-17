@@ -2,7 +2,7 @@
  * pttTranscribe — speech-to-text adapter for pttService.
  *
  * Reuses the existing `openhuman.voice_transcribe_bytes` RPC (see
- * `src/openhuman/voice/ops.rs`). The Rust side picks the hosted engine
+ * `crates/openhuman-core/src/voice/ops.rs`). The Rust side picks the hosted engine
  * routing based on the user's `stt_provider` setting and applies optional
  * LLM cleanup, so the renderer only needs to push raw bytes.
  *

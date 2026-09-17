@@ -457,7 +457,7 @@ async fn setup(extra: Vec<EnvVarGuard>, plant_session: bool) -> Harness {
     let openhuman_home = home.join(".openhuman");
     std::fs::create_dir_all(&openhuman_home).expect("create .openhuman");
     std::fs::write(openhuman_home.join("config.toml"), MIN_CONFIG).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(MIN_CONFIG).expect("test config must match the config schema");
 
     let workspace = home.join("workspace");
@@ -477,10 +477,10 @@ async fn setup(extra: Vec<EnvVarGuard>, plant_session: bool) -> Harness {
         // Write into the same profile store `get_session_token` reads
         // (`session_support.rs:243-248` → `AuthService::get_profile`), so the
         // token resolves through production's own path rather than a test seam.
-        use openhuman_core::openhuman::security::credentials::{
+        use openhuman_core::security::credentials::{
             AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
         };
-        let config = openhuman_core::openhuman::config::Config::load_or_init()
+        let config = openhuman_core::config::Config::load_or_init()
             .await
             .expect("load config for session planting");
         AuthService::from_config(&config)

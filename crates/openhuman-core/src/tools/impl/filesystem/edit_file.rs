@@ -1,0 +1,234 @@
+//! `edit` — string-replace edit on a single file.
+//!
+//! Coding-harness baseline tool (issue #1205). Models the
+//! Anthropic/Claude-Code `Edit` semantics: exact-match `old_string` →
+//! `new_string` substitution. By default, `old_string` MUST match
+//! exactly once in the file (so the model can't accidentally edit
+//! every match). Set `replace_all` to override.
+
+use crate::agent::file_state;
+use crate::security::{CommandClass, GateDecision, SecurityPolicy};
+use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use async_trait::async_trait;
+use serde_json::json;
+use std::sync::Arc;
+use tinytools::ToolRunContext;
+
+const MAX_FILE_BYTES: u64 = 5 * 1024 * 1024;
+
+pub struct EditFileTool {
+    security: Arc<SecurityPolicy>,
+    sink: Arc<dyn super::write_sink::FileSink>,
+}
+
+impl EditFileTool {
+    pub fn new(security: Arc<SecurityPolicy>) -> Self {
+        Self {
+            security,
+            sink: super::write_sink::os_sink(),
+        }
+    }
+
+    /// Sends this tool's writes somewhere other than the OS.
+    #[cfg(test)]
+    pub fn with_sink(mut self, sink: Arc<dyn super::write_sink::FileSink>) -> Self {
+        self.sink = sink;
+        self
+    }
+}
+
+#[async_trait]
+impl Tool for EditFileTool {
+    fn name(&self) -> &str {
+        "edit"
+    }
+
+    fn description(&self) -> &str {
+        "Edit a file by exact string replacement. By default `old_string` must \
+         match exactly once. Set `replace_all` to true to replace every match."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "path": { "type": "string", "description": "Workspace-relative file path." },
+                "old_string": { "type": "string", "description": "Text to find. Must match exactly." },
+                "new_string": { "type": "string", "description": "Replacement text." },
+                "replace_all": {
+                    "type": "boolean",
+                    "description": "If true, replace every occurrence (default false).",
+                    "default": false
+                }
+            },
+            "required": ["path", "old_string", "new_string"]
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    /// `edit` always modifies an **existing** file → in ask-before-edit it
+    /// routes through the human approval gate; in Full it runs; read-only is
+    /// blocked in `execute`.
+    fn external_effect_with_args(&self, _args: &serde_json::Value) -> bool {
+        self.security.gate_decision(CommandClass::Write) == GateDecision::Prompt
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, context).await
+    }
+}
+
+impl EditFileTool {
+    async fn execute_in_context(
+        &self,
+        args: serde_json::Value,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let path = args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing 'path' parameter"))?;
+        let old_string = args
+            .get("old_string")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing 'old_string' parameter"))?;
+        let new_string = args
+            .get("new_string")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing 'new_string' parameter"))?;
+        let replace_all = args
+            .get("replace_all")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        if old_string.is_empty() {
+            return Ok(ToolResult::error("`old_string` must not be empty"));
+        }
+        if old_string == new_string {
+            return Ok(ToolResult::error(
+                "`old_string` and `new_string` are identical — nothing to do",
+            ));
+        }
+
+        if !self.security.can_act() {
+            return Ok(ToolResult::error(
+                "[policy-blocked] Action blocked: autonomy is read-only",
+            ));
+        }
+        if self.security.is_rate_limited() {
+            return Ok(ToolResult::error(
+                "Rate limit exceeded: too many actions in the last hour",
+            ));
+        }
+        if !self.security.record_action() {
+            return Ok(ToolResult::error(
+                "Rate limit exceeded: action budget exhausted",
+            ));
+        }
+
+        let path_policy = super::security_for_tool_context(&self.security, context, "edit");
+        let full = path_policy.action_dir.join(path);
+
+        // Symlink check must happen on the *unresolved* path —
+        // `canonicalize` resolves symlinks, so checking after that point
+        // would always see the link's final target.
+        if let Ok(meta) = tokio::fs::symlink_metadata(&full).await {
+            if meta.file_type().is_symlink() {
+                return Ok(ToolResult::error(format!(
+                    "Refusing to edit through symlink: {}",
+                    full.display()
+                )));
+            }
+        }
+
+        // Security check: validate path string, resolve symlinks, confirm workspace containment.
+        let resolved = match path_policy.validate_path(path).await {
+            Ok(p) => p,
+            Err(msg) => return Ok(ToolResult::error(msg)),
+        };
+
+        if let Ok(meta) = tokio::fs::metadata(&resolved).await {
+            if meta.len() > MAX_FILE_BYTES {
+                return Ok(ToolResult::error(format!(
+                    "File too large: {} bytes (limit: {MAX_FILE_BYTES} bytes)",
+                    meta.len()
+                )));
+            }
+        }
+
+        // Acquire per-path lock for the read-modify-write section.
+        let _path_guard = file_state::acquire_path_lock(&resolved).await;
+
+        // File-state guard: reject edits based on stale or partial reads.
+        if let Some(agent_id) = file_state::current_file_state_agent_id() {
+            if let Some(msg) = file_state::check_stale_read(&agent_id, &resolved) {
+                tracing::debug!(
+                    agent = %agent_id,
+                    path = %resolved.display(),
+                    "[file_state] edit blocked: stale read"
+                );
+                return Ok(ToolResult::error(msg));
+            }
+            if let Some(msg) = file_state::check_partial_read(&agent_id, &resolved) {
+                tracing::debug!(
+                    agent = %agent_id,
+                    path = %resolved.display(),
+                    "[file_state] edit blocked: partial read"
+                );
+                return Ok(ToolResult::error(msg));
+            }
+        }
+
+        let contents = match tokio::fs::read_to_string(&resolved).await {
+            Ok(c) => c,
+            Err(e) => return Ok(ToolResult::error(format!("Failed to read file: {e}"))),
+        };
+
+        let count = contents.matches(old_string).count();
+        if count == 0 {
+            return Ok(ToolResult::error(format!(
+                "`old_string` not found in {path}"
+            )));
+        }
+        if count > 1 && !replace_all {
+            return Ok(ToolResult::error(format!(
+                "`old_string` matches {count} times in {path}; pass `replace_all: true` or \
+                 expand `old_string` so it is unique"
+            )));
+        }
+
+        let updated = if replace_all {
+            contents.replace(old_string, new_string)
+        } else {
+            contents.replacen(old_string, new_string, 1)
+        };
+
+        match self.sink.write(&resolved, updated.as_bytes()).await {
+            Ok(()) => {
+                if let Some(agent_id) = file_state::current_file_state_agent_id() {
+                    file_state::record_write(&agent_id, resolved);
+                }
+                Ok(ToolResult::success(format!(
+                    "Edited {path}: {count} replacement(s)"
+                )))
+            }
+            Err(e) => Ok(ToolResult::error(format!("Failed to write file: {e}"))),
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "edit_file_tests.rs"]
+mod tests;

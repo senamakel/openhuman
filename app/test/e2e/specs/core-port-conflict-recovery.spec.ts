@@ -14,7 +14,7 @@
  * Gap note (port fallback path):
  *   The desktop app's CoreProcessHandle selects a fallback port when the
  *   preferred port is occupied by a non-OpenHuman listener
- *   (see app/src-tauri/src/core_process.rs, `identify_listener` +
+ *   (see crates/openhuman-app/src/core_process.rs, `identify_listener` +
  *   `is_expected_port_clash`). The fallback port is communicated back via
  *   `EmbeddedReadySignal.fallback_from`. The UI does not currently render a
  *   user-visible "port conflict" dialog — the app continues working on the
@@ -119,7 +119,7 @@ describe('Core port conflict recovery', () => {
     // "port conflict" or "core unavailable" dialog.
     //
     // Gap: the dialog does not yet exist. Filed as a product gap in
-    // app/src-tauri/src/core_process.rs — the `ListenerKind::Unknown` branch
+    // crates/openhuman-app/src/core_process.rs — the `ListenerKind::Unknown` branch
     // logs the conflict but does not emit a Tauri event that the frontend
     // renders.
     let release: (() => Promise<void>) | undefined;

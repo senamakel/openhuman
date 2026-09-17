@@ -27,6 +27,7 @@ export OPENHUMAN_KEYRING_BACKEND="${OPENHUMAN_KEYRING_BACKEND:-file}"
 MOCK_PID=""
 CORE_PID=""
 WEB_PID=""
+CORE_MONITOR_PID=""
 
 cleanup() {
   local status=$?
@@ -36,8 +37,15 @@ cleanup() {
     wait "$WEB_PID" 2>/dev/null || true
   fi
   if [ -n "$CORE_PID" ]; then
-    kill "$CORE_PID" 2>/dev/null || true
+    # The core may have launched acting-tool subprocesses while an E2E case
+    # was running. It is a dedicated session leader, so stop its whole group
+    # rather than leaving descendants alive to accumulate across CI shards.
+    kill -- "-$CORE_PID" 2>/dev/null || true
     wait "$CORE_PID" 2>/dev/null || true
+  fi
+  if [ -n "$CORE_MONITOR_PID" ]; then
+    kill "$CORE_MONITOR_PID" 2>/dev/null || true
+    wait "$CORE_MONITOR_PID" 2>/dev/null || true
   fi
   if [ -n "$MOCK_PID" ]; then
     kill "$MOCK_PID" 2>/dev/null || true
@@ -90,6 +98,12 @@ check_process_alive() {
 }
 
 mkdir -p "$OPENHUMAN_WORKSPACE"
+# `OPENHUMAN_WORKSPACE` controls the initial config, but authenticated session
+# activation deliberately resolves its shared users tree from HOME. Keep that
+# tree inside this shard too, otherwise every sign-in in a browser lane mutates
+# (and retains services for) the runner's global ~/.openhuman state.
+E2E_WEB_CORE_HOME="$OPENHUMAN_WORKSPACE/home"
+mkdir -p "$E2E_WEB_CORE_HOME"
 cat > "$OPENHUMAN_WORKSPACE/config.toml" <<EOF
 api_url = "http://127.0.0.1:${E2E_MOCK_PORT}"
 primary_cloud = "p_e2e_mock"
@@ -98,9 +112,18 @@ chat_provider = "e2e:e2e-mock-model"
 reasoning_provider = "e2e:e2e-mock-model"
 agentic_provider = "e2e:e2e-mock-model"
 coding_provider = "e2e:e2e-mock-model"
-
+# Tinymemory resolves this workload-routing setting when it initializes its
+# binding. Keep it disabled before process startup for the degraded-state
+# browser fixture; the memory-section embedding provider alone is not authoritative.
+embeddings_provider = "none"
 [update]
 enabled = false
+
+[memory]
+# The browser truthfulness specs seed a real memory source whose chunks must
+# remain unembedded. Keep this harness intentionally providerless so it covers
+# the hard degraded state rather than a transient backlog being drained.
+embedding_provider = "none"
 
 [context]
 # Deterministic e2e specs script the mock-LLM call sequence exactly; the
@@ -149,9 +172,28 @@ export OPENHUMAN_COMPOSIO_DIRECT_BASE_V3="http://127.0.0.1:${E2E_MOCK_PORT}"
 # orchestration builds large async futures and can overflow the default stack.
 export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
 
-"$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" \
+# Give each standalone core its own process group. Playwright shards are run
+# serially in CI, and a parent-only shutdown leaves tool children alive across
+# shards until the runner terminates the next core for resource exhaustion.
+env HOME="$E2E_WEB_CORE_HOME" setsid "$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" \
   >"$OPENHUMAN_WORKSPACE/core.log" 2>&1 &
 CORE_PID=$!
+
+# Preserve the core's final resource samples for a long Playwright lane. This
+# distinguishes a likely runner OOM from an in-process failure once later tests
+# can only report ECONNREFUSED.
+(
+  while kill -0 "$CORE_PID" 2>/dev/null; do
+    if [ -r "/proc/$CORE_PID/status" ]; then
+      awk '/^(VmRSS|VmHWM|Threads):/ { printf "%s ", $0 } END { print "" }' \
+        "/proc/$CORE_PID/status" >>"$OPENHUMAN_WORKSPACE/core-resource.log"
+    fi
+    sleep 5
+  done
+  printf 'core process disappeared while the Playwright session was active\n' \
+    >>"$OPENHUMAN_WORKSPACE/core-resource.log"
+) &
+CORE_MONITOR_PID=$!
 
 # Give the core process time to start and fail if it's going to
 sleep 2

@@ -28,7 +28,7 @@ interface ShowNativeNotificationResult {
 // trusted to reflect the real OS authorization state. We route through
 // the dedicated `notification_permission_state` /
 // `notification_permission_request` / `show_native_notification` Rust
-// commands (see app/src-tauri/src/native_notifications/), which talk to
+// commands (see crates/openhuman-app/src/native_notifications/), which talk to
 // `UNUserNotificationCenter` directly on macOS and surface real
 // delivery errors instead of swallowing them.
 

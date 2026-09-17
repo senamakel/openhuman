@@ -144,8 +144,8 @@ spacy_enabled = false
 
 /// Prove the disable switches actually bound to the fields harness-init reads,
 /// rather than being silently dropped as unknown keys.
-fn assert_provisioning_is_disabled() -> openhuman_core::openhuman::config::Config {
-    let parsed: openhuman_core::openhuman::config::Config =
+fn assert_provisioning_is_disabled() -> openhuman_core::config::Config {
+    let parsed: openhuman_core::config::Config =
         toml::from_str(TEST_CONFIG_TOML).expect("test config must match the Config schema");
     assert!(
         !parsed.node.enabled,

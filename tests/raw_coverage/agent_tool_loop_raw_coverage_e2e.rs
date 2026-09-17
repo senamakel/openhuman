@@ -1,18 +1,18 @@
 use async_trait::async_trait;
 use openhuman_core::core::bus::BUS;
-use openhuman_core::openhuman::agent::bus::{
+use openhuman_core::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
 };
-use openhuman_core::openhuman::agent::debug::{dump_agent_prompt, DumpPromptOptions};
-use openhuman_core::openhuman::agent::dispatcher::XmlToolDispatcher;
-use openhuman_core::openhuman::agent::{Agent, AgentBuilder};
-use openhuman_core::openhuman::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
-use openhuman_core::openhuman::agent::context::prompt::LearnedContextData;
-use openhuman_core::openhuman::agent::messages::ChatMessage;
-use openhuman_core::openhuman::memory::{
+use openhuman_core::agent::debug::{dump_agent_prompt, DumpPromptOptions};
+use openhuman_core::agent::dispatcher::XmlToolDispatcher;
+use openhuman_core::agent::{Agent, AgentBuilder};
+use openhuman_core::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
+use openhuman_core::agent::context::prompt::LearnedContextData;
+use openhuman_core::agent::messages::ChatMessage;
+use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
+use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};
 use std::path::PathBuf;
@@ -360,7 +360,7 @@ async fn run_bus_turn(
     BUS.native().request::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            turn_model_source: openhuman_core::openhuman::agent::tinyagents::TurnModelSource::from_model(
+            turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
                 model,
             ),
             history: vec![ChatMessage::system("system"), ChatMessage::user("run")],
@@ -378,7 +378,7 @@ async fn run_bus_turn(
             visible_tool_names,
             extra_tools: Vec::new(),
             on_progress: None,
-            origin: openhuman_core::openhuman::agent::turn_origin::AgentTurnOrigin::Cli,
+            origin: openhuman_core::agent::turn_origin::AgentTurnOrigin::Cli,
         },
     )
     .await
@@ -608,6 +608,7 @@ async fn agent_builder_prompt_and_debug_dump_cover_public_session_paths() {
         agent_id: "integrations_agent".to_string(),
         toolkit: None,
         workspace_dir_override: Some(workspace),
+        config_path_override: None,
         model_override: Some("round15-model".to_string()),
     })
     .await

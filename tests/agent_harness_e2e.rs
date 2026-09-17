@@ -27,9 +27,9 @@ use futures_util::StreamExt;
 use serde_json::{json, Value};
 use tempfile::tempdir;
 
+use openhuman_core::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry;
 
 const TEST_RPC_TOKEN: &str = "json-rpc-e2e-local-token";
 
@@ -161,6 +161,29 @@ fn tool_calls_completion(calls: &[(&str, Value)]) -> Value {
 
 fn error_completion(status: u16, message: &str) -> Value {
     json!({ "status": status, "error": message })
+}
+
+/// True when any captured upstream request carries the engine's unknown-tool
+/// result (`tinyagents-harness` `agent_loop/tools.rs`: "unknown tool `name`
+/// (arguments: …); valid tools: […]"). Matched case-insensitively on purpose:
+/// the guards below used to look for a literal `"Unknown tool:"` that nothing
+/// emits, so a delegate that failed to resolve went unnoticed and the
+/// orchestrator quietly consumed the child's scripted completions itself.
+fn captured_requests_mention_unknown_tool(requests: &[Value]) -> bool {
+    serde_json::to_string(requests)
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .contains("unknown tool")
+}
+
+/// Same check, narrowed to one tool name — for tests whose script *relies* on
+/// some other call being rejected (e.g. a child calling a tool outside its
+/// named list) and only need to prove that a specific delegate resolved.
+fn captured_requests_reject_tool_as_unknown(requests: &[Value], tool: &str) -> bool {
+    serde_json::to_string(requests)
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .contains(&format!("unknown tool `{tool}`"))
 }
 
 // ─── Fan-out overlap barrier ────────────────────────────────────────────────
@@ -511,7 +534,7 @@ encrypt = false
     {
         write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
     }
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
@@ -886,8 +909,8 @@ async fn multi_turn_state_persistence_inner() {
 
 // ─── Task 3: Subagent delegation happy path ───────────────────────────────────
 //
-// Tool surface (src/openhuman/tools/orchestrator_tools.rs,
-//   src/openhuman/agent/registry/agents/researcher/agent.toml):
+// Tool surface (crates/openhuman-core/src/tools/orchestrator_tools.rs,
+//   crates/openhuman-core/src/agent/registry/agents/researcher/agent.toml):
 //   - researcher has `delegate_name = "research"`, so the orchestrator LLM sees a
 //     tool named "research" synthesised by collect_orchestrator_tools.
 //   - The tool takes { "prompt": string, ... } per ArchetypeDelegationTool schema.
@@ -975,12 +998,11 @@ async fn subagent_delegation_happy_path_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // No "Unknown tool:" anywhere — proves the delegation tool was synthesised
-    // and executed (registry init worked).
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    // No unknown-tool result anywhere — proves the delegation tool was synthesised
+    // (registry init worked) and the orchestrator could actually call it.
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' in captured requests — delegation tool was not synthesised; \
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result in captured requests — delegation tool was not synthesised; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
@@ -1008,86 +1030,54 @@ async fn subagent_delegation_happy_path_inner() {
     stack.shutdown();
 }
 
-// ─── Task 4: Subagent clarification flow ──────────────────────────────────────
+// ─── Task 4: Scheduling clarification flow ────────────────────────────────────
 //
-// Exercises the ask_user_clarification path via scheduler_agent
-// (delegate_name = "schedule_task"), which has `ask_user_clarification` in its
-// [tools] named list (src/openhuman/agent/registry/agents/scheduler_agent/agent.toml:22).
-//
-// Architecture note — why the full spawn_subagent→[SUBAGENT_AWAITING_USER] path
-// is not exercised here:
-//
-//   spawn_subagent (SpawnSubagentTool, spawn_subagent.rs:465-506) is the ONLY tool
-//   that produces [SUBAGENT_AWAITING_USER] envelopes and the continue_subagent tool
-//   resumes them.  But spawn_subagent is NOT in the orchestrator's [tools] named list
-//   (orchestrator/agent.toml:160-227), so the visible_tool_names filter
-//   (agent_tool_exec.rs:77-87) blocks it.  That path requires a src/ change.
-//
-// What this test DOES exercise:
-//
-//   The ArchetypeDelegationTool path (dispatch.rs).  scheduler_agent is delegated to
-//   via the synthesised `schedule_task` tool.  dispatch_subagent (dispatch.rs:113-130)
-//   calls run_subagent.  The scripted LLM returns ask_user_clarification for the
-//   scheduler_agent inner loop.  However, ask_user_clarification is NOT registered in
-//   all_tools_with_runtime (tools/ops.rs), so it is absent from the subagent's
-//   allowed_names (subagent_runner/ops/runner.rs:483-490).  SubagentToolSource
-//   (tool_source.rs:66-102) therefore returns success=false for the blocked call.
-//   The early-exit condition (engine/core.rs:676) requires outcome.success, so
-//   early-exit does NOT fire.  The scheduler_agent loops back for a second LLM call
-//   and returns its text output, which dispatch_subagent forwards as the
-//   schedule_task tool result.  The orchestrator surfaces this to the user.
-//   On turn 2 the user's reply and the full turn-1 context are present.
+// `schedule_task` is scheduler_agent's synthesised delegate (its `agent.toml`
+// `delegate_name`), and `ask_user_clarification` IS in that agent's named tools.
+// So a blocking delegation that needs a detail pauses the *child*, and
+// `dispatch_subagent` hands the parent a `[SUBAGENT_AWAITING_USER]` envelope as
+// the `schedule_task` tool result (#4291). That envelope is an ordinary tool
+// result to the orchestrator — `schedule_task` is not in its `early_exit_tools`
+// — so the orchestrator relays the question in its OWN next reply, and turn 1
+// ends on that text.
 //
 // Actual LLM request ordering (4 upstream calls total):
-//   request[0] = orchestrator turn 1 → schedule_task delegation tool call returned
-//   request[1] = scheduler_agent first iter → tries ask_user_clarification (blocked,
-//                success=false; early-exit does NOT fire; loop continues)
-//   request[2] = scheduler_agent second iter → returns text with clarification question
-//                (this becomes the schedule_task tool result and turn-1 response)
+//   request[0] = orchestrator turn 1 → schedule_task (blocking) tool call
+//   request[1] = scheduler_agent → ask_user_clarification pauses the child
+//   request[2] = orchestrator, with the awaiting-user envelope in context →
+//                relays the question as text; turn 1 ends (chat_done)
 //   request[3] = orchestrator turn 2 with "version 2" user reply in full context →
 //                synthesis; turn 2 ends (chat_done with ANSWER_CANARY_V2)
 
-/// Orchestrator delegates to scheduler_agent via `schedule_task` (delegate_name);
-/// scheduler_agent's ask_user_clarification call is blocked (not in parent's tool
-/// registry) so the subagent loops and returns the question as text instead;
-/// dispatch_subagent forwards this as the schedule_task tool result; the orchestrator
-/// surfaces the question (turn 1 ends with WHICH_VERSION_CANARY); the user replies
-/// "version 2"; the orchestrator synthesizes the final answer with full turn-1 context
-/// present (turn 2 ends with ANSWER_CANARY_V2).
-///
-/// The full spawn_subagent → [SUBAGENT_AWAITING_USER] → continue_subagent path
-/// requires adding spawn_subagent to the orchestrator's named tools
-/// (src/openhuman/agent/registry/agents/orchestrator/agent.toml) — a src/ change
-/// outside the scope of this test file.
+/// A scheduling request that needs clarification surfaces its question in turn 1,
+/// then preserves that question in the context used to answer turn 2.
 #[test]
-fn subagent_clarification_flow() {
+fn scheduling_clarification_flow() {
     run_on_agent_stack(
-        "subagent_clarification_flow",
-        subagent_clarification_flow_inner,
+        "scheduling_clarification_flow",
+        scheduling_clarification_flow_inner,
     );
 }
 
-async fn subagent_clarification_flow_inner() {
+async fn scheduling_clarification_flow_inner() {
     let _lock = env_lock();
     reset_script(vec![
         // ── turn 1 ──
-        // request[0]: Orchestrator calls schedule_task (scheduler_agent's delegate_name).
+        // request[0]: Orchestrator delegates to scheduler_agent via schedule_task.
         tool_call_completion(
             "schedule_task",
             json!({ "prompt": "Schedule a weekly reminder", "blocking": true }),
         ),
-        // request[1]: scheduler_agent first iter → tries ask_user_clarification.
-        //   ask_user_clarification is NOT in all_tools_with_runtime (tools/ops.rs), so
-        //   SubagentToolSource returns success=false.  Early-exit requires success=true,
-        //   so it does NOT fire; the scheduler_agent loops back for a second LLM call.
+        // request[1]: scheduler_agent asks for the missing detail. This pauses
+        //   the child; the question comes back to the orchestrator inside the
+        //   `[SUBAGENT_AWAITING_USER]` envelope as the schedule_task result.
         tool_call_completion(
             "ask_user_clarification",
             json!({ "question": "WHICH_VERSION_CANARY?" }),
         ),
-        // request[2]: scheduler_agent second iter → text output with the clarification
-        //   question.  This becomes the schedule_task tool result forwarded to the
-        //   orchestrator by dispatch_subagent.
-        text_completion("I need clarification: WHICH_VERSION_CANARY?"),
+        // request[2]: Orchestrator relays the sub-agent's question to the user,
+        //   as the envelope instructs; turn 1 ends on this text.
+        text_completion("The scheduler needs one detail: WHICH_VERSION_CANARY?"),
         // ── turn 2 (user replied "version 2") ──
         // request[3]: Orchestrator processes user reply with full turn-1 context →
         //   synthesizes final answer; turn 2 ends here.
@@ -1149,55 +1139,63 @@ async fn subagent_clarification_flow_inner() {
     );
 
     let requests = with_captured(|c| c.clone());
-    let serialized = serde_json::to_string(&requests).unwrap_or_default();
 
-    // ── No "Unknown tool:" in any captured request ──
-    // Proves schedule_task (synthesised from scheduler_agent's delegate_name) was
-    // recognised by the orchestrator — registry init worked.
+    // ── No unknown-tool result in any captured request ──
+    // Proves schedule_task was recognised by the orchestrator. This is the guard
+    // that let the 3-completion version of this test pass vacuously: with the
+    // delegate unresolved, the engine's lowercase "unknown tool `schedule_task`"
+    // result never matched the old `"Unknown tool:"` literal, and the
+    // orchestrator consumed the child's clarification completion itself.
     assert!(
-        !serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' in captured requests — delegation was broken; \
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result in captured requests — delegation was broken; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // ── scheduler_agent actually ran (≥4 upstream requests) ──
+    // ── Both turns traversed the expected four upstream requests ──
     // request[0] = orchestrator (schedule_task call),
-    // request[1] = scheduler_agent first iter (ask_user_clarification blocked),
-    // request[2] = scheduler_agent second iter (text output with question),
+    // request[1] = scheduler_agent (ask_user_clarification pause),
+    // request[2] = orchestrator (relays the question; turn-1 end),
     // request[3] = orchestrator turn-2 synthesis (turn-2 end).
     assert!(
         requests.len() >= 4,
-        "expected ≥4 upstream requests (orchestrator + scheduler_agent x2 + orchestrator turn-2 synthesis), \
-         got {};\nall requests: {}",
+        "expected ≥4 upstream requests (schedule + child clarification + relay + \
+         turn-2 synthesis), got {};\nall requests: {}",
         requests.len(),
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // ── request[1] (scheduler_agent first iter) must differ from request[0] (orchestrator) ──
-    // Proves a genuinely separate scheduler_agent context ran, not the orchestrator re-called.
-    let req0_sys = requests
-        .first()
-        .and_then(|r| r.pointer("/body/messages/0/content"))
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let req1_sys = requests
-        .get(1)
-        .and_then(|r| r.pointer("/body/messages/0/content"))
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    assert_ne!(
-        req0_sys, req1_sys,
-        "request[0] and request[1] share identical first-message content — \
-         scheduler_agent did not build its own context; \
-         content: {req0_sys:?}"
+    // ── request[1] went to scheduler_agent, not the orchestrator ──
+    // Proves the blocking delegate really ran (the child's system prompt is
+    // scheduler-specific; both agents share the project-context prefix, so
+    // message 0 alone cannot tell them apart). Without this the flow degrades
+    // to "orchestrator asks the user itself", which never exercises the pause.
+    let scheduler_request = requests.get(1).map(Value::to_string).unwrap_or_default();
+    assert!(
+        scheduler_request.contains("Scheduler Agent"),
+        "request[1] did not carry the scheduler_agent prompt — schedule_task did not \
+         delegate; request: {scheduler_request}"
     );
 
-    // ── Some turn-2 request's messages must contain the clarification question ──
-    // Proves the scheduler_agent's text output (forwarded by dispatch_subagent as the
-    // schedule_task tool result) was persisted in the thread history and appears in
-    // turn-2 context (multi-turn state persistence).
-    let turn2_messages_contain_question = requests.iter().any(|req| {
+    // ── request[2] saw the child's pause as a `[SUBAGENT_AWAITING_USER]` envelope ──
+    // Proves `dispatch_subagent` surfaced the pause the #4291 way (structured
+    // envelope carrying the question, as the schedule_task tool result) rather
+    // than as a plain success the model could read as "answered".
+    let relay_request = requests.get(2).map(Value::to_string).unwrap_or_default();
+    assert!(
+        relay_request.contains("[SUBAGENT_AWAITING_USER]")
+            && relay_request.contains("WHICH_VERSION_CANARY"),
+        "request[2] did not carry the awaiting-user envelope with the child's question; \
+         request: {relay_request}"
+    );
+
+    // ── The turn-2 request's messages must contain the clarification question ──
+    // Proves the relayed question was persisted in thread history and appears in
+    // turn-2 context. Scoped to the turn-2 request on purpose: request[2]
+    // trivially contains the canary via the envelope, so an `any()` over every
+    // request would pass without persistence.
+    let turn2_messages_contain_question = requests.iter().skip(3).any(|req| {
         req.pointer("/body/messages")
             .and_then(Value::as_array)
             .map(|msgs| {
@@ -1220,7 +1218,7 @@ async fn subagent_clarification_flow_inner() {
     });
     assert!(
         turn2_messages_contain_question,
-        "WHICH_VERSION_CANARY not found in any turn-2 request messages — \
+        "WHICH_VERSION_CANARY not found in the turn-2 request messages — \
          turn-1 clarification question was not persisted in thread history; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
@@ -1233,7 +1231,7 @@ async fn subagent_clarification_flow_inner() {
 //
 // Architecture notes for file_write approval:
 //
-// `FileWriteTool::external_effect_with_args` (src/openhuman/tools/impl/filesystem/file_write.rs:65)
+// `FileWriteTool::external_effect_with_args` (crates/openhuman-core/src/tools/impl/filesystem/file_write.rs:65)
 // only returns `true` when the target file ALREADY EXISTS at `action_dir/path`.
 // Logic: "exists = edit → prompt; new = create → free". The default action_dir
 // is `~/OpenHuman/projects` (derived from the HOME env var that boot_stack
@@ -1254,7 +1252,7 @@ async fn subagent_clarification_flow_inner() {
 // restore it on drop via EnvVarGuard.
 
 async fn ensure_approval_gate() {
-    use openhuman_core::openhuman::security::approval::ApprovalGate;
+    use openhuman_core::security::approval::ApprovalGate;
 
     // The global bus must be initialized before registering subscribers.
     // `build_core_http_router` does NOT call `bootstrap_core_runtime`, so the
@@ -1262,7 +1260,7 @@ async fn ensure_approval_gate() {
     // connects to a broker — which is why this helper is too. Idempotent.
     openhuman_core::core::bus::init().await.expect("bus init");
 
-    let mut cfg: openhuman_core::openhuman::config::Config = toml::from_str(
+    let mut cfg: openhuman_core::config::Config = toml::from_str(
         r#"api_url = "http://127.0.0.1:1"
 default_model = "e2e-mock-model"
 default_temperature = 0.7
@@ -1311,7 +1309,7 @@ encrypt = false
 /// same binary lose the bridge silently. This per-test helper avoids the issue by
 /// registering a fresh subscription on each test's own runtime.
 fn register_approval_bridge() -> Option<tinybus::SubscriptionHandle> {
-    openhuman_core::openhuman::web_chat::fresh_approval_surface_subscription()
+    openhuman_core::web_chat::fresh_approval_surface_subscription()
 }
 
 /// Pre-create a file in the action_dir so file_write sees it as an existing
@@ -1341,7 +1339,7 @@ fn approval_gate_installed_after_ensure() {
 
 async fn approval_gate_installed_after_ensure_inner() {
     let _lock = env_lock();
-    use openhuman_core::openhuman::security::approval::ApprovalGate;
+    use openhuman_core::security::approval::ApprovalGate;
     ensure_approval_gate().await;
     assert!(
         ApprovalGate::try_global().is_some(),
@@ -1426,7 +1424,7 @@ async fn approval_gate_approve_flow_inner() {
     .await;
 
     // Wait for the approval_request SSE event.
-    // Actual shape (src/openhuman/web_chat/event_bus.rs:195-224):
+    // Actual shape (crates/openhuman-core/src/web_chat/event_bus.rs:195-224):
     //   { "event": "approval_request", "data": { "request_id": "...", "tool_name": "...",
     //     "action_summary": "...", "args_redacted": {...} }, ... }
     let approval = wait_for_event(&mut events, "approval_request", Duration::from_secs(60)).await;
@@ -1584,7 +1582,7 @@ async fn approval_gate_deny_flow_inner() {
 //
 // Architecture: The approval gate fires for file_write inside a subagent context
 // only when the subagent run carries a WebChat turn origin. `dispatch_subagent`
-// (src/openhuman/agent/orchestration/tools/dispatch.rs) invokes `run_subagent`
+// (crates/openhuman-core/src/agent/orchestration/tools/dispatch.rs) invokes `run_subagent`
 // which runs the subagent's tool loop inside the SAME task that the orchestrator's
 // WebChat turn started in. Because `APPROVAL_CHAT_CONTEXT` and `turn_origin` are
 // tokio task-locals (not thread-locals), and `run_subagent` does NOT re-scope them,
@@ -1592,7 +1590,7 @@ async fn approval_gate_deny_flow_inner() {
 // Therefore file_write inside a ArchetypeDelegationTool subagent CAN trigger the
 // approval gate and publish approval_request events.
 //
-// code_executor has delegate_name = "run_code" (src/openhuman/agent/registry/
+// code_executor has delegate_name = "run_code" (crates/openhuman-core/src/agent/registry/
 // agents/code_executor/agent.toml:3). The orchestrator synthesizes a `run_code`
 // delegation tool from this. code_executor has file_write in its tool surface.
 // The researcher agent does NOT have file_write.
@@ -1660,8 +1658,8 @@ async fn subagent_with_approval_gate_inner() {
 
     // The approval gate fires because the subagent inherits the orchestrator's
     // WebChat task-local origin (turn_origin + APPROVAL_CHAT_CONTEXT are not
-    // re-scoped by dispatch_subagent/run_subagent — src/openhuman/agent/harness/
-    // subagent_runner/ and src/openhuman/agent/orchestration/tools/dispatch.rs).
+    // re-scoped by dispatch_subagent/run_subagent — crates/openhuman-core/src/agent/harness/
+    // subagent_runner/ and crates/openhuman-core/src/agent/orchestration/tools/dispatch.rs).
     // If approval_request never fires within 120s, the event JSON is dumped.
     let approval = wait_for_event(&mut events, "approval_request", Duration::from_secs(120)).await;
     let request_id = approval
@@ -1712,10 +1710,9 @@ async fn subagent_with_approval_gate_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' — run_code delegation was not synthesised; requests: {}",
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result — run_code delegation was not synthesised; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
@@ -2209,9 +2206,8 @@ async fn parallel_subagent_fanout_inner() {
     // The spawn tool must actually be in scope. If the orchestrator's tool list
     // drifts again, this is the assertion that says so in one line instead of
     // leaving a canary mismatch to be decoded.
-    let all = serde_json::to_string(&requests).unwrap_or_default();
     assert!(
-        !all.contains("Unknown tool:"),
+        !captured_requests_mention_unknown_tool(&requests),
         "no tool call may be rejected as unknown; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
@@ -2228,7 +2224,7 @@ async fn parallel_subagent_fanout_inner() {
 /// without src/ changes. Documented per plan Task 9 step 9.2 fallback.
 ///
 /// Intentionally shares the blocked-clarification mechanic with
-/// `subagent_clarification_flow`; differs in delegate surface (research vs
+/// `scheduling_clarification_flow`; differs in delegate surface (research vs
 /// schedule_task) and single-turn shape.
 #[test]
 fn multi_hop_delegation_chain() {
@@ -2306,11 +2302,13 @@ async fn multi_hop_delegation_chain_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // No "Unknown tool:" for `research` — delegation was synthesised correctly.
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    // No unknown-tool result for `research` — delegation was synthesised correctly.
+    // Scoped to `research`: the researcher's `ask_user_clarification` call IS
+    // rejected as unknown by design (see the ordering note above), so a blanket
+    // check would fail on the very mechanic this test exercises.
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' — `research` delegation was not synthesised; requests: {}",
+        !captured_requests_reject_tool_as_unknown(&requests, "research"),
+        "found an unknown-tool result — `research` delegation was not synthesised; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
@@ -2327,7 +2325,7 @@ async fn multi_hop_delegation_chain_inner() {
 //
 // HONESTY CHECK — where does accumulation actually live?
 //
-// Read src/openhuman/agent/harness/engine/core.rs:370-448:
+// Read crates/openhuman-core/src/agent/harness/engine/core.rs:370-448:
 //
 //   provider.chat(ChatRequest { stream: delta_tx_opt.as_ref(), … }).await
 //   // returns the COMPLETE ChatResponse — tool_calls already fully assembled
@@ -2361,12 +2359,12 @@ async fn multi_hop_delegation_chain_inner() {
 
 mod streaming_support {
     use async_trait::async_trait;
-    use openhuman_core::openhuman::agent::dispatcher::NativeToolDispatcher;
-    use openhuman_core::openhuman::agent::Agent;
-    use openhuman_core::openhuman::config::{AgentConfig, ContextConfig};
-    use openhuman_core::openhuman::memory::Memory;
-    use openhuman_core::openhuman::tools::traits::ToolCallOptions;
-    use openhuman_core::openhuman::tools::{
+    use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+    use openhuman_core::agent::Agent;
+    use openhuman_core::config::{AgentConfig, ContextConfig};
+    use openhuman_core::memory::Memory;
+    use openhuman_core::tools::traits::ToolCallOptions;
+    use openhuman_core::tools::{
         PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
     };
     use serde_json::json;
@@ -2496,7 +2494,7 @@ mod streaming_support {
             _namespace: &str,
             _key: &str,
             _content: &str,
-            _category: openhuman_core::openhuman::memory::api::types::MemoryCategory,
+            _category: openhuman_core::memory::api::types::MemoryCategory,
             _session_id: Option<&str>,
         ) -> anyhow::Result<()> {
             Ok(())
@@ -2505,26 +2503,23 @@ mod streaming_support {
             &self,
             _query: &str,
             _limit: usize,
-            _opts: openhuman_core::openhuman::memory::api::recall::RecallOpts<'_>,
-        ) -> anyhow::Result<Vec<openhuman_core::openhuman::memory::api::types::MemoryEntry>>
-        {
+            _opts: openhuman_core::memory::api::recall::RecallOpts<'_>,
+        ) -> anyhow::Result<Vec<openhuman_core::memory::api::types::MemoryEntry>> {
             Ok(Vec::new())
         }
         async fn get(
             &self,
             _namespace: &str,
             _key: &str,
-        ) -> anyhow::Result<Option<openhuman_core::openhuman::memory::api::types::MemoryEntry>>
-        {
+        ) -> anyhow::Result<Option<openhuman_core::memory::api::types::MemoryEntry>> {
             Ok(None)
         }
         async fn list(
             &self,
             _namespace: Option<&str>,
-            _category: Option<&openhuman_core::openhuman::memory::api::types::MemoryCategory>,
+            _category: Option<&openhuman_core::memory::api::types::MemoryCategory>,
             _session_id: Option<&str>,
-        ) -> anyhow::Result<Vec<openhuman_core::openhuman::memory::api::types::MemoryEntry>>
-        {
+        ) -> anyhow::Result<Vec<openhuman_core::memory::api::types::MemoryEntry>> {
             Ok(Vec::new())
         }
         async fn forget(&self, _namespace: &str, _key: &str) -> anyhow::Result<bool> {
@@ -2532,8 +2527,7 @@ mod streaming_support {
         }
         async fn namespace_summaries(
             &self,
-        ) -> anyhow::Result<Vec<openhuman_core::openhuman::memory::api::types::NamespaceSummary>>
-        {
+        ) -> anyhow::Result<Vec<openhuman_core::memory::api::types::NamespaceSummary>> {
             Ok(Vec::new())
         }
         async fn count(&self) -> anyhow::Result<usize> {
@@ -2656,7 +2650,7 @@ mod streaming_support {
 ///   Dispatch uses `resp.tool_calls` from the final `ModelResponse`, NOT from
 ///   accumulated stream deltas.  The `ModelStreamItem::ToolCallDelta` events
 ///   flow only to the progress channel (UI streaming) via `spawn_delta_forwarder`
-///   (src/openhuman/agent/harness/engine/progress.rs:329-370).
+///   (crates/openhuman-core/src/agent/harness/engine/progress.rs:329-370).
 ///
 ///   In the real HTTP providers (compatible_stream_native.rs:322,405-425) the
 ///   fragment accumulation buffer (`entry.arguments.push_str(args)`) IS what
@@ -2678,7 +2672,7 @@ mod streaming_support {
 ///   5. Final answer is "stream final".
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn streaming_tool_call_accumulation() {
-    use openhuman_core::openhuman::agent::progress::AgentProgress;
+    use openhuman_core::agent::progress::AgentProgress;
     use std::sync::Mutex;
     use streaming_support::{
         agent_with_s, native_tool_response_s, text_response_s, workspace_s, EchoTool,
@@ -2874,7 +2868,7 @@ async fn streaming_tool_call_accumulation() {
 }
 
 /// Needed for streaming_tool_call_accumulation.
-use openhuman_core::openhuman::config::AgentConfig;
+use openhuman_core::config::AgentConfig;
 
 // ─── Case 13 (provider-level): SSE tool-arg accumulation ──────────────────────
 //
@@ -3258,6 +3252,886 @@ async fn model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline_inner()
     stack.shutdown();
 }
 
+// ─── Skills + MCP servers: installed from a registry, then used by the agent ─
+//
+// The registry suites (`skill_registry_e2e`, `mcp_registry_e2e`,
+// `raw_coverage/mcp_setup_clients_e2e`) stop at "installed" or "connected".
+// These go one step further: the item comes from a loopback registry through
+// the real install path, then a scripted turn reaches it through the same
+// delegation tools the orchestrator uses in production (`setup_skills`,
+// `run_skill`, `use_mcp_server`).
+//
+// The proof is the tool result the model receives, never the scripted reply:
+// every scripted completion below is canary-free, so a canary inside a tool
+// message can only have come from the installed skill or the running server.
+
+/// A call to a tool inside a tool pack, made through `use_skill`. Used to prove
+/// what the orchestrator can NOT reach that way (#6302): the MCP and skill
+/// hand-offs are direct tools now, and their packs are closed to it. Ids the call
+/// `call_<tool>` so [`tool_result_text`] finds the result by the inner tool.
+fn packed_tool_call_completion(pack: &str, tool: &str, args: Value) -> Value {
+    json!({ "content": "", "toolCalls": [{
+        "id": format!("call_{tool}"),
+        "name": "use_skill",
+        "arguments": json!({ "skill": pack, "tool": tool, "args": args }).to_string(),
+    }]})
+}
+
+/// The tool message answering the scripted call to `tool_name`.
+///
+/// Calls are id'd `call_<name>` and the result carries that id back, so a
+/// delegate's summary of the same call can never match. Panics on an
+/// `unknown tool` result: that error echoes the call's arguments, so a canary
+/// passed as an argument would otherwise read as a pass.
+fn tool_result_text(requests: &[Value], tool_name: &str) -> Option<String> {
+    let call_id = format!("call_{tool_name}");
+    requests
+        .iter()
+        .filter_map(|request| request.pointer("/body/messages").and_then(Value::as_array))
+        .flatten()
+        .find(|message| {
+            message.get("role").and_then(Value::as_str) == Some("tool")
+                && message.get("tool_call_id").and_then(Value::as_str) == Some(call_id.as_str())
+        })
+        .and_then(|message| message.get("content"))
+        .map(|content| {
+            let text = content
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| content.to_string());
+            assert!(
+                !text.trim_start().starts_with("unknown tool"),
+                "`{tool_name}` was not a tool the calling agent could reach: {text}"
+            );
+            text
+        })
+}
+
+#[cfg(feature = "skills")]
+const REGISTRY_SKILL_ID: &str = "harness-registry-skill";
+#[cfg(feature = "skills")]
+const SKILL_BODY_CANARY: &str = "SKILL_BODY_CANARY_7f3a";
+
+/// A one-entry skill catalog plus the SKILL.md its download URL points at.
+#[cfg(feature = "skills")]
+async fn serve_skill_registry_fixture() -> (
+    SocketAddr,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    async fn catalog() -> Json<Value> {
+        Json(json!([{
+            "name": REGISTRY_SKILL_ID,
+            "description": "Fixture skill for the registry-to-agent harness test.",
+            "category": "testing",
+            "source": "fixture",
+            "tags": ["harness"],
+            "platforms": ["linux", "macos", "windows"],
+            "envVars": [],
+            "commands": []
+        }]))
+    }
+    async fn skill_md() -> String {
+        format!(
+            "---\nname: {REGISTRY_SKILL_ID}\ndescription: Fixture skill for the registry-to-agent harness test.\nmetadata:\n  id: {REGISTRY_SKILL_ID}\n---\n\n# Harness registry skill\n\n## Procedure\nReply with the marker {SKILL_BODY_CANARY}.\n"
+        )
+    }
+    let app = Router::new().route("/skills.json", get(catalog)).route(
+        &format!("/skills/{REGISTRY_SKILL_ID}/SKILL.md"),
+        get(skill_md),
+    );
+    serve_on_ephemeral(app).await
+}
+
+/// A skill found in the registry is installed by the agent (behind the approval
+/// gate), lands on disk, and is then loaded by the skill executor, with its body
+/// reaching the model.
+// `skills` off drops `skill_setup`/`skill_executor` from the builtins, and this
+// target declares no `required-features`, so an ungated skill test would run
+// and fail instead of being skipped.
+#[cfg(feature = "skills")]
+#[test]
+fn agent_installs_a_registry_skill_then_runs_it() {
+    run_on_agent_stack(
+        "agent_installs_a_registry_skill_then_runs_it",
+        agent_installs_a_registry_skill_then_runs_it_inner,
+    );
+}
+
+#[cfg(feature = "skills")]
+async fn agent_installs_a_registry_skill_then_runs_it_inner() {
+    let _lock = env_lock();
+    let _ttl = EnvVarGuard::set("OPENHUMAN_APPROVAL_TTL_SECS", "120");
+    ensure_approval_gate().await;
+    let _approval_bridge = register_approval_bridge();
+
+    let (registry_addr, registry_join) = serve_skill_registry_fixture().await;
+    let registry = format!("http://{registry_addr}");
+    let cache_dir = tempdir().expect("catalog cache tempdir");
+    let _catalog = EnvVarGuard::set(
+        "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL",
+        &format!("{registry}/skills.json"),
+    );
+    let _download = EnvVarGuard::set(
+        "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL",
+        &format!("{registry}/skills"),
+    );
+    let _local_http = EnvVarGuard::set("OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP", "1");
+    let _cache = EnvVarGuard::set_to_path("OPENHUMAN_SKILL_REGISTRY_CACHE_DIR", cache_dir.path());
+
+    reset_script(vec![
+        // Orchestrator hands the install to `skill_setup` (a direct hand-off, #6302).
+        tool_call_completion(
+            "setup_skills",
+            json!({ "prompt": "Install the harness registry skill", "blocking": true }),
+        ),
+        // skill_setup finds the entry, then installs it (the gate parks here).
+        tool_call_completion(
+            "skill_registry_search",
+            json!({ "query": "harness-registry" }),
+        ),
+        tool_call_completion(
+            "skill_registry_install",
+            json!({ "entry_id": REGISTRY_SKILL_ID }),
+        ),
+        text_completion("Installed the skill."),
+        // Orchestrator hands the run to `skill_executor`, which loads the skill.
+        tool_call_completion(
+            "run_skill",
+            json!({ "prompt": format!("Run the {REGISTRY_SKILL_ID} skill"), "blocking": true }),
+        ),
+        tool_call_completion(
+            "describe_workflow",
+            json!({ "workflow_id": REGISTRY_SKILL_ID }),
+        ),
+        text_completion("Ran the skill."),
+        text_completion("The skill is installed and ran."),
+    ]);
+    let stack = boot_stack().await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-skill-registry",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        700,
+        "harness-skill-registry",
+        "thread-skill-registry",
+        "Install a skill from the registry and run it",
+    )
+    .await;
+
+    // Not `wait_for_event`: if the turn ends without asking, the failure has to
+    // show what the agent did instead, which only the captured requests hold.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
+    let approval = loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let event = match tokio::time::timeout(remaining, events.recv()).await {
+            Ok(Some(event)) => event,
+            Ok(None) | Err(_) => panic!(
+                "no approval_request for skill_registry_install; requests: {}",
+                serde_json::to_string_pretty(&with_captured(|c| c.clone())).unwrap_or_default()
+            ),
+        };
+        match event.get("event").and_then(Value::as_str) {
+            Some("approval_request") => break event,
+            Some("chat_done") | Some("chat_error") => panic!(
+                "turn ended before skill_registry_install asked for approval: {event}\nrequests: {}",
+                serde_json::to_string_pretty(&with_captured(|c| c.clone())).unwrap_or_default()
+            ),
+            _ => {}
+        }
+    };
+    assert!(
+        approval.to_string().contains("skill_registry_install"),
+        "installing a registry skill must ask for approval; event: {approval}"
+    );
+    let request_id = approval
+        .pointer("/data/request_id")
+        .or_else(|| approval.get("request_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("approval_request missing request_id: {approval}"))
+        .to_string();
+    let decide = post_json_rpc(
+        &stack.rpc_base,
+        701,
+        "openhuman.approval_decide",
+        json!({ "request_id": request_id, "decision": "approve_once" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&decide, "approval_decide for skill_registry_install");
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the install-and-run turn must finish: {done}"
+    );
+
+    let requests = with_captured(|c| c.clone());
+    let dump = || serde_json::to_string_pretty(&requests).unwrap_or_default();
+
+    // Found: the search the agent ran returned the registry entry.
+    let search = tool_result_text(&requests, "skill_registry_search").unwrap_or_else(|| {
+        panic!(
+            "no tool result for skill_registry_search; requests: {}",
+            dump()
+        )
+    });
+    assert!(
+        search.contains(REGISTRY_SKILL_ID),
+        "the agent's registry search did not return the fixture entry: {search}"
+    );
+
+    // Downloaded: the approved install wrote the registry's SKILL.md.
+    let installed = stack
+        ._tmp
+        .path()
+        .join(".openhuman/skills")
+        .join(REGISTRY_SKILL_ID)
+        .join("SKILL.md");
+    let body = std::fs::read_to_string(&installed).unwrap_or_else(|e| {
+        panic!(
+            "installed SKILL.md missing at {installed:?}: {e}; install result: {:?}",
+            tool_result_text(&requests, "skill_registry_install")
+        )
+    });
+    assert!(
+        body.contains(SKILL_BODY_CANARY),
+        "the installed SKILL.md is not the one the registry served: {body}"
+    );
+
+    // Usable: the executor loaded the installed skill and its body reached the model.
+    let described = tool_result_text(&requests, "describe_workflow")
+        .unwrap_or_else(|| panic!("no tool result for describe_workflow; requests: {}", dump()));
+    assert!(
+        described.contains(SKILL_BODY_CANARY),
+        "describe_workflow did not return the installed skill's body, so the agent cannot use it: {described}"
+    );
+
+    registry_join.abort();
+    stack.shutdown();
+}
+
+// ─── #6302: the orchestrator hands MCP and skill work to its specialists ─────
+//
+// The four hand-offs (`setup_skills`, `run_skill`, `setup_mcp_server`,
+// `use_mcp_server`) are direct tools on the orchestrator's belt, and the packs
+// holding the raw `skill_registry_*` / `mcp_registry_*` tools are closed to it.
+// These tests pin both halves against a real session.
+
+/// Tool names a captured model request advertised to the provider.
+fn advertised_tool_names(request: &Value) -> Vec<String> {
+    request
+        .pointer("/body/tools")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| {
+            tool.pointer("/function/name")
+                .or_else(|| tool.get("name"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect()
+}
+
+/// One scripted turn in which the orchestrator hands a request to a specialist
+/// by calling `hand_off` directly.
+///
+/// Three things must hold, all read from the captured model requests:
+/// * the orchestrator's own request advertises `hand_off` (it is not packed) and
+///   no raw `mcp_registry_*` / `skill_registry_*` tool;
+/// * the hand-off call returned a result (`tool_result_text` panics on
+///   `unknown tool`);
+/// * a later request came from the specialist, recognised by a tool only its
+///   belt carries.
+async fn assert_hand_off_reaches_specialist(
+    stack: &Stack,
+    events: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
+    rpc_id: i64,
+    client_id: &str,
+    hand_off: &str,
+    specialist_only_tools: &[&str],
+) {
+    reset_script(vec![
+        tool_call_completion(
+            hand_off,
+            json!({ "prompt": format!("Handle this through {hand_off}"), "blocking": true }),
+        ),
+        text_completion("The specialist finished the task."),
+        text_completion("The specialist handled it."),
+    ]);
+    send_web_chat(
+        &stack.rpc_base,
+        rpc_id,
+        client_id,
+        &format!("thread-{hand_off}"),
+        &format!("Please hand this to {hand_off}"),
+    )
+    .await;
+    let done = wait_for_terminal(events, Duration::from_secs(120)).await;
+    let requests = with_captured(|c| c.clone());
+    let dump = || serde_json::to_string_pretty(&requests).unwrap_or_default();
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the `{hand_off}` turn must finish: {done}\nrequests: {}",
+        dump()
+    );
+
+    let orchestrator = requests
+        .first()
+        .unwrap_or_else(|| panic!("no model request for the `{hand_off}` turn"));
+    let belt = advertised_tool_names(orchestrator);
+    assert!(
+        belt.iter().any(|name| name == hand_off),
+        "the orchestrator must advertise `{hand_off}` directly, not behind a tool pack; \
+         it advertised {belt:?}"
+    );
+    let raw: Vec<&String> = belt
+        .iter()
+        .filter(|name| name.starts_with("mcp_registry_") || name.starts_with("skill_registry_"))
+        .collect();
+    assert!(
+        raw.is_empty(),
+        "the orchestrator must not advertise raw registry tools: {raw:?}"
+    );
+
+    tool_result_text(&requests, hand_off)
+        .unwrap_or_else(|| panic!("no tool result for `{hand_off}`; requests: {}", dump()));
+    assert!(
+        requests
+            .iter()
+            .skip(1)
+            .any(|request| advertised_tool_names(request)
+                .iter()
+                .any(|name| specialist_only_tools.contains(&name.as_str()))),
+        "no model request came from the specialist behind `{hand_off}` (a belt with any of \
+         {specialist_only_tools:?}); requests: {}",
+        dump()
+    );
+}
+
+/// Wait for the turn to end, failing if it asks for approval first: an approval
+/// request means the refused tool was about to run.
+async fn wait_for_terminal_without_approval(
+    events: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
+    tool: &str,
+) -> Value {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let event = match tokio::time::timeout(remaining, events.recv()).await {
+            Ok(Some(event)) => event,
+            Ok(None) | Err(_) => panic!(
+                "the turn never finished; requests: {}",
+                serde_json::to_string_pretty(&with_captured(|c| c.clone())).unwrap_or_default()
+            ),
+        };
+        match event.get("event").and_then(Value::as_str) {
+            Some("approval_request") => panic!(
+                "the orchestrator reached `{tool}` through use_skill: it asked for approval to \
+                 run it: {event}"
+            ),
+            Some("chat_done") | Some("chat_error") => return event,
+            _ => {}
+        }
+    }
+}
+
+/// Skill requests reach `skill_setup` and `skill_executor` through their
+/// hand-offs, called directly.
+#[cfg(feature = "skills")]
+#[test]
+fn orchestrator_hands_skill_requests_to_the_skill_specialists_directly() {
+    run_on_agent_stack(
+        "orchestrator_hands_skill_requests_to_the_skill_specialists_directly",
+        orchestrator_hands_skill_requests_to_the_skill_specialists_directly_inner,
+    );
+}
+
+#[cfg(feature = "skills")]
+async fn orchestrator_hands_skill_requests_to_the_skill_specialists_directly_inner() {
+    let _lock = env_lock();
+    reset_script(Vec::new());
+    let stack = boot_stack().await;
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-skill-handoff",
+        stack.rpc_base
+    ));
+    assert_hand_off_reaches_specialist(
+        &stack,
+        &mut events,
+        910,
+        "harness-skill-handoff",
+        "setup_skills",
+        &[
+            "skill_registry_install",
+            "skill_registry_uninstall",
+            "install_workflow_from_url",
+        ],
+    )
+    .await;
+    assert_hand_off_reaches_specialist(
+        &stack,
+        &mut events,
+        911,
+        "harness-skill-handoff",
+        "run_skill",
+        &["skill_runtime_resolve_runtimes", "read_workflow_resource"],
+    )
+    .await;
+    stack.shutdown();
+}
+
+/// With `setup_skills` on its belt, the orchestrator cannot install a skill
+/// itself through `use_skill`: the gate refuses the raw tool and names the
+/// hand-off even once the user has approved the call, and nothing lands on disk.
+#[cfg(feature = "skills")]
+#[test]
+fn orchestrator_cannot_install_a_skill_through_the_raw_registry_tool() {
+    run_on_agent_stack(
+        "orchestrator_cannot_install_a_skill_through_the_raw_registry_tool",
+        orchestrator_cannot_install_a_skill_through_the_raw_registry_tool_inner,
+    );
+}
+
+#[cfg(feature = "skills")]
+async fn orchestrator_cannot_install_a_skill_through_the_raw_registry_tool_inner() {
+    let _lock = env_lock();
+    let _ttl = EnvVarGuard::set("OPENHUMAN_APPROVAL_TTL_SECS", "120");
+    ensure_approval_gate().await;
+    let _approval_bridge = register_approval_bridge();
+
+    let (registry_addr, registry_join) = serve_skill_registry_fixture().await;
+    let registry = format!("http://{registry_addr}");
+    let cache_dir = tempdir().expect("catalog cache tempdir");
+    let _catalog = EnvVarGuard::set(
+        "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL",
+        &format!("{registry}/skills.json"),
+    );
+    let _download = EnvVarGuard::set(
+        "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL",
+        &format!("{registry}/skills"),
+    );
+    let _local_http = EnvVarGuard::set("OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP", "1");
+    let _cache = EnvVarGuard::set_to_path("OPENHUMAN_SKILL_REGISTRY_CACHE_DIR", cache_dir.path());
+
+    reset_script(vec![
+        packed_tool_call_completion(
+            "skills",
+            "skill_registry_install",
+            json!({ "entry_id": REGISTRY_SKILL_ID }),
+        ),
+        text_completion("I could not install it myself."),
+    ]);
+    let stack = boot_stack().await;
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-raw-skill-install",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        920,
+        "harness-raw-skill-install",
+        "thread-raw-skill-install",
+        "Install the harness registry skill",
+    )
+    .await;
+
+    // `use_skill` reports its INNER tool's permission level
+    // (`UseSkillTool::permission_level_with_args`), so an install raises a real
+    // approval prompt: the approval middleware is pushed before the policy one
+    // and so wraps outside it. Approve it. The guarantee under test is stronger
+    // for it — the raw registry tool stays refused even after the user says yes.
+    let approval = wait_for_event(&mut events, "approval_request", Duration::from_secs(60)).await;
+    let request_id = approval
+        .pointer("/data/request_id")
+        .or_else(|| approval.get("request_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("approval_request missing request_id: {approval}"))
+        .to_string();
+    let decide = post_json_rpc(
+        &stack.rpc_base,
+        921,
+        "openhuman.approval_decide",
+        json!({ "request_id": request_id, "decision": "approve_once" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&decide, "approval_decide approve");
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(60)).await;
+    let requests = with_captured(|c| c.clone());
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the refused-install turn must finish: {done}"
+    );
+    let result = tool_result_text(&requests, "skill_registry_install").unwrap_or_else(|| {
+        panic!(
+            "no tool result for skill_registry_install; requests: {}",
+            serde_json::to_string_pretty(&requests).unwrap_or_default()
+        )
+    });
+    assert!(
+        result.contains("not allowed in the current session") && result.contains("`setup_skills`"),
+        "the orchestrator reached `skill_registry_install` through use_skill instead of being \
+         sent to `setup_skills`: {result}"
+    );
+    let installed = stack
+        ._tmp
+        .path()
+        .join(".openhuman/skills")
+        .join(REGISTRY_SKILL_ID)
+        .join("SKILL.md");
+    assert!(
+        !installed.exists(),
+        "a refused install still wrote {installed:?}"
+    );
+
+    registry_join.abort();
+    stack.shutdown();
+}
+
+#[cfg(feature = "mcp")]
+const REGISTRY_MCP_SERVER: &str = "io.github.harness/echo";
+#[cfg(feature = "mcp")]
+const MCP_ECHO_CANARY: &str = "MCP_ECHO_CANARY_91c2";
+
+/// An official-registry record whose npm package launches the hermetic stub.
+///
+/// `runtimeHint` replaces the `npx` launcher (`official/types.rs`
+/// `to_example_config`), and the stub ignores the `-y <identifier>` it is given.
+#[cfg(feature = "mcp")]
+fn registry_mcp_record() -> Value {
+    json!({
+        "name": REGISTRY_MCP_SERVER,
+        "title": "Harness Echo",
+        "description": "Echoes a message back.",
+        "remotes": [],
+        "packages": [{
+            "registryType": "npm",
+            "identifier": "@harness/echo",
+            "runtimeHint": env!("CARGO_BIN_EXE_test-mcp-stub"),
+            "environmentVariables": []
+        }]
+    })
+}
+
+/// The official registry's list and versions endpoints, serving one server.
+#[cfg(feature = "mcp")]
+async fn serve_mcp_registry_fixture() -> (
+    SocketAddr,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    async fn list() -> Json<Value> {
+        Json(json!({
+            "servers": [{ "server": registry_mcp_record() }],
+            "metadata": { "nextCursor": "" }
+        }))
+    }
+    async fn versions() -> Json<Value> {
+        Json(json!({ "servers": [{ "server": registry_mcp_record() }] }))
+    }
+    let app = Router::new()
+        .route("/v0/servers", get(list))
+        .route("/v0/servers/{name}/versions", get(versions));
+    serve_on_ephemeral(app).await
+}
+
+/// RPC handlers may wrap a result as `{ result, logs }`.
+#[cfg(feature = "mcp")]
+fn peel_logs_envelope(v: &Value) -> &Value {
+    match v.get("logs") {
+        Some(_) => v.get("result").unwrap_or(v),
+        None => v,
+    }
+}
+
+/// A server found in the MCP registry is installed and connected through the
+/// same RPCs the settings UI uses, then the agent calls its tool through
+/// `use_mcp_server` and the server's answer reaches the model.
+#[cfg(feature = "mcp")]
+#[test]
+fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry() {
+    run_on_agent_stack(
+        "agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry",
+        agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner,
+    );
+}
+
+#[cfg(feature = "mcp")]
+async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner() {
+    let _lock = env_lock();
+    let (registry_addr, registry_join) = serve_mcp_registry_fixture().await;
+    let _registry = EnvVarGuard::set(
+        "MCP_OFFICIAL_REGISTRY_BASE",
+        &format!("http://{registry_addr}"),
+    );
+    reset_script(Vec::new());
+    let stack = boot_stack().await;
+
+    // Found.
+    let search = post_json_rpc(
+        &stack.rpc_base,
+        800,
+        "openhuman.mcp_clients_registry_search",
+        json!({ "query": "echo", "page": 1, "page_size": 10 }),
+    )
+    .await;
+    let search = peel_logs_envelope(assert_no_jsonrpc_error(
+        &search,
+        "mcp_clients_registry_search",
+    ));
+    assert!(
+        search.to_string().contains(REGISTRY_MCP_SERVER),
+        "registry search must list the fixture server: {search}"
+    );
+
+    // Installed and connected.
+    let install = post_json_rpc(
+        &stack.rpc_base,
+        801,
+        "openhuman.mcp_clients_install",
+        json!({ "qualified_name": REGISTRY_MCP_SERVER, "env": {} }),
+    )
+    .await;
+    let install = peel_logs_envelope(assert_no_jsonrpc_error(&install, "mcp_clients_install"));
+    let server_id = install
+        .pointer("/server/server_id")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("install returned no server.server_id: {install}"))
+        .to_string();
+    let connect = post_json_rpc(
+        &stack.rpc_base,
+        802,
+        "openhuman.mcp_clients_connect",
+        json!({ "server_id": server_id }),
+    )
+    .await;
+    let connect = peel_logs_envelope(assert_no_jsonrpc_error(&connect, "mcp_clients_connect"));
+    assert_eq!(
+        connect.get("status").and_then(Value::as_str),
+        Some("connected"),
+        "the installed server must connect: {connect}"
+    );
+    assert!(
+        connect.to_string().contains("\"echo\""),
+        "the connected server must list its echo tool: {connect}"
+    );
+
+    // Used: orchestrator → use_mcp_server (a direct hand-off, #6302) → mcp_agent,
+    // which owns the pack and calls mcp_registry_tool_call directly.
+    reset_script(vec![
+        tool_call_completion(
+            "use_mcp_server",
+            json!({ "prompt": "Call the echo tool on the harness echo server", "blocking": true }),
+        ),
+        tool_call_completion(
+            "mcp_registry_tool_call",
+            json!({
+                "server_id": server_id,
+                "tool_name": "echo",
+                "arguments": { "message": MCP_ECHO_CANARY }
+            }),
+        ),
+        text_completion("Called the tool."),
+        text_completion("The MCP tool answered."),
+    ]);
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-mcp-registry",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        803,
+        "harness-mcp-registry",
+        "thread-mcp-registry",
+        "Use the echo MCP server",
+    )
+    .await;
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the MCP turn must finish: {done}"
+    );
+
+    let requests = with_captured(|c| c.clone());
+    let result = tool_result_text(&requests, "mcp_registry_tool_call").unwrap_or_else(|| {
+        panic!(
+            "no tool result for mcp_registry_tool_call; requests: {}",
+            serde_json::to_string_pretty(&requests).unwrap_or_default()
+        )
+    });
+    assert!(
+        !result.contains("\"is_error\":true"),
+        "the agent's MCP tool call failed: {result}"
+    );
+    assert!(
+        result.contains(MCP_ECHO_CANARY),
+        "the MCP server's answer did not reach the model: {result}"
+    );
+
+    registry_join.abort();
+    stack.shutdown();
+}
+
+/// Install the registry's echo server through the settings RPCs and connect it,
+/// returning its server id.
+#[cfg(feature = "mcp")]
+async fn install_and_connect_registry_echo_server(rpc_base: &str, first_rpc_id: i64) -> String {
+    let install = post_json_rpc(
+        rpc_base,
+        first_rpc_id,
+        "openhuman.mcp_clients_install",
+        json!({ "qualified_name": REGISTRY_MCP_SERVER, "env": {} }),
+    )
+    .await;
+    let install = peel_logs_envelope(assert_no_jsonrpc_error(&install, "mcp_clients_install"));
+    let server_id = install
+        .pointer("/server/server_id")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("install returned no server.server_id: {install}"))
+        .to_string();
+    let connect = post_json_rpc(
+        rpc_base,
+        first_rpc_id + 1,
+        "openhuman.mcp_clients_connect",
+        json!({ "server_id": server_id }),
+    )
+    .await;
+    let connect = peel_logs_envelope(assert_no_jsonrpc_error(&connect, "mcp_clients_connect"));
+    assert_eq!(
+        connect.get("status").and_then(Value::as_str),
+        Some("connected"),
+        "the installed server must connect: {connect}"
+    );
+    server_id
+}
+
+/// MCP requests reach `mcp_setup` and `mcp_agent` through their hand-offs,
+/// called directly.
+#[cfg(feature = "mcp")]
+#[test]
+fn orchestrator_hands_mcp_requests_to_the_mcp_specialists_directly() {
+    run_on_agent_stack(
+        "orchestrator_hands_mcp_requests_to_the_mcp_specialists_directly",
+        orchestrator_hands_mcp_requests_to_the_mcp_specialists_directly_inner,
+    );
+}
+
+#[cfg(feature = "mcp")]
+async fn orchestrator_hands_mcp_requests_to_the_mcp_specialists_directly_inner() {
+    let _lock = env_lock();
+    reset_script(Vec::new());
+    let stack = boot_stack().await;
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-mcp-handoff",
+        stack.rpc_base
+    ));
+    assert_hand_off_reaches_specialist(
+        &stack,
+        &mut events,
+        930,
+        "harness-mcp-handoff",
+        "setup_mcp_server",
+        &["mcp_setup_install_and_connect", "mcp_setup_request_secret"],
+    )
+    .await;
+    assert_hand_off_reaches_specialist(
+        &stack,
+        &mut events,
+        931,
+        "harness-mcp-handoff",
+        "use_mcp_server",
+        &["mcp_registry_tool_call", "mcp_registry_list_tools"],
+    )
+    .await;
+    stack.shutdown();
+}
+
+/// With `use_mcp_server` on its belt, the orchestrator cannot call a connected
+/// server's tool itself through `use_skill`: the gate refuses the raw tool and
+/// names the hand-off, and the call never runs.
+#[cfg(feature = "mcp")]
+#[test]
+fn orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_tool() {
+    run_on_agent_stack(
+        "orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_tool",
+        orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_tool_inner,
+    );
+}
+
+#[cfg(feature = "mcp")]
+async fn orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_tool_inner() {
+    let _lock = env_lock();
+    let _ttl = EnvVarGuard::set("OPENHUMAN_APPROVAL_TTL_SECS", "120");
+    ensure_approval_gate().await;
+    let _approval_bridge = register_approval_bridge();
+    let (registry_addr, registry_join) = serve_mcp_registry_fixture().await;
+    let _registry = EnvVarGuard::set(
+        "MCP_OFFICIAL_REGISTRY_BASE",
+        &format!("http://{registry_addr}"),
+    );
+    reset_script(Vec::new());
+    let stack = boot_stack().await;
+    let server_id = install_and_connect_registry_echo_server(&stack.rpc_base, 940).await;
+
+    reset_script(vec![
+        packed_tool_call_completion(
+            "integrations",
+            "mcp_registry_tool_call",
+            json!({
+                "server_id": server_id,
+                "tool_name": "echo",
+                "arguments": { "message": MCP_ECHO_CANARY }
+            }),
+        ),
+        text_completion("I could not call it myself."),
+    ]);
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-raw-mcp-call",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        943,
+        "harness-raw-mcp-call",
+        "thread-raw-mcp-call",
+        "Use the echo MCP server",
+    )
+    .await;
+
+    let done = wait_for_terminal_without_approval(&mut events, "mcp_registry_tool_call").await;
+    let requests = with_captured(|c| c.clone());
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the refused MCP turn must finish: {done}"
+    );
+    let result = tool_result_text(&requests, "mcp_registry_tool_call").unwrap_or_else(|| {
+        panic!(
+            "no tool result for mcp_registry_tool_call; requests: {}",
+            serde_json::to_string_pretty(&requests).unwrap_or_default()
+        )
+    });
+    assert!(
+        result.contains("not allowed in the current session")
+            && result.contains("`use_mcp_server`"),
+        "the orchestrator reached `mcp_registry_tool_call` through use_skill instead of being \
+         sent to `use_mcp_server`: {result}"
+    );
+    assert!(
+        !result.contains("\"is_error\":false"),
+        "the refused MCP call ran: {result}"
+    );
+
+    registry_join.abort();
+    stack.shutdown();
+}
+
 // ── #5821: the tool-policy boundary is APPENDED, not prepended ──────────────
 //
 // Lives here rather than in `tests/raw_coverage/`: `raw_coverage_all` declares
@@ -3274,14 +4148,14 @@ async fn model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline_inner()
 mod tool_policy_boundary_placement {
     use anyhow::Result;
     use async_trait::async_trait;
-    use openhuman_core::openhuman::agent::context::prompt::LearnedContextData;
-    use openhuman_core::openhuman::agent::dispatcher::NativeToolDispatcher;
-    use openhuman_core::openhuman::agent::Agent;
-    use openhuman_core::openhuman::config::AgentConfig;
-    use openhuman_core::openhuman::memory::{
+    use openhuman_core::agent::context::prompt::LearnedContextData;
+    use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+    use openhuman_core::agent::Agent;
+    use openhuman_core::config::AgentConfig;
+    use openhuman_core::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary as MemoryNamespaceSummary, RecallOpts,
     };
-    use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolResult};
+    use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
 

@@ -3,7 +3,7 @@
  *
  * Thin wrappers over the `openhuman.memory_tree_*` JSON-RPC surface that
  * powers the Memory tab and the Settings → AI backend chooser. Method
- * shapes mirror the Rust handlers in `src/openhuman/memory/tree/read_rpc.rs`
+ * shapes mirror the Rust handlers in `crates/openhuman-core/src/memory/tree/read_rpc.rs`
  * and `schemas.rs`.
  *
  * Responses come back wrapped by `RpcOutcome::single_log` as
@@ -51,7 +51,7 @@ export type EntityKind =
  * A single chunk in the memory tree — one user-visible message-sized unit
  * (an email, a chat turn, a doc page, a transcribed voice clip).
  *
- * Wire shape mirrors Rust's [`ChunkRow`](src/openhuman/memory/tree/read_rpc.rs)
+ * Wire shape mirrors Rust's [`ChunkRow`](crates/openhuman-core/src/memory/tree/read_rpc.rs)
  * — body is replaced with a `≤500-char preview` plus a flag indicating
  * whether the row has an embedding.
  */

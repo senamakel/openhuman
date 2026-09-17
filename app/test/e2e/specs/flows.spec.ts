@@ -18,7 +18,7 @@
  *      the run, and assert the run inspector (`FlowRunInspectorDrawer`) shows a
  *      terminal status (Completed) with at least one recorded step (the trigger
  *      node reconstructs one — see `settle_steps`/`reconstruct_steps` in
- *      `src/openhuman/flows/ops.rs`).
+ *      `crates/openhuman-core/src/flows/ops.rs`).
  *
  * Follows the reference structure in `cron-jobs-flow.spec.ts`: ONE Appium
  * session, `resetApp(<unique userId>)` for a fresh-install baseline, then real

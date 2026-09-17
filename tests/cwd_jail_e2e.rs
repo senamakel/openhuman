@@ -13,7 +13,7 @@
 //! - **macOS**: same shape, exercises Seatbelt via `/usr/bin/touch`.
 //! - **Windows**: AppContainer integration is marked `#[ignore]` until
 //!   the raw-`HANDLE` → `Child` bridge lands (see TODO in
-//!   `src/openhuman/cwd_jail/windows.rs`).
+//!   `crates/openhuman-core/src/cwd_jail/windows.rs`).
 
 use std::fs;
 use std::path::PathBuf;
@@ -24,8 +24,8 @@ use std::process::{Command, Stdio};
     target_os = "macos",
     target_os = "windows"
 ))]
-use openhuman_core::openhuman::sandbox::cwd_jail::spawn;
-use openhuman_core::openhuman::sandbox::cwd_jail::{
+use openhuman_core::sandbox::cwd_jail::spawn;
+use openhuman_core::sandbox::cwd_jail::{
     default_backend, spawn_with, Jail, JailRegistry, NoopBackend,
 };
 

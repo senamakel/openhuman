@@ -53,7 +53,7 @@ custom-protocol = ["tauri/custom-protocol"]
 # third, separate Cargo world (own Cargo.lock/target/) built via
 # `scripts/ios-init.sh` (`cargo build --release --target aarch64-apple-ios[-sim]`),
 # so it needs the same three settings as root `Cargo.toml` and
-# `app/src-tauri/Cargo.toml`, which carry the full rationale and measurements.
+# `crates/openhuman-app/Cargo.toml`, which carry the full rationale and measurements.
 [profile.release]
 debug = "line-tables-only"
 split-debuginfo = "packed"

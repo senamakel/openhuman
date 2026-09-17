@@ -252,10 +252,10 @@ test('the real product file and the real shell list are equal', () => {
     readFileSync(resolve(REPO_ROOT, 'scripts/ci/product-features.txt'), 'utf8')
   );
   const coreFeatureNames = parseCoreFeatureNames(
-    readFileSync(resolve(REPO_ROOT, 'Cargo.toml'), 'utf8')
+    readFileSync(resolve(REPO_ROOT, 'crates/openhuman-core/Cargo.toml'), 'utf8')
   );
   const shell = parseShellForwardedFeatures(
-    readFileSync(resolve(REPO_ROOT, 'app/src-tauri/Cargo.toml'), 'utf8')
+    readFileSync(resolve(REPO_ROOT, 'crates/openhuman-app/Cargo.toml'), 'utf8')
   );
   // Guards the guard: empty input would make every assertion below vacuous.
   assert.ok(productFeatures.length > 0, 'expected to parse at least one product gate');
@@ -327,10 +327,10 @@ test('--help exits 0', () => {
 
 test('the real shell manifest forwards every real core default', () => {
   const coreDefaults = parseCoreDefaultFeatures(
-    readFileSync(resolve(REPO_ROOT, 'Cargo.toml'), 'utf8')
+    readFileSync(resolve(REPO_ROOT, 'crates/openhuman-core/Cargo.toml'), 'utf8')
   );
   const shell = parseShellForwardedFeatures(
-    readFileSync(resolve(REPO_ROOT, 'app/src-tauri/Cargo.toml'), 'utf8')
+    readFileSync(resolve(REPO_ROOT, 'crates/openhuman-app/Cargo.toml'), 'utf8')
   );
   // Guards the guard: if the parser silently returned nothing, the assertions
   // below would pass against empty input and prove nothing.

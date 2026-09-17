@@ -1,0 +1,33 @@
+[package]
+name = "openhuman-session"
+description = "TinyHumans login/session ownership for OpenHuman hosts: login-token exchange, /auth/me validation, current-user cache, and credential handoff into a core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+log = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+# The vendored SDK owns the backend routes and the `Authorization` /
+# `x-api-key` header shapes. `default-features = false` drops its Socket.IO
+# transport, which this crate never uses.
+tinyhumans-sdk = { path = "../../vendor/tinyhumans-sdk", default-features = false }
+tokio = { version = "1", features = ["sync", "time", "rt"] }
+url = "2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# Windows honours the OS certificate store through schannel so corporate
+# TLS-inspecting proxies keep working — same policy as the core's
+# `util::tls::tls_client_builder`.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "native-tls"] }
+
+[dev-dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync", "time"] }

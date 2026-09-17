@@ -30,11 +30,12 @@ class Openhuman < Formula
   end
 
   def install
-    bin.install "openhuman-core"
-    mv bin/"openhuman-core", bin/"openhuman"
+    bin.install "openhuman-core", "openhuman-tui"
+    bin.install_symlink "openhuman-core" => "openhuman"
   end
 
   test do
     system "#{bin}/openhuman", "--version"
+    system "#{bin}/openhuman-tui", "--help"
   end
 end

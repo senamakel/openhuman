@@ -109,7 +109,7 @@ embedding_dimensions = 0
 embedding_strict = false
 "#;
     std::fs::write(openhuman_dir.join("config.toml"), cfg).expect("write config.toml");
-    let _: openhuman_core::openhuman::config::Config =
+    let _: openhuman_core::config::Config =
         toml::from_str(cfg).expect("test config must match schema");
 }
 
@@ -141,8 +141,7 @@ async fn setup() -> TestHarness {
         EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_MODEL", ""),
     ];
 
-    let _ =
-        openhuman_core::openhuman::agent::harness::AgentDefinitionRegistry::init_global_builtins();
+    let _ = openhuman_core::agent::harness::AgentDefinitionRegistry::init_global_builtins();
 
     let (addr, join) = serve_rpc().await;
     TestHarness {

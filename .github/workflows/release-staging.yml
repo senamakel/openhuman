@@ -76,7 +76,7 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       sha: ${{ steps.resolve.outputs.sha }}
       # First 12 chars of `sha`. Matches the truncation runtime code in
-      # config.ts / vite.config.ts / main.rs / app/src-tauri/src/lib.rs
+      # config.ts / vite.config.ts / main.rs / crates/openhuman-app/src/lib.rs
       # applies when computing `openhuman@<version>+<short_sha>`. Use this
       # (not `sha`) anywhere CI constructs SENTRY_RELEASE so uploaded
       # artifacts attach to the same release events report.
@@ -157,7 +157,7 @@ jobs:
         # `cargo` invocation rewrites them, leaving an uncommitted diff.
         run: |
           cargo update --workspace --manifest-path Cargo.toml
-          cargo update --workspace --manifest-path app/src-tauri/Cargo.toml
+          cargo update --workspace --manifest-path crates/openhuman-app/Cargo.toml
       - name: Compute staging tag
         id: tagname
         env:
@@ -186,7 +186,7 @@ jobs:
           CREATE_TAG: ${{ inputs.create_tag }}
           SOURCE_BRANCH: ${{ github.ref_name }}
         run: |
-          git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
+          git add app/package.json crates/openhuman-app/tauri.conf.json crates/openhuman-app/Cargo.toml Cargo.toml crates/openhuman-app/Cargo.lock Cargo.lock
           # Avoid rebuilding the source branch solely for version metadata.
           git commit -m "chore(staging): v${VERSION} [skip ci]"
           git push origin "HEAD:$SOURCE_BRANCH"

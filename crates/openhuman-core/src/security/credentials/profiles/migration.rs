@@ -1,0 +1,491 @@
+//! Shared read + in-memory migration worker for the persisted auth-profile
+//! store: keychain promotion, legacy cipher upgrades, and profile-id
+//! case normalization.
+
+use anyhow::Result;
+use chrono::Utc;
+use std::collections::BTreeMap;
+
+use super::{
+    normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
+    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, AuthProfilesData,
+    AuthProfilesStore, PersistedAuthProfile, TokenSet,
+};
+
+impl AuthProfilesStore {
+    /// Shared read + in-memory resolution worker. Reads the persisted store,
+    /// resolves/migrates secrets and drops unrecoverable profiles in memory,
+    /// and — only when `persist` is true — writes back any resulting cleanup.
+    /// The returned `AuthProfilesData` reflects the in-memory cleanup either
+    /// way, so the lock-free read path (`persist = false`) still returns a
+    /// correct, fully-resolved view without touching disk.
+    pub(super) fn load_resolved(&self, persist: bool) -> Result<AuthProfilesData> {
+        let mut persisted = self.read_persisted_locked()?;
+        // `migrated` tracks enc: → enc2: XOR-cipher upgrades (original behavior).
+        let mut migrated = false;
+        // `keychain_migrated` tracks enc2: → keychain promotions: when true the
+        // persisted JSON must be rewritten with secret fields cleared.
+        let mut keychain_migrated = false;
+        let mut pending_keychain_deletes = Vec::new();
+        let mut dropped_ids: Vec<String> = Vec::new();
+
+        let mut profiles = BTreeMap::new();
+        for (id, p) in &mut persisted.profiles {
+            // ── Step 1: Resolve secrets ───────────────────────────────────────
+            //
+            // Priority order:
+            //   (a) OS keychain — preferred when available.
+            //   (b) enc2:/enc: JSON fields — legacy; decrypt and optionally
+            //       migrate to keychain on this read.
+            //   (c) Plaintext JSON fields — oldest legacy path; pass through.
+            //
+            // A decrypt failure (wrong key / tampered data) drops the profile
+            // rather than poisoning every reader — the user falls back to a
+            // clean logged-out state and re-authenticates cleanly.
+
+            let (access_token, refresh_token, id_token, token) = if self.use_keychain {
+                // ── (a) Keychain path ──────────────────────────────────────
+                match self.keychain_load_secrets(id) {
+                    Ok(Some(secrets)) => {
+                        // Keychain has the entry — use it directly.  Clear the
+                        // JSON secret fields so they're wiped on next save.
+                        let had_enc_fields = p.access_token.is_some()
+                            || p.refresh_token.is_some()
+                            || p.id_token.is_some()
+                            || p.token.is_some();
+                        if had_enc_fields {
+                            log::info!(
+                                "[auth] load: clearing legacy enc fields for profile_id={id} (already in keychain)"
+                            );
+                            p.access_token = None;
+                            p.refresh_token = None;
+                            p.id_token = None;
+                            p.token = None;
+                            keychain_migrated = true;
+                        }
+                        (
+                            secrets.access_token,
+                            secrets.refresh_token,
+                            secrets.id_token,
+                            secrets.token,
+                        )
+                    }
+                    Ok(None) => {
+                        // ── (b) No keychain entry yet — decrypt JSON fields and migrate ──
+                        let decrypted = (|| -> Result<_> {
+                            let (access_token, access_mig) =
+                                self.decrypt_optional(p.access_token.as_deref())?;
+                            let (refresh_token, refresh_mig) =
+                                self.decrypt_optional(p.refresh_token.as_deref())?;
+                            let (id_token, id_mig) =
+                                self.decrypt_optional(p.id_token.as_deref())?;
+                            let (token, token_mig) = self.decrypt_optional(p.token.as_deref())?;
+                            Ok((
+                                access_token,
+                                access_mig,
+                                refresh_token,
+                                refresh_mig,
+                                id_token,
+                                id_mig,
+                                token,
+                                token_mig,
+                            ))
+                        })();
+                        let (at, at_mig, rt, rt_mig, it, it_mig, tok, tok_mig) = match decrypted {
+                            Ok(v) => v,
+                            Err(e) => {
+                                log::warn!(
+                                    "[auth] dropping unrecoverable profile provider={}: {e}. \
+                                         Most likely cause: .secret_key was regenerated. \
+                                         Re-authenticate to restore the session.",
+                                    p.provider
+                                );
+                                dropped_ids.push(id.clone());
+                                continue;
+                            }
+                        };
+                        // Track XOR→enc2 cipher upgrades (existing behavior).
+                        if at_mig.is_some() {
+                            p.access_token = at_mig;
+                            migrated = true;
+                        }
+                        if rt_mig.is_some() {
+                            p.refresh_token = rt_mig;
+                            migrated = true;
+                        }
+                        if it_mig.is_some() {
+                            p.id_token = it_mig;
+                            migrated = true;
+                        }
+                        if tok_mig.is_some() {
+                            p.token = tok_mig;
+                            migrated = true;
+                        }
+
+                        // If any secrets were found in JSON, promote them to keychain
+                        // and clear the JSON fields so the next write is clean.
+                        let has_secrets =
+                            at.is_some() || rt.is_some() || it.is_some() || tok.is_some();
+                        if has_secrets {
+                            log::info!(
+                                "[auth] load: migrating enc fields to keychain profile_id={id} user_id={}",
+                                self.user_id
+                            );
+                            let dummy_profile = AuthProfile {
+                                id: id.clone(),
+                                provider: p.provider.clone(),
+                                profile_name: p.profile_name.clone(),
+                                kind: parse_profile_kind(&p.kind).unwrap_or(AuthProfileKind::Token),
+                                account_id: p.account_id.clone(),
+                                workspace_id: p.workspace_id.clone(),
+                                token_set: at.clone().map(|access| TokenSet {
+                                    access_token: access,
+                                    refresh_token: rt.clone(),
+                                    id_token: it.clone(),
+                                    expires_at: None,
+                                    token_type: None,
+                                    scope: None,
+                                }),
+                                token: tok.clone(),
+                                metadata: Default::default(),
+                                created_at: Utc::now(),
+                                updated_at: Utc::now(),
+                            };
+                            if let Err(e) = self.keychain_store_secrets(&dummy_profile) {
+                                // Non-fatal: keep the enc2: fields in JSON so the
+                                // next load can try again.
+                                log::warn!(
+                                    "[auth] load: keychain migration failed profile_id={id}: {e}; \
+                                     keeping enc fields in JSON"
+                                );
+                            } else {
+                                // Wipe JSON secret fields now that keychain has them.
+                                p.access_token = None;
+                                p.refresh_token = None;
+                                p.id_token = None;
+                                p.token = None;
+                                keychain_migrated = true;
+                            }
+                        }
+                        (at, rt, it, tok)
+                    }
+                    Err(_e) => {
+                        // Keychain I/O error — fall through to JSON decrypt path.
+                        log::warn!(
+                            "[auth] keychain error for profile_id={id}; falling back to JSON"
+                        );
+                        let decrypted = (|| -> Result<_> {
+                            let (at, _) = self.decrypt_optional(p.access_token.as_deref())?;
+                            let (rt, _) = self.decrypt_optional(p.refresh_token.as_deref())?;
+                            let (it, _) = self.decrypt_optional(p.id_token.as_deref())?;
+                            let (tok, _) = self.decrypt_optional(p.token.as_deref())?;
+                            Ok((at, rt, it, tok))
+                        })();
+                        match decrypted {
+                            Ok(v) => v,
+                            Err(e) => {
+                                log::warn!(
+                                    "[auth] dropping unrecoverable profile provider={}: {e}",
+                                    p.provider
+                                );
+                                dropped_ids.push(id.clone());
+                                continue;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // ── (b/c) No keychain — use existing JSON decrypt path ────────
+                let decrypted = (|| -> Result<_> {
+                    let (access_token, access_migrated) =
+                        self.decrypt_optional(p.access_token.as_deref())?;
+                    let (refresh_token, refresh_migrated) =
+                        self.decrypt_optional(p.refresh_token.as_deref())?;
+                    let (id_token, id_migrated) = self.decrypt_optional(p.id_token.as_deref())?;
+                    let (token, token_migrated) = self.decrypt_optional(p.token.as_deref())?;
+                    Ok((
+                        access_token,
+                        access_migrated,
+                        refresh_token,
+                        refresh_migrated,
+                        id_token,
+                        id_migrated,
+                        token,
+                        token_migrated,
+                    ))
+                })();
+
+                let (
+                    access_token,
+                    access_migrated,
+                    refresh_token,
+                    refresh_migrated,
+                    id_token,
+                    id_migrated,
+                    token,
+                    token_migrated,
+                ) = match decrypted {
+                    Ok(v) => v,
+                    Err(e) => {
+                        log::warn!(
+                            "[auth] dropping unrecoverable profile provider={}: {e}. \
+                             Most likely cause: .secret_key was regenerated after this profile \
+                             was stored. The store will be rewritten without this entry; \
+                             re-authenticate to restore the session.",
+                            p.provider
+                        );
+                        dropped_ids.push(id.clone());
+                        continue;
+                    }
+                };
+
+                if let Some(value) = access_migrated {
+                    p.access_token = Some(value);
+                    migrated = true;
+                }
+                if let Some(value) = refresh_migrated {
+                    p.refresh_token = Some(value);
+                    migrated = true;
+                }
+                if let Some(value) = id_migrated {
+                    p.id_token = Some(value);
+                    migrated = true;
+                }
+                if let Some(value) = token_migrated {
+                    p.token = Some(value);
+                    migrated = true;
+                }
+                (access_token, refresh_token, id_token, token)
+            };
+
+            let kind = match parse_profile_kind(&p.kind) {
+                Ok(k) => k,
+                Err(e) => {
+                    // A single profile with an unrecognized `kind` (e.g. a legacy value
+                    // like "OAuth" written before the kebab-case rename, or "api_key"
+                    // written by an older code path) must not poison the whole store —
+                    // otherwise every reader fails the entire load and the user is
+                    // locked out of *all* their auth profiles. Drop just this entry,
+                    // matching the decrypt-failure recovery pattern above; the next
+                    // login re-encodes the kind correctly.
+                    log::warn!(
+                        "[auth] dropping profile with unrecognized kind={:?} provider={}: {e}. \
+                         This usually means the profile was written by an older version of \
+                         OpenHuman. Re-authenticate to restore the session.",
+                        p.kind,
+                        p.provider
+                    );
+                    dropped_ids.push(id.clone());
+                    continue;
+                }
+            };
+            let token_set = match kind {
+                AuthProfileKind::OAuth => {
+                    let access = match access_token {
+                        Some(a) => a,
+                        None => {
+                            log::warn!(
+                                "[auth] dropping OAuth profile with missing access_token: \
+                                 provider={}. Re-authenticate to restore.",
+                                p.provider
+                            );
+                            dropped_ids.push(id.clone());
+                            continue;
+                        }
+                    };
+                    Some(TokenSet {
+                        access_token: access,
+                        refresh_token,
+                        id_token,
+                        expires_at: parse_optional_datetime(p.expires_at.as_deref())?,
+                        token_type: p.token_type.clone(),
+                        scope: p.scope.clone(),
+                    })
+                }
+                AuthProfileKind::Token => None,
+            };
+
+            profiles.insert(
+                id.clone(),
+                AuthProfile {
+                    id: id.clone(),
+                    provider: p.provider.clone(),
+                    profile_name: p.profile_name.clone(),
+                    kind,
+                    account_id: p.account_id.clone(),
+                    workspace_id: p.workspace_id.clone(),
+                    token_set,
+                    token,
+                    metadata: p.metadata.clone(),
+                    created_at: parse_datetime_with_fallback(&p.created_at),
+                    updated_at: parse_datetime_with_fallback(&p.updated_at),
+                },
+            );
+        }
+
+        if !dropped_ids.is_empty() {
+            for id in &dropped_ids {
+                persisted.profiles.remove(id);
+            }
+            persisted
+                .active_profiles
+                .retain(|_, profile_id| !dropped_ids.contains(profile_id));
+            persisted.updated_at = Utc::now().to_rfc3339();
+            log::warn!(
+                "[auth] purged {} unrecoverable profile(s) from store at {} \
+                 (provider list redacted to avoid leaking PII)",
+                dropped_ids.len(),
+                self.path.display(),
+            );
+        }
+
+        let mut key_migrated = false;
+        let mut new_active = BTreeMap::new();
+        let mut active_entries: Vec<_> = persisted.active_profiles.iter().collect();
+        active_entries.sort_by_key(|(k, _)| k.to_ascii_lowercase() != **k);
+        for (k, v) in active_entries {
+            let lower = k.to_ascii_lowercase();
+            let normalized_value = normalize_profile_id_provider(v);
+            if &lower != k || &normalized_value != v {
+                key_migrated = true;
+            }
+            if new_active.contains_key(&lower) {
+                if k == &lower {
+                    new_active.insert(lower.clone(), normalized_value.clone());
+                }
+            } else {
+                new_active.insert(lower, normalized_value);
+            }
+        }
+        if key_migrated {
+            persisted.active_profiles = new_active;
+        }
+
+        let mut new_persisted_profiles: BTreeMap<String, PersistedAuthProfile> = BTreeMap::new();
+        let mut new_profiles: BTreeMap<String, AuthProfile> = BTreeMap::new();
+        let mut profile_id_migration_targets: BTreeMap<String, String> = BTreeMap::new();
+        let mut profile_casing_changed_count: usize = 0;
+        let mut profile_migration_conflicts: usize = 0;
+
+        let mut profile_entries: Vec<_> = std::mem::take(&mut persisted.profiles)
+            .into_iter()
+            .collect();
+        profile_entries.sort_by_key(|(id, p)| {
+            id != &profile_id(&p.provider.to_ascii_lowercase(), &p.profile_name)
+        });
+        for (id, mut p) in profile_entries {
+            let original_provider = p.provider.clone();
+            let lower_provider = p.provider.to_ascii_lowercase();
+            let normalized_id = profile_id(&lower_provider, &p.profile_name);
+            let provider_or_id_changed = normalized_id != id || lower_provider != p.provider;
+
+            if let Some(mut ap) = profiles.remove(&id) {
+                if new_profiles.contains_key(&normalized_id) {
+                    profile_migration_conflicts += 1;
+                    key_migrated = true;
+                    if id == normalized_id {
+                        let old_id = new_profiles
+                            .insert(normalized_id.clone(), ap)
+                            .map(|old| old.id);
+                        new_persisted_profiles.insert(normalized_id.clone(), p);
+                        profile_id_migration_targets.insert(id.clone(), normalized_id.clone());
+                        profile_id_migration_targets
+                            .insert(normalize_profile_id_provider(&id), normalized_id.clone());
+                        if self.use_keychain {
+                            if let Some(old_id) = &old_id {
+                                pending_keychain_deletes.push(old_id.clone());
+                            }
+                        }
+                        log::debug!(
+                            "[auth] profile id migration collision: dropped mixed-case profile_id={:?}",
+                            old_id
+                        );
+                    } else {
+                        if self.use_keychain {
+                            pending_keychain_deletes.push(id.clone());
+                        }
+                        log::debug!(
+                            "[auth] profile id migration collision: dropped mixed-case profile_id={id}"
+                        );
+                    }
+                } else {
+                    ap.id = normalized_id.clone();
+                    ap.provider = lower_provider.clone();
+                    p.provider = lower_provider;
+
+                    let migration_succeeded = if self.use_keychain
+                        && provider_or_id_changed
+                        && (ap.token.is_some() || ap.token_set.is_some())
+                    {
+                        match self.keychain_store_secrets(&ap) {
+                            Ok(()) => {
+                                keychain_migrated = true;
+                                pending_keychain_deletes.push(id.clone());
+                                true
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "[auth] load: keychain profile-id migration failed old_profile_id={id}: {e}; retaining legacy entry"
+                                );
+                                false
+                            }
+                        }
+                    } else {
+                        true
+                    };
+
+                    let final_id = if migration_succeeded {
+                        if provider_or_id_changed {
+                            key_migrated = true;
+                            profile_casing_changed_count += 1;
+                        }
+                        normalized_id.clone()
+                    } else {
+                        ap.id = id.clone();
+                        p.provider = original_provider;
+                        id.clone()
+                    };
+                    profile_id_migration_targets.insert(id.clone(), final_id.clone());
+                    profile_id_migration_targets
+                        .insert(normalize_profile_id_provider(&id), final_id.clone());
+                    new_profiles.insert(final_id.clone(), ap);
+                    new_persisted_profiles.insert(final_id, p);
+                }
+            }
+        }
+        for profile_id in persisted.active_profiles.values_mut() {
+            let normalized = normalize_profile_id_provider(profile_id);
+            if let Some(target) = profile_id_migration_targets.get(&normalized) {
+                if profile_id != target {
+                    *profile_id = target.clone();
+                    key_migrated = true;
+                }
+            }
+        }
+        if profile_casing_changed_count > 0 {
+            if profile_migration_conflicts > 0 {
+                log::warn!(
+                    "[auth] profile migration: {profile_migration_conflicts} case-variant \
+                     collision(s) resolved by preferring the existing lowercase entry"
+                );
+            }
+            log::debug!(
+                "[auth] profile migration: normalized {profile_casing_changed_count} profile id(s) to lowercase"
+            );
+        }
+        persisted.profiles = new_persisted_profiles;
+        profiles = new_profiles;
+        if persist && (!dropped_ids.is_empty() || migrated || keychain_migrated || key_migrated) {
+            self.write_persisted_locked(&persisted)?;
+            for id in pending_keychain_deletes {
+                self.keychain_delete_secrets(&id);
+            }
+        }
+        Ok(AuthProfilesData {
+            schema_version: persisted.schema_version,
+            updated_at: parse_datetime_with_fallback(&persisted.updated_at),
+            active_profiles: persisted.active_profiles,
+            profiles,
+        })
+    }
+}

@@ -74,7 +74,7 @@ The "never email Sarah" path is covered as a regression test:
 3. On the next session, `prefetch_tool_memory_rules_blocking` pulls every Critical and High rule and the session builder appends a `ToolMemoryRulesSection` to the system prompt.
 4. The agent sees `### \`send_email\``followed by`- **[critical]** Never email Sarah at sarah@example.com.` before ever choosing a tool, and the rule survives any mid-session token compression.
 
-Coverage and the integration test live in `src/openhuman/memory/tool_memory/`.
+Coverage and the integration test live in `crates/openhuman-core/src/memory/tool_memory/`.
 
 ## See also
 

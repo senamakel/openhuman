@@ -10,6 +10,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
+import { ATTACHMENT_MAX_IMAGES } from '../../lib/attachments';
 import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import socketReducer from '../../store/socketSlice';
@@ -326,6 +327,203 @@ describe('Conversations — attachment feature', () => {
     await waitFor(() => {
       expect(screen.getByText('photo.png')).toBeInTheDocument();
     });
+  });
+
+  // The composer slots are handed to assistant-ui by type, so an unstable slot
+  // identity remounts them on every host render. For the hidden file input that
+  // means a pick made after any re-render lands on a detached element and never
+  // reaches React; for the preview it means the image restarts decoding before
+  // it can paint. Both were #6246.
+  it('keeps the file input mounted across a host re-render, so a slow pick still lands', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).not.toBeNull();
+
+    // Stands in for whatever re-renders the chat while the native dialog is
+    // open: a keystroke, a streaming token, a socket event.
+    await act(async () => {
+      textarea.textContent = 'still typing';
+      fireEvent.input(textarea, { data: 'still typing', inputType: 'insertText' });
+    });
+
+    expect(document.querySelector('input[type="file"]')).toBe(fileInput);
+
+    const file = makeFile('late-pick.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('late-pick.png')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps the attachment preview image mounted across a host re-render', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = makeFile('preview.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    const image = await screen.findByAltText('preview.png');
+
+    await act(async () => {
+      textarea.textContent = 'typing after attaching';
+      fireEvent.input(textarea, { data: 'typing after attaching', inputType: 'insertText' });
+    });
+
+    expect(screen.getByAltText('preview.png')).toBe(image);
+  });
+
+  // Drop and paste had no host path on this surface at all: the only dropzone
+  // was assistant-ui's own, which routes files to a runtime attachment adapter
+  // this app does not use and refuses the drag outright when the runtime
+  // declares no attachment capability.
+  it('attaches a file dropped on the composer', async () => {
+    await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+    expect(shell).not.toBeNull();
+
+    const file = makeFile('dropped.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.drop(shell, { dataTransfer: { files: [file], types: ['Files'] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('dropped.png')).toBeInTheDocument();
+    });
+  });
+
+  // Several macOS drag sources — the floating screenshot thumbnail among them —
+  // leave `dataTransfer.files` empty and carry the payload on `items` instead.
+  // Reading `files` alone made those drops do nothing, silently.
+  it('attaches a dropped file carried only on dataTransfer.items', async () => {
+    await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+    const file = makeFile('from-items.png', 'image/png', 512);
+
+    await act(async () => {
+      fireEvent.drop(shell, {
+        dataTransfer: {
+          files: [],
+          types: ['Files'],
+          items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('from-items.png')).toBeInTheDocument();
+    });
+  });
+
+  // The list every caller hands over belongs to a DOM event that does not
+  // outlive its handler: the picker clears its `FileList` on the next line, and
+  // a drop's `DataTransfer` is neutered on return. Ingest is queued, so reading
+  // the list inside the continuation finds it already empty — and an empty list
+  // yields no attachment and no error, which is silent rather than visible.
+  it('keeps a picked file when the input clears its list right after the event', async () => {
+    await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const live = [makeFile('cleared-after.png', 'image/png', 512)];
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: live } });
+      // Stands in for `event.target.value = ''` emptying the live FileList.
+      live.length = 0;
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('cleared-after.png')).toBeInTheDocument();
+    });
+  });
+
+  it('marks the composer while files are dragged over it, and clears on leave', async () => {
+    await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+
+    await act(async () => {
+      fireEvent.dragOver(shell, { dataTransfer: { types: ['Files'], dropEffect: '' } });
+    });
+    expect(shell.getAttribute('data-dragging')).toBe('true');
+
+    await act(async () => {
+      fireEvent.dragLeave(shell, { relatedTarget: document.body });
+    });
+    expect(shell.getAttribute('data-dragging')).toBeNull();
+  });
+
+  it('attaches a pasted screenshot', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const file = makeFile('screenshot.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.paste(textarea, {
+        clipboardData: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('screenshot.png')).toBeInTheDocument();
+    });
+  });
+
+  it('ignores a plain-text paste so typing still works', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    await act(async () => {
+      fireEvent.paste(textarea, {
+        clipboardData: { items: [{ kind: 'string', type: 'text/plain', getAsFile: () => null }] },
+      });
+    });
+
+    expect(document.querySelector('[data-slot="aui_composer-shell"] img')).toBeNull();
+  });
+
+  // Three ingest entry points can now fire before React re-renders. Seeding the
+  // budget from the `attachments` render snapshot let each of two overlapping
+  // gestures admit a full quota, so 3 + 3 images landed as 6 against a cap of 4.
+  it('holds the image budget when a drop and a paste overlap', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+    const dropped = Array.from({ length: 3 }, (_, i) =>
+      makeFile(`ovl-d${i}.png`, 'image/png', 512)
+    );
+    const pasted = Array.from({ length: 3 }, (_, i) => makeFile(`ovl-p${i}.png`, 'image/png', 512));
+
+    // Both in the same tick, with no await between them — that is the race.
+    await act(async () => {
+      fireEvent.drop(shell, { dataTransfer: { files: dropped, types: ['Files'] } });
+      fireEvent.paste(textarea, {
+        clipboardData: {
+          items: pasted.map(file => ({ kind: 'file', type: 'image/png', getAsFile: () => file })),
+        },
+      });
+    });
+
+    // Two-stage on purpose, and neither stage is redundant.
+    //
+    // Waiting for the cap catches the opposite failure — a queued run starved of
+    // its slot would stall below four and time out here. But `waitFor` alone
+    // cannot pin the count: unserialised, the total climbs 0 -> 6 and passes
+    // *through* four, so a bare `toHaveLength(4)` latches the transient and
+    // passes against the very bug this guards. The settle window after it is
+    // what lets the fifth and sixth land, so the final count is the real one.
+    await waitFor(() => {
+      expect(screen.queryAllByText(/^ovl-/).length).toBeGreaterThanOrEqual(ATTACHMENT_MAX_IMAGES);
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    });
+    expect(screen.queryAllByText(/^ovl-/)).toHaveLength(ATTACHMENT_MAX_IMAGES);
   });
 
   it('shows too-many error when selecting more than 4 images', async () => {

@@ -86,6 +86,7 @@ fn native_request(
     Ok((wire, native))
 }
 
+/// Convert any native-client or wire failure into the transport port's error.
 fn transport_error(error: impl std::fmt::Display) -> TransportError {
     TransportError {
         status: None,

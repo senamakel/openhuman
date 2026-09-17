@@ -68,6 +68,7 @@ struct TurnCost {
     cost_usd: f64,
 }
 
+/// Build the tuned runtime required by the OpenHuman harness and run the proof.
 fn main() -> anyhow::Result<()> {
     let _ = env_logger::builder().is_test(false).try_init();
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -78,6 +79,7 @@ fn main() -> anyhow::Result<()> {
     runtime.block_on(run())
 }
 
+/// Route the requested decision, run only the accepted seats, and print evidence.
 async fn run() -> anyhow::Result<()> {
     let message = std::env::args()
         .nth(1)
@@ -120,7 +122,7 @@ async fn run() -> anyhow::Result<()> {
     )
     .await;
 
-    let selected = selected_agents(&accepted_plan);
+    let selected = selected_agents(&accepted_plan)?;
     let mut running = tokio::task::JoinSet::new();
     for agent_id in selected {
         let harness = Arc::clone(&harness);
@@ -155,6 +157,7 @@ async fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Return the fixed OpenCompany-style candidate snapshot used by this proof.
 fn candidates() -> Vec<RouteCandidate> {
     [
         (
@@ -213,8 +216,9 @@ fn candidates() -> Vec<RouteCandidate> {
     .collect()
 }
 
-fn selected_agents(plan: &RoutingPlan) -> Vec<String> {
-    match plan {
+/// Extract one bounded, duplicate-free set of seats from an accepted plan.
+fn selected_agents(plan: &RoutingPlan) -> anyhow::Result<Vec<String>> {
+    let selected = match plan {
         RoutingPlan::One { responder_id, .. } => vec![responder_id.clone()],
         RoutingPlan::Hive {
             primary_id,
@@ -225,13 +229,28 @@ fn selected_agents(plan: &RoutingPlan) -> Vec<String> {
             .collect(),
         RoutingPlan::Clarify { .. } => Vec::new(),
         RoutingPlan::Fallback { responder_id, .. } => vec![responder_id.clone()],
+    };
+    if selected.len() > MAX_LIVE_SEATS {
+        anyhow::bail!(
+            "accepted routing plan selected {} seats, above the live limit of {MAX_LIVE_SEATS}",
+            selected.len()
+        );
     }
+    let unique: std::collections::BTreeSet<_> = selected.iter().collect();
+    if unique.len() != selected.len() {
+        anyhow::bail!("accepted routing plan contains duplicate seat ids");
+    }
+    Ok(selected)
 }
 
+/// Build one ephemeral, read-only Harness against the explicitly named provider.
 async fn build_harness() -> anyhow::Result<Harness> {
-    let base_url = std::env::var("OPENHUMAN_EXAMPLE_BASE_URL")?;
-    let api_key = std::env::var("OPENHUMAN_EXAMPLE_API_KEY")?;
-    let model = std::env::var("OPENHUMAN_EXAMPLE_MODEL")?;
+    let base_url = std::env::var("OPENHUMAN_EXAMPLE_BASE_URL")
+        .map_err(|_| anyhow::anyhow!("OPENHUMAN_EXAMPLE_BASE_URL is required"))?;
+    let api_key = std::env::var("OPENHUMAN_EXAMPLE_API_KEY")
+        .map_err(|_| anyhow::anyhow!("OPENHUMAN_EXAMPLE_API_KEY is required"))?;
+    let model = std::env::var("OPENHUMAN_EXAMPLE_MODEL")
+        .map_err(|_| anyhow::anyhow!("OPENHUMAN_EXAMPLE_MODEL is required"))?;
     let mut config = Config::default();
     config.local_ai.runtime_enabled = false;
     config.runtime_python.enabled = false;
@@ -250,6 +269,7 @@ async fn build_harness() -> anyhow::Result<Harness> {
         .map_err(Into::into)
 }
 
+/// Run one selected specialist in its stable company-and-agent session.
 async fn run_seat(
     harness: Arc<Harness>,
     candidate: RouteCandidate,
@@ -304,6 +324,7 @@ async fn run_seat(
     })
 }
 
+/// Sum Jev, reasoning-escalation, and selected-seat metering independently.
 fn totals(
     jev_calls: &[SystemOneTrace],
     reasoning_calls: &[ReasoningTrace],
@@ -331,11 +352,11 @@ fn totals(
 
 #[cfg(test)]
 mod tests {
-    use super::{candidates, selected_agents};
+    use super::{candidates, selected_agents, MAX_LIVE_SEATS};
     use tinyhivemind_embed::{RoutingFallback, RoutingPlan};
 
     #[test]
-    fn candidate_ids_are_unique_and_every_plan_shape_is_bounded() {
+    fn candidate_ids_are_unique_and_fallback_is_one_bounded_seat() {
         let candidates = candidates();
         let ids: std::collections::BTreeSet<_> =
             candidates.iter().map(|candidate| &candidate.id).collect();
@@ -344,8 +365,52 @@ mod tests {
             selected_agents(&RoutingPlan::Fallback {
                 responder_id: "engineering".into(),
                 reason: RoutingFallback::ProviderUnavailable,
-            }),
+            })
+            .expect("fallback is bounded"),
             ["engineering"]
         );
+    }
+
+    #[test]
+    fn duplicate_or_overwide_hive_plans_fail_closed() {
+        use tinyhivemind::responder::Probability;
+        use tinyhivemind_embed::{
+            CandidateProbability, ContributionProbability, EvaluationDisposition, RoutingEvaluation,
+        };
+
+        let evaluation = RoutingEvaluation {
+            primary_responder: "engineering".into(),
+            primary_probabilities: vec![CandidateProbability {
+                candidate_id: "engineering".into(),
+                probability: Probability::ONE,
+            }],
+            confidence: Probability::ONE,
+            needs_collaboration: Probability::ONE,
+            needs_clarification: Probability::ZERO,
+            contributions: vec![ContributionProbability {
+                candidate_id: "engineering".into(),
+                probability: Probability::ONE,
+            }],
+            high_impact: Probability::ZERO,
+            model_identity: "test".into(),
+            question_schema_version: 1,
+            roster_version: 1,
+            disposition: EvaluationDisposition::Accepted,
+        };
+        let duplicated = RoutingPlan::Hive {
+            primary_id: "engineering".into(),
+            invited_ids: vec!["engineering".into()],
+            evaluation: evaluation.clone(),
+        };
+        assert!(selected_agents(&duplicated).is_err());
+
+        let overwide = RoutingPlan::Hive {
+            primary_id: "engineering".into(),
+            invited_ids: (0..MAX_LIVE_SEATS)
+                .map(|index| format!("seat-{index}"))
+                .collect(),
+            evaluation,
+        };
+        assert!(selected_agents(&overwide).is_err());
     }
 }

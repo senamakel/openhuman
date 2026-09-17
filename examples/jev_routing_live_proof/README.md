@@ -31,6 +31,10 @@ export JEV_ROUTING_POLICY_JSON='{
   "choice_option_limit": 16
 }'
 
+# Optional and sensitive: include raw user/model content in stdout only when
+# redirecting the report to approved secure storage.
+export JEV_PROOF_INCLUDE_CONTENT=1
+
 cargo run --example jev_routing_live_proof -- \
   "Review this launch for engineering, financial, and compliance risk."
 ```
@@ -41,6 +45,10 @@ thresholds; use values frozen from the labeled routing corpus.
 The proof refuses a round wider than 25 seats. A normal desk makes one Jev
 request. Large candidate sets may make the bounded screening-plus-Choice pair
 defined by TinyHiveMind.
+
+By default stdout redacts the user message, thread context, reasoning prompt
+and reply, and seat replies. `JEV_PROOF_INCLUDE_CONTENT=1` opts into the full
+content-bearing evidence chain; treat that output as sensitive user data.
 
 ## Files
 

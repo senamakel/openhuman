@@ -50,3 +50,13 @@ uuid = { version = "1", features = ["v4"] }
 dirs = "5"
 env_logger = "0.11"
 wiremock = "0.6"
+# LIVE EXAMPLE ONLY. This facade already depends on the core, so it can host
+# the proof without introducing a core -> facade -> core development cycle.
+tinyhivemind-embed = { git = "https://github.com/tinyhumansai/tinyhivemind", rev = "caf6415cc3b94a50ec81938f7c08129ff30ea24e" }
+tinyhivemind-typesafe = { git = "https://github.com/tinyhumansai/tinyhivemind", rev = "caf6415cc3b94a50ec81938f7c08129ff30ea24e" }
+tinyhivemind = { git = "https://github.com/tinyhumansai/tinyhivemind", rev = "caf6415cc3b94a50ec81938f7c08129ff30ea24e" }
+tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "8d116fc2ac9bceecdad9df7a0c72e0f14ee3fea5", default-features = false }
+
+[[example]]
+name = "jev_routing_live_proof"
+path = "../../examples/jev_routing_live_proof/main.rs"

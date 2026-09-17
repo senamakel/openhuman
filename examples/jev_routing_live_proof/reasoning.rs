@@ -15,6 +15,7 @@ use tinyhivemind_embed::{
 /// One reasoning escalation, including its metering.
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct ReasoningTrace {
+    pub(crate) sequence: u64,
     pub(crate) prompt: String,
     pub(crate) reply: String,
     pub(crate) latency_ms: u64,
@@ -54,11 +55,19 @@ impl OpenHumanReasoningRouter {
 
     /// Snapshot every completed reasoning escalation in invocation order.
     pub(crate) fn traces(&self) -> Result<Vec<ReasoningTrace>, String> {
-        self.traces
+        let mut traces = self
+            .traces
             .lock()
             .map(|traces| traces.clone())
-            .map_err(|_| "reasoning trace lock was poisoned".to_owned())
+            .map_err(|_| "reasoning trace lock was poisoned".to_owned())?;
+        sort_traces(&mut traces);
+        Ok(traces)
     }
+}
+
+/// Restore invocation order after asynchronous reasoning turns settle.
+fn sort_traces(traces: &mut [ReasoningTrace]) {
+    traces.sort_by_key(|trace| trace.sequence);
 }
 
 impl Router for OpenHumanReasoningRouter {
@@ -83,11 +92,13 @@ impl Router for OpenHumanReasoningRouter {
                 cost
             });
             let started = Instant::now();
-            let session = self.next_session.fetch_add(1, Ordering::Relaxed);
+            let sequence = self.next_session.fetch_add(1, Ordering::Relaxed);
             let outcome = self
                 .harness
                 .turn(&prompt)
-                .session(format!("openhuman-live-proof:routing-escalation-{session}"))
+                .session(format!(
+                    "openhuman-live-proof:routing-escalation-{sequence}"
+                ))
                 .on_progress(tx)
                 .send()
                 .await?;
@@ -100,6 +111,7 @@ impl Router for OpenHumanReasoningRouter {
                 .lock()
                 .map_err(|_| "reasoning trace lock was poisoned")?
                 .push(ReasoningTrace {
+                    sequence,
                     prompt,
                     reply: reply.clone(),
                     latency_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
@@ -150,11 +162,28 @@ fn extract_json(reply: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::extract_json;
+    use super::{extract_json, sort_traces, ReasoningTrace};
 
     #[test]
     fn strict_json_extraction_accepts_plain_and_fenced_objects() {
         assert_eq!(extract_json(" {\"a\":1} "), "{\"a\":1}");
         assert_eq!(extract_json("```json\n{\"a\":1}\n```"), "{\"a\":1}");
+    }
+
+    #[test]
+    fn traces_are_reported_in_invocation_order() {
+        let trace = |sequence| ReasoningTrace {
+            sequence,
+            prompt: String::new(),
+            reply: String::new(),
+            latency_ms: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            cached_input_tokens: 0,
+            cost_usd: 0.0,
+        };
+        let mut traces = [trace(2), trace(1)];
+        sort_traces(&mut traces);
+        assert_eq!(traces.map(|trace| trace.sequence), [1, 2]);
     }
 }

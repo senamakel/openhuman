@@ -1,5 +1,6 @@
 //! `tinyjevclient` implementation of TinyHiveMind's System One transport port.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -13,6 +14,8 @@ use tinyjevclient::{Client, EvaluationRequest};
 /// One complete provider exchange, without credentials.
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct SystemOneTrace {
+    /// Invocation sequence, assigned before the provider wait.
+    pub(crate) sequence: u64,
     /// Exact structured request sent to System One.
     pub(crate) request: Value,
     /// Exact typed response returned by System One.
@@ -28,6 +31,7 @@ pub(crate) struct SystemOneTrace {
 pub(crate) struct JevTransport {
     client: Client,
     traces: Arc<Mutex<Vec<SystemOneTrace>>>,
+    next_sequence: Arc<AtomicU64>,
 }
 
 impl JevTransport {
@@ -36,21 +40,31 @@ impl JevTransport {
         Ok(Self {
             client: Client::from_env()?,
             traces: Arc::new(Mutex::new(Vec::new())),
+            next_sequence: Arc::new(AtomicU64::new(0)),
         })
     }
 
     /// Snapshot completed calls in request order.
     pub(crate) fn traces(&self) -> Result<Vec<SystemOneTrace>, String> {
-        self.traces
+        let mut traces = self
+            .traces
             .lock()
             .map(|traces| traces.clone())
-            .map_err(|_| "System One trace lock was poisoned".to_owned())
+            .map_err(|_| "System One trace lock was poisoned".to_owned())?;
+        sort_traces(&mut traces);
+        Ok(traces)
     }
+}
+
+/// Restore invocation order after provider calls complete out of order.
+fn sort_traces(traces: &mut [SystemOneTrace]) {
+    traces.sort_by_key(|trace| trace.sequence);
 }
 
 impl SystemOneTransport for JevTransport {
     fn evaluate<'a>(&'a self, request: &'a SystemOneRequest) -> SystemOneTransportFuture<'a> {
         Box::pin(async move {
+            let sequence = self.next_sequence.fetch_add(1, Ordering::Relaxed);
             let (wire_request, native_request) = native_request(request)?;
             let started = Instant::now();
             let result = self
@@ -67,6 +81,7 @@ impl SystemOneTransport for JevTransport {
                     message: "System One trace lock was poisoned".to_owned(),
                 })?
                 .push(SystemOneTrace {
+                    sequence,
                     request: wire_request,
                     response: wire_response.clone(),
                     attempts: result.attempts,
@@ -102,7 +117,7 @@ mod tests {
     use tinyhivemind_typesafe::{Question, SystemOneRequest, SystemOneResponse};
     use tinyjevclient::{Answer, EvaluationResponse, NoulAnswer, Usage};
 
-    use super::{native_request, transport_error};
+    use super::{native_request, sort_traces, transport_error, SystemOneTrace};
 
     #[test]
     fn adapter_errors_do_not_invent_an_http_status() {
@@ -148,5 +163,27 @@ mod tests {
         assert_eq!(converted.model, "jev-test");
         assert_eq!(converted.usage.input_tokens, 12);
         assert_eq!(converted.usage.output_tokens, 3);
+    }
+
+    #[test]
+    fn traces_are_reported_in_invocation_order() {
+        let mut traces = [
+            SystemOneTrace {
+                sequence: 2,
+                request: json!({}),
+                response: json!({}),
+                attempts: 1,
+                latency_ms: 1,
+            },
+            SystemOneTrace {
+                sequence: 1,
+                request: json!({}),
+                response: json!({}),
+                attempts: 1,
+                latency_ms: 2,
+            },
+        ];
+        sort_traces(&mut traces);
+        assert_eq!(traces.map(|trace| trace.sequence), [1, 2]);
     }
 }

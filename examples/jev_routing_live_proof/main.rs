@@ -19,6 +19,7 @@ use tinyhivemind_embed::{
     RoutingRequest,
 };
 use tinyhivemind_typesafe::JevRouter;
+use uuid::Uuid;
 
 use reasoning::{OpenHumanReasoningRouter, ReasoningTrace};
 use transport::{JevTransport, SystemOneTrace};
@@ -51,6 +52,8 @@ struct ProofTotals {
 
 #[derive(Debug, Serialize)]
 struct ProofRecord {
+    content_included: bool,
+    proof_id: String,
     message: String,
     candidate_snapshot: Vec<RouteCandidate>,
     jev_calls: Vec<SystemOneTrace>,
@@ -123,16 +126,14 @@ async fn run() -> anyhow::Result<()> {
     .await;
 
     let selected = selected_agents(&accepted_plan)?;
+    let selected_candidates = resolve_candidates(&selected, &candidates)?;
+    let proof_id = Uuid::new_v4().to_string();
     let mut running = tokio::task::JoinSet::new();
-    for agent_id in selected {
+    for candidate in selected_candidates {
         let harness = Arc::clone(&harness);
-        let candidate = candidates
-            .iter()
-            .find(|candidate| candidate.id == agent_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("accepted plan named unknown agent {agent_id}"))?;
         let message = message.clone();
-        running.spawn(async move { run_seat(harness, candidate, message).await });
+        let proof_id = proof_id.clone();
+        running.spawn(async move { run_seat(harness, candidate, message, proof_id).await });
     }
 
     let mut turns = Vec::new();
@@ -144,7 +145,9 @@ async fn run() -> anyhow::Result<()> {
     let jev_calls = transport.traces().map_err(anyhow::Error::msg)?;
     let reasoning_calls = reasoning.traces().map_err(anyhow::Error::msg)?;
     let totals = totals(&jev_calls, &reasoning_calls, &turns);
-    let record = ProofRecord {
+    let mut record = ProofRecord {
+        content_included: include_content(),
+        proof_id,
         message,
         candidate_snapshot: candidates,
         jev_calls,
@@ -153,8 +156,56 @@ async fn run() -> anyhow::Result<()> {
         turns,
         totals,
     };
+    if !record.content_included {
+        redact_content(&mut record);
+    }
     println!("{}", serde_json::to_string_pretty(&record)?);
     Ok(())
+}
+
+/// Validate every selected id before any paid seat task is spawned.
+fn resolve_candidates(
+    selected: &[String],
+    candidates: &[RouteCandidate],
+) -> anyhow::Result<Vec<RouteCandidate>> {
+    selected
+        .iter()
+        .map(|agent_id| {
+            candidates
+                .iter()
+                .find(|candidate| candidate.id == *agent_id)
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("accepted plan named unknown agent {agent_id}"))
+        })
+        .collect()
+}
+
+/// Return whether the operator explicitly opted into content-bearing stdout.
+fn include_content() -> bool {
+    std::env::var("JEV_PROOF_INCLUDE_CONTENT").is_ok_and(|value| value == "1")
+}
+
+/// Remove user/model text while preserving auditable routing metadata.
+fn redact_content(record: &mut ProofRecord) {
+    const REDACTED: &str = "[redacted; set JEV_PROOF_INCLUDE_CONTENT=1 for secure output]";
+    record.message = REDACTED.into();
+    for call in &mut record.jev_calls {
+        if let Some(state) = call.request.get_mut("state") {
+            if let Some(message) = state.get_mut("message") {
+                *message = serde_json::Value::String(REDACTED.into());
+            }
+            if let Some(context) = state.get_mut("thread_context") {
+                *context = serde_json::Value::Array(Vec::new());
+            }
+        }
+    }
+    for call in &mut record.reasoning_calls {
+        call.prompt = REDACTED.into();
+        call.reply = REDACTED.into();
+    }
+    for turn in &mut record.turns {
+        turn.reply = REDACTED.into();
+    }
 }
 
 /// Return the fixed OpenCompany-style candidate snapshot used by this proof.
@@ -274,8 +325,9 @@ async fn run_seat(
     harness: Arc<Harness>,
     candidate: RouteCandidate,
     message: String,
+    proof_id: String,
 ) -> anyhow::Result<SeatRecord> {
-    let session_id = format!("openhuman-live-proof:{}", candidate.id);
+    let session_id = format!("openhuman-live-proof:{proof_id}:{}", candidate.id);
     let prompt = format!(
         "Company request:\n{message}\n\nYour assigned role is {}. Give a concise, evidence-aware recommendation from that role. State uncertainties and do not take actions.",
         candidate.description.as_deref().unwrap_or(&candidate.label)
@@ -352,7 +404,7 @@ fn totals(
 
 #[cfg(test)]
 mod tests {
-    use super::{candidates, selected_agents, MAX_LIVE_SEATS};
+    use super::{candidates, resolve_candidates, selected_agents, MAX_LIVE_SEATS};
     use tinyhivemind_embed::{RoutingFallback, RoutingPlan};
 
     #[test]
@@ -412,5 +464,12 @@ mod tests {
             evaluation,
         };
         assert!(selected_agents(&overwide).is_err());
+    }
+
+    #[test]
+    fn every_selected_id_is_validated_before_spawning() {
+        let candidates = candidates();
+        let selected = vec!["engineering".into(), "unknown".into()];
+        assert!(resolve_candidates(&selected, &candidates).is_err());
     }
 }

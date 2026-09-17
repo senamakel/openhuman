@@ -322,10 +322,6 @@ path = "../../examples/run_memory_doctor.rs"
 name = "run_memory_reconcile"
 path = "../../examples/run_memory_reconcile.rs"
 
-[[example]]
-name = "jev_routing_live_proof"
-path = "../../examples/jev_routing_live_proof/main.rs"
-
 [lib]
 name = "openhuman_core"
 path = "src/lib.rs"
@@ -912,18 +908,6 @@ landlock = { version = "0.4", optional = true }
 rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
-# The Jev live proof drives OpenHuman through the public embedding facade,
-# keeping the example aligned with external OpenCompany integration.
-openhuman-embed = { path = "../openhuman-embed" }
-# LIVE EXAMPLE ONLY. Jev-first routing and its exact System One adapter are
-# pinned to the merged canonical TinyHiveMind commit. They remain outside the
-# shipped OpenHuman graph until the OpenCompany integration evidence is stable.
-tinyhivemind-embed = { git = "https://github.com/tinyhumansai/tinyhivemind", rev = "caf6415cc3b94a50ec81938f7c08129ff30ea24e" }
-tinyhivemind-typesafe = { git = "https://github.com/tinyhumansai/tinyhivemind", rev = "caf6415cc3b94a50ec81938f7c08129ff30ea24e" }
-tinyhivemind = { git = "https://github.com/tinyhumansai/tinyhivemind", rev = "caf6415cc3b94a50ec81938f7c08129ff30ea24e" }
-# LIVE EXAMPLE ONLY. Implements the proof adapter's System One HTTP wait. The
-# API key stays in `TYPESAFE_API_KEY` and is never serialized into proof output.
-tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "8d116fc2ac9bceecdad9df7a0c72e0f14ee3fea5", default-features = false }
 # Turns on `tinyflows-sqlite`'s `test-fixtures` gate for test builds only: the
 # flows test suite stages a terminal run flipped back to `running` and a
 # `graph_json` column that does not deserialize, neither of which any production

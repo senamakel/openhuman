@@ -102,7 +102,10 @@ tinyanalyzer or the re-check could ever see.
 
 Each version is compiled and linked separately. **Only the `root` (and
 `openhuman-app`) sections cost the shipped build**; submodule sections show
-where a requirement should move so the root can unify.
+where a requirement should move so the root can unify. Within a `root` /
+`openhuman-app` section, a duplicate reached only through a `development`
+dependency (see section 1's Kind column) costs test/CI build time, not the
+shipped binary — check the Kind before treating a row as production weight.
 
 "Pulled in via" names the *direct* dependencies whose subtree carries that
 version, walked from tinyanalyzer's edge list. `direct dep of <pkg>` means one

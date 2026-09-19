@@ -122,7 +122,10 @@ of our own packages declares it. To unify:
 Per target, the direct dependencies with the largest **exclusive** transitive
 footprint — crates that would leave the build entirely if this one were
 dropped. "Reaches" is the raw transitive count, most of which something else
-pulls in anyway. "Source" is checked-out source size, not binary size.
+pulls in anyway. "Source" is checked-out source size, not binary size. Unlike
+section 1, this table excludes a dependency whose only edge kind is
+`development` (test/example/benchmark-only): those are never linked into the
+shipped binary, so they do not belong in a shipped-build weight ranking.
 
 A high exclusive count usually means default features pulling in a subtree we
 do not use. Try `default-features = false` plus the two or three features

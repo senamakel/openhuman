@@ -360,8 +360,12 @@ function unusedFor(target, data) {
     seen.add(key);
     const dir = packageDir(data, u.package);
     const evidence = textualUse(dir, u.dependency);
-    const pkg = resolvedDependency(data, u.package, u.dependency);
-    const others = otherDependents(data, u.dependency, u.package);
+    // `u.dependency` is the manifest key; resolve a rename (`alias = {
+    // package = "real" }`) to the crate name the graph indexes packages by
+    // before looking anything up there.
+    const realName = dir ? (dependencyAliasMap(dir).get(u.dependency) ?? u.dependency) : u.dependency;
+    const pkg = resolvedDependency(data, u.package, realName);
+    const others = otherDependents(data, realName, u.package);
     rows.push({
       package: u.package,
       dependency: u.dependency,

@@ -88,10 +88,15 @@ one line is deleted. It is `0 (kept by …)` when another package in the same
 workspace still depends on the crate: the manifest gets cleaner, the build
 does not get smaller. Sort your effort by graph win.
 
-A crate that is used *only* through attributes everywhere (currently
-`thiserror`) can be added to `ignore_unused` in `tinyanalyzer.toml` so it stops
-being reported. Do that only for crates that can never be a real finding;
-every entry hides the crate from the check in all 24 targets.
+`ignore_unused` in `tinyanalyzer.toml` is empty and should generally stay
+that way: it hides a crate from tinyanalyzer's own unused check in *every*
+target, so a genuinely unused occurrence in some other target goes
+unreported too. `report.mjs`'s own re-check already covers the false
+positive this list historically existed for (`#[derive(thiserror::Error)]`
+with no `use thiserror`) by scanning for the attribute form and reporting
+"keep" instead of "remove". Only add an entry here for a crate that is
+provably unreachable through any `use`/path/attribute/macro form
+tinyanalyzer or the re-check could ever see.
 
 ### 2. Crates resolved at more than one version
 

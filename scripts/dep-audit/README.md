@@ -61,9 +61,12 @@ siblings. `--keep-nested` analyzes every checkout regardless.
 ### Targets
 
 One row per target with its commit and headline counts. "Crates in graph" is
-the *full* `cargo metadata` resolve — every platform and every optional
-feature — which is why Windows-only crates appear on a Linux run and why a
-duplicate listed here may not show in `cargo tree` on your host.
+the `cargo metadata` resolve for every platform (no `--filter-platform`),
+using each package's **default features** (tinyanalyzer does not pass
+`--all-features`) — which is why Windows-only crates appear on a Linux run,
+why a duplicate listed here may not show in `cargo tree` on your host, and
+why a crate reachable only through a non-default optional feature will not
+appear at all.
 
 ### 1. Declared dependencies no source file names
 

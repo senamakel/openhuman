@@ -222,25 +222,31 @@ function dependencyAliasMap(dir) {
  */
 function textualUse(dir, dep) {
   if (!dir || !fs.existsSync(dir)) return "unknown";
+  // Code imports a renamed dependency under its manifest alias (`dep`), not
+  // under the crate's real name, so the alias is the correct identifier to
+  // grep for here — see dependencyAliasMap's docstring for the name split.
   const ident = dep.replace(/-/g, "_");
-  const dirs = packageSourceDirs(dir);
+  const { dirs, files } = packageSourceDirs(dir);
   const pathRe = `(\\b${ident}::|\\buse\\s+${ident}\\b|extern\\s+crate\\s+${ident}\\b|#\\[${ident}\\b|\\b${ident}!)`;
-  if (grepAny(dirs, pathRe)) return "path";
-  if (grepAny(dirs, `\\b${ident}\\b`)) return "word";
+  if (grepAny(dirs, files, pathRe)) return "path";
+  if (grepAny(dirs, files, `\\b${ident}\\b`)) return "word";
   return "none";
 }
 
-function grepAny(dirs, pattern) {
+function grepAny(dirs, files, pattern) {
+  const targets = [...dirs, ...files];
+  if (targets.length === 0) return false;
   try {
     const out = execFileSync(
       "grep",
-      ["-rlE", pattern, "--include=*.rs", "--exclude-dir=target", "--exclude-dir=vendor", ...dirs],
+      ["-rlE", pattern, "--include=*.rs", "--exclude-dir=target", "--exclude-dir=vendor", ...targets],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
     );
     return out.trim().length > 0;
   } catch (err) {
-    // grep exits 1 when nothing matched; anything else is a real failure we
-    // would rather surface as "used" than as a false removal.
+    // grep exits 1 when nothing matched (or a listed file does not exist);
+    // anything else is a real failure we would rather surface as "used" than
+    // as a false removal.
     return err.status !== 1;
   }
 }

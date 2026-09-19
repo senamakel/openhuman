@@ -126,7 +126,7 @@ function packageDir(data, packageName) {
   );
   if (!pkg) return null;
   const m = /^path\+file:\/\/(.+?)(#.*)?$/.exec(pkg.id);
-  return m ? m[1] : null;
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 /**

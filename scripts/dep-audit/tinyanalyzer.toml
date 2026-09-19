@@ -14,14 +14,12 @@ exclude = ["vendor/**", "worktrees/**", "target/**", "node_modules/**"]
 # reflects what CI actually compiles.
 include_dev = true
 
-# Crates that are reached exclusively through `#[derive(...)]` / attribute
-# macros and so never appear in a `use` or path. tinyanalyzer's unused check is
-# textual ("no source file names the crate"), so these are near-certain false
-# positives. Keep the list short and justified: every entry hides a real
-# finding for that crate everywhere.
-ignore_unused = [
-  # `#[derive(Error)]` + `#[error("...")]` when imported via `use thiserror::Error`
-  # is *named*; only fully qualified `#[derive(thiserror::Error)]` is not, and
-  # the codebase mixes both, so hide the noise.
-  "thiserror",
-]
+# `ignore_unused` would hide a crate from tinyanalyzer's own unused check in
+# every target, globally — including a target where the crate genuinely is
+# unused. `report.mjs`'s `textualUse` re-check already covers the one false
+# positive this list used to carry (`thiserror` reached only through
+# `#[derive(thiserror::Error)]`, never a `use`): it greps for `#[thiserror\b`
+# and reports "keep (attribute/macro path)" instead of "remove", so no global
+# suppression is needed here. Prefer that per-finding re-check over adding
+# entries below.
+ignore_unused = []

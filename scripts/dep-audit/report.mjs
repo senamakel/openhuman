@@ -130,30 +130,83 @@ function packageDir(data, packageName) {
 }
 
 /**
- * Directories whose `*.rs` files belong to a package: its own directory plus
- * the parent directory of every explicit `path = "..."` target in its
- * Cargo.toml (`[[test]]`, `[[example]]`, `[[bench]]`, `[[bin]]`, `[lib]`).
- * OpenHuman's root crate declares its integration tests as
- * `path = "../../tests/<name>.rs"`, which a scan of the crate dir alone misses.
+ * Sources that belong to a package: its own directory (scanned recursively,
+ * so an implicit `src/` or an implicit `build.rs` next to `Cargo.toml` are
+ * covered) plus the exact file for every explicit `path = "..."` target in
+ * its Cargo.toml (`[[test]]`, `[[example]]`, `[[bench]]`, `[[bin]]`, `[lib]`,
+ * `[package] build = "..."`).
+ *
+ * Explicit targets are tracked as single *files*, not their parent
+ * directory: OpenHuman's root crate declares its integration tests as
+ * `path = "../../tests/<name>.rs"`, and `tests/` holds one file per package
+ * (see AGENTS.md). Adding that whole directory would let an unrelated
+ * sibling test file reference a dependency and flip an actually-unused
+ * dependency to "keep".
  */
 function packageSourceDirs(dir) {
   const dirs = new Set([dir]);
+  const files = new Set();
   const manifest = path.join(dir, "Cargo.toml");
-  if (!fs.existsSync(manifest)) return [...dirs];
+  if (!fs.existsSync(manifest)) return { dirs: [...dirs], files: [...files] };
   const toml = fs.readFileSync(manifest, "utf8");
   let section = "";
   for (const raw of toml.split("\n")) {
     const line = raw.trim();
-    const head = /^\[\[?([a-zA-Z.-]+)\]?\]/.exec(line);
+    const head = /^\[\[?([a-zA-Z0-9_.-]+)\]?\]/.exec(line);
     if (head) {
       section = head[1];
       continue;
     }
+    if (section === "package") {
+      const b = /^build\s*=\s*"([^"]+)"/.exec(line);
+      if (b) files.add(path.resolve(dir, b[1]));
+      continue;
+    }
     if (!/^(test|example|bench|bin|lib)$/.test(section)) continue;
     const m = /^path\s*=\s*"([^"]+)"/.exec(line);
-    if (m) dirs.add(path.dirname(path.resolve(dir, m[1])));
+    if (m) files.add(path.resolve(dir, m[1]));
   }
-  return [...dirs];
+  return { dirs: [...dirs], files: [...files] };
+}
+
+/**
+ * Alias -> real crate name for dependencies renamed with `package = "..."`,
+ * covering both `alias = { package = "real", ... }` and
+ * `[dependencies.alias]` / `package = "real"` table forms. tinyanalyzer's
+ * `unused[].dependency` (and the graph's `packages[].name`) disagree for a
+ * renamed dependency: the former is the manifest key (what code actually
+ * imports), the latter is the real crate name (what the resolved package is
+ * called), so callers matching a dependency against the graph need this map.
+ */
+function dependencyAliasMap(dir) {
+  const map = new Map();
+  const manifest = path.join(dir, "Cargo.toml");
+  if (!fs.existsSync(manifest)) return map;
+  const toml = fs.readFileSync(manifest, "utf8");
+  let section = "";
+  let tableDepKey = null;
+  for (const raw of toml.split("\n")) {
+    const line = raw.trim();
+    const head = /^\[([a-zA-Z0-9_.-]+)\]/.exec(line);
+    if (head) {
+      section = head[1];
+      const table = /^(dependencies|dev-dependencies|build-dependencies)\.([A-Za-z0-9_-]+)$/.exec(section);
+      tableDepKey = table ? table[2] : null;
+      continue;
+    }
+    if (tableDepKey) {
+      const pkg = /^package\s*=\s*"([^"]+)"/.exec(line);
+      if (pkg) map.set(tableDepKey, pkg[1]);
+      continue;
+    }
+    if (!/^(dependencies|dev-dependencies|build-dependencies)$/.test(section)) continue;
+    const inline = /^([A-Za-z0-9_-]+)\s*=\s*\{([^}]*)\}/.exec(line);
+    if (inline) {
+      const pkg = /package\s*=\s*"([^"]+)"/.exec(inline[2]);
+      if (pkg) map.set(inline[1], pkg[1]);
+    }
+  }
+  return map;
 }
 
 /**

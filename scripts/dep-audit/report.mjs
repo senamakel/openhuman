@@ -591,11 +591,11 @@ function renderMarkdown(summary, n) {
     `Crates that two or more targets depend on *directly* but resolve to semver-incompatible versions. When the root workspace ${code("[patch]")}-es a submodule in, both versions end up in the root build (section 2), so aligning the submodule's requirement with the root's removes a duplicate for free. Rows are ordered by how many distinct versions are in play.`,
     ``,
   );
-  if (summary.drift.length === 0) {
+  if (summary.drift.rows.length === 0) {
     push(`_None._`);
   } else {
     push(`| Crate | Version | Targets |`, `| --- | --- | --- |`);
-    for (const d of summary.drift) {
+    for (const d of summary.drift.rows) {
       d.by_version.forEach((bv, i) => {
         push(`| ${i === 0 ? code(d.name) : ""} | ${code(bv.version)} | ${bv.targets.join(", ")} |`);
       });

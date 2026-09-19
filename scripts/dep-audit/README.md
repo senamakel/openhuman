@@ -71,17 +71,29 @@ appear at all.
 ### 1. Declared dependencies no source file names
 
 tinyanalyzer's check is textual: a dependency is "unused" if no `.rs` file in
-the package mentions the crate. That misses crate names inside attributes
-(`#[tokio::test]`, `#[derive(thiserror::Error)]`), so `report.mjs` re-checks
-every flag with a grep over the package's own sources, **including
-`[[test]]` / `[[example]]` targets declared by `path =` in its `Cargo.toml`**
-(the root crate keeps its integration tests in `tests/` that way). Verdicts:
+the package mentions it *the way Rust code references a dependency* —
+`dep_name::…`, `use dep_name`, `extern crate dep_name`, or `dep_name!` (`_`
+for `-`; `dep_name` is the crate's rename alias when one is declared). That
+misses crate names inside attributes (`#[tokio::test]`,
+`#[derive(thiserror::Error)]`), so `report.mjs` re-checks every flag with a
+grep over the package's own sources — **the crate's own directory,
+recursively, plus the exact file (not directory) of every `[[test]]` /
+`[[example]]` / `[[bench]]` / `[[bin]]` / build-script target declared by
+`path =` in its `Cargo.toml`** (the root crate keeps its integration tests in
+`tests/` that way; scanning the file rather than the shared `tests/`
+directory keeps an unrelated sibling test from flipping the verdict).
+Verdicts:
 
 | Verdict | Meaning | Action |
 | --- | --- | --- |
-| **remove** | No `crate::…`, `use crate`, `#[crate…` or `crate!` anywhere. | Delete the line, `cargo check` (both feature-on and feature-off builds if it was `optional`), delete the `dep:` feature if one existed. |
+| **remove** | No `dep_name::…`, `use dep_name`, `extern crate dep_name`, `#[dep_name…` or `dep_name!` anywhere. | Delete the line, `cargo check` (both feature-on and feature-off builds if it was `optional`), delete the `dep:` feature if one existed. |
 | **remove** (name only) | The bare word occurs in a comment or string but never as a path. | Same as above; the mention is not a use. |
 | keep (attribute/macro path) | Used through an attribute or macro body. | Nothing. Listed so the tool's false positives stay visible. |
+
+The re-check is a grep over raw text, not a syntax-aware scan: a comment or
+string that happens to spell the exact reference pattern (`// dep_name::foo`)
+is misclassified as a real use, same as tinyanalyzer's own check. Treat a
+`keep` verdict as a strong signal, not a proof.
 
 **Graph win** is the number of crates that leave the target's build if that
 one line is deleted. It is `0 (kept by …)` when another package in the same

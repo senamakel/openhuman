@@ -451,8 +451,10 @@ function driftAcross(reports) {
     });
   }
   rows.sort((a, b) => b.versions.length - a.versions.length || a.name.localeCompare(b.name));
-  rows.patch_only = patchOnly;
-  return rows;
+  // `patch_only` must be a normal field, not a property tacked onto the
+  // array: JSON.stringify only serializes array elements, so a property
+  // like `rows.patch_only = n` is silently dropped from summary.json.
+  return { rows, patch_only: patchOnly };
 }
 
 /**

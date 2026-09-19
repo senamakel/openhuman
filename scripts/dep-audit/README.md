@@ -13,11 +13,15 @@ pnpm dep:audit --targets '^(root|tinyagents)$' --top 25
 A full sweep of 24 targets takes about 20 seconds; nothing is compiled, the
 tool only runs `cargo metadata` and parses source.
 
-The run has no side effects on the tree: `cargo metadata` rewrites a
+The run avoids side effects on the tree: `cargo metadata` rewrites a
 `Cargo.lock` that is stale relative to its manifest (`crates/openhuman-app`'s
-lockfile in particular), so `run.sh` snapshots every target's lockfile before
-analyzing it and restores it afterwards, printing which ones it had to put
-back. Refresh those deliberately if you want them refreshed.
+lockfile in particular), or creates one where a target had none, so `run.sh`
+records each target's lockfile state (present, with its exact contents, or
+absent) before analyzing it and restores that state afterwards — restoring on
+interruption too — printing which lockfiles it had to put back or remove. It
+refuses to analyze a target whose `Cargo.lock` is a symlink rather than
+backing up and writing through it. Refresh a lockfile deliberately (`cargo
+update` / `cargo generate-lockfile`) if you want it refreshed.
 
 ## Files
 

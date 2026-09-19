@@ -139,15 +139,34 @@ while IFS=$'\t' read -r name path sha remote; do
   [[ $VERBOSE -eq 1 ]] && echo "dep-audit: tinyanalyzer $path -> $json"
   # tinyanalyzer runs `cargo metadata`, which silently rewrites a Cargo.lock
   # that is stale relative to its manifest (the app crate's lockfile is the
-  # usual victim). An audit must not leave edits behind, so the lockfile is
-  # snapshotted and put back if the run changed it.
+  # usual victim), or creates one where none existed. An audit must not leave
+  # edits behind, so the lockfile's prior state (absent, or its exact
+  # contents) is snapshotted and restored even if the run is interrupted.
   lock="$path/Cargo.lock"
   lock_backup=""
-  if [[ -f "$lock" ]]; then
+  lock_existed=0
+  if [[ -e "$lock" || -L "$lock" ]]; then
+    if [[ -L "$lock" || ! -f "$lock" ]]; then
+      echo "dep-audit: refusing to analyze $name: $lock is a symlink or not a regular file" >&2
+      exit 1
+    fi
+    lock_existed=1
     lock_backup="$OUT_DIR/.lock-backup/$name.Cargo.lock"
     mkdir -p "$(dirname "$lock_backup")"
     cp "$lock" "$lock_backup"
   fi
+  restore_lock() {
+    if [[ $lock_existed -eq 1 ]]; then
+      if ! cmp -s "$lock" "$lock_backup"; then
+        cp "$lock_backup" "$lock"
+        rewritten_locks+=("$lock")
+      fi
+    elif [[ -f "$lock" ]]; then
+      rm -f "$lock"
+      rewritten_locks+=("$lock (newly created; removed)")
+    fi
+  }
+  trap restore_lock EXIT
   # --no-dead-code and --hide-tests keep the run cheap; the dependency graph is
   # what we are after and it does not depend on either.
   if tinyanalyzer "$path" --config "$CONFIG" --output json --no-dead-code --hide-tests \
@@ -159,10 +178,8 @@ while IFS=$'\t' read -r name path sha remote; do
     printf 'dep-audit: %-28s FAILED (see %s)\n' "$name" "$log" >&2
     rm -f "$json"
   fi
-  if [[ -n "$lock_backup" ]] && ! cmp -s "$lock" "$lock_backup"; then
-    cp "$lock_backup" "$lock"
-    rewritten_locks+=("$lock")
-  fi
+  restore_lock
+  trap - EXIT
 done < "$TARGETS_TSV"
 
 echo "dep-audit: analyzed $analyzed target(s) into $OUT_DIR"

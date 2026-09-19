@@ -455,10 +455,16 @@ function driftAcross(reports) {
   return rows;
 }
 
-/** Semver compatibility bucket: `0.x.y` -> `0.x`, `x.y.z` -> `x`. */
+/**
+ * Semver compatibility bucket: `x.y.z` -> `x`, `0.x.y` -> `0.x`, and
+ * `0.0.z` -> `0.0.z` (kept per-patch: Cargo treats every `0.0.z` as its own
+ * incompatible version, so `0.0.1` and `0.0.2` must not collapse together).
+ */
 function compatKey(v) {
-  const [major, minor] = v.split(/[.+-]/);
-  return major === "0" ? `0.${minor}` : major;
+  const [major, minor, patch] = v.split(/[.+-]/);
+  if (major !== "0") return major;
+  if (minor !== "0") return `0.${minor}`;
+  return `0.0.${patch}`;
 }
 
 function semverish(a, b) {

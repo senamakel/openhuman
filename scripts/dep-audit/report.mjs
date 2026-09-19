@@ -392,7 +392,16 @@ function unusedFor(target, data) {
 
 function heavyFor(data, n) {
   return data.dependencies.packages
-    .filter((p) => p.is_direct && !p.is_workspace_member && !p.is_root_package)
+    // A package whose only edge kind is `development` is never linked into
+    // the shipped build, so it does not belong in a "heaviest shipped
+    // dependency" ranking even though `include_dev` charges it in section 1.
+    .filter(
+      (p) =>
+        p.is_direct &&
+        !p.is_workspace_member &&
+        !p.is_root_package &&
+        p.kinds.some((k) => k === "normal" || k === "build"),
+    )
     .map((p) => ({
       name: p.name,
       version: p.version,

@@ -99,7 +99,12 @@ fi
 declare -A seen_by_repo_sha=()
 skipped_nested=()
 while read -r sha path _; do
+  prefix="${sha:0:1}"
   sha="${sha#[-+U]}"
+  if [[ "$prefix" == "-" ]]; then
+    echo "dep-audit: submodule not initialized: $path (run: git submodule update --init --recursive vendor/)" >&2
+    exit 1
+  fi
   [[ -f "$path/Cargo.toml" ]] || continue
   name="$(basename "$path")"
   remote="$(git -C "$path" remote get-url origin 2>/dev/null || echo '')"

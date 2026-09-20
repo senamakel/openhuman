@@ -290,12 +290,7 @@ impl OpenHumanSessionHost {
         self.runtime_session
             .as_ref()
             .map(|session| {
-                session
-                    .history()
-                    .iter()
-                    .map(crate::agent::message_convert::message_to_native_chat_message)
-                    .map(ConversationMessage::Chat)
-                    .collect()
+                crate::agent::message_convert::messages_to_conversation(session.history())
             })
             .unwrap_or_default()
     }

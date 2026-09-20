@@ -234,31 +234,38 @@ impl SessionHostBuilder {
             .memory
             .ok_or_else(|| anyhow::anyhow!("memory is required"))?;
 
-        // Direct builder callers (notably embedding fixtures) do not pass
-        // through `build_session_agent_inner`, which normally creates the
-        // durable host authority for a root TinyAgents invocation. When the
-        // caller has initialized the registry, provide an equivalent minimal
-        // base from the builder's isolated workspace and supplied memory.
-        // Leave it absent when no registry exists so custom-runtime callers
-        // still receive the explicit hosted-authority error at turn time.
+        // Direct builder callers (notably unit fixtures) do not pass through
+        // `build_session_agent_inner`, which normally creates the durable host
+        // authority for a root TinyAgents invocation. Unit-test binaries do
+        // not promise an ordering for global-registry initialization, so use
+        // the built-in test definitions when the process registry is absent.
+        // Production callers keep the explicit hosted-authority error: a
+        // builtins-only fallback there could hide a missing workspace load.
         let mut hosted_config = crate::config::Config::default();
         hosted_config.workspace_dir = workspace_dir.clone();
         hosted_config.action_dir = action_dir.clone();
         let hosted_config = Arc::new(hosted_config);
-        let hosted_base =
-            crate::agent::harness::AgentDefinitionRegistry::global_arc().map(|definitions| {
-                Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
-                    security_policy: Arc::new(crate::security::SecurityPolicy::from_config(
-                        &hosted_config.autonomy,
-                        &workspace_dir,
-                        &action_dir,
-                    )),
-                    config: Arc::clone(&hosted_config),
-                    definitions,
-                    memory: Arc::clone(&memory),
-                    post_turn_hooks: self.post_turn_hooks.clone(),
-                })
-            });
+        #[cfg(test)]
+        let definitions = Some(
+            crate::agent::harness::AgentDefinitionRegistry::global_arc().unwrap_or_else(|| {
+                Arc::new(crate::agent::harness::AgentDefinitionRegistry::builtins_only())
+            }),
+        );
+        #[cfg(not(test))]
+        let definitions = crate::agent::harness::AgentDefinitionRegistry::global_arc();
+        let hosted_base = definitions.map(|definitions| {
+            Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
+                security_policy: Arc::new(crate::security::SecurityPolicy::from_config(
+                    &hosted_config.autonomy,
+                    &workspace_dir,
+                    &action_dir,
+                )),
+                config: Arc::clone(&hosted_config),
+                definitions,
+                memory: Arc::clone(&memory),
+                post_turn_hooks: self.post_turn_hooks.clone(),
+            })
+        });
 
         let tools = Arc::new(tools);
         let synthesized_tools = Arc::new(synthesized_tools);

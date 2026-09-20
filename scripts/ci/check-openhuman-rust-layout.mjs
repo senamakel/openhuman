@@ -20,6 +20,11 @@ const LEGACY_LIMITS = new Map([
   // state moved to tinyagents-runtime; this remaining composition is split in
   // a follow-up without reintroducing an old harness/session exception.
   ["crates/openhuman-core/src/agent/session_host/builder/factory.rs", 1245],
+  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1931],
+  ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1318],
+  ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1793],
+  ["crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs", 811],
+  ["crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs", 796],
   ["crates/openhuman-core/src/tools/ops.rs", 1502],
   ["crates/openhuman-core/src/web_chat/progress_bridge.rs", 1547],
 ]);

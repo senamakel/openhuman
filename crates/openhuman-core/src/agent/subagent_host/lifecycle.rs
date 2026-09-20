@@ -33,6 +33,20 @@ use super::{
     SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus, SubagentUsage,
 };
 
+fn root_context_from_options(
+    options: &SubagentRunOptions,
+) -> crate::agent::tinyagents::host::OpenHumanRunContext {
+    let mut context = options.run_context.clone();
+    // The public convenience entrypoint is also used inside a parent turn by
+    // legacy callers and test fixtures. Preserve that parent lineage when the
+    // explicit carrier has not already supplied one; an explicit value always
+    // wins so a caller cannot be silently re-bound to an ambient turn.
+    if context.parent.is_none() {
+        context.parent = crate::agent::harness::current_parent();
+    }
+    context
+}
+
 /// Runs one host subagent through a neutral driver using a real direct child.
 ///
 /// Callers that are already inside a TinyAgents turn must use this entrypoint:
@@ -57,7 +71,7 @@ pub async fn run_subagent(
     input: &str,
     options: SubagentRunOptions,
 ) -> Result<SubagentRunOutcome, SubagentRunError> {
-    let mut root_data = options.run_context.clone();
+    let mut root_data = root_context_from_options(&options);
     let root_config = root_data.root_run_config("subagent-host");
     let root = root_data.into_tinyagents(root_config);
     run_subagent_with_parent(&root, definition.clone(), input, options).await
@@ -86,7 +100,7 @@ pub async fn continue_subagent(
     input: &str,
     options: SubagentRunOptions,
 ) -> Result<SubagentRunOutcome, SubagentRunError> {
-    let mut root_data = options.run_context.clone();
+    let mut root_data = root_context_from_options(&options);
     let root_config = root_data.root_run_config("subagent-host");
     let root = root_data.into_tinyagents(root_config);
     continue_subagent_with_parent(&root, original_key, definition.clone(), input, options).await

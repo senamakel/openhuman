@@ -8,11 +8,13 @@ pub(super) fn managed_budget_applies_to_path(path: &str) -> bool {
     path != "/agent-integrations/pricing" && path.starts_with("/agent-integrations/")
 }
 
-fn reject_backend_webhook_path(method: &str, path: &str) -> anyhow::Result<()> {
+fn reject_privileged_backend_path(method: &str, path: &str) -> anyhow::Result<()> {
     let route = path.split('?').next().unwrap_or(path);
     if route
         .split('/')
-        .any(|segment| segment.eq_ignore_ascii_case("webhooks"))
+        .any(|segment| {
+            segment.eq_ignore_ascii_case("webhooks") || segment.eq_ignore_ascii_case("admin")
+        })
     {
         anyhow::bail!(
             "route is intentionally not exposed by the SDK: {} {}",
@@ -119,7 +121,7 @@ impl IntegrationClient {
         path: &str,
         body: Option<&serde_json::Value>,
     ) -> anyhow::Result<T> {
-        reject_backend_webhook_path(method.as_str(), path)?;
+        reject_privileged_backend_path(method.as_str(), path)?;
         enforce_backend_egress(path)?;
         emit_backend_egress(path);
         self.ensure_budget_available(path).await?;
@@ -162,7 +164,7 @@ impl IntegrationClient {
         path: &str,
         form: reqwest::multipart::Form,
     ) -> anyhow::Result<T> {
-        reject_backend_webhook_path("POST", path)?;
+        reject_privileged_backend_path("POST", path)?;
         enforce_backend_egress(path)?;
         emit_backend_egress(path);
         self.ensure_budget_available(path).await?;

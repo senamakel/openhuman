@@ -88,11 +88,6 @@ pub(crate) async fn execute_spawn_parallel_agents(
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
 ) -> anyhow::Result<ToolResult> {
-    let Some(live_parent) = live_parent else {
-        return Ok(ToolResult::error(
-            "spawn_parallel_agents requires a live harness run context.",
-        ));
-    };
     tracing::debug!("[spawn_parallel_agents] execute entry");
     let tasks = match parse_parallel_agent_tasks(&args) {
         Ok(tasks) => tasks,
@@ -103,6 +98,11 @@ pub(crate) async fn execute_spawn_parallel_agents(
         Err(ParallelAgentTaskRequestError::Rejected(message)) => {
             return Ok(ToolResult::error(message));
         }
+    };
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "spawn_parallel_agents requires a live harness run context.",
+        ));
     };
     let outcome = run_spawn_parallel_tasks_with_cancellation_and_workspace(
         tasks,

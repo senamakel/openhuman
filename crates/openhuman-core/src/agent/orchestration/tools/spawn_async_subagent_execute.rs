@@ -11,11 +11,6 @@ impl SpawnAsyncSubagentTool {
             >,
         >,
     ) -> anyhow::Result<ToolResult> {
-        let Some(detached_parent) = detached_parent else {
-            return Ok(ToolResult::error(
-                "spawn_async_subagent requires a live harness run context.",
-            ));
-        };
         let agent_id = args
             .get("agent_id")
             .and_then(|v| v.as_str())
@@ -63,6 +58,11 @@ impl SpawnAsyncSubagentTool {
                 "spawn_async_subagent: `prompt` is required",
             ));
         }
+        let Some(detached_parent) = detached_parent else {
+            return Ok(ToolResult::error(
+                "spawn_async_subagent requires a live harness run context.",
+            ));
+        };
 
         let parent = match run_context.parent.clone() {
             Some(parent) => parent,

@@ -135,18 +135,9 @@ async fn live_dual_write_matches_legacy_jsonl_render() {
     )
     .expect("legacy write");
 
-    // (2) Live dual-write — replicate `session_io`'s construction: attach the
-    // turn usage to the last assistant message, then mirror into the store.
-    let mut live_messages = base_messages.clone();
-    let last_assistant = live_messages
-        .iter()
-        .rposition(|m| m.role == "assistant")
-        .expect("assistant message present");
-    attach_chat_turn_usage_metadata(&mut live_messages[last_assistant], &usage);
-    let transcript = SessionTranscript {
-        meta: meta.clone(),
-        messages: durable_messages(&live_messages),
-    };
+    // (2) Live dual-write mirrors the authoritative JSONL read-back. The
+    // round-trip adds replay provenance that is part of shadow-read parity.
+    let transcript = read_transcript(&jsonl_path).expect("read legacy transcript for mirror");
     write_live_turn(ws.path(), stem, &transcript)
         .await
         .expect("live dual-write");
@@ -508,19 +499,10 @@ async fn shadow_read_matches_across_the_legacy_date_grouped_layout() {
     )
     .expect("legacy write");
 
-    let mut live_messages = base_messages.clone();
-    let last_assistant = live_messages
-        .iter()
-        .rposition(|m| m.role == "assistant")
-        .expect("assistant message present");
-    attach_chat_turn_usage_metadata(&mut live_messages[last_assistant], &usage);
     write_live_turn(
         ws.path(),
         stem,
-        &SessionTranscript {
-            meta,
-            messages: durable_messages(&live_messages),
-        },
+        &read_transcript(&jsonl_path).expect("read legacy dated transcript for mirror"),
     )
     .await
     .expect("live dual-write");

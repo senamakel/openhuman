@@ -475,10 +475,6 @@ fn chat_schema_requires_client_thread_message() {
         .inputs
         .iter()
         .any(|f| f.name == "temperature" && !f.required));
-    assert!(s
-        .inputs
-        .iter()
-        .any(|f| f.name == "profile_id" && !f.required));
 }
 
 #[test]

@@ -10,12 +10,9 @@ pub(super) fn managed_budget_applies_to_path(path: &str) -> bool {
 
 fn reject_privileged_backend_path(method: &str, path: &str) -> anyhow::Result<()> {
     let route = path.split('?').next().unwrap_or(path);
-    if route
-        .split('/')
-        .any(|segment| {
-            segment.eq_ignore_ascii_case("webhooks") || segment.eq_ignore_ascii_case("admin")
-        })
-    {
+    if route.split('/').any(|segment| {
+        segment.eq_ignore_ascii_case("webhooks") || segment.eq_ignore_ascii_case("admin")
+    }) {
         anyhow::bail!(
             "route is intentionally not exposed by the SDK: {} {}",
             method,

@@ -136,11 +136,6 @@ impl SpawnSubagentTool {
             >,
         >,
     ) -> anyhow::Result<ToolResult> {
-        let Some(live_parent) = live_parent else {
-            return Ok(ToolResult::error(
-                "spawn_subagent requires a live harness run context.",
-            ));
-        };
         // ── Argument extraction with back-compat ───────────────────────
         let agent_id = args
             .get("agent_id")
@@ -197,6 +192,11 @@ impl SpawnSubagentTool {
         if prompt.is_empty() {
             return Ok(ToolResult::error("spawn_subagent: `prompt` is required"));
         }
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "spawn_subagent requires a live harness run context.",
+            ));
+        };
 
         let registry = match AgentDefinitionRegistry::global() {
             Some(reg) => reg,

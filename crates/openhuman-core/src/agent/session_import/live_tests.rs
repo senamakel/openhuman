@@ -281,10 +281,10 @@ async fn shadow_read_roundtrip_matches_legacy() {
     );
 }
 
-/// An in-memory reconstruction remains parity-compatible when no persisted
-/// sidecar metadata is reconstructed by the session reader.
+/// An in-memory reconstruction remains observably distinct from the durable
+/// JSONL read-back even when replay metadata is not materialized explicitly.
 #[tokio::test]
-async fn in_memory_store_reconstruction_matches_legacy_without_replay_metadata() {
+async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata() {
     let ws = TempDir::new().expect("tempdir");
     let stem = "1719_orchestrator";
     let jsonl_path = ws.path().join("session_raw").join(format!("{stem}.jsonl"));
@@ -328,8 +328,12 @@ async fn in_memory_store_reconstruction_matches_legacy_without_replay_metadata()
     let rendered = base_messages.len();
     assert_eq!(
         outcome,
-        ShadowReadOutcome::Match { messages: rendered },
-        "the in-memory reconstruction must match when the reader does not add replay metadata"
+        ShadowReadOutcome::Divergence {
+            legacy: rendered,
+            shadow: rendered,
+            first_diff: Some(0),
+        },
+        "the in-memory reconstruction must diverge from the durable read-back at index zero"
     );
 }
 

@@ -231,6 +231,18 @@ impl Tool for AgentPrepareContextTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        if let Some(live_parent) = super::super::ambient_parent_run_context("direct-context-scout")
+        {
+            let run_context = live_parent.data.child();
+            return self
+                .execute_with_live_parent_context(
+                    args,
+                    tool_context,
+                    run_context,
+                    Some(&live_parent),
+                )
+                .await;
+        }
         self.execute_with_parent_context(
             args,
             tool_context,
@@ -260,7 +272,13 @@ impl AgentPrepareContextTool {
         run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
         live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
     ) -> anyhow::Result<ToolResult> {
-        let prepared_sources = run_context.prepared_context_sources.as_ref();
+        let ambient_prepared_sources =
+            crate::agent::harness::current_agent_context_prepared_sources();
+        let prepared_sources = if run_context.prepared_context_sources.is_empty() {
+            ambient_prepared_sources.as_slice()
+        } else {
+            run_context.prepared_context_sources.as_ref()
+        };
         if !prepared_sources.is_empty() {
             tracing::info!(
                 target: "agent_prepare_context",

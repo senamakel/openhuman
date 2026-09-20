@@ -163,13 +163,37 @@ impl Tool for SpawnAsyncSubagentTool {
 
     async fn execute_with_context(
         &self,
-        _args: serde_json::Value,
-        _options: ToolCallOptions,
-        _tool_context: Option<&dyn ToolRunContext>,
+        args: serde_json::Value,
+        options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        Ok(ToolResult::error(
-            "spawn_async_subagent requires a live harness run context.",
-        ))
+        if let Some(live_parent) = super::ambient_parent_run_context("direct-async-subagent") {
+            let detached_data = live_parent.data.detached_child();
+            let detached_cancellation = detached_data.cancellation.clone();
+            let detached_parent = live_parent
+                .child(
+                    RunConfig::new(format!("async-subagent-{}", uuid::Uuid::new_v4())),
+                    detached_data,
+                )
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?
+                .with_cancellation(detached_cancellation);
+            return self
+                .execute_with_live_parent_context(
+                    args,
+                    tool_context,
+                    live_parent.data.child(),
+                    detached_parent,
+                )
+                .await;
+        }
+        self.execute_with_context_inner(
+            args,
+            options,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+            None,
+        )
+        .await
     }
 }
 

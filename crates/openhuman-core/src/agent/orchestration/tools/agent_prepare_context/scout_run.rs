@@ -225,12 +225,6 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
         >,
     >,
 ) -> anyhow::Result<ToolResult> {
-    let Some(live_parent) = live_parent else {
-        return Ok(ToolResult::error(
-            "agent_prepare_context requires a live harness run context.",
-        ));
-    };
-    let parent = run_context.parent.clone();
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
 
@@ -246,6 +240,13 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
             "agent_prepare_context: `question` is required",
         ));
     }
+
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "agent_prepare_context requires a live harness run context.",
+        ));
+    };
+    let parent = run_context.parent.clone();
 
     let registry = match AgentDefinitionRegistry::global() {
         Some(reg) => reg,

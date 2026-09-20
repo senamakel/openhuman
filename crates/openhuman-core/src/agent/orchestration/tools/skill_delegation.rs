@@ -225,6 +225,18 @@ pub(crate) async fn execute_skill_delegation(
     tool_context: Option<&dyn ToolRunContext>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
+    if let Some(live_parent) = super::ambient_parent_run_context("direct-skill-delegation") {
+        let run_context = live_parent.data.child();
+        return execute_skill_delegation_with_live_parent(
+            tool_name,
+            connected_toolkits,
+            args,
+            tool_context,
+            run_context,
+            Some(&live_parent),
+        )
+        .await;
+    }
     execute_skill_delegation_with_live_parent(
         tool_name,
         connected_toolkits,

@@ -92,8 +92,12 @@ impl Tool for CloseSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        self.execute_with_parent_context(args, None, tool_context)
-            .await
+        self.execute_with_parent_context(
+            args,
+            crate::agent::harness::current_parent(),
+            tool_context,
+        )
+        .await
     }
 }
 

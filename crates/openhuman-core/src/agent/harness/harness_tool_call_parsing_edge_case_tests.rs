@@ -1,15 +1,16 @@
 use super::*;
 
 #[test]
-fn parse_tool_calls_nested_xml_tags_handled() {
-    // Double-wrapped tool call should still parse the inner call
+fn parse_tool_calls_nested_xml_tags_are_rejected() {
+    // A nested tool_call span is malformed protocol output. The strict parser
+    // must leave it unexecuted rather than guessing which tag owns the JSON.
     let response =
         r#"<tool_call><tool_call>{"name":"echo","arguments":{"msg":"hi"}}</tool_call></tool_call>"#;
     let (_text, calls) = parse_tool_calls(response);
-    // Should find at least one tool call
+    // Nested markup must not become an executable call.
     assert!(
-        !calls.is_empty(),
-        "nested XML tags should still yield at least one tool call"
+        calls.is_empty(),
+        "nested XML tags must not yield an ambiguous executable tool call"
     );
 }
 

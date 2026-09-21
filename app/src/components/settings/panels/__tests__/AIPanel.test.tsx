@@ -442,6 +442,10 @@ describe('AIPanel', () => {
       kind: 'cloud',
       providerSlug: 'azure-foundry',
       model: 'gpt-5.6-terra',
+      // The dialog always carries the override slot; `null` means "no override"
+      // and never reaches the wire — `joinModelAndTemp` emits the bare model id
+      // unless a finite temperature is set.
+      temperature: null,
     });
     expect(JSON.stringify(nextSettings)).not.toContain('gpt-5.6-terra-2026-07-09');
   });

@@ -89,15 +89,22 @@ describe('AgentEditorPage', () => {
 
   it('offers the vision tier + hint as model options', async () => {
     mockCreate.mockResolvedValue(agent({ id: 'looker', name: 'Looker' }));
+    // The tier alias is a managed model, not a hardcoded hint: it reaches the
+    // dropdown through `listProviderModels`, so it needs its own resolution
+    // here. The suite default is an empty list, under which the managed
+    // optgroup does not render at all.
+    mockListProviderModels.mockResolvedValue([{ id: 'vision-v1' }]);
     renderAt('/settings/agents/new');
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Looker' } });
     fireEvent.change(screen.getByLabelText('Description'), {
       target: { value: 'Looks at images.' },
     });
-    // Both the vision hint and the resolved tier alias are selectable.
+    // Both the vision hint and the resolved tier alias are selectable. The hint
+    // is synchronous; the tier alias has to be awaited, since it only appears
+    // once the managed-model fetch resolves.
     expect(screen.getByRole('option', { name: 'hint:vision' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'vision-v1' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'vision-v1' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'hint:vision' } });
 
     fireEvent.click(screen.getByRole('button', { name: /Create agent/ }));

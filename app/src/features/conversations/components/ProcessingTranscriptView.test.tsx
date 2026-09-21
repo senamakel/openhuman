@@ -73,3 +73,60 @@ describe('ProcessingTranscriptView tool failure explanation', () => {
     expect(screen.queryByTestId('processing-tool-failure')).toBeNull();
   });
 });
+
+describe('ProcessingTranscriptView live thinking', () => {
+  const thought = (seq: number, text: string) =>
+    ({ kind: 'thinking', round: 1, seq, text }) as const;
+
+  it('renders the trailing thought expanded while the turn is live', () => {
+    render(
+      <ProcessingTranscriptView
+        transcript={[thought(0, 'The user wants a week in Kashmir in October.')]}
+        entries={[]}
+        live
+      />
+    );
+    const live = screen.getByTestId('processing-thinking-live');
+    expect(live.textContent).toContain('The user wants a week in Kashmir in October.');
+    // No collapsed <details> row for the same thought.
+    expect(screen.queryByTestId('processing-thinking')).toBeNull();
+  });
+
+  it('keeps every thought collapsed once the turn has settled', () => {
+    render(
+      <ProcessingTranscriptView
+        transcript={[thought(0, 'Settled reasoning that should stay quiet.')]}
+        entries={[]}
+      />
+    );
+    expect(screen.queryByTestId('processing-thinking-live')).toBeNull();
+    const collapsed = screen.getByTestId('processing-thinking') as HTMLDetailsElement;
+    expect(collapsed.open).toBe(false);
+  });
+
+  it('only expands the LAST thought while live; earlier ones stay collapsed', () => {
+    render(
+      <ProcessingTranscriptView
+        transcript={[
+          thought(0, 'First pass of reasoning.'),
+          { kind: 'narration', round: 1, seq: 1, text: 'Let me look that up.' },
+          thought(2, 'Second pass of reasoning.'),
+        ]}
+        entries={[]}
+        live
+      />
+    );
+    expect(screen.getAllByTestId('processing-thinking')).toHaveLength(1);
+    expect(screen.getByTestId('processing-thinking').textContent).toContain('First pass');
+    expect(screen.getByTestId('processing-thinking-live').textContent).toContain('Second pass');
+  });
+
+  it('shows only the tail of a long live thought with a leading ellipsis', () => {
+    const long = 'x'.repeat(2000) + 'TAIL';
+    render(<ProcessingTranscriptView transcript={[thought(0, long)]} entries={[]} live />);
+    const live = screen.getByTestId('processing-thinking-live');
+    expect(live.textContent).toContain('…');
+    expect(live.textContent).toContain('TAIL');
+    expect(live.textContent!.length).toBeLessThan(long.length);
+  });
+});

@@ -3,6 +3,7 @@ import type {
   ProcessingTranscriptItem,
   ToolTimelineEntry,
 } from '../../../../store/chatRuntimeSlice';
+import { ProcessingTranscriptView } from '../ProcessingTranscriptView';
 import { ToolTimelineBlock } from '../ToolTimelineBlock';
 
 export interface AgentInsightsSlotProps {
@@ -86,6 +87,29 @@ export function AgentInsightsSlot({
           // panel rather than a second, divergent rendering of the turn.
           transcript={transcript}
         />
+      ) : turnActive ? (
+        // In flight with no tool call yet — the time-to-first-token window,
+        // where a reasoning model streams only `thinking_delta`s. Render the
+        // live transcript inline (trailing thought expanded) so the user sees
+        // the agent working instead of a static opener; the timeline above
+        // takes over the moment the first tool call lands.
+        <div className="space-y-1.5" data-testid="agent-insights-live">
+          <button
+            type="button"
+            onClick={onViewWholeRun}
+            data-testid="view-process-source"
+            className="flex items-center gap-1.5 px-1 py-1 text-left">
+            <span className="text-[13px] font-medium text-content-muted">
+              {t('conversations.agentTaskInsights.title')}
+            </span>
+            <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
+              →
+            </span>
+          </button>
+          <div className="px-1">
+            <ProcessingTranscriptView transcript={transcript} entries={entries} live />
+          </div>
+        </div>
       ) : (
         // Transcript-only turn: reasoning/narration was streamed but no tool
         // calls were made, so the inline step timeline is empty. The thoughts

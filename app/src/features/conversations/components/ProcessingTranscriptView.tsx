@@ -28,9 +28,20 @@ export function ProcessingTranscriptView({
   transcript,
   entries,
   renderSubagent,
+  live = false,
 }: {
   transcript: ProcessingTranscriptItem[];
   entries: ToolTimelineEntry[];
+  /**
+   * True while the turn that produced `transcript` is still in flight. The
+   * trailing thinking block then renders EXPANDED through
+   * {@link LiveThinkingBlock} — a reasoning-tier model can spend the whole
+   * time-to-first-token window streaming `thinking_delta`s and nothing else,
+   * and a collapsed 💭 row hides the only evidence the agent is working. Once
+   * the turn settles (or a later block lands) it becomes the quiet collapsed
+   * block every other thought uses.
+   */
+  live?: boolean;
   /**
    * Renders a delegated sub-agent's nested activity (its own child tool calls,
    * transcript and thoughts) under the row that spawned it.
@@ -49,7 +60,7 @@ export function ProcessingTranscriptView({
 
   return (
     <div className="space-y-2.5" data-testid="processing-transcript">
-      {blocks.map(block => {
+      {blocks.map((block, index) => {
         if (block.kind === 'narration') {
           return (
             <p
@@ -61,7 +72,11 @@ export function ProcessingTranscriptView({
           );
         }
         if (block.kind === 'thinking') {
-          return <ThinkingBlock key={block.key} text={block.text} />;
+          return live && index === blocks.length - 1 ? (
+            <LiveThinkingBlock key={block.key} text={block.text} />
+          ) : (
+            <ThinkingBlock key={block.key} text={block.text} />
+          );
         }
         return (
           <ToolGroupBlock
@@ -100,6 +115,40 @@ function ThinkingBlock({ text }: { text: string }) {
         {clean}
       </p>
     </details>
+  );
+}
+
+/** Trailing characters of an in-flight thought kept on screen. Reasoning
+ *  models can emit thousands of characters before their first visible token;
+ *  the live block is a ticker-tape affordance, not an archive — the full text
+ *  is reachable through the settled {@link ThinkingBlock} once the turn ends. */
+export const LIVE_THINKING_TAIL_CHARS = 600;
+
+/** The agent's reasoning while it is still streaming: always expanded, with a
+ *  pulsing marker so the user sees the turn progressing during the window
+ *  before any narration or tool call exists to show. */
+function LiveThinkingBlock({ text }: { text: string }) {
+  const { t } = useT();
+  const clean = stripToolCallEnvelopes(text).trim();
+  if (!clean) return null;
+  const truncated = clean.length > LIVE_THINKING_TAIL_CHARS;
+  const tail = truncated ? clean.slice(-LIVE_THINKING_TAIL_CHARS) : clean;
+  return (
+    <div
+      data-testid="processing-thinking-live"
+      aria-live="polite"
+      className="rounded-lg bg-surface-muted px-3 py-2">
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
+        <span className="text-[11px] font-semibold tracking-wide text-content-muted uppercase">
+          {t('conversations.subagent.thinking')}
+        </span>
+      </div>
+      <p className="mt-1 text-[12px] leading-relaxed wrap-break-word whitespace-pre-wrap text-content-secondary">
+        {truncated && <span className="text-content-faint">…</span>}
+        {tail}
+      </p>
+    </div>
   );
 }
 

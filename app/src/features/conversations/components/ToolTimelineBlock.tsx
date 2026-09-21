@@ -418,6 +418,10 @@ export function ToolTimelineBlock({
           <ProcessingTranscriptView
             transcript={transcript}
             entries={ordered}
+            // Keep the trailing thought expanded while the turn runs, so a
+            // model that is still reasoning after its last tool step shows
+            // progress instead of a collapsed 💭 row.
+            live={turnActive ?? isRunning}
             renderSubagent={subagent => (
               <AssistantUiSubagentCall
                 activity={subagent}

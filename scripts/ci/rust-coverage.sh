@@ -128,6 +128,15 @@ run_integration_target() {
   fi
 }
 
+if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
+  # One process per test means one .profraw per process by default (the name
+  # carries %p): ~11,800 files and ~50 GB for the core alone, which the report
+  # then spends minutes merging. Without %p, `%8m` makes LLVM merge each
+  # process's counters online into a pool of 8 files per instrumented binary as
+  # it exits. cargo-llvm-cov reads the pattern from LLVM_PROFILE_FILE_NAME.
+  export LLVM_PROFILE_FILE_NAME="${LLVM_PROFILE_FILE_NAME:-openhuman-%8m.profraw}"
+fi
+
 log "running complete instrumented Rust suite (runner: ${OH_COV_RUNNER:-cargo})"
 llvm_cov clean --workspace
 

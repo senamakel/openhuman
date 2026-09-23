@@ -308,7 +308,20 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
     };
     let compact_with_result = proxy.call(methods::COMPACT_WITH, (request,)).await;
     let response = match classify_compact_with_reply(compact_with_result, tool_name) {
-        CompactWithOutcome::Response(response) => response,
+        CompactWithOutcome::Response(mut response) => {
+            // The module can answer `Ok` without actually producing a
+            // summary (its own `NotNeeded` outcome carries no notice by
+            // design). The caller still needs to know a summary was
+            // requested and did not arrive, same as every other no-answer
+            // path here.
+            if wants_summary
+                && response.compressor != CompressorKind::LlmSummary.as_str()
+                && response.notice.is_none()
+            {
+                response.notice = Some(summary_failed_notice());
+            }
+            response
+        }
         CompactWithOutcome::RetryAsCompact => {
             let legacy_result = proxy
                 .call::<types::CompactResponse>(

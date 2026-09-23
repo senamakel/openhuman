@@ -158,7 +158,14 @@ fi
 suite "openhuman-embed" llvm_cov_embed --no-report --no-fail-fast -p openhuman-embed --all-targets
 suite "openhuman-rpc" llvm_cov_package --no-report --no-fail-fast -p openhuman-rpc --all-targets
 suite "openhuman-tinyhumans" llvm_cov_embed --no-report --no-fail-fast -p openhuman-tinyhumans --all-targets
-suite "openhuman-tui" llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
+# The terminal frontend builds the core a third time (default features, not the
+# product set), so CI Fast leaves it to pushes to main (OH_COV_TUI=0), where
+# CI Lite runs this script with it on.
+if [ "${OH_COV_TUI:-1}" = "1" ]; then
+  suite "openhuman-tui" llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
+else
+  log "skipping openhuman-tui (OH_COV_TUI=${OH_COV_TUI}); pushes to main run it"
+fi
 
 if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
   # Every integration target in one parallel run, one process per test: the

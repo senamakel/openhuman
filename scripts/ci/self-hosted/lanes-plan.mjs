@@ -116,9 +116,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     `set -a && . ${modulesEnvFile} && set +a && ${cmd}`;
 
   // Not run on pull requests: the core doctests (an uninstrumented core build
-  // of their own) and the TinyJuice host-module regression (one test against
-  // the downloaded module). CI Lite runs both on every push to `main` that
-  // touches the Rust core (rust-coverage.sh and its rust-core-coverage job).
+  // of their own), openhuman-tui's coverage (a core build with default
+  // features, just for it) and the TinyJuice host-module regression (one test
+  // against the downloaded module). CI Lite runs all three on every push to
+  // `main` that touches the Rust core (rust-coverage.sh and its
+  // rust-core-coverage job).
 
   /** @type {Lane[]} */
   const lanes = [
@@ -274,12 +276,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "rust-core-coverage",
           when: core,
           needs: ["test-modules"],
-          // The doctests run on pushes to main instead (see above).
+          // Doctests and tui coverage run on pushes to main instead (see above).
           // ex63: the core's unit tests run under cargo-nextest, one process
           // per test and in parallel (the guest image ships cargo-nextest).
           env: {
             OUT: "ci-out/lcov/lcov-core.info",
             OH_COV_DOCTESTS: "0",
+            OH_COV_TUI: "0",
             ...(ex63 ? { OH_COV_RUNNER: "nextest" } : {}),
           },
           run: withModules("bash scripts/ci/rust-coverage.sh"),

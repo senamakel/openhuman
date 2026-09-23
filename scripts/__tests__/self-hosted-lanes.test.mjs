@@ -95,12 +95,13 @@ test("ex63 runs the core's unit tests under nextest; hosted keeps cargo's runner
   );
 });
 
-test("doctests and the TinyJuice regression are left to pushes to main", () => {
+test("doctests, tui coverage and the TinyJuice regression are left to pushes to main", () => {
   for (const plan of plans()) {
     const cov = plan.lanes
       .find((l) => l.name === "rust-cov")
       .checks.find((c) => c.name === "rust-core-coverage");
     assert.equal(cov.env.OH_COV_DOCTESTS, "0");
+    assert.equal(cov.env.OH_COV_TUI, "0");
     const runs = allRuns(plan).join("\n");
     assert.doesNotMatch(runs, /cargo test -p openhuman --doc/);
     assert.doesNotMatch(runs, /tool_output_tabulates_a_large_graph/);

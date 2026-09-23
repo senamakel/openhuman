@@ -41,8 +41,9 @@ const NO_FN = "pub mod a;\npub use a::Thing;\n";
  * @param {string[]} coveredPaths paths to emit as `SF:` records
  * @param {string[]} args        args after the lcov path
  * @param {string}   allowlist   contents of the allowlist file, if any
+ * @param {Record<string,string>} extraEnv extra environment for the gate
  */
-function run(files, coveredPaths, args, allowlist = null) {
+function run(files, coveredPaths, args, allowlist = null, extraEnv = {}) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "openhuman-cov-presence-"));
   for (const [rel, body] of Object.entries(files)) {
     const abs = path.join(cwd, rel);
@@ -58,7 +59,7 @@ function run(files, coveredPaths, args, allowlist = null) {
     coveredPaths.map((p) => `SF:${cwd}/${p}\nDA:1,1\nend_of_record\n`).join(""),
   );
 
-  const env = { ...process.env };
+  const env = { ...process.env, ...extraEnv };
   if (allowlist !== null) {
     const listPath = path.join(cwd, "allow.txt");
     fs.writeFileSync(listPath, allowlist);
@@ -112,6 +113,26 @@ test("treats standalone TUI sources as coverage-eligible", () => {
   const res = run({ [source]: WITH_FN }, [source], ["--files", source]);
   assert.equal(res.status, 0);
   assert.match(res.output, /checked 1 eligible/);
+});
+
+test("skips only the crates whose suite the run left out", () => {
+  const tui = "crates/openhuman-tui/src/app.rs";
+  const core = "crates/openhuman-core/src/a.rs";
+  const files = { [tui]: WITH_FN, [core]: WITH_FN };
+  const skip = { COVERAGE_PRESENCE_SKIP_PREFIXES: "crates/openhuman-tui/src/" };
+  // The skipped crate's files are not demanded...
+  const res = run(files, [core], ["--files", tui, core], null, skip);
+  assert.equal(res.status, 0, res.output);
+  assert.match(res.output, /checked 1 eligible/);
+  // ...but every other crate still is.
+  const missing = run(files, [tui], ["--files", tui, core], null, skip);
+  assert.equal(missing.status, 1);
+  assert.match(
+    missing.output,
+    /crates\/openhuman-core\/src\/a\.rs produced no coverage records/,
+  );
+  // Unset, the tui file is required as before.
+  assert.equal(run(files, [core], ["--files", tui, core]).status, 1);
 });
 
 test("treats embedding facade sources as coverage-eligible", () => {

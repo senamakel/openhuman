@@ -93,6 +93,11 @@ async fn the_module_calls_back_for_a_summary_written_for_the_focus() {
 /// still says it is unsummarized, exactly as a module-side failure would.
 #[tokio::test]
 async fn an_unreachable_module_discloses_a_wanted_summary() {
+    // Serialized for the same reason as the test above: this reads the same
+    // process-wide env var another test in this file mutates.
+    let _lock = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     if std::env::var_os("TINYJUICE_TEST_MODULE").is_some() {
         return; // A fixture forces the module on; this pins the host path.
     }

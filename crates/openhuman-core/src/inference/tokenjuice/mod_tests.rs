@@ -39,6 +39,13 @@ async fn off_profile_is_an_exact_pass_through_without_loading_the_module() {
 /// otherwise, since the pinned release may predate `CompactWith`.
 #[tokio::test]
 async fn the_module_calls_back_for_a_summary_written_for_the_focus() {
+    // Serialized with every other test in this file that reads or mutates
+    // `TINYJUICE_TEST_MODULE`, so a concurrently running env-mutating test
+    // (e.g. `a_module_disabled_in_configuration_discloses_a_wanted_summary`)
+    // cannot flip this check mid-read.
+    let _lock = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     if std::env::var_os("TINYJUICE_TEST_MODULE").is_none() {
         return;
     }
